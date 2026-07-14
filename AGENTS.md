@@ -236,3 +236,5 @@ const RECORD = "/training/records/{record_id}" satisfies ApiPath;
 ## Environment
 
 项目根目录 `.env`（git-ignored），从 `.env.example` 复制。所有密钥和数据库配置均在其中。运行前确保 `.env` 存在且 `backend/core/config.py` 中的 `validate_config()` 通过。
+
+**Bot Token**: 设置 `FEEDBACK_BOT_TOKEN=your-secret` 以启用 Feedback Bot API。
