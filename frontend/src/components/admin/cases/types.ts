@@ -131,6 +131,13 @@ export interface CaseJsonData {
 		mews_score?: number;
 		triage_category?: string;
 	};
+	// Flat triage fields (new format, top-level for backend compatibility)
+	arrival_mode?: string;
+	red_flags?: string[];
+	vitals?: { hr?: number; bp_sys?: number; bp_dia?: number; rr?: number; spo2?: number; temp?: number; };
+	consciousness?: string;
+	mews_score?: number;
+	triage_category?: string;
 }
 
 export const NEW_CASE_TEMPLATE: CaseData = {
@@ -206,7 +213,7 @@ export function buildCaseData(form: CaseForm): CaseData {
 		required_inquiries: form.required_inquiries,
 		scoring_criteria: form.scoring_criteria,
 		capabilities: form.capabilities,
-		triage_info: form.training_type === "triage"
+		...(form.training_type === "triage"
 			? {
 					arrival_mode: form.arrival_mode,
 					red_flags: form.red_flags,
@@ -222,7 +229,7 @@ export function buildCaseData(form: CaseForm): CaseData {
 					mews_score: form.mews_score,
 					triage_category: form.triage_category,
 				}
-			: undefined,
+			: {}),
 	};
 }
 
@@ -230,6 +237,7 @@ export function parseCaseData(cd: unknown): CaseForm {
 	const rec = cd as CaseJsonData | null;
 	const info = rec?.patient_info ?? {};
 	const ti = rec?.triage_info;
+	const vitals = rec?.vitals ?? ti?.vitals ?? {};
 	return {
 		name: rec?.name || "",
 		time_limit: rec?.time_limit || 20,
@@ -253,17 +261,17 @@ export function parseCaseData(cd: unknown): CaseForm {
 		required_inquiries: rec?.required_inquiries || [],
 		scoring_criteria: rec?.scoring_criteria || {},
 		capabilities: (rec?.capabilities || {}) as Record<string, boolean>,
-		arrival_mode: ti?.arrival_mode || "",
-		red_flags: ti?.red_flags || [],
-		hr: ti?.vitals?.hr ?? 0,
-		bp_sys: ti?.vitals?.bp_sys ?? 0,
-		bp_dia: ti?.vitals?.bp_dia ?? 0,
-		rr: ti?.vitals?.rr ?? 0,
-		spo2: ti?.vitals?.spo2 ?? 0,
-		temp: ti?.vitals?.temp ?? 0,
-		consciousness: ti?.consciousness || "alert",
-		mews_score: ti?.mews_score ?? 0,
-		triage_category: ti?.triage_category || "",
+		arrival_mode: rec?.arrival_mode || ti?.arrival_mode || "",
+		red_flags: rec?.red_flags || ti?.red_flags || [],
+		hr: vitals.hr ?? 0,
+		bp_sys: vitals.bp_sys ?? 0,
+		bp_dia: vitals.bp_dia ?? 0,
+		rr: vitals.rr ?? 0,
+		spo2: vitals.spo2 ?? 0,
+		temp: vitals.temp ?? 0,
+		consciousness: rec?.consciousness || ti?.consciousness || "alert",
+		mews_score: rec?.mews_score ?? ti?.mews_score ?? 0,
+		triage_category: rec?.triage_category || ti?.triage_category || "",
 	};
 }
 

@@ -79,6 +79,7 @@ export default function CaseFormModal({
 		setAiReferenceCaseIds([]);
 		setAiReferenceText("");
 		setAiError("");
+		setAiGenerating(false);
 	}, [open, editingCase, startWithAiPanel, toast.error]);
 
 	const handleSave = async (e: React.FormEvent) => {

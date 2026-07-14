@@ -36,7 +36,10 @@ class CaseCreateRequest(BaseModel):
     @field_validator("case_data")
     @classmethod
     def validate_case_data_schema(cls, v: dict[str, Any]) -> dict[str, Any]:
-        CaseDataSchema.model_validate(v)
+        from profiles.triage.case_schema import TriageCaseData
+
+        schema = TriageCaseData if v.get("training_type") == "triage" else CaseDataSchema
+        schema.model_validate(v)
         return v
 
 
@@ -47,7 +50,10 @@ class CaseUpdateRequest(BaseModel):
     @field_validator("case_data")
     @classmethod
     def validate_case_data_schema(cls, v: dict[str, Any]) -> dict[str, Any]:
-        CaseDataSchema.model_validate(v)
+        from profiles.triage.case_schema import TriageCaseData
+
+        schema = TriageCaseData if v.get("training_type") == "triage" else CaseDataSchema
+        schema.model_validate(v)
         return v
 
 

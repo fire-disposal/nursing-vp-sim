@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from infrastructure.llm.exceptions import LLMConcurrencyExceeded, LLMParseError, LLMRateLimited
 from pydantic import ValidationError as PydanticValidationError
 
 from core.case_schema import list_valid_training_types, validate_case_data
 from core.exceptions import LLMError, NotFoundError, ValidationError
 from core.llm_profile import get_llm_config
+from infrastructure.llm.circuit import NoProviderAvailable
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import render_template
 from models import Case, User
@@ -112,6 +114,8 @@ async def generate_case(
             ),
             **get_llm_config("case_generation"),
         )
+    except (LLMParseError, LLMRateLimited, LLMConcurrencyExceeded, NoProviderAvailable):
+        raise
     except Exception as e:
         log.exception("case_generation LLM call failed")
         raise LLMError(f"AI 生成失败: {e!s}")

@@ -73,6 +73,7 @@ PROFILES: dict[str, LLMProfile] = {
         temperature=0.3,
         max_retries=3,
         semaphore=3,
+        response_format={"type": "json_object"},
     ),
 }
 

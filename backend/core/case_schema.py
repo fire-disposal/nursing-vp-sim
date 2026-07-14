@@ -80,6 +80,8 @@ class CaseDataSchema(JsonbModel):
     rubric_ref: str = "active"
 
     exam_anchors: dict[str, Any] = {}
+    hidden_info: list[str] = []
+    scoring_criteria: dict[str, Any] = {}
 
     example_dialogues: list[dict] = []
 
