@@ -5,13 +5,19 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from infrastructure.llm.exceptions import LLMConcurrencyExceeded, LLMParseError, LLMRateLimited
 from pydantic import ValidationError as PydanticValidationError
 
 from core.case_schema import list_valid_training_types, validate_case_data
-from core.exceptions import LLMError, NotFoundError, ValidationError
+from core.exceptions import (
+    LLMConcurrencyExceeded,
+    LLMError,
+    LLMParseError,
+    LLMRateLimited,
+    NoProviderAvailable,
+    NotFoundError,
+    ValidationError,
+)
 from core.llm_profile import get_llm_config
-from infrastructure.llm.circuit import NoProviderAvailable
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import render_template
 from models import Case, User

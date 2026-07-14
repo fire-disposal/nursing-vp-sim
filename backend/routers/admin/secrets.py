@@ -113,6 +113,18 @@ async def reset_profile(config_id: int, request: Request, current_user: _Manager
     return {"ok": True}
 
 
+async def _test_secret(secret, client: httpx.AsyncClient, timeout: float = 10) -> dict:
+    api_key = decrypt_api_key(secret.encrypted_key)
+    base_url = secret.base_url or ""
+    try:
+        t0 = time.monotonic()
+        resp = await client.get(f"{base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+        latency = int((time.monotonic() - t0) * 1000)
+        return {"base_url": base_url, "ok": resp.status_code < 500, "status_code": resp.status_code, "latency_ms": latency}
+    except Exception as e:
+        return {"base_url": base_url, "ok": False, "error": str(e)[:200]}
+
+
 @router.post("/configs/{config_id}/test", response_model=TestResultItem)
 async def test_config(config_id: int, current_user: _Manager, db: DbSession):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
@@ -125,77 +137,31 @@ async def test_config(config_id: int, current_user: _Manager, db: DbSession):
         from core.exceptions import NotFoundError
 
         raise NotFoundError("密钥不存在")
-    api_key = decrypt_api_key(secret.encrypted_key)
-    base_url = secret.base_url or ""
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
-            t0 = time.monotonic()
-            resp = await client.get(f"{base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
-            latency = int((time.monotonic() - t0) * 1000)
-            return {"base_url": base_url, "ok": True, "status_code": resp.status_code, "latency_ms": latency}
-    except Exception as e:
-        return {"base_url": base_url, "ok": False, "error": str(e)[:200]}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
+        return await _test_secret(secret, client)
 
 
 @router.post("/configs/test-all", response_model=TestAllResultsResponse)
 async def test_all_configs(current_user: _Manager, db: DbSession):
     secrets = db.query(ApiSecret).all()
-    results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(8)) as client:
-        for s in secrets:
-            api_key = decrypt_api_key(s.encrypted_key)
-            base_url = s.base_url or ""
-            try:
-                t0 = time.monotonic()
-                resp = await client.get(f"{base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
-                latency = int((time.monotonic() - t0) * 1000)
-                results.append(
-                    {
-                        "base_url": base_url,
-                        "ok": resp.status_code < 500,
-                        "status_code": resp.status_code,
-                        "latency_ms": latency,
-                    }
-                )
-            except Exception as e:
-                results.append({"base_url": base_url, "ok": False, "error": str(e)[:100]})
+        results = [await _test_secret(s, client) for s in secrets]
     return {"results": results}
-
-
-# ── Reload ──
-
-
-@router.post("/reload", response_model=OkResponse)
-async def reload_router(request: Request, current_user: _Manager):
-    await request.app.state.llm_router.load_from_db()
-    return {"ok": True}
-
-
-# ── Health ──
 
 
 @router.get("/health", response_model=list[HealthCheckItem])
 async def health_check(current_user: _Manager, db: DbSession):
     secrets = db.query(ApiSecret).all()
-    results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(5)) as client:
+        results = []
         for s in secrets:
-            api_key = decrypt_api_key(s.encrypted_key)
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-            try:
-                t0 = time.monotonic()
-                resp = await client.get(f"{s.base_url}/v1/models", headers=headers)
-                latency = int((time.monotonic() - t0) * 1000)
-                results.append(
-                    {
-                        "base_url": s.base_url,
-                        "status": "ok" if resp.status_code < 500 else "error",
-                        "latency_ms": latency,
-                        "error": None,
-                    }
-                )
-            except Exception as e:
-                results.append({"base_url": s.base_url, "status": "error", "latency_ms": None, "error": str(e)[:200]})
+            r = await _test_secret(s, client, timeout=5)
+            results.append({
+                "base_url": r["base_url"],
+                "status": "ok" if r.get("ok") else "error",
+                "latency_ms": r.get("latency_ms"),
+                "error": r.get("error"),
+            })
     return results
 
 

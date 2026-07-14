@@ -182,6 +182,37 @@ def _qa_user_context(user: User) -> dict[str, str]:
     }
 
 
+async def _call_qa_llm(
+    llm_client,
+    llm_messages: list,
+    rag_enabled: bool,
+    current_user: User,
+    log_meta: dict,
+) -> str:
+    """Shared LLM call + citation embedding. Raises HTTPException on failure."""
+    rid = log_meta.get("request_id")
+    ctx = CallContext(purpose="qa", user_id=current_user.id, log_meta=log_meta if rid else None)
+    try:
+        if rag_enabled:
+            return await llm_client.call_with_tools(
+                llm_messages, tools=QA_TOOLS, tool_handlers=_build_tool_handlers(),
+                purpose="qa", ctx=ctx,
+                **{k: v for k, v in get_llm_config("qa").items()
+                   if k in ("timeout", "max_tokens", "temperature", "max_retries")},
+            )
+        return await llm_client.call(llm_messages, purpose="qa", ctx=ctx, **get_llm_config("qa"))
+    except Exception as e:
+        log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id, **log_meta})
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
+
+
+def _save_qa_assistant(session, user_id: int, answer: str, citations: list, db: Session) -> str:
+    stored = embed_citations(answer, citations)
+    db.add(QARecord(session_id=session.id, user_id=user_id, role="assistant", content=stored))
+    session.updated_at = func.now()
+    return stored
+
+
 @router.post("/sessions", response_model=QAAskResponse)
 async def create_session(
     req: QASessionCreate,
@@ -248,50 +279,17 @@ async def create_session(
 
     rid = getattr(request.state, "request_id", None)
     try:
-        if req.rag_enabled:
-            answer = await llm_client.call_with_tools(
-                llm_messages,
-                tools=QA_TOOLS,
-                tool_handlers=_build_tool_handlers(),
-                purpose="qa",
-                ctx=CallContext(
-                    purpose="qa",
-                    user_id=current_user.id,
-                    log_meta={"request_id": rid} if rid else None,
-                ),
-                **{
-                    k: v
-                    for k, v in get_llm_config("qa").items()
-                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
-                },
-            )
-        else:
-            answer = await llm_client.call(
-                llm_messages,
-                purpose="qa",
-                ctx=CallContext(
-                    purpose="qa",
-                    user_id=current_user.id,
-                    log_meta={"request_id": rid} if rid else None,
-                ),
-                **get_llm_config("qa"),
-            )
-    except Exception as e:
-        log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
+        answer = await _call_qa_llm(
+            request.app.state.llm_client, llm_messages, req.rag_enabled, current_user,
+            {"request_id": rid} if rid else {},
+        )
+    except HTTPException:
         db.delete(user_msg)
         db.delete(session)
         db.commit()
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
+        raise
 
-    stored_content = embed_citations(answer, citations)
-    assistant_msg = QARecord(
-        session_id=session.id,
-        user_id=current_user.id,
-        role="assistant",
-        content=stored_content,
-    )
-    db.add(assistant_msg)
-    session.updated_at = func.now()
+    _save_qa_assistant(session, current_user.id, answer, citations, db)
     db.commit()
 
     log.info(
@@ -350,53 +348,17 @@ async def ask_in_session(
     db.commit()
 
     rid = getattr(request.state, "request_id", None)
-    llm_client = request.app.state.llm_client
     try:
-        if req.rag_enabled:
-            answer = await llm_client.call_with_tools(
-                llm_messages,
-                tools=QA_TOOLS,
-                tool_handlers=_build_tool_handlers(),
-                purpose="qa",
-                ctx=CallContext(
-                    purpose="qa",
-                    user_id=current_user.id,
-                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-                ),
-                **{
-                    k: v
-                    for k, v in get_llm_config("qa").items()
-                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
-                },
-            )
-        else:
-            answer = await llm_client.call(
-                llm_messages,
-                purpose="qa",
-                ctx=CallContext(
-                    purpose="qa",
-                    user_id=current_user.id,
-                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-                ),
-                **get_llm_config("qa"),
-            )
-    except Exception as e:
-        log.exception(
-            "qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id}
+        answer = await _call_qa_llm(
+            request.app.state.llm_client, llm_messages, req.rag_enabled, current_user,
+            {"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
         )
+    except HTTPException:
         db.delete(user_msg)
         db.commit()
-        raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
+        raise
 
-    stored_content = embed_citations(answer, citations)
-    assistant_msg = QARecord(
-        session_id=session.id,
-        user_id=current_user.id,
-        role="assistant",
-        content=stored_content,
-    )
-    db.add(assistant_msg)
-    session.updated_at = func.now()
+    _save_qa_assistant(session, current_user.id, answer, citations, db)
     db.commit()
 
     log.info(
