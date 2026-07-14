@@ -5,19 +5,7 @@ import { useToast } from "@/components/Toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";
 
-interface Mood {
-	value: number;
-	emoji: string;
-	label: string;
-}
-
-const moods: Mood[] = [
-	{ value: 1, emoji: "\uD83D\uDE1E", label: "很差" },
-	{ value: 2, emoji: "\uD83D\uDE10", label: "较差" },
-	{ value: 3, emoji: "\uD83D\uDE42", label: "一般" },
-	{ value: 4, emoji: "\uD83D\uDE0A", label: "满意" },
-	{ value: 5, emoji: "\uD83D\uDE0D", label: "很满意" },
-];
+const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
 
 interface Tag {
 	value: string;
@@ -39,24 +27,19 @@ interface FeedbackModalProps {
 	onSubmitted?: () => void;
 }
 
-export default function FeedbackModal({
-	open,
-	onClose,
-	onSubmitted,
-}: FeedbackModalProps) {
-	const [rating, setRating] = useState(0);
+export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackModalProps) {
+	const [rating, setRating] = useState(3);
 	const [tag, setTag] = useState("");
 	const [content, setContent] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const toast = useToast();
 
 	const handleSubmit = async () => {
-		if (!rating) return;
 		setSubmitting(true);
 		try {
 			await submitFeedback({ rating, tag, content });
 			toast.success("感谢你的反馈！");
-			setRating(0);
+			setRating(3);
 			setTag("");
 			setContent("");
 			onClose();
@@ -70,7 +53,7 @@ export default function FeedbackModal({
 
 	const handleClose = () => {
 		if (submitting) return;
-		setRating(0);
+		setRating(3);
 		setTag("");
 		setContent("");
 		onClose();
@@ -82,38 +65,32 @@ export default function FeedbackModal({
 			<div className="flex flex-col gap-5">
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						整体评价
+						整体评价 <span className="text-muted-foreground/60 font-normal">(选填)</span>
 					</div>
-					<div className="flex justify-center gap-1.5 sm:gap-3 flex-nowrap">
-						{moods.map((m) => (
+					<div className="flex justify-between gap-1 flex-nowrap">
+						{[1, 2, 3, 4, 5].map((val) => (
 							<button
 								type="button"
-								key={m.value}
-								onClick={() => setRating(m.value)}
+								key={val}
+								onClick={() => setRating(val)}
 								className={cn(
-									"flex flex-col items-center gap-0.5 py-1.5 px-1 sm:py-2 sm:px-3 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0",
-									rating === m.value
-										? "border-primary bg-accent scale-110"
-										: "border-transparent bg-transparent",
+									"flex flex-col items-center gap-1 py-1.5 px-1 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0 flex-1",
+									rating === val
+										? "border-primary bg-primary/10 scale-105"
+										: "border-transparent bg-transparent hover:bg-muted/50",
 								)}
 							>
-								<span
-									className={cn(
-										"leading-none transition-all",
-										rating === m.value ? "text-[32px] sm:text-[44px]" : "text-[28px] sm:text-[36px]",
-									)}
-								>
-									{m.emoji}
+								<span className={cn(
+									"text-xl font-bold transition-all",
+									rating === val ? "text-primary" : "text-muted-foreground/50",
+								)}>
+									{val}
 								</span>
-								<span
-									className={cn(
-										"text-[10px] sm:text-xs whitespace-nowrap",
-										rating === m.value
-											? "text-primary font-semibold"
-											: "text-muted-foreground/60 font-normal",
-									)}
-								>
-									{m.label}
+								<span className={cn(
+									"text-[10px] sm:text-xs whitespace-nowrap",
+									rating === val ? "text-primary font-semibold" : "text-muted-foreground/50",
+								)}>
+									{RATING_LABELS[val - 1]}
 								</span>
 							</button>
 						))}
@@ -122,7 +99,7 @@ export default function FeedbackModal({
 
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						反馈类型
+						反馈类型 <span className="text-muted-foreground/60 font-normal">(选填)</span>
 					</div>
 					<div className="flex flex-wrap gap-2">
 						{tags.map((t) => (
@@ -145,8 +122,7 @@ export default function FeedbackModal({
 
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						详细描述{" "}
-						<span className="text-muted-foreground/60 font-normal">(选填)</span>
+						详细描述 <span className="text-muted-foreground/60 font-normal">(选填)</span>
 					</div>
 					<textarea
 						placeholder="请详细描述你的想法..."
@@ -170,12 +146,10 @@ export default function FeedbackModal({
 				<button
 					type="button"
 					onClick={handleSubmit}
-					disabled={!rating || submitting}
+					disabled={submitting}
 					className={cn(
 						"px-5 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
-						rating && !submitting
-							? "bg-primary"
-							: "bg-muted opacity-60 cursor-not-allowed",
+						submitting ? "bg-muted opacity-60 cursor-not-allowed" : "bg-primary",
 					)}
 				>
 					<Send size={14} />

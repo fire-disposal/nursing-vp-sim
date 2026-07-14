@@ -7,8 +7,8 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 
 class FeedbackSubmit(BaseModel):
     model_config = _REQ_CFG
-    rating: int = Field(ge=1, le=5)
-    tag: str = Field(max_length=20)
+    rating: int = Field(default=3, ge=1, le=5)
+    tag: str = Field(default="", max_length=20)
     content: str | None = None
 
 
@@ -25,7 +25,14 @@ class FeedbackItem(BaseModel):
     rating: int
     tag: str
     content: str | None = None
+    developer_reply: str | None = None
+    replied_at: datetime | None = None
     created_at: datetime
+
+
+class FeedbackReplyRequest(BaseModel):
+    model_config = _REQ_CFG
+    reply: str = Field(min_length=1, max_length=2000)
 
 
 class FeedbackDailyItem(BaseModel):

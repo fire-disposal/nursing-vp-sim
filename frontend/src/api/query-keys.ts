@@ -100,6 +100,7 @@ export const queryKeys = {
 				[...queryKeys.admin.feedback.all, params] as const,
 			stats: (params: Record<string, unknown>) =>
 				[...queryKeys.admin.feedback.all, "stats", params] as const,
+			my: (offset: number) => ["my-feedback", offset] as const,
 		},
 		llm: {
 			all: ["admin", "llm"] as const,

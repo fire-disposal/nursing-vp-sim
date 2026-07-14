@@ -29,6 +29,7 @@ const StatsPage = lazy(() =>
 	import("@/pages/Stats").then((m) => ({ default: m.StatsPage })),
 );
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
+const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
@@ -102,6 +103,15 @@ export const APP_ROUTES: AppRoute[] = [
 		},
 	},
 	{ path: "/record/:id", element: <RecordDetail /> },
+	{
+		path: "/my-feedback",
+		element: <MyFeedbackPage />,
+		nav: {
+			label: "我的反馈",
+			icon: MessageSquare,
+			section: "user",
+		},
+	},
 	{
 		path: "/qa",
 		element: <QA />,

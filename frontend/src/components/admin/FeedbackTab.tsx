@@ -19,7 +19,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getFeedbackStats, getFeedbacks } from "@/api";
+import { getFeedbackStats, getFeedbacks, replyFeedback } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -33,7 +33,10 @@ import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
-type FeedbackItem = Schemas["FeedbackItem"];
+type FeedbackItem = Schemas["FeedbackItem"] & {
+	developer_reply?: string | null;
+	replied_at?: string | null;
+};
 
 const TAG_OPTIONS = [
 	{ label: "全部", value: "" },
@@ -66,15 +69,91 @@ const TAG_LABEL: Record<string, string> = {
 	other: "其他",
 };
 
-const EMOTION_MAP: Record<number, string> = {
-	1: "\u{1F61E}",
-	2: "\u{1F610}",
-	3: "\u{1F642}",
-	4: "\u{1F60A}",
-	5: "\u{1F60D}",
-};
+const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+
+function FeedbackRow({ fb }: { fb: FeedbackItem }) {
+	const [replyOpen, setReplyOpen] = useState(false);
+	const [replyText, setReplyText] = useState("");
+	const [sending, setSending] = useState(false);
+	const toast = useToast();
+
+	const handleReply = async () => {
+		if (!replyText.trim()) return;
+		setSending(true);
+		try {
+			await replyFeedback(fb.id, replyText.trim());
+			toast.success("回复已发送");
+			setReplyText("");
+			setReplyOpen(false);
+		} catch {
+			toast.error("回复失败");
+		} finally {
+			setSending(false);
+		}
+	};
+
+	return (
+		<div className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
+			<div className="flex items-center justify-between mb-1">
+				<div className="flex items-center gap-1.5">
+					<span className={cn(
+						"text-sm font-bold px-1.5 py-0.5 rounded",
+						fb.rating >= 4 ? "text-emerald-700 bg-emerald-50" :
+						fb.rating >= 3 ? "text-amber-700 bg-amber-50" :
+						"text-red-700 bg-red-50",
+					)}>
+						{fb.rating}分
+					</span>
+					<span className="font-semibold text-sm">{fb.user_name}</span>
+				</div>
+				<Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>
+					{TAG_LABEL[fb.tag] || fb.tag}
+				</Badge>
+			</div>
+			{fb.content && (
+				<div className="text-sm text-foreground mb-1 leading-relaxed">{fb.content}</div>
+			)}
+			<div className="text-xs text-muted-foreground/70 mb-1">
+				{new Date(fb.created_at).toLocaleString("zh-CN")}
+			</div>
+			{fb.developer_reply ? (
+				<div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-sm leading-relaxed">
+					<span className="text-xs font-medium text-primary">开发者回复：</span>
+					{fb.developer_reply}
+				</div>
+			) : (
+				!replyOpen && (
+					<button
+						type="button"
+						onClick={() => setReplyOpen(true)}
+						className="text-xs text-muted-foreground hover:text-primary underline mt-1"
+					>
+						添加回复
+					</button>
+				)
+			)}
+			{replyOpen && (
+				<div className="mt-2 space-y-2">
+					<textarea
+						value={replyText}
+						onChange={(e) => setReplyText(e.target.value)}
+						placeholder="输入开发者回复..."
+						rows={2}
+						className="w-full p-2 rounded-md border border-border text-sm resize-none outline-none bg-card focus:border-primary"
+					/>
+					<div className="flex gap-2">
+						<Button size="sm" onClick={handleReply} disabled={sending || !replyText.trim()}>
+							{sending ? "发送中..." : "发送回复"}
+						</Button>
+						<Button size="sm" variant="ghost" onClick={() => setReplyOpen(false)}>取消</Button>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
 const PIE_LABELS = [
 	"\u{1F61E} 很差",
 	"\u{1F610} 较差",
@@ -444,30 +523,7 @@ export default function FeedbackTab() {
 			) : (
 				<div className="flex flex-col gap-2">
 					{feedbacks.map((fb: FeedbackItem) => (
-						<div
-							key={fb.id}
-							className="py-2.5 px-3.5 border border-border rounded-lg bg-card"
-						>
-							<div className="flex items-center justify-between mb-1">
-								<div className="flex items-center gap-1.5">
-									<span className="text-base">
-										{EMOTION_MAP[fb.rating] || ""}
-									</span>
-									<span className="font-semibold text-sm">{fb.user_name}</span>
-								</div>
-								<Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>
-									{TAG_LABEL[fb.tag] || fb.tag}
-								</Badge>
-							</div>
-							{fb.content && (
-								<div className="text-sm text-foreground mb-1 leading-relaxed">
-									{fb.content}
-								</div>
-							)}
-							<div className="text-xs text-muted-foreground/70">
-								{new Date(fb.created_at).toLocaleString("zh-CN")}
-							</div>
-						</div>
+						<FeedbackRow key={fb.id} fb={fb} />
 					))}
 				</div>
 			)}

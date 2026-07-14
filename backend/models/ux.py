@@ -30,9 +30,11 @@ class Feedback(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    rating: Mapped[int] = mapped_column(Integer)
-    tag: Mapped[str] = mapped_column(String(20))
+    rating: Mapped[int] = mapped_column(Integer, default=3)
+    tag: Mapped[str] = mapped_column(String(20), default="")
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    developer_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    replied_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     user: Mapped[User] = relationship()

@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Query
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infrastructure.exporter import ColumnDef, export_response
-from models import User
+from models import Feedback, User
 from schemas import (
     FeedbackDailyItem,
     FeedbackItem,
+    FeedbackReplyRequest,
     FeedbackSubmit,
     FeedbackSubmitResponse,
     PaginatedResponse,
@@ -22,13 +23,23 @@ _FeedbackReviewer = Annotated[User, Depends(require_permission("feedback_review"
 
 
 @router.post("/feedback", response_model=FeedbackSubmitResponse)
-def submit_feedback(
-    req: FeedbackSubmit,
-    current_user: _AnyUser,
-    db: DbSession,
-):
+def submit_feedback(req: FeedbackSubmit, current_user: _AnyUser, db: DbSession):
     fb = FeedbackService(db).submit(current_user.id, req.rating, req.tag, req.content)
     return {"id": fb.id, "created_at": fb.created_at}
+
+
+@router.get("/my-feedback", response_model=PaginatedResponse[FeedbackItem])
+def my_feedback(
+    current_user: _AnyUser,
+    db: DbSession,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    items, total = FeedbackService(db).list_my(current_user.id, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[_to_item(r) for r in items],
+        total=total, offset=offset, limit=limit,
+    )
 
 
 @router.get("/admin/feedback", response_model=PaginatedResponse[FeedbackItem])
@@ -45,22 +56,21 @@ def admin_list_feedback(
         tag=tag, date_from=date_from, date_to=date_to, offset=offset, limit=limit
     )
     return PaginatedResponse(
-        items=[
-            FeedbackItem(
-                id=r.id,
-                user_id=r.user_id,
-                user_name=r.user_name,
-                rating=r.rating,
-                tag=r.tag,
-                content=r.content,
-                created_at=r.created_at,
-            )
-            for r in items
-        ],
-        total=total,
-        offset=offset,
-        limit=limit,
+        items=[_to_item(r) for r in items],
+        total=total, offset=offset, limit=limit,
     )
+
+
+@router.put("/admin/feedback/{feedback_id}/reply", response_model=FeedbackItem)
+def reply_feedback(
+    feedback_id: int,
+    req: FeedbackReplyRequest,
+    current_user: _FeedbackReviewer,
+    db: DbSession,
+):
+    admin_name = current_user.display_name or current_user.username
+    fb = FeedbackService(db).reply(feedback_id, req.reply, admin_name)
+    return _to_item_from_model(fb)
 
 
 @router.post("/admin/feedback/export")
@@ -70,7 +80,6 @@ def export_feedback(
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     from core.config import MAX_EXPORT_ROWS
-    from models import Feedback
 
     fb = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
     columns = [
@@ -89,3 +98,21 @@ def feedback_stats(
     date_to: Annotated[str | None, Query()] = None,
 ):
     return FeedbackService(db).daily_stats(date_from=date_from, date_to=date_to)
+
+
+def _to_item(r) -> FeedbackItem:
+    return FeedbackItem(
+        id=r.id, user_id=r.user_id, user_name=r.user_name,
+        rating=r.rating, tag=r.tag, content=r.content,
+        developer_reply=r.developer_reply, replied_at=r.replied_at,
+        created_at=r.created_at,
+    )
+
+
+def _to_item_from_model(fb: Feedback) -> FeedbackItem:
+    return FeedbackItem(
+        id=fb.id, user_id=fb.user_id, user_name="",
+        rating=fb.rating, tag=fb.tag, content=fb.content,
+        developer_reply=fb.developer_reply, replied_at=fb.replied_at,
+        created_at=fb.created_at,
+    )
