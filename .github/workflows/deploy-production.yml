@@ -216,5 +216,20 @@ jobs:
             docker image prune -f
           DEPLOY
 
+      - name: Notify DingTalk
+        if: vars.DINGTALK_WEBHOOK != ''
+        env:
+          DINGTALK_WEBHOOK: ${{ vars.DINGTALK_WEBHOOK }}
+          DEPLOY_VERSION: ${{ steps.version.outputs.value }}
+          DEPLOY_ENV: production
+          DEPLOY_URL: https://iomt.205716.xyz
+          PREV_VERSION: ${{ steps.version.outputs.previous }}
+        run: |
+          if [ -z "$PREV_VERSION" ]; then
+            PREV_VERSION=$(ssh "$SSH_USER@$SSH_HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
+            echo "PREV_VERSION=$PREV_VERSION" >> "$GITHUB_ENV"
+          fi
+          node scripts/notify-deploy.mjs 2>&1 || echo "⚠ dingtalk notify failed (non-blocking)"
+
       - name: "✅ Production"
         run: echo "v${{ steps.version.outputs.value }} → iomt.205716.xyz 🚀"

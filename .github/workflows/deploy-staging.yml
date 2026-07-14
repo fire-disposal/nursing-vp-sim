@@ -261,5 +261,20 @@ jobs:
           VER="${{ steps.resolve_version.outputs.version }}"
           node scripts/gen-combined-checklist.mjs --feishu -t="v${VER}" 2>&1 || echo "⚠ feishu publish failed (non-blocking)"
 
+      - name: Notify DingTalk
+        if: vars.DINGTALK_WEBHOOK != ''
+        env:
+          DINGTALK_WEBHOOK: ${{ vars.DINGTALK_WEBHOOK }}
+          DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
+          DEPLOY_ENV: staging
+          DEPLOY_URL: https://test.205716.xyz
+          PREV_VERSION: ${{ steps.resolve_version.outputs.previous }}
+        run: |
+          if [ -z "$PREV_VERSION" ]; then
+            PREV_VERSION=$(git tag --sort=-creatordate | grep -E '^v[0-9]' | head -2 | tail -1 | sed 's/^v//')
+            echo "PREV_VERSION=$PREV_VERSION" >> "$GITHUB_ENV"
+          fi
+          node scripts/notify-deploy.mjs 2>&1 || echo "⚠ dingtalk notify failed (non-blocking)"
+
       - name: "✅ Staging"
         run: echo "v${{ steps.resolve_version.outputs.version }} → test.205716.xyz 🧪"
