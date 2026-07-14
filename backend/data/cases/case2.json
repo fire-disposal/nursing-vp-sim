@@ -160,5 +160,21 @@
         }
       ]
     }
+  },
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "36.8-37.2",
+      "heart_rate": "76-88",
+      "blood_pressure": "130/82-138/88",
+      "respiratory_rate": "18-20",
+      "spo2": "97-99",
+      "pain_score": "4-6"
+    },
+    "skin": {
+      "right_foot": "右足底可见直径约2cm溃烂创面，周围皮肤红肿，范围约5x6cm，局部皮温升高，有少量黄色渗出液，无化脓。足背动脉搏动减弱"
+    },
+    "glucose": {
+      "random": "9.8-12.5"
+    }
   }
 }

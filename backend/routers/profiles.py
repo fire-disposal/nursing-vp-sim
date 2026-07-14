@@ -19,7 +19,7 @@ def list_profiles(db: DbSession, current_user: CurrentUser):
     """Return all registered training types with metadata."""
     type_counts: dict[str, int] = {
         training_type: count
-        for training_type, count in db.query(Case.training_type, func.count(Case.id)).group_by(Case.training_type).all()
+        for training_type, count in db.query(Case.training_type, func.count(Case.id)).filter(Case.is_open == True).group_by(Case.training_type).all()
     }
     types = get_known_types()
     result = []
