@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import {
@@ -25,6 +24,8 @@ export default function NotificationBell() {
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
 	const mutationLockRef = useRef(false);
+	const bellRef = useRef<HTMLButtonElement>(null);
+	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	const { data, isLoading, isError } = useQuery({
 		queryKey: queryKeys.notifications.list({ offset }),
@@ -45,6 +46,19 @@ export default function NotificationBell() {
 			});
 		}
 	}, [data, offset]);
+
+	// Close on outside click
+	useEffect(() => {
+		if (!open) return;
+		const handler = (e: MouseEvent) => {
+			if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+				bellRef.current && !bellRef.current.contains(e.target as Node)) {
+				setOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, [open]);
 
 	const hasMore = (data?.length ?? 0) >= LIMIT;
 	const unreadCount = items.filter((n) => !n.is_read).length;
@@ -100,7 +114,9 @@ export default function NotificationBell() {
 				markOneReadMutation.mutate(n.id);
 			}
 			setOpen(false);
-			if (n.record_id) {
+			if (n.type === "feedback_replied") {
+				navigate("/my-feedback");
+			} else if (n.record_id) {
 				navigate(`/record/${n.record_id}`);
 			} else if (n.type === "scoring_complete" || n.type.startsWith("scoring_")) {
 				navigate("/history");
@@ -110,10 +126,11 @@ export default function NotificationBell() {
 	);
 
 	return (
-		<>
+		<div className="relative">
 			<button
+				ref={bellRef}
 				type="button"
-				onClick={() => setOpen(true)}
+				onClick={() => setOpen(!open)}
 				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
 			>
@@ -125,105 +142,87 @@ export default function NotificationBell() {
 				)}
 			</button>
 
-			{open &&
-				createPortal(
-					<div
-						className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-xs"
-						onClick={() => setOpen(false)}
-					>
-						<div
-							className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-e3 border border-border overflow-hidden"
-							onClick={(e) => e.stopPropagation()}
-						>
-							<div className="flex items-center justify-between px-4 py-3 border-b">
-								<span className="font-semibold text-sm">通知</span>
-								<div className="flex items-center gap-2">
-									{unreadCount > 0 && (
+			{open && (
+				<div
+					ref={dropdownRef}
+					className="absolute right-0 top-full mt-1 w-80 max-h-[70vh] bg-card rounded-xl shadow-lg border border-border overflow-hidden z-50"
+				>
+					<div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/20">
+						<span className="font-semibold text-sm">通知</span>
+						<div className="flex items-center gap-2">
+							{unreadCount > 0 && (
+								<button
+									type="button"
+									onClick={() => markAllReadMutation.mutate()}
+									disabled={mutationLockRef.current}
+									className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+								>
+									全部已读
+								</button>
+							)}
+							<button
+								type="button"
+								onClick={() => setOpen(false)}
+								className="size-7 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+							>
+								<X size={14} />
+							</button>
+						</div>
+					</div>
+					<div className="max-h-80 overflow-y-auto">
+						{isError ? (
+							<div className="px-4 py-8 text-center text-sm text-destructive">加载失败</div>
+						) : isLoading && items.length === 0 ? (
+							<div className="px-4 py-8 text-center text-sm text-muted-foreground">加载中…</div>
+						) : items.length > 0 ? (
+							<>
+								{items.map((n) => (
+									<div key={n.id} className={`border-b last:border-0 ${n.is_read ? "opacity-60" : ""}`}>
 										<button
 											type="button"
-											onClick={() => markAllReadMutation.mutate()}
-											disabled={mutationLockRef.current}
-											className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+											className="w-full text-left p-2.5 hover:bg-muted/50 transition-colors"
+											onClick={() => handleClick(n)}
 										>
-											全部已读
+											<div className="flex items-center gap-2">
+												{!n.is_read && <span className="size-1.5 rounded-full bg-destructive shrink-0" />}
+												<span className="text-sm font-medium flex-1 truncate">{n.title}</span>
+											</div>
+											{n.body && (
+												<div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</div>
+											)}
+											<div className="text-[10px] text-muted-foreground mt-0.5">
+												{n.created_at.slice(0, 16).replace("T", " ")}
+											</div>
 										</button>
-									)}
-									<button
-										type="button"
-										onClick={() => setOpen(false)}
-										className="size-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-									>
-										<X size={16} />
-									</button>
-								</div>
-							</div>
-							<div className="max-h-80 overflow-y-auto">
-								{isError ? (
-									<div className="px-4 py-8 text-center text-sm text-destructive">加载失败，请稍后重试</div>
-								) : isLoading && items.length === 0 ? (
-									<div className="px-4 py-8 text-center text-sm text-muted-foreground">加载中…</div>
-								) : items.length > 0 ? (
-									<>
-										{items.map((n) => (
-											<div
-												key={n.id}
-												className={`border-b last:border-0 transition-colors ${
-													n.is_read ? "opacity-60" : ""
-												}`}
-											>
+										{n.is_read && (
+											<div className="px-2.5 pb-1.5">
 												<button
 													type="button"
-													className="w-full text-left p-3 hover:bg-muted/50 transition-colors"
-													onClick={() => handleClick(n)}
+													className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+													onClick={(e) => { e.stopPropagation(); markOneUnreadMutation.mutate(n.id); }}
 												>
-													<div className="flex items-center gap-2">
-														{!n.is_read && (
-															<span className="size-2 rounded-full bg-destructive shrink-0" />
-														)}
-														<span className="text-sm font-medium flex-1">{n.title}</span>
-													</div>
-													{n.body && (
-														<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
-													)}
-													<div className="text-[10px] text-muted-foreground mt-1">
-														{n.created_at.slice(0, 16).replace("T", " ")}
-													</div>
+													<EyeOff size={10} /> 标记未读
 												</button>
-												{n.is_read && (
-													<div className="px-3 pb-2">
-														<button
-															type="button"
-															className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-															onClick={(e) => {
-																e.stopPropagation();
-																markOneUnreadMutation.mutate(n.id);
-															}}
-														>
-															<EyeOff size={10} />
-															标记未读
-														</button>
-													</div>
-												)}
 											</div>
-										))}
-										{hasMore && (
-											<button
-												type="button"
-												className="w-full px-4 py-2.5 text-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-												onClick={() => setOffset((prev) => prev + LIMIT)}
-											>
-												加载更多
-											</button>
 										)}
-									</>
-								) : (
-									<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
+									</div>
+								))}
+								{hasMore && (
+									<button
+										type="button"
+										className="w-full px-4 py-2.5 text-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+										onClick={() => setOffset((prev) => prev + LIMIT)}
+									>
+										加载更多
+									</button>
 								)}
-							</div>
-						</div>
-					</div>,
-					document.body,
-				)}
-		</>
+							</>
+						) : (
+							<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
+						)}
+					</div>
+				</div>
+			)}
+		</div>
 	);
 }
