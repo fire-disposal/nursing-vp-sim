@@ -16,6 +16,12 @@ if (!webhook) {
   process.exit(0);
 }
 
+const env = process.env.DEPLOY_ENV || "unknown";
+if (env === "staging" && process.env.SKIP_STAGING_NOTIFY === "true") {
+  console.log("⏭ SKIP_STAGING_NOTIFY=true — skipping staging notification");
+  process.exit(0);
+}
+
 const version = process.env.DEPLOY_VERSION || "unknown";
 const env = process.env.DEPLOY_ENV || "unknown";
 const url = process.env.DEPLOY_URL || "";
