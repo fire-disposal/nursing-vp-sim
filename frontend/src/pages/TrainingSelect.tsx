@@ -172,7 +172,7 @@ export default function TrainingSelect() {
       ) : isError ? (
         <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" />
       ) : cases.length === 0 ? (
-        <EmptyState icon={AlertTriangle} title="暂无病例" description={search ? "没有匹配的病例" : "该分类暂无病例"} />
+        <EmptyState icon={AlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例，请联系教师或管理员配置"} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

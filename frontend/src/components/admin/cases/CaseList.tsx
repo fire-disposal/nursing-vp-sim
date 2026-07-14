@@ -14,10 +14,10 @@ interface CaseListProps {
 	total: number;
 	offset: number;
 	limit: number;
-	filters: { name: string; difficulty: string; training_type: string };
+	filters: { name: string; difficulty: string; training_type: string; is_open: string };
 	searchInput: string;
 	onSearchChange: (value: string) => void;
-	onFilterChange: (filters: { name: string; difficulty: string; training_type: string }) => void;
+	onFilterChange: (filters: { name: string; difficulty: string; training_type: string; is_open: string }) => void;
 	onOffsetChange: (offset: number) => void;
 	onAdd: () => void;
 	onAIAdd: () => void;
@@ -192,6 +192,22 @@ export default function CaseList({
 								<option value="">全部</option>
 								<option value="history_taking">问诊</option>
 								<option value="triage">分诊</option>
+							</select>
+						</label>
+						<label className="flex-1 min-w-[160px]">
+							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								学生可见
+							</span>
+							<select
+								value={filters.is_open || ""}
+								onChange={(e) =>
+									onFilterChange({ ...filters, is_open: e.target.value })
+								}
+								className={inputClass}
+							>
+								<option value="">全部</option>
+								<option value="true">已开放</option>
+								<option value="false">未开放</option>
 							</select>
 						</label>
 					</div>
