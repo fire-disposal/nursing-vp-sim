@@ -37,6 +37,8 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 	developer_reply?: string | null;
 	replied_at?: string | null;
 	version?: string;
+	auto_fix_attempted?: boolean;
+	auto_fix_at?: string | null;
 };
 
 const TAG_OPTIONS = [
@@ -126,6 +128,11 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 			<div className="text-xs text-muted-foreground/70 mb-1 flex items-center gap-2">
 				{new Date(fb.created_at).toLocaleString("zh-CN")}
 				{fb.version && <span className="opacity-50">v{fb.version}</span>}
+				{fb.auto_fix_attempted && (
+					<span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]" title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN")}` : ""}>
+						已尝试自动修复
+					</span>
+				)}
 			</div>
 			{fb.developer_reply ? (
 				<div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-sm leading-relaxed">
