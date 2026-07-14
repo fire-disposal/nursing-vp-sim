@@ -262,13 +262,17 @@ jobs:
           node scripts/gen-combined-checklist.mjs --feishu -t="v${VER}" 2>&1 || echo "⚠ feishu publish failed (non-blocking)"
 
       - name: Notify DingTalk
-        if: ${{ secrets.DINGTALK_WEBHOOK != '' }}
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
           DEPLOY_ENV: staging
           DEPLOY_URL: https://test.205716.xyz
-        run: node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "⚠ DINGTALK_WEBHOOK not set — skipping"
+            exit 0
+          fi
+          node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
 
       - name: "✅ Staging"
         run: echo "v${{ steps.resolve_version.outputs.version }} → test.205716.xyz 🧪"

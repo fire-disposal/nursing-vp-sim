@@ -217,13 +217,17 @@ jobs:
           DEPLOY
 
       - name: Notify DingTalk
-        if: ${{ secrets.DINGTALK_WEBHOOK != '' }}
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DEPLOY_VERSION: ${{ steps.version.outputs.value }}
           DEPLOY_ENV: production
           DEPLOY_URL: https://iomt.205716.xyz
-        run: node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "⚠ DINGTALK_WEBHOOK not set — skipping"
+            exit 0
+          fi
+          node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
 
       - name: "✅ Production"
         run: echo "v${{ steps.version.outputs.value }} → iomt.205716.xyz 🚀"
