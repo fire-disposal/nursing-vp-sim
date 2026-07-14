@@ -1,11 +1,12 @@
 import { createContext, useContext } from "react";
-import type { MessageBus, PatientData } from "./types";
+import type { ChatMessage, MessageBus, PatientData } from "./types";
 
 export interface TrainingContextValue {
 	bus: MessageBus;
 	recordId: string;
 	trainingType: string;
 	patient: PatientData;
+	messages: ChatMessage[];
 	features: Record<string, boolean>;
 	ttsAutoPlay: boolean;
 	sending: boolean;

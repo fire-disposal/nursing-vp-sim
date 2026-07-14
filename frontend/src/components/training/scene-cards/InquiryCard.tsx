@@ -1,24 +1,19 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Circle, Loader2 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { queryKeys } from "@/api/query-keys";
 import { getRecordDetail } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
+import { useTrainingContext } from "@/engine/TrainingContext";
+import type { ChatMessage } from "@/engine/types";
 
-export default function InquiryCard({ bus, recordId }: SceneCardProps) {
-  const queryClient = useQueryClient();
+export default function InquiryCard({ recordId }: SceneCardProps) {
+  const { messages } = useTrainingContext();
 
   const { data: record, isLoading } = useQuery({
     queryKey: queryKeys.training.record(recordId),
     queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
   });
-
-  useEffect(() => {
-    if (!bus) return;
-    return bus.on("stream:done", () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.training.record(recordId) });
-    });
-  }, [bus, recordId, queryClient]);
 
   const inquiries: string[] = useMemo(() => {
     const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
@@ -26,8 +21,7 @@ export default function InquiryCard({ bus, recordId }: SceneCardProps) {
   }, [record]);
 
   const coveredKeywords = useMemo(() => {
-    const msgs = (record as Record<string, unknown>)?.messages as Array<Record<string, unknown>> || [];
-    const studentTexts = msgs
+    const studentTexts = (messages as ChatMessage[])
       .filter((m) => m.role === "student")
       .map((m) => String(m.content || ""))
       .join(" ");
@@ -37,7 +31,7 @@ export default function InquiryCard({ bus, recordId }: SceneCardProps) {
         return keywords.some((kw) => studentTexts.includes(kw.trim()));
       }),
     );
-  }, [record, inquiries]);
+  }, [messages, inquiries]);
 
   if (isLoading) {
     return (
