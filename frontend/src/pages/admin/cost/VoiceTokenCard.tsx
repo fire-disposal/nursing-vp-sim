@@ -19,7 +19,8 @@ import { Label } from "@/components/ui/label";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Separator } from "@/components/ui/separator";
 
-const TTS_MODELS = ["seed-tts-2.0-standard", "seed-tts-2.0-expressive"];
+const TTS_MODELS = ["seed-tts-2.0-standard"];
+const TTS_RESOURCE_IDS = ["seed-tts-2.0", "seed-icl-2.0"];
 const TTS_FORMATS = ["mp3", "wav", "pcm", "ogg_opus"];
 const ASR_ENDPOINT_MODES = ["bigmodel_nostream", "bigmodel", "bigmodel_async"];
 const SAMPLE_RATES = [8000, 16000, 22050, 24000, 44100, 48000];
@@ -248,14 +249,19 @@ export default function VoiceTokenCard() {
 							</div>
 							<div className="space-y-1.5">
 								<Label htmlFor="voice-tts-resource">TTS Resource ID</Label>
-								<Input
+								<select
 									id="voice-tts-resource"
 									value={form.tts_resource_id}
 									onChange={(e) => setField({ tts_resource_id: e.target.value })}
-								/>
+									className={selectClass}
+								>
+									{TTS_RESOURCE_IDS.map((m) => (
+										<option key={m} value={m}>{m}</option>
+									))}
+								</select>
 							</div>
 							<div className="space-y-1.5">
-								<Label htmlFor="voice-tts-model">TTS 模型</Label>
+								<Label htmlFor="voice-tts-model">TTS 模型版本</Label>
 								<select
 									id="voice-tts-model"
 									value={form.tts_model}
@@ -266,6 +272,28 @@ export default function VoiceTokenCard() {
 										<option key={m} value={m}>{m}</option>
 									))}
 								</select>
+							</div>
+							<div className="grid grid-cols-2 gap-2">
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-tts-timeout">超时 (秒)</Label>
+									<Input
+										id="voice-tts-timeout"
+										type="number"
+										min={3} max={30}
+										value={form.tts_timeout}
+										onChange={(e) => setField({ tts_timeout: Number(e.target.value) })}
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-monthly-budget">月度预算 (¥)</Label>
+									<Input
+										id="voice-monthly-budget"
+										type="number"
+										min={1}
+										value={form.monthly_budget}
+										onChange={(e) => setField({ monthly_budget: Number(e.target.value) })}
+									/>
+								</div>
 							</div>
 							<div className="grid grid-cols-2 gap-2">
 								<div className="space-y-1.5">
@@ -384,7 +412,7 @@ export default function VoiceTokenCard() {
 								<Volume2 size={16} className="text-muted-foreground" />
 								<span className="text-sm font-medium">语音测试生成</span>
 								<span className="text-[10px] text-muted-foreground">
-									{form.tts_speaker} · {form.tts_model} · {form.tts_format}
+									双向 WS · {form.tts_speaker} · {form.tts_format}@{form.tts_sample_rate}Hz
 								</span>
 							</div>
 							<div className="space-y-1.5">
