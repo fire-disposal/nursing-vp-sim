@@ -112,11 +112,19 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 		setBatchParseError("");
 		const reader = new FileReader();
 		reader.onload = (e) => {
-			const text = String(e.target?.result || "").replace(/^\uFEFF/, "");
+			if (!(e.target?.result instanceof ArrayBuffer)) return;
+			const arr = new Uint8Array(e.target.result);
+			let text: string;
+			try {
+				text = new TextDecoder("utf-8", { fatal: true }).decode(arr);
+			} catch {
+				text = new TextDecoder("gbk").decode(arr);
+			}
+			text = text.replace(/^\uFEFF/, "");
 			const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
 			parseLines(lines);
 		};
-		reader.readAsText(file);
+		reader.readAsArrayBuffer(file);
 	}
 
 	function handleDownloadTemplate() {
