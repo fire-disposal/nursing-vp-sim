@@ -49,59 +49,6 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
-    """原子性地将 scoring_status 更新为 'pending'。
-
-    用 DB 原子 UPDATE 代替内存锁，避免测试间状态泄漏，
-    同时消除并发触发同一 record 评分的竞态。
-
-    - allow_retry=False: 仅从 NULL 状态获取（正常 end_training 流程）
-    - allow_retry=True:  从 NULL/completed/failed 获取（不抢占进行中的 pending/processing），
-                         同时清除 scoring_error
-    """
-    from sqlalchemy import text
-
-    if allow_retry:
-        result = db.execute(
-            text(
-                "UPDATE training_records SET scoring_status = 'pending', scoring_error = NULL "
-                "WHERE id = :id AND ("
-                "  scoring_status IS NULL OR scoring_status IN ('completed', 'failed')"
-                ")"
-            ),
-            {"id": record_id},
-        )
-    else:
-        result = db.execute(
-            text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
-            {"id": record_id},
-        )
-    if result.rowcount > 0:
-        pass  # status already updated atomically by DB UPDATE
-    return result.rowcount > 0
-
-
-def _claim_for_scoring(record_id: int, db) -> bool:
-    """原子性将可执行态（'pending' 或 NULL）转为 'processing'，供后台 worker 入口认领。
-
-    - 'pending': end_training / retry_scoring / triage 经 _try_acquire_scoring 获取后的状态
-    - NULL:      settlement 自动结算路径（未经 acquire）
-
-    并发重复入队同一 record 时，DB 原子 UPDATE 保证仅一个 worker 认领成功（rowcount==1），
-    其余 worker rowcount==0 直接跳过，实现幂等。
-    """
-    from sqlalchemy import text
-
-    result = db.execute(
-        text(
-            "UPDATE training_records SET scoring_status = 'processing' "
-            "WHERE id = :id AND (scoring_status = 'pending' OR scoring_status IS NULL)"
-        ),
-        {"id": record_id},
-    )
-    return result.rowcount > 0
-
-
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None
 _infra_log_worker: LogWorker | None = None

@@ -13,8 +13,8 @@ from core.security import get_current_user
 from infrastructure.queue import QueueFullError
 from models import Case, TrainingRecord, User
 
+from ..scoring_lifecycle import acquire_scoring
 from .scoring import _run_scoring_background
-from .session import _try_acquire_scoring
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ async def submit_triage(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data if case else {}
 
-    acquired = _try_acquire_scoring(record_id, db)
+    acquired = acquire_scoring(record_id, db)
     if acquired:
         try:
             await request.app.state.task_queue.enqueue(

@@ -23,14 +23,14 @@ from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
-from .session import _claim_for_scoring, _try_acquire_scoring
+from ..scoring_lifecycle import acquire_scoring, claim_scoring
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Generation counter to detect stale background scoring tasks.
-# Incremented in _try_acquire_scoring whenever a new scoring session starts.
+# Incremented in acquire_scoring whenever a new scoring session starts.
 # Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
 # 弃用进程内 generation dict（多 worker 下不安全）。
 # 每个任务在写入终态前校验 scoring_status 是否仍是 "processing"。
@@ -205,10 +205,10 @@ async def _run_scoring_background(
             return
         log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
         # 原子性认领：仅当记录处于可执行态才继续。
-        # 'pending'  — end_training / retry_scoring / triage 经 _try_acquire_scoring 获取；
+        # 'pending'  — end_training / retry_scoring / triage 经 acquire_scoring 获取；
         # NULL       — settlement 自动结算路径（未走 acquire）。
         # UPDATE 的 rowcount 保证并发重复入队时只有一个 worker 认领成功（幂等）。
-        claimed = _claim_for_scoring(record_id, db)
+        claimed = claim_scoring(record_id, db)
         db.commit()
         if not claimed:
             db.refresh(record)
@@ -323,7 +323,7 @@ async def end_training(
         if record.scoring_status in ("pending", "processing"):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-        if not _try_acquire_scoring(record_id, db):
+        if not acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
@@ -397,7 +397,7 @@ async def retry_scoring(
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-        if not _try_acquire_scoring(record_id, db, allow_retry=True):
+        if not acquire_scoring(record_id, db, allow_retry=True):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
