@@ -139,6 +139,9 @@ def bot_list_feedback(
     db: DbSession,
     token: str = Query(...),
     since: str | None = Query(None, description="ISO datetime, e.g. 2026-07-01T00:00:00"),
+    version: str | None = Query(None, description="Exact version, e.g. 2026.07.14-10"),
+    tag: str | None = Query(None, description="Filter by tag: bug/feature/experience/content/ui/other"),
+    include_fixed: bool = False,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -146,11 +149,21 @@ def bot_list_feedback(
     from datetime import datetime
 
     q = db.query(Feedback).order_by(Feedback.created_at.desc())
+
+    # Default: exclude already fixed (prevents re-processing loops)
+    if not include_fixed:
+        q = q.filter(Feedback.auto_fix_attempted == False)
+
     if since:
         try:
             q = q.filter(Feedback.created_at >= datetime.fromisoformat(since))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid since format, use ISO datetime")
+    if version:
+        q = q.filter(Feedback.version == version)
+    if tag:
+        q = q.filter(Feedback.tag == tag)
+
     total = q.count()
     items = q.offset(offset).limit(limit).all()
     return {

@@ -155,8 +155,13 @@ GET /api/feedback/bot?token=xxx&since=2026-07-01T00:00:00&limit=50&offset=0
 |------|------|------|
 | `token` | (必填) | Bot 令牌 |
 | `since` | 无 | ISO 时间过滤（仅返回此时间之后的反馈） |
+| `version` | 无 | 按版本号精确过滤，如 `2026.07.14-10` |
+| `tag` | 无 | 按反馈类型过滤：`bug`/`feature`/`experience`/`content`/`ui`/`other` |
+| `include_fixed` | `false` | 是否包含已尝试自动修复的反馈（默认排除） |
 | `limit` | 50 | 每页条数（1-200） |
 | `offset` | 0 | 分页偏移 |
+
+**默认排除已修复项**：未指定 `include_fixed=true` 时，只返回 `auto_fix_attempted=false` 的反馈，防止 AI 重复处理已修复问题。
 
 返回格式：
 ```json
