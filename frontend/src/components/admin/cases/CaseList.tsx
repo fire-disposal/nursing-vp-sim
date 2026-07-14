@@ -93,7 +93,7 @@ export default function CaseList({
 		},
 		{
 			key: "is_open",
-			header: "开放",
+			header: "学生自主练习",
 			render: (c) => (
 				<button
 					type="button"
@@ -106,7 +106,7 @@ export default function CaseList({
 					)}
 				>
 					{c.is_open ? <Eye size={13} /> : <EyeOff size={13} />}
-					{c.is_open ? "可见" : "隐藏"}
+					{c.is_open ? "开放" : "未开放"}
 				</button>
 			),
 		},
