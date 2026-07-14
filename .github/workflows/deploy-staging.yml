@@ -100,9 +100,14 @@ jobs:
           fi
 
       - name: Write change summary
+        id: change_summary
         run: |
           VER="${{ steps.resolve_version.outputs.version }}"
           PREV=$(git tag --sort=-creatordate | grep -E '^v[0-9]' | head -2 | tail -1)
+          COMMITS=$(git log "$PREV..v$VER" --oneline --no-merges 2>/dev/null || echo "")
+          echo "commits<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMITS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           {
             echo "# Staging Deploy v$VER"
             echo ""
@@ -267,6 +272,7 @@ jobs:
           DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
           DEPLOY_ENV: staging
           DEPLOY_URL: https://test.205716.xyz
+          COMMITS: ${{ steps.change_summary.outputs.commits }}
         run: |
           if [ -z "$DINGTALK_WEBHOOK" ]; then
             echo "⚠ DINGTALK_WEBHOOK not set — skipping"
