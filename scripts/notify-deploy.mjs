@@ -22,7 +22,7 @@ const url = process.env.DEPLOY_URL || "";
 const commitsRaw = process.env.COMMITS || "";
 
 const envLabel = env === "production" ? "🚀 正式服" : "🧪 测试服";
-const title = `${envLabel} 部署成功`;
+const title = `${envLabel} v${version} 部署成功`;
 
 const pad = (n) => String(n).padStart(2, "0");
 const bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
@@ -32,15 +32,15 @@ let commitsBlock = "";
 if (commitsRaw) {
   const lines = commitsRaw.trim().split("\n").filter(Boolean).slice(0, 5);
   if (lines.length > 0) {
-    commitsBlock = "\n\n**最近提交**\n" + lines.map((l) => `> ${l}`).join("\n");
+    commitsBlock = "\n\n**最近变更**\n" + lines.map((l) => `> ${l}`).join("\n");
   }
 }
 
-const markdown = `## ${title} v${version}
+const markdown = `## ${title}
 > ${ts}
 > [${url}](${url})${commitsBlock}
 ---
-> Nursing VP Sim 护理虚拟患者系统`;
+> Nursing VP Sim`;
 
 const payload = {
   msgtype: "markdown",
