@@ -80,7 +80,7 @@ export function ChatArea({
 				/>
 			</div>
 			<SceneToolbar />
-			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} />
+			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 		</div>
 	);
 }

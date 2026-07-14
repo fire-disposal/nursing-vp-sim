@@ -8,9 +8,10 @@ interface ChatInputProps {
 	onSend: (text: string) => void;
 	disabled?: boolean;
 	loading?: boolean;
+	trainingEnded?: boolean;
 }
 
-export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const { available, isListening, isProcessing, partialText, startListening, stopListening, cancelListening } = useVoice();
@@ -86,7 +87,7 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 				value={text}
 				onChange={(e) => setText(e.target.value)}
 				onKeyDown={handleKeyDown}
-				placeholder={loading ? "患者正在回复中，可提前输入下一句…" : "输入消息与患者对话..."}
+				placeholder={trainingEnded ? "训练已结束，评分结果已生成" : loading ? "患者正在回复中，可提前输入下一句…" : "输入消息与患者对话..."}
 				rows={1}
 				onInput={handleInput}
 				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"

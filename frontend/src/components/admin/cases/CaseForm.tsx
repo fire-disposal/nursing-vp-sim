@@ -515,7 +515,7 @@ export default function CaseFormModal({
 					<div className="flex gap-3 flex-wrap">
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								心率
+								心率 (bpm)
 							</label>
 							<input
 								type="number"
@@ -526,7 +526,7 @@ export default function CaseFormModal({
 						</div>
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								收缩压
+								收缩压 (mmHg)
 							</label>
 							<input
 								type="number"
@@ -537,7 +537,7 @@ export default function CaseFormModal({
 						</div>
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								舒张压
+								舒张压 (mmHg)
 							</label>
 							<input
 								type="number"
@@ -548,7 +548,7 @@ export default function CaseFormModal({
 						</div>
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								呼吸
+								呼吸 (次/分)
 							</label>
 							<input
 								type="number"
@@ -559,7 +559,7 @@ export default function CaseFormModal({
 						</div>
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								血氧
+								血氧 (%)
 							</label>
 							<input
 								type="number"
@@ -570,7 +570,7 @@ export default function CaseFormModal({
 						</div>
 						<div className="flex-1 min-w-[100px]">
 							<label className="block text-xs font-semibold text-muted-foreground mb-1">
-								体温
+								体温 (°C)
 							</label>
 							<input
 								type="number"
@@ -967,7 +967,9 @@ export default function CaseFormModal({
 						onClick={handleSave}
 						disabled={createMutation.isPending || updateMutation.isPending}
 					>
-						{editingCase ? "保存修改" : "创建病例"}
+						{createMutation.isPending || updateMutation.isPending
+							? (editingCase ? "保存中…" : "创建中…")
+							: (editingCase ? "保存修改" : "创建病例")}
 					</Button>
 				</div>
 			</form>

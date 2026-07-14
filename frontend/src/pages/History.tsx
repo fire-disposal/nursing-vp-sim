@@ -172,7 +172,7 @@ export default function History() {
 					</div>
 				) : records.length === 0 ? (
 					<div className="rounded-xl border bg-card">
-						<EmptyState icon={ClipboardList} title="暂无训练记录" />
+						<EmptyState icon={ClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
 					</div>
 				) : (
 

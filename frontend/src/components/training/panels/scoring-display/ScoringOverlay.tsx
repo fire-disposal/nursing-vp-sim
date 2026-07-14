@@ -1,5 +1,6 @@
 import { Brain, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState, } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/Toast";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/utils/cn";
 
@@ -82,6 +83,7 @@ export function ScoringOverlay({
 
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
 	const feedbackScrollRef = useRef<HTMLDivElement>(null);
+	const toast = useToast();
 
 	// Auto-scroll both panels to bottom when thought content changes
 	useEffect(() => {
@@ -267,6 +269,7 @@ export function ScoringOverlay({
 							onClick={() => {
 								setClosing(true);
 								setTimeout(() => setVisible(false), 200);
+								if (!isFailed) toast.info("评分将在后台继续，完成时会自动显示结果");
 							}}
 							className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/80 transition-colors"
 						>
