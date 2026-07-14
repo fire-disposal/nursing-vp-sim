@@ -36,6 +36,8 @@ class Feedback(Base):
     version: Mapped[str] = mapped_column(String(20), default="")
     developer_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
     replied_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    auto_fix_attempted: Mapped[bool] = mapped_column(default=False)
+    auto_fix_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     user: Mapped[User] = relationship()

@@ -253,19 +253,6 @@ jobs:
           " 2>/dev/null
           echo "✓ → https://test.205716.xyz/report.html"
 
-      - name: Publish checklist to Feishu
-        if: vars.FEISHU_APP_ID != ''
-        env:
-          FEISHU_APP_ID: ${{ vars.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_BITABLE_TOKEN: ${{ vars.FEISHU_BITABLE_TOKEN }}
-          FEISHU_TABLE_ID: ${{ vars.FEISHU_TABLE_ID }}
-          FEISHU_CHAT_ID: ${{ vars.FEISHU_CHAT_ID }}
-          FEISHU_BITABLE_URL: ${{ vars.FEISHU_BITABLE_URL }}
-        run: |
-          VER="${{ steps.resolve_version.outputs.version }}"
-          node scripts/gen-combined-checklist.mjs --feishu -t="v${VER}" 2>&1 || echo "⚠ feishu publish failed (non-blocking)"
-
       - name: Notify DingTalk
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}

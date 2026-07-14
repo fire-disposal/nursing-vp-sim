@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from core.config import FEEDBACK_BOT_TOKEN
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infrastructure.exporter import ColumnDef, export_response
@@ -121,3 +122,65 @@ def _to_item_from_model(fb: Feedback) -> FeedbackItem:
         developer_reply=fb.developer_reply, replied_at=fb.replied_at,
         created_at=fb.created_at,
     )
+
+
+# ── Bot API (外部 AI 接入，独立 token) ──
+
+
+def _check_bot_token(token: str) -> None:
+    if not FEEDBACK_BOT_TOKEN:
+        raise HTTPException(status_code=404)
+    if token != FEEDBACK_BOT_TOKEN:
+        raise HTTPException(status_code=403)
+
+
+@router.get("/feedback/bot")
+def bot_list_feedback(
+    db: DbSession,
+    token: str = Query(...),
+    since: str | None = Query(None, description="ISO datetime, e.g. 2026-07-01T00:00:00"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    _check_bot_token(token)
+    from datetime import datetime
+
+    q = db.query(Feedback).order_by(Feedback.created_at.desc())
+    if since:
+        try:
+            q = q.filter(Feedback.created_at >= datetime.fromisoformat(since))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid since format, use ISO datetime")
+    total = q.count()
+    items = q.offset(offset).limit(limit).all()
+    return {
+        "items": [
+            {
+                "id": f.id, "rating": f.rating, "tag": f.tag, "content": f.content,
+                "version": f.version,
+                "developer_reply": f.developer_reply, "replied_at": f.replied_at.isoformat() if f.replied_at else None,
+                "auto_fix_attempted": f.auto_fix_attempted, "auto_fix_at": f.auto_fix_at.isoformat() if f.auto_fix_at else None,
+                "created_at": f.created_at.isoformat(),
+            }
+            for f in items
+        ],
+        "total": total, "offset": offset, "limit": limit,
+    }
+
+
+@router.patch("/feedback/bot/{feedback_id}")
+def bot_mark_fix_attempted(
+    feedback_id: int,
+    db: DbSession,
+    token: str = Query(...),
+):
+    _check_bot_token(token)
+    from datetime import UTC, datetime
+
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="not found")
+    fb.auto_fix_attempted = True
+    fb.auto_fix_at = datetime.now(UTC)
+    db.commit()
+    return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": fb.auto_fix_at.isoformat()}
