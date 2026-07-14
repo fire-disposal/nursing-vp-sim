@@ -49,12 +49,6 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 			lines = lines.slice(1);
 		}
 
-		function getVal(col: string): string {
-			if (isHeader && col in colMap) return lines[0]?.split(",")[colMap[col]]?.trim() || "";
-			const pos = CSV_HEADERS.indexOf(col);
-			return pos >= 0 ? (lines[0]?.split(",")[pos]?.trim() || "") : "";
-		}
-
 		const errors: string[] = [];
 		const users: BatchUser[] = [];
 
@@ -62,12 +56,19 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 			const line = lines[i];
 			if (!line.trim()) continue;
 
-			const username = isHeader ? getVal("用户名") : (line.split(",")[0]?.trim() || "");
-			const password = isHeader ? getVal("密码") : (line.split(",")[1]?.trim() || "");
-			const displayName = isHeader ? getVal("姓名") : (line.split(",")[2]?.trim() || "");
-			const role = isHeader ? getVal("角色") : (line.split(",")[3]?.trim() || "student");
-			const studentId = isHeader ? getVal("学号") : (line.split(",")[4]?.trim() || "");
-			const classIdRaw = isHeader ? getVal("班级ID") : (line.split(",")[5]?.trim() || "");
+			const parts = line.split(",").map((s) => s.trim());
+			const getVal = (col: string) => {
+				if (isHeader && col in colMap) return parts[colMap[col]] || "";
+				const pos = CSV_HEADERS.indexOf(col);
+				return pos >= 0 ? (parts[pos] || "") : "";
+			};
+
+			const username = getVal("用户名");
+			const password = getVal("密码");
+			const displayName = getVal("姓名");
+			const role = getVal("角色") || "student";
+			const studentId = getVal("学号") || null;
+			const classIdRaw = getVal("班级ID");
 
 			const rowNum = i + 1;
 			const locator = isHeader ? `第${rowNum}行` : `第${rowNum}行(${username || "?"})`;
