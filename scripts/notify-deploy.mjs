@@ -37,7 +37,8 @@ if (commitsRaw) {
 }
 
 const markdown = `## ${title} v${version}
-> ${ts}  |  [${url}](${url})${commitsBlock}
+> ${ts}
+> [${url}](${url})${commitsBlock}
 ---
 > Nursing VP Sim 护理虚拟患者系统`;
 
