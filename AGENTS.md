@@ -135,6 +135,94 @@ SSH: `ssh yecaoyun`。工作流文件见 `.github/workflows/`，详细配置见 
 
 - 生产部署前 staging 版本必须一致
 - 自动备份 → 部署 → 健康检查 → 失败则回滚
+- 部署成功时钉钉 Webhook 播报（`scripts/notify-deploy.mjs`，从 `secrets.DINGTALK_WEBHOOK` 读取）
+
+## Feedback Bot API（外部 AI 接入）
+
+独立于用户认证体系，通过 `FEEDBACK_BOT_TOKEN` 环境变量鉴权。用于外部 AI Agent 自动拉取反馈、分析问题、标记处理。
+
+### 认证
+
+在服务器 `.env` 中设置 `FEEDBACK_BOT_TOKEN=your-secret`。所有 bot 请求通过 `?token=xxx` query param 鉴权。未设置时端点返回 404，token 错误返回 403。
+
+### 读取反馈列表
+
+```
+GET /api/feedback/bot?token=xxx&since=2026-07-01T00:00:00&limit=50&offset=0
+```
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `token` | (必填) | Bot 令牌 |
+| `since` | 无 | ISO 时间过滤（仅返回此时间之后的反馈） |
+| `limit` | 50 | 每页条数（1-200） |
+| `offset` | 0 | 分页偏移 |
+
+返回格式：
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "rating": 3,
+      "tag": "bug",
+      "content": "登录按钮连点导致页面卡死",
+      "version": "2026.07.14-10",
+      "developer_reply": null,
+      "replied_at": null,
+      "auto_fix_attempted": false,
+      "auto_fix_at": null,
+      "created_at": "2026-07-14T06:00:00"
+    }
+  ],
+  "total": 5,
+  "offset": 0,
+  "limit": 50
+}
+```
+
+**字段语义：**
+- `rating` — 1-5 满意度（1=很不满意，3=一般，5=很满意）
+- `tag` — 反馈类型：`bug`/`feature`/`experience`/`content`/`ui`/`other`
+- `version` — 提交时的系统版本号（APP_VERSION 环境变量）
+- `developer_reply` — 管理员回复（null=未回复）
+- `auto_fix_attempted` — 自动化修复是否已尝试（默认 false）
+- `auto_fix_at` — 修复尝试时间（null=未尝试）
+
+### 标记已尝试自动修复
+
+```
+PATCH /api/feedback/bot/{id}?token=xxx
+```
+
+将指定反馈的 `auto_fix_attempted` 设为 true，`auto_fix_at` 设为当前 UTC 时间。幂等操作，可重复调用。
+
+返回：
+```json
+{"id": 1, "auto_fix_attempted": true, "auto_fix_at": "2026-07-14T07:00:00"}
+```
+
+### AI Agent 典型工作流
+
+```
+1. GET /api/feedback/bot?since=<上次检查时间> → 获取新反馈
+2. 按 tag 分类：bug 优先处理，feature/experience 次之
+3. 对每个 bug 反馈：
+   a. 分析 content 中的问题描述 + version 定位代码范围
+   b. 尝试生成修复方案并实施
+   c. PATCH /api/feedback/bot/{id} 标记 auto_fix_attempted=true
+4. 开发者审核：通过管理页或 /my-feedback 查看回复状态
+```
+
+### 监控告警双通道
+
+| 通道 | 用途 | 触发 |
+|------|------|------|
+| 钉钉 Webhook | 部署通知 + 服务器告警 | CI 部署成功 / crontab 每 15 分 |
+| SMTP 邮件 | 服务器告警（HTML） | crontab 每 15 分 |
+
+告警类型（`compute_alerts` → `/api/diagnose` → `monitor.py`）：
+LLM 成功率/限流/错误数、评分卡住/排队、活跃会话、TTS/ASR 成功率/错误数、语音预算、inode
 
 ## Path Type Safety
 
