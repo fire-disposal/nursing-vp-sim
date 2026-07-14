@@ -70,7 +70,8 @@ export function useBatchCreateUsersMutation() {
 				toast.success(`成功创建 ${data.created} 名用户`);
 			}
 			if (data.skipped > 0) {
-				toast.warning(`跳过 ${data.skipped} 名用户`);
+				const details = (data.errors || []).slice(0, 3).join("；");
+				toast.warning(`跳过 ${data.skipped} 名用户${details ? `：${details}` : ""}`);
 			}
 		},
 		onError: (err: unknown) => {

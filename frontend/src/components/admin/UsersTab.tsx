@@ -169,12 +169,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const handleBatchImport = (users: BatchUser[]) => {
-		batchImportMutation.mutate(users, {
-			onSuccess: () => {
-				resetToFirstPage();
-				setShowBatchImport(false);
-			},
-		});
+		batchImportMutation.mutate(users);
 	};
 
 	return (
