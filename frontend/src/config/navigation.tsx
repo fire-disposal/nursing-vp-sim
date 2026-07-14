@@ -39,8 +39,9 @@ const AdminGradesClasses = lazy(
 	() => import("@/pages/admin/GradesClassesPage"),
 );
 const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
-const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
-const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
+const PracticeManagementPage = lazy(
+	() => import("@/pages/admin/PracticeManagementPage"),
+);
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
@@ -178,15 +179,9 @@ export const APP_ROUTES: AppRoute[] = [
 	},
 	{
 		path: "/admin/practices",
-		element: <PracticesPage />,
+		element: <PracticeManagementPage />,
 		permission: "case_manage",
-		nav: { label: "练习模板", icon: ClipboardList, section: "admin" },
-	},
-	{
-		path: "/admin/assignments",
-		element: <AssignmentsPage />,
-		permission: "assignment_manage",
-		nav: { label: "练习发布", icon: ClipboardCheck, section: "admin" },
+		nav: { label: "练习管理", icon: ClipboardList, section: "admin" },
 	},
 	{
 		path: "/admin/assignments/:id",

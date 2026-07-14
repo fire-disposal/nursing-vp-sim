@@ -10,12 +10,9 @@ export interface TrainingContextValue {
 	features: Record<string, boolean>;
 	ttsAutoPlay: boolean;
 	sending: boolean;
-	featuresLocked: boolean;
-	fromAssignment: boolean;
 	timeLimitMinutes: number;
 	remainingSeconds: number | null;
 	voiceStatus: { provider: string; latencyMs: number } | null;
-	toggleFeature: (key: string, enabled: boolean) => void;
 	toggleTts: () => void;
 	endTraining: () => Promise<void>;
 }

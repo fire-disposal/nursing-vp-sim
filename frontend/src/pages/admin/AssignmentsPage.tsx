@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
+import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 
@@ -47,7 +48,7 @@ interface AssignmentRow {
 interface PracticeOption {
 	id: number;
 	name: string;
-	case?: { name?: string };
+	case?: { name?: string; capabilities?: Record<string, boolean> };
 }
 
 interface ClassOption {
@@ -87,7 +88,7 @@ const DEFAULT_VALUES: AssignmentValues = {
 	endTime: "",
 };
 
-export default function AssignmentsPage() {
+export default function AssignmentsPage({ embedded = false }: { embedded?: boolean }) {
 	const toast = useToast();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -248,7 +249,8 @@ export default function AssignmentsPage() {
 	];
 
 	return (
-		<div className="space-y-6">
+		<div className={embedded ? "" : "space-y-6"}>
+			{!embedded && (
 			<PageHeader
 				title="练习发布"
 				subtitle="按班级定时发布练习，控制插件特性，批量导出成绩"
@@ -259,6 +261,7 @@ export default function AssignmentsPage() {
 					</Button>
 				}
 			/>
+			)}
 
 			<DataTable<AssignmentRow>
 				columns={columns}
@@ -372,8 +375,28 @@ export default function AssignmentsPage() {
 											<FormMessage />
 										</FormItem>
 									)}
-								/>
-								<FormField
+							/>
+							{(() => {
+								const selectedId = form.watch("practiceId");
+								const selected = practices.find((p) => p.id === selectedId);
+								const caps = selected?.case?.capabilities;
+								if (!caps) return null;
+								const enabled = Object.entries(caps).filter(([, v]) => v);
+								if (enabled.length === 0) return null;
+								return (
+									<div className="flex flex-wrap gap-1 -mt-2 mb-1">
+										{enabled.map(([k]) => (
+											<span
+												key={k}
+												className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary"
+											>
+												{ALL_CAPABILITIES[k]?.label ?? k}
+											</span>
+										))}
+									</div>
+								);
+							})()}
+							<FormField
 									control={form.control}
 									name="endTime"
 									render={({ field }) => (

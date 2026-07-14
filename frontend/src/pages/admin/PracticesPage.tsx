@@ -33,6 +33,7 @@ import { type PracticeValues, practiceSchema } from "@/schemas/practice";
 interface PracticeRow {
 	id: number;
 	name: string;
+	case_id?: number;
 	case_name?: string;
 	training_type?: string;
 	features?: Record<string, boolean>;
@@ -43,12 +44,9 @@ interface PracticeRow {
 interface CaseOption {
 	id: number;
 	name: string;
+	capabilities?: Record<string, boolean>;
+	training_type?: string;
 }
-
-// 从生成的能力表派生（单一真相）：仅 toggleable 可由教师配置；builtin(如情绪)恒开不显示
-const FEATURE_OPTIONS = Object.values(ALL_CAPABILITIES)
-	.filter((c) => c.tier === "toggleable")
-	.map((c) => ({ key: c.key, label: c.label }));
 
 const DEFAULT_VALUES: PracticeValues = {
 	name: "",
@@ -59,7 +57,7 @@ const DEFAULT_VALUES: PracticeValues = {
 	max_rounds: 30,
 };
 
-export default function PracticesPage() {
+export default function PracticesPage({ embedded = false }: { embedded?: boolean }) {
 	const toast = useToast();
 	const queryClient = useQueryClient();
 	const [modalOpen, setModalOpen] = useState(false);
@@ -116,7 +114,7 @@ export default function PracticesPage() {
 			name: values.name.trim(),
 			description: values.description.trim() || null,
 			case_id: values.case_id,
-			features: values.features,
+			features: {},
 			behavior: {
 				time_limit_minutes: values.time_limit,
 				max_rounds: values.max_rounds,
@@ -173,14 +171,23 @@ export default function PracticesPage() {
 			},
 		},
 		{
-			key: "features",
-			header: "功能",
-			cellClassName: "text-xs text-muted-foreground",
-			render: (p) =>
-				Object.entries(p.features ?? {})
-					.filter(([, v]) => v)
-					.map(([k]) => k)
-					.join("、") || "—",
+			key: "capabilities",
+			header: "能力",
+			cellClassName: "text-xs",
+			render: (p) => {
+				const caseCaps = cases.find((c) => c.id === p.case_id);
+				const caps = caseCaps?.capabilities;
+				if (!caps || Object.keys(caps).length === 0) return <span className="text-muted-foreground">—</span>;
+				return (
+					<span className="flex flex-wrap gap-0.5">
+						{Object.entries(caps).filter(([, v]) => v).map(([k]) => (
+							<span key={k} className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">
+								{ALL_CAPABILITIES[k]?.label ?? k}
+							</span>
+						))}
+					</span>
+				);
+			},
 		},
 		{
 			key: "time_limit",
@@ -216,10 +223,11 @@ export default function PracticesPage() {
 	];
 
 	return (
-		<div className="space-y-6">
+		<div className={embedded ? "" : "space-y-6"}>
+			{!embedded && (
 			<PageHeader
 				title="练习模板"
-				subtitle="管理练习模式、功能开关、时长限制等配置。创建作业时选择模板即可。"
+				subtitle="管理练习模式、时长限制等配置。创建作业时选择模板即可。"
 				actions={
 					<>
     <ExportButton endpoint="/admin/practices/export" filename="练习模板列表" />
@@ -230,6 +238,7 @@ export default function PracticesPage() {
 					</>
 				}
 			/>
+			)}
 
 			<DataTable<PracticeRow>
 				columns={columns}
@@ -360,35 +369,34 @@ export default function PracticesPage() {
 							<FormField
 								control={form.control}
 								name="features"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>功能开关</FormLabel>
-										<FormControl>
-											<div className="grid grid-cols-2 gap-1.5">
-												{FEATURE_OPTIONS.map((f) => (
-													<label
-														key={f.key}
-														className="flex items-center gap-1.5 text-sm py-0.5"
-													>
-														<input
-															type="checkbox"
-															className="size-4"
-															checked={field.value[f.key] ?? false}
-															onChange={(e) =>
-																field.onChange({
-																	...field.value,
-																	[f.key]: e.target.checked,
-																})
-															}
-														/>
-														{f.label}
-													</label>
-												))}
+								render={() => {
+									const selectedCaseId = form.watch("case_id");
+									const selectedCase = cases.find((c) => c.id === selectedCaseId);
+									const caps = selectedCase?.capabilities;
+									const enabledCaps = Object.entries(caps ?? {}).filter(([, v]) => v);
+									return (
+										<FormItem>
+											<FormLabel>训练能力（由病例自动配置）</FormLabel>
+											<div className="flex flex-wrap gap-1.5 py-1">
+												{enabledCaps.length === 0 ? (
+													<span className="text-xs text-muted-foreground">
+														{selectedCaseId ? "该病例暂未配置能力" : "请先选择病例"}
+													</span>
+												) : (
+													enabledCaps.map(([k]) => (
+														<span
+															key={k}
+															className="inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-xs text-primary"
+														>
+															{ALL_CAPABILITIES[k]?.label ?? k}
+														</span>
+													))
+												)}
 											</div>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
+											<FormMessage />
+										</FormItem>
+									);
+								}}
 							/>
 							<DialogFooter>
 								<Button

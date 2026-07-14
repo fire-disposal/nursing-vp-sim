@@ -151,10 +151,6 @@ class EmotionStateResponse(BaseModel):
     history: list[dict] = Field(default_factory=list)
 
 
-class FeatureConfigResponse(BaseModel):
-    id: str | None = None
-    features: dict[str, bool] = Field(default_factory=dict)
-
 
 class InitiativeStateResponse(BaseModel):
     elapsed_seconds: float
@@ -237,6 +233,4 @@ class ExamOperationResponse(BaseModel):
     all_results: list[ExamOperationResult] = []
 
 
-class FeaturesResponse(BaseModel):
-    ok: bool = True
-    features: dict[str, bool] = {}
+

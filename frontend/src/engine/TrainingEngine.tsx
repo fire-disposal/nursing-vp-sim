@@ -33,35 +33,13 @@ interface TrainingEngineProps {
 	children?: ReactNode;
 }
 
-function useFeatureToggles(initialFeatures: Record<string, boolean>) {
-	const [features, setFeatures] =
-		useState<Record<string, boolean>>(initialFeatures);
-
-	useEffect(() => {
-		setFeatures(initialFeatures);
-	}, [initialFeatures]);
-
-	const toggleFeature = useCallback((key: string, enabled: boolean) => {
-		setFeatures((prev) => {
-			const next = { ...prev, [key]: enabled };
-			if (!enabled && key === "emotion") {
-				next.patient_initiative = false;
-			}
-			return next;
-		});
-	}, []);
-
-	return { features, toggleFeature } as const;
-}
-
 function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	const {
 		patient,
 		trainingType,
 		loading,
 		error: patientError,
-		features: initialFeatures,
-		fromAssignment,
+		features,
 		initialMessages,
 		timeLimit,
 		remainingSeconds,
@@ -92,9 +70,6 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		provider: string;
 		latencyMs: number;
 	} | null>(null);
-
-	const { features, toggleFeature } =
-		useFeatureToggles(initialFeatures);
 
 	useEffect(() => {
 		if (initialMessages.length > 0 && !seededRef.current) {
@@ -278,12 +253,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			features,
 			ttsAutoPlay,
 			sending,
-			featuresLocked: !!fromAssignment,
-			fromAssignment: !!fromAssignment,
 			timeLimitMinutes: timeLimit,
 			remainingSeconds,
 			voiceStatus,
-			toggleFeature,
 			toggleTts: toggleTtsCb,
 			endTraining,
 		}),
@@ -295,11 +267,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			features,
 			ttsAutoPlay,
 			sending,
-			fromAssignment,
 			timeLimit,
 			remainingSeconds,
 			voiceStatus,
-			toggleFeature,
 			toggleTtsCb,
 			endTraining,
 		],
