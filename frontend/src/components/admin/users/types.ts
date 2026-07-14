@@ -11,6 +11,7 @@ export interface BatchUser {
 	role: string;
 	student_id: string | null;
 	class_id: number | null;
+	class_name?: string | null;
 }
 
 export interface UserFormValues {

@@ -71,8 +71,34 @@ class StudentDetailView:
 
 class UserService:
     def batch_create(self, users_data: list[dict]) -> dict:
+        from models.org import Grade
+
         if len(users_data) > BATCH_USER_LIMIT:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
+
+        # Resolve class_name → auto-create class under "默认" grade if needed
+        class_name_map: dict[str, int] = {}
+        for u in users_data:
+            cn = (u.get("class_name") or "").strip()
+            if cn and not u.get("class_id"):
+                if cn in class_name_map:
+                    u["class_id"] = class_name_map[cn]
+                else:
+                    existing = self.db.query(Class).filter(Class.name == cn).first()
+                    if existing:
+                        class_name_map[cn] = existing.id
+                        u["class_id"] = existing.id
+                    else:
+                        grade = self.db.query(Grade).filter(Grade.name == "默认").first()
+                        if not grade:
+                            grade = Grade(name="默认")
+                            self.db.add(grade)
+                            self.db.flush()
+                        cls = Class(name=cn, grade_id=grade.id)
+                        self.db.add(cls)
+                        self.db.flush()
+                        class_name_map[cn] = cls.id
+                        u["class_id"] = cls.id
 
         class_ids = {u.get("class_id") for u in users_data if u.get("class_id")}
         valid_class_ids = (

@@ -63,6 +63,7 @@ class BatchUserItem(BaseModel):
     role: str = Field(default="student", min_length=1, max_length=20)
     student_id: str | None = None
     class_id: int | None = None
+    class_name: str | None = None
 
 
 class RegisterResponse(BaseModel):

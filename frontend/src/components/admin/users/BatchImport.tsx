@@ -6,7 +6,7 @@ import { cn } from "@/utils/cn";
 import { btnPrimary, btnSecondary } from "@/utils/styles";
 import type { BatchUser, RoleOption } from "./types";
 
-const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "班级ID"];
+const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "班级名称"];
 const BOM = "\uFEFF";
 
 interface BatchImportProps {
@@ -54,25 +54,22 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
 			const parts = row.split(",").map((s) => s.trim());
 
-			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, classId: number | null = null;
+			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, className: string | null = null, classId: number | null = null;
 			if (isHeader) {
-				username = parts[firstParts.indexOf("用户名")] || "";
-				password = parts[firstParts.indexOf("密码")] || "";
-				displayName = parts[firstParts.indexOf("姓名")] || "";
-				role = parts[firstParts.indexOf("角色")] || "student";
-				studentId = parts[firstParts.indexOf("学号")] || null;
-				const raw = parts[firstParts.indexOf("班级ID")] || "";
-				classId = /^\d+$/.test(raw) ? Number(raw) : null;
-				if (raw && classId === null) { errors.push(`第${i+1}行: 班级ID "${raw}" 无效`); continue; }
+				const colIdx = (h: string) => firstParts.indexOf(h);
+				username = parts[colIdx("用户名")] || "";
+				password = parts[colIdx("密码")] || "";
+				displayName = parts[colIdx("姓名")] || "";
+				role = parts[colIdx("角色")] || "student";
+				studentId = parts[colIdx("学号")] || null;
+				className = parts[colIdx("班级名称")] || null;
 			} else {
 				username = parts[0] || "";
 				password = parts[1] || "";
 				displayName = parts[2] || "";
 				role = parts[3] || "student";
 				studentId = parts[4] || null;
-				const raw = parts[5] || "";
-				classId = /^\d+$/.test(raw) ? Number(raw) : null;
-				if (raw && classId === null) { errors.push(`第${i+1}行: 班级ID "${raw}" 无效`); continue; }
+				className = parts[5] || null;
 			}
 
 			const locator = isHeader ? `第${i+1}行` : `第${i+1}行(${username || "?"})`;
@@ -80,7 +77,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 			if (password.length < 6) { errors.push(`${locator}: 密码长度不能少于6位`); continue; }
 			if (role !== "student") { errors.push(`${locator}: 仅支持学生角色（当前: ${role}）`); continue; }
 
-			users.push({ username, password, display_name: displayName, role: "student", student_id: studentId, class_id: classId });
+			users.push({ username, password, display_name: displayName, role: "student", student_id: studentId, class_name: className, class_id: null });
 		}
 
 		if (errors.length > 0) {
@@ -115,8 +112,8 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
 	function handleDownloadTemplate() {
 		const csvContent = BOM + CSV_HEADERS.join(",") + "\n" +
-			"student01,123456,张同学,student,S2024001,1\n" +
-			"student02,myp@ss,李同学,student,S2024002,1\n";
+			"student01,123456,张同学,student,S2024001,护理1班\n" +
+			"student02,myp@ss,李同学,student,S2024002,护理1班\n";
 		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
@@ -136,7 +133,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 			<DialogContent title={<><Users size={20} /> 批量导入学生</>} maxWidth={650}>
 			<div className="text-xs text-muted-foreground mb-3">
 				支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
-				仅限创建<strong>学生</strong>角色账号，默认密码长度 ≥6 位。
+				仅限创建<strong>学生</strong>角色账号，班级名称不存在时自动创建。
 			</div>
 			<div className="mb-3">
 				<label className="font-semibold text-sm flex items-center gap-1.5 mb-2">
@@ -144,14 +141,14 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 				</label>
 				<textarea
 					rows={5}
-					placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,1`}
+					placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,护理1班`}
 					value={batchText}
 					onChange={(e) => { setBatchText(e.target.value); parseBatchText(e.target.value); }}
 					className="w-full font-mono text-sm p-2 border border-border rounded-lg focus-ring"
 					disabled={isImporting}
 				/>
 				<div className="text-xs text-muted-foreground mt-1">
-					列顺序：{CSV_HEADERS.join(" / ")}（班级ID 可选）
+					列顺序：{CSV_HEADERS.join(" / ")}（班级名称可选）
 				</div>
 			</div>
 			<div className="mb-3 flex items-center gap-3 flex-wrap">
@@ -192,7 +189,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 										<td className="px-3 py-2 border-b border-border">{u.display_name}</td>
 										<td className="px-3 py-2 border-b border-border"><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></td>
 										<td className="px-3 py-2 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>
-										<td className="px-3 py-2 border-b border-border text-muted-foreground">{u.class_id || "-"}</td>
+										<td className="px-3 py-2 border-b border-border text-muted-foreground">{u.class_name || u.class_id || "-"}</td>
 									</tr>
 								))}
 							</tbody>

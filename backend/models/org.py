@@ -19,7 +19,6 @@ class Grade(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
-    academic_year: Mapped[str | None] = mapped_column(String(9), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     classes: Mapped[list[Class]] = relationship(back_populates="grade", cascade="all, delete-orphan")
