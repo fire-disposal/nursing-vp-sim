@@ -78,19 +78,69 @@ def _build_frame(header: dict, payload: bytes = b"") -> bytes:
 
 async def _read_frame(ws: ClientConnection) -> ServerMessage:
     raw = await ws.recv()
+    if isinstance(raw, str):
+        return _parse_server_message(json.loads(raw), b"")
     if not isinstance(raw, bytes):
-        raise TypeError("TTS: expected binary frame, got text")
+        raise TypeError("TTS: expected text or binary frame")
     if len(raw) < 4:
         raise RuntimeError(f"TTS: frame too short ({len(raw)} bytes)")
-    header_len = HEADER_STRUCT.unpack(raw[:4])[0]
-    header_bytes = raw[4 : 4 + header_len]
-    payload = raw[4 + header_len :]
-    header = json.loads(header_bytes.decode())
-    msg_type = MsgType(header.get("type", 0))
-    event = ServerEvent(header.get("event", 0)) if "event" in header else None
+    header_len_raw = HEADER_STRUCT.unpack(raw[:4])[0]
+    # The header length may or may not include the 4-byte prefix.
+    # Try excluding it first, then including.
+    for offset in (0, 4):
+        hl = header_len_raw - offset
+        if hl <= 0 or hl > len(raw) - 4:
+            continue
+        try:
+            header_bytes = raw[4 : 4 + hl]
+            header = json.loads(header_bytes.decode())
+            payload = raw[4 + hl :]
+            return _parse_server_message(header, payload)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+    raise RuntimeError(f"TTS: cannot decode binary frame header (header_len={header_len_raw}, total={len(raw)})")
+
+
+def _parse_server_message(header: dict, payload: bytes) -> ServerMessage:
+    msg_type = _parse_msg_type(header.get("type"))
+    event = _parse_server_event(header.get("event"))
     if msg_type == MsgType.AudioOnlyServer:
         return ServerMessage(type=msg_type, event=event, payload=payload)
     return ServerMessage(type=msg_type, event=event, payload=header.get("payload"))
+
+
+def _parse_msg_type(raw: str | int | None) -> MsgType:
+    if raw is None:
+        return MsgType.FullServerResponse
+    if isinstance(raw, str):
+        return {"FullServerResponse": MsgType.FullServerResponse, "AudioOnlyServer": MsgType.AudioOnlyServer}.get(raw, MsgType.FullServerResponse)
+    return MsgType(raw)
+
+
+_EVENT_MAP: dict[str, ServerEvent] = {
+    "ConnectionStarted": ServerEvent.ConnectionStarted,
+    "SessionStarted": ServerEvent.SessionStarted,
+    "TTSSentenceStart": ServerEvent.TTSSentenceStart,
+    "TTSResponse": ServerEvent.TTSResponse,
+    "TTSSentenceEnd": ServerEvent.TTSSentenceEnd,
+    "TTSSubtitle": ServerEvent.TTSSubtitle,
+    "SessionFinished": ServerEvent.SessionFinished,
+    "ConnectionFinished": ServerEvent.ConnectionFinished,
+    "SessionCanceled": ServerEvent.SessionCanceled,
+    "ConnectionFailed": ServerEvent.ConnectionFailed,
+    "SessionFailed": ServerEvent.SessionFailed,
+}
+
+
+def _parse_server_event(raw: str | int | None) -> ServerEvent | None:
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        return _EVENT_MAP.get(raw)
+    try:
+        return ServerEvent(raw)
+    except ValueError:
+        return None
 
 
 class VolcBidirectionalTTSClient:

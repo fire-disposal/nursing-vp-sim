@@ -114,6 +114,10 @@ export default function VoiceTokenCard() {
 
 	// 页面加载后自动检测 TTS 服务状态
 	useEffect(() => {
+		checkStatus();
+	}, [config?.id]);
+
+	const checkStatus = () => {
 		if (!config) return;
 		setCheckingStatus(true);
 		testTTS().then((r) => {
@@ -121,7 +125,7 @@ export default function VoiceTokenCard() {
 		}).catch(() => {
 			setTtsOnline(false);
 		}).finally(() => setCheckingStatus(false));
-	}, [config?.id]);
+	};
 
 	const setField = (patch: Partial<typeof form>) =>
 		setForm((f) => ({ ...f, ...patch }));
@@ -206,6 +210,9 @@ export default function VoiceTokenCard() {
 							</span>
 						)
 					) : null}
+					<Button variant="ghost" size="sm" onClick={checkStatus} disabled={checkingStatus} className="h-6 px-1.5 text-[10px]">
+						{checkingStatus ? <Loader2 size={12} className="animate-spin" /> : "验证"}
+					</Button>
 				</CardTitle>
 				<Button variant="outline" size="sm" onClick={handleExport}>
 					<Download className="size-3.5" />
