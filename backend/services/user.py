@@ -107,8 +107,8 @@ class UserService:
                 skipped += 1
                 continue
             role_name = u.get("role", "")
-            if role_name not in ("student", "teacher"):
-                errors.append(f"第{i}行跳过 {username}: 仅支持创建 student/teacher 角色")
+            if role_name != "student":
+                errors.append(f"第{i}行跳过 {username}: 批量导入仅支持学生角色")
                 skipped += 1
                 continue
             role_obj = self.db.query(Role).filter(Role.name == role_name).first()
