@@ -31,6 +31,7 @@ export class TTSManager {
 	private currentEmotion: EmotionState = "neutral";
 	private unsubs: Array<() => void> = [];
 	private _currentAudio: HTMLAudioElement | null = null;
+	private _speaking = false;
 
 	constructor(config?: TTSManagerConfig) {
 		this.emotionProvider = new VolcTTSProvider();
@@ -40,7 +41,7 @@ export class TTSManager {
 	}
 
 	get speaking(): boolean {
-		return this.fallbackProvider.speaking;
+		return this._speaking;
 	}
 
 	get isAutoPlay(): boolean {
@@ -59,7 +60,7 @@ export class TTSManager {
 		this.bus = bus;
 
 		const unsubDone = bus.on("stream:done", (text?: string) => {
-			if (!this.autoPlay || this.fallbackProvider.speaking) return;
+			if (!this.autoPlay || this._speaking) return;
 			if (text) {
 				this._pendingText = text;
 			}
@@ -84,19 +85,25 @@ export class TTSManager {
 	private _pendingText: string | null = null;
 
 	private async speakNext(): Promise<void> {
+		if (this._speaking) return;
 		const raw = this._pendingText ?? "";
 		this._pendingText = null;
 		if (!raw) return;
 		const text = cleanTTSText(raw).slice(0, MAX_TTS_LENGTH);
 		if (!text) return;
-		if (text.length > 50) {
-			const [first, rest] = splitFirstSentence(text);
-			await this.speak(first);
-			if (rest) {
-				await this.speak(rest);
+		this._speaking = true;
+		try {
+			if (text.length > 50) {
+				const [first, rest] = splitFirstSentence(text);
+				await this.speak(first);
+				if (rest) {
+					await this.speak(rest);
+				}
+			} else {
+				await this.speak(text);
 			}
-		} else {
-			await this.speak(text);
+		} finally {
+			this._speaking = false;
 		}
 	}
 
@@ -128,6 +135,7 @@ export class TTSManager {
 	}
 
 	stop(): void {
+		this._pendingText = null;
 		this.fallbackProvider.stop();
 		this.emotionProvider.cancel();
 		this._currentAudio?.pause();
