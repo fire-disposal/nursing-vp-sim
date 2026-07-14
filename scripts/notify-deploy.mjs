@@ -38,9 +38,7 @@ if (commitsRaw) {
 
 const markdown = `## ${title}
 > ${ts}
-> [${url}](${url})${commitsBlock}
----
-> Nursing VP Sim`;
+> [${url}](${url})${commitsBlock}`;
 
 const payload = {
   msgtype: "markdown",
