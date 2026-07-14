@@ -18,6 +18,7 @@ class CaseBrief(BaseModel):
     patient_summary: dict[str, Any] | None = None
     profile_info: dict[str, Any] = Field(default_factory=dict)
     capabilities: dict[str, bool] = Field(default_factory=dict)
+    is_active: bool = False
 
 
 class CaseDetail(BaseModel):
@@ -26,11 +27,13 @@ class CaseDetail(BaseModel):
     name: str
     description: str | None = None
     case_data: dict[str, Any]
+    is_active: bool = False
 
 
 class CaseCreateRequest(BaseModel):
     model_config = _REQ_CFG
     case_data: dict[str, Any]
+    is_active: bool = False
 
     @field_validator("case_data")
     @classmethod
@@ -42,6 +45,7 @@ class CaseCreateRequest(BaseModel):
 class CaseUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     case_data: dict[str, Any]
+    is_active: bool | None = None
 
     @field_validator("case_data")
     @classmethod
@@ -70,6 +74,7 @@ class CaseManageItem(BaseModel):
     patient_personality: str = ""
     created_at: datetime
     training_count: int = 0
+    is_active: bool = False
 
 
 class CaseGenerateRequest(BaseModel):

@@ -1,4 +1,4 @@
-import { ClipboardList, Edit3, Plus, Trash2, Wand2 } from "lucide-react";
+import { ClipboardList, Edit3, Eye, EyeOff, Plus, Trash2, Wand2 } from "lucide-react";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -22,6 +22,7 @@ interface CaseListProps {
 	onAIAdd: () => void;
 	onEdit: (c: CaseManageItem) => void;
 	onDelete: (c: CaseManageItem) => void;
+	onToggleActive: (c: CaseManageItem) => void;
 }
 
 export default function CaseList({
@@ -38,6 +39,7 @@ export default function CaseList({
 	onAIAdd,
 	onEdit,
 	onDelete,
+	onToggleActive,
 }: CaseListProps) {
 	const columns: DataTableColumn<CaseManageItem>[] = [
 		{
@@ -109,6 +111,15 @@ export default function CaseList({
 						title="编辑"
 					>
 						<Edit3 size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant={c.is_active ? "default" : "outline"}
+						onClick={() => onToggleActive(c)}
+						title={c.is_active ? "隐藏（学生不可见）" : "发布（学生可见）"}
+						className={c.is_active ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" : "text-muted-foreground"}
+					>
+						{c.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
 					</Button>
 					<Button
 						size="sm"

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import (
+    Boolean,
     ForeignKey,
     Index,
     Integer,
@@ -33,6 +34,7 @@ class Case(Base, TimestampMixin):
     training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
     difficulty: Mapped[int] = mapped_column(Integer, default=1)
     time_limit_minutes: Mapped[int] = mapped_column(Integer, default=20)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), index=True)
     case_data: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     practices: Mapped[list[Practice]] = relationship(back_populates="case")

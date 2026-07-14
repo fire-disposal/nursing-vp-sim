@@ -19,6 +19,7 @@ class CaseRepository(Repository[Case]):
         name: str | None = None,
     ) -> tuple[list[Case], int]:
         q = self.db.query(Case).order_by(Case.id)
+        q = q.filter(Case.is_active == True)
         if training_type:
             q = q.filter(Case.training_type == training_type)
         if difficulty is not None:

@@ -23,6 +23,11 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
   "communication_style": "沟通风格描述（友善自然/紧张焦虑/含糊其辞+细节）",
   "hidden_info": ["隐藏信息列表（患者不会主动透露但学生应通过问诊发现的线索）"],
   "required_inquiries": ["必须采集到的关键内容"],
+  "capabilities": {
+    "patient_initiative": true,
+    "physical_exam": true,
+    "nursing_record": false
+  },
   "rubric_ref": "active",
   "personality": {
     "health_literacy": "normal",
@@ -52,6 +57,8 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
 ```
 
 ## 字段说明
+- **capabilities**：能力开关，控制训练中默认启用的场景功能。patient_initiative（患者主动追问是否启用）、physical_exam（护理查体场景是否启用）、nursing_record（护理评估记录是否启用）。根据病情需要合理设置，例如疼痛病例需启用physical_exam
+
 - **personality**：四维度控制患者 AI 的角色扮演行为。health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）
 - **deep_background**：患者不便主动告知但影响诊疗的深层背景。3-6 条，每条一句话
 - **exam_anchors**：护理查体时的预期发现。使用固定值（如 `"temperature": "36.8"`），系统会在显示时做微小随机偏移

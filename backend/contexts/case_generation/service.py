@@ -51,7 +51,25 @@ def _build_field_instruction(data: CaseGenerateRequest) -> str:
     if data.current_case_data:
         inst += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
     return inst
+def _infer_capabilities(case_data: dict, training_type: str) -> dict[str, bool]:
+    """根据主诉/现病史中的关键词自动推断应启用的能力开关。"""
+    caps: dict[str, bool] = {}
+    chief = (case_data.get("chief_complaint", "") or "").lower()
+    present = (case_data.get("present_illness", "") or "").lower()
+    text = f"{chief} {present}"
 
+    # patient_initiative: 所有 history_taking 类型为 true
+    caps["patient_initiative"] = training_type == "history_taking"
+
+    # physical_exam: 主诉/现病史含疼痛、外伤、胸闷、发热等关键词时 true
+    exam_keywords = ["疼痛", "外伤", "胸闷", "发热", "肿痛", "呼吸困难", "咳", "烧心", "心悸", "头晕", "呕吐", "腹泻"]
+    caps["physical_exam"] = any(kw in text for kw in exam_keywords)
+
+    # nursing_record: 主诉/现病史含护理、评估等关键词且为 history_taking 时 true
+    record_keywords = ["护理", "评估", "压疮", "跌倒", "疼痛评分", "排便", "排尿", "饮食", "活动"]
+    caps["nursing_record"] = any(kw in text for kw in record_keywords) and training_type == "history_taking"
+
+    return caps
 
 _TRAINING_TYPE_LABELS: dict[str, str] = {
     "history_taking": "护理病史采集",
@@ -119,6 +137,10 @@ async def generate_case(
     if data.field:
         field_value = result.get("field_value") or result.get(data.field)
         return CaseGenerateResponse(field_value=field_value, field=data.field)
+
+    # 如果 LLM 没有输出 capabilities，自动根据主诉/现病史推断
+    if not result.get("capabilities"):
+        result["capabilities"] = _infer_capabilities(result, data.training_type)
 
     try:
         result = validate_case_data(data.training_type, result, strict=True)

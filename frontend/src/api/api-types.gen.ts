@@ -2529,6 +2529,11 @@ export interface components {
             capabilities?: {
                 [key: string]: boolean;
             };
+            /**
+             * Is Active
+             * @default false
+             */
+            is_active: boolean;
         };
         /** CaseCreateRequest */
         CaseCreateRequest: {
@@ -2536,6 +2541,11 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
+            /**
+             * Is Active
+             * @default false
+             */
+            is_active?: boolean;
         };
         /** CaseDetail */
         CaseDetail: {
@@ -2549,6 +2559,11 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
+            /**
+             * Is Active
+             * @default false
+             */
+            is_active: boolean;
         };
         /** CaseGenerateRequest */
         CaseGenerateRequest: {
@@ -2641,6 +2656,11 @@ export interface components {
              * @default 0
              */
             training_count: number;
+            /**
+             * Is Active
+             * @default false
+             */
+            is_active: boolean;
         };
         /** CaseUpdateRequest */
         CaseUpdateRequest: {
@@ -2648,6 +2668,8 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {

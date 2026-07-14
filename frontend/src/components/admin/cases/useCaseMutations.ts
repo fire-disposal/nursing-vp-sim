@@ -80,3 +80,27 @@ export function useGenerateCase() {
 			generateCase(data),
 	});
 }
+
+export function useToggleActive() {
+	const queryClient = useQueryClient();
+	const toast = useToast();
+
+	return useMutation({
+		mutationFn: async (c: CaseManageItem) => {
+			// Fetch current case detail to get full case_data
+			const { getCaseDetail } = await import("@/api");
+			const detail = await getCaseDetail(c.id);
+			return updateCase(c.id, {
+				case_data: detail.data.case_data,
+				is_active: !c.is_active,
+			});
+		},
+		onSuccess: () => {
+			toast.success("病例发布状态已更新");
+			queryClient.invalidateQueries({ queryKey: queryKeys.cases.managed.all });
+		},
+		onError: (err: unknown) => {
+			toast.apiError(err, "更新失败");
+		},
+	});
+}

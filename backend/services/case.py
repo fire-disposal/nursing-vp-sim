@@ -47,6 +47,7 @@ class CaseManageView:
     patient_personality: str
     created_at: datetime
     training_count: int
+    is_active: bool = False
 
 
 class CaseService:
@@ -72,6 +73,7 @@ class CaseService:
             patient_personality=_personality_label(personality),
             created_at=case.created_at,
             training_count=training_count,
+            is_active=case.is_active,
         )
 
     def list_brief(
@@ -104,7 +106,7 @@ class CaseService:
     def get(self, case_id: int) -> Case:
         return self.repo.get_or_404(case_id, "病例不存在")
 
-    def create(self, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
+    def create(self, case_data: dict, user_id: int, user_role: str, *, is_active: bool = False) -> CaseManageView:
         training_type = case_data.get("training_type", "history_taking")
         cd = validate_case_data(training_type, case_data, strict=True)
         case = Case(
@@ -114,6 +116,7 @@ class CaseService:
             training_type=training_type,
             difficulty=cd.get("difficulty", 1),
             time_limit_minutes=cd.get("time_limit", 20),
+            is_active=is_active,
         )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
             self.repo.add(case)
@@ -123,7 +126,7 @@ class CaseService:
         )
         return self._manage_view(case, 0)
 
-    def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
+    def update(self, case_id: int, case_data: dict, user_id: int, user_role: str, *, is_active: bool | None = None) -> CaseManageView:
         case = self.repo.get_or_404(case_id, "病例不存在")
         training_type = case_data.get("training_type", "history_taking")
         cd = validate_case_data(training_type, case_data, strict=True)
@@ -133,6 +136,8 @@ class CaseService:
         case.training_type = training_type
         case.difficulty = cd.get("difficulty", 1)
         case.time_limit_minutes = cd.get("time_limit", 20)
+        if is_active is not None:
+            case.is_active = is_active
         with unit_of_work(self.db, conflict_detail="病例更新冲突"):
             self.db.flush()
         log.info(

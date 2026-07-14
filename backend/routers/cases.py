@@ -49,6 +49,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         profile_info=profile_info,
         capabilities=c.case_data.get("capabilities", {}) if c.case_data else {},
+        is_active=c.is_active,
     )
 
 
@@ -67,6 +68,7 @@ def _to_manage_item(v: CaseManageView) -> CaseManageItem:
         patient_personality=v.patient_personality,
         created_at=v.created_at,
         training_count=v.training_count,
+        is_active=v.is_active,
     )
 
 
@@ -163,7 +165,7 @@ def create_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.create(req.case_data, current_user.id, current_user.role.name if current_user.role else "")
+        view = svc.create(req.case_data, current_user.id, current_user.role.name if current_user.role else "", is_active=req.is_active)
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)
@@ -178,7 +180,7 @@ def update_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.update(case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else "")
+        view = svc.update(case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else "", is_active=req.is_active)
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)

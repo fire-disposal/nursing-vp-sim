@@ -7,7 +7,7 @@ import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import CaseFormModal from "./cases/CaseForm";
 import CaseList from "./cases/CaseList";
 import type { CaseManageItem } from "./cases/types";
-import { useDeleteCase, useDeleteCaseConfirm } from "./cases/useCaseMutations";
+import { useDeleteCase, useDeleteCaseConfirm, useToggleActive } from "./cases/useCaseMutations";
 
 const LIMIT = 50;
 
@@ -77,6 +77,11 @@ export default function CasesTab() {
 		deleteMutation.mutate(c.id);
 	};
 
+	const toggleMutation = useToggleActive();
+	const handleToggleActive = (c: CaseManageItem) => {
+		toggleMutation.mutate(c);
+	};
+
 	const handleFilterChange = (newFilters: {
 		name: string;
 		difficulty: string;
@@ -102,6 +107,7 @@ export default function CasesTab() {
 				onAIAdd={handleAIAdd}
 				onEdit={handleEdit}
 				onDelete={handleDelete}
+				onToggleActive={handleToggleActive}
 			/>
 			<CaseFormModal
 				open={showEditor}
