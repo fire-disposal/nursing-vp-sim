@@ -96,15 +96,24 @@ jobs:
           echo ">> version: $CLEAN"
 
       - name: Write change summary
+        id: change_summary
         run: |
           VER="${{ steps.version.outputs.value }}"
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
           PROD_VER=""
+          COMMITS=""
           if [ -n "$HOST" ] && [ -n "$USER" ]; then
             ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
             PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
           fi
+          echo "previous=$PROD_VER" >> "$GITHUB_OUTPUT"
+          if [ -n "$PROD_VER" ]; then
+            COMMITS=$(git log "v$PROD_VER..v$VER" --oneline --no-merges 2>/dev/null || echo "")
+          fi
+          echo "commits<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMITS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           {
             echo "# Production Deploy v$VER"
             echo ""
@@ -217,19 +226,15 @@ jobs:
           DEPLOY
 
       - name: Notify DingTalk
-        if: vars.DINGTALK_WEBHOOK != ''
+        if: secrets.DINGTALK_WEBHOOK != ''
         env:
-          DINGTALK_WEBHOOK: ${{ vars.DINGTALK_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DEPLOY_VERSION: ${{ steps.version.outputs.value }}
           DEPLOY_ENV: production
           DEPLOY_URL: https://iomt.205716.xyz
-          PREV_VERSION: ${{ steps.version.outputs.previous }}
-        run: |
-          if [ -z "$PREV_VERSION" ]; then
-            PREV_VERSION=$(ssh "$SSH_USER@$SSH_HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
-            echo "PREV_VERSION=$PREV_VERSION" >> "$GITHUB_ENV"
-          fi
-          node scripts/notify-deploy.mjs 2>&1 || echo "⚠ dingtalk notify failed (non-blocking)"
+          PREV_VERSION: ${{ steps.change_summary.outputs.previous }}
+          COMMITS: ${{ steps.change_summary.outputs.commits }}
+        run: node scripts/notify-deploy.mjs 2>&1 || echo "⚠ dingtalk notify failed (non-blocking)"
 
       - name: "✅ Production"
         run: echo "v${{ steps.version.outputs.value }} → iomt.205716.xyz 🚀"

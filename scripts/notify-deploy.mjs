@@ -8,11 +8,7 @@
  *   DEPLOY_ENV        环境标识（staging | production）
  *   DEPLOY_URL        访问 URL
  *   PREV_VERSION      上一个版本号（可选）
- *
- * 使用示例：
- *   DINGTALK_WEBHOOK="https://oapi.dingtalk.com/robot/send?access_token=xxx" \
- *   DEPLOY_VERSION="2026.07.14-1" DEPLOY_ENV="staging" \
- *   DEPLOY_URL="https://test.205716.xyz" node scripts/notify-deploy.mjs
+ *   COMMITS           最近提交列表（可选，每行一个 --oneline 格式）
  */
 
 const webhook = process.env.DINGTALK_WEBHOOK;
@@ -25,26 +21,35 @@ const version = process.env.DEPLOY_VERSION || "unknown";
 const env = process.env.DEPLOY_ENV || "unknown";
 const url = process.env.DEPLOY_URL || "";
 const prev = process.env.PREV_VERSION || "";
-const prevInfo = prev ? `\n> 上一版本：${prev}` : "";
+const commitsRaw = process.env.COMMITS || "";
 
 const envLabel = env === "production" ? "🚀 正式服" : "🧪 测试服";
 const title = `${envLabel} 部署成功`;
 
-const now = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+const pad = (n) => String(n).padStart(2, "0");
+const now = new Date();
+const bj = new Date(now.getTime() + 8 * 3600 * 1000);
+const ts = `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}:${pad(bj.getUTCSeconds())} CST`;
 
-const markdown = `## ${title}
-> 版本：**v${version}**
-> 时间：${now}
-> 地址：[${url}](${url})${prevInfo}
+const prevLine = prev ? `\n> 上一版本：**${prev}**` : "";
+
+let commitsBlock = "";
+if (commitsRaw) {
+  const lines = commitsRaw.trim().split("\n").filter(Boolean).slice(0, 5);
+  if (lines.length > 0) {
+    commitsBlock = "\n\n**最近提交**\n" + lines.map((l) => `> ${l}`).join("\n");
+  }
+}
+
+const markdown = `## ${title} v${version}
+> 时间：${ts}
+> 地址：[${url}](${url})${prevLine}${commitsBlock}
 ---
 > Nursing VP Sim 护理虚拟患者系统`;
 
 const payload = {
   msgtype: "markdown",
-  markdown: {
-    title: title,
-    text: markdown,
-  },
+  markdown: { title, text: markdown },
 };
 
 try {
