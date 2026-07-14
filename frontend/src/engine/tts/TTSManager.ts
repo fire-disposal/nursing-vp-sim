@@ -4,6 +4,18 @@ import { createBrowserTTS } from "./browser-tts";
 import type { TTSManagerConfig, TTSProvider } from "./types";
 import { VolcTTSProvider } from "./VolcTTSProvider";
 
+const MAX_TTS_LENGTH = 500;
+
+function cleanTTSText(text: string): string {
+	return text
+		.replace(/\*\*(.+?)\*\*/g, "$1")
+		.replace(/\*(.+?)\*/g, "$1")
+		.replace(/\[.*?\]/g, "")
+		.replace(/\n{2,}/g, "。")
+		.replace(/\n/g, "")
+		.trim();
+}
+
 function splitFirstSentence(text: string): [string, string] {
 	const m = text.match(/^(.+?[。！？!?])/);
 	if (!m || m[1].length >= text.length) return [text, ""];
@@ -72,14 +84,16 @@ export class TTSManager {
 	private _pendingText: string | null = null;
 
 	private async speakNext(): Promise<void> {
-		const text = this._pendingText ?? this.extractLastPatientMessage();
+		const raw = this._pendingText ?? "";
 		this._pendingText = null;
+		if (!raw) return;
+		const text = cleanTTSText(raw).slice(0, MAX_TTS_LENGTH);
 		if (!text) return;
 		if (text.length > 50) {
 			const [first, rest] = splitFirstSentence(text);
 			await this.speak(first);
 			if (rest) {
-				setTimeout(() => void this.speak(rest), 0);
+				await this.speak(rest);
 			}
 		} else {
 			await this.speak(text);
@@ -153,16 +167,5 @@ export class TTSManager {
 		} finally {
 			if (this._currentAudio === audio) this._currentAudio = null;
 		}
-	}
-
-	private extractLastPatientMessage(): string {
-		const elements = document.querySelectorAll('[data-role="patient"]');
-		const last = elements[elements.length - 1] as HTMLElement | undefined;
-		if (!last) return "";
-		const clone = last.cloneNode(true) as HTMLElement;
-		clone.querySelectorAll("[data-badge]").forEach((n) => {
-			n.remove();
-		});
-		return (clone.textContent ?? "").replace(/\[.*?\]/g, "").trim();
 	}
 }
