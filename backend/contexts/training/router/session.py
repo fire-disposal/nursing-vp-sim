@@ -214,8 +214,10 @@ def _create_record(
         }
     }
 
-    features = resolve_features(record.practice_snapshot, case_defaults=case_data.get("capabilities"))
-    record.practice_snapshot["features"] = features
+    snapshot = record.practice_snapshot or {}
+    features = resolve_features(snapshot, case_defaults=case_data.get("capabilities"))
+    snapshot["features"] = features
+    record.practice_snapshot = snapshot
     if app_state is not None and features.get("patient_initiative"):
         from profiles.history_taking.initiative import update_initiative_timer
 

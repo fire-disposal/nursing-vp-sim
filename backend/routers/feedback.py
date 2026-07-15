@@ -39,7 +39,9 @@ def my_feedback(
     items, total = FeedbackService(db).list_my(current_user.id, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[_to_item(r) for r in items],
-        total=total, offset=offset, limit=limit,
+        total=total,
+        offset=offset,
+        limit=limit,
     )
 
 
@@ -58,7 +60,9 @@ def admin_list_feedback(
     )
     return PaginatedResponse(
         items=[_to_item(r) for r in items],
-        total=total, offset=offset, limit=limit,
+        total=total,
+        offset=offset,
+        limit=limit,
     )
 
 
@@ -106,20 +110,30 @@ def feedback_stats(
 
 def _to_item(r) -> FeedbackItem:
     return FeedbackItem(
-        id=r.id, user_id=r.user_id, user_name=r.user_name,
-        rating=r.rating, tag=r.tag, content=r.content,
+        id=r.id,
+        user_id=r.user_id,
+        user_name=r.user_name,
+        rating=r.rating,
+        tag=r.tag,
+        content=r.content,
         version=getattr(r, "version", ""),
-        developer_reply=r.developer_reply, replied_at=r.replied_at,
+        developer_reply=r.developer_reply,
+        replied_at=r.replied_at,
         created_at=r.created_at,
     )
 
 
 def _to_item_from_model(fb: Feedback) -> FeedbackItem:
     return FeedbackItem(
-        id=fb.id, user_id=fb.user_id, user_name="",
-        rating=fb.rating, tag=fb.tag, content=fb.content,
+        id=fb.id,
+        user_id=fb.user_id,
+        user_name="",
+        rating=fb.rating,
+        tag=fb.tag,
+        content=fb.content,
         version=fb.version,
-        developer_reply=fb.developer_reply, replied_at=fb.replied_at,
+        developer_reply=fb.developer_reply,
+        replied_at=fb.replied_at,
         created_at=fb.created_at,
     )
 
@@ -169,15 +183,22 @@ def bot_list_feedback(
     return {
         "items": [
             {
-                "id": f.id, "rating": f.rating, "tag": f.tag, "content": f.content,
+                "id": f.id,
+                "rating": f.rating,
+                "tag": f.tag,
+                "content": f.content,
                 "version": f.version,
-                "developer_reply": f.developer_reply, "replied_at": f.replied_at.isoformat() if f.replied_at else None,
-                "auto_fix_attempted": f.auto_fix_attempted, "auto_fix_at": f.auto_fix_at.isoformat() if f.auto_fix_at else None,
+                "developer_reply": f.developer_reply,
+                "replied_at": f.replied_at.isoformat() if f.replied_at else None,
+                "auto_fix_attempted": f.auto_fix_attempted,
+                "auto_fix_at": f.auto_fix_at.isoformat() if f.auto_fix_at else None,
                 "created_at": f.created_at.isoformat(),
             }
             for f in items
         ],
-        "total": total, "offset": offset, "limit": limit,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
     }
 
 
@@ -194,6 +215,7 @@ def bot_mark_fix_attempted(
     if not fb:
         raise HTTPException(status_code=404, detail="not found")
     fb.auto_fix_attempted = True
-    fb.auto_fix_at = datetime.now(UTC)
+    now = datetime.now(UTC)
+    fb.auto_fix_at = now
     db.commit()
-    return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": fb.auto_fix_at.isoformat()}
+    return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": now.isoformat()}
