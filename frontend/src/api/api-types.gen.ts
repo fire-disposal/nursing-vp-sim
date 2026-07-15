@@ -246,6 +246,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{case_id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Toggle Case Open */
+        put: operations["toggle_case_open_api_cases__case_id__open_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/export": {
         parameters: {
             query?: never;
@@ -280,6 +297,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/my-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Feedback */
+        get: operations["my_feedback_api_my_feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/feedback": {
         parameters: {
             query?: never;
@@ -290,6 +324,23 @@ export interface paths {
         /** Admin List Feedback */
         get: operations["admin_list_feedback_api_admin_feedback_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/{feedback_id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reply Feedback */
+        put: operations["reply_feedback_api_admin_feedback__feedback_id__reply_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -329,6 +380,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/feedback/bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bot List Feedback */
+        get: operations["bot_list_feedback_api_feedback_bot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/feedback/bot/{feedback_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Bot Mark Fix Attempted */
+        patch: operations["bot_mark_fix_attempted_api_feedback_bot__feedback_id__patch"];
         trace?: never;
     };
     "/api/notes": {
@@ -937,6 +1022,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/bulk-assign-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Assign Class */
+        post: operations["bulk_assign_class_api_admin_users_bulk_assign_class_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/stats": {
         parameters: {
             query?: never;
@@ -1016,6 +1118,23 @@ export interface paths {
         };
         /** Get Cost Dashboard */
         get: operations["get_cost_dashboard_api_admin_costs_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Cost Breakdown */
+        get: operations["get_user_cost_breakdown_api_admin_costs_users_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1324,23 +1443,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/reload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reload Router */
-        post: operations["reload_router_api_admin_reload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/health": {
         parameters: {
             query?: never;
@@ -1386,6 +1488,23 @@ export interface paths {
         put?: never;
         /** Test Env Fallback */
         post: operations["test_env_fallback_api_admin_fallback_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reload Router */
+        post: operations["reload_router_api_admin_reload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1438,6 +1557,23 @@ export interface paths {
         put?: never;
         /** Test Asr */
         post: operations["test_asr_api_admin_voice_config_test_asr_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/config/test-synthesize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Synthesize */
+        post: operations["test_synthesize_api_admin_voice_config_test_synthesize_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2478,6 +2614,24 @@ export interface components {
             student_id?: string | null;
             /** Class Id */
             class_id?: number | null;
+            /** Class Name */
+            class_name?: string | null;
+        };
+        /** BulkAssignClassRequest */
+        BulkAssignClassRequest: {
+            /** User Ids */
+            user_ids: number[];
+            /** Class Id */
+            class_id: number;
+        };
+        /** BulkAssignClassResult */
+        BulkAssignClassResult: {
+            /** Assigned */
+            assigned: number;
+            /** Skipped */
+            skipped: number;
+            /** Errors */
+            errors: string[];
         };
         /** CaseAssignmentRequest */
         CaseAssignmentRequest: {
@@ -2517,6 +2671,11 @@ export interface components {
              * @default 20
              */
             time_limit_minutes: number;
+            /**
+             * Is Open
+             * @default false
+             */
+            is_open: boolean;
             /** Patient Summary */
             patient_summary?: {
                 [key: string]: unknown;
@@ -2631,6 +2790,11 @@ export interface components {
              * @default
              */
             patient_personality: string;
+            /**
+             * Is Open
+             * @default false
+             */
+            is_open: boolean;
             /**
              * Created At
              * Format: date-time
@@ -2934,16 +3098,36 @@ export interface components {
             /** Content */
             content?: string | null;
             /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Developer Reply */
+            developer_reply?: string | null;
+            /** Replied At */
+            replied_at?: string | null;
+            /**
              * Created At
              * Format: date-time
              */
             created_at: string;
         };
+        /** FeedbackReplyRequest */
+        FeedbackReplyRequest: {
+            /** Reply */
+            reply: string;
+        };
         /** FeedbackSubmit */
         FeedbackSubmit: {
-            /** Rating */
+            /**
+             * Rating
+             * @default 3
+             */
             rating: number;
-            /** Tag */
+            /**
+             * Tag
+             * @default
+             */
             tag: string;
             /** Content */
             content?: string | null;
@@ -4834,6 +5018,10 @@ export interface components {
             monthly_budget: number;
             /** Is Active */
             is_active: boolean;
+            /** Speaker Library */
+            speaker_library?: {
+                [key: string]: string;
+            } | null;
             /** Created At */
             created_at: string;
             /** Updated At */
@@ -4903,6 +5091,10 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /** Speaker Library */
+            speaker_library?: {
+                [key: string]: string;
+            } | null;
         };
         /** VoiceStatusResponse */
         VoiceStatusResponse: {
@@ -5370,6 +5562,8 @@ export interface operations {
                 difficulty?: number | null;
                 /** @description 训练类型 history_taking/triage */
                 training_type?: string | null;
+                /** @description 是否向学生开放 */
+                is_open?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -5558,6 +5752,40 @@ export interface operations {
             };
         };
     };
+    toggle_case_open_api_cases__case_id__open_put: {
+        parameters: {
+            query: {
+                /** @description 是否向学生开放 */
+                open: boolean;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseManageItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_cases_api_cases_export_post: {
         parameters: {
             query?: {
@@ -5622,6 +5850,38 @@ export interface operations {
             };
         };
     };
+    my_feedback_api_my_feedback_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_FeedbackItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_list_feedback_api_admin_feedback_get: {
         parameters: {
             query?: {
@@ -5644,6 +5904,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_FeedbackItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reply_feedback_api_admin_feedback__feedback_id__reply_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feedback_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackItem"];
                 };
             };
             /** @description Validation Error */
@@ -5707,6 +6002,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackDailyItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bot_list_feedback_api_feedback_bot_get: {
+        parameters: {
+            query: {
+                token: string;
+                /** @description ISO datetime, e.g. 2026-07-01T00:00:00 */
+                since?: string | null;
+                /** @description Exact version, e.g. 2026.07.14-10 */
+                version?: string | null;
+                /** @description Filter by tag: bug/feature/experience/content/ui/other */
+                tag?: string | null;
+                include_fixed?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bot_mark_fix_attempted_api_feedback_bot__feedback_id__patch: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path: {
+                feedback_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -7175,6 +7543,39 @@ export interface operations {
             };
         };
     };
+    bulk_assign_class_api_admin_users_bulk_assign_class_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAssignClassRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkAssignClassResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_stats_api_admin_stats_get: {
         parameters: {
             query?: never;
@@ -7361,6 +7762,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CostDashboardResponse"];
+                };
+            };
+        };
+    };
+    get_user_cost_breakdown_api_admin_costs_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -8235,26 +8656,6 @@ export interface operations {
             };
         };
     };
-    reload_router_api_admin_reload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-        };
-    };
     health_check_api_admin_health_get: {
         parameters: {
             query?: never;
@@ -8311,6 +8712,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestResultItem"];
+                };
+            };
+        };
+    };
+    reload_router_api_admin_reload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
         };
@@ -8404,6 +8825,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_synthesize_api_admin_voice_config_test_synthesize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

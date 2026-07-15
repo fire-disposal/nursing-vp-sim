@@ -148,10 +148,17 @@ class LLMConfigService:
         if not secret:
             raise NotFoundError("档案不存在")
 
-        existing = (
-            self.db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id, LLMConfig.purpose == purpose).first()
-        )
         with unit_of_work(self.db, conflict_detail="创建用途指派失败"):
+            # 禁用此用途下其他密钥的旧活跃绑定，确保每用途只有一个活跃密钥
+            self.db.query(LLMConfig).filter(
+                LLMConfig.purpose == purpose,
+                LLMConfig.secret_id != secret_id,
+                LLMConfig.status == "active",
+            ).update({"status": "disabled"}, synchronize_session=False)
+
+            existing = (
+                self.db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id, LLMConfig.purpose == purpose).first()
+            )
             if existing:
                 existing.label = label or ""
                 existing.status = "active"

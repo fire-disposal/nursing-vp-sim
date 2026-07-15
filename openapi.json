@@ -640,6 +640,24 @@
               "title": "Training Type"
             },
             "description": "训练类型 history_taking/triage"
+          },
+          {
+            "name": "is_open",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "是否向学生开放",
+              "title": "Is Open"
+            },
+            "description": "是否向学生开放"
           }
         ],
         "responses": {
@@ -910,6 +928,64 @@
         }
       }
     },
+    "/api/cases/{case_id}/open": {
+      "put": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "Toggle Case Open",
+        "operationId": "toggle_case_open_api_cases__case_id__open_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "open",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "description": "是否向学生开放",
+              "title": "Open"
+            },
+            "description": "是否向学生开放"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseManageItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/cases/export": {
       "post": {
         "tags": [
@@ -1001,6 +1077,67 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/my-feedback": {
+      "get": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "My Feedback",
+        "operationId": "my_feedback_api_my_feedback_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_FeedbackItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/admin/feedback": {
@@ -1095,6 +1232,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedResponse_FeedbackItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/feedback/{feedback_id}/reply": {
+      "put": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Reply Feedback",
+        "operationId": "reply_feedback_api_admin_feedback__feedback_id__reply_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackItem"
                 }
               }
             }
@@ -1217,6 +1411,182 @@
                   },
                   "title": "Response Feedback Stats Api Admin Feedback Stats Get"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/bot": {
+      "get": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Bot List Feedback",
+        "operationId": "bot_list_feedback_api_feedback_bot_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO datetime, e.g. 2026-07-01T00:00:00",
+              "title": "Since"
+            },
+            "description": "ISO datetime, e.g. 2026-07-01T00:00:00"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact version, e.g. 2026.07.14-10",
+              "title": "Version"
+            },
+            "description": "Exact version, e.g. 2026.07.14-10"
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by tag: bug/feature/experience/content/ui/other",
+              "title": "Tag"
+            },
+            "description": "Filter by tag: bug/feature/experience/content/ui/other"
+          },
+          {
+            "name": "include_fixed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Fixed"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/bot/{feedback_id}": {
+      "patch": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Bot Mark Fix Attempted",
+        "operationId": "bot_mark_fix_attempted_api_feedback_bot__feedback_id__patch",
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -3801,6 +4171,52 @@
         ]
       }
     },
+    "/api/admin/users/bulk-assign-class": {
+      "post": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Bulk Assign Class",
+        "operationId": "bulk_assign_class_api_admin_users_bulk_assign_class_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignClassRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkAssignClassResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/stats": {
       "get": {
         "tags": [
@@ -4072,6 +4488,30 @@
                 "schema": {
                   "$ref": "#/components/schemas/CostDashboardResponse"
                 }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/costs/users": {
+      "get": {
+        "tags": [
+          "成本管理"
+        ],
+        "summary": "Get User Cost Breakdown",
+        "operationId": "get_user_cost_breakdown_api_admin_costs_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -5436,32 +5876,6 @@
         ]
       }
     },
-    "/api/admin/reload": {
-      "post": {
-        "tags": [
-          "API管理"
-        ],
-        "summary": "Reload Router",
-        "operationId": "reload_router_api_admin_reload_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/health": {
       "get": {
         "tags": [
@@ -5532,6 +5946,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TestResultItem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/reload": {
+      "post": {
+        "tags": [
+          "API管理"
+        ],
+        "summary": "Reload Router",
+        "operationId": "reload_router_api_admin_reload_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
                 }
               }
             }
@@ -5655,6 +6095,30 @@
                 "schema": {
                   "$ref": "#/components/schemas/VoiceStatusResponse"
                 }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/config/test-synthesize": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Test Synthesize",
+        "operationId": "test_synthesize_api_admin_voice_config_test_synthesize_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -8796,6 +9260,17 @@
               }
             ],
             "title": "Class Id"
+          },
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
           }
         },
         "additionalProperties": false,
@@ -8806,6 +9281,56 @@
           "display_name"
         ],
         "title": "BatchUserItem"
+      },
+      "BulkAssignClassRequest": {
+        "properties": {
+          "user_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "User Ids"
+          },
+          "class_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Class Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_ids",
+          "class_id"
+        ],
+        "title": "BulkAssignClassRequest"
+      },
+      "BulkAssignClassResult": {
+        "properties": {
+          "assigned": {
+            "type": "integer",
+            "title": "Assigned"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assigned",
+          "skipped",
+          "errors"
+        ],
+        "title": "BulkAssignClassResult"
       },
       "CaseAssignmentRequest": {
         "properties": {
@@ -8870,6 +9395,11 @@
             "type": "integer",
             "title": "Time Limit Minutes",
             "default": 20
+          },
+          "is_open": {
+            "type": "boolean",
+            "title": "Is Open",
+            "default": false
           },
           "patient_summary": {
             "anyOf": [
@@ -9134,6 +9664,11 @@
             "type": "string",
             "title": "Patient Personality",
             "default": ""
+          },
+          "is_open": {
+            "type": "boolean",
+            "title": "Is Open",
+            "default": false
           },
           "created_at": {
             "type": "string",
@@ -9809,6 +10344,34 @@
             ],
             "title": "Content"
           },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          },
+          "developer_reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Developer Reply"
+          },
+          "replied_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replied At"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -9825,18 +10388,36 @@
         ],
         "title": "FeedbackItem"
       },
+      "FeedbackReplyRequest": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reply"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reply"
+        ],
+        "title": "FeedbackReplyRequest"
+      },
       "FeedbackSubmit": {
         "properties": {
           "rating": {
             "type": "integer",
             "maximum": 5.0,
             "minimum": 1.0,
-            "title": "Rating"
+            "title": "Rating",
+            "default": 3
           },
           "tag": {
             "type": "string",
             "maxLength": 20,
-            "title": "Tag"
+            "title": "Tag",
+            "default": ""
           },
           "content": {
             "anyOf": [
@@ -9852,10 +10433,6 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "rating",
-          "tag"
-        ],
         "title": "FeedbackSubmit"
       },
       "FeedbackSubmitResponse": {
@@ -14780,6 +15357,20 @@
             "type": "boolean",
             "title": "Is Active"
           },
+          "speaker_library": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Library"
+          },
           "created_at": {
             "type": "string",
             "title": "Created At"
@@ -14897,6 +15488,20 @@
             "type": "boolean",
             "title": "Is Active",
             "default": true
+          },
+          "speaker_library": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Library"
           }
         },
         "additionalProperties": false,

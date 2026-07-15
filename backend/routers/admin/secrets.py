@@ -193,3 +193,12 @@ async def test_env_fallback(current_user: _Manager):
             }
     except Exception as e:
         return {"base_url": DEEPSEEK_BASE_URL, "ok": False, "error": str(e)[:200]}
+
+
+# ── Router Reload ──
+
+
+@router.post("/reload", response_model=OkResponse)
+async def reload_router(request: Request, current_user: _Manager):
+    await request.app.state.llm_router.load_from_db()
+    return {"ok": True}
