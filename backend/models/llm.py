@@ -54,6 +54,7 @@ class LLMConfig(Base, TimestampMixin):
     label: Mapped[str] = mapped_column(String(80), default="")
     purpose: Mapped[str] = mapped_column(String(40))
     status: Mapped[str] = mapped_column(String(20), default="active")
+    model_override: Mapped[str | None] = mapped_column(String(80), nullable=True, default=None)
 
     secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
 
