@@ -64,13 +64,6 @@ export default function CaseList({
 					: "-",
 		},
 		{
-			key: "chief_complaint",
-			header: "主诉",
-			cellClassName:
-				"max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap",
-			render: (c) => c.chief_complaint || "-",
-		},
-		{
 			key: "time_limit",
 			header: "时限",
 			render: (c) => <Badge variant="info">{c.time_limit || 20} 分钟</Badge>,

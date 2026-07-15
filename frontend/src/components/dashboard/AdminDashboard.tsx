@@ -108,7 +108,7 @@ export default function AdminDashboard({
 						<Button
 							variant="outline"
 							className="justify-start h-auto py-3"
-							onClick={() => navigate("/admin/assignments")}
+							onClick={() => navigate("/admin/practices?tab=assignments")}
 						>
 							<ClipboardList size={15} className="mr-2 shrink-0" />
 							<span className="text-sm">作业管理</span>

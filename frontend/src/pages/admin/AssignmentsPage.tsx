@@ -250,7 +250,14 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 
 	return (
 		<div className={embedded ? "" : "space-y-6"}>
-			{!embedded && (
+			{embedded ? (
+				<div className="flex justify-end gap-2 mb-4">
+					<Button onClick={openCreate}>
+						<Plus size={16} className="mr-1" />
+						创建发布
+					</Button>
+				</div>
+			) : (
 			<PageHeader
 				title="练习发布"
 				subtitle="按班级定时发布练习，控制插件特性，批量导出成绩"

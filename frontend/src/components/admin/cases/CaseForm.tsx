@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Sparkles, Upload, Wand2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { generateCase, getCaseDetail } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -187,28 +187,13 @@ export default function CaseFormModal({
 		}
 	};
 
-	const handleJsonImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
-		const reader = new FileReader();
-		reader.onload = (ev) => {
-			try {
-				const json = JSON.parse(ev.target?.result as string);
-				setCaseForm(parseCaseData(json));
-				setCaseMsg("JSON 导入成功，请检查并保存");
-			} catch {
-				setCaseMsg("JSON 格式解析失败");
-			}
-		};
-		reader.readAsText(file);
-		e.target.value = "";
-	};
 
 	return (
 		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
 			<DialogContent
 				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
 				maxWidth={800}
+				className="max-h-[85vh] overflow-y-auto"
 			>
 			{caseMsg && (
 				<div
@@ -864,102 +849,11 @@ export default function CaseFormModal({
 									})}
 								</div>
 							</div>
-							<div>
-								<label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
-									隐藏信息（一行一条）
-									<button
-										type="button"
-										disabled={aiGenerating}
-										onClick={() => {
-											if (!showAiPanel) setShowAiPanel(true);
-											handleAiGenerate("hidden_info");
-										}}
-										className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
-										title="AI 建议"
-									>
-										<Sparkles size={13} />
-									</button>
-								</label>
-								<textarea
-									rows={4}
-									value={(caseForm.hidden_info || []).join("\n")}
-									onChange={(e) => updateList("hidden_info", e.target.value)}
-									className={textareaClass}
-								/>
-							</div>
-							<div>
-								<label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
-									必须问到的内容（一行一条）
-									<button
-										type="button"
-										disabled={aiGenerating}
-										onClick={() => {
-											if (!showAiPanel) setShowAiPanel(true);
-											handleAiGenerate("required_inquiries");
-										}}
-										className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
-										title="AI 建议"
-									>
-										<Sparkles size={13} />
-									</button>
-								</label>
-								<textarea
-									rows={4}
-									value={(caseForm.required_inquiries || []).join("\n")}
-									onChange={(e) =>
-										updateList("required_inquiries", e.target.value)
-									}
-									className={textareaClass}
-								/>
-							</div>
-							<div>
-								<label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
-									评分标准 (JSON)
-									<button
-										type="button"
-										disabled={aiGenerating}
-										onClick={() => {
-											if (!showAiPanel) setShowAiPanel(true);
-											handleAiGenerate("scoring_criteria");
-										}}
-										className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
-										title="AI 建议"
-									>
-										<Sparkles size={13} />
-									</button>
-								</label>
-								<textarea
-									rows={6}
-									className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs font-mono bg-card resize-y focus-ring"
-									value={JSON.stringify(caseForm.scoring_criteria, null, 2)}
-									onChange={(e) => {
-										try {
-											updateField(
-												"scoring_criteria",
-												JSON.parse(e.target.value),
-											);
-										} catch {
-											/* editing in progress */
-										}
-									}}
-								/>
-							</div>
 						</div>
 					)}
 				</fieldset>
 				</>
 				)}
-				<div>
-					<label className="inline-flex items-center gap-1 text-sm text-primary cursor-pointer hover:underline">
-						<Upload size={14} /> 从 JSON 文件导入
-						<input
-							type="file"
-							accept=".json"
-							onChange={handleJsonImport}
-							className="hidden"
-						/>
-					</label>
-				</div>
 				<div className="flex gap-3 justify-end mt-4">
 					<Button variant="outline" type="button" onClick={onClose}>
 						取消

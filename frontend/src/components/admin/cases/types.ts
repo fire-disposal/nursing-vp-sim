@@ -91,55 +91,6 @@ export interface CaseData {
 	};
 }
 
-export interface CaseJsonData {
-	name?: string;
-	time_limit?: number;
-	difficulty?: number;
-	training_type?: string;
-	description?: string;
-	chief_complaint?: string;
-	opening_line?: string;
-	present_illness?: string;
-	past_history?: string;
-	medication_history?: string;
-	allergy_history?: string;
-	family_history?: string;
-	social_history?: string;
-	communication_style?: string;
-	voice_type?: string;
-	hidden_info?: string[];
-	required_inquiries?: string[];
-	scoring_criteria?: Record<string, ScoringDimension>;
-	capabilities?: Record<string, boolean>;
-	patient_info?: {
-		name?: string;
-		age?: number;
-		gender?: string;
-	};
-	triage_info?: {
-		arrival_mode?: string;
-		red_flags?: string[];
-		vitals?: {
-			hr?: number;
-			bp_sys?: number;
-			bp_dia?: number;
-			rr?: number;
-			spo2?: number;
-			temp?: number;
-		};
-		consciousness?: string;
-		mews_score?: number;
-		triage_category?: string;
-	};
-	// Flat triage fields (new format, top-level for backend compatibility)
-	arrival_mode?: string;
-	red_flags?: string[];
-	vitals?: { hr?: number; bp_sys?: number; bp_dia?: number; rr?: number; spo2?: number; temp?: number; };
-	consciousness?: string;
-	mews_score?: number;
-	triage_category?: string;
-}
-
 export const NEW_CASE_TEMPLATE: CaseData = {
 	name: "",
 	time_limit: 20,
@@ -234,7 +185,7 @@ export function buildCaseData(form: CaseForm): CaseData {
 }
 
 export function parseCaseData(cd: unknown): CaseForm {
-	const rec = cd as CaseJsonData | null;
+	const rec = cd as Record<string, any> | null;
 	const info = rec?.patient_info ?? {};
 	const ti = rec?.triage_info;
 	const vitals = rec?.vitals ?? ti?.vitals ?? {};

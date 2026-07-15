@@ -12,7 +12,8 @@ import {
 	updatePractice,
 } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
-import ExportButton from "@/components/ExportButton";import { useToast } from "@/components/Toast";
+import ExportButton from "@/components/ExportButton";
+import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -224,7 +225,15 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 
 	return (
 		<div className={embedded ? "" : "space-y-6"}>
-			{!embedded && (
+			{embedded ? (
+				<div className="flex justify-end gap-2 mb-4">
+					<ExportButton endpoint="/admin/practices/export" filename="练习模板列表" />
+					<Button onClick={openCreate}>
+						<Plus size={16} className="mr-1" />
+						新建模板
+					</Button>
+				</div>
+			) : (
 			<PageHeader
 				title="练习模板"
 				subtitle="管理练习模式、时长限制等配置。创建作业时选择模板即可。"
@@ -235,10 +244,10 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 							<Plus size={16} className="mr-1" />
 							新建模板
 						</Button>
-					</>
-				}
-			/>
-			)}
+				</>
+			}
+		/>
+		)}
 
 			<DataTable<PracticeRow>
 				columns={columns}
