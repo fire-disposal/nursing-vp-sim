@@ -136,6 +136,7 @@ class LLMConfigService:
                     "base_url": s.base_url or "" if s else "",
                     "label": c.label or "",
                     "purpose": c.purpose,
+                    "model_override": getattr(c, "model_override", None),
                     "status": c.status,
                     "created_at": c.created_at,
                     "updated_at": c.updated_at,
@@ -143,7 +144,7 @@ class LLMConfigService:
             )
         return result
 
-    def create_or_reactivate(self, secret_id: int, purpose: str, label: str) -> int:
+    def create_or_reactivate(self, secret_id: int, purpose: str, label: str, model_override: str | None = None) -> int:
         secret = self.db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
         if not secret:
             raise NotFoundError("档案不存在")
@@ -162,6 +163,7 @@ class LLMConfigService:
             if existing:
                 existing.label = label or ""
                 existing.status = "active"
+                existing.model_override = model_override
                 return existing.id
 
             cfg = self.repo.add(
@@ -169,6 +171,7 @@ class LLMConfigService:
                     secret_id=secret_id,
                     purpose=purpose,
                     label=label or "",
+                    model_override=model_override,
                 )
             )
         self.db.refresh(cfg)
@@ -179,7 +182,7 @@ class LLMConfigService:
         if not cfg:
             raise NotFoundError("指派不存在")
         with unit_of_work(self.db, conflict_detail="更新用途指派失败"):
-            for f in ("secret_id", "purpose", "status", "label"):
+            for f in ("secret_id", "purpose", "status", "label", "model_override"):
                 val = data.get(f)
                 if val is not None:
                     setattr(cfg, f, val)

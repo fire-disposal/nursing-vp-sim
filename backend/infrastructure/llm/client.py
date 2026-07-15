@@ -571,7 +571,7 @@ class LLMClient:
         state = _CallState()
         state._config = config
         state.api_key = api_key
-        state.model = get_model(purpose)
+        state.model = getattr(config, "model_override", None) or get_model(purpose)
         state.config_id = config.id
 
         secret = getattr(config, "secret", None)

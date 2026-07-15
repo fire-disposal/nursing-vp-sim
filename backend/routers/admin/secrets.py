@@ -79,7 +79,10 @@ def list_configs(
 @router.post("/configs", status_code=201, response_model=ConfigCreateResponse)
 async def create_config(data: LLMConfigCreate, request: Request, current_user: _Manager, db: DbSession):
     cfg_id = LLMConfigService(db).create_or_reactivate(
-        secret_id=data.secret_id, purpose=data.purpose, label=data.label or ""
+        secret_id=data.secret_id,
+        purpose=data.purpose,
+        label=data.label or "",
+        model_override=data.model_override,
     )
     await request.app.state.llm_router.load_from_db()
     return {"id": cfg_id}
