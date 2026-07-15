@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, joinedload
 
-from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY
+from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY, REFRESH_MAX_AGE_HOURS
 from core.database import get_db
 from models import RolePermission, User
 
@@ -52,8 +52,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    now = datetime.now(UTC)
+    to_encode.update({"exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), "iat": now})
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -107,6 +107,13 @@ def _decode_token_allow_expired(
     token_tv = payload.get("tv", 0)
     if token_tv != user.token_version:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="凭证已失效，请重新登录")
+
+    iat = payload.get("iat", None)
+    if isinstance(iat, (int, float)):
+        issued_at = datetime.fromtimestamp(iat, tz=UTC)
+        max_age = timedelta(hours=REFRESH_MAX_AGE_HOURS)
+        if datetime.now(UTC) - issued_at > max_age:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="凭证已过期，请重新登录")
 
     return user
 

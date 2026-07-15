@@ -51,17 +51,15 @@ export async function sendMessageStream(
 			}
 
 			if (resp.status === 401) {
-				try {
-					const refreshed = await useAuthStore.getState().refreshAuth();
-					if (refreshed) {
-						const retryTimeout = AbortSignal.timeout(FETCH_TIMEOUT);
-						resp = await doFetch(retryTimeout);
-					}
-				} catch {
-					useAuthStore.getState().logout();
-					return;
-				}
+			const refreshed = await useAuthStore.getState().refreshAuth();
+			if (refreshed) {
+				const retryTimeout = AbortSignal.timeout(FETCH_TIMEOUT);
+				resp = await doFetch(retryTimeout);
+			} else {
+				useAuthStore.getState().logout();
+				return;
 			}
+		}
 
 			if (!resp.ok) {
 				const err = await resp.json().catch(() => ({ detail: "请求失败" }));

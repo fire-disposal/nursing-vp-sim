@@ -9,6 +9,7 @@ import logging
 from sqlalchemy import text
 
 from core.database import SessionLocal
+from models import TrainingRecord
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ async def settlement_loop(
                     log.info("Settlement: enqueued scoring for record_id=%d", record_id)
                 except Exception:
                     log.exception("Settlement: failed to enqueue scoring for record_id=%d", record_id)
+                    _revert_settled_record(repo, record_id)
 
 
 def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
@@ -50,6 +52,21 @@ def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
     finally:
         db.close()
     return settled
+
+
+def _revert_settled_record(repo, record_id: int) -> None:
+    db = SessionLocal()
+    try:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if record and record.status == "completed":
+            record.status = "in_progress"
+            record.end_time = None
+            db.commit()
+    except Exception:
+        db.rollback()
+        log.exception("Settlement revert failed for record_id=%d", record_id)
+    finally:
+        db.close()
 
 
 def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:

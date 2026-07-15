@@ -48,13 +48,22 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         author_note = await ctx.note_collector.collect(ctx)
 
     training_type = getattr(ctx.record, "training_type", None) or "history_taking"
-    profile = get_profile(training_type)
+    try:
+        profile = get_profile(training_type)
+    except KeyError:
+        log.warning("Unknown training_type=%s, falling back to history_taking", training_type)
+        training_type = "history_taking"
+        profile = get_profile(training_type)
 
     # Case-data kwargs — cached across turns (personality, background, …)
     cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
     if cached is None:
-        builder_mod = importlib.import_module(f"profiles.{training_type}.builder")
-        cached = builder_mod.build_context_kwargs(ctx.case_data)
+        try:
+            builder_mod = importlib.import_module(f"profiles.{training_type}.builder")
+            cached = builder_mod.build_context_kwargs(ctx.case_data)
+        except ModuleNotFoundError:
+            log.warning("No builder module for training_type=%s, using empty kwargs", training_type)
+            cached = {}
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
 
     # Assemble all sources into a PromptContext

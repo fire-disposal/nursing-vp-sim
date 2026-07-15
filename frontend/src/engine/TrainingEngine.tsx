@@ -79,6 +79,10 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	}, [initialMessages]);
 
 	useEffect(() => {
+		seededRef.current = false;
+	}, [recordNum]);
+
+	useEffect(() => {
 		streamRef.current.setRecordId(recordNum);
 		const unsub = streamRef.current.subscribe(() =>
 			setMessages([...streamRef.current.getMessages()]),
@@ -143,9 +147,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	);
 
 	const endTraining = useCallback(async () => {
-		setTrainingEnded(true);
 		try {
 			await scoreRef.current.end();
+			setTrainingEnded(true);
 		} catch {
 		}
 		busRef.current.emit("training:ended");

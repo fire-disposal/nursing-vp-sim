@@ -70,6 +70,9 @@ async def training_ws(
     if not user:
         await websocket.close(code=4001)
         return
+    if not user.has_permission("training_access"):
+        await websocket.close(code=4003)
+        return
 
     await websocket.accept()
 

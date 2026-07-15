@@ -1,8 +1,18 @@
+import { useRef } from "react";
 import type { MessageBus } from "@/engine/types";
 import { useTrainingWS } from "./useTrainingWS";
 
+const _registered = new WeakSet<MessageBus>();
+
 export function useExamBridge(bus: MessageBus) {
+  const skipRef = useRef<boolean | null>(null);
+  if (skipRef.current === null) {
+    skipRef.current = _registered.has(bus);
+    _registered.add(bus);
+  }
+
   useTrainingWS((msg) => {
+    if (skipRef.current) return;
     const m = msg as unknown as {
       type: string;
       op_type?: string;

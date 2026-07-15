@@ -557,6 +557,7 @@ async def evaluate_training(
         sse_stage="scoring",
         tracker=tracker,
         realtime_hub=realtime_hub,
+        fallback_fn=_fallback_scoring,
     )
     feedback_task = _stage_with_retry(
         feedback_messages,
@@ -626,3 +627,17 @@ async def evaluate_training(
     db.commit()
     db.refresh(score)
     return score
+
+
+def _fallback_scoring(
+    first: dict, second: dict, missing_list: list[str] | None = None
+) -> dict:
+    """Fallback when scoring LLM fails after retry.
+
+    Preserves the partial first-attempt result so the parallel feedback
+    result (which may have succeeded) is not discarded by asyncio.gather.
+    """
+    if first:
+        first["_scoring_fallback"] = True
+        return first
+    return {"total_score": 0, "detail_scores": {}, "_scoring_fallback": True}

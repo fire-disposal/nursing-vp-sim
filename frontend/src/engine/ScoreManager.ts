@@ -19,6 +19,7 @@ export class ScoreManager {
 	private listeners: Array<() => void> = [];
 	private _visibilityHandler: (() => void) | null = null;
 	private _sseThought: string = "";
+	private _abortController: AbortController | null = null;
 
 	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
 
@@ -55,11 +56,13 @@ export class ScoreManager {
 	async end(): Promise<void> {
 		if (!this.recordId) return;
 		if (this._polling || this._progress.phase === "completed") return;
+		this._polling = true;
 		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
 		this.notify();
 		try {
 			await api.post(`/training/${this.recordId}/end`);
 		} catch (e) {
+			this._polling = false;
 			this._progress = { phase: "failed", percentage: 0, message: "结束训练失败，请重试" };
 			this.notify();
 			throw e;
@@ -78,10 +81,6 @@ export class ScoreManager {
 
 		const poll = async () => {
 			if (!this._polling) return;
-			// 后台标签页：既不发请求也不计超时。仅 setInterval 空转返回，
-			// 由 visibilitychange 处理器在回到前台时立即 poll 恢复。
-			// （旧实现在此额外 setTimeout(poll)，与 setInterval 叠加会使待执行 poll
-			//  随隐藏时长成倍增殖，回前台时集中爆发请求。）
 			if (document.hidden) {
 				return;
 			}
@@ -93,7 +92,13 @@ export class ScoreManager {
 			}
 			retries++;
 			try {
-				const res = await api.get(`/training/${this.recordId}/scoring-status`);
+				const controller = new AbortController();
+				this._abortController = controller;
+				const res = await api.get(`/training/${this.recordId}/scoring-status`, {
+					signal: controller.signal,
+				});
+				this._abortController = null;
+				if (!this._polling) return;
 				const data = res.data as {
 					scoring_status?: string;
 					scoring_error?: string | null;
@@ -168,6 +173,10 @@ export class ScoreManager {
 
 	stopPolling(): void {
 		this._polling = false;
+		if (this._abortController) {
+			this._abortController.abort();
+			this._abortController = null;
+		}
 		if (this.pollTimer) {
 			clearInterval(this.pollTimer);
 			this.pollTimer = null;

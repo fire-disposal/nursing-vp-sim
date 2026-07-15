@@ -234,6 +234,8 @@ def start_training(
     case = db.query(Case).filter(Case.id == req.case_id).first()
     if not case:
         raise NotFoundError(detail="病例不存在")
+    if not case.is_open:
+        raise AuthError(detail="该病例暂未开放", status_code=403)
 
     practice = None
     if req.practice_id:
