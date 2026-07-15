@@ -38,7 +38,8 @@ export default function MyFeedbackPage() {
 	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.admin.feedback.my(offset),
 		queryFn: () => getMyFeedback({ offset, limit: LIMIT }).then((r) => r.data),
-		staleTime: 30_000,
+		staleTime: 0,
+		refetchOnWindowFocus: false,
 	});
 
 	const items = (data?.items ?? []) as FeedbackItem[];
