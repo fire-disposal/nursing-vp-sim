@@ -14,6 +14,9 @@ class FeedbackRepository(Repository[Feedback]):
             Feedback.rating,
             Feedback.tag,
             Feedback.content,
+            Feedback.version,
+            Feedback.developer_reply,
+            Feedback.replied_at,
             Feedback.created_at,
         ).order_by(Feedback.created_at.desc())
 

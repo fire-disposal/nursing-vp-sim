@@ -88,7 +88,7 @@ def list_users(
     class_id: Annotated[int | None, Query()] = None,
     grade_id: Annotated[int | None, Query()] = None,
 ):
-    view = UserService(db).list(
+    view = UserService(db).list_all(
         offset=offset, limit=limit, search=search, role=role, class_id=class_id, grade_id=grade_id
     )
     return PaginatedResponse(

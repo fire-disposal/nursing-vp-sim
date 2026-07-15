@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy.orm import Session  # noqa: TC002
+from sqlalchemy.orm import Session
 
 from core.config import BATCH_USER_LIMIT
 from core.exceptions import NotFoundError, ValidationError
@@ -229,7 +227,7 @@ class UserService:
             grade_name=cls.grade.name if (cls and cls.grade) else None,
         )
 
-    def list(
+    def list_all(
         self,
         *,
         offset: int,

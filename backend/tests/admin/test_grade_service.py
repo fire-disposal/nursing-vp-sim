@@ -9,7 +9,7 @@ def test_create_list_update(db_session):
     v = svc.create("2024级")
     assert v.name == "2024级"
     assert v.class_count == 0
-    assert any(g.name == "2024级" for g in svc.list())
+    assert any(g.name == "2024级" for g in svc.list_all())
     v2 = svc.update(v.id, "2025级")
     assert v2.name == "2025级"
 

@@ -60,10 +60,15 @@ class FeedbackService:
         rows, total = paginate(q, offset, limit)
         items = [
             FeedbackRow(
-                id=r.id, user_id=r.user_id, user_name=r.user_name,
-                rating=r.rating, tag=r.tag, content=r.content,
+                id=r.id,
+                user_id=r.user_id,
+                user_name=r.user_name,
+                rating=r.rating,
+                tag=r.tag,
+                content=r.content,
                 version=r.version,
-                developer_reply=r.developer_reply, replied_at=r.replied_at,
+                developer_reply=r.developer_reply,
+                replied_at=r.replied_at,
                 created_at=r.created_at,
             )
             for r in rows
@@ -71,18 +76,18 @@ class FeedbackService:
         return items, total
 
     def list_my(self, user_id: int, offset: int = 0, limit: int = 50) -> tuple[list[FeedbackRow], int]:
-        q = (
-            self.db.query(Feedback)
-            .filter(Feedback.user_id == user_id)
-            .order_by(Feedback.created_at.desc())
-        )
+        q = self.db.query(Feedback).filter(Feedback.user_id == user_id).order_by(Feedback.created_at.desc())
         rows, total = paginate(q, offset, limit)
         items = [
             FeedbackRow(
-                id=r.id, user_id=r.user_id,
-                rating=r.rating, tag=r.tag, content=r.content,
+                id=r.id,
+                user_id=r.user_id,
+                rating=r.rating,
+                tag=r.tag,
+                content=r.content,
                 version=r.version,
-                developer_reply=r.developer_reply, replied_at=r.replied_at,
+                developer_reply=r.developer_reply,
+                replied_at=r.replied_at,
                 created_at=r.created_at,
             )
             for r in rows
@@ -115,8 +120,14 @@ class FeedbackService:
         dt = self._parse_date(date_to)
         rows = self.repo.query_daily_stats(date_from=df, date_to=dt).all()
         return [
-            {"date": str(r.date), "rating_1": r.rating_1, "rating_2": r.rating_2,
-             "rating_3": r.rating_3, "rating_4": r.rating_4, "rating_5": r.rating_5}
+            {
+                "date": str(r.date),
+                "rating_1": r.rating_1,
+                "rating_2": r.rating_2,
+                "rating_3": r.rating_3,
+                "rating_4": r.rating_4,
+                "rating_5": r.rating_5,
+            }
             for r in rows
         ]
 

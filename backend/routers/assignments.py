@@ -103,7 +103,7 @@ def list_assignments(
     class_id: Annotated[int | None, Query()] = None,
     status: Annotated[str | None, Query(description="active|ended")] = None,
 ):
-    items, total = AssignmentService(db).list(
+    items, total = AssignmentService(db).list_all(
         teacher_id=current_user.id,
         class_id=class_id,
         status=status,

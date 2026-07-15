@@ -1,20 +1,16 @@
 """ApiSecret + LLMConfig business logic — admin CRUD + infrastructure queries."""
 
-from __future__ import annotations
-
 import logging
 import re
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import Session
 
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from models import ApiSecret, LLMConfig
 from repositories.base import Repository
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 
@@ -33,10 +29,10 @@ class ApiSecretService:
         self.repo = ApiSecretRepository(db)
 
     def list_all(self) -> list[ApiSecret]:
-        return self.repo.list(order_by=ApiSecret.created_at.desc())
+        return self.repo.list_all(order_by=ApiSecret.created_at.desc())
 
     def list_with_config_counts(self) -> list[dict]:
-        secrets = self.repo.list(order_by=ApiSecret.created_at.desc())
+        secrets = self.repo.list_all(order_by=ApiSecret.created_at.desc())
         result = []
         for s in secrets:
             config_count = self.db.query(LLMConfig).filter(LLMConfig.secret_id == s.id).count()
@@ -69,7 +65,7 @@ class ApiSecretService:
             raise ValidationError("base_url 必须以 http:// 或 https:// 开头")
 
         raw_key = data.get("raw_key", "")
-        for existing in self.repo.list():
+        for existing in self.repo.list_all():
             try:
                 if decrypt_api_key(existing.encrypted_key) == raw_key:
                     raise ConflictError("该 API Key 已存在，请勿重复添加")
@@ -121,7 +117,7 @@ class LLMConfigService:
         self.db = db
         self.repo = LLMConfigRepository(db)
 
-    def list(self, purpose: str | None = None) -> list[dict]:
+    def list_all(self, purpose: str | None = None) -> list[dict]:
         q = self.db.query(LLMConfig)
         if purpose:
             q = q.filter(LLMConfig.purpose == purpose)

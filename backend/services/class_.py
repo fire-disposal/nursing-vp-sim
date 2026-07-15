@@ -1,18 +1,13 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import update as sa_update
+from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from models import Class, UserClass
 from repositories.class_ import ClassRepository
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -30,7 +25,7 @@ class ClassService:
         self.db = db
         self.repo = ClassRepository(db)
 
-    def list(self, grade_id: int | None = None) -> list[ClassView]:
+    def list_all(self, grade_id: int | None = None) -> list[ClassView]:
         rows = self.repo.list_with_grade(grade_id)
         class_ids = [cls.id for cls, _ in rows]
         counts = self.repo.student_counts(class_ids)

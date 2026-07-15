@@ -266,7 +266,7 @@ class QuestionnaireTemplateService:
                     )
                 )
 
-    def list(self, type_: str | None = None, offset: int = 0, limit: int = 20) -> tuple[List[TemplateView], int]:
+    def list_all(self, type_: str | None = None, offset: int = 0, limit: int = 20) -> tuple[List[TemplateView], int]:
         rows, total = self.repo.list_filtered(type_, offset, limit)
         template_ids = [r.id for r in rows]
         counts = self.repo.response_counts(template_ids)

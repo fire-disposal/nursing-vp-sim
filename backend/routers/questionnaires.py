@@ -119,7 +119,7 @@ def list_templates(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    views, total = QuestionnaireTemplateService(db).list(type, offset, limit)
+    views, total = QuestionnaireTemplateService(db).list_all(type, offset, limit)
     return PaginatedResponse(items=[_resp(v) for v in views], total=total, offset=offset, limit=limit)
 
 

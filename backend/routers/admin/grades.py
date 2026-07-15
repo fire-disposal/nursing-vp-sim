@@ -25,7 +25,7 @@ def _resp(view) -> GradeResponse:
 
 @router.get("", response_model=list[GradeResponse])
 def list_grades(current_user: _Manager, db: DbSession):
-    return [_resp(v) for v in GradeService(db).list()]
+    return [_resp(v) for v in GradeService(db).list_all()]
 
 
 @router.post("", response_model=GradeResponse)

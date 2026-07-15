@@ -1,18 +1,13 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import update as sa_update
+from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
 from core.unit_of_work import unit_of_work
 from models import Grade, UserClass
 from repositories.grade import GradeRepository
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -32,7 +27,7 @@ class GradeService:
     def _view(self, grade: Grade, class_count: int = 0, student_count: int = 0) -> GradeView:
         return GradeView(grade.id, grade.name, class_count, student_count, grade.created_at)
 
-    def list(self) -> list[GradeView]:
+    def list_all(self) -> list[GradeView]:
         grades = self.repo.list_ordered()
         ids = [g.id for g in grades]
         cc = self.repo.class_counts(ids)

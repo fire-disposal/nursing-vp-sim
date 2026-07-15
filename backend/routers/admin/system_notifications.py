@@ -27,7 +27,7 @@ def list_notifications(
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    return SystemNotificationService(db).list(offset, limit)
+    return SystemNotificationService(db).list_all(offset, limit)
 
 
 @router.post("", response_model=SystemNotificationResponse)

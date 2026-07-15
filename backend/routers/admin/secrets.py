@@ -73,7 +73,7 @@ def list_configs(
     db: DbSession,
     purpose: Annotated[str | None, Query()] = None,
 ):
-    return [LLMConfigResponse(**c) for c in LLMConfigService(db).list(purpose)]
+    return [LLMConfigResponse(**c) for c in LLMConfigService(db).list_all(purpose)]
 
 
 @router.post("/configs", status_code=201, response_model=ConfigCreateResponse)

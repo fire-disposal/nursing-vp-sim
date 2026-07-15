@@ -1,17 +1,13 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import Session
 
 from core.capabilities import ALL_CAPABILITIES
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from models import Case, Practice
 from repositories.practice import PracticeRepository
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -51,7 +47,7 @@ class PracticeService:
             updated_at=p.updated_at,
         )
 
-    def list(self, offset: int, limit: int) -> tuple[list[PracticeView], int]:
+    def list_all(self, offset: int, limit: int) -> tuple[list[PracticeView], int]:
         practices, total = self.repo.list_with_cases(offset, limit)
         ids = [p.id for p in practices]
         counts = self.repo.training_counts(ids)

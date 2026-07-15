@@ -30,7 +30,7 @@ def list_classes(
     db: DbSession,
     grade_id: Annotated[int | None, Query()] = None,
 ):
-    return [_resp(v) for v in ClassService(db).list(grade_id=grade_id)]
+    return [_resp(v) for v in ClassService(db).list_all(grade_id=grade_id)]
 
 
 @router.post("", response_model=ClassResponse)

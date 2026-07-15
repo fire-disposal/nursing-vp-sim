@@ -49,7 +49,7 @@ def list_practices(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ):
-    views, total = PracticeService(db).list(offset, limit)
+    views, total = PracticeService(db).list_all(offset, limit)
     return PaginatedResponse(
         items=[_resp(v) for v in views],
         total=total,

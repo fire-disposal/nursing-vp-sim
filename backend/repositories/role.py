@@ -7,7 +7,7 @@ from repositories.base import Repository
 class RoleRepository(Repository[Role]):
     model = Role
 
-    def list_all(self, search: str = "") -> list[Role]:
+    def list_roles(self, search: str = "") -> list[Role]:
         q = self.db.query(Role)
         if search:
             q = q.filter(Role.display_name.ilike(f"%{search}%"))

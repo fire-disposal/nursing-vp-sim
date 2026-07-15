@@ -40,7 +40,7 @@ class RoleService:
         )
 
     def list_all(self, search: str = "") -> list[RoleView]:
-        roles = self.repo.list_all(search)
+        roles = self.repo.list_roles(search)
         role_ids = [r.id for r in roles]
         perms_map = self.repo.permissions_map(role_ids)
         counts = self.repo.user_counts(role_ids)

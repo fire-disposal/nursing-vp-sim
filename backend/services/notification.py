@@ -1,16 +1,12 @@
 """System notification business logic."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import Session
 
 from core.unit_of_work import unit_of_work
 from models import SystemNotification
 from repositories.notification import SystemNotificationRepository
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 class SystemNotificationService:
@@ -18,7 +14,7 @@ class SystemNotificationService:
         self.db = db
         self.repo = SystemNotificationRepository(db)
 
-    def list(self, offset: int, limit: int) -> list[SystemNotification]:
+    def list_all(self, offset: int, limit: int) -> list[SystemNotification]:
         return self.repo.list_paginated(offset, limit)
 
     def create(self, data: dict, created_by: int) -> SystemNotification:

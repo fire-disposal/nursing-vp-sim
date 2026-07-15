@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -154,7 +152,7 @@ class AssignmentService:
         log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": teacher_id})
         return self._build_detail_view(assignment)
 
-    def list(
+    def list_all(
         self,
         teacher_id: int,
         class_id: int | None,
@@ -252,17 +250,19 @@ class AssignmentService:
 
         db = SessionLocal()
         try:
-            students = db.execute(
-                db.query(UserClass.user_id).filter(UserClass.class_id == class_id)
-            ).scalars().all()
+            students = db.execute(db.query(UserClass.user_id).filter(UserClass.class_id == class_id)).scalars().all()
             body = f"病例：{case_name}" if case_name else ""
             now = datetime.now(UTC)
             for uid in students:
-                db.add(Notification(
-                    user_id=uid, type="assignment_new",
-                    title=f"新作业：{title}",
-                    body=body, created_at=now,
-                ))
+                db.add(
+                    Notification(
+                        user_id=uid,
+                        type="assignment_new",
+                        title=f"新作业：{title}",
+                        body=body,
+                        created_at=now,
+                    )
+                )
             db.commit()
         except Exception:
             db.rollback()
