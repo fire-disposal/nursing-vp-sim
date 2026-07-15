@@ -9,10 +9,11 @@ import {
 } from "./llm-status";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
+type FallbackState = components["schemas"]["FallbackStateResponse"];
 
 interface SecretListProps {
 	secrets: ApiSecretResponse[];
-	envFallback: Record<string, unknown> | undefined;
+	envFallback: FallbackState | undefined;
 	onEdit: (secret: ApiSecretResponse) => void;
 	onDelete: (secret: ApiSecretResponse) => void;
 }
@@ -98,7 +99,7 @@ export default function SecretList({
 									className={cn(
 										"inline-block w-2 h-2 rounded-full mr-2 align-middle",
 										envFallback?.degraded_until &&
-											new Date(envFallback.degraded_until as string) > new Date()
+											new Date(envFallback.degraded_until) > new Date()
 											? "bg-amber-500"
 											: envFallback?.available
 												? "bg-green-400"
@@ -113,18 +114,18 @@ export default function SecretList({
 								</span>
 							</td>
 							<td className="py-2 px-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
-								sk-...{String(envFallback?.key_suffix || "****")}
+								sk-...{envFallback?.key_suffix || "****"}
 							</td>
 							<td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
-								{envFallback?.degraded_until &&
-								new Date(envFallback.degraded_until as string) > new Date()
-									? `熔断 · ${degradedReasonLabel(envFallback?.degraded_reason as string | null)}`
+								{							envFallback?.degraded_until &&
+								new Date(envFallback.degraded_until) > new Date()
+									? `熔断 · ${degradedReasonLabel(envFallback?.degraded_reason)}`
 									: envFallback?.available
 										? "可用"
 										: "不可用"}
 							</td>
 							<td className="py-2 px-3 text-xs text-muted-foreground/60 whitespace-nowrap">
-								{(envFallback?.call_count as number) > 0
+								{(envFallback?.call_count ?? 0) > 0
 									? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
 									: ""}
 							</td>

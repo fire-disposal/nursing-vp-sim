@@ -136,7 +136,7 @@ class LLMConfigService:
                     "base_url": s.base_url or "" if s else "",
                     "label": c.label or "",
                     "purpose": c.purpose,
-                    "model_override": getattr(c, "model_override", None),
+                    "model_override": c.model_override,
                     "status": c.status,
                     "created_at": c.created_at,
                     "updated_at": c.updated_at,
@@ -163,7 +163,8 @@ class LLMConfigService:
             if existing:
                 existing.label = label or ""
                 existing.status = "active"
-                existing.model_override = model_override
+                if model_override is not None:
+                    existing.model_override = model_override
                 return existing.id
 
             cfg = self.repo.add(
@@ -183,9 +184,8 @@ class LLMConfigService:
             raise NotFoundError("指派不存在")
         with unit_of_work(self.db, conflict_detail="更新用途指派失败"):
             for f in ("secret_id", "purpose", "status", "label", "model_override"):
-                val = data.get(f)
-                if val is not None:
-                    setattr(cfg, f, val)
+                if f in data:
+                    setattr(cfg, f, data[f])
 
     def delete(self, config_id: int) -> None:
         cfg = self.repo.get(config_id)
