@@ -220,7 +220,12 @@ class LLMDataService:
         try:
             now = datetime.now(UTC)
             profiles = db.query(AS).all()
-            bindings = db.query(LC).options(joinedload(LC.secret)).all()
+            bindings = (
+                db.query(LC)
+                .options(joinedload(LC.secret))
+                .order_by(LC.purpose, LC.status != "active", LC.id)
+                .all()
+            )
 
             recovered = 0
             for p in profiles:
@@ -240,7 +245,8 @@ class LLMDataService:
             profiles_map = {p.id: p for p in profiles}
             bindings_map = {}
             for b in bindings:
-                bindings_map[b.purpose] = b
+                if b.purpose not in bindings_map or b.status == "active":
+                    bindings_map[b.purpose] = b
 
             return profiles_map, bindings_map
         except Exception:

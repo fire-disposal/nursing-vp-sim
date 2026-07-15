@@ -361,8 +361,9 @@ export default function ApiManagementTab() {
 						) : (
 							<ChevronRight size={14} />
 						)}
-						用途路由（{configs.filter((c) => c.status !== "disabled").length}/
-						{PURPOSES.length} 已绑定）
+						用途路由（{
+							new Set(configs.filter((c) => c.status !== "disabled").map((c) => c.purpose)).size
+						}/{PURPOSES.length} 已绑定）
 					</button>
 					<button
 						onClick={() =>
