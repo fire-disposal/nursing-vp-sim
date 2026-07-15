@@ -56,6 +56,7 @@ class LLMConfigCreate(BaseModel):
     secret_id: int = Field(gt=0)
     purpose: str = Field(min_length=1, max_length=40)
     label: str = Field(default="", max_length=80)
+    model_override: str | None = Field(default=None, max_length=80)
 
 
 class LLMConfigUpdate(BaseModel):
@@ -63,6 +64,7 @@ class LLMConfigUpdate(BaseModel):
     secret_id: int | None = None
     purpose: str | None = Field(default=None, max_length=40)
     label: str | None = Field(default=None, max_length=80)
+    model_override: str | None = Field(default=None, max_length=80)
     status: str | None = Field(default=None, pattern="^(active|disabled)$")
 
 
@@ -76,6 +78,7 @@ class LLMConfigResponse(BaseModel):
     label: str = ""
     purpose: str
     status: str = "active"
+    model_override: str | None = None
     created_at: datetime
     updated_at: datetime
 
