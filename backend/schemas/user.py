@@ -78,3 +78,15 @@ class BatchCreateResult(BaseModel):
     created: int
     skipped: int
     errors: list[str]
+
+
+class BulkAssignClassRequest(BaseModel):
+    model_config = _REQ_CFG
+    user_ids: list[int] = Field(min_length=1)
+    class_id: int = Field(gt=0)
+
+
+class BulkAssignClassResult(BaseModel):
+    assigned: int
+    skipped: int
+    errors: list[str]

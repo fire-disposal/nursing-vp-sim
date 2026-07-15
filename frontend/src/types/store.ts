@@ -50,6 +50,7 @@ export interface GradesClassesState {
 	grades: Grade[];
 	classes: ClassItem[];
 	loading: boolean;
+	classesLoading: boolean;
 	_pendingFetch: Promise<void> | null;
 	fetchGrades: () => Promise<void>;
 	createGrade: (name: string) => Promise<Grade>;
@@ -57,6 +58,6 @@ export interface GradesClassesState {
 	deleteGrade: (id: number) => Promise<void>;
 	fetchClasses: (gradeId?: number) => Promise<ClassItem[]>;
 	createClass: (gradeId: number, name: string) => Promise<ClassItem>;
-	updateClass: (id: number, body: Partial<ClassItem>) => Promise<ClassItem>;
+	updateClass: (id: number, body: import("@/api/api-types.gen").components["schemas"]["ClassUpdate"]) => Promise<ClassItem>;
 	deleteClass: (id: number) => Promise<void>;
 }

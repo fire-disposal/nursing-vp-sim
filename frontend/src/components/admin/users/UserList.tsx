@@ -15,6 +15,7 @@ interface UserListProps {
 	roles: RoleOption[];
 	search: string;
 	roleFilter: string;
+	selectedIds: Set<number>;
 	onSearchChange: (value: string) => void;
 	onRoleFilterChange: (value: string) => void;
 	onClassFilterChange: (params: {
@@ -24,6 +25,9 @@ interface UserListProps {
 	onOffsetChange: (offset: number) => void;
 	onEditUser: (user: UserBrief) => void;
 	onDeleteUser: (user: UserBrief) => void;
+	onToggleSelect: (userId: number) => void;
+	onSelectAll: () => void;
+	onDeselectAll: () => void;
 }
 
 const filterSelectClass =
@@ -41,12 +45,16 @@ export default function UserList({
 	roles,
 	search,
 	roleFilter,
+	selectedIds,
 	onSearchChange,
 	onRoleFilterChange,
 	onClassFilterChange,
 	onOffsetChange,
 	onEditUser,
 	onDeleteUser,
+	onToggleSelect,
+	onSelectAll,
+	onDeselectAll,
 }: UserListProps) {
 	const navigate = useNavigate();
 
@@ -98,10 +106,20 @@ export default function UserList({
 					<div className="overflow-x-auto">
 						<table className="w-full border-collapse text-sm">
 							<thead>
-								<tr>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										用户名
-									</th>
+				<tr>
+					<th className="sticky top-0 z-10 w-10 px-2 py-2.5 bg-muted border-b border-border">
+						<input
+							type="checkbox"
+							className="size-4 cursor-pointer accent-primary"
+							checked={users.length > 0 && users.every((u) => selectedIds.has(u.id))}
+							onChange={(e) =>
+								e.target.checked ? onSelectAll() : onDeselectAll()
+							}
+						/>
+					</th>
+					<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+						用户名
+					</th>
 									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
 										姓名
 									</th>
@@ -126,9 +144,20 @@ export default function UserList({
 								{users.map((u) => (
 									<tr
 										key={u.id}
-										className="cursor-pointer hover:bg-muted"
+										className={cn(
+											"cursor-pointer hover:bg-muted",
+											selectedIds.has(u.id) && "bg-primary/5",
+										)}
 										onClick={() => navigate(`/admin/users/${u.id}`)}
 									>
+										<td className="px-2 py-3 border-b border-border" onClick={(e) => e.stopPropagation()}>
+											<input
+												type="checkbox"
+												className="size-4 cursor-pointer accent-primary"
+												checked={selectedIds.has(u.id)}
+												onChange={() => onToggleSelect(u.id)}
+											/>
+										</td>
 										<td className="px-4 py-3 border-b border-border">
 											{u.username}
 										</td>

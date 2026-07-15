@@ -1,13 +1,16 @@
 import { Plus, Users } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getClasses } from "@/api";
+import { bulkAssignClass } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem } from "@/types/store";
 import { btnPrimary, btnSecondary } from "@/utils/styles";
+import { useQueryClient } from "@tanstack/react-query";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -46,12 +49,18 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [showBatchImport, setShowBatchImport] = useState(false);
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
+	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+	const [assignClassId, setAssignClassId] = useState<string>("");
+	const [assigning, setAssigning] = useState(false);
 
 	const { confirm } = useConfirm();
 	const toast = useToast();
+	const queryClient = useQueryClient();
 	const { grades, fetchGrades } = useGradesClassesStore(
 		useShallow((s) => ({ grades: s.grades, fetchGrades: s.fetchGrades })),
 	);
+	const classes = useGradesClassesStore((s) => s.classes);
+	const fetchClasses = useGradesClassesStore((s) => s.fetchClasses);
 
 	const params: Record<string, unknown> = { limit: LIMIT };
 	if (search) params.search = search;
@@ -81,6 +90,53 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const resetToFirstPage = () => setOffset(0);
+
+	const toggleSelect = useCallback((userId: number) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(userId)) next.delete(userId);
+			else next.add(userId);
+			return next;
+		});
+	}, []);
+
+	const selectAll = useCallback(() => {
+		setSelectedIds(new Set(users.map((u) => u.id)));
+		setAssignClassId("");
+	}, [users]);
+
+	const deselectAll = useCallback(() => {
+		setSelectedIds(new Set());
+		setAssignClassId("");
+	}, []);
+
+	const handleBulkAssign = async () => {
+		if (!assignClassId) return;
+		const ok = await confirm({
+			title: "批量分配班级",
+			message: `确定将 ${selectedIds.size} 名用户分配到所选班级吗？`,
+		});
+		if (!ok) return;
+		setAssigning(true);
+		try {
+			const { data } = await bulkAssignClass(
+				[...selectedIds],
+				Number(assignClassId),
+			);
+			toast.success(`已分配 ${data.assigned} 名用户`);
+			if (data.errors.length > 0) {
+				toast.warning(`部分失败: ${data.errors.join(", ")}`);
+			}
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			setSelectedIds(new Set());
+			setAssignClassId("");
+			resetToFirstPage();
+		} catch (e: unknown) {
+			toast.apiError(e, "分配失败");
+		} finally {
+			setAssigning(false);
+		}
+	};
 
 	const openCreateUser = () => {
 		fetchGrades();
@@ -174,7 +230,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	return (
 		<>
-			<div className="mb-4 flex gap-3">
+			<div className="mb-4 flex gap-3 flex-wrap items-center">
 				<button type="button" className={btnPrimary} onClick={openCreateUser}>
 					<Plus size={16} /> 注册新用户
 				</button>
@@ -184,6 +240,36 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				>
 					<Users size={16} /> 批量导入
 				</button>
+				{selectedIds.size > 0 && (
+					<div className="flex items-center gap-2 ml-auto">
+						<span className="text-sm text-muted-foreground font-medium">
+							已选 {selectedIds.size} 人
+						</span>
+						<button className={btnSecondary} onClick={deselectAll}>
+							取消选择
+						</button>
+						<select
+							value={assignClassId}
+							onChange={(e) => setAssignClassId(e.target.value)}
+							className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+							onFocus={() => fetchClasses()}
+						>
+							<option value="">分配至班级…</option>
+							{classes.map((c) => (
+								<option key={c.id} value={c.id}>
+									{c.grade_name} {c.name}
+								</option>
+							))}
+						</select>
+						<button
+							className={btnPrimary}
+							disabled={!assignClassId || assigning}
+							onClick={handleBulkAssign}
+						>
+							{assigning ? "分配中…" : "确认分配"}
+						</button>
+					</div>
+				)}
 			</div>
 
 			<UserList
@@ -195,6 +281,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				roles={roles}
 				search={search}
 				roleFilter={roleFilter}
+				selectedIds={selectedIds}
 				onSearchChange={(v) => {
 					setSearch(v);
 					resetToFirstPage();
@@ -210,6 +297,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				onOffsetChange={setOffset}
 				onEditUser={openEditUser}
 				onDeleteUser={handleDeleteUser}
+				onToggleSelect={toggleSelect}
+				onSelectAll={selectAll}
+				onDeselectAll={deselectAll}
 			/>
 
 			<UserForm

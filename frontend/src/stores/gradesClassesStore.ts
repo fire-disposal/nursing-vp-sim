@@ -9,12 +9,16 @@ import {
 	updateClass,
 	updateGrade,
 } from "@/api";
+import type { components } from "@/api/api-types.gen";
 import type { ClassItem, Grade, GradesClassesState } from "../types/store";
+
+type ClassUpdate = components["schemas"]["ClassUpdate"];
 
 const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
 	grades: [] as Grade[],
 	classes: [] as ClassItem[],
 	loading: false,
+	classesLoading: false,
 	_pendingFetch: null as Promise<void> | null,
 
 	fetchGrades: async (): Promise<void> => {
@@ -47,16 +51,21 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
 
 	deleteGrade: async (id: number): Promise<void> => {
 		await deleteGrade(id);
-		set((s) => ({ grades: (s.grades ?? []).filter((g) => g.id !== id), classes: [] }));
+		set((s) => ({
+			grades: (s.grades ?? []).filter((g) => g.id !== id),
+			classes: (s.classes ?? []).filter((c) => c.grade_id !== id),
+		}));
 	},
 
 	fetchClasses: async (gradeId?: number): Promise<ClassItem[]> => {
+		set({ classesLoading: true });
 		try {
 			const params = gradeId ? { grade_id: gradeId } : {};
 			const { data } = await getClasses(params);
-			set({ classes: data ?? [] });
+			set({ classes: data ?? [], classesLoading: false });
 			return data;
 		} catch {
+			set({ classesLoading: false });
 			return [];
 		}
 	},
@@ -69,7 +78,7 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
 
 	updateClass: async (
 		id: number,
-		body: Partial<ClassItem>,
+		body: ClassUpdate,
 	): Promise<ClassItem> => {
 		const { data } = await updateClass(id, body);
 		set((s) => ({ classes: (s.classes ?? []).map((c) => (c.id === id ? data : c)) }));

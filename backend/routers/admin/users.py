@@ -11,6 +11,8 @@ from schemas import (
     AdminStats,
     BatchCreateResult,
     BatchUserItem,
+    BulkAssignClassRequest,
+    BulkAssignClassResult,
     DeleteResponse,
     PaginatedResponse,
     StudentDetail,
@@ -145,6 +147,16 @@ def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: D
     result = UserService(db).batch_create([u.model_dump() for u in users])
     log.info(
         f"批量导入: created={result['created']} skipped={result['skipped']}",
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+    )
+    return result
+
+
+@router.post("/users/bulk-assign-class", response_model=BulkAssignClassResult)
+def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: DbSession):
+    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id)
+    log.info(
+        f"批量分配班级: assigned={result['assigned']} skipped={result['skipped']} class_id={req.class_id}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return result

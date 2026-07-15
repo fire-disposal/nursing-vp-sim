@@ -53,6 +53,7 @@ export default function GradesClassesPage() {
 		grades,
 		classes,
 		loading,
+		classesLoading,
 		fetchGrades,
 		fetchClasses,
 		createGrade,
@@ -66,6 +67,7 @@ export default function GradesClassesPage() {
 			grades: s.grades,
 			classes: s.classes,
 			loading: s.loading,
+			classesLoading: s.classesLoading,
 			fetchGrades: s.fetchGrades,
 			fetchClasses: s.fetchClasses,
 			createGrade: s.createGrade,
@@ -274,10 +276,10 @@ export default function GradesClassesPage() {
 						onChange={(e) => setGradeFilter(e.target.value)}
 						className={selectClass}
 					>
-						<option value="">全部年级</option>
+						<option value="">全部年级（{grades.length}）</option>
 						{grades.map((g) => (
 							<option key={g.id} value={g.id}>
-								{g.name}
+								{g.name}（{g.class_count ?? 0}个班）
 							</option>
 						))}
 					</select>
@@ -311,7 +313,7 @@ export default function GradesClassesPage() {
 					columns={classColumns}
 					rows={filteredClasses}
 					rowKey={(c) => c.id}
-					loading={loading}
+					loading={classesLoading}
 					emptyIcon={GraduationCap}
 					emptyTitle="暂无班级"
 					emptyDescription="创建第一个班级后这里会显示"

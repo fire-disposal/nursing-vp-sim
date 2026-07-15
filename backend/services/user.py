@@ -363,3 +363,30 @@ class UserService:
             recent_records=recent_records,
             daily=daily,
         )
+
+    def bulk_assign_class(self, user_ids: list[int], class_id: int) -> dict:  # noqa: A003
+        target_class = self.repo.get_class(class_id)
+        if not target_class:
+            raise NotFoundError("班级不存在")
+
+        assigned = 0
+        skipped = 0
+        errors: list[str] = []
+
+        with unit_of_work(self.db, conflict_detail="操作冲突，请重试"):
+            for uid in user_ids:
+                user = self.repo.get_by_id(uid)
+                if not user:
+                    skipped += 1
+                    continue
+                try:
+                    uc = self.repo.get_user_class(uid)
+                    if uc:
+                        uc.class_id = class_id
+                    else:
+                        self.db.add(UserClass(user_id=uid, class_id=class_id))
+                    assigned += 1
+                except Exception:
+                    errors.append(f"用户 {uid} 分配失败")
+
+        return {"assigned": assigned, "skipped": skipped, "errors": errors}
