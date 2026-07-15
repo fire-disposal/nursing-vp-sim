@@ -105,9 +105,10 @@ class ApiSecretService:
         s = self.repo.get(secret_id)
         if not s:
             raise NotFoundError("档案不存在")
-        count = self.db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id).count()
-        if count > 0:
-            raise ValidationError(f"该档案有 {count} 个用途绑定，先解除")
+        bindings = self.db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id).all()
+        if bindings:
+            purposes = ", ".join(b.purpose for b in bindings)
+            raise ValidationError(f"该档案有 {len(bindings)} 个用途绑定（{purposes}），请先在「用途路由」面板中解除")
         with unit_of_work(self.db, conflict_detail="删除密钥失败"):
             self.repo.delete(s)
 

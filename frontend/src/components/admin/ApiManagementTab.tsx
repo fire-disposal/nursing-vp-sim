@@ -100,7 +100,21 @@ export default function ApiManagementTab() {
 	};
 
 	const handleDeleteSecret = async (s: ApiSecretResponse) => {
-		if (s.config_count > 0) return toast.error("该档案有用途绑定，先解除");
+		const boundPurposes = configs
+			.filter((c) => c.secret_id === s.id && c.status !== "disabled")
+			.map((c) => c.purpose);
+		if (boundPurposes.length > 0) {
+			const list = boundPurposes.join("、");
+			if (
+				!(await confirm({
+					title: "无法删除",
+					message: `该档案仍绑定 ${boundPurposes.length} 个用途（${list}），请先在「用途路由」面板中移除此密钥的用途指派后再删除。`,
+					danger: true,
+				}))
+			)
+				return;
+			return;
+		}
 		if (
 			!(await confirm({
 				title: "删除档案",
@@ -253,6 +267,11 @@ export default function ApiManagementTab() {
 											{" · "}
 											{degradedReasonLabel(s.degraded_reason)}
 											{recovery ? ` · ${recovery}` : ""}
+										</span>
+									)}
+									{s.config_count > 0 && (
+										<span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+											{s.config_count} 用途
 										</span>
 									)}
 								</span>

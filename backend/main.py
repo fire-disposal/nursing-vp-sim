@@ -18,6 +18,7 @@ from contexts.training.router.session import set_training_infra, stop_background
 from core.config import (
     APP_VERSION,
     CLEANUP_INTERVAL_SECONDS,
+    DEEPSEEK_API_KEY,
     LLM_CONNECTION_KEEPALIVE,
     LLM_CONNECTION_POOL_SIZE,
     LLM_LOG_OVERFLOW_DIR,
@@ -177,6 +178,13 @@ async def lifespan(app: FastAPI):
     app.state.llm_router = ProfileRouter()
     await app.state.llm_router.load_from_db()
     log.info("Profile router: ready")
+
+    # 环境变量兜底密钥启动即标记为可用（实际路由时由熔断机制控制）
+    if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+        import infrastructure.llm.router as llm_router_mod
+
+        llm_router_mod._env_fallback_available = True
+        log.info("Env fallback: available")
 
     app.state.log_worker = LogWorker(
         overflow_dir=LLM_LOG_OVERFLOW_DIR,

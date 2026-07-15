@@ -57,11 +57,13 @@ async def _record_synthetic_result(
     success: bool, error: str | None, prompt_tokens: int, completion_tokens: int
 ) -> None:
     global _env_fallback_consecutive_failures, _env_fallback_degraded_until, _env_fallback_degraded_reason
+    global _env_fallback_available
     async with _env_fallback_lock:
         if success:
             _env_fallback_consecutive_failures = 0
             _env_fallback_degraded_until = None
             _env_fallback_degraded_reason = None
+            _env_fallback_available = True
             total = prompt_tokens + completion_tokens
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += total
