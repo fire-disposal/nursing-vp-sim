@@ -297,7 +297,9 @@ export default function Profile() {
 								className="w-full"
 								disabled={pwForm.formState.isSubmitting}
 							>
-								{pwForm.formState.isSubmitting ? "修改中..." : "确认修改"}
+								{pwForm.formState.isSubmitting ? (
+									<><Loader2 size={14} className="animate-spin mr-1.5" />修改中...</>
+								) : "确认修改"}
 							</Button>
 						</form>
 					</Form>

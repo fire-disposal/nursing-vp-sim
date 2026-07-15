@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardCheck, Eye, Loader2 } from "lucide-react";
+import { ClipboardCheck, Eye, Loader2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { getMyResponses } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -108,7 +108,7 @@ export default function MyResponses() {
 
 	const params: Record<string, unknown> = { offset, limit: LIMIT };
 
-	const { data, isLoading, isError, error } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.questionnaires.myResponses(params),
 		queryFn: () => getMyResponses(params).then((r) => r.data),
 		staleTime: 5 * 60_000,
@@ -138,6 +138,10 @@ export default function MyResponses() {
 							{(error as { response?: { data?: { detail?: string } } })
 								?.response?.data?.detail || "加载失败"}
 						</p>
+						<Button variant="outline" size="sm" onClick={() => refetch()}>
+							<RefreshCw size={14} className="mr-1.5" />
+							重试
+						</Button>
 					</div>
 				) : responses.length === 0 ? (
 					<div className="rounded-xl border bg-card">

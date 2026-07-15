@@ -314,10 +314,10 @@ export default function QA() {
 							</button>
 						))}
 						{isError && (
-							<EmptyState title="加载失败" description="无法获取对话记录，请检查网络后重试" className="py-8" />
+							<EmptyState title="加载失败" description="无法获取对话记录" className="py-8" action={<Button variant="outline" size="sm" onClick={loadSessions}>重试</Button>} />
 						)}
 						{sessions.length === 0 && !isError && (
-							<EmptyState title="暂无历史对话" className="py-8" />
+							<EmptyState title="暂无历史对话" description="提问后将自动保存对话记录" className="py-8" />
 						)}
 					</div>
 				</aside>

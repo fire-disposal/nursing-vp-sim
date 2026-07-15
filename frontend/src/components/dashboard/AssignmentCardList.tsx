@@ -1,8 +1,9 @@
-import { CheckCircle2, ClipboardList, Clock, Play } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, Loader2, Play } from "lucide-react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { cn } from "@/utils/cn";
+import { useState } from "react";
 
 type Assignment = components["schemas"]["StudentAssignmentItem"];
 
@@ -24,6 +25,8 @@ export default function AssignmentCardList({
 	onStart: (id: string) => void;
 	onViewResult?: (recordId: number) => void;
 }) {
+	const [startingId, setStartingId] = useState<string | null>(null);
+
 	if (studentAssignments.length === 0) return null;
 
 	const pending = studentAssignments.filter(
@@ -124,10 +127,18 @@ export default function AssignmentCardList({
 									size="sm"
 									variant={isOverdue ? "outline" : "default"}
 									className="mt-auto w-full"
-									onClick={() => onStart(a.id)}
+									disabled={startingId === a.id}
+									onClick={() => {
+										setStartingId(a.id);
+										onStart(a.id);
+									}}
 								>
-									<Play size={14} />
-									{isOverdue ? "补做练习" : "开始练习"}
+									{startingId === a.id ? (
+										<Loader2 size={14} className="animate-spin mr-1.5" />
+									) : (
+										<Play size={14} />
+									)}
+									{startingId === a.id ? "启动中…" : isOverdue ? "补做练习" : "开始练习"}
 								</Button>
 							)}
 						</div>

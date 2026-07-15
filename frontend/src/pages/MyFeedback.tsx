@@ -81,24 +81,20 @@ export default function MyFeedbackPage() {
 							{fb.content && (
 								<p className="text-sm text-muted-foreground leading-relaxed">{fb.content}</p>
 							)}
-							{fb.developer_reply && (
-								<div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
-									<div className="flex items-center gap-1.5 mb-1">
-										<MessageSquareReply size={13} className="text-primary" />
-										<span className="text-xs font-medium text-primary">开发者回复</span>
-										{fb.replied_at && (
-											<span className="text-[10px] text-muted-foreground">
-												{new Date(fb.replied_at).toLocaleString("zh-CN")}
-											</span>
-										)}
-							</div>
-							<div className="flex items-center gap-3 text-xs text-muted-foreground">
-								<span>{new Date(fb.created_at).toLocaleString("zh-CN")}</span>
-								{fb.version && <span className="opacity-60">v{fb.version}</span>}
-							</div>
-									<p className="text-sm leading-relaxed">{fb.developer_reply}</p>
+						{fb.developer_reply && (
+							<div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+								<div className="flex items-center gap-1.5 mb-1">
+									<MessageSquareReply size={13} className="text-primary" />
+									<span className="text-xs font-medium text-primary">开发者回复</span>
+									{fb.replied_at && (
+										<span className="text-[10px] text-muted-foreground">
+											{new Date(fb.replied_at).toLocaleString("zh-CN")}
+										</span>
+									)}
 								</div>
-							)}
+								<p className="text-sm leading-relaxed">{fb.developer_reply}</p>
+							</div>
+						)}
 						</div>
 					))}
 				</div>

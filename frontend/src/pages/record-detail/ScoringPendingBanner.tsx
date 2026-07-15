@@ -78,6 +78,20 @@ export default function ScoringPendingBanner({
 						</span>
 					</button>
 				)}
+				{(record.scoring_status === "pending" ||
+					record.scoring_status === "processing") && (
+					<button
+						className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-200 text-amber-800 text-sm font-medium hover:bg-amber-300 transition-colors disabled:opacity-50 shrink-0"
+						onClick={onRetry}
+						disabled={retrying}
+					>
+						<RefreshCw
+							size={14}
+							className={cn(retrying && "animate-spin")}
+						/>
+						<span>{retrying ? "刷新中..." : "刷新状态"}</span>
+					</button>
+				)}
 			</div>
 		</div>
 	);

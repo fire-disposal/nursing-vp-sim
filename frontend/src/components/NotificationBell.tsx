@@ -198,7 +198,10 @@ export default function NotificationBell() {
 							</div>
 						</div>
 					) : (
-						<div className="py-10 text-center text-sm text-muted-foreground">暂无通知</div>
+						<div className="py-10 text-center">
+							<Bell size={32} className="text-muted-foreground/30 mx-auto mb-2" />
+							<span className="text-sm text-muted-foreground">暂无通知</span>
+						</div>
 					)}
 				</DialogContent>
 			</Dialog>

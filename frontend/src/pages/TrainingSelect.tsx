@@ -170,7 +170,7 @@ export default function TrainingSelect() {
           {Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
         </div>
       ) : isError ? (
-        <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" />
+        <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" action={<Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>} />
       ) : cases.length === 0 ? (
         <EmptyState icon={AlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例，请联系教师或管理员配置"} />
       ) : (
@@ -198,13 +198,13 @@ export default function TrainingSelect() {
                     <DifficultyStars level={c.difficulty} />
                   </div>
 
-                  {summary && (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      {summary.gender && <span className="inline-flex items-center gap-1"><User size={12} />{summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}</span>}
-                      {typeof summary.age === "number" && <span>{summary.age}岁</span>}
-                      {summary.chief_complaint && <span className="truncate max-w-[200px]">主诉：{summary.chief_complaint}</span>}
-                    </div>
-                  )}
+					{(summary.gender || typeof summary.age === "number" || summary.chief_complaint) && (
+					<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+						{summary.gender && <span className="inline-flex items-center gap-1"><User size={12} />{summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}</span>}
+						{typeof summary.age === "number" && <span>{summary.age}岁</span>}
+						{summary.chief_complaint && <span className="truncate max-w-[200px]" title={summary.chief_complaint}>主诉：{summary.chief_complaint}</span>}
+					</div>
+				)}
 
                   <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
 
