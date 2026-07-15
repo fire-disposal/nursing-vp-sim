@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  # noqa: TC002
 
 from core.config import BATCH_USER_LIMIT
 from core.exceptions import NotFoundError, ValidationError
@@ -364,7 +366,7 @@ class UserService:
             daily=daily,
         )
 
-    def bulk_assign_class(self, user_ids: list[int], class_id: int) -> dict:  # noqa: A003
+    def bulk_assign_class(self, user_ids: list[int], class_id: int) -> dict:
         target_class = self.repo.get_class(class_id)
         if not target_class:
             raise NotFoundError("班级不存在")
