@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleDollarSign, Cpu, Key, TrendingUp } from "lucide-react";
+import { CircleDollarSign, Cpu, TrendingUp } from "lucide-react";
 import { fetchSecrets } from "@/api/admin/api-management";
 import { queryKeys } from "@/api/query-keys";
 import ApiManagementTab from "@/components/admin/ApiManagementTab";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import StatCard from "@/components/ui/stat-card";
 
@@ -71,16 +70,7 @@ export default function LLMAPITab() {
 	return (
 		<div className="space-y-6 mt-4">
 			<LLMCostSummary />
-
-			<Card>
-				<CardHeader className="flex flex-row items-center gap-2">
-					<Key className="size-4 text-muted-foreground" />
-					<CardTitle>密钥与用途管理</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<ApiManagementTab />
-				</CardContent>
-			</Card>
+			<ApiManagementTab />
 		</div>
 	);
 }
