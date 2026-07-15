@@ -85,7 +85,7 @@ class LLMClient:
         self._semaphores: dict[str, asyncio.Semaphore] = {
             p: asyncio.Semaphore(max(1, pf.semaphore // _divisor)) for p, pf in PROFILES.items()
         }
-        self._default_sem = asyncio.Semaphore(max(1, 50 // _divisor))
+        self._default_sem = asyncio.Semaphore(max(1, 500 // _divisor))
 
     def _sem_for(self, purpose: str) -> asyncio.Semaphore:
         for prefix in sorted(self._semaphores, key=len, reverse=True):
