@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { toggleConfig, updateConfig } from "@/api";
+import { createConfig, toggleConfig, updateConfig } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import type { LlmPurpose } from "@/config/llm-purposes";
 import { cn } from "@/utils/cn";
 
+type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 
 interface PurposeCardProps {
 	purpose: LlmPurpose;
 	config: LLMConfigResponse | null;
+	secrets: ApiSecretResponse[];
 	profile: {
 		model: string;
 		temperature: number;
@@ -29,6 +31,7 @@ const MODELS = [
 export default function PurposeCard({
 	purpose,
 	config,
+	secrets,
 	profile,
 	onChanged,
 }: PurposeCardProps) {
@@ -46,6 +49,25 @@ export default function PurposeCard({
 			onChanged();
 		} catch (e: unknown) {
 			toast.apiError(e, "更新失败");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handleSecretChange = async (secretId: number) => {
+		if (!secretId) return;
+		setSaving(true);
+		try {
+			await createConfig({
+				secret_id: secretId,
+				purpose: purpose.value,
+				label: "",
+				model_override: config?.model_override ?? undefined,
+			});
+			toast.success("密钥已切换");
+			onChanged();
+		} catch (e: unknown) {
+			toast.apiError(e, "切换失败");
 		} finally {
 			setSaving(false);
 		}
@@ -117,11 +139,29 @@ export default function PurposeCard({
 					<label className="text-xs text-muted-foreground w-10 shrink-0">
 						密钥
 					</label>
-					<span className="text-sm">
-						{config
-							? `${config.secret_label} (sk-...${config.secret_suffix})`
-							: "未指派"}
-					</span>
+					{secrets.length > 0 ? (
+						<select
+							value={config?.secret_id ?? ""}
+							onChange={(e) =>
+								handleSecretChange(Number(e.target.value))
+							}
+							disabled={saving}
+							className="flex-1 py-1 px-2 border border-border rounded-md text-sm bg-card disabled:opacity-50 min-w-0"
+						>
+							{!config && (
+								<option value="">选择密钥...</option>
+							)}
+							{secrets.map((s) => (
+								<option key={s.id} value={s.id}>
+									{s.label} (sk-...{s.key_suffix})
+								</option>
+							))}
+						</select>
+					) : (
+						<span className="text-sm text-muted-foreground">
+							未指派
+						</span>
+					)}
 				</div>
 			</div>
 

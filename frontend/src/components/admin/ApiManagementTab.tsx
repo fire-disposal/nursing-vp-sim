@@ -131,6 +131,7 @@ export default function ApiManagementTab() {
 				<h3 className="text-sm font-semibold text-foreground mb-2">用途配置</h3>
 				<PurposeCardGrid
 					configs={configs}
+					secrets={secrets}
 					onChanged={invalidate}
 				/>
 			</div>

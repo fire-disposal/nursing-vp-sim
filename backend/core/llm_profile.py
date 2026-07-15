@@ -36,7 +36,7 @@ PROFILES: dict[str, LLMProfile] = {
         max_tokens=512,
         temperature=0.3,
         max_retries=2,
-        semaphore=50,
+        semaphore=500,
     ),
     "qa": LLMProfile(
         model="deepseek-v4-flash",
@@ -44,7 +44,7 @@ PROFILES: dict[str, LLMProfile] = {
         max_tokens=1024,
         temperature=0.7,
         max_retries=2,
-        semaphore=50,
+        semaphore=500,
     ),
     "scoring": LLMProfile(
         model="deepseek-v4-pro",
@@ -53,7 +53,7 @@ PROFILES: dict[str, LLMProfile] = {
         temperature=0,
         max_retries=3,
         response_format={"type": "json_object"},
-        semaphore=10,
+        semaphore=200,
         enable_thinking=True,
     ),
     "scoring_feedback": LLMProfile(
@@ -63,7 +63,7 @@ PROFILES: dict[str, LLMProfile] = {
         temperature=0.3,
         max_retries=2,
         response_format={"type": "json_object"},
-        semaphore=10,
+        semaphore=200,
         enable_thinking=True,
     ),
     "case_generation": LLMProfile(
@@ -72,14 +72,14 @@ PROFILES: dict[str, LLMProfile] = {
         max_tokens=4096,
         temperature=0.3,
         max_retries=3,
-        semaphore=3,
+        semaphore=100,
         response_format={"type": "json_object"},
     ),
 }
 
 # Default profile for unknown purposes — uses flash, conservative settings
 _DEFAULT = LLMProfile(
-    model="deepseek-v4-flash", timeout=30, max_tokens=512, temperature=0.7, max_retries=2, semaphore=50
+    model="deepseek-v4-flash", timeout=30, max_tokens=512, temperature=0.7, max_retries=2, semaphore=500
 )
 
 

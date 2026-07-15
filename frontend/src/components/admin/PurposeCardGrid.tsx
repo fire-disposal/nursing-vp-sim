@@ -2,23 +2,26 @@ import type { components } from "@/api/api-types.gen";
 import { LLM_PURPOSES } from "@/config/llm-purposes";
 import PurposeCard from "./PurposeCard";
 
+type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 
 const PROFILES: Record<string, { model: string; temperature: number; max_tokens: number; semaphore: number }> = {
-	patient_chat: { model: "deepseek-v4-flash", temperature: 0.3, max_tokens: 512, semaphore: 50 },
-	qa: { model: "deepseek-v4-flash", temperature: 0.7, max_tokens: 1024, semaphore: 50 },
-	scoring: { model: "deepseek-v4-pro", temperature: 0, max_tokens: 4096, semaphore: 10 },
-	scoring_feedback: { model: "deepseek-v4-pro", temperature: 0.3, max_tokens: 2048, semaphore: 10 },
-	case_generation: { model: "deepseek-v4-flash", temperature: 0.3, max_tokens: 4096, semaphore: 3 },
+	patient_chat: { model: "deepseek-v4-flash", temperature: 0.3, max_tokens: 512, semaphore: 500 },
+	qa: { model: "deepseek-v4-flash", temperature: 0.7, max_tokens: 1024, semaphore: 500 },
+	scoring: { model: "deepseek-v4-pro", temperature: 0, max_tokens: 4096, semaphore: 200 },
+	scoring_feedback: { model: "deepseek-v4-pro", temperature: 0.3, max_tokens: 2048, semaphore: 200 },
+	case_generation: { model: "deepseek-v4-flash", temperature: 0.3, max_tokens: 4096, semaphore: 100 },
 };
 
 interface PurposeCardGridProps {
 	configs: LLMConfigResponse[];
+	secrets: ApiSecretResponse[];
 	onChanged: () => void;
 }
 
 export default function PurposeCardGrid({
 	configs,
+	secrets,
 	onChanged,
 }: PurposeCardGridProps) {
 	const configByPurpose: Record<string, LLMConfigResponse | undefined> = {};
@@ -43,6 +46,7 @@ export default function PurposeCardGrid({
 						key={p.value}
 						purpose={p}
 						config={cfg}
+						secrets={secrets}
 						profile={profile}
 						onChanged={onChanged}
 					/>
