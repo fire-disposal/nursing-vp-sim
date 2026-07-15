@@ -41,9 +41,6 @@ class PracticeItem(BaseModel):
     updated_at: datetime
 
 
-PracticeResponse = PracticeItem
-
-
 class PracticeBrief(BaseModel):
     model_config = _RESP_CFG
     id: int

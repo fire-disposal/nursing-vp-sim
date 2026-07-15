@@ -98,8 +98,3 @@ export const getTrainingQuestionnaire = (
 			options?: string[];
 		}>;
 	}>(`/questionnaires/training/${trainingId}/${type}`);
-
-export const submitTrainingQuestionnaire = (
-	id: number,
-	data: { record_id: number; answers: Record<number, string> },
-) => api.post(`/questionnaires/${id}/submit` as ApiPath, data);

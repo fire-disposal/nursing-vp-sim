@@ -18,7 +18,6 @@ from models import QARecord, QASession, User
 from prompts import QA_SYSTEM
 from schemas import (
     Citation,
-    QAAskRequest,
     QAAskResponse,
     QASessionCreate,
     SectionTextResponse,
@@ -375,7 +374,7 @@ async def ask_in_session(
 @router.post("/sessions/{session_id}/ask/stream")
 async def ask_stream(
     session_id: int,
-    req: QAAskRequest,
+    req: QASessionCreate,
     request: Request,
     current_user: Annotated[User, Depends(require_permission("qa_access"))],
 ):

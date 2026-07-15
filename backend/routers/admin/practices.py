@@ -14,7 +14,6 @@ from schemas import (
     PaginatedResponse,
     PracticeCreate,
     PracticeItem,
-    PracticeResponse,
     PracticeUpdate,
 )
 from services.practice import PracticeService
@@ -26,8 +25,8 @@ router = APIRouter(prefix="/api/admin/practices", tags=["练习管理"])
 _Manager = Annotated[User, Depends(require_permission("case_manage"))]
 
 
-def _resp(view) -> PracticeResponse:
-    return PracticeResponse(
+def _resp(view) -> PracticeItem:
+    return PracticeItem(
         id=view.id,
         name=view.name,
         description=view.description,
@@ -58,7 +57,7 @@ def list_practices(
     )
 
 
-@router.get("/{practice_id}", response_model=PracticeResponse)
+@router.get("/{practice_id}", response_model=PracticeItem)
 def get_practice(
     practice_id: int,
     current_user: _Manager,
@@ -67,7 +66,7 @@ def get_practice(
     return _resp(PracticeService(db).get(practice_id))
 
 
-@router.post("", status_code=201, response_model=PracticeResponse)
+@router.post("", status_code=201, response_model=PracticeItem)
 def create_practice(
     body: PracticeCreate,
     current_user: _Manager,
@@ -83,7 +82,7 @@ def create_practice(
     return _resp(view)
 
 
-@router.put("/{practice_id}", response_model=PracticeResponse)
+@router.put("/{practice_id}", response_model=PracticeItem)
 def update_practice(
     practice_id: int,
     body: PracticeUpdate,

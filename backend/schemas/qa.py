@@ -11,9 +11,6 @@ class QASessionCreate(BaseModel):
     rag_enabled: bool = False
 
 
-QAAskRequest = QASessionCreate
-
-
 class QASessionItem(BaseModel):
     model_config = _RESP_CFG
     id: int
