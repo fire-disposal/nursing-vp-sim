@@ -18,9 +18,8 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "record_notes",
         "questionnaire_manage",
     ],
-    "school_admin": [
+    "admin": [
         "user_manage",
-        "role_manage",
         "grade_class_manage",
         "case_manage",
         "training_access",
@@ -55,7 +54,7 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
 
 SYSTEM_ROLES: list[tuple[str, str]] = [
     ("super_admin", "超级管理员"),
-    ("school_admin", "学校管理员"),
+    ("admin", "管理员"),
     ("teacher", "教师"),
     ("student", "学生"),
 ]

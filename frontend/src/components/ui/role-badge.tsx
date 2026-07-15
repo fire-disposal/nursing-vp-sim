@@ -5,6 +5,7 @@ type RoleVariant = "danger" | "info" | "success";
 const ROLE_VARIANT: Record<string, RoleVariant> = {
 	super_admin: "danger",
 	school_admin: "danger",
+	admin: "danger",
 	teacher: "info",
 };
 

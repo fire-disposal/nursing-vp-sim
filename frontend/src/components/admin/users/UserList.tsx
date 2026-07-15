@@ -168,7 +168,7 @@ export default function UserList({
 											<span
 												className={cn(
 													"inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
-													u.role === "super_admin" || u.role === "school_admin"
+													u.role === "super_admin" || u.role === "school_admin" || u.role === "admin"
 														? "bg-danger text-danger-foreground"
 														: u.role === "teacher"
 															? "bg-info text-info-foreground"

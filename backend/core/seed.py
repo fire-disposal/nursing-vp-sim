@@ -29,6 +29,45 @@ def seed_all() -> None:
     _seed_voice()
 
 
+def _seed_user(
+    db,
+    role_ids: dict[str, int],
+    *,
+    role_name: str,
+    env_username: str,
+    env_password: str,
+    default_username: str,
+    default_display: str,
+) -> None:
+    """Seed one system user per role. Idempotent — skips if user exists, corrects role_id if drifted."""
+    username = os.getenv(env_username, default_username)
+    password = os.getenv(env_password)
+    if not password:
+        log.warning("%s 未设置，跳过 %s 种子用户", env_password, role_name)
+        return
+    role_id = role_ids.get(role_name)
+    if role_id is None:
+        log.warning("角色 %s 未找到，跳过种子用户", role_name)
+        return
+    existing = db.query(User).filter(User.username == username).first()
+    if existing:
+        if existing.role_id != role_id:
+            existing.role_id = role_id
+            db.commit()
+            log.debug("%s 角色已修正 (%s → %s)", default_display, username, role_name)
+    else:
+        db.add(
+            User(
+                username=username,
+                password_hash=hash_password(password),
+                role_id=role_id,
+                display_name=default_display,
+            )
+        )
+        db.commit()
+        log.debug("%s 已创建 (%s)", default_display, username)
+
+
 def _seed_data() -> None:
     db = SessionLocal()
     try:
@@ -59,32 +98,46 @@ def _seed_data() -> None:
                 db.add(RolePermission(role_id=rid, permission=p))
         db.commit()
 
-        # 2. 超级管理员
-        username = os.getenv("SEED_ADMIN_USERNAME", "admin")
-        password = os.getenv("SEED_ADMIN_PASSWORD")
-        if not password:
-            raise RuntimeError("SEED_ADMIN_PASSWORD 环境变量未设置")
-        sa_role_id = role_ids.get("super_admin")
-        admin_user = db.query(User).filter(User.username == username).first()
-        if admin_user:
-            if sa_role_id is not None and admin_user.role_id != sa_role_id:
-                admin_user.role_id = sa_role_id
-                db.commit()
-                log.debug("超级管理员角色已修正 (%s → super_admin)", username)
-        else:
-            db.add(
-                User(
-                    username=username,
-                    password_hash=hash_password(password),
-                    role_id=sa_role_id,
-                    display_name="超级管理员",
-                )
-            )
-            db.commit()
-            log.debug("超级管理员已创建 (%s)", username)
+        # 3. 各角色初始用户（幂等：已存在则只修正 role_id，不重复创建）
+        _seed_user(
+            db,
+            role_ids,
+            role_name="super_admin",
+            env_username="SEED_ADMIN_USERNAME",
+            env_password="SEED_ADMIN_PASSWORD",
+            default_username="admin",
+            default_display="超级管理员",
+        )
+        _seed_user(
+            db,
+            role_ids,
+            role_name="admin",
+            env_username="SEED_OPERATOR_USERNAME",
+            env_password="SEED_OPERATOR_PASSWORD",
+            default_username="admin2",
+            default_display="管理员",
+        )
+        _seed_user(
+            db,
+            role_ids,
+            role_name="teacher",
+            env_username="SEED_TEACHER_USERNAME",
+            env_password="SEED_TEACHER_PASSWORD",
+            default_username="teacher1",
+            default_display="教师",
+        )
+        _seed_user(
+            db,
+            role_ids,
+            role_name="student",
+            env_username="SEED_STUDENT_USERNAME",
+            env_password="SEED_STUDENT_PASSWORD",
+            default_username="student1",
+            default_display="学生",
+        )
 
         # 4. 测试学生 (仅首次初始化)
-        if db.query(User).filter(User.username != username).count() == 0:
+        if db.query(User).filter(User.username != "admin").count() == 0:
             student_role_id = role_ids.get("student")
             test_genders = ["男", "女", "男", "女", "男"]
             for i in range(1, 6):
