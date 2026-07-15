@@ -155,6 +155,7 @@ def bot_list_feedback(
     since: str | None = Query(None, description="ISO datetime, e.g. 2026-07-01T00:00:00"),
     version: str | None = Query(None, description="Exact version, e.g. 2026.07.14-10"),
     tag: str | None = Query(None, description="Filter by tag: bug/feature/experience/content/ui/other"),
+    replied: bool | None = Query(None, description="true=已回复, false=未回复"),
     include_fixed: bool = False,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -167,6 +168,11 @@ def bot_list_feedback(
     # Default: exclude already fixed (prevents re-processing loops)
     if not include_fixed:
         q = q.filter(Feedback.auto_fix_attempted == False)
+
+    if replied is True:
+        q = q.filter(Feedback.developer_reply.isnot(None))
+    elif replied is False:
+        q = q.filter(Feedback.developer_reply.is_(None))
 
     if since:
         try:

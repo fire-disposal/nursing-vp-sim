@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Daily report — calls /api/diagnose and sends HTML email.
+"""Daily report — calls /api/diagnose, highlights exceptions & changes.
+
+Exception-first design:
+  • No success rate percentages (always 99%+, noise)
+  • Alerts at top → error deltas → scoring → budget → resources
+  • DingTalk: pure exception digest
 
 Cron: 0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py
 """
 
 import json
 import logging
-import os
 import smtplib
 import subprocess
 import sys
@@ -17,7 +21,6 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 LOG_FILE = SCRIPT_DIR / "daily_report.log"
-CONFIG_FILE = SCRIPT_DIR / "config.py"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,15 +31,14 @@ log = logging.getLogger("daily_report")
 
 sys.path.insert(0, str(SCRIPT_DIR))
 
-# ── Config ────────────────────────────────────────────────────────────────────
-sys.path.insert(0, str(SCRIPT_DIR))
 from _env import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_TO, DIAGNOSE_TOKEN, HOSTNAME  # noqa: E402
-from _env import _REPORT_PORTS as _ENV  # noqa: E402
-
-_ENV_LABELS = {"prod": "正式服", "staging": "测试服"}
+from _env import _REPORT_PORTS, DINGTALK_WEBHOOK, FEEDBACK_BOT_TOKEN  # noqa: E402
 
 if not SMTP_HOST:
     log.warning("SMTP_HOST not configured, email disabled")
+
+
+# ── Data fetching ─────────────────────────────────────────────────────────────
 
 
 def fetch_report(port: int) -> dict | None:
@@ -50,156 +52,230 @@ def fetch_report(port: int) -> dict | None:
         )
         if r.returncode != 0:
             return None
-        # /api/diagnose returns data body directly (no envelope wrapper)
         data = json.loads(r.stdout)
         return data if isinstance(data, dict) else None
     except Exception:
         return None
 
 
-# ── HTML helpers ───────────────────────────────────────────────────────────────
-
-def _card(title: str, cls: str = "") -> str:
-    extra = f' class="{cls}"' if cls else ""
-    return f'<div class="card"{extra}><h2>{title}</h2>'
-
-def _td(val, color=""):
-    style = f' style="color:{color};font-weight:600"' if color else ""
-    return f'<td class="r"{style}>{val or "-"}</td>'
-
-def _cmp(val, green, amber, inverse=False):
-    if inverse:
-        return "var(--c-ok)" if val <= green else ("var(--c-warn)" if val <= amber else "var(--c-err)")
-    return "var(--c-ok)" if val >= green else ("var(--c-warn)" if val >= amber else "var(--c-err)")
-
-def _pct(val):
-    return f"{val:.1f}%" if val is not None else "-"
-
-
-def build_report() -> str:
-    now = datetime.now()
-    date_str, time_str = now.strftime("%Y-%m-%d"), now.strftime("%H:%M")
-
+def fetch_all_reports() -> tuple[dict, dict]:
     data = {}
     online = {}
-    for key, port in _ENV.items():
+    for key, port in _REPORT_PORTS.items():
         rpt = fetch_report(port)
         data[key] = rpt
         online[key] = rpt is not None
+    return data, online
 
+
+def fetch_feedback_unreplied() -> int:
+    """Fetch count of unreplied user feedback from prod backend via bot API."""
+    port = _REPORT_PORTS.get("prod", 9001)
+    if not FEEDBACK_BOT_TOKEN:
+        return 0
+    url = f"http://127.0.0.1:{port}/api/feedback/bot?token={FEEDBACK_BOT_TOKEN}&replied=false&limit=1"
+    try:
+        r = subprocess.run(
+            ["curl", "-sS", "-m", "5", url],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode != 0:
+            return 0
+        data = json.loads(r.stdout)
+        return data.get("total", 0) if isinstance(data, dict) else 0
+    except Exception:
+        return 0
+
+
+# ── HTML helpers ──────────────────────────────────────────────────────────────
+
+
+def _card(title: str, emoji: str = "", extra_cls: str = "") -> str:
+    cls = f' class="{extra_cls}"' if extra_cls else ""
+    prefix = f"<span>{emoji} </span>" if emoji else ""
+    return f'<div class="card"{cls}><h2>{prefix}{title}</h2>'
+
+
+def _tag(text: str, cls: str) -> str:
+    return f'<span class="tag tag-{cls}">{text}</span>'
+
+
+def _row(label: str, *cells: str) -> str:
+    cells_html = "".join(f'<td class="r">{c}</td>' for c in cells)
+    return f"<tr><td>{label}</td>{cells_html}</tr>"
+
+
+# ── Report builder ────────────────────────────────────────────────────────────
+
+
+def build_email(data: dict, online: dict) -> str:
+    now = datetime.now()
+    date_str, time_str = now.strftime("%Y-%m-%d"), now.strftime("%H:%M")
     prod, stag = data.get("prod") or {}, data.get("staging") or {}
+    sections = []
 
     # ── Header ──
+    prod_status = prod.get("summary", {}).get("status", "unknown")
+    stag_status = stag.get("summary", {}).get("status", "unknown")
+    overall = "healthy" if prod_status == "healthy" and stag_status == "healthy" else "degraded"
     header = f"""<div class="header">
-  <h1>Nursing VP Sim <span>每日运维报告</span></h1>
-  <div class="sub">{date_str} &middot; {time_str} &middot; {HOSTNAME}</div>
+  <h1>VP-SIM 运维日报</h1>
+  <div class="sub">{date_str} {time_str} ｜ {HOSTNAME}</div>
+  <div class="status-bar {overall}">
+    {'🟢 运行正常' if overall == 'healthy' else '🟡 存在异常'} ｜
+    正式服: {prod.get('version', '-')} ｜
+    测试服: {stag.get('version', '-')}
+  </div>
 </div>"""
+    sections.append(header)
 
-    # ── Overview ──
-    tags = {
-        "prod": '<span class="tag tag-ok">● 在线</span>' if online["prod"] else '<span class="tag tag-err">● 离线</span>',
-        "staging": '<span class="tag tag-ok">● 在线</span>' if online["staging"] else '<span class="tag tag-err">● 离线</span>',
-    }
-    overview = """<div class="card"><h2>运行概况</h2><table>
-    <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>"""
-    overview += f"<tr><td>状态</td><td class='r'>{tags['prod']}</td><td class='r'>{tags['staging']}</td></tr>"
-
-    for label, key in [("运行时长", "uptime_seconds")]:
-        pv = prod.get("metrics", {}).get(key, 0)
-        sv = stag.get("metrics", {}).get(key, 0)
-        overview += f"<tr><td>{label}</td><td class='r'>{pv/3600:.1f}h</td><td class='r'>{sv/3600:.1f}h</td></tr>"
-
-    overview += "</table></div>"
-
-    # ── LLM ──
-    pl = prod.get("llm", {})
-    sl = stag.get("llm", {})
-    llm_section = _card("LLM 调用") + "<table><tr><th></th><th class='r'>正式服</th><th class='r'>测试服</th></tr>"
-    for label, key in [
-        ("总调用(24h)", "total_calls_24h"), ("成功率", "success_rate"),
-        ("错误数(24h)", "error_count_24h"), ("平均延迟(ms)", "avg_latency_ms"),
-    ]:
-        pv = pl.get(key)
-        sv = sl.get(key)
-        if key == "success_rate":
-            llm_section += f"<tr><td>{label}</td>{_td(_pct(pv), _cmp(pv or 100, 95, 80))}{_td(_pct(sv), _cmp(sv or 100, 95, 80))}</tr>"
-        elif key == "error_count_24h":
-            llm_section += f"<tr><td>{label}</td>{_td(str(pv or 0), 'var(--c-err)' if pv else '')}{_td(str(sv or 0), 'var(--c-err)' if sv else '')}</tr>"
-        else:
-            llm_section += f"<tr><td>{label}</td>{_td(str(pv))}{_td(str(sv))}</tr>"
-
-    # Top errors
-    pe = pl.get("recent_errors", [])
-    se = sl.get("recent_errors", [])
-    if pe or se:
-        llm_section += '<tr><td colspan="3" style="padding-top:8px;font-size:11px;color:var(--c-dim)">'
-        if pe:
-            llm_section += "正式服Top错误: " + ", ".join(f"{e['type']}({e['count']})" for e in pe[:3])
-        if se:
-            llm_section += " 测试服Top错误: " + ", ".join(f"{e['type']}({e['count']})" for e in se[:3])
-        llm_section += "</td></tr>"
-    llm_section += "</table></div>"
-
-    # ── Voice (TTS/ASR) ──
-    pv_voice = prod.get("voice", {})
-    sv_voice = stag.get("voice", {})
-    voice_section = _card("语音服务 (TTS/ASR)") + "<table><tr><th></th><th class='r'>正式服</th><th class='r'>测试服</th></tr>"
-    for svc, sr_green, sr_amber in [("tts", 90, 75), ("asr", 80, 60)]:
-        pt = pv_voice.get(svc, {})
-        st = sv_voice.get(svc, {})
-        name = svc.upper()
-        pc = pt.get("calls_24h", 0)
-        sc = st.get("calls_24h", 0)
-        voice_section += f"<tr><td>{name} 调用(24h)</td>{_td(str(pc))}{_td(str(sc))}</tr>"
-        psr, ssr = pt.get("success_rate"), st.get("success_rate")
-        pcolor = _cmp(psr if psr is not None else 100, sr_green, sr_amber) if pc else ""
-        scolor = _cmp(ssr if ssr is not None else 100, sr_green, sr_amber) if sc else ""
-        voice_section += (
-            f"<tr><td>{name} 成功率</td>"
-            f"{_td(_pct(psr) if pc else '-', pcolor)}{_td(_pct(ssr) if sc else '-', scolor)}</tr>"
-        )
-        pe, se = pt.get("error_count_24h", 0), st.get("error_count_24h", 0)
-        voice_section += (
-            f"<tr><td>{name} 错误(24h)</td>"
-            f"{_td(str(pe), 'var(--c-err)' if pe else '')}{_td(str(se), 'var(--c-err)' if se else '')}</tr>"
-        )
-
-    def _bcell(b: dict) -> str:
-        budget = b.get("monthly_budget", 0)
-        if not budget:
-            return _td("-")
-        pct = b.get("usage_pct", 0)
-        return _td(
-            f"¥{b.get('monthly_cost', 0):.2f}/{budget:.0f} ({pct:.0f}%)",
-            _cmp(pct, 80, 100, inverse=True),
-        )
-
-    voice_section += f"<tr><td>本月语音成本</td>{_bcell(prod.get('voice_budget', {}))}{_bcell(stag.get('voice_budget', {}))}</tr>"
-    voice_section += "</table></div>"
-
-
-    # ── Scoring ──
-    psc = prod.get("scoring", {})
-    ssc = stag.get("scoring", {})
-    scoring = _card("评分队列") + "<table><tr><th></th><th class='r'>正式服</th><th class='r'>测试服</th></tr>"
-    scoring += f"<tr><td>待处理</td>{_td(str(psc.get('pending', 0)))}{_td(str(ssc.get('pending', 0)))}</tr>"
-    scoring += f"<tr><td>卡住(&gt;24h)</td>{_td(str(psc.get('stuck', 0)), 'var(--c-err)' if psc.get('stuck') else '')}{_td(str(ssc.get('stuck', 0)), 'var(--c-err)' if ssc.get('stuck') else '')}</tr>"
-    scoring += "</table></div>"
-
-    
-
-    # ── Alerts ──
-    pa = prod.get("alerts", [])
-    sa = stag.get("alerts", [])
-    all_alerts = pa + sa
-    if all_alerts:
-        items = "".join(f"<li>{a}</li>" for a in all_alerts)
-        errlog = _card("异常摘要", "h-err") + f'<ul class="err-list">{items}</ul></div>'
+    # ── Alerts — top priority ──
+    pa = prod.get("alerts") or []
+    sa = stag.get("alerts") or []
+    if pa or sa:
+        rows = ""
+        for a in pa:
+            rows += f"<tr><td class='r'>{_tag('正式', 'err')}</td><td>{a}</td></tr>"
+        for a in sa:
+            rows += f"<tr><td class='r'>{_tag('测试', 'warn')}</td><td>{a}</td></tr>"
+        sections.append(_card("异常", "⚠️", "h-err") + f"<table>{rows}</table></div>")
     else:
-        errlog = _card("异常摘要", "h-ok") + '<div class="status-ok">当前运行正常，无异常</div></div>'
+        sections.append(_card("异常", "✅", "h-ok") + '<div class="status-ok">无异常</div></div>')
 
-    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("__ERRLOG__", errlog)
+    # ── Error ring-buffer (recent errors, not rates) ──
+    pe = prod.get("errors") or {}
+    se = stag.get("errors") or {}
+    err_rows = ""
+    for label, env_err, env_name in [
+        ("正式服", pe, "prod"), ("测试服", se, "staging"),
+    ]:
+        c = env_err.get("count", {})
+        err_rows += (
+            f"<tr><td>{env_name}</td>"
+            f"<td class='r'>{c.get('last_5min', '-')}</td>"
+            f"<td class='r'>{c.get('last_hour', '-')}</td>"
+            f"<td class='r'>{c.get('total_captured', '-')}</td></tr>"
+        )
+    sections.append(
+        _card("错误捕获", "📊")
+        + "<table><tr><th></th><th class='r'>近 5min</th><th class='r'>近 1h</th><th class='r'>缓冲区</th></tr>"
+        + err_rows
+        + "</table></div>"
+    )
 
+    # ── Unreplied feedback ──
+    unreplied = fetch_feedback_unreplied()
+    tag_cls = "warn" if unreplied > 10 else ("err" if unreplied > 0 else "ok")
+    sections.append(
+        _card("用户反馈", "💬")
+        + f"<div>未回复 <strong>{unreplied}</strong> 条 {_tag('待回复' if unreplied else '无', tag_cls)}</div></div>"
+    )
+
+    # ── LLM error types (actionable: which errors, not success rate) ──
+    for env_name, pl in [("正式服", prod.get("llm", {})), ("测试服", stag.get("llm", {}))]:
+        errs = pl.get("recent_errors") or []
+        if errs:
+            detail = " ｜ ".join(f"{e['type']} ×{e['count']}" for e in errs[:5])
+            sections.append(
+                _card(f"LLM 错误 — {env_name}", "🤖")
+                + f'<div class="mono">{detail}</div></div>'
+            )
+
+    # ── Scoring health ──
+    for env_name, ps in [
+        ("正式服", prod.get("scoring", {})), ("测试服", stag.get("scoring", {})),
+    ]:
+        stuck = ps.get("stuck", 0)
+        pending = ps.get("pending", 0)
+        ip = ps.get("in_progress", 0)
+        tag_cls = "err" if stuck else ("warn" if pending > 10 else "ok")
+        tag_label = f"卡住 {stuck}" if stuck else (f"排队 {pending}" if pending > 10 else "正常")
+        sections.append(
+            _card(f"评分队列 — {env_name}", "🎯")
+            + f"<div>待处理 <strong>{pending}</strong> ｜ "
+            f"进行中 <strong>{ip}</strong> ｜ "
+            f"{_tag(tag_label, tag_cls)}</div></div>"
+        )
+
+    # ── Voice budget ──
+    vb = prod.get("voice_budget") or {}
+    if vb.get("monthly_budget", 0) > 0:
+        pct = vb.get("usage_pct", 0)
+        cost = vb.get("monthly_cost", 0)
+        budget = vb.get("monthly_budget", 0)
+        pct_tag = "err" if pct >= 90 else ("warn" if pct >= 75 else "ok")
+        sections.append(
+            _card("语音预算", "💰")
+            + f"<div>¥{cost:.0f} / ¥{budget:.0f} ｜ "
+            f"{_tag(f'{pct:.0f}%', pct_tag)}</div></div>"
+        )
+
+    # ── Voice errors (not rates) ──
+    for env_name, pv in [
+        ("正式服", prod.get("voice", {})), ("测试服", stag.get("voice", {})),
+    ]:
+        tts = pv.get("tts") or {}
+        asr = pv.get("asr") or {}
+        te = tts.get("error_count_24h", 0)
+        ae = asr.get("error_count_24h", 0)
+        tc = tts.get("calls_24h", 0)
+        ac = asr.get("calls_24h", 0)
+        if tc or ac:
+            sections.append(
+                _card(f"语音 — {env_name}", "🔊")
+                + f"<div>TTS <strong>{tc}</strong>次 ｜ 错误 <strong>{te}</strong> ｜ "
+                f"ASR <strong>{ac}</strong>次 ｜ 错误 <strong>{ae}</strong></div></div>"
+            )
+
+    # ── Request volume — 5xx matters ──
+    for env_name, pm in [
+        ("正式服", prod.get("metrics", {})), ("测试服", stag.get("metrics", {})),
+    ]:
+        reqs = pm.get("requests") or {}
+        total = reqs.get("total", 0)
+        by_status = reqs.get("by_status") or {}
+        s5xx = by_status.get("5xx", 0)
+        sessions = pm.get("active_sessions", "-")
+        latency = (reqs.get("latency_ms") or {}).get("avg", "-")
+        if total:
+            sections.append(
+                _card(f"请求量 — {env_name}", "📈")
+                + f"<div>总计 <strong>{total}</strong> ｜ "
+                f"5xx <strong>{s5xx}</strong> ｜ "
+                f"会话 <strong>{sessions}</strong> ｜ "
+                f"延迟 <strong>{latency}ms</strong></div></div>"
+            )
+
+    # ── LLM degradation ──
+    for env_name, pm in [
+        ("正式服", prod.get("metrics", {})), ("测试服", stag.get("metrics", {})),
+    ]:
+        llm_m = (pm.get("llm") or {}) if isinstance(pm, dict) else {}
+        degraded = llm_m.get("degraded_providers", 0)
+        gd = llm_m.get("global_degraded", False)
+        if degraded or gd:
+            msg = f"降级 Provider: {degraded} 个"
+            if gd:
+                msg += " ｜ 全局降级"
+            sections.append(
+                _card(f"LLM 状态 — {env_name}", "⚡", "h-err")
+                + f'<div class="mono">{msg}</div></div>'
+            )
+
+    # ── Uptime ──
+    rows = ""
+    for env_name, pm in [("正式服", prod), ("测试服", stag)]:
+        u = (pm.get("metrics") or {}).get("uptime_seconds", 0)
+        rows += _row(env_name, f"{u / 3600:.1f}h")
+    sections.append(
+        _card("运行时长", "⏱️") + f"<table>{rows}</table></div>"
+    )
+
+    body = "\n".join(sections)
+    return WRAPPER.replace("__BODY__", body).replace("__DATE__", date_str)
+
+
+# ── CSS & Wrapper ─────────────────────────────────────────────────────────────
 
 CSS = """\
 :root{color-scheme:light dark}
@@ -218,41 +294,140 @@ CSS = """\
 body{margin:0;padding:24px;background:var(--c-bg);
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   font-size:14px;color:var(--c-txt);line-height:1.5}
-.container{max-width:720px;margin:0 auto}
-.header{padding:16px 0 24px;border-bottom:2px solid var(--c-accent)}
-.header h1{font-size:20px;font-weight:700;margin:0;color:var(--c-accent)}
-.header h1 span{font-weight:400;color:var(--c-sub)}
-.header .sub{font-size:12px;color:var(--c-dim);margin-top:4px}
+.container{max-width:640px;margin:0 auto}
+.header{padding:0 0 20px;border-bottom:2px solid var(--c-card-bd);margin-bottom:4px}
+.header h1{font-size:18px;font-weight:700;margin:0;color:var(--c-accent)}
+.header .sub{font-size:12px;color:var(--c-dim);margin-top:2px}
+.status-bar{margin-top:10px;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:500}
+.status-bar.healthy{background:rgba(34,197,94,.1);color:var(--c-ok)}
+.status-bar.degraded{background:rgba(245,158,11,.1);color:var(--c-warn)}
 .card{background:var(--c-card);border:1px solid var(--c-card-bd);
-  border-radius:8px;padding:20px 24px;margin-top:16px}
-.card h2{font-size:13px;font-weight:600;margin:0 0 16px;color:var(--c-sub);
-  text-transform:uppercase;letter-spacing:.5px;padding-bottom:10px;
-  border-bottom:1px solid var(--c-card-bd)}
-.h-err{color:var(--c-err)!important;border-bottom-color:rgba(239,68,68,.2)!important}
-.h-ok{color:var(--c-ok)!important;border-bottom-color:rgba(34,197,94,.2)!important}
+  border-radius:8px;padding:14px 18px;margin-top:12px}
+.card h2{font-size:12px;font-weight:600;margin:0 0 10px;color:var(--c-sub);
+  letter-spacing:.3px;padding-bottom:8px;border-bottom:1px solid var(--c-card-bd)}
+.h-err h2{color:var(--c-err)!important;border-bottom-color:rgba(239,68,68,.2)!important}
+.h-ok h2{color:var(--c-ok)!important;border-bottom-color:rgba(34,197,94,.2)!important}
 .status-ok{color:var(--c-ok);font-size:13px;font-weight:500}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--c-card-bd);
-  font-size:11px;font-weight:600;color:var(--c-dim);text-transform:uppercase}
-td{padding:8px 10px;border-bottom:1px solid var(--c-card-bd);font-size:13px}
-td.r,th.r{text-align:right}
+th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--c-card-bd);
+  font-size:11px;font-weight:600;color:var(--c-dim)}
+td{padding:6px 8px;border-bottom:1px solid var(--c-card-bd);font-size:13px}
+.r{text-align:right}
 tr:last-child td{border-bottom:none}
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600}
 .tag-ok{background:rgba(34,197,94,.1);color:var(--c-ok)}
+.tag-warn{background:rgba(245,158,11,.1);color:var(--c-warn)}
 .tag-err{background:rgba(239,68,68,.1);color:var(--c-err)}
-.err-list{margin:0;padding:0 0 0 18px;font-size:13px;color:var(--c-txt)}
-.err-list li{padding:4px 0}
-.footer{margin-top:20px;text-align:center;font-size:11px;color:var(--c-dim)}
+.mono{font-family:'SF Mono',Menlo,monospace;font-size:12px;line-height:1.6;color:var(--c-txt)}
+.footer{margin-top:16px;text-align:center;font-size:11px;color:var(--c-dim)}
 """
 
 WRAPPER = (
     '<!DOCTYPE html><html><head><meta charset="utf-8">'
     '<meta name="color-scheme" content="light dark">'
     f"<style>{CSS}</style></head><body><div class='container'>"
-    "__HEADER____OVERVIEW____ERRLOG____LLM____VOICE____SCORING__"
-    '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · '
-    "数据来自 /api/diagnose</div></div></body></html>"
+    "__BODY__"
+    '<div class="footer">daily_report.py · __DATE__</div>'
+    "</div></body></html>"
 )
+
+
+# ── DingTalk ──────────────────────────────────────────────────────────────────
+
+
+def build_dingtalk_summary(data: dict, online: dict) -> str:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    prod, stag = data.get("prod") or {}, data.get("staging") or {}
+    lines = [f"## 📋 VP-SIM 日报 — {now}", f"> {HOSTNAME}\n"]
+
+    ps = "🟢" if online.get("prod") else "🔴"
+    ss = "🟢" if online.get("staging") else "🔴"
+    prod_status = prod.get("summary", {}).get("status", "?")
+    stag_status = stag.get("summary", {}).get("status", "?")
+    lines.append(f"**状态**  {ps}正式({prod_status})  {ss}测试({stag_status})")
+
+    def _busy_line(label, d):
+        llm = (d.get("llm") or {}).get("total_calls_24h", 0)
+        m = d.get("metrics") or {}
+        reqs = (m.get("requests") or {}).get("total", 0)
+        s5xx = (m.get("requests") or {}).get("by_status", {}).get("5xx", 0)
+        sess = m.get("active_sessions", "-")
+        return f"> **{label}**  LLM {llm}次  {reqs}req  5xx {s5xx}  会话 {sess}"
+
+    lines.append(_busy_line("正式", prod))
+    lines.append(_busy_line("测试", stag))
+
+    def _degradation(label, d):
+        llm_m = ((d.get("metrics") or {}).get("llm") or {})
+        deg = llm_m.get("degraded_providers", 0)
+        gd = llm_m.get("global_degraded", False)
+        parts = []
+        if deg:
+            parts.append(f"Provider降级 {deg}")
+        if gd:
+            parts.append("全局降级")
+        return f"> {label}: {', '.join(parts)}" if parts else None
+
+    for env_label, env_data in [("正式", prod), ("测试", stag)]:
+        line = _degradation(env_label, env_data)
+        if line:
+            lines.append(line)
+
+    unreplied = fetch_feedback_unreplied()
+    if unreplied:
+        lines.append(f"> 💬 未回复反馈 {unreplied} 条")
+
+    pa = prod.get("alerts") or []
+    sa = stag.get("alerts") or []
+    if pa or sa:
+        lines.append(f"\n**⚠️ 异常 ({len(pa) + len(sa)} 项)**")
+        for a in pa:
+            lines.append(f"> 🔴 正式: {a}")
+        for a in sa:
+            lines.append(f"> 🟡 测试: {a}")
+
+    pe = prod.get("errors") or {}
+    se = stag.get("errors") or {}
+    ec = lambda e: (e.get("count") or {}).get("last_hour", 0)
+    if ec(pe) > 0 or ec(se) > 0:
+        lines.append(f"\n**📊 错误**  正式 1h={ec(pe)}  |  测试 1h={ec(se)}")
+        for env_name, ev in [("正式", pe), ("测试", se)]:
+            recent = ev.get("recent") or []
+            if recent:
+                last_msg = recent[-1].get("message", "")[:100]
+                lines.append(f"> {env_name}: _{last_msg}_")
+
+    for env_label, env_data in [("正式", prod.get("scoring", {})), ("测试", stag.get("scoring", {}))]:
+        s = env_data.get("stuck", 0)
+        p = env_data.get("pending", 0)
+        if s or p > 10:
+            lines.append(f"\n**🎯 评分 {env_label}**  排队 {p}  |  卡住 {s}")
+
+    vb = prod.get("voice_budget") or {}
+    if vb.get("usage_pct", 0) >= 75:
+        lines.append(f"\n**💰 预算**  语音 {vb['usage_pct']:.0f}% ¥{vb.get('monthly_cost', 0):.0f}/{vb.get('monthly_budget', 0):.0f}")
+
+    lines.append(f"\n---\n> daily_report.py")
+    return "\n".join(lines)
+
+
+def send_dingtalk(text: str) -> bool:
+    if not DINGTALK_WEBHOOK:
+        return False
+    try:
+        import urllib.request
+
+        payload = json.dumps({"msgtype": "markdown", "markdown": {"title": "运维日报", "text": text}}).encode()
+        req = urllib.request.Request(DINGTALK_WEBHOOK, data=payload, headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=10)
+        log.info("DingTalk sent")
+        return True
+    except Exception as e:
+        log.error("DingTalk failed: %s", e)
+        return False
+
+
+# ── Email ─────────────────────────────────────────────────────────────────────
 
 
 def send_email(subject: str, body_html: str) -> bool:
@@ -269,24 +444,38 @@ def send_email(subject: str, body_html: str) -> bool:
             srv.ehlo(); srv.starttls(); srv.ehlo()
             srv.login(SMTP_USER, SMTP_PASS)
             srv.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
-        log.info("Report sent: %s", subject)
+        log.info("Email sent: %s", subject)
         return True
     except Exception as e:
         log.error("Email failed: %s", e)
         return False
 
 
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+
 def main():
     now = datetime.now()
-    subject = f"Nursing VP Sim 每日报告 — {now.strftime('%Y-%m-%d')}"
+    subject = f"VP-SIM 运维日报 — {now.strftime('%Y-%m-%d')}"
     log.info("Building daily report...")
+
+    data, online = fetch_all_reports()
+
     try:
-        body = build_report()
+        body = build_email(data, online)
     except Exception:
-        log.exception("Failed to build report")
-        body = f"<p>报告生成失败</p>"
+        log.exception("Failed to build email")
+        body = "<p>报告生成失败</p>"
+
     send_email(subject, body)
-    log.info("Daily report complete")
+
+    try:
+        dt_text = build_dingtalk_summary(data, online)
+        send_dingtalk(dt_text)
+    except Exception:
+        log.exception("Failed to send DingTalk")
+
+    log.info("Daily report done")
 
 
 if __name__ == "__main__":

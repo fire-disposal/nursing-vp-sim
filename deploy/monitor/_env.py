@@ -58,3 +58,6 @@ except AttributeError:
 
 # ── DingTalk Webhook (optional second alert channel) ──────────────────────
 DINGTALK_WEBHOOK = _get("DINGTALK_WEBHOOK")
+
+# ── Feedback Bot Token (for daily report feedback queries) ────────────────
+FEEDBACK_BOT_TOKEN = _get("FEEDBACK_BOT_TOKEN")

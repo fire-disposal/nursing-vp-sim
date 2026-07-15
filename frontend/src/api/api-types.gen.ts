@@ -6031,6 +6031,8 @@ export interface operations {
                 version?: string | null;
                 /** @description Filter by tag: bug/feature/experience/content/ui/other */
                 tag?: string | null;
+                /** @description true=已回复, false=未回复 */
+                replied?: boolean | null;
                 include_fixed?: boolean;
                 limit?: number;
                 offset?: number;

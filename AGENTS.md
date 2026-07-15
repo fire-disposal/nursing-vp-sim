@@ -157,6 +157,7 @@ GET /api/feedback/bot?token=xxx&since=2026-07-01T00:00:00&limit=50&offset=0
 | `since` | 无 | ISO 时间过滤（仅返回此时间之后的反馈） |
 | `version` | 无 | 按版本号精确过滤，如 `2026.07.14-10` |
 | `tag` | 无 | 按反馈类型过滤：`bug`/`feature`/`experience`/`content`/`ui`/`other` |
+| `replied` | 无 | 按回复状态过滤：`true`=已回复，`false`=未回复 |
 | `include_fixed` | `false` | 是否包含已尝试自动修复的反馈（默认排除） |
 | `limit` | 50 | 每页条数（1-200） |
 | `offset` | 0 | 分页偏移 |

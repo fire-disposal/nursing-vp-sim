@@ -1499,6 +1499,24 @@
             "description": "Filter by tag: bug/feature/experience/content/ui/other"
           },
           {
+            "name": "replied",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true=已回复, false=未回复",
+              "title": "Replied"
+            },
+            "description": "true=已回复, false=未回复"
+          },
+          {
             "name": "include_fixed",
             "in": "query",
             "required": false,
