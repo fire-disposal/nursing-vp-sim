@@ -2,7 +2,7 @@
 
 > **Agent 初始化**: 任何 AI 在开始工作前，用 `git rev-parse --git-dir` 确认在 Git 仓库内，并用 `git config core.hooksPath` 确认其值为 `.husky/_`（Husky v9 钩子目录）。若钩子失效，执行 `pnpm install`（其 `prepare` 脚本会运行 `husky` 正确重装钩子）恢复。**切勿执行 `npx husky --version` 或 `npx husky install`** —— Husky v9 会把首个参数当作 hooks 目录，从而把 `core.hooksPath` 写坏（如 `--version/_`）导致全部钩子失效。提交格式不合规会被 `commit-msg` 钩子驳回。
 
-> **硬约束**: 禁止主动执行 `git tag` / `git push --tags` / `git push origin v*`。新建标签和推送标签必须在用户明确指示后才能执行。打标签使用 `pnpm run tag`。
+> **硬约束**: 禁止主动执行 `git tag` / `git push --tags` / `git push origin v*`。新建标签和推送标签必须在用户明确指示后才能执行。打标签使用 `pnpm run tag`。若因网络等原因需手动打版，必须**同时推送 master 和 tag**：`git push origin HEAD:master vX.Y.Z-N`，禁止分开推送导致本地/远端分支不同步。
 
 ## Hook Chain
 
