@@ -3331,6 +3331,8 @@ export interface components {
              * @default
              */
             label: string;
+            /** Model Override */
+            model_override?: string | null;
         };
         /** LLMConfigResponse */
         LLMConfigResponse: {
@@ -3365,6 +3367,8 @@ export interface components {
              * @default active
              */
             status: string;
+            /** Model Override */
+            model_override?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3384,6 +3388,8 @@ export interface components {
             purpose?: string | null;
             /** Label */
             label?: string | null;
+            /** Model Override */
+            model_override?: string | null;
             /** Status */
             status?: string | null;
         };

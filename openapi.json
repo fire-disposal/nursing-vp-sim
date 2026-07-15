@@ -10999,6 +10999,18 @@
             "maxLength": 80,
             "title": "Label",
             "default": ""
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
           }
         },
         "additionalProperties": false,
@@ -11047,6 +11059,17 @@
             "type": "string",
             "title": "Status",
             "default": "active"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
           },
           "created_at": {
             "type": "string",
@@ -11105,6 +11128,18 @@
               }
             ],
             "title": "Label"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
           },
           "status": {
             "anyOf": [

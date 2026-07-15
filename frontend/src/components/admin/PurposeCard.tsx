@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { updateConfig, toggleConfig } from "@/api";
+import { toggleConfig, updateConfig } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import { cn } from "@/utils/cn";
 import type { LlmPurpose } from "@/config/llm-purposes";
+import { cn } from "@/utils/cn";
 
-type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 
 interface PurposeCardProps {
 	purpose: LlmPurpose;
 	config: LLMConfigResponse | null;
-	secrets: ApiSecretResponse[];
 	profile: {
 		model: string;
 		temperature: number;
@@ -31,7 +29,6 @@ const MODELS = [
 export default function PurposeCard({
 	purpose,
 	config,
-	secrets,
 	profile,
 	onChanged,
 }: PurposeCardProps) {

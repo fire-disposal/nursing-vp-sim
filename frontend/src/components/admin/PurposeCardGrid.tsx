@@ -2,7 +2,6 @@ import type { components } from "@/api/api-types.gen";
 import { LLM_PURPOSES } from "@/config/llm-purposes";
 import PurposeCard from "./PurposeCard";
 
-type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 
 const PROFILES: Record<string, { model: string; temperature: number; max_tokens: number; semaphore: number }> = {
@@ -15,13 +14,11 @@ const PROFILES: Record<string, { model: string; temperature: number; max_tokens:
 
 interface PurposeCardGridProps {
 	configs: LLMConfigResponse[];
-	secrets: ApiSecretResponse[];
 	onChanged: () => void;
 }
 
 export default function PurposeCardGrid({
 	configs,
-	secrets,
 	onChanged,
 }: PurposeCardGridProps) {
 	const configByPurpose: Record<string, LLMConfigResponse | undefined> = {};
@@ -46,7 +43,6 @@ export default function PurposeCardGrid({
 						key={p.value}
 						purpose={p}
 						config={cfg}
-						secrets={secrets}
 						profile={profile}
 						onChanged={onChanged}
 					/>
