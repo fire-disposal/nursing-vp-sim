@@ -259,7 +259,6 @@ jobs:
           DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
           DEPLOY_ENV: staging
           DEPLOY_URL: https://test.205716.xyz
-          SKIP_STAGING_NOTIFY: "true"
           COMMITS: ${{ steps.change_summary.outputs.commits }}
         run: |
           if [ -z "$DINGTALK_WEBHOOK" ]; then
