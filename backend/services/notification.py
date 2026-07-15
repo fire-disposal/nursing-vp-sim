@@ -1,12 +1,16 @@
 """System notification business logic."""
 
-from datetime import UTC, datetime
+from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from core.unit_of_work import unit_of_work
 from models import SystemNotification
 from repositories.notification import SystemNotificationRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class SystemNotificationService:

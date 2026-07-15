@@ -4,14 +4,17 @@ All DB operations run via asyncio.to_thread() to avoid blocking
 the single event loop.
 """
 
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Callable
-from typing import Generic, TypeVar
-
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from core.database import SessionLocal
 from core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 T = TypeVar("T")
 TModel = TypeVar("TModel")

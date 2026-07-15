@@ -1,16 +1,20 @@
 """ApiSecret + LLMConfig business logic — admin CRUD + infrastructure queries."""
 
+from __future__ import annotations
+
 import logging
 import re
 from datetime import UTC, datetime
-
-from sqlalchemy.orm import Session
+from typing import TYPE_CHECKING
 
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from models import ApiSecret, LLMConfig
 from repositories.base import Repository
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 
