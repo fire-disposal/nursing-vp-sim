@@ -8,6 +8,9 @@ from infrastructure.prompt import render_template
 
 AUTHOR_NOTE_TEMPLATE = """{#author_note#}"""
 
+# 安全上限：现代 LLM 上下文足够大，设为 50 轮对话历史已覆盖绝大多数训练场景
+MAX_HISTORY_ROUNDS = 50
+
 
 def build_patient_chat_messages(
     system_prompt: str,
@@ -15,7 +18,7 @@ def build_patient_chat_messages(
     history_messages: list,
     student_content: str,
     author_note: str = "",
-    max_rounds: int = 8,
+    max_rounds: int = MAX_HISTORY_ROUNDS,
 ) -> list[dict]:
     """构建 AI酒馆风格的 messages 数组。
 

@@ -40,7 +40,6 @@ class TrainingProfile:
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
     rubric: dict
-    max_rounds: int
 
 
 _PROFILES: dict[str, TrainingProfile] = {}

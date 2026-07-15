@@ -134,5 +134,4 @@ PROFILE = TrainingProfile(
             },
         ],
     },
-    max_rounds=6,
 )

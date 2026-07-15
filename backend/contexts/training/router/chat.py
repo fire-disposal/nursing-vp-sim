@@ -57,13 +57,13 @@ async def _build_context(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {} if case else {}
 
-    # 只加载最后 N 轮消息（build_patient_chat_messages 也仅使用最后 max_rounds*2 条）
+    # 只加载最近消息用于 LLM 上下文（MAX_HISTORY_ROUNDS * 2 + 缓冲区）
     # 使用子查询避免加载整张表，减少 ~60-80% 的 DB I/O
     _subq = (
         db.query(Message.id)
         .filter(Message.record_id == record_id)
         .order_by(Message.created_at.desc())
-        .limit(30)
+        .limit(120)
         .subquery()
     )
     messages = db.query(Message).filter(Message.id.in_(db.query(_subq.c.id))).order_by(Message.created_at.asc()).all()

@@ -78,5 +78,4 @@ PROFILE = TrainingProfile(
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=_PROMPTS,
     rubric=_RUBRIC,
-    max_rounds=8,
 )

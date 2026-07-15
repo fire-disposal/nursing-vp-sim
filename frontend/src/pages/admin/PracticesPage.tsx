@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type PracticeValues, practiceSchema } from "@/schemas/practice";
+import CaseSelector from "@/components/admin/cases/CaseSelector";
 
 interface PracticeRow {
 	id: number;
@@ -38,13 +39,14 @@ interface PracticeRow {
 	case_name?: string;
 	training_type?: string;
 	features?: Record<string, boolean>;
-	behavior?: { time_limit_minutes?: number; max_rounds?: number };
+	behavior?: { time_limit_minutes?: number };
 	training_count?: number;
 }
 
 interface CaseOption {
 	id: number;
 	name: string;
+	difficulty?: number;
 	capabilities?: Record<string, boolean>;
 	training_type?: string;
 }
@@ -55,7 +57,6 @@ const DEFAULT_VALUES: PracticeValues = {
 	case_id: 0,
 	features: {},
 	time_limit: 20,
-	max_rounds: 30,
 };
 
 export default function PracticesPage({ embedded = false }: { embedded?: boolean }) {
@@ -102,7 +103,6 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 				time_limit:
 					(d.behavior as { time_limit_minutes?: number })
 						?.time_limit_minutes ?? 20,
-				max_rounds: (d.behavior as { max_rounds?: number })?.max_rounds ?? 30,
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
@@ -118,7 +118,6 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			features: {},
 			behavior: {
 				time_limit_minutes: values.time_limit,
-				max_rounds: values.max_rounds,
 			},
 		};
 		try {
@@ -302,20 +301,11 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 									<FormItem>
 										<FormLabel>病例</FormLabel>
 										<FormControl>
-											<select
-												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-												name={field.name}
-												onBlur={field.onBlur}
-												value={field.value || ""}
-												onChange={(e) => field.onChange(Number(e.target.value))}
-											>
-												<option value="">选择病例...</option>
-												{cases.map((c) => (
-													<option key={c.id} value={c.id}>
-														{c.name}
-													</option>
-												))}
-											</select>
+											<CaseSelector
+												cases={cases}
+												value={field.value}
+												onChange={(id) => field.onChange(id)}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -347,35 +337,9 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 											<FormMessage />
 										</FormItem>
 									)}
-								/>
-								<FormField
-									control={form.control}
-									name="max_rounds"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>最大轮次</FormLabel>
-											<FormControl>
-												<Input
-													type="number"
-													min={5}
-													max={100}
-													{...field}
-													value={Number.isNaN(field.value) ? "" : field.value}
-													onChange={(e) =>
-														field.onChange(
-															e.target.value === ""
-																? Number.NaN
-																: e.target.valueAsNumber,
-														)
-													}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							</div>
-							<FormField
+							/>
+						</div>
+						<FormField
 								control={form.control}
 								name="features"
 								render={() => {

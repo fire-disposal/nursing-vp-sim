@@ -83,17 +83,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         log.exception("动态模板渲染失败 training_type=%s: %s", training_type, e)
         dynamic_prompt = ""
 
-    # 教师 practice 的 max_rounds 覆盖 profile 默认（谁配置谁说了算）；否则用 profile 默认
-    snapshot_rounds = (ctx.record.practice_snapshot or {}).get("behavior", {}).get("max_rounds") if ctx.record else None
-    max_rounds = snapshot_rounds or profile.max_rounds
-
     ctx.llm_messages = build_patient_chat_messages(
         system_prompt,
         dynamic_prompt,
         ctx.messages,
         ctx.student_display or ctx.student_input,
         author_note=author_note,
-        max_rounds=max_rounds,
     )
 
     await next_mw()
