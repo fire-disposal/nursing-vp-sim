@@ -6,7 +6,8 @@ import { execSync } from "child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+const bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
+const today = bj.toISOString().slice(0, 10).replace(/-/g, ".");
 const prefix = `v${today}`;
 
 execSync("git fetch --tags --quiet", { stdio: "ignore" });
