@@ -155,7 +155,7 @@ def _create_record(
 
     # 时间优先级（D11）：显式设置(free-config req / 教师 practice) > case 默认 > 全局 20
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
-    time_limit = max(1, min(180, int(time_limit)))
+    time_limit = max(5, min(120, int(time_limit)))  # clamp to 5-120
 
     config["features"] = config.get("features") or {}
     validate_case_data(training_type, case_data, strict=False)

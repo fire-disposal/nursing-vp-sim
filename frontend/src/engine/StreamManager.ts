@@ -187,7 +187,7 @@ export class StreamManager {
 						);
 					} else {
 						this.messages = this.messages.filter(
-							(m) => !m.streaming && m.id !== placeholderId,
+							(m) => !m.streaming && m.id !== placeholderId && m.id !== studentId,
 						);
 					}
 					this.notifySync();
@@ -231,7 +231,7 @@ export class StreamManager {
 				);
 			} else {
 				this.messages = this.messages.filter(
-					(m) => !m.streaming && m.id !== placeholderId,
+					(m) => !m.streaming && m.id !== placeholderId && m.id !== studentId,
 				);
 			}
 			this.notifySync();

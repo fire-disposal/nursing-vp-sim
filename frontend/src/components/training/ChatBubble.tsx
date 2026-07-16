@@ -21,6 +21,7 @@ function areBubblePropsEqual(
 		oldProps.message.content === newProps.message.content &&
 		oldProps.message.streaming === newProps.message.streaming &&
 		oldProps.message.role === newProps.message.role &&
+		oldProps.message.streamError === newProps.message.streamError &&
 		oldProps.emotionBorder === newProps.emotionBorder &&
 		oldProps.portraitUrl === newProps.portraitUrl &&
 		oldProps.initiative === newProps.initiative
@@ -83,6 +84,11 @@ export const ChatBubble = memo(function ChatBubble({
 						</div>
 					) : (
 						<p className="whitespace-pre-wrap">{message.content}</p>
+					)}
+					{!isStreamingEmpty && message.streamError && (
+						<span className="inline-flex items-center gap-1 mt-1 text-[10px] text-warning-foreground bg-warning/20 rounded px-1.5 py-0.5">
+							⚠ 回复中断
+						</span>
 					)}
 				</div>
 			</div>

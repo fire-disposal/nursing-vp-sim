@@ -17,7 +17,7 @@ def _personality_label(p: dict) -> str:
     if not p:
         return ""
     parts = []
-    map_lit = {"low": "低素养", "normal": "中等", "high": "高素养"}
+    map_lit = {"low": "低素养", "normal": "中等", "medium": "中等", "high": "高素养"}
     map_verb = {"terse": "寡言", "normal": "正常", "verbose": "絮叨"}
     map_anx = {"calm": "安宁", "normal": "平常", "anxious": "焦虑"}
     map_pat = {"low": "急躁", "normal": "正常", "high": "耐心"}

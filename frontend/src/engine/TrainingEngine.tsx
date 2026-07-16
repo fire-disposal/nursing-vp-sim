@@ -227,6 +227,15 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	}, [_restoreRecord]);
 
 	useEffect(() => {
+		if (_restoreRecord) {
+			const rec = _restoreRecord as unknown as { status?: string };
+			if (rec.status === "completed") {
+				setTrainingEnded(true);
+			}
+		}
+	}, [_restoreRecord]);
+
+	useEffect(() => {
 		return busRef.current.on("stream:error", (err: string) => {
 			toastError(err || "发送消息失败，请重试");
 		});

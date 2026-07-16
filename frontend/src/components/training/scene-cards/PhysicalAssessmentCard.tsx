@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import { getRecordDetail } from "@/api/training";
+import { useToast } from "@/components/Toast";
 import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
 import type { SceneCardProps } from "@/engine/scene-card";
 import type { SceneState } from "@/engine/scene-state";
@@ -71,13 +72,40 @@ export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
   const [results, setResults] = useState<Record<string, { value: string }>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const { error: toastError } = useToast();
+  const examTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      for (const t of examTimersRef.current.values()) clearTimeout(t);
+    };
+  }, []);
 
   const { sendExam } = useTrainingWS((msg) => {
     if (msg.type === "exam:done") {
       const m = msg as unknown as { op_type: string; data: { value: string } };
       if (m.data?.value) {
+        if (examTimersRef.current.has(m.op_type)) {
+          clearTimeout(examTimersRef.current.get(m.op_type)!);
+          examTimersRef.current.delete(m.op_type);
+        }
         setResults((prev) => ({ ...prev, [m.op_type]: { value: m.data.value } }));
       }
+    }
+    if (msg.type === "exam:error") {
+      const e = msg as unknown as { op_type?: string; detail?: string };
+      if (e.op_type) {
+        if (examTimersRef.current.has(e.op_type)) {
+          clearTimeout(examTimersRef.current.get(e.op_type)!);
+          examTimersRef.current.delete(e.op_type);
+        }
+        setResults((prev) => {
+          const next = { ...prev };
+          delete next[e.op_type!];
+          return next;
+        });
+      }
+      toastError(e.detail || "查体执行失败，请重试");
     }
   });
 
@@ -106,8 +134,18 @@ export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
     setResults((prev) => ({ ...prev, [opId]: { value: "检测中…" } }));
     if (rid > 0) sendExam(rid, opId);
     setSelected(null);
+    if (examTimersRef.current.has(opId)) clearTimeout(examTimersRef.current.get(opId)!);
+    examTimersRef.current.set(opId, setTimeout(() => {
+      setResults((prev) => {
+        const next = { ...prev };
+        delete next[opId];
+        return next;
+      });
+      toastError("查体响应超时，请重试");
+      examTimersRef.current.delete(opId);
+    }, 15000));
     setTimeout(() => setFlash(null), 350);
-  }, [rid, sendExam]);
+  }, [rid, sendExam, toastError]);
 
   return (
     <div className="flex flex-col h-full bg-background">

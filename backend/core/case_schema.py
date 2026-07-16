@@ -55,7 +55,7 @@ class CaseDataSchema(JsonbModel):
 
     name: str = Field(min_length=1, max_length=100)
     difficulty: int = Field(default=1, ge=1, le=3)
-    time_limit: int = Field(default=20, ge=1, le=180)
+    time_limit: int = Field(default=20, ge=5, le=120)
     description: str = ""
 
     capabilities: dict[str, bool] = {}

@@ -113,7 +113,8 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				value={text}
 				onChange={(e) => setText(e.target.value)}
 				onKeyDown={handleKeyDown}
-				placeholder={trainingEnded ? "训练已结束，评分结果已生成" : loading ? "患者正在回复中，可提前输入下一句…" : "输入消息与患者对话..."}
+				maxLength={2000}
+				placeholder={trainingEnded ? "训练已结束，评分结果已生成" : loading ? "患者正在回复中…" : "输入消息与患者对话..."}
 				rows={1}
 				onInput={handleInput}
 				inputMode="text"
@@ -122,6 +123,11 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				autoCorrect="off"
 				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"
 			/>
+			{text.length > 1800 && (
+				<span className="absolute right-2 -top-5 text-[10px] text-muted-foreground">
+					{text.length}/2000
+				</span>
+			)}
 			{available && (
 				<button
 					type="button"

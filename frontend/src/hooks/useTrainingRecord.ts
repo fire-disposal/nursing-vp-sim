@@ -12,6 +12,7 @@ export interface TrainingRecordData {
 	initialMessages: ChatMessage[];
 	timeLimit: number;
 	remainingSeconds: number | null;
+	status: string;
 }
 
 /**
@@ -51,6 +52,7 @@ export function useTrainingRecord(recordId: string) {
 			messages?: Array<{ id: number; role: string; content: string }>;
 			time_limit?: number;
 			remaining_seconds?: number | null;
+			status?: string;
 			case?: {
 				name?: string;
 				age?: number;
@@ -101,6 +103,7 @@ export function useTrainingRecord(recordId: string) {
 			initialMessages,
 			timeLimit: d.time_limit ?? 20,
 			remainingSeconds: d.remaining_seconds ?? null,
+			status: d.status ?? "in_progress",
 		};
 	}, [record]);
 
