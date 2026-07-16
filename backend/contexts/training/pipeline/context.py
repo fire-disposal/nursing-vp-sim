@@ -52,5 +52,3 @@ class PipelineContext:
     @property
     def message_count(self) -> int:
         return len(self.messages)
-
-

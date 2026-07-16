@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     Float,
     ForeignKey,
@@ -132,39 +131,6 @@ class ScoreReview(Base):
 
     score: Mapped[Score] = relationship(back_populates="reviews")
     reviewer: Mapped[User | None] = relationship()
-
-
-class Note(Base, TimestampMixin):
-    __tablename__ = "notes"
-    __table_args__ = (Index("ix_notes_record_id", "record_id"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True
-    )
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    type: Mapped[str] = mapped_column(String(20), default="free")
-    title: Mapped[str] = mapped_column(String(200), default="")
-    content: Mapped[str] = mapped_column(Text)
-    content_jsonb: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    is_private: Mapped[bool] = mapped_column(Boolean, default=True)
-    training_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-
-    user: Mapped[User] = relationship()
-    comments: Mapped[list[NoteComment]] = relationship(back_populates="note", cascade="all, delete-orphan")
-
-
-class NoteComment(Base, TimestampMixin):
-    __tablename__ = "note_comments"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    note_id: Mapped[int] = mapped_column(Integer, ForeignKey("notes.id", ondelete="CASCADE"))
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    content: Mapped[str] = mapped_column(Text)
-
-    note: Mapped[Note] = relationship(back_populates="comments")
-    user: Mapped[User] = relationship()
 
 
 class NursingRecord(Base, TimestampMixin):

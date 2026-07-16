@@ -14,8 +14,6 @@ from models.questionnaire import (
 )
 from models.training import (
     Message,
-    Note,
-    NoteComment,
     NursingRecord,
     Score,
     ScoreReview,
@@ -38,8 +36,6 @@ __all__ = [
     "LLMCallLog",
     "LLMConfig",
     "Message",
-    "Note",
-    "NoteComment",
     "Notification",
     "NursingRecord",
     "Practice",

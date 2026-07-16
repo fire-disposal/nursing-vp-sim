@@ -87,19 +87,6 @@ class ScoreItem(BaseModel):
     created_at: datetime
 
 
-class NoteItem(BaseModel):
-    model_config = _RESP_CFG
-    id: int
-    content: str
-    created_at: datetime
-    updated_at: datetime
-
-
-class NoteCreateRequest(BaseModel):
-    model_config = _REQ_CFG
-    content: str = Field(min_length=1)
-
-
 class TrainingRecordDetail(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -115,7 +102,6 @@ class TrainingRecordDetail(BaseModel):
     remaining_seconds: int | None = None
     messages: list["MessageItem"]
     score: "ScoreItem | None" = None
-    notes: list["NoteItem"] = []
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
     patient_gender: str = ""

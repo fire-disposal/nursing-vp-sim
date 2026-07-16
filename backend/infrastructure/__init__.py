@@ -1,1 +1,1 @@
-"""External integrations — LLM, task queue, caches, WeChat."""
+"""External integrations — LLM, task queue, caches."""

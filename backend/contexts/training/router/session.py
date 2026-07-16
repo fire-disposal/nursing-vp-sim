@@ -22,7 +22,6 @@ from models import (
     CaseQuestionnaire,
     LLMCallLog,
     Message,
-    Note,
     NursingRecord,
     Practice,
     QuestionnaireResponse,
@@ -473,7 +472,6 @@ def get_record_detail(
                 comment=latest_review.comment,
                 reviewed_at=latest_review.created_at,
             )
-    note_records = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
     pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
 
     case_data = case.case_data or {} if case else {}
@@ -532,7 +530,6 @@ def get_record_detail(
         remaining_seconds=remaining_seconds,
         messages=record.messages,  # ty: ignore[invalid-argument-type]
         score=score_obj,
-        notes=note_records,  # ty: ignore[invalid-argument-type]
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
         patient_gender=normalize_gender(patient_info.get("gender", "")),
@@ -569,7 +566,6 @@ def delete_record(
     try:
         db.query(Message).filter(Message.record_id == record_id).delete()
         db.query(Score).filter(Score.record_id == record_id).delete()
-        db.query(Note).filter(Note.record_id == record_id).delete()
         db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
         db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
         db.query(VoiceCallLog).filter(VoiceCallLog.record_id == record_id).delete()

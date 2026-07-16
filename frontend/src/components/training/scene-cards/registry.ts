@@ -2,7 +2,6 @@ import type { ComponentType } from "react";
 import { lazy } from "react";
 import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import InquiryCard from "./InquiryCard";
-import NotesCard from "./NotesCard";
 import NursingRecordCard from "./NursingRecordCard";
 import PatientInfoCard from "./PatientInfoCard";
 import PhysicalAssessmentCard from "./PhysicalAssessmentCard";
@@ -23,7 +22,6 @@ const HISTORY_TAKING: CardDef[] = [
   { id: "inquiry",          component: InquiryCard,                                priority: 1 },
   { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 2, featureFlag: "physical_exam" },
   { id: "nursing-record",   component: NursingRecordCard,                          priority: 3, featureFlag: "nursing_record" },
-  // { id: "notes",            component: NotesCard,                                  priority: 4 },
 ];
 
 const TRIAGE: CardDef[] = [

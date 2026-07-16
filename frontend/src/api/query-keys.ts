@@ -35,10 +35,6 @@ export const queryKeys = {
 	profiles: {
 		all: ["profiles"] as const,
 	},
-	notes: {
-		byRecord: (recordId: number | string | null | undefined) =>
-			["notes", recordId] as const,
-	},
 	systemNotifications: {
 		all: ["system-notifications"] as const,
 	},
