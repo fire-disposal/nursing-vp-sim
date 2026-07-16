@@ -198,9 +198,7 @@ class ProfileRouter:
                     pfx = getattr(profile, "key_suffix", "")
                     if pfx and pfx == env_sfx and profile.status == "degraded":
                         if profile.degraded_until and now < ensure_utc(profile.degraded_until):
-                            _mirror_env_degradation_from_db(
-                                env_sfx, profile.degraded_until, profile.degraded_reason
-                            )
+                            _mirror_env_degradation_from_db(env_sfx, profile.degraded_until, profile.degraded_reason)
                             raise RuntimeError(f"purpose={purpose} env 兜底与 DB 密钥({pfx})一致且已熔断")
             # env 兜底自身已熔断（死密钥/限流）→ 仅对本次调用 fail-fast，不设全局降级。
             # 熔断窗口本身已阻止返回死配置；不牵连其它绑定了健康 DB 密钥的 purpose。

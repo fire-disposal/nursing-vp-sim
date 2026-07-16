@@ -85,7 +85,7 @@ async def _read_frame(ws: ClientConnection) -> ServerMessage:
 
     # Find the JSON object by scanning for '{'
     for start in range(min(len(raw), 16)):
-        if raw[start:start + 1] != b"{":
+        if raw[start : start + 1] != b"{":
             continue
         for end in range(len(raw), start, -1):
             try:
@@ -109,7 +109,9 @@ def _parse_msg_type(raw: str | int | None) -> MsgType:
     if raw is None:
         return MsgType.FullServerResponse
     if isinstance(raw, str):
-        return {"FullServerResponse": MsgType.FullServerResponse, "AudioOnlyServer": MsgType.AudioOnlyServer}.get(raw, MsgType.FullServerResponse)
+        return {"FullServerResponse": MsgType.FullServerResponse, "AudioOnlyServer": MsgType.AudioOnlyServer}.get(
+            raw, MsgType.FullServerResponse
+        )
     return MsgType(raw)
 
 
@@ -252,9 +254,7 @@ class VolcBidirectionalTTSClient:
         header = {"event": EventType.FinishConnection}
         await ws.send(_build_frame(header))
 
-    async def _wait_event(
-        self, ws: ClientConnection, msg_type: MsgType, event: ServerEvent
-    ) -> ServerMessage:
+    async def _wait_event(self, ws: ClientConnection, msg_type: MsgType, event: ServerEvent) -> ServerMessage:
         msg = await _read_frame(ws)
         if msg.type == MsgType.FullServerResponse and msg.event in (
             ServerEvent.ConnectionFailed,

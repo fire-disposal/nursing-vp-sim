@@ -232,10 +232,7 @@ class LLMDataService:
             now = datetime.now(UTC)
             profiles = db.query(AS).all()
             bindings = (
-                db.query(LC)
-                .options(joinedload(LC.secret))
-                .order_by(LC.purpose, LC.status != "active", LC.id)
-                .all()
+                db.query(LC).options(joinedload(LC.secret)).order_by(LC.purpose, LC.status != "active", LC.id).all()
             )
 
             recovered = 0

@@ -123,7 +123,12 @@ async def _test_secret(secret, client: httpx.AsyncClient, timeout: float = 10) -
         t0 = time.monotonic()
         resp = await client.get(f"{base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
         latency = int((time.monotonic() - t0) * 1000)
-        return {"base_url": base_url, "ok": resp.status_code < 500, "status_code": resp.status_code, "latency_ms": latency}
+        return {
+            "base_url": base_url,
+            "ok": resp.status_code < 500,
+            "status_code": resp.status_code,
+            "latency_ms": latency,
+        }
     except Exception as e:
         return {"base_url": base_url, "ok": False, "error": str(e)[:200]}
 
@@ -159,12 +164,14 @@ async def health_check(current_user: _Manager, db: DbSession):
         results = []
         for s in secrets:
             r = await _test_secret(s, client, timeout=5)
-            results.append({
-                "base_url": r["base_url"],
-                "status": "ok" if r.get("ok") else "error",
-                "latency_ms": r.get("latency_ms"),
-                "error": r.get("error"),
-            })
+            results.append(
+                {
+                    "base_url": r["base_url"],
+                    "status": "ok" if r.get("ok") else "error",
+                    "latency_ms": r.get("latency_ms"),
+                    "error": r.get("error"),
+                }
+            )
     return results
 
 

@@ -151,7 +151,6 @@ class EmotionStateResponse(BaseModel):
     history: list[dict] = Field(default_factory=list)
 
 
-
 class InitiativeStateResponse(BaseModel):
     elapsed_seconds: float
     threshold_seconds: float
@@ -231,6 +230,3 @@ class ExamOperationResponse(BaseModel):
     type: str
     data: ExamOperationResult
     all_results: list[ExamOperationResult] = []
-
-
-

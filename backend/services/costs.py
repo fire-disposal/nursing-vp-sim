@@ -272,9 +272,7 @@ class CostService:
             top_users=top_users,
         )
 
-    def get_user_breakdown(
-        self, month_start: datetime | None = None, limit: int = 50
-    ) -> list[dict]:
+    def get_user_breakdown(self, month_start: datetime | None = None, limit: int = 50) -> list[dict]:
         since = month_start or datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         rows = (
             self.db.query(
@@ -297,7 +295,13 @@ class CostService:
         for r in rows:
             uid = r.user_id
             if uid not in user_map:
-                user_map[uid] = {"user_id": uid, "user_name": r.user_name or "未知", "total_cost": 0.0, "total_calls": 0, "purposes": {}}
+                user_map[uid] = {
+                    "user_id": uid,
+                    "user_name": r.user_name or "未知",
+                    "total_cost": 0.0,
+                    "total_calls": 0,
+                    "purposes": {},
+                }
             user_map[uid]["total_cost"] += float(r.cost or 0)
             user_map[uid]["total_calls"] += int(r.calls or 0)
             user_map[uid]["purposes"][r.purpose] = {

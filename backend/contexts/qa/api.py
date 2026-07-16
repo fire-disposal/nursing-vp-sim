@@ -194,10 +194,16 @@ async def _call_qa_llm(
     try:
         if rag_enabled:
             return await llm_client.call_with_tools(
-                llm_messages, tools=QA_TOOLS, tool_handlers=_build_tool_handlers(),
-                purpose="qa", ctx=ctx,
-                **{k: v for k, v in get_llm_config("qa").items()
-                   if k in ("timeout", "max_tokens", "temperature", "max_retries")},
+                llm_messages,
+                tools=QA_TOOLS,
+                tool_handlers=_build_tool_handlers(),
+                purpose="qa",
+                ctx=ctx,
+                **{
+                    k: v
+                    for k, v in get_llm_config("qa").items()
+                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
+                },
             )
         return await llm_client.call(llm_messages, purpose="qa", ctx=ctx, **get_llm_config("qa"))
     except Exception as e:
@@ -279,7 +285,10 @@ async def create_session(
     rid = getattr(request.state, "request_id", None)
     try:
         answer = await _call_qa_llm(
-            request.app.state.llm_client, llm_messages, req.rag_enabled, current_user,
+            request.app.state.llm_client,
+            llm_messages,
+            req.rag_enabled,
+            current_user,
             {"request_id": rid} if rid else {},
         )
     except HTTPException:
@@ -349,7 +358,10 @@ async def ask_in_session(
     rid = getattr(request.state, "request_id", None)
     try:
         answer = await _call_qa_llm(
-            request.app.state.llm_client, llm_messages, req.rag_enabled, current_user,
+            request.app.state.llm_client,
+            llm_messages,
+            req.rag_enabled,
+            current_user,
             {"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
         )
     except HTTPException:

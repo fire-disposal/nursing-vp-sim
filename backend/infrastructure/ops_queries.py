@@ -162,7 +162,11 @@ def compute_alerts(dashboard: dict) -> list[str]:
         alerts.append(f"LLM 成功率 {llm['success_rate']}% 低于 90%")
     if llm.get("error_count_24h", 0) > 50:
         alerts.append(f"近 24h LLM 错误 {llm['error_count_24h']} 次")
-    rate_errors = [e for e in (llm.get("recent_errors") or []) if "rate" in str(e.get("type", "")).lower() or "429" in str(e.get("type", ""))]
+    rate_errors = [
+        e
+        for e in (llm.get("recent_errors") or [])
+        if "rate" in str(e.get("type", "")).lower() or "429" in str(e.get("type", ""))
+    ]
     if rate_errors:
         total_rate = sum(e.get("count", 0) for e in rate_errors)
         if total_rate > 10:

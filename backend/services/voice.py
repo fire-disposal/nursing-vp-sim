@@ -77,9 +77,15 @@ class VoiceConfigService:
                     vc.api_key_enc = encrypt_api_key(data["api_key"])
                     vc.api_key_suffix = data["api_key"][-8:] if len(data["api_key"]) >= 8 else data["api_key"]
                 for field in (
-                    "tts_resource_id", "tts_speaker", "tts_model",
-                    "tts_sample_rate", "tts_format", "tts_timeout",
-                    "asr_resource_id", "asr_sample_rate", "asr_endpoint_mode",
+                    "tts_resource_id",
+                    "tts_speaker",
+                    "tts_model",
+                    "tts_sample_rate",
+                    "tts_format",
+                    "tts_timeout",
+                    "asr_resource_id",
+                    "asr_sample_rate",
+                    "asr_endpoint_mode",
                     "monthly_budget",
                 ):
                     if field in data:
@@ -137,15 +143,20 @@ class VoiceConfigService:
             ok = await client.health_check(speaker=vc.tts_speaker)
             await client.close()
             return VoiceStatusResponse(
-                provider=vc.provider, tts_online=ok, asr_online=False,
+                provider=vc.provider,
+                tts_online=ok,
+                asr_online=False,
                 last_error=None if ok else "TTS 健康检查失败",
                 last_error_at=None if ok else datetime.now(UTC).isoformat(),
             )
         except Exception as e:
             await client.close()
             return VoiceStatusResponse(
-                provider=vc.provider, tts_online=False, asr_online=False,
-                last_error=str(e)[:500], last_error_at=datetime.now(UTC).isoformat(),
+                provider=vc.provider,
+                tts_online=False,
+                asr_online=False,
+                last_error=str(e)[:500],
+                last_error_at=datetime.now(UTC).isoformat(),
             )
 
     async def test_asr(self) -> VoiceStatusResponse:
@@ -158,25 +169,34 @@ class VoiceConfigService:
             api_key = ""
         if not api_key or not vc.asr_resource_id:
             return VoiceStatusResponse(
-                provider=vc.provider, tts_online=False, asr_online=False,
+                provider=vc.provider,
+                tts_online=False,
+                asr_online=False,
                 last_error="ASR 未配置（缺少 API Key 或 resource_id），将使用文本输入降级",
                 last_error_at=datetime.now(UTC).isoformat(),
             )
         client = VolcASRClient(
-            api_key=api_key, resource_id=vc.asr_resource_id,
-            endpoint_mode=vc.asr_endpoint_mode, sample_rate=vc.asr_sample_rate,
+            api_key=api_key,
+            resource_id=vc.asr_resource_id,
+            endpoint_mode=vc.asr_endpoint_mode,
+            sample_rate=vc.asr_sample_rate,
         )
         try:
             ok = await client.health_check()
             return VoiceStatusResponse(
-                provider=vc.provider, tts_online=False, asr_online=ok,
+                provider=vc.provider,
+                tts_online=False,
+                asr_online=ok,
                 last_error=None if ok else "ASR 上游建连失败",
                 last_error_at=None if ok else datetime.now(UTC).isoformat(),
             )
         except Exception as e:
             return VoiceStatusResponse(
-                provider=vc.provider, tts_online=False, asr_online=False,
-                last_error=str(e)[:500], last_error_at=datetime.now(UTC).isoformat(),
+                provider=vc.provider,
+                tts_online=False,
+                asr_online=False,
+                last_error=str(e)[:500],
+                last_error_at=datetime.now(UTC).isoformat(),
             )
 
     async def synthesize_test(self, text: str) -> tuple[bytes, str, str]:

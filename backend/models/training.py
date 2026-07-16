@@ -84,7 +84,9 @@ class Message(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", ondelete="CASCADE", name="fk_messages_record_id"))
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE", name="fk_messages_record_id")
+    )
     role: Mapped[str] = mapped_column(String(10))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
