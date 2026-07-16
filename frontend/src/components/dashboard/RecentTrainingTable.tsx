@@ -51,7 +51,9 @@ export default function RecentTrainingTable({
 					</Button>
 				</CardAction>
 			</CardHeader>
-			<div className="max-h-96 overflow-auto">
+
+			{/* Desktop table */}
+			<div className="hidden md:block max-h-96 overflow-auto">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -112,6 +114,53 @@ export default function RecentTrainingTable({
 						))}
 					</TableBody>
 				</Table>
+			</div>
+
+			{/* Mobile card list */}
+			<div className="md:hidden divide-y">
+				{records.map((r) => (
+					<div key={r.id} className="px-4 py-3 space-y-2">
+						<div className="flex items-start justify-between gap-2">
+							<div className="min-w-0 flex-1">
+								<div className="text-sm font-medium truncate">{r.case_name}</div>
+								<div className="text-xs text-muted-foreground">
+									{new Date(r.start_time).toLocaleDateString("zh-CN")}
+								</div>
+							</div>
+							<Badge
+								variant={r.status === "completed" ? "success" : "info"}
+							>
+								{r.status === "completed" ? "已完成" : "进行中"}
+							</Badge>
+						</div>
+						<div className="flex items-center justify-between">
+							<span className={cn(
+								"text-sm font-semibold",
+								r.score_total != null ? "text-primary" : "text-muted-foreground",
+							)}>
+								{r.score_total != null ? `${r.score_total}分` : "未评分"}
+							</span>
+							<div className="flex items-center gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => navigate(`/record/${r.id}`)}
+								>
+									详情
+								</Button>
+								{r.status === "in_progress" && (
+									<Button
+										variant="link"
+										size="sm"
+										onClick={() => navigate(`/training/${r.id}`)}
+									>
+										继续
+									</Button>
+								)}
+							</div>
+						</div>
+					</div>
+				))}
 			</div>
 		</Card>
 	);

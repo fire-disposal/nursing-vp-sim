@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useState } from "react";
 import { api } from "@/api/client";
+import { useToast } from "@/components/Toast";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { cn } from "@/utils/cn";
 
@@ -26,6 +27,8 @@ const FIELDS = [
 export default function NursingRecordCard({ recordId }: SceneCardProps) {
   const rid = Number(recordId);
   const [sheet, setSheet] = useState<SheetData>({});
+  const queryClient = useQueryClient();
+  const toast = useToast();
 
   const { isLoading } = useQuery({
     queryKey: ["nursing-record", rid],
@@ -43,6 +46,12 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
   const saveMutation = useMutation({
     mutationFn: async (sd: SheetData) => {
       await api.post(`${ENDPOINT}/${rid}`, { sheet_data: sd, status: "draft" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nursing-record", rid] });
+    },
+    onError: () => {
+      toast.error("保存失败，请重试");
     },
   });
 
@@ -85,7 +94,15 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <FileText size={12} />
-          <span>{saveMutation.isSuccess ? "已保存" : saveMutation.isPending ? "保存中..." : "护理评估记录"}</span>
+          <span>
+            {saveMutation.isError
+              ? "保存失败"
+              : saveMutation.isSuccess
+                ? "已保存"
+                : saveMutation.isPending
+                  ? "保存中..."
+                  : "护理评估记录"}
+          </span>
         </div>
         <button
           type="submit"

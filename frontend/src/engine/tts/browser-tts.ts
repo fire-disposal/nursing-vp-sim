@@ -19,7 +19,7 @@ const EMOTION_PITCH: Record<string, number> = {
 };
 
 function applyEmotion(
-	utterance: SpeechSynthesisUtterance,
+	utterance: { rate: number; pitch: number },
 	emotion: string | undefined,
 ): void {
 	const rate = EMOTION_RATE[emotion ?? ""] ?? 0.95;
@@ -51,12 +51,12 @@ export function createBrowserTTS(): TTSProvider {
 
 		speak(text: string): Promise<void> {
 			return new Promise((resolve, reject) => {
-				if (!window.speechSynthesis) {
+				if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") {
 					reject(new Error("浏览器不支持语音合成"));
 					return;
 				}
 
-				speechSynthesis.cancel();
+				try { speechSynthesis.cancel(); } catch { /* ignore */ }
 
 				const utterance = new SpeechSynthesisUtterance(text);
 				utterance.lang = "zh-CN";
@@ -90,7 +90,7 @@ export function createBrowserTTS(): TTSProvider {
 
 		stop(): void {
 			_speaking = false;
-			speechSynthesis.cancel();
+			try { speechSynthesis.cancel(); } catch { /* ignore */ }
 		},
 	};
 }

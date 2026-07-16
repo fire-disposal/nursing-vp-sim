@@ -140,7 +140,7 @@ export class TTSManager {
 		this.emotionProvider.cancel();
 		this._currentAudio?.pause();
 		this._currentAudio = null;
-		window.speechSynthesis?.cancel();
+		try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
 	}
 
 	/** Speak `text`, returning the provider name that actually produced audio. */
