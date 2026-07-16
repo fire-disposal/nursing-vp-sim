@@ -148,6 +148,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	const endTraining = useCallback(async () => {
 		try {
+			busRef.current.emit("training:beforeEnd");
 			await scoreRef.current.end();
 			setTrainingEnded(true);
 		} catch {

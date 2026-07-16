@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Save } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { useToast } from "@/components/Toast";
 import type { SceneCardProps } from "@/engine/scene-card";
@@ -24,9 +24,13 @@ const FIELDS = [
   ["evaluation", "评价 (E)", "措施效果、病情变化、后续计划...", "h-14 sm:h-20"],
 ] as const;
 
-export default function NursingRecordCard({ recordId }: SceneCardProps) {
+export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
   const rid = Number(recordId);
   const [sheet, setSheet] = useState<SheetData>({});
+  const dirtyRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -36,6 +40,7 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
       const { data: d } = await api.get(`${ENDPOINT}/${rid}`);
       const sd: SheetData = d.sheet_data || {};
       setSheet((prev) => {
+        if (dirtyRef.current) return prev;
         if (Object.keys(prev).length > 0) return prev;
         return sd;
       });
@@ -55,13 +60,52 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
     },
   });
 
+  const doAutoSave = useCallback(
+    async (sd: SheetData) => {
+      setSaveStatus("saving");
+      try {
+        await api.post(`${ENDPOINT}/${rid}`, { sheet_data: sd, status: "draft" });
+        setSaveStatus("saved");
+        setLastSavedAt(
+          new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+        );
+      } catch {
+        setSaveStatus("error");
+      }
+    },
+    [rid],
+  );
+
   const handleSave = useCallback(() => {
     saveMutation.mutate(sheet);
   }, [saveMutation, sheet]);
 
   const update = (key: string, value: string) => {
+    dirtyRef.current = true;
     setSheet((prev) => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      doAutoSave(sheet);
+    }, 3000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [sheet, doAutoSave]);
+
+  useEffect(() => {
+    if (!bus) return;
+    const handler = () => {
+      if (dirtyRef.current) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        doAutoSave(sheet);
+      }
+    };
+    return bus.on("training:beforeEnd", handler);
+  }, [bus, sheet, doAutoSave]);
 
   if (isLoading) {
     return (
@@ -95,12 +139,12 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <FileText size={12} />
           <span>
-            {saveMutation.isError
-              ? "保存失败"
-              : saveMutation.isSuccess
-                ? "已保存"
-                : saveMutation.isPending
-                  ? "保存中..."
+            {saveStatus === "saving"
+              ? "保存中..."
+              : saveStatus === "saved"
+                ? `已自动保存 ${lastSavedAt || ""}`
+                : saveStatus === "error"
+                  ? "保存失败"
                   : "护理评估记录"}
           </span>
         </div>

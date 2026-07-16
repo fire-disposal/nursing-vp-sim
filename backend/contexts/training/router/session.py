@@ -313,30 +313,18 @@ def start_training_from_assignment(
         .first()
     )
     if existing:
-        student_msg_count = (
-            db.query(Message).filter(Message.record_id == existing.id, Message.role == "student").count()
+        case_data = assignment.practice.case.case_data if assignment.practice and assignment.practice.case else {}
+        patient_info = case_data.get("patient_info", {})
+        patient_name = patient_info.get("name", "患者")
+        greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
+        return TrainingStartResponse(
+            record_id=existing.id,
+            greeting=greeting,
+            case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else "",
+            pending_questionnaires=_count_pending_questionnaires(
+                db, assignment.practice.case.id if assignment.practice and assignment.practice.case else 0
+            ),
         )
-        if student_msg_count == 0:
-            db.query(Message).filter(Message.record_id == existing.id).delete()
-            db.query(NursingRecord).filter(NursingRecord.record_id == existing.id).delete()
-            db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == existing.id).update(
-                {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
-            )
-            db.delete(existing)
-            db.commit()
-        else:
-            case_data = assignment.practice.case.case_data if assignment.practice and assignment.practice.case else {}
-            patient_info = case_data.get("patient_info", {})
-            patient_name = patient_info.get("name", "患者")
-            greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
-            return TrainingStartResponse(
-                record_id=existing.id,
-                greeting=greeting,
-                case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else "",
-                pending_questionnaires=_count_pending_questionnaires(
-                    db, assignment.practice.case.id if assignment.practice and assignment.practice.case else 0
-                ),
-            )
 
     practice = assignment.practice
     if not practice or not practice.case:
