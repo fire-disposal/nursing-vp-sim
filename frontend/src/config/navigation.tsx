@@ -1,6 +1,7 @@
 import {
 	Activity,
 	BarChart3,
+	BookOpen,
 	ClipboardCheck,
 	ClipboardList,
 	Coins,
@@ -52,6 +53,7 @@ const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/admin/SystemNotificationsPage"),
 );
+const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 
 export type NavSection = "user" | "admin";
 
@@ -193,6 +195,12 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <Admin />,
 		permission: "score_review",
 		nav: { label: "训练管理", icon: Settings, section: "admin", end: true },
+	},
+	{
+		path: "/admin/rubric",
+		element: <RubricPage />,
+		permission: "score_review",
+		nav: { label: "评分标准", icon: BookOpen, section: "admin" },
 	},
 	{
 		path: "/admin/costs",

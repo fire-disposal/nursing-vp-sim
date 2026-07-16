@@ -15,9 +15,9 @@ from fastapi import FastAPI
 
 def register_routers(app: FastAPI) -> None:
     # ── domain routers (flat module → .router) ──
-    from routers import auth, cases, feedback, questionnaires, records, stats
+    from routers import auth, cases, feedback, questionnaires, records, rubrics, stats
 
-    for mod in (auth, cases, feedback, questionnaires, records, stats):
+    for mod in (auth, cases, feedback, questionnaires, records, rubrics, stats):
         app.include_router(mod.router)
 
     # ── composite + direct admin routers ──

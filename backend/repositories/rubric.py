@@ -1,18 +1,26 @@
-"""评分标准（Rubric）服务 —— 从 profile 加载、验证"""
+"""评分标准（Rubric）服务 —— 从 JSON 文件加载、验证，支持 mtime 热更"""
 
-_CACHE: dict[str, dict] = {}
+import json
+import os
+from pathlib import Path
+
+_CACHE: dict[str, tuple[dict, float]] = {}
+_RUBRIC_JSON_PATH = Path(__file__).parent.parent / "profiles" / "history_taking" / "rubric.json"
 
 
 def load_rubric(version: str = "nursing_history_v1") -> dict:
-    """从 profile 加载评分标准，结果缓存"""
-    if version in _CACHE:
-        return _CACHE[version]
-    if version == "nursing_history_v1":
-        from profiles.history_taking.rubric import RUBRIC
-
-        _CACHE[version] = RUBRIC
-        return RUBRIC
-    raise FileNotFoundError(f"评分标准未找到: {version}")
+    """从 JSON 文件加载评分标准，mtime 缓存支持热更"""
+    filepath = _RUBRIC_JSON_PATH
+    if not filepath.exists():
+        raise FileNotFoundError(f"评分标准文件未找到: {filepath}")
+    mtime = os.path.getmtime(filepath)
+    cached = _CACHE.get(version)
+    if cached is not None and cached[1] == mtime:
+        return cached[0]
+    with open(filepath, encoding="utf-8") as f:
+        data = json.load(f)
+    _CACHE[version] = (data, mtime)
+    return data
 
 
 def get_rubric_version_id(rubric_dict: dict) -> str:
