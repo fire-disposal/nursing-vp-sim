@@ -1,8 +1,8 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2, Play, RefreshCw, Trash2 } from "lucide-react";
+import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteRecord, getRecords } from "@/api";
+import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -82,6 +82,26 @@ export default function History() {
 		deleteMutation.mutate(r.id);
 	};
 
+	const abandonMutation = useMutation({
+		mutationFn: (id: number) => abandonRecord(id),
+		onSuccess: () => {
+			toast.success("训练记录已放弃");
+			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+		},
+		onError: (err: unknown) => toast.apiError(err, "操作失败"),
+	});
+
+	const handleAbandonRecord = async (r: TrainingRecordBrief) => {
+		const ok = await confirm({
+			title: "放弃训练",
+			message: `确定放弃「${r.case_name}」的训练吗？放弃后将保留对话记录但不会评分。`,
+			confirmLabel: "确定放弃",
+			danger: true,
+		});
+		if (!ok) return;
+		abandonMutation.mutate(r.id);
+	};
+
 	const clearFilters = () => {
 		setFilters({ status: "", date_from: "", date_to: "" });
 		setOffset(0);
@@ -119,6 +139,7 @@ export default function History() {
 								<option value="">全部</option>
 								<option value="in_progress">进行中</option>
 								<option value="completed">已完成</option>
+								<option value="abandoned">已放弃</option>
 							</select>
 						</div>
 						<div className="flex-1 min-w-[140px]">
@@ -187,6 +208,7 @@ export default function History() {
 										)
 									: null;
 								const isInProgress = r.status === "in_progress";
+								const isAbandoned = r.status === "abandoned";
 								return (
 									<div
 										key={r.id}
@@ -213,6 +235,8 @@ export default function History() {
 														<span className="text-xs tabular-nums font-semibold">
 															{r.score_total != null ? `${r.score_total} 分` : "评分中"}
 														</span>
+													) : isAbandoned ? (
+														<span className="text-xs text-muted-foreground">已放弃</span>
 													) : (
 														<span className="flex items-center gap-1 text-xs text-amber-600">
 															<span className="size-1.5 rounded-full bg-amber-500" />
@@ -224,16 +248,42 @@ export default function History() {
 										</button>
 										<div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
 											{isInProgress && (
+												<>
+													<Button
+														variant="outline"
+														size="sm"
+														className="h-7 text-xs flex-1"
+														onClick={(e) => {
+															e.stopPropagation();
+															navigate(`/training/${r.id}`);
+														}}
+													>
+														<Play size={12} /> 继续
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="h-7 text-xs text-muted-foreground"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleAbandonRecord(r);
+														}}
+													>
+														<XCircle size={12} /> 放弃
+													</Button>
+												</>
+											)}
+											{isAbandoned && (
 												<Button
-													variant="outline"
+													variant="ghost"
 													size="sm"
 													className="h-7 text-xs flex-1"
 													onClick={(e) => {
 														e.stopPropagation();
-														navigate(`/training/${r.id}`);
+														navigate(`/record/${r.id}`);
 													}}
 												>
-													<Play size={12} /> 继续
+													查看
 												</Button>
 											)}
 											<Button
@@ -339,10 +389,14 @@ export default function History() {
 												<TableCell>
 													<Badge
 														variant={
-															r.status === "completed" ? "success" : "info"
+															r.status === "completed" ? "success" :
+															r.status === "abandoned" ? "secondary" :
+															"info"
 														}
 													>
-														{r.status === "completed" ? "已完成" : "进行中"}
+														{r.status === "completed" ? "已完成" :
+														 r.status === "abandoned" ? "已放弃" :
+														 "进行中"}
 													</Badge>
 												</TableCell>
 												<TableCell>
@@ -368,24 +422,36 @@ export default function History() {
 													<div className="flex items-center gap-2">
 														{r.status === "in_progress" &&
 														user?.role !== "teacher" ? (
-															<Button
-																variant="link"
-																size="xs"
-																onClick={() =>
-																	navigate(`/training/${r.id}`)
-																}
-															>
-																继续训练
-															</Button>
+															<>
+																<Button
+																	variant="link"
+																	size="xs"
+																	onClick={() =>
+																		navigate(`/training/${r.id}`)
+																	}
+																>
+																	继续训练
+																</Button>
+																<Button
+																	variant="link"
+																	size="xs"
+																	className="text-muted-foreground"
+																	onClick={() => handleAbandonRecord(r)}
+																>
+																	放弃
+																</Button>
+															</>
 														) : (
 															<Button
 																variant="link"
 																size="xs"
 																onClick={() =>
-																	navigate(`/record/${r.id}`)
+																	r.status === "abandoned"
+																		? navigate(`/record/${r.id}`)
+																		: navigate(`/record/${r.id}`)
 																}
 															>
-																查看详情
+																{r.status === "abandoned" ? "查看" : "查看详情"}
 															</Button>
 														)}
 														<Button

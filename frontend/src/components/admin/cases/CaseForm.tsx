@@ -39,6 +39,8 @@ export default function CaseFormModal({
 	const [caseForm, setCaseForm] = useState<CaseForm>(
 		parseCaseData(NEW_CASE_TEMPLATE),
 	);
+	const [initialData, setInitialData] = useState<string>("");
+	const [isDirty, setIsDirty] = useState(false);
 	const [caseMsg, setCaseMsg] = useState("");
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [showAiPanel, setShowAiPanel] = useState(false);
@@ -56,22 +58,31 @@ export default function CaseFormModal({
 	const updateField = (
 		field: string,
 		value: string | number | string[] | Record<string, boolean> | Record<string, ScoringDimension>,
-	) => setCaseForm((prev) => ({ ...prev, [field]: value }));
-	const updateList = (field: string, text: string) =>
+	) => { setIsDirty(true); setCaseForm((prev) => ({ ...prev, [field]: value })); };
+	const updateList = (field: string, text: string) => {
+		setIsDirty(true);
 		setCaseForm((prev) => ({
 			...prev,
 			[field]: text.split("\n").filter((s) => s.trim()),
 		}));
+	};
 
 	useEffect(() => {
 		if (!open) return;
 		if (editingCase) {
 			getCaseDetail(editingCase.id)
-				.then(({ data }) => setCaseForm(parseCaseData(data.case_data)))
+				.then(({ data }) => {
+					const parsed = parseCaseData(data.case_data);
+					setCaseForm(parsed);
+					setInitialData(JSON.stringify(parsed));
+				})
 				.catch(() => toast.error("加载病例数据失败"));
 		} else {
-			setCaseForm(parseCaseData(NEW_CASE_TEMPLATE));
+			const template = parseCaseData(NEW_CASE_TEMPLATE);
+			setCaseForm(template);
+			setInitialData(JSON.stringify(template));
 		}
+		setIsDirty(false);
 		setCaseMsg("");
 		setShowAdvanced(false);
 		setShowAiPanel(!!startWithAiPanel);
@@ -189,7 +200,12 @@ export default function CaseFormModal({
 
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+		<Dialog open={open} onOpenChange={(o) => {
+			if (!o) {
+				if (isDirty && JSON.stringify(caseForm) !== initialData && !window.confirm("内容未保存，确定关闭？")) return;
+				onClose();
+			}
+		}}>
 			<DialogContent
 				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
 				maxWidth={800}

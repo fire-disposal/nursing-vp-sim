@@ -280,7 +280,12 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			)}
 		/>
 
-			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
+			<Dialog open={modalOpen} onOpenChange={(o) => {
+				if (!o) {
+					if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+					setModalOpen(false);
+				}
+			}}>
 				<DialogContent
 					title={editingId ? "编辑练习模板" : "新建练习模板"}
 					maxWidth={560}

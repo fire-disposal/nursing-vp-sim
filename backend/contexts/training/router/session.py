@@ -38,6 +38,7 @@ from models import (
 from profiles.registry import get_profile
 from schemas import (
     DeleteResponse,
+    OkResponse,
     PaginatedResponse,
     ScoreItem,
     ScoreReviewItem,
@@ -612,3 +613,29 @@ def delete_record(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "训练记录已删除"}
+
+
+@router.put("/records/{record_id}/abandon", response_model=OkResponse)
+def abandon_record(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise NotFoundError(detail="训练记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail="无权操作此记录", status_code=403)
+    if record.status != "in_progress":
+        raise HTTPException(status_code=400, detail="只能放弃进行中的训练")
+
+    record.status = "abandoned"
+    record.end_time = datetime.now(UTC)
+    db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).delete()
+    db.commit()
+
+    log.info(
+        f"训练记录放弃: record_id={record_id}",
+        extra={"user_id": current_user.id, "action": "training_abandon"},
+    )
+    return {"message": "训练记录已放弃"}

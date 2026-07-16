@@ -175,7 +175,7 @@ export default function QuestionnairesTab() {
 	const handleDelete = async (t: TemplateListItem) => {
 		const ok = await confirm({
 			title: "删除问卷模板",
-			message: `确定删除问卷"${t.title}"吗？此操作不可恢复。`,
+			message: `确定删除问卷"${t.title}"吗？此操作将同时删除该问卷的全部学生答卷，不可恢复。`,
 			confirmLabel: "确定删除",
 			danger: true,
 		});

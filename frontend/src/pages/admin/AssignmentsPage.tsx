@@ -322,7 +322,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			)}
 		/>
 
-			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
+			<Dialog open={modalOpen} onOpenChange={(o) => {
+				if (!o) {
+					if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+					setModalOpen(false);
+				}
+			}}>
 				<DialogContent
 					title={editingId ? "编辑练习发布" : "创建练习发布"}
 					maxWidth={560}

@@ -6177,6 +6177,53 @@
         }
       }
     },
+    "/api/training/records/{record_id}/abandon": {
+      "put": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Abandon Record",
+        "operationId": "abandon_record_api_training_records__record_id__abandon_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/{record_id}/scoring-status": {
       "get": {
         "tags": [

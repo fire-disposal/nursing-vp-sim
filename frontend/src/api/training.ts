@@ -59,6 +59,9 @@ export const submitTriage = (
 		)
 		.then((r) => r.data);
 
+export const abandonRecord = (recordId: number | string) =>
+	api.put<Schemas["OkResponse"]>(`/training/records/${recordId}/abandon` as ApiPath);
+
 export const triggerInitiative = (recordId: number) =>
 	api.post<components["schemas"]["InitiativeTriggerResponse"]>(
 		`/training/${recordId}/initiative/trigger` as ApiPath,
