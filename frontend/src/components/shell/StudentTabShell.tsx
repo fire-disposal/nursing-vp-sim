@@ -5,7 +5,7 @@
  *   /home        — 首页
  *   /training    — 病例训练
  *   /history     — 训练记录
- *   /my-responses — 我的问卷
+ *   /profile     — 我的
  *   /qa          — 护理问答
  *
  * 渲染结构：
@@ -19,13 +19,13 @@
  *   └──────────────────────┘
  */
 import {
-	ClipboardCheck,
 	ClipboardList,
 	HelpCircle,
 	Home,
 	LogOut,
 	MessageSquarePlus,
 	Stethoscope,
+	User,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Suspense, useMemo } from "react";
@@ -52,7 +52,7 @@ const BOTTOM_TABS: Array<{
 	{ to: "/home", icon: Home, label: "首页", shortLabel: "首页", end: true },
 	{ to: "/training", icon: Stethoscope, label: "病例训练", shortLabel: "训练" },
 	{ to: "/history", icon: ClipboardList, label: "训练记录", shortLabel: "记录" },
-	{ to: "/my-responses", icon: ClipboardCheck, label: "我的问卷", shortLabel: "问卷" },
+	{ to: "/profile", icon: User, label: "我的", shortLabel: "我的" },
 	{ to: "/qa", icon: HelpCircle, label: "护理问答", shortLabel: "问答" },
 ];
 
