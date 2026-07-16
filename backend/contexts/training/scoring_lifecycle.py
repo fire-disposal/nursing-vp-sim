@@ -35,3 +35,11 @@ def claim_scoring(record_id: int, db) -> bool:
         {"id": record_id},
     )
     return result.rowcount > 0
+
+
+def release_scoring(record_id: int, db) -> None:
+    """Reset scoring_status to NULL — used after QueueFullError rollback."""
+    db.execute(
+        text("UPDATE training_records SET scoring_status = NULL WHERE id = :id"),
+        {"id": record_id},
+    )

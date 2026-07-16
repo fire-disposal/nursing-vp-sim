@@ -5,15 +5,17 @@ Uses pg_try_advisory_lock to ensure only one worker processes at a time.
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
 from core.database import SessionLocal
-from models import TrainingRecord
+from models import Notification, TrainingRecord
 
 log = logging.getLogger(__name__)
 
 SETTLEMENT_LOCK_KEY = 987654321
+STALE_SCORING_SWEEP_MINUTES = 10
 
 
 async def settlement_loop(
@@ -69,30 +71,66 @@ def _revert_settled_record(repo, record_id: int) -> None:
         db.close()
 
 
+def _sweep_stale_scoring_records(db) -> int:
+    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES)
+    stale = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.scoring_status.in_(["pending", "processing"]),
+            TrainingRecord.end_time.isnot(None),
+            TrainingRecord.end_time < cutoff,
+        )
+        .all()
+    )
+    for record in stale:
+        record.scoring_status = "failed"
+        record.scoring_error = "评分超时，已自动标记失败，可手动重试"
+        db.add(
+            Notification(
+                user_id=record.user_id,
+                record_id=record.id,
+                type="scoring_failed",
+                title="评分失败",
+                body="评分超时，已自动标记失败，可在记录详情页重新评分",
+            )
+        )
+        log.warning("settlement: stale scoring marked failed", extra={"record_id": record.id})
+    if stale:
+        db.commit()
+    return len(stale)
+
+
 def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
     timeout_records = repo.find_timeout_records_sync(db)
-    if not timeout_records:
-        return []
-
-    log.info("Found %d timed-out sessions, marking completed", len(timeout_records))
     settled: list[tuple[int, int, dict]] = []
 
-    for record in timeout_records:
-        try:
-            repo.mark_completed_sync(db, record.id)
+    if timeout_records:
+        log.info("Found %d timed-out sessions, marking completed", len(timeout_records))
+        for record in timeout_records:
+            try:
+                repo.mark_completed_sync(db, record.id)
 
-            from models import Case, TrainingSessionState
+                from models import Case, TrainingSessionState
 
-            db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
+                db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
 
-            case = db.query(Case).filter(Case.id == record.case_id).first()
-            case_data = case.case_data if case else {}
-            settled.append((record.id, record.case_id, case_data))
+                case = db.query(Case).filter(Case.id == record.case_id).first()
+                case_data = case.case_data if case else {}
+                settled.append((record.id, record.case_id, case_data))
 
-            db.commit()
-            log.info("Settlement: record_id=%d completed", record.id)
-        except Exception:
-            db.rollback()
-            log.exception("Settlement record_id=%d failed", record.id)
+                db.commit()
+                log.info("Settlement: record_id=%d completed", record.id)
+            except Exception:
+                db.rollback()
+                log.exception("Settlement record_id=%d failed", record.id)
+
+    try:
+        stale_count = _sweep_stale_scoring_records(db)
+        if stale_count:
+            log.info("Settlement: marked %d stale scoring records as failed", stale_count)
+    except Exception:
+        db.rollback()
+        log.exception("settlement stale scoring sweep failed")
 
     return settled

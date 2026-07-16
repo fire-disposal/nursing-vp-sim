@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -28,11 +29,13 @@ from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
-from ..scoring_lifecycle import acquire_scoring, claim_scoring
+from ..scoring_lifecycle import acquire_scoring, claim_scoring, release_scoring
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+SCORING_RETRY_DELAY_SECONDS = int(os.getenv("SCORING_RETRY_DELAY_SECONDS", "30"))
 
 # Generation counter to detect stale background scoring tasks.
 # Incremented in acquire_scoring whenever a new scoring session starts.
@@ -253,18 +256,41 @@ async def _run_scoring_background(
         if tracker:
             tracker.start(record_id)
 
-        await asyncio.wait_for(
-            evaluate_training(
-                record_id,
-                case_data,
-                db,
-                llm_client=llm_client,
-                tracker=tracker,
-                realtime_hub=realtime_hub,
-                user_id=record.user_id,
-            ),
-            timeout=SCORING_GLOBAL_TIMEOUT,
-        )
+        async def _attempt_evaluate():
+            await asyncio.wait_for(
+                evaluate_training(
+                    record_id,
+                    case_data,
+                    db,
+                    llm_client=llm_client,
+                    tracker=tracker,
+                    realtime_hub=realtime_hub,
+                    user_id=record.user_id,
+                ),
+                timeout=SCORING_GLOBAL_TIMEOUT,
+            )
+
+        last_error = None
+        for attempt in range(2):
+            try:
+                await _attempt_evaluate()
+                break
+            except asyncio.CancelledError:
+                raise
+            except TimeoutError:
+                raise
+            except Exception as e:
+                last_error = e
+                if attempt == 0:
+                    log.warning(
+                        "评分首次尝试失败，%ds 后重试",
+                        SCORING_RETRY_DELAY_SECONDS,
+                        extra={"record_id": record_id, "attempt": attempt + 1, "error": str(e)[:200]},
+                    )
+                    await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
+                else:
+                    log.error("评分重试仍失败", extra={"record_id": record_id, "error": str(e)[:200]})
+                    raise
 
         # Re-fetch record to check if status was reset by a retry_scoring
         db.refresh(record)
@@ -379,6 +405,9 @@ async def end_training(
                 priority=5,
             )
         except QueueFullError:
+            db.rollback()
+            release_scoring(record_id, db)
+            db.commit()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         db.commit()
@@ -471,6 +500,9 @@ async def retry_scoring(
                 priority=5,
             )
         except QueueFullError:
+            db.rollback()
+            release_scoring(record_id, db)
+            db.commit()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         db.commit()
