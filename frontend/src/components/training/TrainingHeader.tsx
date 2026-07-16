@@ -16,6 +16,7 @@ import { cn } from "@/utils/cn";
 export function TrainingHeader() {
 	const {
 		patient,
+		messages,
 		ttsAutoPlay,
 		toggleTts: onTtsToggle,
 		endTraining: onEnd,
@@ -31,6 +32,10 @@ export function TrainingHeader() {
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
 	const endingRef = useRef(false);
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+	const studentMsgs = messages.filter(m => m.role === "student");
+	const studentCharCount = studentMsgs.reduce((sum, m) => sum + m.content.length, 0);
+	const belowThreshold = studentMsgs.length < 3 || studentCharCount < 200;
 
 	const initialRemaining =
 		remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
@@ -188,7 +193,9 @@ export function TrainingHeader() {
 			>
 				<DialogContent title="结束训练" maxWidth={360}>
 				<p className="text-sm text-muted-foreground mb-5">
-					确定要结束本次训练吗？结束后系统将自动生成评分。
+					{belowThreshold
+						? `当前对话内容较少（已发送 ${studentMsgs.length} 条），结束后将不会生成评分，确定结束？`
+						: "确定要结束本次训练吗？结束后系统将自动生成评分。"}
 				</p>
 				<div className="flex justify-end gap-2">
 					<Button

@@ -8,7 +8,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from contexts.training.score_engine import evaluate_training
-from core.config import SCORING_RETRY_GRACE_SECONDS, SCORING_TIMEOUT_SECONDS
+from core.config import (
+    AUTO_SCORE_STUDENT_CHARS_MIN,
+    AUTO_SCORE_STUDENT_MSG_MIN,
+    SCORING_RETRY_GRACE_SECONDS,
+    SCORING_TIMEOUT_SECONDS,
+)
 from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
@@ -34,6 +39,21 @@ router = APIRouter()
 # Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
 # 弃用进程内 generation dict（多 worker 下不安全）。
 # 每个任务在写入终态前校验 scoring_status 是否仍是 "processing"。
+
+
+def _check_scoring_threshold(db: Session, record_id: int) -> str | None:
+    student_msgs = db.query(Message).filter(Message.record_id == record_id, Message.role == "student").all()
+    student_msg_count = len(student_msgs)
+    student_chars = sum(len(m.content or "") for m in student_msgs)
+
+    if student_msg_count < AUTO_SCORE_STUDENT_MSG_MIN:
+        return (
+            f"训练对话内容过少，未生成评分"
+            f"（已发送 {student_msg_count} 条消息，需要至少 {AUTO_SCORE_STUDENT_MSG_MIN} 条）"
+        )
+    if student_chars < AUTO_SCORE_STUDENT_CHARS_MIN:
+        return f"训练对话内容过少，未生成评分（已输入 {student_chars} 字，需要至少 {AUTO_SCORE_STUDENT_CHARS_MIN} 字）"
+    return None
 
 
 def _create_notification(
@@ -326,6 +346,20 @@ async def end_training(
         if not acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
+        threshold_msg = _check_scoring_threshold(db, record_id)
+        if threshold_msg:
+            record.status = "completed"
+            record.end_time = datetime.now(UTC)
+            _set_overdue_if_needed(record, db)
+            record.scoring_status = "failed"
+            record.scoring_error = threshold_msg[:2000]
+            db.commit()
+            return {
+                "message": "训练已结束，但对话内容不足，未生成评分",
+                "record_id": record_id,
+                "scoring_status": "failed",
+            }
+
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data if case else {}
 
@@ -399,6 +433,10 @@ async def retry_scoring(
 
         if not acquire_scoring(record_id, db, allow_retry=True):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
+
+        threshold_msg = _check_scoring_threshold(db, record_id)
+        if threshold_msg:
+            raise HTTPException(status_code=400, detail=threshold_msg)
 
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
         if old_score:
