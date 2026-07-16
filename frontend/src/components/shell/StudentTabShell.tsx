@@ -150,11 +150,12 @@ function StudentTopNav({
 				<div className="flex items-center gap-0.5 ml-auto">
 					<button
 						onClick={openFeedback}
-						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+						className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-accent transition-colors"
 						title="意见反馈"
 						aria-label="意见反馈"
 					>
-						<MessageSquarePlus size={15} />
+						<MessageSquarePlus size={14} />
+						<span className="hidden sm:inline">反馈</span>
 					</button>
 					<NotificationBell />
 					<ModeToggle />
