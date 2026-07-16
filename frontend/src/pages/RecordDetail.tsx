@@ -42,7 +42,7 @@ export default function RecordDetail() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const toast = useToast();
-	const user = useAuthStore((s) => s.user);
+	const permissions = useAuthStore((s) => s.permissions);
 
 	const { data: record, isError: recordError } = useQuery({
 		queryKey: queryKeys.training.detail(id!),
@@ -66,7 +66,7 @@ export default function RecordDetail() {
 	}, [recordError, navigate, toast]);
 
 	const isReviewed = review?.review_status === "reviewed";
-	const isTeacher = user?.role === "teacher";
+	const hasScoreReview = permissions.includes("score_review");
 
 	const abortRef = useRef<AbortController | null>(null);
 	useEffect(() => {
@@ -82,12 +82,17 @@ export default function RecordDetail() {
 		});
 
 	const handleRetryScoring = async () => {
+		if (hasScoreReview && isReviewed) {
+			if (!window.confirm("重新评分将丢弃已有的教师复核，确定继续？")) {
+				return;
+			}
+		}
 		setRetrying(true);
 		setRetryProgress(0);
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			await retryScoring(id!);
+			await retryScoring(id!, hasScoreReview && isReviewed ? { force: true } : undefined);
 			toast.info("评分已重新触发，请稍后刷新查看结果");
 			for (let i = 0; i < 30; i++) {
 				setRetryProgress(i + 1);
@@ -238,7 +243,7 @@ export default function RecordDetail() {
 						recordScore={recordScore}
 						isReviewed={isReviewed}
 						review={review ?? null}
-						isTeacher={isTeacher}
+						isTeacher={hasScoreReview}
 						expanded={expanded}
 						onToggleExpand={handleToggleExpand}
 						onReviewClick={() => setShowReviewEditor(true)}

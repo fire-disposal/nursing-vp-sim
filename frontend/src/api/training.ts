@@ -15,9 +15,11 @@ export const endTraining = (recordId: number | string, signal?: AbortSignal) =>
 		{ signal },
 	);
 
-export const retryScoring = (recordId: number | string) =>
+export const retryScoring = (recordId: number | string, params?: { force?: boolean }) =>
 	api.post<Schemas["ScoringTriggerResponse"]>(
 		`/training/${recordId}/retry-scoring` as ApiPath,
+		null,
+		{ params },
 	);
 
 export const getRecords = (params: Record<string, unknown> = {}) =>

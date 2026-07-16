@@ -416,6 +416,7 @@ async def retry_scoring(
     record_id: int,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
+    force: Annotated[bool, Query()] = False,
 ):
     async with db_session() as db:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -431,14 +432,26 @@ async def retry_scoring(
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-        if not acquire_scoring(record_id, db, allow_retry=True):
-            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
-
         threshold_msg = _check_scoring_threshold(db, record_id)
         if threshold_msg:
             raise HTTPException(status_code=400, detail=threshold_msg)
 
+        has_score_review = current_user.has_permission("score_review")
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
+        if old_score:
+            review_exists = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first() is not None
+            if review_exists:
+                if not has_score_review:
+                    raise HTTPException(status_code=403, detail="该评分已由教师复核，无法重新评分")
+                if not force:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="该评分已有教师复核，确定重新评分？请添加 force=true 参数确认",
+                    )
+
+        if not acquire_scoring(record_id, db, allow_retry=True):
+            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
+
         if old_score:
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
