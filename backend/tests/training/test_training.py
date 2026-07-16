@@ -110,6 +110,7 @@ class TestEndTraining:
 
         # D4: insert enough messages to meet AUTO_SCORE threshold
         from models import Message
+
         long_msg = "x" * 100  # 3 * 100 = 300 chars >= 200 threshold
         for _ in range(3):
             db_session.add(Message(record_id=record_id, role="student", content=long_msg))
