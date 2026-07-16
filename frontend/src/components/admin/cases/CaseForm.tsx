@@ -819,9 +819,12 @@ export default function CaseFormModal({
 					{showAdvanced && (
 						<div className="flex flex-col gap-3 mt-3">
 							<div>
-								<label className="text-xs font-semibold text-muted-foreground mb-2 block">
-									训练功能特性
-								</label>
+							<label className="text-xs font-semibold text-muted-foreground mb-2 block">
+								训练功能特性
+							</label>
+							<p className="text-xs text-muted-foreground mb-2">
+								修改仅对新开始的训练生效，进行中或已完成的训练不受影响。
+							</p>
 								<div className="flex flex-wrap gap-2">
 									{(TRAINING_CAPABILITIES[caseForm.training_type] ?? []).map((key) => {
 										const def = ALL_CAPABILITIES[key];

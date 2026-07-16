@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -175,6 +176,20 @@ def _create_record(
     db.add(record)
     db.flush()
 
+    record.case_snapshot = deepcopy(case_data)
+    profile = get_profile(training_type)
+    resolved_features = resolve_features(
+        record.practice_snapshot,
+        case_defaults=case_data.get("capabilities"),
+    )
+    from contexts.training.rubric_builder import build_final_rubric
+
+    record.rubric_snapshot = build_final_rubric(profile.rubric, resolved_features)
+    record.prompt_snapshot = {
+        "system": profile.prompts.system,
+        "dynamic": profile.prompts.dynamic,
+    }
+
     patient_info = case_data.get("patient_info", {})
     patient_name = patient_info.get("name", "患者")
     opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
@@ -214,10 +229,9 @@ def _create_record(
     }
 
     snapshot = record.practice_snapshot or {}
-    features = resolve_features(snapshot, case_defaults=case_data.get("capabilities"))
-    snapshot["features"] = features
+    snapshot["features"] = resolved_features
     record.practice_snapshot = snapshot
-    if app_state is not None and features.get("patient_initiative"):
+    if app_state is not None and resolved_features.get("patient_initiative"):
         from profiles.history_taking.initiative import update_initiative_timer
 
         update_initiative_timer(record.id, app_state.initiative_cache, db)
@@ -474,7 +488,7 @@ def get_record_detail(
             )
     pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
 
-    case_data = case.case_data or {} if case else {}
+    case_data = record.case_snapshot or (case.case_data or {} if case else {})
     time_limit = record.time_limit or 20
     remaining_seconds = None
     if record.status == "in_progress" and record.start_time:

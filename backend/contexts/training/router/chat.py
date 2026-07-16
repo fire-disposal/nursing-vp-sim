@@ -55,7 +55,7 @@ async def _build_context(
     await check_chat_limit(current_user.id, request)
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
-    case_data = case.case_data or {} if case else {}
+    case_data = record.case_snapshot or (case.case_data or {} if case else {})
 
     # 只加载最近消息用于 LLM 上下文（MAX_HISTORY_ROUNDS * 2 + 缓冲区）
     # 使用子查询避免加载整张表，减少 ~60-80% 的 DB I/O
@@ -82,7 +82,10 @@ async def _build_context(
         messages=messages,
     )
     ctx.state[STATE_STREAM_MODE] = stream_mode
-    ctx.state[STATE_FEATURES] = resolve_features(ctx.record.practice_snapshot)
+    ctx.state[STATE_FEATURES] = resolve_features(
+        ctx.record.practice_snapshot,
+        case_defaults=ctx.case_data.get("capabilities"),
+    )
     return ctx
 
 

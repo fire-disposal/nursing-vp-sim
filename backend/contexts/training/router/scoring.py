@@ -238,9 +238,10 @@ async def _run_scoring_background(
             log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
             return
 
-        # Write prompt/rubric snapshot if not yet set
+        # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
+                from contexts.training.rubric_builder import build_final_rubric
                 from profiles.registry import get_profile
 
                 profile = get_profile(record.training_type)
@@ -248,7 +249,8 @@ async def _run_scoring_background(
                     "system": profile.prompts.system,
                     "dynamic": profile.prompts.dynamic,
                 }
-                record.rubric_snapshot = profile.rubric
+                features = (record.practice_snapshot or {}).get("features", {})
+                record.rubric_snapshot = build_final_rubric(profile.rubric, features)
                 db.commit()
             except (KeyError, AttributeError):
                 pass
@@ -387,7 +389,7 @@ async def end_training(
             }
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
-        case_data = case.case_data if case else {}
+        case_data = record.case_snapshot or (case.case_data if case else {})
 
         record.status = "completed"
         record.end_time = datetime.now(UTC)
@@ -414,7 +416,10 @@ async def end_training(
 
         from core.capabilities import resolve_features
 
-        features = resolve_features(record.practice_snapshot)
+        features = resolve_features(
+            record.practice_snapshot,
+            case_defaults=(record.case_snapshot or {}).get("capabilities"),
+        )
         if features.get("patient_initiative"):
             from profiles.history_taking.initiative import cleanup_initiative
 
@@ -486,7 +491,7 @@ async def retry_scoring(
             db.delete(old_score)
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
-        case_data = case.case_data if case else {}
+        case_data = record.case_snapshot or (case.case_data if case else {})
 
         try:
             await request.app.state.task_queue.enqueue(
