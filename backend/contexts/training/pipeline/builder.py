@@ -17,14 +17,10 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
         from .middleware import (
             llm_caller,
             persister,
-            phase_guard,
-            phase_transition,
             prompt_builder,
             side_effects,
         )
 
-        _CORE_MIDDLEWARE[PipelineStage.GUARD] = [phase_guard]
-        _CORE_MIDDLEWARE[PipelineStage.TRANSITION] = [phase_transition]
         _CORE_MIDDLEWARE[PipelineStage.PROMPT] = [prompt_builder]
         _CORE_MIDDLEWARE[PipelineStage.LLM] = [llm_caller]
         _CORE_MIDDLEWARE[PipelineStage.PERSIST] = [persister]

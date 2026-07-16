@@ -1,25 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from contexts.patient.note_source import NoteSource
-
-
-@dataclass
-class PhaseConfig:
-    id: str
-    name: str = ""
-    description: str = ""
-    order: int = 1
-    operations: list[str] = field(default_factory=lambda: ["chat"])
-    prompt_profile: str = "patient_chat"
-    scoring_dimensions: list[str] = field(default_factory=list)
-    transition: dict = field(default_factory=dict)
-
-    def supports_operation(self, op_type: str) -> bool:
-        return "chat" in self.operations or op_type in self.operations
 
 
 @dataclass
@@ -35,8 +20,6 @@ class PromptCollection:
 @dataclass
 class TrainingProfile:
     name: str
-    initial_phase: str
-    phases: list[PhaseConfig]
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
     rubric: dict

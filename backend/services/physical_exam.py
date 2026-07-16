@@ -88,7 +88,6 @@ class PhysicalExamService:
         if vitals_patch:
             rs.setdefault("scene", {}).setdefault("vitals", {}).update(vitals_patch)
 
-        rs["phase_op_count"] = rs.get("phase_op_count", 0) + 1
         record.runtime_state = rs
 
         with unit_of_work(self.db, conflict_detail="体检操作冲突"):

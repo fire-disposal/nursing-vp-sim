@@ -154,7 +154,6 @@ def _create_record(
     app_state=None,
 ):
     training_type = case.training_type or "history_taking"
-    profile = get_profile(training_type)
 
     # 时间优先级（D11）：显式设置(free-config req / 教师 practice) > case 默认 > 全局 20
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
@@ -174,7 +173,6 @@ def _create_record(
         status="in_progress",
         time_limit=time_limit,
     )
-    record.current_phase = profile.initial_phase
     db.add(record)
     db.flush()
 
@@ -213,7 +211,6 @@ def _create_record(
                 "temp": vitals.get("temp"),
                 "pain": vitals.get("pain"),
             },
-            "phase": profile.initial_phase,
         }
     }
 
@@ -425,7 +422,6 @@ def get_records(
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
             status=r.status,
-            current_phase=r.current_phase,
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.total_score if r.score else None,
@@ -528,7 +524,6 @@ def get_record_detail(
         case_name=case.name if case else "",
         user_display_name=user.display_name if user else "",
         status=record.status,
-        current_phase=record.current_phase,
         scoring_status=record.scoring_status,
         scoring_error=record.scoring_error,
         start_time=record.start_time,

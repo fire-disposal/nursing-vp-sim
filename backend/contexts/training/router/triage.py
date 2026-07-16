@@ -66,7 +66,6 @@ async def submit_triage(
         "department": req.department,
         "notes": req.notes,
     }
-    rs["phase_op_count"] = rs.get("phase_op_count", 0) + 1
     record.runtime_state = rs
 
     # End training and trigger scoring

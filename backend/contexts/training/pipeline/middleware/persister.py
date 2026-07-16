@@ -6,7 +6,6 @@ from models import Message
 from profiles.history_taking.initiative import update_initiative_timer
 
 from ..context import (
-    STATE_PHASE_OP_COUNT,
     STATE_SAVED_MESSAGES,
     PipelineContext,
 )
@@ -24,7 +23,6 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
             ctx.db.flush()
             ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
             log.warning("Persisted partial reply after error: record_id=%d len=%d", ctx.record.id, len(ctx.llm_reply))
-        _persist_phase_op_count(ctx)
         _reset_initiative_timer(ctx)
         ctx.db.commit()
         await next_mw()
@@ -36,7 +34,6 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
     if ctx.llm_reply:
         patient_msg = Message(record_id=ctx.record.id, role="patient", content=ctx.llm_reply)
         ctx.db.add(patient_msg)
-        _persist_phase_op_count(ctx)
         _reset_initiative_timer(ctx)
         ctx.db.commit()
         ctx.db.refresh(patient_msg)
@@ -55,11 +52,3 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
             update_initiative_timer(ctx.record.id, app_state.initiative_cache, ctx.db)
     except Exception:
         log.warning("Failed to reset initiative timer: record_id=%d", ctx.record.id, exc_info=True)
-
-
-def _persist_phase_op_count(ctx: PipelineContext) -> None:
-    count = ctx.state.get(STATE_PHASE_OP_COUNT)
-    if count is not None:
-        rs = dict(ctx.record.runtime_state or {})
-        rs["phase_op_count"] = count
-        ctx.record.runtime_state = rs

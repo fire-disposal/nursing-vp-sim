@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contexts.patient.note_source import OperationNoteSource
-from profiles.registry import PhaseConfig, PromptCollection, TrainingProfile
+from profiles.registry import PromptCollection, TrainingProfile
 
 _TRIAGE_SYSTEM_PROMPT = """你是一位正在急诊室就诊的患者。你感觉不舒服，需要帮助。
 
@@ -77,18 +77,6 @@ _TRIAGE_SCORING_USER = """请根据以下分诊记录进行评分：
 
 PROFILE = TrainingProfile(
     name="triage",
-    initial_phase="triage_assessment",
-    phases=[
-        PhaseConfig(
-            id="triage_assessment",
-            name="分诊评估",
-            order=1,
-            operations=["chat"],
-            prompt_profile="triage_chat",
-            scoring_dimensions=["MEWS评分", "分诊级别", "科室选择", "分诊效率"],
-            transition={"auto": True, "auto_after_messages": 9999},
-        ),
-    ],
     note_sources=[OperationNoteSource],
     prompts=PromptCollection(
         system=_TRIAGE_SYSTEM_PROMPT,

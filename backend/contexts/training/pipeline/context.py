@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from models import Message, TrainingRecord, User
 
-from .phase import Phase, parse_phases
-
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -25,7 +23,6 @@ STATE_STREAM_CHUNKS: str = "_stream_chunks"
 STATE_STREAM_QUEUE: str = "_stream_queue"
 STATE_SAVED_MESSAGES: str = "_saved_messages"
 STATE_POST_STREAM_EVENTS: str = "_post_stream_events"
-STATE_PHASE_OP_COUNT: str = "_phase_op_count"
 
 
 @dataclass
@@ -39,12 +36,6 @@ class PipelineContext:
     student_input: str = ""
     student_display: str = ""
     messages: list[Message] = field(default_factory=list)
-
-    phases: list[Phase] = field(default_factory=list)
-    current_phase: Phase | None = None
-    phase_index: int = 0
-    manual_advance_requested: bool = False
-    phase_operation_count: int = 0
 
     system_events: list[dict] = field(default_factory=list)
 
@@ -62,23 +53,4 @@ class PipelineContext:
     def message_count(self) -> int:
         return len(self.messages)
 
-    def setup_phases(self):
-        tt = getattr(self.record, "training_type", None)
-        if not isinstance(tt, str):
-            tt = None
-        self.phases = parse_phases(self.case_data, training_type=tt)
-        saved_phase = self.record.current_phase
-        if saved_phase:
-            for i, p in enumerate(self.phases):
-                if p.id == saved_phase:
-                    self.current_phase = p
-                    self.phase_index = i
-                    break
-        if self.current_phase is None:
-            self.current_phase = self.phases[0] if self.phases else None
-            self.phase_index = 0
-        self._count_phase_operations()
 
-    def _count_phase_operations(self):
-        rs = self.record.runtime_state or {}
-        self.phase_operation_count = rs.get("phase_op_count", 0)

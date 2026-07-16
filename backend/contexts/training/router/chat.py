@@ -81,7 +81,6 @@ async def _build_context(
         student_display=req.content,
         messages=messages,
     )
-    ctx.setup_phases()
     ctx.state[STATE_STREAM_MODE] = stream_mode
     ctx.state[STATE_FEATURES] = resolve_features(ctx.record.practice_snapshot)
     return ctx

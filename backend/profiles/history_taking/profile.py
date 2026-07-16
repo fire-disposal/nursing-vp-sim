@@ -3,7 +3,6 @@ from __future__ import annotations
 from contexts.patient.note_source import OperationNoteSource
 from profiles.history_taking.notes import EmotionNoteSource, IdentityGuardSource
 from profiles.registry import (
-    PhaseConfig,
     PromptCollection,
     TrainingProfile,
 )
@@ -63,18 +62,6 @@ from profiles.history_taking.rubric import RUBRIC as _RUBRIC
 
 PROFILE = TrainingProfile(
     name="history_taking",
-    initial_phase="history_taking",
-    phases=[
-        PhaseConfig(
-            id="history_taking",
-            name="问诊",
-            order=1,
-            operations=["chat"],
-            prompt_profile="patient_chat",
-            scoring_dimensions=["沟通技能", "病史采集"],
-            transition={"auto": True, "auto_after_messages": 9999},
-        ),
-    ],
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=_PROMPTS,
     rubric=_RUBRIC,

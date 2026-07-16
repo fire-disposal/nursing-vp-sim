@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from contexts.training.pipeline import PipelineContext, get_pipeline, run_pipeline
-from contexts.training.pipeline.phase import Phase
 
 
 @pytest.mark.asyncio
@@ -15,7 +14,6 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     record.id = 1
     record.user_id = 1
     record.case_id = 1
-    record.current_phase = None
     record.training_type = "history_taking"
     record.practice_snapshot = {"features": {}}
 
@@ -63,9 +61,6 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
         student_input="你好，你哪里不舒服？",
         messages=[],
     )
-    ctx.setup_phases()
-    ctx.current_phase = Phase(id="history_taking")
-
     # Run up to prompt_builder only (skip LLM call)
     history_pipe, _ = get_pipeline()
     middlewares = [m for m in history_pipe if m.__name__ not in ("_llm_caller",)]
