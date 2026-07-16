@@ -12,12 +12,12 @@ import {
 	updatePractice,
 } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
+import CaseSelector from "@/components/admin/cases/CaseSelector";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { type DataTableColumn } from "@/components/ui/data-table";
-import ResponsiveTable from "@/components/ui/responsive-table";
+import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -29,9 +29,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type PracticeValues, practiceSchema } from "@/schemas/practice";
-import CaseSelector from "@/components/admin/cases/CaseSelector";
 
 interface PracticeRow {
 	id: number;
@@ -116,7 +116,7 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			name: values.name.trim(),
 			description: values.description.trim() || null,
 			case_id: values.case_id,
-			features: {},
+			features: values.features || {},
 			behavior: {
 				time_limit_minutes: values.time_limit,
 			},
@@ -177,11 +177,14 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			cellClassName: "text-xs",
 			render: (p) => {
 				const caseCaps = cases.find((c) => c.id === p.case_id);
-				const caps = caseCaps?.capabilities;
-				if (!caps || Object.keys(caps).length === 0) return <span className="text-muted-foreground">—</span>;
+				const caseDefaults = caseCaps?.capabilities ?? {};
+				const practiceFeatures = p.features ?? {};
+				const merged: Record<string, boolean> = { ...caseDefaults, ...practiceFeatures };
+				const enabled = Object.entries(merged).filter(([, v]) => v);
+				if (enabled.length === 0) return <span className="text-muted-foreground">—</span>;
 				return (
 					<span className="flex flex-wrap gap-0.5">
-						{Object.entries(caps).filter(([, v]) => v).map(([k]) => (
+						{enabled.map(([k]) => (
 							<span key={k} className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">
 								{ALL_CAPABILITIES[k]?.label ?? k}
 							</span>
@@ -361,27 +364,43 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 						<FormField
 								control={form.control}
 								name="features"
-								render={() => {
+								render={({ field }) => {
 									const selectedCaseId = form.watch("case_id");
 									const selectedCase = cases.find((c) => c.id === selectedCaseId);
-									const caps = selectedCase?.capabilities;
-									const enabledCaps = Object.entries(caps ?? {}).filter(([, v]) => v);
+									const features = (field.value as Record<string, boolean>) || {};
+									const trainingType = selectedCase?.training_type || "history_taking";
+									const toggleableKeys = Object.entries(ALL_CAPABILITIES)
+										.filter(([, def]) => def.tier === "toggleable")
+										.map(([k]) => k);
+									const relevantKeys = toggleableKeys.filter(
+										(k) => !ALL_CAPABILITIES[k].trainingTypes || ALL_CAPABILITIES[k].trainingTypes!.includes(trainingType)
+									);
 									return (
 										<FormItem>
-											<FormLabel>训练能力（由病例自动配置）</FormLabel>
-											<div className="flex flex-wrap gap-1.5 py-1">
-												{enabledCaps.length === 0 ? (
+											<FormLabel>训练能力</FormLabel>
+											<div className="space-y-2 py-1">
+												{relevantKeys.length === 0 ? (
 													<span className="text-xs text-muted-foreground">
-														{selectedCaseId ? "该病例暂未配置能力" : "请先选择病例"}
+														{selectedCaseId ? "该类型无可配置能力" : "请先选择病例"}
 													</span>
 												) : (
-													enabledCaps.map(([k]) => (
-														<span
-															key={k}
-															className="inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-xs text-primary"
-														>
-															{ALL_CAPABILITIES[k]?.label ?? k}
-														</span>
+													relevantKeys.map((k) => (
+														<label key={k} className="flex items-center gap-2 cursor-pointer text-sm">
+															<input
+																type="checkbox"
+																checked={features[k] ?? false}
+																onChange={(e) => {
+																	const next = { ...features, [k]: e.target.checked };
+																	for (const key of Object.keys(next)) {
+																		if (!relevantKeys.includes(key)) delete next[key];
+																	}
+																	field.onChange(next);
+																}}
+																className="rounded border-border"
+															/>
+															<span>{ALL_CAPABILITIES[k]?.label ?? k}</span>
+															<span className="text-xs text-muted-foreground">{ALL_CAPABILITIES[k]?.description ?? ""}</span>
+														</label>
 													))
 												)}
 											</div>
