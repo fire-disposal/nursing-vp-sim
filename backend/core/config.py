@@ -84,10 +84,6 @@ LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
-# 微信小程序
-WECHAT_APPID = os.getenv("WECHAT_APPID", "")
-WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")
-
 # 运维诊断令牌 — /api/ops/* 和 /api/diagnose 端点的访问密钥
 DIAGNOSE_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
 

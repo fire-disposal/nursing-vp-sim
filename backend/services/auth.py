@@ -1,15 +1,12 @@
 import logging
-import secrets
-import string
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.exceptions import AuthError, ConflictError, NotFoundError, ValidationError
+from core.exceptions import AuthError, ConflictError, ValidationError
 from core.login_strategies import get_strategy_registry
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
-from infrastructure.wechat import code2session
 from models import Class, Role, User, UserClass
 from schemas import (
     OkResponse,
@@ -18,7 +15,6 @@ from schemas import (
     TokenResponse,
     UserBrief,
     UserProfileUpdateRequest,
-    WechatLoginResponse,
 )
 
 log = logging.getLogger(__name__)
@@ -129,100 +125,6 @@ class AuthService:
             display_name=user.display_name,
             student_id=user.student_id,
         )
-
-    async def wechat_login(self, code: str) -> WechatLoginResponse:
-        try:
-            session = await code2session(code)
-        except RuntimeError as e:
-            raise ValidationError(detail=str(e))
-
-        openid = session.get("openid")
-        if not openid:
-            raise ValidationError(detail="微信登录失败：无法获取 openid")
-
-        strategy = get_strategy_registry()["wechat"](self.db)
-        user = await strategy.authenticate({"openid": openid})
-        if user is None:
-            return WechatLoginResponse(need_bind=True)
-
-        token = create_access_token(
-            {
-                "user_id": user.id,
-                "role_id": user.role_id,
-                "role": user.role.name if user.role else "",
-                "tv": user.token_version,
-            }
-        )
-        log.info("微信登录成功: openid=%s user=%s", openid[:4] + "***", user.username)
-        permissions = list(load_role_permissions(self.db, user.role_id))
-        return WechatLoginResponse(
-            access_token=token,
-            role=user.role.name if user.role else "",
-            display_name=user.display_name,
-            user_id=user.id,
-            permissions=permissions,
-        )
-
-    async def wechat_bind(self, code: str, current_user: User) -> OkResponse:
-        if current_user.wechat_openid:
-            raise ConflictError(detail="已绑定微信，不可重复绑定")
-
-        try:
-            session = await code2session(code)
-        except RuntimeError as e:
-            raise ValidationError(detail=str(e))
-
-        openid = session.get("openid")
-        if not openid:
-            raise ValidationError(detail="微信登录失败：无法获取 openid")
-
-        existing = self.db.query(User).filter(User.wechat_openid == openid).first()
-        if existing:
-            raise ConflictError(detail="此微信已绑定其他账号")
-
-        with unit_of_work(self.db, conflict_detail="此微信已被绑定"):
-            current_user.wechat_openid = openid
-        log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid[:4] + "***")
-        return OkResponse(message="微信绑定成功")
-
-    async def wechat_register(self, code: str, display_name: str) -> TokenResponse:
-        try:
-            session = await code2session(code)
-        except RuntimeError as e:
-            raise ValidationError(detail=str(e))
-
-        openid = session.get("openid")
-        if not openid:
-            raise ValidationError(detail="微信登录失败：无法获取 openid")
-
-        existing = self.db.query(User).filter(User.wechat_openid == openid).first()
-        if existing:
-            raise ConflictError(detail="此微信已注册，请直接登录")
-
-        suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-        username = f"wx_{suffix}"
-        while self.db.query(User).filter(User.username == username).first():
-            suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-            username = f"wx_{suffix}"
-
-        random_password = secrets.token_urlsafe(16)
-        student_role = self.db.query(Role).filter(Role.name == "student").first()
-        if not student_role:
-            raise NotFoundError(detail="学生角色不存在")
-
-        user = User(
-            username=username,
-            password_hash=hash_password(random_password),
-            role_id=student_role.id,
-            display_name=display_name,
-            wechat_openid=openid,
-        )
-        with unit_of_work(self.db, conflict_detail="此微信已注册"):
-            self.db.add(user)
-        self.db.refresh(user)
-
-        log.info("微信注册成功: openid=%s username=%s", openid[:4] + "***", username)
-        return self.build_token_response(user)
 
     def get_me(self, current_user: User) -> UserBrief:
         return self._user_to_brief(current_user)

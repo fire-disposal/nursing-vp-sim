@@ -16,10 +16,6 @@ from schemas import (
     TokenResponse,
     UserBrief,
     UserProfileUpdateRequest,
-    WechatBindRequest,
-    WechatLoginRequest,
-    WechatLoginResponse,
-    WechatRegisterRequest,
 )
 from services.auth import AuthService
 
@@ -49,33 +45,6 @@ def register(
     _: Annotated[None, Depends(register_rate_limit)],
 ):
     return AuthService(db).register(req, current_user)
-
-
-@router.post("/wechat/login", response_model=WechatLoginResponse)
-async def wechat_login(
-    req: WechatLoginRequest,
-    db: DbSession,
-    _: Annotated[None, Depends(login_rate_limit)],
-):
-    return await AuthService(db).wechat_login(req.code)
-
-
-@router.post("/wechat/bind", response_model=OkResponse)
-async def wechat_bind(
-    req: WechatBindRequest,
-    current_user: CurrentUser,
-    db: DbSession,
-):
-    return await AuthService(db).wechat_bind(req.code, current_user)
-
-
-@router.post("/wechat/register", response_model=TokenResponse)
-async def wechat_register(
-    req: WechatRegisterRequest,
-    db: DbSession,
-    _: Annotated[None, Depends(register_rate_limit)],
-):
-    return await AuthService(db).wechat_register(req.code, req.display_name)
 
 
 @router.get("/me", response_model=UserBrief)
