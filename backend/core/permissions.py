@@ -32,7 +32,6 @@ PERMISSIONS: list[PermissionDef] = [
     PermissionDef("assignment_manage", "练习发布"),
     PermissionDef("feedback_review", "反馈管理"),
     PermissionDef("export_data", "数据导出"),
-    PermissionDef("record_notes", "训练批注"),
     PermissionDef("questionnaire_manage", "问卷管理"),
 ]
 

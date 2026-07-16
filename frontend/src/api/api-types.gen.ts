@@ -38,57 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/wechat/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Wechat Login */
-        post: operations["wechat_login_api_auth_wechat_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/wechat/bind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Wechat Bind */
-        post: operations["wechat_bind_api_auth_wechat_bind_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/wechat/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Wechat Register */
-        post: operations["wechat_register_api_auth_wechat_register_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/auth/me": {
         parameters: {
             query?: never;
@@ -414,43 +363,6 @@ export interface paths {
         head?: never;
         /** Bot Mark Fix Attempted */
         patch: operations["bot_mark_fix_attempted_api_feedback_bot__feedback_id__patch"];
-        trace?: never;
-    };
-    "/api/notes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Notes */
-        get: operations["list_notes_api_notes_get"];
-        put?: never;
-        /** Create Note */
-        post: operations["create_note_api_notes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Note */
-        get: operations["get_note_api_notes__note_id__get"];
-        /** Update Note */
-        put: operations["update_note_api_notes__note_id__put"];
-        post?: never;
-        /** Delete Note */
-        delete: operations["delete_note_api_notes__note_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/questionnaires/templates": {
@@ -1785,23 +1697,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/{record_id}/advance-phase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Advance Phase */
-        post: operations["advance_phase_api_training__record_id__advance_phase_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/training/{record_id}/initiative/trigger": {
         parameters: {
             query?: never;
@@ -1813,40 +1708,6 @@ export interface paths {
         put?: never;
         /** Trigger Initiative */
         post: operations["trigger_initiative_api_training__record_id__initiative_trigger_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/emotion/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Emotion History */
-        get: operations["get_emotion_history_api_training__record_id__emotion_history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/initiative/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Initiative History */
-        get: operations["get_initiative_history_api_training__record_id__initiative_history_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2992,24 +2853,6 @@ export interface components {
             /** Total Sessions */
             total_sessions: number;
         };
-        /** EmotionHistoryEntry */
-        EmotionHistoryEntry: {
-            /** Trust */
-            trust: number;
-            /** Comfort */
-            comfort: number;
-            /** State */
-            state: string;
-            /** Intent */
-            intent: string;
-            /** Timestamp */
-            timestamp: string;
-        };
-        /** EmotionHistoryResponse */
-        EmotionHistoryResponse: {
-            /** History */
-            history: components["schemas"]["EmotionHistoryEntry"][];
-        };
         /** FallbackStateResponse */
         FallbackStateResponse: {
             /** Available */
@@ -3206,20 +3049,6 @@ export interface components {
             version: string;
         } & {
             [key: string]: unknown;
-        };
-        /** InitiativeHistoryResponse */
-        InitiativeHistoryResponse: {
-            /** History */
-            history: components["schemas"]["InitiativeMessageEntry"][];
-        };
-        /** InitiativeMessageEntry */
-        InitiativeMessageEntry: {
-            /** Id */
-            id: number;
-            /** Content */
-            content: string;
-            /** Created At */
-            created_at: string;
         };
         /** InitiativeTriggerResponse */
         InitiativeTriggerResponse: {
@@ -3452,91 +3281,6 @@ export interface components {
              */
             created_at: string;
         };
-        /** NoteCreateRequest */
-        NoteCreateRequest: {
-            /** Record Id */
-            record_id?: number | null;
-            /**
-             * Type
-             * @default free
-             */
-            type: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            /** Content */
-            content?: {
-                [key: string]: unknown;
-            };
-            /** Tags */
-            tags?: string[] | null;
-            /**
-             * Is Private
-             * @default true
-             */
-            is_private: boolean;
-        };
-        /** NoteItem */
-        NoteItem: {
-            /** Id */
-            id: number;
-            /** Content */
-            content: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** NoteResponse */
-        NoteResponse: {
-            /** Id */
-            id: number;
-            /** Record Id */
-            record_id: number | null;
-            /** User Id */
-            user_id: number;
-            /** Type */
-            type: string;
-            /** Title */
-            title: string;
-            /** Content */
-            content: {
-                [key: string]: unknown;
-            };
-            /** Tags */
-            tags: string[] | null;
-            /** Is Private */
-            is_private: boolean;
-            /** Training Type */
-            training_type: string | null;
-            /** Created At */
-            created_at: string;
-            /** Updated At */
-            updated_at: string;
-        };
-        /** NoteUpdateRequest */
-        NoteUpdateRequest: {
-            /** Type */
-            type?: string | null;
-            /** Title */
-            title?: string | null;
-            /** Content */
-            content?: {
-                [key: string]: unknown;
-            } | null;
-            /** Tags */
-            tags?: string[] | null;
-            /** Is Private */
-            is_private?: boolean | null;
-        };
         /** NursingRecordResponse */
         NursingRecordResponse: {
             /** Id */
@@ -3719,15 +3463,6 @@ export interface components {
             offset: number;
             /** Limit */
             limit: number;
-        };
-        /** PhaseAdvanceResponse */
-        PhaseAdvanceResponse: {
-            /** Current Phase */
-            current_phase: string;
-            /** Name */
-            name: string;
-            /** Order */
-            order: number;
         };
         /** PracticeBrief */
         PracticeBrief: {
@@ -4733,8 +4468,6 @@ export interface components {
             user_student_id: string | null;
             /** Status */
             status: string;
-            /** Current Phase */
-            current_phase?: string | null;
             /** Scoring Status */
             scoring_status?: string | null;
             /** Scoring Error */
@@ -4761,8 +4494,6 @@ export interface components {
             user_display_name: string;
             /** Status */
             status: string;
-            /** Current Phase */
-            current_phase?: string | null;
             /** Scoring Status */
             scoring_status?: string | null;
             /** Scoring Error */
@@ -4784,11 +4515,6 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["MessageItem"][];
             score?: components["schemas"]["ScoreItem"] | null;
-            /**
-             * Notes
-             * @default []
-             */
-            notes: components["schemas"]["NoteItem"][];
             /** Required Inquiries */
             required_inquiries?: unknown[] | null;
             /** Patient Info */
@@ -5164,49 +4890,6 @@ export interface components {
             /** Monthly Used */
             monthly_used: number;
         };
-        /** WechatBindRequest */
-        WechatBindRequest: {
-            /** Code */
-            code: string;
-        };
-        /** WechatLoginRequest */
-        WechatLoginRequest: {
-            /** Code */
-            code: string;
-        };
-        /** WechatLoginResponse */
-        WechatLoginResponse: {
-            /** Access Token */
-            access_token?: string | null;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-            /** Role */
-            role?: string | null;
-            /** Display Name */
-            display_name?: string | null;
-            /** User Id */
-            user_id?: number | null;
-            /**
-             * Permissions
-             * @default []
-             */
-            permissions: string[];
-            /**
-             * Need Bind
-             * @default false
-             */
-            need_bind: boolean;
-        };
-        /** WechatRegisterRequest */
-        WechatRegisterRequest: {
-            /** Code */
-            code: string;
-            /** Display Name */
-            display_name: string;
-        };
     };
     responses: never;
     parameters: never;
@@ -5269,105 +4952,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegisterResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    wechat_login_api_auth_wechat_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WechatLoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WechatLoginResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    wechat_bind_api_auth_wechat_bind_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WechatBindRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    wechat_register_api_auth_wechat_register_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WechatRegisterRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6092,167 +5676,6 @@ export interface operations {
             header?: never;
             path: {
                 feedback_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_notes_api_notes_get: {
-        parameters: {
-            query?: {
-                record_id?: number | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_note_api_notes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_note_api_notes__note_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_note_api_notes__note_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_note_api_notes__note_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: number;
             };
             cookie?: never;
         };
@@ -9277,37 +8700,6 @@ export interface operations {
             };
         };
     };
-    advance_phase_api_training__record_id__advance_phase_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PhaseAdvanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     trigger_initiative_api_training__record_id__initiative_trigger_post: {
         parameters: {
             query?: never;
@@ -9326,68 +8718,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InitiativeTriggerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_emotion_history_api_training__record_id__emotion_history_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmotionHistoryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_initiative_history_api_training__record_id__initiative_history_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InitiativeHistoryResponse"];
                 };
             };
             /** @description Validation Error */

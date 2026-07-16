@@ -15,7 +15,6 @@ export const PERMISSION_KEYS = [
   "assignment_manage",
   "feedback_review",
   "export_data",
-  "record_notes",
   "questionnaire_manage"
 ] as const;
 
@@ -78,10 +77,6 @@ export const PERMISSION_DEFS: PermissionDef[] = [
   {
     "key": "export_data",
     "label": "数据导出"
-  },
-  {
-    "key": "record_notes",
-    "label": "训练批注"
   },
   {
     "key": "questionnaire_manage",

@@ -15,7 +15,6 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "assignment_manage",
         "feedback_review",
         "export_data",
-        "record_notes",
         "questionnaire_manage",
     ],
     "admin": [
@@ -30,7 +29,6 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "assignment_manage",
         "feedback_review",
         "export_data",
-        "record_notes",
         "questionnaire_manage",
     ],
     "teacher": [
@@ -43,7 +41,6 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "assignment_manage",
         "feedback_review",
         "export_data",
-        "record_notes",
         "questionnaire_manage",
     ],
     "student": [
