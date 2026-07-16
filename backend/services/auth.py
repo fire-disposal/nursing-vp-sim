@@ -69,6 +69,8 @@ class AuthService:
         if user is None:
             log.warning("登录失败: username=%s", username, extra={"action": "login_failed"})
             raise AuthError(detail="用户名或密码错误")
+        if not user.is_active:
+            raise AuthError(detail="账号已被禁用，请联系管理员", status_code=403)
         log.info(
             "登录成功: username=%s",
             username,

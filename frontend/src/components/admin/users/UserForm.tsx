@@ -19,6 +19,7 @@ interface UserFormProps {
 	onClose: () => void;
 	onSaveRegister: (values: UserFormValues) => void;
 	onSaveEdit: (values: EditUserFormValues) => void;
+	onResetPassword: (password: string) => Promise<void>;
 	registerMsg: string;
 	editUserMsg: string;
 	isSaving: boolean;
@@ -48,6 +49,7 @@ export default function UserForm({
 	onClose,
 	onSaveRegister,
 	onSaveEdit,
+	onResetPassword,
 	registerMsg,
 	editUserMsg,
 	isSaving,
@@ -67,6 +69,8 @@ export default function UserForm({
 	});
 	const [editGrade, setEditGrade] = useState("");
 	const [editClasses, setEditClasses] = useState<ClassItem[]>([]);
+	const [isResetting, setIsResetting] = useState(false);
+	const [resetError, setResetError] = useState("");
 
 	useEffect(() => {
 		if (open && user) {
@@ -142,6 +146,23 @@ export default function UserForm({
 	function handleRegisterSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		onSaveRegister(regForm);
+	}
+
+	async function handleResetPassword() {
+		if (isResetting) return;
+		setIsResetting(true);
+		setResetError("");
+		try {
+			const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+			const bytes = new Uint8Array(8);
+			crypto.getRandomValues(bytes);
+			const newPwd = Array.from(bytes, (b) => chars[b % chars.length]).join("");
+			await onResetPassword(newPwd);
+		} catch {
+			setResetError("密码重置失败，请重试");
+		} finally {
+			setIsResetting(false);
+		}
 	}
 
 	function handleEditSubmit(e: React.FormEvent) {
@@ -256,6 +277,21 @@ export default function UserForm({
 							placeholder="至少6位"
 							minLength={6}
 						/>
+					</div>
+					{resetError && (
+						<div className="mb-4 bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm">
+							{resetError}
+						</div>
+					)}
+					<div className="mb-4">
+						<button
+							type="button"
+							className="text-sm text-primary underline hover:no-underline disabled:opacity-50 disabled:no-underline"
+							onClick={handleResetPassword}
+							disabled={isResetting}
+						>
+							{isResetting ? "重置中..." : "重置密码"}
+						</button>
 					</div>
 					<div className="flex gap-3 justify-end mt-4">
 						<button type="button" className={btnSecondary} onClick={onClose}>

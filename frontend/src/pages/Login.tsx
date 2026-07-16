@@ -179,7 +179,7 @@ export default function Login() {
 					</div>
 
 					<p className="mt-6 text-center text-xs text-muted-foreground lg:text-left lg:pl-0">
-						虚拟患者 · 护理教学平台
+						忘记密码？请联系教师或管理员重置
 					</p>
 				</div>
 			</div>

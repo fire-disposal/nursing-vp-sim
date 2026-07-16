@@ -1,16 +1,17 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getClasses } from "@/api";
-import { bulkAssignClass } from "@/api/admin/users";
+import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem } from "@/types/store";
 import { btnPrimary, btnSecondary } from "@/utils/styles";
-import { useQueryClient } from "@tanstack/react-query";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -52,6 +53,10 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 	const [assignClassId, setAssignClassId] = useState<string>("");
 	const [assigning, setAssigning] = useState(false);
+	const [resetPasswordDialog, setResetPasswordDialog] = useState<{
+		user: UserBrief;
+		password: string;
+	} | null>(null);
 
 	const { confirm } = useConfirm();
 	const toast = useToast();
@@ -228,6 +233,25 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		batchImportMutation.mutate(users);
 	};
 
+	const handleResetPassword = async (password: string) => {
+		if (!editingUser) return;
+		const ok = await confirm({
+			title: "重置密码",
+			message: `确定要为用户「${editingUser.display_name}」重置密码吗？\n\n新密码：${password}`,
+		});
+		if (!ok) return;
+		try {
+			await updateUser(editingUser.id, { password } as Schemas["UserUpdateRequest"]);
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			toast.success("密码已重置");
+			closeUserForm();
+			setResetPasswordDialog({ user: editingUser, password });
+		} catch (err) {
+			toast.apiError(err, "密码重置失败");
+			throw err;
+		}
+	};
+
 	return (
 		<>
 			<div className="mb-4 flex gap-3 flex-wrap items-center">
@@ -311,6 +335,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
+				onResetPassword={handleResetPassword}
 				registerMsg={regMsg}
 				editUserMsg=""
 				isSaving={registerMutation.isPending}
@@ -325,6 +350,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
+				onResetPassword={handleResetPassword}
 				registerMsg=""
 				editUserMsg={editUserMsg}
 				isSaving={updateMutation.isPending}
@@ -337,6 +363,51 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				isImporting={batchImportMutation.isPending}
 				onImport={handleBatchImport}
 			/>
+
+			{resetPasswordDialog && (
+				<Dialog
+					open
+					onOpenChange={() => setResetPasswordDialog(null)}
+				>
+					<DialogContent title="密码已重置" maxWidth={400}>
+						<div className="space-y-4">
+							<p className="text-sm text-muted-foreground">
+								用户{" "}
+								<strong>{resetPasswordDialog.user.display_name}</strong>{" "}
+								的密码已重置，请妥善保存：
+							</p>
+							<div className="flex items-center gap-2 rounded-lg border bg-muted p-3">
+								<code className="flex-1 text-lg font-mono font-bold select-all">
+									{resetPasswordDialog.password}
+								</code>
+								<button
+									type="button"
+									className="text-xs text-primary underline hover:no-underline shrink-0"
+									onClick={() => {
+										navigator.clipboard.writeText(
+											resetPasswordDialog.password,
+										);
+									}}
+								>
+									复制
+								</button>
+							</div>
+							<p className="text-xs text-destructive">
+								此密码仅展示一次，请立即告知用户并建议其登录后修改
+							</p>
+						</div>
+						<div className="flex justify-end mt-4">
+							<button
+								type="button"
+								className={btnPrimary}
+								onClick={() => setResetPasswordDialog(null)}
+							>
+								知道了
+							</button>
+						</div>
+					</DialogContent>
+				</Dialog>
+			)}
 		</>
 	);
 }

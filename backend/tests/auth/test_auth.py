@@ -153,6 +153,46 @@ class TestRegister:
         assert resp.status_code == 401
 
 
+class TestDisabledUserLogin:
+    def test_disabled_user_login_returns_403(self, client, db_session):
+        from core.security import hash_password
+        from models import Role, User
+
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
+        user = User(
+            username="disableduser",
+            password_hash=hash_password("pass123"),
+            role_id=student_role.id,
+            display_name="禁用用户",
+            is_active=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        resp = client.post("/api/auth/login", json={"username": "disableduser", "password": "pass123"})
+        assert resp.status_code == 403
+        detail = resp.json()["detail"]
+        assert "禁用" in detail
+
+    def test_active_user_login_still_works(self, client, db_session):
+        from core.security import hash_password
+        from models import Role, User
+
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
+        user = User(
+            username="activeuser",
+            password_hash=hash_password("pass123"),
+            role_id=student_role.id,
+            display_name="正常用户",
+            is_active=True,
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        resp = client.post("/api/auth/login", json={"username": "activeuser", "password": "pass123"})
+        assert resp.status_code == 200
+
+
 class TestGetMe:
     def test_get_me_valid_token(self, client, student):
         _user, token = student
