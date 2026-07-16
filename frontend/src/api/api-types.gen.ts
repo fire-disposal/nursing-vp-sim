@@ -2360,6 +2360,17 @@ export interface components {
              * @default 0
              */
             scored_count: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Max Score */
+            max_score?: number | null;
+            /** Min Score */
+            min_score?: number | null;
+            /**
+             * Completion Rate
+             * @default 0
+             */
+            completion_rate: number;
             /** Students */
             students?: components["schemas"]["AssignmentStudentItem"][];
         };
@@ -2404,6 +2415,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Is Closed
+             * @default false
+             */
+            is_closed: boolean;
         };
         /** AssignmentStudentItem */
         AssignmentStudentItem: {
@@ -2453,6 +2469,8 @@ export interface components {
             start_time?: string | null;
             /** End Time */
             end_time?: string | null;
+            /** Is Closed */
+            is_closed?: boolean | null;
         };
         /** BatchCreateResult */
         BatchCreateResult: {
@@ -4245,6 +4263,11 @@ export interface components {
             record_id?: number | null;
             /** Score Total */
             score_total?: number | null;
+            /**
+             * Is Overdue
+             * @default false
+             */
+            is_overdue: boolean;
         };
         /** StudentDetail */
         StudentDetail: {

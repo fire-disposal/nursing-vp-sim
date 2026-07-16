@@ -44,6 +44,19 @@ class StudentService:
 
         items: list[StudentAssignmentItem] = []
         for a in assignments:
+            if a.is_closed:
+                items.append(
+                    StudentAssignmentItem(
+                        id=a.id,
+                        title=a.title,
+                        practice_name=a.practice.name if a.practice else "",
+                        start_time=a.start_time,
+                        end_time=a.end_time,
+                        status="closed",
+                    )
+                )
+                continue
+
             record = record_by_assignment.get(a.id)
             if record:
                 status = record.status
@@ -59,6 +72,7 @@ class StudentService:
                         status=status,
                         record_id=record.id,
                         score_total=record.score.total_score if record.score else None,
+                        is_overdue=record.is_overdue,
                     )
                 )
             else:

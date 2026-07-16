@@ -8448,6 +8448,44 @@
             "title": "Scored Count",
             "default": 0
           },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "max_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Score"
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "completion_rate": {
+            "type": "number",
+            "title": "Completion Rate",
+            "default": 0.0
+          },
           "students": {
             "items": {
               "$ref": "#/components/schemas/AssignmentStudentItem"
@@ -8513,6 +8551,11 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "is_closed": {
+            "type": "boolean",
+            "title": "Is Closed",
+            "default": false
           }
         },
         "type": "object",
@@ -8698,6 +8741,17 @@
               }
             ],
             "title": "End Time"
+          },
+          "is_closed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Closed"
           }
         },
         "additionalProperties": false,
@@ -13207,6 +13261,11 @@
               }
             ],
             "title": "Score Total"
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
           }
         },
         "type": "object",

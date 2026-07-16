@@ -106,7 +106,7 @@ export default function AssignmentDetailPage() {
 				}
 			/>
 
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
 				<Card>
 					<CardHeader className="pb-2">
 						<CardTitle className="text-xs font-medium text-muted-foreground">
@@ -144,16 +144,44 @@ export default function AssignmentDetailPage() {
 				<Card>
 					<CardHeader className="pb-2">
 						<CardTitle className="text-xs font-medium text-muted-foreground">
-							未完成
+							完成率
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold text-muted-foreground">
-							{detail.student_count - detail.completed_count}
+						<div className="text-2xl font-bold">
+							{`${(detail as any).completion_rate != null
+								? ((detail as any).completion_rate as number * 100).toFixed(0)
+								: "-"}%`}
+						</div>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-medium text-muted-foreground">
+							均分/最高
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-lg font-bold">
+							{(detail as any).avg_score != null ? (detail as any).avg_score : "-"}
+						</div>
+						<div className="text-xs text-muted-foreground">
+							最高 {(detail as any).max_score ?? "-"} / 最低 {(detail as any).min_score ?? "-"}
 						</div>
 					</CardContent>
 				</Card>
 			</div>
+
+			{(detail as any).avg_score != null && (
+				<Card className="mt-4">
+					<CardHeader className="pb-2">
+						<CardTitle className="text-sm">分数分布</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ScoreDistributionBar students={(detail.students || []) as any[]} />
+					</CardContent>
+				</Card>
+			)}
 
 			<Card className="overflow-hidden">
 				<CardHeader className="pb-3">
@@ -202,6 +230,9 @@ export default function AssignmentDetailPage() {
 									{s.end_time
 										? new Date(s.end_time).toLocaleString("zh-CN")
 										: "-"}
+									{s.status === "completed" && s.is_overdue && (
+										<span className="ml-1 text-[10px] text-destructive">逾期提交</span>
+									)}
 								</TableCell>
 							</TableRow>
 						))}
@@ -219,6 +250,35 @@ export default function AssignmentDetailPage() {
 		</Table>
 		</div>
 	</Card>
+		</div>
+	);
+}
+
+function ScoreDistributionBar({ students }: { students: { score_total?: number | null; scoring_status?: string | null }[] }) {
+	const scored = students
+		.filter((s) => s.scoring_status === "completed" && s.score_total != null)
+		.map((s) => s.score_total!);
+	if (scored.length === 0) return <p className="text-xs text-muted-foreground">暂无评分数据</p>;
+	const buckets = [
+		{ label: "0-59", lo: 0, hi: 59 },
+		{ label: "60-69", lo: 60, hi: 69 },
+		{ label: "70-79", lo: 70, hi: 79 },
+		{ label: "80-89", lo: 80, hi: 89 },
+		{ label: "90-100", lo: 90, hi: 100 },
+	];
+	const counts = buckets.map((b) => scored.filter((s) => s >= b.lo && s <= b.hi).length);
+	const max = Math.max(...counts, 1);
+	return (
+		<div className="space-y-1.5">
+			{buckets.map((b, i) => (
+				<div key={b.label} className="flex items-center gap-2 text-xs">
+					<span className="w-10 text-right text-muted-foreground">{b.label}</span>
+					<div className="flex-1 h-5 bg-muted rounded">
+						<div className="h-full bg-primary rounded transition-all" style={{ width: `${(counts[i] / max) * 100}%` }} />
+					</div>
+					<span className="w-6 text-right">{counts[i]}</span>
+				</div>
+			))}
 		</div>
 	);
 }

@@ -24,6 +24,7 @@ class AssignmentListView:
     student_count: int
     completed_count: int
     created_at: datetime
+    is_closed: bool = False
 
 
 @dataclass
@@ -57,6 +58,10 @@ class AssignmentDetailView:
     student_count: int
     completed_count: int
     scored_count: int
+    avg_score: float | None = None
+    max_score: float | None = None
+    min_score: float | None = None
+    completion_rate: float = 0.0
     students: list[AssignmentStudentItemView] = field(default_factory=list)
 
 
@@ -96,13 +101,17 @@ class AssignmentService:
             if best is None:
                 best = max(user_records, key=lambda r: r.start_time or datetime.min.replace(tzinfo=UTC))
 
+            status = best.status
+            if best.is_overdue and status != "completed":
+                status = "overdue"
+
             student_items.append(
                 AssignmentStudentItemView(
                     user_id=student.id,
                     display_name=student.display_name,
                     student_id=student.student_id,
                     record_id=best.id,
-                    status=best.status,
+                    status=status,
                     score_total=best.score.total_score if best.score and best.scoring_status == "completed" else None,
                     scoring_status=best.scoring_status,
                     start_time=best.start_time,
@@ -119,6 +128,17 @@ class AssignmentService:
             1 for records in records_by_user.values() if any(r.scoring_status == "completed" for r in records)
         )
 
+        scored_students = [s for s in student_items if s.scoring_status == "completed" and s.score_total is not None]
+        if scored_students:
+            scores = [s.score_total for s in scored_students]
+            avg_score = round(sum(scores) / len(scores), 1)
+            max_score = round(max(scores), 1)
+            min_score = round(min(scores), 1)
+        else:
+            avg_score = max_score = min_score = None
+        completed_students = sum(1 for s in student_items if s.status == "completed")
+        completion_rate = round(completed_students / len(student_items), 2) if student_items else 0.0
+
         return AssignmentDetailView(
             id=assignment.id,
             title=assignment.title,
@@ -134,6 +154,10 @@ class AssignmentService:
             student_count=len(students_in_class),
             completed_count=completed_count,
             scored_count=scored_count,
+            avg_score=avg_score,
+            max_score=max_score,
+            min_score=min_score,
+            completion_rate=completion_rate,
             students=student_items,
         )
 
@@ -192,6 +216,7 @@ class AssignmentService:
                 student_count=r[1],
                 completed_count=r[2],
                 created_at=r[0].created_at,
+                is_closed=r[0].is_closed,
             )
             for r in rows
         ]
@@ -215,12 +240,17 @@ class AssignmentService:
         description: str | None,
         start_time: datetime | None,
         end_time: datetime | None,
+        is_closed: bool | None = None,
     ) -> AssignmentDetailView:
         assignment = self.repo.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
         if assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
+
+        if practice_id is not None or class_id is not None:
+            if self.repo.has_any_records(assignment_id):
+                raise ValidationError("已有学生开始练习，不能更换练习或班级")
 
         if practice_id is not None:
             practice = (
@@ -239,6 +269,8 @@ class AssignmentService:
             assignment.start_time = start_time
         if end_time is not None:
             assignment.end_time = end_time
+        if is_closed is not None:
+            assignment.is_closed = is_closed
 
         if assignment.end_time <= assignment.start_time:
             raise ValidationError("截止时间必须晚于开始时间")

@@ -23,6 +23,7 @@ class AssignmentUpdateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     start_time: datetime | None = None
     end_time: datetime | None = None
+    is_closed: bool | None = None
 
 
 class AssignmentListItem(BaseModel):
@@ -36,6 +37,7 @@ class AssignmentListItem(BaseModel):
     student_count: int = 0
     completed_count: int = 0
     created_at: datetime
+    is_closed: bool = False
 
 
 class AssignmentStudentItem(BaseModel):
@@ -69,6 +71,10 @@ class AssignmentDetail(BaseModel):
     student_count: int = 0
     completed_count: int = 0
     scored_count: int = 0
+    avg_score: float | None = None
+    max_score: float | None = None
+    min_score: float | None = None
+    completion_rate: float = 0.0
     students: list["AssignmentStudentItem"] = Field(default_factory=list)
 
 
@@ -82,3 +88,4 @@ class StudentAssignmentItem(BaseModel):
     status: str = "pending"
     record_id: int | None = None
     score_total: float | None = None
+    is_overdue: bool = False

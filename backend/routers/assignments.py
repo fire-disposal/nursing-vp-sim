@@ -41,6 +41,7 @@ def _list_resp(view) -> AssignmentListItem:
         student_count=view.student_count,
         completed_count=view.completed_count,
         created_at=view.created_at,
+        is_closed=view.is_closed,
     )
 
 
@@ -76,6 +77,10 @@ def _detail_resp(view) -> AssignmentDetail:
         student_count=view.student_count,
         completed_count=view.completed_count,
         scored_count=view.scored_count,
+        avg_score=view.avg_score,
+        max_score=view.max_score,
+        min_score=view.min_score,
+        completion_rate=view.completion_rate,
         students=[_student_resp(s) for s in view.students],
     )
 
@@ -133,6 +138,7 @@ def update_assignment(
             description=req.description,
             start_time=req.start_time,
             end_time=req.end_time,
+            is_closed=req.is_closed,
         )
     )
 

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, Plus, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -18,8 +18,7 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { type DataTableColumn } from "@/components/ui/data-table";
-import ResponsiveTable from "@/components/ui/responsive-table";
+import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -31,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
@@ -187,6 +187,24 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		}
 	};
 
+	const handleToggleClose = async (a: AssignmentRow) => {
+		const isClosed = (a as any).is_closed as boolean;
+		const ok = await confirm({
+			title: isClosed ? "重新开放作业" : "关闭作业",
+			message: isClosed
+				? "重新开放后学生可继续练习，确定？"
+				: "关闭后学生无法开始新练习，已在进行的仍可完成，确定？",
+		});
+		if (!ok) return;
+		try {
+			await updateAssignment(a.id, { is_closed: !isClosed } as any);
+			toast.success(isClosed ? "已重新开放" : "已关闭");
+			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
+		} catch (e: unknown) {
+			toast.apiError(e, "操作失败");
+		}
+	};
+
 	const columns: DataTableColumn<AssignmentRow>[] = [
 		{
 			key: "title",
@@ -235,6 +253,14 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						title="编辑"
 					>
 						<Edit size={15} />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => handleToggleClose(a)}
+						title={(a as any).is_closed ? "重新开放" : "关闭"}
+					>
+						<XCircle size={15} />
 					</Button>
 					<Button
 						variant="ghost"

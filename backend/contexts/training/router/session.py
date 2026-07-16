@@ -306,6 +306,9 @@ def start_training_from_assignment(
     if not assignment:
         raise NotFoundError(detail="练习发布不存在")
 
+    if assignment.is_closed:
+        raise HTTPException(status_code=400, detail="该作业已被教师关闭")
+
     user_class = (
         db.query(UserClass)
         .filter(

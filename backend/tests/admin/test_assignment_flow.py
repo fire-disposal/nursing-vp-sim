@@ -390,3 +390,204 @@ class TestAssignmentFlow:
         assert s["attempt_count"] == 2
         assert detail["completed_count"] == 1
         assert detail["scored_count"] == 0
+
+    def test_is_closed_blocks_student_start(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D21: 关闭的作业学生无法开始训练。"""
+        _, teacher_token = teacher
+        _, student_token = student
+        practice = Practice(
+            name="关闭测试",
+            description="",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        resp = client.post(
+            "/api/assignments",
+            json={
+                "practice_id": practice.id,
+                "class_id": test_class.id,
+                "title": "关闭测试作业",
+                "start_time": now.isoformat(),
+                "end_time": (now + timedelta(days=7)).isoformat(),
+            },
+            headers=_auth_headers(teacher_token),
+        )
+        assignment_id = resp.json()["id"]
+
+        client.put(
+            f"/api/assignments/{assignment_id}",
+            json={"is_closed": True},
+            headers=_auth_headers(teacher_token),
+        )
+
+        resp2 = client.post(
+            f"/api/training/start-from-assignment?assignment_id={assignment_id}",
+            headers=_auth_headers(student_token),
+        )
+        assert resp2.status_code == 400
+        assert "关闭" in resp2.json()["detail"]
+
+    def test_update_practice_rejected_after_records(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D22: 已有学生开始练习时禁止更换练习或班级。"""
+        _, teacher_token = teacher
+        _, student_token = student
+        practice1 = Practice(
+            name="守卫测试练习1",
+            description="",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        practice2 = Practice(
+            name="守卫测试练习2",
+            description="",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add_all([practice1, practice2])
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        resp = client.post(
+            "/api/assignments",
+            json={
+                "practice_id": practice1.id,
+                "class_id": test_class.id,
+                "title": "守卫测试作业",
+                "start_time": now.isoformat(),
+                "end_time": (now + timedelta(days=7)).isoformat(),
+            },
+            headers=_auth_headers(teacher_token),
+        )
+        assignment_id = resp.json()["id"]
+
+        client.post(
+            f"/api/training/start-from-assignment?assignment_id={assignment_id}",
+            headers=_auth_headers(student_token),
+        )
+
+        resp = client.put(
+            f"/api/assignments/{assignment_id}",
+            json={"practice_id": practice2.id},
+            headers=_auth_headers(teacher_token),
+        )
+        assert resp.status_code == 400
+        assert "不能更换" in resp.json()["detail"]
+
+        resp = client.put(
+            f"/api/assignments/{assignment_id}",
+            json={"title": "新标题"},
+            headers=_auth_headers(teacher_token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "新标题"
+
+    def test_assignment_stats_calculation(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D23: 作业统计 avg/max/min/completion_rate 正确计算。"""
+        from models import Score, TrainingRecord
+
+        _, teacher_token = teacher
+        student_user, _ = student
+
+        practice = Practice(
+            name="统计测试练习",
+            description="",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        resp = client.post(
+            "/api/assignments",
+            json={
+                "practice_id": practice.id,
+                "class_id": test_class.id,
+                "title": "统计测试作业",
+                "start_time": now.isoformat(),
+                "end_time": (now + timedelta(days=7)).isoformat(),
+            },
+            headers=_auth_headers(teacher_token),
+        )
+        assignment_id = resp.json()["id"]
+
+        r = TrainingRecord(
+            user_id=student_user.id,
+            case_id=test_case.id,
+            practice_id=practice.id,
+            assignment_id=assignment_id,
+            status="completed",
+            scoring_status="completed",
+            start_time=now - timedelta(hours=2),
+            end_time=now - timedelta(hours=1),
+        )
+        db_session.add(r)
+        db_session.commit()
+
+        s = Score(record_id=r.id, total_score=85.5)
+        db_session.add(s)
+        db_session.commit()
+
+        resp = client.get(f"/api/assignments/{assignment_id}", headers=_auth_headers(teacher_token))
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["avg_score"] == 85.5
+        assert detail["max_score"] == 85.5
+        assert detail["min_score"] == 85.5
+        assert detail["completion_rate"] > 0
+
+    def test_closed_assignment_shows_in_student_list(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D21: 关闭的作业在学生列表中标记为 closed。"""
+        _, teacher_token = teacher
+        _, student_token = student
+        practice = Practice(
+            name="关闭列表测试",
+            description="",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        resp = client.post(
+            "/api/assignments",
+            json={
+                "practice_id": practice.id,
+                "class_id": test_class.id,
+                "title": "关闭列表测试作业",
+                "start_time": now.isoformat(),
+                "end_time": (now + timedelta(days=7)).isoformat(),
+            },
+            headers=_auth_headers(teacher_token),
+        )
+        assignment_id = resp.json()["id"]
+
+        client.put(
+            f"/api/assignments/{assignment_id}",
+            json={"is_closed": True},
+            headers=_auth_headers(teacher_token),
+        )
+
+        resp = client.get("/api/students/assignments", headers=_auth_headers(student_token))
+        assert resp.status_code == 200
+        items = resp.json()
+        student_item = next(a for a in items if a["id"] == assignment_id)
+        assert student_item["status"] == "closed"

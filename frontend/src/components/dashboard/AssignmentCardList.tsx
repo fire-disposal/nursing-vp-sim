@@ -1,9 +1,9 @@
 import { CheckCircle2, ClipboardList, Clock, Loader2, Play } from "lucide-react";
+import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { cn } from "@/utils/cn";
-import { useState } from "react";
 
 type Assignment = components["schemas"]["StudentAssignmentItem"];
 
@@ -30,7 +30,7 @@ export default function AssignmentCardList({
 	if (studentAssignments.length === 0) return null;
 
 	const pending = studentAssignments.filter(
-		(a) => a.status !== "completed",
+		(a) => a.status !== "completed" && a.status !== "closed",
 	).length;
 
 	return (
@@ -60,6 +60,7 @@ export default function AssignmentCardList({
 
 			<div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
 				{studentAssignments.map((a) => {
+					const isClosed = a.status === "closed";
 					const isOverdue = a.status === "overdue";
 					const isCompleted = a.status === "completed";
 					const due = dueLabel(a.end_time);
@@ -68,11 +69,13 @@ export default function AssignmentCardList({
 							key={a.id}
 							className={cn(
 								"flex flex-col gap-2 rounded-lg border bg-card p-4 transition-shadow hover:shadow-sm",
-								isOverdue
-									? "border-destructive/40"
-									: isCompleted
-										? "border-border opacity-90"
-										: "border-primary/30",
+								isClosed
+									? "border-muted bg-muted/30"
+									: isOverdue
+										? "border-destructive/40"
+										: isCompleted
+											? "border-border opacity-90"
+											: "border-primary/30",
 							)}
 						>
 							<div className="flex items-start justify-between gap-2">
@@ -84,7 +87,11 @@ export default function AssignmentCardList({
 										{a.practice_name}
 									</div>
 								</div>
-								{isCompleted ? (
+								{isClosed ? (
+									<Badge variant="outline" className="shrink-0">
+										已关闭
+									</Badge>
+								) : isCompleted ? (
 									<Badge variant="success" className="shrink-0">
 										<CheckCircle2 size={12} /> 已完成
 									</Badge>
@@ -102,7 +109,7 @@ export default function AssignmentCardList({
 								)}
 							</div>
 
-							{isCompleted && a.score_total != null ? (
+							{isClosed ? null : isCompleted && a.score_total != null ? (
 								<div className="mt-auto flex items-end justify-between">
 									<div>
 										<span className="text-2xl font-bold text-primary">
@@ -121,6 +128,10 @@ export default function AssignmentCardList({
 											查看结果
 										</Button>
 									)}
+								</div>
+							) : isClosed ? (
+								<div className="mt-auto text-center text-xs text-muted-foreground py-1">
+									作业已关闭
 								</div>
 							) : (
 								<Button
