@@ -12,6 +12,8 @@ import type { AuthState, User } from "../types/store";
 interface ExtendedAuthState extends AuthState {
 	permissions: string[];
 	refreshAuth: () => Promise<boolean>;
+	previewAsStudent: boolean;
+	setPreviewAsStudent: (v: boolean) => void;
 }
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -47,6 +49,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 			user: null,
 			token: null,
 			permissions: [],
+			previewAsStudent: false,
+
+			setPreviewAsStudent: (v: boolean) => set({ previewAsStudent: v }),
 
 			login: async (username: string, password: string): Promise<User> => {
 				const { data } = await apiLogin(username, password);

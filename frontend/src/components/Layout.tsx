@@ -1,4 +1,5 @@
 ﻿import {
+	Eye,
 	Info,
 	LogOut,
 	Menu,
@@ -46,6 +47,8 @@ function AdminSidebar({
 	onAbout: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
+	const setPreviewAsStudent = useAuthStore((s) => s.setPreviewAsStudent);
+	const navigate = useNavigate();
 	const avatar = getUserAvatar(user?.gender);
 	const { openFeedback } = useFeedback();
 
@@ -89,6 +92,11 @@ function AdminSidebar({
 					<ModeToggle />
 					<NotificationBell />
 					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}><MessageSquarePlus size={13} />反馈</Button>
+					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => {
+						setPreviewAsStudent(true);
+						navigate("/home");
+						onClose();
+					}}><Eye size={13} />学生视角</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onAbout}><Info size={13} />关于</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
 						<LogOut size={13} />退出
@@ -104,6 +112,8 @@ export default function Layout() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const permissions = useAuthStore((s) => s.permissions);
+	const previewAsStudent = useAuthStore((s) => s.previewAsStudent);
+	const setPreviewAsStudent = useAuthStore((s) => s.setPreviewAsStudent);
 	const logout = useAuthStore((s) => s.logout);
 	const permKey = permissions.join(",");
 	const [mobileOpen, setMobileOpen] = useState(false);
@@ -139,21 +149,38 @@ export default function Layout() {
 	);
 
 	// Student layout: route-based shell dispatch
-	if (!hasAdminPerm) {
+	if (!hasAdminPerm || previewAsStudent) {
 		const path = location.pathname;
 		const isImmersive = path.startsWith("/training/") && path !== "/training";
 		const isSimple =
 			path.startsWith("/record/") ||
 			path === "/stats" ||
-			path === "/profile";
+			path === "/my-responses" ||
+			path === "/my-feedback";
+
+		const previewBanner = hasAdminPerm && previewAsStudent ? (
+			<div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-950 border-b border-amber-300 dark:border-amber-800 px-4 py-2 text-sm text-amber-800 dark:text-amber-200 shrink-0">
+				<span>学生视角预览模式</span>
+				<button
+					type="button"
+					onClick={() => {
+						setPreviewAsStudent(false);
+						navigate("/admin");
+					}}
+					className="text-xs underline hover:no-underline"
+				>
+					退出预览
+				</button>
+			</div>
+		) : null;
 
 		if (isImmersive) {
-			return <ImmersiveShell><Outlet /></ImmersiveShell>;
+			return <ImmersiveShell>{previewBanner}<Outlet /></ImmersiveShell>;
 		}
 		if (isSimple) {
-			return <DefaultShell><Outlet /></DefaultShell>;
+			return <DefaultShell>{previewBanner}<Outlet /></DefaultShell>;
 		}
-		return <StudentTabShell />;
+		return <StudentTabShell>{previewBanner}<Outlet /></StudentTabShell>;
 	}
 
 	// Admin layout: sidebar + content
