@@ -10,9 +10,11 @@ import {
 	submitScoreReview,
 } from "@/api";
 import { queryKeys } from "@/api/query-keys";
+import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
 import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
+import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import type { ScoreData as EngineScoreData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
@@ -74,6 +76,28 @@ export default function RecordDetail() {
 			abortRef.current?.abort();
 		};
 	}, []);
+
+	const caseId = record?.case_id ?? null;
+	const recordIdNum = id ? Number(id) : undefined;
+
+	const {
+		checkResponse: postCheckResponse,
+		isLoading: postQLoading,
+		shouldShow: postQShouldShow,
+		check: postQCheck,
+		submit: postQSubmit,
+		dismiss: postQDismiss,
+	} = useQuestionnaire({
+		caseId,
+		recordId: recordIdNum ?? null,
+		trigger: "after_scoring",
+	});
+
+	useEffect(() => {
+		if (!hasScoreReview && record?.scoring_status === "completed") {
+			postQCheck();
+		}
+	}, [record?.scoring_status, hasScoreReview, postQCheck]);
 
 	const sleep = (ms: number, signal: AbortSignal) =>
 		new Promise<void>((resolve) => {
@@ -296,6 +320,17 @@ export default function RecordDetail() {
 
 				<MessagePlayback messages={messages} />
 			</div>
+
+			{postQShouldShow && postCheckResponse && (
+				<QuestionnaireModal
+					open={postQShouldShow}
+					onComplete={() => { postQCheck(); }}
+					onSkip={postQDismiss}
+					checkResponse={postCheckResponse}
+					loading={postQLoading}
+					onSubmit={postQSubmit}
+				/>
+			)}
 
 			{showScore && record.score && (
 				<ScoreCardInner

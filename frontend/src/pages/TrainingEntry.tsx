@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
+import { QuestionnaireModal } from "@/components/QuestionnaireModal";
+import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingState from "@/components/ui/loading-state";
 import { getRecordDetail } from "../api/training";
 import { TRAINING_SCENES } from "../training/scenes/scene-registry";
@@ -13,6 +16,24 @@ export default function TrainingEntry() {
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
 	});
+
+	const caseId = record?.case_id ?? null;
+
+	const {
+		checkResponse,
+		isLoading: qLoading,
+		shouldShow: qShouldShow,
+		check: qCheck,
+		submit: qSubmit,
+		dismiss: qDismiss,
+	} = useQuestionnaire({
+		caseId,
+		trigger: "before_training",
+	});
+
+	useEffect(() => {
+		if (caseId) qCheck();
+	}, [caseId, qCheck]);
 
 	if (!recordId) return <div>缺少训练记录 ID</div>;
 	if (isLoading) return <LoadingState />;
@@ -42,9 +63,19 @@ export default function TrainingEntry() {
 
 	return (
 		<>
-			{pendingQ > 0 && (
+			{qShouldShow && checkResponse && (
+				<QuestionnaireModal
+					open={qShouldShow}
+					onComplete={() => { qCheck(); }}
+					onSkip={qDismiss}
+					checkResponse={checkResponse}
+					loading={qLoading}
+					onSubmit={qSubmit}
+				/>
+			)}
+			{pendingQ > 0 && !qShouldShow && (
 				<div className="bg-info/10 text-info-foreground text-xs px-4 py-2 text-center border-b border-border">
-					本练习包含 {pendingQ} 份问卷，请在训练前后于「我的问卷」中完成
+					本练习包含问卷，可在训练后于「我的问卷」中完成
 				</div>
 			)}
 			{/* key={recordId}：切换病例时强制重挂场景子树，避免复用旧对话状态 */}
