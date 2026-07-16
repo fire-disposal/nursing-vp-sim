@@ -12,7 +12,7 @@ import {
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
@@ -131,9 +131,8 @@ export default function NotificationBell() {
 				)}
 			</button>
 
-			<Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
-				<DialogContent title="通知" maxWidth={400} className="p-4">
-					{isError ? (
+		<ResponsiveDialog open={open} onClose={() => setOpen(false)} title="通知" maxWidth={400}>
+			{isError ? (
 						<div className="py-10 text-center text-sm text-destructive">加载失败</div>
 					) : isLoading && items.length === 0 ? (
 						<div className="py-10 text-center">
@@ -201,10 +200,9 @@ export default function NotificationBell() {
 						<div className="py-10 text-center">
 							<Bell size={32} className="text-muted-foreground/30 mx-auto mb-2" />
 							<span className="text-sm text-muted-foreground">暂无通知</span>
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>
+				</div>
+			)}
+		</ResponsiveDialog>
 		</>
 	);
 }

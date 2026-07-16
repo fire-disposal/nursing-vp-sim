@@ -1,14 +1,11 @@
-/** Layout mode hook — single source of truth for responsive breakpoints. */
-
 import { useEffect, useState } from "react";
 
 export type LayoutMode = "desktop" | "tablet" | "phone";
 
-const BP = { phone: 480, tablet: 768, desktop: 1024 } as const;
+const MOBILE_BP = 768;
 
 function getMode(w: number): LayoutMode {
-	if (w < BP.desktop) return "phone";
-	return "desktop";
+	return w < MOBILE_BP ? "phone" : "desktop";
 }
 
 export function useLayoutMode(): LayoutMode {

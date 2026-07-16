@@ -18,12 +18,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
 			theme={theme as ToasterProps["theme"]}
 			position="bottom-right"
 			expand
-			visibleToasts={5}
+			visibleToasts={3}
 			gap={8}
 			richColors
 			closeButton
 			duration={6000}
-			swipeDirections={[]}
+			swipeDirections={["right"]}
+			mobileOffset={`calc(env(safe-area-inset-bottom, 0px) + 8px)`}
 			className="toaster group"
 			icons={{
 				success: <CircleCheckIcon className="size-4" />,

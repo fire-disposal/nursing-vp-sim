@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFeedback } from "@/api";
 import { useToast } from "@/components/Toast";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { cn } from "@/utils/cn";
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
@@ -69,8 +69,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-			<DialogContent title="意见反馈" maxWidth={480}>
+		<ResponsiveDialog open={open} onClose={handleClose} title="意见反馈" maxWidth={480}>
 			<div className="flex flex-col gap-5">
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
@@ -172,7 +171,6 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 				</button>
 			</div>
 			</div>
-			</DialogContent>
-		</Dialog>
+		</ResponsiveDialog>
 	);
 }

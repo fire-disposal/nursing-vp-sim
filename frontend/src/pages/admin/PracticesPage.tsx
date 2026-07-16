@@ -16,7 +16,8 @@ import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { type DataTableColumn } from "@/components/ui/data-table";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -248,15 +249,33 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 		/>
 		)}
 
-			<DataTable<PracticeRow>
-				columns={columns}
-				rows={practices}
-				rowKey={(p) => p.id}
-				loading={isLoading}
-				emptyIcon={Plus}
-				emptyTitle="暂无练习模板"
-				emptyDescription="点击上方按钮创建第一个练习模板"
-			/>
+		<ResponsiveTable<PracticeRow>
+			columns={columns}
+			rows={practices}
+			rowKey={(p) => p.id}
+			loading={isLoading}
+			emptyIcon={Plus}
+			emptyTitle="暂无练习模板"
+			emptyDescription="点击上方按钮创建第一个练习模板"
+			renderCard={(p) => (
+				<div className="rounded-lg border bg-card p-3 space-y-2">
+					<div className="flex items-start justify-between gap-2">
+						<span className="text-sm font-medium truncate">{p.name}</span>
+						<span className="shrink-0 text-xs text-muted-foreground">
+							{p.training_type === "triage" ? "🚑 分诊" : "💬 问诊"}
+						</span>
+					</div>
+					<div className="text-xs text-muted-foreground">{p.case_name}</div>
+					<div className="flex items-center justify-between gap-2">
+						<span className="text-xs text-muted-foreground">{p.training_count ?? 0} 次训练</span>
+					<div className="flex gap-1">
+						<Button variant="outline" size="sm" onClick={() => openEdit(p.id)}>编辑</Button>
+						<Button variant="outline" size="sm" onClick={() => handleDelete(p.id)}>删除</Button>
+					</div>
+					</div>
+				</div>
+			)}
+		/>
 
 			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
 				<DialogContent

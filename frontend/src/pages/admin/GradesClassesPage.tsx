@@ -6,7 +6,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { type DataTableColumn } from "@/components/ui/data-table";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -299,7 +300,7 @@ export default function GradesClassesPage() {
 			)}
 
 			{tab === "grades" ? (
-				<DataTable<Grade>
+				<ResponsiveTable<Grade>
 					columns={gradeColumns}
 					rows={filteredGrades}
 					rowKey={(g) => g.id}
@@ -307,9 +308,21 @@ export default function GradesClassesPage() {
 					emptyIcon={GraduationCap}
 					emptyTitle="暂无年级"
 					emptyDescription="创建第一个年级后这里会显示"
+					renderCard={(g) => (
+						<div className="rounded-lg border bg-card p-3 space-y-2">
+							<div className="text-sm font-medium">{g.name}</div>
+							<div className="text-xs text-muted-foreground">
+								{g.class_count ?? 0} 个班级 · {g.student_count ?? 0} 名学生
+							</div>
+							<div className="flex gap-1">
+								<Button variant="outline" size="sm" onClick={() => openEdit(g)}>编辑</Button>
+								<Button variant="outline" size="sm" onClick={() => handleDeleteGrade(g)}>删除</Button>
+							</div>
+						</div>
+					)}
 				/>
 			) : (
-				<DataTable<ClassItem>
+				<ResponsiveTable<ClassItem>
 					columns={classColumns}
 					rows={filteredClasses}
 					rowKey={(c) => c.id}
@@ -317,6 +330,18 @@ export default function GradesClassesPage() {
 					emptyIcon={GraduationCap}
 					emptyTitle="暂无班级"
 					emptyDescription="创建第一个班级后这里会显示"
+					renderCard={(c) => (
+						<div className="rounded-lg border bg-card p-3 space-y-2">
+							<div className="text-sm font-medium">{c.name}</div>
+							<div className="text-xs text-muted-foreground">
+								{c.grade_name} · {c.student_count ?? 0} 名学生
+							</div>
+							<div className="flex gap-1">
+								<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
+								<Button variant="outline" size="sm" onClick={() => handleDeleteClass(c)}>删除</Button>
+							</div>
+						</div>
+					)}
 				/>
 			)}
 

@@ -168,13 +168,23 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		return (
 			<div
 				className={cn(
-					"shrink-0 border-b border-border px-2 py-0.5 transition-colors duration-300",
+					"shrink-0 border-b border-border px-2 py-1 transition-colors duration-300",
 					pulse && "bg-primary/5",
 				)}
 			>
-				<div className="flex items-center gap-1">
-					<span className="text-sm">{EMOTION_ICONS[emotion]}</span>
-					<span className={cn("size-1.5 rounded-full", EMOTION_DOT[emotion])} />
+				<div className="flex items-center gap-1.5">
+					<span className="text-sm leading-none">{EMOTION_ICONS[emotion]}</span>
+					<span className={cn("size-1.5 rounded-full shrink-0", EMOTION_DOT[emotion])} />
+					<div className="flex-1 flex items-center gap-1.5 min-w-0">
+						<div className="flex-1 h-1 rounded-full bg-muted overflow-hidden min-w-0">
+							<div className={cn("h-full rounded-full transition-all duration-700", VALUE_BAR_COLOR[emotion])}
+								style={{ width: `${Math.max(0, Math.min(100, values.trust))}%` }} />
+						</div>
+						<div className="flex-1 h-1 rounded-full bg-muted overflow-hidden min-w-0">
+							<div className={cn("h-full rounded-full transition-all duration-700", VALUE_BAR_COLOR[emotion])}
+								style={{ width: `${Math.max(0, Math.min(100, values.comfort))}%` }} />
+						</div>
+					</div>
 				</div>
 			</div>
 		);

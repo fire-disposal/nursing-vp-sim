@@ -18,7 +18,8 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { type DataTableColumn } from "@/components/ui/data-table";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -270,15 +271,30 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			/>
 			)}
 
-			<DataTable<AssignmentRow>
-				columns={columns}
-				rows={assignments}
-				rowKey={(a) => a.id}
-				loading={isLoading}
-				emptyIcon={Plus}
-				emptyTitle="暂无练习发布"
-				emptyDescription="点击上方按钮创建第一次练习发布"
-			/>
+		<ResponsiveTable<AssignmentRow>
+			columns={columns}
+			rows={assignments}
+			rowKey={(a) => a.id}
+			loading={isLoading}
+			emptyIcon={Plus}
+			emptyTitle="暂无练习发布"
+			emptyDescription="点击上方按钮创建第一次练习发布"
+			renderCard={(a) => (
+				<div className="rounded-lg border bg-card p-3 space-y-2">
+					<div className="text-sm font-medium truncate">{a.title}</div>
+					<div className="text-xs text-muted-foreground">{a.practice_name} · {a.class_name}</div>
+					<div className="flex items-center justify-between gap-2">
+						<span className="text-xs text-muted-foreground">
+							{a.completed_count ?? 0}/{a.student_count ?? 0} 完成
+						</span>
+					<div className="flex gap-1">
+						<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
+						<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
+					</div>
+					</div>
+				</div>
+			)}
+		/>
 
 			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
 				<DialogContent

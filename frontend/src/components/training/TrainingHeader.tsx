@@ -97,7 +97,7 @@ export function TrainingHeader() {
 				<div className="flex items-center gap-2 h-full">
 					<button
 						onClick={() => navigate("/training")}
-						className="size-8 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
+						className="size-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
 						title="返回训练选择"
 						aria-label="返回训练选择"
 					>

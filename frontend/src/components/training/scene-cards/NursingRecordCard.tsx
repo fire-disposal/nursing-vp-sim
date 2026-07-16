@@ -17,11 +17,11 @@ interface SheetData {
 }
 
 const FIELDS = [
-  ["subjective", "主观资料 (S)", "患者主诉、症状感受、病史...", "h-20"],
-  ["objective", "客观资料 (O)", "生命体征、体格检查结果、实验室数据...", "h-20"],
-  ["assessment", "评估 (A)", "护理诊断、风险评估、临床判断...", "h-20"],
-  ["plan", "计划 (P)", "护理措施、预期目标、健康教育...", "h-20"],
-  ["evaluation", "评价 (E)", "措施效果、病情变化、后续计划...", "h-20"],
+  ["subjective", "主观资料 (S)", "患者主诉、症状感受、病史...", "h-14 sm:h-20"],
+  ["objective", "客观资料 (O)", "生命体征、体格检查结果、实验室数据...", "h-14 sm:h-20"],
+  ["assessment", "评估 (A)", "护理诊断、风险评估、临床判断...", "h-14 sm:h-20"],
+  ["plan", "计划 (P)", "护理措施、预期目标、健康教育...", "h-14 sm:h-20"],
+  ["evaluation", "评价 (E)", "措施效果、病情变化、后续计划...", "h-14 sm:h-20"],
 ] as const;
 
 export default function NursingRecordCard({ recordId }: SceneCardProps) {

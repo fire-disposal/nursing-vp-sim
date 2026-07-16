@@ -46,6 +46,7 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 			document.body.style.overflow = "hidden";
 			setSnap("half");
 			setDragOffset(0);
+			if (contentRef.current) contentRef.current.scrollTop = 0;
 		} else {
 			document.body.style.overflow = "";
 		}
@@ -100,6 +101,7 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 		lastTimeRef.current = Date.now();
 		lastYRef.current = e.clientY;
 		el.style.transition = "none";
+		(e.target as HTMLElement).setPointerCapture(e.pointerId);
 		e.preventDefault();
 	}, [snap]);
 

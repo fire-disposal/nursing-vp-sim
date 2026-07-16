@@ -2,7 +2,8 @@ import { ClipboardList, Edit3, Eye, EyeOff, Play, Plus, Trash2, Wand2 } from "lu
 import { useNavigate } from "react-router-dom";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { type DataTableColumn } from "@/components/ui/data-table";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/utils/cn";
@@ -210,14 +211,29 @@ export default function CaseList({
 					<span className="text-sm text-muted-foreground">共 {total} 条</span>
 				</div>
 
-				<DataTable
-					bare
-					columns={columns}
-					rows={cases}
-					rowKey={(c) => c.id}
-					emptyIcon={ClipboardList}
-					emptyTitle="暂无病例，点击上方按钮添加"
-				/>
+			<ResponsiveTable
+				bare
+				columns={columns}
+				rows={cases}
+				rowKey={(c) => c.id}
+				emptyIcon={ClipboardList}
+				emptyTitle="暂无病例，点击上方按钮添加"
+				renderCard={(c) => (
+					<div className="rounded-lg border bg-card p-3 space-y-2">
+						<div className="flex items-start justify-between gap-2">
+							<span className="text-sm font-medium truncate">{c.name}</span>
+							<span className="shrink-0 text-xs text-muted-foreground">
+								{c.training_type === "triage" ? "分诊" : "问诊"}
+							</span>
+						</div>
+						<div className="text-xs text-muted-foreground">{c.patient_name} · {c.patient_age}岁 · {c.patient_gender}</div>
+						<div className="flex gap-1">
+							<Button variant="outline" size="sm" onClick={() => onEdit(c)}>编辑</Button>
+							<Button variant="outline" size="sm" onClick={() => onDelete(c)}>删除</Button>
+						</div>
+					</div>
+				)}
+			/>
 
 				<Pagination
 					total={total}

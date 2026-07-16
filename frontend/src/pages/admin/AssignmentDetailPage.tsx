@@ -159,6 +159,7 @@ export default function AssignmentDetailPage() {
 				<CardHeader className="pb-3">
 					<CardTitle>学生完成情况</CardTitle>
 				</CardHeader>
+				<div className="overflow-x-auto">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -207,9 +208,10 @@ export default function AssignmentDetailPage() {
 								</TableCell>
 							</TableRow>
 						)}
-					</TableBody>
-				</Table>
-			</Card>
+			</TableBody>
+		</Table>
+		</div>
+	</Card>
 		</div>
 	);
 }

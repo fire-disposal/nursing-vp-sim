@@ -110,7 +110,7 @@ export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
   }, [rid, sendExam]);
 
   return (
-    <div className="flex flex-col h-full min-h-[500px] bg-background">
+    <div className="flex flex-col h-full bg-background">
       <div className="px-2 pt-2 shrink-0">
         <PatientMonitor status={status} vitals={sceneState.vitals} />
       </div>
