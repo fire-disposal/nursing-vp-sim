@@ -1,5 +1,6 @@
-import { Brain, Loader2 } from "lucide-react";
+import { Brain, Home, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/Toast";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/utils/cn";
@@ -84,6 +85,7 @@ export function ScoringOverlay({
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
 	const feedbackScrollRef = useRef<HTMLDivElement>(null);
 	const toast = useToast();
+	const navigate = useNavigate();
 
 	// Auto-scroll both panels to bottom when thought content changes
 	useEffect(() => {
@@ -133,7 +135,6 @@ export function ScoringOverlay({
 	const isActive =
 		progress.phase !== "completed" && progress.phase !== "failed";
 	const isFailed = progress.phase === "failed";
-	const stuck = isActive && !!progress.thought && progress.percentage > 10;
 
 	return (
 		<div
@@ -262,18 +263,43 @@ export function ScoringOverlay({
 				)}
 
 				{/* Footer */}
-				{(isFailed || stuck) && (
+				{isActive && (
+					<div className="mt-3 flex items-center justify-between gap-3">
+						<p className="text-[11px] text-muted-foreground leading-tight">
+							评分将在后台自动完成，<br />完成时报告会自动弹出
+						</p>
+						<button
+							type="button"
+							onClick={() => {
+								setClosing(true);
+								setTimeout(() => {
+									setVisible(false);
+									navigate("/training");
+								}, 200);
+								toast.info("评分将在后台继续，完成时会自动显示结果");
+							}}
+							className="shrink-0 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center gap-1"
+						>
+							<Home size={12} />
+							返回主页
+						</button>
+					</div>
+				)}
+				{isFailed && (
 					<div className="mt-3 flex justify-end">
 						<button
 							type="button"
 							onClick={() => {
 								setClosing(true);
-								setTimeout(() => setVisible(false), 200);
-								if (!isFailed) toast.info("评分将在后台继续，完成时会自动显示结果");
+								setTimeout(() => {
+									setVisible(false);
+									navigate("/training");
+								}, 200);
 							}}
-							className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/80 transition-colors"
+							className="rounded-md bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center gap-1"
 						>
-							{isFailed ? "关闭" : "后台继续"}
+							<Home size={12} />
+							返回主页
 						</button>
 					</div>
 				)}

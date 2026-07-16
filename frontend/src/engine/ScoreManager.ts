@@ -73,7 +73,7 @@ export class ScoreManager {
 	}
 
 	private startPolling(): void {
-		if (this._polling || !this.recordId) return;
+		if (this.pollTimer || !this.recordId) return;
 		this._polling = true;
 		const POLL_INTERVAL = 1500;
 		let retries = 0;
@@ -143,9 +143,9 @@ export class ScoreManager {
 						phase,
 						percentage: p.percentage ?? 0,
 						message: p.message ?? "",
-						thought: p.thought ?? this._sseThought,
-						score_thought: p.score_thought ?? this._progress.score_thought ?? "",
-						feedback_thought: p.feedback_thought ?? this._progress.feedback_thought ?? "",
+						thought: p.thought || this._sseThought,
+						score_thought: p.score_thought || this._progress.score_thought || "",
+						feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
 					};
 				} else {
 					const pct = Math.min(95, 10 + retries * 1.5);
