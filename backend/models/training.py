@@ -127,6 +127,7 @@ class ScoreReview(Base):
     score_id: Mapped[int] = mapped_column(Integer, ForeignKey("scores.id", ondelete="CASCADE"))
     reviewed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    total_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 

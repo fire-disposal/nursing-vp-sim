@@ -46,6 +46,7 @@ def get_score_review(
         reviewed_at=latest_review.created_at if latest_review else None,
         original_detail_scores=score.detail_scores,
         review_detail_scores=latest_review.detail_scores if latest_review else None,
+        review_total_score=latest_review.total_score if latest_review else None,
         review_comment=latest_review.comment if latest_review else None,
     )
 
@@ -63,12 +64,15 @@ def submit_score_review(
 
     if req.detail_scores is not None:
         raw_scale = 3
-        new_total = _recalc_total_from_dimensions(req.detail_scores, raw_scale)
-        score.total_score = round(new_total, 1)
+        review_total = _recalc_total_from_dimensions(req.detail_scores, raw_scale)
+    else:
+        review_total = None
+
     existing = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
     if existing:
         existing.detail_scores = req.detail_scores
         existing.comment = req.comment
+        existing.total_score = review_total
         existing.reviewed_by = current_user.id
         db.commit()
         db.refresh(existing)
@@ -79,6 +83,7 @@ def submit_score_review(
             reviewed_by=current_user.id,
             detail_scores=req.detail_scores,
             comment=req.comment,
+            total_score=review_total,
         )
         db.add(review)
         db.commit()
@@ -96,5 +101,6 @@ def submit_score_review(
         reviewed_at=review.created_at,
         original_detail_scores=score.detail_scores,
         review_detail_scores=review.detail_scores,
+        review_total_score=review.total_score,
         review_comment=review.comment,
     )

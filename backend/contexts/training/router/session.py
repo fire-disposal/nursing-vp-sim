@@ -27,6 +27,7 @@ from models import (
     Practice,
     QuestionnaireResponse,
     Score,
+    ScoreReview,
     ScoringProgress,
     TrainingRecord,
     TrainingSessionState,
@@ -38,6 +39,8 @@ from profiles.registry import get_profile
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
+    ScoreItem,
+    ScoreReviewItem,
     TrainingRecordBrief,
     TrainingRecordDetail,
     TrainingStartRequest,
@@ -458,6 +461,22 @@ def get_record_detail(
     case = record.case
     user = record.user
     score = record.score
+    score_obj = None
+    if score:
+        score_obj = ScoreItem.model_validate(score)
+        latest_review = (
+            db.query(ScoreReview)
+            .filter(ScoreReview.score_id == score.id)
+            .order_by(ScoreReview.created_at.desc())
+            .first()
+        )
+        if latest_review:
+            score_obj.review = ScoreReviewItem(
+                detail_scores=latest_review.detail_scores,
+                total_score=latest_review.total_score,
+                comment=latest_review.comment,
+                reviewed_at=latest_review.created_at,
+            )
     note_records = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
     pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
 
@@ -517,7 +536,7 @@ def get_record_detail(
         time_limit=time_limit,
         remaining_seconds=remaining_seconds,
         messages=record.messages,  # ty: ignore[invalid-argument-type]
-        score=score,  # ty: ignore[invalid-argument-type]
+        score=score_obj,  # ty: ignore[invalid-argument-type]
         notes=note_records,  # ty: ignore[invalid-argument-type]
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,

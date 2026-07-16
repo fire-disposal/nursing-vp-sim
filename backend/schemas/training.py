@@ -59,6 +59,14 @@ class MessageItem(BaseModel):
     created_at: datetime
 
 
+class ScoreReviewItem(BaseModel):
+    model_config = _RESP_CFG
+    detail_scores: dict[str, Any] | None = None
+    total_score: float | None = None
+    comment: str | None = None
+    reviewed_at: datetime | None = None
+
+
 class ScoreItem(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -76,6 +84,7 @@ class ScoreItem(BaseModel):
     reviewed_by_name: str | None = None
     reviewed_at: datetime | None = None
     review_comment: str | None = None
+    review: ScoreReviewItem | None = None
     created_at: datetime
 
 

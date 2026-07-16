@@ -4391,11 +4391,25 @@ export interface components {
             reviewed_at?: string | null;
             /** Review Comment */
             review_comment?: string | null;
+            review?: components["schemas"]["ScoreReviewItem"] | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ScoreReviewItem */
+        ScoreReviewItem: {
+            /** Detail Scores */
+            detail_scores?: {
+                [key: string]: unknown;
+            } | null;
+            /** Total Score */
+            total_score?: number | null;
+            /** Comment */
+            comment?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
         };
         /** ScoreReviewRequest */
         ScoreReviewRequest: {
@@ -4424,6 +4438,8 @@ export interface components {
             review_detail_scores?: {
                 [key: string]: unknown;
             } | null;
+            /** Review Total Score */
+            review_total_score?: number | null;
             /** Review Comment */
             review_comment?: string | null;
         };

@@ -1,6 +1,6 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
 	exportRecordDetail,
@@ -160,6 +160,23 @@ export default function RecordDetail() {
 		}
 	};
 
+	const mergedDetailScores = useMemo(() => {
+		if (!record?.score) return undefined;
+		const recScore = record.score as ScoreData;
+		const scReview = recScore?.review;
+		if (!scReview?.detail_scores || !recScore?.detail_scores) return recScore?.detail_scores;
+		const merged = { ...recScore.detail_scores } as Record<string, unknown>;
+		for (const [key, val] of Object.entries(scReview.detail_scores)) {
+			const existing = merged[key];
+			if (existing && typeof existing === "object") {
+				merged[key] = { ...(existing as Record<string, unknown>), ...(val as Record<string, unknown>), _reviewed: true };
+			} else {
+				merged[key] = { ...(val as Record<string, unknown>), _reviewed: true };
+			}
+		}
+		return merged as Record<string, DetailScoreCategory>;
+	}, [record?.score]);
+
 	if (!record) {
 		return (
 			<div className="space-y-6 p-4">
@@ -193,6 +210,7 @@ export default function RecordDetail() {
 		: 100;
 
 	const recordScore = record.score as ScoreData | null;
+	const scoreReview = recordScore?.review ?? null;
 	const messages = (record.messages || []) as MessageData[];
 
 	const handleToggleExpand = (key: string) => {
@@ -202,7 +220,7 @@ export default function RecordDetail() {
 		}));
 	};
 	const hasScore = !!record.score;
-	const detailScores = recordScore?.detail_scores || {};
+	const detailScores = (mergedDetailScores || {}) as Record<string, DetailScoreCategory>;
 	const categories = Object.entries(detailScores);
 	const hasDetailItems = categories.some(
 		([, v]) =>
@@ -243,6 +261,7 @@ export default function RecordDetail() {
 						recordScore={recordScore}
 						isReviewed={isReviewed}
 						review={review ?? null}
+						scoreReview={scoreReview}
 						isTeacher={hasScoreReview}
 						expanded={expanded}
 						onToggleExpand={handleToggleExpand}

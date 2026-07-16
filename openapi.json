@@ -13709,6 +13709,16 @@
             ],
             "title": "Review Comment"
           },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreReviewItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -13722,6 +13732,58 @@
           "created_at"
         ],
         "title": "ScoreItem"
+      },
+      "ScoreReviewItem": {
+        "properties": {
+          "detail_scores": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Scores"
+          },
+          "total_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Score"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "title": "ScoreReviewItem"
       },
       "ScoreReviewRequest": {
         "properties": {
@@ -13809,6 +13871,17 @@
               }
             ],
             "title": "Review Detail Scores"
+          },
+          "review_total_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Total Score"
           },
           "review_comment": {
             "anyOf": [

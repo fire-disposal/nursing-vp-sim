@@ -20,4 +20,5 @@ class ScoreReviewResponse(BaseModel):
     reviewed_at: datetime | None = None
     original_detail_scores: dict[str, Any] | None = None
     review_detail_scores: dict[str, Any] | None = None
+    review_total_score: float | None = None
     review_comment: str | None = None
