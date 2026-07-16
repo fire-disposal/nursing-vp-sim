@@ -72,6 +72,7 @@ class Assignment(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     start_time: Mapped[datetime] = mapped_column()
     end_time: Mapped[datetime] = mapped_column()
+    is_closed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
 
     practice: Mapped[Practice] = relationship(back_populates="assignments")
     class_: Mapped[Class] = relationship()
