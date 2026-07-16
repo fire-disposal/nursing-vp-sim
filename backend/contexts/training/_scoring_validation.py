@@ -200,3 +200,57 @@ def _convert_to_100_scale(result: dict, raw_max: int):
                 if isinstance(item, dict):
                     item["score"] = round(item.get("score", 0) * factor)
                     item["max"] = round(item.get("max", 0) * factor)
+
+
+def _filter_hallucinated_dimensions(detail_scores: dict, rubric_dim_names: set[str]) -> dict:
+    removed = [k for k in detail_scores if k not in rubric_dim_names]
+    if removed:
+        log.warning("hallucinated_dimensions_removed", extra={"dimensions": removed})
+    return {k: v for k, v in detail_scores.items() if k in rubric_dim_names}
+
+
+def _clamp_scores(detail_scores: dict, raw_scale: int) -> None:
+    if raw_scale <= 0:
+        return
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        dim_max = dim_data.get("max", 0)
+        if "score" in dim_data:
+            dim_data["score"] = max(0.0, min(float(dim_data["score"]), float(dim_max)))
+        for item in dim_data.get("items", []):
+            if isinstance(item, dict):
+                item["score"] = max(0.0, min(float(item.get("score", 0)), float(raw_scale)))
+
+
+def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int) -> float:
+    if raw_scale <= 0:
+        return 0.0
+    total = 0.0
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        dim_score = dim_data.get("score", 0)
+        dim_max = dim_data.get("max", 0)
+        items = dim_data.get("items", [])
+        if isinstance(items, list) and len(items) > 0 and dim_max > 0:
+            raw_max_dim = len(items) * raw_scale
+            total += round(dim_score * dim_max / raw_max_dim, 1)
+        else:
+            total += dim_score
+    return round(total, 1)
+
+
+def _inject_missing_dimensions(detail_scores: dict, rubric: dict) -> None:
+    raw_scale = rubric.get("raw_scale", 3)
+    for dim in rubric.get("dimensions", []):
+        dim_name = dim["name"]
+        if dim_name not in detail_scores:
+            items = [{"id": it["id"], "name": it["name"], "score": 0, "max": raw_scale} for it in dim.get("items", [])]
+            detail_scores[dim_name] = {
+                "score": 0,
+                "max": dim.get("max", 0),
+                "items": items,
+                "_injected": True,
+            }
+            log.warning("missing_dimension_injected", extra={"dimension": dim_name})

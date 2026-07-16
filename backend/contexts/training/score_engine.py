@@ -27,10 +27,14 @@ from repositories.rubric import get_rubric_version_id, load_rubric
 
 from ._scoring_validation import (
     _check_feedback_empty,
+    _clamp_scores,
     _coerce_numeric_fields,
     _convert_to_100_scale,
+    _filter_hallucinated_dimensions,
+    _inject_missing_dimensions,
     _inject_rubric_max,
     _merge_feedback,
+    _recalc_total_from_dimensions,
     _validate_feedback_fields,
     _validate_items_content,
     _validate_scoring_essentials,
@@ -607,6 +611,19 @@ async def evaluate_training(
 
     _inject_rubric_max(result, rubric)
     _coerce_numeric_fields(result)
+
+    rubric_dim_names = {d["name"] for d in rubric.get("dimensions", [])}
+    result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
+    _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+    _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
+    recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+    if abs(recalc_total - float(result.get("total_score", 0))) > 2:
+        log.warning(
+            "total_score_mismatch",
+            extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
+        )
+        result["total_score"] = recalc_total
+
     _validate_scoring_result(result, rubric)
 
     _convert_to_100_scale(result, raw_max)
@@ -629,9 +646,7 @@ async def evaluate_training(
     return score
 
 
-def _fallback_scoring(
-    first: dict, second: dict, missing_list: list[str] | None = None
-) -> dict:
+def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None = None) -> dict:
     """Fallback when scoring LLM fails after retry.
 
     Preserves the partial first-attempt result so the parallel feedback

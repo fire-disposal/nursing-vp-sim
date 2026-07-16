@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contexts.training._scoring_validation import _recalc_total_from_dimensions
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from models import Score, ScoreReview, TrainingRecord, User
@@ -62,17 +63,7 @@ def submit_score_review(
 
     if req.detail_scores is not None:
         raw_scale = 3
-        new_total = 0.0
-        for dim_data in req.detail_scores.values():
-            if isinstance(dim_data, dict):
-                raw_score = dim_data.get("score", 0)
-                dim_max_100 = dim_data.get("max", 0)
-                items = dim_data.get("items", [])
-                if isinstance(items, list) and len(items) > 0 and dim_max_100 > 0:
-                    raw_max_dim = len(items) * raw_scale
-                    new_total += round(raw_score * dim_max_100 / raw_max_dim, 1)
-                else:
-                    new_total += raw_score
+        new_total = _recalc_total_from_dimensions(req.detail_scores, raw_scale)
         score.total_score = round(new_total, 1)
     existing = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
     if existing:
