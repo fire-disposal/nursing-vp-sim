@@ -23,7 +23,6 @@ if (env === "staging" && process.env.SKIP_STAGING_NOTIFY === "true") {
 }
 
 const version = process.env.DEPLOY_VERSION || "unknown";
-const env = process.env.DEPLOY_ENV || "unknown";
 const url = process.env.DEPLOY_URL || "";
 const commitsRaw = process.env.COMMITS || "";
 
