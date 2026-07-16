@@ -37,6 +37,7 @@ class StudentService:
             .filter(
                 TrainingRecord.user_id == user_id,
                 TrainingRecord.assignment_id.in_(assignment_ids),
+                TrainingRecord.is_test == False,
             )
             .all()
         )

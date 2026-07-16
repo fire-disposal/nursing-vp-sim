@@ -48,6 +48,7 @@ class TrainingRecordBrief(BaseModel):
     start_time: datetime
     end_time: datetime | None
     score_total: float | None = None
+    is_test: bool = False
 
 
 class MessageItem(BaseModel):
@@ -121,6 +122,7 @@ class TrainingRecordDetail(BaseModel):
     profile_info: dict[str, Any] = Field(default_factory=dict)
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
+    is_test: bool = False
 
 
 class ScoringTriggerResponse(BaseModel):

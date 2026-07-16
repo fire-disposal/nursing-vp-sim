@@ -40,6 +40,7 @@ class StatsService:
         ).filter(
             TrainingRecord.status == "completed",
             TrainingRecord.start_time >= since,
+            TrainingRecord.is_test == False,
         )
 
         if not current_user.has_permission("stats_view"):
@@ -69,6 +70,7 @@ class StatsService:
             .filter(
                 TrainingRecord.status == "completed",
                 TrainingRecord.start_time >= since,
+                TrainingRecord.is_test == False,
             )
         )
 
@@ -123,7 +125,9 @@ class StatsService:
             )
             .outerjoin(
                 TrainingRecord,
-                (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed"),
+                (TrainingRecord.user_id == User.id)
+                & (TrainingRecord.status == "completed")
+                & (TrainingRecord.is_test == False),
             )
             .filter(User.role_id == student_role_id)
         )
@@ -173,7 +177,9 @@ class StatsService:
             )
             .outerjoin(
                 TrainingRecord,
-                (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed"),
+                (TrainingRecord.user_id == User.id)
+                & (TrainingRecord.status == "completed")
+                & (TrainingRecord.is_test == False),
             )
             .outerjoin(Score, Score.record_id == TrainingRecord.id)
             .filter(User.role_id == student_role_id)
@@ -230,7 +236,9 @@ class StatsService:
             .outerjoin(UserClass, UserClass.class_id == Class.id)
             .outerjoin(
                 TrainingRecord,
-                (TrainingRecord.user_id == UserClass.user_id) & (TrainingRecord.status == "completed"),
+                (TrainingRecord.user_id == UserClass.user_id)
+                & (TrainingRecord.status == "completed")
+                & (TrainingRecord.is_test == False),
             )
             .outerjoin(Score, Score.record_id == TrainingRecord.id)
             .filter(Class.id.in_(class_ids))

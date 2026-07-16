@@ -78,7 +78,10 @@ class AssignmentRepository(Repository[Assignment]):
         return (
             self.db.query(TrainingRecord)
             .options(joinedload(TrainingRecord.score))
-            .filter(TrainingRecord.assignment_id == assignment_id)
+            .filter(
+                TrainingRecord.assignment_id == assignment_id,
+                TrainingRecord.is_test == False,
+            )
             .all()
         )
 

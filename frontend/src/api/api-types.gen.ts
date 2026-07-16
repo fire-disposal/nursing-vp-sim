@@ -590,6 +590,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rubrics/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Current Rubric */
+        get: operations["get_current_rubric_api_rubrics_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats/duration": {
         parameters: {
             query?: never;
@@ -4504,6 +4521,11 @@ export interface components {
             end_time: string | null;
             /** Score Total */
             score_total?: number | null;
+            /**
+             * Is Test
+             * @default false
+             */
+            is_test: boolean;
         };
         /** TrainingRecordDetail */
         TrainingRecordDetail: {
@@ -4622,6 +4644,11 @@ export interface components {
              * @default 0
              */
             initiative_count: number;
+            /**
+             * Is Test
+             * @default false
+             */
+            is_test: boolean;
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -6278,6 +6305,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_current_rubric_api_rubrics_current_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

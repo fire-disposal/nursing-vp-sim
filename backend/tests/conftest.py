@@ -67,6 +67,7 @@ def engine():
                     ]
                 ]
                 + [{"role_id": 2, "permission": p} for p in ["training_access", "qa_access"]]
+                + [{"role_id": 1, "permission": "training_access"}]  # teacher needs for is_test preview
             )
         )
         conn.commit()
@@ -217,6 +218,7 @@ def test_case(db_session):
     case = Case(
         name="\u6d4b\u8bd5\u75c5\u4f8b-\u9ad8\u8840\u538b",
         description="\u9ad8\u8840\u538b\u75c5\u53f2\u91c7\u96c6\u7ec3\u4e60",
+        is_open=True,
         case_data={
             "name": "\u6d4b\u8bd5\u75c5\u4f8b-\u9ad8\u8840\u538b",
             "time_limit": 20,

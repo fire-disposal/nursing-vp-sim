@@ -2444,6 +2444,34 @@
         }
       }
     },
+    "/api/rubrics/current": {
+      "get": {
+        "tags": [
+          "评分标准"
+        ],
+        "summary": "Get Current Rubric",
+        "operationId": "get_current_rubric_api_rubrics_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Current Rubric Api Rubrics Current Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/stats/duration": {
       "get": {
         "tags": [
@@ -13901,6 +13929,11 @@
               }
             ],
             "title": "Score Total"
+          },
+          "is_test": {
+            "type": "boolean",
+            "title": "Is Test",
+            "default": false
           }
         },
         "type": "object",
@@ -14130,6 +14163,11 @@
             "type": "integer",
             "title": "Initiative Count",
             "default": 0
+          },
+          "is_test": {
+            "type": "boolean",
+            "title": "Is Test",
+            "default": false
           }
         },
         "type": "object",

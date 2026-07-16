@@ -63,6 +63,7 @@ class TrainingRecord(Base):
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    is_test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     start_time: Mapped[datetime] = mapped_column(default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 

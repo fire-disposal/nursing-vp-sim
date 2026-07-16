@@ -16,14 +16,19 @@ class TestStartTraining:
         assert data["record_id"]
         assert "greeting" in data
 
-    def test_start_as_teacher_forbidden(self, client, teacher, test_case):
+    def test_start_as_teacher_is_test(self, client, teacher, test_case, db_session):
         _, token = teacher
         resp = client.post(
             "/api/training/start",
             json={"case_id": test_case.id},
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        record_id = resp.json()["record_id"]
+        from models import TrainingRecord
+
+        record = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        assert record.is_test is True
 
     def test_start_case_not_found(self, client, student):
         _, token = student
@@ -93,7 +98,7 @@ class TestStartTraining:
 
 
 class TestEndTraining:
-    def test_end_training_as_owner(self, client, student, test_case):
+    def test_end_training_as_owner(self, client, student, test_case, db_session):
         _user, token = student
         # Start training
         resp = client.post(
@@ -102,6 +107,13 @@ class TestEndTraining:
             headers={"Authorization": f"Bearer {token}"},
         )
         record_id = resp.json()["record_id"]
+
+        # D4: insert enough messages to meet AUTO_SCORE threshold
+        from models import Message
+        long_msg = "x" * 100  # 3 * 100 = 300 chars >= 200 threshold
+        for _ in range(3):
+            db_session.add(Message(record_id=record_id, role="student", content=long_msg))
+        db_session.commit()
 
         # Mock the scoring service (imported inside function body)
         with patch("contexts.training.router.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:

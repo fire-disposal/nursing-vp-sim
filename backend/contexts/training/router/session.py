@@ -15,7 +15,7 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
-from core.security import get_current_user, require_permission
+from core.security import get_current_user, load_role_permissions, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
 from models import (
     Assignment,
@@ -173,6 +173,13 @@ def _create_record(
         status="in_progress",
         time_limit=time_limit,
     )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user_perms = load_role_permissions(db, user.role_id)
+        if "case_manage" in user_perms or "score_review" in user_perms:
+            record.is_test = True
+
     db.add(record)
     db.flush()
 
@@ -443,6 +450,7 @@ def get_records(
             score_total=r.score.total_score if r.score else None,
             scoring_status=r.scoring_status,
             scoring_error=r.scoring_error,
+            is_test=r.is_test,
         )
         for r in records
     ]
@@ -566,6 +574,7 @@ def get_record_detail(
         profile_info=profile_info,
         emotion=emotion,
         initiative_count=initiative_count,
+        is_test=record.is_test,
     )
 
 

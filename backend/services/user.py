@@ -165,13 +165,14 @@ class UserService:
 
         from sqlalchemy import func as sa_func
 
-        base = self.db.query(TrainingRecord).join(User)
+        base = self.db.query(TrainingRecord).join(User).filter(TrainingRecord.is_test == False)
         total_records = base.count()
         completed_records = base.filter(TrainingRecord.status == "completed").count()
         avg_score = (
             self.db.query(sa_func.avg(Score.total_score))
             .join(TrainingRecord, Score.record_id == TrainingRecord.id)
             .join(User, TrainingRecord.user_id == User.id)
+            .filter(TrainingRecord.is_test == False)
             .scalar()
         )
         avg_duration = (
@@ -183,6 +184,7 @@ class UserService:
                 TrainingRecord.status == "completed",
                 TrainingRecord.end_time.isnot(None),
                 TrainingRecord.start_time.isnot(None),
+                TrainingRecord.is_test == False,
             )
             .scalar()
         )
@@ -190,7 +192,7 @@ class UserService:
         today_records = (
             self.db.query(sa_func.count(TrainingRecord.id))
             .join(User, TrainingRecord.user_id == User.id)
-            .filter(TrainingRecord.start_time >= today_start)
+            .filter(TrainingRecord.start_time >= today_start, TrainingRecord.is_test == False)
             .scalar()
             or 0
         )
