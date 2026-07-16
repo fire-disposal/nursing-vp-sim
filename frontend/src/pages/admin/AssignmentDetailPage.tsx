@@ -166,6 +166,7 @@ export default function AssignmentDetailPage() {
 							<TableHead>学号</TableHead>
 							<TableHead>姓名</TableHead>
 							<TableHead>状态</TableHead>
+							<TableHead>尝试次数</TableHead>
 							<TableHead>得分</TableHead>
 							<TableHead>评分状态</TableHead>
 							<TableHead>完成时间</TableHead>
@@ -179,11 +180,17 @@ export default function AssignmentDetailPage() {
 								</TableCell>
 								<TableCell className="font-medium">{s.display_name}</TableCell>
 								<TableCell>{statusBadge(s.status)}</TableCell>
+								<TableCell className="text-xs text-muted-foreground">{s.attempt_count > 0 ? s.attempt_count : "-"}</TableCell>
 								<TableCell>
 									{s.score_total != null ? (
 										<span className="font-bold">{s.score_total}</span>
 									) : (
 										"-"
+									)}
+									{s.attempt_count > 1 && (
+										<span className="ml-1 text-[10px] text-muted-foreground">
+											共{s.attempt_count}次
+										</span>
 									)}
 								</TableCell>
 								<TableCell className="text-xs text-muted-foreground">
@@ -201,7 +208,7 @@ export default function AssignmentDetailPage() {
 						{(!detail.students || detail.students.length === 0) && (
 							<TableRow>
 								<TableCell
-									colSpan={6}
+									colSpan={7}
 									className="text-center text-muted-foreground py-8"
 								>
 									该班级暂无学生

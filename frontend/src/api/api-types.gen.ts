@@ -2572,6 +2572,11 @@ export interface components {
              * @default false
              */
             is_overdue: boolean;
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
         };
         /** AssignmentUpdateRequest */
         AssignmentUpdateRequest: {
@@ -9110,7 +9115,9 @@ export interface operations {
     };
     retry_scoring_api_training__record_id__retry_scoring_post: {
         parameters: {
-            query?: never;
+            query?: {
+                force?: boolean;
+            };
             header?: never;
             path: {
                 record_id: number;

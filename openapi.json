@@ -6639,6 +6639,16 @@
               "type": "integer",
               "title": "Record Id"
             }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
           }
         ],
         "responses": {
@@ -9118,6 +9128,11 @@
             "type": "boolean",
             "title": "Is Overdue",
             "default": false
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
           }
         },
         "type": "object",

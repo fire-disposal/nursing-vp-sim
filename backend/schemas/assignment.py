@@ -50,6 +50,7 @@ class AssignmentStudentItem(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_overdue: bool = False
+    attempt_count: int = 0
 
 
 class AssignmentDetail(BaseModel):

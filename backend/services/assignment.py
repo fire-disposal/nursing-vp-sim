@@ -38,6 +38,7 @@ class AssignmentStudentItemView:
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_overdue: bool = False
+    attempt_count: int = 0
 
 
 @dataclass
@@ -67,27 +68,15 @@ class AssignmentService:
     def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
         students_in_class = self.repo.get_students_in_class(assignment.class_id)
         training_records = self.repo.get_records_for_assignment(assignment.id)
-        record_by_user: dict[int, TrainingRecord] = {r.user_id: r for r in training_records}
+
+        records_by_user: dict[int, list[TrainingRecord]] = {}
+        for r in training_records:
+            records_by_user.setdefault(r.user_id, []).append(r)
 
         student_items: list[AssignmentStudentItemView] = []
         for student in students_in_class:
-            record = record_by_user.get(student.id)
-            if record:
-                student_items.append(
-                    AssignmentStudentItemView(
-                        user_id=student.id,
-                        display_name=student.display_name,
-                        student_id=student.student_id,
-                        record_id=record.id,
-                        status=record.status,
-                        score_total=record.score.total_score if record.score else None,
-                        scoring_status=record.scoring_status,
-                        start_time=record.start_time,
-                        end_time=record.end_time,
-                        is_overdue=record.is_overdue,
-                    )
-                )
-            else:
+            user_records = records_by_user.get(student.id, [])
+            if not user_records:
                 student_items.append(
                     AssignmentStudentItemView(
                         user_id=student.id,
@@ -95,9 +84,40 @@ class AssignmentService:
                         student_id=student.student_id,
                     )
                 )
+                continue
 
-        completed_count = sum(1 for s in student_items if s.status == "completed")
-        scored_count = sum(1 for s in student_items if s.scoring_status == "completed")
+            best = None
+            best_score = None
+            for r in user_records:
+                if r.scoring_status == "completed" and r.score and r.score.total_score is not None:
+                    if best_score is None or r.score.total_score > best_score:
+                        best = r
+                        best_score = r.score.total_score
+            if best is None:
+                best = max(user_records, key=lambda r: r.start_time or datetime.min.replace(tzinfo=UTC))
+
+            student_items.append(
+                AssignmentStudentItemView(
+                    user_id=student.id,
+                    display_name=student.display_name,
+                    student_id=student.student_id,
+                    record_id=best.id,
+                    status=best.status,
+                    score_total=best.score.total_score if best.score and best.scoring_status == "completed" else None,
+                    scoring_status=best.scoring_status,
+                    start_time=best.start_time,
+                    end_time=best.end_time,
+                    is_overdue=best.is_overdue,
+                    attempt_count=len(user_records),
+                )
+            )
+
+        completed_count = sum(
+            1 for records in records_by_user.values() if any(r.status == "completed" for r in records)
+        )
+        scored_count = sum(
+            1 for records in records_by_user.values() if any(r.scoring_status == "completed" for r in records)
+        )
 
         return AssignmentDetailView(
             id=assignment.id,

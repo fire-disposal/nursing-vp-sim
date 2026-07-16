@@ -11,7 +11,7 @@ from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
 from core.security import require_permission
 from infrastructure.exporter import ColumnDef, export_response
-from models import Assignment, TrainingRecord, User
+from models import Assignment, User
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -56,6 +56,7 @@ def _student_resp(view) -> AssignmentStudentItem:
         start_time=view.start_time,
         end_time=view.end_time,
         is_overdue=view.is_overdue,
+        attempt_count=view.attempt_count,
     )
 
 
@@ -161,21 +162,15 @@ def export_assignment(
     if assignment.teacher_id != current_user.id:
         raise AuthError("无权导出", status_code=403)
 
-    records = (
-        db.query(TrainingRecord)
-        .options(
-            joinedload(TrainingRecord.user),
-            joinedload(TrainingRecord.score),
-        )
-        .filter(TrainingRecord.assignment_id == assignment_id)
-        .order_by(TrainingRecord.user_id)
-        .all()
-    )
+    service = AssignmentService(db)
+    detail = service._build_detail_view(assignment)
+    students_data = detail.students
 
-    columns = [
-        ColumnDef(header="学号", value=lambda r: r.user.student_id if r.user else ""),
-        ColumnDef(header="姓名", value=lambda r: r.user.display_name if r.user else ""),
+    columns: list[ColumnDef] = [
+        ColumnDef(header="学号", value=lambda r: r.student_id or ""),
+        ColumnDef(header="姓名", value=lambda r: r.display_name),
         ColumnDef(header="状态", value=lambda r: r.status),
+        ColumnDef(header="尝试次数", value=lambda r: str(r.attempt_count)),
         ColumnDef(header="是否逾期", value=lambda r: "是" if r.is_overdue else "否"),
         ColumnDef(
             header="开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""
@@ -183,29 +178,10 @@ def export_assignment(
         ColumnDef(header="结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
         ColumnDef(
             header="总分",
-            value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else "",
+            value=lambda r: str(r.score_total) if r.score_total is not None else "",
         ),
         ColumnDef(header="评分状态", value=lambda r: r.scoring_status or ""),
     ]
 
-    if any(r.score and r.score.detail_scores for r in records):
-        dim_names: list[str] = []
-        for r in records:
-            if r.score and r.score.detail_scores:
-                for dim_name in r.score.detail_scores:
-                    if dim_name not in dim_names:
-                        dim_names.append(dim_name)
-        for dim_name in dim_names:
-            columns.append(
-                ColumnDef(
-                    header=dim_name,
-                    value=lambda r, dn=dim_name: (
-                        str(r.score.detail_scores[dn].get("score", ""))
-                        if r.score and r.score.detail_scores and dn in r.score.detail_scores
-                        else ""
-                    ),
-                )
-            )
-
     safe_title = assignment.title.replace(" ", "_")[:50]
-    return export_response(records, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv")
+    return export_response(students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv")

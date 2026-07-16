@@ -251,3 +251,142 @@ class TestAssignmentFlow:
         assert resp.status_code == 200
         detail = resp.json()
         assert detail["title"] == "修改后的标题"
+
+    def test_best_record_highest_score_with_attempt_count(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D3: 同一学生同一作业多条记录时，取最高分记录，附带 attempt_count。"""
+        from models import Score, TrainingRecord
+
+        _, teacher_token = teacher
+        student_user, _ = student
+
+        practice = Practice(
+            name="最高分测试练习",
+            description="test",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        payload = {
+            "practice_id": practice.id,
+            "class_id": test_class.id,
+            "title": "最高分测试",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(days=7)).isoformat(),
+        }
+        resp = client.post("/api/assignments", json=payload, headers=_auth_headers(teacher_token))
+        assert resp.status_code == 200
+        assignment_id = resp.json()["id"]
+
+        r1 = TrainingRecord(
+            user_id=student_user.id,
+            case_id=test_case.id,
+            practice_id=practice.id,
+            assignment_id=assignment_id,
+            status="completed",
+            scoring_status="completed",
+            start_time=now - timedelta(hours=2),
+            end_time=now - timedelta(hours=1),
+        )
+        r2 = TrainingRecord(
+            user_id=student_user.id,
+            case_id=test_case.id,
+            practice_id=practice.id,
+            assignment_id=assignment_id,
+            status="completed",
+            scoring_status="completed",
+            start_time=now - timedelta(hours=1),
+            end_time=now,
+        )
+        db_session.add_all([r1, r2])
+        db_session.commit()
+
+        s1 = Score(record_id=r1.id, total_score=70.0)
+        s2 = Score(record_id=r2.id, total_score=90.0)
+        db_session.add_all([s1, s2])
+        db_session.commit()
+
+        resp = client.get(f"/api/assignments/{assignment_id}", headers=_auth_headers(teacher_token))
+        assert resp.status_code == 200
+        detail = resp.json()
+
+        students = [s for s in detail["students"] if s["user_id"] == student_user.id]
+        assert len(students) == 1
+        s = students[0]
+        assert s["score_total"] == 90.0, f"Expected best score 90, got {s['score_total']}"
+        assert s["attempt_count"] == 2, f"Expected attempt_count 2, got {s['attempt_count']}"
+        assert detail["completed_count"] == 1
+        assert detail["scored_count"] == 1
+
+    def test_best_record_fallback_no_scored_records(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
+        """D3: 无已评分记录时取最新（start_time 最新）记录。"""
+        from models import TrainingRecord
+
+        _, teacher_token = teacher
+        student_user, _ = student
+
+        practice = Practice(
+            name="无评分测试练习",
+            description="test",
+            case_id=test_case.id,
+            features={},
+            behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
+        now = datetime.now(UTC)
+        payload = {
+            "practice_id": practice.id,
+            "class_id": test_class.id,
+            "title": "无评分测试",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(days=7)).isoformat(),
+        }
+        resp = client.post("/api/assignments", json=payload, headers=_auth_headers(teacher_token))
+        assert resp.status_code == 200
+        assignment_id = resp.json()["id"]
+
+        r_old = TrainingRecord(
+            user_id=student_user.id,
+            case_id=test_case.id,
+            practice_id=practice.id,
+            assignment_id=assignment_id,
+            status="completed",
+            scoring_status="pending",
+            start_time=now - timedelta(hours=2),
+            end_time=now - timedelta(hours=1),
+        )
+        r_new = TrainingRecord(
+            user_id=student_user.id,
+            case_id=test_case.id,
+            practice_id=practice.id,
+            assignment_id=assignment_id,
+            status="in_progress",
+            scoring_status=None,
+            start_time=now - timedelta(minutes=30),
+            end_time=None,
+        )
+        db_session.add_all([r_old, r_new])
+        db_session.commit()
+
+        resp = client.get(f"/api/assignments/{assignment_id}", headers=_auth_headers(teacher_token))
+        assert resp.status_code == 200
+        detail = resp.json()
+
+        students = [s for s in detail["students"] if s["user_id"] == student_user.id]
+        assert len(students) == 1
+        s = students[0]
+        assert s["record_id"] == r_new.id, f"Expected latest record {r_new.id}, got {s['record_id']}"
+        assert s["status"] == "in_progress"
+        assert s["score_total"] is None
+        assert s["attempt_count"] == 2
+        assert detail["completed_count"] == 1
+        assert detail["scored_count"] == 0
