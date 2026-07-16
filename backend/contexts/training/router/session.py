@@ -536,7 +536,7 @@ def get_record_detail(
         time_limit=time_limit,
         remaining_seconds=remaining_seconds,
         messages=record.messages,  # ty: ignore[invalid-argument-type]
-        score=score_obj,  # ty: ignore[invalid-argument-type]
+        score=score_obj,
         notes=note_records,  # ty: ignore[invalid-argument-type]
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,

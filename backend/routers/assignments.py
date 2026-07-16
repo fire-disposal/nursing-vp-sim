@@ -184,4 +184,6 @@ def export_assignment(
     ]
 
     safe_title = assignment.title.replace(" ", "_")[:50]
-    return export_response(students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv")
+    return export_response(
+        students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv"
+    )

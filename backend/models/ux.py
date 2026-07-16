@@ -29,7 +29,7 @@ class Feedback(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     rating: Mapped[int] = mapped_column(Integer, default=3)
     tag: Mapped[str] = mapped_column(String(20), default="")
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
