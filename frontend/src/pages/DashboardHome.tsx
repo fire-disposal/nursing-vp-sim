@@ -16,19 +16,18 @@ import { isAdminPermissions } from "@/utils/permissions";
 export default function DashboardHome() {
 	const navigate = useNavigate();
 	const perms = useAuthStore((s) => s.permissions);
-	const previewAsStudent = useAuthStore((s) => s.previewAsStudent);
 	const isAdmin = isAdminPermissions(perms);
 
 	const { data: casesData, isLoading: casesLoading } = useQuery({
 		queryKey: queryKeys.cases.student(),
 		queryFn: () => getCases().then((r) => r.data),
-		enabled: !isAdmin || previewAsStudent,
+		enabled: !isAdmin,
 		staleTime: 5 * 60_000,
 	});
 	const { data: durationData, isLoading: durationLoading } = useQuery({
 		queryKey: queryKeys.stats.duration(),
 		queryFn: () => getDurationStats().then((r) => r.data),
-		enabled: !isAdmin || previewAsStudent,
+		enabled: !isAdmin,
 		staleTime: 2 * 60_000,
 	});
 	const { data: recordsData, isLoading: recordsLoading } = useQuery({
@@ -41,10 +40,10 @@ export default function DashboardHome() {
 		queryFn: () =>
 			getRecords({ status: "in_progress", limit: 1, offset: 0 }).then((r) => r.data),
 		staleTime: 60_000,
-		enabled: !isAdmin || previewAsStudent,
+		enabled: !isAdmin,
 	});
 
-	if (isAdmin && !previewAsStudent) {
+	if (isAdmin) {
 		return <Navigate to="/admin" replace />;
 	}
 
