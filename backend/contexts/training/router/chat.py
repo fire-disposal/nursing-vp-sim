@@ -1,6 +1,7 @@
 """Chat router — thin dispatcher delegating to pipeline."""
 
 import logging
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -118,14 +119,24 @@ async def send_message_stream(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    async def _stream_with_db():
-        async with db_session() as db:
-            ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-            pipe, collector = get_pipeline(training_type=ctx.record.training_type)
-            ctx.note_collector = collector
+    # 校验必须在 StreamingResponse 返回前完成：响应一旦开始（200 头已发出），
+    # 再抛 HTTPException 会触发 "response already started" RuntimeError。
+    stack = AsyncExitStack()
+    db = await stack.enter_async_context(db_session())
+    try:
+        ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
+        pipe, collector = get_pipeline(training_type=ctx.record.training_type)
+        ctx.note_collector = collector
+    except BaseException:
+        await stack.aclose()
+        raise
 
+    async def _stream_with_db():
+        try:
             async for chunk in stream_pipeline(ctx, pipe):
                 yield chunk
+        finally:
+            await stack.aclose()
 
     return StreamingResponse(
         _stream_with_db(),
