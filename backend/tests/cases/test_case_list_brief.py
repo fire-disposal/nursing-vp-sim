@@ -14,6 +14,7 @@ def three_cases(db_session):
             name=nm,
             training_type="history_taking",
             difficulty=1,
+            is_open=True,
             case_data={},
         )
         db_session.add(c)

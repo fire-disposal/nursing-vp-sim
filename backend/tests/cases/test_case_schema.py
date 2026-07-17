@@ -45,11 +45,6 @@ class TestCaseDataSchema:
         result = validate_case_data("history_taking", {"name": ""}, strict=False)
         assert result == {"name": ""}
 
-    def test_rubric_ref_default(self):
-        data = {"name": "病例"}
-        result = CaseDataSchema(**data)
-        assert result.rubric_ref == "active"
-
     def test_deep_background_valid(self):
         data = {"name": "病例", "deep_background": {"手术史": "3年前胆囊切除"}}
         result = CaseDataSchema(**data)

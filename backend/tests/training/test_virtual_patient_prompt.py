@@ -7,7 +7,7 @@ from profiles.history_taking.builder import build_context_kwargs
 
 
 class TestBuildPatientContextKwargs:
-    def test_returns_all_ten_keys(self):
+    def test_returns_all_expected_keys(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
         kwargs = build_context_kwargs(case)
         assert set(kwargs.keys()) == {
@@ -15,7 +15,11 @@ class TestBuildPatientContextKwargs:
             "patient_info",
             "chief_complaint",
             "present_illness",
+            "past_history",
+            "medication_history",
             "allergy_history",
+            "family_history",
+            "social_history",
             "personality",
             "deep_background",
             "author_note",
