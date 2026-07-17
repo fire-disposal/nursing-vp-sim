@@ -22,10 +22,23 @@ export const retryScoring = (recordId: number | string, params?: { force?: boole
 		{ params },
 	);
 
-export const getRecords = (params: Record<string, unknown> = {}) =>
+export interface GetRecordsParams {
+	limit?: number;
+	offset?: number;
+	status?: string;
+	date_from?: string;
+	date_to?: string;
+	student_name?: string;
+	case_id?: number;
+	class_id?: number;
+	training_type?: string;
+	exclude_is_test?: boolean;
+}
+
+export const getRecords = (params: GetRecordsParams = {}) =>
 	api.get<Schemas["PaginatedResponse_TrainingRecordBrief_"]>(
 		"/training/records" satisfies ApiPath as string,
-		{ params },
+		{ params: params as Record<string, unknown> },
 	);
 
 export const deleteRecord = (id: number | string) =>

@@ -53,6 +53,9 @@ const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/admin/SystemNotificationsPage"),
 );
+const TeacherRecordsPage = lazy(
+	() => import("@/pages/admin/TeacherRecordsPage"),
+);
 const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 
 export type NavSection = "user" | "admin";
@@ -195,6 +198,12 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <Admin />,
 		permission: "score_review",
 		nav: { label: "训练管理", icon: Settings, section: "admin", end: true },
+	},
+	{
+		path: "/admin/records",
+		element: <TeacherRecordsPage />,
+		permission: "score_review",
+		nav: { label: "训练记录管理", icon: ClipboardList, section: "admin" },
 	},
 	{
 		path: "/admin/rubric",

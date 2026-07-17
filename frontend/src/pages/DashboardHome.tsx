@@ -31,7 +31,7 @@ export default function DashboardHome() {
 		staleTime: 2 * 60_000,
 	});
 	const { data: recordsData, isLoading: recordsLoading } = useQuery({
-		queryKey: queryKeys.training.recent(),
+		queryKey: queryKeys.training.recentStudent(),
 		queryFn: () => getRecords({ limit: 20, offset: 0 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});

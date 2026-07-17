@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -20,39 +20,48 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import useAuthStore from "@/stores/authStore";
 import { cn } from "@/utils/cn";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
-interface FilterParams {
-	status: string;
-	date_from: string;
-	date_to: string;
-}
-
 const LIMIT = 50;
 
 export default function History() {
-	const [offset, setOffset] = useState(0);
-	const [filters, setFilters] = useState<FilterParams>({
-		status: "",
-		date_from: "",
-		date_to: "",
-	});
+	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
 	const toast = useToast();
 	const { confirm } = useConfirm();
-	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
 
-	const params: Record<string, unknown> = { offset, limit: LIMIT };
-	if (filters.status) params.status = filters.status;
-	if (filters.date_from) params.date_from = filters.date_from;
-	if (filters.date_to) params.date_to = filters.date_to;
+	const status = searchParams.get("status") || "";
+	const date_from = searchParams.get("date_from") || "";
+	const date_to = searchParams.get("date_to") || "";
+	const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+	const setParam = useCallback(
+		(key: string, value: string) => {
+			const next = new URLSearchParams(searchParams);
+			if (value) {
+				next.set(key, value);
+			} else {
+				next.delete(key);
+			}
+			if (key !== "offset") next.set("offset", "0");
+			setSearchParams(next, { replace: true });
+		},
+		[searchParams, setSearchParams],
+	);
+
+	const params = useMemo(() => {
+		const p: Record<string, unknown> = { offset, limit: LIMIT };
+		if (status) p.status = status;
+		if (date_from) p.date_from = date_from;
+		if (date_to) p.date_to = date_to;
+		return p;
+	}, [offset, status, date_from, date_to]);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
-		queryKey: queryKeys.training.records({ offset, ...filters }),
+		queryKey: queryKeys.training.records(params),
 		queryFn: () => getRecords(params).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
@@ -103,24 +112,14 @@ export default function History() {
 	};
 
 	const clearFilters = () => {
-		setFilters({ status: "", date_from: "", date_to: "" });
-		setOffset(0);
-	};
-
-	const handleFilterChange = (key: keyof FilterParams, value: string) => {
-		setFilters((f) => ({ ...f, [key]: value }));
-		setOffset(0);
+		setSearchParams({}, { replace: true });
 	};
 
 	return (
 		<>
 			<PageHeader
-				title="训练记录"
-				subtitle={
-					user?.role === "teacher"
-						? "查看所有学生的训练记录"
-						: "查看你的历史训练记录和评分结果"
-				}
+				title="我的训练记录"
+				subtitle="查看你的历史训练记录和评分结果"
 				icon={ClipboardList}
 			/>
 
@@ -132,8 +131,8 @@ export default function History() {
 								状态
 							</label>
 							<select
-								value={filters.status}
-								onChange={(e) => handleFilterChange("status", e.target.value)}
+								value={status}
+								onChange={(e) => setParam("status", e.target.value)}
 								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							>
 								<option value="">全部</option>
@@ -148,9 +147,9 @@ export default function History() {
 							</label>
 							<input
 								type="date"
-								value={filters.date_from}
+								value={date_from}
 								onChange={(e) =>
-									handleFilterChange("date_from", e.target.value)
+									setParam("date_from", e.target.value)
 								}
 								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							/>
@@ -161,8 +160,8 @@ export default function History() {
 							</label>
 							<input
 								type="date"
-								value={filters.date_to}
-								onChange={(e) => handleFilterChange("date_to", e.target.value)}
+								value={date_to}
+								onChange={(e) => setParam("date_to", e.target.value)}
 								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							/>
 						</div>
@@ -307,16 +306,6 @@ export default function History() {
 							<Table>
 								<TableHeader>
 									<TableRow className="bg-muted/50">
-										{user?.role === "teacher" && (
-											<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-												学生
-											</TableHead>
-										)}
-										{user?.role === "teacher" && (
-											<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-												学号
-											</TableHead>
-										)}
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
 											病例
 										</TableHead>
@@ -351,16 +340,6 @@ export default function History() {
 											: null;
 										return (
 											<TableRow key={r.id}>
-												{user?.role === "teacher" && (
-													<TableCell>
-														{r.user_display_name}
-													</TableCell>
-												)}
-												{user?.role === "teacher" && (
-													<TableCell className="text-muted-foreground">
-														{r.user_student_id ?? ""}
-													</TableCell>
-												)}
 												<TableCell className="font-medium">
 													{r.case_name}
 												</TableCell>
@@ -420,8 +399,7 @@ export default function History() {
 												</TableCell>
 												<TableCell>
 													<div className="flex items-center gap-2">
-														{r.status === "in_progress" &&
-														user?.role !== "teacher" ? (
+														{r.status === "in_progress" && (
 															<>
 																<Button
 																	variant="link"
@@ -441,14 +419,13 @@ export default function History() {
 																	放弃
 																</Button>
 															</>
-														) : (
+														)}
+														{(r.status === "completed" || r.status === "abandoned") && (
 															<Button
 																variant="link"
 																size="xs"
 																onClick={() =>
-																	r.status === "abandoned"
-																		? navigate(`/record/${r.id}`)
-																		: navigate(`/record/${r.id}`)
+																	navigate(`/record/${r.id}`)
 																}
 															>
 																{r.status === "abandoned" ? "查看" : "查看详情"}
@@ -477,7 +454,7 @@ export default function History() {
 						total={total}
 						offset={offset}
 						limit={LIMIT}
-						onChange={setOffset}
+						onChange={(newOffset) => setParam("offset", String(newOffset))}
 					/>
 				</div>
 			</div>
