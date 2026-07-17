@@ -243,7 +243,7 @@ def test_is_test_exposed_in_brief_and_detail(
 
     # Check brief (in records list)
     resp2 = client.get(
-        "/api/training/records?limit=100",
+        "/api/training/records?limit=100&exclude_is_test=false",
         headers=_auth_headers(teacher_token),
     )
     assert resp2.status_code == 200

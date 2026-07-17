@@ -399,6 +399,8 @@ def get_records(
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
+    training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking/triage)")] = None,
+    exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
 ):
     base = db.query(TrainingRecord)
 
@@ -413,6 +415,11 @@ def get_records(
             base = base.join(UserClass, UserClass.user_id == TrainingRecord.user_id).filter(
                 UserClass.class_id == class_id
             )
+
+    if training_type:
+        base = base.filter(TrainingRecord.training_type == training_type)
+    if exclude_is_test:
+        base = base.filter(TrainingRecord.is_test == False)
 
     if status:
         base = base.filter(TrainingRecord.status == status)
