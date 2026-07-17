@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useSearchParams } from "react-router-dom";
 import { getCases } from "@/api/cases";
 import {
 	createPractice,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type PracticeValues, practiceSchema } from "@/schemas/practice";
@@ -67,14 +69,27 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const { confirm } = useConfirm();
 
+	const [searchParams, setSearchParams] = useSearchParams();
+	const LIMIT = 20;
+	const offset = Number(searchParams.get("offset") || "0");
+
+	const setOffset = (newOffset: number) => {
+		setSearchParams((prev) => {
+			const next = new URLSearchParams(prev);
+			if (newOffset > 0) next.set("offset", String(newOffset));
+			else next.delete("offset");
+			return next;
+		});
+	};
+
 	const form = useForm<PracticeValues>({
 		resolver: zodResolver(practiceSchema),
 		defaultValues: DEFAULT_VALUES,
 	});
 
 	const { data: listData, isLoading } = useQuery({
-		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices().then((r) => r.data),
+		queryKey: [...queryKeys.practices.all, offset],
+		queryFn: () => getPractices({ offset, limit: LIMIT }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 	const { data: casesData } = useQuery({
@@ -84,6 +99,7 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 	});
 
 	const practices = (listData?.items ?? []) as unknown as PracticeRow[];
+	const total = listData?.total ?? 0;
 	const cases = (casesData?.items ?? []) as unknown as CaseOption[];
 
 	const openCreate = () => {
@@ -279,6 +295,10 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 				</div>
 			)}
 		/>
+
+		{total > LIMIT && (
+			<Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
+		)}
 
 			<Dialog open={modalOpen} onOpenChange={(o) => {
 				if (!o) {

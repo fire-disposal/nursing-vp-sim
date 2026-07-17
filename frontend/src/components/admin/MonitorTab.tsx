@@ -8,7 +8,8 @@ import {
 	TrendingUp,
 	Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -70,12 +71,28 @@ interface LLMStats {
 export default function MonitorTab() {
 	const [offset, setOffset] = useState(0);
 	const LIMIT = 20;
-	const [filters, setFilters] = useState({
-		purpose: "",
-		status: "",
-		date_from: "",
-		date_to: "",
-	});
+
+	const [searchParams, setSearchParams] = useSearchParams();
+	const purpose = searchParams.get("purpose") || "";
+	const status = searchParams.get("status") || "";
+	const dateFrom = searchParams.get("date_from") || "";
+	const dateTo = searchParams.get("date_to") || "";
+
+	const updateParam = useCallback(
+		(key: string, value: string) => {
+			setSearchParams((prev) => {
+				const next = new URLSearchParams(prev);
+				if (value) next.set(key, value);
+				else next.delete(key);
+				return next;
+			});
+			setOffset(0);
+		},
+		[setSearchParams],
+	);
+
+	const filters = { purpose, status, date_from: dateFrom, date_to: dateTo };
+
 	const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
 
 	const {
@@ -348,13 +365,10 @@ export default function MonitorTab() {
 						<Server size={14} /> 最近训练调用日志
 					</h3>
 					<div className="flex gap-2 mb-3 flex-wrap justify-between">
-						<div className="flex gap-2 flex-wrap">
+						<div className="flex gap-2 flex-wrap items-end">
 							<select
 								value={filters.purpose}
-								onChange={(e) => {
-									setFilters((f) => ({ ...f, purpose: e.target.value }));
-									setOffset(0);
-								}}
+								onChange={(e) => updateParam("purpose", e.target.value)}
 								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
 							>
 								<option value="">全部用途</option>
@@ -366,10 +380,7 @@ export default function MonitorTab() {
 							</select>
 							<select
 								value={filters.status}
-								onChange={(e) => {
-									setFilters((f) => ({ ...f, status: e.target.value }));
-									setOffset(0);
-								}}
+								onChange={(e) => updateParam("status", e.target.value)}
 								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
 							>
 								<option value="">全部状态</option>
@@ -377,6 +388,18 @@ export default function MonitorTab() {
 								<option value="failed">失败</option>
 								<option value="timeout">超时</option>
 							</select>
+							<input
+								type="date"
+								value={filters.date_from}
+								onChange={(e) => updateParam("date_from", e.target.value)}
+								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
+							/>
+							<input
+								type="date"
+								value={filters.date_to}
+								onChange={(e) => updateParam("date_to", e.target.value)}
+								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
+							/>
 						</div>
 						<button
 							onClick={() => exportMutation.mutate()}

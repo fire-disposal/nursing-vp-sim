@@ -1,9 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Plus, Trash2, XCircle } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
 	createAssignment,
 	deleteAssignment,
@@ -14,6 +14,7 @@ import {
 import { getClasses } from "@/api/grades-classes";
 import { getPractices } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
+import ClassFilter from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -94,6 +95,22 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
+	const [searchParams, setSearchParams] = useSearchParams();
+	const classId = searchParams.get("class_id") || "";
+	const statusFilter = searchParams.get("status") || "";
+
+	const updateParam = useCallback(
+		(key: string, value: string) => {
+			setSearchParams((prev) => {
+				const next = new URLSearchParams(prev);
+				if (value) next.set(key, value);
+				else next.delete(key);
+				return next;
+			});
+		},
+		[setSearchParams],
+	);
+
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const { confirm } = useConfirm();
@@ -104,8 +121,13 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	});
 
 	const { data: listData, isLoading } = useQuery({
-		queryKey: queryKeys.assignments.all,
-		queryFn: () => getAssignments({ limit: 100 }).then((r) => r.data),
+		queryKey: queryKeys.assignments.list({ class_id: classId, status: statusFilter }),
+		queryFn: () => {
+			const params: Record<string, unknown> = { limit: 100 };
+			if (classId) params.class_id = Number(classId);
+			if (statusFilter) params.status = statusFilter;
+			return getAssignments(params).then((r) => r.data);
+		},
 		staleTime: 2 * 60_000,
 	});
 	const { data: practicesData } = useQuery({
@@ -296,6 +318,23 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				}
 			/>
 			)}
+			<div className="flex flex-wrap items-center gap-3 mb-4">
+				<ClassFilter
+					classId={classId ? Number(classId) : undefined}
+					onChange={(params) => {
+						updateParam("class_id", params.class_id ? String(params.class_id) : "");
+					}}
+				/>
+				<select
+					value={statusFilter}
+					onChange={(e) => updateParam("status", e.target.value)}
+					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+				>
+					<option value="">全部状态</option>
+					<option value="active">进行中</option>
+					<option value="ended">已结束</option>
+				</select>
+			</div>
 
 		<ResponsiveTable<AssignmentRow>
 			columns={columns}

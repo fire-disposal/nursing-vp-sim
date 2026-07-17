@@ -4,8 +4,8 @@ import { api } from "./client";
 
 type Schemas = components["schemas"];
 
-export const getPractices = () =>
-	api.get<Schemas["PaginatedResponse_PracticeItem_"]>("/admin/practices" satisfies ApiPath as string);
+export const getPractices = (params?: Record<string, unknown>) =>
+	api.get<Schemas["PaginatedResponse_PracticeItem_"]>("/admin/practices" satisfies ApiPath as string, { params });
 
 export const getPractice = (id: number) =>
 	api.get<Schemas["PracticeItem"]>(`/admin/practices/${id}` as ApiPath);
