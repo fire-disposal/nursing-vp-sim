@@ -2,9 +2,11 @@ import {
 	BookOpen,
 	CheckCircle,
 	ClipboardList,
+	Search,
 	TrendingUp,
 	Users,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -16,6 +18,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
+import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
@@ -45,6 +48,29 @@ export default function AdminDashboard({
 	const todayRecords = stats?.today_records ?? 0;
 	const completionRate =
 		totalRecords > 0 ? Math.round((completedRecords / totalRecords) * 100) : 0;
+
+	const [search, setSearch] = useState("");
+	const [statusFilter, setStatusFilter] = useState("");
+	const [offset, setOffset] = useState(0);
+	const PAGE_SIZE = 10;
+
+	const filtered = useMemo(() => {
+		let result = records;
+		if (search) {
+			const q = search.toLowerCase();
+			result = result.filter(
+				(r) =>
+					r.user_display_name?.toLowerCase().includes(q) ||
+					r.case_name.toLowerCase().includes(q),
+			);
+		}
+		if (statusFilter) {
+			result = result.filter((r) => r.status === statusFilter);
+		}
+		return result;
+	}, [records, search, statusFilter]);
+
+	const paginated = filtered.slice(offset, offset + PAGE_SIZE);
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -141,7 +167,28 @@ export default function AdminDashboard({
 						</Button>
 					</CardAction>
 				</CardHeader>
-				{records.length > 0 ? (
+				<div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b">
+					<div className="relative flex-1 max-w-xs">
+						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="搜索学生/病例..."
+							value={search}
+							onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
+							className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-muted focus-ring"
+						/>
+					</div>
+					<select
+						value={statusFilter}
+						onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
+						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+					>
+						<option value="">全部状态</option>
+						<option value="in_progress">进行中</option>
+						<option value="completed">已完成</option>
+					</select>
+				</div>
+				{filtered.length > 0 ? (
 					<div className="max-h-96 overflow-auto">
 						<div className="hidden sm:block">
 						<Table>
@@ -155,7 +202,7 @@ export default function AdminDashboard({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{records.slice(0, 10).map((r) => (
+								{paginated.map((r) => (
 									<TableRow key={r.id}>
 										<TableCell className="font-medium">{r.user_display_name}</TableCell>
 										<TableCell className="text-muted-foreground">{r.case_name}</TableCell>
@@ -203,7 +250,7 @@ export default function AdminDashboard({
 						</Table>
 						</div>
 						<div className="sm:hidden divide-y divide-border">
-							{records.slice(0, 10).map((r) => (
+							{paginated.map((r) => (
 								<div key={r.id} className="flex items-center justify-between gap-2 px-4 py-3">
 									<div className="flex-1 min-w-0">
 										<div className="text-sm font-medium truncate">{r.user_display_name}</div>
@@ -232,6 +279,11 @@ export default function AdminDashboard({
 					<CardContent className="text-center py-10 text-muted-foreground">
 						<EmptyState icon={ClipboardList} title="暂无训练记录" />
 					</CardContent>
+				)}
+				{filtered.length > PAGE_SIZE && (
+					<div className="px-4 py-3 border-t">
+						<Pagination total={filtered.length} offset={offset} limit={PAGE_SIZE} onChange={setOffset} />
+					</div>
 				)}
 			</Card>
 		</div>

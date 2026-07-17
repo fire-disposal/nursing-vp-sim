@@ -38,6 +38,8 @@ export default function QuestionnairesTab() {
 		null,
 	);
 	const [typeFilter, setTypeFilter] = useState("");
+	const [searchText, setSearchText] = useState("");
+	const [statusFilter, setStatusFilter] = useState("");
 	const [offset, setOffset] = useState(0);
 	const [showAssign, setShowAssign] = useState(false);
 	const [assignTemplate, setAssignTemplate] = useState<TemplateListItem | null>(
@@ -58,9 +60,11 @@ export default function QuestionnairesTab() {
 
 	const params: Record<string, unknown> = { offset, limit: LIMIT };
 	if (typeFilter) params.type = typeFilter;
+	if (searchText) params.search = searchText;
+	if (statusFilter) params.is_active = statusFilter === "active";
 
 	const { data: templatesData, isLoading } = useQuery({
-		queryKey: queryKeys.questionnaires.templates(offset, typeFilter),
+		queryKey: [...queryKeys.questionnaires.all, "templates", offset, typeFilter, searchText, statusFilter] as const,
 		queryFn: () => getQuestionnairesTemplates(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,
@@ -253,8 +257,12 @@ export default function QuestionnairesTab() {
 				offset={offset}
 				limit={LIMIT}
 				typeFilter={typeFilter}
+				searchText={searchText}
+				statusFilter={statusFilter}
 				onOffsetChange={setOffset}
 				onTypeFilterChange={setTypeFilter}
+				onSearchChange={setSearchText}
+				onStatusFilterChange={setStatusFilter}
 				onCreate={openNew}
 				onEdit={openEdit}
 				onDelete={handleDelete}

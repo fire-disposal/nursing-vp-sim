@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
@@ -46,6 +47,9 @@ export default function AssignmentDetailPage() {
 	const navigate = useNavigate();
 	const toast = useToast();
 
+	const [studentSearch, setStudentSearch] = useState("");
+	const [statusFilter, setStatusFilter] = useState("");
+
 	const { data, isLoading, error } = useQuery({
 		queryKey: queryKeys.assignments.detail(id),
 		queryFn: () => getAssignment(id!).then((r) => r.data),
@@ -71,6 +75,23 @@ export default function AssignmentDetailPage() {
 			toast.error(e.message || "导出失败");
 		}
 	};
+
+	const filteredStudents = useMemo(() => {
+		const students = (data?.students as any[] | undefined) ?? [];
+		let result = students;
+		if (studentSearch) {
+			const q = studentSearch.toLowerCase();
+			result = result.filter(
+				(s: any) =>
+					s.display_name?.toLowerCase().includes(q) ||
+					String(s.student_id || "").toLowerCase().includes(q),
+			);
+		}
+		if (statusFilter) {
+			result = result.filter((s: any) => s.status === statusFilter);
+		}
+		return result;
+	}, [data?.students, studentSearch, statusFilter]);
 
 	if (isLoading) return <LoadingSkeleton />;
 	if (error || !data)
@@ -187,6 +208,29 @@ export default function AssignmentDetailPage() {
 				<CardHeader className="pb-3">
 					<CardTitle>学生完成情况</CardTitle>
 				</CardHeader>
+				<div className="px-4 pb-3 flex flex-wrap items-center gap-2">
+					<div className="relative flex-1 max-w-xs">
+						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="搜索姓名/学号..."
+							value={studentSearch}
+							onChange={(e) => setStudentSearch(e.target.value)}
+							className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-muted focus-ring"
+						/>
+					</div>
+					<select
+						value={statusFilter}
+						onChange={(e) => setStatusFilter(e.target.value)}
+						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+					>
+						<option value="">全部状态</option>
+						<option value="completed">已完成</option>
+						<option value="in_progress">进行中</option>
+						<option value="not_started">未开始</option>
+						<option value="overdue">已逾期</option>
+					</select>
+				</div>
 				<div className="overflow-x-auto">
 				<Table>
 					<TableHeader>
@@ -201,7 +245,7 @@ export default function AssignmentDetailPage() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{(detail.students as any[] | undefined)?.map((s: any) => (
+						{filteredStudents.map((s: any) => (
 							<TableRow key={s.user_id}>
 								<TableCell className="text-xs font-mono">
 									{s.student_id || "-"}
@@ -236,13 +280,13 @@ export default function AssignmentDetailPage() {
 								</TableCell>
 							</TableRow>
 						))}
-						{(!detail.students || detail.students.length === 0) && (
+						{filteredStudents.length === 0 && (
 							<TableRow>
 								<TableCell
 									colSpan={7}
 									className="text-center text-muted-foreground py-8"
 								>
-									该班级暂无学生
+									{studentSearch || statusFilter ? "无匹配结果" : "该班级暂无学生"}
 								</TableCell>
 							</TableRow>
 						)}

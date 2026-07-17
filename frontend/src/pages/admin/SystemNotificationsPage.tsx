@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Megaphone, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
 	createSystemNotification,
@@ -67,6 +67,8 @@ export default function SystemNotificationsPage() {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editing, setEditing] = useState<SystemNotification | null>(null);
 	const [deleteId, setDeleteId] = useState<number | null>(null);
+	const [levelFilter, setLevelFilter] = useState("");
+	const [searchText, setSearchText] = useState("");
 
 	const form = useForm<NotificationValues>({
 		resolver: zodResolver(notificationSchema),
@@ -79,6 +81,18 @@ export default function SystemNotificationsPage() {
 	});
 
 	const notifications = data ?? [];
+
+	const filtered = useMemo(() => {
+		let result = notifications;
+		if (levelFilter) {
+			result = result.filter((n) => n.level === levelFilter);
+		}
+		if (searchText) {
+			const q = searchText.toLowerCase();
+			result = result.filter((n) => n.title.toLowerCase().includes(q));
+		}
+		return result;
+	}, [notifications, levelFilter, searchText]);
 
 	useEffect(() => {
 		if (!modalOpen) return;
@@ -138,7 +152,28 @@ export default function SystemNotificationsPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="系统通知" subtitle="创建定时或即时全站通知" />
-			<div className="flex justify-end">
+			<div className="flex justify-between items-center gap-3 flex-wrap">
+				<div className="flex gap-2 flex-wrap items-center">
+					<div className="relative">
+						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="搜索标题..."
+							value={searchText}
+							onChange={(e) => setSearchText(e.target.value)}
+							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"
+						/>
+					</div>
+					<select
+						value={levelFilter}
+						onChange={(e) => setLevelFilter(e.target.value)}
+						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+					>
+						<option value="">全部级别</option>
+						<option value="info">通知</option>
+						<option value="warning">警告</option>
+					</select>
+				</div>
 				<Button onClick={openCreate}>
 					<Plus className="size-4 mr-1.5" />
 					新建通知
@@ -146,11 +181,11 @@ export default function SystemNotificationsPage() {
 			</div>
 			{isLoading ? (
 				<LoadingSkeleton variant="card" />
-			) : notifications.length === 0 ? (
+			) : filtered.length === 0 ? (
 				<EmptyState icon={Megaphone} title="暂无通知" description="点击上方按钮创建第一条全站通知" />
 			) : (
 				<div className="space-y-3">
-					{notifications.map((n) => (
+					{filtered.map((n) => (
 						<div key={n.id} className="flex items-start gap-4 p-4 rounded-xl border bg-card">
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-2">

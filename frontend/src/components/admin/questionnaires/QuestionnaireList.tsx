@@ -4,6 +4,7 @@ import {
 	Edit3,
 	FileText,
 	Plus,
+	Search,
 	Trash2,
 } from "lucide-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
@@ -24,8 +25,12 @@ interface QuestionnaireListProps {
 	offset: number;
 	limit: number;
 	typeFilter: string;
+	searchText: string;
+	statusFilter: string;
 	onOffsetChange: (offset: number) => void;
 	onTypeFilterChange: (type: string) => void;
+	onSearchChange: (search: string) => void;
+	onStatusFilterChange: (status: string) => void;
 	onCreate: () => void;
 	onEdit: (t: TemplateListItem) => void;
 	onDelete: (t: TemplateListItem) => void;
@@ -40,8 +45,12 @@ export default function QuestionnaireList({
 	offset,
 	limit,
 	typeFilter,
+	searchText,
+	statusFilter,
 	onOffsetChange,
 	onTypeFilterChange,
+	onSearchChange,
+	onStatusFilterChange,
 	onCreate,
 	onEdit,
 	onDelete,
@@ -175,6 +184,41 @@ export default function QuestionnaireList({
 									</option>
 								))}
 							</select>
+						</label>
+						<label>
+							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								状态
+							</span>
+							<select
+								value={statusFilter}
+								onChange={(e) => {
+									onStatusFilterChange(e.target.value);
+									onOffsetChange(0);
+								}}
+								className={inputClass}
+							>
+								<option value="">全部</option>
+								<option value="active">启用</option>
+								<option value="inactive">禁用</option>
+							</select>
+						</label>
+						<label>
+							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								搜索
+							</span>
+							<div className="relative">
+								<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+								<input
+									type="text"
+									placeholder="搜索标题..."
+									value={searchText}
+									onChange={(e) => {
+										onSearchChange(e.target.value);
+										onOffsetChange(0);
+									}}
+									className="pl-8 pr-3 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring"
+								/>
+							</div>
 						</label>
 					</div>
 				</div>

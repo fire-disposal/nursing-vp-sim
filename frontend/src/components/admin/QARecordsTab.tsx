@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -25,6 +26,24 @@ export default function QARecordsTab() {
 		"",
 		200,
 	);
+
+	const [searchParams, setSearchParams] = useSearchParams();
+	const dateFrom = searchParams.get("date_from") || "";
+	const dateTo = searchParams.get("date_to") || "";
+
+	const updateParam = useCallback(
+		(key: string, value: string) => {
+			setSearchParams((prev) => {
+				const next = new URLSearchParams(prev);
+				if (value) next.set(key, value);
+				else next.delete(key);
+				return next;
+			});
+			setOffset(0);
+		},
+		[setSearchParams],
+	);
+
 	const [previewSessionId, setPreviewSessionId] = useState<number | null>(null);
 	const [previewTitle, setPreviewTitle] = useState("");
 	const [showPreview, setShowPreview] = useState(false);
@@ -37,12 +56,14 @@ export default function QARecordsTab() {
 	}, [debouncedValue]);
 
 	const { data: recordsData, isLoading } = useQuery({
-		queryKey: queryKeys.qa.history({ offset, search: debouncedValue }),
+		queryKey: queryKeys.qa.history({ offset, search: debouncedValue, date_from: dateFrom, date_to: dateTo }),
 		queryFn: () =>
 			getQAHistoryAll({
 				offset,
 				limit: LIMIT,
 				search: debouncedValue || undefined,
+				date_from: dateFrom || undefined,
+				date_to: dateTo || undefined,
 			}).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 2 * 60_000,
@@ -114,7 +135,7 @@ export default function QARecordsTab() {
 
 	return (
 		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
-			<div className="flex items-center gap-3 mb-3">
+			<div className="flex items-center gap-3 mb-3 flex-wrap">
 				<div className="relative flex-1 max-w-xs">
 					<Search
 						size={16}
@@ -128,6 +149,18 @@ export default function QARecordsTab() {
 						className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus-ring focus-visible:bg-card"
 					/>
 				</div>
+				<input
+					type="date"
+					value={dateFrom}
+					onChange={(e) => updateParam("date_from", e.target.value)}
+					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+				/>
+				<input
+					type="date"
+					value={dateTo}
+					onChange={(e) => updateParam("date_to", e.target.value)}
+					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+				/>
 				<span className="text-sm text-muted-foreground">
 					共 {total} 条问答会话
 				</span>

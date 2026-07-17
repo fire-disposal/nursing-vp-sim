@@ -4,8 +4,9 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	MessageSquare,
+	Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	Bar,
 	BarChart,
@@ -435,6 +436,8 @@ export default function FeedbackTab() {
 	const [dateFrom, setDateFrom] = useState("");
 	const [dateTo, setDateTo] = useState("");
 	const [offset, setOffset] = useState(0);
+	const [searchText, setSearchText] = useState("");
+	const [replyStatus, setReplyStatus] = useState("");
 	const LIMIT = 20;
 	const _toast = useToast();
 
@@ -452,8 +455,23 @@ export default function FeedbackTab() {
 
 	const refetchFeedbacks = () => refetch();
 
-	const feedbacks = feedbacksData?.items ?? [];
-	const total = feedbacksData?.total ?? 0;
+	const rawFeedbacks = feedbacksData?.items ?? [];
+	const serverTotal = feedbacksData?.total ?? 0;
+
+	const feedbacks = useMemo(() => {
+		let result: FeedbackItem[] = rawFeedbacks as FeedbackItem[];
+		if (searchText) {
+			const q = searchText.toLowerCase();
+			result = result.filter((fb) => fb.content?.toLowerCase().includes(q));
+		}
+		if (replyStatus === "replied") {
+			result = result.filter((fb) => fb.developer_reply != null);
+		} else if (replyStatus === "unreplied") {
+			result = result.filter((fb) => fb.developer_reply == null);
+		}
+		return result;
+	}, [rawFeedbacks, searchText, replyStatus]);
+	const total = serverTotal;
 
 	const handleFilterChange = (key: "dateFrom" | "dateTo", value: string) => {
 		if (key === "dateFrom") setDateFrom(value);
@@ -510,6 +528,28 @@ export default function FeedbackTab() {
 							清除
 						</Button>
 					)}
+				</div>
+
+				<div className="flex gap-2 flex-wrap items-center">
+					<div className="relative">
+						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="搜索反馈内容..."
+							value={searchText}
+							onChange={(e) => { setSearchText(e.target.value); setOffset(0); }}
+							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"
+						/>
+					</div>
+					<select
+						value={replyStatus}
+						onChange={(e) => { setReplyStatus(e.target.value); setOffset(0); }}
+						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+					>
+						<option value="">全部回复</option>
+						<option value="replied">已回复</option>
+						<option value="unreplied">未回复</option>
+					</select>
 				</div>
 
 				<div className="flex gap-2 flex-wrap">
