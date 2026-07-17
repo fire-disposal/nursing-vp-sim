@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquare, MessageSquareReply } from "lucide-react";
+import { useMemo, useState } from "react";
 import { getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -8,7 +9,6 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
-import { useState } from "react";
 import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
@@ -32,8 +32,20 @@ const TAG_LABELS: Record<string, string> = {
 };
 const LIMIT = 20;
 
+const TAG_OPTIONS = [
+	{ label: "全部", value: "" },
+	{ label: "BUG", value: "bug" },
+	{ label: "功能", value: "feature" },
+	{ label: "体验", value: "experience" },
+	{ label: "内容", value: "content" },
+	{ label: "UI", value: "ui" },
+	{ label: "其他", value: "other" },
+];
+
 export default function MyFeedbackPage() {
 	const [offset, setOffset] = useState(0);
+	const [tagFilter, setTagFilter] = useState("");
+	const [replyFilter, setReplyFilter] = useState("");
 
 	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.admin.feedback.my(offset),
@@ -42,12 +54,53 @@ export default function MyFeedbackPage() {
 		refetchOnWindowFocus: false,
 	});
 
-	const items = (data?.items ?? []) as FeedbackItem[];
+	const rawItems = (data?.items ?? []) as FeedbackItem[];
 	const total = data?.total ?? 0;
+
+	const items = useMemo(() => {
+		let result = rawItems;
+		if (tagFilter) {
+			result = result.filter((fb) => fb.tag === tagFilter);
+		}
+		if (replyFilter === "replied") {
+			result = result.filter((fb) => fb.developer_reply != null);
+		} else if (replyFilter === "unreplied") {
+			result = result.filter((fb) => fb.developer_reply == null);
+		}
+		return result;
+	}, [rawItems, tagFilter, replyFilter]);
 
 	return (
 		<div className="space-y-6">
 			<PageHeader title="我的反馈" icon={MessageSquare} />
+
+			<div className="flex flex-wrap items-center gap-3 mb-4">
+				<div className="flex gap-1.5 flex-wrap">
+					{TAG_OPTIONS.map((opt) => (
+						<button
+							key={opt.value}
+							onClick={() => { setTagFilter(opt.value); setOffset(0); }}
+							className={cn(
+								"px-3 py-1 rounded-full border text-sm cursor-pointer transition-colors",
+								tagFilter === opt.value
+									? "bg-primary text-primary-foreground border-primary"
+									: "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
+							)}
+						>
+							{opt.label}
+						</button>
+					))}
+				</div>
+				<select
+					value={replyFilter}
+					onChange={(e) => { setReplyFilter(e.target.value); setOffset(0); }}
+					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+				>
+					<option value="">全部</option>
+					<option value="replied">已回复</option>
+					<option value="unreplied">未回复</option>
+				</select>
+			</div>
 
 			{isLoading ? (
 				<div className="space-y-4">

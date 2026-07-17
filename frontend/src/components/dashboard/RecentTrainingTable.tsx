@@ -23,6 +23,7 @@ interface RecordBrief {
 	start_time: string;
 	status: string;
 	score_total?: number | null;
+	training_type?: string;
 }
 
 export default function RecentTrainingTable({
@@ -58,6 +59,7 @@ export default function RecentTrainingTable({
 					<TableHeader>
 						<TableRow>
 							<TableHead>病例</TableHead>
+							<TableHead>训练类型</TableHead>
 							<TableHead>时间</TableHead>
 							<TableHead>状态</TableHead>
 							<TableHead>得分</TableHead>
@@ -68,6 +70,9 @@ export default function RecentTrainingTable({
 						{records.map((r) => (
 							<TableRow key={r.id}>
 								<TableCell>{r.case_name}</TableCell>
+								<TableCell className="text-sm text-muted-foreground">
+									{r.training_type === "triage" ? "分诊" : r.training_type === "history_taking" ? "问诊" : r.training_type || "-"}
+								</TableCell>
 								<TableCell className="text-muted-foreground">
 									{new Date(r.start_time).toLocaleDateString("zh-CN")}
 								</TableCell>
@@ -124,6 +129,8 @@ export default function RecentTrainingTable({
 							<div className="min-w-0 flex-1">
 								<div className="text-sm font-medium truncate">{r.case_name}</div>
 								<div className="text-xs text-muted-foreground">
+									{r.training_type === "triage" ? "分诊" : r.training_type === "history_taking" ? "问诊" : r.training_type || ""}
+									{r.training_type ? " · " : ""}
 									{new Date(r.start_time).toLocaleDateString("zh-CN")}
 								</div>
 							</div>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck, Eye, Loader2, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getMyResponses } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -102,6 +102,7 @@ function ResponseDetailModal({
 
 export default function MyResponses() {
 	const [offset, setOffset] = useState(0);
+	const [statusFilter, setStatusFilter] = useState("");
 	const [detailResponse, setDetailResponse] = useState<ResponseItem | null>(
 		null,
 	);
@@ -114,8 +115,13 @@ export default function MyResponses() {
 		staleTime: 5 * 60_000,
 	});
 
-	const responses = data?.items ?? [];
+	const rawResponses = data?.items ?? [];
 	const total = data?.total ?? 0;
+
+	const responses = useMemo(() => {
+		if (!statusFilter) return rawResponses;
+		return rawResponses.filter((r) => r.status === statusFilter);
+	}, [rawResponses, statusFilter]);
 
 	return (
 		<>
@@ -124,6 +130,18 @@ export default function MyResponses() {
 				subtitle="查看你提交过的前后测问卷回答记录"
 				icon={ClipboardCheck}
 			/>
+
+			<div className="flex items-center gap-2 mb-4">
+				<select
+					value={statusFilter}
+					onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
+					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
+				>
+					<option value="">全部状态</option>
+					<option value="completed">已完成</option>
+					<option value="in_progress">进行中</option>
+				</select>
+			</div>
 
 			<div className="space-y-4">
 				{isLoading ? (
