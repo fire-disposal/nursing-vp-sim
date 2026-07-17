@@ -57,7 +57,7 @@ if $HAS_ALEMBIC; then
 
   if $HAS_PSQL; then
     if $TOCMD psql -d postgres -c "CREATE DATABASE \"$TEMP_DB\";" >/dev/null 2>&1; then
-      trap "$TOCMD psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEMP_DB\\\";\" >/dev/null 2>&1" EXIT
+      trap "$TOCMD psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEMP_DB\\\" WITH (FORCE);\" >/dev/null 2>&1 || true" EXIT
     else
       fail "cannot create temp database $TEMP_DB"
       cd "$ROOT" || exit 1
@@ -104,7 +104,7 @@ if git diff --cached --name-only -- 'backend/migrations/versions/*.py' 2>/dev/nu
 fi
 
 pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
-today=$(TZ=Asia/Shanghai date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
+today=$(date -u -d '+8 hours' +%Y.%m.%d 2>/dev/null || TZ=Asia/Shanghai date +%Y.%m.%d 2>/dev/null || echo "")
 
 if [ -z "$today" ]; then
   echo "  WARNING: cannot determine today's date, date validation skipped"
