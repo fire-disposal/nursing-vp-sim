@@ -42,17 +42,14 @@ class AssignmentRepository(Repository[Assignment]):
             .scalar_subquery()
         )
 
-        q = (
-            self.db.query(
-                Assignment,
-                student_sub.label("student_count"),
-                completed_sub.label("completed_count"),
-            )
-            .options(
-                joinedload(Assignment.practice),
-                joinedload(Assignment.class_),
-                joinedload(Assignment.teacher),
-            )
+        q = self.db.query(
+            Assignment,
+            student_sub.label("student_count"),
+            completed_sub.label("completed_count"),
+        ).options(
+            joinedload(Assignment.practice),
+            joinedload(Assignment.class_),
+            joinedload(Assignment.teacher),
         )
 
         if teacher_id is not None:

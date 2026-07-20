@@ -52,6 +52,17 @@ All run from monorepo root.
 
 **These files are read-only for humans.** Editing them causes `pnpm run check:api` to fail CI and will be overwritten on next regeneration. Any type mismatch means the backend schema changed — regenerate, don't patch.
 
+## File Naming Convention
+
+Router 文件使用复数命名（对应 URL 路径），Service / Repository / Model 文件使用单数命名（对应业务实体）。
+
+| Layer | Convention | Examples |
+|-------|-----------|----------|
+| `routers/` | **plural** | `cases.py`, `users.py`, `records.py`, `assignments.py`, `stats.py` |
+| `services/` | **singular** | `case.py`, `user.py`, `record.py`, `assignment.py`, `stats.py` |
+| `repositories/` | **singular** | `case.py`, `user.py` (training/log 类使用 `llm_log.py`, `voice_log.py`) |
+| `models/` | **domain** | `auth.py`, `case_practice.py`, `training.py`, `llm.py`, `voice.py` |
+
 ## Python Environment
 
 Always `uv run` from `backend/`. Never call `.venv/Scripts/python.exe` directly.

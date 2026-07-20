@@ -1,7 +1,6 @@
 from models._base import TimestampMixin, _now_utc
 from models.auth import Role, RolePermission, User
 from models.case_practice import Assignment, Case, Practice
-from models.infra import RateLimitEntry
 from models.llm import ApiSecret, LLMCallLog, LLMConfig
 from models.org import Class, Grade, UserClass
 from models.qa import KnowledgeChunk, QARecord, QASession
@@ -12,6 +11,7 @@ from models.questionnaire import (
     QuestionnaireResponse,
     QuestionnaireTemplate,
 )
+from models.rate_limit import RateLimitEntry
 from models.training import (
     Message,
     NursingRecord,

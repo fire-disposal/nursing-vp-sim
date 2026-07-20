@@ -10,17 +10,10 @@ from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from models import ApiSecret, LLMConfig
-from repositories.base import Repository
+from repositories.llm_config import LLMConfigRepository
+from repositories.secret import ApiSecretRepository
 
 log = logging.getLogger(__name__)
-
-
-class ApiSecretRepository(Repository[ApiSecret]):
-    model = ApiSecret
-
-
-class LLMConfigRepository(Repository[LLMConfig]):
-    model = LLMConfig
 
 
 class ApiSecretService:

@@ -1,9 +1,47 @@
 """Data access layer."""
 
+from .assignment import AssignmentRepository
 from .base import SyncRepository
 from .case import CaseRepository
+from .class_ import ClassRepository
+from .feedback import FeedbackRepository
+from .grade import GradeRepository
+from .llm_config import LLMConfigRepository
+from .llm_log import LLMCallLogRepository
+from .notification import SystemNotificationRepository
 from .practice import PracticeRepository
+from .questionnaire import (
+    QuestionnaireQuestionRepository,
+    QuestionnaireResponseRepository,
+    QuestionnaireTemplateRepository,
+)
+from .role import RoleRepository
+from .rubric import get_rubric_version_id, load_rubric, validate_dimensions
+from .secret import ApiSecretRepository
 from .training import TrainingRepository
 from .user import UserRepository
+from .voice_log import VoiceCallLogRepository
 
-__all__ = ["CaseRepository", "PracticeRepository", "SyncRepository", "TrainingRepository", "UserRepository"]
+__all__ = [
+    "ApiSecretRepository",
+    "AssignmentRepository",
+    "CaseRepository",
+    "ClassRepository",
+    "FeedbackRepository",
+    "GradeRepository",
+    "LLMCallLogRepository",
+    "LLMConfigRepository",
+    "PracticeRepository",
+    "QuestionnaireQuestionRepository",
+    "QuestionnaireResponseRepository",
+    "QuestionnaireTemplateRepository",
+    "RoleRepository",
+    "SyncRepository",
+    "SystemNotificationRepository",
+    "TrainingRepository",
+    "UserRepository",
+    "VoiceCallLogRepository",
+    "get_rubric_version_id",
+    "load_rubric",
+    "validate_dimensions",
+]
