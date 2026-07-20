@@ -52,6 +52,8 @@ class RecordBriefView:
     start_time: datetime
     end_time: datetime | None
     score_total: float | None
+    assignment_id: str | None = None
+    assignment_title: str | None = None
 
 
 @dataclass
@@ -348,6 +350,8 @@ class UserService:
                 start_time=r.start_time,
                 end_time=r.end_time,
                 score_total=r.score.total_score if r.score else None,
+                assignment_id=r.assignment_id,
+                assignment_title=r.assignment.title if r.assignment else None,
             )
             for r in self.repo.recent_records(user_id, _DETAIL_RECENT_LIMIT)
         ]

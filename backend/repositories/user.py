@@ -143,6 +143,7 @@ class UserRepository(Repository[User]):
             .options(
                 joinedload(TrainingRecord.case),
                 joinedload(TrainingRecord.score),
+                joinedload(TrainingRecord.assignment),
             )
             .filter(TrainingRecord.user_id == user_id)
             .order_by(TrainingRecord.start_time.desc())

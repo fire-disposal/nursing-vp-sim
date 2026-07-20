@@ -24,6 +24,7 @@ class PracticeView:
     training_count: int
     created_at: datetime
     updated_at: datetime
+    assignment_count: int = 0
 
 
 class PracticeService:
@@ -31,7 +32,7 @@ class PracticeService:
         self.db = db
         self.repo = PracticeRepository(db)
 
-    def _view(self, p: Practice, training_count: int = 0) -> PracticeView:
+    def _view(self, p: Practice, training_count: int = 0, assignment_count: int = 0) -> PracticeView:
         return PracticeView(
             id=p.id,
             name=p.name,
@@ -43,6 +44,7 @@ class PracticeService:
             behavior=p.behavior or {},
             is_active=p.is_active,
             training_count=training_count,
+            assignment_count=assignment_count,
             created_at=p.created_at,
             updated_at=p.updated_at,
         )
@@ -51,7 +53,8 @@ class PracticeService:
         practices, total = self.repo.list_with_cases(offset, limit)
         ids = [p.id for p in practices]
         counts = self.repo.training_counts(ids)
-        views = [self._view(p, counts.get(p.id, 0)) for p in practices]
+        ac_counts = self.repo.assignment_counts(ids)
+        views = [self._view(p, counts.get(p.id, 0), ac_counts.get(p.id, 0)) for p in practices]
         return views, total
 
     def get(self, practice_id: int) -> PracticeView:

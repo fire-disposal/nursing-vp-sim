@@ -51,6 +51,7 @@ class AssignmentRepository(Repository[Assignment]):
             .options(
                 joinedload(Assignment.practice),
                 joinedload(Assignment.class_),
+                joinedload(Assignment.teacher),
             )
         )
 

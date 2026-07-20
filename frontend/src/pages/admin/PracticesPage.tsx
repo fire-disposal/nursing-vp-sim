@@ -44,6 +44,8 @@ interface PracticeRow {
 	features?: Record<string, boolean>;
 	behavior?: { time_limit_minutes?: number };
 	training_count?: number;
+	assignment_count?: number;
+	is_active?: boolean;
 }
 
 interface CaseOption {
@@ -60,6 +62,7 @@ const DEFAULT_VALUES: PracticeValues = {
 	case_id: 0,
 	features: {},
 	time_limit: 20,
+	is_active: true,
 };
 
 export default function PracticesPage({ embedded = false }: { embedded?: boolean }) {
@@ -120,6 +123,7 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 				time_limit:
 					(d.behavior as { time_limit_minutes?: number })
 						?.time_limit_minutes ?? 20,
+				is_active: (d as any).is_active !== false,
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
@@ -136,6 +140,7 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			behavior: {
 				time_limit_minutes: values.time_limit,
 			},
+			is_active: values.is_active,
 		};
 		try {
 			if (editingId) {
@@ -216,6 +221,22 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 			render: (p) => `${p.behavior?.time_limit_minutes ?? 20} 分钟`,
 		},
 		{ key: "training_count", header: "训练次数", cellClassName: "text-sm" },
+		{
+			key: "assignment_count",
+			header: "作业数",
+			cellClassName: "text-sm",
+			render: (p) => (p.assignment_count ?? 0) > 0 ? String(p.assignment_count) : "-",
+		},
+		{
+			key: "is_active",
+			header: "状态",
+			cellClassName: "text-xs",
+			render: (p) => p.is_active === false ? (
+				<span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">已停用</span>
+			) : (
+				<span className="inline-flex items-center rounded bg-success/10 px-1.5 py-0.5 text-[11px] text-success-foreground">启用</span>
+			),
+		},
 		{
 			key: "actions",
 			header: "操作",
@@ -433,6 +454,26 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 										</FormItem>
 									);
 								}}
+							/>
+							<FormField
+								control={form.control}
+								name="is_active"
+								render={({ field }) => (
+									<FormItem>
+										<div className="flex items-center gap-2 pt-2">
+											<FormControl>
+												<input
+													type="checkbox"
+													checked={field.value}
+													onChange={(e) => field.onChange(e.target.checked)}
+													className="rounded border-border"
+												/>
+											</FormControl>
+											<FormLabel className="!mt-0 cursor-pointer">启用此练习模板</FormLabel>
+										</div>
+										<FormMessage />
+									</FormItem>
+								)}
 							/>
 							<DialogFooter>
 								<Button

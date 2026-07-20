@@ -8632,6 +8632,11 @@
             "title": "Class Name",
             "default": ""
           },
+          "teacher_name": {
+            "type": "string",
+            "title": "Teacher Name",
+            "default": ""
+          },
           "start_time": {
             "type": "string",
             "format": "date-time",
@@ -11472,6 +11477,11 @@
             "title": "Training Count",
             "default": 0
           },
+          "assignment_count": {
+            "type": "integer",
+            "title": "Assignment Count",
+            "default": 0
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -14019,6 +14029,28 @@
             "type": "boolean",
             "title": "Is Test",
             "default": false
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          },
+          "assignment_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Title"
           }
         },
         "type": "object",

@@ -407,6 +407,9 @@ export default function TeacherRecordsPage() {
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
 											类型
 										</TableHead>
+										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
+											来源
+										</TableHead>
 										<TableHead
 											className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none"
 											onClick={() => handleSort("start_time")}
@@ -455,6 +458,13 @@ export default function TeacherRecordsPage() {
 														<Badge variant="info">分诊</Badge>
 													) : (
 														<Badge variant="secondary">问诊</Badge>
+													)}
+												</TableCell>
+												<TableCell className="text-xs text-muted-foreground">
+													{(r as any).assignment_title ? (
+														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
+													) : (
+														<span className="text-muted-foreground/40">自由训练</span>
 													)}
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground">

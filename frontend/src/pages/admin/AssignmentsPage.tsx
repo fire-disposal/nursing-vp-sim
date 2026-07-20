@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Plus, Trash2, XCircle } from "lucide-react";
+import { Edit, Eye, Plus, Search, Trash2, XCircle } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -41,6 +41,7 @@ interface AssignmentRow {
 	title: string;
 	practice_name?: string;
 	class_name?: string;
+	teacher_name?: string;
 	start_time: string;
 	end_time: string;
 	student_count?: number;
@@ -98,6 +99,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const [searchParams, setSearchParams] = useSearchParams();
 	const classId = searchParams.get("class_id") || "";
 	const statusFilter = searchParams.get("status") || "";
+	const [search, setSearch] = useState("");
 
 	const updateParam = useCallback(
 		(key: string, value: string) => {
@@ -144,6 +146,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const assignments = (listData?.items ?? []) as unknown as AssignmentRow[];
 	const practices = (practicesData?.items ?? []) as unknown as PracticeOption[];
 	const classes = (classesData ?? []) as unknown as ClassOption[];
+
+	const filteredAssignments = search
+		? assignments.filter((a) => a.title?.toLowerCase().includes(search.toLowerCase()))
+		: assignments;
 
 	const openCreate = () => {
 		setEditingId(null);
@@ -239,6 +245,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			cellClassName: "text-sm text-muted-foreground",
 		},
 		{ key: "class_name", header: "班级", cellClassName: "text-sm" },
+		{ key: "teacher_name", header: "教师", cellClassName: "text-sm text-muted-foreground" },
 		{
 			key: "window",
 			header: "时间窗口",
@@ -254,7 +261,14 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					? `${a.completed_count}/${a.student_count}`
 					: "-",
 		},
-		{ key: "status", header: "状态", render: (a) => statusBadge(a) },
+		{ key: "status", header: "状态", render: (a) => (
+			<div className="flex items-center gap-1.5">
+				{statusBadge(a)}
+				{(a as any).is_closed && (
+					<span className="inline-flex items-center rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">已关闭</span>
+				)}
+			</div>
+		)},
 		{
 			key: "actions",
 			header: "操作",
@@ -319,6 +333,16 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			/>
 			)}
 			<div className="flex flex-wrap items-center gap-3 mb-4">
+				<div className="relative flex-1 max-w-xs">
+					<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+					<input
+						type="text"
+						placeholder="搜索标题..."
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card"
+					/>
+				</div>
 				<ClassFilter
 					classId={classId ? Number(classId) : undefined}
 					onChange={(params) => {
@@ -338,7 +362,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 
 		<ResponsiveTable<AssignmentRow>
 			columns={columns}
-			rows={assignments}
+			rows={filteredAssignments}
 			rowKey={(a) => a.id}
 			loading={isLoading}
 			emptyIcon={Plus}

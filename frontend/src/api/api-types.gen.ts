@@ -2425,6 +2425,11 @@ export interface components {
              */
             class_name: string;
             /**
+             * Teacher Name
+             * @default
+             */
+            teacher_name: string;
+            /**
              * Start Time
              * Format: date-time
              */
@@ -3599,6 +3604,11 @@ export interface components {
              */
             training_count: number;
             /**
+             * Assignment Count
+             * @default 0
+             */
+            assignment_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -4550,6 +4560,10 @@ export interface components {
              * @default false
              */
             is_test: boolean;
+            /** Assignment Id */
+            assignment_id?: string | null;
+            /** Assignment Title */
+            assignment_title?: string | null;
         };
         /** TrainingRecordDetail */
         TrainingRecordDetail: {

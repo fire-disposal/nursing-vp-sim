@@ -70,6 +70,8 @@ def _detail(v: StudentDetailView) -> StudentDetail:
                 start_time=r.start_time,
                 end_time=r.end_time,
                 score_total=r.score_total,
+                assignment_id=r.assignment_id,
+                assignment_title=r.assignment_title,
             )
             for r in v.recent_records
         ],

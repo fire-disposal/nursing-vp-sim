@@ -219,7 +219,12 @@ export default function History() {
 										>
 											<div className="flex items-start justify-between gap-2">
 												<div className="min-w-0 flex-1">
-													<div className="text-sm font-semibold truncate">{r.case_name}</div>
+													<div className="flex items-center gap-2">
+														<div className="text-sm font-semibold truncate">{r.case_name}</div>
+														{(r as any).assignment_title && (
+															<span className="shrink-0 inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[10px] text-primary">作业</span>
+														)}
+													</div>
 													<div className="text-xs text-muted-foreground mt-0.5">
 														{new Date(r.start_time).toLocaleString("zh-CN", {
 															month: "numeric", day: "numeric",
@@ -312,6 +317,9 @@ export default function History() {
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
 											类型
 										</TableHead>
+										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
+											来源
+										</TableHead>
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
 											开始时间
 										</TableHead>
@@ -348,6 +356,13 @@ export default function History() {
 														<Badge variant="info">分诊</Badge>
 													) : (
 														<Badge variant="secondary">问诊</Badge>
+													)}
+												</TableCell>
+												<TableCell className="text-xs text-muted-foreground">
+													{(r as any).assignment_title ? (
+														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
+													) : (
+														<span className="text-muted-foreground/40">自由训练</span>
 													)}
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground hidden sm:table-cell">

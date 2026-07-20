@@ -8,10 +8,11 @@ import { cn } from "@/utils/cn";
 type Assignment = components["schemas"]["StudentAssignmentItem"];
 
 function dueLabel(endTime: string): { text: string; urgent: boolean } {
-	const hoursLeft = Math.ceil(
-		(new Date(endTime).getTime() - Date.now()) / (1000 * 60 * 60),
-	);
-	if (hoursLeft <= 0) return { text: "即将截止", urgent: true };
+	const diffMs = new Date(endTime).getTime() - Date.now();
+	const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+	const minsLeft = Math.ceil(diffMs / (1000 * 60));
+	if (minsLeft <= 0) return { text: "即将截止", urgent: true };
+	if (minsLeft < 60) return { text: `剩 ${minsLeft} 分钟`, urgent: true };
 	if (hoursLeft <= 24) return { text: `剩 ${hoursLeft} 小时`, urgent: true };
 	return { text: `剩 ${Math.ceil(hoursLeft / 24)} 天`, urgent: false };
 }
@@ -22,7 +23,7 @@ export default function AssignmentCardList({
 	onViewResult,
 }: {
 	studentAssignments: Assignment[];
-	onStart: (id: string) => void;
+	onStart: (id: string) => Promise<void>;
 	onViewResult?: (recordId: number) => void;
 }) {
 	const [startingId, setStartingId] = useState<string | null>(null);
@@ -109,24 +110,33 @@ export default function AssignmentCardList({
 								)}
 							</div>
 
-							{isClosed ? null : isCompleted && a.score_total != null ? (
+							{isClosed ? null : isCompleted ? (
 								<div className="mt-auto flex items-end justify-between">
-									<div>
-										<span className="text-2xl font-bold text-primary">
-											{a.score_total}
-										</span>
-										<span className="ml-0.5 text-xs text-muted-foreground">
-											分
-										</span>
-									</div>
-									{onViewResult && a.record_id != null && (
-										<Button
-											size="xs"
-											variant="outline"
-											onClick={() => onViewResult(a.record_id as number)}
-										>
-											查看结果
-										</Button>
+									{a.score_total != null ? (
+										<>
+											<div>
+												<span className="text-2xl font-bold text-primary">
+													{a.score_total}
+												</span>
+												<span className="ml-0.5 text-xs text-muted-foreground">
+													分
+												</span>
+											</div>
+											{onViewResult && a.record_id != null && (
+												<Button
+													size="xs"
+													variant="outline"
+													onClick={() => onViewResult(a.record_id as number)}
+												>
+													查看结果
+												</Button>
+											)}
+										</>
+									) : (
+										<div className="flex items-center gap-2">
+											<Loader2 size={14} className="animate-spin text-muted-foreground" />
+											<span className="text-xs text-muted-foreground">评分中...</span>
+										</div>
 									)}
 								</div>
 							) : isClosed ? (
@@ -139,9 +149,13 @@ export default function AssignmentCardList({
 									variant={isOverdue ? "outline" : "default"}
 									className="mt-auto w-full"
 									disabled={startingId === a.id}
-									onClick={() => {
+									onClick={async () => {
 										setStartingId(a.id);
-										onStart(a.id);
+										try {
+											await onStart(a.id);
+										} catch {
+											setStartingId(null);
+										}
 									}}
 								>
 									{startingId === a.id ? (

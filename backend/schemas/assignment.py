@@ -32,6 +32,7 @@ class AssignmentListItem(BaseModel):
     title: str
     practice_name: str = ""
     class_name: str = ""
+    teacher_name: str = ""
     start_time: datetime
     end_time: datetime
     student_count: int = 0

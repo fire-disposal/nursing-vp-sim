@@ -49,6 +49,8 @@ class TrainingRecordBrief(BaseModel):
     end_time: datetime | None
     score_total: float | None = None
     is_test: bool = False
+    assignment_id: str | None = None
+    assignment_title: str | None = None
 
 
 class MessageItem(BaseModel):

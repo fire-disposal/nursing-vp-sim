@@ -32,10 +32,12 @@ def _resp(view) -> PracticeItem:
         description=view.description,
         case_id=view.case_id,
         case_name=view.case_name,
+        training_type=view.training_type,
         features=view.features,
         behavior=view.behavior,
         is_active=view.is_active,
         training_count=view.training_count,
+        assignment_count=view.assignment_count,
         created_at=view.created_at,
         updated_at=view.updated_at,
     )

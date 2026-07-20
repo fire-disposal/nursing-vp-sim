@@ -57,6 +57,7 @@ export default function StudentDashboard({
 			navigate(`/training/${res.data.record_id}`);
 		} catch (e: unknown) {
 			toast.error(e instanceof Error ? e.message : "开始练习失败");
+			throw e;
 		}
 	};
 

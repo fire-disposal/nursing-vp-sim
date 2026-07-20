@@ -36,6 +36,7 @@ def _list_resp(view) -> AssignmentListItem:
         title=view.title,
         practice_name=view.practice_name,
         class_name=view.class_name,
+        teacher_name=view.teacher_name,
         start_time=view.start_time,
         end_time=view.end_time,
         student_count=view.student_count,

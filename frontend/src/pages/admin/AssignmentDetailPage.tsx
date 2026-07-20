@@ -93,6 +93,10 @@ export default function AssignmentDetailPage() {
 		return result;
 	}, [data?.students, studentSearch, statusFilter]);
 
+	const allStudents = (data?.students as any[] | undefined) ?? [];
+	const notStartedCount = allStudents.filter((s: any) => s.status === "not_started").length;
+	const overdueCount = allStudents.filter((s: any) => s.status === "overdue").length;
+
 	if (isLoading) return <LoadingSkeleton />;
 	if (error || !data)
 		return (
@@ -112,10 +116,10 @@ export default function AssignmentDetailPage() {
 				}
 				actions={
 					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							onClick={() => navigate("/admin/assignments")}
-						>
+					<Button
+						variant="outline"
+						onClick={() => navigate("/admin/practices?tab=assignments")}
+					>
 							<ArrowLeft size={16} className="mr-1" />
 							返回
 						</Button>
@@ -127,7 +131,7 @@ export default function AssignmentDetailPage() {
 				}
 			/>
 
-			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+			<div className="grid grid-cols-2 md:grid-cols-7 gap-4">
 				<Card>
 					<CardHeader className="pb-2">
 						<CardTitle className="text-xs font-medium text-muted-foreground">
@@ -147,6 +151,30 @@ export default function AssignmentDetailPage() {
 					<CardContent>
 						<div className="text-2xl font-bold text-success-foreground">
 							{detail.completed_count}
+						</div>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-medium text-muted-foreground">
+							未开始
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-muted-foreground">
+							{notStartedCount}
+						</div>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-medium text-muted-foreground">
+							已逾期
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-destructive">
+							{overdueCount}
 						</div>
 					</CardContent>
 				</Card>
@@ -250,7 +278,19 @@ export default function AssignmentDetailPage() {
 								<TableCell className="text-xs font-mono">
 									{s.student_id || "-"}
 								</TableCell>
-								<TableCell className="font-medium">{s.display_name}</TableCell>
+								<TableCell className="font-medium">
+									{s.record_id != null ? (
+										<button
+											type="button"
+											className="text-primary hover:underline cursor-pointer"
+											onClick={() => navigate(`/record/${s.record_id}`)}
+										>
+											{s.display_name}
+										</button>
+									) : (
+										s.display_name
+									)}
+								</TableCell>
 								<TableCell>{statusBadge(s.status)}</TableCell>
 								<TableCell className="text-xs text-muted-foreground">{s.attempt_count > 0 ? s.attempt_count : "-"}</TableCell>
 								<TableCell>

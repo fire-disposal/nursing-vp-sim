@@ -24,6 +24,7 @@ class AssignmentListView:
     student_count: int
     completed_count: int
     created_at: datetime
+    teacher_name: str = ""
     is_closed: bool = False
 
 
@@ -217,6 +218,7 @@ class AssignmentService:
                 title=r[0].title,
                 practice_name=r[0].practice.name if r[0].practice else "",
                 class_name=r[0].class_.name if r[0].class_ else "",
+                teacher_name=r[0].teacher.display_name if r[0].teacher else "",
                 start_time=r[0].start_time,
                 end_time=r[0].end_time,
                 student_count=r[1],

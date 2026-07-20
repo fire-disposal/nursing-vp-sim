@@ -37,6 +37,7 @@ class PracticeItem(BaseModel):
     behavior: dict[str, Any] = Field(default_factory=dict)
     is_active: bool = True
     training_count: int = 0
+    assignment_count: int = 0
     created_at: datetime
     updated_at: datetime
 

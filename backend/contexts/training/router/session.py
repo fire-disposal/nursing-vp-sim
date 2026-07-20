@@ -317,6 +317,10 @@ def start_training_from_assignment(
     if assignment.is_closed:
         raise HTTPException(status_code=400, detail="该作业已被教师关闭")
 
+    now = datetime.now(UTC)
+    if assignment.start_time and now < ensure_utc(assignment.start_time):
+        raise HTTPException(status_code=400, detail="该作业尚未开始，请在开放时间后再试")
+
     user_class = (
         db.query(UserClass)
         .filter(
@@ -440,6 +444,7 @@ def get_records(
         joinedload(TrainingRecord.case),
         joinedload(TrainingRecord.user),
         joinedload(TrainingRecord.score),
+        joinedload(TrainingRecord.assignment),
     ).order_by(TrainingRecord.start_time.desc())
 
     records, total = paginate(query, offset, limit)
@@ -459,6 +464,8 @@ def get_records(
             scoring_status=r.scoring_status,
             scoring_error=r.scoring_error,
             is_test=r.is_test,
+            assignment_id=r.assignment_id,
+            assignment_title=r.assignment.title if r.assignment else None,
         )
         for r in records
     ]

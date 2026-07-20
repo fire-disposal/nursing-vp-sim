@@ -34,3 +34,14 @@ class PracticeRepository(Repository[Practice]):
 
     def assignment_count(self, practice_id: int) -> int:
         return (self.db.query(func.count(Assignment.id)).filter(Assignment.practice_id == practice_id).scalar()) or 0
+
+    def assignment_counts(self, practice_ids: list[int]) -> dict[int, int]:
+        if not practice_ids:
+            return {}
+        rows = (
+            self.db.query(Assignment.practice_id, func.count(Assignment.id))
+            .filter(Assignment.practice_id.in_(practice_ids))
+            .group_by(Assignment.practice_id)
+            .all()
+        )
+        return {pid: cnt for pid, cnt in rows}
