@@ -74,7 +74,7 @@ export default function QuestionnairesTab() {
 	const total = templatesData?.total ?? 0;
 
 	const { data: casesData } = useQuery({
-		queryKey: queryKeys.cases.all,
+		queryKey: queryKeys.cases.student(),
 		queryFn: () =>
 			getCases({ limit: 1000 }).then((r) => r.data),
 		enabled: showAssign,

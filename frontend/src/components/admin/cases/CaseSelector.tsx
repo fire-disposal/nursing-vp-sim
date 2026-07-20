@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/utils/cn";
 
@@ -13,6 +13,7 @@ interface CaseSelectorProps {
 	cases: CaseOption[];
 	value: number;
 	onChange: (id: number) => void;
+	loading?: boolean;
 }
 
 const TRAINING_TYPE_LABELS: Record<string, string> = {
@@ -32,7 +33,7 @@ const DIFFICULTY_COLORS: Record<number, string> = {
 	3: "bg-rose-100 text-rose-700",
 };
 
-export default function CaseSelector({ cases, value, onChange }: CaseSelectorProps) {
+export default function CaseSelector({ cases, value, onChange, loading }: CaseSelectorProps) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const ref = useRef<HTMLDivElement>(null);
@@ -110,7 +111,12 @@ export default function CaseSelector({ cases, value, onChange }: CaseSelectorPro
 						/>
 					</div>
 					<div className="max-h-[280px] overflow-y-auto py-1">
-						{filtered.length === 0 ? (
+						{loading ? (
+							<div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
+								<Loader2 size={14} className="animate-spin" />
+								加载中...
+							</div>
+						) : filtered.length === 0 ? (
 							<div className="px-3 py-6 text-center text-sm text-muted-foreground">
 								{search ? "无匹配病例" : "暂无可选病例"}
 							</div>

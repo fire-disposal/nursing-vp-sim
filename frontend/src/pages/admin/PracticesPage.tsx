@@ -95,8 +95,8 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 		queryFn: () => getPractices({ offset, limit: LIMIT }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
-	const { data: casesData } = useQuery({
-		queryKey: queryKeys.cases.all,
+	const { data: casesData, isLoading: casesLoading } = useQuery({
+		queryKey: queryKeys.cases.managed.all,
 		queryFn: () => getManageCases({ limit: 200 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
@@ -373,6 +373,7 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 												cases={cases}
 												value={field.value}
 												onChange={(id) => field.onChange(id)}
+												loading={casesLoading}
 											/>
 										</FormControl>
 										<FormMessage />
