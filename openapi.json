@@ -6059,6 +6059,36 @@
               ],
               "title": "Class Id"
             }
+          },
+          {
+            "name": "training_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按训练类型筛选(history_taking/triage)",
+              "title": "Training Type"
+            },
+            "description": "按训练类型筛选(history_taking/triage)"
+          },
+          {
+            "name": "exclude_is_test",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "排除试跑记录",
+              "default": true,
+              "title": "Exclude Is Test"
+            },
+            "description": "排除试跑记录"
           }
         ],
         "responses": {
@@ -9310,6 +9340,14 @@
             "type": "string",
             "title": "Patient Personality",
             "default": ""
+          },
+          "capabilities": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Capabilities",
+            "default": {}
           },
           "is_open": {
             "type": "boolean",

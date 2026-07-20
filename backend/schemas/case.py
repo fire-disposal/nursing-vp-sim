@@ -75,6 +75,7 @@ class CaseManageItem(BaseModel):
     time_limit: int = 20
     difficulty: int = 1
     patient_personality: str = ""
+    capabilities: dict[str, bool] = {}
     is_open: bool = False
     created_at: datetime
     training_count: int = 0

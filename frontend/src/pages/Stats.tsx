@@ -48,6 +48,7 @@ import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
 import { cn } from "@/utils/cn";
+import { isAdminPermissions } from "@/utils/permissions";
 
 type TrendStats = components["schemas"]["TrendStats"];
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];
@@ -80,6 +81,7 @@ interface StatsContentProps {
 	setRankingOffset: (n: number) => void;
 	rankingTotal: number;
 	user: User | null;
+	hasTeacherView: boolean;
 	LIMIT?: number;
 }
 
@@ -89,6 +91,8 @@ export default function Stats() {
 	const [rankingOffset, setRankingOffset] = useState(0);
 	const _toast = useToast();
 	const user = useAuthStore((s) => s.user);
+	const permissions = useAuthStore((s) => s.permissions);
+	const hasTeacherView = isAdminPermissions(permissions);
 	const LIMIT = 50;
 
 	const { data: trends } = useQuery({
@@ -103,7 +107,7 @@ export default function Stats() {
 			getTeacherSummary({ offset: summaryOffset, limit: LIMIT }).then(
 				(r) => r.data,
 			),
-		enabled: user?.role === "teacher",
+		enabled: hasTeacherView,
 		staleTime: 2 * 60_000,
 	});
 
@@ -113,7 +117,7 @@ export default function Stats() {
 			getStudentRanking({ offset: rankingOffset, limit: LIMIT }).then(
 				(r) => r.data,
 			),
-		enabled: user?.role === "teacher",
+		enabled: hasTeacherView,
 		staleTime: 2 * 60_000,
 	});
 
@@ -136,6 +140,7 @@ export default function Stats() {
 			setRankingOffset={setRankingOffset}
 			rankingTotal={rankingTotal}
 			user={user}
+			hasTeacherView={hasTeacherView}
 		/>
 	);
 }
@@ -157,6 +162,7 @@ function StatsContent({
 	setRankingOffset,
 	rankingTotal,
 	user,
+	hasTeacherView,
 	LIMIT = 50,
 }: StatsContentProps) {
 	const daily: ChartDataItem[] = (trends?.daily || []).map((item: unknown) => {
@@ -177,7 +183,7 @@ function StatsContent({
 			<PageHeader
 				title="训练统计"
 				subtitle={
-					user?.role === "teacher"
+					hasTeacherView
 						? "查看所有学生的训练趋势、时长和得分统计"
 						: "查看你的训练投入与效果趋势"
 				}
@@ -364,7 +370,7 @@ function StatsContent({
 				</CardContent>
 			</Card>
 
-			{user?.role === "teacher" && summary && summary.length > 0 && (
+			{hasTeacherView && summary && summary.length > 0 && (
 				<Card className="mb-6">
 					<CardHeader className="flex-row items-center justify-between pb-2">
 						<CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -415,7 +421,7 @@ function StatsContent({
 				</Card>
 			)}
 
-			{user?.role === "teacher" && ranking && ranking.length > 0 && (
+			{hasTeacherView && ranking && ranking.length > 0 && (
 				<Card>
 					<CardHeader className="flex-row items-center justify-between pb-2">
 						<CardTitle className="flex items-center gap-2 text-sm font-semibold">

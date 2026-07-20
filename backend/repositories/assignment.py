@@ -22,7 +22,7 @@ class AssignmentRepository(Repository[Assignment]):
 
     def list_with_counts(
         self,
-        teacher_id: int,
+        teacher_id: int | None,
         class_id: int | None,
         status: str | None,
         now,
@@ -52,8 +52,10 @@ class AssignmentRepository(Repository[Assignment]):
                 joinedload(Assignment.practice),
                 joinedload(Assignment.class_),
             )
-            .filter(Assignment.teacher_id == teacher_id)
         )
+
+        if teacher_id is not None:
+            q = q.filter(Assignment.teacher_id == teacher_id)
 
         if class_id is not None:
             q = q.filter(Assignment.class_id == class_id)

@@ -4,7 +4,7 @@ import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useSearchParams } from "react-router-dom";
-import { getCases } from "@/api/cases";
+import { getManageCases } from "@/api/cases";
 import {
 	createPractice,
 	deletePractice,
@@ -93,8 +93,8 @@ export default function PracticesPage({ embedded = false }: { embedded?: boolean
 		staleTime: 2 * 60_000,
 	});
 	const { data: casesData } = useQuery({
-		queryKey: queryKeys.cases.options(),
-		queryFn: () => getCases().then((r) => r.data),
+		queryKey: queryKeys.cases.all,
+		queryFn: () => getManageCases({ limit: 200 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 

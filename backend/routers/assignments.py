@@ -109,8 +109,9 @@ def list_assignments(
     class_id: Annotated[int | None, Query()] = None,
     status: Annotated[str | None, Query(description="active|ended")] = None,
 ):
+    is_admin = current_user.has_permission("user_manage")
     items, total = AssignmentService(db).list_all(
-        teacher_id=current_user.id,
+        teacher_id=None if is_admin else current_user.id,
         class_id=class_id,
         status=status,
         offset=offset,
@@ -121,13 +122,15 @@ def list_assignments(
 
 @router.get("/{assignment_id}", response_model=AssignmentDetail)
 def get_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
-    return _detail_resp(AssignmentService(db).get(assignment_id, current_user.id))
+    is_admin = current_user.has_permission("user_manage")
+    return _detail_resp(AssignmentService(db).get(assignment_id, current_user.id, skip_ownership=is_admin))
 
 
 @router.put("/{assignment_id}", response_model=AssignmentDetail)
 def update_assignment(
     assignment_id: str, req: AssignmentUpdateRequest, current_user: _AssignmentManager, db: DbSession
 ):
+    is_admin = current_user.has_permission("user_manage")
     return _detail_resp(
         AssignmentService(db).update(
             assignment_id=assignment_id,
@@ -139,13 +142,15 @@ def update_assignment(
             start_time=req.start_time,
             end_time=req.end_time,
             is_closed=req.is_closed,
+            skip_ownership=is_admin,
         )
     )
 
 
 @router.delete("/{assignment_id}", response_model=DeleteResponse)
 def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
-    return AssignmentService(db).delete(assignment_id, current_user.id)
+    is_admin = current_user.has_permission("user_manage")
+    return AssignmentService(db).delete(assignment_id, current_user.id, skip_ownership=is_admin)
 
 
 # ── Export (non-CRUD, kept inline) ──
@@ -165,7 +170,7 @@ def export_assignment(
     )
     if not assignment:
         raise NotFoundError("练习发布不存在")
-    if assignment.teacher_id != current_user.id:
+    if assignment.teacher_id != current_user.id and not current_user.has_permission("user_manage"):
         raise AuthError("无权导出", status_code=403)
 
     service = AssignmentService(db)

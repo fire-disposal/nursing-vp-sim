@@ -66,6 +66,7 @@ def _to_manage_item(v: CaseManageView) -> CaseManageItem:
         time_limit=v.time_limit,
         difficulty=v.difficulty,
         patient_personality=v.patient_personality,
+        capabilities=v.capabilities,
         is_open=v.is_open,
         created_at=v.created_at,
         training_count=v.training_count,

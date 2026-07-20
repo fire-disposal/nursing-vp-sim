@@ -45,6 +45,7 @@ class CaseManageView:
     time_limit: int
     difficulty: int
     patient_personality: str
+    capabilities: dict
     is_open: bool
     created_at: datetime
     training_count: int
@@ -71,6 +72,7 @@ class CaseService:
             time_limit=cd.get("time_limit", 20),
             difficulty=cd.get("difficulty", 1),
             patient_personality=_personality_label(personality),
+            capabilities=cd.get("capabilities", {}),
             is_open=case.is_open,
             created_at=case.created_at,
             training_count=training_count,

@@ -2709,6 +2709,13 @@ export interface components {
              */
             patient_personality: string;
             /**
+             * Capabilities
+             * @default {}
+             */
+            capabilities: {
+                [key: string]: boolean;
+            };
+            /**
              * Is Open
              * @default false
              */
@@ -8490,6 +8497,10 @@ export interface operations {
                 /** @description 结束日期 ISO 格式 (含) */
                 date_to?: string | null;
                 class_id?: number | null;
+                /** @description 按训练类型筛选(history_taking/triage) */
+                training_type?: string | null;
+                /** @description 排除试跑记录 */
+                exclude_is_test?: boolean;
             };
             header?: never;
             path?: never;

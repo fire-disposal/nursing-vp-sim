@@ -204,7 +204,7 @@ class AssignmentService:
 
     def list_all(
         self,
-        teacher_id: int,
+        teacher_id: int | None,
         class_id: int | None,
         status: str | None,
         offset: int,
@@ -228,11 +228,11 @@ class AssignmentService:
         ]
         return items, total
 
-    def get(self, assignment_id: str, teacher_id: int) -> AssignmentDetailView:
+    def get(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> AssignmentDetailView:
         assignment = self.repo.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
-        if assignment.teacher_id != teacher_id:
+        if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权查看", status_code=403)
         return self._build_detail_view(assignment)
 
@@ -247,11 +247,12 @@ class AssignmentService:
         start_time: datetime | None,
         end_time: datetime | None,
         is_closed: bool | None = None,
+        skip_ownership: bool = False,
     ) -> AssignmentDetailView:
         assignment = self.repo.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
-        if assignment.teacher_id != teacher_id:
+        if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
 
         if practice_id is not None or class_id is not None:
@@ -287,11 +288,11 @@ class AssignmentService:
         self.db.refresh(assignment)
         return self._build_detail_view(assignment)
 
-    def delete(self, assignment_id: str, teacher_id: int) -> dict:
+    def delete(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> dict:
         assignment = self.db.query(Assignment).filter(Assignment.id == assignment_id).with_for_update().first()
         if not assignment:
             raise NotFoundError("练习发布不存在")
-        if assignment.teacher_id != teacher_id:
+        if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权删除", status_code=403)
 
         if self.repo.has_any_records(assignment_id):
