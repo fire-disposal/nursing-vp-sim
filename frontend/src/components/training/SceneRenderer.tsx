@@ -5,15 +5,7 @@ import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useExamBridge } from "@/hooks/useExamBridge";
-import { getSceneCards } from "./scene-cards/registry";
-
-const ICONS: Record<string, string> = {
-  "patient-info":   "👤",
-  "inquiry":        "📋",
-  "physical-exam":  "💓",
-  "nursing-record": "📄",
-  "mews":           "📊",
-};
+import { getSceneCards, CARD_META } from "./scene-cards/registry";
 
 const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
 const PANEL_WIDTH_WIDE = 400;
@@ -87,7 +79,7 @@ export function SceneRenderer() {
               title={cap?.label ?? card.id}
               style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
             >
-              <span className="text-sm">{ICONS[card.id] ?? "◻"}</span>
+              <span className="text-sm">{CARD_META[card.id]?.icon ?? "◻"}</span>
             </button>
           );
         })}
@@ -104,7 +96,7 @@ export function SceneRenderer() {
               className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 select-none"
             >
               <span className="text-xs font-medium text-muted-foreground">
-                {ICONS[activeCard.id] ?? "◻"} {ALL_CAPABILITIES[activeCard.featureFlag ?? ""]?.label ?? activeCard.id}
+                {CARD_META[activeCard.id]?.icon ?? "◻"} {CARD_META[activeCard.id]?.title ?? activeCard.id}
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={(e) => { e.stopPropagation(); toggleMinimize(activeCard.id) }}

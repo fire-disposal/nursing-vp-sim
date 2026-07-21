@@ -29,21 +29,3 @@ export interface SceneState {
   phase?: string;
   procedure_step?: number;
 }
-
-/** Bus protocol: well‑typed scene ↔ host events */
-export interface SceneBusProtocol {
-  "scene:interaction": [{ hotspotId: string; metadata?: Record<string, unknown> }];
-  "scene:state":      [Partial<SceneState>];
-  "scene:load":       [{ dsl: unknown }];
-  "scene:exam":       [{ op_type: string; value: string; label?: string; unit?: string }];
-  "tts:degraded":     [{ provider: string }];
-}
-
-/** Emit a scene event with correct payload type. */
-export function emitSceneEvent<K extends keyof SceneBusProtocol>(
-  bus: MessageBus,
-  event: K,
-  ...args: SceneBusProtocol[K]
-): void {
-  bus.emit(event, ...(args as unknown[]));
-}

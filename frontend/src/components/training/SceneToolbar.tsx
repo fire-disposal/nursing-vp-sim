@@ -12,23 +12,7 @@ import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useExamBridge } from "@/hooks/useExamBridge";
-import { getSceneCards } from "./scene-cards/registry";
-
-const ICONS: Record<string, string> = {
-	"patient-info":   "👤",
-	inquiry:          "📋",
-	"physical-exam":  "💓",
-	"nursing-record": "📄",
-	mews:             "📊",
-};
-
-const TITLES: Record<string, string> = {
-	"patient-info":   "患者信息",
-	inquiry:          "问诊指引",
-	"physical-exam":  "护理查体",
-	"nursing-record": "护理记录",
-	mews:             "MEWS 评分",
-};
+import { getSceneCards, CARD_META } from "./scene-cards/registry";
 
 export default function SceneToolbar() {
 	const { bus, features, trainingType, recordId } = useTrainingContext();
@@ -59,8 +43,8 @@ export default function SceneToolbar() {
 							title={cap?.label ?? card.id}
 							style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
 						>
-							<span>{ICONS[card.id] ?? "◻"}</span>
-							<span className="hidden sm:inline">{TITLES[card.id] ?? card.id}</span>
+              <span>{CARD_META[card.id]?.icon ?? "◻"}</span>
+							<span className="hidden sm:inline">{CARD_META[card.id]?.title ?? card.id}</span>
 						</button>
 					);
 				})}
@@ -68,7 +52,7 @@ export default function SceneToolbar() {
 
 			{/* Bottomsheet panel */}
 			{activeCard && (
-				<Bottomsheet open onClose={handleClose} title={TITLES[activeCard.id] ?? activeCard.id}>
+				<Bottomsheet open onClose={handleClose} title={CARD_META[activeCard.id]?.title ?? activeCard.id}>
 					<Suspense fallback={<div className="h-20" />}>
 						<SceneStateProvider bus={bus}>
 							<ErrorBoundary

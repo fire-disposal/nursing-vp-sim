@@ -6,6 +6,14 @@ import NursingRecordCard from "./NursingRecordCard";
 import PatientInfoCard from "./PatientInfoCard";
 import PhysicalAssessmentCard from "./PhysicalAssessmentCard";
 
+export const CARD_META: Record<string, { icon: string; title: string }> = {
+  "patient-info":   { icon: "👤", title: "患者信息" },
+  "inquiry":        { icon: "📋", title: "问诊指引" },
+  "physical-exam":  { icon: "💓", title: "护理查体" },
+  "nursing-record": { icon: "📄", title: "护理记录" },
+  "mews":           { icon: "📊", title: "MEWS 评分" },
+};
+
 interface CardDef {
   id: string;
   component: ComponentType<SceneCardProps>;
