@@ -15,6 +15,7 @@ import { getClasses } from "@/api/grades-classes";
 import { getManageCases } from "@/api/cases";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
+import CaseSelector from "@/components/admin/cases/CaseSelector";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -52,6 +53,7 @@ interface CaseOption {
 	id: number;
 	name: string;
 	training_type?: string;
+	difficulty?: number;
 	capabilities?: Record<string, boolean>;
 }
 
@@ -132,7 +134,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		},
 		staleTime: 2 * 60_000,
 	});
-	const { data: casesData } = useQuery({
+	const { data: casesData, isLoading: casesLoading } = useQuery({
 		queryKey: queryKeys.cases.managed.all,
 		queryFn: () => getManageCases({ limit: 100 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
@@ -433,20 +435,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									<FormItem>
 										<FormLabel>病例</FormLabel>
 										<FormControl>
-											<select
-												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-												name={field.name}
-												onBlur={field.onBlur}
-												value={field.value || ""}
-												onChange={(e) => field.onChange(Number(e.target.value))}
-											>
-												<option value="">选择病例...</option>
-												{cases.map((c) => (
-													<option key={c.id} value={c.id}>
-														{c.name}
-													</option>
-												))}
-											</select>
+											<CaseSelector
+												cases={cases}
+												value={field.value || 0}
+												onChange={(id) => field.onChange(id)}
+												loading={casesLoading}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
