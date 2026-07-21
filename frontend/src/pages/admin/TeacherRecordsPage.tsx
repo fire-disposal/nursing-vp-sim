@@ -85,7 +85,7 @@ export default function TeacherRecordsPage() {
 
 	const { data: casesData } = useQuery({
 		queryKey: queryKeys.cases.lists(),
-		queryFn: () => getCases({ limit: 200, offset: 0 }).then((r) => r.data),
+		queryFn: () => getCases({ limit: 100, offset: 0 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const caseOptions = casesData?.items ?? [];

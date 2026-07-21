@@ -134,7 +134,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	});
 	const { data: casesData } = useQuery({
 		queryKey: queryKeys.cases.managed.all,
-		queryFn: () => getManageCases({ limit: 200 }).then((r) => r.data),
+		queryFn: () => getManageCases({ limit: 100 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: classesData } = useQuery({
