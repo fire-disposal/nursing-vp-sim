@@ -1,12 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/api/client";
+import { getNursingRecord, saveNursingRecord } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { cn } from "@/utils/cn";
-
-const ENDPOINT = "/nursing-records" satisfies string;
 
 interface SheetData {
   subjective?: string;
@@ -37,8 +35,8 @@ export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
   const { isLoading } = useQuery({
     queryKey: ["nursing-record", rid],
     queryFn: async () => {
-      const { data: d } = await api.get(`${ENDPOINT}/${rid}`);
-      const sd: SheetData = d.sheet_data || {};
+      const { data: d } = await getNursingRecord(rid);
+      const sd: SheetData = (d as { sheet_data?: SheetData }).sheet_data || {};
       setSheet((prev) => {
         if (dirtyRef.current) return prev;
         if (Object.keys(prev).length > 0) return prev;
@@ -50,7 +48,7 @@ export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
 
   const saveMutation = useMutation({
     mutationFn: async (sd: SheetData) => {
-      await api.post(`${ENDPOINT}/${rid}`, { sheet_data: sd, status: "draft" });
+      await saveNursingRecord(rid, { sheet_data: sd as Record<string, unknown>, status: "draft" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["nursing-record", rid] });
@@ -64,7 +62,7 @@ export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
     async (sd: SheetData) => {
       setSaveStatus("saving");
       try {
-        await api.post(`${ENDPOINT}/${rid}`, { sheet_data: sd, status: "draft" });
+        await saveNursingRecord(rid, { sheet_data: sd as Record<string, unknown>, status: "draft" });
         setSaveStatus("saved");
         setLastSavedAt(
           new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),

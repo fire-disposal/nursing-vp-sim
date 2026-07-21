@@ -1,7 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { queryKeys } from "@/api/query-keys";
-import { getRecordDetail, submitTriage } from "@/api/training";
+import { submitTriage } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { calcMews, type MewsInput } from "@/utils/mews";
@@ -16,7 +15,7 @@ const CATEGORIES = [
 
 const DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "ICU", "骨科", "神经科"];
 
-export default function MewsPanel({ recordId }: SceneCardProps) {
+export default function MewsPanel(props: SceneCardProps) {
   const sceneState = useSceneStateValue();
   const mews = calcMews({
     hr: sceneState.vitals?.hr,
@@ -31,17 +30,10 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
   const [submitted, setSubmitted] = useState(false);
 
   // 继续训练/查看：回填已提交的分诊结果（仅一次）。
-  const { data: record } = useQuery({
-    queryKey: queryKeys.training.record(String(recordId)),
-    queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
-    enabled: !!recordId,
-  });
   const seededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current || !record) return;
-    const tr = (record as unknown as {
-      triage_result?: { category?: string; department?: string; notes?: string };
-    }).triage_result;
+    if (seededRef.current || !props.recordDetail) return;
+    const tr = props.recordDetail.triage_result as { category?: string; department?: string; notes?: string } | undefined;
     if (tr && (tr.category || tr.department)) {
       setCategory(tr.category ?? "");
       setDepartment(tr.department ?? "");
@@ -49,10 +41,10 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
       setSubmitted(true);
     }
     seededRef.current = true;
-  }, [record]);
+  }, [props.recordDetail]);
 
   const submitMutation = useMutation({
-    mutationFn: () => submitTriage(Number(recordId), { mews_score: mews, category, department, notes }),
+    mutationFn: () => submitTriage(Number(props.recordId), { mews_score: mews, category, department, notes }),
     onSuccess: () => setSubmitted(true),
   });
 

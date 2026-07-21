@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { MessageBus } from "@/engine/types";
 import { useTrainingWS } from "./useTrainingWS";
 
@@ -10,6 +10,16 @@ export function useExamBridge(bus: MessageBus) {
     skipRef.current = _registered.has(bus);
     _registered.add(bus);
   }
+
+  const { sendExam } = useTrainingWS();
+
+  useEffect(() => {
+    const onExamRequest = (recordId: number, opType: string) => {
+      sendExam(recordId, opType);
+    };
+    bus.on("exam:request", onExamRequest);
+    return () => { bus.off("exam:request", onExamRequest); };
+  }, [bus, sendExam]);
 
   useTrainingWS((msg) => {
     if (skipRef.current) return;

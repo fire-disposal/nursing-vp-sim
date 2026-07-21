@@ -12,6 +12,7 @@ export interface BusEvents {
 	];
 	"scene:state": [Partial<import("./scene-state").SceneState>];
 	"scene:exam": [{ op_type: string; value: string; label?: string; unit?: string }];
+	"exam:request": [recordId: number, opType: string];
 	"initiative:state": [
 		{
 			elapsed_seconds?: number;

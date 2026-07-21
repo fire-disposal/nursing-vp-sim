@@ -1,13 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { queryKeys } from "@/api/query-keys";
-import { getRecordDetail } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
 import type { SceneCardProps } from "@/engine/scene-card";
 import type { SceneState } from "@/engine/scene-state";
 import { useSceneStateValue } from "@/engine/useSceneBus";
-import { useTrainingWS } from "@/hooks/useTrainingWS";
 import { cn } from "@/utils/cn";
 
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
@@ -65,7 +61,8 @@ function classify(v: SceneState["vitals"]): MonitorStatus {
   };
 }
 
-export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
+export default function PhysicalAssessmentCard(props: SceneCardProps) {
+  const { bus, recordId, recordDetail } = props;
   const rid = Number(recordId);
   const sceneState = useSceneStateValue();
   const status = classify(sceneState.vitals);
@@ -73,51 +70,11 @@ export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const { error: toastError } = useToast();
-  const examTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  useEffect(() => {
-    return () => {
-      for (const t of examTimersRef.current.values()) clearTimeout(t);
-    };
-  }, []);
-
-  const { sendExam } = useTrainingWS((msg) => {
-    if (msg.type === "exam:done") {
-      const m = msg as unknown as { op_type: string; data: { value: string } };
-      if (m.data?.value) {
-        if (examTimersRef.current.has(m.op_type)) {
-          clearTimeout(examTimersRef.current.get(m.op_type)!);
-          examTimersRef.current.delete(m.op_type);
-        }
-        setResults((prev) => ({ ...prev, [m.op_type]: { value: m.data.value } }));
-      }
-    }
-    if (msg.type === "exam:error") {
-      const e = msg as unknown as { op_type?: string; detail?: string };
-      if (e.op_type) {
-        if (examTimersRef.current.has(e.op_type)) {
-          clearTimeout(examTimersRef.current.get(e.op_type)!);
-          examTimersRef.current.delete(e.op_type);
-        }
-        setResults((prev) => {
-          const next = { ...prev };
-          delete next[e.op_type!];
-          return next;
-        });
-      }
-      toastError(e.detail || "查体执行失败，请重试");
-    }
-  });
-
-  const { data: record } = useQuery({
-    queryKey: queryKeys.training.record(String(rid)),
-    queryFn: () => getRecordDetail(rid).then((r) => r.data),
-    enabled: rid > 0,
-  });
   const seededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current || !record) return;
-    const prior = (record as unknown as { exam_results?: Array<{ type: string; value: string }> }).exam_results;
+    if (seededRef.current || !recordDetail) return;
+    const prior = recordDetail.exam_results;
     if (Array.isArray(prior) && prior.length > 0) {
       const seeded: Record<string, { value: string }> = {};
       for (const e of prior) {
@@ -126,26 +83,24 @@ export default function PhysicalAssessmentCard({ recordId }: SceneCardProps) {
       setResults(seeded);
     }
     seededRef.current = true;
-  }, [record]);
+  }, [recordDetail]);
+
+  useEffect(() => {
+    const onDone = (data: { op_type: string; value: string; label?: string; unit?: string }) => {
+      setResults((prev) => ({ ...prev, [data.op_type]: { value: data.value } }));
+    };
+    bus.on("scene:exam", onDone);
+    return () => { bus.off("scene:exam", onDone); };
+  }, [bus]);
 
   const interact = useCallback((opId: string) => {
     if (!NORMALS[opId]) return;
     setFlash(opId);
     setResults((prev) => ({ ...prev, [opId]: { value: "检测中…" } }));
-    if (rid > 0) sendExam(rid, opId);
+    if (rid > 0) bus.emit("exam:request", rid, opId);
     setSelected(null);
-    if (examTimersRef.current.has(opId)) clearTimeout(examTimersRef.current.get(opId)!);
-    examTimersRef.current.set(opId, setTimeout(() => {
-      setResults((prev) => {
-        const next = { ...prev };
-        delete next[opId];
-        return next;
-      });
-      toastError("查体响应超时，请重试");
-      examTimersRef.current.delete(opId);
-    }, 15000));
     setTimeout(() => setFlash(null), 350);
-  }, [rid, sendExam, toastError]);
+  }, [rid, bus]);
 
   return (
     <div className="flex flex-col h-full bg-background">

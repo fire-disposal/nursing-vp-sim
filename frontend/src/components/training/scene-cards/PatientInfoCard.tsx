@@ -1,8 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Loader2, User } from "lucide-react";
+import { ChevronDown, User } from "lucide-react";
 import { useState } from "react";
-import { queryKeys } from "@/api/query-keys";
-import { getRecordDetail } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 
 const PERSONALITY_LABELS: Record<string, string> = {
@@ -37,21 +34,8 @@ function CollapsibleSection({ title, text }: { title: string; text: string }) {
   );
 }
 
-export default function PatientInfoCard({ recordId }: SceneCardProps) {
-  const { data: record, isLoading } = useQuery({
-    queryKey: queryKeys.training.record(recordId),
-    queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-24 text-muted-foreground">
-        <Loader2 size={18} className="animate-spin" />
-      </div>
-    );
-  }
-
-  const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
+export default function PatientInfoCard(props: SceneCardProps) {
+  const cd = (props.recordDetail?.case_data as Record<string, unknown>) ?? {};
   const patient = (cd.patient_info as Record<string, unknown>) || {};
   const name = String(patient.name || "患者");
   const age = String(patient.age ?? "");

@@ -1,24 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo } from "react";
-import { queryKeys } from "@/api/query-keys";
-import { getRecordDetail } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import type { ChatMessage } from "@/engine/types";
 
-export default function InquiryCard({ recordId }: SceneCardProps) {
+export default function InquiryCard(props: SceneCardProps) {
   const { messages } = useTrainingContext();
 
-  const { data: record, isLoading } = useQuery({
-    queryKey: queryKeys.training.record(recordId),
-    queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
-  });
-
   const inquiries: string[] = useMemo(() => {
-    const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
-    return (cd.required_inquiries as string[]) || [];
-  }, [record]);
+    const cd = (props.recordDetail?.case_data as Record<string, unknown>) ?? {};
+    return (cd.required_inquiries as string[]) ?? [];
+  }, [props.recordDetail]);
 
   const coveredKeywords = useMemo(() => {
     const studentTexts = (messages as ChatMessage[])
@@ -32,14 +24,6 @@ export default function InquiryCard({ recordId }: SceneCardProps) {
       }),
     );
   }, [messages, inquiries]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-24 text-muted-foreground">
-        <Loader2 size={18} className="animate-spin" />
-      </div>
-    );
-  }
 
   if (inquiries.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-8 p-3">该病例未配置问诊清单</div>;
