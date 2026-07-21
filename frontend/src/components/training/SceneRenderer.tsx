@@ -5,7 +5,7 @@ import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useExamBridge } from "@/hooks/useExamBridge";
-import { getSceneCards, CARD_META } from "./scene-cards/registry";
+import { CARD_META, getSceneCards } from "./scene-cards/registry";
 
 const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
 const PANEL_WIDTH_WIDE = 400;
