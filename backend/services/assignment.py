@@ -67,6 +67,7 @@ class AssignmentDetailView:
     min_score: float | None = None
     completion_rate: float = 0.0
     students: list[AssignmentStudentItemView] = field(default_factory=list)
+    max_attempts: int | None = None
 
 
 class AssignmentService:
@@ -194,6 +195,7 @@ class AssignmentService:
             min_score=min_score_data,
             completion_rate=completion_rate,
             students=student_items,
+            max_attempts=assignment.max_attempts,
         )
 
     def create(
@@ -208,6 +210,7 @@ class AssignmentService:
         start_time: datetime,
         end_time: datetime,
         teacher_id: int,
+        max_attempts: int | None = None,
     ) -> AssignmentDetailView:
         case = self.db.query(Case).filter(Case.id == case_id).first()
         if not case:
@@ -229,6 +232,7 @@ class AssignmentService:
                     student_ids=student_ids,
                     start_time=start_time,
                     end_time=end_time,
+                    max_attempts=max_attempts,
                 )
             )
         self.db.refresh(assignment)
@@ -286,6 +290,7 @@ class AssignmentService:
         start_time: datetime | None,
         end_time: datetime | None,
         is_closed: bool | None = None,
+        max_attempts: int | None = None,
         skip_ownership: bool = False,
     ) -> AssignmentDetailView:
         assignment = self.repo.get_with_relations(assignment_id)
@@ -321,6 +326,8 @@ class AssignmentService:
             assignment.end_time = end_time
         if is_closed is not None:
             assignment.is_closed = is_closed
+        if max_attempts is not None:
+            assignment.max_attempts = max_attempts
 
         if assignment.end_time <= assignment.start_time:
             raise ValidationError("截止时间必须晚于开始时间")

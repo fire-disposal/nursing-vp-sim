@@ -41,7 +41,10 @@ class StudentService:
             )
             .all()
         )
-        record_by_assignment = {r.assignment_id: r for r in records if r.assignment_id}
+        records_by_assignment: dict[str, list[TrainingRecord]] = {}
+        for r in records:
+            if r.assignment_id:
+                records_by_assignment.setdefault(r.assignment_id, []).append(r)
 
         items: list[StudentAssignmentItem] = []
         for a in assignments:
@@ -49,6 +52,8 @@ class StudentService:
                 continue
 
             case_name = a.case.name if a.case else ""
+            user_records = records_by_assignment.get(a.id, [])
+            attempt_count = sum(1 for r in user_records if r.status != "in_progress")
 
             end_time = ensure_utc(a.end_time)
             if a.is_closed or now > end_time:
@@ -60,12 +65,14 @@ class StudentService:
                         start_time=a.start_time,
                         end_time=a.end_time,
                         status="closed",
+                        max_attempts=a.max_attempts,
+                        attempt_count=attempt_count,
                     )
                 )
                 continue
 
-            record = record_by_assignment.get(a.id)
-            if record:
+            if user_records:
+                record = user_records[0]
                 status = record.status
                 if status != "completed" and record.is_overdue:
                     status = "overdue"
@@ -80,10 +87,11 @@ class StudentService:
                         record_id=record.id,
                         score_total=record.score.total_score if record.score else None,
                         is_overdue=record.is_overdue,
+                        max_attempts=a.max_attempts,
+                        attempt_count=attempt_count,
                     )
                 )
             else:
-                status = "pending"
                 items.append(
                     StudentAssignmentItem(
                         id=a.id,
@@ -91,7 +99,9 @@ class StudentService:
                         case_name=case_name,
                         start_time=a.start_time,
                         end_time=a.end_time,
-                        status=status,
+                        status="pending",
+                        max_attempts=a.max_attempts,
+                        attempt_count=attempt_count,
                     )
                 )
 

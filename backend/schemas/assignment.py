@@ -16,6 +16,7 @@ class AssignmentCreateRequest(BaseModel):
     student_ids: list[int] | None = None
     start_time: datetime
     end_time: datetime
+    max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
 
 
 class AssignmentUpdateRequest(BaseModel):
@@ -30,6 +31,7 @@ class AssignmentUpdateRequest(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_closed: bool | None = None
+    max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
 
 
 class AssignmentListItem(BaseModel):
@@ -86,6 +88,7 @@ class AssignmentDetail(BaseModel):
     min_score: float | None = None
     completion_rate: float = 0.0
     students: list["AssignmentStudentItem"] = Field(default_factory=list)
+    max_attempts: int | None = None
 
 
 class StudentAssignmentItem(BaseModel):
@@ -99,3 +102,5 @@ class StudentAssignmentItem(BaseModel):
     record_id: int | None = None
     score_total: float | None = None
     is_overdue: bool = False
+    max_attempts: int | None = None
+    attempt_count: int = 0

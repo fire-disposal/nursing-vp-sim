@@ -86,6 +86,7 @@ def _detail_resp(view) -> AssignmentDetail:
         min_score=view.min_score,
         completion_rate=view.completion_rate,
         students=[_student_resp(s) for s in view.students],
+        max_attempts=view.max_attempts,
     )
 
 
@@ -103,6 +104,7 @@ def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentMan
             start_time=req.start_time,
             end_time=req.end_time,
             teacher_id=current_user.id,
+            max_attempts=req.max_attempts,
         )
     )
 
@@ -152,6 +154,7 @@ def update_assignment(
             start_time=req.start_time,
             end_time=req.end_time,
             is_closed=req.is_closed,
+            max_attempts=req.max_attempts,
             skip_ownership=is_admin,
         )
     )

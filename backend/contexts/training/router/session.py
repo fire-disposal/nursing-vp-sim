@@ -314,11 +314,27 @@ def start_training_from_assignment(
     if assignment.student_ids is not None and current_user.id not in assignment.student_ids:
         raise AuthError(detail="你不在该作业的指定学生名单中", status_code=403)
 
+    attempt_count = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.assignment_id == assignment.id,
+            TrainingRecord.is_test == False,
+            TrainingRecord.status != "in_progress",
+        )
+        .count()
+    )
+
+    if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
+        raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
+
     existing = (
         db.query(TrainingRecord)
         .filter(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
+            TrainingRecord.status == "in_progress",
+            TrainingRecord.is_test == False,
         )
         .first()
     )

@@ -64,6 +64,14 @@ export default function AssignmentCardList({
 					const isClosed = a.status === "closed";
 					const isOverdue = a.status === "overdue";
 					const isCompleted = a.status === "completed";
+					const maxAttempts = (a as any).max_attempts as number | null | undefined;
+					const attemptCount = (a as any).attempt_count as number | undefined;
+					const atLimit =
+						maxAttempts != null &&
+						maxAttempts > 0 &&
+						attemptCount != null &&
+						attemptCount >= maxAttempts &&
+						!isCompleted;
 					const due = dueLabel(a.end_time);
 					return (
 						<div
@@ -142,6 +150,10 @@ export default function AssignmentCardList({
 							) : isClosed ? (
 								<div className="mt-auto text-center text-xs text-muted-foreground py-1">
 									作业已关闭
+								</div>
+							) : atLimit ? (
+								<div className="mt-auto text-center text-xs text-muted-foreground py-2">
+									已达最大尝试次数 ({attemptCount}/{maxAttempts})
 								</div>
 							) : (
 								<Button

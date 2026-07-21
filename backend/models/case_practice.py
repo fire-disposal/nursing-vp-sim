@@ -58,6 +58,7 @@ class Assignment(Base, TimestampMixin):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_closed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    max_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default=text("1"))
 
     case: Mapped[Case] = relationship()
     class_: Mapped[Class] = relationship()

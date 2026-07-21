@@ -110,9 +110,19 @@ export default function AssignmentDetailPage() {
 			<PageHeader
 				title={detail.title}
 				subtitle={
-					detail.description
-						? `${detail.case_name} · ${detail.class_name} · ${detail.description}`
-						: `${detail.case_name} · ${detail.class_name}`
+					(() => {
+						const base = detail.description
+							? `${detail.case_name} · ${detail.class_name} · ${detail.description}`
+							: `${detail.case_name} · ${detail.class_name}`;
+						const ma = (detail as any).max_attempts;
+						const maText =
+							ma != null && ma > 0
+								? ` · 最多 ${ma} 次`
+								: ma === 0
+									? " · 不限制次数"
+									: "";
+						return base + maText;
+					})()
 				}
 				actions={
 					<div className="flex gap-2">
