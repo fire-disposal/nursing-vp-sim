@@ -14,31 +14,55 @@ interface AuthImageProps {
 export default function AuthImage({ src, alt = "", className }: AuthImageProps) {
 	const [blobUrl, setBlobUrl] = useState<string | null>(null);
 	const [error, setError] = useState(false);
+	const [loading, setLoading] = useState(true);
+	const prevSrcRef = useRef(src);
 	const mountedRef = useRef(true);
 
 	const load = useCallback(async () => {
+		setLoading(true);
 		try {
 			const res = await api.get(src, { responseType: "blob" });
-			if (mountedRef.current) {
-				setBlobUrl(URL.createObjectURL(res.data));
-			}
+			if (!mountedRef.current) return;
+			const url = URL.createObjectURL(res.data);
+			setBlobUrl((prev) => {
+				if (prev) URL.revokeObjectURL(prev);
+				return url;
+			});
 		} catch {
 			if (mountedRef.current) setError(true);
+		} finally {
+			if (mountedRef.current) setLoading(false);
 		}
 	}, [src]);
 
 	useEffect(() => {
 		mountedRef.current = true;
-		setBlobUrl(null);
-		setError(false);
+		const srcChanged = prevSrcRef.current !== src;
+		prevSrcRef.current = src;
+
+		if (srcChanged) {
+			setBlobUrl(null);
+			setError(false);
+		}
 		load();
+
 		return () => {
 			mountedRef.current = false;
 		};
-	}, [load]);
+	}, [load, src]);
+
+	useEffect(() => {
+		return () => {
+			setBlobUrl((prev) => {
+				if (prev) URL.revokeObjectURL(prev);
+				return null;
+			});
+		};
+	}, []);
 
 	if (error) return null;
-	if (!blobUrl) return <div className={`bg-muted animate-pulse rounded ${className ?? ""}`} />;
+	if (loading && !blobUrl) return <div className={`bg-muted animate-pulse rounded ${className ?? ""}`} />;
+	if (!blobUrl) return null;
 
 	return <img src={blobUrl} alt={alt} className={className} />;
 }
