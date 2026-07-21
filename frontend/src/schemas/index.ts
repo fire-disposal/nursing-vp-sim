@@ -1,7 +1,5 @@
 export type { ChangePasswordFormValues, LoginFormValues } from "./auth";
 export { changePasswordSchema, loginSchema } from "./auth";
-export type { CaseFormValues } from "./case";
-export { caseFormSchema } from "./case";
 export type { AssignmentValues } from "./assignment";
 export { assignmentSchema } from "./assignment";
 export type { GradeClassValues } from "./grade-class";

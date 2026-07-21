@@ -1,6 +1,24 @@
 from pydantic import BaseModel, Field
 
 
+class QuizOption(BaseModel):
+    key: str
+    text: str
+
+
+class QuizQuestion(BaseModel):
+    id: str
+    stem: str
+    options: list[QuizOption] = []
+    answer: str
+    explanation: str = ""
+
+
+class TriageQuizConfig(BaseModel):
+    title: str = "引导题目"
+    questions: list[QuizQuestion] = []
+
+
 class TriagePatientInfo(BaseModel):
     name: str = Field(min_length=1, max_length=20)
     age: int = Field(ge=0, le=120)
@@ -33,3 +51,4 @@ class TriageCaseData(BaseModel):
     capabilities: dict[str, bool] = {}
     hidden_info: list[str] = Field(default_factory=list)
     scoring_criteria: dict[str, object] = Field(default_factory=dict)
+    quiz: TriageQuizConfig | None = None
