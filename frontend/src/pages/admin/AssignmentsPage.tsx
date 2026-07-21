@@ -11,8 +11,8 @@ import {
 	getAssignments,
 	updateAssignment,
 } from "@/api/assignments";
-import { getClasses } from "@/api/grades-classes";
 import { getManageCases } from "@/api/cases";
+import { getClasses } from "@/api/grades-classes";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import CaseSelector from "@/components/admin/cases/CaseSelector";
@@ -91,6 +91,7 @@ const DEFAULT_VALUES: AssignmentValues = {
 	classId: 0,
 	startTime: "",
 	endTime: "",
+	maxAttempts: null as number | null,
 };
 
 export default function AssignmentsPage({ embedded = false }: { embedded?: boolean }) {
@@ -171,6 +172,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				classId: d.class_id,
 				startTime: toDatetimeLocal(d.start_time),
 				endTime: toDatetimeLocal(d.end_time),
+				maxAttempts: (d as any).max_attempts ?? null,
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
@@ -179,7 +181,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	};
 
 	const onSubmit = async (values: AssignmentValues) => {
-		const payload = {
+		const payload: Record<string, unknown> = {
 			title: values.title.trim(),
 			description: values.desc.trim() || null,
 			case_id: values.caseId,
@@ -187,12 +189,15 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			start_time: fromDatetimeLocal(values.startTime) ?? "",
 			end_time: fromDatetimeLocal(values.endTime) ?? "",
 		};
+		if (values.maxAttempts != null) {
+			payload.max_attempts = values.maxAttempts;
+		}
 		try {
 			if (editingId) {
-				await updateAssignment(editingId, payload);
+				await updateAssignment(editingId, payload as any);
 				toast.success("更新成功");
 			} else {
-				await createAssignment(payload);
+				await createAssignment(payload as any);
 				toast.success("创建成功");
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
@@ -520,6 +525,29 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									)}
 								/>
 							</div>
+							<FormField
+								control={form.control}
+								name="maxAttempts"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>最大尝试次数</FormLabel>
+										<FormControl>
+											<Input
+												type="number"
+												min={0}
+												placeholder="留空为1次，0为不限制"
+												{...field}
+												value={field.value ?? ""}
+												onChange={(e) => {
+													const v = e.target.value;
+													field.onChange(v === "" ? null : Math.max(0, Number(v)));
+												}}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 							<DialogFooter>
 								<Button
 									type="button"

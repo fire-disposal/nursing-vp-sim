@@ -7,18 +7,18 @@ from dataclasses import dataclass
 PERSONALITY_MODIFIERS: dict[str, dict[str, dict[str, float | int]]] = {
     "anxiety_trait": {
         "anxious": {"trust_base": -8, "comfort_base": -12, "neg_amplify": 1.4, "pos_amplify": 0.7, "decay": 0.08},
-        "normal":  {"trust_base":  0, "comfort_base":   0, "neg_amplify": 1.0, "pos_amplify": 1.0, "decay": 0.05},
-        "calm":    {"trust_base":  5, "comfort_base":   8, "neg_amplify": 0.7, "pos_amplify": 1.2, "decay": 0.03},
+        "normal": {"trust_base": 0, "comfort_base": 0, "neg_amplify": 1.0, "pos_amplify": 1.0, "decay": 0.05},
+        "calm": {"trust_base": 5, "comfort_base": 8, "neg_amplify": 0.7, "pos_amplify": 1.2, "decay": 0.03},
     },
     "patience": {
-        "low":    {"comfort_base": -3, "decay": 0.08},
-        "normal": {"comfort_base":  0, "decay": 0.05},
-        "high":   {"comfort_base":  3, "decay": 0.02},
+        "low": {"comfort_base": -3, "decay": 0.08},
+        "normal": {"comfort_base": 0, "decay": 0.05},
+        "high": {"comfort_base": 3, "decay": 0.02},
     },
     "health_literacy": {
-        "low":    {"trust_base": -2},
+        "low": {"trust_base": -2},
         "normal": {},
-        "high":   {"trust_base":  2},
+        "high": {"trust_base": 2},
     },
 }
 

@@ -1,6 +1,7 @@
 """Tests for PersonalityProfile — personality-to-emotion parameter mapping."""
 
 import pytest
+
 from profiles.history_taking.emotion_profile import PersonalityProfile
 
 
@@ -55,11 +56,13 @@ class TestPersonalityProfileDeviations:
 
 class TestPersonalityProfileCombined:
     def test_anxious_low_patience_low_literacy(self):
-        profile = PersonalityProfile.from_personality({
-            "anxiety_trait": "anxious",
-            "patience": "low",
-            "health_literacy": "low",
-        })
+        profile = PersonalityProfile.from_personality(
+            {
+                "anxiety_trait": "anxious",
+                "patience": "low",
+                "health_literacy": "low",
+            }
+        )
         assert profile.trust_base == 40
         assert profile.comfort_base == 35
         assert profile.neg_amplify == 1.4
@@ -67,11 +70,13 @@ class TestPersonalityProfileCombined:
         assert profile.decay == pytest.approx(0.08)
 
     def test_calm_high_patience_high_literacy(self):
-        profile = PersonalityProfile.from_personality({
-            "anxiety_trait": "calm",
-            "patience": "high",
-            "health_literacy": "high",
-        })
+        profile = PersonalityProfile.from_personality(
+            {
+                "anxiety_trait": "calm",
+                "patience": "high",
+                "health_literacy": "high",
+            }
+        )
         assert profile.trust_base == 57
         assert profile.comfort_base == 61
         assert profile.neg_amplify == 0.7
@@ -81,18 +86,22 @@ class TestPersonalityProfileCombined:
 
 class TestPersonalityProfileClamping:
     def test_trust_clamped_low(self):
-        profile = PersonalityProfile.from_personality({
-            "anxiety_trait": "anxious",
-            "patience": "low",
-            "health_literacy": "low",
-        })
+        profile = PersonalityProfile.from_personality(
+            {
+                "anxiety_trait": "anxious",
+                "patience": "low",
+                "health_literacy": "low",
+            }
+        )
         assert profile.trust_base >= 25
 
     def test_trust_clamped_high(self):
-        profile = PersonalityProfile.from_personality({
-            "anxiety_trait": "calm",
-            "health_literacy": "high",
-        })
+        profile = PersonalityProfile.from_personality(
+            {
+                "anxiety_trait": "calm",
+                "health_literacy": "high",
+            }
+        )
         assert profile.trust_base <= 75
 
 

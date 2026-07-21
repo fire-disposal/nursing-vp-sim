@@ -28,12 +28,12 @@ log = logging.getLogger(__name__)
 # ── 状态标签：首次匹配，优先级从高到低 ──
 # (trust_min, comfort_min) → (label, description)
 _STATE_TABLE: list[tuple[int, int, str, str]] = [
-    (70, 70, "open",      "开放信任，愿意详述"),
-    (30, 60, "relaxed",   "放松配合，语气友好"),
-    (30, 35, "neutral",   "正常配合"),
-    (30,  0, "anxious",   "焦虑不安"),
-    ( 0, 30, "defensive", "防御抵触"),
-    ( 0,  0, "withdrawn", "沉默回避"),
+    (70, 70, "open", "开放信任，愿意详述"),
+    (30, 60, "relaxed", "放松配合，语气友好"),
+    (30, 35, "neutral", "正常配合"),
+    (30, 0, "anxious", "焦虑不安"),
+    (0, 30, "defensive", "防御抵触"),
+    (0, 0, "withdrawn", "沉默回避"),
 ]
 
 MAX_HISTORY = 10
@@ -107,16 +107,24 @@ class EmotionState:
         new_state = _lookup_state(self.trust, self.comfort)[0]
 
         if old_state != new_state or dt != 0 or dc != 0:
-            self.history.append({
-                "trust": self.trust,
-                "comfort": self.comfort,
-                "state": new_state,
-                "intent": intent_label,
-                "timestamp": now.isoformat(),
-            })
+            self.history.append(
+                {
+                    "trust": self.trust,
+                    "comfort": self.comfort,
+                    "state": new_state,
+                    "intent": intent_label,
+                    "timestamp": now.isoformat(),
+                }
+            )
             log.debug(
                 "情绪变化: %s(t=%d,c=%d) → %s(t=%d,c=%d) [%s]",
-                old_state, old_trust, old_comfort, new_state, self.trust, self.comfort, intent_label,
+                old_state,
+                old_trust,
+                old_comfort,
+                new_state,
+                self.trust,
+                self.comfort,
+                intent_label,
             )
 
     def to_dict(self) -> dict:
@@ -196,9 +204,8 @@ def get_emotion(
             state = EmotionState(trust=p.trust_base, comfort=p.comfort_base, profile=p)
             cache.set(record_id, state, db)
             db.flush()
-        else:
-            if profile is not None and state.profile.trust_base == 50 and profile.trust_base != 50:
-                state.profile = profile
+        elif profile is not None and state.profile.trust_base == 50 and profile.trust_base != 50:
+            state.profile = profile
         return state
 
 
