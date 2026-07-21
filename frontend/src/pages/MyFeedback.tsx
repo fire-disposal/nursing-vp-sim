@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Camera, MessageSquare, MessageSquareReply } from "lucide-react";
 import { useMemo, useState } from "react";
-import { getMyFeedback } from "@/api/admin/feedback";
+import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import AuthImage from "@/components/ui/auth-image";
 import Badge from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -69,6 +71,8 @@ export default function MyFeedbackPage() {
 		}
 		return result;
 	}, [rawItems, tagFilter, replyFilter]);
+
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
 	return (
 		<div className="space-y-6">
@@ -135,10 +139,25 @@ export default function MyFeedbackPage() {
 							{fb.content && (
 								<p className="text-sm text-muted-foreground leading-relaxed">{fb.content}</p>
 							)}
-							{fb.image_count != null && fb.image_count > 0 && (
-								<div className="flex items-center gap-1 text-xs text-muted-foreground">
-									<Camera size={12} />
-									查看 {fb.image_count} 张截图
+							{fb.image_ids && fb.image_ids.length > 0 && (
+								<div className="flex items-center gap-1.5 mt-2">
+									<Camera size={13} className="text-muted-foreground shrink-0" />
+									<div className="flex gap-1.5 overflow-x-auto pb-1">
+										{fb.image_ids.map((imgId) => (
+											<button
+												type="button"
+												key={imgId}
+												onClick={() => setPreviewUrl(feedbackImageUrl(fb.id, imgId))}
+												className="shrink-0 rounded-md border border-border overflow-hidden hover:border-primary transition-colors cursor-pointer"
+											>
+												<AuthImage
+													src={feedbackImageUrl(fb.id, imgId)}
+													alt={`截图 ${imgId}`}
+													className="h-16 w-auto object-cover"
+												/>
+											</button>
+										))}
+									</div>
 								</div>
 							)}
 						{fb.developer_reply && (
@@ -162,6 +181,14 @@ export default function MyFeedbackPage() {
 
 			{total > LIMIT && (
 				<Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
+			)}
+
+			{previewUrl && (
+				<Dialog open onOpenChange={() => setPreviewUrl(null)}>
+					<DialogContent title="截图预览" maxWidth={800}>
+						<AuthImage src={previewUrl} alt="截图预览" className="max-w-full max-h-[70vh] object-contain rounded-md" />
+					</DialogContent>
+				</Dialog>
 			)}
 		</div>
 	);

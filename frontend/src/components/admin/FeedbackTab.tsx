@@ -25,9 +25,11 @@ import { feedbackImageUrl, getFeedbackStats, getFeedbacks, replyFeedback } from 
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import AuthImage from "@/components/ui/auth-image";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
@@ -89,6 +91,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 	const [replyOpen, setReplyOpen] = useState(false);
 	const [replyText, setReplyText] = useState("");
 	const [sending, setSending] = useState(false);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const toast = useToast();
 
 	const handleReply = async () => {
@@ -108,6 +111,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 	};
 
 	return (
+		<>
 		<div className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
 			<div className="flex items-center justify-between mb-1">
 				<div className="flex items-center gap-2">
@@ -132,20 +136,18 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					<Camera size={13} className="text-muted-foreground shrink-0" />
 					<div className="flex gap-1.5 overflow-x-auto pb-1">
 						{fb.image_ids.map((imgId) => (
-							<a
+							<button
+								type="button"
 								key={imgId}
-								href={feedbackImageUrl(fb.id, imgId)}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="shrink-0 rounded-md border border-border overflow-hidden hover:border-primary transition-colors"
+								onClick={() => setPreviewUrl(feedbackImageUrl(fb.id, imgId))}
+								className="shrink-0 rounded-md border border-border overflow-hidden hover:border-primary transition-colors cursor-pointer"
 							>
-								<img
+								<AuthImage
 									src={feedbackImageUrl(fb.id, imgId)}
 									alt={`截图 ${imgId}`}
 									className="h-16 w-auto object-cover"
-									loading="lazy"
 								/>
-							</a>
+							</button>
 						))}
 					</div>
 				</div>
@@ -193,6 +195,14 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 				</div>
 			)}
 		</div>
+		{previewUrl && (
+			<Dialog open onOpenChange={() => setPreviewUrl(null)}>
+				<DialogContent title="截图预览" maxWidth={800}>
+					<AuthImage src={previewUrl} alt="截图预览" className="max-w-full max-h-[70vh] object-contain rounded-md" />
+				</DialogContent>
+			</Dialog>
+		)}
+		</>
 	);
 }
 const PIE_LABELS = [
