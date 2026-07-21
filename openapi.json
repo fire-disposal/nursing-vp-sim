@@ -9996,6 +9996,14 @@
             "title": "Image Count",
             "default": 0
           },
+          "image_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Image Ids",
+            "default": []
+          },
           "developer_reply": {
             "anyOf": [
               {

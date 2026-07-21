@@ -24,6 +24,7 @@ class FeedbackRow:
     content: str | None = None
     version: str = ""
     image_count: int = 0
+    image_ids: list[int] | None = None
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime | None = None
@@ -98,8 +99,18 @@ class FeedbackService:
                 .all()
             )
             count_map = {c.feedback_id: c.cnt for c in counts}
+            all_images = (
+                self.db.query(FeedbackImage.feedback_id, FeedbackImage.id)
+                .filter(FeedbackImage.feedback_id.in_(feedback_ids))
+                .order_by(FeedbackImage.id)
+                .all()
+            )
+            ids_map: dict[int, list[int]] = {}
+            for img in all_images:
+                ids_map.setdefault(img.feedback_id, []).append(img.id)
         else:
             count_map = {}
+            ids_map = {}
 
         items = [
             FeedbackRow(
@@ -111,6 +122,7 @@ class FeedbackService:
                 content=r.content,
                 version=r.version,
                 image_count=count_map.get(r.id, 0),
+                image_ids=ids_map.get(r.id, []),
                 developer_reply=r.developer_reply,
                 replied_at=r.replied_at,
                 created_at=r.created_at,
@@ -135,8 +147,18 @@ class FeedbackService:
                 .all()
             )
             count_map = {c.feedback_id: c.cnt for c in counts}
+            all_images = (
+                self.db.query(FeedbackImage.feedback_id, FeedbackImage.id)
+                .filter(FeedbackImage.feedback_id.in_(feedback_ids))
+                .order_by(FeedbackImage.id)
+                .all()
+            )
+            ids_map: dict[int, list[int]] = {}
+            for img in all_images:
+                ids_map.setdefault(img.feedback_id, []).append(img.id)
         else:
             count_map = {}
+            ids_map = {}
 
         items = [
             FeedbackRow(
@@ -147,6 +169,7 @@ class FeedbackService:
                 content=r.content,
                 version=r.version,
                 image_count=count_map.get(r.id, 0),
+                image_ids=ids_map.get(r.id, []),
                 developer_reply=r.developer_reply,
                 replied_at=r.replied_at,
                 created_at=r.created_at,

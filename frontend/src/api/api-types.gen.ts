@@ -3063,6 +3063,11 @@ export interface components {
              * @default 0
              */
             image_count: number;
+            /**
+             * Image Ids
+             * @default []
+             */
+            image_ids: number[];
             /** Developer Reply */
             developer_reply?: string | null;
             /** Replied At */

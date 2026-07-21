@@ -28,6 +28,7 @@ class FeedbackItem(BaseModel):
     content: str | None = None
     version: str = ""
     image_count: int = 0
+    image_ids: list[int] = []
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime

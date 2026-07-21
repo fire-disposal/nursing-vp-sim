@@ -1,5 +1,5 @@
 import { Loader2, MessageSquare, Plus, Send, X } from "lucide-react";
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFeedbackFormData } from "@/api";
 import { useToast } from "@/components/Toast";
@@ -40,10 +40,11 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	const [rating, setRating] = useState(3);
 	const [tag, setTag] = useState("");
 	const [content, setContent] = useState("");
-	const [images, setImages] = useState<File[]>([]);
+	const [images, setImages] = useState<{ file: File; url: string }[]>([]);
 	const [compressing, setCompressing] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const urlsRef = useRef<string[]>([]);
 	const toast = useToast();
 	const navigate = useNavigate();
 
@@ -63,9 +64,17 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 		setCompressing(true);
 		try {
 			const compressed = await Promise.all(newFiles.map(compressImage));
-			setImages((prev) => [...prev, ...compressed].slice(0, 3));
-		} catch {
-			toast.error("图片处理失败，请重试");
+			const entries = compressed.map((f) => {
+				if (f.size > 512 * 1024) {
+					throw new Error("图片压缩后仍超过 512KB 限制，请选择较小的图片");
+				}
+				const url = URL.createObjectURL(f);
+				urlsRef.current.push(url);
+				return { file: f, url };
+			});
+			setImages((prev) => [...prev, ...entries].slice(0, 3));
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "图片处理失败，请重试");
 		} finally {
 			setCompressing(false);
 			if (fileInputRef.current) fileInputRef.current.value = "";
@@ -73,7 +82,11 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	};
 
 	const handleRemoveImage = (index: number) => {
-		setImages((prev) => prev.filter((_, i) => i !== index));
+		setImages((prev) => {
+			const entry = prev[index];
+			if (entry) URL.revokeObjectURL(entry.url);
+			return prev.filter((_, i) => i !== index);
+		});
 	};
 
 	const handleSubmit = async () => {
@@ -84,7 +97,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 			formData.append("tag", tag);
 			if (content) formData.append("content", content);
 			for (const img of images) {
-				formData.append("images", img);
+				formData.append("images", img.file);
 			}
 			await submitFeedbackFormData(formData);
 			toast.success("感谢你的反馈！");
@@ -106,9 +119,25 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 		setRating(3);
 		setTag("");
 		setContent("");
-		setImages([]);
+		clearImages();
 		onClose();
 	};
+
+	const clearImages = () => {
+		for (const url of urlsRef.current) {
+			URL.revokeObjectURL(url);
+		}
+		urlsRef.current = [];
+		setImages([]);
+	};
+
+	useEffect(() => {
+		return () => {
+			for (const url of urlsRef.current) {
+				URL.revokeObjectURL(url);
+			}
+		};
+	}, []);
 
 	return (
 		<ResponsiveDialog open={open} onClose={handleClose} title="意见反馈" maxWidth={480}>
@@ -190,17 +219,17 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 						添加截图 <span className="text-muted-foreground/60 font-normal">(选填, 最多3张)</span>
 					</div>
 					<div className="flex flex-wrap gap-2">
-						{images.map((file, i) => (
-							<div key={`${file.name}-${i}`} className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border overflow-hidden group shrink-0">
+						{images.map((entry, i) => (
+							<div key={`${entry.file.name}-${i}`} className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border overflow-hidden group shrink-0">
 								<img
-									src={URL.createObjectURL(file)}
+									src={entry.url}
 									alt={`截图 ${i + 1}`}
 									className="w-full h-full object-cover"
 								/>
 								<button
 									type="button"
 									onClick={() => handleRemoveImage(i)}
-									className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+									className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
 									aria-label={`删除截图 ${i + 1}`}
 								>
 									<X size={12} />
@@ -212,7 +241,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 								<Loader2 size={18} className="animate-spin text-muted-foreground" />
 							</div>
 						)}
-						{images.length < 3 && (
+						{images.length < 3 && !compressing && (
 							<label className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-dashed border-border bg-card flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:border-primary transition-colors shrink-0">
 								<Plus size={18} className="text-muted-foreground" />
 								<span className="text-[10px] text-muted-foreground">添加</span>
@@ -220,6 +249,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 									ref={fileInputRef}
 									type="file"
 									accept="image/*"
+									capture="environment"
 									multiple
 									className="hidden"
 									onChange={handleAddImages}

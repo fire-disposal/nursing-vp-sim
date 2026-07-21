@@ -4,9 +4,7 @@ import { api } from "../client";
 type Schemas = components["schemas"];
 
 export const submitFeedbackFormData = (formData: FormData) =>
-	api.post<Schemas["FeedbackSubmitResponse"]>("/feedback", formData, {
-		headers: { "Content-Type": "multipart/form-data" },
-	});
+	api.post<Schemas["FeedbackSubmitResponse"]>("/feedback", formData);
 
 export function feedbackImageUrl(feedbackId: number, imageId: number): string {
 	return `/api/feedback/${feedbackId}/images/${imageId}`;

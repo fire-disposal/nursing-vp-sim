@@ -178,6 +178,7 @@ def _to_item(r) -> FeedbackItem:
         content=r.content,
         version=getattr(r, "version", ""),
         image_count=getattr(r, "image_count", 0),
+        image_ids=getattr(r, "image_ids", []) or [],
         developer_reply=r.developer_reply,
         replied_at=r.replied_at,
         created_at=r.created_at,
