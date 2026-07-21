@@ -520,7 +520,7 @@ def get_notifications(
     db: Annotated[Session, Depends(get_db)],
     unread_only: Annotated[bool, Query()] = False,
     type: Annotated[str | None, Query(description="按类型过滤")] = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     q = db.query(Notification).filter(Notification.user_id == current_user.id)

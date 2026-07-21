@@ -30,7 +30,7 @@ def get_llm_logs(
     db: DbSession,
     current_user: User = Depends(require_permission("llm_monitor")),
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     purpose: str | None = None,
     status: str | None = None,
     date_from: str | None = None,

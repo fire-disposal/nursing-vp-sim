@@ -34,7 +34,7 @@ def my_feedback(
     current_user: _AnyUser,
     db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
     items, total = FeedbackService(db).list_my(current_user.id, offset=offset, limit=limit)
     return PaginatedResponse(
@@ -53,7 +53,7 @@ def admin_list_feedback(
     date_from: Annotated[str | None, Query()] = None,
     date_to: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
     items, total = FeedbackService(db).list_admin(
         tag=tag, date_from=date_from, date_to=date_to, offset=offset, limit=limit

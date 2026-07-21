@@ -376,7 +376,7 @@ def start_training_from_assignment(
 def get_records(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     student_name: Annotated[str | None, Query(description="按学生姓名模糊搜索")] = None,
     case_id: Annotated[int | None, Query(description="按病例ID筛选")] = None,

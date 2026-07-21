@@ -29,7 +29,7 @@ def list_sessions(
     current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
     return (
         db.query(QASession)
@@ -107,7 +107,7 @@ def get_session_messages(
 def get_all_qa_history(
     current_user: Annotated[User, Depends(require_permission("stats_view"))],
     db: Annotated[Session, Depends(get_db)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
     search: Annotated[str | None, Query(description="搜索学生姓名/学号/会话标题")] = None,
 ):

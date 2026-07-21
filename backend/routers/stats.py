@@ -44,7 +44,7 @@ def get_trends(
 def teacher_summary(
     db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     class_id: Annotated[int | None, Query()] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
@@ -56,7 +56,7 @@ def teacher_summary(
 def student_ranking(
     db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     class_id: Annotated[int | None, Query()] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
