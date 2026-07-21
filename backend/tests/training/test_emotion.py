@@ -24,17 +24,17 @@ class TestEmotionState:
         assert e.comfort == 38
         assert e.state == "neutral"
 
-    def test_clamped_at_zero(self):
+    def test_s_curve_resists_extreme_lows(self):
         e = EmotionState(trust=5, comfort=5)
         e.update(-10, -10, "negative")
-        assert e.trust == 0
-        assert e.comfort == 0
+        assert e.trust > 0
+        assert e.comfort > 0
 
-    def test_clamped_at_hundred(self):
+    def test_s_curve_resists_ceiling(self):
         e = EmotionState(trust=95, comfort=95)
         e.update(10, 10, "positive")
-        assert e.trust == 100
-        assert e.comfort == 100
+        assert e.trust < 100
+        assert e.comfort < 100
 
     def test_history_recorded_on_delta(self):
         e = EmotionState()
