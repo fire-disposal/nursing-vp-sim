@@ -52,7 +52,7 @@ def upgrade() -> None:
     op.alter_column("assignments", "case_id", nullable=False)
 
     # Step 4: Add FK and index for case_id
-    op.create_foreign_key(None, "assignments", "cases", ["case_id"], ["id"])
+    op.create_foreign_key("fk_assignments_case_id", "assignments", "cases", ["case_id"], ["id"])
     op.create_index("ix_assignments_case", "assignments", ["case_id"])
 
     # Step 5: Drop practice_id from assignments
