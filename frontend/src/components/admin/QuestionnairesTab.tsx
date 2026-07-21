@@ -76,7 +76,7 @@ export default function QuestionnairesTab() {
 	const { data: casesData } = useQuery({
 		queryKey: queryKeys.cases.student(),
 		queryFn: () =>
-			getCases({ limit: 1000 }).then((r) => r.data),
+			getCases({ limit: 100 }).then((r) => r.data),
 		enabled: showAssign,
 		staleTime: 5 * 60_000,
 	});
