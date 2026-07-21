@@ -35,9 +35,17 @@ const ts = `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCD
 
 let commitsBlock = "";
 if (commitsRaw) {
-  const lines = commitsRaw.trim().split("\n").filter(Boolean).slice(0, 5);
-  if (lines.length > 0) {
-    commitsBlock = "\n\n**最近变更**\n" + lines.map((l) => `> ${l}`).join("\n");
+  const lines = commitsRaw.trim().split("\n").filter(Boolean);
+  const total = lines.length;
+  const shown = lines.slice(0, 20);
+  if (total > 0) {
+    commitsBlock = `\n\n**最近变更 (${total} commits)**\n` + shown
+      .map((l) => l.replace(/^[0-9a-f]+\s+/, ""))
+      .map((l) => `> ${l}`)
+      .join("\n");
+    if (total > 20) {
+      commitsBlock += `\n> ... 还有 ${total - 20} 条`;
+    }
   }
 }
 
