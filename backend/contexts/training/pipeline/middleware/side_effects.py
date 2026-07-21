@@ -1,5 +1,6 @@
-"""side_effects — post-reply effects including emotion analysis and initiative state emission."""
+"""side_effects — post-reply effects: emotion state emission (immediate) + analysis (background)."""
 
+import asyncio
 import json
 import logging
 
@@ -29,22 +30,26 @@ def _parse_emotion_result(raw: str) -> tuple[int, int, str]:
         return 0, 0, ""
 
 
-async def _analyze_emotion(ctx: PipelineContext) -> tuple[int, int, str]:
-    llm_client = ctx.app_state.llm_client
-    record_id = ctx.record.id
-    user_id = ctx.current_user.id
-    case_id = ctx.record.case_id
-
-    user_msg = EMOTION_ANALYSIS_USER.format(
-        nurse_message=ctx.student_input,
-        patient_reply=ctx.llm_reply,
-    )
-    messages = [
-        {"role": "system", "content": EMOTION_ANALYSIS_SYSTEM},
-        {"role": "user", "content": user_msg},
-    ]
-
+async def _analyze_and_apply(
+    llm_client,
+    emotion_cache,
+    record_id: int,
+    user_id: int,
+    case_id: int,
+    student_input: str,
+    patient_reply: str,
+    personality: dict,
+) -> None:
+    """Background task: analyze this turn's reply and apply delta for the next turn."""
     try:
+        user_msg = EMOTION_ANALYSIS_USER.format(
+            nurse_message=student_input,
+            patient_reply=patient_reply,
+        )
+        messages = [
+            {"role": "system", "content": EMOTION_ANALYSIS_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
         result = await llm_client.call(
             messages,
             purpose="emotion_analysis",
@@ -57,10 +62,28 @@ async def _analyze_emotion(ctx: PipelineContext) -> tuple[int, int, str]:
             temperature=0.3,
             max_tokens=128,
         )
-        return _parse_emotion_result(result)
+        dt, dc, trigger = _parse_emotion_result(result)
     except Exception:
-        log.warning("Emotion analysis LLM call failed: record_id=%d", record_id, exc_info=True)
-        return 0, 0, ""
+        log.warning("Emotion analysis failed: record_id=%d", record_id, exc_info=True)
+        return
+
+    if dt == 0 and dc == 0 and not trigger:
+        return
+
+    from core.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        profile = PersonalityProfile.from_personality(personality)
+        emotion = get_emotion(record_id, emotion_cache, db, profile=profile)
+        emotion.update(dt, dc, trigger)
+        emotion_cache.set(record_id, emotion, db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        log.warning("Emotion background apply failed: record_id=%d", record_id, exc_info=True)
+    finally:
+        db.close()
 
 
 async def side_effects(ctx: PipelineContext, next_mw) -> None:
@@ -83,21 +106,30 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         profile = PersonalityProfile.from_personality(personality)
         emotion = get_emotion(ctx.record.id, emotion_cache, ctx.db, profile=profile)
         emotion.apply_decay()
+        emotion_cache.set(ctx.record.id, emotion, ctx.db)
 
-        dt, dc, trigger = await _analyze_emotion(ctx)
-
-        if dt != 0 or dc != 0 or trigger:
-            emotion.update(dt, dc, trigger)
-            emotion_cache.set(ctx.record.id, emotion, ctx.db)
-            ctx.system_events.append(
-                {
-                    "emotion_change": {
-                        "state": emotion.state,
-                        "trust": emotion.trust,
-                        "comfort": emotion.comfort,
-                    }
+        ctx.system_events.append(
+            {
+                "emotion_change": {
+                    "state": emotion.state,
+                    "trust": emotion.trust,
+                    "comfort": emotion.comfort,
                 }
+            }
+        )
+
+        task = asyncio.ensure_future(  # noqa: RUF006
+            _analyze_and_apply(
+                llm_client=app.llm_client,
+                emotion_cache=emotion_cache,
+                record_id=ctx.record.id,
+                user_id=ctx.current_user.id,
+                case_id=ctx.record.case_id,
+                student_input=ctx.student_input,
+                patient_reply=ctx.llm_reply,
+                personality=personality,
             )
+        )
 
     has_initiative = features.get("patient_initiative", False)
     if not has_initiative or not ctx.llm_reply:

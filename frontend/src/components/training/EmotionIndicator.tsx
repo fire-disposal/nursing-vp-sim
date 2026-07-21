@@ -34,20 +34,24 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	open: "bg-green-500",
 };
 
-const VALUE_BAR_COLOR: Record<EmotionState, string> = {
-	withdrawn: "bg-red-500",
-	defensive: "bg-orange-500",
-	anxious: "bg-purple-500",
-	neutral: "bg-muted-foreground/50",
-	relaxed: "bg-blue-500",
-	open: "bg-green-500",
+const EMOTION_TOOLTIP: Record<EmotionState, string> = {
+	withdrawn: "沉默回避 — 需要耐心和真诚关心才能打开话题",
+	defensive: "防御抵触 — 追问隐私而不解释原因可能恶化",
+	anxious: "焦虑不安 — 需要 reassurance 和耐心解释",
+	neutral: "正常配合 — 按真实感受回答，保持一定距离",
+	relaxed: "放松友好 — 心情放松，可能多聊一两句个人感受",
+	open: "开放信任 — 愿意详细叙述，主动补充信息",
 };
 
 export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
-	const [values, setValues] = useState({ trust: 50, comfort: 50 });
+	const [trust, setTrust] = useState(50);
+	const [comfort, setComfort] = useState(50);
 	const [pulse, setPulse] = useState(false);
+	const [emojiPop, setEmojiPop] = useState(false);
+	const prevEmotionRef = useRef(emotion);
 	const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// ── Initiative state ──
 	const [initPercent, setInitPercent] = useState(0);
@@ -96,7 +100,6 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		setInitPercent(0);
 	}, []);
 
-	// User sends message → reset timer, wait for patient reply
 	useEffect(() => {
 		const unsub = bus.on("chat:beforeSend", () => {
 			resetInitiativeTimer();
@@ -105,7 +108,6 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		return unsub;
 	}, [bus, resetInitiativeTimer]);
 
-	// SSE initiative_state → sync elapsed, start ticking after patient reply
 	useEffect(() => {
 		const unsub = bus.on(
 			"initiative:state",
@@ -133,14 +135,12 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		return unsub;
 	}, [bus, startTicker, stopTicker]);
 
-	// Pause during TTS playback
 	useEffect(() => {
 		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; });
 		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; });
 		return () => { unsubStart(); unsubEnd(); };
 	}, [bus]);
 
-	// Cleanup on training end
 	useEffect(() => {
 		return bus.on("training:ended", () => { stopTicker(); });
 	}, [bus, stopTicker]);
@@ -153,7 +153,8 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		const unsub = bus.on(
 			"emotion:changed",
 			(data: { state: string; trust: number; comfort: number }) => {
-				setValues({ trust: data.trust, comfort: data.comfort });
+				setTrust(data.trust);
+				setComfort(data.comfort);
 				setPulse(true);
 				if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
 				pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
@@ -162,29 +163,51 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		return unsub;
 	}, [bus]);
 
+	// Animate emoji on state transition
+	useEffect(() => {
+		if (emotion !== prevEmotionRef.current) {
+			prevEmotionRef.current = emotion;
+			setEmojiPop(true);
+			if (popTimerRef.current) clearTimeout(popTimerRef.current);
+			popTimerRef.current = setTimeout(() => setEmojiPop(false), 400);
+		}
+	}, [emotion]);
+
 	if (!features.emotion) return null;
+
+	const label = EMOTION_LABELS[emotion];
+	const tooltip = EMOTION_TOOLTIP[emotion];
+	const trustPct = Math.max(0, Math.min(100, trust));
 
 	if (compact) {
 		return (
 			<div
 				className={cn(
-					"shrink-0 border-b border-border px-2 py-1 transition-colors duration-300",
+					"shrink-0 border-b border-border px-2 py-1.5 transition-colors duration-300",
 					pulse && "bg-primary/5",
 				)}
 			>
 				<div className="flex items-center gap-1.5">
-					<span className="text-sm leading-none">{EMOTION_ICONS[emotion]}</span>
-					<span className={cn("size-1.5 rounded-full shrink-0", EMOTION_DOT[emotion])} />
-					<div className="flex-1 flex items-center gap-1.5 min-w-0">
-						<div className="flex-1 h-1 rounded-full bg-muted overflow-hidden min-w-0">
-							<div className={cn("h-full rounded-full transition-all duration-700", VALUE_BAR_COLOR[emotion])}
-								style={{ width: `${Math.max(0, Math.min(100, values.trust))}%` }} />
+					<span
+						className={cn(
+							"text-sm leading-none transition-transform duration-300",
+							emojiPop && "scale-125",
+						)}
+					>
+						{EMOTION_ICONS[emotion]}
+					</span>
+					<span className="text-[11px] text-muted-foreground truncate">{label}</span>
+					{showInitiative && initPercent > 0 && (
+						<div className="ml-auto h-1 w-12 rounded-full bg-muted overflow-hidden shrink-0">
+							<div
+								className={cn(
+									"h-full rounded-full transition-all duration-1000",
+									initPercent > 80 ? "bg-danger" : initPercent > 50 ? "bg-warning" : "bg-success",
+								)}
+								style={{ width: `${Math.min(100, initPercent)}%` }}
+							/>
 						</div>
-						<div className="flex-1 h-1 rounded-full bg-muted overflow-hidden min-w-0">
-							<div className={cn("h-full rounded-full transition-all duration-700", VALUE_BAR_COLOR[emotion])}
-								style={{ width: `${Math.max(0, Math.min(100, values.comfort))}%` }} />
-						</div>
-					</div>
+					)}
 				</div>
 			</div>
 		);
@@ -193,50 +216,45 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 	return (
 		<div
 			className={cn(
-				"overflow-hidden transition-all duration-300 shrink-0",
+				"overflow-hidden transition-all duration-300 shrink-0 group",
 				pulse && "bg-primary/5",
 			)}
 		>
 			<div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-border">
-				<div className="flex items-center gap-1.5 shrink-0">
-					<span className="text-sm sm:text-base">{EMOTION_ICONS[emotion]}</span>
+				{/* Emoji + label */}
+				<div className="flex items-center gap-1.5 shrink-0" title={tooltip}>
+					<span
+						className={cn(
+							"text-sm sm:text-base transition-transform duration-300",
+							emojiPop && "scale-125",
+						)}
+					>
+						{EMOTION_ICONS[emotion]}
+					</span>
 					<span className={cn("text-xs sm:text-sm font-semibold", getEmotionColor(emotion))}>
-						{EMOTION_LABELS[emotion]}
+						{label}
 					</span>
 					<span className={cn("size-1.5 sm:size-2 rounded-full", EMOTION_DOT[emotion])} />
 				</div>
 
-				<div className="flex-1 flex items-center gap-2 sm:gap-3 min-w-0">
-					<div className="flex-1 flex items-center gap-1.5 min-w-0">
-						<span className="text-[10px] text-muted-foreground shrink-0">信任</span>
-						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-							<div
-								className={cn("h-full rounded-full transition-all duration-700 ease-out", VALUE_BAR_COLOR[emotion])}
-								style={{ width: `${Math.max(0, Math.min(100, values.trust))}%` }}
-							/>
-						</div>
-						<span className="text-[10px] text-muted-foreground tabular-nums w-6 text-right shrink-0">
-							{Math.round(values.trust)}
-						</span>
-					</div>
-					<div className="flex-1 flex items-center gap-1.5 min-w-0">
-						<span className="text-[10px] text-muted-foreground shrink-0">舒适</span>
-						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-							<div
-								className={cn("h-full rounded-full transition-all duration-700 ease-out", VALUE_BAR_COLOR[emotion])}
-								style={{ width: `${Math.max(0, Math.min(100, values.comfort))}%` }}
-							/>
-						</div>
-						<span className="text-[10px] text-muted-foreground tabular-nums w-6 text-right shrink-0">
-							{Math.round(values.comfort)}
-						</span>
+				{/* Trust bar — subtle single bar replacing dual bars */}
+				<div className="flex-1 flex items-center gap-1.5 min-w-0">
+					<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
+						<div
+							className={cn(
+								"h-full rounded-full transition-all duration-700 ease-out",
+								EMOTION_DOT[emotion],
+							)}
+							style={{ width: `${trustPct}%` }}
+						/>
 					</div>
 				</div>
 
+				{/* Initiative timer */}
 				{showInitiative && initPercent > 0 && (
-					<div className="flex items-center gap-1.5 shrink-0 min-w-0" style={{ maxWidth: "140px" }}>
+					<div className="flex items-center gap-1.5 shrink-0" style={{ maxWidth: "120px" }}>
 						<span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">追问</span>
-						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden min-w-[48px]">
+						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden min-w-[40px]">
 							<div
 								className={cn(
 									"h-full rounded-full transition-all duration-1000 ease-linear",
@@ -245,11 +263,15 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 								style={{ width: `${Math.min(100, initPercent)}%` }}
 							/>
 						</div>
-						<span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-							{Math.round(initPercent)}%
-						</span>
 					</div>
 				)}
+			</div>
+
+			{/* Tooltip on hover — hidden by default, shown via group-hover */}
+			<div className="hidden group-hover:block px-3 sm:px-4 pb-2 pt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+				{tooltip}
+				<span className="mx-1 text-muted-foreground/40">·</span>
+				信赖 {Math.round(trust)} · 舒适 {Math.round(comfort)}
 			</div>
 		</div>
 	);
