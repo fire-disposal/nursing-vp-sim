@@ -10,8 +10,6 @@ from sqlalchemy.orm import Session
 
 from contexts.training.score_engine import evaluate_training
 from core.config import (
-    AUTO_SCORE_STUDENT_CHARS_MIN,
-    AUTO_SCORE_STUDENT_MSG_MIN,
     SCORING_RETRY_GRACE_SECONDS,
     SCORING_TIMEOUT_SECONDS,
 )
@@ -42,21 +40,6 @@ SCORING_RETRY_DELAY_SECONDS = int(os.getenv("SCORING_RETRY_DELAY_SECONDS", "30")
 # Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
 # 弃用进程内 generation dict（多 worker 下不安全）。
 # 每个任务在写入终态前校验 scoring_status 是否仍是 "processing"。
-
-
-def _check_scoring_threshold(db: Session, record_id: int) -> str | None:
-    student_msgs = db.query(Message).filter(Message.record_id == record_id, Message.role == "student").all()
-    student_msg_count = len(student_msgs)
-    student_chars = sum(len(m.content or "") for m in student_msgs)
-
-    if student_msg_count < AUTO_SCORE_STUDENT_MSG_MIN:
-        return (
-            f"训练对话内容过少，未生成评分"
-            f"（已发送 {student_msg_count} 条消息，需要至少 {AUTO_SCORE_STUDENT_MSG_MIN} 条）"
-        )
-    if student_chars < AUTO_SCORE_STUDENT_CHARS_MIN:
-        return f"训练对话内容过少，未生成评分（已输入 {student_chars} 字，需要至少 {AUTO_SCORE_STUDENT_CHARS_MIN} 字）"
-    return None
 
 
 def _create_notification(
