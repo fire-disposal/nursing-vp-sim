@@ -10,6 +10,7 @@ import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
+import type { TrainingRecordDetail } from "./TrainingContext";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {
@@ -269,24 +270,26 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			sending,
 			timeLimitMinutes: timeLimit,
 			remainingSeconds,
-			voiceStatus,
-			toggleTts: toggleTtsCb,
-			endTraining,
-		}),
-		[
-			recordId,
-			trainingType,
-			patient,
-			messages,
-			features,
-			ttsAutoPlay,
-			sending,
-			timeLimit,
-			remainingSeconds,
-			voiceStatus,
-			toggleTtsCb,
-			endTraining,
-		],
+		voiceStatus,
+		recordDetail: _restoreRecord as TrainingRecordDetail | null,
+		toggleTts: toggleTtsCb,
+		endTraining,
+	}),
+	[
+		recordId,
+		trainingType,
+		patient,
+		messages,
+		features,
+		ttsAutoPlay,
+		sending,
+		timeLimit,
+		remainingSeconds,
+		voiceStatus,
+		_restoreRecord,
+		toggleTtsCb,
+		endTraining,
+	],
 	);
 
 	if (loading) {

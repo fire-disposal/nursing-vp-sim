@@ -15,12 +15,12 @@ import { useExamBridge } from "@/hooks/useExamBridge";
 import { getSceneCards, CARD_META } from "./scene-cards/registry";
 
 export default function SceneToolbar() {
-	const { bus, features, trainingType, recordId } = useTrainingContext();
+	const { bus, features, trainingType, recordId, recordDetail } = useTrainingContext();
 	const cards: SceneCard[] = getSceneCards(trainingType, features);
 	const [activeId, setActiveId] = useState<string | null>(null);
 
 	const activeCard = cards.find((c) => c.id === activeId);
-	const cardProps: SceneCardProps = { bus, mode: "training" as const, recordId };
+	const cardProps: SceneCardProps = { bus, recordId, recordDetail };
 
   const handleClose = useCallback(() => setActiveId(null), []);
 

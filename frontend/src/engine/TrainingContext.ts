@@ -1,6 +1,16 @@
 import { createContext, useContext } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "./types";
 
+export interface TrainingRecordDetail {
+	case_data?: Record<string, unknown>;
+	exam_results?: Array<{ type: string; value: string; label?: string; unit?: string }>;
+	required_inquiries?: string[];
+	triage_result?: Record<string, unknown>;
+	sheet_data?: Record<string, unknown>;
+	quiz?: { questions?: Array<Record<string, unknown>> };
+	[key: string]: unknown;
+}
+
 export interface TrainingContextValue {
 	bus: MessageBus;
 	recordId: string;
@@ -8,6 +18,7 @@ export interface TrainingContextValue {
 	patient: PatientData;
 	messages: ChatMessage[];
 	features: Record<string, boolean>;
+	recordDetail: TrainingRecordDetail | null;
 	ttsAutoPlay: boolean;
 	sending: boolean;
 	timeLimitMinutes: number;

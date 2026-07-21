@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
-import type { SceneProps } from "./scene-state";
+import type { MessageBus } from "./types";
+import type { TrainingRecordDetail } from "./TrainingContext";
 
 /** A scene card = a protocolised frontend component.
  *
- *  Like `SceneProps`, every card receives `{ bus, mode }` and
- *  optionally `recordId` for API access.  Cards communicate with
- *  the training engine exclusively through the MessageBus.
+ *  Like `SceneProps`, every card receives `{ bus, recordId, recordDetail }`.
+ *  Cards communicate with the training engine exclusively through the MessageBus.
  *
  *  In sandbox:  card receives mock bus + mode="sandbox"
  *  In training: card receives real bus + mode="training"
@@ -19,7 +19,8 @@ export interface SceneCard {
   priority: number;
 }
 
-export interface SceneCardProps extends SceneProps {
-  /** Needed for direct API calls (panels that fetch their own data). */
+export interface SceneCardProps {
+  bus: MessageBus;
   recordId: string;
+  recordDetail: TrainingRecordDetail | null;
 }

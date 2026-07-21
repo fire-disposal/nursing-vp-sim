@@ -17,7 +17,7 @@ const PANEL_WIDTH_DEFAULT = 280;
  * Click _ to minimize (collapses to header only), ✕ to fully close.
  */
 export function SceneRenderer() {
-  const { bus, features, recordId, trainingType } = useTrainingContext();
+  const { bus, features, recordId, trainingType, recordDetail } = useTrainingContext();
   const cards = getSceneCards(trainingType, features);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState<Set<string>>(new Set());
@@ -33,7 +33,7 @@ export function SceneRenderer() {
     });
   }, []);
 
-  const cardProps: SceneCardProps = { bus, mode: "training", recordId };
+  const cardProps: SceneCardProps = { bus, recordId, recordDetail };
 
   useExamBridge(bus);
 
