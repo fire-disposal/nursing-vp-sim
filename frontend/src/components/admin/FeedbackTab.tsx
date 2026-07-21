@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
 	BarChart3,
+	Camera,
 	ChevronLeft,
 	ChevronRight,
 	MessageSquare,
@@ -20,7 +21,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getFeedbackStats, getFeedbacks, replyFeedback } from "@/api";
+import { feedbackImageUrl, getFeedbackStats, getFeedbacks, replyFeedback } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -125,6 +126,29 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 			</div>
 			{fb.content && (
 				<div className="text-sm text-foreground mb-1 leading-relaxed">{fb.content}</div>
+			)}
+			{fb.image_ids && fb.image_ids.length > 0 && (
+				<div className="flex items-center gap-1.5 mb-1.5">
+					<Camera size={13} className="text-muted-foreground shrink-0" />
+					<div className="flex gap-1.5 overflow-x-auto pb-1">
+						{fb.image_ids.map((imgId) => (
+							<a
+								key={imgId}
+								href={feedbackImageUrl(fb.id, imgId)}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="shrink-0 rounded-md border border-border overflow-hidden hover:border-primary transition-colors"
+							>
+								<img
+									src={feedbackImageUrl(fb.id, imgId)}
+									alt={`截图 ${imgId}`}
+									className="h-16 w-auto object-cover"
+									loading="lazy"
+								/>
+							</a>
+						))}
+					</div>
+				</div>
 			)}
 			<div className="text-xs text-muted-foreground/70 mb-1 flex items-center gap-2">
 				{new Date(fb.created_at).toLocaleString("zh-CN")}
