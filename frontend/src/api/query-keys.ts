@@ -162,7 +162,7 @@ export const queryKeys = {
 			[...queryKeys.questionnaires.all, recordId, type] as const,
 	},
 	sessionConfigs: ["sessionConfigs"] as const,
-	nursingRecord: (recordId: number | null | undefined) => ["nursingRecord", recordId] as const,
+	nursingRecord: (recordId: number | null | undefined) => ["nursing-record", recordId] as const,
 	assignments: {
 		all: ["assignments"] as const,
 		list: (params?: Record<string, unknown>) =>

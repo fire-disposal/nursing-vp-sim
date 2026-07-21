@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { queryKeys } from "@/api/query-keys";
 import { getNursingRecord, saveNursingRecord } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import type { SceneCardProps } from "@/engine/scene-card";
@@ -32,8 +33,10 @@ export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
+  const nursingKey = queryKeys.nursingRecord(rid);
+
   const { isLoading } = useQuery({
-    queryKey: ["nursing-record", rid],
+    queryKey: nursingKey,
     queryFn: async () => {
       const { data: d } = await getNursingRecord(rid);
       const sd: SheetData = (d as { sheet_data?: SheetData }).sheet_data || {};
@@ -51,7 +54,7 @@ export default function NursingRecordCard({ recordId, bus }: SceneCardProps) {
       await saveNursingRecord(rid, { sheet_data: sd as Record<string, unknown>, status: "draft" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["nursing-record", rid] });
+      queryClient.invalidateQueries({ queryKey: nursingKey });
     },
     onError: () => {
       toast.error("保存失败，请重试");
