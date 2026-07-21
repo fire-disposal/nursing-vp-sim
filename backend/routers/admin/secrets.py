@@ -29,7 +29,7 @@ from schemas import (
 )
 from services.llm import ApiSecretService, LLMConfigService
 
-router = APIRouter(prefix="/api/admin", tags=["API管理"])
+router = APIRouter(prefix="", tags=["API管理"])
 
 _Manager = Annotated[User, Depends(require_permission("api_manage"))]
 

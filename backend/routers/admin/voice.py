@@ -20,7 +20,7 @@ from services.voice import VoiceConfigService
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
+router = APIRouter(prefix="/voice", tags=["语音管理"])
 
 _Manager = Annotated[User, Depends(require_permission("llm_monitor"))]
 

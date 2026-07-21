@@ -9,7 +9,7 @@ from models import User
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
 from services.role import RoleService
 
-router = APIRouter(prefix="/api/admin/roles", tags=["角色管理"])
+router = APIRouter(prefix="/roles", tags=["角色管理"])
 
 _Manager = Annotated[User, Depends(require_permission("role_manage"))]
 

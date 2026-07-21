@@ -13,7 +13,7 @@ from models import User
 from schemas.voice import CostDashboardResponse, VoiceUsageResponse
 from services.costs import CostService
 
-router = APIRouter(prefix="/api/admin/costs", tags=["成本管理"])
+router = APIRouter(prefix="/costs", tags=["成本管理"])
 
 _Manager = Annotated[User, Depends(require_permission("llm_monitor"))]
 

@@ -8,7 +8,7 @@ from models import User
 from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate
 from services.grade import GradeService
 
-router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
+router = APIRouter(prefix="/grades", tags=["年级管理"])
 
 _Manager = Annotated[User, Depends(require_permission("grade_class_manage"))]
 
