@@ -7,5 +7,3 @@ export const TRAINING_SCENES: Record<
 	history_taking: lazy(() => import("./HistoryTakingScene")),
 	triage: lazy(() => import("./TriageScene")),
 };
-
-export type KnownTrainingType = keyof typeof TRAINING_SCENES;
