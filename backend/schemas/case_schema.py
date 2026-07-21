@@ -41,6 +41,24 @@ class PhaseTransition(BaseModel):
     auto_after_messages: int = 0
 
 
+class QuizOption(BaseModel):
+    key: str
+    text: str
+
+
+class QuizQuestion(BaseModel):
+    id: str
+    stem: str
+    options: list[QuizOption] = []
+    answer: str
+    explanation: str = ""
+
+
+class QuizConfig(BaseModel):
+    title: str = "引导题目"
+    questions: list[QuizQuestion] = []
+
+
 class PhaseConfig(BaseModel):
     id: str
     name: str
@@ -81,6 +99,8 @@ class CaseDataSchema(JsonbModel):
 
     exam_anchors: dict[str, Any] = {}
     hidden_info: list[str] = []
+
+    quiz: QuizConfig | None = None
 
     example_dialogues: list[dict] = []
 

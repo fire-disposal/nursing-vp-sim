@@ -5,6 +5,7 @@ import InquiryCard from "./InquiryCard";
 import NursingRecordCard from "./NursingRecordCard";
 import PatientInfoCard from "./PatientInfoCard";
 import PhysicalAssessmentCard from "./PhysicalAssessmentCard";
+import QuizCard from "./QuizCard";
 
 export const CARD_META: Record<string, { icon: string; title: string }> = {
   "patient-info":   { icon: "👤", title: "患者信息" },
@@ -12,6 +13,7 @@ export const CARD_META: Record<string, { icon: string; title: string }> = {
   "physical-exam":  { icon: "💓", title: "护理查体" },
   "nursing-record": { icon: "📄", title: "护理记录" },
   "mews":           { icon: "📊", title: "MEWS 评分" },
+  "quiz":           { icon: "❓", title: "引导题目" },
 };
 
 interface CardDef {
@@ -30,12 +32,14 @@ const HISTORY_TAKING: CardDef[] = [
   { id: "inquiry",          component: InquiryCard,                                priority: 1 },
   { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 2, featureFlag: "physical_exam" },
   { id: "nursing-record",   component: NursingRecordCard,                          priority: 3, featureFlag: "nursing_record" },
+  { id: "quiz",             component: QuizCard,                                   priority: 4, featureFlag: "quiz" },
 ];
 
 const TRIAGE: CardDef[] = [
   { id: "patient-info",     component: PatientInfoCard,                            priority: 0 },
   { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 1, featureFlag: "physical_exam" },
   def("mews",           () => import("@/components/training/panels/MewsPanel"), 2, "physical_exam"),
+  { id: "quiz",             component: QuizCard,                                   priority: 3, featureFlag: "quiz" },
 ];
 
 const REGISTRY: Record<string, CardDef[]> = {

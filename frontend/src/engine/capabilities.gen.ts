@@ -17,7 +17,7 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
   "emotion": {
     "key": "emotion",
     "label": "患者情绪状态机",
-    "description": "5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化。虚拟病人的内置第一性质，全类型恒开。",
+    "description": "6态情绪模型（withdrawn/defensive/anxious/neutral/relaxed/open），根据学生用语动态变化。虚拟病人的内置第一性质，全类型恒开。",
     "tier": "builtin",
     "trainingTypes": null,
     "defaultOn": false,
@@ -58,6 +58,18 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     ],
     "defaultOn": false,
     "requires": []
+  },
+  "quiz": {
+    "key": "quiz",
+    "label": "引导题目",
+    "description": "训练过程中穿插病例相关的引导性选择题，帮助学生聚焦关键知识点。不参与评分。",
+    "tier": "toggleable",
+    "trainingTypes": [
+      "history_taking",
+      "triage"
+    ],
+    "defaultOn": false,
+    "requires": []
   }
 };
 
@@ -66,9 +78,11 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
   "history_taking": [
     "patient_initiative",
     "physical_exam",
-    "nursing_record"
+    "nursing_record",
+    "quiz"
   ],
   "triage": [
-    "physical_exam"
+    "physical_exam",
+    "quiz"
   ]
 };

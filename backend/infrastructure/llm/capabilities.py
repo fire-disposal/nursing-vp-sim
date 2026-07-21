@@ -58,6 +58,14 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         training_types=("history_taking",),
         default=False,
     ),
+    "quiz": Capability(
+        key="quiz",
+        label="引导题目",
+        description="训练过程中穿插病例相关的引导性选择题，帮助学生聚焦关键知识点。不参与评分。",
+        tier="toggleable",
+        training_types=("history_taking", "triage"),
+        default=False,
+    ),
 }
 
 
