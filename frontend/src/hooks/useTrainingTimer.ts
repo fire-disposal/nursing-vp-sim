@@ -20,12 +20,10 @@ export function useTrainingTimer({
 
 	useEffect(() => {
 		if (initialRemaining == null) return;
-		const diff = Math.abs((remaining ?? 0) - initialRemaining);
-		if (diff > 30) {
+		if (remaining == null || Math.abs((remaining ?? 0) - initialRemaining) > 30) {
 			setRemaining(initialRemaining);
 		}
-		if (initialRemaining > 0 && remaining == null) {
-			setRemaining(initialRemaining);
+		if (initialRemaining > 0 && !timerActive) {
 			setTimerActive(true);
 		}
 		warned5Ref.current = false;

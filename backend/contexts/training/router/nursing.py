@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user
+from infrastructure.llm.capabilities import is_enabled
 from models import NursingRecord, TrainingRecord, User
 from schemas import NursingRecordResponse, NursingRecordSave
 
@@ -22,6 +23,14 @@ def get_nursing_record(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+    if not is_enabled(record, "nursing_record"):
+        raise HTTPException(status_code=400, detail="本次训练未启用护理评估记录")
+
     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
     if not nr:
         return NursingRecordResponse(
@@ -48,6 +57,8 @@ def save_nursing_record(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作此训练记录")
+    if not is_enabled(record, "nursing_record"):
+        raise HTTPException(status_code=400, detail="本次训练未启用护理评估记录")
 
     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
     if nr:

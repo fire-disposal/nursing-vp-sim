@@ -11,6 +11,7 @@ import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
+import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
 
@@ -19,10 +20,10 @@ type CaseBrief = components["schemas"]["CaseBrief"];
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
 
-const CAPABILITY_BADGES: Record<string, { label: string; color: string }> = {
-  patient_initiative: { label: "患者追问", color: "bg-amber-50 text-amber-600" },
-  physical_exam: { label: "护理查体", color: "bg-purple-50 text-purple-600" },
-  nursing_record: { label: "评估记录", color: "bg-teal-50 text-teal-600" },
+const CAPABILITY_COLORS: Record<string, string> = {
+  patient_initiative: "bg-amber-50 text-amber-600",
+  physical_exam: "bg-purple-50 text-purple-600",
+  nursing_record: "bg-teal-50 text-teal-600",
 };
 
 const TYPE_LABELS: Record<string, { label: string; icon: typeof Stethoscope }> = {
@@ -211,10 +212,10 @@ export default function TrainingSelect() {
                   <div className="flex gap-1.5 flex-wrap">
                     <Badge variant="outline" className="text-[10px] px-1.5">{(c.difficulty && DIFFICULTY_LABELS[c.difficulty]) || "初级"}</Badge>
                     {enabledCaps.map((key) => {
-                      const badge = CAPABILITY_BADGES[key];
-                      if (!badge) return null;
+                      const capDef = ALL_CAPABILITIES[key];
+                      const color = CAPABILITY_COLORS[key] ?? "bg-muted text-muted-foreground";
                       return (
-                        <span key={key} className={cn("text-[10px] px-1.5 py-0.5 rounded", badge.color)}>{badge.label}</span>
+                        <span key={key} className={cn("text-[10px] px-1.5 py-0.5 rounded", color)}>{capDef?.label ?? key}</span>
                       );
                     })}
                   </div>

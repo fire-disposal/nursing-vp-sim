@@ -15,6 +15,10 @@ const ICONS: Record<string, string> = {
   "mews":           "📊",
 };
 
+const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
+const PANEL_WIDTH_WIDE = 400;
+const PANEL_WIDTH_DEFAULT = 280;
+
 /**
  * Icon sidebar + draggable overlay panel.
  * Click an icon to open/close its card panel; drag the header to reposition.
@@ -92,7 +96,7 @@ export function SceneRenderer() {
       {/* Overlay panel */}
       {activeCard && (
         <>
-          <div ref={panelRef} style={{ width: physicalExamPanel(activeCard.id) ? 360 : 280 }}
+          <div ref={panelRef} style={{ width: panelWidth(activeCard) }}
             className="absolute top-0 right-full border border-border bg-card rounded-xl shadow-xl overflow-hidden"
           >
             {/* Draggable header */}
@@ -142,6 +146,6 @@ export function SceneRenderer() {
   );
 }
 
-function physicalExamPanel(id: string) {
-  return id === "physical-exam" ? 400 : 280;
+function panelWidth(card: { featureFlag?: string }) {
+  return card.featureFlag && WIDE_PANEL_CAPS.has(card.featureFlag) ? PANEL_WIDTH_WIDE : PANEL_WIDTH_DEFAULT;
 }

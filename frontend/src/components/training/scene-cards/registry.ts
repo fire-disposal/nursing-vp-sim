@@ -40,5 +40,5 @@ export function getSceneCards(trainingType: string, enabledFeatures: Record<stri
   return defs
     .filter((c) => !c.featureFlag || enabledFeatures[c.featureFlag])
     .sort((a, b) => a.priority - b.priority)
-    .map(({ id, component, priority }) => ({ id, component, priority } as SceneCard));
+    .map(({ id, component, priority, featureFlag }) => ({ id, component, priority, featureFlag } as SceneCard));
 }

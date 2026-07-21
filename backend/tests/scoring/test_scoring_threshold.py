@@ -1,4 +1,4 @@
-"""Tests for scoring threshold — low-quality training records are not scored."""
+"""Tests for scoring — all training records produce scoring regardless of message count."""
 
 from models import Message, TrainingRecord
 
@@ -14,7 +14,7 @@ def _start_training(client, token, case_id):
 
 
 class TestEndTrainingThreshold:
-    def test_zero_student_messages_no_scoring(self, client, student, test_case, db_session):
+    def test_zero_student_messages_enqueues_normally(self, client, student, test_case, db_session):
         test_case.is_open = True
         db_session.commit()
 
@@ -27,18 +27,13 @@ class TestEndTrainingThreshold:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["scoring_status"] == "failed"
-        assert "内容不足" in data["message"]
-        assert data["record_id"] == record_id
+        assert data["scoring_status"] == "pending"
 
         record = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         db_session.refresh(record)
-        assert record.scoring_status == "failed"
-        assert record.scoring_error is not None
-        assert "内容过少" in record.scoring_error
         assert record.status == "completed"
 
-    def test_two_short_messages_no_scoring(self, client, student, test_case, db_session):
+    def test_two_short_messages_enqueues_normally(self, client, student, test_case, db_session):
         test_case.is_open = True
         db_session.commit()
 
@@ -58,8 +53,7 @@ class TestEndTrainingThreshold:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["scoring_status"] == "failed"
-        assert "内容不足" in data["message"]
+        assert data["scoring_status"] == "pending"
 
     def test_enough_messages_enqueues_normally(self, client, student, test_case, db_session):
         test_case.is_open = True
@@ -96,7 +90,7 @@ class TestEndTrainingThreshold:
 
 
 class TestRetryScoringThreshold:
-    def test_retry_scoring_below_threshold_returns_400(self, client, student, test_case, db_session):
+    def test_retry_scoring_below_threshold_enqueues(self, client, student, test_case, db_session):
         test_case.is_open = True
         db_session.commit()
 
@@ -112,8 +106,8 @@ class TestRetryScoringThreshold:
             f"/api/training/{record_id}/retry-scoring",
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp.status_code == 400
-        assert "内容过少" in resp.json()["detail"]
+        assert resp.status_code == 200
+        assert resp.json()["scoring_status"] == "pending"
 
     def test_retry_scoring_enough_messages_enqueues(self, client, student, test_case, db_session):
         test_case.is_open = True

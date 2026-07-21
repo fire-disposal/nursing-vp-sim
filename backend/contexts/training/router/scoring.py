@@ -374,20 +374,6 @@ async def end_training(
         if not acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
-        threshold_msg = _check_scoring_threshold(db, record_id)
-        if threshold_msg:
-            record.status = "completed"
-            record.end_time = datetime.now(UTC)
-            _set_overdue_if_needed(record, db)
-            record.scoring_status = "failed"
-            record.scoring_error = threshold_msg[:2000]
-            db.commit()
-            return {
-                "message": "训练已结束，但对话内容不足，未生成评分",
-                "record_id": record_id,
-                "scoring_status": "failed",
-            }
-
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = record.case_snapshot or (case.case_data if case else {})
 
@@ -465,10 +451,6 @@ async def retry_scoring(
         if record.scoring_status in ("pending", "processing"):
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
-
-        threshold_msg = _check_scoring_threshold(db, record_id)
-        if threshold_msg:
-            raise HTTPException(status_code=400, detail=threshold_msg)
 
         has_score_review = current_user.has_permission("score_review")
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
