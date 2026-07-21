@@ -12,7 +12,7 @@ class TestFeedback:
 
         resp = client.post(
             "/api/feedback",
-            json={"rating": 4, "tag": "bug", "content": "页面加载慢"},
+            data={"rating": "4", "tag": "bug", "content": "页面加载慢"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
@@ -30,7 +30,7 @@ class TestFeedback:
         """POST /api/feedback without token returns 401."""
         resp = client.post(
             "/api/feedback",
-            json={"rating": 4, "tag": "bug"},
+            data={"rating": "4", "tag": "bug"},
         )
         assert resp.status_code == 401
 

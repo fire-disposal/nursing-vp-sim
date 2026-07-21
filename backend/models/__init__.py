@@ -1,6 +1,7 @@
 from models._base import TimestampMixin, _now_utc
 from models.auth import Role, RolePermission, User
 from models.case_practice import Assignment, Case
+from models.feedback_image import FeedbackImage
 from models.llm import ApiSecret, LLMCallLog, LLMConfig
 from models.org import Class, Grade, UserClass
 from models.qa import KnowledgeChunk, QARecord, QASession
@@ -31,6 +32,7 @@ __all__ = [
     "CaseQuestionnaire",
     "Class",
     "Feedback",
+    "FeedbackImage",
     "Grade",
     "KnowledgeChunk",
     "LLMCallLog",

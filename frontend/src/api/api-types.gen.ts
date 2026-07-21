@@ -229,6 +229,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/feedback/{feedback_id}/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Feedback Image */
+        get: operations["get_feedback_image_api_feedback__feedback_id__images__image_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/my-feedback": {
         parameters: {
             query?: never;
@@ -273,6 +290,23 @@ export interface paths {
         get?: never;
         /** Reply Feedback */
         put: operations["reply_feedback_api_admin_feedback__feedback_id__reply_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/storage-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Feedback Storage Stats */
+        get: operations["feedback_storage_stats_api_admin_feedback_storage_stats_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2528,6 +2562,23 @@ export interface components {
             /** Class Name */
             class_name?: string | null;
         };
+        /** Body_submit_feedback_api_feedback_post */
+        Body_submit_feedback_api_feedback_post: {
+            /**
+             * Rating
+             * @default 3
+             */
+            rating: number;
+            /**
+             * Tag
+             * @default
+             */
+            tag: string;
+            /** Content */
+            content?: string | null;
+            /** Images */
+            images?: string[] | null;
+        };
         /** BulkAssignClassRequest */
         BulkAssignClassRequest: {
             /** User Ids */
@@ -3007,6 +3058,11 @@ export interface components {
              * @default
              */
             version: string;
+            /**
+             * Image Count
+             * @default 0
+             */
+            image_count: number;
             /** Developer Reply */
             developer_reply?: string | null;
             /** Replied At */
@@ -3022,25 +3078,15 @@ export interface components {
             /** Reply */
             reply: string;
         };
-        /** FeedbackSubmit */
-        FeedbackSubmit: {
-            /**
-             * Rating
-             * @default 3
-             */
-            rating: number;
-            /**
-             * Tag
-             * @default
-             */
-            tag: string;
-            /** Content */
-            content?: string | null;
-        };
         /** FeedbackSubmitResponse */
         FeedbackSubmitResponse: {
             /** Id */
             id: number;
+            /**
+             * Image Count
+             * @default 0
+             */
+            image_count: number;
             /**
              * Created At
              * Format: date-time
@@ -4169,6 +4215,15 @@ export interface components {
             section: string;
             /** Text */
             text: string;
+        };
+        /** StorageStatsResponse */
+        StorageStatsResponse: {
+            /** Total Images */
+            total_images: number;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Total Mb */
+            total_mb: number;
         };
         /** StudentAssignmentItem */
         StudentAssignmentItem: {
@@ -5380,9 +5435,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["FeedbackSubmit"];
+                "multipart/form-data": components["schemas"]["Body_submit_feedback_api_feedback_post"];
             };
         };
         responses: {
@@ -5393,6 +5448,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackSubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_feedback_image_api_feedback__feedback_id__images__image_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feedback_id: number;
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5504,6 +5591,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feedback_storage_stats_api_admin_feedback_storage_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageStatsResponse"];
                 };
             };
         };

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { MessageSquare, MessageSquareReply } from "lucide-react";
+import { Camera, MessageSquare, MessageSquareReply } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
@@ -134,6 +134,12 @@ export default function MyFeedbackPage() {
 							</div>
 							{fb.content && (
 								<p className="text-sm text-muted-foreground leading-relaxed">{fb.content}</p>
+							)}
+							{fb.image_count != null && fb.image_count > 0 && (
+								<div className="flex items-center gap-1 text-xs text-muted-foreground">
+									<Camera size={12} />
+									查看 {fb.image_count} 张截图
+								</div>
 							)}
 						{fb.developer_reply && (
 							<div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3">

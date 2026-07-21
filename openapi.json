@@ -863,13 +863,12 @@
         "operationId": "submit_feedback_api_feedback_post",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/FeedbackSubmit"
+                "$ref": "#/components/schemas/Body_submit_feedback_api_feedback_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -898,6 +897,60 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/feedback/{feedback_id}/images/{image_id}": {
+      "get": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Get Feedback Image",
+        "operationId": "get_feedback_image_api_feedback__feedback_id__images__image_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          },
+          {
+            "name": "image_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Image Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/my-feedback": {
@@ -1125,6 +1178,32 @@
             }
           }
         }
+      }
+    },
+    "/api/admin/feedback/storage-stats": {
+      "get": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Feedback Storage Stats",
+        "operationId": "feedback_storage_stats_api_admin_feedback_storage_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/admin/feedback/export": {
@@ -8836,6 +8915,51 @@
         ],
         "title": "BatchUserItem"
       },
+      "Body_submit_feedback_api_feedback_post": {
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "default": 3
+          },
+          "tag": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Tag",
+            "default": ""
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "title": "Body_submit_feedback_api_feedback_post"
+      },
       "BulkAssignClassRequest": {
         "properties": {
           "user_ids": {
@@ -9867,6 +9991,11 @@
             "title": "Version",
             "default": ""
           },
+          "image_count": {
+            "type": "integer",
+            "title": "Image Count",
+            "default": 0
+          },
           "developer_reply": {
             "anyOf": [
               {
@@ -9922,42 +10051,16 @@
         ],
         "title": "FeedbackReplyRequest"
       },
-      "FeedbackSubmit": {
-        "properties": {
-          "rating": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating",
-            "default": 3
-          },
-          "tag": {
-            "type": "string",
-            "maxLength": 20,
-            "title": "Tag",
-            "default": ""
-          },
-          "content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "FeedbackSubmit"
-      },
       "FeedbackSubmitResponse": {
         "properties": {
           "id": {
             "type": "integer",
             "title": "Id"
+          },
+          "image_count": {
+            "type": "integer",
+            "title": "Image Count",
+            "default": 0
           },
           "created_at": {
             "type": "string",
@@ -12968,6 +13071,29 @@
           "text"
         ],
         "title": "SectionTextResponse"
+      },
+      "StorageStatsResponse": {
+        "properties": {
+          "total_images": {
+            "type": "integer",
+            "title": "Total Images"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "title": "Total Bytes"
+          },
+          "total_mb": {
+            "type": "number",
+            "title": "Total Mb"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_images",
+          "total_bytes",
+          "total_mb"
+        ],
+        "title": "StorageStatsResponse"
       },
       "StudentAssignmentItem": {
         "properties": {

@@ -1,8 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import Response
+from sqlalchemy.orm import Session
 
 from core.config import FEEDBACK_BOT_TOKEN
+from core.database import get_db
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infrastructure.exporter import ColumnDef, export_response
@@ -11,9 +14,9 @@ from schemas import (
     FeedbackDailyItem,
     FeedbackItem,
     FeedbackReplyRequest,
-    FeedbackSubmit,
     FeedbackSubmitResponse,
     PaginatedResponse,
+    StorageStatsResponse,
 )
 from services.feedback import FeedbackService
 
@@ -24,9 +27,40 @@ _FeedbackReviewer = Annotated[User, Depends(require_permission("feedback_review"
 
 
 @router.post("/feedback", response_model=FeedbackSubmitResponse)
-def submit_feedback(req: FeedbackSubmit, current_user: _AnyUser, db: DbSession):
-    fb = FeedbackService(db).submit(current_user.id, req.rating, req.tag, req.content)
-    return {"id": fb.id, "created_at": fb.created_at}
+async def submit_feedback(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    rating: int = Form(default=3, ge=1, le=5),
+    tag: str = Form(default="", max_length=20),
+    content: str | None = Form(None),
+    images: list[UploadFile] | None = File(None),
+):
+    image_data = None
+    if images:
+        image_data = [(await img.read(), img.content_type or "application/octet-stream") for img in images]
+
+    fb = FeedbackService(db).submit(current_user.id, rating, tag, content, image_data)
+    img_count = FeedbackService(db).repo.image_count_for_feedback(fb.id)
+    return {"id": fb.id, "image_count": img_count, "created_at": fb.created_at}
+
+
+@router.get("/feedback/{feedback_id}/images/{image_id}")
+def get_feedback_image(
+    feedback_id: int,
+    image_id: int,
+    current_user: _AnyUser,
+    db: DbSession,
+):
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404)
+
+    if fb.user_id != current_user.id and not current_user.has_permission("feedback_review"):
+        raise HTTPException(status_code=404)
+
+    service = FeedbackService(db)
+    img = service.get_image(feedback_id, image_id)
+    return Response(content=bytes(img.image_data), media_type=img.mime_type)
 
 
 @router.get("/my-feedback", response_model=PaginatedResponse[FeedbackItem])
@@ -78,6 +112,14 @@ def reply_feedback(
     return _to_item_from_model(fb)
 
 
+@router.get("/admin/feedback/storage-stats", response_model=StorageStatsResponse)
+def feedback_storage_stats(
+    current_user: _FeedbackReviewer,
+    db: DbSession,
+):
+    return FeedbackService(db).storage_stats()
+
+
 @router.post("/admin/feedback/export")
 def export_feedback(
     current_user: _FeedbackReviewer,
@@ -86,16 +128,34 @@ def export_feedback(
 ):
     from core.config import MAX_EXPORT_ROWS
 
-    fb = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
+    fb_list = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
+
+    feedback_ids = [f.id for f in fb_list]
+    if feedback_ids:
+        from sqlalchemy import func
+
+        from models.feedback_image import FeedbackImage as FI
+
+        counts = (
+            db.query(FI.feedback_id, func.count(FI.id).label("cnt"))
+            .filter(FI.feedback_id.in_(feedback_ids))
+            .group_by(FI.feedback_id)
+            .all()
+        )
+        count_map = {c.feedback_id: c.cnt for c in counts}
+    else:
+        count_map = {}
+
     columns = [
         ColumnDef("反馈内容", key="content"),
         ColumnDef("评分", key="rating", fmt=lambda v: str(v) if v else ""),
         ColumnDef("标签", key="tag"),
         ColumnDef("版本", key="version"),
+        ColumnDef("图片数", value=lambda r: str(count_map.get(r.id, 0))),
         ColumnDef("开发者回复", key="developer_reply"),
         ColumnDef("创建时间", value=lambda r: r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""),
     ]
-    return export_response(fb, columns, "用户反馈", "用户反馈", format)
+    return export_response(fb_list, columns, "用户反馈", "用户反馈", format)
 
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])
@@ -117,6 +177,7 @@ def _to_item(r) -> FeedbackItem:
         tag=r.tag,
         content=r.content,
         version=getattr(r, "version", ""),
+        image_count=getattr(r, "image_count", 0),
         developer_reply=r.developer_reply,
         replied_at=r.replied_at,
         created_at=r.created_at,
@@ -132,6 +193,7 @@ def _to_item_from_model(fb: Feedback) -> FeedbackItem:
         tag=fb.tag,
         content=fb.content,
         version=fb.version,
+        image_count=len(fb.images) if fb.images else 0,
         developer_reply=fb.developer_reply,
         replied_at=fb.replied_at,
         created_at=fb.created_at,

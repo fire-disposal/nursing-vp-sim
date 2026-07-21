@@ -1,6 +1,7 @@
 from sqlalchemy import case, func
 
 from models import Feedback
+from models.feedback_image import FeedbackImage
 from repositories.base import Repository
 
 
@@ -47,3 +48,27 @@ class FeedbackRepository(Repository[Feedback]):
         if date_to is not None:
             q = q.filter(Feedback.created_at < date_to)
         return q
+
+    def get_image(self, feedback_id: int, image_id: int) -> FeedbackImage | None:
+        return (
+            self.db.query(FeedbackImage)
+            .filter(
+                FeedbackImage.feedback_id == feedback_id,
+                FeedbackImage.id == image_id,
+            )
+            .first()
+        )
+
+    def image_count_for_feedback(self, feedback_id: int) -> int:
+        return (
+            self.db.query(func.count(FeedbackImage.id)).filter(FeedbackImage.feedback_id == feedback_id).scalar() or 0
+        )
+
+    def storage_stats(self) -> dict:
+        total_images = self.db.query(func.count(FeedbackImage.id)).scalar() or 0
+        total_bytes = self.db.query(func.coalesce(func.sum(FeedbackImage.file_size), 0)).scalar() or 0
+        return {
+            "total_images": total_images,
+            "total_bytes": total_bytes,
+            "total_mb": round(total_bytes / (1024 * 1024), 2),
+        }

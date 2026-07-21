@@ -41,6 +41,7 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     user: Mapped[User] = relationship()
+    images: Mapped[list] = relationship("FeedbackImage", cascade="all, delete-orphan")
 
 
 class SystemNotification(Base, TimestampMixin):

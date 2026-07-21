@@ -46,7 +46,9 @@ async def trigger_initiative(
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
     app_state = request.app.state
-    emotion = get_emotion(record_id, app_state.emotion_cache, db, profile=PersonalityProfile.from_personality(personality))
+    emotion = get_emotion(
+        record_id, app_state.emotion_cache, db, profile=PersonalityProfile.from_personality(personality)
+    )
 
     if not should_initiate(record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort):
         return {"triggered": False, "message": None}

@@ -1,9 +1,10 @@
-import { Loader2, MessageSquare, Send } from "lucide-react";
-import { useState } from "react";
+import { Loader2, MessageSquare, Plus, Send, X } from "lucide-react";
+import { type ChangeEvent, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { submitFeedback } from "@/api";
+import { submitFeedbackFormData } from "@/api";
 import { useToast } from "@/components/Toast";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { compressImage, validateImageFile } from "@/lib/image-compress";
 import { cn } from "@/utils/cn";
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
@@ -39,18 +40,58 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	const [rating, setRating] = useState(3);
 	const [tag, setTag] = useState("");
 	const [content, setContent] = useState("");
+	const [images, setImages] = useState<File[]>([]);
+	const [compressing, setCompressing] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const toast = useToast();
 	const navigate = useNavigate();
+
+	const handleAddImages = async (e: ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
+		if (!files || files.length === 0) return;
+
+		const newFiles = Array.from(files).slice(0, 3 - images.length);
+		for (const file of newFiles) {
+			const error = validateImageFile(file);
+			if (error) {
+				toast.error(error);
+				return;
+			}
+		}
+
+		setCompressing(true);
+		try {
+			const compressed = await Promise.all(newFiles.map(compressImage));
+			setImages((prev) => [...prev, ...compressed].slice(0, 3));
+		} catch {
+			toast.error("图片处理失败，请重试");
+		} finally {
+			setCompressing(false);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+		}
+	};
+
+	const handleRemoveImage = (index: number) => {
+		setImages((prev) => prev.filter((_, i) => i !== index));
+	};
 
 	const handleSubmit = async () => {
 		setSubmitting(true);
 		try {
-			await submitFeedback({ rating, tag, content });
+			const formData = new FormData();
+			formData.append("rating", String(rating));
+			formData.append("tag", tag);
+			if (content) formData.append("content", content);
+			for (const img of images) {
+				formData.append("images", img);
+			}
+			await submitFeedbackFormData(formData);
 			toast.success("感谢你的反馈！");
 			setRating(3);
 			setTag("");
 			setContent("");
+			setImages([]);
 			onClose();
 			if (onSubmitted) onSubmitted();
 		} catch {
@@ -65,6 +106,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 		setRating(3);
 		setTag("");
 		setContent("");
+		setImages([]);
 		onClose();
 	};
 
@@ -142,6 +184,50 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 						className="w-full p-3 rounded-md border border-border text-sm resize-y outline-none box-border transition-colors duration-150 bg-card focus:border-primary"
 					/>
 				</div>
+
+				<div>
+					<div className="text-sm text-muted-foreground mb-3 font-medium">
+						添加截图 <span className="text-muted-foreground/60 font-normal">(选填, 最多3张)</span>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						{images.map((file, i) => (
+							<div key={`${file.name}-${i}`} className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border overflow-hidden group shrink-0">
+								<img
+									src={URL.createObjectURL(file)}
+									alt={`截图 ${i + 1}`}
+									className="w-full h-full object-cover"
+								/>
+								<button
+									type="button"
+									onClick={() => handleRemoveImage(i)}
+									className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+									aria-label={`删除截图 ${i + 1}`}
+								>
+									<X size={12} />
+								</button>
+							</div>
+						))}
+						{compressing && (
+							<div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
+								<Loader2 size={18} className="animate-spin text-muted-foreground" />
+							</div>
+						)}
+						{images.length < 3 && (
+							<label className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-dashed border-border bg-card flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:border-primary transition-colors shrink-0">
+								<Plus size={18} className="text-muted-foreground" />
+								<span className="text-[10px] text-muted-foreground">添加</span>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept="image/*"
+									multiple
+									className="hidden"
+									onChange={handleAddImages}
+								/>
+							</label>
+						)}
+					</div>
+				</div>
 			</div>
 
 			<div className="flex justify-between items-center mt-2">
@@ -153,7 +239,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 				<button
 					type="button"
 					onClick={handleClose}
-					disabled={submitting}
+					disabled={submitting || compressing}
 					className="px-5 py-2 rounded-md border border-border bg-card text-muted-foreground text-sm font-medium cursor-pointer transition-colors duration-150"
 				>
 					取消
@@ -161,7 +247,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 				<button
 					type="button"
 					onClick={handleSubmit}
-					disabled={submitting}
+					disabled={submitting || compressing}
 					className={cn(
 						"px-5 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
 						submitting ? "bg-muted opacity-60 cursor-not-allowed" : "bg-primary",

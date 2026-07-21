@@ -14,6 +14,7 @@ class FeedbackSubmit(BaseModel):
 
 class FeedbackSubmitResponse(BaseModel):
     id: int
+    image_count: int = 0
     created_at: datetime
 
 
@@ -26,6 +27,7 @@ class FeedbackItem(BaseModel):
     tag: str
     content: str | None = None
     version: str = ""
+    image_count: int = 0
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime
@@ -34,6 +36,12 @@ class FeedbackItem(BaseModel):
 class FeedbackReplyRequest(BaseModel):
     model_config = _REQ_CFG
     reply: str = Field(min_length=1, max_length=2000)
+
+
+class StorageStatsResponse(BaseModel):
+    total_images: int
+    total_bytes: int
+    total_mb: float
 
 
 class FeedbackDailyItem(BaseModel):
