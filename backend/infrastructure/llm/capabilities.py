@@ -141,4 +141,5 @@ def resolve_features(
 
 
 def is_enabled(record, key: str) -> bool:
-    return resolve_features(getattr(record, "practice_snapshot", None)).get(key, False)
+    case_defaults = (getattr(record, "case_snapshot", None) or {}).get("capabilities")
+    return resolve_features(getattr(record, "practice_snapshot", None), case_defaults=case_defaults).get(key, False)
