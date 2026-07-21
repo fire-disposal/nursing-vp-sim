@@ -2,8 +2,9 @@
 
 import json
 import logging
-import re
 
+from infrastructure.llm.client import CallContext
+from infrastructure.llm.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 from profiles.history_taking.emotion import get_emotion
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from profiles.history_taking.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
@@ -15,34 +16,48 @@ from ..context import (
 
 log = logging.getLogger(__name__)
 
-_EMOTION_DELTA_RE = re.compile(r'"emotion"\s*:\s*\{[^}]*\}')
-_EMOTION_JSON_STRIP_RE = re.compile(r'\s*\{\s*"emotion"\s*:\s*\{[^}]*\}\s*$', re.MULTILINE)
-MAX_DELTA = 3
+
+def _parse_emotion_result(raw: str) -> tuple[int, int, str]:
+    try:
+        data = json.loads(raw.strip())
+        dt = max(-3, min(3, int(data.get("trust_delta", 0))))
+        dc = max(-3, min(3, int(data.get("comfort_delta", 0))))
+        trigger = str(data.get("trigger", ""))
+        return dt, dc, trigger
+    except (json.JSONDecodeError, ValueError, TypeError):
+        log.warning("Failed to parse emotion analysis result: %s", raw[:200])
+        return 0, 0, ""
 
 
-def _strip_emotion_json(reply: str) -> str:
-    """Remove the emotion delta JSON block from the end of a reply."""
-    return _EMOTION_JSON_STRIP_RE.sub("", reply).rstrip()
+async def _analyze_emotion(ctx: PipelineContext) -> tuple[int, int, str]:
+    llm_client = ctx.app_state.llm_client
+    record_id = ctx.record.id
+    user_id = ctx.current_user.id
+    case_id = ctx.record.case_id
 
+    user_msg = EMOTION_ANALYSIS_USER.format(patient_reply=ctx.llm_reply)
+    messages = [
+        {"role": "system", "content": EMOTION_ANALYSIS_SYSTEM},
+        {"role": "user", "content": user_msg},
+    ]
 
-def _extract_emotion_delta(llm_reply: str) -> tuple[int, int, str]:
-    """Extract structured emotion delta from LLM reply. Returns (trust_delta, comfort_delta, trigger).
-
-    Searches the reply for a JSON block containing an "emotion" key.
-    Falls back to (0, 0, "") on parse failure.
-    """
-    matches = _EMOTION_DELTA_RE.findall(llm_reply)
-    for match in matches:
-        try:
-            parsed = json.loads("{" + match + "}")
-            emotion = parsed.get("emotion", {})
-            dt = max(-MAX_DELTA, min(MAX_DELTA, int(emotion.get("trust_delta", 0))))
-            dc = max(-MAX_DELTA, min(MAX_DELTA, int(emotion.get("comfort_delta", 0))))
-            trigger = str(emotion.get("trigger", ""))
-            return dt, dc, trigger
-        except (json.JSONDecodeError, ValueError, TypeError):
-            continue
-    return 0, 0, ""
+    try:
+        result = await llm_client.call(
+            messages,
+            purpose="emotion_analysis",
+            ctx=CallContext(
+                purpose="emotion_analysis",
+                user_id=user_id,
+                record_id=record_id,
+                case_id=case_id,
+            ),
+            temperature=0.3,
+            max_tokens=128,
+        )
+        return _parse_emotion_result(result)
+    except Exception:
+        log.warning("Emotion analysis LLM call failed: record_id=%d", record_id, exc_info=True)
+        return 0, 0, ""
 
 
 async def side_effects(ctx: PipelineContext, next_mw) -> None:
@@ -54,7 +69,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     app = ctx.app_state
     features = ctx.state.get(STATE_FEATURES) or {}
 
-    # 单一真相：仅从解析后的 features 门控（emotion 为 builtin 恒开；见 core.capabilities）
     has_emotion = features.get("emotion", False)
 
     if has_emotion and ctx.llm_reply:
@@ -67,10 +81,9 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         emotion = get_emotion(ctx.record.id, emotion_cache, ctx.db, profile=profile)
         emotion.apply_decay()
 
-        dt, dc, trigger = _extract_emotion_delta(ctx.llm_reply)
-        ctx.llm_reply = _strip_emotion_json(ctx.llm_reply)
+        dt, dc, trigger = await _analyze_emotion(ctx)
 
-        if dt != 0 or dc != 0:
+        if dt != 0 or dc != 0 or trigger:
             emotion.update(dt, dc, trigger)
             emotion_cache.set(ctx.record.id, emotion, ctx.db)
             ctx.system_events.append(
@@ -83,7 +96,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 }
             )
 
-    # 单一真相：自动主动发言与手动/计时器路径统一门控于 feature（修复此前 has_initiative 造成的端到端断裂）
     has_initiative = features.get("patient_initiative", False)
     if not has_initiative or not ctx.llm_reply:
         return
@@ -97,7 +109,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         case_data = ctx.case_data or {}
         personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
 
-        # Emit initiative state for frontend polling bar
         elapsed, threshold = get_initiative_seconds(
             ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         )

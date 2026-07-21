@@ -75,6 +75,15 @@ PROFILES: dict[str, LLMProfile] = {
         semaphore=100,
         response_format={"type": "json_object"},
     ),
+    "emotion_analysis": LLMProfile(
+        model="deepseek-v4-flash",
+        timeout=10,
+        max_tokens=128,
+        temperature=0.3,
+        max_retries=1,
+        semaphore=100,
+        response_format={"type": "json_object"},
+    ),
 }
 
 # Default profile for unknown purposes — uses flash, conservative settings

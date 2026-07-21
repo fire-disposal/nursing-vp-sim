@@ -1,7 +1,6 @@
 """LLM caller middleware — invokes the LLM to generate patient replies."""
 
 import logging
-import re
 
 from infrastructure.llm.client import CallContext
 
@@ -16,13 +15,6 @@ from ..context import (
 )
 
 log = logging.getLogger(__name__)
-
-_EMOTION_JSON_RE = re.compile(r'\s*\{\s*"emotion"\s*:\s*\{[^}]*\}\s*$', re.MULTILINE)
-
-
-def _strip_emotion_json(reply: str) -> str:
-    """Remove the emotion delta JSON block from the end of an LLM reply."""
-    return _EMOTION_JSON_RE.sub("", reply).rstrip()
 
 
 async def llm_caller(ctx: PipelineContext, next_mw) -> None:
@@ -73,15 +65,15 @@ async def _call_batch(ctx: PipelineContext) -> None:
         ctx.should_shortcut = True
         return
 
-    ctx.llm_reply = _strip_emotion_json(reply)
+    ctx.llm_reply = reply
 
-    if has_identity_leak(ctx.llm_reply):
+    if has_identity_leak(reply):
         log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
         count = ctx.state.get(STATE_IDENTITY_CORRECTION_COUNT, 0)
         if count < 2:
             ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = count + 1
             if ctx.llm_messages is None:
-                ctx.llm_reply = _strip_emotion_json(reply)
+                ctx.llm_reply = reply
                 return
             msgs = list(ctx.llm_messages)
             msgs.append({"role": "system", "content": get_identity_correction_note()})
@@ -99,7 +91,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                     **llm_cfg,
                 )
                 if retry.strip():
-                    ctx.llm_reply = _strip_emotion_json(retry)
+                    ctx.llm_reply = retry
             except Exception:
                 log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
 
@@ -157,7 +149,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
             ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = correction_count + 1
             corrected = get_identity_correction_note()
             if ctx.llm_messages is None:
-                ctx.llm_reply = _strip_emotion_json(full_reply)
+                ctx.llm_reply = full_reply
                 return
             msgs = list(ctx.llm_messages)
             msgs.append({"role": "system", "content": corrected})
@@ -177,8 +169,8 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 ):
                     retry += chunk
                 if retry.strip():
-                    full_reply = _strip_emotion_json(retry)
-                    chunks = [full_reply]
+                    full_reply = retry
+                    chunks = [retry]
             except Exception:
                 log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id, exc_info=True)
 
@@ -187,5 +179,5 @@ async def _call_stream(ctx: PipelineContext) -> None:
         ctx.should_shortcut = True
         return
 
-    ctx.llm_reply = _strip_emotion_json(full_reply)
+    ctx.llm_reply = full_reply
     ctx.state[STATE_STREAM_CHUNKS] = chunks

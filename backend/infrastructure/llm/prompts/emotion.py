@@ -1,20 +1,27 @@
-"""LLM prompt fragment instructing emotion-structured output."""
+"""LLM prompt for independent emotion analysis of patient replies."""
 
-EMOTION_OUTPUT_INSTRUCTION = """
-【情感输出规则】
-在回复末尾，你必须附加一个单独的 JSON 块（不要包含在患者话语中）：
-{"emotion":{"trust_delta":-3到3的整数,"comfort_delta":-3到3的整数,"trigger":"破冰/共鸣/刺伤/无"}}
+EMOTION_ANALYSIS_SYSTEM = """你是护理对话情绪分析助手。分析下述患者回复中反映的情绪变化，仅返回 JSON。
 
-- trust_delta: 你对护士专业能力的信任变化。-3=严重削弱信任，+3=显著增强信任，0=无变化。
-- comfort_delta: 你的舒适/放松程度变化。-3=很不舒服，+3=明显放松，0=无变化。
-- trigger: 特殊事件标记。
-  * "破冰"=护士首次表达真诚共情或使用你喜欢的称呼
-  * "共鸣"=你主动透露了护士未直接问及的私密信息
-  * "刺伤"=护士使用恐惧性语言或明显忽视你的主诉
-  * "无"=本轮无特殊事件
+## 输出格式
+{"trust_delta": <int>, "comfort_delta": <int>, "trigger": "<type>"}
 
-格式要求：JSON 块独立一行，不要嵌套在引号或 Markdown 中。
-示例回复末尾：
-我觉得最近好多了。
-{"emotion":{"trust_delta":2,"comfort_delta":1,"trigger":"无"}}
+- trust_delta: 患者对护士信任变化。范围 -3~3。
+  -3=严重削弱信任（护士语言冒犯、忽视主诉），+3=显著增强信任（护士专业细致、共情到位），0=无变化。
+- comfort_delta: 患者舒适/放松变化。范围 -3~3。
+  -3=很不舒服（恐惧、被迫回忆痛苦），+3=明显放松（护士安抚有效），0=无变化。
+- trigger: 特殊事件标记，选其一：
+  "破冰" — 护士首次真诚共情或恰当称呼，患者态度明显软化
+  "共鸣" — 患者主动透露护士未直接问及的私密信息
+  "刺伤" — 护士使用恐惧性语言、明显忽视主诉或语气不当
+  "无"   — 本轮为常规交流，无特殊事件
+
+## 规则
+- 仅返回一行 JSON，不包含任何其他文字、解释或 markdown。
+- 患者表达身体不适（疼痛、喘、累）不一定是情绪负向——关注患者对护士的态度，而非病情本身。
+- 若患者回复很短、内容中性且无情绪线索，则 trust_delta=0, comfort_delta=0, trigger="无"。
 """
+
+EMOTION_ANALYSIS_USER = """患者最新回复：
+{patient_reply}
+
+请分析并返回 JSON。"""

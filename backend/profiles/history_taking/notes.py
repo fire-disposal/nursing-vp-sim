@@ -21,11 +21,15 @@ class EmotionNoteSource(NoteSource):
 
     async def collect(self, ctx: PipelineContext) -> str | None:
         from profiles.history_taking.emotion import get_emotion
+        from profiles.history_taking.emotion_profile import PersonalityProfile
 
         cache = getattr(ctx.app_state, "emotion_cache", None)
         if cache is None:
             return None
-        emotion = get_emotion(ctx.record.id, cache, ctx.db)
+        case_data = getattr(ctx, "case_data", None) or {}
+        personality = case_data.get("personality", {}) or {}
+        profile = PersonalityProfile.from_personality(personality)
+        emotion = get_emotion(ctx.record.id, cache, ctx.db, profile=profile)
         return emotion.note
 
 
