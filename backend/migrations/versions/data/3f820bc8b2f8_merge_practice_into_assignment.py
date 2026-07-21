@@ -139,7 +139,6 @@ def downgrade() -> None:
 
     # Step 9: Drop new columns from assignments
     op.drop_constraint("fk_assignments_case_id", "assignments", type_="foreignkey")
-    op.drop_constraint("assignments_case_id_fkey", "assignments", type_="foreignkey")
     op.drop_index("ix_assignments_case", table_name="assignments")
     op.drop_column("assignments", "case_id")
     op.drop_column("assignments", "features")
