@@ -128,17 +128,21 @@ class EmotionState:
             )
 
     def to_dict(self) -> dict:
-        return {"trust": self.trust, "comfort": self.comfort, "history": list(self.history)}
+        return {
+            "trust": self.trust,
+            "comfort": self.comfort,
+            "history": list(self.history),
+            "last_updated": self.last_updated.isoformat() if self.last_updated else None,
+        }
 
     @classmethod
     def from_dict(cls, data: dict, profile: PersonalityProfile | None = None) -> EmotionState:
         hist = data.get("history", [])
-        if isinstance(hist, list):
-            hist = deque(hist[-MAX_HISTORY:], maxlen=MAX_HISTORY)
-        else:
-            hist = deque(maxlen=MAX_HISTORY)
-        ts_str = hist[-1]["timestamp"] if hist else None
-        last_updated = datetime.fromisoformat(ts_str) if ts_str else None
+        hist: deque[dict] = (
+            deque(hist[-MAX_HISTORY:], maxlen=MAX_HISTORY) if isinstance(hist, list) else deque(maxlen=MAX_HISTORY)
+        )
+        ts_str: str | None = hist[-1]["timestamp"] if hist else data.get("last_updated")
+        last_updated = datetime.fromisoformat(ts_str) if isinstance(ts_str, str) else None
         return cls(
             trust=data.get("trust", 50),
             comfort=data.get("comfort", 50),

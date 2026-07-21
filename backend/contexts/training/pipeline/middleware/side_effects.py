@@ -35,7 +35,10 @@ async def _analyze_emotion(ctx: PipelineContext) -> tuple[int, int, str]:
     user_id = ctx.current_user.id
     case_id = ctx.record.case_id
 
-    user_msg = EMOTION_ANALYSIS_USER.format(patient_reply=ctx.llm_reply)
+    user_msg = EMOTION_ANALYSIS_USER.format(
+        nurse_message=ctx.student_input,
+        patient_reply=ctx.llm_reply,
+    )
     messages = [
         {"role": "system", "content": EMOTION_ANALYSIS_SYSTEM},
         {"role": "user", "content": user_msg},

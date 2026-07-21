@@ -10,6 +10,7 @@ from infrastructure.llm.capabilities import is_enabled
 from infrastructure.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
 from profiles.history_taking.emotion import get_emotion
+from profiles.history_taking.emotion_profile import PersonalityProfile
 from profiles.history_taking.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
@@ -45,7 +46,7 @@ async def trigger_initiative(
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
     app_state = request.app.state
-    emotion = get_emotion(record_id, app_state.emotion_cache, db)
+    emotion = get_emotion(record_id, app_state.emotion_cache, db, profile=PersonalityProfile.from_personality(personality))
 
     if not should_initiate(record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort):
         return {"triggered": False, "message": None}

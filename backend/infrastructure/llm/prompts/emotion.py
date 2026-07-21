@@ -1,6 +1,6 @@
 """LLM prompt for independent emotion analysis of patient replies."""
 
-EMOTION_ANALYSIS_SYSTEM = """你是护理对话情绪分析助手。分析下述患者回复中反映的情绪变化，仅返回 JSON。
+EMOTION_ANALYSIS_SYSTEM = """你是护理对话情绪分析助手。分析护士提问与患者回复之间的情绪变化，仅返回 JSON。
 
 ## 输出格式
 {"trust_delta": <int>, "comfort_delta": <int>, "trigger": "<type>"}
@@ -21,7 +21,10 @@ EMOTION_ANALYSIS_SYSTEM = """你是护理对话情绪分析助手。分析下述
 - 若患者回复很短、内容中性且无情绪线索，则 trust_delta=0, comfort_delta=0, trigger="无"。
 """
 
-EMOTION_ANALYSIS_USER = """患者最新回复：
+EMOTION_ANALYSIS_USER = """护士最新提问：
+{nurse_message}
+
+患者最新回复：
 {patient_reply}
 
 请分析并返回 JSON。"""
