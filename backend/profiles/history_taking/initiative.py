@@ -21,7 +21,7 @@ from infrastructure.prompt import render_template
 
 log = logging.getLogger(__name__)
 
-MAX_INITIATIVE_COUNT = 2
+MAX_INITIATIVE_COUNT = 1
 
 
 async def generate_initiative_llm(
