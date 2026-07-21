@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from core.config import APP_VERSION
 from core.database import get_db
-from core.diagnose import get_diagnose_service
 from core.security import require_permission
+from infrastructure.diagnose import get_diagnose_service
 from infrastructure.ops_queries import build_dashboard, compute_alerts
 from models import User
 

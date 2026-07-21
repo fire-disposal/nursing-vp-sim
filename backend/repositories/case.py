@@ -2,7 +2,7 @@
 
 from sqlalchemy import func
 
-from models import Case, Practice, TrainingRecord
+from models import Case, TrainingRecord
 from repositories.base import Repository
 
 
@@ -65,14 +65,3 @@ class CaseRepository(Repository[Case]):
 
     def training_count(self, case_id: int) -> int:
         return (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
-
-    def has_practices(self, case_id: int) -> bool:
-        return bool(self.db.query(self.db.query(Practice).filter(Practice.case_id == case_id).exists()).scalar())
-
-    def list_active_practices(self, case_id: int) -> list[Practice]:
-        return (
-            self.db.query(Practice)
-            .filter(Practice.case_id == case_id, Practice.is_active == True)
-            .order_by(Practice.name)
-            .all()
-        )

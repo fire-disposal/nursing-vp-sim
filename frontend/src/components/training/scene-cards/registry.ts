@@ -27,7 +27,7 @@ const HISTORY_TAKING: CardDef[] = [
 const TRIAGE: CardDef[] = [
   { id: "patient-info",     component: PatientInfoCard,                            priority: 0 },
   { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 1, featureFlag: "physical_exam" },
-  def("mews",           () => import("@/components/training/panels/triage/MewsPanel"), 2, "physical_exam"),
+  def("mews",           () => import("@/components/training/panels/MewsPanel"), 2, "physical_exam"),
 ];
 
 const REGISTRY: Record<string, CardDef[]> = {

@@ -161,16 +161,13 @@ def test_assignment_detail_excludes_is_test(
     """Assignment detail excludes is_test records."""
     _, teacher_token = teacher
 
-    from models.case_practice import Assignment, Practice
-
-    practice = Practice(name="is_test_exclusion_test", description="", case_id=test_case.id, features={}, behavior={})
-    db_session.add(practice)
-    db_session.commit()
-    db_session.refresh(practice)
+    from models.case_practice import Assignment
 
     now = datetime.now(UTC)
     assignment = Assignment(
-        practice_id=practice.id,
+        case_id=test_case.id,
+        features={},
+        behavior={},
         class_id=test_class.id,
         teacher_id=teacher[0].id,
         title="is_test assignment",
@@ -185,7 +182,6 @@ def test_assignment_detail_excludes_is_test(
     _record_teacher = TrainingRecord(
         user_id=teacher[0].id,
         case_id=test_case.id,
-        practice_id=practice.id,
         assignment_id=assignment.id,
         status="completed",
         is_test=True,
@@ -195,7 +191,6 @@ def test_assignment_detail_excludes_is_test(
     _record_student = TrainingRecord(
         user_id=student[0].id,
         case_id=test_case.id,
-        practice_id=practice.id,
         assignment_id=assignment.id,
         status="completed",
         is_test=False,

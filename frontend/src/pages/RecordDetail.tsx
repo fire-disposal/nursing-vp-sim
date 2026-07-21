@@ -262,7 +262,7 @@ export default function RecordDetail() {
 						<ArrowLeft size={16} />
 					</button>
 					<h1 className="text-sm font-semibold truncate">
-						{record ? `${(record as any).user_display_name || ""} · ${(record as any).case_name || ""}` : "训练详情"}
+						{record ? `${record.user_display_name || ""} · ${record.case_name || ""}` : "训练详情"}
 					</h1>
 				</div>
 				<RecordStatsBar

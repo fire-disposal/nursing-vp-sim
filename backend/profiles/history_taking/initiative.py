@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-from core.llm_profile import get_llm_config
 from infrastructure.cache import InitiativeCache
 from infrastructure.llm.client import CallContext
+from infrastructure.llm.profile import get_llm_config
+from infrastructure.llm.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 from infrastructure.prompt import render_template
-from prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 
 log = logging.getLogger(__name__)
 

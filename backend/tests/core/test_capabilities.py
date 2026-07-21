@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from core.capabilities import (
+from infrastructure.llm.capabilities import (
     ALL_CAPABILITIES,
     all_capabilities,
     capabilities_for_type,

@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from core.case_schema import CaseDataSchema
+from schemas.case_schema import CaseDataSchema
 from schemas.common import _REQ_CFG, _RESP_CFG
 
 
@@ -32,6 +32,7 @@ class CaseDetail(BaseModel):
 class CaseCreateRequest(BaseModel):
     model_config = _REQ_CFG
     case_data: dict[str, Any]
+    is_open: bool = True
 
     @field_validator("case_data")
     @classmethod

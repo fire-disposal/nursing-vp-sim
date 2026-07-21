@@ -10,14 +10,14 @@ from __future__ import annotations
 import importlib
 import logging
 
-from contexts.patient import build_patient_chat_messages
-from contexts.training.scene.state import (
+from contexts.training.scene_state import (
     SceneState,
     format_scene_for_prompt,
 )
+from infrastructure.llm.prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
+from infrastructure.patient_ai import build_patient_chat_messages
 from infrastructure.prompt import render_template
 from profiles.registry import get_profile
-from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
 from ..prompt_context import PromptContext

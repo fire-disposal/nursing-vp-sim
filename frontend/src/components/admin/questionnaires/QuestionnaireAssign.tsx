@@ -3,9 +3,9 @@ import type {
 	CaseBrief,
 } from "@/components/admin/questionnaires/types";
 import {
-	inputClass,
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/admin/questionnaires/types";
+import { inputClass } from "@/utils/styles";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";

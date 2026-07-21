@@ -29,7 +29,6 @@ from core.config import (
     validate_config,
 )
 from core.database import engine, init_db
-from core.diagnose import get_diagnose_service
 from core.exceptions import (
     AuthError,
     ConflictError,
@@ -44,17 +43,18 @@ from core.exceptions import (
     scoring_error_handler,
     validation_error_handler,
 )
-from core.logging_setup import setup_logging
-from core.seed import seed_all
+from core.rate_limits import PgRateLimiter
 from infrastructure.cache import EmotionCache, InitiativeCache
+from infrastructure.diagnose import get_diagnose_service
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
+from infrastructure.logging_setup import setup_logging
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
-from middleware.rate_limits import PgRateLimiter
 from repositories.training import TrainingRepository
+from scripts.seed import seed_all
 
 log = logging.getLogger(__name__)
 
@@ -206,8 +206,6 @@ async def lifespan(app: FastAPI):
 
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
-
-    metrics.active_sessions_supplier = lambda: len(app.state.emotion_cache.all_ids) if app.state.emotion_cache else 0
     metrics.task_queue_size_supplier = lambda: app.state.task_queue.pending if app.state.task_queue else 0
     metrics.log_queue_size_supplier = lambda: (
         app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0

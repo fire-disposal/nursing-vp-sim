@@ -8,11 +8,8 @@ import {
 	Trash2,
 } from "lucide-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
-import {
-	inputClass,
-	TYPE_LABEL,
-	TYPE_OPTIONS,
-} from "@/components/admin/questionnaires/types";
+import { TYPE_LABEL, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
+import { inputClass } from "@/utils/styles";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";

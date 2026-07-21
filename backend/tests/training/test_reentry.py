@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from models import Assignment, NursingRecord, Practice
+from models import Assignment, NursingRecord
 
 
 def _auth(token: str) -> dict:
@@ -18,19 +18,11 @@ class TestAssignmentReentry:
         _, teacher_token = teacher
         _, student_token = student
 
-        practice = Practice(
-            name="重入测试练习",
-            description="test",
+        now = datetime.now(UTC)
+        assignment = Assignment(
             case_id=test_case.id,
             features={},
             behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
-        now = datetime.now(UTC)
-        assignment = Assignment(
-            practice_id=practice.id,
             class_id=test_class.id,
             teacher_id=teacher[0].id,
             title="重入测试作业",
@@ -73,19 +65,11 @@ class TestAssignmentReentry:
         _, teacher_token = teacher
         _, student_token = student
 
-        practice = Practice(
-            name="有消息重入练习",
-            description="test",
+        now = datetime.now(UTC)
+        assignment = Assignment(
             case_id=test_case.id,
             features={},
             behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
-        now = datetime.now(UTC)
-        assignment = Assignment(
-            practice_id=practice.id,
             class_id=test_class.id,
             teacher_id=teacher[0].id,
             title="有消息重入作业",

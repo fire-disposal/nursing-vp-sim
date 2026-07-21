@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import (
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -36,45 +37,29 @@ class Case(Base, TimestampMixin):
     is_open: Mapped[bool] = mapped_column(default=False)
     case_data: Mapped[dict] = mapped_column(JSONB, default=dict)
 
-    practices: Mapped[list[Practice]] = relationship(back_populates="case")
-
-
-class Practice(Base, TimestampMixin):
-    __tablename__ = "practices"
-    __table_args__ = (Index("ix_practices_case_id", "case_id"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
-    features: Mapped[dict] = mapped_column(JSONB, default=dict)
-    behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-
-    case: Mapped[Case] = relationship(back_populates="practices")
-    assignments: Mapped[list[Assignment]] = relationship(back_populates="practice")
-    training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="practice")
-
 
 class Assignment(Base, TimestampMixin):
     __tablename__ = "assignments"
     __table_args__ = (
         Index("ix_assignments_teacher", "teacher_id"),
         Index("ix_assignments_class", "class_id"),
-        Index("ix_assignments_practice", "practice_id"),
+        Index("ix_assignments_case", "case_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    practice_id: Mapped[int] = mapped_column(Integer, ForeignKey("practices.id", ondelete="RESTRICT"))
+    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id", ondelete="RESTRICT"))
     teacher_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    start_time: Mapped[datetime] = mapped_column()
-    end_time: Mapped[datetime] = mapped_column()
+    features: Mapped[dict] = mapped_column(JSONB, default=dict)
+    behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
+    student_ids: Mapped[list[int] | None] = mapped_column(JSONB, nullable=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_closed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
 
-    practice: Mapped[Practice] = relationship(back_populates="assignments")
+    case: Mapped[Case] = relationship()
     class_: Mapped[Class] = relationship()
     teacher: Mapped[User] = relationship(foreign_keys=[teacher_id])
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="assignment")

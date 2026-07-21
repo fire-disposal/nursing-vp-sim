@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # 导入 main 以触发 profile 注册（与 api:spec 相同做法）
 import main  # noqa: F401
-from core.capabilities import ALL_CAPABILITIES, capabilities_for_type
+from infrastructure.llm.capabilities import ALL_CAPABILITIES, capabilities_for_type
 from profiles.registry import get_known_types
 
 OUT = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" / "engine" / "capabilities.gen.ts"

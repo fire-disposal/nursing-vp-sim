@@ -1,5 +1,6 @@
 """Voice config business logic — single source of truth for voice CRUD, testing, synthesis."""
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ def _mask_api_key(vc: VoiceConfig) -> str:
         if vc.api_key_suffix and not raw.endswith(vc.api_key_suffix):
             return "***mismatch***"
     except Exception:
+        logging.getLogger(__name__).warning("Failed to decrypt voice config API key", exc_info=True)
         return "***error***"
     if len(raw) <= 8:
         return "***...***"

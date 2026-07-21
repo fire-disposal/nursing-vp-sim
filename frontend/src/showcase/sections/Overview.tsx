@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { OVERVIEW_STATS, type OverviewStat } from "../data";
-import { prefersReducedMotion } from "../lib/gsap";
+import { prefersReducedMotion } from "../gsap";
 
 function Stat({ stat }: { stat: OverviewStat }) {
 	const ref = useRef<HTMLDivElement>(null);

@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from models import Class, UserClass
+from models import Class
 from repositories.class_ import ClassRepository
+from repositories.shared import nullify_user_class_associations
 
 
 @dataclass
@@ -95,6 +95,6 @@ class ClassService:
         if ac > 0:
             raise ValidationError(f"该班级下有 {ac} 个作业引用，无法删除")
         with unit_of_work(self.db, conflict_detail="操作冲突：该班级下存在关联资源，请刷新后重试。"):
-            self.db.execute(sa_update(UserClass).where(UserClass.class_id == class_id).values(class_id=None))
+            nullify_user_class_associations(self.db, [class_id])
             self.repo.delete(cls)
         return cls.name

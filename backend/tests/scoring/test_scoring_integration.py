@@ -82,7 +82,7 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        from prompts import SCORING_SYSTEM
+        from infrastructure.llm.prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -90,7 +90,7 @@ class TestScoringPromptSanity:
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
 
     def test_render_user_prompt_no_double_braces(self):
-        from prompts import SCORING_USER
+        from infrastructure.llm.prompts import SCORING_USER
 
         user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
@@ -156,7 +156,7 @@ class TestScoringPromptSanity:
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        from prompts import SCORING_SYSTEM
+        from infrastructure.llm.prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -179,9 +179,9 @@ class TestScoringPromptSanity:
         print("...")
         print(f"总长度: {len(system)} 字符")
 
-    def test_safe_parse_json_with_valid_llm_response(self):
+    def testsafe_parse_json_with_valid_llm_response(self):
         """模拟 LLM 正确返回的 JSON 能否被解析"""
-        from infrastructure.llm import _safe_parse_json
+        from infrastructure.llm import safe_parse_json
 
         response = {
             "rubric_version": "nursing_history_v1@1.0",
@@ -221,7 +221,7 @@ class TestScoringPromptSanity:
         }
 
         raw = json.dumps(response, ensure_ascii=False)
-        parsed = _safe_parse_json(raw)
+        parsed = safe_parse_json(raw)
 
         assert parsed["total_score"] == 42
         assert "detail_scores" in parsed
@@ -288,7 +288,7 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        from prompts import (
+        from infrastructure.llm.prompts import (
             SCORING_SYSTEM,
             SCORING_USER,
         )
@@ -388,7 +388,7 @@ class TestScoringFlowEndToEnd:
         }
         assert sample, "scoring sample vars 为空"
 
-        from prompts import SCORING_SYSTEM
+        from infrastructure.llm.prompts import SCORING_SYSTEM
 
         rendered = render_template(SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000

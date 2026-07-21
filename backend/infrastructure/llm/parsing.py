@@ -24,7 +24,7 @@ def _extract_json_value(text: str, start: int) -> tuple[dict, int] | None:
     return None
 
 
-def _safe_parse_json(text: str) -> dict:
+def safe_parse_json(text: str) -> dict:
     text = text.strip()
     text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\n?\s*```\s*$", "", text)

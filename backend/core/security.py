@@ -82,7 +82,7 @@ def get_current_user(
     return user
 
 
-def _decode_token_allow_expired(
+def decode_token_allow_expired(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:

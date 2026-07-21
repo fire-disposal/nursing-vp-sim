@@ -4,7 +4,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError as PydanticValidationError
 
-from contexts.case_generation.service import generate_case as _generate_case
 from core.deps import CurrentUser, DbSession
 from core.security import require_permission
 from models import Case, User
@@ -19,9 +18,9 @@ from schemas import (
     CaseUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
-    PracticeBrief,
 )
 from services.case import CaseManageView, CaseService
+from services.case_generation import generate_case as _generate_case
 
 log = logging.getLogger(__name__)
 
@@ -135,18 +134,6 @@ async def generate_case(
     return await _generate_case(data, db, current_user, request.app.state.llm_client)
 
 
-# ── 子路由: 病例关联练习 (delegated to service) ──
-
-
-@router.get("/{case_id}/practices", response_model=list[PracticeBrief])
-def list_case_practices(
-    case_id: int,
-    db: DbSession,
-    current_user: CurrentUser,
-):
-    return CaseService(db).list_practices(case_id)
-
-
 # ── CRUD ──
 
 
@@ -167,7 +154,9 @@ def create_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.create(req.case_data, current_user.id, current_user.role.name if current_user.role else "")
+        view = svc.create(
+            req.case_data, current_user.id, current_user.role.name if current_user.role else "", is_open=req.is_open
+        )
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)

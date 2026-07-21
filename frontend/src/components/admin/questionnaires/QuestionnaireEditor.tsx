@@ -2,10 +2,10 @@ import { ArrowLeft, GripVertical, Plus, Save, X } from "lucide-react";
 import type { TemplateForm } from "@/components/admin/questionnaires/types";
 import {
 	emptyQuestion,
-	inputClass,
 	QUESTION_TYPE_OPTIONS,
 	textareaClass,
 } from "@/components/admin/questionnaires/types";
+import { inputClass } from "@/utils/styles";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import LoadingState from "@/components/ui/loading-state";

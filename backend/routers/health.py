@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from core.config import APP_VERSION, DIAGNOSE_TOKEN
 from core.database import SessionLocal, engine
-from core.diagnose import get_diagnose_service
+from infrastructure.diagnose import get_diagnose_service
 from infrastructure.ops_queries import build_dashboard, compute_alerts
 from schemas.ops import HealthResponse
 

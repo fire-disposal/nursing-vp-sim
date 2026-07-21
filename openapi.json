@@ -602,57 +602,6 @@
         ]
       }
     },
-    "/api/cases/{case_id}/practices": {
-      "get": {
-        "tags": [
-          "病例"
-        ],
-        "summary": "List Case Practices",
-        "operationId": "list_case_practices_api_cases__case_id__practices_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "case_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Case Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PracticeBrief"
-                  },
-                  "title": "Response List Case Practices Api Cases  Case Id  Practices Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/cases/{case_id}": {
       "get": {
         "tags": [
@@ -4456,305 +4405,6 @@
         }
       }
     },
-    "/api/admin/practices": {
-      "get": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "List Practices",
-        "operationId": "list_practices_api_admin_practices_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_PracticeItem_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "Create Practice",
-        "operationId": "create_practice_api_admin_practices_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PracticeCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PracticeItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/practices/{practice_id}": {
-      "get": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "Get Practice",
-        "operationId": "get_practice_api_admin_practices__practice_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "practice_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Practice Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PracticeItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "Update Practice",
-        "operationId": "update_practice_api_admin_practices__practice_id__put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "practice_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Practice Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PracticeUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PracticeItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "Delete Practice",
-        "operationId": "delete_practice_api_admin_practices__practice_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "practice_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Practice Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/practices/export": {
-      "post": {
-        "tags": [
-          "练习管理"
-        ],
-        "summary": "Export Practices",
-        "operationId": "export_practices_api_admin_practices_export_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(csv|xlsx)$",
-              "default": "csv",
-              "title": "Format"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/roles": {
       "get": {
         "tags": [
@@ -6424,9 +6074,27 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "default": true,
+              "default": false,
               "title": "Unread Only"
             }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按类型过滤",
+              "title": "Type"
+            },
+            "description": "按类型过滤"
           },
           {
             "name": "limit",
@@ -6458,11 +6126,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TrainingNotificationItem"
-                  },
-                  "title": "Response Get Notifications Api Training Notifications Get"
+                  "$ref": "#/components/schemas/PaginatedResponse_TrainingNotificationItem_"
                 }
               }
             }
@@ -7880,6 +7544,51 @@
         }
       }
     },
+    "/api/assignments/{assignment_id}/remind": {
+      "post": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Remind Assignment",
+        "operationId": "remind_assignment_api_assignments__assignment_id__remind_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/assignments/{assignment_id}/export": {
       "post": {
         "tags": [
@@ -8431,9 +8140,9 @@
       },
       "AssignmentCreateRequest": {
         "properties": {
-          "practice_id": {
+          "case_id": {
             "type": "integer",
-            "title": "Practice Id"
+            "title": "Case Id"
           },
           "class_id": {
             "type": "integer",
@@ -8457,6 +8166,32 @@
             ],
             "title": "Description"
           },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "behavior": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Behavior"
+          },
+          "student_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Ids"
+          },
           "start_time": {
             "type": "string",
             "format": "date-time",
@@ -8471,7 +8206,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "practice_id",
+          "case_id",
           "class_id",
           "title",
           "start_time",
@@ -8500,13 +8235,13 @@
             ],
             "title": "Description"
           },
-          "practice_id": {
+          "case_id": {
             "type": "integer",
-            "title": "Practice Id"
+            "title": "Case Id"
           },
-          "practice_name": {
+          "case_name": {
             "type": "string",
-            "title": "Practice Name",
+            "title": "Case Name",
             "default": ""
           },
           "class_id": {
@@ -8517,6 +8252,30 @@
             "type": "string",
             "title": "Class Name",
             "default": ""
+          },
+          "features": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Features"
+          },
+          "behavior": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Behavior"
+          },
+          "student_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Ids"
           },
           "start_time": {
             "type": "string",
@@ -8603,7 +8362,7 @@
         "required": [
           "id",
           "title",
-          "practice_id",
+          "case_id",
           "class_id",
           "start_time",
           "end_time",
@@ -8622,9 +8381,9 @@
             "type": "string",
             "title": "Title"
           },
-          "practice_name": {
+          "case_name": {
             "type": "string",
-            "title": "Practice Name",
+            "title": "Case Name",
             "default": ""
           },
           "class_name": {
@@ -8781,7 +8540,7 @@
       },
       "AssignmentUpdateRequest": {
         "properties": {
-          "practice_id": {
+          "case_id": {
             "anyOf": [
               {
                 "type": "integer"
@@ -8790,7 +8549,7 @@
                 "type": "null"
               }
             ],
-            "title": "Practice Id"
+            "title": "Case Id"
           },
           "class_id": {
             "anyOf": [
@@ -8827,6 +8586,46 @@
               }
             ],
             "title": "Description"
+          },
+          "features": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Features"
+          },
+          "behavior": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Behavior"
+          },
+          "student_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Ids"
           },
           "start_time": {
             "anyOf": [
@@ -9120,6 +8919,11 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Case Data"
+          },
+          "is_open": {
+            "type": "boolean",
+            "title": "Is Open",
+            "default": true
           }
         },
         "additionalProperties": false,
@@ -11092,37 +10896,6 @@
         ],
         "title": "PaginatedResponse[LLMCallLogItem]"
       },
-      "PaginatedResponse_PracticeItem_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PracticeItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "offset",
-          "limit"
-        ],
-        "title": "PaginatedResponse[PracticeItem]"
-      },
       "PaginatedResponse_QASessionAdminItem_": {
         "properties": {
           "items": {
@@ -11278,6 +11051,37 @@
         ],
         "title": "PaginatedResponse[TeacherSummaryItem]"
       },
+      "PaginatedResponse_TrainingNotificationItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingNotificationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[TrainingNotificationItem]"
+      },
       "PaginatedResponse_TrainingRecordBrief_": {
         "properties": {
           "items": {
@@ -11339,249 +11143,6 @@
           "limit"
         ],
         "title": "PaginatedResponse[UserBrief]"
-      },
-      "PracticeBrief": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Features"
-          },
-          "behavior": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Behavior"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "title": "PracticeBrief"
-      },
-      "PracticeCreate": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "case_id": {
-            "type": "integer",
-            "title": "Case Id"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Features"
-          },
-          "behavior": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Behavior"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "case_id"
-        ],
-        "title": "PracticeCreate"
-      },
-      "PracticeItem": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "case_id": {
-            "type": "integer",
-            "title": "Case Id"
-          },
-          "case_name": {
-            "type": "string",
-            "title": "Case Name",
-            "default": ""
-          },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Features"
-          },
-          "behavior": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Behavior"
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "default": true
-          },
-          "training_count": {
-            "type": "integer",
-            "title": "Training Count",
-            "default": 0
-          },
-          "assignment_count": {
-            "type": "integer",
-            "title": "Assignment Count",
-            "default": 0
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "case_id",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "PracticeItem"
-      },
-      "PracticeUpdate": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "case_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Case Id"
-          },
-          "features": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Features"
-          },
-          "behavior": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Behavior"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "PracticeUpdate"
       },
       "QAAskResponse": {
         "properties": {
@@ -13344,9 +12905,9 @@
             "type": "string",
             "title": "Title"
           },
-          "practice_name": {
+          "case_name": {
             "type": "string",
-            "title": "Practice Name"
+            "title": "Case Name"
           },
           "start_time": {
             "type": "string",
@@ -13395,7 +12956,7 @@
         "required": [
           "id",
           "title",
-          "practice_name",
+          "case_name",
           "start_time",
           "end_time"
         ],
@@ -14305,17 +13866,6 @@
           "case_id": {
             "type": "integer",
             "title": "Case Id"
-          },
-          "practice_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Practice Id"
           },
           "features": {
             "anyOf": [

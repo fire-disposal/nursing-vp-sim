@@ -61,10 +61,6 @@ class EmotionCache:
             .delete(synchronize_session=False)
         )
 
-    @property
-    def all_ids(self) -> AbstractSet[int]:
-        return set()
-
 
 class InitiativeCache:
     """DB-backed initiative timer cache."""
@@ -142,7 +138,3 @@ class InitiativeCache:
             .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
             .delete(synchronize_session=False)
         )
-
-    @property
-    def all_ids(self) -> AbstractSet[int]:
-        return set()

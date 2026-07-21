@@ -2,8 +2,6 @@
 
 from datetime import UTC, datetime, timedelta
 
-from models import Practice
-
 
 def _auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
@@ -14,19 +12,11 @@ class TestAssignmentFlow:
 
     def test_create_and_list(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
-        practice = Practice(
-            name="测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={"physical_exam": True},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {"physical_exam": True},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "肺炎病史采集练习",
             "start_time": now.isoformat(),
@@ -36,7 +26,7 @@ class TestAssignmentFlow:
         assert resp.status_code == 200, f"Create failed: {resp.text}"
         data = resp.json()
         assert data["title"] == "肺炎病史采集练习"
-        assert data["practice_id"] == practice.id
+        assert data["case_id"] == test_case.id
         assert data["class_id"] == test_class.id
         assert data["student_count"] >= 0
         assignment_id = data["id"]
@@ -65,19 +55,11 @@ class TestAssignmentFlow:
     ):
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="学生可见测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "学生可见测试",
             "start_time": now.isoformat(),
@@ -102,19 +84,11 @@ class TestAssignmentFlow:
     ):
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="开始训练测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={"emotion": True},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {"emotion": True},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "开始训练测试",
             "start_time": now.isoformat(),
@@ -155,19 +129,11 @@ class TestAssignmentFlow:
         """Student not in the class cannot start the assignment."""
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="越权测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "越权测试",
             "start_time": now.isoformat(),
@@ -189,19 +155,11 @@ class TestAssignmentFlow:
     ):
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="删除测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "删除测试",
             "start_time": now.isoformat(),
@@ -221,19 +179,11 @@ class TestAssignmentFlow:
 
     def test_update_assignment(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
-        practice = Practice(
-            name="更新测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "原始标题",
             "start_time": now.isoformat(),
@@ -261,19 +211,11 @@ class TestAssignmentFlow:
         _, teacher_token = teacher
         student_user, _ = student
 
-        practice = Practice(
-            name="最高分测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "最高分测试",
             "start_time": now.isoformat(),
@@ -286,7 +228,6 @@ class TestAssignmentFlow:
         r1 = TrainingRecord(
             user_id=student_user.id,
             case_id=test_case.id,
-            practice_id=practice.id,
             assignment_id=assignment_id,
             status="completed",
             scoring_status="completed",
@@ -296,7 +237,6 @@ class TestAssignmentFlow:
         r2 = TrainingRecord(
             user_id=student_user.id,
             case_id=test_case.id,
-            practice_id=practice.id,
             assignment_id=assignment_id,
             status="completed",
             scoring_status="completed",
@@ -332,19 +272,11 @@ class TestAssignmentFlow:
         _, teacher_token = teacher
         student_user, _ = student
 
-        practice = Practice(
-            name="无评分测试练习",
-            description="test",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         payload = {
-            "practice_id": practice.id,
+            "case_id": test_case.id,
+            "features": {},
+            "behavior": {"time_limit_minutes": 20},
             "class_id": test_class.id,
             "title": "无评分测试",
             "start_time": now.isoformat(),
@@ -357,7 +289,6 @@ class TestAssignmentFlow:
         r_old = TrainingRecord(
             user_id=student_user.id,
             case_id=test_case.id,
-            practice_id=practice.id,
             assignment_id=assignment_id,
             status="completed",
             scoring_status="pending",
@@ -367,7 +298,6 @@ class TestAssignmentFlow:
         r_new = TrainingRecord(
             user_id=student_user.id,
             case_id=test_case.id,
-            practice_id=practice.id,
             assignment_id=assignment_id,
             status="in_progress",
             scoring_status=None,
@@ -397,21 +327,13 @@ class TestAssignmentFlow:
         """D21: 关闭的作业学生无法开始训练。"""
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="关闭测试",
-            description="",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         resp = client.post(
             "/api/assignments",
             json={
-                "practice_id": practice.id,
+                "case_id": test_case.id,
+                "features": {},
+                "behavior": {"time_limit_minutes": 20},
                 "class_id": test_class.id,
                 "title": "关闭测试作业",
                 "start_time": now.isoformat(),
@@ -437,31 +359,29 @@ class TestAssignmentFlow:
     def test_update_practice_rejected_after_records(
         self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
     ):
-        """D22: 已有学生开始练习时禁止更换练习或班级。"""
+        """D22: 已有学生开始练习时禁止更换病例或班级。"""
         _, teacher_token = teacher
         _, student_token = student
-        practice1 = Practice(
-            name="守卫测试练习1",
+        from models import Case
+
+        case2 = Case(
+            name="守卫测试病例2",
             description="",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
+            training_type="history_taking",
+            difficulty=1,
+            is_open=True,
+            case_data={},
         )
-        practice2 = Practice(
-            name="守卫测试练习2",
-            description="",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add_all([practice1, practice2])
+        db_session.add(case2)
         db_session.commit()
 
         now = datetime.now(UTC)
         resp = client.post(
             "/api/assignments",
             json={
-                "practice_id": practice1.id,
+                "case_id": test_case.id,
+                "features": {},
+                "behavior": {"time_limit_minutes": 20},
                 "class_id": test_class.id,
                 "title": "守卫测试作业",
                 "start_time": now.isoformat(),
@@ -478,7 +398,7 @@ class TestAssignmentFlow:
 
         resp = client.put(
             f"/api/assignments/{assignment_id}",
-            json={"practice_id": practice2.id},
+            json={"case_id": case2.id},
             headers=_auth_headers(teacher_token),
         )
         assert resp.status_code == 400
@@ -501,21 +421,13 @@ class TestAssignmentFlow:
         _, teacher_token = teacher
         student_user, _ = student
 
-        practice = Practice(
-            name="统计测试练习",
-            description="",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         resp = client.post(
             "/api/assignments",
             json={
-                "practice_id": practice.id,
+                "case_id": test_case.id,
+                "features": {},
+                "behavior": {"time_limit_minutes": 20},
                 "class_id": test_class.id,
                 "title": "统计测试作业",
                 "start_time": now.isoformat(),
@@ -528,7 +440,6 @@ class TestAssignmentFlow:
         r = TrainingRecord(
             user_id=student_user.id,
             case_id=test_case.id,
-            practice_id=practice.id,
             assignment_id=assignment_id,
             status="completed",
             scoring_status="completed",
@@ -556,21 +467,13 @@ class TestAssignmentFlow:
         """D21: 关闭的作业在学生列表中标记为 closed。"""
         _, teacher_token = teacher
         _, student_token = student
-        practice = Practice(
-            name="关闭列表测试",
-            description="",
-            case_id=test_case.id,
-            features={},
-            behavior={"time_limit_minutes": 20},
-        )
-        db_session.add(practice)
-        db_session.commit()
-
         now = datetime.now(UTC)
         resp = client.post(
             "/api/assignments",
             json={
-                "practice_id": practice.id,
+                "case_id": test_case.id,
+                "features": {},
+                "behavior": {"time_limit_minutes": 20},
                 "class_id": test_class.id,
                 "title": "关闭列表测试作业",
                 "start_time": now.isoformat(),

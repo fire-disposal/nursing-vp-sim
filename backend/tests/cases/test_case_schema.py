@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from core.case_schema import (
+from schemas.case_schema import (
     CaseDataSchema,
     assert_valid_case_data,
     validate_case_data,

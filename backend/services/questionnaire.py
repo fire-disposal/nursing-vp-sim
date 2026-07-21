@@ -23,7 +23,7 @@ from schemas.questionnaire import (
 )
 
 
-def _template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplateDetailResponse | None:
+def template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplateDetailResponse | None:
     if t is None:
         return None
     return QuestionnaireTemplateDetailResponse(

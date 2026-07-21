@@ -9,7 +9,6 @@ from .grade import GradeRepository
 from .llm_config import LLMConfigRepository
 from .llm_log import LLMCallLogRepository
 from .notification import SystemNotificationRepository
-from .practice import PracticeRepository
 from .questionnaire import (
     QuestionnaireQuestionRepository,
     QuestionnaireResponseRepository,
@@ -31,7 +30,6 @@ __all__ = [
     "GradeRepository",
     "LLMCallLogRepository",
     "LLMConfigRepository",
-    "PracticeRepository",
     "QuestionnaireQuestionRepository",
     "QuestionnaireResponseRepository",
     "QuestionnaireTemplateRepository",

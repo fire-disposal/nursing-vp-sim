@@ -55,10 +55,6 @@ class TestEmotionCache:
         db_session.commit()
         assert cache.get(record.id, db_session) is None
 
-    def test_all_ids_is_always_empty(self):
-        cache = EmotionCache()
-        assert cache.all_ids == set()
-
 
 class TestInitiativeCache:
     def test_timer_lifecycle(self, db_session):
@@ -105,7 +101,3 @@ class TestInitiativeCache:
         db_session.commit()
         assert cache.get_timer(record.id, now + 10, db_session) == now + 10
         assert cache.get_last_trigger(record.id, db_session) == 0.0
-
-    def test_all_ids_is_always_empty(self):
-        cache = InitiativeCache()
-        assert cache.all_ids == set()

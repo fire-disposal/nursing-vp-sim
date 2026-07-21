@@ -221,7 +221,7 @@ export default function History() {
 												<div className="min-w-0 flex-1">
 													<div className="flex items-center gap-2">
 														<div className="text-sm font-semibold truncate">{r.case_name}</div>
-														{(r as any).assignment_title && (
+														{r.assignment_title && (
 															<span className="shrink-0 inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[10px] text-primary">作业</span>
 														)}
 													</div>
@@ -359,7 +359,7 @@ export default function History() {
 													)}
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground">
-													{(r as any).assignment_title ? (
+													{r.assignment_title ? (
 														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
 													) : (
 														<span className="text-muted-foreground/40">自由训练</span>

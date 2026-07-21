@@ -9,14 +9,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from core.capabilities import resolve_features
-from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user, load_role_permissions, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.llm.capabilities import resolve_features
 from models import (
     Assignment,
     Case,
@@ -24,7 +23,6 @@ from models import (
     LLMCallLog,
     Message,
     NursingRecord,
-    Practice,
     QuestionnaireResponse,
     Score,
     ScoreReview,
@@ -47,6 +45,7 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
+from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
 
@@ -126,14 +125,7 @@ def _count_pending_questionnaires(db: Session, case_id: int) -> int:
     )
 
 
-def _build_config(practice=None, features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
-    if practice:
-        return {
-            "id": practice.id,
-            "name": practice.name,
-            "features": practice.features or {},
-            "behavior": practice.behavior or {},
-        }
+def _build_config(features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
     return {
         "id": 0,
         "name": "自定义配置",
@@ -149,16 +141,14 @@ def _create_record(
     case_data: dict,
     config: dict,
     *,
-    practice_id: int | None = None,
     assignment_id: str | None = None,
     is_overdue: bool = False,
     app_state=None,
 ):
     training_type = case.training_type or "history_taking"
 
-    # 时间优先级（D11）：显式设置(free-config req / 教师 practice) > case 默认 > 全局 20
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
-    time_limit = max(5, min(120, int(time_limit)))  # clamp to 5-120
+    time_limit = max(5, min(120, int(time_limit)))
 
     config["features"] = config.get("features") or {}
     validate_case_data(training_type, case_data, strict=False)
@@ -166,7 +156,6 @@ def _create_record(
     record = TrainingRecord(
         user_id=user_id,
         case_id=case.id,
-        practice_id=practice_id,
         practice_snapshot=config or None,
         assignment_id=assignment_id,
         is_overdue=is_overdue,
@@ -260,15 +249,7 @@ def start_training(
     if not case.is_open:
         raise AuthError(detail="该病例暂未开放", status_code=403)
 
-    practice = None
-    if req.practice_id:
-        practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
-        if not practice:
-            raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
-    # 学生自选训练：不再自动关联 Practice，使用 case_data.capabilities 决定默认能力
-    # features 参数保留用于组件兼容，但推荐通过 case_data 声明
-
-    config = _build_config(practice, req.features, req.time_limit_minutes)
+    config = _build_config(req.features, req.time_limit_minutes)
 
     record, greeting = _create_record(
         db,
@@ -276,7 +257,6 @@ def start_training(
         case,
         case.case_data or {},
         config,
-        practice_id=practice.id if practice else None,
         app_state=request.app.state,
     )
 
@@ -306,10 +286,7 @@ def start_training_from_assignment(
     assignment_id: str = Query(...),
 ):
     assignment = (
-        db.query(Assignment)
-        .options(joinedload(Assignment.practice).joinedload(Practice.case))
-        .filter(Assignment.id == assignment_id)
-        .first()
+        db.query(Assignment).options(joinedload(Assignment.case)).filter(Assignment.id == assignment_id).first()
     )
     if not assignment:
         raise NotFoundError(detail="练习发布不存在")
@@ -320,6 +297,8 @@ def start_training_from_assignment(
     now = datetime.now(UTC)
     if assignment.start_time and now < ensure_utc(assignment.start_time):
         raise HTTPException(status_code=400, detail="该作业尚未开始，请在开放时间后再试")
+
+    is_overdue = now > ensure_utc(assignment.end_time)
 
     user_class = (
         db.query(UserClass)
@@ -332,6 +311,9 @@ def start_training_from_assignment(
     if not user_class:
         raise AuthError(detail="你不在该练习的目标班级中", status_code=403)
 
+    if assignment.student_ids is not None and current_user.id not in assignment.student_ids:
+        raise AuthError(detail="你不在该作业的指定学生名单中", status_code=403)
+
     existing = (
         db.query(TrainingRecord)
         .filter(
@@ -341,41 +323,40 @@ def start_training_from_assignment(
         .first()
     )
     if existing:
-        case_data = assignment.practice.case.case_data if assignment.practice and assignment.practice.case else {}
+        case = assignment.case
+        case_data = case.case_data if case else {}
         patient_info = case_data.get("patient_info", {})
         patient_name = patient_info.get("name", "患者")
         greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
         return TrainingStartResponse(
             record_id=existing.id,
             greeting=greeting,
-            case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else "",
-            pending_questionnaires=_count_pending_questionnaires(
-                db, assignment.practice.case.id if assignment.practice and assignment.practice.case else 0
-            ),
+            case_name=case.name if case else "",
+            pending_questionnaires=_count_pending_questionnaires(db, case.id if case else 0),
         )
 
-    practice = assignment.practice
-    if not practice or not practice.case:
-        raise NotFoundError(detail="练习模板或病例不存在")
-    case = practice.case
+    if is_overdue:
+        raise HTTPException(status_code=400, detail="该作业已过期，无法开始新训练")
+
+    case = assignment.case
+    if not case:
+        raise NotFoundError(detail="病例不存在")
 
     config = {
-        "id": practice.id,
-        "name": practice.name,
-        "features": practice.features or {},
-        "behavior": practice.behavior or {},
+        "id": 0,
+        "name": case.name,
+        "features": assignment.features or {},
+        "behavior": assignment.behavior or {},
     }
 
-    now = datetime.now(UTC)
     record, greeting = _create_record(
         db,
         current_user.id,
         case,
         case.case_data or {},
         config,
-        practice_id=practice.id,
         assignment_id=assignment.id,
-        is_overdue=now > ensure_utc(assignment.end_time),
+        is_overdue=is_overdue,
         app_state=request.app.state,
     )
 

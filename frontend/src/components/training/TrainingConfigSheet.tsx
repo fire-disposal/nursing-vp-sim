@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import type { TrainingTypeInfo } from "@/training/types";
+import type { TrainingTypeInfo } from "@/components/training/types";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 

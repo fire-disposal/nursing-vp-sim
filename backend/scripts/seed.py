@@ -252,7 +252,7 @@ def _seed_llm() -> None:
 
         # purpose 是固定集合，单一来源 llm_profile.PROFILES。新增 purpose 只需改该文件，
         # seed 自动为其建 binding（不再需要 "*" 通配符兜底）。
-        from core.llm_profile import PROFILES
+        from infrastructure.llm.profile import PROFILES
 
         purposes = list(PROFILES.keys())
         for purpose in purposes:

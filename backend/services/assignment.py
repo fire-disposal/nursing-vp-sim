@@ -2,12 +2,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from models import Assignment, Practice, TrainingRecord, UserClass
+from models import Assignment, Case, TrainingRecord, User, UserClass
 from repositories.assignment import AssignmentRepository
 
 log = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 class AssignmentListView:
     id: str
     title: str
-    practice_name: str
+    case_name: str
     class_name: str
     start_time: datetime
     end_time: datetime
@@ -48,10 +48,13 @@ class AssignmentDetailView:
     id: str
     title: str
     description: str | None
-    practice_id: int
-    practice_name: str
+    case_id: int
+    case_name: str
     class_id: int
     class_name: str
+    features: dict
+    behavior: dict
+    student_ids: list[int] | None
     start_time: datetime
     end_time: datetime
     created_at: datetime
@@ -71,8 +74,30 @@ class AssignmentService:
         self.db = db
         self.repo = AssignmentRepository(db)
 
+    @staticmethod
+    def _is_auto_closed(assignment: Assignment) -> bool:
+        if assignment.is_closed:
+            return True
+        now = datetime.now(UTC)
+        return (
+            now > assignment.end_time.replace(tzinfo=UTC)
+            if assignment.end_time.tzinfo is None
+            else now > assignment.end_time
+        )
+
+    def _get_target_student_ids(self, assignment: Assignment) -> list[int]:
+        if assignment.student_ids:
+            return assignment.student_ids
+        students = self.repo.get_students_in_class(assignment.class_id)
+        return [s.id for s in students]
+
+    def _get_target_students(self, assignment: Assignment) -> list[User]:
+        if assignment.student_ids:
+            return self.db.query(User).filter(User.id.in_(assignment.student_ids)).all()
+        return self.repo.get_students_in_class(assignment.class_id)
+
     def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
-        students_in_class = self.repo.get_students_in_class(assignment.class_id)
+        students_in_class = self._get_target_students(assignment)
         training_records = self.repo.get_records_for_assignment(assignment.id)
 
         records_by_user: dict[int, list[TrainingRecord]] = {}
@@ -139,10 +164,10 @@ class AssignmentService:
         if scored_students:
             scores = [s.score_total for s in scored_students]
             avg_score = round(sum(scores) / len(scores), 1)
-            max_score = round(max(scores), 1)
-            min_score = round(min(scores), 1)
+            max_score_data = round(max(scores), 1)
+            min_score_data = round(min(scores), 1)
         else:
-            avg_score = max_score = min_score = None
+            avg_score = max_score_data = min_score_data = None
         completed_students = sum(1 for s in student_items if s.status == "completed")
         completion_rate = round(completed_students / len(student_items), 2) if student_items else 0.0
 
@@ -150,10 +175,13 @@ class AssignmentService:
             id=assignment.id,
             title=assignment.title,
             description=assignment.description,
-            practice_id=assignment.practice_id,
-            practice_name=assignment.practice.name if assignment.practice else "",
+            case_id=assignment.case_id,
+            case_name=assignment.case.name if assignment.case else "",
             class_id=assignment.class_id,
             class_name=assignment.class_.name if assignment.class_ else "",
+            features=assignment.features or {},
+            behavior=assignment.behavior or {},
+            student_ids=assignment.student_ids,
             start_time=assignment.start_time,
             end_time=assignment.end_time,
             created_at=assignment.created_at,
@@ -162,25 +190,28 @@ class AssignmentService:
             completed_count=completed_count,
             scored_count=scored_count,
             avg_score=avg_score,
-            max_score=max_score,
-            min_score=min_score,
+            max_score=max_score_data,
+            min_score=min_score_data,
             completion_rate=completion_rate,
             students=student_items,
         )
 
     def create(
         self,
-        practice_id: int,
+        case_id: int,
         class_id: int,
         title: str,
         description: str | None,
+        features: dict,
+        behavior: dict,
+        student_ids: list[int] | None,
         start_time: datetime,
         end_time: datetime,
         teacher_id: int,
     ) -> AssignmentDetailView:
-        practice = self.db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
-        if not practice:
-            raise NotFoundError("练习不存在")
+        case = self.db.query(Case).filter(Case.id == case_id).first()
+        if not case:
+            raise NotFoundError("病例不存在")
 
         if end_time <= start_time:
             raise ValidationError("截止时间必须晚于开始时间")
@@ -188,18 +219,21 @@ class AssignmentService:
         with unit_of_work(self.db, conflict_detail="创建失败，请重试"):
             assignment = self.repo.add(
                 Assignment(
-                    practice_id=practice_id,
+                    case_id=case_id,
                     class_id=class_id,
                     teacher_id=teacher_id,
                     title=title,
                     description=description,
+                    features=features or {},
+                    behavior=behavior or {},
+                    student_ids=student_ids,
                     start_time=start_time,
                     end_time=end_time,
                 )
             )
         self.db.refresh(assignment)
 
-        self._notify_students(class_id, title, practice.case.name if practice.case else "")
+        self._notify_students(assignment, case.name if case else "")
         log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": teacher_id})
         return self._build_detail_view(assignment)
 
@@ -216,7 +250,7 @@ class AssignmentService:
             AssignmentListView(
                 id=r[0].id,
                 title=r[0].title,
-                practice_name=r[0].practice.name if r[0].practice else "",
+                case_name=r[0].case.name if r[0].case else "",
                 class_name=r[0].class_.name if r[0].class_ else "",
                 teacher_name=r[0].teacher.display_name if r[0].teacher else "",
                 start_time=r[0].start_time,
@@ -242,10 +276,13 @@ class AssignmentService:
         self,
         assignment_id: str,
         teacher_id: int,
-        practice_id: int | None,
+        case_id: int | None,
         class_id: int | None,
         title: str | None,
         description: str | None,
+        features: dict | None,
+        behavior: dict | None,
+        student_ids: list[int] | None,
         start_time: datetime | None,
         end_time: datetime | None,
         is_closed: bool | None = None,
@@ -257,23 +294,27 @@ class AssignmentService:
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
 
-        if practice_id is not None or class_id is not None:
+        if case_id is not None or class_id is not None:
             if self.repo.has_any_records(assignment_id):
-                raise ValidationError("已有学生开始练习，不能更换练习或班级")
+                raise ValidationError("已有学生开始练习，不能更换病例或班级")
 
-        if practice_id is not None:
-            practice = (
-                self.db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
-            )
-            if not practice:
-                raise NotFoundError("练习不存在")
-            assignment.practice_id = practice_id
+        if case_id is not None:
+            case = self.db.query(Case).filter(Case.id == case_id).first()
+            if not case:
+                raise NotFoundError("病例不存在")
+            assignment.case_id = case_id
         if class_id is not None:
             assignment.class_id = class_id
         if title is not None:
             assignment.title = title
         if description is not None:
             assignment.description = description
+        if features is not None:
+            assignment.features = features
+        if behavior is not None:
+            assignment.behavior = behavior
+        if student_ids is not None:
+            assignment.student_ids = student_ids if len(student_ids) > 0 else None
         if start_time is not None:
             assignment.start_time = start_time
         if end_time is not None:
@@ -305,25 +346,78 @@ class AssignmentService:
 
         return {"message": "练习发布已删除"}
 
+    def send_reminder(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> dict:
+        assignment = self.repo.get_with_relations(assignment_id)
+        if not assignment:
+            raise NotFoundError("练习发布不存在")
+        if not skip_ownership and assignment.teacher_id != teacher_id:
+            raise AuthError("无权操作", status_code=403)
+
+        records = self.repo.get_records_for_assignment(assignment_id)
+        submitted_user_ids = {r.user_id for r in records if r.status == "completed"}
+
+        target_ids = self._get_target_student_ids(assignment)
+        not_submitted = [uid for uid in target_ids if uid not in submitted_user_ids]
+
+        if not not_submitted:
+            return {"message": "所有学生已提交", "reminded": 0}
+
+        self._push_notifications(
+            not_submitted,
+            "reminder",
+            f"催交：{assignment.title}",
+            f"病例：{assignment.case.name if assignment.case else ''}\n截止时间：{assignment.end_time.strftime('%m-%d %H:%M')}",
+        )
+
+        return {"message": f"已提醒 {len(not_submitted)} 位学生", "reminded": len(not_submitted)}
+
     @staticmethod
-    def _notify_students(class_id: int, title: str, case_name: str) -> None:
+    def _notify_students(assignment: Assignment, case_name: str) -> None:
         from models.ux import Notification
+
+        target_ids = None
+        if assignment.student_ids:
+            target_ids = assignment.student_ids
+        else:
+            db2 = SessionLocal()
+            try:
+                students = db2.query(UserClass.user_id).filter(UserClass.class_id == assignment.class_id).all()
+                target_ids = [s[0] for s in students]
+            finally:
+                db2.close()
+
+        if not target_ids:
+            return
 
         db = SessionLocal()
         try:
-            students = db.execute(db.query(UserClass.user_id).filter(UserClass.class_id == class_id)).scalars().all()
             body = f"病例：{case_name}" if case_name else ""
             now = datetime.now(UTC)
-            for uid in students:
+            for uid in target_ids:
                 db.add(
                     Notification(
                         user_id=uid,
                         type="assignment_new",
-                        title=f"新作业：{title}",
+                        title=f"新作业：{assignment.title}",
                         body=body,
                         created_at=now,
                     )
                 )
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+    @staticmethod
+    def _push_notifications(user_ids: list[int], type_: str, title: str, body: str) -> None:
+        from models.ux import Notification
+
+        db = SessionLocal()
+        try:
+            now = datetime.now(UTC)
+            for uid in user_ids:
+                db.add(Notification(user_id=uid, type=type_, title=title, body=body, created_at=now))
             db.commit()
         except Exception:
             db.rollback()

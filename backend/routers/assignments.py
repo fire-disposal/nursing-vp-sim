@@ -34,7 +34,7 @@ def _list_resp(view) -> AssignmentListItem:
     return AssignmentListItem(
         id=view.id,
         title=view.title,
-        practice_name=view.practice_name,
+        case_name=view.case_name,
         class_name=view.class_name,
         teacher_name=view.teacher_name,
         start_time=view.start_time,
@@ -67,10 +67,13 @@ def _detail_resp(view) -> AssignmentDetail:
         id=view.id,
         title=view.title,
         description=view.description,
-        practice_id=view.practice_id,
-        practice_name=view.practice_name,
+        case_id=view.case_id,
+        case_name=view.case_name,
         class_id=view.class_id,
         class_name=view.class_name,
+        features=view.features,
+        behavior=view.behavior,
+        student_ids=view.student_ids,
         start_time=view.start_time,
         end_time=view.end_time,
         created_at=view.created_at,
@@ -90,10 +93,13 @@ def _detail_resp(view) -> AssignmentDetail:
 def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentManager, db: DbSession):
     return _detail_resp(
         AssignmentService(db).create(
-            practice_id=req.practice_id,
+            case_id=req.case_id,
             class_id=req.class_id,
             title=req.title,
             description=req.description,
+            features=req.features,
+            behavior=req.behavior,
+            student_ids=req.student_ids,
             start_time=req.start_time,
             end_time=req.end_time,
             teacher_id=current_user.id,
@@ -136,10 +142,13 @@ def update_assignment(
         AssignmentService(db).update(
             assignment_id=assignment_id,
             teacher_id=current_user.id,
-            practice_id=req.practice_id,
+            case_id=req.case_id,
             class_id=req.class_id,
             title=req.title,
             description=req.description,
+            features=req.features,
+            behavior=req.behavior,
+            student_ids=req.student_ids,
             start_time=req.start_time,
             end_time=req.end_time,
             is_closed=req.is_closed,
@@ -154,7 +163,13 @@ def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: 
     return AssignmentService(db).delete(assignment_id, current_user.id, skip_ownership=is_admin)
 
 
-# ── Export (non-CRUD, kept inline) ──
+@router.post("/{assignment_id}/remind")
+def remind_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
+    is_admin = current_user.has_permission("user_manage")
+    return AssignmentService(db).send_reminder(assignment_id, current_user.id, skip_ownership=is_admin)
+
+
+# ── Export ──
 
 
 @router.post("/{assignment_id}/export")
@@ -165,7 +180,7 @@ def export_assignment(
 ):
     assignment = (
         db.query(Assignment)
-        .options(joinedload(Assignment.practice), joinedload(Assignment.class_))
+        .options(joinedload(Assignment.case), joinedload(Assignment.class_))
         .filter(Assignment.id == assignment_id)
         .first()
     )

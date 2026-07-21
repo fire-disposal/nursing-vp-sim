@@ -9,7 +9,7 @@ import ScoreStream from "../components/ScoreStream";
 import SectionHeading from "../components/SectionHeading";
 import VoicePlayback from "../components/VoicePlayback";
 import { HIGHLIGHTS, type Highlight } from "../data";
-import { ensureGsap, prefersReducedMotion } from "../lib/gsap";
+import { ensureGsap, prefersReducedMotion } from "../gsap";
 
 function visualFor(h: Highlight) {
 	if (h.id === "engine") return <ProcessPipeline />;

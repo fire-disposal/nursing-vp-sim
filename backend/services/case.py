@@ -4,11 +4,11 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from core.case_schema import normalize_gender, validate_case_data
 from core.exceptions import ConflictError
 from core.unit_of_work import unit_of_work
-from models import Case, Practice
+from models import Case
 from repositories.case import CaseRepository
+from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class CaseService:
     def get(self, case_id: int) -> Case:
         return self.repo.get_or_404(case_id, "病例不存在")
 
-    def create(self, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
+    def create(self, case_data: dict, user_id: int, user_role: str, *, is_open: bool = True) -> CaseManageView:
         training_type = case_data.get("training_type", "history_taking")
         cd = validate_case_data(training_type, case_data, strict=True)
         case = Case(
@@ -119,6 +119,7 @@ class CaseService:
             training_type=training_type,
             difficulty=cd.get("difficulty", 1),
             time_limit_minutes=cd.get("time_limit", 20),
+            is_open=is_open,
         )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
             self.repo.add(case)
@@ -149,8 +150,6 @@ class CaseService:
 
     def delete(self, case_id: int, user_id: int, user_role: str) -> None:
         case = self.repo.get_or_404(case_id, "病例不存在")
-        if self.repo.has_practices(case_id):
-            raise ConflictError(detail="该病例存在关联的练习，无法删除")
         count = self.repo.training_count(case_id)
         if count > 0:
             raise ConflictError(detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。")
@@ -161,6 +160,3 @@ class CaseService:
             f"病例删除: case_id={case_id} case_name={case_name}",
             extra={"user_id": user_id, "user_role": user_role},
         )
-
-    def list_practices(self, case_id: int) -> list[Practice]:
-        return self.repo.list_active_practices(case_id)

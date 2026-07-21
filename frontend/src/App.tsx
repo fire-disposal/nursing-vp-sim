@@ -14,7 +14,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import RequirePermission from "@/components/RequirePermission";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
-import { APP_ROUTES } from "@/config/navigation";
+import { APP_ROUTES } from "@/components/shell/navigation";
 import { onForceLogout } from "@/events";
 
 const queryClient = new QueryClient({

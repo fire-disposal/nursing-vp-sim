@@ -7,20 +7,26 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 
 class AssignmentCreateRequest(BaseModel):
     model_config = _REQ_CFG
-    practice_id: int
+    case_id: int
     class_id: int
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
+    features: dict[str, bool] = Field(default_factory=dict)
+    behavior: dict = Field(default_factory=dict)
+    student_ids: list[int] | None = None
     start_time: datetime
     end_time: datetime
 
 
 class AssignmentUpdateRequest(BaseModel):
     model_config = _REQ_CFG
-    practice_id: int | None = None
+    case_id: int | None = None
     class_id: int | None = None
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
+    features: dict[str, bool] | None = None
+    behavior: dict | None = None
+    student_ids: list[int] | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_closed: bool | None = None
@@ -30,7 +36,7 @@ class AssignmentListItem(BaseModel):
     model_config = _RESP_CFG
     id: str
     title: str
-    practice_name: str = ""
+    case_name: str = ""
     class_name: str = ""
     teacher_name: str = ""
     start_time: datetime
@@ -61,10 +67,13 @@ class AssignmentDetail(BaseModel):
     id: str
     title: str
     description: str | None = None
-    practice_id: int
-    practice_name: str = ""
+    case_id: int
+    case_name: str = ""
     class_id: int
     class_name: str = ""
+    features: dict = Field(default_factory=dict)
+    behavior: dict = Field(default_factory=dict)
+    student_ids: list[int] | None = None
     start_time: datetime
     end_time: datetime
     created_at: datetime
@@ -83,7 +92,7 @@ class StudentAssignmentItem(BaseModel):
     model_config = _RESP_CFG
     id: str
     title: str
-    practice_name: str
+    case_name: str
     start_time: datetime
     end_time: datetime
     status: str = "pending"

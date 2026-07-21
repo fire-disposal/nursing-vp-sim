@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from contexts.patient.note_source import NoteSource
+    from infrastructure.patient_ai.note_source import NoteSource
 
 
 @dataclass

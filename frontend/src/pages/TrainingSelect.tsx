@@ -79,7 +79,7 @@ export default function TrainingSelect() {
   const startMutation = useMutation({
     mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => {
       startingCaseRef.current = caseId;
-      return startTraining(caseId, null, {}, timeLimit);
+			return startTraining(caseId, {}, timeLimit);
     },
     onSuccess: (res: { data: { record_id: number } }) => {
       startingCaseRef.current = null;
@@ -116,7 +116,7 @@ export default function TrainingSelect() {
           {profiles.map((p) => {
             const meta = TYPE_LABELS[p.type] ?? TYPE_LABELS.history_taking;
             const Icon = meta.icon;
-            const count = (p as any).case_count ?? 0;
+            const count = p.case_count ?? 0;
             return (
               <button
                 key={p.type}

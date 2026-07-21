@@ -5,7 +5,7 @@ import LiveChatSimulation from "../components/LiveChatSimulation";
 import VideoModal from "../components/VideoModal";
 import VirtualPatientMaskText from "../components/VirtualPatientMaskText";
 import { CTA_HREF, PRODUCT_NAME } from "../data";
-import { ensureGsap, prefersReducedMotion } from "../lib/gsap";
+import { ensureGsap, prefersReducedMotion } from "../gsap";
 
 export default function Hero() {
 	const root = useRef<HTMLElement>(null);

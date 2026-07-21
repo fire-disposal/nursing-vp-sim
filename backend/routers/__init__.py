@@ -25,17 +25,6 @@ def register_routers(app: FastAPI) -> None:
 
     app.include_router(admin.router)
 
-    from routers.admin.classes import router as _classes
-    from routers.admin.costs import router as _costs
-    from routers.admin.grades import router as _grades
-    from routers.admin.practices import router as _practices
-    from routers.admin.roles import router as _roles
-    from routers.admin.secrets import router as _secrets
-    from routers.admin.voice import router as _voice
-
-    for r in (_classes, _costs, _grades, _practices, _roles, _secrets, _voice):
-        app.include_router(r)
-
     # ── training context routers ──
     from contexts.training import chat_router, nursing_router, training_router
 

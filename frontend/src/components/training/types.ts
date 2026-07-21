@@ -4,6 +4,7 @@ export interface TrainingTypeInfo {
   description: string;
   icon: string;
   color: string;
+  case_count?: number;
 }
 
 export const TRAINING_TYPE_CONFIGS: Record<string, { color: string; gradient: string }> = {

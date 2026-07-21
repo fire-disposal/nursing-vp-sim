@@ -18,7 +18,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { getNurseAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
-import CitationCard from "./CitationCard";
+import CitationCard from "@/components/citation/CitationCard";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 

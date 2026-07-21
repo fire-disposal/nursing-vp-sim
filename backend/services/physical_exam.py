@@ -4,9 +4,9 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from core.capabilities import is_enabled
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
+from infrastructure.llm.capabilities import is_enabled
 from models import Case, TrainingRecord, User
 from profiles.history_taking.exam import handle_operation
 

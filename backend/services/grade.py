@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
 from core.unit_of_work import unit_of_work
-from models import Grade, UserClass
+from models import Grade
 from repositories.grade import GradeRepository
+from repositories.shared import nullify_user_class_associations
 
 
 @dataclass
@@ -60,7 +60,6 @@ class GradeService:
             raise ValidationError(f"该年级下有 {assignment_count} 个作业引用，无法删除。请先删除相关作业。")
         class_count = len(class_ids)
         with unit_of_work(self.db, conflict_detail="操作冲突：该年级下在删除过程中新增了关联资源，请刷新后重试。"):
-            if class_ids:
-                self.db.execute(sa_update(UserClass).where(UserClass.class_id.in_(class_ids)).values(class_id=None))
+            nullify_user_class_associations(self.db, class_ids)
             self.repo.delete(grade)
         return class_count

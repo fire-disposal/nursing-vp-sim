@@ -1,4 +1,4 @@
-import type { TrainingTypeInfo } from "@/training/types";
+import type { TrainingTypeInfo } from "@/components/training/types";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";

@@ -26,7 +26,7 @@ from infrastructure.scoring_progress import ScoringProgressTracker
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
-from schemas.common import OkResponse
+from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
 from ..scoring_lifecycle import acquire_scoring, claim_scoring, release_scoring
@@ -414,7 +414,7 @@ async def end_training(
 
         db.commit()
 
-        from core.capabilities import resolve_features
+        from infrastructure.llm.capabilities import resolve_features
 
         features = resolve_features(
             record.practice_snapshot,
@@ -514,30 +514,35 @@ async def retry_scoring(
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
 
-@router.get("/notifications", response_model=list[TrainingNotificationItem])
+@router.get("/notifications", response_model=PaginatedResponse[TrainingNotificationItem])
 def get_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-    unread_only: Annotated[bool, Query()] = True,
+    unread_only: Annotated[bool, Query()] = False,
+    type: Annotated[str | None, Query(description="按类型过滤")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     q = db.query(Notification).filter(Notification.user_id == current_user.id)
     if unread_only:
         q = q.filter(Notification.is_read == False)
+    if type:
+        q = q.filter(Notification.type == type)
+    total = q.count()
     notifs = q.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
-    return [
-        {
-            "id": n.id,
-            "type": n.type,
-            "title": n.title,
-            "body": n.body,
-            "record_id": n.record_id,
-            "is_read": n.is_read,
-            "created_at": n.created_at,
-        }
+    items = [
+        TrainingNotificationItem(
+            id=n.id,
+            type=n.type,
+            title=n.title,
+            body=n.body,
+            record_id=n.record_id,
+            is_read=n.is_read,
+            created_at=n.created_at,
+        )
         for n in notifs
     ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.put("/notifications/read-all", response_model=OkResponse)

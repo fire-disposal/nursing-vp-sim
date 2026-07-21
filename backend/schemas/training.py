@@ -9,7 +9,6 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
-    practice_id: int | None = None
     features: dict[str, bool] | None = None
     time_limit_minutes: int | None = None
 

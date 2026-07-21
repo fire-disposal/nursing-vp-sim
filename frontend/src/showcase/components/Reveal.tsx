@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { prefersReducedMotion } from "../lib/gsap";
+import { prefersReducedMotion } from "../gsap";
 
 interface RevealProps {
 	children: ReactNode;

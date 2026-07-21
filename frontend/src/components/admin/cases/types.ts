@@ -132,8 +132,7 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 	},
 };
 
-export const inputClass =
-	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring";
+
 
 export const textareaClass =
 	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring resize-y";

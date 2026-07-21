@@ -7,8 +7,8 @@ import ResponsiveTable from "@/components/ui/responsive-table";
 import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/utils/cn";
+import { inputClass } from "@/utils/styles";
 import type { CaseManageItem } from "./types";
-import { inputClass } from "./types";
 
 interface CaseListProps {
 	cases: CaseManageItem[];

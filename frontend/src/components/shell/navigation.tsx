@@ -1,6 +1,7 @@
 import {
 	Activity,
 	BarChart3,
+	Bell,
 	BookOpen,
 	ClipboardCheck,
 	ClipboardList,
@@ -31,6 +32,7 @@ const StatsPage = lazy(() =>
 );
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
+const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
@@ -40,8 +42,8 @@ const AdminGradesClasses = lazy(
 	() => import("@/pages/admin/GradesClassesPage"),
 );
 const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
-const PracticeManagementPage = lazy(
-	() => import("@/pages/admin/PracticeManagementPage"),
+const AssignmentsPage = lazy(
+	() => import("@/pages/admin/AssignmentsPage"),
 );
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
@@ -119,6 +121,15 @@ export const APP_ROUTES: AppRoute[] = [
 		},
 	},
 	{
+		path: "/notifications",
+		element: <NotificationInboxPage />,
+		nav: {
+			label: "通知中心",
+			icon: Bell,
+			section: "user",
+		},
+	},
+	{
 		path: "/qa",
 		element: <QA />,
 		permission: "qa_access",
@@ -183,10 +194,10 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "病例管理", icon: UserSearch, section: "admin" },
 	},
 	{
-		path: "/admin/practices",
-		element: <PracticeManagementPage />,
-		permission: "case_manage",
-		nav: { label: "练习管理", icon: ClipboardList, section: "admin" },
+		path: "/admin/assignments",
+		element: <AssignmentsPage />,
+		permission: "assignment_manage",
+		nav: { label: "作业管理", icon: ClipboardList, section: "admin" },
 	},
 	{
 		path: "/admin/assignments/:id",

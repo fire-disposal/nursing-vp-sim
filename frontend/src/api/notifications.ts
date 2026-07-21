@@ -10,7 +10,7 @@ const NOTIF_READ = "/training/notifications/{notif_id}/read" satisfies ApiPath;
 const NOTIF_UNREAD = "/training/notifications/{notif_id}/unread" satisfies ApiPath;
 
 export const getNotifications = (params?: Record<string, unknown>) =>
-	api.get<Schemas["TrainingNotificationItem"][]>(
+	api.get<Schemas["PaginatedResponse_TrainingNotificationItem_"]>(
 		NOTIFICATIONS as string,
 		{ params },
 	);

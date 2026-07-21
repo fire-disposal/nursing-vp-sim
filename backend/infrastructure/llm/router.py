@@ -186,7 +186,7 @@ class ProfileRouter:
                         return binding
 
         from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-        from core.llm_profile import get_model
+        from infrastructure.llm.profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
             # 若 env 密钥与某个已熔断的 DB 密钥相同 → 镜像熔断状态，fail-fast

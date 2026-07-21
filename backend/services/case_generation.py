@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError as PydanticValidationError
 
-from core.case_schema import list_valid_training_types, validate_case_data
+from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import (
     LLMConcurrencyExceeded,
     LLMError,
@@ -17,15 +17,14 @@ from core.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from core.llm_profile import get_llm_config
 from infrastructure.llm.client import CallContext, LLMClient
+from infrastructure.llm.profile import get_llm_config
+from infrastructure.llm.prompts.case_generation import build_system_prompt
 from infrastructure.prompt import render_template
 from models import Case, User
 from profiles.history_taking.builder import format_case_for_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
-
-from ..training.pipeline.prompt_context import PromptContext
-from .prompts import build_system_prompt
+from schemas.case_schema import list_valid_training_types, validate_case_data
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

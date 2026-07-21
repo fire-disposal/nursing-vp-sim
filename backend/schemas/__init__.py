@@ -14,7 +14,6 @@ from schemas.feedback import *  # noqa: F403
 from schemas.llm import *  # noqa: F403
 from schemas.notification import *  # noqa: F403
 from schemas.ops import *  # noqa: F403
-from schemas.practice import *  # noqa: F403
 from schemas.qa import *  # noqa: F403
 from schemas.questionnaire import *  # noqa: F403
 from schemas.scoring import *  # noqa: F403

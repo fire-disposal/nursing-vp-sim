@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
-from middleware.rate_limits import PgRateLimiter
+from core.rate_limits import PgRateLimiter
 
 
 class TestIsAllowed:

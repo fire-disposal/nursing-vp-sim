@@ -1,6 +1,6 @@
 from models._base import TimestampMixin, _now_utc
 from models.auth import Role, RolePermission, User
-from models.case_practice import Assignment, Case, Practice
+from models.case_practice import Assignment, Case
 from models.llm import ApiSecret, LLMCallLog, LLMConfig
 from models.org import Class, Grade, UserClass
 from models.qa import KnowledgeChunk, QARecord, QASession
@@ -38,7 +38,6 @@ __all__ = [
     "Message",
     "Notification",
     "NursingRecord",
-    "Practice",
     "QARecord",
     "QASession",
     "QuestionnaireAnswer",

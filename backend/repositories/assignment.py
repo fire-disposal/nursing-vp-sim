@@ -13,7 +13,7 @@ class AssignmentRepository(Repository[Assignment]):
         return (
             self.db.query(Assignment)
             .options(
-                joinedload(Assignment.practice),
+                joinedload(Assignment.case),
                 joinedload(Assignment.class_),
             )
             .filter(Assignment.id == id_)
@@ -47,7 +47,7 @@ class AssignmentRepository(Repository[Assignment]):
             student_sub.label("student_count"),
             completed_sub.label("completed_count"),
         ).options(
-            joinedload(Assignment.practice),
+            joinedload(Assignment.case),
             joinedload(Assignment.class_),
             joinedload(Assignment.teacher),
         )

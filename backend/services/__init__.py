@@ -11,7 +11,6 @@ from .llm import ApiSecretService, LLMConfigService, LLMDataService
 from .llm_monitor import LLMMonitorService
 from .notification import SystemNotificationService
 from .physical_exam import PhysicalExamService
-from .practice import PracticeService
 from .questionnaire import (
     QuestionnaireQuestionService,
     QuestionnaireTemplateService,
@@ -42,7 +41,6 @@ __all__ = [
     "LLMDataService",
     "LLMMonitorService",
     "PhysicalExamService",
-    "PracticeService",
     "QuestionView",
     "QuestionnaireQuestionService",
     "QuestionnaireResponseService",

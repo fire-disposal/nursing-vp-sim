@@ -150,7 +150,7 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
 export function PatientMonitor({ status, patientName, vitals }: PatientMonitorProps) {
   const p = useMemo(() => resolve(status, vitals), [status, vitals])
   const hasAlarm = p.alarms.length > 0
-  const [paused, setPaused] = useState(false)
+  const [paused, _setPaused] = useState(false)
 
   // Waveform tables
   const plethTable = useMemo(() => {

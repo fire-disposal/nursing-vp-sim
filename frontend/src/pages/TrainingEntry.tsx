@@ -6,7 +6,7 @@ import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingState from "@/components/ui/loading-state";
 import { getRecordDetail } from "../api/training";
-import { TRAINING_SCENES } from "../training/scenes/scene-registry";
+import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();

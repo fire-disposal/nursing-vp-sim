@@ -20,8 +20,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import LoadingState from "@/components/ui/loading-state";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
-import type { NavItem } from "@/config/navigation";
-import { NAV_ITEMS } from "@/config/navigation";
+import type { NavItem } from "@/components/shell/navigation";
+import { NAV_ITEMS } from "@/components/shell/navigation";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
@@ -46,7 +46,6 @@ function AdminSidebar({
 	onAbout: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
-	const navigate = useNavigate();
 	const avatar = getUserAvatar(user?.gender);
 	const { openFeedback } = useFeedback();
 

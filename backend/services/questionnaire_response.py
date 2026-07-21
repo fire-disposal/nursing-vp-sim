@@ -21,7 +21,7 @@ from schemas.questionnaire import (
     QuestionnaireStatsResponse,
     QuestionStatsItem,
 )
-from services.questionnaire import _template_to_detail
+from services.questionnaire import template_to_detail
 
 
 @dataclass
@@ -124,7 +124,7 @@ class QuestionnaireResponseService:
                 has_pending=True,
                 template_id=cq.template_id,
                 response_id=partial.id if partial else None,
-                template=_template_to_detail(t) if t else None,
+                template=template_to_detail(t) if t else None,
                 is_required=cq.is_required,
                 trigger_event=cq.trigger_event or "before_training",
             )

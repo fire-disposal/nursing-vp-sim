@@ -9,13 +9,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import db_session, get_db
-from core.llm_profile import get_llm_config
+from core.rate_limits import check_qa_limit
 from core.security import require_permission
 from infrastructure.llm.client import CallContext
+from infrastructure.llm.profile import get_llm_config
+from infrastructure.llm.prompts import QA_SYSTEM
 from infrastructure.prompt import render_template
-from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
-from prompts import QA_SYSTEM
 from schemas import (
     Citation,
     QAAskResponse,

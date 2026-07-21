@@ -29,7 +29,7 @@ def setup_logging():
             "disable_existing_loggers": False,
             "formatters": {
                 "default": {
-                    "()": "core.logging_setup._ColoredFormatter",
+                    "()": "infrastructure.logging_setup._ColoredFormatter",
                     "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
                     "datefmt": "%H:%M:%S",
                 },

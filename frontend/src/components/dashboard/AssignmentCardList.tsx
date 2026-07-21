@@ -85,7 +85,7 @@ export default function AssignmentCardList({
 										{a.title}
 									</div>
 									<div className="truncate text-xs text-muted-foreground">
-										{a.practice_name}
+										{a.case_name}
 									</div>
 								</div>
 								{isClosed ? (

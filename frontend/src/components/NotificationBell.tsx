@@ -30,7 +30,9 @@ export default function NotificationBell() {
 	const { data, isLoading, isError } = useQuery({
 		queryKey: queryKeys.notifications.list({ offset }),
 		queryFn: () =>
-			getNotifications({ unread_only: false, limit: LIMIT, offset }).then((r) => r.data),
+			getNotifications({ unread_only: false, limit: LIMIT, offset }).then(
+				(r) => r.data.items ?? [],
+			),
 		refetchInterval: 60_000,
 		enabled: open,
 	});
@@ -181,19 +183,25 @@ export default function NotificationBell() {
 								))}
 							</div>
 							<div className="flex items-center justify-between border-t px-4 py-2">
+								<Button variant="ghost" size="sm" className="text-xs h-7"
+									onClick={() => { setOpen(false); navigate("/notifications"); }}>
+									查看全部
+								</Button>
+								<div className="flex items-center gap-1">
 								{unreadCount > 0 ? (
 									<Button variant="ghost" size="sm" className="text-xs h-7"
 										onClick={() => markAllReadMutation.mutate()}
 										disabled={mutationLockRef.current}>
 										全部已读
 									</Button>
-								) : <div />}
+								) : null}
 								{hasMore && (
 									<Button variant="ghost" size="sm" className="text-xs h-7"
 										onClick={() => setOffset((prev) => prev + LIMIT)}>
 										加载更多
 									</Button>
 								)}
+								</div>
 							</div>
 						</div>
 					) : (

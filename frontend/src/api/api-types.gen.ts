@@ -159,23 +159,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cases/{case_id}/practices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Case Practices */
-        get: operations["list_case_practices_api_cases__case_id__practices_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/cases/{case_id}": {
         parameters: {
             query?: never;
@@ -1125,60 +1108,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/practices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Practices */
-        get: operations["list_practices_api_admin_practices_get"];
-        put?: never;
-        /** Create Practice */
-        post: operations["create_practice_api_admin_practices_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/practices/{practice_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Practice */
-        get: operations["get_practice_api_admin_practices__practice_id__get"];
-        /** Update Practice */
-        put: operations["update_practice_api_admin_practices__practice_id__put"];
-        post?: never;
-        /** Delete Practice */
-        delete: operations["delete_practice_api_admin_practices__practice_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/practices/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export Practices */
-        post: operations["export_practices_api_admin_practices_export_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/roles": {
         parameters: {
             query?: never;
@@ -2049,6 +1978,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assignments/{assignment_id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remind Assignment */
+        post: operations["remind_assignment_api_assignments__assignment_id__remind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assignments/{assignment_id}/export": {
         parameters: {
             query?: never;
@@ -2318,14 +2264,24 @@ export interface components {
         };
         /** AssignmentCreateRequest */
         AssignmentCreateRequest: {
-            /** Practice Id */
-            practice_id: number;
+            /** Case Id */
+            case_id: number;
             /** Class Id */
             class_id: number;
             /** Title */
             title: string;
             /** Description */
             description?: string | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            };
+            /** Behavior */
+            behavior?: {
+                [key: string]: unknown;
+            };
+            /** Student Ids */
+            student_ids?: number[] | null;
             /**
              * Start Time
              * Format: date-time
@@ -2345,13 +2301,13 @@ export interface components {
             title: string;
             /** Description */
             description?: string | null;
-            /** Practice Id */
-            practice_id: number;
+            /** Case Id */
+            case_id: number;
             /**
-             * Practice Name
+             * Case Name
              * @default
              */
-            practice_name: string;
+            case_name: string;
             /** Class Id */
             class_id: number;
             /**
@@ -2359,6 +2315,16 @@ export interface components {
              * @default
              */
             class_name: string;
+            /** Features */
+            features?: {
+                [key: string]: unknown;
+            };
+            /** Behavior */
+            behavior?: {
+                [key: string]: unknown;
+            };
+            /** Student Ids */
+            student_ids?: number[] | null;
             /**
              * Start Time
              * Format: date-time
@@ -2415,10 +2381,10 @@ export interface components {
             /** Title */
             title: string;
             /**
-             * Practice Name
+             * Case Name
              * @default
              */
-            practice_name: string;
+            case_name: string;
             /**
              * Class Name
              * @default
@@ -2496,14 +2462,24 @@ export interface components {
         };
         /** AssignmentUpdateRequest */
         AssignmentUpdateRequest: {
-            /** Practice Id */
-            practice_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
             /** Class Id */
             class_id?: number | null;
             /** Title */
             title?: string | null;
             /** Description */
             description?: string | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            } | null;
+            /** Behavior */
+            behavior?: {
+                [key: string]: unknown;
+            } | null;
+            /** Student Ids */
+            student_ids?: number[] | null;
             /** Start Time */
             start_time?: string | null;
             /** End Time */
@@ -2618,6 +2594,11 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
+            /**
+             * Is Open
+             * @default true
+             */
+            is_open: boolean;
         };
         /** CaseDetail */
         CaseDetail: {
@@ -3440,17 +3421,6 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** PaginatedResponse[PracticeItem] */
-        PaginatedResponse_PracticeItem_: {
-            /** Items */
-            items: components["schemas"]["PracticeItem"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
         /** PaginatedResponse[QASessionAdminItem] */
         PaginatedResponse_QASessionAdminItem_: {
             /** Items */
@@ -3506,6 +3476,17 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PaginatedResponse[TrainingNotificationItem] */
+        PaginatedResponse_TrainingNotificationItem_: {
+            /** Items */
+            items: components["schemas"]["TrainingNotificationItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** PaginatedResponse[TrainingRecordBrief] */
         PaginatedResponse_TrainingRecordBrief_: {
             /** Items */
@@ -3527,116 +3508,6 @@ export interface components {
             offset: number;
             /** Limit */
             limit: number;
-        };
-        /** PracticeBrief */
-        PracticeBrief: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
-            /** Features */
-            features?: {
-                [key: string]: boolean;
-            };
-            /** Behavior */
-            behavior?: {
-                [key: string]: unknown;
-            };
-        };
-        /** PracticeCreate */
-        PracticeCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /** Case Id */
-            case_id: number;
-            /** Features */
-            features?: {
-                [key: string]: boolean;
-            };
-            /** Behavior */
-            behavior?: {
-                [key: string]: unknown;
-            };
-        };
-        /** PracticeItem */
-        PracticeItem: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /** Case Id */
-            case_id: number;
-            /**
-             * Case Name
-             * @default
-             */
-            case_name: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
-            /** Features */
-            features?: {
-                [key: string]: boolean;
-            };
-            /** Behavior */
-            behavior?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean;
-            /**
-             * Training Count
-             * @default 0
-             */
-            training_count: number;
-            /**
-             * Assignment Count
-             * @default 0
-             */
-            assignment_count: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** PracticeUpdate */
-        PracticeUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Case Id */
-            case_id?: number | null;
-            /** Features */
-            features?: {
-                [key: string]: boolean;
-            } | null;
-            /** Behavior */
-            behavior?: {
-                [key: string]: unknown;
-            } | null;
-            /** Is Active */
-            is_active?: boolean | null;
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -4293,8 +4164,8 @@ export interface components {
             id: string;
             /** Title */
             title: string;
-            /** Practice Name */
-            practice_name: string;
+            /** Case Name */
+            case_name: string;
             /**
              * Start Time
              * Format: date-time
@@ -4692,8 +4563,6 @@ export interface components {
         TrainingStartRequest: {
             /** Case Id */
             case_id: number;
-            /** Practice Id */
-            practice_id?: number | null;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -5310,37 +5179,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseGenerateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_case_practices_api_cases__case_id__practices_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                case_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PracticeBrief"][];
                 };
             };
             /** @description Validation Error */
@@ -7502,199 +7340,6 @@ export interface operations {
             };
         };
     };
-    list_practices_api_admin_practices_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_PracticeItem_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_practice_api_admin_practices_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PracticeCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PracticeItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_practice_api_admin_practices__practice_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                practice_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PracticeItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_practice_api_admin_practices__practice_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                practice_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PracticeUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PracticeItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_practice_api_admin_practices__practice_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                practice_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_practices_api_admin_practices_export_post: {
-        parameters: {
-            query?: {
-                format?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_roles_api_admin_roles_get: {
         parameters: {
             query?: {
@@ -8734,6 +8379,8 @@ export interface operations {
         parameters: {
             query?: {
                 unread_only?: boolean;
+                /** @description 按类型过滤 */
+                type?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -8749,7 +8396,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TrainingNotificationItem"][];
+                    "application/json": components["schemas"]["PaginatedResponse_TrainingNotificationItem_"];
                 };
             };
             /** @description Validation Error */
@@ -9612,6 +9259,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remind_assignment_api_assignments__assignment_id__remind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

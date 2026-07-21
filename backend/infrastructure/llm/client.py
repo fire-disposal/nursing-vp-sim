@@ -19,7 +19,7 @@ from core.exceptions import LLMParseError, NoProviderAvailable
 from infrastructure.llm.circuit import async_retry, backoff_delay
 
 from .logging import LogWorker
-from .parsing import _safe_parse_json
+from .parsing import safe_parse_json
 from .router import ProfileRouter, _SyntheticConfig
 
 log = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class LLMClient:
         self._log_worker = log_worker
         self._metrics = metrics
         # Per-purpose semaphores — sourced from core/llm_profile.py
-        from core.llm_profile import PROFILES
+        from infrastructure.llm.profile import PROFILES
 
         _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
         self._semaphores: dict[str, asyncio.Semaphore] = {
@@ -536,7 +536,7 @@ class LLMClient:
             ctx=ctx,
         )
         try:
-            return _safe_parse_json(text)
+            return safe_parse_json(text)
         except (json.JSONDecodeError, ValueError) as e:
             raise LLMParseError(f"purpose={purpose}: {e!s}") from e
 
@@ -546,7 +546,7 @@ class LLMClient:
         """Select a profile from the router and build call state."""
         from cryptography.fernet import InvalidToken as FernetInvalidToken
 
-        from core.llm_profile import get_model
+        from infrastructure.llm.profile import get_model
 
         config = self._router.select(purpose)
         try:

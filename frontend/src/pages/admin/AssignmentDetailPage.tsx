@@ -111,14 +111,14 @@ export default function AssignmentDetailPage() {
 				title={detail.title}
 				subtitle={
 					detail.description
-						? `${detail.practice_name} · ${detail.class_name} · ${detail.description}`
-						: `${detail.practice_name} · ${detail.class_name}`
+						? `${detail.case_name} · ${detail.class_name} · ${detail.description}`
+						: `${detail.case_name} · ${detail.class_name}`
 				}
 				actions={
 					<div className="flex gap-2">
 					<Button
 						variant="outline"
-						onClick={() => navigate("/admin/practices?tab=assignments")}
+						onClick={() => navigate("/admin/assignments")}
 					>
 							<ArrowLeft size={16} className="mr-1" />
 							返回

@@ -161,9 +161,6 @@ export const queryKeys = {
 		training: (recordId: number | string, type: "pre" | "post") =>
 			[...queryKeys.questionnaires.all, recordId, type] as const,
 	},
-	practices: {
-		all: ["practices"] as const,
-	},
 	sessionConfigs: ["sessionConfigs"] as const,
 	nursingRecord: (recordId: number | null | undefined) => ["nursingRecord", recordId] as const,
 	assignments: {

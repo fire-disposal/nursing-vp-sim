@@ -4,8 +4,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from core.deps import CurrentUser, DbSession
-from core.security import _decode_token_allow_expired, require_permission
-from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
+from core.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
+from core.security import decode_token_allow_expired, require_permission
 from models import User
 from schemas import (
     ChangePasswordRequest,
@@ -66,7 +66,7 @@ def update_me(
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(
-    current_user: Annotated[User, Depends(_decode_token_allow_expired)],
+    current_user: Annotated[User, Depends(decode_token_allow_expired)],
     db: DbSession,
 ):
     return AuthService(db).refresh_token(current_user)

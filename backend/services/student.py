@@ -21,7 +21,7 @@ class StudentService:
         now = datetime.now(UTC)
         assignments = (
             self.db.query(Assignment)
-            .options(joinedload(Assignment.practice))
+            .options(joinedload(Assignment.case))
             .filter(
                 Assignment.class_id == user_class.class_id,
                 Assignment.start_time <= now,
@@ -45,12 +45,18 @@ class StudentService:
 
         items: list[StudentAssignmentItem] = []
         for a in assignments:
-            if a.is_closed:
+            if a.student_ids is not None and user_id not in a.student_ids:
+                continue
+
+            case_name = a.case.name if a.case else ""
+
+            end_time = ensure_utc(a.end_time)
+            if a.is_closed or now > end_time:
                 items.append(
                     StudentAssignmentItem(
                         id=a.id,
                         title=a.title,
-                        practice_name=a.practice.name if a.practice else "",
+                        case_name=case_name,
                         start_time=a.start_time,
                         end_time=a.end_time,
                         status="closed",
@@ -67,7 +73,7 @@ class StudentService:
                     StudentAssignmentItem(
                         id=a.id,
                         title=a.title,
-                        practice_name=a.practice.name if a.practice else "",
+                        case_name=case_name,
                         start_time=a.start_time,
                         end_time=a.end_time,
                         status=status,
@@ -77,12 +83,12 @@ class StudentService:
                     )
                 )
             else:
-                status = "overdue" if now > ensure_utc(a.end_time) else "pending"
+                status = "pending"
                 items.append(
                     StudentAssignmentItem(
                         id=a.id,
                         title=a.title,
-                        practice_name=a.practice.name if a.practice else "",
+                        case_name=case_name,
                         start_time=a.start_time,
                         end_time=a.end_time,
                         status=status,

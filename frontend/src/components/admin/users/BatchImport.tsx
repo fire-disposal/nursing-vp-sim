@@ -54,7 +54,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
 			const parts = row.split(",").map((s) => s.trim());
 
-			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, className: string | null = null, classId: number | null = null;
+			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, className: string | null = null, _classId: number | null = null;
 			if (isHeader) {
 				const colIdx = (h: string) => firstParts.indexOf(h);
 				username = parts[colIdx("用户名")] || "";

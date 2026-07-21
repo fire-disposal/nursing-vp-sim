@@ -1,4 +1,4 @@
-from core.case_schema import list_valid_training_types
+from schemas.case_schema import list_valid_training_types
 
 
 def test_only_registered_types_allowed():

@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from core.security import verify_password
 from models import User
 
 log = logging.getLogger(__name__)
@@ -34,9 +36,21 @@ class LoginStrategy(ABC):
         """返回匹配的 User，或 None 表示认证失败"""
 
 
-def get_strategy_registry() -> dict[str, type["LoginStrategy"]]:
-    from core.login_strategies.password import PasswordLoginStrategy
+class PasswordLoginStrategy(LoginStrategy):
+    provider_type = "password"
 
+    async def authenticate(self, credentials: dict[str, Any]) -> User | None:
+        username = credentials.get("username", "")
+        password = credentials.get("password", "")
+        user = self.db.query(User).filter(User.username == username).first()
+        if not user:
+            return None
+        if not await asyncio.to_thread(verify_password, password, user.password_hash):
+            return None
+        return user
+
+
+def get_strategy_registry() -> dict[str, type["LoginStrategy"]]:
     return {
         "password": PasswordLoginStrategy,
     }

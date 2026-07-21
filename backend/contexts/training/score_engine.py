@@ -9,13 +9,10 @@ from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import LLMParseError
-from core.llm_profile import get_enable_thinking, get_llm_config
-from infrastructure.llm import _safe_parse_json
+from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
-from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
-from models import Message, NursingRecord, Score, TrainingRecord
-from profiles.registry import get_profile
-from prompts.scoring import (
+from infrastructure.llm.profile import get_enable_thinking, get_llm_config
+from infrastructure.llm.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,
@@ -23,6 +20,9 @@ from prompts.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
+from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
+from models import Message, NursingRecord, Score, TrainingRecord
+from profiles.registry import get_profile
 from repositories.rubric import get_rubric_version_id, load_rubric
 
 from ._scoring_validation import (
@@ -205,7 +205,7 @@ async def _stream_attempt(
             await _do_push()
 
         full_text = "".join(content_parts)
-        result = _safe_parse_json(full_text)
+        result = safe_parse_json(full_text)
         _coerce_numeric_fields(result)
         return result
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:

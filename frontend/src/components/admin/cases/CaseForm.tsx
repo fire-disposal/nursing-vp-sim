@@ -7,10 +7,10 @@ import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities.gen";
 import { cn } from "@/utils/cn";
+import { inputClass } from "@/utils/styles";
 import type { CaseForm, CaseManageItem, ScoringDimension } from "./types";
 import {
 	buildCaseData,
-	inputClass,
 	NEW_CASE_TEMPLATE,
 	parseCaseData,
 	textareaClass,
@@ -44,6 +44,7 @@ export default function CaseFormModal({
 	const [caseMsg, setCaseMsg] = useState("");
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [showAiPanel, setShowAiPanel] = useState(false);
+	const [isOpen, setIsOpen] = useState(true);
 	const [aiGenerating, setAiGenerating] = useState(false);
 	const [aiMode, setAiMode] = useState<"quick" | "reference">("quick");
 	const [aiDescription, setAiDescription] = useState("");
@@ -81,6 +82,7 @@ export default function CaseFormModal({
 			const template = parseCaseData(NEW_CASE_TEMPLATE);
 			setCaseForm(template);
 			setInitialData(JSON.stringify(template));
+			setIsOpen(true);
 		}
 		setIsDirty(false);
 		setCaseMsg("");
@@ -112,7 +114,7 @@ export default function CaseFormModal({
 					data: { case_data: data },
 				});
 			} else {
-				await createMutation.mutateAsync({ case_data: data });
+				await createMutation.mutateAsync({ case_data: data, is_open: isOpen });
 			}
 			onSaved();
 			onClose();
@@ -872,6 +874,28 @@ export default function CaseFormModal({
 					)}
 				</fieldset>
 				</>
+				)}
+				{!editingCase && (
+					<div className="flex items-center gap-2 mt-2">
+						<button
+							type="button"
+							onClick={() => setIsOpen((v) => !v)}
+							className={cn(
+								"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+								isOpen ? "bg-primary" : "bg-muted",
+							)}
+						>
+							<span
+								className={cn(
+									"pointer-events-none inline-block size-4 rounded-full bg-white shadow ring-0 transition-transform",
+									isOpen ? "translate-x-4" : "translate-x-0",
+								)}
+							/>
+						</button>
+						<span className="text-sm text-muted-foreground">
+							{isOpen ? "创建后立即向学生开放" : "创建后暂不开放"}
+						</span>
+					</div>
 				)}
 				<div className="flex gap-3 justify-end mt-4">
 					<Button variant="outline" type="button" onClick={onClose}>

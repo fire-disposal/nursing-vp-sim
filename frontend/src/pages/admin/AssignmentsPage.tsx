@@ -12,7 +12,7 @@ import {
 	updateAssignment,
 } from "@/api/assignments";
 import { getClasses } from "@/api/grades-classes";
-import { getPractices } from "@/api/practices";
+import { getManageCases } from "@/api/cases";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
@@ -39,7 +39,7 @@ import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 interface AssignmentRow {
 	id: string;
 	title: string;
-	practice_name?: string;
+	case_name?: string;
 	class_name?: string;
 	teacher_name?: string;
 	start_time: string;
@@ -48,10 +48,11 @@ interface AssignmentRow {
 	completed_count?: number;
 }
 
-interface PracticeOption {
+interface CaseOption {
 	id: number;
 	name: string;
-	case?: { name?: string; capabilities?: Record<string, boolean> };
+	training_type?: string;
+	capabilities?: Record<string, boolean>;
 }
 
 interface ClassOption {
@@ -59,7 +60,6 @@ interface ClassOption {
 	name: string;
 }
 
-/** Compact list-window display (M/D H:M) — distinct from lib/date's full locale. */
 function formatWindow(iso: string) {
 	const d = new Date(iso);
 	const m = (d.getMonth() + 1).toString().padStart(2, "0");
@@ -85,7 +85,7 @@ function statusBadge(item: { start_time: string; end_time: string }) {
 const DEFAULT_VALUES: AssignmentValues = {
 	title: "",
 	desc: "",
-	practiceId: 0,
+	caseId: 0,
 	classId: 0,
 	startTime: "",
 	endTime: "",
@@ -132,9 +132,9 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		},
 		staleTime: 2 * 60_000,
 	});
-	const { data: practicesData } = useQuery({
-		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices().then((r) => r.data),
+	const { data: casesData } = useQuery({
+		queryKey: queryKeys.cases.managed.all,
+		queryFn: () => getManageCases({ limit: 200 }).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: classesData } = useQuery({
@@ -144,7 +144,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	});
 
 	const assignments = (listData?.items ?? []) as unknown as AssignmentRow[];
-	const practices = (practicesData?.items ?? []) as unknown as PracticeOption[];
+	const cases = (casesData?.items ?? []) as unknown as CaseOption[];
 	const classes = (classesData ?? []) as unknown as ClassOption[];
 
 	const filteredAssignments = search
@@ -165,7 +165,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			form.reset({
 				title: d.title,
 				desc: d.description || "",
-				practiceId: d.practice_id,
+				caseId: d.case_id,
 				classId: d.class_id,
 				startTime: toDatetimeLocal(d.start_time),
 				endTime: toDatetimeLocal(d.end_time),
@@ -180,7 +180,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		const payload = {
 			title: values.title.trim(),
 			description: values.desc.trim() || null,
-			practice_id: values.practiceId,
+			case_id: values.caseId,
 			class_id: values.classId,
 			start_time: fromDatetimeLocal(values.startTime) ?? "",
 			end_time: fromDatetimeLocal(values.endTime) ?? "",
@@ -203,7 +203,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const handleDelete = async (id: string) => {
 		const ok = await confirm({
 			title: "确认删除",
-			message: "确定要删除这个练习发布吗？此操作不可逆。",
+			message: "确定要删除这个作业吗？此操作不可逆。",
 		});
 		if (!ok) return;
 		try {
@@ -240,8 +240,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			cellClassName: "font-medium max-w-[160px] truncate",
 		},
 		{
-			key: "practice_name",
-			header: "练习",
+			key: "case_name",
+			header: "病例",
 			cellClassName: "text-sm text-muted-foreground",
 		},
 		{ key: "class_name", header: "班级", cellClassName: "text-sm" },
@@ -317,17 +317,17 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				<div className="flex justify-end gap-2 mb-4">
 					<Button onClick={openCreate}>
 						<Plus size={16} className="mr-1" />
-						创建发布
+						创建作业
 					</Button>
 				</div>
 			) : (
 			<PageHeader
-				title="练习发布"
-				subtitle="按班级定时发布练习，控制插件特性，批量导出成绩"
+				title="作业管理"
+				subtitle="按班级布置练习，选择病例和功能配置"
 				actions={
 					<Button onClick={openCreate}>
 						<Plus size={16} className="mr-1" />
-						创建发布
+						创建作业
 					</Button>
 				}
 			/>
@@ -366,12 +366,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			rowKey={(a) => a.id}
 			loading={isLoading}
 			emptyIcon={Plus}
-			emptyTitle="暂无练习发布"
-			emptyDescription="点击上方按钮创建第一次练习发布"
+			emptyTitle="暂无作业"
+			emptyDescription="点击上方按钮创建第一次作业"
 			renderCard={(a) => (
 				<div className="rounded-lg border bg-card p-3 space-y-2">
 					<div className="text-sm font-medium truncate">{a.title}</div>
-					<div className="text-xs text-muted-foreground">{a.practice_name} · {a.class_name}</div>
+					<div className="text-xs text-muted-foreground">{a.case_name} · {a.class_name}</div>
 					<div className="flex items-center justify-between gap-2">
 						<span className="text-xs text-muted-foreground">
 							{a.completed_count ?? 0}/{a.student_count ?? 0} 完成
@@ -392,7 +392,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				}
 			}}>
 				<DialogContent
-					title={editingId ? "编辑练习发布" : "创建练习发布"}
+					title={editingId ? "编辑作业" : "创建作业"}
 					maxWidth={560}
 				>
 					<Form {...form}>
@@ -407,7 +407,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									<FormItem>
 										<FormLabel>标题</FormLabel>
 										<FormControl>
-											<Input placeholder="练习标题" {...field} />
+											<Input placeholder="作业标题" {...field} />
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -428,10 +428,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 							/>
 							<FormField
 								control={form.control}
-								name="practiceId"
+								name="caseId"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>练习</FormLabel>
+										<FormLabel>病例</FormLabel>
 										<FormControl>
 											<select
 												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -440,11 +440,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 												value={field.value || ""}
 												onChange={(e) => field.onChange(Number(e.target.value))}
 											>
-												<option value="">选择练习...</option>
-												{practices.map((p) => (
-													<option key={p.id} value={p.id}>
-														{p.name}
-														{p.case?.name ? ` (${p.case.name})` : ""}
+												<option value="">选择病例...</option>
+												{cases.map((c) => (
+													<option key={c.id} value={c.id}>
+														{c.name}
 													</option>
 												))}
 											</select>
@@ -494,9 +493,9 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									)}
 							/>
 							{(() => {
-								const selectedId = form.watch("practiceId");
-								const selected = practices.find((p) => p.id === selectedId);
-								const caps = selected?.case?.capabilities;
+								const selectedId = form.watch("caseId");
+								const selected = cases.find((c) => c.id === selectedId);
+								const caps = selected?.capabilities;
 								if (!caps) return null;
 								const enabled = Object.entries(caps).filter(([, v]) => v);
 								if (enabled.length === 0) return null;

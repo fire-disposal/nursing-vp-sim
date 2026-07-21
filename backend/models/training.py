@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -22,7 +23,7 @@ from models._base import TimestampMixin, _now_utc
 
 if TYPE_CHECKING:
     from models.auth import User
-    from models.case_practice import Assignment, Case, Practice
+    from models.case_practice import Assignment, Case
 
 
 class TrainingRecord(Base):
@@ -32,7 +33,6 @@ class TrainingRecord(Base):
         Index("ix_tr_status", "status"),
         Index("ix_tr_start_time", "start_time"),
         Index("ix_tr_case_id", "case_id"),
-        Index("ix_tr_practice_id", "practice_id"),
         CheckConstraint(
             "status IN ('in_progress', 'completed', 'abandoned')",
             name="ck_training_records_status",
@@ -46,9 +46,6 @@ class TrainingRecord(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", name="fk_training_records_user_id"))
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", name="fk_training_records_case_id"))
-    practice_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("practices.id", name="fk_training_records_practice_id"), nullable=True
-    )
     practice_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     runtime_state: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), default=dict)
     status: Mapped[str] = mapped_column(String(20), default="in_progress")
@@ -64,12 +61,11 @@ class TrainingRecord(Base):
     )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
-    start_time: Mapped[datetime] = mapped_column(default=_now_utc)
-    end_time: Mapped[datetime | None] = mapped_column(nullable=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="training_records")
     case: Mapped[Case] = relationship()
-    practice: Mapped[Practice | None] = relationship(back_populates="training_records")
     assignment: Mapped[Assignment | None] = relationship(back_populates="training_records")
     messages: Mapped[list[Message]] = relationship(back_populates="record", order_by="Message.created_at")
     score: Mapped[Score | None] = relationship(back_populates="record", uselist=False)
