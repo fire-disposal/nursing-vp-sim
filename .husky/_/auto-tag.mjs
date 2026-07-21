@@ -83,6 +83,16 @@ if (doPush && isCI) {
 // ── Tag & push ─────────────────────────────────────────────────────────
 const msg = doPush ? `Creating and pushing: ${tag}` : `Creating: ${tag}`;
 console.log(msg);
+
+// Dirty working tree gate — pre-commit hooks (ruff format etc.) may leave unstaged changes.
+// Reject early so we never tag a dirty tree.
+const porcelain = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
+if (porcelain) {
+  console.error("ABORT: working tree is not clean. Stage or discard changes before tagging:");
+  console.error(porcelain.split("\n").slice(0, 10).join("\n"));
+  process.exit(1);
+}
+
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
