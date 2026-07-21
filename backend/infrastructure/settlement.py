@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 
 from core.database import SessionLocal
-from models import Notification, TrainingRecord
+from models import Notification, Score, TrainingRecord
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +72,11 @@ def _revert_settled_record(repo, record_id: int) -> None:
 
 
 def _sweep_stale_scoring_records(db) -> int:
-    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed."""
+    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed.
+
+    If a Score already exists for the record, correct status to 'completed' instead of 'failed'
+    (consistent with _resolve_terminal_status used by _handle_scoring_failure and startup recovery).
+    """
     cutoff = datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES)
     stale = (
         db.query(TrainingRecord)
@@ -83,21 +87,33 @@ def _sweep_stale_scoring_records(db) -> int:
         )
         .all()
     )
+    if not stale:
+        return 0
+
+    stale_ids = [r.id for r in stale]
+    scored_ids = set()
+    if stale_ids:
+        scored_ids = {r[0] for r in db.query(Score.record_id).filter(Score.record_id.in_(stale_ids)).all()}
+
     for record in stale:
-        record.scoring_status = "failed"
-        record.scoring_error = "评分超时，已自动标记失败，可手动重试"
-        db.add(
-            Notification(
-                user_id=record.user_id,
-                record_id=record.id,
-                type="scoring_failed",
-                title="评分失败",
-                body="评分超时，已自动标记失败，可在记录详情页重新评分",
+        if record.id in scored_ids:
+            record.scoring_status = "completed"
+            record.scoring_error = None
+            log.info("settlement: stale scoring corrected to completed (Score exists)", extra={"record_id": record.id})
+        else:
+            record.scoring_status = "failed"
+            record.scoring_error = "评分超时，已自动标记失败，可手动重试"
+            db.add(
+                Notification(
+                    user_id=record.user_id,
+                    record_id=record.id,
+                    type="scoring_failed",
+                    title="评分失败",
+                    body="评分超时，已自动标记失败，可在记录详情页重新评分",
+                )
             )
-        )
-        log.warning("settlement: stale scoring marked failed", extra={"record_id": record.id})
-    if stale:
-        db.commit()
+            log.warning("settlement: stale scoring marked failed", extra={"record_id": record.id})
+    db.commit()
     return len(stale)
 
 

@@ -277,10 +277,13 @@ async def _run_scoring_background(
                     log.error("评分重试仍失败", extra={"record_id": record_id, "error": str(e)[:200]})
                     raise
 
-        # Re-fetch record to check if status was reset by a retry_scoring
+        # Re-fetch record.  Only skip completion if a *newer* retry was explicitly
+        # triggered (status='pending' via acquire_scoring).  If settlement sweep
+        # changed status to 'failed' during scoring, we must still set 'completed'
+        # because a Score was just saved — otherwise we get an orphan Score.
         db.refresh(record)
-        if record.scoring_status != "processing":
-            log.info("评分被新任务取代，跳过完成状态更新", extra={"record_id": record_id})
+        if record.scoring_status == "pending":
+            log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
             return
 
         record.scoring_status = "completed"

@@ -16,7 +16,13 @@ from ..context import (
 log = logging.getLogger(__name__)
 
 _EMOTION_DELTA_RE = re.compile(r'"emotion"\s*:\s*\{[^}]*\}')
+_EMOTION_JSON_STRIP_RE = re.compile(r'\s*\{\s*"emotion"\s*:\s*\{[^}]*\}\s*$', re.MULTILINE)
 MAX_DELTA = 3
+
+
+def _strip_emotion_json(reply: str) -> str:
+    """Remove the emotion delta JSON block from the end of a reply."""
+    return _EMOTION_JSON_STRIP_RE.sub("", reply).rstrip()
 
 
 def _extract_emotion_delta(llm_reply: str) -> tuple[int, int, str]:
@@ -62,6 +68,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         emotion.apply_decay()
 
         dt, dc, trigger = _extract_emotion_delta(ctx.llm_reply)
+        ctx.llm_reply = _strip_emotion_json(ctx.llm_reply)
 
         if dt != 0 or dc != 0:
             emotion.update(dt, dc, trigger)
