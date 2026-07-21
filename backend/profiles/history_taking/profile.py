@@ -33,6 +33,8 @@ _PROMPTS = PromptCollection(
 3. **只回答你知道的**
 4. **不暴露身份**
 5. **感知检查但不自知结果**
+
+{#emotion_instruction#}
 """,
     dynamic="""## 病情信息
 

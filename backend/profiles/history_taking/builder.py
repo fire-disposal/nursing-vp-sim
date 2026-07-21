@@ -84,6 +84,10 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
     else:
         kwargs["author_note"] = ""
 
+    from infrastructure.llm.prompts.emotion import EMOTION_OUTPUT_INSTRUCTION
+
+    kwargs["emotion_instruction"] = EMOTION_OUTPUT_INSTRUCTION
+
     return kwargs
 
 

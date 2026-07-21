@@ -82,22 +82,29 @@ async def generate_initiative_llm(
 
 def _last_resort_fallback(mood: str) -> str:
     fallbacks = {
-        "焦虑不安": "[不安地挪动身体]",
+        "沉默回避": "（沉默地等着）",
         "防御抵触": "（沉默地等着）",
+        "焦虑不安": "[不安地挪动身体]",
         "放松配合": "不急，你慢慢问。",
         "正常": "还有什么要问的吗？",
+        "开放信任": "你还有什么想了解的？",
     }
     return fallbacks.get(mood, "……")
 
 
 def _describe_mood(trust: int, comfort: int) -> str:
-    if comfort <= 30:
-        return "焦虑不安"
-    if trust <= 40:
-        return "防御抵触"
-    if comfort >= 60:
-        return "放松配合"
-    return "正常"
+    from profiles.history_taking.emotion import _lookup_state
+
+    label, _ = _lookup_state(trust, comfort)
+    mood_map = {
+        "withdrawn": "沉默回避",
+        "defensive": "防御抵触",
+        "anxious": "焦虑不安",
+        "neutral": "正常",
+        "relaxed": "放松配合",
+        "open": "开放信任",
+    }
+    return mood_map.get(label, "正常")
 
 
 def _describe_traits(personality: dict) -> str:

@@ -25,6 +25,7 @@ class TestBuildPatientContextKwargs:
             "author_note",
             "scenario",
             "example_dialogues",
+            "emotion_instruction",
         }
 
     def test_patient_info_formatting(self):

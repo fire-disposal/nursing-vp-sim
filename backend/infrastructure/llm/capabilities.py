@@ -29,7 +29,7 @@ ALL_CAPABILITIES: dict[str, Capability] = {
     "emotion": Capability(
         key="emotion",
         label="患者情绪状态机",
-        description="5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化。虚拟病人的内置第一性质，全类型恒开。",
+        description="6态情绪模型（withdrawn/defensive/anxious/neutral/relaxed/open），根据学生用语动态变化。虚拟病人的内置第一性质，全类型恒开。",
         tier="builtin",
         training_types=None,
     ),
