@@ -52,7 +52,6 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
 	const ttsRef = useRef(new TTSManager({ autoPlay: false, recordId: recordNum }));
-	const seededRef = useRef(false);
 	const patientAccRef = useRef("");
 
 	const { setEmotion } = useEmotion();
@@ -73,15 +72,17 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	} | null>(null);
 
 	useEffect(() => {
-		if (initialMessages.length > 0 && !seededRef.current) {
-			seededRef.current = true;
-			streamRef.current.setMessages(initialMessages);
+		if (initialMessages.length > 0) {
+			const existing = streamRef.current.getMessages();
+			const existingIds = new Set(existing.map((m: any) => m.id).filter(Boolean));
+			const newMessages = initialMessages.filter(
+				(m: any) => !m.id || !existingIds.has(m.id),
+			);
+			if (newMessages.length > 0) {
+				streamRef.current.appendMessages(newMessages);
+			}
 		}
 	}, [initialMessages]);
-
-	useEffect(() => {
-		seededRef.current = false;
-	}, [recordNum]);
 
 	useEffect(() => {
 		streamRef.current.setRecordId(recordNum);
@@ -89,6 +90,8 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			setMessages([...streamRef.current.getMessages()]),
 		);
 		const unsubLoading = streamRef.current.onLoadingChange(setSending);
+		setMessages([...streamRef.current.getMessages()]);
+		setSending(streamRef.current.loading);
 		return () => {
 			unsub();
 			unsubLoading();
@@ -197,14 +200,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		);
 	}, [setEmotion, setPortraitUrl, patient]);
 
-	useEffect(() => {
-		return busRef.current.on(
-			"initiative:triggered",
-			(data: { content: string }) => {
-				streamRef.current.addPatientMessage(data.content);
-			},
-		);
-	}, []);
+
 
 	// 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)，仅一次。
 	const { data: _restoreRecord } = useQuery({

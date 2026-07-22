@@ -59,6 +59,11 @@ export class StreamManager {
 		this.notifySync();
 	}
 
+	appendMessages(newMessages: ChatMessage[]): void {
+		this.messages.push(...newMessages);
+		this.notifySync();
+	}
+
 	subscribe(fn: () => void): () => void {
 		this.listeners.push(fn);
 		return () => {
