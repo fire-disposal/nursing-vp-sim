@@ -1,52 +1,44 @@
-"""API routers — ``register_routers(app)`` wires all routes into the FastAPI app.
-
-All imports are lazy (inside the function) to avoid circular imports between
-``main`` and router modules.
-
-Categories
-----------
-* **domain** — flat module with ``.router`` attribute, registered in batch.
-* **composite** — ``admin/__init__.py`` composes sub-routers under a shared prefix.
-* **direct** — modules whose router carries its own full prefix (no composition).
-"""
+"""API router registration — ``register_routers(app)`` wires all routes into FastAPI."""
 
 from fastapi import FastAPI
 
 
 def register_routers(app: FastAPI) -> None:
-    # ── domain routers (flat module → .router) ──
-    from routers import auth, cases, feedback, questionnaires, records, rubrics, stats
+    # ── domain routers (flat module → .router, each manages its own prefix) ──
+    from routers import (
+        assignments,
+        auth,
+        cases,
+        feedback,
+        questionnaires,
+        records,
+        rubrics,
+        stats,
+    )
 
-    for mod in (auth, cases, feedback, questionnaires, records, rubrics, stats):
+    for mod in (assignments, auth, cases, feedback, questionnaires, records, rubrics, stats):
         app.include_router(mod.router)
 
-    # ── composite + direct admin routers ──
+    # ── composite routers (contexts expose a single APIRouter via __init__.py) ──
     from routers import admin
+    from contexts.qa import router as qa_router
+    from contexts.training import (
+        chat_router,
+        nursing_router,
+        student_router,
+        training_router,
+    )
 
     app.include_router(admin.router)
-
-    # ── training context routers ──
-    from contexts.training import chat_router, nursing_router, training_router
-
-    for r in (training_router, chat_router, nursing_router):
+    app.include_router(qa_router)
+    for r in (training_router, chat_router, nursing_router, student_router):
         app.include_router(r)
 
-    from contexts.training.router.triage import router as triage_router
+    # ── infrastructure routers (third-party integration endpoints) ──
+    from routers.asr import router as asr_router
+    from routers.health import router as health_router
+    from routers.profiles import router as profiles_router
+    from routers.tts import router as tts_router
 
-    app.include_router(triage_router)
-
-    # ── QA context router ──
-    from contexts.qa import router as qa_router
-
-    app.include_router(qa_router)
-
-    # ── utility / infra routers ──
-    from routers.asr import router as _asr
-    from routers.assignments import router as _assignments
-    from routers.health import router as _health
-    from routers.profiles import router as _profiles
-    from routers.students import router as _student_assignments
-    from routers.tts import router as _tts
-
-    for r in (_asr, _assignments, _student_assignments, _health, _profiles, _tts):
+    for r in (asr_router, health_router, profiles_router, tts_router):
         app.include_router(r)
