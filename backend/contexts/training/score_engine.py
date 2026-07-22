@@ -41,6 +41,21 @@ from ._scoring_validation import (
     _validate_scoring_result,
 )
 
+# ── 常量 ──
+THOUGHT_PUSH_INTERVAL_SEC = 0.3
+STREAM_EXPECTED_CHARS = 3000
+HEARTBEAT_INTERVAL_SEC = 2.0
+THOUGHT_TRUNCATE_SUCCESS = 5000
+THOUGHT_TRUNCATE_RETRY = 3000
+TOTAL_SCORE_MISMATCH_TOLERANCE = 2
+DEFAULT_RAW_MAX = 57
+SCORING_PCT_BASE = 15
+SCORING_PCT_RANGE = 38
+FEEDBACK_PCT_BASE = 65
+FEEDBACK_PCT_RANGE = 23
+SCORING_START_PCT = 10
+SAVING_PCT = 95
+
 log = logging.getLogger(__name__)
 
 
@@ -157,14 +172,13 @@ async def _stream_attempt(
     content_parts: list[str] = []
     thought_buffer: list[str] = []
     last_push = 0.0
-    PUSH_INTERVAL = 0.3
     stream_done = asyncio.Event()
 
     async def _do_push():
         nonlocal last_push
         text = "".join(thought_buffer[-400:]) if thought_buffer else f"▎ {progress_msg}..."
         total_len = sum(len(p) for p in content_parts) + sum(len(p) for p in thought_buffer)
-        pct = pct_base + int(pct_range * min(total_len / 3000, 0.9))
+        pct = pct_base + int(pct_range * min(total_len / STREAM_EXPECTED_CHARS, 0.9))
         if tracker:
             tracker.update(record_id, sse_stage, pct, f"正在{progress_msg}...", thought=text)
         await _sse_progress(realtime_hub, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", text)
@@ -172,13 +186,13 @@ async def _stream_attempt(
 
     async def _on_reasoning(text: str) -> None:
         thought_buffer.append(text)
-        if time.monotonic() - last_push >= PUSH_INTERVAL:
+        if time.monotonic() - last_push >= THOUGHT_PUSH_INTERVAL_SEC:
             await _do_push()
 
     async def _heartbeat():
         pct = pct_base + 2
         while not stream_done.is_set():
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
             if stream_done.is_set():
                 return
             pct = min(pct + 1, pct_base + pct_range - 5)
@@ -196,7 +210,7 @@ async def _stream_attempt(
     try:
         async for chunk in llm_client.stream(messages, on_reasoning=_on_reasoning, **stream_kwargs):
             content_parts.append(chunk)
-            if not thought_buffer or time.monotonic() - last_push >= PUSH_INTERVAL:
+            if not thought_buffer or time.monotonic() - last_push >= THOUGHT_PUSH_INTERVAL_SEC:
                 thought_buffer.append(chunk)
                 await _do_push()
 
@@ -262,7 +276,7 @@ async def _stage_with_retry(
     if result:
         try:
             validate_fn(result)
-            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
+            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), THOUGHT_TRUNCATE_SUCCESS)
             await _sse_progress(
                 realtime_hub, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
             )
@@ -316,7 +330,7 @@ async def _stage_with_retry(
 
     try:
         validate_fn(result2)
-        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
+        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), THOUGHT_TRUNCATE_RETRY)
         if tracker:
             tracker.update(record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought=thought)
         await _sse_progress(
@@ -329,6 +343,194 @@ async def _stage_with_retry(
             return fallback_fn(result, result2, missing_list)
         log.warning("Scoring retry failed: record_id=%d error=%s", record_id, str(retry_err)[:200])
         raise RuntimeError(f"Scoring stage failed: record_id={record_id}") from retry_err
+
+
+async def _load_record_and_messages(
+    db: Session, record_id: int, tracker, realtime_hub, user_id: int | None
+) -> tuple[TrainingRecord, list[Message]]:
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise ValueError("训练记录不存在")
+    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+    if tracker:
+        tracker.start(record_id)
+        tracker.update(record_id, "loading", 5, "正在加载对话记录...")
+    await _sse_progress(realtime_hub, user_id, record_id, "loading", 5, "正在加载对话记录...")
+    return record, messages
+
+
+def _resolve_rubric(db: Session, record: TrainingRecord) -> dict:
+    rubric = record.rubric_snapshot
+    if not rubric:
+        try:
+            profile = get_profile(record.training_type or "history_taking")
+            base_rubric = profile.rubric
+        except KeyError:
+            base_rubric = load_rubric("nursing_history_v1")
+        from contexts.training.rubric_builder import build_final_rubric
+
+        features = (record.practice_snapshot or {}).get("features", {})
+        rubric = build_final_rubric(base_rubric, features)
+    return rubric
+
+
+def _format_conversation(messages: list[Message]) -> str:
+    conversation_lines = []
+    for msg in messages:
+        role_label = "学生" if msg.role == "student" else "患者"
+        conversation_lines.append(f"{role_label}：{msg.content}")
+    return "\n\n".join(conversation_lines)
+
+
+def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str, str]:
+    all_required = case_data.get("required_inquiries", [])
+    scoring_criteria_text = build_scoring_criteria(rubric)
+    scoring_criteria_text_brief = build_scoring_criteria(rubric, level="brief")
+    scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
+    required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
+    return scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text
+
+
+def _build_triage_messages(record: TrainingRecord, case_data: dict) -> tuple[list[dict], str, str]:
+    triage_result = (record.runtime_state or {}).get("triage_result", {})
+    actions_parts = []
+    if triage_result:
+        actions_parts.append(f"学生计算的MEWS评分：{triage_result.get('mews_score', '未计算')}")
+        actions_parts.append(f"学生选择的分诊级别：{triage_result.get('category', '未选择')}")
+        actions_parts.append(f"学生推荐的目标科室：{triage_result.get('department', '未选择')}")
+        notes = triage_result.get("notes", "")
+        if notes:
+            actions_parts.append(f"备注：{notes}")
+    student_actions_text = "\n".join(actions_parts) if actions_parts else "学生未提交分诊结果"
+
+    from profiles.triage.builder import build_context_kwargs
+
+    profile = get_profile("triage")
+    pc = PromptContext()
+    pc.register("case", build_context_kwargs(case_data))
+    pc.register("actions", {"student_actions": student_actions_text})
+    prompt_kw = pc.as_dict()
+
+    score_system = render_template(str(profile.prompts.scoring), **prompt_kw)
+    score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
+    score_messages = [
+        {"role": "system", "content": score_system},
+        {"role": "user", "content": score_user},
+    ]
+    return score_messages, "", ""
+
+
+def _build_history_messages(
+    record: TrainingRecord,
+    scoring_criteria_text: str,
+    required_inquiries_text: str,
+    scoring_json_schema_text: str,
+    conversation_text: str,
+) -> tuple[list[dict], str, str]:
+    exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
+    exam_results_text = (
+        json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
+    )
+
+    # 护理记录评分注入：nursing_record 能力开启时，将学生填写的 sheet_data 注入评分 prompt
+    # [DISABLED] 护理评估记录评分暂时禁用 — 恢复时取消下方注释
+    nursing_record_text = ""
+
+    pc = PromptContext()
+    pc.register(
+        "scoring",
+        {
+            "scoring_criteria": scoring_criteria_text,
+            "required_inquiries": required_inquiries_text,
+            "scoring_json_schema": scoring_json_schema_text,
+            "conversation_text": conversation_text,
+            "exam_results": exam_results_text,
+            "nursing_record": nursing_record_text,
+        },
+    )
+    prompt_kw = pc.as_dict()
+    score_system = render_template(SCORING_SYSTEM, **prompt_kw)
+    score_user = render_template(SCORING_USER, **prompt_kw)
+    score_messages = [
+        {"role": "system", "content": score_system},
+        {"role": "user", "content": score_user},
+    ]
+    return score_messages, exam_results_text, nursing_record_text
+
+
+def _build_feedback_messages(
+    scoring_criteria_text_brief: str,
+    required_inquiries_text: str,
+    conversation_text: str,
+    exam_results_text: str,
+    nursing_record_text: str,
+) -> list[dict]:
+    fb_ctx = PromptContext()
+    fb_ctx.register(
+        "feedback",
+        {
+            "scoring_criteria": scoring_criteria_text_brief,
+            "required_inquiries": required_inquiries_text,
+            "conversation_text": conversation_text,
+            "exam_results": exam_results_text,
+            "nursing_record": nursing_record_text,
+        },
+    )
+    fb_kw = fb_ctx.as_dict()
+    feedback_system = render_template(SCORING_FEEDBACK_SYSTEM, **fb_kw)
+    feedback_user = render_template(SCORING_FEEDBACK_USER, **fb_kw)
+    return [
+        {"role": "system", "content": feedback_system},
+        {"role": "user", "content": feedback_user},
+    ]
+
+
+def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rubric: dict) -> dict:
+    result = {**scoring_result}
+    for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
+        val = feedback_result.get(field)
+        if val is not None:
+            result[field] = val
+
+    _inject_rubric_max(result, rubric)
+    _coerce_numeric_fields(result)
+
+    rubric_dim_names = {d["name"] for d in rubric.get("dimensions", [])}
+    result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
+    _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+    _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
+    recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+    if abs(recalc_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
+        log.warning(
+            "total_score_mismatch",
+            extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
+        )
+        result["total_score"] = recalc_total
+
+    _validate_scoring_result(result, rubric)
+
+    raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
+    _convert_to_100_scale(result, raw_max)
+    return result
+
+
+def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> Score:
+    score = Score(
+        record_id=record_id,
+        total_score=result["total_score"],
+        detail_scores=result["detail_scores"],
+        strengths=result["strengths"],
+        weaknesses=result["weaknesses"],
+        missed_content=result["missed_content"],
+        suggestions=result["suggestions"],
+        rubric_version=get_rubric_version_id(rubric),
+        prompt_version=0,
+        score_scale=100,
+    )
+    db.add(score)
+    db.commit()
+    db.refresh(score)
+    return score
 
 
 async def evaluate_training(
@@ -348,137 +550,37 @@ async def evaluate_training(
       反馈（strengths/weaknesses/missed_content/suggestions）
     ——同时发起 LLM 调用，约 50% 提速。
     """
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise ValueError("训练记录不存在")
+    # 1. 加载数据
+    record, messages = await _load_record_and_messages(db, record_id, tracker, realtime_hub, user_id)
+    rubric = _resolve_rubric(db, record)
+    conversation_text = _format_conversation(messages)
 
-    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-
-    if tracker:
-        tracker.start(record_id)
-        tracker.update(record_id, "loading", 5, "正在加载对话记录...")
-    await _sse_progress(realtime_hub, user_id, record_id, "loading", 5, "正在加载对话记录...")
-
-    rubric = record.rubric_snapshot
-    if not rubric:
-        try:
-            profile = get_profile(record.training_type or "history_taking")
-            base_rubric = profile.rubric
-        except KeyError:
-            base_rubric = load_rubric("nursing_history_v1")
-        from contexts.training.rubric_builder import build_final_rubric
-
-        features = (record.practice_snapshot or {}).get("features", {})
-        rubric = build_final_rubric(base_rubric, features)
-
-    conversation_lines = []
-    for msg in messages:
-        role_label = "学生" if msg.role == "student" else "患者"
-        conversation_lines.append(f"{role_label}：{msg.content}")
-    conversation_text = "\n\n".join(conversation_lines)
-
+    # 2. 准备评分文本
     training_type = getattr(record, "training_type", None) or "history_taking"
-    all_required = case_data.get("required_inquiries", [])
-    raw_max = rubric.get("raw_max", 57)
+    scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text = (
+        _prepare_scoring_texts(rubric, case_data)
+    )
 
-    scoring_criteria_text = build_scoring_criteria(rubric)
-    scoring_criteria_text_brief = build_scoring_criteria(rubric, level="brief")
-    scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
-    required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
+    # 3. 构建消息（按训练类型分支）
+    if training_type == "triage":
+        score_messages, exam_results_text, nursing_record_text = _build_triage_messages(record, case_data)
+    else:
+        score_messages, exam_results_text, nursing_record_text = _build_history_messages(
+            record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text
+        )
 
+    feedback_messages = _build_feedback_messages(
+        scoring_criteria_text_brief, required_inquiries_text, conversation_text, exam_results_text, nursing_record_text
+    )
+
+    # 4. LLM 调用配置
     user_id = record.user_id
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
 
-    # 反馈块无条件引用 exam_results_text；triage 分支不设置它，故此处预置默认，
-    # 避免 triage 评分时 UnboundLocalError（此前被 gather(return_exceptions=True) 吞掉导致 triage 无反馈）
-    exam_results_text = ""
-
-    if training_type == "triage":
-        triage_result = (record.runtime_state or {}).get("triage_result", {})
-        actions_parts = []
-        if triage_result:
-            actions_parts.append(f"学生计算的MEWS评分：{triage_result.get('mews_score', '未计算')}")
-            actions_parts.append(f"学生选择的分诊级别：{triage_result.get('category', '未选择')}")
-            actions_parts.append(f"学生推荐的目标科室：{triage_result.get('department', '未选择')}")
-            notes = triage_result.get("notes", "")
-            if notes:
-                actions_parts.append(f"备注：{notes}")
-        student_actions_text = "\n".join(actions_parts) if actions_parts else "学生未提交分诊结果"
-
-        from profiles.triage.builder import build_context_kwargs
-
-        profile = get_profile("triage")
-        pc = PromptContext()
-        pc.register("case", build_context_kwargs(case_data))
-        pc.register("actions", {"student_actions": student_actions_text})
-        prompt_kw = pc.as_dict()
-
-        score_system = render_template(str(profile.prompts.scoring), **prompt_kw)
-        score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
-    else:
-        exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
-        exam_results_text = (
-            json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
-        )
-
-        # 护理记录评分注入：nursing_record 能力开启时，将学生填写的 sheet_data 注入评分 prompt
-        # [DISABLED] 护理评估记录评分暂时禁用 — 恢复时取消下方注释
-        nursing_record_text = ""
-        # features = (record.practice_snapshot or {}).get("features", {})
-        # if features.get("nursing_record"):
-        #     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
-        #     if nr and nr.sheet_data:
-        #         parts = []
-        #         for field in ("subjective", "objective", "assessment", "plan", "evaluation"):
-        #             val = nr.sheet_data.get(field, "")
-        #             if val:
-        #                 parts.append(f"{field.upper()}: {val}")
-        #         nursing_record_text = "\n\n".join(parts) if parts else ""
-        #     scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
-
-        pc = PromptContext()
-        pc.register(
-            "scoring",
-            {
-                "scoring_criteria": scoring_criteria_text,
-                "required_inquiries": required_inquiries_text,
-                "scoring_json_schema": scoring_json_schema_text,
-                "conversation_text": conversation_text,
-                "exam_results": exam_results_text,
-                "nursing_record": nursing_record_text,
-            },
-        )
-        prompt_kw = pc.as_dict()
-        score_system = render_template(SCORING_SYSTEM, **prompt_kw)
-        score_user = render_template(SCORING_USER, **prompt_kw)
-    score_messages = [
-        {"role": "system", "content": score_system},
-        {"role": "user", "content": score_user},
-    ]
-
-    fb_ctx = PromptContext()
-    fb_ctx.register(
-        "feedback",
-        {
-            "scoring_criteria": scoring_criteria_text_brief,
-            "required_inquiries": required_inquiries_text,
-            "conversation_text": conversation_text,
-            "exam_results": exam_results_text,
-            "nursing_record": nursing_record_text,
-        },
-    )
-    fb_kw = fb_ctx.as_dict()
-    feedback_system = render_template(SCORING_FEEDBACK_SYSTEM, **fb_kw)
-    feedback_user = render_template(SCORING_FEEDBACK_USER, **fb_kw)
-    feedback_messages = [
-        {"role": "system", "content": feedback_system},
-        {"role": "user", "content": feedback_user},
-    ]
-
     if tracker:
-        tracker.update(record_id, "scoring", 10, "正在评分维度分析...")
-    await _sse_progress(realtime_hub, user_id, record_id, "scoring", 10, "正在评分维度分析...")
+        tracker.update(record_id, "scoring", SCORING_START_PCT, "正在评分维度分析...")
+    await _sse_progress(realtime_hub, user_id, record_id, "scoring", SCORING_START_PCT, "正在评分维度分析...")
 
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
@@ -494,8 +596,8 @@ async def evaluate_training(
         llm_cfg=scoring_cfg,
         validate_fn=_validate_scoring_essentials,
         retry_prompt_template=SCORING_RETRY_USER,
-        pct_base=15,
-        pct_range=38,
+        pct_base=SCORING_PCT_BASE,
+        pct_range=SCORING_PCT_RANGE,
         progress_msg="逐项评分分析",
         sse_stage="scoring",
         tracker=tracker,
@@ -513,8 +615,8 @@ async def evaluate_training(
         llm_cfg=feedback_cfg,
         validate_fn=_validate_feedback_fields,
         retry_prompt_template=FEEDBACK_RETRY_USER,
-        pct_base=65,
-        pct_range=23,
+        pct_base=FEEDBACK_PCT_BASE,
+        pct_range=FEEDBACK_PCT_RANGE,
         progress_msg="生成反馈建议",
         sse_stage="feedback",
         tracker=tracker,
@@ -539,50 +641,12 @@ async def evaluate_training(
     feedback_result = feedback_result_raw
 
     if tracker:
-        tracker.update(record_id, "saving", 95, "正在保存评分结果...")
-    await _sse_progress(realtime_hub, user_id, record_id, "saving", 95, "正在保存评分结果...")
+        tracker.update(record_id, "saving", SAVING_PCT, "正在保存评分结果...")
+    await _sse_progress(realtime_hub, user_id, record_id, "saving", SAVING_PCT, "正在保存评分结果...")
 
-    result = {**scoring_result}
-    for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
-        val = feedback_result.get(field)
-        if val is not None:
-            result[field] = val
-
-    _inject_rubric_max(result, rubric)
-    _coerce_numeric_fields(result)
-
-    rubric_dim_names = {d["name"] for d in rubric.get("dimensions", [])}
-    result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
-    _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
-    _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
-    recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
-    if abs(recalc_total - float(result.get("total_score", 0))) > 2:
-        log.warning(
-            "total_score_mismatch",
-            extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
-        )
-        result["total_score"] = recalc_total
-
-    _validate_scoring_result(result, rubric)
-
-    _convert_to_100_scale(result, raw_max)
-
-    score = Score(
-        record_id=record_id,
-        total_score=result["total_score"],
-        detail_scores=result["detail_scores"],
-        strengths=result["strengths"],
-        weaknesses=result["weaknesses"],
-        missed_content=result["missed_content"],
-        suggestions=result["suggestions"],
-        rubric_version=get_rubric_version_id(rubric),
-        prompt_version=0,
-        score_scale=100,
-    )
-    db.add(score)
-    db.commit()
-    db.refresh(score)
-    return score
+    # 5. 后处理 + 持久化
+    result = _postprocess_scoring_result(scoring_result, feedback_result, rubric)
+    return _persist_score(result, rubric, record_id, db)
 
 
 def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None = None) -> dict:

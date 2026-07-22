@@ -6,6 +6,11 @@ from core.score_mapping import SCORE_MAPPING, apply_score_mapping
 
 log = logging.getLogger(__name__)
 
+# ── 校验阈值 ──
+MIN_EVIDENCE_CHARS = 10
+MIN_REASON_CHARS = 5
+EVIDENCE_COVERAGE_THRESHOLD = 0.5  # 至少 50% 的得分项需要提供证据
+
 
 def _check_feedback_empty(result: dict) -> list[str]:
     missing = []
@@ -125,9 +130,9 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
             rea = (item.get("reason") or "").strip()
             # Only require detailed evidence/reason if the student scored points
             if item_score > 0:
-                if len(ev) < 10:
+                if len(ev) < MIN_EVIDENCE_CHARS:
                     errors.append(f"{dim_name}.{item.get('name', '?')}: evidence 过短 ({len(ev)}字)")
-                if len(rea) < 5:
+                if len(rea) < MIN_REASON_CHARS:
                     errors.append(f"{dim_name}.{item.get('name', '?')}: reason 过短 ({len(rea)}字)")
     return errors
 
@@ -180,7 +185,7 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
                 total_items += 1
                 if item.get("evidence"):
                     items_with_evidence += 1
-        if total_items > 0 and items_with_evidence / total_items < 0.5:
+        if total_items > 0 and items_with_evidence / total_items < EVIDENCE_COVERAGE_THRESHOLD:
             log.info(
                 "scoring_evidence_warning",
                 extra={"items_with_evidence": items_with_evidence, "total_items": total_items},
