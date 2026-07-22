@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createConfig, toggleConfig, updateConfig } from "@/api";
+import { createConfig, deleteConfig, toggleConfig, updateConfig } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import type { LlmPurpose } from "@/config/llm-purposes";
@@ -55,7 +55,21 @@ export default function PurposeCard({
 	};
 
 	const handleSecretChange = async (secretId: number) => {
-		if (!secretId) return;
+		if (!secretId) {
+			if (config) {
+				setSaving(true);
+				try {
+					await deleteConfig(config.id);
+					toast.success("已取消分配");
+					onChanged();
+				} catch (e: unknown) {
+					toast.apiError(e, "取消分配失败");
+				} finally {
+					setSaving(false);
+				}
+			}
+			return;
+		}
 		setSaving(true);
 		try {
 			await createConfig({
@@ -148,14 +162,25 @@ export default function PurposeCard({
 							disabled={saving}
 							className="flex-1 py-1 px-2 border border-border rounded-md text-sm bg-card disabled:opacity-50 min-w-0"
 						>
-							{!config && (
-								<option value="">选择密钥...</option>
-							)}
+							<option value="">
+								{config ? "未分配" : "选择密钥..."}
+							</option>
 							{secrets.map((s) => (
-								<option key={s.id} value={s.id}>
+								<option key={s.id} value={String(s.id)}>
 									{s.label} (sk-...{s.key_suffix})
 								</option>
 							))}
+							{config?.secret_id &&
+								!secrets.some(
+									(s) => s.id === config.secret_id,
+								) && (
+									<option
+										value={config.secret_id}
+										disabled
+									>
+										已删除的密钥 (ID: {config.secret_id})
+									</option>
+								)}
 						</select>
 					) : (
 						<span className="text-sm text-muted-foreground">

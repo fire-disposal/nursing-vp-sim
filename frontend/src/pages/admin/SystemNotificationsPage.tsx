@@ -172,6 +172,7 @@ export default function SystemNotificationsPage() {
 						<option value="">全部级别</option>
 						<option value="info">通知</option>
 						<option value="warning">警告</option>
+						<option value="success">成功</option>
 					</select>
 				</div>
 				<Button onClick={openCreate}>

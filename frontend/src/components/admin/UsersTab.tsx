@@ -381,6 +381,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				user={null}
 				roles={roles}
 				grades={grades}
+				allClasses={classes}
 				getClassesForGrade={getClassesForGrade}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
@@ -396,6 +397,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				user={editingUser}
 				roles={roles}
 				grades={grades}
+				allClasses={classes}
 				getClassesForGrade={getClassesForGrade}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}

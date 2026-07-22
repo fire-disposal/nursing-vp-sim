@@ -490,7 +490,21 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 											<FormMessage />
 										</FormItem>
 									)}
-							/>
+								/>
+								<FormField
+									control={form.control}
+									name="endTime"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>截止时间</FormLabel>
+											<FormControl>
+												<Input type="datetime-local" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
 							{(() => {
 								const selectedId = form.watch("caseId");
 								const selected = cases.find((c) => c.id === selectedId);
@@ -511,20 +525,6 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									</div>
 								);
 							})()}
-							<FormField
-									control={form.control}
-									name="endTime"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>截止时间</FormLabel>
-											<FormControl>
-												<Input type="datetime-local" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							</div>
 							<FormField
 								control={form.control}
 								name="maxAttempts"

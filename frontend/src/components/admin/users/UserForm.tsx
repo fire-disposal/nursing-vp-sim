@@ -15,6 +15,7 @@ interface UserFormProps {
 	user: UserBrief | null;
 	roles: RoleOption[];
 	grades: Grade[];
+	allClasses: ClassItem[];
 	getClassesForGrade: (gradeId: string) => Promise<ClassItem[]>;
 	onClose: () => void;
 	onSaveRegister: (values: UserFormValues) => void;
@@ -45,6 +46,7 @@ export default function UserForm({
 	user,
 	roles,
 	grades,
+	allClasses,
 	getClassesForGrade,
 	onClose,
 	onSaveRegister,
@@ -100,7 +102,6 @@ export default function UserForm({
 
 	async function loadEditClassesForGrade(u: UserBrief) {
 		try {
-			const allClasses = await getClassesForGrade("");
 			const found = allClasses.find((c) => c.id === u.class_id);
 			if (found) {
 				setEditGrade(String(found.grade_id));
@@ -219,6 +220,7 @@ export default function UserForm({
 								setEditForm((f) => ({ ...f, role: e.target.value }))
 							}
 						>
+							{roles.length === 0 && <option value="" disabled>加载中...</option>}
 							{roles.map((r) => (
 								<option key={r.name} value={r.name}>
 									{r.display_name}
@@ -237,7 +239,7 @@ export default function UserForm({
 						>
 							<option value="">不指定</option>
 							{grades.map((g) => (
-								<option key={g.id} value={g.id}>
+								<option key={g.id} value={String(g.id)}>
 									{g.name}
 								</option>
 							))}
@@ -257,7 +259,7 @@ export default function UserForm({
 						>
 							<option value="">不指定</option>
 							{editClasses.map((c) => (
-								<option key={c.id} value={c.id}>
+								<option key={c.id} value={String(c.id)}>
 									{c.name}
 								</option>
 							))}
@@ -364,6 +366,7 @@ export default function UserForm({
 						onChange={(e) => setRegForm({ ...regForm, role: e.target.value })}
 						className={selectClass}
 					>
+						{roles.length === 0 && <option value="" disabled>加载中...</option>}
 						{roles.map((r) => (
 							<option key={r.name} value={r.name}>
 								{r.display_name}
@@ -407,7 +410,7 @@ export default function UserForm({
 					>
 						<option value="">不指定</option>
 						{grades.map((g) => (
-							<option key={g.id} value={g.id}>
+							<option key={g.id} value={String(g.id)}>
 								{g.name}
 							</option>
 						))}
@@ -427,7 +430,7 @@ export default function UserForm({
 					>
 						<option value="">不指定</option>
 						{regClasses.map((c) => (
-							<option key={c.id} value={c.id}>
+							<option key={c.id} value={String(c.id)}>
 								{c.name}
 							</option>
 						))}
