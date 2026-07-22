@@ -33,6 +33,13 @@ export default function AssignmentCardList({
 	const pending = studentAssignments.filter(
 		(a) => a.status !== "completed" && a.status !== "closed",
 	).length;
+	const retryable = studentAssignments.filter((a) => {
+		if (a.status !== "completed") return false;
+		const maxAttempts = (a as any).max_attempts as number | null | undefined;
+		const attemptCount = (a as any).attempt_count as number | undefined;
+		return maxAttempts != null && maxAttempts > 0 && attemptCount != null && attemptCount < maxAttempts;
+	}).length;
+	const actionable = pending + retryable;
 
 	return (
 		<section className="mb-6 overflow-hidden rounded-xl bg-primary/5 ring-1 ring-primary/20">
@@ -48,13 +55,15 @@ export default function AssignmentCardList({
 						<p className="text-xs text-muted-foreground">
 							{pending > 0
 								? `${pending} 项待完成，请在截止前提交`
-								: "全部已完成，做得好！"}
+								: retryable > 0
+									? `${retryable} 项已完成，可重新训练`
+									: "全部已完成，做得好！"}
 						</p>
 					</div>
 				</div>
-				{pending > 0 && (
+				{actionable > 0 && (
 					<Badge variant="default" className="shrink-0">
-						{pending} 待完成
+						{pending > 0 ? `${actionable} 待完成` : `${retryable} 可重做`}
 					</Badge>
 				)}
 			</div>
@@ -70,8 +79,7 @@ export default function AssignmentCardList({
 						maxAttempts != null &&
 						maxAttempts > 0 &&
 						attemptCount != null &&
-						attemptCount >= maxAttempts &&
-						!isCompleted;
+						attemptCount >= maxAttempts;
 					const due = dueLabel(a.end_time);
 					return (
 						<div
@@ -137,6 +145,29 @@ export default function AssignmentCardList({
 													onClick={() => onViewResult(a.record_id as number)}
 												>
 													查看结果
+												</Button>
+											)}
+											{maxAttempts != null && maxAttempts > 0 && attemptCount != null && attemptCount < maxAttempts && (
+												<Button
+													size="xs"
+													disabled={startingId === a.id}
+													onClick={async () => {
+														setStartingId(a.id);
+														try {
+															await onStart(a.id);
+														} catch {
+															setStartingId(null);
+														}
+													}}
+												>
+													{startingId === a.id ? (
+														<>
+															<Loader2 size={12} className="animate-spin mr-1" />
+															启动中…
+														</>
+													) : (
+														"重新训练"
+													)}
 												</Button>
 											)}
 										</>
