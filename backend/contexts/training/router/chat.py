@@ -13,7 +13,7 @@ from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
-from infrastructure.llm.capabilities import resolve_features
+from contexts.training.capabilities import resolve_features
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from infrastructure.patient_ai.note_source import OperationNoteSource
+from contexts.training.patient_ai.note_source import OperationNoteSource
 from profiles.registry import PromptCollection, TrainingProfile
 
 _TRIAGE_SYSTEM_PROMPT = """你是一位正在急诊室就诊的患者。你感觉不舒服，需要帮助。

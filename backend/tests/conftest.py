@@ -162,7 +162,7 @@ def client(engine, db_session):
     mock_tq.stop = AsyncMock()
     app.state.task_queue = mock_tq
 
-    from infrastructure.cache import EmotionCache, InitiativeCache
+    from contexts.training.session_cache import EmotionCache, InitiativeCache
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()

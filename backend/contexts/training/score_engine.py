@@ -12,7 +12,7 @@ from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
-from infrastructure.llm.prompts.scoring import (
+from contexts.training.scoring_prompts import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,

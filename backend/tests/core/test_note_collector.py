@@ -3,11 +3,11 @@
 import pytest
 
 from infrastructure.llm.token_counter import estimate_tokens
-from infrastructure.patient_ai.note_collector import (
+from contexts.training.patient_ai.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,
 )
-from infrastructure.patient_ai.note_source import NoteSource
+from contexts.training.patient_ai.note_source import NoteSource
 
 
 class FakeSource(NoteSource):

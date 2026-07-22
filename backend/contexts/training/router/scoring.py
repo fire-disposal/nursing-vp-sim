@@ -388,7 +388,7 @@ async def end_training(
 
         db.commit()
 
-        from infrastructure.llm.capabilities import resolve_features
+        from contexts.training.capabilities import resolve_features
 
         features = resolve_features(
             record.practice_snapshot,

@@ -22,7 +22,7 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
+TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "textbooks"
 
 # ── In-memory index ──
 _index: dict[str, Any] | None = None  # textbook → chapter → [section chunks]

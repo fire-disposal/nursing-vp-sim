@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, str]:
     """从 case_data 构建该 profile 的模板变量字典。"""
-    from infrastructure.patient_ai.prompt import AUTHOR_NOTE_TEMPLATE
+    from contexts.training.patient_ai.chat_messages import AUTHOR_NOTE_TEMPLATE
     from infrastructure.prompt import render_template
 
     def _get(key: str, default: str = "无") -> str:

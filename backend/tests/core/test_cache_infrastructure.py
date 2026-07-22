@@ -1,6 +1,6 @@
 import pytest
 
-from infrastructure.cache import EmotionCache, InitiativeCache
+from contexts.training.session_cache import EmotionCache, InitiativeCache
 from profiles.history_taking.emotion import EmotionState
 
 

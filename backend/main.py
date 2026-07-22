@@ -44,7 +44,7 @@ from core.exceptions import (
     validation_error_handler,
 )
 from core.rate_limits import PgRateLimiter
-from infrastructure.cache import EmotionCache, InitiativeCache
+from contexts.training.session_cache import EmotionCache, InitiativeCache
 from infrastructure.diagnose import get_diagnose_service
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
@@ -52,7 +52,7 @@ from infrastructure.logging_setup import setup_logging
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
-from infrastructure.settlement import settlement_loop
+from contexts.training.settlement import settlement_loop
 from repositories.training import TrainingRepository
 from scripts.seed import seed_all
 
@@ -143,7 +143,7 @@ async def lifespan(app: FastAPI):
 
     if True:  # Always ensure knowledge base is indexed, RAG availability is per-request
         try:
-            from infrastructure.rag.indexer import check_indexed, index_all
+            from contexts.qa.knowledge_base.indexer import check_indexed, index_all
 
             count = check_indexed()
             if count == 0:
@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
 
     # Warm knowledge base chapter index for QA
     try:
-        from infrastructure.rag.chapter_index import _ensure_index
+        from contexts.qa.knowledge_base.chapter_index import _ensure_index
 
         _ensure_index()
         log.info("Knowledge chapter index: ready")

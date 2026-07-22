@@ -1,6 +1,6 @@
 """Unit tests for NoteSource implementations."""
 
-from infrastructure.patient_ai.note_source import OperationNoteSource
+from contexts.training.patient_ai.note_source import OperationNoteSource
 from profiles.history_taking.notes import EmotionNoteSource, IdentityGuardSource
 
 
@@ -27,7 +27,7 @@ class FakeContext:
 
 class TestEmotionNoteSource:
     async def test_returns_note_when_present(self, db_session):
-        from infrastructure.cache import EmotionCache
+        from contexts.training.session_cache import EmotionCache
         from models import Case, TrainingRecord, User
         from profiles.history_taking.emotion import EmotionState
 

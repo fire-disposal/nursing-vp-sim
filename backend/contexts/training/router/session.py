@@ -15,7 +15,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user, load_role_permissions, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.llm.capabilities import resolve_features
+from contexts.training.capabilities import resolve_features
 from models import (
     Assignment,
     Case,

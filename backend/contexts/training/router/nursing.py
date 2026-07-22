@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user
-from infrastructure.llm.capabilities import is_enabled
+from contexts.training.capabilities import is_enabled
 from models import NursingRecord, TrainingRecord, User
 from schemas import NursingRecordResponse, NursingRecordSave
 

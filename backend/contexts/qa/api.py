@@ -13,7 +13,7 @@ from core.rate_limits import check_qa_limit
 from core.security import require_permission
 from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
-from infrastructure.llm.prompts import QA_SYSTEM
+from contexts.qa.qa_prompts import QA_SYSTEM
 from infrastructure.prompt import render_template
 from models import QARecord, QASession, User
 from schemas import (
@@ -95,7 +95,7 @@ QA_TOOLS = [
 
 def _build_tool_handlers() -> dict:
     """Build synchronous tool handlers backed by chapter_index."""
-    from infrastructure.rag.chapter_index import list_chapters, list_textbooks, read_section, search
+    from contexts.qa.knowledge_base.chapter_index import list_chapters, list_textbooks, read_section, search
 
     handlers = {
         "list_textbooks": lambda _: json.dumps(list_textbooks(), ensure_ascii=False),
@@ -123,7 +123,7 @@ def _build_tool_handlers() -> dict:
 def _pre_search(question: str) -> list[dict[str, str]]:
     """Quick keyword search to provide citation metadata + snippets. Never raises."""
     try:
-        from infrastructure.rag.chapter_index import search as chapter_search
+        from contexts.qa.knowledge_base.chapter_index import search as chapter_search
 
         results = chapter_search(question, top_k=2)
         return [
@@ -153,7 +153,7 @@ def _inject_search_context(
     if not citations:
         return
     try:
-        from infrastructure.rag.chapter_index import read_section
+        from contexts.qa.knowledge_base.chapter_index import read_section
 
         parts = ["【参考教材信息】"]
         parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")

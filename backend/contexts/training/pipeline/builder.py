@@ -33,7 +33,7 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
         result.extend(stage_buckets.get(stage, []))
 
     # --- assemble NoteCollector ---
-    from infrastructure.patient_ai.note_collector import NoteCollector
+    from contexts.training.patient_ai.note_collector import NoteCollector
     from profiles.registry import get_profile
 
     collector = NoteCollector()
@@ -44,7 +44,7 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
             collector.add(src_cls())
     except KeyError:
         log.warning("Unknown training type %r, using generic OperationNoteSource only", pt)
-        from infrastructure.patient_ai.note_source import OperationNoteSource
+        from contexts.training.patient_ai.note_source import OperationNoteSource
 
         collector.add(OperationNoteSource())
 

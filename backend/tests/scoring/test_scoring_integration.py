@@ -82,7 +82,7 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        from infrastructure.llm.prompts import SCORING_SYSTEM
+        from contexts.training.scoring_prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -90,7 +90,7 @@ class TestScoringPromptSanity:
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
 
     def test_render_user_prompt_no_double_braces(self):
-        from infrastructure.llm.prompts import SCORING_USER
+        from contexts.training.scoring_prompts import SCORING_USER
 
         user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
@@ -156,7 +156,7 @@ class TestScoringPromptSanity:
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        from infrastructure.llm.prompts import SCORING_SYSTEM
+        from contexts.training.scoring_prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -288,7 +288,7 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        from infrastructure.llm.prompts import (
+        from contexts.training.scoring_prompts import (
             SCORING_SYSTEM,
             SCORING_USER,
         )
@@ -388,7 +388,7 @@ class TestScoringFlowEndToEnd:
         }
         assert sample, "scoring sample vars 为空"
 
-        from infrastructure.llm.prompts import SCORING_SYSTEM
+        from contexts.training.scoring_prompts import SCORING_SYSTEM
 
         rendered = render_template(SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000

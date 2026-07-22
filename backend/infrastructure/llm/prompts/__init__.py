@@ -1,9 +1,8 @@
 """专用提示词文件 —— 每个功能一个独立文件，便于版本管理和测试"""
 
-from infrastructure.llm.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
-from infrastructure.llm.prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
-from infrastructure.llm.prompts.qa import QA_SYSTEM
-from infrastructure.llm.prompts.scoring import (
+from contexts.qa.qa_prompts import QA_SYSTEM
+from contexts.training.patient_dynamic_template import PATIENT_DYNAMIC_TEMPLATE
+from contexts.training.scoring_prompts import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,
@@ -11,6 +10,7 @@ from infrastructure.llm.prompts.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
+from profiles.history_taking.initiative_prompts import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 
 __all__ = [
     "FEEDBACK_RETRY_USER",

@@ -11,7 +11,7 @@ from models import KnowledgeChunk
 
 log = logging.getLogger(__name__)
 
-TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
+TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "textbooks"
 
 
 def _read_textbooks() -> list[dict]:
