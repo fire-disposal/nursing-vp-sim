@@ -1,5 +1,4 @@
 ﻿import {
-	Info,
 	LogOut,
 	Menu,
 	MessageSquare,
@@ -12,16 +11,17 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
+import { NavGroup } from "@/components/ui/nav-group";
 import DefaultShell from "@/components/shell/DefaultShell";
 import ImmersiveShell from "@/components/shell/ImmersiveShell";
 import StudentTabShell from "@/components/shell/StudentTabShell";
+import type { NavGroupKey, NavItem } from "@/components/shell/navigation";
+import { NAV_GROUPS, NAV_ITEMS } from "@/components/shell/navigation";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import LoadingState from "@/components/ui/loading-state";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
-import type { NavItem } from "@/components/shell/navigation";
-import { NAV_ITEMS } from "@/components/shell/navigation";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
@@ -63,7 +63,7 @@ function AdminSidebar({
 				</div>
 				<div className="min-w-0">
 					<div className="truncate text-sm font-semibold">虚拟患者系统</div>
-					<div className="text-xs text-muted-foreground">{APP_VERSION}</div>
+					<button type="button" className="text-xs text-muted-foreground hover:text-foreground cursor-pointer" onClick={onAbout}>{APP_VERSION}</button>
 				</div>
 			</div>
 
@@ -75,7 +75,7 @@ function AdminSidebar({
 			<div className="p-3">
 				<NavLink to="/profile" onClick={onClose}
 					className={({ isActive }) =>
-						cn("mb-3 flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent",
+						cn("mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent",
 							isActive ? "bg-primary/10" : "bg-muted/50")
 					}
 				>
@@ -85,14 +85,16 @@ function AdminSidebar({
 						<div className="text-xs text-muted-foreground">{user?.role_display_name || user?.role || "用户"}</div>
 					</div>
 				</NavLink>
-				<div className="flex gap-1 flex-wrap items-center">
+				<div className="flex items-center justify-between">
 					<ModeToggle />
-					<NotificationBell />
-					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}><MessageSquarePlus size={13} />反馈</Button>
-					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onAbout}><Info size={13} />关于</Button>
-					<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
-						<LogOut size={13} />退出
-					</Button>
+					<div className="flex gap-1">
+						<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}>
+							<MessageSquarePlus size={13} />
+						</Button>
+						<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
+							<LogOut size={13} />
+						</Button>
+					</div>
 				</div>
 			</div>
 		</aside>
@@ -176,6 +178,7 @@ export default function Layout() {
 						{mobileOpen ? <X size={18} /> : <Menu size={18} />}
 					</button>
 					<div className="flex-1 min-w-0"><span className="text-sm font-semibold">虚拟患者系统</span></div>
+					<NotificationBell />
 				</div>
 				{isTrainingPage ? content : isQAPage ? (
 					<div className="flex-1 min-h-0 overflow-hidden">{content}</div>
@@ -212,6 +215,16 @@ const SidebarNav = memo(function SidebarNav({
 }: {
 	userLinks: NavItem[]; adminLinks: NavItem[]; close: () => void;
 }) {
+	const adminByGroup = useMemo(() => {
+		const map = new Map<NavGroupKey, NavItem[]>();
+		for (const link of adminLinks) {
+			const group = link.group ?? "teaching";
+			if (!map.has(group)) map.set(group, []);
+			map.get(group)!.push(link);
+		}
+		return map;
+	}, [adminLinks]);
+
 	return (
 		<>
 			{userLinks.map((link) => {
@@ -230,20 +243,31 @@ const SidebarNav = memo(function SidebarNav({
 			{adminLinks.length > 0 && (
 				<>
 					<Separator className="my-2" />
-					<div className="px-3 py-1">
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">管理</p>
-					</div>
-					{adminLinks.map((link) => {
-						const Icon = link.icon;
+					{NAV_GROUPS.map((group) => {
+						const links = adminByGroup.get(group.key);
+						if (!links || links.length === 0) return null;
 						return (
-							<NavLink key={link.to} to={link.to} end={link.end} onClick={close}
-								className={({ isActive }) =>
-									cn("mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
-										isActive && "bg-primary/10 text-primary")
-								}
+							<NavGroup
+								key={group.key}
+								label={group.label}
+								icon={group.icon}
+								defaultOpen={group.defaultOpen}
+								storageKey={group.key}
 							>
-								<Icon size={17} />{link.label}
-							</NavLink>
+								{links.map((link) => {
+									const Icon = link.icon;
+									return (
+										<NavLink key={link.to} to={link.to} end={link.end} onClick={close}
+											className={({ isActive }) =>
+												cn("mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
+													isActive && "bg-primary/10 text-primary")
+											}
+										>
+											<Icon size={17} />{link.label}
+										</NavLink>
+									);
+								})}
+							</NavGroup>
 						);
 					})}
 				</>
