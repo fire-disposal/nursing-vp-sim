@@ -83,6 +83,7 @@ async def trigger_initiative(
 
         if count < MAX_INITIATIVE_COUNT:
             update_initiative_timer(record_id, request.app.state.initiative_cache, db)
+            db.commit()
         return {"triggered": True, "message": msg, "id": patient_msg.id, "emotion": emotion_data}
 
     return {"triggered": False, "message": None}

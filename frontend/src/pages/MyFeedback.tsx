@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Camera, MessageSquare, MessageSquareReply } from "lucide-react";
 import { useMemo, useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
@@ -53,6 +53,7 @@ export default function MyFeedbackPage() {
 		queryKey: queryKeys.admin.feedback.my(offset),
 		queryFn: () => getMyFeedback({ offset, limit: LIMIT }).then((r) => r.data),
 		staleTime: 0,
+		placeholderData: keepPreviousData,
 		refetchOnWindowFocus: false,
 	});
 

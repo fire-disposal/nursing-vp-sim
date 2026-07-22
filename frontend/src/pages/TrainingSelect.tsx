@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Ambulance, Search, Star, Stethoscope, User, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -75,6 +75,7 @@ export default function TrainingSelect() {
         ...(search ? { name: search } : {}),
       }).then((r) => r.data),
     staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const startMutation = useMutation({

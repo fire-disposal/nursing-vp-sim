@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff } from "lucide-react";
 import { useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -44,6 +44,7 @@ export default function NotificationInboxPage() {
 			getNotifications({ unread_only: false, limit: LIMIT, offset, type: typeFilter || undefined }).then(
 				(r) => r.data,
 			),
+		placeholderData: keepPreviousData,
 	});
 
 	const items = data?.items ?? [];

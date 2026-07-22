@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { getClasses } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
@@ -9,7 +8,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import useGradesClassesStore from "@/stores/gradesClassesStore";
+import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
 import type { ClassItem } from "@/types/store";
 import { btnPrimary, btnSecondary } from "@/utils/styles";
 import BatchImport from "./users/BatchImport";
@@ -61,11 +60,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const { confirm } = useConfirm();
 	const toast = useToast();
 	const queryClient = useQueryClient();
-	const { grades, fetchGrades } = useGradesClassesStore(
-		useShallow((s) => ({ grades: s.grades, fetchGrades: s.fetchGrades })),
-	);
-	const classes = useGradesClassesStore((s) => s.classes);
-	const fetchClasses = useGradesClassesStore((s) => s.fetchClasses);
+	const { data: grades = [] } = useGradesQuery();
+	const { data: classes = [] } = useClassesQuery();
 
 	const params: Record<string, unknown> = { limit: LIMIT };
 	if (search) params.search = search;
@@ -144,14 +140,12 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const openCreateUser = () => {
-		fetchGrades();
 		setEditingUser(null);
 		setRegMsg("");
 		setShowUserForm(true);
 	};
 
 	const openEditUser = (u: UserBrief) => {
-		fetchGrades();
 		setEditingUser(u);
 		setEditUserMsg("");
 		setShowUserForm(true);
@@ -276,7 +270,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 							value={assignClassId}
 							onChange={(e) => setAssignClassId(e.target.value)}
 							className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-							onFocus={() => fetchClasses()}
 						>
 							<option value="">分配至班级…</option>
 							{classes.map((c) => (

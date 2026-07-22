@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -64,6 +64,7 @@ export default function History() {
 		queryKey: queryKeys.training.records(params),
 		queryFn: () => getRecords(params).then((r) => r.data),
 		staleTime: 2 * 60_000,
+		placeholderData: keepPreviousData,
 	});
 
 	const records = data?.items ?? [];

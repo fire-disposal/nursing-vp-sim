@@ -1,13 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { GraduationCap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useShallow } from "zustand/react/shallow";
-import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { type DataTableColumn } from "@/components/ui/data-table";
-import ResponsiveTable from "@/components/ui/responsive-table";
+import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -18,10 +15,20 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import PageHeader from "@/components/ui/page-header";
+import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import {
+	useClassesQuery,
+	useCreateClass,
+	useCreateGrade,
+	useDeleteClass,
+	useDeleteGrade,
+	useGradesQuery,
+	useUpdateClass,
+	useUpdateGrade,
+} from "@/hooks/useGradesClasses";
 import { type GradeClassValues, gradeClassSchema } from "@/schemas/grade-class";
-import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
 import { cn } from "@/utils/cn";
 import { formatDate } from "@/utils/date";
@@ -42,7 +49,6 @@ export default function GradesClassesPage() {
 	} = useDebouncedSearch();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
-	const toast = useToast();
 	const { confirm } = useConfirm();
 
 	const form = useForm<GradeClassValues>({
@@ -50,42 +56,16 @@ export default function GradesClassesPage() {
 		defaultValues: { name: "", gradeId: "" },
 	});
 
-	const {
-		grades,
-		classes,
-		loading,
-		classesLoading,
-		fetchGrades,
-		fetchClasses,
-		createGrade,
-		updateGrade,
-		deleteGrade,
-		createClass,
-		updateClass,
-		deleteClass,
-	} = useGradesClassesStore(
-		useShallow((s) => ({
-			grades: s.grades,
-			classes: s.classes,
-			loading: s.loading,
-			classesLoading: s.classesLoading,
-			fetchGrades: s.fetchGrades,
-			fetchClasses: s.fetchClasses,
-			createGrade: s.createGrade,
-			updateGrade: s.updateGrade,
-			deleteGrade: s.deleteGrade,
-			createClass: s.createClass,
-			updateClass: s.updateClass,
-			deleteClass: s.deleteClass,
-		})),
+	const { data: grades = [], isLoading } = useGradesQuery();
+	const { data: classes = [], isLoading: classesLoading } = useClassesQuery(
+		gradeFilter ? Number(gradeFilter) : undefined,
 	);
-
-	useEffect(() => {
-		fetchGrades();
-	}, [fetchGrades]);
-	useEffect(() => {
-		fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-	}, [gradeFilter, fetchClasses]);
+	const createGradeMut = useCreateGrade();
+	const updateGradeMut = useUpdateGrade();
+	const deleteGradeMut = useDeleteGrade();
+	const createClassMut = useCreateClass();
+	const updateClassMut = useUpdateClass();
+	const deleteClassMut = useDeleteClass();
 
 	const openCreate = () => {
 		setEditId(null);
@@ -106,30 +86,33 @@ export default function GradesClassesPage() {
 		try {
 			if (tab === "grades") {
 				if (editId) {
-					await updateGrade(editId, values.name.trim());
+					await updateGradeMut.mutateAsync({ id: editId, name: values.name.trim() });
 				} else {
-					await createGrade(values.name.trim());
+					await createGradeMut.mutateAsync(values.name.trim());
 				}
-				fetchGrades();
 			} else {
 				if (!values.gradeId) {
 					form.setError("gradeId", { message: "请选择所属年级" });
 					return;
 				}
 				if (editId) {
-					await updateClass(editId, {
-						name: values.name.trim(),
-						grade_id: Number(values.gradeId),
+					await updateClassMut.mutateAsync({
+						id: editId,
+						body: {
+							name: values.name.trim(),
+							grade_id: Number(values.gradeId),
+						},
 					});
 				} else {
-					await createClass(Number(values.gradeId), values.name.trim());
+					await createClassMut.mutateAsync({
+						gradeId: Number(values.gradeId),
+						name: values.name.trim(),
+					});
 				}
-				fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
 			}
 			setModalOpen(false);
-			toast.success(editId ? "已更新" : "已创建");
-		} catch (e: unknown) {
-			toast.apiError(e, "操作失败");
+		} finally {
+			// mutation's useApiMutation handles toast + invalidation
 		}
 	};
 
@@ -141,12 +124,9 @@ export default function GradesClassesPage() {
 		});
 		if (!ok) return;
 		try {
-			await deleteGrade(item.id);
-			fetchGrades();
-			fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-			toast.success("已删除");
-		} catch (e: unknown) {
-			toast.apiError(e, "操作失败");
+			await deleteGradeMut.mutateAsync(item.id);
+		} catch {
+			// toast handled by useApiMutation
 		}
 	};
 
@@ -158,11 +138,9 @@ export default function GradesClassesPage() {
 		});
 		if (!ok) return;
 		try {
-			await deleteClass(item.id);
-			fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-			toast.success("已删除");
-		} catch (e: unknown) {
-			toast.apiError(e, "操作失败");
+			await deleteClassMut.mutateAsync(item.id);
+		} catch {
+			// toast handled by useApiMutation
 		}
 	};
 
@@ -304,7 +282,7 @@ export default function GradesClassesPage() {
 					columns={gradeColumns}
 					rows={filteredGrades}
 					rowKey={(g) => g.id}
-					loading={loading}
+					loading={isLoading}
 					emptyIcon={GraduationCap}
 					emptyTitle="暂无年级"
 					emptyDescription="创建第一个年级后这里会显示"

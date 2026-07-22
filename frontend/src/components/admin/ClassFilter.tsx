@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
-import useGradesClassesStore from "@/stores/gradesClassesStore";
+import { useState } from "react";
+import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
 import { cn } from "@/utils/cn";
 
 interface ClassFilterParams {
@@ -24,32 +23,21 @@ export default function ClassFilter({
 	onChange,
 	className = "",
 }: ClassFilterProps) {
-	const { grades, classes, fetchGrades, fetchClasses } = useGradesClassesStore(
-		useShallow((s) => ({
-			grades: s.grades,
-			classes: s.classes,
-			fetchGrades: s.fetchGrades,
-			fetchClasses: s.fetchClasses,
-		})),
-	);
 	const [selGrade, setSelGrade] = useState<string>(
 		gradeId != null ? String(gradeId) : "",
 	);
 	const [selClass, setSelClass] = useState<string>(
 		classId != null ? String(classId) : "",
 	);
-
-	useEffect(() => {
-		fetchGrades();
-	}, [fetchGrades]);
+	const { data: grades = [] } = useGradesQuery();
+	const { data: classes = [] } = useClassesQuery(
+		selGrade ? Number(selGrade) : undefined,
+	);
 
 	const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 		const gid = e.target.value;
 		setSelGrade(gid);
 		setSelClass("");
-		if (gid) {
-			fetchClasses(Number(gid));
-		}
 		onChange?.({
 			grade_id: gid ? Number(gid) : null,
 			class_id: null,
