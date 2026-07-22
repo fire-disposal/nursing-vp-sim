@@ -91,30 +91,50 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
 	const nurseAvatar = getPatientAvatar({ name: "Nurse", gender: "female" });
 
+	const grouped = useMemo(() => {
+		const result: { role: string; messages: typeof messages }[] = [];
+		for (const msg of messages) {
+			const last = result[result.length - 1];
+			if (last && last.role === msg.role && msg.role !== "system") {
+				last.messages.push(msg);
+			} else {
+				result.push({ role: msg.role, messages: [msg] });
+			}
+		}
+		return result;
+	}, [messages]);
+
 	return (
 		<div
 			ref={scrollRef}
 			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4 relative"
 			onScroll={handleScroll}
 		>
-			{messages.map((msg, i) =>
-				msg.role === "system" && msg.examResult ? (
-					<ExamCard key={msg.id ?? i} result={msg.examResult} />
-				) : (
-					<ChatBubble
-						key={msg.id ?? i}
-						message={msg}
-						patientAvatar={patientAvatar}
-						nurseAvatar={nurseAvatar}
-						emotionBorder={emotionBorder}
-						portraitUrl={portraitUrl}
-						initiative={
-							msg.role === "patient" &&
-							initiativeMsgs?.has(msg.content)
-						}
-					/>
-				)
-			)}
+			{grouped.map((group, gi) => {
+				const firstMsg = group.messages[0];
+				if (firstMsg.role === "system" && firstMsg.examResult) {
+					return <ExamCard key={gi} result={firstMsg.examResult} />;
+				}
+				return (
+					<div key={gi} className="flex flex-col gap-1">
+						{group.messages.map((msg, mi) => (
+							<ChatBubble
+								key={msg.id ?? mi}
+								message={msg}
+								patientAvatar={patientAvatar}
+								nurseAvatar={nurseAvatar}
+								emotionBorder={emotionBorder}
+								portraitUrl={portraitUrl}
+								initiative={
+									msg.role === "patient" &&
+									initiativeMsgs?.has(msg.content)
+								}
+								showAvatar={mi === 0}
+							/>
+						))}
+					</div>
+				);
+			})}
 			{examResults
 				.filter((er) => !messages.some((m) => m.role === "system" && m.examResult?.type === er.examResult?.type))
 				.map((msg, i) => (

@@ -1,5 +1,7 @@
 import { Info } from "lucide-react";
 import { memo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/utils/cn";
 
@@ -10,6 +12,7 @@ interface ChatBubbleProps {
 	emotionBorder: string;
 	portraitUrl: string | null;
 	initiative?: boolean;
+	showAvatar?: boolean;
 }
 
 function areBubblePropsEqual(
@@ -24,7 +27,8 @@ function areBubblePropsEqual(
 		oldProps.message.streamError === newProps.message.streamError &&
 		oldProps.emotionBorder === newProps.emotionBorder &&
 		oldProps.portraitUrl === newProps.portraitUrl &&
-		oldProps.initiative === newProps.initiative
+		oldProps.initiative === newProps.initiative &&
+		oldProps.showAvatar === newProps.showAvatar
 	);
 }
 
@@ -35,6 +39,7 @@ export const ChatBubble = memo(function ChatBubble({
 	emotionBorder,
 	portraitUrl,
 	initiative,
+	showAvatar,
 }: ChatBubbleProps) {
 	const displayAvatar = portraitUrl || patientAvatar;
 
@@ -56,11 +61,15 @@ export const ChatBubble = memo(function ChatBubble({
 
 		return (
 			<div className="flex items-start gap-2 justify-start" data-role="patient">
-				<img
-					className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full object-cover shrink-0 bg-muted"
-					src={displayAvatar}
-					alt="患者"
-				/>
+				{showAvatar !== false ? (
+					<img
+						className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full object-cover shrink-0 bg-muted"
+						src={displayAvatar}
+						alt="患者"
+					/>
+				) : (
+					<div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 shrink-0" />
+				)}
 				<div
 					className={cn(
 						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
@@ -83,7 +92,19 @@ export const ChatBubble = memo(function ChatBubble({
 							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
 						</div>
 					) : (
-						<p className="whitespace-pre-wrap">{message.content}</p>
+						<div className="prose prose-sm dark:prose-invert max-w-none
+							[&_p]:mb-1 [&_p:last-child]:mb-0
+							[&_ul]:my-1 [&_ul]:pl-4
+							[&_ol]:my-1 [&_ol]:pl-4
+							[&_li]:mb-0.5
+							[&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
+							[&_pre]:bg-black/10 [&_pre]:p-2 [&_pre]:rounded-lg [&_pre]:overflow-x-auto
+							[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:opacity-80
+						">
+							<ReactMarkdown remarkPlugins={[remarkGfm]}>
+								{message.content}
+							</ReactMarkdown>
+						</div>
 					)}
 					{!isStreamingEmpty && message.streamError && (
 						<span className="inline-flex items-center gap-1 mt-1 text-[10px] text-warning-foreground bg-warning/20 rounded px-1.5 py-0.5">
