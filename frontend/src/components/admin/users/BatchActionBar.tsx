@@ -17,7 +17,10 @@ export default function BatchActionBar({
 	if (selectedCount === 0) return null;
 
 	return (
-		<div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 rounded-xl border bg-card px-4 py-3 shadow-e3 flex items-center gap-3">
+		<div
+			className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 rounded-xl border bg-card px-4 py-3 shadow-e3 flex items-center gap-3"
+			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+		>
 			<span className="text-sm font-medium whitespace-nowrap">
 				已选 {selectedCount} 人
 			</span>
