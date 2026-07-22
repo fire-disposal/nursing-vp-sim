@@ -36,7 +36,7 @@ export function TriageSection({ chiefComplaint, openingLine, arrivalMode, redFla
 			<legend className="text-sm font-semibold text-foreground px-1">分诊信息</legend>
 			<div className="grid grid-cols-2 gap-3">
 				<div className="col-span-2">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">主诉</label>
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">主诉<span className="text-destructive ml-0.5">*</span></label>
 					<textarea value={chiefComplaint} onChange={(e) => fix("chief_complaint", e.target.value)} className={`${inputClass} h-16 resize-y`} disabled={disabled} />
 				</div>
 				<div className="col-span-2">

@@ -55,6 +55,7 @@ export default function GradesClassesPage() {
 		resolver: zodResolver(gradeClassSchema),
 		defaultValues: { name: "", gradeId: "" },
 	});
+	const { formState: { isDirty } } = form;
 
 	const { data: grades = [], isLoading } = useGradesQuery();
 	const { data: classes = [], isLoading: classesLoading } = useClassesQuery(
@@ -327,6 +328,7 @@ export default function GradesClassesPage() {
 				open={modalOpen}
 				onOpenChange={(o) => {
 					if (!o) {
+						if (isDirty && !window.confirm("内容未保存，确定关闭？")) return;
 						form.reset({ name: "", gradeId: "" });
 						setEditId(null);
 						setModalOpen(false);
@@ -392,7 +394,10 @@ export default function GradesClassesPage() {
 								<Button
 									type="button"
 									variant="outline"
-									onClick={() => setModalOpen(false)}
+									onClick={() => {
+										if (isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+										setModalOpen(false);
+									}}
 								>
 									取消
 								</Button>

@@ -7,6 +7,7 @@ import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";
 import { inputClass } from "@/utils/styles";
+import { z, safeParse } from "zod";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
 import { CapabilitiesSection } from "./CapabilitiesSection";
@@ -29,6 +30,20 @@ interface CaseManageItem {
 	name: string;
 	training_type: string;
 }
+
+const caseFormSchema = z.object({
+	name: z.string().min(1, "病例名称不能为空"),
+	time_limit: z.number().int("时限必须为整数").min(1, "时限至少1分钟").max(180, "时限不能超过180分钟"),
+	difficulty: z.number().int().min(1).max(3),
+	training_type: z.enum(["history_taking", "triage"]),
+});
+
+const AI_FIELD_LABELS: Record<string, string> = {
+	hidden_info: "隐藏信息",
+	required_inquiries: "必问问诊项",
+	example_dialogues: "示例对话",
+	scoring_criteria: "评分标准",
+};
 
 interface Props {
 	open: boolean;
@@ -96,8 +111,14 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		e.preventDefault();
 		setCaseMsg("");
 		const data = buildCaseData(form);
-		if (!data.name || !String(data.name).trim()) {
-			setCaseMsg("请输入病例名称");
+		const result = safeParse(caseFormSchema, {
+			name: form.name,
+			time_limit: form.time_limit,
+			difficulty: form.difficulty,
+			training_type: trainingType,
+		});
+		if (!result.success) {
+			setCaseMsg(result.error.issues.map((i) => i.message).join("；"));
 			return;
 		}
 		try {
@@ -152,7 +173,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					setForm((prev) => ({ ...prev, scoring_criteria: (typeof v === "object" && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : {}) }));
 				}
 				setIsDirty(true);
-				toast.success(`已生成「${field}」建议`);
+				toast.success(`已生成「${AI_FIELD_LABELS[field] ?? field}」建议`);
 			} else {
 				setForm(parseCaseData((data.case_data as Record<string, unknown>) || {}));
 				setIsDirty(true);
@@ -160,7 +181,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			}
 		} catch (err: unknown) {
 			const e = err as { response?: { data?: { detail?: string } } };
-			setAiError(field ? `生成「${field}」失败: ${e.response?.data?.detail || "AI 生成失败"}` : e.response?.data?.detail || "AI 生成失败");
+			setAiError(field ? `生成「${AI_FIELD_LABELS[field] ?? field}」失败: ${e.response?.data?.detail || "AI 生成失败"}` : e.response?.data?.detail || "AI 生成失败");
 		} finally {
 			setAiGenerating(false);
 		}
@@ -209,7 +230,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<div className="flex flex-wrap gap-1 mt-2">
 								{["hidden_info", "required_inquiries", "example_dialogues", "scoring_criteria"].map((f) => (
 									<button key={f} type="button" onClick={() => handleAiGenerate(f)} disabled={aiGenerating}
-										className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50">{f}</button>
+										className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50">{AI_FIELD_LABELS[f] ?? f}</button>
 								))}
 							</div>
 						</div>
@@ -315,7 +336,10 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					)}
 
 					<div className="flex gap-2 justify-end pt-2">
-						<Button type="button" variant="outline" size="sm" onClick={onClose}>取消</Button>
+						<Button type="button" variant="outline" size="sm" onClick={() => {
+							if (isDirty && JSON.stringify({ ...form, _type: trainingType }) !== initialData && !window.confirm("内容未保存，确定关闭？")) return;
+							onClose();
+						}}>取消</Button>
 						<Button type="submit" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
 							{editingCase ? (updateMutation.isPending ? "保存中…" : "保存") : (createMutation.isPending ? "创建中…" : "创建")}
 						</Button>

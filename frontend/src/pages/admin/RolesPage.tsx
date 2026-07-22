@@ -278,15 +278,16 @@ export default function RolesPage() {
 					)}
 				</div>
 
-				<Dialog
-					open={showCreate}
-					onOpenChange={(o) => {
-						if (!o) {
-							form.reset();
-							setShowCreate(false);
-						}
-					}}
-				>
+			<Dialog
+				open={showCreate}
+				onOpenChange={(o) => {
+					if (!o) {
+						if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+						form.reset();
+						setShowCreate(false);
+					}
+				}}
+			>
 					<DialogContent title="新建角色" maxWidth={560}>
 						<Form {...form}>
 							<form

@@ -44,7 +44,7 @@ export function ClinicalSection({ voiceType, presentIllness, pastHistory, medica
 			</div>
 			{FIELDS.map(([key, label]) => (
 				<div key={key} className="mb-3">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">{label}</label>
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">{label}{key === "present_illness" && <span className="text-destructive ml-0.5">*</span>}</label>
 					<textarea value={values[key] ?? ""} onChange={(e) => onFieldChange(key, e.target.value)} placeholder={`请输入${label}`} className={TEXTAREA} disabled={disabled} />
 				</div>
 			))}

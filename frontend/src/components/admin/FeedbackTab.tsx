@@ -182,6 +182,12 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					<textarea
 						value={replyText}
 						onChange={(e) => setReplyText(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleReply();
+							}
+						}}
 						placeholder="输入开发者回复..."
 						rows={2}
 						className="w-full p-2 rounded-md border border-border text-sm resize-none outline-none bg-card focus:border-primary"

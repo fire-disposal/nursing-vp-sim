@@ -230,16 +230,18 @@ export default function SystemNotificationsPage() {
 					))}
 				</div>
 			)}
-			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
-				<DialogContent maxWidth={560}>
+			<Dialog open={modalOpen} onOpenChange={(o) => {
+				if (!o) {
+					if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+					setModalOpen(false);
+				}
+			}}>
+				<DialogContent title={editing ? "编辑通知" : "新建通知"} maxWidth={560}>
 					<Form {...form}>
 						<form
 							onSubmit={form.handleSubmit(onSubmit)}
 							className="space-y-4"
 						>
-							<h3 className="text-lg font-semibold">
-								{editing ? "编辑通知" : "新建通知"}
-							</h3>
 							<FormField
 								control={form.control}
 								name="title"

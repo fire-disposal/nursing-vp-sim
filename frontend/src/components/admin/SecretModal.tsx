@@ -100,7 +100,12 @@ export default function SecretModal({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+		<Dialog open={open} onOpenChange={(o) => {
+			if (!o) {
+				if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+				onClose();
+			}
+		}}>
 			<DialogContent
 				title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
 				maxWidth={560}

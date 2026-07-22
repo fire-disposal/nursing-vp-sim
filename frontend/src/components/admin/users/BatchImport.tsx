@@ -9,6 +9,30 @@ import type { BatchUser, RoleOption } from "./types";
 const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "班级名称"];
 const BOM = "\uFEFF";
 
+function parseCSVLine(line: string): string[] {
+	const result: string[] = [];
+	let current = "";
+	let inQuotes = false;
+	for (let i = 0; i < line.length; i++) {
+		const ch = line[i];
+		if (ch === '"') {
+			if (inQuotes && line[i + 1] === '"') {
+				current += '"';
+				i++;
+			} else {
+				inQuotes = !inQuotes;
+			}
+		} else if (ch === "," && !inQuotes) {
+			result.push(current.trim());
+			current = "";
+		} else {
+			current += ch;
+		}
+	}
+	result.push(current.trim());
+	return result;
+}
+
 interface BatchImportProps {
 	open: boolean;
 	onClose: () => void;
@@ -41,7 +65,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 		if (lines.length === 0) return;
 
 		// Detect header row
-		const firstParts = lines[0].split(",").map((s) => s.trim().replace(BOM, ""));
+		const firstParts = parseCSVLine(lines[0]).map((s) => s.replace(BOM, ""));
 		const isHeader = CSV_HEADERS.some((h) => firstParts.includes(h));
 		const dataRows = isHeader ? lines.slice(1) : lines;
 
@@ -52,7 +76,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 			const row = dataRows[i];
 			if (!row.trim()) continue;
 
-			const parts = row.split(",").map((s) => s.trim());
+			const parts = parseCSVLine(row);
 
 			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, className: string | null = null, _classId: number | null = null;
 			if (isHeader) {
@@ -158,9 +182,9 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 						onChange={(e) => { const f = e.target.files?.[0]; if (f) { setBatchText(""); parseCSVFile(f); } e.target.value = ""; }}
 						className="hidden" disabled={isImporting} />
 				</label>
-				<span className="text-primary cursor-pointer font-medium hover:underline text-sm" onClick={handleDownloadTemplate}>
-					<Download size={14} className="inline align-middle mr-0.5 -mt-0.5" />下载模板
-				</span>
+			<button type="button" className="text-sm text-primary underline hover:no-underline" onClick={handleDownloadTemplate}>
+				<Download size={14} className="inline align-middle mr-0.5 -mt-0.5" />下载模板
+			</button>
 			</div>
 			{batchParseError && (
 				<div className="text-destructive text-xs mb-3 space-y-1 whitespace-pre-wrap bg-destructive/10 rounded-lg p-2 max-h-32 overflow-y-auto">
