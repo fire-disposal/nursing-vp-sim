@@ -86,8 +86,9 @@ function AdminSidebar({
 						<div className="text-xs text-muted-foreground">{user?.role_display_name || user?.role || "用户"}</div>
 					</div>
 				</NavLink>
-				<div className="flex items-center justify-between">
+				<div className="flex items-center justify-between gap-1">
 					<ModeToggle />
+					<NotificationBell />
 					<div className="flex gap-1">
 						<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}>
 							<MessageSquarePlus size={13} />
@@ -116,16 +117,15 @@ export default function Layout() {
 
 	const hasAdminPerm = isAdminPermissions(permissions);
 
-	const links = useMemo(
-		() =>
-			NAV_ITEMS.filter(
-				(l) => !l.permission || permissions.includes(l.permission),
-			),
-		[permKey],
-	);
-
-	const userLinks = links.filter((l) => l.section === "user");
-	const adminLinks = links.filter((l) => l.section === "admin");
+	const { userLinks, adminLinks } = useMemo(() => {
+		const filtered = NAV_ITEMS.filter(
+			(l) => !l.permission || permissions.includes(l.permission),
+		);
+		return {
+			userLinks: filtered.filter((l) => l.section === "user"),
+			adminLinks: filtered.filter((l) => l.section === "admin"),
+		};
+	}, [permKey]);
 
 	const isTrainingPage = location.pathname.startsWith("/training/");
 	const isQAPage = location.pathname.startsWith("/qa");

@@ -39,6 +39,7 @@ class StudentService:
                 TrainingRecord.assignment_id.in_(assignment_ids),
                 TrainingRecord.is_test == False,
             )
+            .order_by(TrainingRecord.start_time.desc())
             .all()
         )
         records_by_assignment: dict[str, list[TrainingRecord]] = {}
@@ -74,7 +75,7 @@ class StudentService:
             if user_records:
                 record = user_records[0]
                 status = record.status
-                if status == "completed" and a.max_attempts and a.max_attempts > 0 and attempt_count < a.max_attempts:
+                if status == "completed" and a.max_attempts is not None and a.max_attempts > 0 and attempt_count < a.max_attempts:
                     status = "pending"
                 elif status != "completed" and record.is_overdue:
                     status = "overdue"

@@ -273,7 +273,7 @@ export default function SecretModal({
 							/>
 						</div>
 						<DialogFooter className="mt-4">
-							<Button variant="outline" type="button" onClick={onClose}>
+							<Button variant="outline" type="button" onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; onClose(); }}>
 								取消
 							</Button>
 							<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>

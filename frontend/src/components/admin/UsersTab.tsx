@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Search, Users } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { getClasses } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
@@ -67,6 +67,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const { confirm } = useConfirm();
 	const toast = useToast();
 	const queryClient = useQueryClient();
+	const userFormDirtyRef = useRef(false);
 	const { data: grades = [] } = useGradesQuery();
 	const { data: classes = [] } = useClassesQuery();
 
@@ -179,6 +180,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const openEditUser = (u: UserBrief) => {
+		if (showUserForm && editingUser === null && userFormDirtyRef.current && !window.confirm("注册表单内容未保存，确定切换？")) return;
 		setEditingUser(u);
 		setEditUserMsg("");
 		setShowUserForm(true);
@@ -221,7 +223,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		if (form.password) payload.password = form.password;
 		if (form.class_id !== undefined && form.class_id !== "")
 			payload.class_id = Number(form.class_id);
-		else if (form.class_id === "") payload.class_id = 0;
+		else payload.class_id = null;
 		updateMutation.mutate(
 			{ id: editingUser!.id, data: payload },
 			{
@@ -390,6 +392,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				registerMsg={regMsg}
 				editUserMsg=""
 				isSaving={registerMutation.isPending}
+				dirtyRef={userFormDirtyRef}
 			/>
 
 			<UserForm
@@ -406,6 +409,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				registerMsg=""
 				editUserMsg={editUserMsg}
 				isSaving={updateMutation.isPending}
+				dirtyRef={userFormDirtyRef}
 			/>
 
 			<BatchImport

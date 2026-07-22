@@ -552,7 +552,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								<Button
 									type="button"
 									variant="outline"
-									onClick={() => setModalOpen(false)}
+									onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; setModalOpen(false); }}
 								>
 									取消
 								</Button>

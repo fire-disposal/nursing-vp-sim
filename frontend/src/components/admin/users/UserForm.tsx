@@ -44,6 +44,7 @@ interface UserFormProps {
   registerMsg: string;
   editUserMsg: string;
   isSaving: boolean;
+  dirtyRef?: React.MutableRefObject<boolean>;
 }
 
 export default function UserForm({
@@ -60,6 +61,7 @@ export default function UserForm({
   registerMsg,
   editUserMsg,
   isSaving,
+  dirtyRef,
 }: UserFormProps) {
   const isEdit = user !== null;
 
@@ -93,6 +95,15 @@ export default function UserForm({
   const [editClasses, setEditClasses] = useState<ClassItem[]>([]);
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
+
+  const { isDirty: regDirty } = regForm.formState;
+  const { isDirty: editDirty } = editForm.formState;
+
+  useEffect(() => {
+    if (dirtyRef) {
+      dirtyRef.current = isEdit ? editDirty : regDirty;
+    }
+  }, [dirtyRef, isEdit, regDirty, editDirty]);
 
   useEffect(() => {
     if (open) {

@@ -35,7 +35,7 @@ export function NavGroup({
 			const container = document.querySelector(
 				`[data-navgroup="${storageKey}"]`,
 			);
-			if (container?.querySelector(".active")) {
+			if (container?.querySelector("[aria-current=\"page\"]")) {
 				setOpen(true);
 			}
 		}
