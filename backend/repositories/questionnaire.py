@@ -44,7 +44,9 @@ class QuestionnaireTemplateRepository(Repository[QuestionnaireTemplate]):
         return self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
 
     def delete_case_links(self, template_id: int) -> None:
-        self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete()
+        self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete(
+            synchronize_session="fetch"
+        )
 
     def case_exists(self, case_id: int) -> bool:
         q = self.db.query(Case).filter(Case.id == case_id)
@@ -108,7 +110,9 @@ class QuestionnaireResponseRepository(Repository[QuestionnaireResponse]):
         return paginate(q, offset, limit)
 
     def delete_answers(self, response_id: int) -> None:
-        self.db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response_id).delete()
+        self.db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response_id).delete(
+            synchronize_session="fetch"
+        )
 
     def load_answers(self, response_ids: list[int]) -> dict[int, list[QuestionnaireAnswer]]:
         rows = self.db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id.in_(response_ids)).all()

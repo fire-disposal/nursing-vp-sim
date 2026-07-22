@@ -65,6 +65,9 @@ class TrainingRepository(SyncRepository):
         )
 
     async def mark_completed(self, record_id: int) -> None:
+        """注意：此方法使用独立的同步 session，因此自行管理 commit。
+        调用者不应依赖其事务上下文。"""
+
         def _do(session: Session) -> None:
             record = session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record:
@@ -89,6 +92,9 @@ class TrainingRepository(SyncRepository):
                     record.is_overdue = True
 
     async def update_scoring_status(self, record_id: int, status: str, error: str | None = None) -> None:
+        """注意：此方法使用独立的同步 session，因此自行管理 commit。
+        调用者不应依赖其事务上下文。"""
+
         def _do(session: Session) -> None:
             record = session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record:

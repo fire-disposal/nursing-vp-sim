@@ -156,7 +156,11 @@ class UserService:
             if class_id:
                 self.db.add(UserClass(user_id=user.id, class_id=class_id))
             created += 1
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         return {"created": created, "skipped": skipped, "errors": errors}
 
     def get_stats(self) -> dict:

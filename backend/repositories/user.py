@@ -43,8 +43,7 @@ class UserRepository(Repository[User]):
 
     def create(self, **kwargs) -> User:
         user = User(**kwargs)
-        self.db.add(user)
-        self.db.flush()
+        self.add(user)
         return user
 
     def update(self, user: User, **kwargs) -> User:

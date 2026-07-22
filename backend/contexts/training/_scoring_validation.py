@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 MIN_EVIDENCE_CHARS = 10
 MIN_REASON_CHARS = 5
 EVIDENCE_COVERAGE_THRESHOLD = 0.5  # 至少 50% 的得分项需要提供证据
+COERCE_MAX_DEPTH = 10
 
 
 def _check_feedback_empty(result: dict) -> list[str]:
@@ -59,8 +60,8 @@ def _inject_rubric_max(result: dict, rubric: dict) -> None:
 
 
 def _coerce_numeric_fields(obj: dict, depth: int = 0):
-    if depth > 10:
-        log.warning("coerce_numeric_fields 超过最大递归深度 %d", depth)
+    if depth > COERCE_MAX_DEPTH:
+        log.warning("coerce_numeric_fields 超过最大递归深度 %d", COERCE_MAX_DEPTH)
         return
     for key in ("total_score", "score", "max"):
         if key in obj and isinstance(obj[key], str):

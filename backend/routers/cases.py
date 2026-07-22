@@ -185,9 +185,7 @@ def toggle_case_open(
     open: bool = Query(..., description="是否向学生开放"),
 ):
     svc = CaseService(db)
-    case = svc.get(case_id)
-    case.is_open = open
-    db.commit()
+    case = svc.set_open(case_id, open)
     count = svc.repo.training_count(case_id)
     return _to_manage_item(svc._manage_view(case, count))
 

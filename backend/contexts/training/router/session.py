@@ -52,6 +52,21 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _cascade_delete_training_record(db: Session, record_id: int) -> None:
+    """Delete all related data for a training record in correct order."""
+    tables = [
+        (Message, Message.record_id),
+        (Score, Score.record_id),
+        (LLMCallLog, LLMCallLog.record_id),
+        (NursingRecord, NursingRecord.record_id),
+        (VoiceCallLog, VoiceCallLog.record_id),
+        (TrainingSessionState, TrainingSessionState.record_id),
+        (ScoringProgress, ScoringProgress.record_id),
+    ]
+    for model, column in tables:
+        db.query(model).filter(column == record_id).delete(synchronize_session="fetch")
+
+
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None
 _infra_log_worker: LogWorker | None = None
@@ -194,8 +209,6 @@ def _create_record(
 
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
-    db.commit()
-    db.refresh(record)
 
     # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）
     patient_info = case_data.get("patient_info", {})
@@ -233,6 +246,7 @@ def _create_record(
 
         update_initiative_timer(record.id, app_state.initiative_cache, db)
 
+    db.commit()
     return record, greeting
 
 
@@ -602,13 +616,7 @@ def delete_record(
         raise AuthError(detail="无权删除此记录", status_code=403)
 
     try:
-        db.query(Message).filter(Message.record_id == record_id).delete()
-        db.query(Score).filter(Score.record_id == record_id).delete()
-        db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
-        db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
-        db.query(VoiceCallLog).filter(VoiceCallLog.record_id == record_id).delete()
-        db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).delete()
-        db.query(ScoringProgress).filter(ScoringProgress.record_id == record_id).delete()
+        _cascade_delete_training_record(db, record_id)
         db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
             {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
         )

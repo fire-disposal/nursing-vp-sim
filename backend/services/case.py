@@ -140,7 +140,7 @@ class CaseService:
         case.difficulty = cd.get("difficulty", 1)
         case.time_limit_minutes = cd.get("time_limit", 20)
         with unit_of_work(self.db, conflict_detail="病例更新冲突"):
-            self.db.flush()
+            pass
         log.info(
             f"病例编辑: case_id={case_id} case_name={case.name}",
             extra={"user_id": user_id, "user_role": user_role},
@@ -160,3 +160,10 @@ class CaseService:
             f"病例删除: case_id={case_id} case_name={case_name}",
             extra={"user_id": user_id, "user_role": user_role},
         )
+
+    def set_open(self, case_id: int, is_open: bool) -> Case:
+        case = self.repo.get_or_404(case_id, "病例不存在")
+        case.is_open = is_open
+        with unit_of_work(self.db, conflict_detail="切换开放状态冲突"):
+            self.db.flush()
+        return case

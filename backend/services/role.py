@@ -91,7 +91,6 @@ class RoleService:
             if permissions is not None:
                 self.repo.replace_permissions(role.id, permissions)
                 clear_permission_cache(role.id)
-            self.db.flush()
         perms = self.repo.get_permissions(role.id)
         user_count = self.repo.user_count(role.id)
         return self._view(role, perms, user_count)

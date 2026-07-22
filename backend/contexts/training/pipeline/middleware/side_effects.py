@@ -163,4 +163,4 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     except Exception:
         log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
 
-    ctx.db.commit()
+    ctx.db.flush()

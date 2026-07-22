@@ -129,7 +129,9 @@ def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
 
                 from models import Case, TrainingSessionState
 
-                db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
+                db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete(
+                    synchronize_session="fetch"
+                )
 
                 case = db.query(Case).filter(Case.id == record.case_id).first()
                 case_data = case.case_data if case else {}

@@ -58,7 +58,7 @@ class EmotionCache:
         return (
             db.query(TrainingSessionState)
             .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
-            .delete(synchronize_session=False)
+            .delete(synchronize_session="fetch")
         )
 
 
@@ -136,5 +136,5 @@ class InitiativeCache:
         return (
             db.query(TrainingSessionState)
             .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
-            .delete(synchronize_session=False)
+            .delete(synchronize_session="fetch")
         )

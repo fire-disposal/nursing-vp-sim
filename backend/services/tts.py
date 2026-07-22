@@ -6,6 +6,7 @@ import time
 from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, NotFoundError
+from core.unit_of_work import unit_of_work
 from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import VolcBidirectionalTTSClient
@@ -132,8 +133,8 @@ class TTSService:
             status="success",
             cost_estimated=cost,
         )
-        self.db.add(call_log)
-        self.db.commit()
+        with unit_of_work(self.db):
+            self.db.add(call_log)
 
         media_type = _AUDIO_MEDIA_TYPES.get(tts_format, "application/octet-stream")
         assert isinstance(audio, bytes), "TTS synthesize must return bytes"

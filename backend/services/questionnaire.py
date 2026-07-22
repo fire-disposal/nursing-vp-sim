@@ -232,7 +232,6 @@ class QuestionnaireTemplateService:
                         self.db.delete(q)
 
             t.updated_at = datetime.now(UTC)
-            self.db.flush()
 
         self.db.refresh(t)
         cq_rows = self.repo.case_links_for(template_id)
@@ -327,7 +326,6 @@ class QuestionnaireQuestionService:
                 q.sort_order = sort_order
             if options is not None:
                 q.options = options
-            self.db.flush()
         self.db.refresh(q)
         return _question_view(q)
 

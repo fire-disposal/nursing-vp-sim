@@ -62,7 +62,7 @@ def _create_notification(
                 body=body,
             )
         )
-        db.commit()
+        db.flush()
     except Exception:
         db.rollback()
         log.warning("Failed to create notification (type=%s)", type, exc_info=True)
@@ -175,6 +175,7 @@ def _handle_scoring_failure(
                     title="评分失败",
                     body=f"评分失败：{error_msg[:100] or '未知错误'}",
                 )
+                db.commit()
                 if realtime_hub:
                     import asyncio
 
@@ -301,6 +302,7 @@ async def _run_scoring_background(
             title="评分已完成",
             body="训练评分已完成，请查看详情",
         )
+        db.commit()
 
         score_obj = db.query(Score).filter(Score.record_id == record_id).first()
         await _publish_scoring_event(

@@ -95,7 +95,11 @@ async def submit_triage(
         record.status = "completed"
         record.end_time = datetime.now(UTC)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     log.info(
         "Triage submitted: record_id=%d category=%s department=%s mews=%d",

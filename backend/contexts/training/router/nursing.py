@@ -74,6 +74,10 @@ def save_nursing_record(
         )
         db.add(nr)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(nr)
     return nr

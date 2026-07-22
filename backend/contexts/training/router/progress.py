@@ -72,18 +72,22 @@ async def trigger_initiative(
         now = datetime.now(UTC)
         patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
         db.add(patient_msg)
-        db.commit()
+        db.flush()
         db.refresh(patient_msg)
 
         count = request.app.state.initiative_cache.increment_count(record_id, db)
         emotion_data = apply_initiative_penalty(
             record_id, request.app.state.initiative_cache, request.app.state.emotion_cache, db
         )
-        db.commit()
 
         if count < MAX_INITIATIVE_COUNT:
             update_initiative_timer(record_id, request.app.state.initiative_cache, db)
+
+        try:
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return {"triggered": True, "message": msg, "id": patient_msg.id, "emotion": emotion_data}
 
     return {"triggered": False, "message": None}

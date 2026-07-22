@@ -140,7 +140,8 @@ class AuthService:
             current_user.gender = req.gender or None
         if req.avatar is not None:
             current_user.avatar = req.avatar or None
-        self.db.commit()
+        with unit_of_work(self.db):
+            pass
         self.db.refresh(current_user)
         log.info("个人信息更新: user_id=%d", current_user.id)
         return self._user_to_brief(current_user)
@@ -152,22 +153,22 @@ class AuthService:
     def change_password(self, old_password: str, new_password: str, current_user: User) -> OkResponse:
         if not verify_password(old_password, current_user.password_hash):
             raise AuthError(detail="原密码错误")
-        current_user.password_hash = hash_password(new_password)
-        result = self.db.execute(
-            text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
-            {"id": current_user.id},
-        )
-        new_tv = result.scalar()
-        self.db.commit()
+        with unit_of_work(self.db):
+            current_user.password_hash = hash_password(new_password)
+            result = self.db.execute(
+                text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
+                {"id": current_user.id},
+            )
+            new_tv = result.scalar()
         log.info("密码修改: user_id=%d (tv=%d)", current_user.id, new_tv)
         return OkResponse(message="密码修改成功")
 
     def logout(self, current_user: User) -> OkResponse:
-        result = self.db.execute(
-            text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
-            {"id": current_user.id},
-        )
-        new_tv = result.scalar()
-        self.db.commit()
+        with unit_of_work(self.db):
+            result = self.db.execute(
+                text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
+                {"id": current_user.id},
+            )
+            new_tv = result.scalar()
         log.info("登出: user_id=%d (tv=%d)", current_user.id, new_tv)
         return OkResponse(message="已登出")
