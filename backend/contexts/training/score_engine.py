@@ -21,7 +21,7 @@ from infrastructure.llm.prompts.scoring import (
     SCORING_USER,
 )
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
-from models import Message, NursingRecord, Score, TrainingRecord
+from models import Message, Score, TrainingRecord
 from profiles.registry import get_profile
 from repositories.rubric import get_rubric_version_id, load_rubric
 
@@ -423,21 +423,19 @@ async def evaluate_training(
         )
 
         # 护理记录评分注入：nursing_record 能力开启时，将学生填写的 sheet_data 注入评分 prompt
+        # [DISABLED] 护理评估记录评分暂时禁用 — 恢复时取消下方注释
         nursing_record_text = ""
-        features = (record.practice_snapshot or {}).get("features", {})
-        if features.get("nursing_record"):
-            nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
-            if nr and nr.sheet_data:
-                parts = []
-                for field in ("subjective", "objective", "assessment", "plan", "evaluation"):
-                    val = nr.sheet_data.get(field, "")
-                    if val:
-                        parts.append(f"{field.upper()}: {val}")
-                nursing_record_text = "\n\n".join(parts) if parts else ""
-
-        # 使护理记录内容对 LLM 可见（追加在评分标准之后，LLM 据此与 rubric 维度对照打分）
-        if nursing_record_text:
-            scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
+        # features = (record.practice_snapshot or {}).get("features", {})
+        # if features.get("nursing_record"):
+        #     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
+        #     if nr and nr.sheet_data:
+        #         parts = []
+        #         for field in ("subjective", "objective", "assessment", "plan", "evaluation"):
+        #             val = nr.sheet_data.get(field, "")
+        #             if val:
+        #                 parts.append(f"{field.upper()}: {val}")
+        #         nursing_record_text = "\n\n".join(parts) if parts else ""
+        #     scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
 
         pc = PromptContext()
         pc.register(

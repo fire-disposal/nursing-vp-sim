@@ -2,6 +2,8 @@
 
 import logging
 
+from core.score_mapping import SCORE_MAPPING, apply_score_mapping
+
 log = logging.getLogger(__name__)
 
 
@@ -186,10 +188,18 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
 
 def _convert_to_100_scale(result: dict, raw_max: int):
-    if raw_max == 100 or raw_max <= 0:
+    """使用可配置的分数映射将原始分转换为显示分。
+    
+    配置位于 core/score_mapping.py 的 SCORE_MAPPING 单例，
+    修改其属性即可调整映射行为，无需重跑评分。
+    """
+    if raw_max <= 0:
         return
-    factor = 100.0 / raw_max
-    result["total_score"] = round(result["total_score"] * factor)
+
+    cfg = SCORE_MAPPING
+    result["total_score"] = apply_score_mapping(result["total_score"], raw_max, cfg)
+
+    factor = cfg.display_max / raw_max if cfg.curve == "linear" else 1.0
 
     detail_scores = result.get("detail_scores", {})
     for dim_data in detail_scores.values():
