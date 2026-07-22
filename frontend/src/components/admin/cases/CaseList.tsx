@@ -1,13 +1,9 @@
-import { ClipboardList, Edit3, Eye, EyeOff, Play, Plus, Trash2, Wand2 } from "lucide-react";
+import { ClipboardList, Plus, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { type DataTableColumn } from "@/components/ui/data-table";
-import ResponsiveTable from "@/components/ui/responsive-table";
-import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/utils/cn";
 import { inputClass } from "@/utils/styles";
+import CaseCard from "./CaseCard";
 import type { CaseManageItem } from "./types";
 
 interface CaseListProps {
@@ -34,97 +30,6 @@ export default function CaseList({
 	onAdd, onAIAdd, onEdit, onDelete, onToggleOpen,
 }: CaseListProps) {
 	const navigate = useNavigate();
-	const columns: DataTableColumn<CaseManageItem>[] = [
-		{
-			key: "name",
-			header: "病例名称",
-			cellClassName: "font-medium",
-			render: (c) => c.name,
-		},
-		{
-			key: "training_type",
-			header: "类型",
-			render: (c) =>
-				c.training_type === "triage" ? (
-					<Badge variant="info">分诊</Badge>
-				) : (
-					<Badge variant="secondary">问诊</Badge>
-				),
-		},
-		{
-			key: "difficulty",
-			header: "难度",
-			render: (c) => <DifficultyBadge level={c.difficulty} />,
-		},
-		{
-			key: "patient",
-			header: "患者",
-			render: (c) =>
-				c.patient_name
-					? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`
-					: "-",
-		},
-		{
-			key: "time_limit",
-			header: "时限",
-			render: (c) => <Badge variant="info">{c.time_limit || 20} 分钟</Badge>,
-		},
-		{
-			key: "training_count",
-			header: "训练次数",
-			render: (c) => (
-				<span
-					className={cn(
-						"font-medium",
-						c.training_count > 0
-							? "text-primary"
-							: "text-muted-foreground/70",
-					)}
-				>
-					{c.training_count}
-				</span>
-			),
-		},
-		{
-			key: "is_open",
-			header: "学生自主练习",
-			render: (c) => (
-				<button
-					type="button"
-					onClick={() => onToggleOpen(c)}
-					className={cn(
-						"inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-						c.is_open
-							? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-							: "bg-muted text-muted-foreground hover:bg-muted/70",
-					)}
-				>
-					{c.is_open ? <Eye size={13} /> : <EyeOff size={13} />}
-					{c.is_open ? "开放" : "未开放"}
-				</button>
-			),
-		},
-		{
-			key: "actions",
-			header: "操作",
-			render: (c) => (
-				<div className="flex gap-1">
-					<Button size="sm" variant="ghost" onClick={() => navigate(`/training?caseId=${c.id}`)}
-						title="快速体验">
-						<Play size={14} />
-					</Button>
-					<Button size="sm" variant="ghost" onClick={() => onEdit(c)} title="编辑">
-						<Edit3 size={14} />
-					</Button>
-					<Button size="sm" variant="destructive" onClick={() => onDelete(c)}
-						disabled={c.training_count > 0}
-						title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}>
-						<Trash2 size={14} />
-					</Button>
-				</div>
-			),
-		},
-	];
 
 	return (
 		<>
@@ -211,29 +116,27 @@ export default function CaseList({
 					<span className="text-sm text-muted-foreground">共 {total} 条</span>
 				</div>
 
-			<ResponsiveTable
-				bare
-				columns={columns}
-				rows={cases}
-				rowKey={(c) => c.id}
-				emptyIcon={ClipboardList}
-				emptyTitle="暂无病例，点击上方按钮添加"
-				renderCard={(c) => (
-					<div className="rounded-lg border bg-card p-3 space-y-2">
-						<div className="flex items-start justify-between gap-2">
-							<span className="text-sm font-medium truncate">{c.name}</span>
-							<span className="shrink-0 text-xs text-muted-foreground">
-								{c.training_type === "triage" ? "分诊" : "问诊"}
-							</span>
-						</div>
-						<div className="text-xs text-muted-foreground">{c.patient_name} · {c.patient_age}岁 · {c.patient_gender}</div>
-						<div className="flex gap-1">
-							<Button variant="outline" size="sm" onClick={() => onEdit(c)}>编辑</Button>
-							<Button variant="outline" size="sm" onClick={() => onDelete(c)}>删除</Button>
-						</div>
+				{cases.length === 0 ? (
+					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+						<ClipboardList className="size-12 mb-3 opacity-40" />
+						<p className="text-sm">暂无病例，点击上方按钮添加</p>
+					</div>
+				) : (
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						{cases.map((c) => (
+							<CaseCard
+								key={c.id}
+								caseData={c}
+								onEdit={() => onEdit(c)}
+								onDelete={() => onDelete(c)}
+								onToggleOpen={() => onToggleOpen(c)}
+								onStartTraining={(id) =>
+									navigate(`/training?caseId=${id}`)
+								}
+							/>
+						))}
 					</div>
 				)}
-			/>
 
 				<Pagination
 					total={total}

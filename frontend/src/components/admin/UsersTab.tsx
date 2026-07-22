@@ -1,16 +1,21 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Users } from "lucide-react";
+import { Loader2, Plus, Search, Users } from "lucide-react";
 import { useCallback, useState } from "react";
 import { getClasses } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import ClassFilter from "@/components/admin/ClassFilter";
+import BatchActionBar from "@/components/admin/users/BatchActionBar";
+import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import EmptyState from "@/components/ui/empty-state";
+import Pagination from "@/components/ui/pagination";
 import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
 import type { ClassItem } from "@/types/store";
-import { btnPrimary, btnSecondary } from "@/utils/styles";
+import { btnPrimary, btnSecondary, selectClass } from "@/utils/styles";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -19,7 +24,6 @@ import type {
 	UserFormValues,
 } from "./users/types";
 import UserForm from "./users/UserForm";
-import UserList from "./users/UserList";
 import { useRolesQuery, useUserList } from "./users/useUserList";
 import {
 	useBatchCreateUsersMutation,
@@ -50,8 +54,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const [assignClassId, setAssignClassId] = useState<string>("");
+	const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
+	const [bulkAssignClassId, setBulkAssignClassId] = useState<string>("");
 	const [assigning, setAssigning] = useState(false);
+	const [showBulkResetDialog, setShowBulkResetDialog] = useState(false);
+	const [bulkPassword, setBulkPassword] = useState("");
 	const [resetPasswordDialog, setResetPasswordDialog] = useState<{
 		user: UserBrief;
 		password: string;
@@ -92,27 +99,30 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const resetToFirstPage = () => setOffset(0);
 
-	const toggleSelect = useCallback((userId: number) => {
-		setSelectedIds((prev) => {
-			const next = new Set(prev);
-			if (next.has(userId)) next.delete(userId);
-			else next.add(userId);
-			return next;
-		});
-	}, []);
-
-	const selectAll = useCallback(() => {
-		setSelectedIds(new Set(users.map((u) => u.id)));
-		setAssignClassId("");
-	}, [users]);
-
 	const deselectAll = useCallback(() => {
 		setSelectedIds(new Set());
-		setAssignClassId("");
 	}, []);
 
-	const handleBulkAssign = async () => {
-		if (!assignClassId) return;
+	const handleToggleSelect = (id: number, checked: boolean) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (checked) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	};
+
+	const handleBulkAssignClick = () => {
+		setShowBulkAssignDialog(true);
+	};
+
+	const handleBulkResetPasswordClick = () => {
+		setBulkPassword("");
+		setShowBulkResetDialog(true);
+	};
+
+	const handleBulkAssignConfirm = async () => {
+		if (!bulkAssignClassId) return;
 		const ok = await confirm({
 			title: "批量分配班级",
 			message: `确定将 ${selectedIds.size} 名用户分配到所选班级吗？`,
@@ -122,7 +132,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		try {
 			const { data } = await bulkAssignClass(
 				[...selectedIds],
-				Number(assignClassId),
+				Number(bulkAssignClassId),
 			);
 			toast.success(`已分配 ${data.assigned} 名用户`);
 			if (data.errors.length > 0) {
@@ -130,13 +140,36 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
 			setSelectedIds(new Set());
-			setAssignClassId("");
+			setShowBulkAssignDialog(false);
 			resetToFirstPage();
 		} catch (e: unknown) {
 			toast.apiError(e, "分配失败");
 		} finally {
 			setAssigning(false);
 		}
+	};
+
+	const handleBulkResetConfirm = async () => {
+		if (!bulkPassword || !bulkPassword.trim()) return;
+		const ok = await confirm({
+			title: "批量重置密码",
+			message: `确定要为 ${selectedIds.size} 名用户重置密码吗？\n\n新密码：${bulkPassword}`,
+		});
+		if (!ok) return;
+		let success = 0;
+		let failed = 0;
+		for (const id of selectedIds) {
+			try {
+				await updateUser(id, { password: bulkPassword } as Schemas["UserUpdateRequest"]);
+				success++;
+			} catch {
+				failed++;
+			}
+		}
+		toast.success(`密码重置完成：成功 ${success} 人${failed > 0 ? `，失败 ${failed} 人` : ""}`);
+		queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+		setSelectedIds(new Set());
+		setShowBulkResetDialog(false);
 	};
 
 	const openCreateUser = () => {
@@ -258,65 +291,89 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				>
 					<Users size={16} /> 批量导入
 				</button>
-				{selectedIds.size > 0 && (
-					<div className="flex items-center gap-2 ml-auto">
-						<span className="text-sm text-muted-foreground font-medium">
-							已选 {selectedIds.size} 人
-						</span>
-						<button className={btnSecondary} onClick={deselectAll}>
-							取消选择
-						</button>
-						<select
-							value={assignClassId}
-							onChange={(e) => setAssignClassId(e.target.value)}
-							className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-						>
-							<option value="">分配至班级…</option>
-							{classes.map((c) => (
-								<option key={c.id} value={c.id}>
-									{c.grade_name} {c.name}
-								</option>
-							))}
-						</select>
-						<button
-							className={btnPrimary}
-							disabled={!assignClassId || assigning}
-							onClick={handleBulkAssign}
-						>
-							{assigning ? "分配中…" : "确认分配"}
-						</button>
+			</div>
+
+			<div className="rounded-xl border border-border bg-card shadow-sm p-6">
+				<div className="mb-3 flex gap-2 items-center">
+					<div className="relative flex-1 max-w-[320px]">
+						<Search
+							size={14}
+							className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70"
+						/>
+						<input
+							type="text"
+							placeholder="搜索用户名、姓名或学号..."
+							value={search}
+							onChange={(e) => {
+								setSearch(e.target.value);
+								resetToFirstPage();
+							}}
+							className="w-full py-1.5 pl-[30px] pr-2.5 border border-border rounded-lg text-sm"
+						/>
 					</div>
+					<select
+						value={roleFilter}
+						onChange={(e) => {
+							setRoleFilter(e.target.value);
+							resetToFirstPage();
+						}}
+						className={selectClass}
+					>
+						<option value="">全部角色</option>
+						{roles.map((r) => (
+							<option key={r.name} value={r.name}>
+								{r.display_name}
+							</option>
+						))}
+					</select>
+					<ClassFilter
+						onChange={(params) => {
+							setClassParam(params);
+							resetToFirstPage();
+						}}
+					/>
+					<span className="text-sm text-muted-foreground whitespace-nowrap">
+						共 {total} 人
+					</span>
+				</div>
+				{isLoading && users.length === 0 ? (
+					<div className="flex justify-center py-12">
+						<Loader2 size={24} className="animate-spin text-muted-foreground" />
+					</div>
+				) : users.length === 0 ? (
+					<EmptyState
+						icon={Users}
+						title="暂无用户"
+						description="注册第一个用户后这里会显示"
+					/>
+				) : (
+					<>
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+							{users.map((u) => (
+								<UserCard
+									key={u.id}
+									user={u}
+									selected={selectedIds.has(u.id)}
+									onSelect={handleToggleSelect}
+									onClick={openEditUser}
+								/>
+							))}
+						</div>
+						<Pagination
+							total={total}
+							offset={offset}
+							limit={LIMIT}
+							onChange={setOffset}
+						/>
+					</>
 				)}
 			</div>
 
-			<UserList
-				users={users}
-				loading={isLoading}
-				total={total}
-				offset={offset}
-				limit={LIMIT}
-				roles={roles}
-				search={search}
-				roleFilter={roleFilter}
-				selectedIds={selectedIds}
-				onSearchChange={(v) => {
-					setSearch(v);
-					resetToFirstPage();
-				}}
-				onRoleFilterChange={(v) => {
-					setRoleFilter(v);
-					resetToFirstPage();
-				}}
-				onClassFilterChange={(params) => {
-					setClassParam(params);
-					resetToFirstPage();
-				}}
-				onOffsetChange={setOffset}
-				onEditUser={openEditUser}
-				onDeleteUser={handleDeleteUser}
-				onToggleSelect={toggleSelect}
-				onSelectAll={selectAll}
-				onDeselectAll={deselectAll}
+			<BatchActionBar
+				selectedCount={selectedIds.size}
+				onClearSelection={deselectAll}
+				onBulkAssignClass={handleBulkAssignClick}
+				onBulkResetPassword={handleBulkResetPasswordClick}
 			/>
 
 			<UserForm
@@ -396,6 +453,89 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								onClick={() => setResetPasswordDialog(null)}
 							>
 								知道了
+							</button>
+						</div>
+					</DialogContent>
+				</Dialog>
+			)}
+
+			{showBulkAssignDialog && (
+				<Dialog
+					open
+					onOpenChange={() => setShowBulkAssignDialog(false)}
+				>
+					<DialogContent title="批量分配班级" maxWidth={400}>
+						<div className="space-y-4">
+							<p className="text-sm text-muted-foreground">
+								为已选的 {selectedIds.size} 名用户分配班级：
+							</p>
+							<select
+								value={bulkAssignClassId}
+								onChange={(e) => setBulkAssignClassId(e.target.value)}
+								className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card"
+							>
+								<option value="">选择班级…</option>
+								{classes.map((c) => (
+									<option key={c.id} value={c.id}>
+										{c.grade_name} {c.name}
+									</option>
+								))}
+							</select>
+						</div>
+						<div className="flex justify-end gap-2 mt-4">
+							<button
+								type="button"
+								className={btnSecondary}
+								onClick={() => setShowBulkAssignDialog(false)}
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								className={btnPrimary}
+								disabled={!bulkAssignClassId || assigning}
+								onClick={handleBulkAssignConfirm}
+							>
+								{assigning ? "分配中…" : "确认分配"}
+							</button>
+						</div>
+					</DialogContent>
+				</Dialog>
+			)}
+
+			{showBulkResetDialog && (
+				<Dialog
+					open
+					onOpenChange={() => setShowBulkResetDialog(false)}
+				>
+					<DialogContent title="批量重置密码" maxWidth={400}>
+						<div className="space-y-4">
+							<p className="text-sm text-muted-foreground">
+								为已选的 {selectedIds.size} 名用户设置新密码：
+							</p>
+							<input
+								type="text"
+								placeholder="输入新密码"
+								value={bulkPassword}
+								onChange={(e) => setBulkPassword(e.target.value)}
+								className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card"
+							/>
+						</div>
+						<div className="flex justify-end gap-2 mt-4">
+							<button
+								type="button"
+								className={btnSecondary}
+								onClick={() => setShowBulkResetDialog(false)}
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								className={btnPrimary}
+								disabled={!bulkPassword.trim()}
+								onClick={handleBulkResetConfirm}
+							>
+								确认重置
 							</button>
 						</div>
 					</DialogContent>

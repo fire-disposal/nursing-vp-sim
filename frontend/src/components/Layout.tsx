@@ -6,6 +6,7 @@
 	Stethoscope,
 	X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { memo, Suspense, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -134,12 +135,6 @@ export default function Layout() {
 		navigate("/login");
 	};
 
-	const content = (
-		<Suspense fallback={<LoadingState className="h-full" />}>
-			<Outlet />
-		</Suspense>
-	);
-
 	// Student layout: route-based shell dispatch
 	if (!hasAdminPerm) {
 		const path = location.pathname;
@@ -180,11 +175,29 @@ export default function Layout() {
 					<div className="flex-1 min-w-0"><span className="text-sm font-semibold">虚拟患者系统</span></div>
 					<NotificationBell />
 				</div>
-				{isTrainingPage ? content : isQAPage ? (
-					<div className="flex-1 min-h-0 overflow-hidden">{content}</div>
-				) : (
-					<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{content}</div>
-				)}
+			{isTrainingPage || isQAPage ? (
+				<div className="flex-1 min-h-0 overflow-hidden">
+					<Suspense fallback={<LoadingState className="h-full" />}>
+						<Outlet />
+					</Suspense>
+				</div>
+			) : (
+				<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+					<AnimatePresence mode="wait">
+						<motion.div
+							key={location.pathname}
+							initial={{ opacity: 0, y: 8 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0, y: -8 }}
+							transition={{ duration: 0.15, ease: "easeOut" }}
+						>
+							<Suspense fallback={<LoadingState className="h-full" />}>
+								<Outlet />
+							</Suspense>
+						</motion.div>
+					</AnimatePresence>
+				</div>
+			)}
 			</div>
 
 			<Dialog open={aboutOpen} onOpenChange={(o) => !o && setAboutOpen(false)}>
