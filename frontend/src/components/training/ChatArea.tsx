@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { ChatDisplay } from "./ChatDisplay";
@@ -59,28 +60,47 @@ export function ChatArea({
 
 	return (
 		<div className="flex flex-col h-full">
-			{isCompact ? (
-				<EmotionIndicator bus={bus} features={features} recordId={recordId} compact />
-			) : (
-				<EmotionIndicator bus={bus} features={features} recordId={recordId} />
-			)}
-			<div className="flex-1 overflow-y-auto overscroll-contain">
-				{!hasMessages && !hasHistory && (
-					<WelcomeScreen
-						patient={patient}
-						onQuickPrompt={onSend}
-					/>
+			<AnimatePresence mode="wait">
+				{!hasMessages && !hasHistory ? (
+					<motion.div
+						key="welcome"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0, y: -16 }}
+						transition={{ duration: 0.2 }}
+					>
+						<WelcomeScreen
+							patient={patient}
+							onQuickPrompt={onSend}
+						/>
+					</motion.div>
+				) : (
+					<motion.div
+						key="chat"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						transition={{ duration: 0.2 }}
+						className="flex-1 flex flex-col min-h-0"
+					>
+						{isCompact ? (
+							<EmotionIndicator bus={bus} features={features} recordId={recordId} compact />
+						) : (
+							<EmotionIndicator bus={bus} features={features} recordId={recordId} />
+						)}
+						<div className="flex-1 overflow-y-auto overscroll-contain">
+							<ChatDisplay
+								messages={messages}
+								patient={patient}
+								bus={bus}
+								initiativeMsgs={initiativeMsgs}
+								hasStreaming={sending}
+							/>
+						</div>
+						<SceneToolbar />
+						<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
+					</motion.div>
 				)}
-				<ChatDisplay
-					messages={messages}
-					patient={patient}
-					bus={bus}
-					initiativeMsgs={initiativeMsgs}
-					hasStreaming={sending}
-				/>
-			</div>
-			<SceneToolbar />
-			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
+			</AnimatePresence>
 		</div>
 	);
 }
