@@ -6,6 +6,7 @@ import {
 	ClipboardCheck,
 	ClipboardList,
 	Coins,
+	FileText,
 	GraduationCap,
 	HelpCircle,
 	Home,
@@ -62,11 +63,28 @@ const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 
 export type NavSection = "user" | "admin";
 
+export type NavGroupKey = "teaching" | "people" | "system" | "feedback";
+
+export interface NavGroupDef {
+	key: NavGroupKey;
+	label: string;
+	icon: LucideIcon;
+	defaultOpen: boolean;
+}
+
+export const NAV_GROUPS: NavGroupDef[] = [
+	{ key: "teaching", label: "教学中心", icon: GraduationCap, defaultOpen: true },
+	{ key: "people", label: "人员管理", icon: Users, defaultOpen: false },
+	{ key: "system", label: "系统运维", icon: Activity, defaultOpen: false },
+	{ key: "feedback", label: "反馈中心", icon: MessageSquare, defaultOpen: false },
+];
+
 export interface NavMeta {
 	label: string;
 	shortLabel?: string;
 	icon: LucideIcon;
 	section: NavSection;
+	group?: NavGroupKey;
 	end?: boolean;
 }
 
@@ -168,7 +186,7 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/admin/users",
 		element: <AdminUsers />,
 		permission: "user_manage",
-		nav: { label: "用户管理", icon: Users, section: "admin" },
+		nav: { label: "用户管理", icon: Users, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/users/:userId",
@@ -179,25 +197,25 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/admin/roles",
 		element: <AdminRoles />,
 		permission: "role_manage",
-		nav: { label: "角色管理", icon: Shield, section: "admin" },
+		nav: { label: "角色管理", icon: Shield, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/grades-classes",
 		element: <AdminGradesClasses />,
 		permission: "grade_class_manage",
-		nav: { label: "班级管理", icon: GraduationCap, section: "admin" },
+		nav: { label: "班级管理", icon: GraduationCap, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/cases",
 		element: <AdminCases />,
 		permission: "case_manage",
-		nav: { label: "病例管理", icon: UserSearch, section: "admin" },
+		nav: { label: "病例库", icon: UserSearch, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments",
 		element: <AssignmentsPage />,
 		permission: "assignment_manage",
-		nav: { label: "作业管理", icon: ClipboardList, section: "admin" },
+		nav: { label: "作业管理", icon: ClipboardList, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments/:id",
@@ -208,49 +226,49 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/admin",
 		element: <Admin />,
 		permission: "score_review",
-		nav: { label: "训练管理", icon: Settings, section: "admin", end: true },
+		nav: { label: "教学看板", icon: Settings, section: "admin", group: "teaching", end: true },
 	},
 	{
 		path: "/admin/records",
 		element: <TeacherRecordsPage />,
 		permission: "score_review",
-		nav: { label: "训练记录管理", icon: ClipboardList, section: "admin" },
+		nav: { label: "训练记录", icon: FileText, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/rubric",
 		element: <RubricPage />,
 		permission: "score_review",
-		nav: { label: "评分标准", icon: BookOpen, section: "admin" },
+		nav: { label: "评分标准", icon: BookOpen, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/costs",
 		element: <CostManagement />,
 		permission: "llm_monitor",
-		nav: { label: "成本管理", icon: Coins, section: "admin" },
+		nav: { label: "成本管理", icon: Coins, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/feedback",
 		element: <AdminFeedback />,
 		permission: "feedback_review",
-		nav: { label: "用户反馈", icon: MessageSquare, section: "admin" },
+		nav: { label: "用户反馈", icon: MessageSquare, section: "admin", group: "feedback" },
 	},
 	{
 		path: "/admin/questionnaires",
 		element: <AdminQuestionnaires />,
 		permission: "questionnaire_manage",
-		nav: { label: "问卷管理", icon: ClipboardCheck, section: "admin" },
+		nav: { label: "问卷管理", icon: ClipboardCheck, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/system-ops",
 		element: <SystemOpsPage />,
 		permission: "api_manage",
-		nav: { label: "系统运维", icon: Activity, section: "admin" },
+		nav: { label: "运维仪表盘", icon: Activity, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/system-notifications",
 		element: <SystemNotificationsPage />,
 		permission: "api_manage",
-		nav: { label: "系统通知", icon: Megaphone, section: "admin" },
+		nav: { label: "系统通知", icon: Megaphone, section: "admin", group: "system" },
 	},
 ];
 
