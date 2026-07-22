@@ -60,7 +60,7 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
     if patient_gender:
         parts.append(patient_gender)
     patient_info_str = "，".join(parts) if len(parts) > 1 else patient_name
-    scenario = f"你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。{_get('opening_line', '你今天来医院是因为身体不舒服。')}"
+    scenario = "你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。请根据你的主诉和现病史如实回答学生的问题。"
 
     kwargs = {
         "patient_info": patient_info_str or "未知患者",
