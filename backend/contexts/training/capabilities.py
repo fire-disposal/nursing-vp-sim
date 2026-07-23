@@ -47,7 +47,7 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         label="护理查体",
         description="允许学生触发护理操作（测血压/体温/听诊等）。",
         tier="toggleable",
-        training_types=("history_taking", "triage"),
+        training_types=("history_taking",),
         default=False,
     ),
     "nursing_record": Capability(
@@ -65,6 +65,14 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         tier="toggleable",
         training_types=("history_taking", "triage"),
         default=False,
+    ),
+    "mews": Capability(
+        key="mews",
+        label="MEWS 评分",
+        description="分诊场景下的早期预警评分计算工具。",
+        tier="toggleable",
+        training_types=("triage",),
+        default=True,
     ),
 }
 

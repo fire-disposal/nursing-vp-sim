@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from contexts.training.router.session import set_training_infra, stop_background_loop
+from contexts.training.session_cache import EmotionCache, InitiativeCache
+from contexts.training.settlement import settlement_loop
 from core.config import (
     APP_VERSION,
     CLEANUP_INTERVAL_SECONDS,
@@ -44,7 +46,6 @@ from core.exceptions import (
     validation_error_handler,
 )
 from core.rate_limits import PgRateLimiter
-from contexts.training.session_cache import EmotionCache, InitiativeCache
 from infrastructure.diagnose import get_diagnose_service
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
@@ -52,7 +53,6 @@ from infrastructure.logging_setup import setup_logging
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
-from contexts.training.settlement import settlement_loop
 from repositories.training import TrainingRepository
 from scripts.seed import seed_all
 
@@ -457,6 +457,18 @@ from profiles.triage import PROFILE as _TRIAGE_PROFILE
 
 register_profile("history_taking", _HISTORY_TAKING_PROFILE)
 register_profile("triage", _TRIAGE_PROFILE)
+
+# Tool registration
+from contexts.training.tools import register as register_tool
+from contexts.training.tools.mews import MewsHandler
+from contexts.training.tools.nursing_record import NursingRecordHandler
+from contexts.training.tools.physical_exam import PhysicalExamHandler
+from contexts.training.tools.quiz import QuizHandler
+
+register_tool(PhysicalExamHandler())
+register_tool(NursingRecordHandler())
+register_tool(QuizHandler())
+register_tool(MewsHandler())
 
 # Route registration
 from routers import register_routers

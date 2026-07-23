@@ -1,17 +1,16 @@
 """Training WebSocket — real-time event bus for training sessions.
 
-Replaces the REST exam endpoint + SSE notifications stream with a single
-bidirectional WebSocket connection.
+Bidirectional WebSocket connection carrying training tool invocations and
+server-pushed events (scoring, heartbeat).
 
 Protocol (JSON messages):
 
   Client → Server:
-    { "type": "exam",  "record_id": 123, "op_type": "hr" }
+    { "type": "tool", "record_id": 123, "tool": "physical_exam", "action": "measure", "params": { "op_type": "hr" } }
     { "type": "ping" }
 
   Server → Client:
-    { "type": "exam:done",  "data": { … }, "all_results": […] }
-    { "type": "exam:error", "detail": "…" }
+    { "type": "tool:result",  "tool": "physical_exam", "action": "measure", "ok": true, "data": {...}, "scene": {...} }
     { "type": "<scoring_event>", … }            — forwarded from RealtimeHub
     { "type": "heartbeat" }
 """
@@ -25,10 +24,10 @@ import logging
 import jwt
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 
+from contexts.training.tools import ToolContext, dispatch
 from core.database import SessionLocal
 from core.security import ALGORITHM, JWT_SECRET_KEY
-from models import User
-from services.physical_exam import PhysicalExamService
+from models import Case, TrainingRecord, User
 
 log = logging.getLogger(__name__)
 
@@ -101,33 +100,49 @@ async def training_ws(
 
             msg_type = raw.get("type")
 
-            if msg_type == "exam":
+            if msg_type == "tool":
                 record_id = raw.get("record_id")
-                op_type = raw.get("op_type")
-                if not record_id or not op_type:
-                    if not await _safe_send({"type": "error", "detail": "Missing record_id or op_type"}):
+                tool_name = raw.get("tool")
+                action = raw.get("action")
+                params = raw.get("params") or {}
+                if not record_id or not tool_name or not action:
+                    if not await _safe_send({"type": "tool:error", "detail": "Missing record_id, tool, or action"}):
                         return
                     continue
 
                 db = SessionLocal()
                 try:
-                    svc = PhysicalExamService(db)
-                    result = svc.perform(record_id, op_type, user)
-                    ok = await _safe_send(
-                        {
-                            "type": "exam:done",
-                            "op_type": result["type"],
-                            "data": result["data"],
-                            "all_results": result["all_results"],
-                            # D-2：让前端闭环 scene:state（MonitorCard 据此显示生命体征）
-                            "scene": {"vitals": result.get("vitals_patch", {})},
-                        }
+                    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+                    if not record:
+                        ok = await _safe_send({"type": "tool:error", "detail": "训练记录不存在"})
+                        if not ok:
+                            return
+                        continue
+                    case = db.query(Case).filter(Case.id == record.case_id).first()
+                    ctx = ToolContext(
+                        record=record,
+                        case_data=case.case_data if case else {},
+                        current_user=user,
+                        db=db,
                     )
+                    result = await dispatch(tool_name, action, params, ctx)
+                    payload = {
+                        "type": "tool:result",
+                        "tool": tool_name,
+                        "action": action,
+                        "ok": result.ok,
+                        "data": result.data,
+                    }
+                    if result.scene is not None:
+                        payload["scene"] = result.scene
+                    if not result.ok:
+                        payload["error"] = result.error
+                    ok = await _safe_send(payload)
                 except HTTPException as e:
-                    ok = await _safe_send({"type": "exam:error", "detail": e.detail})
+                    ok = await _safe_send({"type": "tool:error", "detail": e.detail})
                 except Exception as e:
-                    log.exception("WS exam failed")
-                    ok = await _safe_send({"type": "exam:error", "detail": str(e)})
+                    log.exception("WS tool dispatch failed")
+                    ok = await _safe_send({"type": "tool:error", "detail": str(e)})
                 finally:
                     db.close()
                 if not ok:
