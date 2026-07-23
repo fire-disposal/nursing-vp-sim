@@ -10,42 +10,31 @@ def _get_default_rubric() -> dict:
 
 
 def build_scoring_criteria(rubric: dict | None = None, level: str = "full") -> str:
-    """构建评分标准文本（维度、条目、锚点），不含必须采集清单和 JSON 模板"""
+    """构建评分标准文本。
+
+    level="full"  → 维度概要 + 条目列表（id + 名称，不含锚点）
+    level="brief" → 维度概要 + 条目列表（紧凑格式）
+    """
     if rubric is None:
         rubric = _get_default_rubric()
 
     dimensions = rubric.get("dimensions", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
-    rubric_name = rubric.get("name", "")
-    rubric_version = rubric.get("version", "")
     raw_scale = rubric.get("raw_scale", 3)
-    display_max = rubric.get("total_max", 100)
 
     lines = []
-    lines.append("## 评分标准版本")
-    lines.append(
-        f"{rubric_name} v{rubric_version}（原始{raw_max}分制，每项1-{raw_scale}分，系统将自动换算为{display_max}分制）"
-    )
-    lines.append("")
-    lines.append("## 评估维度与条目")
+    lines.append(f"评分标准: {rubric.get('name', '')} (原始{raw_max}分, 每项1-{raw_scale}分)")
     lines.append("")
 
     for dim in dimensions:
         dim_name = dim["name"]
-        dim_max = dim["max"]
-        lines.append(f"### {dim_name}（{len(dim['items'])}项，满分{dim_max}分）")
-        if dim.get("description"):
-            lines.append(str(dim["description"]))
-        lines.append("")
-
-        for i, item in enumerate(dim["items"]):
-            if level == "brief":
-                lines.append(f"{i + 1}. {item['name']}（满分{raw_scale}分）")
-            else:
-                anchors = item.get("anchors", {})
-                anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))
-                lines.append(f"{i + 1}. {item['name']} — {anchor_text}")
-
+        items = dim["items"]
+        lines.append(f"## {dim_name}（{len(items)}项，满分{dim['max']}分）")
+        if level == "brief":
+            lines.append("、".join(it["name"] for it in items))
+        else:
+            for i, it in enumerate(items):
+                lines.append(f"{i + 1}. [{it['id']}] {it['name']}")
         lines.append("")
 
     return "\n".join(lines)
@@ -94,35 +83,33 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
     for dim in dimensions:
         dim_name = dim["name"]
         dim_max = dim["max"]
-        items = []
-        for item in dim["items"]:
-            items.append(
-                {
-                    "id": item["id"],
-                    "name": item["name"],
-                    "score": "N_ITEM_SCORE",
-                    "evidence": "对话中的具体证据（≥10汉字）",
-                    "reason": "评分理由（≥5汉字）",
-                }
-            )
-        item_objs.append({dim_name: {"score": f"数字(满分{dim_max})", "items": items}})
+        first = dim["items"][0]
+        rest_count = len(dim["items"]) - 1
+        items_example = [
+            {
+                "id": first["id"],
+                "name": first["name"],
+                "score": "1~3",
+                "evidence": "对话原文≥10字",
+                "reason": "评分理由≥5字",
+            },
+        ]
+        if rest_count > 0:
+            items_example.append({f"...（其余{rest_count}项格式同上）": "..."})
+        item_objs.append({dim_name: {"score": f"N(0~{dim_max})", "items": items_example}})
 
     json_obj = {
-        "rubric_version": f"{rubric.get('id', '')}@{rubric_version}",
-        "total_score": "N_TOTAL_SCORE",
+        "total_score": f"N(0~{raw_max})",
         "detail_scores": {k: v for obj in item_objs for k, v in obj.items()},
     }
 
     json_template = json.dumps(json_obj, ensure_ascii=False, indent=2)
-    json_template = json_template.replace('"N_TOTAL_SCORE"', f"数字(满分{raw_max})")
-    json_template = json_template.replace('"N_ITEM_SCORE"', "1-3")
 
     lines = []
-    lines.append("## 输出格式（必读）")
+    lines.append("## 输出格式")
     lines.append("")
-    lines.append("必须是严格的 JSON（不含 markdown 代码块标记），所有数字字段不要加引号：")
-    lines.append("")
-    lines.append("JSON 结构：")
+    lines.append("严格 JSON，无 markdown 代码块。每项必须有 id/name/score/evidence/reason。")
+    lines.append('未涉及的条目: score=1, evidence="未涉及", reason="未涉及"。')
     lines.append("")
     lines.append(json_template)
 

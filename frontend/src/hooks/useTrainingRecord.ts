@@ -30,6 +30,11 @@ export function useTrainingRecord(recordId: string) {
 		enabled: !!recordId,
 		staleTime: 5 * 60_000,
 		gcTime: 5 * 60_000,
+		refetchInterval: (query) => {
+			const data = query.state.data as { status?: string } | undefined;
+			if (data?.status === "in_progress") return 15_000;
+			return false;
+		},
 	});
 
 	const record = query.data;

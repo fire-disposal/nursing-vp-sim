@@ -256,27 +256,7 @@ async def _run_scoring_background(
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
-        last_error = None
-        for attempt in range(2):
-            try:
-                await _attempt_evaluate()
-                break
-            except asyncio.CancelledError:
-                raise
-            except TimeoutError:
-                raise
-            except Exception as e:
-                last_error = e
-                if attempt == 0:
-                    log.warning(
-                        "评分首次尝试失败，%ds 后重试",
-                        SCORING_RETRY_DELAY_SECONDS,
-                        extra={"record_id": record_id, "attempt": attempt + 1, "error": str(e)[:200]},
-                    )
-                    await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
-                else:
-                    log.error("评分重试仍失败", extra={"record_id": record_id, "error": str(e)[:200]})
-                    raise
+        await _attempt_evaluate()
 
         # Re-fetch record.  Only skip completion if a *newer* retry was explicitly
         # triggered (status='pending' via acquire_scoring).  If settlement sweep

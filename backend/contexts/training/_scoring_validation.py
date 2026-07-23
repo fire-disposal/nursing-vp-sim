@@ -89,6 +89,8 @@ def _validate_scoring_essentials(result: dict):
         raise ValueError("缺失字段: detail_scores")
     if not isinstance(result["detail_scores"], dict):
         raise TypeError(f"detail_scores 类型错误: {type(result['detail_scores']).__name__}")
+    if not result["detail_scores"]:
+        raise ValueError("detail_scores 为空，LLM 未返回任何维度评分")
 
 
 def _validate_feedback_fields(result: dict):
@@ -201,7 +203,7 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
 def _convert_to_100_scale(result: dict, raw_max: int):
     """使用可配置的分数映射将原始分转换为显示分。
-    
+
     配置位于 core/score_mapping.py 的 SCORE_MAPPING 单例，
     修改其属性即可调整映射行为，无需重跑评分。
     """

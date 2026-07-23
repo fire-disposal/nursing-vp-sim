@@ -20,7 +20,7 @@ export function useTrainingTimer({
 
 	useEffect(() => {
 		if (initialRemaining == null) return;
-		if (remaining == null || Math.abs((remaining ?? 0) - initialRemaining) > 30) {
+		if (remaining == null || Math.abs((remaining ?? 0) - initialRemaining) > 10) {
 			setRemaining(initialRemaining);
 		}
 		if (initialRemaining > 0 && !timerActive) {
