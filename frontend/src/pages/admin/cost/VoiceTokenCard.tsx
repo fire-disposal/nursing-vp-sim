@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/client";
@@ -81,6 +81,8 @@ export default function VoiceTokenCard() {
 	const [resource, setResource] = useState("seed-tts-2.0");
 	const [timeoutS, setTimeoutS] = useState(8);
 	const [showKey, setShowKey] = useState(false);
+	const [showSpeakerLib, setShowSpeakerLib] = useState(false);
+	const [speakerLib, setSpeakerLib] = useState<Record<string, string>>({});
 
 	const [status, setStatus] = useState<VoiceStatus | null>(null);
 	const [checking, setChecking] = useState(false);
@@ -98,6 +100,7 @@ export default function VoiceTokenCard() {
 			setSpeaker(cfg.tts_speaker);
 			setResource(cfg.tts_resource_id);
 			setTimeoutS(cfg.tts_timeout);
+			setSpeakerLib(cfg.speaker_library ?? {});
 		}
 	}, [cfg]);
 
@@ -118,6 +121,7 @@ export default function VoiceTokenCard() {
 			tts_resource_id: resource,
 			tts_speaker: speaker,
 			tts_timeout: timeoutS,
+			speaker_library: Object.keys(speakerLib).length > 0 ? speakerLib : undefined,
 		});
 	}, [saveMut, apiKey, resource, speaker, timeoutS]);
 
@@ -242,6 +246,34 @@ export default function VoiceTokenCard() {
 							保存配置
 						</Button>
 					</div>
+				</div>
+
+				{/* ══ Speaker library ══ */}
+				<div className="border border-border rounded-lg overflow-hidden text-sm">
+					<button type="button" onClick={() => setShowSpeakerLib((v) => !v)} className={`${row} w-full text-left hover:bg-muted/30`}>
+						{showSpeakerLib ? <ChevronDown size={13} className="text-muted-foreground" /> : <ChevronRight size={13} className="text-muted-foreground" />}
+						<span className="text-xs font-medium">音色映射（按患者人口自动选择发音人）</span>
+					</button>
+					{showSpeakerLib && (
+						<div className="border-t border-border/50 px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5">
+							{[
+								["child_male", "男童"], ["child_female", "女童"],
+								["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
+								["female_young", "青年女"], ["female_middle", "中年女"], ["female_elder", "老年女"],
+								["fallback", "默认"],
+							].map(([key, label]) => (
+								<div key={key} className="flex items-center gap-1.5">
+									<span className="text-[11px] text-muted-foreground w-12 shrink-0">{label}</span>
+									<input
+										value={speakerLib[key] ?? ""}
+										onChange={(e) => setSpeakerLib((prev) => ({ ...prev, [key]: e.target.value }))}
+										placeholder="zh_female_vv_uranus_bigtts"
+										className="h-7 flex-1 rounded border border-border bg-background px-1.5 text-[11px] font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+									/>
+								</div>
+							))}
+						</div>
+					)}
 				</div>
 
 				{!cfg && (
