@@ -10,7 +10,7 @@ from typing import Literal
 @dataclass
 class ScoreMappingConfig:
     """评分映射配置
-    
+
     修改此 dataclass 即可调整全局评分映射行为。
     映射基于原始总分 (raw_max) 与显示满分 (display_max) 的比例关系。
     """
@@ -46,12 +46,12 @@ SCORE_MAPPING = ScoreMappingConfig()
 
 def apply_score_mapping(raw_score: float, raw_max: int, cfg: ScoreMappingConfig | None = None) -> int:
     """将原始评分映射为显示分。
-    
+
     Args:
         raw_score: 原始评分（0 - raw_max）
         raw_max: 原始满分值
         cfg: 映射配置，默认使用全局 SCORE_MAPPING
-    
+
     Returns:
         0 到 display_max 之间的整数显示分
     """
@@ -67,9 +67,9 @@ def apply_score_mapping(raw_score: float, raw_max: int, cfg: ScoreMappingConfig 
     if c.curve == "linear":
         display = normalized * c.display_max
     elif c.curve == "sqrt":
-        display = (normalized ** 0.5) * c.display_max
+        display = (normalized**0.5) * c.display_max
     elif c.curve == "power":
-        display = (normalized ** c.press_factor) * c.display_max
+        display = (normalized**c.press_factor) * c.display_max
     else:
         display = normalized * c.display_max
 

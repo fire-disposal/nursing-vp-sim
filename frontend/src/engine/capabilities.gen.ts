@@ -9,7 +9,6 @@ export interface CapabilityDef {
   description: string;
   tier: CapabilityTier;
   trainingTypes: string[] | null;
-  defaultOn: boolean;
   requires: string[];
 }
 
@@ -17,10 +16,9 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
   "emotion": {
     "key": "emotion",
     "label": "患者情绪状态机",
-    "description": "6态情绪模型（withdrawn/defensive/anxious/neutral/relaxed/open），根据学生用语动态变化。虚拟病人的内置第一性质，全类型恒开。",
+    "description": "6态情绪模型，根据学生用语动态变化。",
     "tier": "builtin",
     "trainingTypes": null,
-    "defaultOn": false,
     "requires": []
   },
   "patient_initiative": {
@@ -31,7 +29,6 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "trainingTypes": [
       "history_taking"
     ],
-    "defaultOn": false,
     "requires": [
       "emotion"
     ]
@@ -44,30 +41,27 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "trainingTypes": [
       "history_taking"
     ],
-    "defaultOn": false,
     "requires": []
   },
   "nursing_record": {
     "key": "nursing_record",
     "label": "护理评估记录",
-    "description": "结构化护理评估表单填写，可开启评分维度。",
+    "description": "结构化护理评估表单填写（ADPIE）。",
     "tier": "toggleable",
     "trainingTypes": [
       "history_taking"
     ],
-    "defaultOn": false,
     "requires": []
   },
   "quiz": {
     "key": "quiz",
     "label": "引导题目",
-    "description": "训练过程中穿插病例相关的引导性选择题，帮助学生聚焦关键知识点。不参与评分。",
+    "description": "训练中穿插病例相关的引导性选择题。不参与评分。",
     "tier": "toggleable",
     "trainingTypes": [
       "history_taking",
       "triage"
     ],
-    "defaultOn": false,
     "requires": []
   },
   "mews": {
@@ -78,7 +72,6 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "trainingTypes": [
       "triage"
     ],
-    "defaultOn": true,
     "requires": []
   }
 };

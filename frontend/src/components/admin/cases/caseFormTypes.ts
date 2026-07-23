@@ -23,8 +23,6 @@ export interface CaseFormData {
 	social_history: string;
 	voice_type: string;
 
-	capabilities: Record<string, boolean>;
-
 	exam_anchors: Record<string, string>;
 	quiz: QuizFormData;
 	phases: PhaseFormData[];
@@ -33,7 +31,6 @@ export interface CaseFormData {
 
 	hidden_info: string[];
 	required_inquiries: string[];
-	scoring_criteria: Record<string, unknown>;
 
 	arrival_mode: string;
 	red_flags: string[];
@@ -174,7 +171,6 @@ export function getDefaultForm(): CaseFormData {
 		family_history: "",
 		social_history: "",
 		voice_type: "",
-		capabilities: {},
 		exam_anchors: {},
 		quiz: { ...DEFAULT_QUIZ },
 		phases: [],
@@ -182,7 +178,6 @@ export function getDefaultForm(): CaseFormData {
 		example_dialogues: [],
 		hidden_info: [],
 		required_inquiries: [],
-		scoring_criteria: {},
 		arrival_mode: "walk",
 		red_flags: [],
 		vitals: { hr: 0, bp_sys: 0, bp_dia: 0, rr: 0, spo2: 0, temp: 0 },
@@ -213,7 +208,6 @@ export function parseCaseData(
 		family_history: String(d.family_history ?? ""),
 		social_history: String(d.social_history ?? ""),
 		voice_type: String(d.voice_type ?? ""),
-		capabilities: (d.capabilities as Record<string, boolean>) ?? {},
 		exam_anchors: (d.exam_anchors as Record<string, string>) ?? {},
 		quiz: (d.quiz as QuizFormData) ?? { ...DEFAULT_QUIZ },
 		phases: (d.phases as PhaseFormData[]) ?? [],
@@ -221,7 +215,6 @@ export function parseCaseData(
 		example_dialogues: (d.example_dialogues as DialogPair[]) ?? [],
 		hidden_info: (d.hidden_info as string[]) ?? [],
 		required_inquiries: (d.required_inquiries as string[]) ?? [],
-		scoring_criteria: (d.scoring_criteria as Record<string, unknown>) ?? {},
 		arrival_mode: String(d.arrival_mode ?? "walk"),
 		red_flags: (d.red_flags as string[]) ?? [],
 		vitals: {
@@ -256,7 +249,6 @@ export function buildCaseData(form: CaseFormData): Record<string, unknown> {
 		family_history: form.family_history,
 		social_history: form.social_history,
 		voice_type: form.voice_type,
-		capabilities: form.capabilities,
 		exam_anchors: form.exam_anchors,
 		quiz: form.quiz,
 		phases: form.phases,
@@ -264,7 +256,6 @@ export function buildCaseData(form: CaseFormData): Record<string, unknown> {
 		example_dialogues: form.example_dialogues,
 		hidden_info: form.hidden_info,
 		required_inquiries: form.required_inquiries,
-		scoring_criteria: form.scoring_criteria,
 		arrival_mode: form.arrival_mode,
 		red_flags: form.red_flags,
 		vitals: form.vitals,

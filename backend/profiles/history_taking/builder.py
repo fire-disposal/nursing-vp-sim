@@ -18,14 +18,14 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
             return "普通患者，正常配合。"
         parts = []
         lit = {
-            "low": "不太会描述病情，用词简单模糊",
+            "low": "不太会描述病情，用词简单模糊，经常答非所问",
             "normal": "能正常描述症状",
             "high": "能精准描述病情感受",
             "medium": "能正常描述症状",
         }
         verb = {"terse": "寡言少语", "normal": "正常交流", "verbose": "话多健谈"}
         anx = {"calm": "心态平和", "normal": "适度担心", "anxious": "容易焦虑"}
-        pat = {"low": "耐心不足", "normal": "有耐心配合", "high": "非常耐心"}
+        pat = {"low": "耐心不足、容易急躁、可能怼人", "normal": "有耐心配合", "high": "话多反复讲同一件事"}
         for key, mapping in [("health_literacy", lit), ("verbosity", verb), ("anxiety_trait", anx), ("patience", pat)]:
             if p.get(key):
                 parts.append(mapping.get(p[key], ""))
@@ -60,7 +60,7 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
     if patient_gender:
         parts.append(patient_gender)
     patient_info_str = "，".join(parts) if len(parts) > 1 else patient_name
-    scenario = "你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。请根据你的主诉和现病史如实回答学生的问题。"
+    scenario = "你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。请根据你的主诉和现病史如实回答。"
 
     kwargs = {
         "patient_info": patient_info_str or "未知患者",

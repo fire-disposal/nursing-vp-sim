@@ -34,7 +34,7 @@ PROFILES: dict[str, LLMProfile] = {
         model="deepseek-v4-flash",
         timeout=30,
         max_tokens=512,
-        temperature=0.3,
+        temperature=0.6,
         max_retries=2,
         semaphore=500,
     ),

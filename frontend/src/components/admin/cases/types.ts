@@ -37,7 +37,6 @@ export interface CaseForm {
 	voice_type: string;
 	hidden_info: string[];
 	required_inquiries: string[];
-	scoring_criteria: Record<string, ScoringDimension>;
 	capabilities: Record<string, boolean>;
 	arrival_mode: string;
 	red_flags: string[];
@@ -72,7 +71,6 @@ export interface CaseData {
 	voice_type?: string;
 	hidden_info: string[];
 	required_inquiries: string[];
-	scoring_criteria: Record<string, ScoringDimension>;
 	capabilities: Record<string, boolean>;
 	triage_info?: {
 		arrival_mode?: string;
@@ -110,10 +108,6 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 	voice_type: "",
 	hidden_info: [],
 	required_inquiries: [],
-	scoring_criteria: {
-		沟通技能: { name: "沟通技能", max: 42, description: "", items: [] },
-		病史采集: { name: "病史采集", max: 15, description: "", items: [] },
-	},
 	capabilities: {},
 	triage_info: {
 		arrival_mode: "walk",
@@ -161,7 +155,6 @@ export function buildCaseData(form: CaseForm): CaseData {
 		voice_type: form.voice_type || undefined,
 		hidden_info: form.hidden_info,
 		required_inquiries: form.required_inquiries,
-		scoring_criteria: form.scoring_criteria,
 		capabilities: form.capabilities,
 		...(form.training_type === "triage"
 			? {
@@ -209,7 +202,6 @@ export function parseCaseData(cd: unknown): CaseForm {
 		voice_type: rec?.voice_type || "",
 		hidden_info: rec?.hidden_info || [],
 		required_inquiries: rec?.required_inquiries || [],
-		scoring_criteria: rec?.scoring_criteria || {},
 		capabilities: (rec?.capabilities || {}) as Record<string, boolean>,
 		arrival_mode: rec?.arrival_mode || ti?.arrival_mode || "",
 		red_flags: rec?.red_flags || ti?.red_flags || [],

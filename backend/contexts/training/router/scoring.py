@@ -368,11 +368,12 @@ async def end_training(
 
         db.commit()
 
-        from contexts.training.capabilities import resolve_features
+        from contexts.training.capabilities import detect_capabilities
 
-        features = resolve_features(
-            record.practice_snapshot,
-            case_defaults=(record.case_snapshot or {}).get("capabilities"),
+        features = detect_capabilities(
+            case_data=record.case_snapshot or {},
+            training_type=record.training_type or "history_taking",
+            overrides=(record.practice_snapshot or {}).get("features"),
         )
         if features.get("patient_initiative"):
             from profiles.history_taking.initiative import cleanup_initiative

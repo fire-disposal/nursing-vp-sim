@@ -102,7 +102,6 @@ class CaseDataSchema(JsonbModel):
 
     quiz: QuizConfig | None = None
     voice_type: str = ""
-    scoring_criteria: dict[str, Any] = {}
 
     example_dialogues: list[dict] = []
 

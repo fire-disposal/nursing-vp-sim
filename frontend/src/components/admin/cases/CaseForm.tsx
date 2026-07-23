@@ -10,7 +10,6 @@ import { inputClass } from "@/utils/styles";
 import { z, safeParse } from "zod";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
-import { CapabilitiesSection } from "./CapabilitiesSection";
 import type { CaseFormData } from "./caseFormTypes";
 import { buildCaseData, getDefaultForm, parseCaseData } from "./caseFormTypes";
 import { ClinicalSection } from "./ClinicalSection";
@@ -42,7 +41,6 @@ const AI_FIELD_LABELS: Record<string, string> = {
 	hidden_info: "隐藏信息",
 	required_inquiries: "必问问诊项",
 	example_dialogues: "示例对话",
-	scoring_criteria: "评分标准",
 };
 
 interface Props {
@@ -168,9 +166,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					setForm((prev) => ({ ...prev, required_inquiries: value as string[] }));
 				} else if (field === "example_dialogues") {
 					setForm((prev) => ({ ...prev, example_dialogues: (value as Array<{ question: string; answer: string }>) ?? [] }));
-				} else if (field === "scoring_criteria") {
-					const v = typeof value === "string" ? (() => { try { return JSON.parse(value); } catch { return {}; } })() : value;
-					setForm((prev) => ({ ...prev, scoring_criteria: (typeof v === "object" && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : {}) }));
 				}
 				setIsDirty(true);
 				toast.success(`已生成「${AI_FIELD_LABELS[field] ?? field}」建议`);
@@ -228,7 +223,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 								<Sparkles size={14} /> {aiGenerating ? "生成中…" : aiMode === "reference" ? "参考生成" : "快速生成"}
 							</Button>
 							<div className="flex flex-wrap gap-1 mt-2">
-								{["hidden_info", "required_inquiries", "example_dialogues", "scoring_criteria"].map((f) => (
+								{["hidden_info", "required_inquiries", "example_dialogues"].map((f) => (
 									<button key={f} type="button" onClick={() => handleAiGenerate(f)} disabled={aiGenerating}
 										className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50">{AI_FIELD_LABELS[f] ?? f}</button>
 								))}
@@ -307,12 +302,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							onFieldChange={(key, val) => { setForm((p) => ({ ...p, [key]: val })); markDirty(); }}
 						/>
 					)}
-
-					<CapabilitiesSection
-						value={form.capabilities}
-						trainingType={trainingType}
-						onChange={(v) => { setForm((p) => ({ ...p, capabilities: v })); markDirty(); }}
-					/>
 
 					<button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
 						className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">

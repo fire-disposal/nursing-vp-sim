@@ -106,7 +106,14 @@ async def training_ws(
                 action = raw.get("action")
                 params = raw.get("params") or {}
                 if not record_id or not tool_name or not action:
-                    if not await _safe_send({"type": "tool:error", "detail": "Missing record_id, tool, or action"}):
+                    if not await _safe_send(
+                        {
+                            "type": "tool:error",
+                            "tool": tool_name or "",
+                            "action": action or "",
+                            "detail": "Missing record_id, tool, or action",
+                        }
+                    ):
                         return
                     continue
 
@@ -114,7 +121,9 @@ async def training_ws(
                 try:
                     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
                     if not record:
-                        ok = await _safe_send({"type": "tool:error", "detail": "训练记录不存在"})
+                        ok = await _safe_send(
+                            {"type": "tool:error", "tool": tool_name, "action": action, "detail": "训练记录不存在"}
+                        )
                         if not ok:
                             return
                         continue
@@ -139,10 +148,12 @@ async def training_ws(
                         payload["error"] = result.error
                     ok = await _safe_send(payload)
                 except HTTPException as e:
-                    ok = await _safe_send({"type": "tool:error", "detail": e.detail})
+                    ok = await _safe_send(
+                        {"type": "tool:error", "tool": tool_name, "action": action, "detail": e.detail}
+                    )
                 except Exception as e:
                     log.exception("WS tool dispatch failed")
-                    ok = await _safe_send({"type": "tool:error", "detail": str(e)})
+                    ok = await _safe_send({"type": "tool:error", "tool": tool_name, "action": action, "detail": str(e)})
                 finally:
                     db.close()
                 if not ok:

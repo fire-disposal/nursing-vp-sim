@@ -29,7 +29,6 @@ def _cap_to_obj(c) -> dict:
         "description": c.description,
         "tier": c.tier,
         "trainingTypes": list(c.training_types) if c.training_types is not None else None,
-        "defaultOn": c.default,
         "requires": list(c.requires),
     }
 
@@ -55,7 +54,6 @@ export interface CapabilityDef {{
   description: string;
   tier: CapabilityTier;
   trainingTypes: string[] | null;
-  defaultOn: boolean;
   requires: string[];
 }}
 

@@ -1,5 +1,6 @@
 import { AlertCircle, FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { cn } from "@/utils/cn";
 
@@ -42,6 +43,14 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 			setLoadError("加载超时：实时连接可能已中断，请检查网络后重试");
 		}, LOAD_TIMEOUT_MS);
 	}, [bus, rid]);
+
+	useEffect(() => {
+		return subscribeWSConnection((connected) => {
+			if (connected && (loadError || loading)) {
+				requestLoad();
+			}
+		});
+	}, [loadError, loading, requestLoad]);
 
 	useEffect(() => {
 		requestLoad();

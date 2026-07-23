@@ -29,6 +29,19 @@ export function useToolBridge(bus: MessageBus) {
 
   useTrainingWS((msg: TrainingWSMessage) => {
     if (skipRef.current) return;
+
+    if (msg.type === "tool:error") {
+      const em = msg as { type: "tool:error"; tool?: string; action?: string; detail?: string };
+      bus.emit("tool:result", {
+        tool: em.tool ?? "unknown",
+        action: em.action ?? "unknown",
+        ok: false,
+        data: {},
+        error: em.detail ?? "操作失败",
+      });
+      return;
+    }
+
     if (msg.type !== "tool:result") return;
 
     const m = msg as {

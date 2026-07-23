@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, HelpCircle, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, HelpCircle, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { cn } from "@/utils/cn";
@@ -16,6 +16,8 @@ interface QuizData {
   questions?: QuizQuestion[];
 }
 
+const SUBMIT_TIMEOUT_MS = 10000;
+
 export default function QuizTool(props: TrainingToolProps) {
   const { bus, recordId } = props;
   const rid = Number(recordId);
@@ -29,28 +31,48 @@ export default function QuizTool(props: TrainingToolProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [correctFlags, setCorrectFlags] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<Record<string, string>>({});
+  const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef(answers);
   answersRef.current = answers;
 
   const answered = Object.keys(answers).length;
 
   useEffect(() => {
-    const onResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown> }) => {
+    const onResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown>; error?: string }) => {
       if (payload.tool !== "quiz" || payload.action !== "submit") return;
-      if (!payload.ok) return;
       const qid = payload.data.question_id as string;
-      const correct = !!payload.data.correct;
-      setCorrectFlags((prev) => ({ ...prev, [qid]: correct }));
+      if (!qid) return;
+      if (submitTimerRef.current) { clearTimeout(submitTimerRef.current); submitTimerRef.current = null; }
+      setSubmittingId(null);
+      if (payload.ok) {
+        const correct = !!payload.data.correct;
+        setCorrectFlags((prev) => ({ ...prev, [qid]: correct }));
+        setSubmitError((prev) => { const n = { ...prev }; delete n[qid]; return n; });
+      } else {
+        setSubmitError((prev) => ({ ...prev, [qid]: payload.error || "提交失败，请重试" }));
+      }
     };
     bus.on("tool:result", onResult);
-    return () => { bus.off("tool:result", onResult); };
+    return () => {
+      bus.off("tool:result", onResult);
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
+    };
   }, [bus]);
 
   const selectOption = useCallback((questionId: string, key: string) => {
     if (answers[questionId]) return;
     setAnswers((prev) => ({ ...prev, [questionId]: key }));
     setExpanded((prev) => ({ ...prev, [questionId]: true }));
+    setSubmitError((prev) => { const n = { ...prev }; delete n[questionId]; return n; });
     if (rid > 0) {
+      setSubmittingId(questionId);
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
+      submitTimerRef.current = setTimeout(() => {
+        setSubmittingId(null);
+        setSubmitError((prev) => ({ ...prev, [questionId]: "提交超时，请检查网络后重试" }));
+      }, SUBMIT_TIMEOUT_MS);
       bus.emit("tool:invoke", {
         tool: "quiz",
         action: "submit",
@@ -106,7 +128,9 @@ export default function QuizTool(props: TrainingToolProps) {
                   Q{qi + 1}
                 </span>
                 <p className="text-sm font-medium leading-snug flex-1">{q.stem}</p>
-                {selected && (
+                {submittingId === q.id ? (
+                  <Loader2 size={14} className="animate-spin text-muted-foreground shrink-0" />
+                ) : selected && (
                   <span className="shrink-0">
                     {isCorrect ? (
                       <CheckCircle2 size={14} className="text-emerald-600" />
@@ -190,6 +214,13 @@ export default function QuizTool(props: TrainingToolProps) {
                     </p>
                   )}
                 </>
+              )}
+
+              {submitError[q.id] && (
+                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-danger">
+                  <AlertCircle size={11} />
+                  {submitError[q.id]}
+                </div>
               )}
             </div>
           );

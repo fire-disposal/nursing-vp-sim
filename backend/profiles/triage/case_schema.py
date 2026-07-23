@@ -50,5 +50,4 @@ class TriageCaseData(BaseModel):
     # 病例声明的能力开关
     capabilities: dict[str, bool] = {}
     hidden_info: list[str] = Field(default_factory=list)
-    scoring_criteria: dict[str, object] = Field(default_factory=dict)
     quiz: TriageQuizConfig | None = None

@@ -1,9 +1,12 @@
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
 import type { SceneState } from "@/engine/scene-state";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { cn } from "@/utils/cn";
+
+const MEASURE_TIMEOUT_MS = 10000;
 
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
   temp:  { label: "体温",      unit: "°C",    normal: "36.8",   cat: "vital" },
@@ -59,6 +62,9 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   const [results, setResults] = useState<Record<string, { value: string }>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [pendingOps, setPendingOps] = useState<Set<string>>(new Set());
+  const [opErrors, setOpErrors] = useState<Record<string, string>>({});
+  const measureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const seededRef = useRef(false);
   useEffect(() => {
@@ -75,23 +81,44 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   }, [recordDetail]);
 
   useEffect(() => {
-    const onToolResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown> }) => {
+    const onToolResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown>; error?: string }) => {
       if (payload.tool !== "physical_exam" || payload.action !== "measure") return;
-      if (!payload.ok) return;
       const data = payload.data as { op_type?: string; result?: { label?: string; value?: string; unit?: string } };
-      if (data.op_type && data.result?.value) {
-        setResults((prev) => ({ ...prev, [data.op_type!]: { value: data.result!.value! } }));
+      const opType = data.op_type;
+      if (!opType) return;
+      if (measureTimerRef.current) { clearTimeout(measureTimerRef.current); measureTimerRef.current = null; }
+      setPendingOps((prev) => { const n = new Set(prev); n.delete(opType); return n; });
+      if (payload.ok) {
+        const resultValue = data.result?.value;
+        if (resultValue) {
+          setResults((prev) => ({ ...prev, [opType]: { value: resultValue } }));
+        }
+        setOpErrors((prev) => { const n = { ...prev }; delete n[opType]; return n; });
+      } else {
+        setResults((prev) => ({ ...prev, [opType]: { value: payload.error || "检查失败" } }));
+        setOpErrors((prev) => ({ ...prev, [opType]: payload.error || "检查失败" }));
       }
     };
     bus.on("tool:result", onToolResult);
-    return () => { bus.off("tool:result", onToolResult); };
+    return () => {
+      bus.off("tool:result", onToolResult);
+      if (measureTimerRef.current) clearTimeout(measureTimerRef.current);
+    };
   }, [bus]);
 
   const interact = useCallback((opId: string) => {
     if (!NORMALS[opId]) return;
     setFlash(opId);
     setResults((prev) => ({ ...prev, [opId]: { value: "检测中…" } }));
+    setOpErrors((prev) => { const n = { ...prev }; delete n[opId]; return n; });
     if (rid > 0) {
+      setPendingOps((prev) => { const n = new Set(prev); n.add(opId); return n; });
+      if (measureTimerRef.current) clearTimeout(measureTimerRef.current);
+      measureTimerRef.current = setTimeout(() => {
+        setPendingOps((prev) => { const n = new Set(prev); n.delete(opId); return n; });
+        setResults((prev) => ({ ...prev, [opId]: { value: "超时" } }));
+        setOpErrors((prev) => ({ ...prev, [opId]: "检查超时，请重试" }));
+      }, MEASURE_TIMEOUT_MS);
       bus.emit("tool:invoke", {
         tool: "physical_exam",
         action: "measure",
@@ -171,13 +198,18 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
           Object.entries(results).map(([id, r]) => {
             const def = NORMALS[id];
             if (!def) return null;
+            const isPending = pendingOps.has(id);
+            const isError = opErrors[id];
             return (
               <span key={id} className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] whitespace-nowrap shrink-0",
-                "bg-muted text-muted-foreground",
+                isError ? "bg-red-50 text-red-700" : "bg-muted text-muted-foreground",
               )}>
-                <span className="size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
-                {def.label} <span className="font-semibold">{r.value}</span>{def.unit}
+                <span className="size-1.5 rounded-full shrink-0" style={{ background: isError ? "#ef4444" : (CAT_COLOR[def.cat] ?? "#888") }} />
+                {def.label}{" "}
+                {isPending ? <Loader2 size={10} className="animate-spin" /> : <span className="font-semibold">{r.value}</span>}
+                {def.unit}
+                {isError && <AlertCircle size={10} />}
               </span>
             );
           })

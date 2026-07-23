@@ -12,11 +12,20 @@ class TestLoadNursingRecordText:
         record.practice_snapshot = {"features": {"nursing_record": True, "emotion": True}}
         db_session.add(record)
         db_session.flush()
-        db_session.add(NursingRecord(
-            record_id=1, user_id=1,
-            sheet_data={"subjective": "患者诉胸闷", "objective": "BP 130/80", "assessment": "", "plan": "卧床休息", "evaluation": ""},
-            status="draft",
-        ))
+        db_session.add(
+            NursingRecord(
+                record_id=1,
+                user_id=1,
+                sheet_data={
+                    "subjective": "患者诉胸闷",
+                    "objective": "BP 130/80",
+                    "assessment": "",
+                    "plan": "卧床休息",
+                    "evaluation": "",
+                },
+                status="draft",
+            )
+        )
         db_session.commit()
         text = _load_nursing_record_text(db_session, record)
         assert "SUBJECTIVE: 患者诉胸闷" in text
@@ -35,10 +44,14 @@ class TestLoadNursingRecordText:
         record = TrainingRecord(id=3, user_id=1, case_id=1, training_type="history_taking")
         record.practice_snapshot = {"features": {"nursing_record": False}}
         db_session.add(record)
-        db_session.add(NursingRecord(
-            record_id=3, user_id=1,
-            sheet_data={"subjective": "患者诉胸闷"}, status="draft",
-        ))
+        db_session.add(
+            NursingRecord(
+                record_id=3,
+                user_id=1,
+                sheet_data={"subjective": "患者诉胸闷"},
+                status="draft",
+            )
+        )
         db_session.commit()
         assert _load_nursing_record_text(db_session, record) == ""
 
@@ -47,7 +60,11 @@ class TestBuildHistoryMessagesInjection:
     def _build(self, nursing_record_text=""):
         record = SimpleNamespace(runtime_state={})
         msgs, _exam, nr_text = _build_history_messages(
-            record, "评分标准TEXT", "清单TEXT", "schemaTEXT", "对话TEXT",
+            record,
+            "评分标准TEXT",
+            "清单TEXT",
+            "schemaTEXT",
+            "对话TEXT",
             nursing_record_text=nursing_record_text,
         )
         return msgs, nr_text

@@ -15,7 +15,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user, load_role_permissions, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
-from contexts.training.capabilities import resolve_features
+from contexts.training.capabilities import detect_capabilities
 from models import (
     Assignment,
     Case,
@@ -190,9 +190,10 @@ def _create_record(
 
     record.case_snapshot = deepcopy(case_data)
     profile = get_profile(training_type)
-    resolved_features = resolve_features(
-        record.practice_snapshot,
-        case_defaults=case_data.get("capabilities"),
+    resolved_features = detect_capabilities(
+        case_data=case_data,
+        training_type=training_type,
+        overrides=(record.practice_snapshot or {}).get("features"),
     )
     from contexts.training.rubric_builder import build_final_rubric
 
@@ -585,7 +586,11 @@ def get_record_detail(
         patient_info=patient_info,
         patient_gender=normalize_gender(patient_info.get("gender", "")),
         training_type=record.training_type or "history_taking",
-        features=resolve_features(record.practice_snapshot, case_defaults=case_data.get("capabilities")),
+        features=detect_capabilities(
+            case_data=case_data,
+            training_type=record.training_type or "history_taking",
+            overrides=(record.practice_snapshot or {}).get("features"),
+        ),
         patient_name=patient_info.get("name", ""),
         patient_age=patient_info.get("age", 0),
         chief_complaint=case_data.get("chief_complaint", ""),

@@ -13,7 +13,7 @@ from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
-from contexts.training.capabilities import resolve_features
+from contexts.training.capabilities import detect_capabilities
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 
@@ -83,9 +83,10 @@ async def _build_context(
         messages=messages,
     )
     ctx.state[STATE_STREAM_MODE] = stream_mode
-    ctx.state[STATE_FEATURES] = resolve_features(
-        ctx.record.practice_snapshot,
-        case_defaults=ctx.case_data.get("capabilities"),
+    ctx.state[STATE_FEATURES] = detect_capabilities(
+        case_data=ctx.case_data,
+        training_type=ctx.record.training_type or "history_taking",
+        overrides=(ctx.record.practice_snapshot or {}).get("features"),
     )
     return ctx
 

@@ -44,9 +44,7 @@ class RoleRepository(Repository[Role]):
         return [r[0] for r in rows]
 
     def replace_permissions(self, role_id: int, permissions: list[str]) -> None:
-        self.db.query(RolePermission).filter(RolePermission.role_id == role_id).delete(
-            synchronize_session="fetch"
-        )
+        self.db.query(RolePermission).filter(RolePermission.role_id == role_id).delete(synchronize_session="fetch")
         for perm in permissions:
             self.db.add(RolePermission(role_id=role_id, permission=perm))
 

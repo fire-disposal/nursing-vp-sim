@@ -469,7 +469,9 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
             extra={"llm_total": result.get("total_score")},
         )
     else:
-        recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+        recalc_total = _recalc_total_from_dimensions(
+            result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3)
+        )
         if abs(recalc_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
             original_total = float(result.get("total_score", 0))
             if recalc_total == 0.0 and original_total > 0:
@@ -553,7 +555,11 @@ async def evaluate_training(
     else:
         nursing_record_text = _load_nursing_record_text(db, record)
         score_messages, exam_results_text, nursing_record_text = _build_history_messages(
-            record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text,
+            record,
+            scoring_criteria_text,
+            required_inquiries_text,
+            scoring_json_schema_text,
+            conversation_text,
             nursing_record_text=nursing_record_text,
         )
 
