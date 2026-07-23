@@ -110,40 +110,42 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	return (
 		<div
 			ref={scrollRef}
-			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4 relative"
+			className="h-full overflow-y-auto scroll-smooth relative"
 			onScroll={handleScroll}
 		>
-			{grouped.map((group, gi) => {
-				const firstMsg = group.messages[0];
-				if (firstMsg.role === "system" && firstMsg.examResult) {
-					return <ExamResultCard key={gi} result={firstMsg.examResult} />;
-				}
-				return (
-					<div key={gi} className="flex flex-col gap-1">
-						{group.messages.map((msg, mi) => (
-							<ChatBubble
-								key={msg.id ?? mi}
-								message={msg}
-								patientAvatar={patientAvatar}
-								nurseAvatar={nurseAvatar}
-								emotionBorder={emotionBorder}
-								portraitUrl={portraitUrl}
-								initiative={
-									msg.role === "patient" &&
-									initiativeMsgs?.has(msg.content)
-								}
-								showAvatar={mi === 0}
-							/>
-						))}
-					</div>
-				);
-			})}
-			{examResults
-				.filter((er) => !messages.some((m) => m.role === "system" && m.examResult?.type === er.examResult?.type))
-				.map((msg, i) => (
-					<ExamResultCard key={msg.id ?? `exam-${i}`} result={msg.examResult!} />
-				))}
-			<div ref={bottomRef} className="h-1" />
+			<div className="mx-auto w-full max-w-3xl px-4 py-4 space-y-4">
+				{grouped.map((group, gi) => {
+					const firstMsg = group.messages[0];
+					if (firstMsg.role === "system" && firstMsg.examResult) {
+						return <ExamResultCard key={gi} result={firstMsg.examResult} />;
+					}
+					return (
+						<div key={gi} className="flex flex-col gap-1">
+							{group.messages.map((msg, mi) => (
+								<ChatBubble
+									key={msg.id ?? mi}
+									message={msg}
+									patientAvatar={patientAvatar}
+									nurseAvatar={nurseAvatar}
+									emotionBorder={emotionBorder}
+									portraitUrl={portraitUrl}
+									initiative={
+										msg.role === "patient" &&
+										initiativeMsgs?.has(msg.content)
+									}
+									showAvatar={mi === 0}
+								/>
+							))}
+						</div>
+					);
+				})}
+				{examResults
+					.filter((er) => !messages.some((m) => m.role === "system" && m.examResult?.type === er.examResult?.type))
+					.map((msg, i) => (
+						<ExamResultCard key={msg.id ?? `exam-${i}`} result={msg.examResult!} />
+					))}
+				<div ref={bottomRef} className="h-1" />
+			</div>
 		</div>
 	);
 });

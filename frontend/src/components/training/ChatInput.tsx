@@ -102,12 +102,13 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 
 	return (
 		<div
-			className="flex items-end gap-2.5 px-3 sm:px-4 py-2.5 border-t border-border bg-muted/30 shrink-0 transition-transform duration-150"
+			className="border-t border-border bg-muted/30 shrink-0 transition-transform duration-150"
 			style={{
 				paddingBottom: `max(env(safe-area-inset-bottom), 0.5rem)`,
 				transform: vvOffset > 0 ? `translateY(-${vvOffset}px)` : undefined,
 			}}
 		>
+			<div className="relative mx-auto flex w-full max-w-3xl items-end gap-2.5 px-3 sm:px-4 py-2.5">
 			<textarea
 				ref={inputRef}
 				value={text}
@@ -171,6 +172,7 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 					<Send size={18} />
 				)}
 			</button>
+			</div>
 		</div>
 	);
 }
