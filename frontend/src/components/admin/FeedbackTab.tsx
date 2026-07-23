@@ -2,12 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	BarChart3,
 	Camera,
+	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
+	ChevronUp,
 	MessageSquare,
 	Search,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
 	Bar,
 	BarChart,
@@ -33,6 +35,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
@@ -471,20 +474,29 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 	);
 }
 
+const CHARTS_KEY = "admin:feedbackChartsOpen";
+
 export default function FeedbackTab() {
 	const [tag, setTag] = useState("");
 	const [dateFrom, setDateFrom] = useState("");
 	const [dateTo, setDateTo] = useState("");
 	const [offset, setOffset] = useState(0);
-	const [searchText, setSearchText] = useState("");
+	const { searchInput, debouncedValue: searchText, handleSearchChange } = useDebouncedSearch("", 300);
 	const [replyStatus, setReplyStatus] = useState("");
+	const [chartsOpen, setChartsOpen] = useState(
+		() => localStorage.getItem(CHARTS_KEY) === "1",
+	);
 	const LIMIT = 20;
 	const _toast = useToast();
 
+	// 服务端过滤：search / replied 与分页 total 同源，避免"过滤后空页"脱节
 	const params: Record<string, unknown> = { offset, limit: LIMIT };
 	if (tag) params.tag = tag;
 	if (dateFrom) params.date_from = dateFrom;
 	if (dateTo) params.date_to = dateTo;
+	if (searchText) params.search = searchText;
+	if (replyStatus === "replied") params.replied = true;
+	else if (replyStatus === "unreplied") params.replied = false;
 
 	const { data: feedbacksData, isLoading, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.list(params),
@@ -495,23 +507,8 @@ export default function FeedbackTab() {
 
 	const refetchFeedbacks = () => refetch();
 
-	const rawFeedbacks = feedbacksData?.items ?? [];
-	const serverTotal = feedbacksData?.total ?? 0;
-
-	const feedbacks = useMemo(() => {
-		let result: FeedbackItem[] = rawFeedbacks as FeedbackItem[];
-		if (searchText) {
-			const q = searchText.toLowerCase();
-			result = result.filter((fb) => fb.content?.toLowerCase().includes(q));
-		}
-		if (replyStatus === "replied") {
-			result = result.filter((fb) => fb.developer_reply != null);
-		} else if (replyStatus === "unreplied") {
-			result = result.filter((fb) => fb.developer_reply == null);
-		}
-		return result;
-	}, [rawFeedbacks, searchText, replyStatus]);
-	const total = serverTotal;
+	const feedbacks = (feedbacksData?.items ?? []) as FeedbackItem[];
+	const total = feedbacksData?.total ?? 0;
 
 	const handleFilterChange = (key: "dateFrom" | "dateTo", value: string) => {
 		if (key === "dateFrom") setDateFrom(value);
@@ -519,13 +516,34 @@ export default function FeedbackTab() {
 		setOffset(0);
 	};
 
+	const toggleCharts = () => {
+		setChartsOpen((prev) => {
+			localStorage.setItem(CHARTS_KEY, prev ? "0" : "1");
+			return !prev;
+		});
+	};
+
 	return (
 		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
-			<div className="flex gap-6 mb-4 flex-wrap">
-				<div className="flex-[1_1_300px] min-w-0">
-					<FeedbackChart />
-				</div>
-				<RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
+			<div className="mb-4">
+				<button
+					type="button"
+					onClick={toggleCharts}
+					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+					aria-expanded={chartsOpen}
+				>
+					<BarChart3 size={15} />
+					统计概览
+					{chartsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+				</button>
+				{chartsOpen && (
+					<div className="mt-3 flex gap-6 flex-wrap">
+						<div className="flex-[1_1_300px] min-w-0">
+							<FeedbackChart />
+						</div>
+						<RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
+					</div>
+				)}
 			</div>
 
 			<div className="flex gap-2 flex-wrap items-center justify-between rounded-xl border border-border bg-muted shadow-sm p-3.5 mb-4">
@@ -576,8 +594,9 @@ export default function FeedbackTab() {
 						<input
 							type="text"
 							placeholder="搜索反馈内容..."
-							value={searchText}
-							onChange={(e) => { setSearchText(e.target.value); setOffset(0); }}
+							aria-label="搜索反馈内容"
+							value={searchInput}
+							onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
 							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"
 						/>
 					</div>
@@ -602,7 +621,7 @@ export default function FeedbackTab() {
 									? "bg-primary text-primary-foreground border-primary"
 									: "border-border bg-card text-muted-foreground hover:border-blue-400 hover:text-primary",
 							)}
-							onClick={() => setTag(opt.value)}
+							onClick={() => { setTag(opt.value); setOffset(0); }}
 						>
 							{opt.label}
 						</button>

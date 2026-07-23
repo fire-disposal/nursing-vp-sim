@@ -8,7 +8,14 @@ from repositories.base import Repository
 class FeedbackRepository(Repository[Feedback]):
     model = Feedback
 
-    def query_admin_list(self, tag: str | None = None, date_from=None, date_to=None):
+    def query_admin_list(
+        self,
+        tag: str | None = None,
+        date_from=None,
+        date_to=None,
+        search: str | None = None,
+        replied: bool | None = None,
+    ):
         q = self.db.query(
             Feedback.id,
             Feedback.user_id,
@@ -27,6 +34,12 @@ class FeedbackRepository(Repository[Feedback]):
             q = q.filter(Feedback.created_at >= date_from)
         if date_to is not None:
             q = q.filter(Feedback.created_at < date_to)
+        if search:
+            q = q.filter(Feedback.content.ilike(f"%{search}%"))
+        if replied is True:
+            q = q.filter(Feedback.developer_reply.isnot(None))
+        elif replied is False:
+            q = q.filter(Feedback.developer_reply.is_(None))
 
         return q
 

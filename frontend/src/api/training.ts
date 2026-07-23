@@ -79,16 +79,3 @@ export const triggerInitiative = (recordId: number) =>
 	api.post<components["schemas"]["InitiativeTriggerResponse"]>(
 		`/training/${recordId}/initiative/trigger` as ApiPath,
 	);
-
-const NURSING_RECORD = "/nursing-records/{record_id}" satisfies ApiPath;
-
-export const getNursingRecord = (recordId: number) =>
-	api.get<Schemas["NursingRecordResponse"]>(
-		NURSING_RECORD.replace("{record_id}", String(recordId)) as ApiPath,
-	);
-
-export const saveNursingRecord = (recordId: number, data: { sheet_data: Record<string, unknown>; status?: string }) =>
-	api.post<Schemas["NursingRecordResponse"]>(
-		NURSING_RECORD.replace("{record_id}", String(recordId)) as ApiPath,
-		data,
-	);

@@ -67,10 +67,12 @@ def get_feedback_image(
 def my_feedback(
     current_user: _AnyUser,
     db: DbSession,
+    tag: Annotated[str | None, Query()] = None,
+    replied: Annotated[bool | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
-    items, total = FeedbackService(db).list_my(current_user.id, offset=offset, limit=limit)
+    items, total = FeedbackService(db).list_my(current_user.id, tag=tag, replied=replied, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[_to_item(r) for r in items],
         total=total,
@@ -86,11 +88,13 @@ def admin_list_feedback(
     tag: Annotated[str | None, Query()] = None,
     date_from: Annotated[str | None, Query()] = None,
     date_to: Annotated[str | None, Query()] = None,
+    search: Annotated[str | None, Query(max_length=50)] = None,
+    replied: Annotated[bool | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
     items, total = FeedbackService(db).list_admin(
-        tag=tag, date_from=date_from, date_to=date_to, offset=offset, limit=limit
+        tag=tag, date_from=date_from, date_to=date_to, search=search, replied=replied, offset=offset, limit=limit
     )
     return PaginatedResponse(
         items=[_to_item(r) for r in items],

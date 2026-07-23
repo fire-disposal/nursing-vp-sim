@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Camera, MessageSquare, MessageSquareReply } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -49,29 +49,22 @@ export default function MyFeedbackPage() {
 	const [tagFilter, setTagFilter] = useState("");
 	const [replyFilter, setReplyFilter] = useState("");
 
+	// 服务端过滤：tag / replied 与分页 total 同源，避免"过滤后空页"脱节
+	const params: Record<string, unknown> = { offset, limit: LIMIT };
+	if (tagFilter) params.tag = tagFilter;
+	if (replyFilter === "replied") params.replied = true;
+	else if (replyFilter === "unreplied") params.replied = false;
+
 	const { data, isLoading } = useQuery({
-		queryKey: queryKeys.admin.feedback.my(offset),
-		queryFn: () => getMyFeedback({ offset, limit: LIMIT }).then((r) => r.data),
+		queryKey: queryKeys.admin.feedback.my(params),
+		queryFn: () => getMyFeedback(params).then((r) => r.data),
 		staleTime: 0,
 		placeholderData: keepPreviousData,
 		refetchOnWindowFocus: false,
 	});
 
-	const rawItems = (data?.items ?? []) as FeedbackItem[];
+	const items = (data?.items ?? []) as FeedbackItem[];
 	const total = data?.total ?? 0;
-
-	const items = useMemo(() => {
-		let result = rawItems;
-		if (tagFilter) {
-			result = result.filter((fb) => fb.tag === tagFilter);
-		}
-		if (replyFilter === "replied") {
-			result = result.filter((fb) => fb.developer_reply != null);
-		} else if (replyFilter === "unreplied") {
-			result = result.filter((fb) => fb.developer_reply == null);
-		}
-		return result;
-	}, [rawItems, tagFilter, replyFilter]);
 
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 

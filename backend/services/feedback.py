@@ -76,13 +76,15 @@ class FeedbackService:
         tag: str | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
+        search: str | None = None,
+        replied: bool | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> tuple[list[FeedbackRow], int]:
         df = self._parse_date(date_from)
         dt = self._parse_date(date_to)
 
-        q = self.repo.query_admin_list(tag=tag, date_from=df, date_to=dt)
+        q = self.repo.query_admin_list(tag=tag, date_from=df, date_to=dt, search=search, replied=replied)
         q = q.add_columns(User.display_name.label("user_name")).join(User, Feedback.user_id == User.id)
 
         rows, total = paginate(q, offset, limit)
@@ -131,8 +133,21 @@ class FeedbackService:
         ]
         return items, total
 
-    def list_my(self, user_id: int, offset: int = 0, limit: int = 50) -> tuple[list[FeedbackRow], int]:
+    def list_my(
+        self,
+        user_id: int,
+        tag: str | None = None,
+        replied: bool | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[FeedbackRow], int]:
         q = self.db.query(Feedback).filter(Feedback.user_id == user_id).order_by(Feedback.created_at.desc())
+        if tag:
+            q = q.filter(Feedback.tag == tag)
+        if replied is True:
+            q = q.filter(Feedback.developer_reply.isnot(None))
+        elif replied is False:
+            q = q.filter(Feedback.developer_reply.is_(None))
         rows, total = paginate(q, offset, limit)
 
         feedback_ids = [r.id for r in rows]
