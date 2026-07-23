@@ -18,7 +18,7 @@ export function PersonalitySection({ value, communicationStyle, onPersonalityCha
 		<fieldset className="border border-border rounded-lg p-4">
 			<legend className="text-sm font-semibold text-foreground px-1">人格配置</legend>
 			<p className="text-xs text-muted-foreground mb-3">影响患者的情绪反应基线、对话风格和信任建立速度</p>
-			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+			<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
 				<div>
 					<label className="block text-xs font-semibold text-muted-foreground mb-1">健康素养</label>
 					<select value={value.health_literacy} onChange={(e) => set("health_literacy", e.target.value)} className={SELECT_CLASS} disabled={disabled}>
@@ -48,8 +48,25 @@ export function PersonalitySection({ value, communicationStyle, onPersonalityCha
 					<label className="block text-xs font-semibold text-muted-foreground mb-1">耐心</label>
 					<select value={value.patience} onChange={(e) => set("patience", e.target.value)} className={SELECT_CLASS} disabled={disabled}>
 						<option value="low">耐心不足</option>
-						<option value="normal">有耐心配合</option>
-						<option value="high">非常耐心</option>
+						<option value="normal">有耐心</option>
+						<option value="high">话多反复</option>
+					</select>
+				</div>
+				<div>
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">情绪基调</label>
+					<select value={value.mood} onChange={(e) => set("mood", e.target.value)} className={SELECT_CLASS} disabled={disabled}>
+						<option value="neutral">平常心态</option>
+						<option value="low">情绪低落</option>
+						<option value="irritable">烦躁易怒</option>
+						<option value="fearful">恐惧不安</option>
+					</select>
+				</div>
+				<div>
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">依从性</label>
+					<select value={value.compliance} onChange={(e) => set("compliance", e.target.value)} className={SELECT_CLASS} disabled={disabled}>
+						<option value="resistant">不信任/抵触</option>
+						<option value="normal">正常配合</option>
+						<option value="dependent">过分依赖</option>
 					</select>
 				</div>
 			</div>

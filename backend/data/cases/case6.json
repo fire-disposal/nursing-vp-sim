@@ -43,7 +43,9 @@
     "health_literacy": "medium",
     "verbosity": "verbose",
     "anxiety_trait": "anxious",
-    "patience": "low"
+    "patience": "low",
+    "mood": "irritable",
+    "compliance": "resistant"
   },
   "example_dialogues": [
     {

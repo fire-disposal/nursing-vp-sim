@@ -31,6 +31,8 @@ class PersonalityConfig(BaseModel):
     verbosity: Literal["terse", "normal", "verbose"] = "normal"
     anxiety_trait: Literal["calm", "normal", "anxious"] = "normal"
     patience: Literal["low", "normal", "high"] = "normal"
+    mood: Literal["neutral", "low", "irritable", "fearful"] = "neutral"
+    compliance: Literal["resistant", "normal", "dependent"] = "normal"
 
 
 class PhaseTransition(BaseModel):

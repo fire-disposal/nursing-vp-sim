@@ -53,6 +53,8 @@ export interface PersonalityConfig {
 	verbosity: "terse" | "normal" | "verbose";
 	anxiety_trait: "calm" | "normal" | "anxious";
 	patience: "low" | "normal" | "high";
+	mood: "neutral" | "low" | "irritable" | "fearful";
+	compliance: "resistant" | "normal" | "dependent";
 }
 
 export interface QuizFormData {
@@ -117,6 +119,8 @@ export const DEFAULT_PERSONALITY: PersonalityConfig = {
 	verbosity: "normal",
 	anxiety_trait: "normal",
 	patience: "normal",
+	mood: "neutral",
+	compliance: "normal",
 };
 
 export const DEFAULT_QUIZ: QuizFormData = {

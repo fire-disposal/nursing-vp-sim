@@ -15,21 +15,61 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
 
     def _format_personality(p: dict) -> str:
         if not p:
-            return "普通患者，正常配合。"
+            return "普通患者。"
         parts = []
         lit = {
             "low": "不太会描述病情，用词简单模糊，经常答非所问",
             "normal": "能正常描述症状",
-            "high": "能精准描述病情感受",
+            "high": "能精准描述病情感受，偶尔冒出医学术语",
             "medium": "能正常描述症状",
         }
-        verb = {"terse": "寡言少语", "normal": "正常交流", "verbose": "话多健谈"}
-        anx = {"calm": "心态平和", "normal": "适度担心", "anxious": "容易焦虑"}
-        pat = {"low": "耐心不足、容易急躁、可能怼人", "normal": "有耐心配合", "high": "话多反复讲同一件事"}
-        for key, mapping in [("health_literacy", lit), ("verbosity", verb), ("anxiety_trait", anx), ("patience", pat)]:
-            if p.get(key):
-                parts.append(mapping.get(p[key], ""))
-        return "，".join(filter(None, parts)) + "。"
+        verb = {"terse": "寡言少语、问三句答一句", "normal": "正常交流", "verbose": "话多健谈、容易跑题扯远"}
+        anx = {"calm": "心态平和、不太当回事", "normal": "适度担心", "anxious": "容易紧张焦虑、反复确认"}
+        pat = {"low": "耐心不足、容易急躁、可能怼人", "normal": "有耐心", "high": "话多反复讲同一件事"}
+        mood = {
+            "neutral": "",
+            "low": "情绪低落、说话有气无力",
+            "irritable": "烦躁易怒、对什么都挑剔",
+            "fearful": "害怕自己的病很严重、说话带着恐惧",
+        }
+        compliance = {
+            "resistant": "不太信任年轻护士、回答有所保留、可能质疑'你问这个干嘛'",
+            "normal": "",
+            "dependent": "过分依赖医护人员、反复确认自己做得对不对",
+        }
+        for key, mapping in [
+            ("health_literacy", lit),
+            ("verbosity", verb),
+            ("anxiety_trait", anx),
+            ("patience", pat),
+            ("mood", mood),
+            ("compliance", compliance),
+        ]:
+            val = mapping.get(p.get(key, ""), "")
+            if val:
+                parts.append(val)
+
+        # 组合加成：危险搭配产生更强烈的行为描述
+        combo = []
+        is_anxious = p.get("anxiety_trait") == "anxious"
+        is_low_patience = p.get("patience") == "low"
+        is_low_lit = p.get("health_literacy") in ("low",)
+        is_resistant = p.get("compliance") == "resistant"
+        is_low_mood = p.get("mood") == "low"
+
+        if is_anxious and is_low_patience:
+            combo.append("你处于高度紧绷状态，随时可能情绪爆发或直接拒绝回答")
+        if is_low_lit and is_resistant:
+            combo.append("你不理解问题时会胡乱回答或转移话题，而不是承认自己不明白")
+        if is_low_mood and is_resistant:
+            combo.append("你觉得说什么都没用，常常沉默或以'不知道'敷衍")
+        if is_anxious and p.get("compliance") == "dependent":
+            combo.append("你极度依赖对方给出肯定的回应，对方一犹豫你就更焦虑")
+
+        base = "，".join(filter(None, parts)) + "。"
+        if combo:
+            base += " " + " ".join(combo)
+        return base
 
     def _format_deep_background(db: dict) -> str:
         if not db:

@@ -38,7 +38,9 @@
     "health_literacy": "low",
     "verbosity": "normal",
     "anxiety_trait": "normal",
-    "patience": "normal"
+    "patience": "normal",
+    "mood": "neutral",
+    "compliance": "dependent"
   },
   "example_dialogues": [
     {

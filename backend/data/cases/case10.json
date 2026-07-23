@@ -43,7 +43,9 @@
     "health_literacy": "medium",
     "verbosity": "normal",
     "anxiety_trait": "anxious",
-    "patience": "normal"
+    "patience": "normal",
+    "mood": "fearful",
+    "compliance": "normal"
   },
   "example_dialogues": [
     {
