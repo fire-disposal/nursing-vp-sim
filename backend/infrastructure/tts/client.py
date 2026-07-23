@@ -270,6 +270,14 @@ class VolcTTSConnection:
             self._session_id = None
             self.last_used_at = time.monotonic()
 
+    async def abort(self) -> None:
+        """Force-close without protocol handshake (mid-session cancellation).
+
+        A connection whose session was interrupted has unread frames in
+        flight and must never be reused — the pool discards dead connections.
+        """
+        await self._force_close()
+
     async def close(self) -> None:
         ws, self._ws = self._ws, None
         if ws is None:

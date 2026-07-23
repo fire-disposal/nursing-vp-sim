@@ -206,15 +206,20 @@ class VoiceConfigService:
             raise
 
         async def _gen() -> AsyncIterator[bytes]:
+            completed = False
             try:
                 stream = conn.read_stream()
                 while True:
                     try:
                         chunk = await asyncio.wait_for(anext(stream), timeout=max(0.1, deadline - loop.time()))
                     except StopAsyncIteration:
+                        completed = True
                         break
                     yield chunk
             finally:
+                if not completed:
+                    # Interrupted session — connection poisoned, never reuse.
+                    await conn.abort()
                 await conn_ctx.__aexit__(None, None, None)
 
         return vc.tts_speaker, STREAM_SAMPLE_RATE, _gen()

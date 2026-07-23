@@ -260,18 +260,24 @@ class TTSService:
             first_chunk_ms: int | None = None
             billed_words = 0
             status = "error"
+            completed = False
             try:
                 stream = conn.read_stream()
                 while True:
                     try:
                         chunk = await asyncio.wait_for(anext(stream), timeout=_remaining())
                     except StopAsyncIteration:
+                        completed = True
                         break
                     if first_chunk_ms is None:
                         first_chunk_ms = int((time.perf_counter() - t0) * 1000)
                     yield chunk
                 status = "success"
             finally:
+                if not completed:
+                    # Interrupted session (timeout/client abort) — frames are
+                    # still in flight; the connection is poisoned, never reuse.
+                    await conn.abort()
                 await conn_ctx.__aexit__(None, None, None)
                 if isinstance(conn.last_usage, dict):
                     words = conn.last_usage.get("text_words")
