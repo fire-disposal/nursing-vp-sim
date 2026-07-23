@@ -153,7 +153,7 @@ def test_validate_scoring_essentials_passes_with_valid_data():
 
 
 def test_validate_scoring_essentials_passes_with_float_total_score():
-    _validate_scoring_essentials({"total_score": 50.5, "detail_scores": {}})
+    _validate_scoring_essentials({"total_score": 50.5, "detail_scores": {"dim_a": {}}})
 
 
 def test_validate_scoring_essentials_raises_missing_total_score():
