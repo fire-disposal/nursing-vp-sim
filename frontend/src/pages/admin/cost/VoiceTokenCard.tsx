@@ -1,20 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	Activity,
-	CheckCircle,
-	ChevronDown,
-	ChevronRight,
-	Loader2,
-	Play,
-	Save,
-	Square,
-	Volume2,
-	XCircle,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, Loader2, Play, Save, Square, Volume2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	fetchVoiceConfig,
-	fetchVoiceUsage,
 	streamTestTTS,
 	testTTS,
 	updateVoiceConfig,
@@ -25,16 +13,20 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Separator } from "@/components/ui/separator";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 
 const TTS_RESOURCE_IDS = ["seed-tts-2.0", "seed-icl-2.0"];
 
+const rowClass = "flex items-center gap-3 py-2";
+
+const fieldLabelClass = "w-[88px] shrink-0 text-xs text-muted-foreground";
+
+const inputClass =
+	"h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
 const selectClass =
-	"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+	"h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 const DEFAULT_FORM = {
 	api_key: "",
@@ -53,78 +45,21 @@ function formFromConfig(config: VoiceConfigResponse | undefined) {
 	};
 }
 
-function StatusStrip({
-	status,
-	checking,
-	onVerify,
-}: {
-	status: VoiceStatusResponse | null;
-	checking: boolean;
-	onVerify: () => void;
-}) {
-	const { data: usage } = useQuery({
-		queryKey: queryKeys.voice.usage,
-		queryFn: () => fetchVoiceUsage().then((r) => r.data),
-		staleTime: 60_000,
-	});
-	const today = usage?.tts_today;
-	const successRate =
-		today && today.calls_total > 0
-			? `${((today.calls_success / today.calls_total) * 100).toFixed(1)}%`
-			: null;
+const STATUS_DOT: Record<string, string> = {
+	online: "bg-green-500",
+	offline: "bg-red-500",
+	checking: "bg-amber-400",
+	unknown: "bg-gray-300",
+};
 
-	return (
-		<div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
-			{checking ? (
-				<span className="inline-flex items-center gap-1 text-muted-foreground">
-					<Loader2 size={13} className="animate-spin" /> 验证中…
-				</span>
-			) : status ? (
-				status.tts_online ? (
-					<span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
-						<CheckCircle size={13} /> 在线
-					</span>
-				) : (
-					<span className="inline-flex items-center gap-1 text-danger font-medium">
-						<XCircle size={13} /> 离线
-					</span>
-				)
-			) : (
-				<span className="text-muted-foreground">状态未知</span>
-			)}
-
-			{status?.tts_pool_total != null && (
-				<span className="inline-flex items-center gap-1 text-muted-foreground">
-					<Activity size={12} />
-					连接池 {status.tts_pool_in_use ?? 0} 在用 / {status.tts_pool_total} 已建 /{" "}
-					{status.tts_pool_size ?? "-"} 上限
-				</span>
-			)}
-
-			{successRate !== null && (
-				<span className="text-muted-foreground">
-					今日成功率 <span className="text-foreground font-medium">{successRate}</span>（
-					{today?.calls_total ?? 0} 次）
-				</span>
-			)}
-
-			<Button
-				variant="ghost"
-				size="sm"
-				onClick={onVerify}
-				disabled={checking}
-				className="h-6 px-1.5 text-[11px] ml-auto"
-			>
-				验证
-			</Button>
-
-			{status?.last_error && (
-				<div className="w-full text-[11px] text-danger/90 break-all">
-					{status.last_error}
-				</div>
-			)}
-		</div>
-	);
+function classifyError(e: string | null): string | undefined {
+	if (!e) return undefined;
+	const lower = e.toLowerCase();
+	if (lower.includes("401") || lower.includes("unauthorized")) return "X-Api-Key (v3) 无效或已过期";
+	if (lower.includes("403") || lower.includes("forbidden")) return "无权限 — 确认已开通「语音合成大模型 2.0」服务";
+	if (lower.includes("timeout") || lower.includes("超时")) return "连接超时 — 检查网络或稍后重试";
+	if (lower.includes("connect") || lower.includes("dns") || lower.includes("resolve")) return "网络不可达 — 服务端能否访问 openspeech.bytedance.com？";
+	return e.length > 120 ? `${e.slice(0, 120)}…` : e;
 }
 
 export default function VoiceTokenCard() {
@@ -142,6 +77,7 @@ export default function VoiceTokenCard() {
 		onSuccess: () => {
 			toast.success("配置已保存");
 			queryClient.invalidateQueries({ queryKey: queryKeys.voice.config });
+			checkStatus();
 		},
 		onError: (e: unknown) => {
 			toast.apiError(e, "保存失败");
@@ -150,13 +86,26 @@ export default function VoiceTokenCard() {
 
 	const [form, setForm] = useState({ ...DEFAULT_FORM });
 	const [status, setStatus] = useState<VoiceStatusResponse | null>(null);
-	const [checkingStatus, setCheckingStatus] = useState(false);
-	const [showAdvanced, setShowAdvanced] = useState(false);
+	const [checking, setChecking] = useState(false);
+	const [_dirty, setDirty] = useState(false);
+	const [showKey, setShowKey] = useState(false);
+
 	const [testText, setTestText] = useState("你好，这是一段测试语音。");
 	const [playPending, setPlayPending] = useState(false);
 	const [firstChunkMs, setFirstChunkMs] = useState<number | null>(null);
+	const [streamError, setStreamError] = useState<string | null>(null);
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
+
+	const statusDot = checking
+		? "checking"
+		: status
+			? status.tts_online
+				? "online"
+				: "offline"
+			: "unknown";
+
+	const errorHint = classifyError(status?.last_error ?? null);
 
 	useEffect(() => {
 		if (!isLoading && config) setForm(formFromConfig(config));
@@ -170,18 +119,16 @@ export default function VoiceTokenCard() {
 
 	useEffect(() => () => stopPlayback(), []);
 
-	const checkStatus = () => {
+	const checkStatus = useCallback(() => {
 		if (!config) return;
-		setCheckingStatus(true);
+		setChecking(true);
 		testTTS()
 			.then((r) => setStatus(r.data))
 			.catch(() => setStatus(null))
-			.finally(() => setCheckingStatus(false));
-	};
+			.finally(() => setChecking(false));
+	}, [config]);
 
-	const setField = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
-
-	const handleSave = () => {
+	const handleSave = useCallback(() => {
 		saveMutation.mutate({
 			provider: "volcengine",
 			api_key: form.api_key || undefined,
@@ -189,21 +136,22 @@ export default function VoiceTokenCard() {
 			tts_speaker: form.tts_speaker,
 			tts_timeout: form.tts_timeout,
 		});
-	};
+	}, [saveMutation, form]);
 
-	const stopPlayback = () => {
+	const stopPlayback = useCallback(() => {
 		abortRef.current?.abort();
 		abortRef.current = null;
 		playerRef.current?.stop();
 		setPlayPending(false);
-	};
+	}, []);
 
-	const handleStreamPlay = async () => {
+	const handleStreamPlay = useCallback(async () => {
 		const text = testText.trim();
 		if (!text || playPending) return;
 		stopPlayback();
 		setPlayPending(true);
 		setFirstChunkMs(null);
+		setStreamError(null);
 		const t0 = performance.now();
 		try {
 			if (!playerRef.current) playerRef.current = new PcmStreamPlayer();
@@ -215,7 +163,8 @@ export default function VoiceTokenCard() {
 			});
 		} catch (e: unknown) {
 			if (!abortRef.current?.signal.aborted) {
-				toast.apiError(e, "流式播放失败");
+				const msg = e instanceof Error ? e.message : String(e);
+				setStreamError(msg);
 			}
 		} finally {
 			if (!abortRef.current?.signal.aborted) {
@@ -223,108 +172,170 @@ export default function VoiceTokenCard() {
 			}
 			abortRef.current = null;
 		}
-	};
+	}, [testText, playPending, stopPlayback]);
 
-	if (isLoading) return <LoadingSkeleton />;
+	const setField = useCallback(
+		(patch: Partial<typeof form>) => {
+			setForm((f) => ({ ...f, ...patch }));
+			setDirty(true);
+		},
+		[],
+	);
+
+	if (isLoading) return null;
 
 	return (
 		<Card>
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					TTS 语音服务
-					<span className="text-[11px] font-normal text-muted-foreground">
-						豆包语音合成 2.0 · 流式（PCM 24kHz）
-					</span>
-				</CardTitle>
+			<CardHeader className="pb-2">
+				<div className="flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2 text-base">TTS 语音服务</CardTitle>
+					<span className="text-[11px] text-muted-foreground">豆包语音合成 2.0 · PCM 24kHz 流式</span>
+				</div>
 			</CardHeader>
+
 			<CardContent className="space-y-4">
-				<StatusStrip status={status} checking={checkingStatus} onVerify={checkStatus} />
+				{/* ── Status strip ── */}
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-muted/20 px-3 py-1.5 text-xs">
+					<div className="flex items-center gap-1.5">
+						<span className={`inline-block w-2 h-2 rounded-full ${STATUS_DOT[statusDot]}`} />
+						<span className="font-medium text-foreground">
+							{statusDot === "checking"
+								? "检查中…"
+								: status?.tts_online
+									? "在线"
+									: status
+										? "离线"
+										: "状态未知"}
+						</span>
+						<button
+							type="button"
+							onClick={checkStatus}
+							disabled={checking}
+							className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+						>
+							刷新
+						</button>
+					</div>
+					{status?.tts_pool_total != null && (
+						<span className="text-muted-foreground/80">
+							连接池 {status.tts_pool_in_use ?? 0}/{status.tts_pool_total}（上限 {status.tts_pool_size ?? "-"}）
+						</span>
+					)}
+					{errorHint && (
+						<span className="w-full text-[11px] text-danger/90">
+							{errorHint}{" "}
+							{!status?.tts_online && (
+								<a
+									href="https://console.volcengine.com/speech/new/setting/apikeys"
+									target="_blank"
+									rel="noreferrer"
+									className="underline"
+								>
+									火山引擎 API Key 管理
+								</a>
+							)}
+						</span>
+					)}
+				</div>
+
+				{/* ── Form ── */}
+				<div className="border border-border rounded-lg overflow-hidden text-sm">
+					<div className={rowClass}>
+						<span className={fieldLabelClass}>
+							X-Api-Key
+							<span className="text-[10px] text-muted-foreground/70 ml-0.5">v3</span>
+						</span>
+						<div className="flex-1 relative">
+							<input
+								type={showKey ? "text" : "password"}
+								value={form.api_key}
+								onChange={(e) => setField({ api_key: e.target.value })}
+								placeholder={config?.api_key_masked || "从火山引擎控制台 → API Key 创建"}
+								className={`${inputClass} pr-8`}
+							/>
+							<button
+								type="button"
+								onClick={() => setShowKey((v) => !v)}
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+							>
+								{showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+							</button>
+						</div>
+						<a
+							href="https://console.volcengine.com/speech/new/setting/apikeys"
+							target="_blank"
+							rel="noreferrer"
+							className="text-[10px] text-muted-foreground hover:text-foreground underline shrink-0 w-[60px] text-right"
+						>
+							获取密钥
+						</a>
+					</div>
+					<div className={`${rowClass} border-t border-border`}>
+						<span className={fieldLabelClass}>音色 ID</span>
+						<input
+							value={form.tts_speaker}
+							onChange={(e) => setField({ tts_speaker: e.target.value })}
+							placeholder="zh_female_vv_uranus_bigtts"
+							className={`${inputClass} flex-1`}
+						/>
+					</div>
+					<div className={`${rowClass} border-t border-border`}>
+						<span className={fieldLabelClass}>Resource ID</span>
+						<select
+							value={form.tts_resource_id}
+							onChange={(e) => setField({ tts_resource_id: e.target.value })}
+							className={`${selectClass} flex-1`}
+						>
+							{TTS_RESOURCE_IDS.map((m) => (
+								<option key={m} value={m}>
+									{m}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className={`${rowClass} border-t border-border`}>
+						<span className={fieldLabelClass}>超时</span>
+						<input
+							type="number"
+							min={3}
+							max={30}
+							value={form.tts_timeout}
+							onChange={(e) => setField({ tts_timeout: Number(e.target.value) })}
+							className={`${inputClass} w-20`}
+						/>
+						<span className="text-xs text-muted-foreground">秒</span>
+						<span className="text-[10px] text-muted-foreground ml-auto">
+							<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="underline">
+								音色列表
+							</a>
+						</span>
+					</div>
+				</div>
+
+				<div className="flex justify-end">
+					<Button onClick={handleSave} disabled={saveMutation.isPending}>
+						{saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+						保存配置
+					</Button>
+				</div>
 
 				{!config && (
-					<div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
-						<p className="font-medium text-foreground text-sm">接入步骤</p>
-						<ol className="list-decimal list-inside space-y-0.5">
-							<li><a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" className="text-primary underline">火山引擎控制台</a> 创建 API Key</li>
-							<li><a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-primary underline">音色库</a> 选择音色 ID</li>
-							<li>填写下方表单，保存后点"验证"</li>
+					<div className="rounded-md border border-border bg-muted/20 p-2.5 text-[11px] text-muted-foreground space-y-1">
+						<p className="font-medium text-foreground text-xs">接入步骤（v3 统一 API Key，非旧版 AppID+Token）</p>
+						<ol className="list-decimal list-inside space-y-0.5 ml-0.5">
+							<li><a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" className="text-primary underline">火山引擎控制台 → API Key</a> 创建 v3 统一密钥</li>
+							<li><a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-primary underline">音色库</a> 选择音色 ID 填入下方</li>
+							<li>保存后即可使用</li>
 						</ol>
 					</div>
 				)}
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<div className="space-y-1.5">
-						<Label htmlFor="voice-api-key">
-							API Key{" "}
-							<span className="text-muted-foreground text-xs">
-								(当前: {config?.api_key_masked || "未设置"})
-							</span>
-						</Label>
-						<Input
-							id="voice-api-key"
-							type="password"
-							value={form.api_key}
-							onChange={(e) => setField({ api_key: e.target.value })}
-							placeholder="从火山引擎控制台获取"
-						/>
-					</div>
-					<div className="space-y-1.5">
-						<Label htmlFor="voice-tts-speaker">音色 ID</Label>
-						<Input
-							id="voice-tts-speaker"
-							value={form.tts_speaker}
-							onChange={(e) => setField({ tts_speaker: e.target.value })}
-							placeholder="zh_female_vv_uranus_bigtts"
-						/>
-						<p className="text-[10px] text-muted-foreground">
-							<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="underline">音色库</a> 获取
-						</p>
-					</div>
-					<div className="space-y-1.5">
-						<Label htmlFor="voice-tts-timeout">超时 (秒)</Label>
-						<Input
-							id="voice-tts-timeout"
-							type="number" min={3} max={30}
-							value={form.tts_timeout}
-							onChange={(e) => setField({ tts_timeout: Number(e.target.value) })}
-						/>
-					</div>
-				</div>
-
-				<button
-					type="button"
-					onClick={() => setShowAdvanced((v) => !v)}
-					className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-				>
-					{showAdvanced ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-					高级
-				</button>
-				{showAdvanced && (
-					<div className="space-y-1.5 max-w-xs">
-						<Label htmlFor="voice-tts-resource">Resource ID</Label>
-						<select
-							id="voice-tts-resource"
-							value={form.tts_resource_id}
-							onChange={(e) => setField({ tts_resource_id: e.target.value })}
-							className={selectClass}
-						>
-							{TTS_RESOURCE_IDS.map((m) => (<option key={m} value={m}>{m}</option>))}
-						</select>
-						<p className="text-[10px] text-muted-foreground">
-							seed-tts-2.0 = 标准合成；seed-icl-2.0 = 声音复刻。音频格式/采样率由流式管线固定为 PCM 24kHz，无需配置。
-						</p>
-					</div>
-				)}
-
-				<Button onClick={handleSave} disabled={saveMutation.isPending}>
-					{saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-					保存配置
-				</Button>
-
 				<Separator />
 
-				<div className="space-y-3">
+				{/* ── Stream test ── */}
+				<div className="space-y-2.5">
 					<div className="flex items-center gap-2">
-						<Volume2 size={16} className="text-muted-foreground" />
+						<Volume2 size={14} className="text-muted-foreground" />
 						<span className="text-sm font-medium">试听（生产路径）</span>
 						{firstChunkMs !== null && (
 							<span className="text-[11px] text-muted-foreground">
@@ -335,25 +346,34 @@ export default function VoiceTokenCard() {
 					<textarea
 						value={testText}
 						onChange={(e) => setTestText(e.target.value)}
-						placeholder="输入要合成的文本..."
+						placeholder="输入要合成的文本…"
 						maxLength={200}
 						rows={2}
-						className="w-full p-2.5 rounded-md border border-border text-sm resize-y outline-none bg-card focus:border-primary"
+						className="w-full p-2 rounded-md border border-border text-sm resize-y outline-none bg-card focus:border-primary"
 					/>
-					<div className="flex gap-2">
-						<Button variant="outline" onClick={handleStreamPlay} disabled={playPending || !testText.trim()}>
-							{playPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+					<div className="flex gap-2 items-center">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={handleStreamPlay}
+							disabled={playPending || !testText.trim() || statusDot === "offline"}
+						>
+							{playPending ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<Play className="size-3" />
+							)}
 							流式播放
 						</Button>
 						{playPending && (
-							<Button variant="ghost" onClick={stopPlayback}>
-								<Square className="size-4" /> 停止
+							<Button variant="ghost" size="sm" onClick={stopPlayback}>
+								<Square className="size-3" /> 停止
 							</Button>
 						)}
+						{streamError && (
+							<span className="text-[11px] text-danger/90 ml-2">{classifyError(streamError) ?? streamError}</span>
+						)}
 					</div>
-					<p className="text-[10px] text-muted-foreground">
-						与训练页完全相同的链路：连接池 → 豆包 2.0 流式合成 → Web Audio 边收边播。
-					</p>
 				</div>
 			</CardContent>
 		</Card>
