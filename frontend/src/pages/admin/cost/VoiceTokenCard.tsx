@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Loader2, Play, Save, Square, Volume2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	fetchVoiceConfig,
@@ -18,15 +18,15 @@ import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 
 const TTS_RESOURCE_IDS = ["seed-tts-2.0", "seed-icl-2.0"];
 
-const rowClass = "flex items-center gap-3 py-2";
+const rowClass = "flex items-center gap-3 px-3 py-2.5";
 
-const fieldLabelClass = "w-[88px] shrink-0 text-xs text-muted-foreground";
+const fieldLabelClass = "w-[72px] shrink-0 text-xs text-muted-foreground font-medium whitespace-nowrap";
 
 const inputClass =
-	"h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+	"h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/50";
 
 const selectClass =
-	"h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+	"h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 const DEFAULT_FORM = {
 	api_key: "",
@@ -243,15 +243,15 @@ export default function VoiceTokenCard() {
 					<div className={rowClass}>
 						<span className={fieldLabelClass}>
 							X-Api-Key
-							<span className="text-[10px] text-muted-foreground/70 ml-0.5">v3</span>
+							<span className="text-[10px] text-muted-foreground/60 ml-0.5">v3</span>
 						</span>
 						<div className="flex-1 relative">
 							<input
 								type={showKey ? "text" : "password"}
 								value={form.api_key}
 								onChange={(e) => setField({ api_key: e.target.value })}
-								placeholder={config?.api_key_masked || "从火山引擎控制台 → API Key 创建"}
-								className={`${inputClass} pr-8`}
+								placeholder={config?.api_key_masked || "火山引擎控制台 → API Key"}
+								className={`${inputClass} font-mono pr-8`}
 							/>
 							<button
 								type="button"
@@ -261,25 +261,25 @@ export default function VoiceTokenCard() {
 								{showKey ? <EyeOff size={14} /> : <Eye size={14} />}
 							</button>
 						</div>
-						<a
-							href="https://console.volcengine.com/speech/new/setting/apikeys"
-							target="_blank"
-							rel="noreferrer"
-							className="text-[10px] text-muted-foreground hover:text-foreground underline shrink-0 w-[60px] text-right"
-						>
-							获取密钥
-						</a>
 					</div>
-					<div className={`${rowClass} border-t border-border`}>
+					<div className={`${rowClass} border-t border-border/50`}>
 						<span className={fieldLabelClass}>音色 ID</span>
 						<input
 							value={form.tts_speaker}
 							onChange={(e) => setField({ tts_speaker: e.target.value })}
 							placeholder="zh_female_vv_uranus_bigtts"
-							className={`${inputClass} flex-1`}
+							className={`${inputClass} font-mono flex-1`}
 						/>
+						<a
+							href="https://console.volcengine.com/speech/new/voices"
+							target="_blank"
+							rel="noreferrer"
+							className="text-[11px] text-muted-foreground hover:text-foreground underline shrink-0"
+						>
+							音色列表
+						</a>
 					</div>
-					<div className={`${rowClass} border-t border-border`}>
+					<div className={`${rowClass} border-t border-border/50`}>
 						<span className={fieldLabelClass}>Resource ID</span>
 						<select
 							value={form.tts_resource_id}
@@ -293,7 +293,7 @@ export default function VoiceTokenCard() {
 							))}
 						</select>
 					</div>
-					<div className={`${rowClass} border-t border-border`}>
+					<div className={`${rowClass} border-t border-border/50`}>
 						<span className={fieldLabelClass}>超时</span>
 						<input
 							type="number"
@@ -301,22 +301,16 @@ export default function VoiceTokenCard() {
 							max={30}
 							value={form.tts_timeout}
 							onChange={(e) => setField({ tts_timeout: Number(e.target.value) })}
-							className={`${inputClass} w-20`}
+							className={`${inputClass} w-[72px]`}
 						/>
 						<span className="text-xs text-muted-foreground">秒</span>
-						<span className="text-[10px] text-muted-foreground ml-auto">
-							<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="underline">
-								音色列表
-							</a>
-						</span>
 					</div>
-				</div>
-
-				<div className="flex justify-end">
-					<Button onClick={handleSave} disabled={saveMutation.isPending}>
-						{saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-						保存配置
-					</Button>
+					<div className="border-t border-border/50 px-3 py-2 flex justify-end gap-2">
+						<Button onClick={handleSave} disabled={saveMutation.isPending} size="sm">
+							{saveMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+							保存配置
+						</Button>
+					</div>
 				</div>
 
 				{!config && (
