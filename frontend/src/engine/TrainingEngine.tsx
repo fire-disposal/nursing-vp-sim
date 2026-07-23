@@ -118,7 +118,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			streamRef.current.send(text, {
 				onPatientChunk: (chunk: string) => {
 					patientAccRef.current += chunk;
-					bus.emit("stream:chunk");
+					bus.emit("stream:chunk", chunk);
 				},
 				onPatientDone: () => {
 					const text = patientAccRef.current;

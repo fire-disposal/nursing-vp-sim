@@ -1,16 +1,21 @@
 """TTS synthesis business logic."""
 
+import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from core.config import TTS_POOL_SIZE
 from core.exceptions import AuthError, NotFoundError
 from core.unit_of_work import unit_of_work
 from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
-from infrastructure.tts.client import VolcBidirectionalTTSClient
+from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
 from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
+from infrastructure.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)
@@ -21,9 +26,18 @@ _DEFAULT_TTS_CONFIG = {
     "sample_rate": 24000,
 }
 
+# Streaming path is fixed PCM 24kHz 16-bit mono — the Web Audio player
+# schedules raw PCM sample-accurately without decoding.
+STREAM_FORMAT = "pcm"
+STREAM_SAMPLE_RATE = 24000
+
+# Rough list-price estimate per billed character (CNY). Only the base changed
+# from "input chars" to "usage.text_words"; the rate itself is unchanged.
+_COST_PER_CHAR = 0.000_002
+
 
 def load_tts_state(app_state, db: Session) -> None:
-    """(Re)load ``app_state.tts_client`` + ``app_state.tts_config`` from the
+    """(Re)load ``app_state.tts_client``/``tts_pool``/``tts_config`` from the
     active VoiceConfig.
 
     Single source of truth shared by startup (``main.py``) and the admin
@@ -33,11 +47,17 @@ def load_tts_state(app_state, db: Session) -> None:
     """
     from models import VoiceConfig
 
+    old_pool = getattr(app_state, "tts_pool", None)
+    if old_pool is not None:
+        old_pool.close_sync()
+    app_state.tts_pool = None
+
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
     app_state.tts_config = {
         "model": vc.tts_model if vc else _DEFAULT_TTS_CONFIG["model"],
         "format": vc.tts_format if vc else _DEFAULT_TTS_CONFIG["format"],
         "sample_rate": vc.tts_sample_rate if vc else _DEFAULT_TTS_CONFIG["sample_rate"],
+        "timeout": vc.tts_timeout if vc else 8,
         "speaker_library": vc.speaker_library if vc else None,
     }
 
@@ -53,7 +73,12 @@ def load_tts_state(app_state, db: Session) -> None:
                 resource_id=vc.tts_resource_id,
                 timeout=vc.tts_timeout,
             )
-            log.info("TTS client ready (resource_id=%s)", vc.tts_resource_id)
+            app_state.tts_pool = TTSConnectionPool(
+                api_key=api_key,
+                resource_id=vc.tts_resource_id,
+                size=TTS_POOL_SIZE,
+            )
+            log.info("TTS client+pool ready (resource_id=%s)", vc.tts_resource_id)
             return
         log.warning("TTS client: api_key empty or integrity check failed")
 
@@ -71,9 +96,75 @@ _AUDIO_MEDIA_TYPES = {
 _TTS_CIRCUIT_BREAKER = TTSCircuitBreaker(failure_threshold=3, cooldown_seconds=300)
 
 
+@dataclass
+class TTSStreamInfo:
+    speaker: str
+    emotion: str
+    sample_rate: int
+
+
 class TTSService:
     def __init__(self, db: Session):
         self.db = db
+
+    def _resolve_request(
+        self,
+        record_id: int,
+        text: str,
+        voice_type: str | None,
+        user_id: int,
+        emotion_state: str,
+        fmt: str,
+        sample_rate: int,
+        speaker_library: dict | None,
+    ) -> TTSRequest:
+        record = self.db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not record:
+            raise NotFoundError("训练记录不存在")
+        if record.user_id != user_id:
+            raise AuthError("只能操作自己的训练")
+
+        case = self.db.query(Case).filter(Case.id == record.case_id).first()
+        if not case:
+            raise NotFoundError("病例不存在")
+
+        age, gender = _extract_demographics(case)
+        speaker = resolve_voice_type(voice_type, age, gender, speaker_library=speaker_library)
+        return emotion_to_tts(
+            text=text,
+            state=emotion_state,
+            speaker=speaker,
+            fmt=fmt,
+            sample_rate=sample_rate,
+        )
+
+    def _write_log(
+        self,
+        *,
+        user_id: int,
+        record_id: int,
+        emotion_state: str,
+        text_length: int,
+        latency_ms: int,
+        status: str,
+    ) -> None:
+        cost = round(text_length * _COST_PER_CHAR, 6) if status == "success" else 0.0
+        try:
+            with unit_of_work(self.db):
+                self.db.add(
+                    VoiceCallLog(
+                        user_id=user_id,
+                        record_id=record_id,
+                        direction="tts",
+                        text_length=text_length,
+                        emotion_state=emotion_state,
+                        latency_ms=latency_ms,
+                        status=status,
+                        cost_estimated=cost,
+                    )
+                )
+        except Exception:
+            log.warning("TTS: failed to write call log", exc_info=True)
 
     async def synthesize(
         self,
@@ -87,28 +178,11 @@ class TTSService:
         tts_sample_rate: int,
         speaker_library: dict | None = None,
     ) -> tuple[bytes, str, str, int, str]:
-        record = self.db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        if not record:
-            raise NotFoundError("训练记录不存在")
-        if record.user_id != user_id:
-            raise AuthError("只能操作自己的训练")
-
-        case = self.db.query(Case).filter(Case.id == record.case_id).first()
-        if not case:
-            raise NotFoundError("病例不存在")
-
         if client is None:
             raise NotFoundError("TTS 服务未配置（请先在管理面板添加语音配置）")
 
-        age, gender = _extract_demographics(case)
-        speaker = resolve_voice_type(voice_type, age, gender, speaker_library=speaker_library)
-
-        tts_req = emotion_to_tts(
-            text=text,
-            state=emotion_state,
-            speaker=speaker,
-            fmt=tts_format,
-            sample_rate=tts_sample_rate,
+        tts_req = self._resolve_request(
+            record_id, text, voice_type, user_id, emotion_state, tts_format, tts_sample_rate, speaker_library
         )
 
         t0 = time.perf_counter()
@@ -121,24 +195,99 @@ class TTSService:
             raise RuntimeError(f"TTS 合成失败: {str(e)[:200]}")
 
         latency_ms = int((time.perf_counter() - t0) * 1000)
-        cost = round(len(text) * 0.000_002, 6)
-
-        call_log = VoiceCallLog(
+        self._write_log(
             user_id=user_id,
             record_id=record_id,
-            direction="tts",
-            text_length=len(text),
             emotion_state=emotion_state,
+            text_length=len(text),
             latency_ms=latency_ms,
             status="success",
-            cost_estimated=cost,
         )
-        with unit_of_work(self.db):
-            self.db.add(call_log)
 
         media_type = _AUDIO_MEDIA_TYPES.get(tts_format, "application/octet-stream")
         assert isinstance(audio, bytes), "TTS synthesize must return bytes"
-        return audio, emotion_state, speaker, latency_ms, media_type
+        return audio, emotion_state, tts_req.speaker, latency_ms, media_type
+
+    async def stream_synthesize(
+        self,
+        *,
+        record_id: int,
+        text: str,
+        voice_type: str | None,
+        user_id: int,
+        pool: TTSConnectionPool | None,
+        emotion_state: str,
+        timeout: int,
+        speaker_library: dict | None = None,
+    ) -> tuple[TTSStreamInfo, AsyncIterator[bytes]]:
+        """Open a pooled session eagerly, then return a chunk generator.
+
+        Pool acquisition + session start happen before the response starts
+        streaming, so upstream failures still map to proper HTTP status codes.
+        """
+        if pool is None:
+            raise NotFoundError("TTS 服务未配置（请先在管理面板添加语音配置）")
+
+        tts_req = self._resolve_request(
+            record_id, text, voice_type, user_id, emotion_state, STREAM_FORMAT, STREAM_SAMPLE_RATE, speaker_library
+        )
+        info = TTSStreamInfo(speaker=tts_req.speaker, emotion=emotion_state, sample_rate=STREAM_SAMPLE_RATE)
+
+        t0 = time.perf_counter()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+
+        def _remaining() -> float:
+            left = deadline - loop.time()
+            if left <= 0:
+                raise TimeoutError(f"TTS 合成超时（{timeout}s）")
+            return left
+
+        # Eager phase — CircuitOpenError / RuntimeError propagate pre-headers.
+        conn_ctx = pool.acquire()
+
+        async def _acquire() -> VolcTTSConnection:
+            return await conn_ctx.__aenter__()
+
+        conn = await _TTS_CIRCUIT_BREAKER.call(_acquire)
+        try:
+            await asyncio.wait_for(conn.begin_session(tts_req), timeout=_remaining())
+        except Exception:
+            await conn_ctx.__aexit__(None, None, None)
+            raise
+
+        async def _gen() -> AsyncIterator[bytes]:
+            first_chunk_ms: int | None = None
+            billed_words = 0
+            status = "error"
+            try:
+                stream = conn.read_stream()
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(anext(stream), timeout=_remaining())
+                    except StopAsyncIteration:
+                        break
+                    if first_chunk_ms is None:
+                        first_chunk_ms = int((time.perf_counter() - t0) * 1000)
+                    yield chunk
+                status = "success"
+            finally:
+                await conn_ctx.__aexit__(None, None, None)
+                if isinstance(conn.last_usage, dict):
+                    words = conn.last_usage.get("text_words")
+                    if isinstance(words, int) and words > 0:
+                        billed_words = words
+                latency = first_chunk_ms if first_chunk_ms is not None else int((time.perf_counter() - t0) * 1000)
+                self._write_log(
+                    user_id=user_id,
+                    record_id=record_id,
+                    emotion_state=emotion_state,
+                    text_length=billed_words or len(text),
+                    latency_ms=latency,
+                    status=status,
+                )
+
+        return info, _gen()
 
 
 def _extract_demographics(case: Case) -> tuple[int | None, str | None]:

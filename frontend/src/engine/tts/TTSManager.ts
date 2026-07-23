@@ -1,47 +1,48 @@
 import { EMOTION_LABELS, type EmotionState } from "../PanelContext";
 import type { MessageBus } from "../types";
 import { createBrowserTTS } from "./browser-tts";
+import { PcmStreamPlayer } from "./pcm-player";
+import { cleanTTSText, MAX_TTS_LENGTH, SentenceSegmenter } from "./segmenter";
 import type { TTSManagerConfig, TTSProvider } from "./types";
-import { VolcTTSProvider } from "./VolcTTSProvider";
+import { TTSCircuitOpenError, VolcTTSProvider } from "./VolcTTSProvider";
 
-const MAX_TTS_LENGTH = 500;
-
-function cleanTTSText(text: string): string {
-	return text
-		.replace(/\*\*(.+?)\*\*/g, "$1")
-		.replace(/\*(.+?)\*/g, "$1")
-		.replace(/\[.*?\]/g, "")
-		.replace(/\n{2,}/g, "。")
-		.replace(/\n/g, "")
-		.trim();
-}
-
-function splitFirstSentence(text: string): [string, string] {
-	const m = text.match(/^(.+?[。！？!?])/);
-	if (!m || m[1].length >= text.length) return [text, ""];
-	return [m[1], text.slice(m[1].length)];
-}
-
+/**
+ * TTSManager — sentence-pipelined streaming playback.
+ *
+ * Listens to LLM stream chunks, dispatches each sentence for synthesis the
+ * moment its boundary arrives, and schedules PCM audio on Web Audio as chunks
+ * stream in. Synthesis of sentence N+1 overlaps playback of sentence N.
+ * Degrades to browser speech synthesis per-sentence on failure, and for the
+ * whole reply when the backend circuit breaker is open.
+ */
 export class TTSManager {
-	private emotionProvider: VolcTTSProvider;
-	private fallbackProvider: TTSProvider;
+	private emotionProvider = new VolcTTSProvider();
+	private fallbackProvider: TTSProvider = createBrowserTTS();
+	private player = new PcmStreamPlayer();
+	private segmenter = new SentenceSegmenter(MAX_TTS_LENGTH);
 	private bus: MessageBus | null = null;
 	private autoPlay: boolean;
 	private recordId: number | null;
 	private currentEmotion: EmotionState = "neutral";
 	private unsubs: Array<() => void> = [];
-	private _currentAudio: HTMLAudioElement | null = null;
-	private _speaking = false;
+
+	private queue: string[] = [];
+	private processing = false;
+	private streamDone = false;
+	private replyDegraded = false;
+	private abortCtl: AbortController | null = null;
+	private replyStart = 0;
+	private firstChunkMs: number | null = null;
+	private started = false;
+	private lastProvider = "volcengine-tts";
 
 	constructor(config?: TTSManagerConfig) {
-		this.emotionProvider = new VolcTTSProvider();
-		this.fallbackProvider = createBrowserTTS();
 		this.autoPlay = config?.autoPlay ?? false;
 		this.recordId = config?.recordId ?? null;
 	}
 
 	get speaking(): boolean {
-		return this._speaking;
+		return this.processing || this.player.playing;
 	}
 
 	get isAutoPlay(): boolean {
@@ -50,6 +51,7 @@ export class TTSManager {
 
 	setAutoPlay(on: boolean): void {
 		this.autoPlay = on;
+		if (on) this.player.prime();
 	}
 
 	setRecordId(id: number): void {
@@ -59,15 +61,19 @@ export class TTSManager {
 	attach(bus: MessageBus): void {
 		this.bus = bus;
 
-		const unsubDone = bus.on("stream:done", (text?: string) => {
-			if (!this.autoPlay || this._speaking) return;
-			if (text) {
-				this._pendingText = text;
-			}
-			void this.speakNext();
+		const unsubChunk = bus.on("stream:chunk", (chunk?: string) => {
+			if (!this.autoPlay || !chunk) return;
+			for (const s of this.segmenter.push(chunk)) this.enqueue(s);
+		});
+
+		const unsubDone = bus.on("stream:done", () => {
+			this.streamDone = true;
+			if (!this.autoPlay) return;
+			for (const s of this.segmenter.flush()) this.enqueue(s);
 		});
 
 		const unsubBeforeSend = bus.on("chat:beforeSend", () => {
+			this.player.prime();
 			this.stop();
 		});
 
@@ -79,32 +85,7 @@ export class TTSManager {
 			},
 		);
 
-		this.unsubs = [unsubDone, unsubBeforeSend, unsubEmotion];
-	}
-
-	private _pendingText: string | null = null;
-
-	private async speakNext(): Promise<void> {
-		if (this._speaking) return;
-		const raw = this._pendingText ?? "";
-		this._pendingText = null;
-		if (!raw) return;
-		const text = cleanTTSText(raw).slice(0, MAX_TTS_LENGTH);
-		if (!text) return;
-		this._speaking = true;
-		try {
-			if (text.length > 50) {
-				const [first, rest] = splitFirstSentence(text);
-				await this.speak(first);
-				if (rest) {
-					await this.speak(rest);
-				}
-			} else {
-				await this.speak(text);
-			}
-		} finally {
-			this._speaking = false;
-		}
+		this.unsubs = [unsubChunk, unsubDone, unsubBeforeSend, unsubEmotion];
 	}
 
 	detach(): void {
@@ -114,66 +95,97 @@ export class TTSManager {
 		this.bus = null;
 	}
 
-	async speak(text: string): Promise<void> {
-		if (!text.trim()) return;
-		this.bus?.emit("tts:start", text);
-		const t0 = performance.now();
-		try {
-			const provider = await this.tryEmotionSpeak(text);
-			const latencyMs = Math.round(performance.now() - t0);
-			this.bus?.emit("tts:end", text);
-			this.bus?.emit("tts:provider-status", { provider, latencyMs });
-		} catch (err) {
-			const latencyMs = Math.round(performance.now() - t0);
-			const message = err instanceof Error ? err.message : String(err);
-			this.bus?.emit("tts:error", message);
-			this.bus?.emit("tts:provider-status", {
-				provider: "unavailable",
-				latencyMs,
-			});
-		}
+	/** Manual replay path — routes through the same streaming pipeline. */
+	speak(text: string): void {
+		const cleaned = cleanTTSText(text).slice(0, MAX_TTS_LENGTH);
+		if (cleaned) this.enqueue(cleaned);
 	}
 
 	stop(): void {
-		this._pendingText = null;
+		this.queue.length = 0;
+		this.segmenter.reset();
+		this.streamDone = false;
+		this.replyDegraded = false;
+		this.started = false;
+		this.abortCtl?.abort();
+		this.abortCtl = null;
+		this.player.stop();
 		this.fallbackProvider.stop();
-		this.emotionProvider.cancel();
-		this._currentAudio?.pause();
-		this._currentAudio = null;
 		try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
 	}
 
-	/** Speak `text`, returning the provider name that actually produced audio. */
-	private async tryEmotionSpeak(text: string): Promise<string> {
-		if (this.recordId) {
-			try {
-				const audio = await this.emotionProvider.synthesize(
-					text,
-					this.recordId,
-				);
-				await this.playAudio(audio);
-				return this.emotionProvider.providerName;
-			} catch {
-				// fall through to browser TTS fallback
-			}
-		}
-		this.bus?.emit("tts:degraded", { provider: this.fallbackProvider.providerName });
-		this.fallbackProvider.emotion = this.currentEmotion;
-		await this.fallbackProvider.speak(text);
-		return this.fallbackProvider.providerName;
+	private enqueue(sentence: string): void {
+		if (!sentence) return;
+		this.queue.push(sentence);
+		void this.processQueue();
 	}
 
-	private async playAudio(buffer: ArrayBuffer): Promise<void> {
-		const blob = new Blob([buffer], { type: "audio/mpeg" });
-		const url = URL.createObjectURL(blob);
-		const audio = new Audio(url);
-		this._currentAudio = audio;
-		audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
-		audio.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
+	private async processQueue(): Promise<void> {
+		if (this.processing) return;
+		this.processing = true;
+		this.replyStart = performance.now();
+		this.firstChunkMs = null;
 		try {
-			await audio.play();
+			while (this.queue.length > 0) {
+				const sentence = this.queue.shift();
+				if (!sentence) break;
+				await this.speakSentence(sentence);
+			}
 		} finally {
-			if (this._currentAudio === audio) this._currentAudio = null;
+			this.processing = false;
+			if (this.streamDone) await this.finishReply();
 		}
+	}
+
+	private async finishReply(): Promise<void> {
+		await this.player.waitIdle();
+		if (!this.started) return;
+		this.bus?.emit("tts:end", "");
+		this.bus?.emit("tts:provider-status", {
+			provider: this.lastProvider,
+			latencyMs: this.firstChunkMs ?? Math.round(performance.now() - this.replyStart),
+		});
+	}
+
+	private async speakSentence(sentence: string): Promise<void> {
+		if (this.recordId && !this.replyDegraded) {
+			let gotAudio = false;
+			try {
+				this.abortCtl = new AbortController();
+				const stream = await this.emotionProvider.stream(
+					sentence,
+					this.recordId,
+					this.abortCtl.signal,
+				);
+				const bytes = await this.player.playStream(stream, () => {
+					gotAudio = true;
+					if (this.firstChunkMs === null) {
+						this.firstChunkMs = Math.round(performance.now() - this.replyStart);
+					}
+					this.markStarted(sentence);
+				});
+				if (bytes > 0) {
+					this.lastProvider = this.emotionProvider.providerName;
+					return;
+				}
+			} catch (err) {
+				if (this.abortCtl?.signal.aborted) return; // stopped intentionally
+				if (err instanceof TTSCircuitOpenError) {
+					this.replyDegraded = true;
+				}
+				if (gotAudio) return; // partial audio already played — no replay
+			}
+		}
+		this.lastProvider = this.fallbackProvider.providerName;
+		this.bus?.emit("tts:degraded", { provider: this.fallbackProvider.providerName });
+		this.fallbackProvider.emotion = this.currentEmotion;
+		this.markStarted(sentence);
+		await this.fallbackProvider.speak(sentence);
+	}
+
+	private markStarted(sentence: string): void {
+		if (this.started) return;
+		this.started = true;
+		this.bus?.emit("tts:start", sentence);
 	}
 }

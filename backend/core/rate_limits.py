@@ -122,7 +122,8 @@ async def check_qa_limit(user_id: int, request: Request):
 async def check_tts_limit(user_id: int, request: Request):
     limiter: PgRateLimiter = request.app.state.rate_limiter
     key = f"tts:{user_id}"
-    if not await limiter.is_allowed(key, max_requests=10, window_seconds=60):
+    # Sentence-granularity streaming fans out ~3-5 requests per chat reply.
+    if not await limiter.is_allowed(key, max_requests=60, window_seconds=60):
         log.warning("tts rate limit: user_id=%s", user_id)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

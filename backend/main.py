@@ -240,6 +240,7 @@ async def lifespan(app: FastAPI):
             db_voice.close()
     except Exception:
         app.state.tts_client = None
+        app.state.tts_pool = None
         app.state.tts_config = {}
         log.exception("TTS client init failed (non-fatal)")
 
@@ -296,6 +297,9 @@ async def lifespan(app: FastAPI):
         await notif_task
     await app.state.task_queue.stop()
     await app.state.log_worker.stop()
+    tts_pool = getattr(app.state, "tts_pool", None)
+    if tts_pool is not None:
+        await tts_pool.aclose()
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
     await asyncio.to_thread(engine.dispose)

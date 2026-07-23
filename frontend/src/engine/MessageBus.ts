@@ -1,7 +1,7 @@
 import type { MessageBus, ScoreData } from "./types";
 
 export interface BusEvents {
-	"stream:chunk": [];
+	"stream:chunk": [chunk: string];
 	"stream:done": [text?: string];
 	"stream:error": [err: string];
 	"training:ended": [];

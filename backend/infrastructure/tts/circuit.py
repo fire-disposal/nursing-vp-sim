@@ -3,11 +3,12 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
-from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import ParamSpec, TypeVar
 
 log = logging.getLogger(__name__)
 
+P = ParamSpec("P")
 T = TypeVar("T")
 
 
@@ -28,7 +29,7 @@ class TTSCircuitBreaker:
     def state(self) -> str:
         return self._state
 
-    async def call(self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    async def call(self, fn: Callable[P, Awaitable[T]], *args: P.args, **kwargs: P.kwargs) -> T:
         async with self._lock:
             if self._state == "open":
                 if time.monotonic() - self._last_failure_time >= self._cooldown_seconds:
@@ -38,7 +39,7 @@ class TTSCircuitBreaker:
                     raise CircuitOpenError("TTS service temporarily unavailable, using browser fallback")
 
         try:
-            result = await fn(*args, **kwargs) if asyncio.iscoroutinefunction(fn) else fn(*args, **kwargs)
+            result = await fn(*args, **kwargs)
         except Exception as e:
             async with self._lock:
                 self._failure_count += 1

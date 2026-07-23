@@ -7900,6 +7900,51 @@
           }
         ]
       }
+    },
+    "/api/tts/stream": {
+      "post": {
+        "tags": [
+          "TTS"
+        ],
+        "summary": "Synthesize Stream",
+        "description": "Sentence-granularity streaming synthesis — PCM chunks as they arrive.",
+        "operationId": "synthesize_stream_api_tts_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TTSSynthesizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {

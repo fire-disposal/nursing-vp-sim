@@ -1,15 +1,19 @@
 """Volcengine SeedTTS 2.0 (doubao) TTS client — v3 bidirectional WebSocket protocol.
 
-Streams text character-by-character and receives raw audio binary frames
-with sub-200ms latency. Replaces the legacy unidirectional HTTP endpoint.
+Connection lifecycle (StartConnection … FinishConnection) is separated from
+session lifecycle (StartSession … SessionFinished) so one warm WebSocket can
+carry many sequential synthesis sessions — the protocol's intended pattern.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import struct
+import time
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING
@@ -141,27 +145,45 @@ def _parse_server_event(raw: str | int | None) -> ServerEvent | None:
         return None
 
 
-class VolcBidirectionalTTSClient:
-    """Async client for Volcengine SeedTTS 2.0 bidirectional WebSocket synthesis."""
+def _is_closed_error(e: BaseException) -> bool:
+    return isinstance(e, (websockets.exceptions.ConnectionClosed, ConnectionError, OSError))
 
-    def __init__(
-        self,
-        api_key: str,
-        resource_id: str = "seed-tts-2.0",
-        timeout: int = 8,
-    ):
+
+class VolcTTSConnection:
+    """One warm WebSocket connection carrying sequential TTS sessions."""
+
+    def __init__(self, api_key: str, resource_id: str = "seed-tts-2.0"):
         self._api_key = api_key
         self._resource_id = resource_id
-        self._timeout = timeout
+        self._ws: ClientConnection | None = None
+        self._session_id: str | None = None
+        self.last_usage: dict | None = None
+        self.last_used_at: float = 0.0
 
-    async def synthesize(self, req: TTSRequest) -> bytes:
+    @property
+    def is_alive(self) -> bool:
+        ws = self._ws
+        if ws is None:
+            return False
+        try:
+            from websockets.protocol import State
+
+            return ws.state is State.OPEN
+        except Exception:
+            return False
+
+    def _require_ws(self) -> ClientConnection:
+        if self._ws is None or not self.is_alive:
+            raise RuntimeError("TTS connection not established")
+        return self._ws
+
+    async def connect(self) -> None:
         headers = {
             "X-Api-Key": self._api_key,
             "X-Api-Resource-Id": self._resource_id,
             "X-Api-Connect-Id": uuid.uuid4().hex,
             "X-Control-Require-Usage-Tokens-Return": "*",
         }
-
         try:
             ws = await websockets.connect(
                 TTS_WS_URL,
@@ -171,58 +193,25 @@ class VolcBidirectionalTTSClient:
             )
         except Exception as e:
             raise RuntimeError(f"TTS WebSocket 连接失败: {e}") from e
-
+        self._ws = ws
         try:
-            session_id = uuid.uuid4().hex
+            await self._send({"event": EventType.StartConnection})
+            await self._wait_event(ServerEvent.ConnectionStarted)
+        except Exception:
+            await self._force_close()
+            raise
 
-            await self._start_connection(ws)
-            await self._wait_event(ws, MsgType.FullServerResponse, ServerEvent.ConnectionStarted)
+    async def ping(self) -> None:
+        """Protocol-level keepalive used by the pool to validate idle connections."""
+        ws = self._require_ws()
+        await ws.ping()
 
-            await self._start_session(ws, req, session_id)
-            await self._wait_event(ws, MsgType.FullServerResponse, ServerEvent.SessionStarted)
-
-            audio = bytearray()
-            audio_started = False
-            text_sent = False
-
-            send_task = None
-            # We send text incrementally but receive audio in parallel.
-            # Simple approach: send first, then drain audio.
-            await self._send_text(ws, req.text, session_id)
-            await self._finish_session(ws, session_id)
-
-            while True:
-                msg = await _read_frame(ws)
-                if msg.type == MsgType.FullServerResponse:
-                    if msg.event == ServerEvent.SessionFinished:
-                        break
-                    if msg.event in (ServerEvent.ConnectionFailed, ServerEvent.SessionFailed):
-                        err = msg.payload or {}
-                        raise RuntimeError(f"TTS failed: {json.dumps(err, ensure_ascii=False)[:300]}")
-                    if msg.event == ServerEvent.TTSSentenceStart:
-                        audio_started = True
-                elif msg.type == MsgType.AudioOnlyServer:
-                    audio_started = True
-                    if msg.payload:
-                        audio.extend(msg.payload)
-
-            if not audio:
-                raise RuntimeError("TTS returned empty audio data")
-            return bytes(audio)
-
-        finally:
-            try:
-                await self._finish_connection(ws)
-                await self._wait_event(ws, MsgType.FullServerResponse, ServerEvent.ConnectionFinished)
-            except Exception:
-                pass
-            await ws.close()
-
-    async def _start_connection(self, ws: ClientConnection) -> None:
-        header = {"event": EventType.StartConnection}
-        await ws.send(_build_frame(header))
-
-    async def _start_session(self, ws: ClientConnection, req: TTSRequest, session_id: str) -> None:
+    async def begin_session(self, req: TTSRequest) -> None:
+        """Open a session, send the full text, and close the send side."""
+        self._require_ws()
+        session_id = uuid.uuid4().hex
+        self._session_id = session_id
+        self.last_usage = None
         body = {
             "event": EventType.StartSession,
             "req_params": {
@@ -235,34 +224,128 @@ class VolcBidirectionalTTSClient:
                 },
             },
         }
-        header = {"event": EventType.StartSession, "session_id": session_id}
-        await ws.send(_build_frame(header, json.dumps(body, ensure_ascii=False).encode()))
+        try:
+            await self._send(
+                {"event": EventType.StartSession, "session_id": session_id},
+                json.dumps(body, ensure_ascii=False).encode(),
+            )
+            await self._wait_event(ServerEvent.SessionStarted)
+            task_body = {
+                "event": EventType.TaskRequest,
+                "req_params": {"text": req.text},
+            }
+            await self._send(
+                {"event": EventType.TaskRequest, "session_id": session_id},
+                json.dumps(task_body, ensure_ascii=False).encode(),
+            )
+            await self._send({"event": EventType.FinishSession, "session_id": session_id})
+        except Exception as e:
+            if _is_closed_error(e):
+                await self._force_close()
+            raise
 
-    async def _send_text(self, ws: ClientConnection, text: str, session_id: str) -> None:
-        body = {
-            "event": EventType.TaskRequest,
-            "req_params": {"text": text},
-        }
-        header = {"event": EventType.TaskRequest, "session_id": session_id}
-        await ws.send(_build_frame(header, json.dumps(body, ensure_ascii=False).encode()))
+    async def read_stream(self) -> AsyncIterator[bytes]:
+        """Yield audio chunks until SessionFinished; capture usage on exit."""
+        ws = self._require_ws()
+        try:
+            while True:
+                msg = await _read_frame(ws)
+                if msg.type == MsgType.FullServerResponse:
+                    if msg.event == ServerEvent.SessionFinished:
+                        if isinstance(msg.payload, dict):
+                            usage = msg.payload.get("usage")
+                            self.last_usage = usage if isinstance(usage, dict) else None
+                        break
+                    if msg.event in (ServerEvent.ConnectionFailed, ServerEvent.SessionFailed):
+                        err = msg.payload or {}
+                        raise RuntimeError(f"TTS failed: {json.dumps(err, ensure_ascii=False)[:300]}")
+                elif msg.type == MsgType.AudioOnlyServer:
+                    if msg.payload:
+                        yield bytes(msg.payload)
+        except Exception as e:
+            if _is_closed_error(e):
+                await self._force_close()
+            raise
+        finally:
+            self._session_id = None
+            self.last_used_at = time.monotonic()
 
-    async def _finish_session(self, ws: ClientConnection, session_id: str) -> None:
-        header = {"event": EventType.FinishSession, "session_id": session_id}
-        await ws.send(_build_frame(header))
+    async def close(self) -> None:
+        ws, self._ws = self._ws, None
+        if ws is None:
+            return
+        try:
+            await ws.send(_build_frame({"event": EventType.FinishConnection}))
+            await self._wait_event(ServerEvent.ConnectionFinished, ws=ws)
+        except Exception:
+            pass
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
-    async def _finish_connection(self, ws: ClientConnection) -> None:
-        header = {"event": EventType.FinishConnection}
-        await ws.send(_build_frame(header))
+    async def _force_close(self) -> None:
+        ws, self._ws = self._ws, None
+        if ws is not None:
+            try:
+                await ws.close()
+            except Exception:
+                pass
 
-    async def _wait_event(self, ws: ClientConnection, msg_type: MsgType, event: ServerEvent) -> ServerMessage:
-        msg = await _read_frame(ws)
+    async def _send(self, header: dict, payload: bytes = b"") -> None:
+        ws = self._require_ws()
+        await ws.send(_build_frame(header, payload))
+
+    async def _wait_event(self, event: ServerEvent, ws: ClientConnection | None = None) -> ServerMessage:
+        target = ws or self._require_ws()
+        msg = await _read_frame(target)
         if msg.type == MsgType.FullServerResponse and msg.event in (
             ServerEvent.ConnectionFailed,
             ServerEvent.SessionFailed,
         ):
             err = msg.payload or {}
             raise RuntimeError(f"TTS connection failed: {json.dumps(err, ensure_ascii=False)[:300]}")
+        if msg.type != MsgType.FullServerResponse or msg.event != event:
+            raise RuntimeError(f"TTS protocol error: expected {event.name}, got {msg.event}")
         return msg
+
+
+class VolcBidirectionalTTSClient:
+    """Compat wrapper: one-shot synthesis over a throwaway connection.
+
+    Kept for admin health-check / test-synthesize paths which must not touch
+    the shared connection pool.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        resource_id: str = "seed-tts-2.0",
+        timeout: int = 8,
+    ):
+        self._api_key = api_key
+        self._resource_id = resource_id
+        self._timeout = timeout
+
+    async def synthesize(self, req: TTSRequest) -> bytes:
+        conn = VolcTTSConnection(api_key=self._api_key, resource_id=self._resource_id)
+
+        async def _run() -> bytes:
+            await conn.connect()
+            await conn.begin_session(req)
+            audio = bytearray()
+            async for chunk in conn.read_stream():
+                audio.extend(chunk)
+            if not audio:
+                raise RuntimeError("TTS returned empty audio data")
+            return bytes(audio)
+
+        try:
+            return await asyncio.wait_for(_run(), timeout=self._timeout)
+        except TimeoutError:
+            raise RuntimeError(f"TTS 合成超时（{self._timeout}s）")
+        finally:
+            await conn.close()
 
     async def health_check(self, speaker: str | None = None) -> bool:
         try:
