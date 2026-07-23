@@ -7,7 +7,7 @@ export const submitFeedbackFormData = (formData: FormData) =>
 	api.post<Schemas["FeedbackSubmitResponse"]>("/feedback", formData);
 
 export function feedbackImageUrl(feedbackId: number, imageId: number): string {
-	return `/api/feedback/${feedbackId}/images/${imageId}`;
+	return `/feedback/${feedbackId}/images/${imageId}`;
 }
 
 export const getFeedbacks = (params: Record<string, unknown> = {}) =>
