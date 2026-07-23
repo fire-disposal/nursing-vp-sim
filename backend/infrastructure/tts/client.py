@@ -50,7 +50,10 @@ class EventType(IntEnum):
     ConnectionFailed = 51
     ConnectionFinished = 52
     StartSession = 100
+    CancelSession = 101
+    FinishSession = 102
     SessionStarted = 150
+    SessionCanceled = 151
     SessionFinished = 152
     SessionFailed = 153
     TaskRequest = 200
@@ -62,15 +65,15 @@ class EventType(IntEnum):
 _SERIALIZATION_JSON = 0b0001
 _COMPRESSION_NONE = 0
 _VERSION = 1
-_HEADER_SIZE = 4  # 4 × 4 = 16-byte header
+_HEADER_NIBBLE = 1  # header_size (4x) = 1 × 4 = 4-byte header
 
 _HEADER_BASE = bytes(
     [
-        (_VERSION << 4) | _HEADER_SIZE,
+        (_VERSION << 4) | _HEADER_NIBBLE,
         0,
         (_SERIALIZATION_JSON << 4) | _COMPRESSION_NONE,
     ]
-).ljust(_HEADER_SIZE * 4, b"\x00")
+).ljust(_HEADER_NIBBLE * 4, b"\x00")  # 4 bytes
 
 
 def _marshal(msg_type: MsgType, flag: MsgFlag, body: bytes, /) -> bytes:
@@ -92,11 +95,15 @@ def _write_payload(b: bytes) -> bytes:
     return struct.pack(">I", len(b)) + b
 
 
-def _read_event(buf: io.BytesIO) -> EventType | None:
+def _read_event(buf: io.BytesIO) -> int | None:
     raw = buf.read(4)
     if len(raw) < 4:
         return None
-    return EventType(struct.unpack(">i", raw)[0])
+    val = struct.unpack(">i", raw)[0]
+    try:
+        return EventType(val)
+    except ValueError:
+        return val  # unknown event — caller decides
 
 
 def _read_str(buf: io.BytesIO) -> str:
@@ -125,20 +132,20 @@ def _read_payload(buf: io.BytesIO) -> bytes:
 @dataclass
 class ServerMessage:
     type: MsgType
-    event: EventType | None = None
+    event: int | None = None
     payload: bytes | dict | None = None
 
 
 def _parse_server_response(data: bytes) -> ServerMessage:
-    """Parse a v3 binary server frame."""
-    if len(data) < _HEADER_SIZE * 4:
+    """Parse a v3 binary server frame (4-byte header + variable body)."""
+    if len(data) < _HEADER_NIBBLE * 4:
         raise RuntimeError(f"TTS: frame too short ({len(data)} bytes)")
 
     msg_type = MsgType((data[1] >> 4) & 0xF)
     flag = MsgFlag(data[1] & 0xF)
-    buf = io.BytesIO(data[_HEADER_SIZE * 4 :])
+    buf = io.BytesIO(data[_HEADER_NIBBLE * 4 :])
 
-    event: EventType | None = None
+    event: int | None = None
     session_id: str = ""
     connect_id: str = ""
 
@@ -177,7 +184,13 @@ def _parse_server_response(data: bytes) -> ServerMessage:
 async def _read_server_message(ws: ClientConnection) -> ServerMessage:
     raw = await ws.recv()
     if isinstance(raw, str):
-        return _parse_server_response(raw.encode("utf-8"))
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            data = {"message": raw}
+        msg_text = json.dumps(data, ensure_ascii=False)
+        log.warning("TTS: unexpected text frame from server: %s", msg_text[:500])
+        raise RuntimeError(f"TTS server error: {data.get('message', raw)[:300]}")
     if isinstance(raw, bytes):
         return _parse_server_response(raw)
     raise TypeError(f"TTS: unexpected frame type {type(raw)}")
