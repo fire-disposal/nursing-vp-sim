@@ -10,7 +10,6 @@ import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
-import { QuickPromptBar } from "./QuickPromptBar";
 import SceneToolbar from "./SceneToolbar";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -24,7 +23,6 @@ interface ChatAreaProps {
 	capabilities: Record<string, boolean>;
 	recordId: number;
 	hasHistory?: boolean;
-	showQuickPrompts?: boolean;
 	recordDetail: TrainingRecordDetail | null;
 	endTraining: () => Promise<void>;
 }
@@ -39,7 +37,6 @@ export function ChatArea({
 	capabilities,
 	recordId,
 	hasHistory,
-	showQuickPrompts = false,
 	recordDetail,
 	endTraining,
 }: ChatAreaProps) {
@@ -131,9 +128,6 @@ export function ChatArea({
 							/>
 						</div>
 						<SceneToolbar />
-						{showQuickPrompts && !trainingEnded && (
-							<QuickPromptBar patient={patient} disabled={sending} onSelect={onSend} />
-						)}
 						<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 					</motion.div>
 				)}

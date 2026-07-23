@@ -94,6 +94,19 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		};
 	}, [recordNum]);
 
+	// Auto-play first patient greeting 2s after page loads
+	const firstGreetingRef = useRef(false);
+	useEffect(() => {
+		if (firstGreetingRef.current || !ttsAutoPlay) return;
+		const firstPatient = messages.find((m) => m.role === "patient");
+		if (!firstPatient) return;
+		firstGreetingRef.current = true;
+		const timer = setTimeout(() => {
+			ttsRef.current.speak(firstPatient.content);
+		}, 2000);
+		return () => clearTimeout(timer);
+	}, [messages, ttsAutoPlay]);
+
 	useEffect(() => {
 		scoreRef.current.setRecordId(recordNum);
 		return () => scoreRef.current.dispose();
@@ -337,11 +350,6 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 							capabilities={capabilities}
 							recordId={recordNum}
 							hasHistory={initialMessages.length > 0}
-							showQuickPrompts={
-								_restoreRecord
-									? !(_restoreRecord as { from_assignment?: boolean }).from_assignment
-									: false
-							}
 							recordDetail={_restoreRecord as TrainingRecordDetail | null}
 							endTraining={endTraining}
 						/>

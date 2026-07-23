@@ -290,16 +290,18 @@ export function TrainingHeader() {
 						<div className="flex items-center gap-2">
 							<span className={cn(
 								"size-2 rounded-full",
-								!voiceStatus || voiceStatus.provider === "unavailable"
-									? "bg-danger"
-									: voiceStatus.provider.includes("browser")
-										? "bg-warning"
-										: "bg-success",
+								!voiceStatus
+									? "bg-muted-foreground/30"
+									: voiceStatus.provider === "unavailable"
+										? "bg-danger"
+										: voiceStatus.provider.includes("browser")
+											? "bg-warning"
+											: "bg-success",
 							)} />
 							<span className="text-sm">
 								{voiceStatus
 									? `${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`
-									: "不可用"}
+									: "就绪"}
 							</span>
 						</div>
 					</div>
