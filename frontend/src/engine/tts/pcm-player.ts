@@ -18,14 +18,15 @@ export class PcmStreamPlayer {
 	private endTime = 0;
 	private sources = new Set<AudioBufferSourceNode>();
 
-	/** Create/resume the AudioContext. Call from a user-gesture path. */
-	prime(): void {
+	/** Create/resume the AudioContext. Returns a running context. */
+	async prime(): Promise<AudioContext> {
 		if (!this.ctx) {
 			this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
 		}
-		if (this.ctx.state === "suspended") {
-			void this.ctx.resume();
+		if (this.ctx.state !== "running") {
+			await this.ctx.resume();
 		}
+		return this.ctx;
 	}
 
 	get playing(): boolean {
@@ -49,11 +50,7 @@ export class PcmStreamPlayer {
 		stream: ReadableStream<Uint8Array>,
 		onFirstChunk?: () => void,
 	): Promise<number> {
-		this.prime();
-		const ctx = this.ctx;
-		if (ctx?.state !== "running") {
-			throw new Error("AudioContext unavailable");
-		}
+		const ctx = await this.prime();
 		const reader = stream.getReader();
 		let leftover: Uint8Array | null = null;
 		let bytes = 0;
