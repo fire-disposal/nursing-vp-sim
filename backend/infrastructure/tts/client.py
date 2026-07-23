@@ -362,8 +362,17 @@ class VolcBidirectionalTTSClient:
                 req.speaker = speaker
             audio = await self.synthesize(req)
             return len(audio) > 0
-        except Exception:
-            log.warning("TTS health check failed", exc_info=True)
+        except Exception as e:
+            cause = e.__cause__
+            is_auth_error = False
+            if cause is not None and "401" in str(cause):
+                is_auth_error = True
+            if "401" in str(e):
+                is_auth_error = True
+            if is_auth_error:
+                log.info("TTS health check: API Key invalid or expired (401)")
+            else:
+                log.warning("TTS health check failed", exc_info=True)
             return False
 
     async def close(self) -> None:
