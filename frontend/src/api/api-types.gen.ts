@@ -1509,6 +1509,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/config/test-stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Stream
+         * @description Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz).
+         */
+        post: operations["test_stream_api_admin_voice_config_test_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/config/test-asr": {
         parameters: {
             query?: never;
@@ -4869,6 +4889,14 @@ export interface components {
             last_error: string | null;
             /** Last Error At */
             last_error_at: string | null;
+            /** Tts Pool Size */
+            tts_pool_size?: number | null;
+            /** Tts Pool Total */
+            tts_pool_total?: number | null;
+            /** Tts Pool Idle */
+            tts_pool_idle?: number | null;
+            /** Tts Pool In Use */
+            tts_pool_in_use?: number | null;
         };
         /** VoiceUsageItem */
         VoiceUsageItem: {
@@ -8346,6 +8374,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_stream_api_admin_voice_config_test_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

@@ -1,6 +1,8 @@
 """Voice config business logic — single source of truth for voice CRUD, testing, synthesis."""
 
+import asyncio
 import logging
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -135,11 +137,12 @@ class VoiceConfigService:
         except Exception:
             raise ValidationError("无法解密 API Key")
 
-    async def test_tts(self) -> VoiceStatusResponse:
+    async def test_tts(self, pool=None) -> VoiceStatusResponse:
         vc = self._get_active()
         if not vc:
             raise NotFoundError("未找到激活的语音配置")
         api_key = self._decrypt_key(vc)
+        pool_stats = pool.stats if pool is not None else {}
         client = VolcBidirectionalTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
         try:
             ok = await client.health_check(speaker=vc.tts_speaker)
@@ -150,6 +153,10 @@ class VoiceConfigService:
                 asr_online=False,
                 last_error=None if ok else "TTS 健康检查失败",
                 last_error_at=None if ok else datetime.now(UTC).isoformat(),
+                tts_pool_size=pool_stats.get("size"),
+                tts_pool_total=pool_stats.get("total"),
+                tts_pool_idle=pool_stats.get("idle"),
+                tts_pool_in_use=pool_stats.get("in_use"),
             )
         except Exception as e:
             await client.close()
@@ -159,7 +166,58 @@ class VoiceConfigService:
                 asr_online=False,
                 last_error=str(e)[:500],
                 last_error_at=datetime.now(UTC).isoformat(),
+                tts_pool_size=pool_stats.get("size"),
+                tts_pool_total=pool_stats.get("total"),
+                tts_pool_idle=pool_stats.get("idle"),
+                tts_pool_in_use=pool_stats.get("in_use"),
             )
+
+    async def stream_test(self, text: str, pool) -> tuple[str, int, AsyncIterator[bytes]]:
+        """Stream test audio through the PRODUCTION path (pool + PCM 24kHz).
+
+        Returns (speaker, sample_rate, chunk_generator). Raises RuntimeError
+        on upstream failure so the admin sees the real error.
+        """
+        from services.tts import STREAM_FORMAT, STREAM_SAMPLE_RATE
+
+        vc = self._get_active()
+        if not vc:
+            raise NotFoundError("未找到激活的语音配置")
+        self._decrypt_key(vc)  # validate only — pool already holds the key
+        if pool is None:
+            raise ValidationError("TTS 连接池未就绪（请保存配置后重试）")
+
+        tts_req = TTSRequest(
+            text=text[:200],
+            speaker=vc.tts_speaker,
+            fmt=STREAM_FORMAT,
+            sample_rate=STREAM_SAMPLE_RATE,
+        )
+        timeout = vc.tts_timeout or 8
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+
+        conn_ctx = pool.acquire()
+        conn = await conn_ctx.__aenter__()
+        try:
+            await asyncio.wait_for(conn.begin_session(tts_req), timeout=max(0.1, deadline - loop.time()))
+        except Exception:
+            await conn_ctx.__aexit__(None, None, None)
+            raise
+
+        async def _gen() -> AsyncIterator[bytes]:
+            try:
+                stream = conn.read_stream()
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(anext(stream), timeout=max(0.1, deadline - loop.time()))
+                    except StopAsyncIteration:
+                        break
+                    yield chunk
+            finally:
+                await conn_ctx.__aexit__(None, None, None)
+
+        return vc.tts_speaker, STREAM_SAMPLE_RATE, _gen()
 
     async def test_asr(self) -> VoiceStatusResponse:
         vc = self._get_active()

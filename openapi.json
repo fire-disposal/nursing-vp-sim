@@ -5957,6 +5957,32 @@
         ]
       }
     },
+    "/api/admin/voice/config/test-stream": {
+      "post": {
+        "tags": [
+          "管理",
+          "语音管理"
+        ],
+        "summary": "Test Stream",
+        "description": "Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz).",
+        "operationId": "test_stream_api_admin_voice_config_test_stream_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice/config/test-asr": {
       "post": {
         "tags": [
@@ -14738,6 +14764,50 @@
               }
             ],
             "title": "Last Error At"
+          },
+          "tts_pool_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pool Size"
+          },
+          "tts_pool_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pool Total"
+          },
+          "tts_pool_idle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pool Idle"
+          },
+          "tts_pool_in_use": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Pool In Use"
           }
         },
         "type": "object",

@@ -1,3 +1,4 @@
+import useAuthStore from "@/stores/authStore";
 import { api } from "../client";
 
 // ── Voice Config ──
@@ -131,10 +132,41 @@ export interface VoiceStatusResponse {
 	asr_online: boolean;
 	last_error: string | null;
 	last_error_at: string | null;
+	tts_pool_size: number | null;
+	tts_pool_total: number | null;
+	tts_pool_idle: number | null;
+	tts_pool_in_use: number | null;
 }
 
 export const testTTS = () =>
 	api.post<VoiceStatusResponse>("/admin/voice/config/test-tts");
+
+/** Stream test audio through the production path (pool + PCM 24kHz). */
+export const streamTestTTS = async (
+	text: string,
+	signal: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> => {
+	const token = useAuthStore.getState().token;
+	const response = await fetch("/api/admin/voice/config/test-stream", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
+		body: JSON.stringify({ text }),
+		signal,
+	});
+	if (!response.ok) {
+		let detail = `HTTP ${response.status}`;
+		try {
+			const data = await response.json();
+			if (data?.detail) detail = String(data.detail);
+		} catch { /* keep default */ }
+		throw new Error(detail);
+	}
+	if (!response.body) throw new Error("空响应体");
+	return response.body;
+};
 
 export const testASR = () =>
 	api.post<VoiceStatusResponse>("/admin/voice/config/test-asr");
@@ -188,9 +220,6 @@ export interface UserCostItem {
 	total_calls: number;
 	purposes: Record<string, UserPurposeCost>;
 }
-
-export const testSynthesize = (text: string) =>
-	api.post<ArrayBuffer>("/admin/voice/config/test-synthesize", { text }, { responseType: "arraybuffer" });
 
 export interface VoiceSecretOption {
 	id: number;

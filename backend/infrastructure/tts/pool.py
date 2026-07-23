@@ -33,6 +33,17 @@ class TTSConnectionPool:
         self._lock = asyncio.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
 
+    @property
+    def stats(self) -> dict:
+        """Pool occupancy snapshot for admin status display."""
+        idle = self._idle.qsize()
+        return {
+            "size": self._size,
+            "total": self._total,
+            "idle": idle,
+            "in_use": max(0, self._total - idle),
+        }
+
     async def _new_connection(self) -> VolcTTSConnection:
         conn = VolcTTSConnection(api_key=self._api_key, resource_id=self._resource_id)
         await conn.connect()

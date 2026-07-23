@@ -75,6 +75,10 @@ class VoiceStatusResponse(BaseModel):
     asr_online: bool
     last_error: str | None
     last_error_at: str | None
+    tts_pool_size: int | None = None
+    tts_pool_total: int | None = None
+    tts_pool_idle: int | None = None
+    tts_pool_in_use: int | None = None
 
 
 # ── TTS ──

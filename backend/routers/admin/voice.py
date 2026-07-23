@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal, get_db
@@ -54,8 +54,34 @@ def update_config(
 
 
 @router.post("/config/test-tts", response_model=VoiceStatusResponse)
-async def test_tts(current_user: _Manager, db: Annotated[Session, Depends(get_db)]):
-    return await VoiceConfigService(db).test_tts()
+async def test_tts(request: Request, current_user: _Manager, db: Annotated[Session, Depends(get_db)]):
+    pool = getattr(request.app.state, "tts_pool", None)
+    return await VoiceConfigService(db).test_tts(pool=pool)
+
+
+@router.post("/config/test-stream")
+async def test_stream(
+    request: Request,
+    current_user: _Manager,
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz)."""
+    body = await request.json()
+    text = str(body.get("text", "你好，这是一段测试语音。"))[:200]
+
+    pool = getattr(request.app.state, "tts_pool", None)
+    try:
+        speaker, sample_rate, gen = await VoiceConfigService(db).stream_test(text, pool)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TTS 流式合成失败: {str(e)[:500]}")
+
+    return StreamingResponse(
+        gen,
+        media_type=f"audio/pcm;rate={sample_rate}",
+        headers={"X-TTS-Voice": speaker, "X-TTS-Sample-Rate": str(sample_rate)},
+    )
 
 
 @router.post("/config/test-asr", response_model=VoiceStatusResponse)
