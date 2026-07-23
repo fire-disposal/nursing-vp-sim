@@ -11,7 +11,7 @@ import { cn } from "@/utils/cn";
 
 interface EmotionIndicatorProps {
 	bus: MessageBus;
-	features: Record<string, boolean>;
+	capabilities: Record<string, boolean>;
 	recordId: number;
 	compact?: boolean;
 }
@@ -43,7 +43,7 @@ const EMOTION_TOOLTIP: Record<EmotionState, string> = {
 	open: "开放信任 — 愿意详细叙述，主动补充信息",
 };
 
-export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIndicatorProps) {
+export function EmotionIndicator({ bus, capabilities, recordId, compact }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [trust, setTrust] = useState(50);
 	const [comfort, setComfort] = useState(50);
@@ -147,7 +147,7 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 
 	useEffect(() => { return () => stopTicker(); }, [stopTicker]);
 
-	const showInitiative = features.patient_initiative && !maxReachedRef.current;
+	const showInitiative = capabilities.patient_initiative && !maxReachedRef.current;
 
 	useEffect(() => {
 		const unsub = bus.on(
@@ -173,7 +173,7 @@ export function EmotionIndicator({ bus, features, recordId, compact }: EmotionIn
 		}
 	}, [emotion]);
 
-	if (!features.emotion) return null;
+	if (!capabilities.emotion) return null;
 
 	const label = EMOTION_LABELS[emotion];
 	const tooltip = EMOTION_TOOLTIP[emotion];

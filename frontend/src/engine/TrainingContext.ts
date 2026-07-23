@@ -17,7 +17,7 @@ export interface TrainingContextValue {
 	trainingType: string;
 	patient: PatientData;
 	messages: ChatMessage[];
-	features: Record<string, boolean>;
+	capabilities: Record<string, boolean>;
 	recordDetail: TrainingRecordDetail | null;
 	ttsAutoPlay: boolean;
 	sending: boolean;

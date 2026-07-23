@@ -6,7 +6,7 @@ import { getRecordDetail } from "@/api/training";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
-import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
+import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
@@ -40,7 +40,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		trainingType,
 		loading,
 		error: patientError,
-		features,
+		capabilities,
 		initialMessages,
 		timeLimit,
 		remainingSeconds,
@@ -261,7 +261,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			trainingType,
 			patient: patient!,
 			messages,
-			features,
+			capabilities,
 			ttsAutoPlay,
 			sending,
 			timeLimitMinutes: timeLimit,
@@ -276,7 +276,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		trainingType,
 		patient,
 		messages,
-		features,
+		capabilities,
 		ttsAutoPlay,
 		sending,
 		timeLimit,
@@ -330,7 +330,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 							trainingEnded={trainingEnded}
 							onSend={sendMessage}
 							bus={busRef.current}
-							features={features}
+							capabilities={capabilities}
 							recordId={recordNum}
 							hasHistory={initialMessages.length > 0}
 						/>

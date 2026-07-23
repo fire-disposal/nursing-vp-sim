@@ -12,7 +12,7 @@ interface PatientContextValue {
 	trainingType: string;
 	loading: boolean;
 	error: string | null;
-	features: Record<string, boolean>;
+	capabilities: Record<string, boolean>;
 	fromAssignment: boolean;
 	initialMessages: ChatMessage[];
 	timeLimit: number;
@@ -24,7 +24,7 @@ const PatientContext = createContext<PatientContextValue>({
 	trainingType: "history_taking",
 	loading: true,
 	error: null,
-	features: {},
+	capabilities: {},
 	fromAssignment: false,
 	initialMessages: [],
 	timeLimit: 20,
@@ -46,7 +46,7 @@ export function PatientProvider({
 			trainingType: data?.trainingType ?? "history_taking",
 			loading,
 			error,
-			features: data?.features ?? {},
+			capabilities: data?.features ?? {},
 			fromAssignment: data?.fromAssignment ?? false,
 			initialMessages: data?.initialMessages ?? [],
 			timeLimit: data?.timeLimit ?? 20,

@@ -13,7 +13,7 @@ import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
-import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
+import { ScoreCardInner } from "@/components/training/scoring/ScoreCard";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import type { ScoreData as EngineScoreData } from "@/engine/types";

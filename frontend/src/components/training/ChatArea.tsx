@@ -15,7 +15,7 @@ interface ChatAreaProps {
 	trainingEnded?: boolean;
 	onSend: (text: string) => void;
 	bus: MessageBus;
-	features: Record<string, boolean>;
+	capabilities: Record<string, boolean>;
 	recordId: number;
 	hasHistory?: boolean;
 }
@@ -27,7 +27,7 @@ export function ChatArea({
 	trainingEnded = false,
 	onSend,
 	bus,
-	features,
+	capabilities,
 	recordId,
 	hasHistory,
 }: ChatAreaProps) {
@@ -83,9 +83,9 @@ export function ChatArea({
 						className="flex-1 flex flex-col min-h-0"
 					>
 						{isCompact ? (
-							<EmotionIndicator bus={bus} features={features} recordId={recordId} compact />
+							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact />
 						) : (
-							<EmotionIndicator bus={bus} features={features} recordId={recordId} />
+							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} />
 						)}
 						<div className="flex-1 overflow-y-auto overscroll-contain">
 							<ChatDisplay

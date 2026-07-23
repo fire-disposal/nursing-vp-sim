@@ -1,11 +1,11 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
-import type { SceneCardProps } from "@/engine/scene-card";
+import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
-import { useExamBridge } from "@/hooks/useExamBridge";
-import { CARD_META, getSceneCards } from "./scene-cards/registry";
+import { useToolBridge } from "@/hooks/useToolBridge";
+import { getTools, TOOL_META } from "./tools/registry";
 
 const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
 const PANEL_WIDTH_WIDE = 400;
@@ -17,8 +17,8 @@ const PANEL_WIDTH_DEFAULT = 280;
  * Click _ to minimize (collapses to header only), ✕ to fully close.
  */
 export function SceneRenderer() {
-  const { bus, features, recordId, trainingType, recordDetail } = useTrainingContext();
-  const cards = getSceneCards(trainingType, features);
+  const { bus, capabilities, recordId, trainingType, recordDetail } = useTrainingContext();
+  const tools = getTools(trainingType, capabilities);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
@@ -33,9 +33,9 @@ export function SceneRenderer() {
     });
   }, []);
 
-  const cardProps: SceneCardProps = { bus, recordId, recordDetail };
+  const toolProps: TrainingToolProps = { bus, recordId, recordDetail };
 
-  useExamBridge(bus);
+  useToolBridge(bus);
 
   // ── Drag logic ──
   const onHeaderDown = useCallback((e: React.MouseEvent) => {
@@ -62,53 +62,53 @@ export function SceneRenderer() {
     return () => dragCleanupRef.current?.();
   }, []);
 
-  if (cards.length === 0) return null;
+  if (tools.length === 0) return null;
 
-  const activeCard = cards.find((c) => c.id === activeId);
+  const activeTool = tools.find((c) => c.id === activeId);
 
   return (
     <div className="relative shrink-0 hidden md:flex">
       {/* Icon bar */}
       <div className="flex flex-col items-center gap-1 border-l border-border bg-card py-2 px-1 h-full">
-        {cards.map((card) => {
-          const isActive = card.id === activeId;
-          const cap = card.featureFlag ? ALL_CAPABILITIES[card.featureFlag] : null;
+        {tools.map((tool) => {
+          const isActive = tool.id === activeId;
+          const cap = tool.capability ? ALL_CAPABILITIES[tool.capability] : null;
           return (
-            <button key={card.id} onClick={() => setActiveId(isActive ? null : card.id)}
+            <button key={tool.id} onClick={() => setActiveId(isActive ? null : tool.id)}
               className="flex items-center justify-center size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              title={cap?.label ?? card.id}
+              title={cap?.label ?? tool.id}
               style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
             >
-              <span className="text-sm">{CARD_META[card.id]?.icon ?? "◻"}</span>
+              <span className="text-sm">{TOOL_META[tool.id]?.icon ?? "◻"}</span>
             </button>
           );
         })}
       </div>
 
       {/* Overlay panel */}
-      {activeCard && (
+      {activeTool && (
         <>
-          <div ref={panelRef} style={{ width: panelWidth(activeCard) }}
+          <div ref={panelRef} style={{ width: panelWidth(activeTool) }}
             className="absolute top-0 right-full border border-border bg-card rounded-xl shadow-xl overflow-hidden"
           >
             {/* Draggable header */}
-            <div onMouseDown={!minimized.has(activeCard.id) ? onHeaderDown : undefined} style={{ cursor: "grab" }}
+            <div onMouseDown={!minimized.has(activeTool.id) ? onHeaderDown : undefined} style={{ cursor: "grab" }}
               className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 select-none"
             >
               <span className="text-xs font-medium text-muted-foreground">
-                {CARD_META[activeCard.id]?.icon ?? "◻"} {CARD_META[activeCard.id]?.title ?? activeCard.id}
+                {TOOL_META[activeTool.id]?.icon ?? "◻"} {TOOL_META[activeTool.id]?.title ?? activeTool.id}
               </span>
               <div className="flex items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); toggleMinimize(activeCard.id) }}
+                <button onClick={(e) => { e.stopPropagation(); toggleMinimize(activeTool.id) }}
                   className="text-muted-foreground hover:text-foreground text-xs leading-none px-1">
-                  {minimized.has(activeCard.id) ? "□" : "_"}
+                  {minimized.has(activeTool.id) ? "□" : "_"}
                 </button>
                 <button onClick={() => setActiveId(null)} className="text-muted-foreground hover:text-foreground text-xs leading-none">✕</button>
               </div>
             </div>
-            {minimized.has(activeCard.id) ? (
+            {minimized.has(activeTool.id) ? (
               <div className="flex items-center gap-1 px-3 py-1 text-[10px] text-muted-foreground/50 select-none cursor-pointer"
-                onClick={() => toggleMinimize(activeCard.id)}>
+                onClick={() => toggleMinimize(activeTool.id)}>
                 <span className="text-[10px]">⋯</span>
                 <span>minimized — click to expand</span>
               </div>
@@ -120,12 +120,12 @@ export function SceneRenderer() {
                       <div className="flex flex-col items-center gap-2 p-4 text-sm text-muted-foreground">
                         <span>卡片加载失败</span>
                         <span className="text-xs">
-                          {ALL_CAPABILITIES[activeCard.featureFlag ?? ""]?.label ?? activeCard.id}
+                          {ALL_CAPABILITIES[activeTool.capability ?? ""]?.label ?? activeTool.id}
                         </span>
                       </div>
                     }
                   >
-                    <activeCard.component {...cardProps} />
+                    <activeTool.component {...toolProps} />
                   </ErrorBoundary>
                 </SceneStateProvider>
               </Suspense>
@@ -138,6 +138,6 @@ export function SceneRenderer() {
   );
 }
 
-function panelWidth(card: { featureFlag?: string }) {
-  return card.featureFlag && WIDE_PANEL_CAPS.has(card.featureFlag) ? PANEL_WIDTH_WIDE : PANEL_WIDTH_DEFAULT;
+function panelWidth(tool: { capability?: string }) {
+  return tool.capability && WIDE_PANEL_CAPS.has(tool.capability) ? PANEL_WIDTH_WIDE : PANEL_WIDTH_DEFAULT;
 }

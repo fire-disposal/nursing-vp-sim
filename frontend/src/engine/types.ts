@@ -82,7 +82,7 @@ export interface BadgeInfo {
 
 export interface PanelTabProps {
 	ctx: PanelContext;
-	features: Record<string, boolean>;
+	capabilities: Record<string, boolean>;
 	isCollapsed: boolean;
 }
 
