@@ -36,19 +36,10 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	open: "bg-green-500",
 };
 
-const EMOTION_TOOLTIP: Record<EmotionState, string> = {
-	withdrawn: "沉默回避 — 需要耐心和真诚关心才能打开话题",
-	defensive: "防御抵触 — 追问隐私而不解释原因可能恶化",
-	anxious: "焦虑不安 — 需要 reassurance 和耐心解释",
-	neutral: "正常配合 — 按真实感受回答，保持一定距离",
-	relaxed: "放松友好 — 心情放松，可能多聊一两句个人感受",
-	open: "开放信任 — 愿意详细叙述，主动补充信息",
-};
-
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [trust, setTrust] = useState(50);
-	const [comfort, setComfort] = useState(50);
+	const [_comfort, _setComfort] = useState(50);
 	const [pulse, setPulse] = useState(false);
 	const [emojiPop, setEmojiPop] = useState(false);
 	const prevEmotionRef = useRef(emotion);
@@ -156,7 +147,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 			"emotion:changed",
 			(data: { state: string; trust: number; comfort: number }) => {
 				setTrust(data.trust);
-				setComfort(data.comfort);
+				_setComfort(data.comfort);
 				setPulse(true);
 				if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
 				pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
@@ -178,7 +169,6 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	if (!capabilities.emotion) return null;
 
 	const label = EMOTION_LABELS[emotion];
-	const tooltip = EMOTION_TOOLTIP[emotion];
 	const trustPct = Math.max(0, Math.min(100, trust));
 
 	if (compact) {
@@ -227,7 +217,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 		>
 			<div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-border">
 				{/* Emoji + label */}
-				<div className="flex items-center gap-1.5 shrink-0" title={tooltip}>
+				<div className="flex items-center gap-1.5 shrink-0">
 					<span
 						className={cn(
 							"text-sm sm:text-base transition-transform duration-300",
@@ -271,13 +261,6 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 					</div>
 				)}
 				{trailing}
-			</div>
-
-			{/* Tooltip on hover — hidden by default, shown via group-hover */}
-			<div className="hidden group-hover:block px-3 sm:px-4 pb-2 pt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-				{tooltip}
-				<span className="mx-1 text-muted-foreground/40">·</span>
-				信赖 {Math.round(trust)} · 舒适 {Math.round(comfort)}
 			</div>
 		</div>
 	);
