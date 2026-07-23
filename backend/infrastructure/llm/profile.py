@@ -49,7 +49,7 @@ PROFILES: dict[str, LLMProfile] = {
     "scoring": LLMProfile(
         model="deepseek-v4-pro",
         timeout=120,
-        max_tokens=4096,
+        max_tokens=65536,
         temperature=0,
         max_retries=3,
         response_format={"type": "json_object"},
@@ -59,7 +59,7 @@ PROFILES: dict[str, LLMProfile] = {
     "scoring_feedback": LLMProfile(
         model="deepseek-v4-pro",
         timeout=60,
-        max_tokens=2048,
+        max_tokens=65536,
         temperature=0.3,
         max_retries=2,
         response_format={"type": "json_object"},

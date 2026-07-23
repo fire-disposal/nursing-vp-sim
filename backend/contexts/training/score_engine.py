@@ -9,10 +9,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.prompt_context import PromptContext
-from core.exceptions import LLMParseError
-from infrastructure.llm import safe_parse_json
-from infrastructure.llm.client import CallContext, LLMClient
-from infrastructure.llm.profile import get_enable_thinking, get_llm_config
 from contexts.training.scoring_prompts import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -21,8 +17,12 @@ from contexts.training.scoring_prompts import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
+from core.exceptions import LLMParseError
+from infrastructure.llm import safe_parse_json
+from infrastructure.llm.client import CallContext, LLMClient
+from infrastructure.llm.profile import get_enable_thinking, get_llm_config
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
-from models import Message, Score, TrainingRecord
+from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from repositories.rubric import get_rubric_version_id, load_rubric
 
@@ -358,21 +358,37 @@ def _build_triage_messages(record: TrainingRecord, case_data: dict) -> tuple[lis
     return score_messages, "", ""
 
 
+def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
+    """护理记录评分注入：nursing_record 能力开启时，读取学生填写的 sheet_data 并格式化。"""
+    features = (record.practice_snapshot or {}).get("features", {})
+    if not features.get("nursing_record"):
+        return ""
+    nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
+    if not nr or not nr.sheet_data:
+        return ""
+    parts = []
+    for field_name in ("subjective", "objective", "assessment", "plan", "evaluation"):
+        val = nr.sheet_data.get(field_name, "")
+        if val:
+            parts.append(f"{field_name.upper()}: {val}")
+    return "\n\n".join(parts)
+
+
 def _build_history_messages(
     record: TrainingRecord,
     scoring_criteria_text: str,
     required_inquiries_text: str,
     scoring_json_schema_text: str,
     conversation_text: str,
+    nursing_record_text: str = "",
 ) -> tuple[list[dict], str, str]:
     exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
     exam_results_text = (
         json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
     )
 
-    # 护理记录评分注入：nursing_record 能力开启时，将学生填写的 sheet_data 注入评分 prompt
-    # [DISABLED] 护理评估记录评分暂时禁用 — 恢复时取消下方注释
-    nursing_record_text = ""
+    if nursing_record_text:
+        scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
 
     pc = PromptContext()
     pc.register(
@@ -447,13 +463,26 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
     result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
     _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
     _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
-    recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
-    if abs(recalc_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
+    if result.get("_scoring_fallback"):
         log.warning(
-            "total_score_mismatch",
-            extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
+            "scoring fallback: keeping LLM total_score, bypassing dimension recalculation",
+            extra={"llm_total": result.get("total_score")},
         )
-        result["total_score"] = recalc_total
+    else:
+        recalc_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
+        if abs(recalc_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
+            original_total = float(result.get("total_score", 0))
+            if recalc_total == 0.0 and original_total > 0:
+                log.warning(
+                    "total_score_mismatch_dim_zero: recalc=0 while LLM gave non-zero, keeping LLM value",
+                    extra={"original_llm_total": original_total, "recalc_total": recalc_total},
+                )
+            else:
+                log.warning(
+                    "total_score_mismatch",
+                    extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
+                )
+                result["total_score"] = recalc_total
 
     _validate_scoring_result(result, rubric)
 
@@ -522,8 +551,10 @@ async def evaluate_training(
     if training_type == "triage":
         score_messages, exam_results_text, nursing_record_text = _build_triage_messages(record, case_data)
     else:
+        nursing_record_text = _load_nursing_record_text(db, record)
         score_messages, exam_results_text, nursing_record_text = _build_history_messages(
-            record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text
+            record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text,
+            nursing_record_text=nursing_record_text,
         )
 
     feedback_messages = _build_feedback_messages(
