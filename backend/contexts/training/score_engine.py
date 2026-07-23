@@ -485,12 +485,22 @@ def _build_feedback_messages(
     ]
 
 
+_FEEDBACK_DEFAULTS = {
+    "strengths": [],
+    "weaknesses": [],
+    "missed_content": [],
+    "suggestions": "",
+}
+
+
 def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rubric: dict) -> dict:
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
         val = feedback_result.get(field)
         if val is not None:
             result[field] = val
+        else:
+            result.setdefault(field, _FEEDBACK_DEFAULTS[field])
 
     _inject_rubric_max(result, rubric)
     _coerce_numeric_fields(result)

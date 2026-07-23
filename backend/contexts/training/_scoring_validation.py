@@ -167,14 +167,20 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
         ("suggestions", str),
     ]:
         value = result.get(field)
+        is_list_type = expected_type is list
         if value is None:
             empty_feedback.append(f"{field}(缺失)")
+            result[field] = [] if is_list_type else ""
         elif not isinstance(value, expected_type):
             empty_feedback.append(f"{field}(类型错误)")
-        elif (expected_type is list and len(value) == 0) or (expected_type is str and not value.strip()):
+            result[field] = [] if is_list_type else ""
+        elif (is_list_type and len(value) == 0) or (not is_list_type and not value.strip()):
             empty_feedback.append(f"{field}(为空)")
     if empty_feedback:
-        raise ValueError(f"LLM评分反馈字段不完整: {', '.join(empty_feedback)}")
+        log.warning(
+            "反馈字段不完整（评分维度不受影响）",
+            extra={"missing_feedback": empty_feedback},
+        )
 
     if rubric:
         total_items = 0

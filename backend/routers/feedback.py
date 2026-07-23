@@ -186,6 +186,8 @@ def _to_item(r) -> FeedbackItem:
 
 
 def _to_item_from_model(fb: Feedback) -> FeedbackItem:
+    images = fb.images
+    image_count = len(images) if isinstance(images, list) and images else 0
     return FeedbackItem(
         id=fb.id,
         user_id=fb.user_id,
@@ -194,7 +196,7 @@ def _to_item_from_model(fb: Feedback) -> FeedbackItem:
         tag=fb.tag,
         content=fb.content,
         version=fb.version,
-        image_count=len(fb.images) if fb.images else 0,
+        image_count=image_count,
         developer_reply=fb.developer_reply,
         replied_at=fb.replied_at,
         created_at=fb.created_at,

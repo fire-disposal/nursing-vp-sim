@@ -497,8 +497,7 @@ def test_validate_scoring_result_defaults_wrong_type_strengths_then_raises():
         "missed_content": ["m"],
         "suggestions": "s",
     }
-    with pytest.raises(ValueError, match="strengths"):
-        _validate_scoring_result(result)
+    _validate_scoring_result(result)
     assert result["strengths"] == []
 
 
@@ -511,8 +510,7 @@ def test_validate_scoring_result_defaults_wrong_type_suggestions_then_raises():
         "missed_content": ["m"],
         "suggestions": 123,
     }
-    with pytest.raises(ValueError, match="suggestions"):
-        _validate_scoring_result(result)
+    _validate_scoring_result(result)
     assert result["suggestions"] == ""
 
 
@@ -525,8 +523,7 @@ def test_validate_scoring_result_defaults_wrong_type_weaknesses_then_raises():
         "missed_content": ["m"],
         "suggestions": "sug",
     }
-    with pytest.raises(ValueError, match="weaknesses"):
-        _validate_scoring_result(result)
+    _validate_scoring_result(result)
     assert result["weaknesses"] == []
 
 
@@ -539,8 +536,7 @@ def test_validate_scoring_result_defaults_wrong_type_missed_content_then_raises(
         "missed_content": 42,
         "suggestions": "sug",
     }
-    with pytest.raises(ValueError, match="missed_content"):
-        _validate_scoring_result(result)
+    _validate_scoring_result(result)
     assert result["missed_content"] == []
 
 
@@ -587,44 +583,39 @@ def test_validate_scoring_result_raises_missing_detail_scores():
 
 
 def test_validate_scoring_result_raises_missing_feedback_field():
-    with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result(
-            {
-                "total_score": 80,
-                "detail_scores": {},
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "sug",
-            }
-        )
+    result = {
+        "total_score": 80,
+        "detail_scores": {},
+        "weaknesses": ["w"],
+        "missed_content": ["m"],
+        "suggestions": "sug",
+    }
+    _validate_scoring_result(result)
+    assert result["strengths"] == []
 
 
 def test_validate_scoring_result_raises_empty_strengths():
-    with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result(
-            {
-                "total_score": 80,
-                "detail_scores": {},
-                "strengths": [],
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "sug",
-            }
-        )
+    result = {
+        "total_score": 80,
+        "detail_scores": {},
+        "strengths": [],
+        "weaknesses": ["w"],
+        "missed_content": ["m"],
+        "suggestions": "sug",
+    }
+    _validate_scoring_result(result)
 
 
 def test_validate_scoring_result_raises_whitespace_suggestions():
-    with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result(
-            {
-                "total_score": 80,
-                "detail_scores": {},
-                "strengths": ["s"],
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "   ",
-            }
-        )
+    result = {
+        "total_score": 80,
+        "detail_scores": {},
+        "strengths": ["s"],
+        "weaknesses": ["w"],
+        "missed_content": ["m"],
+        "suggestions": "   ",
+    }
+    _validate_scoring_result(result)
 
 
 # ──────────────────────────────────────────────
