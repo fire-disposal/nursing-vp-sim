@@ -10,7 +10,6 @@ import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
-import type { TrainingRecordDetail } from "./TrainingContext";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {
@@ -22,6 +21,7 @@ import {
 import { PatientProvider, usePatient } from "./PatientProvider";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
+import type { TrainingRecordDetail } from "./TrainingContext";
 import TrainingContext from "./TrainingContext";
 import { TTSManager } from "./tts/TTSManager";
 import type {
@@ -294,7 +294,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	if (loading) {
 		return (
-			<div className="flex flex-col h-screen">
+			<div className="flex flex-col h-dvh">
 				<div className="p-3 border-b shrink-0">
 					<LoadingSkeleton variant="stats" />
 				</div>
@@ -307,7 +307,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	if (!patient) {
 		return (
-			<div className="flex h-screen items-center justify-center text-muted-foreground">
+			<div className="flex h-dvh items-center justify-center text-muted-foreground">
 				{patientError || "患者信息加载失败"}
 			</div>
 		);

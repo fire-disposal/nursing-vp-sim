@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
 import type { SceneState } from "@/engine/scene-state";
+import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { cn } from "@/utils/cn";
 

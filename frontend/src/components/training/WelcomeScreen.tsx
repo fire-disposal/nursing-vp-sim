@@ -8,9 +8,16 @@ import { getQuickPrompts } from "./quick-prompts";
 interface WelcomeScreenProps {
 	patient: PatientData;
 	onQuickPrompt?: (text: string) => void;
+	capabilities?: Record<string, boolean>;
 }
 
-export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
+interface FlowStep {
+	icon: string;
+	label: string;
+	desc: string;
+}
+
+export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: WelcomeScreenProps) {
 	const { portraitUrl } = usePortrait();
 	const avatarSrc =
 		portraitUrl ||
@@ -21,6 +28,16 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	const subInfo = [genderLabel, ageLabel].filter(Boolean).join(" · ");
 
 	const prompts = useMemo(() => getQuickPrompts(patient), [patient]);
+
+	const flowSteps = useMemo<FlowStep[]>(
+		() => [
+			{ icon: "🗣️", label: "问诊采集", desc: "询问主诉、现病史、既往史" },
+			capabilities.physical_exam ? { icon: "💓", label: "护理查体", desc: "测量生命体征" } : null,
+			capabilities.nursing_record ? { icon: "📄", label: "护理记录", desc: "填写护理评估记录" } : null,
+			{ icon: "✅", label: "结束训练", desc: "系统自动评分并反馈" },
+		].filter((s): s is FlowStep => s !== null),
+		[capabilities],
+	);
 
 	return (
 		<div className="px-3 py-4 mx-auto w-full max-w-3xl">
@@ -51,6 +68,26 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 						<span className="text-foreground">{patient.caseTitle || "未提供"}</span>
 					</div>
 				</div>
+
+				{flowSteps.length > 1 && (
+					<div className="pt-3 border-t border-border">
+						<div className="text-xs font-medium text-muted-foreground mb-2">训练流程</div>
+						<ol className="space-y-1.5">
+							{flowSteps.map((s, i) => (
+								<li key={s.label} className="flex items-center gap-2.5 text-xs">
+									<span className="flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold shrink-0">
+										{i + 1}
+									</span>
+									<span className="shrink-0">{s.icon} {s.label}</span>
+									<span className="text-muted-foreground truncate">{s.desc}</span>
+								</li>
+							))}
+						</ol>
+						<p className="mt-2 text-[11px] text-muted-foreground/70">
+							对话过程中可随时通过工具栏打开问诊指引、查体与记录工具。
+						</p>
+					</div>
+				)}
 
 				<div className="pt-3 border-t border-border">
 					<div className="flex flex-col gap-2 w-full">
