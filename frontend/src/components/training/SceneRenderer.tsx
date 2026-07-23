@@ -1,8 +1,8 @@
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useTrainingContext } from "@/engine/TrainingContext";
+import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useToolBridge } from "@/hooks/useToolBridge";
 import { getTools, TOOL_META } from "./tools/registry";
@@ -24,6 +24,14 @@ export function SceneRenderer() {
   const toolProps: TrainingToolProps = { bus, recordId, recordDetail };
 
   useToolBridge(bus);
+
+  useEffect(() => {
+    const handler = (payload: { id: string }) => {
+      if (!window.matchMedia("(min-width: 768px)").matches) return;
+      if (tools.some((t) => t.id === payload.id)) setActiveId(payload.id);
+    };
+    return bus.on("tool:open", handler);
+  }, [bus, tools]);
 
   if (tools.length === 0) return null;
 

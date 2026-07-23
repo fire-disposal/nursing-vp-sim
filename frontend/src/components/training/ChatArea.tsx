@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
+import { InquiryProgressChip } from "./InquiryProgressChip";
 import { QuickPromptBar } from "./QuickPromptBar";
 import SceneToolbar from "./SceneToolbar";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -76,6 +77,7 @@ export function ChatArea({
 						<WelcomeScreen
 							patient={patient}
 							onQuickPrompt={onSend}
+							capabilities={capabilities}
 						/>
 					</motion.div>
 				) : (
@@ -87,9 +89,9 @@ export function ChatArea({
 						className="flex-1 flex flex-col min-h-0"
 					>
 						{isCompact ? (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact />
+							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact trailing={<InquiryProgressChip />} />
 						) : (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} />
+							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} trailing={<InquiryProgressChip />} />
 						)}
 						<div className="flex-1 overflow-y-auto overscroll-contain">
 							<ChatDisplay

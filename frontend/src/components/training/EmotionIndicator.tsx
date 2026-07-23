@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { triggerInitiative } from "@/api/training";
 import type { EmotionState } from "@/engine";
 import {
@@ -14,6 +14,8 @@ interface EmotionIndicatorProps {
 	capabilities: Record<string, boolean>;
 	recordId: number;
 	compact?: boolean;
+	/** 右侧注入位（如问诊进度 chip），与情绪栏共用一条状态栏 */
+	trailing?: ReactNode;
 }
 
 const EMOTION_ICONS: Record<EmotionState, string> = {
@@ -43,7 +45,7 @@ const EMOTION_TOOLTIP: Record<EmotionState, string> = {
 	open: "开放信任 — 愿意详细叙述，主动补充信息",
 };
 
-export function EmotionIndicator({ bus, capabilities, recordId, compact }: EmotionIndicatorProps) {
+export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [trust, setTrust] = useState(50);
 	const [comfort, setComfort] = useState(50);
@@ -197,17 +199,20 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact }: Emoti
 						{EMOTION_ICONS[emotion]}
 					</span>
 					<span className="text-[11px] text-muted-foreground truncate">{label}</span>
-					{showInitiative && initPercent > 0 && (
-						<div className="ml-auto h-1 w-12 rounded-full bg-muted overflow-hidden shrink-0">
-							<div
-								className={cn(
-									"h-full rounded-full transition-all duration-1000",
-									initPercent > 80 ? "bg-danger" : initPercent > 50 ? "bg-warning" : "bg-success",
-								)}
-								style={{ width: `${Math.min(100, initPercent)}%` }}
-							/>
-						</div>
-					)}
+					<div className="ml-auto flex items-center gap-2">
+						{showInitiative && initPercent > 0 && (
+							<div className="h-1 w-12 rounded-full bg-muted overflow-hidden shrink-0">
+								<div
+									className={cn(
+										"h-full rounded-full transition-all duration-1000",
+										initPercent > 80 ? "bg-danger" : initPercent > 50 ? "bg-warning" : "bg-success",
+									)}
+									style={{ width: `${Math.min(100, initPercent)}%` }}
+								/>
+							</div>
+						)}
+						{trailing}
+					</div>
 				</div>
 			</div>
 		);
@@ -265,6 +270,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact }: Emoti
 						</div>
 					</div>
 				)}
+				{trailing}
 			</div>
 
 			{/* Tooltip on hover — hidden by default, shown via group-hover */}

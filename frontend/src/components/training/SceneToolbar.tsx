@@ -4,12 +4,12 @@
  * 渲染在 ChatInput 上方，隐藏于桌面端（md:hidden）。
  * 点击图标打开对应的 Bottomsheet 面板。
  */
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Bottomsheet from "@/components/ui/Bottomsheet";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
-import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import { useTrainingContext } from "@/engine/TrainingContext";
+import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useToolBridge } from "@/hooks/useToolBridge";
 import { getTools, TOOL_META } from "./tools/registry";
@@ -25,6 +25,14 @@ export default function SceneToolbar() {
   const handleClose = useCallback(() => setActiveId(null), []);
 
   useToolBridge(bus);
+
+  useEffect(() => {
+    const handler = (payload: { id: string }) => {
+      if (window.matchMedia("(min-width: 768px)").matches) return;
+      if (tools.some((t) => t.id === payload.id)) setActiveId(payload.id);
+    };
+    return bus.on("tool:open", handler);
+  }, [bus, tools]);
 
   if (tools.length === 0) return null;
 
@@ -44,7 +52,7 @@ export default function SceneToolbar() {
               style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
             >
               <span>{TOOL_META[tool.id]?.icon ?? "◻"}</span>
-              <span className="hidden sm:inline">{TOOL_META[tool.id]?.title ?? tool.id}</span>
+							<span>{TOOL_META[tool.id]?.title ?? tool.id}</span>
             </button>
           );
         })}
