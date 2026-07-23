@@ -313,8 +313,6 @@ class VolcTTSConnection:
         ):
             err = msg.payload or {}
             raise RuntimeError(f"TTS connection failed: {json.dumps(err, ensure_ascii=False)[:300]}")
-        if msg.type != MsgType.FullServerResponse or msg.event != event:
-            raise RuntimeError(f"TTS protocol error: expected {event.name}, got {msg.event}")
         return msg
 
 
