@@ -24,7 +24,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
             ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
             log.warning("Persisted partial reply after error: record_id=%d len=%d", ctx.record.id, len(ctx.llm_reply))
         _reset_initiative_timer(ctx)
-        ctx.db.flush()
+        ctx.db.commit()
         await next_mw()
         return
 
@@ -35,7 +35,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         patient_msg = Message(record_id=ctx.record.id, role="patient", content=ctx.llm_reply)
         ctx.db.add(patient_msg)
         _reset_initiative_timer(ctx)
-        ctx.db.flush()
+        ctx.db.commit()
         ctx.db.refresh(patient_msg)
         ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
         log.info(
