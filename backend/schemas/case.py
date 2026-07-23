@@ -89,7 +89,7 @@ class CaseGenerateRequest(BaseModel):
     description: str = Field(min_length=1, max_length=4096)
     reference_case_ids: list[int] | None = None
     reference_text: str | None = Field(default=None, max_length=16384)
-    field: str | None = Field(default=None, pattern="^(scoring_criteria|hidden_info|required_inquiries)$")
+    field: str | None = Field(default=None, pattern="^(hidden_info|required_inquiries)$")
     current_case_data: dict[str, Any] | None = None
 
 

@@ -227,10 +227,6 @@ def test_case(db_session):
             "opening_line": "\u533b\u751f\u4f60\u597d\uff0c\u6211\u6700\u8fd1\u8001\u662f\u5934\u6655...",
             "present_illness": "\u8fd1\u4e00\u5468\u53cd\u590d\u5934\u6655\u5934\u75db",
             "required_inquiries": ["\u8840\u538b\u503c", "\u5438\u70df\u53f2"],
-            "scoring_criteria": {
-                "\u6c9f\u901a\u6280\u80fd": {"max": 42, "description": "", "items": []},
-                "\u75c5\u53f2\u91c7\u96c6": {"max": 15, "description": "", "items": []},
-            },
         },
     )
     db_session.add(case)

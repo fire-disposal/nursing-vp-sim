@@ -151,7 +151,9 @@ def _detect_one(key: str, case_data: dict, training_type: str) -> bool:
         if training_type == "triage":
             return True
         anchors = case_data.get("exam_anchors")
-        return isinstance(anchors, dict) and len(anchors) > 0
+        if isinstance(anchors, dict) and len(anchors) > 0:
+            return True
+        return bool((case_data.get("capabilities") or {}).get(key, False))
 
     if key == "nursing_record":
         return training_type == "history_taking"
@@ -176,5 +178,5 @@ def is_enabled(record: TrainingRecord, key: str) -> bool:
     return detect_capabilities(
         case_data=case_snapshot,
         training_type=training_type,
-        overrides=snapshot.get("feature_overrides"),
+        overrides=snapshot.get("features"),
     ).get(key, False)
