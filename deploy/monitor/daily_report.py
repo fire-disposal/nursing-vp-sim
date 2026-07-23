@@ -336,79 +336,38 @@ WRAPPER = (
 
 
 def build_dingtalk_summary(data: dict, online: dict) -> str:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.now().strftime("%Y-%m-%d")
     prod, stag = data.get("prod") or {}, data.get("staging") or {}
-    lines = [f"## 📋 VP-SIM 日报 — {now}", f"> {HOSTNAME}\n"]
-
-    ps = "🟢" if online.get("prod") else "🔴"
-    ss = "🟢" if online.get("staging") else "🔴"
-    prod_status = prod.get("summary", {}).get("status", "?")
-    stag_status = stag.get("summary", {}).get("status", "?")
-    lines.append(f"**状态**  {ps}正式({prod_status})  {ss}测试({stag_status})")
-
-    def _busy_line(label, d):
-        llm = (d.get("llm") or {}).get("total_calls_24h", 0)
-        m = d.get("metrics") or {}
-        reqs = (m.get("requests") or {}).get("total", 0)
-        s5xx = (m.get("requests") or {}).get("by_status", {}).get("5xx", 0)
-        sess = m.get("active_sessions", "-")
-        return f"> **{label}**  LLM {llm}次  {reqs}req  5xx {s5xx}  会话 {sess}"
-
-    lines.append(_busy_line("正式", prod))
-    lines.append(_busy_line("测试", stag))
-
-    def _degradation(label, d):
-        llm_m = ((d.get("metrics") or {}).get("llm") or {})
-        deg = llm_m.get("degraded_providers", 0)
-        gd = llm_m.get("global_degraded", False)
-        parts = []
-        if deg:
-            parts.append(f"Provider降级 {deg}")
-        if gd:
-            parts.append("全局降级")
-        return f"> {label}: {', '.join(parts)}" if parts else None
-
-    for env_label, env_data in [("正式", prod), ("测试", stag)]:
-        line = _degradation(env_label, env_data)
-        if line:
-            lines.append(line)
-
     unreplied = fetch_feedback_unreplied()
-    if unreplied:
-        lines.append(f"> 💬 未回复反馈 {unreplied} 条")
 
-    pa = prod.get("alerts") or []
-    sa = stag.get("alerts") or []
-    if pa or sa:
-        lines.append(f"\n**⚠️ 异常 ({len(pa) + len(sa)} 项)**")
-        for a in pa:
-            lines.append(f"> 🔴 正式: {a}")
-        for a in sa:
-            lines.append(f"> 🟡 测试: {a}")
+    lines = [f"## 📋 VP-SIM 日报 · {now}", ""]
 
-    pe = prod.get("errors") or {}
-    se = stag.get("errors") or {}
-    ec = lambda e: (e.get("count") or {}).get("last_hour", 0)
-    if ec(pe) > 0 or ec(se) > 0:
-        lines.append(f"\n**📊 错误**  正式 1h={ec(pe)}  |  测试 1h={ec(se)}")
-        for env_name, ev in [("正式", pe), ("测试", se)]:
-            recent = ev.get("recent") or []
-            if recent:
-                last_msg = recent[-1].get("message", "")[:100]
-                lines.append(f"> {env_name}: _{last_msg}_")
+    def _section(title: str, env: dict, is_up: bool, extras: list[str]) -> list[str]:
+        if not is_up:
+            return [f"### {title} 🔴 无响应", ""]
+        version = env.get("version", "-")
+        exc: list[str] = []
+        err_1h = ((env.get("errors") or {}).get("count") or {}).get("last_hour", 0)
+        if err_1h > 0:
+            exc.append(f"> ⚠️ 近 1h 服务端错误 {err_1h} 条")
+        for a in env.get("alerts") or []:
+            exc.append(f"> ⚠️ {a}")
+        exc.extend(extras)
+        lamp = "🟢" if not exc else "🟡"
+        sec = [f"### {title} {lamp} {version}"]
+        biz = env.get("business") or {}
+        if biz:
+            sec.append(f"今日用户 **{biz.get('today_users', 0)}** 人")
+            sec.append(f"今日训练 **{biz.get('today_trainings', 0)}** 次（完成 {biz.get('today_completed', 0)}）")
+        sec.extend(exc)
+        sec.append("")
+        return sec
 
-    for env_label, env_data in [("正式", prod.get("scoring", {})), ("测试", stag.get("scoring", {}))]:
-        s = env_data.get("stuck", 0)
-        p = env_data.get("pending", 0)
-        if s or p > 10:
-            lines.append(f"\n**🎯 评分 {env_label}**  排队 {p}  |  卡住 {s}")
+    fb_line = [f"> 💬 未回复用户反馈 {unreplied} 条"] if unreplied else []
+    lines += _section("🧪 测试服", stag, online.get("staging", False), [])
+    lines += _section("🏥 正式服", prod, online.get("prod", False), fb_line)
 
-    vb = prod.get("voice_budget") or {}
-    if vb.get("usage_pct", 0) >= 75:
-        lines.append(f"\n**💰 预算**  语音 {vb['usage_pct']:.0f}% ¥{vb.get('monthly_cost', 0):.0f}/{vb.get('monthly_budget', 0):.0f}")
-
-    lines.append(f"\n---\n> daily_report.py")
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def send_dingtalk(text: str) -> bool:
@@ -417,7 +376,7 @@ def send_dingtalk(text: str) -> bool:
     try:
         import urllib.request
 
-        payload = json.dumps({"msgtype": "markdown", "markdown": {"title": "运维日报", "text": text}}).encode()
+        payload = json.dumps({"msgtype": "markdown", "markdown": {"title": "VP-SIM 日报", "text": text}}).encode()
         req = urllib.request.Request(DINGTALK_WEBHOOK, data=payload, headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=10)
         log.info("DingTalk sent")

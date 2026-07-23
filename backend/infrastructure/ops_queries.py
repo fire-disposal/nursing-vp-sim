@@ -6,11 +6,14 @@ callers are responsible for auth, response shaping, and alert derivation.
 """
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
+
+_CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def query_llm(db: Session, since: datetime) -> dict:
@@ -42,6 +45,34 @@ def query_llm_errors(db: Session, since: datetime, limit: int = 5) -> list[dict]
         .all()
     )
     return [{"type": r.error_type, "count": r.cnt} for r in rows]
+
+
+def query_business(db: Session, now: datetime) -> dict:
+    """Business-facing daily metrics — Asia/Shanghai natural day."""
+    today_start = now.astimezone(_CN_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    users_today = (
+        db.query(func.count(func.distinct(TrainingRecord.user_id)))
+        .filter(TrainingRecord.start_time >= today_start)
+        .scalar()
+        or 0
+    )
+    started_today = (
+        db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.start_time >= today_start).scalar() or 0
+    )
+    completed_today = (
+        db.query(func.count(TrainingRecord.id))
+        .filter(
+            TrainingRecord.status == "completed",
+            TrainingRecord.end_time >= today_start,
+        )
+        .scalar()
+        or 0
+    )
+    return {
+        "today_users": users_today,
+        "today_trainings": started_today,
+        "today_completed": completed_today,
+    }
 
 
 def query_scoring(db: Session, day_ago: datetime) -> dict:
@@ -132,6 +163,8 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
     voice = query_voice(db, day_ago)
     voice_budget = query_voice_budget(db)
 
+    business = query_business(db, now)
+
     return {
         "time": now.isoformat(),
         "llm": {
@@ -145,6 +178,7 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
         "sessions": {"active": active},
         "voice": voice,
         "voice_budget": voice_budget,
+        "business": business,
     }
 
 

@@ -119,6 +119,7 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
             "scoring": dashboard["scoring"],
             "voice": dashboard["voice"],
             "voice_budget": dashboard["voice_budget"],
+            "business": dashboard["business"],
             "metrics": metrics_snapshot,
             "errors": {
                 "count": {
