@@ -1,13 +1,14 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Ambulance, Search, Star, Stethoscope, User, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Ambulance, Play, RotateCcw, Search, Star, Stethoscope, User, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCases, getProfiles, startTraining } from "@/api";
+import { abandonRecord, getCases, getProfiles, getRecords, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
@@ -16,6 +17,7 @@ import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
+type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
@@ -56,6 +58,8 @@ export default function TrainingSelect() {
   const [offset, setOffset] = useState(0);
   const navigate = useNavigate();
   const toast = useToast();
+  const queryClient = useQueryClient();
+  const { confirm } = useConfirm();
   const startingCaseRef = useRef<number | null>(null);
 
   const { data: profiles = [] } = useQuery({
@@ -78,6 +82,21 @@ export default function TrainingSelect() {
     placeholderData: keepPreviousData,
   });
 
+  // 进行中的记录 — 用于病例卡片的"继续训练/重新开始"入口
+  const { data: inProgressData } = useQuery({
+    queryKey: queryKeys.training.records({ status: "in_progress", limit: 100, offset: 0 }),
+    queryFn: () => getRecords({ status: "in_progress", limit: 100, offset: 0 }).then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  const inProgressByCase = useMemo(() => {
+    const map = new Map<number, TrainingRecordBrief>();
+    for (const r of inProgressData?.items ?? []) {
+      if (!map.has(r.case_id)) map.set(r.case_id, r);
+    }
+    return map;
+  }, [inProgressData]);
+
   const startMutation = useMutation({
     mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => {
       startingCaseRef.current = caseId;
@@ -92,6 +111,24 @@ export default function TrainingSelect() {
       toast.error("开始训练失败，请重试");
     },
   });
+
+  const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
+    const ok = await confirm({
+      title: "重新开始训练",
+      message: `放弃「${c.name}」当前未完成的训练并重新开始？放弃的记录将保留对话但不会评分。`,
+      confirmLabel: "放弃并重开",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await abandonRecord(rec.id);
+    } catch (err) {
+      toast.apiError(err, "放弃记录失败，请重试");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+    startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 });
+  };
 
   const cases = casesData?.items ?? [];
   const total = casesData?.total ?? 0;
@@ -156,6 +193,7 @@ export default function TrainingSelect() {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input type="text" value={searchInput} onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
               placeholder="搜索…"
+              aria-label="搜索病例"
               className="w-full h-8 pl-8 pr-2 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50"
             />
             {search && (
@@ -221,13 +259,40 @@ export default function TrainingSelect() {
                     })}
                   </div>
 
-                  <Button
-                    className="mt-auto w-full"
-                    onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
-                    disabled={startMutation.isPending}
-                  >
-                    {isStarting ? "启动中…" : "开始训练"}
-                  </Button>
+                  {(() => {
+                    const inProgress = inProgressByCase.get(c.id);
+                    if (inProgress) {
+                      return (
+                        <div className="mt-auto flex gap-2">
+                          <Button
+                            className="flex-1"
+                            onClick={() => navigate(`/training/${inProgress.id}`)}
+                          >
+                            <Play size={14} />
+                            继续训练
+                          </Button>
+                          <Button
+                            variant="outline"
+                            title="放弃当前记录并重新开始"
+                            onClick={() => handleRestart(c, inProgress)}
+                            disabled={startMutation.isPending}
+                          >
+                            <RotateCcw size={14} />
+                            重新开始
+                          </Button>
+                        </div>
+                      );
+                    }
+                    return (
+                      <Button
+                        className="mt-auto w-full"
+                        onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
+                        disabled={startMutation.isPending}
+                      >
+                        {isStarting ? "启动中…" : "开始训练"}
+                      </Button>
+                    );
+                  })()}
                 </div>
               );
             })}

@@ -1,4 +1,4 @@
-import { Brain, Home, Loader2 } from "lucide-react";
+import { Brain, Home, Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/Toast";
@@ -69,13 +69,16 @@ export function ScoringOverlay({
 	bus,
 	getProgress,
 	subscribeProgress,
+	onRetry,
 }: {
 	bus: MessageBus;
 	getProgress: () => Progress;
 	subscribeProgress: (fn: () => void) => () => void;
+	onRetry?: () => Promise<void>;
 }) {
 	const [visible, setVisible] = useState(false);
 	const [closing, setClosing] = useState(false);
+	const [retrying, setRetrying] = useState(false);
 	const [progress, setProgress] = useState<Progress>({
 		phase: null,
 		percentage: 0,
@@ -286,21 +289,51 @@ export function ScoringOverlay({
 					</div>
 				)}
 				{isFailed && (
-					<div className="mt-3 flex justify-end">
-						<button
-							type="button"
-							onClick={() => {
-								setClosing(true);
-								setTimeout(() => {
-									setVisible(false);
-									navigate("/training");
-								}, 200);
-							}}
-							className="rounded-md bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center gap-1"
-						>
-							<Home size={12} />
-							返回主页
-						</button>
+					<div className="mt-3 flex items-center justify-between gap-3">
+						<p className="text-[11px] text-muted-foreground leading-tight">
+							可重新触发评分，<br />或稍后在记录详情页重试
+						</p>
+						<div className="flex shrink-0 items-center gap-2">
+							{onRetry && (
+								<button
+									type="button"
+									disabled={retrying}
+									onClick={async () => {
+										if (retrying) return;
+										setRetrying(true);
+										try {
+											await onRetry();
+										} catch {
+											// 错误提示由调用方（TrainingEngine）toast
+										} finally {
+											setRetrying(false);
+										}
+									}}
+									className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1 disabled:opacity-50"
+								>
+									{retrying ? (
+										<Loader2 size={12} className="animate-spin" />
+									) : (
+										<RotateCcw size={12} />
+									)}
+									重试评分
+								</button>
+							)}
+							<button
+								type="button"
+								onClick={() => {
+									setClosing(true);
+									setTimeout(() => {
+										setVisible(false);
+										navigate("/training");
+									}, 200);
+								}}
+								className="rounded-md bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center gap-1"
+							>
+								<Home size={12} />
+								返回主页
+							</button>
+						</div>
 					</div>
 				)}
 			</div>

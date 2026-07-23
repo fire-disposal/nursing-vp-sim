@@ -6,8 +6,29 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait, useTrainingContext } from "@/engine";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
+import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
+
+/** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
+function WSStatusDot() {
+	const [connected, setConnected] = useState(false);
+	useEffect(() => subscribeWSConnection(setConnected), []);
+	const label = connected
+		? "实时连接正常"
+		: "实时连接中断，工具暂不可用，正在自动重连…";
+	return (
+		<span
+			role="status"
+			aria-label={label}
+			title={label}
+			className={cn(
+				"size-2 shrink-0 rounded-full",
+				connected ? "bg-success" : "bg-warning animate-pulse",
+			)}
+		/>
+	);
+}
 
 /**
  * Zero props — TrainingHeader reads all state from TrainingContext.
@@ -131,7 +152,7 @@ export function TrainingHeader() {
 
 					<div
 						className={cn(
-							"flex items-center gap-1 px-2 py-1 rounded-md text-xs sm:text-sm font-bold tabular-nums border shrink-0 transition-colors",
+							"flex items-center gap-1.5 px-2 py-1 rounded-md text-xs sm:text-sm font-bold tabular-nums border shrink-0 transition-colors",
 							!timerActive && "bg-muted/30 text-muted-foreground border-muted",
 							timerActive &&
 								remaining != null &&
@@ -140,14 +161,15 @@ export function TrainingHeader() {
 							timerActive &&
 								remaining != null &&
 								remaining > 120 &&
-							remaining <= 300 &&
-							"border-transparent bg-warning text-warning-foreground",
+								remaining <= 300 &&
+								"border-transparent bg-warning text-warning-foreground",
 							timerActive &&
 								remaining != null &&
 								remaining > 300 &&
 								"border-border text-muted-foreground bg-card",
 						)}
 					>
+						<WSStatusDot />
 						<Clock size={12} className="sm:size-[14px] shrink-0" />
 						<span>{formatTime(remaining)}</span>
 					</div>

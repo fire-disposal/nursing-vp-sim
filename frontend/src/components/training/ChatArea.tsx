@@ -5,6 +5,7 @@ import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
+import { QuickPromptBar } from "./QuickPromptBar";
 import SceneToolbar from "./SceneToolbar";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -18,6 +19,8 @@ interface ChatAreaProps {
 	capabilities: Record<string, boolean>;
 	recordId: number;
 	hasHistory?: boolean;
+	/** 练习模式（非作业/考核）才为 true — 控制快捷问句条展示 */
+	showQuickPrompts?: boolean;
 }
 
 export function ChatArea({
@@ -30,6 +33,7 @@ export function ChatArea({
 	capabilities,
 	recordId,
 	hasHistory,
+	showQuickPrompts = false,
 }: ChatAreaProps) {
   const hasMessages = messages.length > 0;
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
@@ -97,6 +101,9 @@ export function ChatArea({
 							/>
 						</div>
 						<SceneToolbar />
+						{showQuickPrompts && !trainingEnded && (
+							<QuickPromptBar patient={patient} disabled={sending} onSelect={onSend} />
+						)}
 						<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 					</motion.div>
 				)}
