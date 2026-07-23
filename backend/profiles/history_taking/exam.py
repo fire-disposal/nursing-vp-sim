@@ -20,16 +20,6 @@ _LEGACY_OP_DEFS: dict[str, dict] = {
 }
 
 _LEGACY_VITAL_OPS = ["temp", "hr", "bp", "rr", "spo2"]
-_LEGACY_INSPECT_OPS = ["skin", "pain"]
-
-
-def get_exam_config(case_data: dict) -> dict | None:
-    anchors = case_data.get("exam_anchors", {})
-    if not anchors:
-        return None
-    if "groups" in anchors:
-        return anchors
-    return _build_legacy_config(anchors)
 
 
 def handle_operation(op_type: str, case_data: dict) -> dict:
@@ -49,41 +39,6 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
         "value": value,
         "unit": op_def["unit"],
     }
-
-
-# ── Config 构建 ──
-
-
-def _build_legacy_config(anchors: dict) -> dict:
-    op_ids = _detect_ops(anchors)
-    groups = []
-    vital_ids = [oid for oid in _LEGACY_VITAL_OPS if oid in op_ids]
-    if vital_ids:
-        groups.append(
-            {
-                "id": "vitals",
-                "label": "生命体征",
-                "icon": "Heart",
-                "ops": [
-                    {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
-                    for oid in vital_ids
-                ],
-            }
-        )
-    inspect_ids = [oid for oid in op_ids if oid in _LEGACY_INSPECT_OPS]
-    if inspect_ids:
-        groups.append(
-            {
-                "id": "inspection",
-                "label": "体格检查",
-                "icon": "Stethoscope",
-                "ops": [
-                    {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
-                    for oid in inspect_ids
-                ],
-            }
-        )
-    return {"groups": groups}
 
 
 def _detect_ops(anchors: dict) -> list[str]:

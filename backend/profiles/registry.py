@@ -13,8 +13,6 @@ class PromptCollection:
     dynamic: str = ""
     scoring: str = ""
     scoring_user: str = ""
-    scoring_feedback: str = ""
-    scoring_feedback_user: str = ""
 
 
 @dataclass
