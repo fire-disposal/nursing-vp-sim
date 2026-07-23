@@ -75,9 +75,7 @@ class StudentService:
             if user_records:
                 record = user_records[0]
                 status = record.status
-                if status == "completed" and a.max_attempts is not None and a.max_attempts > 0 and attempt_count < a.max_attempts:
-                    status = "pending"
-                elif status != "completed" and record.is_overdue:
+                if status != "completed" and record.is_overdue:
                     status = "overdue"
                 items.append(
                     StudentAssignmentItem(
