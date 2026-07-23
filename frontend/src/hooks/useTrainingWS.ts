@@ -22,6 +22,7 @@ export interface TrainingWS {
 }
 
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
+const _connListeners = new Set<(connected: boolean) => void>();
 let _ws: WebSocket | null = null;
 let _retryCount = 0;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -29,6 +30,21 @@ let _aborted = false;
 let _connected = false;
 let _refCount = 0;
 let _authRetried = false;
+
+function _setConnected(v: boolean) {
+	if (_connected === v) return;
+	_connected = v;
+	for (const fn of _connListeners) {
+		try { fn(v); } catch { /* ignore */ }
+	}
+}
+
+/** 订阅 WS 连接状态（立即以当前值回调一次）。用于训练页连接状态指示。 */
+export function subscribeWSConnection(fn: (connected: boolean) => void): () => void {
+	_connListeners.add(fn);
+	fn(_connected);
+	return () => { _connListeners.delete(fn); };
+}
 
 function buildWsUrl(): string {
 	const token = useAuthStore.getState().token ?? "";
@@ -45,7 +61,7 @@ function _connect() {
 	ws.onopen = () => {
 		_retryCount = 0;
 		_authRetried = false;
-		_connected = true;
+		_setConnected(true);
 	};
 
 	ws.onmessage = (ev) => {
@@ -59,13 +75,14 @@ function _connect() {
 		}
 	};
 
-	ws.onerror = () => {
+	ws.onerror = (ev) => {
 		// will trigger onclose
+		console.warn("[TrainingWS] connection error — will close and retry", ev);
 	};
 
 	ws.onclose = (ev) => {
 		_ws = null;
-		_connected = false;
+		_setConnected(false);
 		if (_aborted) return;
 		// 4001 = 鉴权失败。可能是 access token 已过期 —— 先刷新一次令牌再重连；
 		// 若刷新后仍 4001，说明 refresh token 也失效，放弃（等待显式重连/登出）。
@@ -126,7 +143,7 @@ export function useTrainingWS(
 				_aborted = true;
 				if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
 				if (_ws) { _ws.close(); _ws = null; }
-				_connected = false;
+				_setConnected(false);
 				_listeners.clear();
 			}
 		};

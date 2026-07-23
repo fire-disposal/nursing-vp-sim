@@ -73,14 +73,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	useEffect(() => {
 		if (initialMessages.length > 0) {
-			const existing = streamRef.current.getMessages();
-			const existingIds = new Set(existing.map((m: any) => m.id).filter(Boolean));
-			const newMessages = initialMessages.filter(
-				(m: any) => !m.id || !existingIds.has(m.id),
-			);
-			if (newMessages.length > 0) {
-				streamRef.current.appendMessages(newMessages);
-			}
+			// 15s 轮询回填服务器历史 — mergeHistory 幂等去重，
+			// 修复"本地 UUID/number id 与服务器 string id 不匹配导致消息重复"
+			streamRef.current.mergeHistory(initialMessages);
 		}
 	}, [initialMessages]);
 
@@ -159,6 +154,15 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		}
 		busRef.current.emit("training:ended");
 	}, []);
+
+	const retryScoring = useCallback(async () => {
+		try {
+			await scoreRef.current.retry();
+		} catch {
+			toastError("重新触发评分失败，请稍后再试");
+			throw new Error("retry scoring failed");
+		}
+	}, [toastError]);
 
 	const _ctx: PanelContext = useMemo(
 		() => ({
@@ -333,6 +337,11 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 							capabilities={capabilities}
 							recordId={recordNum}
 							hasHistory={initialMessages.length > 0}
+							showQuickPrompts={
+								_restoreRecord
+									? !(_restoreRecord as { from_assignment?: boolean }).from_assignment
+									: false
+							}
 						/>
 					</ErrorBoundary>
 				</div>
@@ -344,6 +353,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 				bus={busRef.current}
 				getProgress={getProgress}
 				subscribeProgress={subscribeProgress}
+				onRetry={retryScoring}
 			/>
 			<ScoreCard bus={busRef.current} recordId={recordId} />
 		</>

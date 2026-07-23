@@ -59,9 +59,37 @@ export class StreamManager {
 		this.notifySync();
 	}
 
-	appendMessages(newMessages: ChatMessage[]): void {
-		this.messages.push(...newMessages);
+	/**
+	 * 幂等合并服务器历史消息（useTrainingRecord 15s 轮询回填）。
+	 *
+	 * 本地流式消息的 id 是 UUID（学生消息）或 number（患者消息，来自 SSE done
+	 * 事件），而服务器历史 id 统一为 string —— 仅靠 id 判重必然漏配，
+	 * 导致每轮对话在轮询后被重复追加一次（生产事故）。
+	 * 因此采用双判重：id（归一化为 string）+ role:content 内容指纹。
+	 *
+	 * 内容指纹安全性：服务器侧每条消息都由本地流式先行产生，
+	 * 轮询回来的同内容消息必是重复的；真正的历史回填（刷新恢复）内容必然不同。
+	 */
+	mergeHistory(incoming: ChatMessage[]): number {
+		if (incoming.length === 0) return 0;
+		const existingIds = new Set(
+			this.messages
+				.map((m) => m.id)
+				.filter((id) => id != null)
+				.map(String),
+		);
+		const existingContent = new Set(
+			this.messages.map((m) => `${m.role}:${m.content}`),
+		);
+		const fresh = incoming.filter((m) => {
+			if (m.id != null && existingIds.has(String(m.id))) return false;
+			if (existingContent.has(`${m.role}:${m.content}`)) return false;
+			return true;
+		});
+		if (fresh.length === 0) return 0;
+		this.messages.push(...fresh);
 		this.notifySync();
+		return fresh.length;
 	}
 
 	subscribe(fn: () => void): () => void {
@@ -135,7 +163,8 @@ export class StreamManager {
     this.abortController?.abort(); // Abort any previous in-flight stream
     if (!this.recordId) {
       this.setLoading(false);
-      console.warn("[StreamManager] send() called with null recordId — silently dropping message");
+      console.warn("[StreamManager] send() called with null recordId — dropping message");
+      callbacks.onError?.("训练尚未就绪，请稍后重试");
       return;
     }
 
@@ -175,7 +204,7 @@ export class StreamManager {
 					if (msg) {
 						this.messages = this.messages.map(m =>
 							m.id === msg.id
-								? { ...m, streaming: false, ...(doneId ? { id: doneId } : {}) }
+								? { ...m, streaming: false, ...(doneId ? { id: String(doneId) } : {}) }
 								: m
 						);
 					}

@@ -1,6 +1,18 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/client";
+import { retryScoring } from "@/api/training";
 import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
+
+/** 相位顺序 — 用于拒绝乱序/回退的进度更新（WS 推送与 HTTP 轮询共用） */
+const PHASE_ORDER: Record<string, number> = {
+	loading: 0,
+	scoring: 1,
+	feedback: 2,
+	saving: 3,
+	completed: 4,
+};
+
+const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
 
 /** Per-record handlers for SSE scoring progress — avoids single-global overwrite when multiple ScoreManagers coexist */
 const _sseHandlers = new Map<number, (data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void>();
@@ -134,22 +146,33 @@ export class ScoreManager {
 					this.notifyScoreReady();
 					return;
 				}
-				// Use backend real progress if available
+				// Use backend real progress if available — 轮询与 WS 推送共用防回退
+				// 守卫，避免轮询把 WS 已推进的相位拉回（两通道同源于后端 tracker）。
 				if (data.progress) {
 					const p = data.progress as { phase?: string; percentage?: number; message?: string; thought?: string; score_thought?: string; feedback_thought?: string };
-					const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
-					const phase = VALID_PHASES.includes(p.phase as any) ? (p.phase as ScorePhase) : null;
-					this._progress = {
-						phase,
-						percentage: p.percentage ?? 0,
-						message: p.message ?? "",
-						thought: p.thought || this._sseThought,
-						score_thought: p.score_thought || this._progress.score_thought || "",
-						feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
-					};
+					const phase = (VALID_PHASES as readonly string[]).includes(p.phase ?? "")
+						? (p.phase as ScorePhase)
+						: null;
+					if (!this._isRegressive(phase, p.percentage ?? 0)) {
+						this._progress = {
+							phase,
+							percentage: p.percentage ?? 0,
+							message: p.message ?? "",
+							thought: p.thought || this._sseThought,
+							score_thought: p.score_thought || this._progress.score_thought || "",
+							feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
+						};
+					} else {
+						// 回退的轮询响应 — 保留当前相位/百分比，仅合并 thought 字段
+						this._progress = {
+							...this._progress,
+							thought: p.thought || this._sseThought,
+							score_thought: p.score_thought || this._progress.score_thought || "",
+							feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
+						};
+					}
 				} else {
-					const pct = Math.min(95, 10 + retries * 1.5);
-					this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
+					this._applyFakeProgress(Math.min(95, 10 + retries * 1.5));
 				}
 				this.notify();
 			} catch {
@@ -159,8 +182,7 @@ export class ScoreManager {
 					this.notify();
 					return;
 				}
-				const pct = Math.min(95, 10 + retries * 1.5);
-				this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
+				this._applyFakeProgress(Math.min(95, 10 + retries * 1.5));
 				this.notify();
 			}
 		};
@@ -217,14 +239,55 @@ export class ScoreManager {
 		}
 	}
 
+	/** 无后端进度时的假进度 — 若 WS 已推进到有效相位则不降级为 processing */
+	private _applyFakeProgress(pct: number): void {
+		const current = this._progress.phase;
+		if (current && current !== "processing" && current !== "failed" && current !== "completed") {
+			if (pct > this._progress.percentage) {
+				this._progress = { ...this._progress, percentage: pct };
+			}
+			return;
+		}
+		this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
+	}
+
+	/**
+	 * 相位防回退守卫 — 拒绝乱序事件导致的 phase/percentage 倒退。
+	 * "failed"/"processing" 不在顺序表内，始终接受（终态/兜底态）。
+	 * scoring 与 feedback 在后端并行（asyncio.gather），事件可能交错乱序。
+	 */
+	private _isRegressive(phase: ScorePhase, percentage: number): boolean {
+		if (!phase || phase === "failed" || phase === "processing") return false;
+		const current = this._progress.phase;
+		if (!current || current === "failed" || current === "processing") return false;
+		const currentOrder = PHASE_ORDER[current] ?? -1;
+		const newOrder = PHASE_ORDER[phase] ?? -1;
+		if (newOrder < 0 || currentOrder < 0) return false;
+		if (newOrder < currentOrder) return true;
+		return newOrder === currentOrder && percentage < this._progress.percentage;
+	}
+
+	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。 */
+	async retry(): Promise<void> {
+		if (!this.recordId) return;
+		this.stopPolling();
+		this._score = null;
+		this._progress = { phase: "loading", percentage: 5, message: "正在重新触发评分..." };
+		this.notify();
+		await retryScoring(this.recordId);
+		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
+		this._polling = true;
+		this.notify();
+		this.startPolling();
+	}
+
 	/** Receive real-time SSE scoring progress (from useScoringNotifications hook) */
 	onProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }): void {
 		if (data.record_id !== this.recordId) return;
 		if (data.thought) {
 			this._sseThought = data.thought;
 		}
-		const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
-		const phase = VALID_PHASES.includes(data.stage as any)
+		const phase = (VALID_PHASES as readonly string[]).includes(data.stage)
 			? (data.stage as ScorePhase)
 			: null;
 
@@ -239,36 +302,7 @@ export class ScoreManager {
 			merged.feedback_thought = data.thought;
 		}
 
-		// Reject regressive phase/percentage updates caused by out-of-order SSE events
-		// from parallel scoring/feedback asyncio.gather.  "failed" is always
-		// accepted because it signals terminal state from any path.
-		const PHASE_ORDER: Record<string, number> = {
-			loading: 0,
-			scoring: 1,
-			feedback: 2,
-			saving: 3,
-			completed: 4,
-		};
-		let skipPhase = false;
-		if (phase && phase !== "failed" && phase !== "processing") {
-			const currentOrder = this._progress.phase
-				? PHASE_ORDER[this._progress.phase]
-				: -1;
-			const newOrder = PHASE_ORDER[phase] ?? -1;
-			if (newOrder >= 0 && currentOrder >= 0 && newOrder < currentOrder) {
-				skipPhase = true; // stale event — keep current phase/percentage
-			}
-			// Same phase but lower percentage → also skip phase update
-			if (
-				!skipPhase &&
-				newOrder === currentOrder &&
-				data.percent < this._progress.percentage
-			) {
-				skipPhase = true;
-			}
-		}
-
-		if (!skipPhase) {
+		if (!this._isRegressive(phase, data.percent)) {
 			merged.phase = phase;
 			merged.percentage = data.percent;
 			merged.message = data.message;
