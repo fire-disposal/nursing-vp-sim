@@ -70,13 +70,10 @@ def build_final_rubric(base_rubric: dict, features: dict | None = None) -> dict:
     Returns:
         深拷贝后的 rubric dict；若 nursing_record 开启则追加护理记录维度并调高 raw_max
     """
-    # [DISABLED] 护理评估记录评分暂时禁用
-    # 恢复时取消下方注释：
-    # rubric = deepcopy(base_rubric)
-    # if features and features.get("nursing_record"):
-    #     existing_ids = {d.get("id") for d in rubric.get("dimensions", [])}
-    #     if "nursing_record" not in existing_ids:
-    #         rubric.setdefault("dimensions", []).append(deepcopy(_NURSING_RECORD_DIMENSION))
-    #         rubric["raw_max"] = rubric.get("raw_max", 57) + 15
-    # return rubric
-    return deepcopy(base_rubric)
+    rubric = deepcopy(base_rubric)
+    if features and features.get("nursing_record"):
+        existing_ids = {d.get("id") for d in rubric.get("dimensions", [])}
+        if "nursing_record" not in existing_ids:
+            rubric.setdefault("dimensions", []).append(deepcopy(_NURSING_RECORD_DIMENSION))
+            rubric["raw_max"] = rubric.get("raw_max", 57) + 15
+    return rubric

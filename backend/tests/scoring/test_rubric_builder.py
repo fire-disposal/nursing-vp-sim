@@ -27,10 +27,14 @@ class TestBuildFinalRubric:
         assert len(result["dimensions"]) == 1
 
     def test_with_nursing_record_enabled(self):
-        # [DISABLED] nursing_record 评分维度已暂时禁用，此测试反映当前行为
         result = build_final_rubric(BASE_RUBRIC, features={"nursing_record": True})
-        assert result["raw_max"] == 57  # disabled: raw_max unchanged
-        assert len(result["dimensions"]) == 1  # disabled: no nursing_record dimension added
+        assert result["raw_max"] == 72  # 57 + 15
+        assert len(result["dimensions"]) == 2
+        dim_ids = [d["id"] for d in result["dimensions"]]
+        assert "nursing_record" in dim_ids
+        nr_dim = next(d for d in result["dimensions"] if d["id"] == "nursing_record")
+        assert nr_dim["max"] == 15
+        assert len(nr_dim["items"]) == 5
         assert len(BASE_RUBRIC["dimensions"]) == 1  # original untouched
         assert BASE_RUBRIC["raw_max"] == 57
 
@@ -45,8 +49,7 @@ class TestBuildFinalRubric:
         assert len(result["dimensions"]) == 1
 
     def test_idempotent_double_call(self):
-        # [DISABLED] nursing_record scoring disabled — idempotent call returns same
         r1 = build_final_rubric(BASE_RUBRIC, features={"nursing_record": True})
         r2 = build_final_rubric(r1, features={"nursing_record": True})
-        assert len(r2["dimensions"]) == 1  # disabled: no dimension added
-        assert r2["raw_max"] == 57  # disabled: raw_max unchanged
+        assert len(r2["dimensions"]) == 2  # not duplicated
+        assert r2["raw_max"] == 72  # not double-added

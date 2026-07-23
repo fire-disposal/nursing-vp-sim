@@ -87,7 +87,7 @@ class TestCaseSnapshotIsolation:
 
 class TestRubricSnapshot:
     def test_nursing_record_enabled_stores_full_rubric(self, client, student, test_case, db_session):
-        """[DISABLED] nursing_record 评分维度已禁用，rubric_snapshot 不再含护理维度"""
+        """开启 nursing_record 时，rubric_snapshot 含护理维度且 raw_max +15"""
         _user, token = student
 
         case_data = deepcopy(ORIGINAL_CASE_DATA)
@@ -110,8 +110,8 @@ class TestRubricSnapshot:
 
         dims = record.rubric_snapshot.get("dimensions", [])
         dim_ids = [d["id"] for d in dims]
-        assert "nursing_record" not in dim_ids, "nursing_record 维度已禁用，不应出现在 rubric_snapshot 中"
-        assert record.rubric_snapshot.get("raw_max") == 57
+        assert "nursing_record" in dim_ids, "开启 nursing_record 后 rubric_snapshot 应含护理维度"
+        assert record.rubric_snapshot.get("raw_max") == 72
 
     def test_nursing_record_disabled_stores_base_rubric(self, client, student, test_case, db_session):
         """未开启 nursing_record 时，rubric_snapshot 不含护理维度"""
