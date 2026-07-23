@@ -42,8 +42,7 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "description": "允许学生触发护理操作（测血压/体温/听诊等）。",
     "tier": "toggleable",
     "trainingTypes": [
-      "history_taking",
-      "triage"
+      "history_taking"
     ],
     "defaultOn": false,
     "requires": []
@@ -70,6 +69,17 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     ],
     "defaultOn": false,
     "requires": []
+  },
+  "mews": {
+    "key": "mews",
+    "label": "MEWS 评分",
+    "description": "分诊场景下的早期预警评分计算工具。",
+    "tier": "toggleable",
+    "trainingTypes": [
+      "triage"
+    ],
+    "defaultOn": true,
+    "requires": []
   }
 };
 
@@ -82,7 +92,7 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
     "quiz"
   ],
   "triage": [
-    "physical_exam",
-    "quiz"
+    "quiz",
+    "mews"
   ]
 };
