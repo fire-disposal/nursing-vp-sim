@@ -55,7 +55,7 @@ FEEDBACK_PCT_BASE = 65
 FEEDBACK_PCT_RANGE = 23
 SCORING_START_PCT = 10
 SAVING_PCT = 95
-PER_STAGE_TIMEOUT_SEC = 120
+PER_STAGE_TIMEOUT_SEC = 150
 
 log = logging.getLogger(__name__)
 
@@ -282,7 +282,7 @@ async def _load_record_and_messages(
         tracker.start(record_id)
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
     if realtime_hub and user_id:
-        try:
+        with contextlib.suppress(Exception):
             await realtime_hub.publish(
                 user_id,
                 "scoring_progress",
@@ -294,8 +294,6 @@ async def _load_record_and_messages(
                     "thought": "",
                 },
             )
-        except Exception:
-            pass
     return record, messages
 
 
@@ -597,12 +595,18 @@ async def evaluate_training(
     try:
         done, _pending = await asyncio.wait([scoring_task, feedback_task], return_when=asyncio.FIRST_EXCEPTION)
         for task in done:
-            if task is scoring_task:
+            exc = task.exception()
+            if exc is not None:
+                if task is scoring_task:
+                    scoring_result_raw = exc
+                else:
+                    feedback_result_raw = exc
+            elif task is scoring_task:
                 scoring_result_raw = task.result()
             else:
                 feedback_result_raw = task.result()
-    except BaseException:
-        pass
+    except asyncio.CancelledError:
+        raise
 
     if not scoring_task.done():
         feedback_task.cancel()

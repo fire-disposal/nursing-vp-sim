@@ -59,7 +59,10 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
             "strengths": ["表现较好的具体行为描述1", "..."],
             "weaknesses": ["存在不足的具体行为描述1", "..."],
             "missed_content": ["学生漏问的关键内容1", "..."],
-            "suggestions": "个性化改进建议。需结合对话中学生的实际表现：具体指出哪些条目做得好，哪些条目需要改进，给出可操作的改进方向。200-350字",
+            "suggestions": (
+                "个性化改进建议。结合对话中学生的实际表现："
+                "具体指出哪些条目做得好，哪些需要改进，给出可操作的改进方向。200-350字"
+            ),
         }
         json_template = json.dumps(json_obj, ensure_ascii=False, indent=2)
 
@@ -83,20 +86,12 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
     for dim in dimensions:
         dim_name = dim["name"]
         dim_max = dim["max"]
-        first = dim["items"][0]
-        rest_count = len(dim["items"]) - 1
-        items_example = [
-            {
-                "id": first["id"],
-                "name": first["name"],
-                "score": "1~3",
-                "evidence": "对话原文≥10字",
-                "reason": "评分理由≥5字",
-            },
-        ]
-        if rest_count > 0:
-            items_example.append({f"...（其余{rest_count}项格式同上）": "..."})
-        item_objs.append({dim_name: {"score": f"N(0~{dim_max})", "items": items_example}})
+        items = []
+        for item in dim["items"]:
+            items.append(
+                {"id": item["id"], "name": item["name"], "score": "1~3", "evidence": "≥10字", "reason": "≥5字"}
+            )
+        item_objs.append({dim_name: {"score": f"N(0~{dim_max})", "items": items}})
 
     json_obj = {
         "total_score": f"N(0~{raw_max})",
