@@ -253,6 +253,7 @@ export default function TeacherRecordsPage() {
 								<input
 									type="text"
 									placeholder="搜索学生姓名或学号..."
+									aria-label="搜索学生姓名或学号"
 									value={searchInput}
 									onChange={(e) => handleSearchChange(e.target.value)}
 									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"

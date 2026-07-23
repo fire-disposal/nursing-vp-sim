@@ -252,6 +252,7 @@ export default function AssignmentDetailPage() {
 						<input
 							type="text"
 							placeholder="搜索姓名/学号..."
+							aria-label="搜索学生姓名或学号"
 							value={studentSearch}
 							onChange={(e) => setStudentSearch(e.target.value)}
 							className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-muted focus-ring"

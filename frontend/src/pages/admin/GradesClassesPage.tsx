@@ -249,6 +249,7 @@ export default function GradesClassesPage() {
 							value={classSearchInput}
 							onChange={handleClassSearchChange}
 							placeholder="搜索班级..."
+							aria-label="搜索班级"
 						/>
 					</div>
 					<select
@@ -273,6 +274,7 @@ export default function GradesClassesPage() {
 							value={gradeSearchInput}
 							onChange={handleGradeSearchChange}
 							placeholder="搜索年级..."
+							aria-label="搜索年级"
 						/>
 					</div>
 				</div>

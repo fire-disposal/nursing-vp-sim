@@ -69,6 +69,7 @@ export default function UserList({
 					<input
 						type="text"
 						placeholder="搜索用户名、姓名或学号..."
+						aria-label="搜索用户名、姓名或学号"
 						value={search}
 						onChange={(e) => onSearchChange(e.target.value)}
 						className="w-full py-1.5 pl-[30px] pr-2.5 border border-border rounded-lg text-sm"

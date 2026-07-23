@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
 import {
 	BrowserRouter,
@@ -55,6 +56,8 @@ export default function App() {
 	return (
 		<BrowserRouter>
 			<QueryClientProvider client={queryClient}>
+				{/* 尊重系统减弱动态效果偏好（prefers-reduced-motion） */}
+				<MotionConfig reducedMotion="user">
 				<ForceLogoutListener />
 				<Toaster />
 				<ConfirmProvider>
@@ -90,6 +93,7 @@ export default function App() {
 						</ErrorBoundary>
 					</FeedbackProvider>
 				</ConfirmProvider>
+				</MotionConfig>
 			</QueryClientProvider>
 		</BrowserRouter>
 	);

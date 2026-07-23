@@ -151,7 +151,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const handleBulkResetConfirm = async () => {
-		if (!bulkPassword || !bulkPassword.trim()) return;
+		if (!bulkPassword?.trim()) return;
 		const ok = await confirm({
 			title: "批量重置密码",
 			message: `确定要为 ${selectedIds.size} 名用户重置密码吗？\n\n新密码：${bulkPassword}`,
@@ -239,7 +239,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		);
 	};
 
-	const handleDeleteUser = async (u: UserBrief) => {
+	const _handleDeleteUser = async (u: UserBrief) => {
 		if (u.id === currentUserId) {
 			toast.warning("不能删除自己的账号");
 			return;
@@ -305,6 +305,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						<input
 							type="text"
 							placeholder="搜索用户名、姓名或学号..."
+						aria-label="搜索用户名、姓名或学号"
 							value={search}
 							onChange={(e) => {
 								setSearch(e.target.value);

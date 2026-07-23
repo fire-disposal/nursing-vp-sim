@@ -155,6 +155,7 @@ export default function RolesPage() {
 							value={searchInput}
 							onChange={handleSearchChange}
 							placeholder="搜索角色..."
+							aria-label="搜索角色"
 						/>
 					</div>
 				</div>

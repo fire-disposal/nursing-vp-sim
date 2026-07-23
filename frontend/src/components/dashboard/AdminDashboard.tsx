@@ -173,6 +173,7 @@ export default function AdminDashboard({
 						<input
 							type="text"
 							placeholder="搜索学生/病例..."
+							aria-label="搜索学生或病例"
 							value={search}
 							onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
 							className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-muted focus-ring"

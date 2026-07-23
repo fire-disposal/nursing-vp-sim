@@ -144,6 +144,7 @@ export default function QARecordsTab() {
 					<input
 						type="text"
 						placeholder="搜索学生..."
+						aria-label="搜索学生"
 						value={searchInput}
 						onChange={(e) => handleSearchChange(e.target.value)}
 						className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus-ring focus-visible:bg-card"

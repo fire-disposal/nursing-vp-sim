@@ -345,6 +345,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					<input
 						type="text"
 						placeholder="搜索标题..."
+						aria-label="搜索作业标题"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card"

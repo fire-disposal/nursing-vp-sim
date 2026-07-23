@@ -208,6 +208,7 @@ export default function QuestionnaireList({
 								<input
 									type="text"
 									placeholder="搜索标题..."
+									aria-label="搜索问卷标题"
 									value={searchText}
 									onChange={(e) => {
 										onSearchChange(e.target.value);

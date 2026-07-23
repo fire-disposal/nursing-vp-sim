@@ -159,6 +159,7 @@ export default function SystemNotificationsPage() {
 						<input
 							type="text"
 							placeholder="搜索标题..."
+							aria-label="搜索通知标题"
 							value={searchText}
 							onChange={(e) => setSearchText(e.target.value)}
 							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"

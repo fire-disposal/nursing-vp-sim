@@ -80,7 +80,7 @@ function AdminSidebar({
 							isActive ? "bg-primary/10" : "bg-muted/50")
 					}
 				>
-					<img src={avatar} alt="" className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border bg-muted" />
+					<img src={avatar} alt={user?.display_name ? `${user.display_name} 的头像` : "用户头像"} className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border bg-muted" />
 					<div className="min-w-0 flex-1">
 						<div className="truncate text-sm font-medium">{user?.display_name}</div>
 						<div className="text-xs text-muted-foreground">{user?.role_display_name || user?.role || "用户"}</div>
@@ -103,6 +103,8 @@ function AdminSidebar({
 	);
 }
 
+const MOBILE_HINT_KEY = "admin:mobileHintDismissed";
+
 // ── Main Layout ──
 export default function Layout() {
 	const navigate = useNavigate();
@@ -112,6 +114,9 @@ export default function Layout() {
 	const permKey = permissions.join(",");
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [aboutOpen, setAboutOpen] = useState(false);
+	const [mobileHintDismissed, setMobileHintDismissed] = useState(
+		() => localStorage.getItem(MOBILE_HINT_KEY) === "1",
+	);
 	const { openFeedback } = useFeedback();
 	const isOnline = useNetworkStatus();
 
@@ -167,6 +172,22 @@ export default function Layout() {
 
 			<div className="flex flex-1 flex-col md:ml-60 overflow-hidden" style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}>
 				{!isOnline && <NetworkBanner />}
+				{!mobileHintDismissed && (
+					<div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-800 md:hidden shrink-0">
+						<span className="flex-1">管理后台建议使用桌面端访问以获得完整体验</span>
+						<button
+							type="button"
+							aria-label="关闭提示"
+							className="shrink-0 text-amber-700 hover:text-amber-900"
+							onClick={() => {
+								localStorage.setItem(MOBILE_HINT_KEY, "1");
+								setMobileHintDismissed(true);
+							}}
+						>
+							<X size={13} />
+						</button>
+					</div>
+				)}
 				<div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0">
 					<button type="button" className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
 						onClick={() => setMobileOpen((v) => !v)} aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}>
