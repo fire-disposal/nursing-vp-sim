@@ -342,6 +342,8 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 									? !(_restoreRecord as { from_assignment?: boolean }).from_assignment
 									: false
 							}
+							recordDetail={_restoreRecord as TrainingRecordDetail | null}
+							endTraining={endTraining}
 						/>
 					</ErrorBoundary>
 				</div>

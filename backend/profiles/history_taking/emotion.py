@@ -171,12 +171,12 @@ def _build_author_note(trust: int, comfort: int) -> str:
         parts.append("心情放松，愿意开放交流")
 
     extra = {
-        "withdrawn": "需要解释操作目的并表达真诚关心才能缓和",
-        "defensive": "如果继续追问隐私而不解释原因，可能恶化",
-        "anxious": "患者情绪焦虑，需要 reassurance 和耐心解释",
-        "neutral": "患者保持一定距离，按真实感受回答",
-        "relaxed": "患者心情放松，可能多聊一两句个人感受",
-        "open": "患者对护士建立了信任，可能主动透露额外信息",
+        "withdrawn": "你不想说话，对周围的人和事都提不起兴趣",
+        "defensive": "你对问东问西感到烦躁，对方不解释原因你会更抵触",
+        "anxious": "你处于紧张不安的状态，需要听到肯定的语气才能放松一点",
+        "neutral": "你对护士保持一定距离，问什么答什么",
+        "relaxed": "你心情不错，多聊一两句也无妨",
+        "open": "你信任眼前的护士，愿意多说几句",
     }
     parts.append(extra.get(label, ""))
 

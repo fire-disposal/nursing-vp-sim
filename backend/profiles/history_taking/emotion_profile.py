@@ -20,6 +20,17 @@ PERSONALITY_MODIFIERS: dict[str, dict[str, dict[str, float | int]]] = {
         "normal": {},
         "high": {"trust_base": 2},
     },
+    "mood": {
+        "neutral": {},
+        "low": {"comfort_base": -10, "pos_amplify": 0.6, "decay": 0.07},
+        "irritable": {"comfort_base": -8, "neg_amplify": 1.5, "pos_amplify": 0.5},
+        "fearful": {"comfort_base": -5, "neg_amplify": 1.3, "pos_amplify": 1.3, "decay": 0.09},
+    },
+    "compliance": {
+        "resistant": {"trust_base": -10, "comfort_base": -5, "pos_amplify": 0.5, "decay": 0.02},
+        "normal": {},
+        "dependent": {"trust_base": 8, "pos_amplify": 1.5, "neg_amplify": 1.2},
+    },
 }
 
 
