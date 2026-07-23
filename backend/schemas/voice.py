@@ -29,7 +29,7 @@ class VoiceConfigResponse(BaseModel):
     model_config = _RESP_CFG
     id: int
     provider: str
-    api_key_masked: str  # "abc****xyz"
+    api_key_masked: str  # "abc****xyz" — v3 unified X-Api-Key
     api_key_suffix: str  # last 8 chars for integrity check
     tts_resource_id: str
     tts_speaker: str

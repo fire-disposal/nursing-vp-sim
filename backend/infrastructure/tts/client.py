@@ -1,13 +1,13 @@
-"""Volcengine SeedTTS 2.0 (doubao) TTS client — v3 bidirectional WebSocket protocol.
+"""Volcengine SeedTTS 2.0 (doubao) TTS client — v3 bidirectional binary protocol.
 
-Connection lifecycle (StartConnection … FinishConnection) is separated from
-session lifecycle (StartSession … SessionFinished) so one warm WebSocket can
-carry many sequential synthesis sessions — the protocol's intended pattern.
+Uses the official binary frame format (bit-packed header with version/msg_type/
+flags/serialization/compression) and single X-Api-Key auth (new console v3).
 """
 
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import logging
 import struct
@@ -27,42 +27,163 @@ log = logging.getLogger(__name__)
 
 TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
-HEADER_STRUCT = struct.Struct(">I")
+
+# ── Binary protocol constants ──
+
+
+class MsgType(IntEnum):
+    FullClientRequest = 0b0001
+    FullServerResponse = 0b1001
+    AudioOnlyServer = 0b1011
+    Error = 0b1111
+
+
+class MsgFlag(IntEnum):
+    NoSeq = 0
+    WithEvent = 0b100
 
 
 class EventType(IntEnum):
     StartConnection = 1
-    StartSession = 2
-    TaskRequest = 3
-    CancelSession = 4
-    FinishSession = 5
-    FinishConnection = 6
-
-
-class ServerEvent(IntEnum):
+    FinishConnection = 2
     ConnectionStarted = 50
-    SessionStarted = 51
-    TTSSentenceStart = 52
-    TTSResponse = 53
-    TTSSentenceEnd = 54
-    TTSSubtitle = 55
-    SessionFinished = 56
-    ConnectionFinished = 57
-    SessionCanceled = 58
-    ConnectionFailed = 59
-    SessionFailed = 60
+    ConnectionFailed = 51
+    ConnectionFinished = 52
+    StartSession = 100
+    SessionStarted = 150
+    SessionFinished = 152
+    SessionFailed = 153
+    TaskRequest = 200
+    TTSSentenceStart = 350
+    TTSSentenceEnd = 351
+    TTSResponse = 352
 
 
-class MsgType(IntEnum):
-    FullServerResponse = 1
-    AudioOnlyServer = 2
+_SERIALIZATION_JSON = 0b0001
+_COMPRESSION_NONE = 0
+_VERSION = 1
+_HEADER_SIZE = 4  # 4 × 4 = 16-byte header
+
+_HEADER_BASE = bytes(
+    [
+        (_VERSION << 4) | _HEADER_SIZE,
+        0,
+        (_SERIALIZATION_JSON << 4) | _COMPRESSION_NONE,
+    ]
+).ljust(_HEADER_SIZE * 4, b"\x00")
+
+
+def _marshal(msg_type: MsgType, flag: MsgFlag, body: bytes, /) -> bytes:
+    hdr = bytearray(_HEADER_BASE)
+    hdr[1] = (msg_type << 4) | flag
+    return bytes(hdr) + body
+
+
+def _write_event(e: EventType) -> bytes:
+    return struct.pack(">i", e)
+
+
+def _write_str(s: str) -> bytes:
+    b = s.encode("utf-8")
+    return struct.pack(">I", len(b)) + b
+
+
+def _write_payload(b: bytes) -> bytes:
+    return struct.pack(">I", len(b)) + b
+
+
+def _read_event(buf: io.BytesIO) -> EventType | None:
+    raw = buf.read(4)
+    if len(raw) < 4:
+        return None
+    return EventType(struct.unpack(">i", raw)[0])
+
+
+def _read_str(buf: io.BytesIO) -> str:
+    raw = buf.read(4)
+    if len(raw) < 4:
+        return ""
+    size = struct.unpack(">I", raw)[0]
+    if size == 0:
+        return ""
+    return buf.read(size).decode("utf-8")
+
+
+def _read_payload(buf: io.BytesIO) -> bytes:
+    raw = buf.read(4)
+    if len(raw) < 4:
+        return b""
+    size = struct.unpack(">I", raw)[0]
+    if size == 0:
+        return b""
+    return buf.read(size)
+
+
+# ── Frame build / parse ──
 
 
 @dataclass
 class ServerMessage:
     type: MsgType
-    event: ServerEvent | None = None
+    event: EventType | None = None
     payload: bytes | dict | None = None
+
+
+def _parse_server_response(data: bytes) -> ServerMessage:
+    """Parse a v3 binary server frame."""
+    if len(data) < _HEADER_SIZE * 4:
+        raise RuntimeError(f"TTS: frame too short ({len(data)} bytes)")
+
+    msg_type = MsgType((data[1] >> 4) & 0xF)
+    flag = MsgFlag(data[1] & 0xF)
+    buf = io.BytesIO(data[_HEADER_SIZE * 4 :])
+
+    event: EventType | None = None
+    session_id: str = ""
+    connect_id: str = ""
+
+    if flag == MsgFlag.WithEvent:
+        event = _read_event(buf)
+        # Connection-level events skip session_id, include connect_id.
+        is_connection_event = event in (
+            EventType.ConnectionStarted,
+            EventType.ConnectionFailed,
+            EventType.ConnectionFinished,
+        )
+        if not is_connection_event:
+            session_id = _read_str(buf)
+        if event in (
+            EventType.ConnectionStarted,
+            EventType.ConnectionFailed,
+            EventType.ConnectionFinished,
+        ):
+            connect_id = _read_str(buf)
+
+    if msg_type in (MsgType.AudioOnlyServer,):
+        payload = _read_payload(buf) or b""
+        return ServerMessage(type=msg_type, event=event, payload=payload)
+
+    payload_raw = _read_payload(buf)
+    payload: bytes | dict = payload_raw
+    if payload_raw and _SERIALIZATION_JSON:
+        try:
+            payload = json.loads(payload_raw.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+    return ServerMessage(type=msg_type, event=event, payload=payload)
+
+
+async def _read_server_message(ws: ClientConnection) -> ServerMessage:
+    raw = await ws.recv()
+    if isinstance(raw, str):
+        return _parse_server_response(raw.encode("utf-8"))
+    if isinstance(raw, bytes):
+        return _parse_server_response(raw)
+    raise TypeError(f"TTS: unexpected frame type {type(raw)}")
+
+
+# ── Request helpers ──
 
 
 @dataclass
@@ -75,78 +196,83 @@ class TTSRequest:
     sample_rate: int = 24000
 
 
-def _build_frame(header: dict, payload: bytes = b"") -> bytes:
-    header_bytes = json.dumps(header, ensure_ascii=False).encode()
-    return HEADER_STRUCT.pack(len(header_bytes)) + header_bytes + payload
+def _build_start_connection() -> bytes:
+    """StartConnection — event-only, payload = {}"""
+    return _marshal(
+        MsgType.FullClientRequest,
+        MsgFlag.WithEvent,
+        _write_event(EventType.StartConnection) + _write_payload(b"{}"),
+    )
 
 
-async def _read_frame(ws: ClientConnection) -> ServerMessage:
-    raw = await ws.recv()
-    if isinstance(raw, str):
-        return _parse_server_message(json.loads(raw), b"")
-    if not isinstance(raw, bytes):
-        raise TypeError("TTS: expected text or binary frame")
-
-    # Find the JSON object by scanning for '{'
-    for start in range(min(len(raw), 16)):
-        if raw[start : start + 1] != b"{":
-            continue
-        for end in range(len(raw), start, -1):
-            try:
-                header = json.loads(raw[start:end].decode())
-                payload = raw[end:]
-                return _parse_server_message(header, payload)
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                continue
-    raise RuntimeError(f"TTS: cannot decode binary frame ({len(raw)} bytes)")
+def _build_finish_connection() -> bytes:
+    return _marshal(
+        MsgType.FullClientRequest,
+        MsgFlag.WithEvent,
+        _write_event(EventType.FinishConnection) + _write_payload(b"{}"),
+    )
 
 
-def _parse_server_message(header: dict, payload: bytes) -> ServerMessage:
-    msg_type = _parse_msg_type(header.get("type"))
-    event = _parse_server_event(header.get("event"))
-    if msg_type == MsgType.AudioOnlyServer:
-        return ServerMessage(type=msg_type, event=event, payload=payload)
-    return ServerMessage(type=msg_type, event=event, payload=header.get("payload"))
+def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
+    body_json = json.dumps(
+        {
+            "event": EventType.StartSession,
+            "user": {"uid": str(uuid.uuid4())},
+            "namespace": "BidirectionalTTS",
+            "req_params": {
+                "speaker": req.speaker,
+                "audio_params": {
+                    "format": req.fmt,
+                    "sample_rate": req.sample_rate,
+                    "speech_rate": req.speech_rate,
+                    "loudness_rate": req.loudness_rate,
+                },
+                "additions": json.dumps({"disable_markdown_filter": False}),
+            },
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    return _marshal(
+        MsgType.FullClientRequest,
+        MsgFlag.WithEvent,
+        _write_event(EventType.StartSession)
+        + _write_str(session_id)
+        + _write_payload(body_json),
+    )
 
 
-def _parse_msg_type(raw: str | int | None) -> MsgType:
-    if raw is None:
-        return MsgType.FullServerResponse
-    if isinstance(raw, str):
-        return {"FullServerResponse": MsgType.FullServerResponse, "AudioOnlyServer": MsgType.AudioOnlyServer}.get(
-            raw, MsgType.FullServerResponse
-        )
-    return MsgType(raw)
+def _build_task_request(text: str, session_id: str) -> bytes:
+    body_json = json.dumps(
+        {
+            "event": EventType.TaskRequest,
+            "user": {"uid": str(uuid.uuid4())},
+            "namespace": "BidirectionalTTS",
+            "req_params": {"text": text},
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    return _marshal(
+        MsgType.FullClientRequest,
+        MsgFlag.WithEvent,
+        _write_event(EventType.TaskRequest)
+        + _write_str(session_id)
+        + _write_payload(body_json),
+    )
 
 
-_EVENT_MAP: dict[str, ServerEvent] = {
-    "ConnectionStarted": ServerEvent.ConnectionStarted,
-    "SessionStarted": ServerEvent.SessionStarted,
-    "TTSSentenceStart": ServerEvent.TTSSentenceStart,
-    "TTSResponse": ServerEvent.TTSResponse,
-    "TTSSentenceEnd": ServerEvent.TTSSentenceEnd,
-    "TTSSubtitle": ServerEvent.TTSSubtitle,
-    "SessionFinished": ServerEvent.SessionFinished,
-    "ConnectionFinished": ServerEvent.ConnectionFinished,
-    "SessionCanceled": ServerEvent.SessionCanceled,
-    "ConnectionFailed": ServerEvent.ConnectionFailed,
-    "SessionFailed": ServerEvent.SessionFailed,
-}
+def _build_finish_session(session_id: str) -> bytes:
+    return _marshal(
+        MsgType.FullClientRequest,
+        MsgFlag.WithEvent,
+        _write_event(EventType.FinishSession)
+        + _write_str(session_id)
+        + _write_payload(b"{}"),
+    )
 
 
-def _parse_server_event(raw: str | int | None) -> ServerEvent | None:
-    if raw is None:
-        return None
-    if isinstance(raw, str):
-        return _EVENT_MAP.get(raw)
-    try:
-        return ServerEvent(raw)
-    except ValueError:
-        return None
-
-
-def _is_closed_error(e: BaseException) -> bool:
-    return isinstance(e, (websockets.exceptions.ConnectionClosed, ConnectionError, OSError))
+# ── Connection ──
 
 
 class VolcTTSConnection:
@@ -167,7 +293,6 @@ class VolcTTSConnection:
             return False
         try:
             from websockets.protocol import State
-
             return ws.state is State.OPEN
         except Exception:
             return False
@@ -195,87 +320,53 @@ class VolcTTSConnection:
             raise RuntimeError(f"TTS WebSocket 连接失败: {e}") from e
         self._ws = ws
         try:
-            await self._send({"event": EventType.StartConnection})
-            await self._wait_event(ServerEvent.ConnectionStarted)
+            await ws.send(_build_start_connection())
+            await self._read_and_expect(EventType.ConnectionStarted)
         except Exception:
             await self._force_close()
             raise
 
     async def ping(self) -> None:
-        """Protocol-level keepalive used by the pool to validate idle connections."""
         ws = self._require_ws()
         await ws.ping()
 
     async def begin_session(self, req: TTSRequest) -> None:
-        """Open a session, send the full text, and close the send side."""
         self._require_ws()
         session_id = uuid.uuid4().hex
         self._session_id = session_id
         self.last_usage = None
-        body = {
-            "event": EventType.StartSession,
-            "req_params": {
-                "speaker": req.speaker,
-                "audio_params": {
-                    "format": req.fmt,
-                    "sample_rate": req.sample_rate,
-                    "speech_rate": req.speech_rate,
-                    "loudness_rate": req.loudness_rate,
-                },
-            },
-        }
         try:
-            await self._send(
-                {"event": EventType.StartSession, "session_id": session_id},
-                json.dumps(body, ensure_ascii=False).encode(),
-            )
-            await self._wait_event(ServerEvent.SessionStarted)
-            task_body = {
-                "event": EventType.TaskRequest,
-                "req_params": {"text": req.text},
-            }
-            await self._send(
-                {"event": EventType.TaskRequest, "session_id": session_id},
-                json.dumps(task_body, ensure_ascii=False).encode(),
-            )
-            await self._send({"event": EventType.FinishSession, "session_id": session_id})
-        except Exception as e:
-            if _is_closed_error(e):
-                await self._force_close()
+            await self._send(_build_start_session(req, session_id))
+            await self._read_and_expect(EventType.SessionStarted)
+            await self._send(_build_task_request(req.text, session_id))
+            await self._send(_build_finish_session(session_id))
+        except Exception:
+            await self._force_close()
             raise
 
     async def read_stream(self) -> AsyncIterator[bytes]:
-        """Yield audio chunks until SessionFinished; capture usage on exit."""
         ws = self._require_ws()
         try:
             while True:
-                msg = await _read_frame(ws)
+                msg = await _read_server_message(ws)
                 if msg.type == MsgType.FullServerResponse:
-                    if msg.event == ServerEvent.SessionFinished:
+                    if msg.event == EventType.SessionFinished:
                         if isinstance(msg.payload, dict):
                             usage = msg.payload.get("usage")
                             self.last_usage = usage if isinstance(usage, dict) else None
                         break
-                    if msg.event in (ServerEvent.ConnectionFailed, ServerEvent.SessionFailed):
+                    if msg.event in (EventType.ConnectionFailed, EventType.SessionFailed):
                         err = msg.payload or {}
                         raise RuntimeError(f"TTS failed: {json.dumps(err, ensure_ascii=False)[:300]}")
                 elif msg.type == MsgType.AudioOnlyServer:
-                    if msg.payload:
-                        yield bytes(msg.payload)
-        except Exception as e:
-            if _is_closed_error(e):
-                await self._force_close()
-            raise
+                    p = msg.payload
+                    if isinstance(p, bytes) and p:
+                        yield p
         finally:
             self._session_id = None
             self.last_used_at = time.monotonic()
 
     async def abort(self) -> None:
-        """Force-close without protocol handshake (mid-session cancellation).
-
-        A connection whose session was interrupted has unread frames in
-        flight and must never be reused — the pool discards dead connections.
-        """
         await self._force_close()
 
     async def close(self) -> None:
@@ -283,14 +374,36 @@ class VolcTTSConnection:
         if ws is None:
             return
         try:
-            await ws.send(_build_frame({"event": EventType.FinishConnection}))
-            await self._wait_event(ServerEvent.ConnectionFinished, ws=ws)
+            await ws.send(_build_finish_connection())
+            ws_ref = ws
+            try:
+                msg = await _read_server_message(ws_ref)
+                if msg.type == MsgType.FullServerResponse and msg.event not in (
+                    EventType.ConnectionFailed,
+                    EventType.SessionFailed,
+                ):
+                    pass
+            except Exception:
+                pass
         except Exception:
             pass
         try:
             await ws.close()
         except Exception:
             pass
+
+    async def _send(self, frame: bytes) -> None:
+        await self._require_ws().send(frame)
+
+    async def _read_and_expect(self, event: EventType) -> ServerMessage:
+        msg = await _read_server_message(self._require_ws())
+        if msg.type == MsgType.FullServerResponse and msg.event in (
+            EventType.ConnectionFailed,
+            EventType.SessionFailed,
+        ):
+            err = msg.payload or {}
+            raise RuntimeError(f"TTS failed: {json.dumps(err, ensure_ascii=False)[:300]}")
+        return msg
 
     async def _force_close(self) -> None:
         ws, self._ws = self._ws, None
@@ -300,28 +413,12 @@ class VolcTTSConnection:
             except Exception:
                 pass
 
-    async def _send(self, header: dict, payload: bytes = b"") -> None:
-        ws = self._require_ws()
-        await ws.send(_build_frame(header, payload))
 
-    async def _wait_event(self, event: ServerEvent, ws: ClientConnection | None = None) -> ServerMessage:
-        target = ws or self._require_ws()
-        msg = await _read_frame(target)
-        if msg.type == MsgType.FullServerResponse and msg.event in (
-            ServerEvent.ConnectionFailed,
-            ServerEvent.SessionFailed,
-        ):
-            err = msg.payload or {}
-            raise RuntimeError(f"TTS connection failed: {json.dumps(err, ensure_ascii=False)[:300]}")
-        return msg
+# ── One-shot compat client (admin health-check / test-synthesize) ──
 
 
 class VolcBidirectionalTTSClient:
-    """Compat wrapper: one-shot synthesis over a throwaway connection.
-
-    Kept for admin health-check / test-synthesize paths which must not touch
-    the shared connection pool.
-    """
+    """Compat wrapper: one-shot synthesis over a throwaway connection."""
 
     def __init__(
         self,
@@ -334,7 +431,10 @@ class VolcBidirectionalTTSClient:
         self._timeout = timeout
 
     async def synthesize(self, req: TTSRequest) -> bytes:
-        conn = VolcTTSConnection(api_key=self._api_key, resource_id=self._resource_id)
+        conn = VolcTTSConnection(
+            api_key=self._api_key,
+            resource_id=self._resource_id,
+        )
 
         async def _run() -> bytes:
             await conn.connect()
@@ -362,13 +462,13 @@ class VolcBidirectionalTTSClient:
             return len(audio) > 0
         except Exception as e:
             cause = e.__cause__
-            is_auth_error = False
+            is_auth = False
             if cause is not None and "401" in str(cause):
-                is_auth_error = True
+                is_auth = True
             if "401" in str(e):
-                is_auth_error = True
-            if is_auth_error:
-                log.info("TTS health check: API Key invalid or expired (401)")
+                is_auth = True
+            if is_auth:
+                log.info("TTS health check: X-Api-Key 无效 (401)")
             else:
                 log.warning("TTS health check failed", exc_info=True)
             return False

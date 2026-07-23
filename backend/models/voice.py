@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class VoiceConfig(Base, TimestampMixin):
     """TTS + ASR unified configuration. API key is Fernet-encrypted.
 
-    Uses the new Volcengine console single ``X-Api-Key`` (v3 protocol).
+    Uses the new Volcengine console single ``X-Api-Key`` (v3 binary protocol).
     """
 
     __tablename__ = "voice_configs"
