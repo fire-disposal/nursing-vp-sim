@@ -29,16 +29,20 @@ export interface PatientInfo {
 }
 
 function isFemale(gender: string | null | undefined): boolean {
-	return gender === "女";
+	return gender === "女" || gender === "female";
 }
 
 function isMale(gender: string | null | undefined): boolean {
-	return gender === "男";
+	return gender === "男" || gender === "male";
+}
+
+function isGenderMatch(gender: string | null | undefined): boolean {
+	return isFemale(gender) || isMale(gender);
 }
 
 export function displayGender(gender?: string | null): string {
-	if (gender === "男") return "男";
-	if (gender === "女") return "女";
+	if (isMale(gender)) return "男";
+	if (isFemale(gender)) return "女";
 	return "未知";
 }
 
