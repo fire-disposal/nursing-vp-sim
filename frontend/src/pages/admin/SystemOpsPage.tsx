@@ -22,6 +22,9 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const rateColor =
 		successRate >= 95 ? "green" : successRate >= 90 ? "amber" : "red";
 	const activeSessions = (data.metrics as Record<string, unknown>)?.active_sessions as number ?? 0;
+	const scoringSuccessRate = data.scoring?.success_rate ?? 100;
+	const scoringColor =
+		scoringSuccessRate >= 90 ? "green" : scoringSuccessRate >= 80 ? "amber" : "red";
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -39,9 +42,9 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 			/>
 			<StatCard
 				icon={Timer}
-				value={data.scoring?.pending ?? 0}
-				label="评分待处理"
-				color={(data.scoring?.pending ?? 0) > 10 ? "amber" : "blue"}
+				value={`${scoringSuccessRate}%`}
+				label="评分成功率 (24h)"
+				color={scoringColor}
 			/>
 			<StatCard
 				icon={Server}
@@ -110,22 +113,28 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 			</CardHeader>
 			<CardContent>
 				<div className="grid grid-cols-2 gap-y-3 text-sm">
-					<span className="text-muted-foreground">评分待处理</span>
+					<span className="text-muted-foreground">评分成功率</span>
+					<span className={cn(
+						"text-right tabular-nums font-medium",
+						(data.scoring?.success_rate ?? 100) >= 90 ? "text-emerald-600" : "text-amber-600",
+					)}>
+						{data.scoring?.success_rate ?? 100}%
+					</span>
+					<span className="text-muted-foreground">已完成 (24h)</span>
+					<span className="text-right tabular-nums text-emerald-600">
+						{data.scoring?.completed_24h ?? 0}
+					</span>
+					<span className="text-muted-foreground">失败 (24h)</span>
+					<span className="text-right tabular-nums text-danger-foreground">
+						{data.scoring?.failed_24h ?? 0}
+					</span>
+					<span className="text-muted-foreground">待处理</span>
 					<span className="text-right tabular-nums font-medium">
 						{data.scoring?.pending ?? 0}
 					</span>
-					<span className="text-muted-foreground">评分进行中</span>
-					<span className="text-right tabular-nums font-medium text-blue-600">
+					<span className="text-muted-foreground">进行中</span>
+					<span className="text-right tabular-nums text-blue-600">
 						{data.scoring?.in_progress ?? 0}
-					</span>
-					<span className="text-muted-foreground">卡住 &gt;24h</span>
-					<span
-						className={cn(
-							"text-right tabular-nums font-medium",
-							(data.scoring?.stuck ?? 0) > 0 && "text-danger-foreground",
-						)}
-					>
-						{data.scoring?.stuck ?? 0}
 					</span>
 					<span className="text-muted-foreground">活跃会话</span>
 					<span className="text-right tabular-nums">
@@ -189,7 +198,7 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 			<CardHeader className="flex flex-row items-center justify-between">
 				<CardTitle>最近系统错误</CardTitle>
 				<span className="text-xs text-muted-foreground">
-					5min: {data.errors?.count?.last_5min ?? 0} · 1h: {data.errors?.count?.last_hour ?? 0} · 总计: {data.errors?.count?.total_captured ?? 0}
+					5min: {data.errors?.count?.last_5min ?? 0} · 1h: {data.errors?.count?.last_hour ?? 0} · 24h 类型: {data.errors?.count?.unique_24h ?? 0} · 总计: {data.errors?.count?.total_captured ?? 0}
 				</span>
 			</CardHeader>
 			<CardContent>

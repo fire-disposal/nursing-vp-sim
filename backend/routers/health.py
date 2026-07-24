@@ -82,6 +82,19 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
 
         # DB-backed snapshot
         dashboard = build_dashboard(db, now)
+
+        # Inject error burst from in-memory handler (not in DB)
+        system_errors: dict = {}
+        try:
+            diag_svc = get_diagnose_service()
+            diagnostic = await diag_svc.get_diagnose()
+            errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
+            system_errors = errors
+            dashboard["error_burst_5min"] = errors.get("burst_5min", 0)
+        except Exception:
+            diagnostic = {"error": "diagnose service unavailable"}
+            dashboard["error_burst_5min"] = 0
+
         alerts = compute_alerts(dashboard)
 
         # Scoring in-progress count (from app state, not DB)
@@ -100,16 +113,6 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
                 metrics_snapshot = request.app.state.metrics.snapshot()
             except Exception:
                 pass
-
-        # Diagnose service errors
-        system_errors = {}
-        try:
-            diag_svc = get_diagnose_service()
-            diagnostic = await diag_svc.get_diagnose()
-            errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
-            system_errors = errors
-        except Exception:
-            diagnostic = {"error": "diagnose service unavailable"}
 
         return {
             "version": APP_VERSION,

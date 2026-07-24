@@ -17,9 +17,11 @@ log = logging.getLogger(__name__)
 
 # ── 常量 ───────────────────────────────────────────────────────────────────────
 
-_MAX_ERRORS = 200  # 内存环缓冲最大错误条数
-_CACHE_TTL = 30  # 诊断快照缓存秒数
+_MAX_ERRORS = 2000  # 内存环缓冲最大错误条数
+_CACHE_TTL = 120  # 诊断快照缓存秒数
 _RECENT_ERRORS_N = 20  # 返回的最新错误数
+_DEDUP_WINDOW = 300  # 去重窗口秒数（5 分钟内相同 logger+message 合并）
+_DEDUP_HASH_HEAD = 200  # 去重 hash 的消息取前 N 字符
 _MSG_MAX = 4000  # 单条错误消息最大字符数
 _MSG_HEAD = 1200  # 截断时保留的头部字符数（含日志上下文）
 _PROCESS_START = time.time()  # 进程启动时间戳
@@ -48,18 +50,35 @@ class ErrorEntry:
 
 
 class ErrorCaptureHandler(logging.Handler):
-    """日志处理器：将 ERROR+ 级别日志缓存到内存环缓冲"""
+    """日志处理器：将 ERROR+ 级别日志缓存到内存环缓冲，带去重合并。"""
 
     def __init__(self, max_errors: int = _MAX_ERRORS):
         super().__init__(level=logging.ERROR)
         self.buffer: deque[ErrorEntry] = deque(maxlen=max_errors)
+        self._dedup: dict[tuple[str, str], tuple[float, int]] = {}
         self.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-8s %(name)s %(message)s"))
+
+    def _dedup_key(self, logger: str, message: str) -> tuple[str, str]:
+        return (logger, message[:_DEDUP_HASH_HEAD])
+
+    def _prune_dedup(self, now: float) -> None:
+        stale = [k for k, (ts, _) in self._dedup.items() if now - ts > _DEDUP_WINDOW]
+        for k in stale:
+            del self._dedup[k]
 
     def emit(self, record: logging.LogRecord):
         try:
             msg = self.format(record)
         except Exception:
             msg = record.getMessage()
+        ts = time.time()
+        key = self._dedup_key(record.name, msg)
+        self._prune_dedup(ts)
+        if key in self._dedup:
+            _, count = self._dedup[key]
+            self._dedup[key] = (ts, count + 1)
+            return
+        self._dedup[key] = (ts, 1)
         self.buffer.append(
             ErrorEntry(
                 level=record.levelname,
@@ -77,15 +96,26 @@ class ErrorCaptureHandler(logging.Handler):
 
     @property
     def error_count_last_hour(self) -> int:
-        """过去 1 小时内的错误数"""
+        """过去 1 小时内的错误数（含去重计数）"""
         cutoff = time.time() - 3600
         return sum(1 for e in self.buffer if e.timestamp >= cutoff)
 
     @property
     def error_count_last_5min(self) -> int:
-        """过去 5 分钟内的错误数"""
+        """过去 5 分钟内的错误数（含去重计数）"""
         cutoff = time.time() - 300
         return sum(1 for e in self.buffer if e.timestamp >= cutoff)
+
+    @property
+    def unique_error_count_24h(self) -> int:
+        """过去 24 小时内不重复错误类型数"""
+        cutoff = time.time() - 86400
+        return len({(e.logger, e.message[:_DEDUP_HASH_HEAD]) for e in self.buffer if e.timestamp >= cutoff})
+
+    @property
+    def error_burst_5min(self) -> int:
+        """过去 5 分钟错误突增计数（用于短窗口告警）"""
+        return self.error_count_last_5min
 
 
 def _strip_diagnose_entry(e: ErrorEntry) -> dict:
@@ -199,10 +229,12 @@ class DiagnoseService:
                 "last_5min": self._handler.error_count_last_5min,
                 "last_hour": self._handler.error_count_last_hour,
                 "total_captured": len(self._handler.buffer),
+                "unique_24h": self._handler.unique_error_count_24h,
+                "burst_5min": self._handler.error_burst_5min,
                 "recent": self._handler.get_recent(_RECENT_ERRORS_N),
             }
         else:
-            err = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
+            err = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "unique_24h": 0, "burst_5min": 0, "recent": []}
 
         ss = DiagnoseSnapshot(
             database=await self._db_status(),

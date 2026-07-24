@@ -68,9 +68,11 @@ async def admin_ops_dashboard(
         diag_svc = get_diagnose_service()
         diagnostic = await diag_svc.get_diagnose()
         system_errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
+        data["error_burst_5min"] = system_errors.get("burst_5min", 0)
     except Exception:
         diagnostic = {"error": "diagnose service unavailable"}
         system_errors = {}
+        data["error_burst_5min"] = 0
 
     errors_structured = {
         "count": {
@@ -141,7 +143,10 @@ async def admin_ops_report(
         },
         "scoring": {
             "pending": dashboard.get("scoring", {}).get("pending", 0),
-            "stuck": dashboard.get("scoring", {}).get("stuck", 0),
+            "in_progress": dashboard.get("scoring", {}).get("in_progress", 0),
+            "completed_24h": dashboard.get("scoring", {}).get("completed_24h", 0),
+            "failed_24h": dashboard.get("scoring", {}).get("failed_24h", 0),
+            "success_rate": dashboard.get("scoring", {}).get("success_rate", 100),
         },
         "sessions": {"active": dashboard.get("sessions", {}).get("active", 0)},
         "notifications": {"unread": 0},

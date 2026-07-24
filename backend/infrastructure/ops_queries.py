@@ -82,16 +82,21 @@ def query_scoring(db: Session, day_ago: datetime) -> dict:
         .scalar()
         or 0
     )
-    stuck = (
+    completed = (
         db.query(func.count(TrainingRecord.id))
-        .filter(
-            TrainingRecord.scoring_status.in_(["pending", "processing"]),
-            TrainingRecord.end_time < day_ago,
-        )
+        .filter(TrainingRecord.scoring_status == "completed", TrainingRecord.end_time >= day_ago)
         .scalar()
         or 0
     )
-    return {"pending": pending, "stuck": stuck}
+    failed = (
+        db.query(func.count(TrainingRecord.id))
+        .filter(TrainingRecord.scoring_status == "failed", TrainingRecord.end_time >= day_ago)
+        .scalar()
+        or 0
+    )
+    total_scored = completed + failed
+    success_rate = round(completed / max(total_scored, 1) * 100, 1)
+    return {"pending": pending, "completed_24h": completed, "failed_24h": failed, "success_rate": success_rate}
 
 
 def query_sessions(db: Session) -> int:
@@ -188,6 +193,7 @@ def compute_alerts(dashboard: dict) -> list[str]:
     sessions = dashboard.get("sessions", {})
     voice = dashboard.get("voice", {})
     voice_budget = dashboard.get("voice_budget", {})
+    error_burst = dashboard.get("error_burst_5min", 0)
 
     alerts: list[str] = []
 
@@ -206,10 +212,15 @@ def compute_alerts(dashboard: dict) -> list[str]:
         if total_rate > 10:
             alerts.append(f"LLM 限流错误 {total_rate} 次 (24h)")
 
+    # ── LLM 短窗口突发 ──
+    if error_burst > 5:
+        alerts.append(f"LLM 5 分钟突发错误 {error_burst} 次")
+
     # ── Scoring ──
-    if scoring.get("stuck", 0) > 5:
-        alerts.append(f"卡住评分 {scoring['stuck']} 条")
-    if scoring.get("pending", 0) > 20:
+    total_scored = scoring.get("completed_24h", 0) + scoring.get("failed_24h", 0)
+    if total_scored > 0 and scoring.get("success_rate", 100) < 80:
+        alerts.append(f"评分成功率 {scoring['success_rate']}% 低于 80%")
+    if scoring.get("pending", 0) > 30:
         alerts.append(f"排队评分 {scoring['pending']} 条")
 
     # ── Sessions ──

@@ -154,11 +154,12 @@ def build_email(data: dict, online: dict) -> str:
             f"<tr><td>{env_name}</td>"
             f"<td class='r'>{c.get('last_5min', '-')}</td>"
             f"<td class='r'>{c.get('last_hour', '-')}</td>"
+            f"<td class='r'>{c.get('unique_24h', '-')}</td>"
             f"<td class='r'>{c.get('total_captured', '-')}</td></tr>"
         )
     sections.append(
         _card("错误捕获", "📊")
-        + "<table><tr><th></th><th class='r'>近 5min</th><th class='r'>近 1h</th><th class='r'>缓冲区</th></tr>"
+        + "<table><tr><th></th><th class='r'>近 5min</th><th class='r'>近 1h</th><th class='r'>24h 去重</th><th class='r'>缓冲区</th></tr>"
         + err_rows
         + "</table></div>"
     )
@@ -185,16 +186,20 @@ def build_email(data: dict, online: dict) -> str:
     for env_name, ps in [
         ("正式服", prod.get("scoring", {})), ("测试服", stag.get("scoring", {})),
     ]:
-        stuck = ps.get("stuck", 0)
+        completed = ps.get("completed_24h", 0)
+        failed = ps.get("failed_24h", 0)
         pending = ps.get("pending", 0)
         ip = ps.get("in_progress", 0)
-        tag_cls = "err" if stuck else ("warn" if pending > 10 else "ok")
-        tag_label = f"卡住 {stuck}" if stuck else (f"排队 {pending}" if pending > 10 else "正常")
+        sr = ps.get("success_rate", 100)
+        sc_tag = "err" if sr < 80 else ("warn" if failed > 0 else "ok")
+        sc_label = f"成功率 {sr}%" if sr < 100 else "正常"
         sections.append(
             _card(f"评分队列 — {env_name}", "🎯")
-            + f"<div>待处理 <strong>{pending}</strong> ｜ "
+            + f"<div>成功率 <strong>{sr}%</strong> ｜ "
+            f"完成 <strong>{completed}</strong> ｜ 失败 <strong>{failed}</strong> ｜ "
+            f"待处理 <strong>{pending}</strong> ｜ "
             f"进行中 <strong>{ip}</strong> ｜ "
-            f"{_tag(tag_label, tag_cls)}</div></div>"
+            f"{_tag(sc_label, sc_tag)}</div></div>"
         )
 
     # ── Voice budget ──

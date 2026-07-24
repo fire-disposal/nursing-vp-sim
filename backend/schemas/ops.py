@@ -100,6 +100,8 @@ class DiagnoseErrorsInfo(BaseModel):
     last_5min: int
     last_hour: int
     total_captured: int
+    unique_24h: int = 0
+    burst_5min: int = 0
     recent: list[DiagnoseErrorEntry]
 
 
@@ -122,7 +124,10 @@ class OpsLLMInfo(BaseModel):
 
 class OpsScoringInfo(BaseModel):
     pending: int = 0
-    stuck: int = 0
+    in_progress: int = 0
+    completed_24h: int = 0
+    failed_24h: int = 0
+    success_rate: float = 100.0
 
 
 class OpsSessionsInfo(BaseModel):
