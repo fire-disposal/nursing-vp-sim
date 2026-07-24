@@ -7,7 +7,8 @@ import {
   usePortrait,
 } from "@/engine";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import { getPatientAvatar } from "@/utils/avatar";
+import useAuthStore from "@/stores/authStore";
+import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
 interface ChatDisplayProps {
   messages: ChatMessage[];
@@ -92,7 +93,8 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const patientAvatar =
 		portraitUrl ||
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
-	const nurseAvatar = getPatientAvatar({ name: "Nurse", gender: "female" });
+	const nurseGender = useAuthStore((s) => s.user?.gender);
+	const nurseAvatar = getNurseAvatar(nurseGender);
 
 	const grouped = useMemo(() => {
 		const result: { role: string; messages: typeof messages }[] = [];

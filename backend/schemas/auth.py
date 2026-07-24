@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
 
+_GENDER = Field(default=None, pattern=r"^(男|女)?$")
+
 
 class LoginRequest(BaseModel):
     model_config = _REQ_CFG
@@ -17,7 +19,7 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
-    gender: str | None = Field(default=None, max_length=4)
+    gender: str | None = _GENDER
 
 
 class TokenResponse(BaseModel):

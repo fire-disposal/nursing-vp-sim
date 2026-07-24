@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
 
+_GENDER = Field(default=None, pattern=r"^(男|女)?$")
+
 
 class UserBrief(BaseModel):
     model_config = _RESP_CFG
@@ -25,7 +27,7 @@ class UserProfileUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     display_name: str | None = Field(default=None, min_length=1, max_length=50)
     student_id: str | None = None
-    gender: str | None = Field(default=None, max_length=4)
+    gender: str | None = _GENDER
     avatar: str | None = Field(default=None, max_length=255)
 
 
@@ -36,7 +38,7 @@ class UserUpdateRequest(BaseModel):
     class_id: int | None = None
     role: str | None = None
     password: str | None = Field(default=None, min_length=6)
-    gender: str | None = Field(default=None, max_length=4)
+    gender: str | None = _GENDER
     avatar: str | None = Field(default=None, max_length=255)
 
 

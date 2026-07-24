@@ -29,11 +29,17 @@ export interface PatientInfo {
 }
 
 function isFemale(gender: string | null | undefined): boolean {
-	return gender === "女" || gender === "female";
+	return gender === "女";
 }
 
 function isMale(gender: string | null | undefined): boolean {
-	return gender === "男" || gender === "male";
+	return gender === "男";
+}
+
+export function displayGender(gender?: string | null): string {
+	if (gender === "男") return "男";
+	if (gender === "女") return "女";
+	return "未知";
 }
 
 export function getAgeGroup(age: number | null | undefined): string {
