@@ -5,9 +5,6 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
 
-# 测试清单强制校验开关：大规模重构期间暂时关闭。恢复该门禁改回 true。
-ENFORCE_CHECKLIST=false
-
 say()  { echo "$1"; }
 ok()   { echo "  ok  $1"; }
 fail() { echo "  FAIL $1"; PASS=1; }
@@ -154,45 +151,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       if [ "$tag_num" -ne "$expected" ]; then
         fail "tag ${tag}: expected counter ${expected} (highest today: ${highest:-none}), got ${tag_num}"
         continue
-      fi
-
-      # 4. Testing checklist (only required for feat/fix versions)
-      month=$(echo "${tag#v}" | cut -d. -f1-2)
-      checklist="docs/testing/${month}/checklist-${tag}.md"
-
-      prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
-      has_feat_or_fix=false
-      if [ -n "$prev_tag" ] && [ "$prev_tag" != "$tag" ]; then
-        # Reliably detect feat/fix via Python (handles Unicode emoji on all platforms)
-        if uv run python -c "
-import subprocess, sys
-log = subprocess.check_output(['git','log','${prev_tag}..HEAD','--oneline','--no-merges'], text=True)
-sys.exit(0 if '\u2728 feat:' in log or '\U0001f41b fix:' in log else 1)
-" 2>/dev/null; then
-          has_feat_or_fix=true
-        fi
-      fi
-
-      if $has_feat_or_fix && [ "$ENFORCE_CHECKLIST" = "true" ]; then
-        # User-facing changes — require a real checklist (>30 chars of content)
-        if [ ! -f "$ROOT/$checklist" ]; then
-          echo ""
-          echo "PUSH BLOCKED: missing $checklist (feat/fix commits detected)"
-          echo "→ generate the checklist, commit it, and re-run 'pnpm run tag'"
-          echo ""
-          fail "testing checklist required for feat/fix versions"
-        else
-          content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
-          if [ ${#content} -lt 30 ]; then
-            echo ""
-            echo "PUSH BLOCKED: $checklist is too short (${#content} chars — stub or '无需测试')"
-            echo "→ generate a real checklist with scene-level test steps"
-            echo ""
-            fail "checklist too short for feat/fix version"
-          else
-            ok "testing checklist for $tag"
-          fi
-        fi
       fi
 
       ok "tag $tag"

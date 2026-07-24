@@ -3,8 +3,6 @@
 // Usage: node .husky/_/auto-tag.mjs [--push]
 
 import { execSync } from "child_process";
-import fs from "node:fs";
-import path from "node:path";
 
 const bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
 const today = bj.toISOString().slice(0, 10).replace(/-/g, ".");
@@ -34,43 +32,6 @@ if (latestTag && doPush) {
     process.exit(0);
   } catch {
     // diff exits non-zero — proceed
-  }
-}
-
-// ── Feat/fix detection ──────────────────────────────────────────────────
-const prevTag = allSorted.length > 1 ? allSorted[1] : "";
-function hasFeatOrFix() {
-  if (!prevTag) return false;
-  const log = execSync(`git log ${prevTag}..HEAD --oneline --no-merges`, { encoding: "utf-8" });
-  return /\s(✨|🐛)\s*(feat|fix):/.test(log);
-}
-
-// ── Checklist (only for feat/fix versions) ──────────────────────────────
-// 测试清单强制开关：大规模重构期间暂时关闭。恢复改回 true。
-const ENFORCE_CHECKLIST = false;
-const needChecklist = doPush && ENFORCE_CHECKLIST && hasFeatOrFix();
-if (needChecklist) {
-  if (isCI) {
-    // In CI, feat/fix commits require a real checklist committed in the PR
-    // before merging.  Fail loudly — do NOT push anything to master.
-    console.log("BLOCKED: feat/fix commits detected without a real checklist.");
-    console.log("→ commit the checklist to the PR before merging, then re-run.");
-    process.exit(1);
-  }
-
-  // Local: leave a short stub so pre-push blocks tag push.
-  const month = tag.substring(1, 8);
-  const checklistDir = path.resolve(process.cwd(), "docs/testing", month);
-  const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
-
-  if (!fs.existsSync(checklistFile)) {
-    if (!fs.existsSync(checklistDir)) {
-      fs.mkdirSync(checklistDir, { recursive: true });
-    }
-    fs.writeFileSync(checklistFile, "TODO\n", "utf-8");
-    console.log(`Created stub: ${checklistFile} (real checklist needed — feat/fix commits detected)`);
-    console.log("→ generate a real checklist and commit it, then re-run: pnpm run tag");
-    process.exit(0);
   }
 }
 

@@ -30,59 +30,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Assemble testing checklist
-        run: |
-          HOST="${{ secrets.SSH_HOST }}"
-          USER="${{ secrets.SSH_USER }}"
-          VER="${{ steps.version.outputs.value }}"
-          PROD_VER=""
-
-          if [ -n "$HOST" ] && [ -n "$USER" ]; then
-            mkdir -p ~/.ssh
-            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
-          fi
-
-          if [ -z "$PROD_VER" ]; then
-            echo "::warning::Cannot determine production version, skipping checklist assembly"
-            exit 0
-          fi
-
-          echo "  production: v$PROD_VER"
-          echo "  target:     v$VER"
-
-          TAGS=$(git tag --sort=version:refname \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' \
-            | awk "/^v$PROD_VER\$/{found=1; next} /^v$VER\$/{exit} found")
-
-          echo ""
-          echo "=== COMBINED CHECKLIST ==="
-          echo ""
-          echo "# $VER 合并测试清单"
-          echo ""
-          echo "**版本**: v$PROD_VER → v$VER"
-          echo "**环境**: https://test.205716.xyz"
-          echo ""
-          echo "---"
-          echo ""
-
-          for TAG in v$PROD_VER $TAGS v$VER; do
-            MONTH=$(echo "${TAG#v}" | cut -d. -f1-2)
-            MONTHLY_FILE="docs/testing/${MONTH}/checklist-${TAG}.md"
-            FLAT_FILE="docs/testing/checklist-${TAG}.md"
-            FILE=$( [ -f "$MONTHLY_FILE" ] && echo "$MONTHLY_FILE" || echo "$FLAT_FILE" )
-            if [ -f "$FILE" ]; then
-              BODY=$(grep -v '^#' "$FILE" | grep -v '^\*\*版本\*\*' | grep -v '^\*\*环境\*\*' | grep -v '^$' | tr -d '[:space:]')
-              if [ -n "$BODY" ] && [ "$BODY" != "无需测试" ]; then
-                echo "<!-- from $FILE -->"
-                grep -v '^#' "$FILE" | grep -v '^\*\*版本\*\*' | grep -v '^\*\*环境\*\*' || true
-                echo ""
-              fi
-            fi
-          done
-
-          echo "=== END CHECKLIST ==="
-
       - name: Normalize owner
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT

@@ -243,7 +243,7 @@ cd frontend; npx tsc --noEmit; npx biome check
 ```
 - PR-1（token）：构建通过、视觉零变化。
 - PR-2/3/4：tsc + biome 全绿；人工冒烟关键面（学生首页 hero、CaseSelect、训练对话/评分、各 admin 表单弹窗、确认删除、CallLog 侧栏、通知浮层）。
-- 原型期不强制测试核对单；若后续 tag push，按仓库 pre-push hook 另补 `docs/testing/checklist-{tag}.md`。
+- 原型期不强制测试核对单。
 
 ## 9. 风险与缓解
 | 风险 | 缓解 |

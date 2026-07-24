@@ -11,12 +11,11 @@ git commit → commit-msg 格式校验 via validate-commit.js
            → pre-commit: migration 目录检查(check-migration-autogen.js)
                         + ruff format+check (staged backend)
                         + lint-staged: biome lint + tsc (staged frontend)
-git push   → pre-push: tag 格式校验 + checklist 验证 + alembic roundtrip + 迁移链完整性
+git push   → pre-push: tag 格式校验 + alembic roundtrip + 迁移链完整性
 ```
 
 - **lint-staged**: `tsc` + `biome lint` 只跑 staged frontend；迁移检查只跑 staged `migrations/versions/`
 - **Alembic roundtrip**: 临时库 → upgrade → downgrade → upgrade → drop（验证所有迁移可逆）
-- **Checklist**: 仅 `feat`/`fix` 版本需要；refactor/docs/ci/test/chore/build 无需
 - 驳回的提交打印 emoji 格式表
 
 ## Cloud CI Gate (PR → master)
@@ -122,18 +121,6 @@ uv run python -m pytest -x -q
 使用 `pnpm run tag` 自动生成并推送（北京时间日期 + 当日递增序号）。不建议手动执行 `git tag` / `git push --tags`。
 
 格式: `vYYYY.MM.DD-N`。Push tag 触发 staging 部署。
-
-## Testing Checklist
-
-Every tag push needs `docs/testing/{YYYY-MM}/checklist-{tag}.md` (pre-push hook enforces; 当前通过 `ENFORCE_CHECKLIST=false` 临时关闭，重构阶段恢复后启用)。
-
-**"无需测试" only if all commits are non-user-facing** (refactor/docs/ci/test/chore/build). Any `feat` or `fix` commit requires a real checklist.
-
-Ask opencode in this repo — it will:
-
-1. `ssh yecaoyun` fetch current prod version from `.version-history-prod`
-2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
-3. Analyze the diff and write a scene-level checklist to `docs/testing/{YYYY-MM}/checklist-{tag}.md`
 
 ## Deployment
 

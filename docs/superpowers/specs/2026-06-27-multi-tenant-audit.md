@@ -136,7 +136,7 @@ tenant_scope(user, requested_school_id=None) -> int | None
 - 前端: `stores/authStore.ts:61,115`（存/留 school_id/school_name）、`types/store.ts:12,16-22,29`（User/School/RoleItem 类型）、`schemas/school.ts`（整文件）、`pages/admin/SchoolsPage.tsx`（整页）、`api/admin/schools.ts`（整文件）、`api/query-keys.ts:54-57`、`Layout.tsx:72-76`（侧边栏「学校管理」）、`RolesPage.tsx:50`（school_manage 权限项）、`UserList.tsx:142` / `role-badge.tsx:6-7`（super_admin/school_admin 徽章）。
 - 自动生成（只读，需重新生成）: `frontend/src/api/api-types.gen.ts`、`miniprogram/api/types.gen.ts`（多处 `school_id?/school_name?`）。
 - 测试: `tests/{auth,admin,training,scoring}/*` 与 `conftest.py` 硬编码 `school_id=1`；`frontend authStore.test.ts`。
-- 文档: `docs/01-architecture.md`、`docs/uml/*.puml`、历史 checklist。
+- 文档: `docs/01-architecture.md`、`docs/uml/*.puml`。
 
 ---
 

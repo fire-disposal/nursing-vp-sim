@@ -31,9 +31,7 @@
     "perm:generate": "cd backend && uv run python scripts/gen_permissions_ts.py",
     "api:update": "pnpm run api:spec && pnpm run api:generate && pnpm run cap:generate && pnpm run perm:generate",
     "api:update:all": "pnpm run api:spec && pnpm run api:generate && pnpm run cap:generate && pnpm run perm:generate",
-    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts frontend/src/engine/capabilities.gen.ts frontend/src/config/permissions.gen.ts",
-    "gen:checklist": "node scripts/gen-combined-checklist.mjs",
-    "gen:checklist:target": "node scripts/gen-combined-checklist.mjs"
+    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts frontend/src/engine/capabilities.gen.ts frontend/src/config/permissions.gen.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
