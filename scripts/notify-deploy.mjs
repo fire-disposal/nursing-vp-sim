@@ -41,6 +41,7 @@ if (commitsRaw) {
   if (total > 0) {
     commitsBlock = `\n\n---\n\n**最近变更 (${total} commits)**\n\n` + shown
       .map((l) => l.replace(/^[0-9a-f]+\s+/, ""))
+      .map((l) => `- ${l}`)
       .join("\n");
     if (total > 5) {
       commitsBlock += `\n\n... 还有 ${total - 5} 条`;
