@@ -226,7 +226,7 @@ PATCH /api/feedback/bot/{id}?token=xxx
 | SMTP 邮件 | 服务器告警（HTML） | crontab 每 15 分 |
 
 告警类型（`compute_alerts` → `/api/diagnose` → `monitor.py`）：
-LLM 成功率/限流/错误数、评分卡住/排队、活跃会话、TTS/ASR 成功率/错误数、语音预算、inode
+LLM 成功率/限流/错误数/短窗口突发、评分成功率/排队、活跃会话、TTS/ASR 成功率/错误数、语音预算、inode
 
 ## Path Type Safety
 

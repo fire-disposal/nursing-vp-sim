@@ -79,6 +79,8 @@ async def admin_ops_dashboard(
             "last_5min": system_errors.get("last_5min", 0),
             "last_hour": system_errors.get("last_hour", 0),
             "total_captured": system_errors.get("total_captured", 0),
+            "unique_24h": system_errors.get("unique_24h", 0),
+            "burst_5min": system_errors.get("burst_5min", 0),
         },
         "recent": system_errors.get("recent", []),
     }
@@ -112,6 +114,8 @@ async def admin_ops_errors(
                 "last_5min": errors.get("last_5min", 0),
                 "last_hour": errors.get("last_hour", 0),
                 "total_captured": errors.get("total_captured", 0),
+                "unique_24h": errors.get("unique_24h", 0),
+                "burst_5min": errors.get("burst_5min", 0),
             },
             "recent": (errors.get("recent") or [])[:n],
         }

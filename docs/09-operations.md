@@ -481,11 +481,11 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 | `health` | 健康状态 |
 | `summary` | 汇总状态（healthy / degraded）|
 | `llm` | LLM 调用统计（24h 调用量/成功率/错误数/延迟/top错误） |
-| `scoring` | 评分队列状态（pending / stuck / in_progress） |
+| `scoring` | 评分队列状态（success_rate / pending / in_progress / completed_24h / failed_24h） |
 | `voice` | 语音服务 TTS/ASR 统计 |
 | `voice_budget` | 语音月度预算使用 |
 | `metrics` | 系统指标快照（uptime/请求/活跃会话/内存/队列） |
-| `errors` | 错误计数（last_5min / last_hour / total）及最近错误列表 |
+| `errors` | 错误计数（last_5min / last_hour / unique_24h / total_captured）及最近错误列表 |
 | `alerts` | 自动告警列表 |
 
 **安全配置：** 在 `.env` 中设置 `DIAGNOSE_TOKEN` 为随机字符串。未设置时端点自动隐藏（返回 404）。
@@ -501,11 +501,14 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 |------|----------|
 | LLM 成功率 | < 90% |
 | LLM 24h 错误数 | > 50 |
-| 卡住评分 | > 5 条 |
+| LLM 5min 突发错误 | > 5 |
+| 评分成功率 | < 80% |
+| 排队评分 | > 30 条 |
 | 活跃会话 | > 50 个 |
 | TTS 成功率 | < 90% |
 | ASR 成功率 | < 80% |
-| TTS 24h 错误数 | > 20 |
+| TTS/ASR 24h 错误数 | > 20 |
+| 语音月度预算 | > 90% |
 
 ## 关键指标
 

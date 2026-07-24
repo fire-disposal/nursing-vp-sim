@@ -129,6 +129,8 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
                     "last_5min": system_errors.get("last_5min", 0),
                     "last_hour": system_errors.get("last_hour", 0),
                     "total_captured": system_errors.get("total_captured", 0),
+                    "unique_24h": system_errors.get("unique_24h", 0),
+                    "burst_5min": system_errors.get("burst_5min", 0),
                 },
                 "recent": (system_errors.get("recent") or []),
             },

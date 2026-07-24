@@ -98,7 +98,8 @@ ssh yecaoyun "curl -sI https://test.205716.xyz | head -5"
 诊断端点自动计算告警（每 15 分钟 crontab）：
 - LLM 成功率 < 90%
 - 近 24h 错误 > 50 次
-- 卡住评分 > 5 条
+- LLM 5min 突发错误 > 5 次
+- 评分成功率 < 80%
 - 活跃会话 > 50 个
 
 告警通过钉钉 Webhook + SMTP 邮件双通道发送。
