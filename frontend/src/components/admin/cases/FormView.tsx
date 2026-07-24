@@ -4,6 +4,7 @@ import type { CaseDispatch } from "./CaseEditorState";
 import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import type { CaseEditorState } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
+import { BackgroundEditor } from "./BackgroundEditor";
 import CapabilitiesEditor from "./CapabilitiesEditor";
 import { ClinicalSection } from "./ClinicalSection";
 import { DialoguesEditor } from "./DialoguesEditor";
@@ -109,6 +110,12 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					<ExamAnchorsEditor
 						value={objField(state, "exam_anchors") as Record<string, string>}
 						onChange={(v) => set("exam_anchors", v)}
+						disabled={disabled}
+					/>
+
+					<BackgroundEditor
+						value={objField(state, "deep_background") as Record<string, string>}
+						onChange={(v) => set("deep_background", v)}
 						disabled={disabled}
 					/>
 
