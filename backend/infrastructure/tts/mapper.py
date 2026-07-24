@@ -7,6 +7,7 @@ the low-latency ``standard`` model. Both rates are in the range [-50, 100].
 
 import logging
 
+from core.gender import GENDER_FEMALE, GENDER_MALE
 from infrastructure.tts.client import TTSRequest
 
 log = logging.getLogger(__name__)
@@ -36,23 +37,6 @@ _BUILTIN_SPEAKER_LIBRARY: dict[str, str] = {
     "female_elder": "zh_female_wenrou_bigtts",
     "fallback": DEFAULT_SPEAKER,
 }
-
-# ── Gender normalization ──────────────────────────────────────────────────────
-
-_GENDER_MALE = frozenset({"男", "男性", "male", "m", "boy", "man"})
-_GENDER_FEMALE = frozenset({"女", "女性", "female", "f", "girl", "woman"})
-
-
-def normalize_gender(value: str | None) -> str | None:
-    """Normalize gender strings to ``"男"`` / ``"女"`` for the voice mapper."""
-    if not value:
-        return None
-    v = value.strip().lower()
-    if v in _GENDER_MALE:
-        return "男"
-    if v in _GENDER_FEMALE:
-        return "女"
-    return None
 
 
 def get_speaker_library(db_config: dict | None = None) -> dict[str, str]:
@@ -91,13 +75,13 @@ def resolve_voice_type(
 
     if age is not None:
         if age <= 12:
-            return lib["child_male"] if gender == "男" else lib["child_female"]
+            return lib["child_male"] if gender == GENDER_MALE else lib["child_female"]
         if age >= 60:
-            return lib["female_elder"] if gender == "女" else lib["male_elder"]
+            return lib["female_elder"] if gender == GENDER_FEMALE else lib["male_elder"]
 
-    if gender == "男":
+    if gender == GENDER_MALE:
         return lib["male_young"] if (age is not None and age <= 25) else lib["male_middle"]
-    if gender == "女":
+    if gender == GENDER_FEMALE:
         return lib["female_young"] if (age is not None and age <= 25) else lib["female_middle"]
 
     return lib["fallback"]

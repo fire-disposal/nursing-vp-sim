@@ -67,15 +67,9 @@ export function useTrainingRecord(recordId: string) {
 			};
 		};
 
-		const rawGender = d.patient_gender || d.patient_info?.gender || "male";
+		const rawGender = d.patient_gender || d.patient_info?.gender || "男";
 		const gender: "male" | "female" =
-			rawGender === "男"
-				? "male"
-				: rawGender === "女"
-					? "female"
-					: rawGender === "male"
-						? "male"
-						: "female";
+			rawGender === "男" ? "male" : "female";
 
 		const patient: PatientData = {
 			name: d.patient_name ?? d.case?.name ?? "患者",

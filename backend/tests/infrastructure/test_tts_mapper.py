@@ -1,6 +1,7 @@
 import pytest  # noqa: F401
 
-from infrastructure.tts.mapper import normalize_gender, resolve_voice_type
+from core.gender import normalize_gender
+from infrastructure.tts.mapper import resolve_voice_type
 
 
 class TestNormalizeGender:

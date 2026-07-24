@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 
 from core.config import TTS_POOL_SIZE
 from core.exceptions import AuthError, NotFoundError
+from core.gender import normalize_gender
 from core.unit_of_work import unit_of_work
 from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
-from infrastructure.tts.mapper import emotion_to_tts, normalize_gender, resolve_voice_type
+from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
 from infrastructure.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 

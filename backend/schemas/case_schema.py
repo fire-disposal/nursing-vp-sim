@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.gender import normalize_gender  # noqa: F401 — re-export for existing callers
 from core.jsonb import JsonbModel
 from profiles.triage.case_schema import TriageCaseData
 
@@ -106,13 +107,6 @@ class CaseDataSchema(JsonbModel):
     voice_type: str = ""
 
     example_dialogues: list[dict] = []
-
-
-GENDER_MAP = {"男": "male", "女": "female"}
-
-
-def normalize_gender(gender: str) -> str:
-    return GENDER_MAP.get(gender, gender)
 
 
 _TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
