@@ -8,7 +8,9 @@ import {
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
-import type { CaseManageItem } from "./types";
+import type { components } from "@/api/api-types.gen";
+
+type CaseManageItem = components["schemas"]["CaseManageItem"];
 
 export function useCreateCase() {
 	const queryClient = useQueryClient();

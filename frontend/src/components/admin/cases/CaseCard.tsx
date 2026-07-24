@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/card";
 import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import { cn } from "@/utils/cn";
-import type { CaseManageItem } from "./types";
+import type { components } from "@/api/api-types.gen";
+
+type CaseManageItem = components["schemas"]["CaseManageItem"];
 
 interface CaseCardProps {
 	caseData: CaseManageItem;

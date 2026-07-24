@@ -4,7 +4,9 @@ import Button from "@/components/ui/button";
 import Pagination from "@/components/ui/pagination";
 import { inputClass } from "@/utils/styles";
 import CaseCard from "./CaseCard";
-import type { CaseManageItem } from "./types";
+import type { components } from "@/api/api-types.gen";
+
+type CaseManageItem = components["schemas"]["CaseManageItem"];
 
 interface CaseListProps {
 	cases: CaseManageItem[];

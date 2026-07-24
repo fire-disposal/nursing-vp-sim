@@ -6,7 +6,9 @@ import { useToast } from "@/components/Toast";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import CaseFormModal from "./cases/CaseForm";
 import CaseList from "./cases/CaseList";
-import type { CaseManageItem } from "./cases/types";
+import type { components } from "@/api/api-types.gen";
+
+type CaseManageItem = components["schemas"]["CaseManageItem"];
 import { useDeleteCase, useDeleteCaseConfirm } from "./cases/useCaseMutations";
 
 const LIMIT = 50;
