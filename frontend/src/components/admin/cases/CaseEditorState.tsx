@@ -166,15 +166,18 @@ export function field(
 }
 
 export function stringField(state: CaseEditorState, path: string, def = ""): string {
-	return String(field(state, path, def));
+	const v = field(state, path, def);
+	return v == null || typeof v !== "string" ? def : v;
 }
 
 export function numField(state: CaseEditorState, path: string, def = 0): number {
-	return Number(field(state, path, def));
+	const v = field(state, path, def);
+	return typeof v === "number" ? v : def;
 }
 
 export function boolField(state: CaseEditorState, path: string, def = false): boolean {
-	return Boolean(field(state, path, def));
+	const v = field(state, path, def);
+	return typeof v === "boolean" ? v : def;
 }
 
 export function arrayField(state: CaseEditorState, path: string, def: CaseJsonValue[] = []): CaseJsonValue[] {
