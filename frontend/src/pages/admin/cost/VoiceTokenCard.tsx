@@ -160,8 +160,8 @@ export default function VoiceTokenCard() {
 	const online = status?.tts_online;
 	const err = errorHint(status?.last_error ?? null);
 
-	const row = "flex items-center gap-3 px-3 py-2.5";
-	const labelCls = "w-[80px] shrink-0 text-xs text-muted-foreground font-medium";
+	const row = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5";
+	const labelCls = "sm:w-[80px] shrink-0 text-xs text-muted-foreground font-medium";
 	const inputCls = "h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 	return (
@@ -202,7 +202,7 @@ export default function VoiceTokenCard() {
 					{/* API Key */}
 					<div className={row}>
 						<span className={labelCls}>API Key</span>
-						<div className="flex-1 relative">
+						<div className="flex-1 relative min-w-0">
 							<input
 								type={showKey ? "text" : "password"}
 								value={apiKey}
@@ -228,15 +228,18 @@ export default function VoiceTokenCard() {
 					{/* Resource + Timeout row */}
 					<div className={`${row} border-t border-border/50`}>
 						<span className={labelCls}>Resource</span>
-						<select value={resource} onChange={(e) => setResource(e.target.value)} className={`${inputCls} flex-1`}>
-							{RESOURCE_IDS.map((v) => (<option key={v} value={v}>{v}</option>))}
-						</select>
-						<span className="text-[11px] text-muted-foreground">{timeoutS}s</span>
-						<input
-							type="number" min={3} max={30} value={timeoutS}
-							onChange={(e) => setTimeoutS(Number(e.target.value))}
-							className={`${inputCls} w-16`}
-						/>
+						<div className="flex items-center gap-2 flex-1">
+							<select value={resource} onChange={(e) => setResource(e.target.value)} className={`${inputCls} flex-1`}>
+								{RESOURCE_IDS.map((v) => (<option key={v} value={v}>{v}</option>))}
+							</select>
+							<span className="text-[11px] text-muted-foreground shrink-0">超时</span>
+							<input
+								type="number" min={3} max={30} value={timeoutS}
+								onChange={(e) => setTimeoutS(Number(e.target.value))}
+								className={`${inputCls} w-14 shrink-0`}
+							/>
+							<span className="text-[11px] text-muted-foreground shrink-0">秒</span>
+						</div>
 					</div>
 
 					{/* Save footer */}
@@ -255,7 +258,7 @@ export default function VoiceTokenCard() {
 						<span className="text-xs font-medium">音色映射（按患者人口自动选择发音人）</span>
 					</button>
 					{showSpeakerLib && (
-						<div className="border-t border-border/50 px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5">
+						<div className="border-t border-border/50 px-3 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
 							{[
 								["child_male", "男童"], ["child_female", "女童"],
 								["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
