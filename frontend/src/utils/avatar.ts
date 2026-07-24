@@ -36,10 +36,6 @@ function isMale(gender: string | null | undefined): boolean {
 	return gender === "男" || gender === "male";
 }
 
-function isGenderMatch(gender: string | null | undefined): boolean {
-	return isFemale(gender) || isMale(gender);
-}
-
 export function displayGender(gender?: string | null): string {
 	if (isMale(gender)) return "男";
 	if (isFemale(gender)) return "女";
@@ -47,7 +43,7 @@ export function displayGender(gender?: string | null): string {
 }
 
 export function getAgeGroup(age: number | null | undefined): string {
-	if (age == null || age <= 0) return "youth";
+	if (age == null || age <= 0) return "middle";
 	if (age <= 12) return "child";
 	if (age <= 25) return "youth";
 	if (age < 60) return "middle";
@@ -55,7 +51,7 @@ export function getAgeGroup(age: number | null | undefined): string {
 }
 
 export function getPatientKey(patientInfo?: PatientInfo | null): string {
-	if (!patientInfo) return "patient_youth_male";
+	if (!patientInfo) return "patient_middle_male";
 	const group = getAgeGroup(patientInfo.age);
 	const sex = isFemale(patientInfo.gender) ? "female" : "male";
 	return `patient_${group}_${sex}`;
@@ -63,7 +59,7 @@ export function getPatientKey(patientInfo?: PatientInfo | null): string {
 
 export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
 	const key = getPatientKey(patientInfo);
-	return avatars[key] || avatars.patient_youth_male;
+	return avatars[key] || avatars.patient_middle_male;
 }
 
 export function getNurseAvatar(gender?: string | null): string {

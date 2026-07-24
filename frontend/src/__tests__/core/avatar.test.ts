@@ -53,21 +53,21 @@ describe("getAgeGroup", () => {
 		expect(getAgeGroup(80)).toBe("elder");
 	});
 
-	it('returns "youth" for null/undefined/zero age', () => {
-		expect(getAgeGroup(null)).toBe("youth");
-		expect(getAgeGroup(undefined)).toBe("youth");
-		expect(getAgeGroup(0)).toBe("youth");
+	it('returns "middle" for null/undefined/zero age', () => {
+		expect(getAgeGroup(null)).toBe("middle");
+		expect(getAgeGroup(undefined)).toBe("middle");
+		expect(getAgeGroup(0)).toBe("middle");
 	});
 });
 
 describe("getPatientAvatar", () => {
 	it("returns default for null/undefined patientInfo", () => {
 		const result = getPatientAvatar(null);
-		expect(result).toBe("patient_youth_male");
-		expect(getPatientAvatar(undefined)).toBe("patient_youth_male");
+		expect(result).toBe("patient_middle_male");
+		expect(getPatientAvatar(undefined)).toBe("patient_middle_male");
 	});
 
-	it("returns correct avatar for child female with age < 15", () => {
+	it("returns correct avatar for child female with age 10", () => {
 		const patient: PatientInfo = { age: 10, gender: "女" };
 		expect(getPatientAvatar(patient)).toBe("patient_child_female");
 	});
