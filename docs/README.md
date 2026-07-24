@@ -1,6 +1,6 @@
 # 项目文档
 
-## 文档导航
+## 核心文档
 
 | 文档 | 说明 |
 |------|------|
@@ -10,27 +10,34 @@
 | [04-前端设计](04-frontend.md) | 组件架构 · 页面路由 · 状态管理 |
 | [05-LLM 与评分](05-llm-design.md) | Prompt 体系 · Provider 路由 · 评分流程 |
 | [09-运维指南](09-operations.md) | 部署 · 备份 · 监控 · 应急预案 |
-| [10-功能审计](10-functional-audit.md) | 功能矩阵 · 缺口 · 未来方向 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 分支模型 · PR 规范 · 冲突处理 |
+
+## 项目演进
+
+| 文档 | 说明 |
+|------|------|
+| [CHANGELOG.md](CHANGELOG.md) | 项目里程碑汇总（按功能领域非时间线） |
+
+## 运维运营
+
+| 文档 | 说明 |
+|------|------|
+| [语音服务指南](ops/voice-service-guide.md) | LLM/TTS/ASR 服务购买、配置与故障排查 |
+
+## 功能规格
+
+| 文档 | 说明 |
+|------|------|
+| [ASR 语音输入](spec/asr-voice-input.md) | Volcengine 流式语音识别 · 前端集成 |
+| [情感 TTS](spec/emotional-tts.md) | 大模型语音合成 · 预缓冲 · 情绪控制 |
+
+## 设计文档（历史归档）
+
+设计规格存放在 `superpowers/specs/`，按日期命名。包含架构重构、插件系统、训练引擎、情感系统、UI 重设计、打分优化等历史设计快照，供回溯参考。
 
 ## 测试核对单
 
 | |
 |---|
 | [GUIDE.md](testing/GUIDE.md) — 核对单生成标准 |
-| [2026-06/](testing/2026-06/) — 历史测试核对单（按月归档） |
-
-## 变更日志
-
-| 周期 | 内容 |
-|------|------|
-| [W22-W23](changelog/CHANGELOG-2026-W22-W23.md) | 2026.05.29 — 06.05 |
-| [W24-W25](changelog/CHANGELOG-2026-W24-W25.md) | 2026.06.13 — 06.19 |
-| [W27](changelog/CHANGELOG-2026-W27.md) | 2026.06.20 — 06.22 |
-
-## 设计规划
-
-| |
-|---|
-| [领域划分指南](domain-division-guide.md) |
-| [功能计划](plans/) |
+| [2026-07/](testing/2026-07/) — 当前月份测试核对单 |
