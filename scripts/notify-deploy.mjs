@@ -37,14 +37,13 @@ let commitsBlock = "";
 if (commitsRaw) {
   const lines = commitsRaw.trim().split("\n").filter(Boolean);
   const total = lines.length;
-  const shown = lines.slice(0, 20);
+  const shown = lines.slice(0, 5);
   if (total > 0) {
-    commitsBlock = `\n\n**最近变更 (${total} commits)**\n` + shown
+    commitsBlock = `\n\n---\n\n**最近变更 (${total} commits)**\n\n` + shown
       .map((l) => l.replace(/^[0-9a-f]+\s+/, ""))
-      .map((l) => `> ${l}`)
       .join("\n");
-    if (total > 20) {
-      commitsBlock += `\n> ... 还有 ${total - 20} 条`;
+    if (total > 5) {
+      commitsBlock += `\n\n... 还有 ${total - 5} 条`;
     }
   }
 }
