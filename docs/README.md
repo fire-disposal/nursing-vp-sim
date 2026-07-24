@@ -18,18 +18,14 @@
 |------|------|
 | [CHANGELOG.md](CHANGELOG.md) | 项目里程碑汇总（按功能领域非时间线） |
 
-## 运维运营
+## 运维速查手册
 
 | 文档 | 说明 |
 |------|------|
-| [语音服务指南](ops/voice-service-guide.md) | LLM/TTS/ASR 服务购买、配置与故障排查 |
-
-## 功能规格
-
-| 文档 | 说明 |
-|------|------|
-| [ASR 语音输入](spec/asr-voice-input.md) | Volcengine 流式语音识别 · 前端集成 |
-| [情感 TTS](spec/emotional-tts.md) | 大模型语音合成 · 预缓冲 · 情绪控制 |
+| [TTS / 语音排障](ops/tts-troubleshooting.md) | 语音播报异常、ASR 识别失败的逐层排查 |
+| [服务器故障恢复](ops/server-recovery.md) | 容器 unhealthy、磁盘满、内存不足的应急操作 |
+| [LLM 调用排查](ops/llm-troubleshooting.md) | LLM 无响应、评分失败、成本异常诊断 |
+| [数据库备份恢复](ops/backup-restore.md) | 手动备份/恢复/跨环境数据同步命令 |
 
 ## 设计文档（历史归档）
 
