@@ -47,9 +47,9 @@ export function displayGender(gender?: string | null): string {
 }
 
 export function getAgeGroup(age: number | null | undefined): string {
-	if (age == null) return "youth";
-	if (age < 15) return "child";
-	if (age < 36) return "youth";
+	if (age == null || age <= 0) return "youth";
+	if (age <= 12) return "child";
+	if (age <= 25) return "youth";
 	if (age < 60) return "middle";
 	return "elder";
 }

@@ -33,18 +33,18 @@ import type { PatientInfo } from "@/utils/avatar";
 import { getAgeGroup, getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
 describe("getAgeGroup", () => {
-	it('returns "child" for age < 15', () => {
+	it('returns "child" for age ≤ 12', () => {
 		expect(getAgeGroup(5)).toBe("child");
-		expect(getAgeGroup(14)).toBe("child");
+		expect(getAgeGroup(12)).toBe("child");
 	});
 
-	it('returns "youth" for age 15-35', () => {
-		expect(getAgeGroup(20)).toBe("youth");
-		expect(getAgeGroup(35)).toBe("youth");
+	it('returns "youth" for age 13-25', () => {
+		expect(getAgeGroup(13)).toBe("youth");
+		expect(getAgeGroup(25)).toBe("youth");
 	});
 
-	it('returns "middle" for age 36-59', () => {
-		expect(getAgeGroup(40)).toBe("middle");
+	it('returns "middle" for age 26-59', () => {
+		expect(getAgeGroup(26)).toBe("middle");
 		expect(getAgeGroup(59)).toBe("middle");
 	});
 
@@ -53,9 +53,10 @@ describe("getAgeGroup", () => {
 		expect(getAgeGroup(80)).toBe("elder");
 	});
 
-	it('returns "youth" for null/undefined age', () => {
+	it('returns "youth" for null/undefined/zero age', () => {
 		expect(getAgeGroup(null)).toBe("youth");
 		expect(getAgeGroup(undefined)).toBe("youth");
+		expect(getAgeGroup(0)).toBe("youth");
 	});
 });
 
