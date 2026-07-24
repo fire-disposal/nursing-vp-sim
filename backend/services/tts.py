@@ -14,7 +14,7 @@ from core.unit_of_work import unit_of_work
 from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
-from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
+from infrastructure.tts.mapper import emotion_to_tts, normalize_gender, resolve_voice_type
 from infrastructure.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 
@@ -129,7 +129,14 @@ class TTSService:
             raise NotFoundError("病例不存在")
 
         age, gender = _extract_demographics(case)
-        speaker = resolve_voice_type(voice_type, age, gender, speaker_library=speaker_library)
+        override = _extract_voice_override(case)
+        speaker = resolve_voice_type(
+            voice_type,
+            age,
+            gender,
+            speaker_library=speaker_library,
+            override=override,
+        )
         return emotion_to_tts(
             text=text,
             state=emotion_state,
@@ -305,5 +312,15 @@ def _extract_demographics(case: Case) -> tuple[int | None, str | None]:
             age = int(age)
         except (TypeError, ValueError):
             age = None
-    gender = pi.get("gender") or case_data.get("gender") or case_data.get("patient_gender")
+    raw_gender = pi.get("gender") or case_data.get("gender") or case_data.get("patient_gender")
+    gender = normalize_gender(raw_gender)
     return age, gender
+
+
+def _extract_voice_override(case: Case) -> str | None:
+    """Highest‑priority case‑level custom voice ID from ``case_data.voice_override``."""
+    case_data = case.case_data or {}
+    override = case_data.get("voice_override")
+    if override and isinstance(override, str) and override.strip():
+        return override.strip()
+    return None

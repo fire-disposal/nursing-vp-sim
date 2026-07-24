@@ -7,6 +7,7 @@ from infrastructure.tts.mapper import (
     EMOTION_TTS_MAP,
     emotion_to_tts,
     get_speaker_library,
+    normalize_gender,
     resolve_voice_type,
 )
 from infrastructure.tts.pool import TTSConnectionPool
