@@ -2,14 +2,6 @@ import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { stringField } from "./CaseEditorState";
 import { inputClass } from "@/utils/styles";
 
-const VOICE_OPTIONS = [
-	{ value: "", label: "默认（按人口匹配）" },
-	{ value: "zh_female_qingxin", label: "女声-清新" },
-	{ value: "zh_female_wenrou", label: "女声-温柔" },
-	{ value: "zh_male_qingse", label: "男声-青涩" },
-	{ value: "zh_male_wennuan", label: "男声-温暖" },
-];
-
 const HISTORY_FIELDS: { key: string; label: string; height: string }[] = [
 	{ key: "present_illness", label: "现病史", height: "h-24" },
 	{ key: "past_history", label: "既往史", height: "h-16" },
@@ -41,16 +33,20 @@ export function ClinicalSection({ state, dispatch, disabled }: Props) {
 
 			{/* ── Voice ── */}
 			<div className="flex gap-3 flex-wrap mb-3 pb-3 border-b border-border/50">
-				<div className="flex-1 min-w-[180px]">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">预设音色</label>
-					<select value={voiceType} onChange={(e) => set("voice_type", e.target.value)} className={inputClass} disabled={disabled}>
-						{VOICE_OPTIONS.map((o) => (
-							<option key={o.value} value={o.value}>{o.label}</option>
-						))}
-					</select>
+				<div className="flex-1 min-w-[200px]">
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">
+						音色 ID <span className="font-normal text-muted-foreground/60">（留空则按年龄性别自动分流）</span>
+					</label>
+					<input
+						value={voiceType}
+						onChange={(e) => set("voice_type", e.target.value)}
+						placeholder="zh_female_vv_uranus_bigtts"
+						className={`${inputClass} font-mono text-xs`}
+						disabled={disabled}
+					/>
 				</div>
 				<div className="flex-1 min-w-[200px]">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">自定义音色 ID（覆盖人口匹配）</label>
+					<label className="block text-xs font-semibold text-muted-foreground mb-1">强制音色覆盖</label>
 					<input
 						value={voiceOverride}
 						onChange={(e) => set("voice_override", e.target.value)}

@@ -122,7 +122,7 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					{trainingType === "triage" ? null : (
 						<>
 							<QuizEditor
-								value={arrayField(state, "quiz", []) as never}
+								value={objField(state, "quiz", { title: "", questions: [] }) as never}
 								onChange={(v) => set("quiz", v)}
 								disabled={disabled}
 							/>

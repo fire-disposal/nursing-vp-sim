@@ -11,6 +11,7 @@ interface Props {
 }
 
 export function QuizEditor({ value, onChange, disabled }: Props) {
+	const questions = Array.isArray(value.questions) ? value.questions : [];
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
 	const toggle = (id: string) => {
@@ -21,19 +22,19 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 		});
 	};
 
-	const setTitle = (t: string) => onChange({ ...value, title: t });
+	const setTitle = (t: string) => onChange({ ...value, title: t, questions });
 
 	const updateQuestion = (idx: number, fn: (q: QuizQuestion) => QuizQuestion) => {
-		const next = value.questions.map((q, i) => (i === idx ? fn(q) : q));
+		const next = questions.map((q, i) => (i === idx ? fn(q) : q));
 		onChange({ ...value, questions: next });
 	};
 
 	const addQuestion = () => {
-		onChange({ ...value, questions: [...value.questions, emptyQuizQuestion()] });
+		onChange({ ...value, questions: [...questions, emptyQuizQuestion()] });
 	};
 
 	const removeQuestion = (idx: number) => {
-		onChange({ ...value, questions: value.questions.filter((_, i) => i !== idx) });
+		onChange({ ...value, questions: questions.filter((_, i) => i !== idx) });
 	};
 
 	const addOption = (qIdx: number) => {
@@ -53,9 +54,9 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 				<input value={value.title} onChange={(e) => setTitle(e.target.value)} placeholder="如：课前自测" className={inputClass} disabled={disabled} />
 			</div>
 
-			{value.questions.length > 0 && (
+			{questions.length > 0 && (
 				<div className="space-y-2 mb-3">
-					{value.questions.map((q, qi) => {
+					{questions.map((q, qi) => {
 						const isOpen = expanded.has(q.id);
 						return (
 							<div key={q.id} className="border border-border rounded-lg overflow-hidden">
