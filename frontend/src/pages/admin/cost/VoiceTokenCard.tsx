@@ -21,7 +21,7 @@ const saveConfig = (data: Partial<components["schemas"]["VoiceConfigUpdateReques
 	api.put<VoConfig>("/admin/voice/config", data).then((r) => r.data);
 const checkStatus = () => api.post<VoiceStatus>("/admin/voice/config/test-tts").then((r) => r.data);
 
-async function streamFromPool(text: string, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+async function streamFromPool(text: string, speaker: string, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
 	const token = useAuthStore.getState().token;
 	const r = await fetch("/api/admin/voice/config/test-stream", {
 		method: "POST",
@@ -29,7 +29,7 @@ async function streamFromPool(text: string, signal: AbortSignal): Promise<Readab
 			"Content-Type": "application/json",
 			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
-		body: JSON.stringify({ text }),
+		body: JSON.stringify({ text, speaker }),
 		signal,
 	});
 	if (!r.ok) {
@@ -42,8 +42,6 @@ async function streamFromPool(text: string, signal: AbortSignal): Promise<Readab
 }
 
 // ── Helpers ──
-
-const RESOURCE_IDS = ["seed-tts-2.0", "seed-icl-2.0"];
 
 function errorHint(msg: string | null): string | null {
 	if (!msg) return null;
@@ -76,19 +74,16 @@ export default function VoiceTokenCard() {
 		onError: (e) => toast.apiError(e, "保存失败"),
 	});
 
-	const [apiKey, setApiKey] = useState("");          // only used for the TEXT input (never pre-filled)
-	const [speaker, setSpeaker] = useState("zh_female_vv_uranus_bigtts");
-	const [resource, setResource] = useState("seed-tts-2.0");
+	const [apiKey, setApiKey] = useState("");
 	const [timeoutS, setTimeoutS] = useState(8);
 	const [showKey, setShowKey] = useState(false);
-	const [showSpeakerLib, setShowSpeakerLib] = useState(false);
 	const [speakerLib, setSpeakerLib] = useState<Record<string, string>>({});
 
 	const [status, setStatus] = useState<VoiceStatus | null>(null);
 	const [checking, setChecking] = useState(false);
 
 	const [testText, setTestText] = useState("你好，这是一段测试语音。");
-	const [playing, setPlaying] = useState(false);
+	const [playingSlot, setPlayingSlot] = useState<string | null>(null);
 	const [chunkMs, setChunkMs] = useState<number | null>(null);
 	const [playError, setPlayError] = useState<string | null>(null);
 	const player = useRef<PcmStreamPlayer | null>(null);
@@ -97,8 +92,6 @@ export default function VoiceTokenCard() {
 	// Sync form from server on load / save
 	useEffect(() => {
 		if (cfg) {
-			setSpeaker(cfg.tts_speaker);
-			setResource(cfg.tts_resource_id);
 			setTimeoutS(cfg.tts_timeout);
 			setSpeakerLib(cfg.speaker_library ?? {});
 		}
@@ -118,25 +111,23 @@ export default function VoiceTokenCard() {
 		saveMut.mutate({
 			provider: "volcengine",
 			api_key: apiKey || undefined,
-			tts_resource_id: resource,
-			tts_speaker: speaker,
 			tts_timeout: timeoutS,
 			speaker_library: Object.keys(speakerLib).length > 0 ? speakerLib : undefined,
 		});
-	}, [saveMut, apiKey, resource, speaker, timeoutS]);
+	}, [saveMut, apiKey, timeoutS, speakerLib]);
 
 	const stopPlay = useCallback(() => {
 		abortCtl.current?.abort();
 		abortCtl.current = null;
 		player.current?.stop();
-		setPlaying(false);
+		setPlayingSlot(null);
 	}, []);
 
-	const play = useCallback(async () => {
+	const playSlot = useCallback(async (slotSpeaker: string) => {
 		const t = testText.trim();
-		if (!t || playing) return;
+		if (!t || playingSlot) return;
 		stopPlay();
-		setPlaying(true);
+		setPlayingSlot(slotSpeaker);
 		setChunkMs(null);
 		setPlayError(null);
 		const t0 = performance.now();
@@ -144,16 +135,16 @@ export default function VoiceTokenCard() {
 			if (!player.current) player.current = new PcmStreamPlayer();
 			const ac = new AbortController();
 			abortCtl.current = ac;
-			const body = await streamFromPool(t, ac.signal);
+			const body = await streamFromPool(t, slotSpeaker, ac.signal);
 			await player.current.playStream(body, () => setChunkMs(Math.round(performance.now() - t0)));
 		} catch (e: unknown) {
 			if (abortCtl.current?.signal.aborted) return;
 			setPlayError(e instanceof Error ? e.message : String(e));
 		} finally {
-			if (!abortCtl.current?.signal.aborted) setPlaying(false);
+			if (!abortCtl.current?.signal.aborted) setPlayingSlot(null);
 			abortCtl.current = null;
 		}
-	}, [testText, playing, stopPlay]);
+	}, [testText, playingSlot, stopPlay]);
 
 	if (isLoading) return null;
 
@@ -216,29 +207,16 @@ export default function VoiceTokenCard() {
 						</div>
 					</div>
 
-					{/* Speaker */}
+					{/* Timeout */}
 					<div className={`${row} border-t border-border/50`}>
-						<span className={labelCls}>音色 ID</span>
-						<input value={speaker} onChange={(e) => setSpeaker(e.target.value)} placeholder="zh_female_vv_uranus_bigtts" className={`${inputCls} font-mono flex-1`} />
-						<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground underline shrink-0">
-							音色库
-						</a>
-					</div>
-
-					{/* Resource + Timeout row */}
-					<div className={`${row} border-t border-border/50`}>
-						<span className={labelCls}>Resource</span>
-						<div className="flex items-center gap-2 flex-1">
-							<select value={resource} onChange={(e) => setResource(e.target.value)} className={`${inputCls} flex-1`}>
-								{RESOURCE_IDS.map((v) => (<option key={v} value={v}>{v}</option>))}
-							</select>
-							<span className="text-[11px] text-muted-foreground shrink-0">超时</span>
+						<span className={labelCls}>超时</span>
+						<div className="flex items-center gap-2">
 							<input
 								type="number" min={3} max={30} value={timeoutS}
 								onChange={(e) => setTimeoutS(Number(e.target.value))}
-								className={`${inputCls} w-14 shrink-0`}
+								className={`${inputCls} w-14`}
 							/>
-							<span className="text-[11px] text-muted-foreground shrink-0">秒</span>
+							<span className="text-[11px] text-muted-foreground">秒</span>
 						</div>
 					</div>
 
@@ -253,30 +231,41 @@ export default function VoiceTokenCard() {
 
 				{/* ══ Speaker library ══ */}
 				<div className="border border-border rounded-lg overflow-hidden text-sm">
-					<button type="button" onClick={() => setShowSpeakerLib((v) => !v)} className={`${row} w-full text-left hover:bg-muted/30`}>
-						{showSpeakerLib ? <ChevronDown size={13} className="text-muted-foreground" /> : <ChevronRight size={13} className="text-muted-foreground" />}
+					<div className="px-3 py-2 bg-muted/30 border-b border-border/50 flex items-center justify-between">
 						<span className="text-xs font-medium">音色映射（按患者人口自动选择发音人）</span>
-					</button>
-					{showSpeakerLib && (
-						<div className="border-t border-border/50 px-3 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-							{[
-								["child_male", "男童"], ["child_female", "女童"],
-								["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
-								["female_young", "青年女"], ["female_middle", "中年女"], ["female_elder", "老年女"],
-								["fallback", "默认"],
-							].map(([key, label]) => (
-								<div key={key} className="flex items-center gap-1.5">
-									<span className="text-[11px] text-muted-foreground w-12 shrink-0">{label}</span>
+						<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground underline">音色库 →</a>
+					</div>
+					<div className="divide-y divide-border/30">
+						{[
+							["child_male", "男童"], ["child_female", "女童"],
+							["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
+							["female_young", "青年女"], ["female_middle", "中年女"], ["female_elder", "老年女"],
+							["fallback", "默认"],
+						].map(([key, label]) => {
+							const slotSpeaker = speakerLib[key] || "zh_female_vv_uranus_bigtts";
+							const isPlaying = playingSlot === key;
+							return (
+								<div key={key} className="flex items-center gap-2 px-3 py-2">
+									<span className="text-xs text-muted-foreground w-12 shrink-0 text-right">{label}</span>
 									<input
 										value={speakerLib[key] ?? ""}
 										onChange={(e) => setSpeakerLib((prev) => ({ ...prev, [key]: e.target.value }))}
 										placeholder="zh_female_vv_uranus_bigtts"
-										className="h-7 flex-1 rounded border border-border bg-background px-1.5 text-[11px] font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+										className="h-7 flex-1 min-w-0 rounded border border-border bg-background px-2 text-[11px] font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 									/>
+									<button
+										type="button"
+										onClick={() => isPlaying ? stopPlay() : playSlot(slotSpeaker)}
+										disabled={playingSlot !== null && !isPlaying}
+										className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
+										title={isPlaying ? "停止" : "试听"}
+									>
+										{isPlaying ? <Square size={14} /> : <Play size={14} />}
+									</button>
 								</div>
-							))}
-						</div>
-					)}
+							);
+						})}
+					</div>
 				</div>
 
 				{!cfg && (
@@ -288,21 +277,14 @@ export default function VoiceTokenCard() {
 				<Separator />
 
 				{/* ══ Stream test ══ */}
-				<div className="space-y-2.5">
-					<div className="flex items-center gap-2 text-sm font-medium">
-						<Volume2 size={14} className="text-muted-foreground" />
-						试听（生产路径）
-						{chunkMs !== null && <span className="text-[11px] font-normal text-muted-foreground">首块 <span className="text-foreground font-medium">{chunkMs}ms</span></span>}
+				<div className="space-y-2">
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						<Volume2 size={13} />
+						试听文本（点击各槽位 ▶ 按钮播放）
+						{chunkMs !== null && <span className="text-[11px]">首块 <span className="text-foreground font-medium">{chunkMs}ms</span></span>}
+						{playError && <span className="text-[11px] text-danger/90 truncate max-w-[160px]">{errorHint(playError) ?? playError}</span>}
 					</div>
 					<textarea value={testText} onChange={(e) => setTestText(e.target.value)} maxLength={200} rows={2} className="w-full p-2 rounded-md border border-border text-sm resize-y outline-none bg-card focus:border-primary" />
-					<div className="flex gap-2 items-center">
-						<Button variant="outline" size="sm" onClick={play} disabled={playing || !testText.trim() || (status ? !online : false)}>
-							{playing ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
-							流式播放
-						</Button>
-						{playing && <Button variant="ghost" size="sm" onClick={stopPlay}><Square className="size-3" /> 停止</Button>}
-						{playError && <span className="text-[11px] text-danger/90">{errorHint(playError) ?? playError}</span>}
-					</div>
 				</div>
 			</CardContent>
 		</Card>

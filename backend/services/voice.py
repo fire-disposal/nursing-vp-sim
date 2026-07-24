@@ -12,8 +12,14 @@ from core.unit_of_work import unit_of_work
 from infrastructure.asr.client import VolcASRClient
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
+from infrastructure.tts.mapper import DEFAULT_SPEAKER
 from models import VoiceConfig
 from schemas.voice import VoiceConfigResponse, VoiceStatusResponse
+
+
+def _fallback_speaker(vc: VoiceConfig) -> str:
+    lib = vc.speaker_library or {}
+    return lib.get("fallback") or DEFAULT_SPEAKER
 
 
 def _mask_api_key(vc: VoiceConfig) -> str:
@@ -38,7 +44,7 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
         api_key_masked=_mask_api_key(vc),
         api_key_suffix=vc.api_key_suffix or "****",
         tts_resource_id=vc.tts_resource_id,
-        tts_speaker=vc.tts_speaker,
+        tts_speaker=_fallback_speaker(vc),
         tts_model=vc.tts_model,
         tts_sample_rate=vc.tts_sample_rate,
         tts_format=vc.tts_format,
@@ -82,7 +88,6 @@ class VoiceConfigService:
                     vc.api_key_suffix = data["api_key"][-8:] if len(data["api_key"]) >= 8 else data["api_key"]
                 for field in (
                     "tts_resource_id",
-                    "tts_speaker",
                     "tts_model",
                     "tts_sample_rate",
                     "tts_format",
@@ -108,7 +113,6 @@ class VoiceConfigService:
                     api_key_enc=api_key_enc,
                     api_key_suffix=api_key_suffix,
                     tts_resource_id=data.get("tts_resource_id"),
-                    tts_speaker=data.get("tts_speaker"),
                     tts_model=data.get("tts_model"),
                     tts_sample_rate=data.get("tts_sample_rate"),
                     tts_format=data.get("tts_format"),
@@ -145,7 +149,7 @@ class VoiceConfigService:
         pool_stats = pool.stats if pool is not None else {}
         client = VolcBidirectionalTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
         try:
-            ok = await client.health_check(speaker=vc.tts_speaker)
+            ok = await client.health_check(speaker=_fallback_speaker(vc))
             await client.close()
             return VoiceStatusResponse(
                 provider=vc.provider,
@@ -172,7 +176,7 @@ class VoiceConfigService:
                 tts_pool_in_use=pool_stats.get("in_use"),
             )
 
-    async def stream_test(self, text: str, pool) -> tuple[str, int, AsyncIterator[bytes]]:
+    async def stream_test(self, text: str, pool, speaker: str | None = None) -> tuple[str, int, AsyncIterator[bytes]]:
         """Stream test audio through the PRODUCTION path (pool + PCM 24kHz).
 
         Returns (speaker, sample_rate, chunk_generator). Raises RuntimeError
@@ -183,13 +187,15 @@ class VoiceConfigService:
         vc = self._get_active()
         if not vc:
             raise NotFoundError("未找到激活的语音配置")
-        self._decrypt_key(vc)  # validate only — pool already holds the key
+        self._decrypt_key(vc)
         if pool is None:
             raise ValidationError("TTS 连接池未就绪（请保存配置后重试）")
 
+        resolved = speaker or _fallback_speaker(vc)
+
         tts_req = TTSRequest(
             text=text[:200],
-            speaker=vc.tts_speaker,
+            speaker=resolved,
             fmt=STREAM_FORMAT,
             sample_rate=STREAM_SAMPLE_RATE,
         )
@@ -222,7 +228,7 @@ class VoiceConfigService:
                     await conn.abort()
                 await conn_ctx.__aexit__(None, None, None)
 
-        return vc.tts_speaker, STREAM_SAMPLE_RATE, _gen()
+        return _fallback_speaker(vc), STREAM_SAMPLE_RATE, _gen()
 
     async def test_asr(self) -> VoiceStatusResponse:
         vc = self._get_active()
@@ -273,7 +279,7 @@ class VoiceConfigService:
 
         tts_req = TTSRequest(
             text=text[:200],
-            speaker=vc.tts_speaker,
+            speaker=_fallback_speaker(vc),
             fmt=vc.tts_format,
             sample_rate=vc.tts_sample_rate,
         )
@@ -304,7 +310,7 @@ class VoiceConfigService:
         return {
             "provider": vc.provider,
             "tts_resource_id": vc.tts_resource_id,
-            "tts_speaker": vc.tts_speaker,
+            "tts_speaker": _fallback_speaker(vc),
             "tts_model": vc.tts_model,
             "tts_sample_rate": vc.tts_sample_rate,
             "tts_format": vc.tts_format,

@@ -68,10 +68,11 @@ async def test_stream(
     """Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz)."""
     body = await request.json()
     text = str(body.get("text", "你好，这是一段测试语音。"))[:200]
+    speaker_override = body.get("speaker") or None
 
     pool = getattr(request.app.state, "tts_pool", None)
     try:
-        speaker, sample_rate, gen = await VoiceConfigService(db).stream_test(text, pool)
+        speaker, sample_rate, gen = await VoiceConfigService(db).stream_test(text, pool, speaker=speaker_override)
     except HTTPException:
         raise
     except Exception as e:
