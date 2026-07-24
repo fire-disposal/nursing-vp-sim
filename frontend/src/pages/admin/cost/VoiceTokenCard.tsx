@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
+import { Loader2, Lock, LockOpen, Play, Square, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/client";
@@ -75,8 +75,8 @@ export default function VoiceTokenCard() {
 	});
 
 	const [apiKey, setApiKey] = useState("");
+	const [apiKeyLocked, setApiKeyLocked] = useState(true);
 	const [timeoutS, setTimeoutS] = useState(8);
-	const [showKey, setShowKey] = useState(false);
 	const [speakerLib, setSpeakerLib] = useState<Record<string, string>>({});
 
 	const [status, setStatus] = useState<VoiceStatus | null>(null);
@@ -88,6 +88,7 @@ export default function VoiceTokenCard() {
 	const [playError, setPlayError] = useState<string | null>(null);
 	const player = useRef<PcmStreamPlayer | null>(null);
 	const abortCtl = useRef<AbortController | null>(null);
+	const apiKeyRef = useRef<HTMLInputElement>(null);
 
 	// Sync form from server on load / save
 	useEffect(() => {
@@ -190,19 +191,33 @@ export default function VoiceTokenCard() {
 
 				{/* ══ Config ══ */}
 				<div className="border border-border rounded-lg overflow-hidden text-sm">
-					{/* API Key */}
+					{/* API Key — dummy inputs to prevent browser password autofill */}
+					<input type="text" name="dummy-username" autoComplete="username" className="hidden" tabIndex={-1} />
+					<input type="password" name="dummy-password" autoComplete="current-password" className="hidden" tabIndex={-1} />
 					<div className={row}>
 						<span className={labelCls}>API Key</span>
-						<div className="flex-1 relative min-w-0">
+						<div className="flex-1 relative min-w-0 flex items-center gap-2">
 							<input
-								type={showKey ? "text" : "password"}
+								ref={apiKeyRef}
+								type="password"
 								value={apiKey}
 								onChange={(e) => setApiKey(e.target.value)}
 								placeholder={cfg?.api_key_masked || "火山引擎控制台 → API Key"}
-								className={`${inputCls} font-mono pr-8`}
+								className={`${inputCls} font-mono flex-1`}
+								autoComplete="off"
+								disabled={apiKeyLocked}
 							/>
-							<button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-								{showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+							<button
+								type="button"
+								onClick={() => {
+									const next = !apiKeyLocked;
+									setApiKeyLocked(next);
+									if (!next) setTimeout(() => apiKeyRef.current?.focus(), 0);
+								}}
+								className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+								title={apiKeyLocked ? "解除锁定" : "锁定"}
+							>
+								{apiKeyLocked ? <Lock size={14} /> : <LockOpen size={14} />}
 							</button>
 						</div>
 					</div>
@@ -265,6 +280,12 @@ export default function VoiceTokenCard() {
 								</div>
 							);
 						})}
+					</div>
+					<div className="border-t border-border/50 px-3 py-2 flex justify-end">
+						<Button onClick={handleSave} disabled={saveMut.isPending} size="sm">
+							{saveMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+							保存配置
+						</Button>
 					</div>
 				</div>
 
