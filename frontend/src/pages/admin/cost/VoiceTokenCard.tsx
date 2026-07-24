@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Play, Square, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/client";
