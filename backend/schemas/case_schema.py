@@ -105,6 +105,7 @@ class CaseDataSchema(JsonbModel):
 
     quiz: QuizConfig | None = None
     voice_type: str = ""
+    voice_override: str = ""
 
     example_dialogues: list[dict] = []
 

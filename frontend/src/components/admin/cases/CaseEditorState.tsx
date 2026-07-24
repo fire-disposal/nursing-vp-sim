@@ -101,9 +101,10 @@ const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
 	family_history: "",
 	social_history: "",
 	voice_type: "",
+	voice_override: "",
 	capabilities: {},
 	required_inquiries: [],
-	hidden_info: "",
+	hidden_info: [],
 };
 
 export function getDefaultCaseJson(): Record<string, CaseJsonValue> {
