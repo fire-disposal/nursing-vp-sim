@@ -19,15 +19,11 @@ async def startup(app):
     app_state = app.state
     app_state.app = app
 
-    # Phase 1: LLM infrastructure (router warm-up, log worker, client)
-    await init_llm(app_state, app_state.httpx_client, app_state.llm_router, app_state.metrics)
-
-    # Phase 2: General infrastructure (queue, caches, metrics, diagnose)
+    # Phase 1: General infrastructure (queue, caches, metrics, diagnose)
     metrics = await init_infra(app_state, app_state.llm_router)
 
-    # Phase 3: LLM client (needs metrics from phase 2)
-    # (init_llm already created the client — re-assign metrics reference)
-    app_state.llm_client.metrics = metrics
+    # Phase 2: LLM infrastructure (router warm-up, log worker, client — needs metrics)
+    await init_llm(app_state, app_state.httpx_client, app_state.llm_router, metrics)
 
     # Phase 4: TTS
     init_tts(app_state)
