@@ -4,9 +4,8 @@ import asyncio
 import logging
 import os
 import textwrap
-import threading
 import time
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import httpx
@@ -14,23 +13,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from contexts.training.router.session import set_training_infra, stop_background_loop
-from contexts.training.session_cache import EmotionCache, InitiativeCache
-from contexts.training.settlement import settlement_loop
 from core.config import (
     APP_VERSION,
-    CLEANUP_INTERVAL_SECONDS,
-    DEEPSEEK_API_KEY,
     LLM_CONNECTION_KEEPALIVE,
     LLM_CONNECTION_POOL_SIZE,
-    LLM_LOG_OVERFLOW_DIR,
-    LLM_LOG_OVERFLOW_MAX_FILES,
-    LLM_LOG_OVERFLOW_MAX_SIZE_MB,
     REQUEST_TIMEOUT_SECONDS,
     log_config,
     validate_config,
 )
-from core.database import engine, init_db
+from core.database import init_db
 from core.exceptions import (
     AuthError,
     ConflictError,
@@ -45,15 +36,8 @@ from core.exceptions import (
     scoring_error_handler,
     validation_error_handler,
 )
-from core.rate_limits import PgRateLimiter
-from infrastructure.diagnose import get_diagnose_service
-from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.llm.client import LLMClient
+from infrastructure.llm import ProfileRouter
 from infrastructure.logging_setup import setup_logging
-from infrastructure.metrics import MetricsSnapshot
-from infrastructure.queue import TaskQueue
-from infrastructure.scoring_progress import ScoringProgressTracker
-from repositories.training import TrainingRepository
 from scripts.seed import seed_all
 
 log = logging.getLogger(__name__)
@@ -118,6 +102,30 @@ def _recover_stuck_scoring_records():
         db.close()
 
 
+
+
+def _warm_knowledge_base() -> None:
+    """Index and warm knowledge base for QA. Non-fatal on failure."""
+    try:
+        from contexts.qa.knowledge_base.indexer import check_indexed, index_all
+
+        count = check_indexed()
+        if count == 0:
+            log.info("Knowledge base empty, indexing textbooks...")
+            n = index_all()
+            log.info("Knowledge base indexed: %d chunks", n)
+        else:
+            log.info("Knowledge base ready: %d chunks", count)
+    except Exception:
+        log.exception("Knowledge base indexing failed (non-fatal)")
+
+    try:
+        from contexts.qa.knowledge_base.chapter_index import _ensure_index
+
+        _ensure_index()
+        log.info("Knowledge chapter index: ready")
+    except Exception:
+        log.exception("Chapter index warming failed (non-fatal)")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -127,42 +135,20 @@ async def lifespan(app: FastAPI):
     log.info("──────────────────────────────────────────────")
     log.info("Animus Machinae excitus est.")
     log.info("机魂已唤醒")
-    log.info("──────────────────────────────────────────────")
-    log.info("")
+    log.info("──────────────────────────────────────────────\n")
     log.info("虚拟患者训练系统 v%s", APP_VERSION)
     log_config(log)
 
     init_db()
-
     seed_all()
     log.info("Seeds: complete")
 
     _recover_stuck_scoring_records()
-
     log.info("Scoring recovery: done")
 
-    if True:  # Always ensure knowledge base is indexed, RAG availability is per-request
-        try:
-            from contexts.qa.knowledge_base.indexer import check_indexed, index_all
+    _warm_knowledge_base()
 
-            count = check_indexed()
-            if count == 0:
-                log.info("Knowledge base empty, indexing textbooks...")
-                n = index_all()
-                log.info("Knowledge base indexed: %d chunks", n)
-            else:
-                log.info("Knowledge base ready: %d chunks", count)
-        except Exception:
-            log.exception("Knowledge base indexing failed (non-fatal)")
-
-    # Warm knowledge base chapter index for QA
-    try:
-        from contexts.qa.knowledge_base.chapter_index import _ensure_index
-
-        _ensure_index()
-        log.info("Knowledge chapter index: ready")
-    except Exception:
-        log.exception("Chapter index warming failed (non-fatal)")
+    from core.rate_limits import PgRateLimiter
 
     app.state.rate_limiter = PgRateLimiter()
 
@@ -176,130 +162,13 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.llm_router = ProfileRouter()
-    await app.state.llm_router.load_from_db()
-    log.info("Profile router: ready")
 
-    # 环境变量兜底密钥启动即标记为可用（实际路由时由熔断机制控制）
-    if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-        import infrastructure.llm.router as llm_router_mod
+    from bootstrap import shutdown as bootstrap_shutdown, startup as bootstrap_startup
 
-        llm_router_mod._env_fallback_available = True
-        log.info("Env fallback: available")
 
-    app.state.log_worker = LogWorker(
-        overflow_dir=LLM_LOG_OVERFLOW_DIR,
-        overflow_max_size_mb=LLM_LOG_OVERFLOW_MAX_SIZE_MB,
-        overflow_max_files=LLM_LOG_OVERFLOW_MAX_FILES,
-    )
-    await app.state.log_worker.start()
-
-    app.state.task_queue = TaskQueue()  # 读 SCORING_WORKERS（默认 8），提升 21 人同时交卷的评分吞吐
-    await app.state.task_queue.start()
-    log.info("Task queue: %d workers", app.state.task_queue.max_workers)
-
-    from infrastructure.realtime_hub import RealtimeHub
-
-    app.state.emotion_cache = EmotionCache()
-    app.state.initiative_cache = InitiativeCache()
-    app.state.scoring_tracker = ScoringProgressTracker()
-    app.state.realtime_hub = RealtimeHub()
-
-    metrics = MetricsSnapshot()
-    app.state.metrics = metrics
-    metrics.task_queue_size_supplier = lambda: app.state.task_queue.pending if app.state.task_queue else 0
-    metrics.log_queue_size_supplier = lambda: (
-        app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0
-    )
-    metrics.degraded_providers_supplier = lambda: app.state.llm_router.degraded_count() if app.state.llm_router else 0
-    metrics.global_degraded_supplier = lambda: app.state.llm_router.global_degraded if app.state.llm_router else False
-
-    # Diagnose service — install error capture handler
-    diagnose_svc = get_diagnose_service()
-    diagnose_svc.install_handler()
-    diagnose_svc.set_app(app)
-
-    app.state.llm_client = LLMClient(
-        http=app.state.httpx_client,
-        router=app.state.llm_router,
-        log_worker=app.state.log_worker,
-        metrics=metrics,
-    )
-
-    try:
-        from core.database import SessionLocal
-        from services.tts import load_tts_state
-
-        db_voice = SessionLocal()
-        try:
-            load_tts_state(app.state, db_voice)
-        finally:
-            db_voice.close()
-    except Exception:
-        app.state.tts_client = None
-        app.state.tts_pool = None
-        app.state.tts_config = {}
-        log.exception("TTS client init failed (non-fatal)")
-
-    background_loop = asyncio.new_event_loop()
-    background_thread = threading.Thread(target=background_loop.run_forever, daemon=False, name="bg-loop")
-    background_thread.start()
-    app.state._background_loop = background_loop
-    app.state._background_thread = background_thread
-    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.log_worker, background_loop)
-
-    async def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
-        from contexts.training.router.scoring import _run_scoring_background
-
-        await app.state.task_queue.enqueue(
-            lambda rid=record_id, cd=case_data: _run_scoring_background(
-                rid,
-                cd,
-                llm_client=app.state.llm_client,
-                realtime_hub=app.state.realtime_hub,
-            ),
-            priority=6,
-        )
-
-    settlement_task = asyncio.create_task(
-        settlement_loop(
-            repo=TrainingRepository(),
-            interval=CLEANUP_INTERVAL_SECONDS,
-            enqueue_scoring=_enqueue_settlement_scoring,
-        )
-    )
-    app.state._settlement_task = settlement_task
-    log.info("Settlement: started (interval=%ds)", CLEANUP_INTERVAL_SECONDS)
-
-    notif_task = asyncio.create_task(_notification_publisher(interval=60))
-    app.state._notification_task = notif_task
-    log.info("Notification publisher: started (interval=60s)")
-
-    _loop = asyncio.get_running_loop()
-    _loop.set_exception_handler(_handle_task_exception)
-
-    log.info("──────────────────────────────────────────────")
-    log.info("Fiat Lux Machinae.")
-    log.info("让机械之光成就")
-    log.info("──────────────────────────────────────────────")
-    log.info("Ready")
+    await bootstrap_startup(app)  # noqa: PLE1142
     yield
-
-    # Shutdown
-    settlement_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await settlement_task
-    notif_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await notif_task
-    await app.state.task_queue.stop()
-    await app.state.log_worker.stop()
-    tts_pool = getattr(app.state, "tts_pool", None)
-    if tts_pool is not None:
-        await tts_pool.aclose()
-    if app.state.httpx_client:
-        await app.state.httpx_client.aclose()
-    await asyncio.to_thread(engine.dispose)
-    await asyncio.to_thread(stop_background_loop)
+    await bootstrap_shutdown(app)  # noqa: PLE1142
 
 
 def _publish_pending_notifications() -> None:

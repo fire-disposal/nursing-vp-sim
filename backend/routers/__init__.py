@@ -9,14 +9,14 @@ def register_routers(app: FastAPI) -> None:
         assignments,
         auth,
         cases,
+        exports,
         feedback,
         questionnaires,
-        records,
         rubrics,
         stats,
     )
 
-    for mod in (assignments, auth, cases, feedback, questionnaires, records, rubrics, stats):
+    for mod in (assignments, auth, cases, feedback, exports, questionnaires, rubrics, stats):
         app.include_router(mod.router)
 
     # ── composite routers (contexts expose a single APIRouter via __init__.py) ──

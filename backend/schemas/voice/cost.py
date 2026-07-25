@@ -1,6 +1,6 @@
 """Voice cost schemas — usage stats, dashboard, and export."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from schemas.common import _REQ_CFG
 

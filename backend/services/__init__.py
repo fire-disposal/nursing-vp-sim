@@ -1,5 +1,6 @@
 """Business logic layer."""
 
+from .api_secret import ApiSecretService
 from .assignment import AssignmentService
 from .auth import AuthService
 from .case import CaseManageView, CaseService
@@ -7,7 +8,6 @@ from .class_ import ClassService
 from .costs import CostService
 from .feedback import FeedbackService
 from .grade import GradeService
-from .api_secret import ApiSecretService
 from .llm_config import LLMConfigService
 from .llm_data import LLMDataService
 from .llm_monitor import LLMMonitorService

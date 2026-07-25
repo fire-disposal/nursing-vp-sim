@@ -9,9 +9,9 @@ from .grade import GradeRepository
 from .llm_config import LLMConfigRepository
 from .llm_log import LLMCallLogRepository
 from .notification import SystemNotificationRepository
-from .questionnaire_template import QuestionnaireTemplateRepository
 from .questionnaire_question import QuestionnaireQuestionRepository
 from .questionnaire_response import QuestionnaireResponseRepository
+from .questionnaire_template import QuestionnaireTemplateRepository
 from .role import RoleRepository
 from .rubric import get_rubric_version_id, load_rubric, validate_dimensions
 from .secret import ApiSecretRepository

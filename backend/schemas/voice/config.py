@@ -1,6 +1,5 @@
 """Voice config schemas — TTS configuration, status, and synthesis."""
 
-from datetime import datetime
 
 from pydantic import BaseModel, Field
 

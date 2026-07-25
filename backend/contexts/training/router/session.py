@@ -33,7 +33,6 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
-from schemas.case_schema import normalize_gender, validate_case_data
 from profiles.registry import get_profile
 from schemas import (
     DeleteResponse,
@@ -46,6 +45,7 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
+from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
 
