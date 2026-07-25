@@ -88,6 +88,7 @@ class QuizHandler(ToolHandler):
             data={
                 "question_id": question_id,
                 "correct": is_correct,
-                "explanation": target.get("explanation", "") if is_correct else "",
+                "correct_answer": correct,
+                "explanation": target.get("explanation", ""),
             },
         )
