@@ -11,8 +11,8 @@ import importlib
 import logging
 
 from contexts.training.patient_ai.chat_messages import build_patient_chat_messages
-from contexts.training.patient_dynamic_template import PATIENT_DYNAMIC_TEMPLATE
-from contexts.training.scene_state import (
+from contexts.training.patient_ai.template import PATIENT_DYNAMIC_TEMPLATE
+from contexts.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )

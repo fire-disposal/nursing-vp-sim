@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-from contexts.training.session_cache import InitiativeCache
+from contexts.training.session.cache import InitiativeCache
 from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
 from infrastructure.prompt import render_template

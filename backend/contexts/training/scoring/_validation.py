@@ -2,7 +2,7 @@
 
 import logging
 
-from contexts.training.score_mapping import SCORE_MAPPING, apply_score_mapping
+from .mapping import SCORE_MAPPING, apply_score_mapping
 
 log = logging.getLogger(__name__)
 

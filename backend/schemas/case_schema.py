@@ -118,7 +118,7 @@ _TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
 def _ensure_triage_validator() -> None:
     """Lazy-register TriageCaseData to break circular import with profiles/triage."""
     if "triage" not in _TYPE_VALIDATORS:
-        from profiles.triage.case_schema import TriageCaseData  # noqa: PLC0415
+        from profiles.triage.case_schema import TriageCaseData
 
         _TYPE_VALIDATORS["triage"] = TriageCaseData
 

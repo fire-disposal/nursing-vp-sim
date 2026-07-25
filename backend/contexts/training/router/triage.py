@@ -13,7 +13,7 @@ from core.security import get_current_user
 from infrastructure.queue import QueueFullError
 from models import Case, TrainingRecord, User
 
-from ..scoring_lifecycle import acquire_scoring
+from ..scoring.lifecycle import acquire_scoring
 from .scoring import _run_scoring_background
 
 log = logging.getLogger(__name__)

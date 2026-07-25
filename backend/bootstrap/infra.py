@@ -2,7 +2,7 @@
 
 import logging
 
-from contexts.training.session_cache import EmotionCache, InitiativeCache
+from contexts.training.session.cache import EmotionCache, InitiativeCache
 from infrastructure.diagnose import get_diagnose_service
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue

@@ -117,7 +117,7 @@ def test_run_scoring_background_retry_exhausted_fails(db_session, monkeypatch):
 
 def test_sweep_stale_scoring_records_marks_old(db_session):
     """scoring_status='processing' + end_time 15 min ago → marked failed."""
-    from contexts.training.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     old = TrainingRecord(
@@ -142,7 +142,7 @@ def test_sweep_stale_scoring_records_marks_old(db_session):
 
 def test_sweep_stale_scoring_records_ignores_recent(db_session):
     """scoring_status='processing' + end_time 5 min ago → untouched."""
-    from contexts.training.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     recent = TrainingRecord(
@@ -166,7 +166,7 @@ def test_sweep_stale_scoring_records_ignores_recent(db_session):
 
 def test_sweep_stale_scoring_records_handles_null_end_time(db_session):
     """Records with NULL end_time are ignored (safety)."""
-    from contexts.training.settlement import _sweep_stale_scoring_records
+    from contexts.training.session.settlement import _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     null_end = TrainingRecord(
@@ -186,7 +186,7 @@ def test_sweep_stale_scoring_records_handles_null_end_time(db_session):
 
 def test_sweep_stale_scoring_records_marks_pending_too(db_session):
     """scoring_status='pending' + stale end_time → also swept."""
-    from contexts.training.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     rec = TrainingRecord(

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from contexts.training.score_engine import evaluate_training
+from contexts.training.scoring.engine import evaluate_training
 from core.config import (
     SCORING_RETRY_GRACE_SECONDS,
     SCORING_TIMEOUT_SECONDS,
@@ -27,7 +27,7 @@ from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
-from ..scoring_lifecycle import acquire_scoring, claim_scoring, release_scoring
+from ..scoring.lifecycle import acquire_scoring, claim_scoring, release_scoring
 
 log = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ async def _run_scoring_background(
         # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
-                from contexts.training.rubric_builder import build_final_rubric
+                from contexts.training.scoring.rubric import build_final_rubric
                 from profiles.registry import get_profile
 
                 profile = get_profile(record.training_type)

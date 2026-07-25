@@ -272,7 +272,7 @@ def _create_record(
         training_type=training_type,
         overrides=(record.practice_snapshot or {}).get("features"),
     )
-    from contexts.training.rubric_builder import build_final_rubric
+    from contexts.training.scoring.rubric import build_final_rubric
 
     record.rubric_snapshot = build_final_rubric(profile.rubric, resolved_features)
     record.prompt_snapshot = {

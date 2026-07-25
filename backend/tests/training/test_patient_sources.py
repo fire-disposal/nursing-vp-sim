@@ -27,7 +27,7 @@ class FakeContext:
 
 class TestEmotionNoteSource:
     async def test_returns_note_when_present(self, db_session):
-        from contexts.training.session_cache import EmotionCache
+        from contexts.training.session.cache import EmotionCache
         from models import Case, TrainingRecord, User
         from profiles.history_taking.emotion import EmotionState
 

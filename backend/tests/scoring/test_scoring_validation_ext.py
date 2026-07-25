@@ -1,6 +1,6 @@
 """Extended scoring validation tests for 1.8 — hallucination filtering, clamping, total recalc, missing-zero."""
 
-from contexts.training._scoring_validation import (
+from contexts.training.scoring._validation import (
     _clamp_scores,
     _filter_hallucinated_dimensions,
     _inject_missing_dimensions,

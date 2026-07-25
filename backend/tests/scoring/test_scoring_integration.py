@@ -12,7 +12,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from contexts.training.scoring_prompt_builder import (
+from contexts.training.scoring.prompt_builder import (
     build_scoring_criteria,
     build_scoring_json_schema,
     build_scoring_rubric,
@@ -82,7 +82,7 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        from contexts.training.scoring_prompts import SCORING_SYSTEM
+        from contexts.training.scoring.prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -90,7 +90,7 @@ class TestScoringPromptSanity:
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
 
     def test_render_user_prompt_no_double_braces(self):
-        from contexts.training.scoring_prompts import SCORING_USER
+        from contexts.training.scoring.prompts import SCORING_USER
 
         user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
@@ -156,7 +156,7 @@ class TestScoringPromptSanity:
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        from contexts.training.scoring_prompts import SCORING_SYSTEM
+        from contexts.training.scoring.prompts import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -229,7 +229,7 @@ class TestScoringPromptSanity:
 
     def test_coerce_string_numbers_to_int(self):
         """LLM 把数字写成字符串时自动转换为数字"""
-        from contexts.training._scoring_validation import _coerce_numeric_fields
+        from contexts.training.scoring._validation import _coerce_numeric_fields
 
         result = {
             "total_score": "24",
@@ -258,7 +258,7 @@ class TestScoringPromptSanity:
         assert isinstance(result["detail_scores"]["病史采集"]["max"], int)
 
     def test_coerce_float_score(self):
-        from contexts.training._scoring_validation import _coerce_numeric_fields
+        from contexts.training.scoring._validation import _coerce_numeric_fields
 
         result = {"total_score": "35.5"}
         _coerce_numeric_fields(result)
@@ -288,7 +288,7 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        from contexts.training.scoring_prompts import (
+        from contexts.training.scoring.prompts import (
             SCORING_SYSTEM,
             SCORING_USER,
         )
@@ -321,7 +321,7 @@ class TestScoringFlowEndToEnd:
 
     def test_validate_scoring_result_safety(self):
         """评分验证不应对正确结果误报"""
-        from contexts.training._scoring_validation import _validate_scoring_result
+        from contexts.training.scoring._validation import _validate_scoring_result
 
         result = {
             "total_score": 42,
@@ -368,7 +368,7 @@ class TestScoringFlowEndToEnd:
         _validate_scoring_result(result)  # 不应抛异常：scored项有足够evidence，score=0项不校验
 
     def test_validate_rejects_missing_total_score(self):
-        from contexts.training._scoring_validation import _validate_scoring_result
+        from contexts.training.scoring._validation import _validate_scoring_result
 
         with pytest.raises(ValueError, match="缺失字段"):
             _validate_scoring_result({})
@@ -388,7 +388,7 @@ class TestScoringFlowEndToEnd:
         }
         assert sample, "scoring sample vars 为空"
 
-        from contexts.training.scoring_prompts import SCORING_SYSTEM
+        from contexts.training.scoring.prompts import SCORING_SYSTEM
 
         rendered = render_template(SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000

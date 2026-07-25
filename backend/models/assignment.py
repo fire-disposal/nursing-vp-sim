@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from models.training import TrainingRecord
 
 
-
 class Assignment(Base, TimestampMixin):
     __tablename__ = "assignments"
     __table_args__ = (

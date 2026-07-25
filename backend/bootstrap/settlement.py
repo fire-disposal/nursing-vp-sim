@@ -5,7 +5,7 @@ import logging
 import threading
 
 from contexts.training.router.session import set_training_infra
-from contexts.training.settlement import settlement_loop
+from contexts.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
 
 log = logging.getLogger(__name__)

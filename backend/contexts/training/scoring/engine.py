@@ -9,14 +9,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.prompt_context import PromptContext
-from contexts.training.scoring_prompts import (
-    FEEDBACK_RETRY_USER,
-    SCORING_FEEDBACK_SYSTEM,
-    SCORING_FEEDBACK_USER,
-    SCORING_RETRY_USER,
-    SCORING_SYSTEM,
-    SCORING_USER,
-)
 from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
@@ -26,7 +18,7 @@ from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from profiles.rubric_loader import get_rubric_version_id, load_rubric
 
-from ._scoring_validation import (
+from ._validation import (
     _check_feedback_empty,
     _clamp_scores,
     _coerce_numeric_fields,
@@ -41,7 +33,15 @@ from ._scoring_validation import (
     _validate_scoring_essentials,
     _validate_scoring_result,
 )
-from .scoring_prompt_builder import build_scoring_criteria, build_scoring_json_schema
+from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
+from .prompts import (
+    FEEDBACK_RETRY_USER,
+    SCORING_FEEDBACK_SYSTEM,
+    SCORING_FEEDBACK_USER,
+    SCORING_RETRY_USER,
+    SCORING_SYSTEM,
+    SCORING_USER,
+)
 
 # ── 常量 ──
 THOUGHT_PUSH_INTERVAL_SEC = 0.3
@@ -306,7 +306,7 @@ def _resolve_rubric(db: Session, record: TrainingRecord) -> dict:
             base_rubric = profile.rubric
         except KeyError:
             base_rubric = load_rubric("nursing_history_v1")
-        from contexts.training.rubric_builder import build_final_rubric
+        from .rubric import build_final_rubric
 
         features = (record.practice_snapshot or {}).get("features", {})
         rubric = build_final_rubric(base_rubric, features)
