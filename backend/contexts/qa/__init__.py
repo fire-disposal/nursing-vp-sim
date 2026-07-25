@@ -1,9 +1,6 @@
 from fastapi import APIRouter
 
+from .router import router as _router
+
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
-
-from ._sessions import router as _sessions
-from .api import router as _messages
-
-router.include_router(_sessions)
-router.include_router(_messages)
+router.include_router(_router)
