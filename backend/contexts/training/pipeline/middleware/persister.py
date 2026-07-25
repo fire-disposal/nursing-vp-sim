@@ -3,7 +3,7 @@
 import logging
 
 from models import Message
-from profiles.history_taking.initiative import update_initiative_timer
+from contexts.training.patient_ai.initiative import update_initiative_timer
 
 from ..context import (
     STATE_SAVED_MESSAGES,

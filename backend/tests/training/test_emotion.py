@@ -1,6 +1,6 @@
 """Unit tests for emotion engine (2D trust-comfort model)."""
 
-from profiles.history_taking.emotion import EmotionState
+from contexts.training.patient_ai.emotion import EmotionState
 
 
 class TestEmotionState:

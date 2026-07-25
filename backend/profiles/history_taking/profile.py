@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contexts.training.patient_ai.note_source import OperationNoteSource
-from profiles.history_taking.notes import EmotionNoteSource, IdentityGuardSource
+from contexts.training.patient_ai.notes import EmotionNoteSource, IdentityGuardSource
 from profiles.registry import (
     PromptCollection,
     TrainingProfile,

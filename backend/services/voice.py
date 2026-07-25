@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
+from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
 from infrastructure.tts.mapper import DEFAULT_SPEAKER
 from models import VoiceConfig

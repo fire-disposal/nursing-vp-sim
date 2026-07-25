@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from models import TrainingSessionState
-    from profiles.history_taking.emotion import EmotionState
+    from .emotion import EmotionState
 
 log = logging.getLogger(__name__)
 
@@ -27,13 +27,13 @@ class EmotionCache:
         row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
         if row is None or not isinstance(row.emotion_state, dict) or "trust" not in row.emotion_state:
             return None
-        from profiles.history_taking.emotion import EmotionState
+        from .emotion import EmotionState
 
         return EmotionState.from_dict(row.emotion_state)
 
     def set(self, record_id: int, state: EmotionState, db: Session) -> None:
         from models import TrainingSessionState
-        from profiles.history_taking.emotion import EmotionState
+        from .emotion import EmotionState
 
         if isinstance(state, EmotionState):
             row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()

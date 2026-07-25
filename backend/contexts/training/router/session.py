@@ -320,7 +320,7 @@ def _create_record(
     snapshot["features"] = resolved_features
     record.practice_snapshot = snapshot
     if app_state is not None and resolved_features.get("patient_initiative"):
-        from profiles.history_taking.initiative import update_initiative_timer
+        from contexts.training.patient_ai.initiative import update_initiative_timer
 
         update_initiative_timer(record.id, app_state.initiative_cache, db)
 
@@ -625,7 +625,7 @@ def get_record_detail(
     if session_state is not None:
         es_dict = session_state.emotion_state
         if isinstance(es_dict, dict) and "trust" in es_dict:
-            from profiles.history_taking.emotion import EmotionState
+            from contexts.training.patient_ai.emotion import EmotionState
 
             es = EmotionState.from_dict(es_dict)
             emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}
