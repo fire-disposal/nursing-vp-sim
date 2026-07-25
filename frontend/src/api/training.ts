@@ -61,16 +61,6 @@ export const submitScoreReview = (
 		data,
 	);
 
-export const submitTriage = (
-	recordId: number,
-	data: Schemas["TriageSubmitRequest"],
-) =>
-	api
-		.post<Schemas["TriageSubmitResponse"]>(
-			`/triage/${recordId}/submit` as ApiPath,
-			data,
-		)
-		.then((r) => r.data);
 
 export const abandonRecord = (recordId: number | string) =>
 	api.put<Schemas["OkResponse"]>(`/training/records/${recordId}/abandon` as ApiPath);

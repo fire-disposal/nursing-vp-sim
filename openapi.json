@@ -1962,6 +1962,98 @@
         }
       }
     },
+    "/api/export/records": {
+      "post": {
+        "tags": [
+          "导出"
+        ],
+        "summary": "Export Records",
+        "operationId": "export_records_api_export_records_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(csv|xlsx)$",
+              "default": "csv",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/export/record/{record_id}": {
+      "post": {
+        "tags": [
+          "导出"
+        ],
+        "summary": "Export Record Detail",
+        "operationId": "export_record_detail_api_export_record__record_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/questionnaires/templates": {
       "get": {
         "tags": [
@@ -2821,98 +2913,6 @@
         }
       }
     },
-    "/api/export/records": {
-      "post": {
-        "tags": [
-          "导出"
-        ],
-        "summary": "Export Records",
-        "operationId": "export_records_api_export_records_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(csv|xlsx)$",
-              "default": "csv",
-              "title": "Format"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/export/record/{record_id}": {
-      "post": {
-        "tags": [
-          "导出"
-        ],
-        "summary": "Export Record Detail",
-        "operationId": "export_record_detail_api_export_record__record_id__post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/rubrics/current": {
       "get": {
         "tags": [
@@ -3251,6 +3251,36 @@
             }
           }
         }
+      }
+    },
+    "/api/students/assignments": {
+      "get": {
+        "tags": [
+          "学生练习"
+        ],
+        "summary": "List Student Assignments",
+        "operationId": "list_student_assignments_api_students_assignments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentAssignmentItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Student Assignments Api Students Assignments Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/admin/classes": {
@@ -6034,6 +6064,50 @@
       }
     },
     "/api/qa/sessions": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Create Session",
+        "operationId": "create_session_api_qa_sessions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QAAskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "通用问答"
@@ -6096,16 +6170,29 @@
             }
           }
         }
-      },
+      }
+    },
+    "/api/qa/sessions/{session_id}/ask": {
       "post": {
         "tags": [
           "通用问答"
         ],
-        "summary": "Create Session",
-        "operationId": "create_session_api_qa_sessions_post",
+        "summary": "Ask In Session",
+        "operationId": "ask_in_session_api_qa_sessions__session_id__ask_post",
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
           }
         ],
         "requestBody": {
@@ -6140,6 +6227,159 @@
             }
           }
         }
+      }
+    },
+    "/api/qa/sessions/{session_id}/ask/stream": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Ask Stream",
+        "operationId": "ask_stream_api_qa_sessions__session_id__ask_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/qa/section-text": {
+      "get": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Get Section Text",
+        "description": "Return the full textbook section text for a citation (no LLM).",
+        "operationId": "get_section_text_api_qa_section_text_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "section",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Section"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionTextResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/qa/ask": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Ask Question Legacy",
+        "operationId": "ask_question_legacy_api_qa_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QAAskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/qa/sessions/{session_id}": {
@@ -6368,216 +6608,6 @@
             }
           }
         }
-      }
-    },
-    "/api/qa/sessions/{session_id}/ask": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask In Session",
-        "operationId": "ask_in_session_api_qa_sessions__session_id__ask_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QAAskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/qa/sessions/{session_id}/ask/stream": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask Stream",
-        "operationId": "ask_stream_api_qa_sessions__session_id__ask_stream_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/qa/section-text": {
-      "get": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Get Section Text",
-        "description": "Return the full textbook section text for a citation (no LLM).",
-        "operationId": "get_section_text_api_qa_section_text_get",
-        "parameters": [
-          {
-            "name": "source",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Source"
-            }
-          },
-          {
-            "name": "section",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Section"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SectionTextResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/qa/ask": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask Question Legacy",
-        "operationId": "ask_question_legacy_api_qa_ask_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QAAskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/training/start": {
@@ -7518,64 +7548,6 @@
         }
       }
     },
-    "/api/training/api/triage/{record_id}/submit": {
-      "post": {
-        "tags": [
-          "训练",
-          "分诊"
-        ],
-        "summary": "Submit Triage",
-        "operationId": "submit_triage_api_training_api_triage__record_id__submit_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriageSubmitRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriageSubmitResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/chat/{record_id}/message": {
       "post": {
         "tags": [
@@ -7686,36 +7658,6 @@
             }
           }
         }
-      }
-    },
-    "/api/students/assignments": {
-      "get": {
-        "tags": [
-          "学生练习"
-        ],
-        "summary": "List Student Assignments",
-        "operationId": "list_student_assignments_api_students_assignments_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/StudentAssignmentItem"
-                  },
-                  "type": "array",
-                  "title": "Response List Student Assignments Api Students Assignments Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/health": {
@@ -13361,8 +13303,14 @@
             "title": "Text"
           },
           "record_id": {
-            "type": "integer",
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Record Id"
           },
           "voice_type": {
@@ -13381,8 +13329,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "text",
-          "record_id"
+          "text"
         ],
         "title": "TTSSynthesizeRequest"
       },
@@ -14108,61 +14055,6 @@
           "total_minutes"
         ],
         "title": "TrendStats"
-      },
-      "TriageSubmitRequest": {
-        "properties": {
-          "mews_score": {
-            "type": "integer",
-            "maximum": 14.0,
-            "minimum": 0.0,
-            "title": "Mews Score"
-          },
-          "category": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Category"
-          },
-          "department": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Department"
-          },
-          "notes": {
-            "type": "string",
-            "title": "Notes",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "mews_score",
-          "category",
-          "department"
-        ],
-        "title": "TriageSubmitRequest"
-      },
-      "TriageSubmitResponse": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "title": "Message"
-          },
-          "record_id": {
-            "type": "integer",
-            "title": "Record Id"
-          },
-          "triage_result": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Triage Result"
-          }
-        },
-        "type": "object",
-        "required": [
-          "message",
-          "record_id"
-        ],
-        "title": "TriageSubmitResponse"
       },
       "UserBrief": {
         "properties": {
