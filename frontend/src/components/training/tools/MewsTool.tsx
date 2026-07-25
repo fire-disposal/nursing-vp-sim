@@ -1,9 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
-import { submitTriage } from "@/api/training";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useSceneStateValue } from "@/engine/useSceneBus";
-import { calcMews, type MewsInput } from "@/utils/mews";
+import { calcMews } from "@/utils/mews";
 
 const CATEGORIES = [
   { id: "red",    label: "红色 — 即刻", priority: "需立即抢救", border: "border-red-500/40", activeBg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500" },
@@ -16,48 +14,72 @@ const CATEGORIES = [
 const DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "ICU", "骨科", "神经科"];
 
 export default function MewsTool(props: TrainingToolProps) {
+  const { bus, recordId, recordDetail } = props;
+  const rid = Number(recordId);
   const sceneState = useSceneStateValue();
   const mews = calcMews({
     hr: sceneState.vitals?.hr,
     sbp: sceneState.vitals?.bp_sys,
     rr: sceneState.vitals?.rr,
     temp: sceneState.vitals?.temp,
-    consciousness: sceneState.patient?.consciousness as MewsInput["consciousness"],
+    consciousness: sceneState.patient?.consciousness as "alert" | "confused" | "unresponsive" | undefined,
   });
   const [category, setCategory] = useState("");
   const [department, setDepartment] = useState("");
   const [notes, setNotes] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  // Load initial vitals from backend via WS
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    bus.emit("tool:invoke", {
+      tool: "mews",
+      action: "load",
+      params: {},
+      recordId: rid,
+    });
+  }, [rid, bus]);
+
+  // Restore saved state from record detail
   const seededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current || !props.recordDetail) return;
-    const tr = props.recordDetail.triage_result as { category?: string; department?: string; notes?: string } | undefined;
-    if (tr && (tr.category || tr.department)) {
-      setCategory(tr.category ?? "");
-      setDepartment(tr.department ?? "");
-      setNotes(tr.notes ?? "");
-      setSubmitted(true);
+    if (seededRef.current || !recordDetail) return;
+    const rs = (recordDetail as Record<string, unknown>).runtime_state as Record<string, unknown> | undefined;
+    const calc = rs?.mews_calculation as { category?: string; department?: string; notes?: string } | undefined;
+    if (calc?.category) {
+      setCategory(calc.category);
+      setDepartment(calc.department ?? "");
+      setNotes(calc.notes ?? "");
+      setSaved(true);
     }
     seededRef.current = true;
-  }, [props.recordDetail]);
+  }, [recordDetail]);
 
-  const submitMutation = useMutation({
-    mutationFn: () => submitTriage(Number(props.recordId), { mews_score: mews, category, department, notes }),
-    onSuccess: () => setSubmitted(true),
-  });
+  const handleSave = useCallback(() => {
+    setSaving(true);
+    bus.emit("tool:invoke", {
+      tool: "mews",
+      action: "save",
+      params: { scores: { mews_score: mews, category, department, notes } },
+      recordId: rid,
+    });
+    setSaved(true);
+    setSaving(false);
+  }, [bus, rid, mews, category, department, notes]);
 
   const mewsUrgency = mews >= 5 ? "red" : mews >= 3 ? "orange" : "";
   const mewsBg = mewsUrgency === "red" ? "bg-red-50 dark:bg-red-950/20"
     : mewsUrgency === "orange" ? "bg-orange-50 dark:bg-orange-950/20"
     : "bg-muted";
 
-  if (submitted) {
+  if (saved) {
     const cat = CATEGORIES.find((c) => c.id === category);
     return (
       <div className="p-4 text-center space-y-1">
-        <div className="text-3xl mb-1">✅</div>
-        <div className="font-bold text-base">分诊完成</div>
+        <div className="font-bold text-base">分诊已保存</div>
         <div className="text-sm text-muted-foreground">MEWS {mews}/14 · {cat?.label ?? category}</div>
         <div className="text-xs text-muted-foreground/70">建议科室: {department}</div>
       </div>
@@ -66,7 +88,7 @@ export default function MewsTool(props: TrainingToolProps) {
 
   return (
     <div className="p-3 space-y-4 text-sm">
-      <div className="space-y-2">
+      <div>
         <div className="font-semibold text-sm">MEWS 评分（由生命体征自动计算）</div>
         <div className={`${mewsBg} rounded-xl p-3 text-center`}>
           <div className="text-3xl font-bold">{mews}<span className="text-base font-normal text-muted-foreground">/14</span></div>
@@ -74,41 +96,48 @@ export default function MewsTool(props: TrainingToolProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="font-semibold text-sm">分诊级别</div>
-        {CATEGORIES.map((c) => (
-          <button key={c.id} onClick={() => setCategory(c.id)}
-            className={`w-full text-left text-xs rounded-lg px-3 py-2 transition-colors flex items-center gap-2
-              ${category === c.id ? `${c.activeBg} ${c.border} border-2` : "border border-border bg-card hover:bg-muted"}`}>
-            <span className={`size-2.5 rounded-full shrink-0 ${c.dot}`} />
-            <span className="font-semibold">{c.label}</span>
-            <span className="text-muted-foreground text-[11px] ml-auto">{c.priority}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <div className="font-semibold text-sm">建议科室</div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {DEPARTMENTS.map((dep) => (
-            <button key={dep} onClick={() => setDepartment(dep)}
-              className={`rounded-lg py-1.5 text-xs transition-colors
-                ${department === dep ? "border-2 border-primary bg-primary/10 text-primary font-semibold" : "border border-border bg-card hover:bg-muted text-foreground"}`}>
-              {dep}
+      <div>
+        <div className="font-semibold text-sm mb-1.5">分诊级别</div>
+        <div className="space-y-1">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCategory(c.id)}
+              className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
+                category === c.id
+                  ? `${c.activeBg} ${c.border}`
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              <span className="font-medium">{c.label}</span>
+              <span className="text-muted-foreground ml-2 text-xs">{c.priority}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
-        placeholder="记录观察要点..." rows={3}
-        className="w-full p-2 border border-border rounded-lg text-xs resize-none bg-card placeholder:text-muted-foreground/50" />
+      <div>
+        <div className="font-semibold text-sm mb-1.5">建议科室</div>
+        <select
+          value={department}
+          onChange={(e) => setDepartment(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="">请选择科室</option>
+          {DEPARTMENTS.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </div>
 
-      <button onClick={() => submitMutation.mutate()} disabled={!category || !department || submitMutation.isPending}
-        className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors
-          disabled:opacity-50 disabled:cursor-not-allowed
-          enabled:bg-primary enabled:text-primary-foreground enabled:hover:opacity-90">
-        {submitMutation.isPending ? "提交中..." : "完成分诊"}
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={!category || saving}
+        className="w-full rounded-lg bg-primary text-primary-foreground py-2 text-sm font-medium disabled:opacity-40"
+      >
+        {saving ? "保存中..." : "保存分诊结果"}
       </button>
     </div>
   );

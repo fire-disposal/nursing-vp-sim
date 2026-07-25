@@ -45,13 +45,13 @@ TOOL_BINDINGS: list[ToolBinding] = [
     ),
     ToolBinding(
         tool="nursing_record",
-        field="record_config",
+        field="nursing_record",
         label="护理记录",
         description="生成结构化护理记录（ADPIE 格式）",
     ),
     ToolBinding(
         tool="mews",
-        field="mews_config",
+        field="vitals",
         label="MEWS 评分",
         description="早期预警评分计算工具",
     ),
