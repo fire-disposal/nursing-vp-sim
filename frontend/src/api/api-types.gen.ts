@@ -4607,6 +4607,10 @@ export interface components {
             triage_result?: {
                 [key: string]: unknown;
             };
+            /** Nursing Record Sheet */
+            nursing_record_sheet?: {
+                [key: string]: unknown;
+            } | null;
             /** Case Data */
             case_data?: {
                 [key: string]: unknown;

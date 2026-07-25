@@ -3,11 +3,18 @@
 从 case_data.exam_anchors 读取配置，支持两种格式：
 1. 新格式：含 groups 结构（前端直接消费）
 2. 旧格式：自动从 vital_signs/skin/pain_score 推导
+
+当 exam_anchors 未配置某项测量时，根据患者年龄返回临床合理默认值。
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 log = logging.getLogger(__name__)
+
+# ── 操作定义表（所有标准操作始终可用，未配置时回落默认值）──────────
 
 _LEGACY_OP_DEFS: dict[str, dict] = {
     "temp": {"label": "体温", "unit": "°C", "source": ("vital_signs", "temperature")},
@@ -15,17 +22,71 @@ _LEGACY_OP_DEFS: dict[str, dict] = {
     "bp": {"label": "血压", "unit": "mmHg", "source": ("vital_signs", "blood_pressure")},
     "rr": {"label": "呼吸频率", "unit": "次/分", "source": ("vital_signs", "respiratory_rate")},
     "spo2": {"label": "血氧饱和度", "unit": "%", "source": ("vital_signs", "spo2")},
-    "skin": {"label": "皮肤", "unit": "", "source": ("skin",)},
+    "skin": {"label": "皮肤检查", "unit": "", "source": ("skin",)},
     "pain": {"label": "NRS疼痛评分", "unit": "/10", "source": ("pain_score",)},
 }
 
-_LEGACY_VITAL_OPS = ["temp", "hr", "bp", "rr", "spo2"]
+_VITAL_OPS = frozenset({"temp", "hr", "bp", "rr", "spo2"})
+
+# ── 年龄自适应默认值（range 格式，前端显示时解析为中值）────────────
+
+_AGE_DEFAULTS: dict[str, dict[str, str]] = {
+    "pediatric": {
+        "temperature": "36.5-37.5",
+        "heart_rate": "80-120",
+        "blood_pressure": "90/55-110/70",
+        "respiratory_rate": "20-30",
+        "spo2": "95-100",
+    },
+    "adult": {
+        "temperature": "36.3-37.2",
+        "heart_rate": "60-100",
+        "blood_pressure": "110/70-130/85",
+        "respiratory_rate": "12-20",
+        "spo2": "95-100",
+    },
+    "elderly": {
+        "temperature": "36.0-37.0",
+        "heart_rate": "60-100",
+        "blood_pressure": "120/70-145/90",
+        "respiratory_rate": "12-22",
+        "spo2": "93-100",
+    },
+}
+
+_INSPECTION_DEFAULTS: dict[str, str] = {
+    "head": "头颅无畸形，面部对称",
+    "chest": "胸廓对称，无畸形",
+    "abdomen": "腹部平坦，无压痛、反跳痛、肌紧张",
+    "skin": "皮肤温暖干燥，未见皮疹、破损或异常色素沉着",
+    "extremity": "四肢活动自如，无水肿、畸形或静脉曲张",
+}
+
+
+def _get_age_group(case_data: dict) -> str:
+    info = case_data.get("patient_info") or {}
+    age = info.get("age", 0)
+    if not isinstance(age, (int, float)):
+        age = 0
+    if age <= 0:
+        return "adult"  # unknown age → default to adult
+    if age <= 12:
+        return "pediatric"
+    if age >= 65:
+        return "elderly"
+    return "adult"
+
+
+# ── 公共入口 ────────────────────────────────────────────────────────────
 
 
 def handle_operation(op_type: str, case_data: dict) -> dict:
-    anchors = case_data.get("exam_anchors", {})
-    if not anchors:
-        return {"type": "info", "label": "查体", "value": "该病例未配置查体数据", "unit": ""}
+    """执行一项查体/测量操作。
+
+    所有标准操作始终可用：优先从 exam_anchors 读取配置值，缺失时
+    根据患者年龄返回临床合理默认值。
+    """
+    anchors = case_data.get("exam_anchors", {}) if isinstance(case_data, dict) else {}
 
     op_defs = _collect_op_defs(anchors)
     op_def = op_defs.get(op_type)
@@ -33,77 +94,121 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
         return {"type": "error", "label": "未知操作", "value": f"不支持的操作: {op_type}", "unit": ""}
 
     value = _resolve_value(op_type, op_def, anchors, case_data)
+    category = "vitals" if op_type in _VITAL_OPS else "exam"
     return {
-        "type": op_type if op_type == "vitals" else ("vitals" if op_type in _LEGACY_VITAL_OPS else "exam"),
+        "type": category,
         "label": op_def["label"],
         "value": value,
         "unit": op_def["unit"],
     }
 
 
-def _detect_ops(anchors: dict) -> list[str]:
-    ops = set()
-    vs = anchors.get("vital_signs", {})
-    if any(vs.get(k) for k in ("temperature", "heart_rate", "blood_pressure", "respiratory_rate", "spo2")):
-        ops.update(_LEGACY_VITAL_OPS)
-    if anchors.get("skin"):
-        ops.add("skin")
-    if anchors.get("pain_score") is not None:
-        ops.add("pain")
-    return list(ops)
-
-
-# ── 操作定义收集 ──
+# ── 操作定义收集 ────────────────────────────────────────────────────────
 
 
 def _collect_op_defs(anchors: dict) -> dict[str, dict]:
-    if "groups" in anchors:
+    if isinstance(anchors.get("groups"), list) and anchors["groups"]:
         defs: dict[str, dict] = {}
         for group in anchors["groups"]:
             for op in group.get("ops", []):
-                src = op.get("source", op["id"])
+                src_raw = op.get("source", op.get("id", ""))
+                src_parts = tuple(src_raw.split(".")) if src_raw else (op.get("id", ""),)
                 defs[op["id"]] = {
-                    "label": op["label"],
+                    "label": op.get("label", op["id"]),
                     "unit": op.get("unit", ""),
-                    "source": (src,),
+                    "source": src_parts,
                 }
         return defs
-    op_ids = _detect_ops(anchors)
-    defs = {oid: _LEGACY_OP_DEFS[oid] for oid in op_ids if oid in _LEGACY_OP_DEFS}
-    has_vitals = any(oid in _LEGACY_VITAL_OPS for oid in op_ids)
-    if has_vitals:
-        defs["vitals"] = {"label": "生命体征(汇总)", "unit": "", "source": ("_vitals",)}
-    return defs
+
+    # Legacy format: always include all standard ops; resolve per-op below.
+    return dict(_LEGACY_OP_DEFS)
 
 
-# ── 值解析 ──
+# ── 值解析 + 默认值回落 ─────────────────────────────────────────────────
 
 
 def _resolve_value(op_type: str, op_def: dict, anchors: dict, case_data: dict) -> str:
-    path = op_def["source"]
+    path: tuple[str, ...] = op_def.get("source", ())
 
-    if path[0] == "_vitals":
-        vs = anchors.get("vital_signs", {})
-        result = _format_vitals(vs)
-        return result["value"]
+    configured = _try_from_config(path, anchors, case_data)
+    if configured is not None:
+        return configured
 
-    if path[0] == "vital_signs":
-        vs = anchors.get("vital_signs", {})
-        raw = vs.get(path[1], "") if len(path) > 1 else ""
-        if not raw:
-            return "—"
-        return _resolve_range(str(raw))
+    # Fallback: age-appropriate default
+    return _get_default(op_type, case_data)
 
-    if path[0] == "skin":
-        return anchors.get("skin", "") or "未见明显异常"
 
-    if path[0] == "pain_score":
-        nrs = case_data.get("pain_score", anchors.get("pain_score"))
+def _try_from_config(path: tuple[str, ...], anchors: dict, case_data: dict) -> str | None:
+    """Try to resolve from exam_anchors. Returns None if not configured."""
+    if not path:
+        return None
+
+    root = path[0]
+
+    if root == "vital_signs":
+        vs = anchors.get("vital_signs", {}) if isinstance(anchors, dict) else {}
+        key = path[1] if len(path) > 1 else ""
+        raw = vs.get(key, "") if isinstance(vs, dict) else ""
+        if raw:
+            return _resolve_range(str(raw))
+        return None
+
+    if root == "skin":
+        skin = anchors.get("skin") if isinstance(anchors, dict) else None
+        return _format_skin(skin) if skin is not None else None
+
+    if root == "pain_score":
+        vs = anchors.get("vital_signs", {}) if isinstance(anchors, dict) else {}
+        # Check top-level first, then vital_signs sub-key
+        nrs = anchors.get("pain_score") if isinstance(anchors, dict) else None
+        if nrs is None and isinstance(vs, dict):
+            nrs = vs.get("pain_score")
         if nrs is not None:
             return str(nrs)
-        return "患者可自主报告"
+        return None
+
+    return None
+
+
+def _format_skin(skin_data: Any) -> str | None:
+    """Format skin inspection data for display. Handles both flat string and nested dict."""
+    if isinstance(skin_data, str):
+        return skin_data
+    if isinstance(skin_data, dict):
+        for v in skin_data.values():
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+    return None
+
+
+def _get_default(op_type: str, case_data: dict) -> str:
+    """Return an age-appropriate default value for a measurement."""
+    if op_type == "pain":
+        return "0"
+
+    if op_type == "skin":
+        return _INSPECTION_DEFAULTS.get("skin", "未见明显异常")
+
+    # Map frontend op_type → vital_signs key
+    vital_key = {
+        "temp": "temperature",
+        "hr": "heart_rate",
+        "bp": "blood_pressure",
+        "rr": "respiratory_rate",
+        "spo2": "spo2",
+    }.get(op_type)
+
+    if vital_key:
+        group = _get_age_group(case_data)
+        defaults = _AGE_DEFAULTS.get(group, _AGE_DEFAULTS["adult"])
+        raw = defaults.get(vital_key, "")
+        if raw:
+            return _resolve_range(raw)
 
     return "—"
+
+
+# ── Range 解析 ───────────────────────────────────────────────────────────
 
 
 def _resolve_range(raw: str) -> str:
@@ -120,8 +225,7 @@ def _resolve_range(raw: str) -> str:
         parts = raw.split("-", 1)
         try:
             lo, hi = float(parts[0]), float(parts[1])
-            val = (lo + hi) / 2
-            return f"{val:.1f}"
+            return f"{(lo + hi) / 2:.1f}"
         except (ValueError, IndexError):
             pass
     return raw
@@ -140,11 +244,11 @@ def _resolve_bp(raw: str) -> str:
         return raw
 
 
-# ── 旧版兼容导出 ──
+# ── 生命体征汇总 ─────────────────────────────────────────────────────────
 
 
 def _format_vitals(vs: dict) -> dict:
-    lines = []
+    lines: list[str] = []
     mappings = [
         ("体温", "temperature", "°C"),
         ("心率", "heart_rate", "次/分"),
@@ -156,13 +260,13 @@ def _format_vitals(vs: dict) -> dict:
         val = vs.get(key, "")
         if not val:
             continue
-        if key == "blood_pressure" and "-" in str(val):
-            parsed = _resolve_range(str(val))
-            lines.append(f"{label}: {parsed}")
-        elif "-" in str(val):
-            resolved = _resolve_range(str(val))
-            lines.append(f"{label}: {resolved}")
+        if "-" in str(val):
+            lines.append(f"{label}: {_resolve_range(str(val))}")
         else:
             lines.append(f"{label}: {val}")
-    value = "\n".join(lines) if lines else "未配置"
-    return {"type": "vitals", "label": "生命体征", "value": value, "unit": ""}
+    return {
+        "type": "vitals",
+        "label": "生命体征",
+        "value": "\n".join(lines) if lines else "未配置",
+        "unit": "",
+    }

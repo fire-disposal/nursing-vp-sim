@@ -1,7 +1,11 @@
 /**
- * High-fidelity patient monitor — Canvas-rendered waveforms.
- * Receives status labels, generates realistic waveforms internally.
+ * High-fidelity patient monitor — Canvas-rendered waveforms with RSA & pathology adaptation.
+ *
+ * - ECG: clinically realistic P-QRS-T composite with respiratory sinus arrhythmia
+ * - SpO₂ pleth: respiratory-modulated amplitude
+ * - RESP: sine wave
  */
+
 import { useEffect, useMemo, useRef, useState } from "react"
 
 export type HrStatus = "normal" | "tachycardia" | "bradycardia"
@@ -17,8 +21,8 @@ export interface MonitorStatus {
 }
 
 export interface MonitorVitals {
-  hr?: number; bp_sys?: number; bp_dia?: number;
-  rr?: number; spo2?: number; temp?: number; pain?: number;
+  hr?: number; bp_sys?: number; bp_dia?: number
+  rr?: number; spo2?: number; temp?: number; pain?: number
 }
 
 interface PatientMonitorProps {
@@ -27,63 +31,114 @@ interface PatientMonitorProps {
   vitals?: MonitorVitals
 }
 
-// ── Pre-computed ECG lookup table (clinically realistic P‑QRS‑T) ──
-//  0–400 samples = one cardiac cycle.  Y is normalised; amp*H*0.35 in draw.
-const ECG_TABLE = new Float32Array(400)
-for (let i = 0; i < 400; i++) {
-  const x = i / 400
-  let y = 0
-  // P wave  (0.05–0.18) — small, rounded, positive
-  if (x > 0.05 && x < 0.18) y -= Math.sin((x - 0.05) / 0.13 * Math.PI) * 0.06
-  // PR segment (0.18–0.25) — flat
-  // Q wave  (0.25–0.28) — small, sharp, negative
-  if (x > 0.25 && x < 0.28) y += Math.sin((x - 0.25) / 0.03 * Math.PI) * 0.10
-  // R wave  (0.28–0.33) — tall, sharp, positive (main deflection)
-  if (x > 0.28 && x < 0.33) y -= Math.sin((x - 0.28) / 0.05 * Math.PI) * 0.85
-  // S wave  (0.33–0.37) — sharp, negative, below baseline
-  if (x > 0.33 && x < 0.37) y += Math.sin((x - 0.33) / 0.04 * Math.PI) * 0.22
-  // ST segment (0.37–0.45) — flat, isoelectric
-  // T wave  (0.45–0.70) — broad, rounded, positive (larger area than P)
-  if (x > 0.45 && x < 0.70) y -= Math.sin((x - 0.45) / 0.25 * Math.PI) * 0.16
-  // U wave  (0.70–0.80) — tiny, optional
-  if (x > 0.72 && x < 0.80) y -= Math.sin((x - 0.72) / 0.08 * Math.PI) * 0.02
-  ECG_TABLE[i] = y
+// ── ECG waveform tables ──────────────────────────────────────────────────
+//
+// Each table is 400 samples = one cardiac cycle.
+// Y is normalised; drawn as y = mid + table[idx] * H * 0.35.
+
+function buildEcgTable(stScale: number, tWidth: number, uAmp: number): Float32Array {
+  const t = new Float32Array(400)
+  for (let i = 0; i < 400; i++) {
+    const x = i / 400
+    let y = 0
+    // P wave (0.05–0.18) — atrial depolarisation
+    if (x > 0.05 && x < 0.18) y -= Math.sin((x - 0.05) / 0.13 * Math.PI) * 0.06
+    // Q wave (0.25–0.28)
+    if (x > 0.25 && x < 0.28) y += Math.sin((x - 0.25) / 0.03 * Math.PI) * 0.10
+    // R wave (0.28–0.33) — main deflection
+    if (x > 0.28 && x < 0.33) y -= Math.sin((x - 0.28) / 0.05 * Math.PI) * 0.85
+    // S wave (0.33–0.37)
+    if (x > 0.33 && x < 0.37) y += Math.sin((x - 0.33) / 0.04 * Math.PI) * 0.22
+    // ST segment (0.37–0.45) — scaled by stScale for ischaemia simulation
+    if (x > 0.37 && x < 0.45) y += stScale * Math.sin((x - 0.37) / 0.08 * Math.PI) * 0.04
+    // T wave (0.45–0.70) — ventricular repolarisation; width scaled by tWidth
+    if (x > 0.45 && x < 0.70) {
+      const tx = (x - 0.45) / (0.25 * tWidth)
+      if (tx < 1) y -= Math.sin(tx * Math.PI) * 0.16
+    }
+    // U wave (0.70–0.80) — amplitude scaled by uAmp
+    if (x > 0.72 && x < 0.80) y -= Math.sin((x - 0.72) / 0.08 * Math.PI) * (0.02 * uAmp)
+    t[i] = y
+  }
+  return t
 }
 
-// ── Map status → parameters ──
-function resolve(s: MonitorStatus, v?: MonitorVitals) {
-  const hr = v?.hr ?? (s.hr === "tachycardia" ? 118 : s.hr === "bradycardia" ? 48 : 72);
-  const spo2Val = v?.spo2 ?? (s.spo2 === "critical" ? 84 : s.spo2 === "low" ? 91 : 98);
-  const bpSys = v?.bp_sys ?? (s.bp === "hypertensive" ? 175 : s.bp === "elevated" ? 145 : 120);
-  const bpDia = v?.bp_dia ?? (s.bp === "hypertensive" ? 105 : s.bp === "elevated" ? 90 : 80);
-  const rr = v?.rr ?? (s.rr === "tachypnea" ? 28 : s.rr === "bradypnea" ? 8 : 16);
-  const temp = v?.temp ?? (s.temp === "fever" ? 38.6 : s.temp === "hypothermia" ? 35.2 : 36.8);
-  const pain = v?.pain ?? (s.pain === "severe" ? 9 : s.pain === "moderate" ? 6 : s.pain === "mild" ? 3 : 0);
+const ECG_NORMAL = buildEcgTable(0, 1, 1)
+const ECG_TACHYCARDIA = buildEcgTable(1.5, 0.7, 0.4)    // ST depression, shorter T, smaller U
+const ECG_BRADYCARDIA = buildEcgTable(0, 1.4, 2.0)       // flat ST, wider T, prominent U
 
-  const alarms: string[] = [];
-  if (s.hr !== "normal") alarms.push("HR");
-  if (s.spo2 !== "normal") alarms.push("SpO₂");
-  if (s.bp !== "normal") alarms.push("NIBP");
-  if (s.rr !== "normal") alarms.push("RR");
-  if (s.temp !== "normal") alarms.push("TEMP");
+// ── SpO₂ plethysmograph table ────────────────────────────────────────────
+
+function buildPlethTable(): Float32Array {
+  const t = new Float32Array(200)
+  for (let i = 0; i < 200; i++) {
+    const x = i / 200
+    // Rapid systolic upstroke + dicrotic notch + diastolic decay
+    if (x < 0.08) t[i] = Math.sin(x / 0.08 * Math.PI / 2) * 0.7
+    else if (x < 0.12) t[i] = 0.7 + Math.sin((x - 0.08) / 0.04 * Math.PI) * 0.15
+    else if (x < 0.18) t[i] = 0.7 - (x - 0.12) / 0.06 * 0.2
+    else t[i] = 0.5 * Math.exp(-(x - 0.18) * 8)
+  }
+  return t
+}
+
+const PLETH_TABLE = buildPlethTable()
+
+// ── Map status → display parameters ──────────────────────────────────────
+
+function resolve(s: MonitorStatus, v?: MonitorVitals) {
+  const hr = v?.hr ?? (s.hr === "tachycardia" ? 118 : s.hr === "bradycardia" ? 48 : 72)
+  const spo2Val = v?.spo2 ?? (s.spo2 === "critical" ? 84 : s.spo2 === "low" ? 91 : 98)
+  const bpSys = v?.bp_sys ?? (s.bp === "hypertensive" ? 175 : s.bp === "elevated" ? 145 : 120)
+  const bpDia = v?.bp_dia ?? (s.bp === "hypertensive" ? 105 : s.bp === "elevated" ? 90 : 80)
+  const rr = v?.rr ?? (s.rr === "tachypnea" ? 28 : s.rr === "bradypnea" ? 8 : 16)
+  const temp = v?.temp ?? (s.temp === "fever" ? 38.6 : s.temp === "hypothermia" ? 35.2 : 36.8)
+  const pain = v?.pain ?? (s.pain === "severe" ? 9 : s.pain === "moderate" ? 6 : s.pain === "mild" ? 3 : 0)
+
+  // ECG table selection based on HR status
+  const ecgTable = s.hr === "tachycardia" ? ECG_TACHYCARDIA
+    : s.hr === "bradycardia" ? ECG_BRADYCARDIA
+    : ECG_NORMAL
+
+  // RSA amplitude: respiratory modulation of HR (±5% for normal, ±3% for extreme rates)
+  const rsaAmp = s.hr === "tachycardia" || s.hr === "bradycardia" ? 0.015 : 0.04
+
+  const alarms: string[] = []
+  if (s.hr !== "normal") alarms.push("HR")
+  if (s.spo2 !== "normal") alarms.push("SpO₂")
+  if (s.bp !== "normal") alarms.push("NIBP")
+  if (s.rr !== "normal") alarms.push("RR")
+  if (s.temp !== "normal") alarms.push("TEMP")
 
   return {
-    hr, spo2Val,
-    spo2Amp: s.spo2 === "normal" ? 1 : (v?.spo2 != null ? 1 : 0.4),
-    bpSys, bpDia, rr, temp, pain, alarms,
+    hr, spo2Val, bpSys, bpDia, rr, temp, pain, alarms,
+    ecgTable,
     ecgSpeed: 60 / hr,
+    rsaAmp,
     respSpeed: 60 / rr,
-    ecgColor: "#66bb6a",     // green — ECG lead
-    plethColor: "#4fc3f7",   // cyan — SpO₂ plethysmograph
-    respColor: "#ffa726",    // amber — RESP waveform
+    spo2Amp: s.spo2 === "normal" ? 1 : (v?.spo2 != null ? 1 : 0.4),
+    ecgColor: "#66bb6a",
+    plethColor: "#4fc3f7",
+    respColor: "#ffa726",
   }
 }
 
-// ── Canvas waveform renderer (sample‑buffer, always connected) ──
-function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, color: string, paused: boolean) {
+// ── Canvas waveform renderer with RSA + baseline wander ──────────────────
+
+function useEcgWaveform(
+  amp: number,
+  baseCycleSec: number,
+  rsaAmp: number,
+  respSec: number,
+  table: Float32Array,
+  color: string,
+  paused: boolean,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const samplesRef = useRef<number[]>([])
-  const phaseRef = useRef(0)
+  const bufRef = useRef<number[]>([])
+  const cardiacPhaseRef = useRef(0)
+  const respPhaseRef = useRef(0)
+  const beatAmpRef = useRef(1)
 
   useEffect(() => {
     const cvs = canvasRef.current
@@ -93,12 +148,14 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
     const W = cvs.width
     const H = cvs.height
     const mid = H / 2
-    const len = W  // one sample per pixel
-    let samples = samplesRef.current
+    const len = W
+
+    let samples = bufRef.current
     if (samples.length !== len) {
       samples = new Array(len).fill(mid)
-      samplesRef.current = samples
+      bufRef.current = samples
     }
+
     let lastTime = performance.now()
     let animId = 0
 
@@ -109,24 +166,37 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
       const dt = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now
 
-      // Advance phase with slight HRV noise (±1.5%)
-      const hrvJitter = 1 + (Math.random() - 0.5) * 0.03
-      phaseRef.current = (phaseRef.current + (dt / cycleSec) * hrvJitter) % 1
-      // Sample waveform
-      let val = 0
-      if (table) {
-        const idx = Math.floor(phaseRef.current * table.length) % table.length
-        val = table[idx] * amp * (H * 0.35)
+      // ── Respiratory phase (cycles independently at RR rate) ──
+      respPhaseRef.current = (respPhaseRef.current + dt / respSec) % 1
+
+      // ── RSA: HR faster during inspiration (respPhase ~0–0.4) ──
+      const insp = Math.sin(respPhaseRef.current * Math.PI * 2)
+      const rsa = insp * rsaAmp
+      const cycleSec = baseCycleSec * (1 - rsa)
+
+      // Advance cardiac phase
+      cardiacPhaseRef.current = (cardiacPhaseRef.current + dt / cycleSec) % 1
+
+      // Detect beat boundary → new beat amplitude (±3% jitter)
+      if (cardiacPhaseRef.current < dt / cycleSec) {
+        beatAmpRef.current = 1 + (Math.random() - 0.5) * 0.06
       }
-      // Tiny physiological noise (±0.5% of canvas height)
+
+      // Sample ECG waveform at current phase with beat-level amplitude
+      const idx = Math.floor(cardiacPhaseRef.current * table.length) % table.length
+      const val = table[idx] * amp * beatAmpRef.current * (H * 0.35)
+
+      // ── Baseline wander: slow respiratory drift (±1% H) ──
+      const wander = Math.sin(respPhaseRef.current * Math.PI * 2) * H * 0.01
       const noise = (Math.random() - 0.5) * H * 0.005
-      const y = Math.round(mid + val + noise)
+
+      const y = Math.round(mid + val + wander + noise)
 
       // Rotate sample buffer
       samples.shift()
       samples.push(y)
 
-      // Redraw entire waveform as one continuous polyline
+      // Redraw
       ctx.clearRect(0, 0, W, H)
       ctx.strokeStyle = color
       ctx.lineWidth = 1.5
@@ -139,6 +209,70 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
       }
       ctx.stroke()
     }
+
+    animId = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(animId)
+  }, [amp, baseCycleSec, rsaAmp, respSec, table, color, paused])
+
+  return canvasRef
+}
+
+function useSimpleWaveform(
+  amp: number, cycleSec: number, table: Float32Array, color: string, paused: boolean,
+) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const bufRef = useRef<number[]>([])
+  const phaseRef = useRef(0)
+
+  useEffect(() => {
+    const cvs = canvasRef.current
+    if (!cvs) return
+    const ctx = cvs.getContext("2d")
+    if (!ctx) return
+    const W = cvs.width
+    const H = cvs.height
+    const mid = H / 2
+    const len = W
+
+    let samples = bufRef.current
+    if (samples.length !== len) {
+      samples = new Array(len).fill(mid)
+      bufRef.current = samples
+    }
+
+    let lastTime = performance.now()
+    let animId = 0
+
+    const draw = (now: number) => {
+      animId = requestAnimationFrame(draw)
+      if (paused) return
+
+      const dt = Math.min((now - lastTime) / 1000, 0.05)
+      lastTime = now
+
+      phaseRef.current = (phaseRef.current + dt / cycleSec) % 1
+
+      const idx = Math.floor(phaseRef.current * table.length) % table.length
+      const val = table[idx] * amp * (H * 0.35)
+      const noise = (Math.random() - 0.5) * H * 0.005
+      const y = Math.round(mid + val + noise)
+
+      samples.shift()
+      samples.push(y)
+
+      ctx.clearRect(0, 0, W, H)
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1.5
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      ctx.beginPath()
+      for (let i = 0; i < len; i++) {
+        if (i === 0) ctx.moveTo(i, samples[i])
+        else ctx.lineTo(i, samples[i])
+      }
+      ctx.stroke()
+    }
+
     animId = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(animId)
   }, [amp, cycleSec, table, color, paused])
@@ -146,33 +280,22 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
   return canvasRef
 }
 
-// ── Component ──
+// ── Component ────────────────────────────────────────────────────────────
+
 export function PatientMonitor({ status, patientName, vitals }: PatientMonitorProps) {
   const p = useMemo(() => resolve(status, vitals), [status, vitals])
   const hasAlarm = p.alarms.length > 0
-  const [paused, _setPaused] = useState(false)
+  const [paused] = useState(false)
 
-  // Waveform tables
-  const plethTable = useMemo(() => {
-    const t = new Float32Array(200)
-    for (let i = 0; i < 200; i++) {
-      const x = i / 200
-      if (x < 0.1) t[i] = -Math.sin(x / 0.1 * Math.PI / 2) * 0.6
-      else if (x < 0.15) t[i] = -0.6
-      else if (x < 0.25) t[i] = -0.6 + Math.sin((x - 0.15) / 0.1 * Math.PI) * 0.2
-      else t[i] = -0.4 * Math.exp(-(x - 0.25) * 6)
-    }
-    return t
-  }, [])
   const respTable = useMemo(() => {
     const t = new Float32Array(200)
     for (let i = 0; i < 200; i++) t[i] = Math.sin(i / 200 * Math.PI * 2) * 0.5
     return t
   }, [])
 
-  const ecgRef = useWaveform(1, p.ecgSpeed, ECG_TABLE, p.ecgColor, paused)
-  const plethRef = useWaveform(p.spo2Amp, p.ecgSpeed, plethTable, p.plethColor, paused)
-  const respRef = useWaveform(1, p.respSpeed, respTable, p.respColor, paused)
+  const ecgRef = useEcgWaveform(1, p.ecgSpeed, p.rsaAmp, p.respSpeed, p.ecgTable, p.ecgColor, paused)
+  const plethRef = useSimpleWaveform(p.spo2Amp, p.ecgSpeed, PLETH_TABLE, p.plethColor, paused)
+  const respRef = useSimpleWaveform(1, p.respSpeed, respTable, p.respColor, paused)
 
   const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
 

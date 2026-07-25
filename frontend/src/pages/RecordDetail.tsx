@@ -318,6 +318,10 @@ export default function RecordDetail() {
 					</div>
 				)}
 
+				{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
+					<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
+				)}
+
 				<MessagePlayback messages={messages} />
 			</div>
 
@@ -349,5 +353,32 @@ export default function RecordDetail() {
 				/>
 			)}
 		</>
+	);
+}
+
+const FIELD_LABELS: Record<string, string> = {
+	subjective: "主观资料 (S)",
+	objective: "客观资料 (O)",
+	assessment: "评估 (A)",
+	plan: "计划 (P)",
+	evaluation: "评价 (E)",
+};
+
+function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
+	const fields = Object.entries(FIELD_LABELS).filter(([key]) => sheet[key]);
+	if (fields.length === 0) return null;
+
+	return (
+		<div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-3">
+			<h3 className="text-base font-semibold">护理评估记录</h3>
+			<div className="space-y-3">
+				{fields.map(([key, label]) => (
+					<div key={key}>
+						<h4 className="text-xs font-medium text-muted-foreground mb-1">{label}</h4>
+						<p className="text-sm whitespace-pre-wrap leading-relaxed">{sheet[key]}</p>
+					</div>
+				))}
+			</div>
+		</div>
 	);
 }

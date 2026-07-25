@@ -36,7 +36,7 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
   "physical_exam": {
     "key": "physical_exam",
     "label": "护理查体",
-    "description": "允许学生触发护理操作（测血压/体温/听诊等）。",
+    "description": "允许学生触发护理操作（测血压/体温/听诊等）。仅当病例含 exam_anchors 数据时可用。",
     "tier": "toggleable",
     "trainingTypes": [
       "history_taking"
@@ -46,7 +46,7 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
   "nursing_record": {
     "key": "nursing_record",
     "label": "护理评估记录",
-    "description": "结构化护理评估表单填写（ADPIE）。",
+    "description": "结构化护理评估表单填写（ADPIE）。仅当病例含 nursing_record 数据时可用。",
     "tier": "toggleable",
     "trainingTypes": [
       "history_taking"

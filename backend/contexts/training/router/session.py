@@ -149,6 +149,83 @@ def _build_config(features: dict | None = None, time_limit_minutes: int | None =
     }
 
 
+def _extract_vitals(case_data: dict, training_type: str) -> dict:
+    """Extract initial vital signs for scene state seeding.
+
+    Triage cases have a flat top-level ``vitals`` dict. History-taking
+    cases store ranges inside ``exam_anchors.vital_signs`` which are
+    resolved to midpoint numeric values.
+    """
+    if training_type != "history_taking":
+        return case_data.get("vitals", {})
+
+    vital_signs = (case_data.get("exam_anchors") or {}).get("vital_signs") or {}
+    if not isinstance(vital_signs, dict):
+        return {}
+
+    result: dict[str, float | int | None] = {}
+
+    temp = vital_signs.get("temperature")
+    if temp:
+        result["temp"] = _resolve_vital_num(str(temp))
+
+    hr = vital_signs.get("heart_rate")
+    if hr:
+        result["hr"] = int(_resolve_vital_num(str(hr)))
+
+    bp = vital_signs.get("blood_pressure")
+    if bp:
+        try:
+            left, _right = str(bp).split("-", 1)
+            s, d = left.split("/")
+            result["bp_sys"] = int(float(s))
+            result["bp_dia"] = int(float(d))
+        except (ValueError, IndexError):
+            pass
+
+    rr = vital_signs.get("respiratory_rate")
+    if rr:
+        result["rr"] = int(_resolve_vital_num(str(rr)))
+
+    spo2 = vital_signs.get("spo2")
+    if spo2:
+        result["spo2"] = _resolve_vital_num(str(spo2))
+
+    pain = vital_signs.get("pain_score")
+    if pain is not None:
+        try:
+            result["pain"] = int(float(str(pain).split("-")[0].strip()))
+        except (ValueError, IndexError):
+            pass
+
+    return result
+
+
+def _resolve_vital_num(raw: str) -> float:
+    """Resolve a range string like ``"36.8-37.2"`` → midpoint ``36.9``."""
+    raw = raw.strip()
+    if "-" in raw:
+        try:
+            lo, hi = raw.split("-", 1)
+            return (float(lo) + float(hi)) / 2
+        except (ValueError, IndexError):
+            pass
+    try:
+        return float(raw)
+    except ValueError:
+        return 0.0
+
+
+def _load_nursing_sheet(db: Session, record_id: int) -> dict | None:
+    """Load the saved nursing record sheet for display on record detail."""
+    nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
+    if not nr or not nr.sheet_data:
+        return None
+    if isinstance(nr.sheet_data, dict):
+        return dict(nr.sheet_data)
+    return None
+
+
 def _create_record(
     db: Session,
     user_id: int,
@@ -213,7 +290,7 @@ def _create_record(
 
     # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）
     patient_info = case_data.get("patient_info", {})
-    vitals = case_data.get("vitals", {})
+    vitals = _extract_vitals(case_data, training_type)
     record.runtime_state = {
         "scene": {
             "environment": {
@@ -601,6 +678,7 @@ def get_record_detail(
         exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
         triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
+        nursing_record_sheet=_load_nursing_sheet(db, record.id),
         case_data=case_data,
         profile_info=profile_info,
         emotion=emotion,

@@ -12,19 +12,35 @@ interface SheetData {
 	evaluation?: string;
 }
 
-const FIELDS = [
-	["subjective", "主观资料 (S)", "患者主诉、症状感受、病史...", "h-14 sm:h-20"],
-	["objective", "客观资料 (O)", "生命体征、体格检查结果、实验室数据...", "h-14 sm:h-20"],
-	["assessment", "评估 (A)", "护理诊断、风险评估、临床判断...", "h-14 sm:h-20"],
-	["plan", "计划 (P)", "护理措施、预期目标、健康教育...", "h-14 sm:h-20"],
-	["evaluation", "评价 (E)", "措施效果、病情变化、后续计划...", "h-14 sm:h-20"],
-] as const;
+interface TemplateData {
+	hints?: Record<string, string>;
+	fields?: Record<string, string>;
+}
+
+const FIELD_KEYS = ["subjective", "objective", "assessment", "plan", "evaluation"] as const;
+
+const FALLBACK_LABELS: Record<string, string> = {
+	subjective: "主观资料 (S)",
+	objective: "客观资料 (O)",
+	assessment: "评估 (A)",
+	plan: "计划 (P)",
+	evaluation: "评价 (E)",
+};
+
+const FALLBACK_PLACEHOLDERS: Record<string, string> = {
+	subjective: "记录患者主诉、症状感受、现病史和既往史要点...",
+	objective: "记录生命体征、体格检查结果、实验室数据等客观信息...",
+	assessment: "基于收集的信息提出护理诊断，评估风险等级...",
+	plan: "制定具体的护理措施、预期目标和健康教育内容...",
+	evaluation: "评价措施效果，记录病情变化和后续计划...",
+};
 
 const LOAD_TIMEOUT_MS = 8000;
 
 export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) {
 	const rid = Number(recordId);
 	const [sheet, setSheet] = useState<SheetData>({});
+	const [template, setTemplate] = useState<TemplateData>({});
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const dirtyRef = useRef(false);
@@ -60,7 +76,13 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 	}, [requestLoad]);
 
 	useEffect(() => {
-		const onResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown>; error?: string }) => {
+		const onResult = (payload: {
+			tool: string;
+			action: string;
+			ok: boolean;
+			data: Record<string, unknown>;
+			error?: string;
+		}) => {
 			if (payload.tool !== "nursing_record") return;
 			if (payload.action === "load") {
 				if (loadTimeoutRef.current) {
@@ -74,6 +96,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 						if (Object.keys(prev).length > 0) return prev;
 						return sd;
 					});
+					setTemplate((payload.data.template as TemplateData) || {});
 					setLoading(false);
 				} else {
 					setLoading(false);
@@ -95,15 +118,18 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 		return () => { bus.off("tool:result", onResult); };
 	}, [bus]);
 
-	const doSave = useCallback((sd: SheetData) => {
-		setSaveStatus("saving");
-		bus.emit("tool:invoke", {
-			tool: "nursing_record",
-			action: "save",
-			params: { sheet_data: sd, status: "draft" },
-			recordId: rid,
-		});
-	}, [bus, rid]);
+	const doSave = useCallback(
+		(sd: SheetData) => {
+			setSaveStatus("saving");
+			bus.emit("tool:invoke", {
+				tool: "nursing_record",
+				action: "save",
+				params: { sheet_data: sd, status: "draft" },
+				recordId: rid,
+			});
+		},
+		[bus, rid],
+	);
 
 	const update = (key: string, value: string) => {
 		dirtyRef.current = true;
@@ -136,7 +162,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 		return (
 			<div className="flex items-center justify-center h-32 text-muted-foreground">
 				<Loader2 size={18} className="animate-spin mr-2" />
-				<span className="text-xs">加载评估记录...</span>
+				<span className="text-xs">加载评估记录…</span>
 			</div>
 		);
 	}
@@ -157,31 +183,43 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 		);
 	}
 
+	const hints = template.hints || {};
+
 	return (
-		<form className="space-y-3 p-3" onSubmit={(e) => { e.preventDefault(); doSave(sheet); }}>
-			{FIELDS.map(([key, label, placeholder, height]) => (
-				<div key={key}>
-					<label className="text-[11px] font-medium text-muted-foreground mb-1 block">
-						{label}
-					</label>
-					<textarea
-						value={sheet[key] || ""}
-						onChange={(e) => update(key, e.target.value)}
-						placeholder={placeholder}
-						className={cn(
-							"w-full rounded-lg border border-border bg-background p-2 text-xs leading-relaxed resize-y",
-							height,
-						)}
-					/>
-				</div>
-			))}
+		<form
+			className="space-y-3 p-3"
+			onSubmit={(e) => {
+				e.preventDefault();
+				doSave(sheet);
+			}}
+		>
+			{FIELD_KEYS.map((key) => {
+				const label = template.fields?.[key] || FALLBACK_LABELS[key] || key;
+				const placeholder = hints[key] || FALLBACK_PLACEHOLDERS[key] || "";
+				return (
+					<div key={key}>
+						<label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+							{label}
+						</label>
+						<textarea
+							value={sheet[key] || ""}
+							onChange={(e) => update(key, e.target.value)}
+							placeholder={placeholder}
+							className={cn(
+								"w-full rounded-lg border border-border bg-background p-2 text-xs leading-relaxed resize-y",
+								"h-14 sm:h-20",
+							)}
+						/>
+					</div>
+				);
+			})}
 
 			<div className="flex items-center justify-between pt-1">
 				<div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
 					<FileText size={12} />
 					<span>
 						{saveStatus === "saving"
-							? "保存中..."
+							? "保存中…"
 							: saveStatus === "saved"
 								? `已自动保存 ${lastSavedAt || ""}`
 								: saveStatus === "error"

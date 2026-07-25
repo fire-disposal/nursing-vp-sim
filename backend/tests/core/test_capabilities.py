@@ -12,7 +12,7 @@ class TestDetectCapabilities:
     def test_defaults_empty_case_data(self):
         result = detect_capabilities(case_data={}, training_type="history_taking")
         assert result["emotion"] is True  # builtin always on
-        assert result["nursing_record"] is True  # always on for history_taking
+        assert result["nursing_record"] is False  # no exam_anchors → no nursing record
         assert result["quiz"] is False  # no quiz data
         assert result["physical_exam"] is False  # no exam_anchors
         assert result["patient_initiative"] is False  # personality default = no initiative
@@ -61,11 +61,17 @@ class TestDetectCapabilities:
         assert "mews" not in result
 
     def test_overrides_can_disable(self):
-        case_data = {}
+        case_data = {"nursing_record": {"type": "adpie"}}
         result = detect_capabilities(
             case_data=case_data, training_type="history_taking", overrides={"nursing_record": False}
         )
-        assert result["nursing_record"] is False
+        assert result["nursing_record"] is False  # override disabled it
+
+    def test_nursing_record_detected_from_own_field(self):
+        case_data = {"nursing_record": {"type": "adpie"}}
+        result = detect_capabilities(case_data=case_data, training_type="history_taking")
+        assert result["nursing_record"] is True
+        assert result["physical_exam"] is False  # no exam_anchors → no physical exam
 
     def test_overrides_cannot_enable_without_data(self):
         case_data = {}
@@ -110,9 +116,9 @@ class TestIsEnabled:
     def test_override_can_disable(self):
         record = MagicMock()
         record.practice_snapshot = {"features": {"nursing_record": False}}
-        record.case_snapshot = {}
+        record.case_snapshot = {"nursing_record": {"type": "adpie"}}
         record.training_type = "history_taking"
-        assert is_enabled(record, "nursing_record") is False
+        assert is_enabled(record, "nursing_record") is False  # override disabled it
 
     def test_unknown_key_returns_false(self):
         record = MagicMock()

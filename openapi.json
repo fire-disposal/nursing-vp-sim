@@ -9250,7 +9250,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^(scoring_criteria|hidden_info|required_inquiries)$"
+                "pattern": "^(hidden_info|required_inquiries)$"
               },
               {
                 "type": "null"
@@ -12429,7 +12429,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 4
+                "pattern": "^(男|女)?$"
               },
               {
                 "type": "null"
@@ -14022,6 +14022,18 @@
             "type": "object",
             "title": "Triage Result"
           },
+          "nursing_record_sheet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nursing Record Sheet"
+          },
           "case_data": {
             "additionalProperties": true,
             "type": "object",
@@ -14364,7 +14376,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 4
+                "pattern": "^(男|女)?$"
               },
               {
                 "type": "null"
@@ -14451,7 +14463,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 4
+                "pattern": "^(男|女)?$"
               },
               {
                 "type": "null"

@@ -1,5 +1,6 @@
 {
   "name": "高热伴意识模糊",
+  "training_type": "triage",
   "description": "患者发热3天，意识模糊1小时",
   "time_limit": 10,
   "patient_info": {

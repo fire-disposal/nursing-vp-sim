@@ -1,5 +1,6 @@
 {
   "name": "急性胸痛",
+  "training_type": "triage",
   "description": "患者突发胸痛30分钟，伴有大汗淋漓",
   "time_limit": 10,
   "patient_info": {

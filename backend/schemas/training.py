@@ -119,6 +119,7 @@ class TrainingRecordDetail(BaseModel):
     exam_anchors: dict[str, Any] = Field(default_factory=dict)
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
     triage_result: dict[str, Any] = Field(default_factory=dict)
+    nursing_record_sheet: dict[str, Any] | None = None
     case_data: dict[str, Any] = Field(default_factory=dict)
     profile_info: dict[str, Any] = Field(default_factory=dict)
     emotion: dict[str, Any] | None = None
