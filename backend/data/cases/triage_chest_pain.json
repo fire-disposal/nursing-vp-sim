@@ -25,5 +25,18 @@
     "胸痛伴大汗",
     "血压偏低",
     "心率偏快"
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "36.8",
+      "heart_rate": "112",
+      "blood_pressure": "90/60",
+      "respiratory_rate": "24",
+      "spo2": "93"
+    },
+    "skin": {
+      "全身": "皮肤温暖干燥，未见异常"
+    }
+  },
+  "nursing_record": {}
 }

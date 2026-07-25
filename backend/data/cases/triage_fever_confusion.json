@@ -25,5 +25,18 @@
     "高龄",
     "高热",
     "意识改变"
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "39.5",
+      "heart_rate": "105",
+      "blood_pressure": "100/65",
+      "respiratory_rate": "28",
+      "spo2": "95"
+    },
+    "skin": {
+      "全身": "皮肤温暖干燥，未见异常"
+    }
+  },
+  "nursing_record": {}
 }

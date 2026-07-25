@@ -60,5 +60,18 @@
       "question": "家里有人能帮您吗？",
       "answer": "婆婆帮着带孩子做饭，但她觉得我就是想太多...老公天天加班，回来孩子都睡了。我也不敢跟她们多说，怕被觉得矫情。"
     }
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "36.5-37.0",
+      "heart_rate": "72-82",
+      "blood_pressure": "108/68-118/78",
+      "respiratory_rate": "16-18",
+      "spo2": "98-100"
+    },
+    "skin": {
+      "全身": "皮肤温暖干燥，未见异常"
+    }
+  },
+  "nursing_record": {}
 }

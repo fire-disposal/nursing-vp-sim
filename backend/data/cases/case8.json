@@ -61,5 +61,18 @@
       "question": "最近心情和睡眠怎么样？",
       "answer": "还行吧...（长叹一口气）店里事情多，跟老婆最近也老吵架。睡不太好，男人谁没点烦心事。我身体好得很，没大事。"
     }
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "36.2-36.8",
+      "heart_rate": "100-115",
+      "blood_pressure": "95/58-105/65",
+      "respiratory_rate": "18-24",
+      "spo2": "95-98"
+    },
+    "skin": {
+      "全身": "皮肤黏膜苍白，可见肝掌"
+    }
+  },
+  "nursing_record": {}
 }

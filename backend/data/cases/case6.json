@@ -60,5 +60,18 @@
       "question": "孩子最近有没有感冒或者其他不舒服？",
       "answer": "你这么一说...他前一周确实有点流鼻涕，偶尔咳两声，但我以为是换季没在意。这也跟抽筋有关系吗？"
     }
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "38.5-39.5",
+      "heart_rate": "120-140",
+      "blood_pressure": "88/52-95/60",
+      "respiratory_rate": "28-38",
+      "spo2": "94-97"
+    },
+    "skin": {
+      "全身": "皮肤潮红，弹性可，前囟平坦"
+    }
+  },
+  "nursing_record": {}
 }

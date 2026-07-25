@@ -59,5 +59,18 @@
       "question": "您平时抽烟吗？",
       "answer": "嗯……抽了几十年了。其实最近咳得厉害，自己也减了，但戒不掉啊……"
     }
-  ]
+  ],
+  "exam_anchors": {
+    "vital_signs": {
+      "temperature": "37.2-37.8",
+      "heart_rate": "88-100",
+      "blood_pressure": "138/82-148/90",
+      "respiratory_rate": "22-28",
+      "spo2": "91-94"
+    },
+    "skin": {
+      "全身": "皮肤干燥，口唇轻度发绀，可见杵状指"
+    }
+  },
+  "nursing_record": {}
 }
