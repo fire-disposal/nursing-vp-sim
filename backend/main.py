@@ -326,16 +326,9 @@ from profiles.registry import register_profile
 register_profile("history_taking", _HISTORY_TAKING_PROFILE)
 
 # Tool registration
-from contexts.training.tools import register as register_tool
-from contexts.training.tools.mews import MewsHandler
-from contexts.training.tools.nursing_record import NursingRecordHandler
-from contexts.training.tools.physical_exam import PhysicalExamHandler
-from contexts.training.tools.quiz import QuizHandler
+from contexts.training.tools import register_all
 
-register_tool(PhysicalExamHandler())
-register_tool(NursingRecordHandler())
-register_tool(QuizHandler())
-register_tool(MewsHandler())
+register_all()
 
 # Route registration
 from routers import register_routers
