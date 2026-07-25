@@ -53,11 +53,13 @@ export function TrainingHeader() {
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
 	const endingRef = useRef(false);
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const autoEndFiredRef = useRef(false);
 
 	const studentMsgs = messages.filter(m => m.role === "student");
 
 	const initialRemaining =
-		remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
+		autoEndFiredRef.current ? null
+		: remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
 
 	const {
 		remaining,
@@ -67,6 +69,7 @@ export function TrainingHeader() {
 	} = useTrainingTimer({
 		initialRemaining,
 		onAutoEnd: () => {
+			autoEndFiredRef.current = true;
 			setAutoEndOpen(true);
 			setAutoEndCountdown(10);
 			stopTimer();
