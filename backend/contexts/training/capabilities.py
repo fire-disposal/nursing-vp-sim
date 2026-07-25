@@ -1,255 +1,132 @@
-"""Capability detection — "数据即能力": tool availability is inferred from case_data content.
+"""Tool binding — "数据即能力": tools are enabled by the presence of their config fields in case_data.
 
-No more explicit `capabilities` boolean dict in case_data. The system inspects
-what data the case actually contains and enables tools accordingly.
-
-Assignment.features can still opt-out (force-disable) a capability, but cannot
-opt-in if the case data doesn't support it.
-
-Detection rules are declared declaratively via `DataPredicate` on each
-`Capability`. Adding a new capability only requires a new entry — no per-key
-if-elif branch in the detection engine.
+No more DataPredicate rules, no more capabilities dict.  Each ToolBinding declares which
+case_data field activates it.  The detection engine is a one-liner: field exists + non-empty.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from models.training import TrainingRecord
 
-Tier = Literal["builtin", "toggleable"]
-PredicateType = Literal["training_type", "data_path", "personality_or"]
-DataCheck = Literal["non_empty_dict", "non_empty_list"]
-
 
 @dataclass(frozen=True)
-class DataPredicate:
-    """Declares how to detect capability presence from case_data content.
+class ToolBinding:
+    """Maps a case_data field to a tool — field exists → tool enabled."""
 
-    Three model types:
-      - ``training_type``    always-on for types that pass ``_applies`` (mews in triage)
-      - ``data_path``        inspect a dotted JSON path against a predicate
-      - ``personality_or``   match any of several personality field → value pairs
+    tool: str
+    field: str
+    label: str = ""
+    description: str = ""
+    tier: str = "toggleable"  # "builtin" | "toggleable"
 
-    ``legacy_key`` enables the old ``capabilities.{key}`` fallback for backward compat.
-    """
-
-    type: PredicateType
-    data_path: str | None = None
-    data_check: DataCheck | None = None
-    personality_checks: tuple[tuple[str, str], ...] | None = None
-    legacy_key: str | None = None
+    @property
+    def key(self) -> str:
+        return self.tool
 
 
-@dataclass(frozen=True)
-class Capability:
-    """能力元数据 — 用于文档/UI/代码生成，并为统一检测引擎提供 ``DataPredicate``。"""
+# ── Registry ──
 
-    key: str
-    label: str
-    description: str
-    tier: Tier
-    training_types: tuple[str, ...] | None = None
-    requires: tuple[str, ...] = field(default_factory=tuple)
-    detect: DataPredicate | None = None  # None → builtin, always on for applicable types
-
-
-ALL_CAPABILITIES: dict[str, Capability] = {
-    "emotion": Capability(
-        key="emotion",
-        label="患者情绪状态机",
-        description="6态情绪模型，根据学生用语动态变化。",
-        tier="builtin",
-        training_types=None,
+TOOL_BINDINGS: list[ToolBinding] = [
+    ToolBinding(
+        tool="quiz",
+        field="quiz",
+        label="随堂测验",
+        description="训练过程中弹出选择题/判断题，检测学生知识掌握情况",
     ),
-    "patient_initiative": Capability(
-        key="patient_initiative",
-        label="患者主动追问",
-        description="患者根据性格/情绪/等待时长主动发言。",
-        tier="toggleable",
-        training_types=("history_taking",),
-        requires=("emotion",),
-        detect=DataPredicate(
-            type="personality_or",
-            personality_checks=(("anxiety_trait", "anxious"), ("patience", "low")),
-        ),
-    ),
-    "physical_exam": Capability(
-        key="physical_exam",
+    ToolBinding(
+        tool="physical_exam",
+        field="exam_anchors",
         label="护理查体",
-        description="允许学生触发护理操作（测血压/体温/听诊等）。仅当病例含 exam_anchors 数据时可用。",
-        tier="toggleable",
-        training_types=("history_taking",),
-        detect=DataPredicate(
-            type="data_path",
-            data_path="exam_anchors",
-            data_check="non_empty_dict",
-            legacy_key="physical_exam",
-        ),
+        description="学生可进行虚拟体格检查（测量生命体征）",
     ),
-    "nursing_record": Capability(
-        key="nursing_record",
-        label="护理评估记录",
-        description="结构化护理评估表单填写（ADPIE）。仅当病例含 nursing_record 数据时可用。",
-        tier="toggleable",
-        training_types=("history_taking",),
-        detect=DataPredicate(
-            type="data_path",
-            data_path="nursing_record",
-            data_check="non_empty_dict",
-            legacy_key="nursing_record",
-        ),
+    ToolBinding(
+        tool="nursing_record",
+        field="record_config",
+        label="护理记录",
+        description="生成结构化护理记录（ADPIE 格式）",
     ),
-    "quiz": Capability(
-        key="quiz",
-        label="引导题目",
-        description="训练中穿插病例相关的引导性选择题。不参与评分。",
-        tier="toggleable",
-        training_types=("history_taking", "triage"),
-        detect=DataPredicate(
-            type="data_path",
-            data_path="quiz.questions",
-            data_check="non_empty_list",
-        ),
-    ),
-    "mews": Capability(
-        key="mews",
+    ToolBinding(
+        tool="mews",
+        field="mews_config",
         label="MEWS 评分",
-        description="分诊场景下的早期预警评分计算工具。",
-        tier="toggleable",
-        training_types=("triage",),
-        detect=DataPredicate(
-            type="training_type",
-        ),
+        description="早期预警评分计算工具",
     ),
-}
+]
+
+# Builtin tools — always available
+_BUILTIN_KEYS = {"emotion", "patient_initiative", "inquiry_progress"}
 
 
-def _applies(cap: Capability, training_type: str | None) -> bool:
-    if training_type is None or cap.training_types is None:
-        return True
-    return training_type in cap.training_types
+# ── Public API ──
 
 
-def all_capabilities() -> dict[str, Capability]:
-    return dict(ALL_CAPABILITIES)
+def all_bindings() -> list[ToolBinding]:
+    return list(TOOL_BINDINGS)
 
 
-def capabilities_for_type(training_type: str) -> dict[str, Capability]:
-    return {k: c for k, c in ALL_CAPABILITIES.items() if _applies(c, training_type)}
+def detect_capabilities(
+    case_data: dict | None, *, training_type: str | None = None, overrides: dict | None = None
+) -> dict[str, bool]:
+    """Scan case_data for tool config fields.  Field exists + non-empty → tool enabled.
+
+    ``overrides`` takes precedence for explicit enable/disable (teacher assignment features).
+    """
+    if not case_data:
+        result = {b.tool: False for b in TOOL_BINDINGS}
+    else:
+        result = {}
+        for b in TOOL_BINDINGS:
+            val = _resolve_path(case_data, b.field)
+            result[b.tool] = _is_non_empty(val)
+
+    # Builtins: always on unless explicitly disabled via features
+    features = (overrides or {}) if overrides is not None else case_data.get("features", {}) if case_data else {}
+    for key in _BUILTIN_KEYS:
+        result[key] = features.get(key, result.get(key, True)) if isinstance(features, dict) else True
+
+    # overrides take precedence
+    if overrides:
+        for k, v in overrides.items():
+            if isinstance(v, bool):
+                result[k] = v
+
+    return result
 
 
-# ── unified data-driven detection engine ────────────────────────────────
+def is_enabled(record, key: str) -> bool:
+    """Runtime gate: re-detect from the record's snapshot."""
+    snapshot = record.practice_snapshot or {}
+    case_data = snapshot.get("case_data") or {}
+    features = snapshot.get("features") or {}
+    return detect_capabilities(case_data, training_type=record.training_type, overrides=features).get(key, False)
+
+
+# ── Internal helpers ──
 
 
 def _resolve_path(data: dict, path: str) -> Any:
-    """Resolve a dotted JSON path within case_data (e.g. ``"quiz.questions"``)."""
+    """Resolve a dotted JSON path within a dict."""
     current: Any = data
     for part in path.split("."):
-        if not isinstance(current, dict):
-            return None
-        current = current.get(part)
-        if current is None:
+        if isinstance(current, dict):
+            current = current.get(part)
+        else:
             return None
     return current
 
 
-def _check_data(case_data: dict, path: str, check: DataCheck) -> bool:
-    """Check data at a dotted path against a simple structural predicate."""
-    value = _resolve_path(case_data, path)
-    if check == "non_empty_dict":
-        return isinstance(value, dict) and len(value) > 0
-    if check == "non_empty_list":
-        return isinstance(value, list) and len(value) > 0
-    return False
-
-
-def _detect(cap: Capability, case_data: dict) -> bool:
-    """Generic capability detection driven by ``cap.detect`` DataPredicate."""
-    rule = cap.detect
-    if rule is None:
-        return True  # builtin — always on for applicable types
-
-    if rule.type == "training_type":
-        return True  # always-on within types that pass _applies
-
-    if rule.type == "personality_or" and rule.personality_checks:
-        personality = case_data.get("personality") or {}
-        return any(personality.get(field) == value for field, value in rule.personality_checks)
-
-    if rule.type == "data_path" and rule.data_path and rule.data_check:
-        if _check_data(case_data, rule.data_path, rule.data_check):
-            return True
-        # legacy backward-compat: old cases may have explicit capabilities.{key} flags
-        if rule.legacy_key and (case_data.get("capabilities") or {}).get(rule.legacy_key, False):
-            return True
+def _is_non_empty(val: Any) -> bool:
+    """Check if a value is structurally non-empty."""
+    if val is None:
         return False
-
-    return False
-
-
-# ── public API ───────────────────────────────────────────────────────────
-
-
-def detect_capabilities(
-    case_data: dict | None = None,
-    training_type: str = "history_taking",
-    overrides: dict[str, bool] | None = None,
-) -> dict[str, bool]:
-    """从 case_data 内容检测可用能力（数据即能力）。
-
-    Detections driven by each Capability's ``DataPredicate``:
-      - emotion:             builtin → always on
-      - patient_initiative:  personality_or matching anxiety_trait="anxious" or patience="low"
-      - physical_exam:       data_path exam_anchors non-empty dict (+ legacy capabilities fallback)
-      - nursing_record:      data_path exam_anchors non-empty dict
-      - quiz:                data_path quiz.questions non-empty list
-      - mews:                training_type → always on for triage
-
-    overrides: 教师 Assignment.features 可选覆盖（只能关闭，不能凭空开启）。
-    """
-    cd = case_data or {}
-    result: dict[str, bool] = {}
-
-    for k, cap in ALL_CAPABILITIES.items():
-        if not _applies(cap, training_type):
-            continue
-        if cap.tier == "builtin":
-            result[k] = True
-            continue
-
-        # toggleable — detect from data via declarative DataPredicate
-        result[k] = _detect(cap, cd)
-
-    # overrides: only allow opt-out for data-detected caps
-    if overrides:
-        for k, v in overrides.items():
-            if k in result and not v:
-                result[k] = False
-
-    # requires coupling
-    changed = True
-    while changed:
-        changed = False
-        for k, cap in ALL_CAPABILITIES.items():
-            if result.get(k):
-                for req in cap.requires:
-                    if req in result and not result[req]:
-                        result[req] = True
-                        changed = True
-    return result
-
-
-def is_enabled(record: TrainingRecord, key: str) -> bool:
-    """运行时门控：从 record 的快照中重检测能力。"""
-    snapshot = getattr(record, "practice_snapshot", None) or {}
-    case_snapshot = getattr(record, "case_snapshot", None) or {}
-    training_type = getattr(record, "training_type", None) or "history_taking"
-
-    return detect_capabilities(
-        case_data=case_snapshot,
-        training_type=training_type,
-        overrides=snapshot.get("features"),
-    ).get(key, False)
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (dict, list)):
+        return len(val) > 0
+    if isinstance(val, str):
+        return bool(val.strip())
+    return True
