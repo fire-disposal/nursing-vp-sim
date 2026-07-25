@@ -66,7 +66,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   const [wsConnected, setWsConnected] = useState(true);
   const measureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => subscribeWSConnection(setWsConnected), []);
+  useEffect(() => subscribeWSConnection((c) => { if (!c) setWsConnected(false); }), []);
 
   const seededRef = useRef(false);
   useEffect(() => {
