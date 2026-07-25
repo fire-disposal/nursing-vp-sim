@@ -3,34 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from schemas.common import _REQ_CFG, _RESP_CFG
-
-
-class TrainingStartRequest(BaseModel):
-    model_config = _REQ_CFG
-    case_id: int
-    features: dict[str, bool] | None = None
-    time_limit_minutes: int | None = None
-
-
-class TrainingStartResponse(BaseModel):
-    model_config = _RESP_CFG
-    record_id: int
-    greeting: str
-    case_name: str = ""
-    pending_questionnaires: int = 0
-
-
-class ChatMessageRequest(BaseModel):
-    model_config = _REQ_CFG
-    content: str = Field(min_length=1, max_length=2000)
-
-
-class ChatMessageResponse(BaseModel):
-    model_config = _RESP_CFG
-    role: str
-    content: str
-    operation: dict | None = None
+from schemas.common import _RESP_CFG
 
 
 class TrainingRecordBrief(BaseModel):
@@ -102,8 +75,8 @@ class TrainingRecordDetail(BaseModel):
     end_time: datetime | None
     time_limit: int = 20
     remaining_seconds: int | None = None
-    messages: list["MessageItem"]
-    score: "ScoreItem | None" = None
+    messages: list[MessageItem]
+    score: ScoreItem | None = None
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
     patient_gender: str = ""
@@ -125,76 +98,3 @@ class TrainingRecordDetail(BaseModel):
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
     is_test: bool = False
-
-
-class ScoringTriggerResponse(BaseModel):
-    message: str
-    record_id: int
-    scoring_status: str
-
-
-class EmotionStateResponse(BaseModel):
-    trust: int
-    comfort: int
-    state: str
-    note: str
-    history: list[dict] = Field(default_factory=list)
-
-
-class InitiativeStateResponse(BaseModel):
-    elapsed_seconds: float
-    threshold_seconds: float
-    percent: float
-    should_trigger: bool = False
-
-
-class InitiativeTriggerResponse(BaseModel):
-    triggered: bool
-    message: str | None = None
-    id: int | None = None
-    emotion: dict | None = None
-
-
-class NursingRecordSave(BaseModel):
-    model_config = _REQ_CFG
-    sheet_data: dict = Field(default_factory=dict)
-    status: str = "draft"
-
-
-class NursingRecordResponse(BaseModel):
-    model_config = _RESP_CFG
-    id: int
-    record_id: int
-    sheet_data: dict
-    status: str
-    updated_at: datetime
-
-
-class ScoringStatusResponse(BaseModel):
-    scoring_status: str | None = None
-    scoring_error: str | None = None
-    score: dict[str, Any] | None = None
-    progress: dict[str, Any] | None = None
-
-
-class TrainingNotificationItem(BaseModel):
-    id: int
-    type: str
-    title: str
-    body: str | None = None
-    record_id: int | None = None
-    is_read: bool = False
-    created_at: datetime
-
-
-class ExamOperationResult(BaseModel):
-    type: str
-    label: str = ""
-    value: str = ""
-    unit: str = ""
-
-
-class ExamOperationResponse(BaseModel):
-    type: str
-    data: ExamOperationResult
-    all_results: list[ExamOperationResult] = []
