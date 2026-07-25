@@ -58,10 +58,10 @@ export function SceneRenderer() {
     <div className="shrink-0 hidden md:flex h-full">
       {/* Panel — always mounted during animation, width: 0 when closed */}
       <div
-        style={{ width: showPanel && displayTool ? panelWidth(displayTool) : 0 }}
+        style={{ width: showPanel && displayTool ? panelWidth(displayTool) : 0, transition: `width ${ANIM_DURATION}ms ease-out` }}
         className={cn(
-          "h-full flex flex-col border-l border-border bg-card overflow-hidden transition-all",
-          isClosing ? "duration-200 opacity-0 translate-x-2" : showPanel ? "duration-200 opacity-100 translate-x-0" : "duration-0 opacity-0 border-l-0",
+          "h-full flex flex-col border-l border-border bg-card overflow-hidden",
+          showPanel ? "opacity-100" : "opacity-0 border-l-0",
         )}
       >
         {showPanel && displayTool && (
