@@ -108,7 +108,7 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 	const onPointerMove = useCallback((e: React.PointerEvent) => {
 		if (!draggingRef.current) return;
 		const now = Date.now();
-		const dyPx = startYRef.current - e.clientY;
+		const dyPx = e.clientY - startYRef.current;
 		const vhPerPx = 100 / window.innerHeight;
 		const dyVh = dyPx * vhPerPx;
 		setDragOffset(dyVh);
@@ -127,7 +127,7 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 		const dpPx = e.clientY - lastYRef.current;
 		const vhPerPx = 100 / window.innerHeight;
 		const velocityVhPerMs = (dpPx * vhPerPx) / dt;
-		const totalDyVh = (startYRef.current - e.clientY) * vhPerPx;
+		const totalDyVh = (e.clientY - startYRef.current) * vhPerPx;
 
 		const nextSnap = resolveSnap(totalDyVh, velocityVhPerMs, snap);
 		setDragOffset(0);
