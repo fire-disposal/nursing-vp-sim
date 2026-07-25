@@ -14,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from core.gender import normalize_gender  # noqa: F401 — re-export for existing callers
 from core.jsonb import JsonbModel
-from profiles.triage.case_schema import TriageCaseData
 
 log = logging.getLogger(__name__)
 
@@ -113,13 +112,26 @@ class CaseDataSchema(JsonbModel):
 
 _TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
     "history_taking": CaseDataSchema,
-    "triage": TriageCaseData,
 }
+
+
+def _ensure_triage_validator() -> None:
+    """Lazy-register TriageCaseData to break circular import with profiles/triage."""
+    if "triage" not in _TYPE_VALIDATORS:
+        from profiles.triage.case_schema import TriageCaseData  # noqa: PLC0415
+
+        _TYPE_VALIDATORS["triage"] = TriageCaseData
+
+
+def _get_validator(training_type: str) -> type[BaseModel] | None:
+    if training_type == "triage":
+        _ensure_triage_validator()
+    return _TYPE_VALIDATORS.get(training_type)
 
 
 def validate_case_data(training_type: str, data: dict, *, strict: bool = False) -> dict:
     """Validate case_data against the schema for the given training_type."""
-    schema_cls = _TYPE_VALIDATORS.get(training_type)
+    schema_cls = _get_validator(training_type)
     if schema_cls is None:
         log.warning("No validator for training_type=%s, skipping validation", training_type)
         return data
@@ -139,4 +151,5 @@ def assert_valid_case_data(data: dict) -> dict:
 
 def list_valid_training_types() -> list[str]:
     """Return training types that have a registered validator/profile."""
+    _ensure_triage_validator()
     return list(_TYPE_VALIDATORS.keys())
