@@ -4,7 +4,7 @@ import asyncio
 import logging
 import threading
 
-from contexts.training.router.session import set_training_infra
+from ._infra import set_training_infra
 from contexts.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
 

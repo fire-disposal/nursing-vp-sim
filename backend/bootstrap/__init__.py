@@ -7,7 +7,7 @@ from bootstrap.infra import init_infra
 from bootstrap.llm import init_llm
 from bootstrap.settlement import shutdown_background, start_background_loop, start_settlement
 from bootstrap.voice import init_tts
-from contexts.training.router.session import stop_background_loop
+from bootstrap._infra import stop_background_loop
 from core.config import CLEANUP_INTERVAL_SECONDS
 from core.database import engine
 
