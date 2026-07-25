@@ -229,7 +229,7 @@ class TestScoringPromptSanity:
 
     def test_coerce_string_numbers_to_int(self):
         """LLM 把数字写成字符串时自动转换为数字"""
-        from contexts.training.scoring._validation import _coerce_numeric_fields
+        from contexts.training.scoring.validation import _coerce_numeric_fields
 
         result = {
             "total_score": "24",
@@ -258,7 +258,7 @@ class TestScoringPromptSanity:
         assert isinstance(result["detail_scores"]["病史采集"]["max"], int)
 
     def test_coerce_float_score(self):
-        from contexts.training.scoring._validation import _coerce_numeric_fields
+        from contexts.training.scoring.validation import _coerce_numeric_fields
 
         result = {"total_score": "35.5"}
         _coerce_numeric_fields(result)
@@ -321,7 +321,7 @@ class TestScoringFlowEndToEnd:
 
     def test_validate_scoring_result_safety(self):
         """评分验证不应对正确结果误报"""
-        from contexts.training.scoring._validation import _validate_scoring_result
+        from contexts.training.scoring.validation import _validate_scoring_result
 
         result = {
             "total_score": 42,
@@ -368,7 +368,7 @@ class TestScoringFlowEndToEnd:
         _validate_scoring_result(result)  # 不应抛异常：scored项有足够evidence，score=0项不校验
 
     def test_validate_rejects_missing_total_score(self):
-        from contexts.training.scoring._validation import _validate_scoring_result
+        from contexts.training.scoring.validation import _validate_scoring_result
 
         with pytest.raises(ValueError, match="缺失字段"):
             _validate_scoring_result({})

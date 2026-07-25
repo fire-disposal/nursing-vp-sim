@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from core.exceptions import LLMParseError, NoProviderAvailable
-from infrastructure.llm._call_recorder import CallMeta, CallRecorder
+from infrastructure.llm.call_recorder import CallMeta, CallRecorder
 from infrastructure.llm.circuit import async_retry, backoff_delay
 
 from .logging import LogWorker

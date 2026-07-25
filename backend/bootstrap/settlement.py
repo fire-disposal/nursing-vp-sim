@@ -7,7 +7,7 @@ import threading
 from contexts.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
 
-from ._infra import set_training_infra
+from .infra import set_training_infra
 
 log = logging.getLogger(__name__)
 

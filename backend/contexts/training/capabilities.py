@@ -6,11 +6,8 @@ case_data field activates it.  The detection engine is a one-liner: field exists
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from models.training import TrainingRecord
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)

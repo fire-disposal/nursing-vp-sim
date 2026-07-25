@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from models import QARecord
 
-from ._citations import clean_content, extract_citations
+from .citations import clean_content, extract_citations
 
 log = logging.getLogger(__name__)
 

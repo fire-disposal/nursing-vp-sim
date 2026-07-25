@@ -19,7 +19,7 @@ from infrastructure.prompt import render_template
 from models import QARecord, QASession, User
 from schemas import Citation, QAAskResponse, QASessionCreate, SectionTextResponse
 
-from .._citations import embed_citations
+from ..citations import embed_citations
 from ..logic import build_qa_history, get_cached_answer
 from .tools import QA_TOOLS, build_tool_handlers, inject_search_context, pre_search
 

@@ -17,7 +17,7 @@ from schemas import (
     QASessionItem,
 )
 
-from .._citations import extract_citations
+from ..citations import extract_citations
 
 log = logging.getLogger(__name__)
 

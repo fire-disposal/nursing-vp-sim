@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import main  # noqa: F401 — trigger profile + tool registration
-from contexts.training.capabilities import TOOL_BINDINGS, all_bindings
+from contexts.training.capabilities import all_bindings
 from profiles.registry import get_known_types
 
 OUT = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" / "engine" / "capabilities.gen.ts"

@@ -18,7 +18,16 @@ from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from profiles.rubric_loader import get_rubric_version_id, load_rubric
 
-from ._validation import (
+from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
+from .prompts import (
+    FEEDBACK_RETRY_USER,
+    SCORING_FEEDBACK_SYSTEM,
+    SCORING_FEEDBACK_USER,
+    SCORING_RETRY_USER,
+    SCORING_SYSTEM,
+    SCORING_USER,
+)
+from .validation import (
     _check_feedback_empty,
     _clamp_scores,
     _coerce_numeric_fields,
@@ -32,15 +41,6 @@ from ._validation import (
     _validate_items_content,
     _validate_scoring_essentials,
     _validate_scoring_result,
-)
-from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
-from .prompts import (
-    FEEDBACK_RETRY_USER,
-    SCORING_FEEDBACK_SYSTEM,
-    SCORING_FEEDBACK_USER,
-    SCORING_RETRY_USER,
-    SCORING_SYSTEM,
-    SCORING_USER,
 )
 
 # ── 常量 ──

@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from contexts.training.scoring._validation import _recalc_total_from_dimensions
+from contexts.training.scoring.validation import _recalc_total_from_dimensions
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from models import Score, ScoreReview, TrainingRecord, User
