@@ -51,15 +51,10 @@ def get_feedback_image(
     current_user: _AnyUser,
     db: DbSession,
 ):
-    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
-    if not fb:
-        raise HTTPException(status_code=404)
-
-    if fb.user_id != current_user.id and not current_user.has_permission("feedback_review"):
-        raise HTTPException(status_code=404)
-
     service = FeedbackService(db)
     img = service.get_image(feedback_id, image_id)
+    if img.feedback.user_id != current_user.id and not current_user.has_permission("feedback_review"):
+        raise HTTPException(status_code=404)
     return Response(content=bytes(img.image_data), media_type=img.mime_type)
 
 
@@ -230,51 +225,15 @@ def bot_list_feedback(
     offset: int = Query(0, ge=0),
 ):
     _check_bot_token(token)
-    from datetime import datetime
-
-    q = db.query(Feedback).order_by(Feedback.created_at.desc())
-
-    # Default: exclude already fixed (prevents re-processing loops)
-    if not include_fixed:
-        q = q.filter(Feedback.auto_fix_attempted == False)
-
-    if replied is True:
-        q = q.filter(Feedback.developer_reply.isnot(None))
-    elif replied is False:
-        q = q.filter(Feedback.developer_reply.is_(None))
-
-    if since:
-        try:
-            q = q.filter(Feedback.created_at >= datetime.fromisoformat(since))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid since format, use ISO datetime")
-    if version:
-        q = q.filter(Feedback.version == version)
-    if tag:
-        q = q.filter(Feedback.tag == tag)
-
-    total = q.count()
-    items = q.offset(offset).limit(limit).all()
-    return {
-        "items": [
-            {
-                "id": f.id,
-                "rating": f.rating,
-                "tag": f.tag,
-                "content": f.content,
-                "version": f.version,
-                "developer_reply": f.developer_reply,
-                "replied_at": f.replied_at.isoformat() if f.replied_at else None,
-                "auto_fix_attempted": f.auto_fix_attempted,
-                "auto_fix_at": f.auto_fix_at.isoformat() if f.auto_fix_at else None,
-                "created_at": f.created_at.isoformat(),
-            }
-            for f in items
-        ],
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-    }
+    return FeedbackService(db).bot_list(
+        since=since,
+        version=version,
+        tag=tag,
+        replied=replied,
+        include_fixed=include_fixed,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.patch("/feedback/bot/{feedback_id}")
@@ -284,13 +243,4 @@ def bot_mark_fix_attempted(
     token: str = Query(...),
 ):
     _check_bot_token(token)
-    from datetime import UTC, datetime
-
-    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
-    if not fb:
-        raise HTTPException(status_code=404, detail="not found")
-    fb.auto_fix_attempted = True
-    now = datetime.now(UTC)
-    fb.auto_fix_at = now
-    db.commit()
-    return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": now.isoformat()}
+    return FeedbackService(db).bot_mark_fix_attempted(feedback_id)

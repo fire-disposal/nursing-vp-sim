@@ -275,3 +275,64 @@ class FeedbackService:
             return parse_iso_datetime(val)
         except ValueError:
             raise ValidationError(f"无效日期格式: {val}")
+
+    # ── Bot API ──
+
+    def bot_list(
+        self,
+        since: str | None = None,
+        version: str | None = None,
+        tag: str | None = None,
+        replied: bool | None = None,
+        include_fixed: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict:
+        q = self.db.query(Feedback).order_by(Feedback.created_at.desc())
+        if not include_fixed:
+            q = q.filter(Feedback.auto_fix_attempted == False)
+        if replied is True:
+            q = q.filter(Feedback.developer_reply.isnot(None))
+        elif replied is False:
+            q = q.filter(Feedback.developer_reply.is_(None))
+        if since:
+            try:
+                q = q.filter(Feedback.created_at >= datetime.fromisoformat(since))
+            except ValueError:
+                raise ValidationError("Invalid since format, use ISO datetime")
+        if version:
+            q = q.filter(Feedback.version == version)
+        if tag:
+            q = q.filter(Feedback.tag == tag)
+        total = q.count()
+        items = q.offset(offset).limit(limit).all()
+        return {
+            "items": [
+                {
+                    "id": f.id,
+                    "rating": f.rating,
+                    "tag": f.tag,
+                    "content": f.content,
+                    "version": f.version,
+                    "developer_reply": f.developer_reply,
+                    "replied_at": f.replied_at.isoformat() if f.replied_at else None,
+                    "auto_fix_attempted": f.auto_fix_attempted,
+                    "auto_fix_at": f.auto_fix_at.isoformat() if f.auto_fix_at else None,
+                    "created_at": f.created_at.isoformat(),
+                }
+                for f in items
+            ],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
+    def bot_mark_fix_attempted(self, feedback_id: int) -> dict:
+        fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
+        if not fb:
+            raise NotFoundError("反馈不存在")
+        fb.auto_fix_attempted = True
+        now = datetime.now(UTC)
+        fb.auto_fix_at = now
+        self.db.commit()
+        return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": now.isoformat()}

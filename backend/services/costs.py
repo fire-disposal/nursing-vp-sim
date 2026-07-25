@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
 from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
+from repositories.llm_log import LLMCallLogRepository
 from repositories.voice_log import VoiceCallLogRepository
 from schemas.voice import (
     CostBreakdown,
@@ -78,16 +79,12 @@ class CostService:
         )
 
     def _llm_stats(self, since: datetime) -> tuple:
-        base = self.db.query(LLMCallLog).filter(LLMCallLog.created_at >= since)
-        total = base.count()
-        success = base.filter(LLMCallLog.status == "success").count()
-        error_count = base.filter(LLMCallLog.status == "error").count()
-        avg_latency = self.db.query(func.avg(LLMCallLog.latency_ms)).filter(LLMCallLog.created_at >= since).scalar()
-        total_cost = (
-            self.db.query(func.sum(LLMCallLog.estimated_cost))
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == "success")
-            .scalar()
-        )
+        repo = LLMCallLogRepository(self.db)
+        total = repo.count_since(since)
+        success = repo.success_count_since(since)
+        error_count = total - success
+        avg_latency = repo.avg_latency_since(since)
+        total_cost = repo.total_cost_since(since)
         return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
 
     def _voice_stats(self, since: datetime) -> tuple:
