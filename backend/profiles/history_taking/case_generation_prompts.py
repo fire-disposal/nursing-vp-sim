@@ -103,8 +103,4 @@ def build_system_prompt(
     field_instruction: str,
 ) -> str:
     """按训练类型拼接系统提示词，避免模板内嵌条件变量。"""
-    parts = [CASE_GENERATION_HEAD]
-    if training_type == "triage":
-        parts.append(CASE_GENERATION_TRIAGE_EXTRA)
-    parts.append(CASE_GENERATION_TAIL)
-    return "\n\n".join(parts)
+    return "\n\n".join([CASE_GENERATION_HEAD, CASE_GENERATION_TAIL])

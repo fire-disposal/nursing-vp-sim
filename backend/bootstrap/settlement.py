@@ -4,9 +4,10 @@ import asyncio
 import logging
 import threading
 
-from ._infra import set_training_infra
 from contexts.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
+
+from ._infra import set_training_infra
 
 log = logging.getLogger(__name__)
 

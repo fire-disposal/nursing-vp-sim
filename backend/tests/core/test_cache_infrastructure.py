@@ -1,7 +1,7 @@
 import pytest
 
-from contexts.training.session.cache import EmotionCache, InitiativeCache
 from contexts.training.patient_ai.emotion import EmotionState
+from contexts.training.session.cache import EmotionCache, InitiativeCache
 
 
 def _create_record(db):

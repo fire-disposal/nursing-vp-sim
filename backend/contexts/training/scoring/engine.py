@@ -330,33 +330,6 @@ def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str
     return scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text
 
 
-def _build_triage_messages(record: TrainingRecord, case_data: dict) -> tuple[list[dict], str, str]:
-    triage_result = (record.runtime_state or {}).get("triage_result", {})
-    actions_parts = []
-    if triage_result:
-        actions_parts.append(f"学生计算的MEWS评分：{triage_result.get('mews_score', '未计算')}")
-        actions_parts.append(f"学生选择的分诊级别：{triage_result.get('category', '未选择')}")
-        actions_parts.append(f"学生推荐的目标科室：{triage_result.get('department', '未选择')}")
-        notes = triage_result.get("notes", "")
-        if notes:
-            actions_parts.append(f"备注：{notes}")
-    student_actions_text = "\n".join(actions_parts) if actions_parts else "学生未提交分诊结果"
-
-    from profiles.triage.builder import build_context_kwargs
-
-    profile = get_profile("triage")
-    pc = PromptContext()
-    pc.register("case", build_context_kwargs(case_data))
-    pc.register("actions", {"student_actions": student_actions_text})
-    prompt_kw = pc.as_dict()
-
-    score_system = render_template(str(profile.prompts.scoring), **prompt_kw)
-    score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
-    score_messages = [
-        {"role": "system", "content": score_system},
-        {"role": "user", "content": score_user},
-    ]
-    return score_messages, "", ""
 
 
 def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
@@ -546,23 +519,12 @@ async def evaluate_training(
     rubric = _resolve_rubric(db, record)
     conversation_text = _format_conversation(messages)
 
-    training_type = getattr(record, "training_type", None) or "history_taking"
     scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text = (
         _prepare_scoring_texts(rubric, case_data)
     )
-
-    if training_type == "triage":
-        score_messages, exam_results_text, nursing_record_text = _build_triage_messages(record, case_data)
-    else:
-        nursing_record_text = _load_nursing_record_text(db, record)
-        score_messages, exam_results_text, nursing_record_text = _build_history_messages(
-            record,
-            scoring_criteria_text,
-            required_inquiries_text,
-            scoring_json_schema_text,
-            conversation_text,
-            nursing_record_text=nursing_record_text,
-        )
+    score_messages, exam_results_text, nursing_record_text = _build_history_messages(
+        record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text, nursing_record_text
+    )
 
     feedback_messages = _build_feedback_messages(
         scoring_criteria_text_brief, required_inquiries_text, conversation_text, exam_results_text, nursing_record_text

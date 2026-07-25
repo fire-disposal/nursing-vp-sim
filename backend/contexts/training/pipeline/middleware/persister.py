@@ -2,8 +2,8 @@
 
 import logging
 
-from models import Message
 from contexts.training.patient_ai.initiative import update_initiative_timer
+from models import Message
 
 from ..context import (
     STATE_SAVED_MESSAGES,

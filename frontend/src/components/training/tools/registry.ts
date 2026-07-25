@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
-import { lazy } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import InquiryTool from "./InquiryTool";
+import MewsTool from "./MewsTool";
 import NursingRecordTool from "./NursingRecordTool";
 import PatientInfoTool from "./PatientInfoTool";
 import PhysicalExamTool from "./PhysicalExamTool";
@@ -23,31 +23,23 @@ interface ToolDef {
   priority: number;
 }
 
-function def(id: string, loader: () => Promise<{ default: ComponentType<TrainingToolProps> }>, priority: number, capability?: string): ToolDef {
-  return { id, component: lazy(loader) as ComponentType<TrainingToolProps>, priority, capability };
-}
-
 const HISTORY_TAKING: ToolDef[] = [
   { id: "patient-info",   component: PatientInfoTool,                                  priority: 0 },
   { id: "inquiry",        component: InquiryTool,                                      priority: 1 },
   { id: "physical-exam",  component: PhysicalExamTool,                                 priority: 2, capability: "physical_exam" },
   { id: "nursing-record", component: NursingRecordTool,                                priority: 3, capability: "nursing_record" },
-  { id: "quiz",           component: QuizTool,                                         priority: 4, capability: "quiz" },
+  { id: "mews",           component: MewsTool,                                         priority: 4, capability: "mews" },
+  { id: "quiz",           component: QuizTool,                                         priority: 5, capability: "quiz" },
 ];
 
-const TRIAGE: ToolDef[] = [
-  { id: "patient-info",   component: PatientInfoTool,                                  priority: 0 },
-  def("mews",         () => import("@/components/training/tools/MewsTool"),      1),
-  { id: "quiz",           component: QuizTool,                                         priority: 2, capability: "quiz" },
-];
+
 
 const REGISTRY: Record<string, ToolDef[]> = {
   history_taking: HISTORY_TAKING,
-  triage: TRIAGE,
 };
 
-export function getTools(trainingType: string, capabilities: Record<string, boolean>): TrainingTool[] {
-  const defs = REGISTRY[trainingType] ?? REGISTRY.history_taking;
+export function getTools(_trainingType: string, capabilities: Record<string, boolean>): TrainingTool[] {
+  const defs = REGISTRY.history_taking;
   return defs
     .filter((c) => !c.capability || capabilities[c.capability])
     .sort((a, b) => a.priority - b.priority)

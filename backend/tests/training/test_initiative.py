@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from contexts.training.session.cache import InitiativeCache
 from contexts.training.patient_ai.initiative import (
     should_initiate,
 )
+from contexts.training.session.cache import InitiativeCache
 
 
 def _create_record(db):

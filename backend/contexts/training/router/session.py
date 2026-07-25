@@ -1,12 +1,8 @@
-import asyncio
 import logging
-import threading
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Annotated
 
-import httpx
-from bootstrap._infra import _get_client, _get_log_worker, _get_router, _schedule_background, set_training_infra, stop_background_loop
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 

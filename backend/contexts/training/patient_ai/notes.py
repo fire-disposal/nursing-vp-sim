@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from contexts.training.pipeline.context import PipelineContext
 
 from contexts.training.patient_ai.note_source import NoteSource
+
 from .guards import get_identity_correction_note, has_identity_leak
 
 log = logging.getLogger(__name__)
@@ -20,8 +21,9 @@ class EmotionNoteSource(NoteSource):
     max_tokens = 100
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        from .emotion import get_emotion
         from profiles.history_taking.emotion_profile import PersonalityProfile
+
+        from .emotion import get_emotion
 
         cache = getattr(ctx.app_state, "emotion_cache", None)
         if cache is None:

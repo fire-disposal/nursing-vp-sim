@@ -5,12 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from contexts.training.capabilities import is_enabled
-from core.database import get_db
-from core.security import get_current_user
-from infrastructure.llm.client import CallContext
-from models import Case, Message, TrainingRecord, User
 from contexts.training.patient_ai.emotion import get_emotion
-from profiles.history_taking.emotion_profile import PersonalityProfile
 from contexts.training.patient_ai.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
@@ -18,6 +13,11 @@ from contexts.training.patient_ai.initiative import (
     should_initiate,
     update_initiative_timer,
 )
+from core.database import get_db
+from core.security import get_current_user
+from infrastructure.llm.client import CallContext
+from models import Case, Message, TrainingRecord, User
+from profiles.history_taking.emotion_profile import PersonalityProfile
 from schemas import InitiativeTriggerResponse
 
 router = APIRouter()

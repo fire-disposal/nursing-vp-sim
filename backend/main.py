@@ -322,10 +322,8 @@ app.add_middleware(
 # Profile registration
 from profiles.history_taking import PROFILE as _HISTORY_TAKING_PROFILE
 from profiles.registry import register_profile
-from profiles.triage import PROFILE as _TRIAGE_PROFILE
 
 register_profile("history_taking", _HISTORY_TAKING_PROFILE)
-register_profile("triage", _TRIAGE_PROFILE)
 
 # Tool registration
 from contexts.training.tools import register as register_tool

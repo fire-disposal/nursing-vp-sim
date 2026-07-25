@@ -219,7 +219,7 @@ class ProfileRouter:
     def get_decrypted_key(self, config) -> str:
         if isinstance(config, _SyntheticConfig):
             return config._raw_key
-        from .crypto_utils import decrypt_api_key
+        from . import decrypt_api_key
 
         profile = self._profiles.get(config.secret_id) if not isinstance(config, _SyntheticConfig) else None
         if profile:

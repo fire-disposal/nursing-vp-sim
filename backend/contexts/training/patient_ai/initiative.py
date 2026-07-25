@@ -32,7 +32,6 @@ from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
 from infrastructure.prompt import render_template
 
-
 log = logging.getLogger(__name__)
 
 MAX_INITIATIVE_COUNT = 1
