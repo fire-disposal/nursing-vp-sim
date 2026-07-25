@@ -34,27 +34,70 @@ _OPS_EXPERIENCE_DESCRIPTIONS: dict[str, str] = {
 
 
 class OperationNoteSource(NoteSource):
-    """注入场景操作的过程描述（不含数值），通用替代 ExamExperienceSource。"""
+    """注入检体操作描述，对重复/遍历式操作标注体验感受。
+
+    不再去重 — 重复测量次数直接写入 note，让患者 LLM 自然产生
+    质疑或不耐烦反应（"你怎么又量体温？"）。
+    """
 
     name = "operation"
     priority = 30
-    max_tokens = 150
+    max_tokens = 250
 
     async def collect(self, ctx: PipelineContext) -> str | None:
         rs = ctx.record.runtime_state or {}
         ops = rs.get("exam_results", [])
         if not isinstance(ops, list) or not ops:
             return None
-        experiences: list[str] = []
-        seen: set[str] = set()
+
+        counts: dict[str, int] = {}
+        ordered: list[str] = []
         for op in ops:
             type_ = op.get("type", "")
-            if type_ in seen:
-                continue
-            seen.add(type_)
+            if type_ not in counts:
+                counts[type_] = 0
+                ordered.append(type_)
+            counts[type_] += 1
+
+        total = sum(counts.values())
+        lines: list[str] = []
+
+        # Build the list of performed operations with repetition markers
+        examined: list[str] = []
+        for type_ in ordered:
+            count = counts[type_]
             desc = _OPS_EXPERIENCE_DESCRIPTIONS.get(type_)
-            if desc:
-                experiences.append(desc)
-        if not experiences:
+            if not desc:
+                continue
+            if count == 1:
+                examined.append(desc)
+            elif count == 2:
+                examined.append(f"{desc}（重复了{count}次）")
+            else:
+                examined.append(f"{desc}（反复测量了{count}次）")
+
+        if not examined:
             return None
-        return "护士对你进行了以下操作：\n- " + "\n- ".join(experiences)
+
+        lines.append("护士对你进行了以下操作：")
+        lines.append("- " + "\n- ".join(examined))
+
+        # ── excessive/repetitive measurement signals ──
+        repeated = [(type_, c) for type_, c in counts.items() if c >= 3]
+        if repeated:
+            names = "、".join(_OPS_EXPERIENCE_DESCRIPTIONS.get(t, t) for t, _ in repeated)
+            lines.append(
+                f"\n护士反复进行了{names}，这令你感到不适或困惑。"
+                "你可以在接下来的对话中对此表示质疑、不耐烦，或追问原因。"
+            )
+        elif total >= 8:
+            lines.append(
+                "\n护士进行了大量测量操作，你开始感到不耐烦，"
+                "可能会抱怨或质疑这些操作的必要性。"
+            )
+        elif total >= 5:
+            lines.append(
+                "\n护士的操作较多，你可能有些困惑，但仍保持配合。"
+            )
+
+        return "\n".join(lines)

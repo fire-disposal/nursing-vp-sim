@@ -118,7 +118,7 @@ class TestOperationNoteSource:
         result = await src.collect(ctx)
         assert result is None
 
-    async def test_deduplicates_repeated_types(self):
+    async def test_marks_repeated_measurements(self):
         src = OperationNoteSource()
         results = [
             {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
@@ -128,8 +128,23 @@ class TestOperationNoteSource:
         record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert result.count("体温测量") == 1
-        assert result.count("血压测量") == 1
+        assert "体温测量（重复了2次）" in result or "体温测量" in result
+        assert "血压测量" in result
+        # No excessive threshold yet — only 3+ triggers the warning
+        assert "不适" not in result
+
+    async def test_excessive_repetition_triggers_discomfort(self):
+        src = OperationNoteSource()
+        results = [
+            {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
+            {"type": "temp", "label": "体温", "value": "36.6", "unit": "℃"},
+            {"type": "temp", "label": "体温", "value": "36.7", "unit": "℃"},
+        ]
+        record = FakeContext.Record(runtime_state={"exam_results": results})
+        ctx = FakeContext(record=record)
+        result = await src.collect(ctx)
+        assert "反复测量了3次" in result
+        assert "不适" in result or "质疑" in result or "困惑" in result
 
     async def test_unknown_type_skipped(self):
         src = OperationNoteSource()
