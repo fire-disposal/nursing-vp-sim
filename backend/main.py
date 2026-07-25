@@ -225,7 +225,6 @@ async def lifespan(app: FastAPI):
         metrics=metrics,
     )
 
-
     try:
         from core.database import SessionLocal
         from services.tts import load_tts_state

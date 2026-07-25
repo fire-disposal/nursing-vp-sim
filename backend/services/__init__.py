@@ -7,7 +7,9 @@ from .class_ import ClassService
 from .costs import CostService
 from .feedback import FeedbackService
 from .grade import GradeService
-from .llm import ApiSecretService, LLMConfigService, LLMDataService
+from .api_secret import ApiSecretService
+from .llm_config import LLMConfigService
+from .llm_data import LLMDataService
 from .llm_monitor import LLMMonitorService
 from .notification import SystemNotificationService
 from .questionnaire import (

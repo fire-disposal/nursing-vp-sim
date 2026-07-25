@@ -27,7 +27,8 @@ from schemas import (
     TestResultItem,
     ToggleStatusResponse,
 )
-from services.llm import ApiSecretService, LLMConfigService
+from services.api_secret import ApiSecretService
+from services.llm_config import LLMConfigService
 
 router = APIRouter(prefix="", tags=["API管理"])
 

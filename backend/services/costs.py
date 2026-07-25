@@ -166,7 +166,9 @@ class CostService:
         voice_today = self._voice_stats(today_start)
         today_total = llm_today[0] + voice_today[0]
         today_latency = (
-            ((float(llm_today[3]) * llm_today[0] + float(voice_today[3]) * voice_today[0]) / today_total) if today_total > 0 else 0.0
+            ((float(llm_today[3]) * llm_today[0] + float(voice_today[3]) * voice_today[0]) / today_total)
+            if today_total > 0
+            else 0.0
         )
 
         voice_tts_today = self._voice_stats_direction(today_start, "tts")
@@ -175,7 +177,9 @@ class CostService:
         voice_month = self._voice_stats(month_start)
         month_total = llm_month[0] + voice_month[0]
         month_latency = (
-            ((float(llm_month[3]) * llm_month[0] + float(voice_month[3]) * voice_month[0]) / month_total) if month_total > 0 else 0.0
+            ((float(llm_month[3]) * llm_month[0] + float(voice_month[3]) * voice_month[0]) / month_total)
+            if month_total > 0
+            else 0.0
         )
 
         top_llm = (

@@ -218,7 +218,6 @@ class VoiceConfigService:
 
         return _fallback_speaker(vc), STREAM_SAMPLE_RATE, _gen()
 
-
     async def synthesize_test(self, text: str) -> tuple[bytes, str, str]:
         """Synthesize test audio. Returns (audio_bytes, media_type, filename_ext)."""
         vc = self._get_active()

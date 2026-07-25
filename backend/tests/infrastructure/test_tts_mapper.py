@@ -75,7 +75,9 @@ class TestResolveVoiceType:
 
     def test_override_beats_everything(self):
         result = resolve_voice_type(
-            "zh_female_wenrou_bigtts", 22, "男",
+            "zh_female_wenrou_bigtts",
+            22,
+            "男",
             override="zh_female_vv_uranus_bigtts",
         )
         assert result == "zh_female_vv_uranus_bigtts"

@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 from contexts.training.session_cache import InitiativeCache
 from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
-from profiles.history_taking.initiative_prompts import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 from infrastructure.prompt import render_template
+from profiles.history_taking.initiative_prompts import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 
 log = logging.getLogger(__name__)
 

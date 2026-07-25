@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from contexts.training.capabilities import detect_capabilities
 from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
-from contexts.training.capabilities import detect_capabilities
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 

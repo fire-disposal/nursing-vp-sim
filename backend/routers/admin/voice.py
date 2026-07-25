@@ -85,8 +85,6 @@ async def test_stream(
     )
 
 
-
-
 @router.post("/config/test-synthesize")
 async def test_synthesize(
     request: Request,

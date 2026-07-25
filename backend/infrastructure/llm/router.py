@@ -141,7 +141,7 @@ class ProfileRouter:
         self._last_persist_ts: dict[int, float] = {}
 
     async def load_from_db(self):
-        from services.llm import LLMDataService
+        from services.llm_data import LLMDataService
 
         try:
             profiles, bindings = LLMDataService.load_all()
@@ -324,7 +324,7 @@ class ProfileRouter:
                 profile.degraded_until = next_month
 
     def _refresh_profile_from_db(self, profile) -> None:
-        from services.llm import LLMDataService
+        from services.llm_data import LLMDataService
 
         try:
             row = LLMDataService.get_profile(profile.id)
@@ -338,7 +338,7 @@ class ProfileRouter:
 
     @staticmethod
     def _persist_stats(profile):
-        from services.llm import LLMDataService
+        from services.llm_data import LLMDataService
 
         data = {
             "call_count_today": getattr(profile, "call_count_today", None),

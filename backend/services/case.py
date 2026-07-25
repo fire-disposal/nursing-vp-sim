@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from core.exceptions import ConflictError
 from core.unit_of_work import unit_of_work
 from models import Case
-from repositories.case import CaseRepository
 from schemas.case_schema import normalize_gender, validate_case_data
+from repositories.case import CaseRepository
 
 log = logging.getLogger(__name__)
 

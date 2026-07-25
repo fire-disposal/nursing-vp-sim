@@ -13,10 +13,8 @@ from models import (
     QuestionnaireQuestion,
     QuestionnaireTemplate,
 )
-from repositories.questionnaire import (
-    QuestionnaireQuestionRepository,
-    QuestionnaireTemplateRepository,
-)
+from repositories.questionnaire_question import QuestionnaireQuestionRepository
+from repositories.questionnaire_template import QuestionnaireTemplateRepository
 from schemas.questionnaire import (
     QuestionnaireQuestionResponse,
     QuestionnaireTemplateDetailResponse,

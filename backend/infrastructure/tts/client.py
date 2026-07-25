@@ -249,9 +249,7 @@ def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
     return _marshal(
         MsgType.FullClientRequest,
         MsgFlag.WithEvent,
-        _write_event(EventType.StartSession)
-        + _write_str(session_id)
-        + _write_payload(body_json),
+        _write_event(EventType.StartSession) + _write_str(session_id) + _write_payload(body_json),
     )
 
 
@@ -269,9 +267,7 @@ def _build_task_request(text: str, session_id: str) -> bytes:
     return _marshal(
         MsgType.FullClientRequest,
         MsgFlag.WithEvent,
-        _write_event(EventType.TaskRequest)
-        + _write_str(session_id)
-        + _write_payload(body_json),
+        _write_event(EventType.TaskRequest) + _write_str(session_id) + _write_payload(body_json),
     )
 
 
@@ -279,9 +275,7 @@ def _build_finish_session(session_id: str) -> bytes:
     return _marshal(
         MsgType.FullClientRequest,
         MsgFlag.WithEvent,
-        _write_event(EventType.FinishSession)
-        + _write_str(session_id)
-        + _write_payload(b"{}"),
+        _write_event(EventType.FinishSession) + _write_str(session_id) + _write_payload(b"{}"),
     )
 
 
@@ -306,6 +300,7 @@ class VolcTTSConnection:
             return False
         try:
             from websockets.protocol import State
+
             return ws.state is State.OPEN
         except Exception:
             return False

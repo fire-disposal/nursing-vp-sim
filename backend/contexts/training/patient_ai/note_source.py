@@ -91,13 +91,8 @@ class OperationNoteSource(NoteSource):
                 "你可以在接下来的对话中对此表示质疑、不耐烦，或追问原因。"
             )
         elif total >= 8:
-            lines.append(
-                "\n护士进行了大量测量操作，你开始感到不耐烦，"
-                "可能会抱怨或质疑这些操作的必要性。"
-            )
+            lines.append("\n护士进行了大量测量操作，你开始感到不耐烦，可能会抱怨或质疑这些操作的必要性。")
         elif total >= 5:
-            lines.append(
-                "\n护士的操作较多，你可能有些困惑，但仍保持配合。"
-            )
+            lines.append("\n护士的操作较多，你可能有些困惑，但仍保持配合。")
 
         return "\n".join(lines)

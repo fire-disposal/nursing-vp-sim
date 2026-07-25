@@ -5,7 +5,6 @@ The new Volcengine console issues a single ``X-Api-Key`` that
 replaces the legacy ``app_id`` + ``token`` pair.
 """
 
-
 VOLC_BASE_URL = "https://openspeech.bytedance.com"
 VOLC_WS_BASE_URL = "wss://openspeech.bytedance.com"
 
@@ -19,5 +18,3 @@ def tts_headers(api_key: str, resource_id: str) -> dict[str, str]:
         # Ask the server to echo the billed character count back to us.
         "X-Control-Require-Usage-Tokens-Return": "*",
     }
-
-

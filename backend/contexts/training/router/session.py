@@ -9,13 +9,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
+from contexts.training.capabilities import detect_capabilities
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user, load_role_permissions, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
-from contexts.training.capabilities import detect_capabilities
 from models import (
     Assignment,
     Case,
@@ -33,6 +33,7 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
+from schemas.case_schema import normalize_gender, validate_case_data
 from profiles.registry import get_profile
 from schemas import (
     DeleteResponse,
@@ -45,7 +46,6 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
-from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
 

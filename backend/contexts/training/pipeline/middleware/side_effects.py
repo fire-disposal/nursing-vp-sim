@@ -4,8 +4,8 @@ import asyncio
 import json
 import logging
 
-from infrastructure.llm.client import CallContext
 from contexts.training.pipeline.middleware.emotion_prompts import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
+from infrastructure.llm.client import CallContext
 from profiles.history_taking.emotion import get_emotion
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from profiles.history_taking.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds

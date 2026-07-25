@@ -15,7 +15,7 @@ from models import (
     QuestionnaireResponse,
     QuestionnaireTemplate,
 )
-from repositories.questionnaire import QuestionnaireResponseRepository
+from repositories.questionnaire_response import QuestionnaireResponseRepository
 from schemas.questionnaire import (
     QuestionnaireCheckResponse,
     QuestionnaireStatsResponse,

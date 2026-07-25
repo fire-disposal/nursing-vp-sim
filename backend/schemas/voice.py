@@ -60,6 +60,7 @@ class VoiceUsageResponse(BaseModel):
     monthly_budget: float
     monthly_used: float
 
+
 class VoiceStatusResponse(BaseModel):
     provider: str
     tts_online: bool
@@ -79,8 +80,6 @@ class TTSSynthesizeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     record_id: int = Field(ge=1)
     voice_type: str | None = Field(default=None, max_length=40)
-
-
 
 
 # ── Unified Cost Dashboard ──
