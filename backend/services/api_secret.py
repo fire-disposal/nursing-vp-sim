@@ -9,7 +9,7 @@ from core.exceptions import ConflictError, ValidationError
 from core.unit_of_work import unit_of_work
 from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from models import ApiSecret
-from repositories.secret import ApiSecretRepository
+from repositories.api_secret import ApiSecretRepository
 
 log = logging.getLogger(__name__)
 

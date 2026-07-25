@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from core.security import require_permission
 from models import User
-from repositories.rubric import load_rubric
+from profiles.rubric_loader import load_rubric
 
 router = APIRouter(prefix="/api/rubrics", tags=["评分标准"])
 

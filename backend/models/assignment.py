@@ -4,15 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import (
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    Text,
-    text,
-)
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,21 +13,10 @@ from models._base import TimestampMixin
 
 if TYPE_CHECKING:
     from models.auth import User
-    from models.org import Class
+    from models.case import Case
+    from models.school import Class
     from models.training import TrainingRecord
 
-
-class Case(Base, TimestampMixin):
-    __tablename__ = "cases"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
-    difficulty: Mapped[int] = mapped_column(Integer, default=1)
-    time_limit_minutes: Mapped[int] = mapped_column(Integer, default=20)
-    is_open: Mapped[bool] = mapped_column(default=False)
-    case_data: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
 class Assignment(Base, TimestampMixin):

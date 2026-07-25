@@ -41,14 +41,14 @@ class TestRubricsEndpoint:
 class TestLoadRubricHotReload:
     def test_load_rubric_caches_by_mtime(self, tmp_path):
         """load_rubric returns cached data when mtime unchanged."""
-        from repositories.rubric import _CACHE, load_rubric
+        from profiles.rubric_loader import _CACHE, load_rubric
 
         rubric_json = tmp_path / "rubric.json"
         rubric_data = {"id": "test_v1", "name": "test", "dimensions": []}
         with open(rubric_json, "w", encoding="utf-8") as f:
             json.dump(rubric_data, f)
 
-        import repositories.rubric as mod
+        import profiles.rubric_loader as mod
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = rubric_json
@@ -64,7 +64,7 @@ class TestLoadRubricHotReload:
 
     def test_load_rubric_reloads_on_mtime_change(self, tmp_path):
         """load_rubric reloads data when mtime changes."""
-        from repositories.rubric import _CACHE, load_rubric
+        from profiles.rubric_loader import _CACHE, load_rubric
 
         rubric_json = tmp_path / "rubric.json"
         rubric_data_v1 = {"id": "test_v1", "name": "v1", "version": "1.0", "dimensions": []}
@@ -72,7 +72,7 @@ class TestLoadRubricHotReload:
         with open(rubric_json, "w", encoding="utf-8") as f:
             json.dump(rubric_data_v1, f)
 
-        import repositories.rubric as mod
+        import profiles.rubric_loader as mod
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = rubric_json
@@ -94,8 +94,8 @@ class TestLoadRubricHotReload:
         """load_rubric raises FileNotFoundError when json missing."""
         import pytest
 
-        import repositories.rubric as mod
-        from repositories.rubric import _CACHE, load_rubric
+        import profiles.rubric_loader as mod
+        from profiles.rubric_loader import _CACHE, load_rubric
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = Path("/nonexistent/rubric.json")

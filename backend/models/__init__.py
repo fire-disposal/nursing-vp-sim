@@ -1,9 +1,11 @@
 from models._base import TimestampMixin, _now_utc
+from models.assignment import Assignment
 from models.auth import Role, RolePermission, User
-from models.case_practice import Assignment, Case
+from models.case import Case
+from models.feedback import Feedback
 from models.feedback_image import FeedbackImage
 from models.llm import ApiSecret, LLMCallLog, LLMConfig
-from models.org import Class, Grade, UserClass
+from models.notification import Notification, SystemNotification
 from models.qa import KnowledgeChunk, QARecord, QASession
 from models.questionnaire import (
     CaseQuestionnaire,
@@ -13,6 +15,7 @@ from models.questionnaire import (
     QuestionnaireTemplate,
 )
 from models.rate_limit import RateLimitEntry
+from models.school import Class, Grade, UserClass
 from models.training import (
     Message,
     NursingRecord,
@@ -22,7 +25,6 @@ from models.training import (
     TrainingRecord,
     TrainingSessionState,
 )
-from models.ux import Feedback, Notification, SystemNotification
 from models.voice import VoiceCallLog, VoiceConfig
 
 __all__ = [

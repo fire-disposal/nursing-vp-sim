@@ -73,7 +73,7 @@ class StudentDetailView:
 
 class UserService:
     def batch_create(self, users_data: list[dict]) -> dict:
-        from models.org import Grade
+        from models.school import Grade
 
         if len(users_data) > BATCH_USER_LIMIT:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")

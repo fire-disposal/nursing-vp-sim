@@ -102,8 +102,6 @@ def _recover_stuck_scoring_records():
         db.close()
 
 
-
-
 def _warm_knowledge_base() -> None:
     """Index and warm knowledge base for QA. Non-fatal on failure."""
     try:
@@ -126,6 +124,8 @@ def _warm_knowledge_base() -> None:
         log.info("Knowledge chapter index: ready")
     except Exception:
         log.exception("Chapter index warming failed (non-fatal)")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -163,12 +163,12 @@ async def lifespan(app: FastAPI):
 
     app.state.llm_router = ProfileRouter()
 
-    from bootstrap import shutdown as bootstrap_shutdown, startup as bootstrap_startup
+    from bootstrap import shutdown as bootstrap_shutdown
+    from bootstrap import startup as bootstrap_startup
 
-
-    await bootstrap_startup(app)  # noqa: PLE1142
+    await bootstrap_startup(app)
     yield
-    await bootstrap_shutdown(app)  # noqa: PLE1142
+    await bootstrap_shutdown(app)
 
 
 def _publish_pending_notifications() -> None:

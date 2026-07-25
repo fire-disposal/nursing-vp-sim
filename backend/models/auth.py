@@ -10,7 +10,7 @@ from core.database import Base
 from models._base import TimestampMixin
 
 if TYPE_CHECKING:
-    from models.org import UserClass
+    from models.school import UserClass
     from models.training import TrainingRecord
 
 

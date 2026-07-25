@@ -19,7 +19,7 @@ from models._base import TimestampMixin, _now_utc
 
 if TYPE_CHECKING:
     from models.auth import User
-    from models.case_practice import Case
+    from models.case import Case
     from models.training import TrainingRecord
 
 

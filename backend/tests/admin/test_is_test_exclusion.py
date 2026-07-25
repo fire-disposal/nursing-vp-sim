@@ -161,7 +161,7 @@ def test_assignment_detail_excludes_is_test(
     """Assignment detail excludes is_test records."""
     _, teacher_token = teacher
 
-    from models.case_practice import Assignment
+    from models.assignment import Assignment
 
     now = datetime.now(UTC)
     assignment = Assignment(

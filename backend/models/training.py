@@ -22,8 +22,9 @@ from core.database import Base
 from models._base import TimestampMixin, _now_utc
 
 if TYPE_CHECKING:
+    from models.assignment import Assignment
     from models.auth import User
-    from models.case_practice import Assignment, Case
+    from models.case import Case
 
 
 class TrainingRecord(Base):

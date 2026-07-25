@@ -24,6 +24,7 @@ def start_background_loop(app_state, httpx_client, llm_router, log_worker):
 
 async def start_settlement(app_state, cleanup_interval):
     """Start settlement loop and notification publisher as background tasks."""
+
     async def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
         from contexts.training.router.scoring import _run_scoring_background
 

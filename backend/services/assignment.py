@@ -380,7 +380,7 @@ class AssignmentService:
 
     @staticmethod
     def _notify_students(assignment: Assignment, case_name: str) -> None:
-        from models.ux import Notification
+        from models.notification import Notification
 
         target_ids = None
         if assignment.student_ids:
@@ -418,7 +418,7 @@ class AssignmentService:
 
     @staticmethod
     def _push_notifications(user_ids: list[int], type_: str, title: str, body: str) -> None:
-        from models.ux import Notification
+        from models.notification import Notification
 
         db = SessionLocal()
         try:

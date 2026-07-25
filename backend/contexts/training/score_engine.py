@@ -21,10 +21,10 @@ from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
-from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
+from infrastructure.prompt import render_template
 from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
-from repositories.rubric import get_rubric_version_id, load_rubric
+from profiles.rubric_loader import get_rubric_version_id, load_rubric
 
 from ._scoring_validation import (
     _check_feedback_empty,
@@ -41,6 +41,7 @@ from ._scoring_validation import (
     _validate_scoring_essentials,
     _validate_scoring_result,
 )
+from .scoring_prompt_builder import build_scoring_criteria, build_scoring_json_schema
 
 # ── 常量 ──
 THOUGHT_PUSH_INTERVAL_SEC = 0.3

@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
