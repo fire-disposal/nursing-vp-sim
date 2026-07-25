@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError as PydanticValidationError
 
+from contexts.training.capabilities import detect_capabilities
 from core.deps import CurrentUser, DbSession
 from core.security import require_permission
 from models import Case, User
@@ -48,7 +49,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
         is_open=c.is_open,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         profile_info=profile_info,
-        capabilities=c.case_data.get("capabilities", {}) if c.case_data else {},
+        capabilities=detect_capabilities(c.case_data) if c.case_data else {},
     )
 
 

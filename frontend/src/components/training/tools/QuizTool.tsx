@@ -1,13 +1,7 @@
-import {
-	AlertCircle,
-	CheckCircle2,
-	ChevronDown,
-	HelpCircle,
-	Loader2,
-	XCircle,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, HelpCircle, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
+import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { cn } from "@/utils/cn";
 
 interface QuizQuestion {
@@ -56,16 +50,18 @@ export default function QuizTool(props: TrainingToolProps) {
 	const answersRef = useRef(answers);
 	answersRef.current = answers;
 
-	// ── Load quiz config via WebSocket (strips answers) ──
 	useEffect(() => {
-		bus.emit("tool:invoke", { tool: "quiz", action: "load", params: {}, recordId: rid });
-
-		loadTimerRef.current = setTimeout(() => {
-			setLoading(false);
-			setLoadError("加载题目超时");
-		}, LOAD_TIMEOUT_MS);
-
+		const unsub = subscribeWSConnection((connected) => {
+			if (connected) {
+				bus.emit("tool:invoke", { tool: "quiz", action: "load", params: {}, recordId: rid });
+				loadTimerRef.current = setTimeout(() => {
+					setLoading(false);
+					setLoadError("加载题目超时");
+				}, LOAD_TIMEOUT_MS);
+			}
+		});
 		return () => {
+			unsub();
 			if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
 		};
 	}, [bus, rid]);

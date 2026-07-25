@@ -23,6 +23,7 @@ export interface TrainingWS {
 
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
 const _connListeners = new Set<(connected: boolean) => void>();
+const _pending: TrainingWSMessage[] = [];
 let _ws: WebSocket | null = null;
 let _retryCount = 0;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -57,11 +58,14 @@ function _connect() {
 
 	const ws = new WebSocket(buildWsUrl());
 	_ws = ws;
-
 	ws.onopen = () => {
 		_retryCount = 0;
 		_authRetried = false;
 		_setConnected(true);
+		while (_pending.length > 0) {
+			const msg = _pending.shift()!;
+			_send(msg);
+		}
 	};
 
 	ws.onmessage = (ev) => {
@@ -105,10 +109,11 @@ function _connect() {
 		_retryTimer = setTimeout(_connect, delay);
 	};
 }
-
 function _send(msg: TrainingWSMessage) {
 	if (_ws && _ws.readyState === WebSocket.OPEN) {
 		_ws.send(JSON.stringify(msg));
+	} else {
+		_pending.push(msg);
 	}
 }
 

@@ -274,6 +274,8 @@ class TTSService:
                 while True:
                     try:
                         chunk = await asyncio.wait_for(anext(stream), timeout=_remaining())
+                    except (TimeoutError, asyncio.CancelledError):
+                        break  # timeout or client disconnect — end stream cleanly
                     except StopAsyncIteration:
                         completed = True
                         break
