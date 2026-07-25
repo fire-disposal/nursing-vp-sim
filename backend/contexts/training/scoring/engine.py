@@ -522,6 +522,7 @@ async def evaluate_training(
     scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text = (
         _prepare_scoring_texts(rubric, case_data)
     )
+    nursing_record_text = _load_nursing_record_text(db, record)
     score_messages, exam_results_text, nursing_record_text = _build_history_messages(
         record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text, nursing_record_text
     )
