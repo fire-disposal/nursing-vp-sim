@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 
 from contexts.training.tools import ToolContext, dispatch
 from core.database import SessionLocal
-from core.security import ALGORITHM, JWT_SECRET_KEY
+from core.security import ALGORITHM, JWT_SECRET_KEY, load_role_permissions
 from models import Case, TrainingRecord, User
 
 log = logging.getLogger(__name__)
@@ -41,8 +41,10 @@ async def _authenticate(token: str) -> User | None:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("user_id")
         if not isinstance(user_id, int):
+            log.warning("WS auth: user_id not int: %s", type(user_id))
             return None
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        log.warning("WS auth: JWT decode failed: %s", e)
         return None
 
     db = SessionLocal()
@@ -50,15 +52,18 @@ async def _authenticate(token: str) -> User | None:
         from sqlalchemy.orm import joinedload
 
         user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
-        if not user or not user.is_active:
+        if not user:
+            log.warning("WS auth: user %d not found", user_id)
+            return None
+        if not user.is_active:
+            log.warning("WS auth: user %d inactive", user_id)
             return None
         token_tv = payload.get("tv", 0)
         if token_tv != user.token_version:
+            log.warning("WS auth: token_version mismatch tv=%d db=%d for user %d", token_tv, user.token_version, user_id)
             return None
-        return user
     finally:
         db.close()
-
 
 @router.websocket("/ws")
 async def training_ws(
@@ -69,6 +74,7 @@ async def training_ws(
     if not user:
         await websocket.close(code=4001)
         return
+    load_role_permissions(user)
     if not user.has_permission("training_access"):
         await websocket.close(code=4003)
         return
