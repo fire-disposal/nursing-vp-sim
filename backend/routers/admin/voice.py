@@ -85,9 +85,6 @@ async def test_stream(
     )
 
 
-@router.post("/config/test-asr", response_model=VoiceStatusResponse)
-async def test_asr(current_user: _Manager, db: Annotated[Session, Depends(get_db)]):
-    return await VoiceConfigService(db).test_asr()
 
 
 @router.post("/config/test-synthesize")

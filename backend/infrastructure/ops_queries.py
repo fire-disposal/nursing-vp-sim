@@ -117,7 +117,7 @@ def query_voice(db: Session, day_ago: datetime) -> dict:
         .group_by(VoiceCallLog.direction)
         .all()
     )
-    result: dict = {"tts": {}, "asr": {}}
+    result: dict = {"tts": {}}
     for r in rows:
         total = r.total or 0
         success = r.success or 0
@@ -130,8 +130,6 @@ def query_voice(db: Session, day_ago: datetime) -> dict:
         }
         if r.direction == "tts":
             result["tts"] = section
-        elif r.direction == "asr":
-            result["asr"] = section
     return result
 
 
@@ -228,7 +226,7 @@ def compute_alerts(dashboard: dict) -> list[str]:
         alerts.append(f"活跃会话 {sessions['active']} 个")
 
     # ── Voice ──
-    for svc, sr_min, err_max in [("tts", 90, 20), ("asr", 80, 20)]:
+    for svc, sr_min, err_max in [("tts", 90, 20)]:
         s = voice.get(svc, {})
         if s.get("calls_24h", 0) > 0 and s.get("success_rate", 100) < sr_min:
             alerts.append(f"{svc.upper()} 成功率 {s['success_rate']}% 低于 {sr_min}%")

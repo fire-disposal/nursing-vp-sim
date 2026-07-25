@@ -72,7 +72,7 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
     """综合诊断快照 —— 运维监控统一入口。
 
     一次调用返回：系统版本、健康状态、LLM 统计、评分队列、
-    语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。
+    语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。
     """
     _check_token(token)
 

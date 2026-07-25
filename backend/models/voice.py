@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class VoiceConfig(Base, TimestampMixin):
-    """TTS + ASR unified configuration. API key is Fernet-encrypted.
+    """TTS unified configuration. API key is Fernet-encrypted.
 
     Uses the new Volcengine console single ``X-Api-Key`` (v3 binary protocol).
     """
@@ -32,9 +32,6 @@ class VoiceConfig(Base, TimestampMixin):
     tts_sample_rate: Mapped[int] = mapped_column(Integer, default=24000)
     tts_format: Mapped[str] = mapped_column(String(16), default="mp3")
     tts_timeout: Mapped[int] = mapped_column(Integer, default=8)
-    asr_resource_id: Mapped[str] = mapped_column(String(64), default="volc.bigasr.sauc.duration")
-    asr_sample_rate: Mapped[int] = mapped_column(Integer, default=16000)
-    asr_endpoint_mode: Mapped[str] = mapped_column(String(24), default="bigmodel_nostream")
     monthly_budget: Mapped[float] = mapped_column(Float, default=200.0)
     is_active: Mapped[bool] = mapped_column(default=True)
     speaker_library: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -51,7 +48,7 @@ class VoiceCallLog(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id"), nullable=True)
-    direction: Mapped[str] = mapped_column(String(10))  # "tts" | "asr"
+    direction: Mapped[str] = mapped_column(String(10))  # "tts"
     text_length: Mapped[int] = mapped_column(Integer, default=0)
     emotion_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)

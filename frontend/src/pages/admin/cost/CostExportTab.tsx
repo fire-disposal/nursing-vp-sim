@@ -110,7 +110,6 @@ export default function CostExportTab() {
 								<option value="">全部</option>
 								<option value="llm">LLM</option>
 								<option value="tts">TTS</option>
-								<option value="asr">ASR</option>
 							</select>
 						</div>
 						<div className="space-y-1.5">

@@ -220,16 +220,12 @@ def build_email(data: dict, online: dict) -> str:
         ("正式服", prod.get("voice", {})), ("测试服", stag.get("voice", {})),
     ]:
         tts = pv.get("tts") or {}
-        asr = pv.get("asr") or {}
         te = tts.get("error_count_24h", 0)
-        ae = asr.get("error_count_24h", 0)
         tc = tts.get("calls_24h", 0)
-        ac = asr.get("calls_24h", 0)
-        if tc or ac:
+        if tc:
             sections.append(
                 _card(f"语音 — {env_name}", "🔊")
-                + f"<div>TTS <strong>{tc}</strong>次 ｜ 错误 <strong>{te}</strong> ｜ "
-                f"ASR <strong>{ac}</strong>次 ｜ 错误 <strong>{ae}</strong></div></div>"
+                + f"<div>TTS <strong>{tc}</strong>次 ｜ 错误 <strong>{te}</strong></div></div>"
             )
 
     # ── Request volume — 5xx matters ──

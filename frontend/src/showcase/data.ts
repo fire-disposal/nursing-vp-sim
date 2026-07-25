@@ -78,9 +78,9 @@ export const HIGHLIGHTS: Highlight[] = [
 		id: "voice",
 		icon: AudioLines,
 		title: "语音交互",
-		body: "火山引擎 TTS / ASR 流式，情绪联动音色，双路提供方与优雅降级。",
+		body: "火山引擎 TTS 流式，情绪联动音色，双路提供方与优雅降级。",
 		points: [
-			"SeedTTS 2.0 合成 + BigASR 流式识别",
+			"SeedTTS 2.0 合成 + 流式播报",
 			"双路：火山引擎 + 自行部署",
 			"熔断保护，失败自动降级",
 		],
@@ -131,7 +131,7 @@ export const TECH_STACK: string[] = [
 	"Docker",
 	"GitHub Actions",
 	"DeepSeek",
-	"火山引擎 TTS·ASR",
+	"火山引擎 TTS",
 	"pnpm",
 ];
 

@@ -5983,33 +5983,6 @@
         ]
       }
     },
-    "/api/admin/voice/config/test-asr": {
-      "post": {
-        "tags": [
-          "管理",
-          "语音管理"
-        ],
-        "summary": "Test Asr",
-        "operationId": "test_asr_api_admin_voice_config_test_asr_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VoiceStatusResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/voice/config/test-synthesize": {
       "post": {
         "tags": [
@@ -7745,33 +7718,6 @@
         ]
       }
     },
-    "/api/asr/status": {
-      "get": {
-        "tags": [
-          "ASR"
-        ],
-        "summary": "Asr Status",
-        "description": "Lightweight gate the frontend probes before showing the mic button.",
-        "operationId": "asr_status_api_asr_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ASRStatusResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/health": {
       "get": {
         "tags": [
@@ -7820,7 +7766,7 @@
           "ops"
         ],
         "summary": "Diagnose",
-        "description": "综合诊断快照 —— 运维监控统一入口。\n\n一次调用返回：系统版本、健康状态、LLM 统计、评分队列、\n语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。",
+        "description": "综合诊断快照 —— 运维监控统一入口。\n\n一次调用返回：系统版本、健康状态、LLM 统计、评分队列、\n语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。",
         "operationId": "diagnose_api_diagnose_get",
         "parameters": [
           {
@@ -7975,19 +7921,6 @@
   },
   "components": {
     "schemas": {
-      "ASRStatusResponse": {
-        "properties": {
-          "available": {
-            "type": "boolean",
-            "title": "Available"
-          }
-        },
-        "type": "object",
-        "required": [
-          "available"
-        ],
-        "title": "ASRStatusResponse"
-      },
       "AdminStats": {
         "properties": {
           "total_students": {
@@ -9723,9 +9656,6 @@
           "tts_today": {
             "$ref": "#/components/schemas/CostBreakdown"
           },
-          "asr_today": {
-            "$ref": "#/components/schemas/CostBreakdown"
-          },
           "monthly_budget": {
             "type": "number",
             "title": "Monthly Budget"
@@ -9764,7 +9694,6 @@
           "this_month",
           "llm_today",
           "tts_today",
-          "asr_today",
           "monthly_budget",
           "monthly_used",
           "llm_monthly_budget",
@@ -9787,18 +9716,13 @@
           "tts_cost": {
             "type": "number",
             "title": "Tts Cost"
-          },
-          "asr_cost": {
-            "type": "number",
-            "title": "Asr Cost"
           }
         },
         "type": "object",
         "required": [
           "date",
           "llm_cost",
-          "tts_cost",
-          "asr_cost"
+          "tts_cost"
         ],
         "title": "CostSeriesPoint"
       },
@@ -14570,18 +14494,6 @@
             "type": "integer",
             "title": "Tts Timeout"
           },
-          "asr_resource_id": {
-            "type": "string",
-            "title": "Asr Resource Id"
-          },
-          "asr_sample_rate": {
-            "type": "integer",
-            "title": "Asr Sample Rate"
-          },
-          "asr_endpoint_mode": {
-            "type": "string",
-            "title": "Asr Endpoint Mode"
-          },
           "monthly_budget": {
             "type": "number",
             "title": "Monthly Budget"
@@ -14625,9 +14537,6 @@
           "tts_sample_rate",
           "tts_format",
           "tts_timeout",
-          "asr_resource_id",
-          "asr_sample_rate",
-          "asr_endpoint_mode",
           "monthly_budget",
           "is_active",
           "created_at",
@@ -14692,25 +14601,6 @@
             "title": "Tts Timeout",
             "default": 8
           },
-          "asr_resource_id": {
-            "type": "string",
-            "maxLength": 64,
-            "title": "Asr Resource Id",
-            "default": "volc.bigasr.sauc.duration"
-          },
-          "asr_sample_rate": {
-            "type": "integer",
-            "maximum": 48000.0,
-            "minimum": 8000.0,
-            "title": "Asr Sample Rate",
-            "default": 16000
-          },
-          "asr_endpoint_mode": {
-            "type": "string",
-            "maxLength": 24,
-            "title": "Asr Endpoint Mode",
-            "default": "bigmodel_nostream"
-          },
           "monthly_budget": {
             "type": "number",
             "minimum": 0.0,
@@ -14750,10 +14640,6 @@
           "tts_online": {
             "type": "boolean",
             "title": "Tts Online"
-          },
-          "asr_online": {
-            "type": "boolean",
-            "title": "Asr Online"
           },
           "last_error": {
             "anyOf": [
@@ -14826,7 +14712,6 @@
         "required": [
           "provider",
           "tts_online",
-          "asr_online",
           "last_error",
           "last_error_at"
         ],
@@ -14880,13 +14765,7 @@
           "tts_today": {
             "$ref": "#/components/schemas/VoiceUsageItem"
           },
-          "asr_today": {
-            "$ref": "#/components/schemas/VoiceUsageItem"
-          },
           "tts_month": {
-            "$ref": "#/components/schemas/VoiceUsageItem"
-          },
-          "asr_month": {
             "$ref": "#/components/schemas/VoiceUsageItem"
           },
           "monthly_budget": {
@@ -14901,9 +14780,7 @@
         "type": "object",
         "required": [
           "tts_today",
-          "asr_today",
           "tts_month",
-          "asr_month",
           "monthly_budget",
           "monthly_used"
         ],

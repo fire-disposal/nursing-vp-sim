@@ -18,7 +18,6 @@ export interface DiagnoseResponse {
 	};
 	voice: {
 		tts: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
-		asr: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};
 	voice_budget: { monthly_budget: number; monthly_cost: number; usage_pct: number };
 	metrics: Record<string, unknown>;

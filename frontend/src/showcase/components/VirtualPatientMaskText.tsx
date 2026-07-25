@@ -134,7 +134,7 @@ export default function VirtualPatientMaskText() {
 				lineY={[30, 56, 82, 108]}
 				lineTexts={[
 					"LLM · RAG · Prompt · SSE",
-					"TTS · ASR · Emotion · Memory",
+					"TTS · Emotion · Memory",
 					"Guard · Context · Explainable",
 					"Flow · State · Feedback",
 				]}

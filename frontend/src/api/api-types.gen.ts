@@ -1529,23 +1529,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/voice/config/test-asr": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test Asr */
-        post: operations["test_asr_api_admin_voice_config_test_asr_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/voice/config/test-synthesize": {
         parameters: {
             query?: never;
@@ -2045,26 +2028,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/asr/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Asr Status
-         * @description Lightweight gate the frontend probes before showing the mic button.
-         */
-        get: operations["asr_status_api_asr_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2117,7 +2080,7 @@ export interface paths {
          * @description 综合诊断快照 —— 运维监控统一入口。
          *
          *     一次调用返回：系统版本、健康状态、LLM 统计、评分队列、
-         *     语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。
+         *     语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。
          */
         get: operations["diagnose_api_diagnose_get"];
         put?: never;
@@ -2189,11 +2152,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ASRStatusResponse */
-        ASRStatusResponse: {
-            /** Available */
-            available: boolean;
-        };
         /** AdminStats */
         AdminStats: {
             /** Total Students */
@@ -2932,7 +2890,6 @@ export interface components {
             this_month: components["schemas"]["CostBreakdown"];
             llm_today: components["schemas"]["CostBreakdown"];
             tts_today: components["schemas"]["CostBreakdown"];
-            asr_today: components["schemas"]["CostBreakdown"];
             /** Monthly Budget */
             monthly_budget: number;
             /** Monthly Used */
@@ -2956,8 +2913,6 @@ export interface components {
             llm_cost: number;
             /** Tts Cost */
             tts_cost: number;
-            /** Asr Cost */
-            asr_cost: number;
         };
         /** DeleteResponse */
         DeleteResponse: {
@@ -4793,12 +4748,6 @@ export interface components {
             tts_format: string;
             /** Tts Timeout */
             tts_timeout: number;
-            /** Asr Resource Id */
-            asr_resource_id: string;
-            /** Asr Sample Rate */
-            asr_sample_rate: number;
-            /** Asr Endpoint Mode */
-            asr_endpoint_mode: string;
             /** Monthly Budget */
             monthly_budget: number;
             /** Is Active */
@@ -4852,21 +4801,6 @@ export interface components {
              */
             tts_timeout: number;
             /**
-             * Asr Resource Id
-             * @default volc.bigasr.sauc.duration
-             */
-            asr_resource_id: string;
-            /**
-             * Asr Sample Rate
-             * @default 16000
-             */
-            asr_sample_rate: number;
-            /**
-             * Asr Endpoint Mode
-             * @default bigmodel_nostream
-             */
-            asr_endpoint_mode: string;
-            /**
              * Monthly Budget
              * @default 200
              */
@@ -4887,8 +4821,6 @@ export interface components {
             provider: string;
             /** Tts Online */
             tts_online: boolean;
-            /** Asr Online */
-            asr_online: boolean;
             /** Last Error */
             last_error: string | null;
             /** Last Error At */
@@ -4922,9 +4854,7 @@ export interface components {
         /** VoiceUsageResponse */
         VoiceUsageResponse: {
             tts_today: components["schemas"]["VoiceUsageItem"];
-            asr_today: components["schemas"]["VoiceUsageItem"];
             tts_month: components["schemas"]["VoiceUsageItem"];
-            asr_month: components["schemas"]["VoiceUsageItem"];
             /** Monthly Budget */
             monthly_budget: number;
             /** Monthly Used */
@@ -8402,26 +8332,6 @@ export interface operations {
             };
         };
     };
-    test_asr_api_admin_voice_config_test_asr_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoiceStatusResponse"];
-                };
-            };
-        };
-    };
     test_synthesize_api_admin_voice_config_test_synthesize_post: {
         parameters: {
             query?: never;
@@ -9423,26 +9333,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentAssignmentItem"][];
-                };
-            };
-        };
-    };
-    asr_status_api_asr_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ASRStatusResponse"];
                 };
             };
         };

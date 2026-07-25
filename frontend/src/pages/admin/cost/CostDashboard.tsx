@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
 	CircleDollarSign,
-	Mic,
 	TrendingUp,
 	Volume2,
 } from "lucide-react";
@@ -83,12 +82,6 @@ function StatGrid({ data }: { data: CostDashboardResponse }) {
 				color="teal"
 			/>
 			<StatCard
-				icon={Mic}
-				value={`¥${data.asr_today.total_cost.toFixed(2)}`}
-				label="今日 ASR 费用"
-				color="amber"
-			/>
-			<StatCard
 				icon={TrendingUp}
 				value={`${data.monthly_budget > 0 ? ((data.monthly_used / data.monthly_budget) * 100).toFixed(1) : 0}%`}
 				label="月度预算使用率"
@@ -132,10 +125,6 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 								<stop offset="5%" stopColor="#14b8a6" stopOpacity={0.15} />
 								<stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
 							</linearGradient>
-							<linearGradient id="asrFill" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
-								<stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-							</linearGradient>
 						</defs>
 						<CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
 						<XAxis
@@ -170,16 +159,6 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 							stroke="#14b8a6"
 							strokeWidth={2}
 							fill="url(#ttsFill)"
-							dot={false}
-							activeDot={{ r: 4, strokeWidth: 0 }}
-						/>
-						<Area
-							type="monotone"
-							dataKey="asr_cost"
-							name="ASR"
-							stroke="#f59e0b"
-							strokeWidth={2}
-							fill="url(#asrFill)"
 							dot={false}
 							activeDot={{ r: 4, strokeWidth: 0 }}
 						/>
@@ -232,7 +211,7 @@ function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
 					{data.voice_monthly_budget > 0 && (
 						<BudgetProgress
 							label="语音服务预算"
-							used={data.tts_today.total_cost * 30 + data.asr_today.total_cost * 30}
+			used={data.tts_today.total_cost * 30}
 							budget={data.voice_monthly_budget}
 						/>
 					)}
@@ -353,7 +332,6 @@ export default function CostDashboard() {
 		},
 		llm_today: { calls: 0, success: 0, error: 0, latency_ms_avg: 0, total_cost: 0 },
 		tts_today: { calls: 0, success: 0, error: 0, latency_ms_avg: 0, total_cost: 0 },
-		asr_today: { calls: 0, success: 0, error: 0, latency_ms_avg: 0, total_cost: 0 },
 		monthly_budget: 0,
 		monthly_used: 0,
 		llm_monthly_budget: 0,

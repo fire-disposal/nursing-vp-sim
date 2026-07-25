@@ -14,9 +14,6 @@ export interface VoiceConfigResponse {
 	tts_sample_rate: number;
 	tts_format: string;
 	tts_timeout: number;
-	asr_resource_id: string;
-	asr_sample_rate: number;
-	asr_endpoint_mode: string;
 	monthly_budget: number;
 	is_active: boolean;
 	speaker_library: Record<string, string> | null;
@@ -33,9 +30,6 @@ export interface VoiceConfigUpdateRequest {
 	tts_sample_rate?: number;
 	tts_format?: string;
 	tts_timeout?: number;
-	asr_resource_id?: string;
-	asr_sample_rate?: number;
-	asr_endpoint_mode?: string;
 	monthly_budget?: number;
 	is_active?: boolean;
 	speaker_library?: Record<string, string> | null;
@@ -55,9 +49,7 @@ export interface VoiceUsageItem {
 
 export interface VoiceUsageResponse {
 	tts_today: VoiceUsageItem;
-	asr_today: VoiceUsageItem;
 	tts_month: VoiceUsageItem;
-	asr_month: VoiceUsageItem;
 	monthly_budget: number;
 	monthly_used: number;
 }
@@ -76,7 +68,6 @@ export interface CostSeriesPoint {
 	date: string;
 	llm_cost: number;
 	tts_cost: number;
-	asr_cost: number;
 }
 
 export interface CostDashboardResponse {
@@ -84,7 +75,6 @@ export interface CostDashboardResponse {
 	this_month: CostBreakdown;
 	llm_today: CostBreakdown;
 	tts_today: CostBreakdown;
-	asr_today: CostBreakdown;
 	monthly_budget: number;
 	monthly_used: number;
 	llm_monthly_budget: number;
@@ -129,7 +119,6 @@ export const fetchVoiceUsage = () =>
 export interface VoiceStatusResponse {
 	provider: string;
 	tts_online: boolean;
-	asr_online: boolean;
 	last_error: string | null;
 	last_error_at: string | null;
 	tts_pool_size: number | null;
@@ -168,14 +157,7 @@ export const streamTestTTS = async (
 	return response.body;
 };
 
-export const testASR = () =>
-	api.post<VoiceStatusResponse>("/admin/voice/config/test-asr");
 
-export interface ASRStatusResponse {
-	available: boolean;
-}
-
-export const fetchASRStatus = () => api.get<ASRStatusResponse>("/asr/status");
 
 export const fetchCostDashboard = () =>
 	api.get<CostDashboardResponse>("/admin/costs/dashboard");

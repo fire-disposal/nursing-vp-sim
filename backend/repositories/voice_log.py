@@ -64,7 +64,6 @@ class VoiceCallLogRepository:
             self.db.query(
                 func.date(VoiceCallLog.created_at).label("date"),
                 func.sum(func.cast(VoiceCallLog.direction == "tts", type_=func.Integer)).label("tts_count"),
-                func.sum(func.cast(VoiceCallLog.direction == "asr", type_=func.Integer)).label("asr_count"),
                 func.sum(VoiceCallLog.cost_estimated).label("total_cost"),
             )
             .filter(VoiceCallLog.created_at >= since, VoiceCallLog.created_at < now)

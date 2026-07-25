@@ -284,9 +284,6 @@ def _seed_voice() -> None:
                     tts_sample_rate=24000,
                     tts_format="mp3",
                     tts_timeout=8,
-                    asr_resource_id="volc.bigasr.sauc.duration",
-                    asr_sample_rate=16000,
-                    asr_endpoint_mode="bigmodel_nostream",
                     monthly_budget=200.0,
                     is_active=True,
                 )

@@ -59,14 +59,11 @@ class CostService:
         vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
         monthly_budget = vc.monthly_budget if vc else 0.0
         month_tts = self._voice_usage("tts", month_start)
-        month_asr = self._voice_usage("asr", month_start)
         return VoiceUsageResponse(
             tts_today=self._voice_usage("tts", today_start),
-            asr_today=self._voice_usage("asr", today_start),
             tts_month=month_tts,
-            asr_month=month_asr,
             monthly_budget=monthly_budget,
-            monthly_used=round(month_tts.cost_estimated + month_asr.cost_estimated, 6),
+            monthly_used=round(month_tts.cost_estimated, 6),
         )
 
     def _build_breakdown(
@@ -134,18 +131,6 @@ class CostService:
             .all()
         )
         tts_map = {str(r[0]): float(r[1]) for r in tts_rows}
-        asr_rows = (
-            self.db.query(
-                _local_date(VoiceCallLog.created_at).label("date"),
-                func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "asr"), 0).label(
-                    "asr_cost"
-                ),
-            )
-            .filter(VoiceCallLog.created_at >= since)
-            .group_by("date")
-            .all()
-        )
-        asr_map = {str(r[0]): float(r[1]) for r in asr_rows}
         series = []
         for i in range(days - 1, -1, -1):
             d = now - timedelta(days=i)
@@ -155,7 +140,6 @@ class CostService:
                     date=date_str,
                     llm_cost=llm_map.get(date_str, 0.0),
                     tts_cost=tts_map.get(date_str, 0.0),
-                    asr_cost=asr_map.get(date_str, 0.0),
                 )
             )
         return series
@@ -186,7 +170,6 @@ class CostService:
         )
 
         voice_tts_today = self._voice_stats_direction(today_start, "tts")
-        voice_asr_today = self._voice_stats_direction(today_start, "asr")
 
         llm_month = self._llm_stats(month_start)
         voice_month = self._voice_stats(month_start)
@@ -263,7 +246,6 @@ class CostService:
             ),
             llm_today=self._build_breakdown(*llm_today),
             tts_today=self._build_breakdown(*voice_tts_today),
-            asr_today=self._build_breakdown(*voice_asr_today),
             monthly_budget=round(voice_budget + llm_budget, 6),
             monthly_used=round(llm_month[4] + voice_month[4], 6),
             llm_monthly_budget=llm_budget,
@@ -330,7 +312,7 @@ class CostService:
         )
 
         include_llm = not service or service == "llm"
-        include_voice = not service or service in ("tts", "asr")
+        include_voice = not service or service == "tts"
 
         if include_llm:
             for r in (
@@ -365,7 +347,7 @@ class CostService:
                 if granularity == "monthly"
                 else _local_date(VoiceCallLog.created_at)
             )
-            for direction in [service] if service in ("tts", "asr") else ["tts", "asr"]:
+            for direction in [service] if service == "tts" else ["tts"]:
                 for r in (
                     self.db.query(
                         voice_date_group.label("date"),

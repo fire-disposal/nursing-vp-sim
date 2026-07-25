@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from infrastructure.asr.client import VolcASRClient
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
 from infrastructure.tts.mapper import DEFAULT_SPEAKER
@@ -49,9 +48,6 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
         tts_sample_rate=vc.tts_sample_rate,
         tts_format=vc.tts_format,
         tts_timeout=vc.tts_timeout,
-        asr_resource_id=vc.asr_resource_id,
-        asr_sample_rate=vc.asr_sample_rate,
-        asr_endpoint_mode=vc.asr_endpoint_mode,
         monthly_budget=vc.monthly_budget,
         is_active=vc.is_active,
         speaker_library=vc.speaker_library,
@@ -92,9 +88,6 @@ class VoiceConfigService:
                     "tts_sample_rate",
                     "tts_format",
                     "tts_timeout",
-                    "asr_resource_id",
-                    "asr_sample_rate",
-                    "asr_endpoint_mode",
                     "monthly_budget",
                 ):
                     if field in data:
@@ -117,9 +110,6 @@ class VoiceConfigService:
                     tts_sample_rate=data.get("tts_sample_rate"),
                     tts_format=data.get("tts_format"),
                     tts_timeout=data.get("tts_timeout"),
-                    asr_resource_id=data.get("asr_resource_id"),
-                    asr_sample_rate=data.get("asr_sample_rate"),
-                    asr_endpoint_mode=data.get("asr_endpoint_mode"),
                     monthly_budget=data.get("monthly_budget"),
                     is_active=data.get("is_active", True),
                     speaker_library=data.get("speaker_library"),
@@ -154,7 +144,6 @@ class VoiceConfigService:
             return VoiceStatusResponse(
                 provider=vc.provider,
                 tts_online=ok,
-                asr_online=False,
                 last_error=None if ok else "TTS 健康检查失败",
                 last_error_at=None if ok else datetime.now(UTC).isoformat(),
                 tts_pool_size=pool_stats.get("size"),
@@ -167,7 +156,6 @@ class VoiceConfigService:
             return VoiceStatusResponse(
                 provider=vc.provider,
                 tts_online=False,
-                asr_online=False,
                 last_error=str(e)[:500],
                 last_error_at=datetime.now(UTC).isoformat(),
                 tts_pool_size=pool_stats.get("size"),
@@ -230,45 +218,6 @@ class VoiceConfigService:
 
         return _fallback_speaker(vc), STREAM_SAMPLE_RATE, _gen()
 
-    async def test_asr(self) -> VoiceStatusResponse:
-        vc = self._get_active()
-        if not vc:
-            raise NotFoundError("未找到激活的语音配置")
-        try:
-            api_key = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
-        except Exception:
-            api_key = ""
-        if not api_key or not vc.asr_resource_id:
-            return VoiceStatusResponse(
-                provider=vc.provider,
-                tts_online=False,
-                asr_online=False,
-                last_error="ASR 未配置（缺少 API Key 或 resource_id），将使用文本输入降级",
-                last_error_at=datetime.now(UTC).isoformat(),
-            )
-        client = VolcASRClient(
-            api_key=api_key,
-            resource_id=vc.asr_resource_id,
-            endpoint_mode=vc.asr_endpoint_mode,
-            sample_rate=vc.asr_sample_rate,
-        )
-        try:
-            ok = await client.health_check()
-            return VoiceStatusResponse(
-                provider=vc.provider,
-                tts_online=False,
-                asr_online=ok,
-                last_error=None if ok else "ASR 上游建连失败",
-                last_error_at=None if ok else datetime.now(UTC).isoformat(),
-            )
-        except Exception as e:
-            return VoiceStatusResponse(
-                provider=vc.provider,
-                tts_online=False,
-                asr_online=False,
-                last_error=str(e)[:500],
-                last_error_at=datetime.now(UTC).isoformat(),
-            )
 
     async def synthesize_test(self, text: str) -> tuple[bytes, str, str]:
         """Synthesize test audio. Returns (audio_bytes, media_type, filename_ext)."""
@@ -315,9 +264,6 @@ class VoiceConfigService:
             "tts_sample_rate": vc.tts_sample_rate,
             "tts_format": vc.tts_format,
             "tts_timeout": vc.tts_timeout,
-            "asr_resource_id": vc.asr_resource_id,
-            "asr_sample_rate": vc.asr_sample_rate,
-            "asr_endpoint_mode": vc.asr_endpoint_mode,
             "monthly_budget": vc.monthly_budget,
             "speaker_library": vc.speaker_library,
             "exported_at": datetime.now(UTC).isoformat(),

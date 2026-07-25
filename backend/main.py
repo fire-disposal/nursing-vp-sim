@@ -225,9 +225,6 @@ async def lifespan(app: FastAPI):
         metrics=metrics,
     )
 
-    # ASR (v3) is opened per-connection by the /api/asr/stream proxy, so there
-    # is no long-lived singleton client. Keep the attribute defined for safety.
-    app.state.asr_client = None
 
     try:
         from core.database import SessionLocal

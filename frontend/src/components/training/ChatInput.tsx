@@ -1,7 +1,5 @@
-import { Loader2, Mic, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/Toast";
-import useVoice from "@/hooks/useVoice";
 import { cn } from "@/utils/cn";
 
 function useVisualViewportOffset() {
@@ -36,20 +34,8 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
-	const { available, isListening, isProcessing, partialText, startListening, stopListening, cancelListening } = useVoice();
-	const voiceRef = useRef(false);
-	const { error: toastError } = useToast();
 	const vvOffset = useVisualViewportOffset();
 
-	useEffect(() => {
-		if (isListening && partialText) setText(partialText);
-	}, [isListening, partialText]);
-
-	useEffect(() => {
-		return () => {
-			cancelListening();
-		};
-	}, [cancelListening]);
 
 	const handleSend = useCallback(() => {
 		const trimmed = text.trim();
@@ -80,26 +66,6 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 		[handleSend],
 	);
 
-	const handleVoiceInput = useCallback(async () => {
-		if (isListening) {
-			stopListening();
-			return;
-		}
-		if (voiceRef.current) return;
-		voiceRef.current = true;
-		try {
-			const result = await startListening();
-			if (result.trim()) {
-				setText(result);
-				onSend(result);
-			}
-		} catch {
-			toastError("语音识别失败，请重试");
-		} finally {
-			voiceRef.current = false;
-		}
-	}, [isListening, startListening, stopListening, onSend, toastError]);
-
 	return (
 		<div
 			className="border-t border-border bg-muted/30 shrink-0 transition-transform duration-150"
@@ -124,38 +90,6 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				autoCorrect="off"
 				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"
 			/>
-			{text.length > 1800 && (
-				<span className="absolute right-2 -top-5 text-[10px] text-muted-foreground">
-					{text.length}/2000
-				</span>
-			)}
-			{available && (
-				<button
-					type="button"
-					onClick={handleVoiceInput}
-					disabled={disabled || loading || isProcessing}
-					title={
-						isProcessing ? "识别中..." : isListening ? "正在聆听..." : "语音输入"
-					}
-					className={cn(
-						"flex shrink-0 items-center justify-center rounded-xl transition-colors",
-						"size-11",
-						isListening &&
-							"bg-danger text-danger-foreground animate-pulse border-2 border-transparent",
-						!isListening &&
-							!isProcessing &&
-							"border border-border/60 bg-background text-muted-foreground hover:bg-muted",
-						isProcessing &&
-							"border border-border/60 bg-background text-muted-foreground",
-					)}
-				>
-					{isProcessing ? (
-						<Loader2 size={18} className="animate-spin" />
-					) : (
-						<Mic size={18} />
-					)}
-				</button>
-			)}
 			<button
 				type="button"
 				onClick={handleSend}
