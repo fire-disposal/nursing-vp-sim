@@ -31,6 +31,10 @@ class ErrorCode(StrEnum):
     SCORING_FEEDBACK = "SCORING_FEEDBACK"
     INTERNAL = "INTERNAL"
 
+
+
+class AppError(Exception):
+    """Base for all application-level exceptions."""
 class AuthError(HTTPException):
     """Authentication (401) or authorization (403) failure."""
 
