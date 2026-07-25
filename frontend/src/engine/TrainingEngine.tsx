@@ -269,6 +269,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		const next = !ttsAutoPlay;
 		setTtsAutoPlay(next);
 		ttsRef.current.setAutoPlay(next);
+		if (!next) ttsRef.current.stop();
 	}, [ttsAutoPlay]);
 
 	const ctxValue = useMemo(

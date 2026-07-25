@@ -43,11 +43,9 @@ export function TrainingHeader() {
 		endTraining: onEnd,
 		timeLimitMinutes,
 		remainingSeconds,
-		voiceStatus,
 	} = useTrainingContext();
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
-	const [ttsOpen, setTtsOpen] = useState(false);
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
@@ -179,19 +177,15 @@ export function TrainingHeader() {
 
 					{!isCompact && (
 					<button
-						onClick={() => setTtsOpen(true)}
+						type="button"
+						onClick={onTtsToggle}
 						className={cn(
 							"w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
-							ttsAutoPlay &&
-								"border-primary bg-primary/10 text-primary hover:bg-primary/20",
+							ttsAutoPlay && "border-primary bg-primary/10 text-primary hover:bg-primary/20",
 						)}
-						title="语音设置"
+						title={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
 					>
-						{ttsAutoPlay ? (
-							<Volume2 size={14} className="sm:size-[16px]" />
-						) : (
-							<EarOff size={14} className="sm:size-[16px]" />
-						)}
+						{ttsAutoPlay ? <Volume2 size={14} className="sm:size-[16px]" /> : <EarOff size={14} className="sm:size-[16px]" />}
 					</button>
 					)}
 
@@ -252,70 +246,6 @@ export function TrainingHeader() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog
-				open={ttsOpen}
-				onOpenChange={(o) => !o && setTtsOpen(false)}
-			>
-				<DialogContent title="语音设置" maxWidth={360}>
-				<div className="space-y-4">
-					<p className="text-sm text-muted-foreground">
-						配置训练中的语音朗读（TTS）选项
-					</p>
-
-					{/* Auto-play toggle */}
-					<label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-primary/5">
-						<div>
-							<div className="text-sm font-medium">自动朗读</div>
-							<div className="text-xs text-muted-foreground">
-								患者回复后自动朗读
-							</div>
-						</div>
-						<button
-							type="button"
-							onClick={onTtsToggle}
-							className={cn(
-								"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-								ttsAutoPlay ? "bg-primary" : "bg-muted-foreground/25",
-							)}
-						>
-							<span
-								className={cn(
-									"inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm",
-									ttsAutoPlay ? "translate-x-[18px]" : "translate-x-0.5",
-								)}
-							/>
-						</button>
-					</label>
-
-					{/* Provider status */}
-					<div className="px-3 py-2.5 rounded-lg bg-muted/30">
-						<div className="text-xs font-medium text-muted-foreground mb-1">语音引擎</div>
-						<div className="flex items-center gap-2">
-							<span className={cn(
-								"size-2 rounded-full",
-								!voiceStatus
-									? "bg-muted-foreground/30"
-									: voiceStatus.provider === "unavailable"
-										? "bg-danger"
-										: voiceStatus.provider.includes("browser")
-											? "bg-warning"
-											: "bg-success",
-							)} />
-							<span className="text-sm">
-								{voiceStatus
-									? `${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`
-									: "就绪"}
-							</span>
-						</div>
-					</div>
-				</div>
-				<div className="flex justify-end mt-5">
-					<Button variant="outline" size="sm" onClick={() => setTtsOpen(false)}>
-						关闭
-					</Button>
-				</div>
-				</DialogContent>
-			</Dialog>
 
 			
 		</>
