@@ -26,9 +26,8 @@ const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
-const StatsPage = lazy(() =>
-	import("@/pages/Stats").then((m) => ({ default: m.StatsPage })),
-);
+const StatsPage = lazy(() => import("@/pages/admin/StatsPage"));
+const MyStatsPage = lazy(() => import("@/pages/MyStatsPage"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
 const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
@@ -128,8 +127,8 @@ export const APP_ROUTES: AppRoute[] = [
 	},
 	// Sub-pages under 记录 — not primary nav items.
 	{ path: "/record/:id", element: <RecordDetail />, activity: "manage" },
-	{ path: "/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
-	{ path: "/my-responses", element: <MyResponses />, activity: "manage" },
+	{ path: "/my-stats", element: <MyStatsPage />, activity: "manage" },
+	{ path: "/admin/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	// Sub-pages under 我的 — not primary nav items.
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
@@ -207,6 +206,12 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "score_review",
 		activity: "manage",
 		nav: { label: "训练记录", icon: FileText, section: "admin", group: "teaching" },
+	},
+	{
+		path: "/admin/records/:id",
+		element: <RecordDetail />,
+		permission: "score_review",
+		activity: "manage",
 	},
 	{
 		path: "/admin/rubric",

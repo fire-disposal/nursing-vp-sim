@@ -1,7 +1,7 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BarChart3 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
 	exportRecordDetail,
 	getRecordDetail,
@@ -39,9 +39,12 @@ export default function RecordDetail() {
 		};
 	});
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const toast = useToast();
+	const queryClient = useQueryClient();
 	const permissions = useAuthStore((s) => s.permissions);
+	const location = useLocation();
+	const isTeacher = location.pathname.startsWith("/admin/records/");
+	const backPath = isTeacher ? "/admin/records" : "/history";
 
 	const { data: record, isError: recordError } = useQuery({
 		queryKey: queryKeys.training.detail(id!),
@@ -60,7 +63,7 @@ export default function RecordDetail() {
 	useEffect(() => {
 		if (recordError) {
 			toast.error("加载记录详情失败");
-			navigate("/history");
+			navigate(backPath);
 		}
 	}, [recordError, navigate, toast]);
 
@@ -255,7 +258,7 @@ export default function RecordDetail() {
 		<>
 			<div className="max-w-6xl mx-auto pt-2 pb-8">
 				<div className="flex items-center gap-2 mb-3">
-					<button onClick={() => navigate("/history")} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
+					<button onClick={() => navigate(backPath)} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
 						<ArrowLeft size={16} />
 					</button>
 					<h1 className="text-sm font-semibold truncate">

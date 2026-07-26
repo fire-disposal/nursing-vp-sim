@@ -8,7 +8,7 @@ import { cn } from "@/utils/cn";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
 const TAB_SUB_PATHS: Record<string, string[]> = {
-	"/history": ["/record", "/stats", "/my-responses", "/my-feedback"],
+	"/history": ["/record", "/my-stats", "/my-responses", "/my-feedback"],
 	"/profile": ["/notifications", "/qa"],
 };
 

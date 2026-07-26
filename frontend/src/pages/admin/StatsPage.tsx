@@ -85,7 +85,7 @@ interface StatsContentProps {
 	LIMIT?: number;
 }
 
-export default function Stats() {
+function Stats() {
 	const [period, setPeriod] = useState("month");
 	const [summaryOffset, setSummaryOffset] = useState(0);
 	const [rankingOffset, setRankingOffset] = useState(0);
@@ -145,7 +145,7 @@ export default function Stats() {
 	);
 }
 
-export function StatsPage() {
+export default function StatsPage() {
 	return <Stats />;
 }
 

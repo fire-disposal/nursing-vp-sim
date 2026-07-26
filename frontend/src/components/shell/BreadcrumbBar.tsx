@@ -37,10 +37,11 @@ export default function BreadcrumbBar({ className }: { className?: string }) {
 			result.push({ label: "病例训练", to: "/training" });
 		} else if (pathname.startsWith("/record/")) {
 			result.push({ label: "训练记录", to: "/history" });
+		} else if (pathname.startsWith("/admin/records/") && pathname !== "/admin/records") {
+			result.push({ label: "训练记录", to: "/admin/records" });
 		} else if (pathname.startsWith("/admin/users/") && pathname !== "/admin/users") {
 			result.push({ label: "用户管理", to: "/admin/users" });
 		} else if (pathname.startsWith("/admin/assignments/") && pathname !== "/admin/assignments") {
-			result.push({ label: "作业管理", to: "/admin/assignments" });
 		}
 
 		result.push({ label: route.nav.label });

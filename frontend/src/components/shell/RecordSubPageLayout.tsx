@@ -12,7 +12,7 @@ interface RecordSubPageLayoutProps {
 
 /**
  * Unified layout shell for the four "记录" sub-pages:
- * /history, /stats, /my-responses, /my-feedback.
+ * /history, /my-stats, /my-responses, /my-feedback.
  *
  * Ensures consistent HistoryTabs + PageHeader + content spacing.
  */

@@ -5,7 +5,7 @@ import { cn } from "@/utils/cn";
 
 const RECORD_TABS = [
 	{ key: "records", to: "/history", label: "训练记录", permission: null },
-	{ key: "stats", to: "/stats", label: "训练统计", permission: "stats_view" as const },
+	{ key: "stats", to: "/my-stats", label: "训练统计", permission: null },
 	{ key: "responses", to: "/my-responses", label: "我的问卷", permission: null },
 	{ key: "feedback", to: "/my-feedback", label: "我的反馈", permission: null },
 ] as const;
@@ -14,7 +14,7 @@ const RECORD_TABS = [
  * Shared sub-tab bar for the "记录" (History) section.
  *
  * Renders the same four tabs on all four sub-pages
- * (/history, /stats, /my-responses, /my-feedback)
+ * (/history, /my-stats, /my-responses, /my-feedback)
  * so the tab switcher never disappears after navigation.
  *
  * Tabs with permission requirements (e.g. stats_view) are
