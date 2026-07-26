@@ -5,11 +5,11 @@ import json
 import logging
 
 from contexts.training.patient_ai.emotion import get_emotion
-from prompts.training.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
-from prompts.training.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 from infrastructure.llm.client import CallContext
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from prompts import render_template
+from prompts.training.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
+from prompts.training.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
 
 from ..context import (
     STATE_FEATURES,
@@ -134,35 +134,32 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         )
 
     has_initiative = features.get("patient_initiative", False)
-    if not has_initiative or not ctx.llm_reply:
-        return
 
-    initiative_cache = getattr(app, "initiative_cache", None)
-    if initiative_cache is None:
-        return
+    if has_initiative and ctx.llm_reply:
+        initiative_cache = getattr(app, "initiative_cache", None)
+        if initiative_cache is not None:
+            try:
+                emotion_state = get_emotion(ctx.record.id, app.emotion_cache, ctx.db)
+                case_data = ctx.case_data or {}
+                personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
 
-    try:
-        emotion_state = get_emotion(ctx.record.id, app.emotion_cache, ctx.db)
-        case_data = ctx.case_data or {}
-        personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
+                elapsed, threshold = get_initiative_seconds(
+                    ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
+                )
+                count = initiative_cache.get_count(ctx.record.id, ctx.db)
+                max_reached = count >= MAX_INITIATIVE_COUNT
+                ctx.system_events.append(
+                    {
+                        "initiative_state": {
+                            "elapsed_seconds": round(elapsed, 1),
+                            "threshold_seconds": round(threshold, 1),
+                            "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
+                            "initiative_count": count,
+                            "max_reached": max_reached,
+                        }
+                    }
+                )
+            except Exception:
+                log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
 
-        elapsed, threshold = get_initiative_seconds(
-            ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
-        )
-        count = initiative_cache.get_count(ctx.record.id, ctx.db)
-        max_reached = count >= MAX_INITIATIVE_COUNT
-        ctx.system_events.append(
-            {
-                "initiative_state": {
-                    "elapsed_seconds": round(elapsed, 1),
-                    "threshold_seconds": round(threshold, 1),
-                    "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
-                    "initiative_count": count,
-                    "max_reached": max_reached,
-                }
-            }
-        )
-    except Exception:
-        log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
-
-    ctx.db.flush()
+    ctx.db.commit()
