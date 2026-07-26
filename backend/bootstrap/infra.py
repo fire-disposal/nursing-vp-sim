@@ -1,17 +1,50 @@
-"""Training infra globals — shared state for background thread scheduling.
-
-Moved from contexts/training/router/session.py to eliminate cross-cutting
-infrastructure code from the routing layer.
-"""
+"""Infrastructure bootstrap — task queue, caches, metrics, diagnose, realtime hub, and training globals."""
 
 import asyncio
+import logging
 import threading
 
 import httpx
 
+from contexts.training.session.cache import EmotionCache, InitiativeCache
+from infrastructure.diagnose import get_diagnose_service
 from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.metrics import MetricsSnapshot
+from infrastructure.queue import TaskQueue
+from infrastructure.realtime_hub import RealtimeHub
+from infrastructure.scoring_progress import ScoringProgressTracker
+
+log = logging.getLogger(__name__)
 
 # Module-level shared state — initialized by bootstrap
+
+async def init_infra(app_state, llm_router):
+    """Initialize task queue, caches, metrics, diagnose, and realtime hub."""
+    task_queue = TaskQueue()
+    await task_queue.start()
+    app_state.task_queue = task_queue
+    log.info("Task queue: %d workers", task_queue.max_workers)
+
+    app_state.emotion_cache = EmotionCache()
+    app_state.initiative_cache = InitiativeCache()
+    app_state.scoring_tracker = ScoringProgressTracker()
+    app_state.realtime_hub = RealtimeHub()
+
+    metrics = MetricsSnapshot()
+    app_state.metrics = metrics
+    metrics.task_queue_size_supplier = lambda: task_queue.pending if task_queue else 0
+    metrics.log_queue_size_supplier = lambda: (
+        app_state.log_worker._queue.qsize() if app_state.log_worker and app_state.log_worker._queue else 0
+    )
+    metrics.degraded_providers_supplier = lambda: llm_router.degraded_count() if llm_router else 0
+    metrics.global_degraded_supplier = lambda: llm_router.global_degraded if llm_router else False
+
+    diagnose_svc = get_diagnose_service()
+    diagnose_svc.install_handler()
+    diagnose_svc.set_app(app_state.app)
+
+    return metrics
+
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None
 _infra_log_worker: LogWorker | None = None
