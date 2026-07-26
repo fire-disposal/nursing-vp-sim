@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -125,11 +126,20 @@ export default function NotificationBell() {
 				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
 			>
-				<Bell size={16} />
+				<motion.div
+					animate={unreadCount > 0 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+					transition={unreadCount > 0 ? { repeat: Infinity, repeatDelay: 3, duration: 0.4 } : {}}
+				>
+					<Bell size={16} />
+				</motion.div>
 				{unreadCount > 0 && (
-					<span className="absolute -top-0.5 -right-0.5 flex items-center justify-center size-4 text-[10px] font-bold text-white bg-destructive rounded-full">
+					<motion.span
+						initial={{ scale: 0 }}
+						animate={{ scale: 1 }}
+						className="absolute -top-0.5 -right-0.5 flex items-center justify-center size-4 text-[10px] font-bold text-white bg-destructive rounded-full"
+					>
 						{unreadCount > 99 ? "99+" : unreadCount}
-					</span>
+					</motion.span>
 				)}
 			</button>
 

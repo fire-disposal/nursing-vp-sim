@@ -39,7 +39,7 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 								item.score >= itemMax
 									? "text-success-foreground"
 									: item.score >= Math.ceil(itemMax * 0.6)
-										? "text-warning-foreground"
+										? "text-neutral-foreground"
 										: "text-danger-foreground",
 							)}
 						>

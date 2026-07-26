@@ -25,7 +25,7 @@ interface BottomsheetProps {
 const HALF_VH = 40;
 const FULL_VH = 85;
 const SNAP_THRESHOLD = 0.12;
-const CLOSE_THRESHOLD = 0.25;
+const CLOSE_THRESHOLD = 0.35;
 const VELOCITY_THRESHOLD = 0.3; // vh per ms
 
 type SnapPoint = "half" | "full";
@@ -183,10 +183,10 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 					<h3 className="text-sm font-semibold select-none">{title}</h3>
 					<button
 						onClick={(e) => { e.stopPropagation(); onClose(); }}
-						className="size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+						className="size-10 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
 						aria-label="关闭"
 					>
-						<X size={16} />
+						<X size={18} />
 					</button>
 				</div>
 

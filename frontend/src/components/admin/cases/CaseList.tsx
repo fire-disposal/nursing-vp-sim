@@ -1,5 +1,5 @@
 import { Eye, EyeOff, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Wand2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/button";
 import Pagination from "@/components/ui/pagination";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
@@ -35,10 +35,33 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 	return (
 		<div className="flex gap-1">
 			{enabled.map(([key, def]) => (
-				<span key={key} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-					{def.label}
-				</span>
+				<span key={key} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{def.label}</span>
 			))}
+		</div>
+	);
+}
+
+function ContextMenu({ onEdit, onDelete, onClose }: { onEdit: () => void; onDelete: () => void; onClose: () => void }) {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const handler = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+		};
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, [onClose]);
+
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [onClose]);
+
+	return (
+		<div ref={ref} className="absolute right-2 top-10 z-20 w-32 rounded-lg border border-border bg-popover shadow-lg py-1" role="menu">
+			<button onClick={() => { onEdit(); onClose(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted" role="menuitem"><Pencil size={12} />编辑</button>
+			<button onClick={() => { onDelete(); onClose(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-destructive" role="menuitem"><Trash2 size={12} />删除</button>
 		</div>
 	);
 }
@@ -54,36 +77,35 @@ export default function CaseList({
 	return (
 		<div className="space-y-4">
 			{/* Toolbar */}
-			<div className="flex flex-wrap items-center gap-3">
-				<Button onClick={onAdd}><Plus size={16} />添加病例</Button>
-				<Button variant="outline" onClick={onAIAdd}><Wand2 size={16} />AI 生成</Button>
+			<div className="flex items-center gap-2 flex-wrap">
+				<Button size="sm" onClick={onAdd}><Plus size={14} />新建病例</Button>
+				<Button size="sm" variant="outline" onClick={onAIAdd}><Wand2 size={14} />AI 生成</Button>
 				<div className="flex-1" />
-				<div className="flex items-center gap-2">
-					<select value={filters.training_type} onChange={(e) => onFilterChange({ ...filters, training_type: e.target.value })}
-						className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-						<option value="">全部类型</option>
-						<option value="history_taking">病史采集</option>
-					</select>
-					<select value={filters.difficulty} onChange={(e) => onFilterChange({ ...filters, difficulty: e.target.value })}
-						className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-						<option value="">全部难度</option>
-						<option value="1">初级</option>
-						<option value="2">中级</option>
-						<option value="3">高级</option>
-					</select>
-					<select value={filters.is_open} onChange={(e) => onFilterChange({ ...filters, is_open: e.target.value })}
-						className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-						<option value="">全部状态</option>
-						<option value="true">开放</option>
-						<option value="false">未开放</option>
-					</select>
-					<div className="relative w-40">
-						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-						<input type="text" value={searchInput} onChange={(e) => onSearchChange(e.target.value)}
-							placeholder="搜索病例…" className="h-8 w-full pl-8 pr-6 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50" />
-						{searchInput && <button onClick={() => onSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={12} /></button>}
-					</div>
+				<div className="relative">
+					<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+					<input type="text" value={searchInput} onChange={(e) => onSearchChange(e.target.value)}
+						placeholder="搜索病例…" className="h-8 w-40 pl-8 pr-6 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50" />
+					{searchInput && <button onClick={() => onSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={12} /></button>}
 				</div>
+			</div>
+
+			{/* Filters */}
+			<div className="flex gap-2 flex-wrap">
+				<select value={filters.difficulty} onChange={(e) => onFilterChange({ ...filters, difficulty: e.target.value })}
+					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
+					<option value="">全部难度</option>
+					<option value="1">初级</option><option value="2">中级</option><option value="3">高级</option>
+				</select>
+				<select value={filters.training_type} onChange={(e) => onFilterChange({ ...filters, training_type: e.target.value })}
+					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
+					<option value="">全部类型</option>
+					<option value="history_taking">病史采集</option><option value="triage">预检分诊</option>
+				</select>
+				<select value={filters.is_open} onChange={(e) => onFilterChange({ ...filters, is_open: e.target.value })}
+					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
+					<option value="">全部状态</option>
+					<option value="true">已开放</option><option value="false">已关闭</option>
+				</select>
 			</div>
 
 			{/* Table */}
@@ -128,27 +150,15 @@ export default function CaseList({
 								</td>
 								<td className="px-4 py-3 text-right relative">
 									<button type="button" onClick={() => setMenuOpen(menuOpen === c.id ? null : c.id)}
-										className="p-1 rounded hover:bg-muted text-muted-foreground">
+										className="p-1 rounded hover:bg-muted text-muted-foreground" aria-haspopup="menu" aria-expanded={menuOpen === c.id}>
 										<MoreHorizontal size={16} />
 									</button>
 									{menuOpen === c.id && (
-										<div className="absolute right-2 top-10 z-20 w-32 rounded-lg border border-border bg-popover shadow-lg py-1"
-											onMouseLeave={() => setMenuOpen(null)}>
-											<button onClick={() => { onEdit(c); setMenuOpen(null); }}
-												className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted">
-												<Pencil size={12} />编辑
-											</button>
-											<button onClick={() => { onToggleOpen(c); setMenuOpen(null); }}
-												className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted">
-												{c.is_open ? <EyeOff size={12} /> : <Eye size={12} />}
-												{c.is_open ? "关闭" : "开放"}
-											</button>
-											<button onClick={() => { onDelete(c); setMenuOpen(null); }}
-												disabled={c.training_count > 0}
-												className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50 text-red-600 disabled:opacity-30">
-												<Trash2 size={12} />删除
-											</button>
-										</div>
+										<ContextMenu
+											onEdit={() => onEdit(c)}
+											onDelete={() => onDelete(c)}
+											onClose={() => setMenuOpen(null)}
+										/>
 									)}
 								</td>
 							</tr>

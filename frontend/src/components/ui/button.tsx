@@ -17,6 +17,10 @@ import { cn } from "@/utils/cn";
 					"hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
 				destructive:
 					"bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+				abandon:
+					"bg-abandon/10 text-abandon hover:bg-abandon/20 focus-visible:border-abandon/40 focus-visible:ring-abandon/20 dark:bg-abandon/20 dark:hover:bg-abandon/30 dark:focus-visible:ring-abandon/40",
+				end:
+					"bg-end/10 text-end hover:bg-end/20 focus-visible:border-end/40 focus-visible:ring-end/20 dark:bg-end/20 dark:hover:bg-end/30 dark:focus-visible:ring-end/40",
 				link: "text-primary underline-offset-4 hover:underline",
 			},
 			size: {

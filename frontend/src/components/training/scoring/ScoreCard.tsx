@@ -21,7 +21,7 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 	}, [percentage, circumference]);
 
 	const ringClass =
-		percentage >= 80 ? "text-success-foreground" : percentage >= 60 ? "text-warning-foreground" : "text-destructive";
+		percentage >= 80 ? "text-success-foreground" : percentage >= 60 ? "text-neutral-foreground" : "text-destructive";
 
 	return (
 		<div className="relative inline-flex items-center justify-center">
@@ -72,7 +72,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (Number.isFinite(i.max) && i.max > 0 ? i.max : 3), 0) ?? 100;
 	const percentage = dimMax > 0 ? (dimension.score / dimMax) * 100 : 0;
 	const barColor =
-		percentage >= 80 ? "bg-success" : percentage >= 60 ? "bg-warning" : "bg-destructive";
+		percentage >= 80 ? "bg-success" : percentage >= 60 ? "bg-neutral" : "bg-destructive";
 
 	useEffect(() => {
 		const raf = requestAnimationFrame(() => setBarWidth(`${percentage}%`));
@@ -259,24 +259,13 @@ export function ScoreCard({
 	recordId: string;
 }) {
 	const navigate = useNavigate();
-	const [score, setScore] = useState<ScoreData | null>(null);
 
 	useEffect(() => {
-		const unsub = bus.on("score:ready", (data: ScoreData) => {
-			setScore(data);
+		const unsub = bus.on("score:ready", () => {
+			navigate(`/record/${recordId}`, { replace: true });
 		});
 		return unsub;
-	}, [bus]);
+	}, [bus, recordId, navigate]);
 
-	if (!score) return null;
-
-	const handleClose = () => {
-		navigate(`/record/${recordId}`);
-	};
-
-	const handleRestart = () => {
-		navigate("/home");
-	};
-
-	return <ScoreCardInner score={score} onClose={handleClose} onRestart={handleRestart} />;
+	return null;
 }

@@ -13,10 +13,8 @@ import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
-import { ScoreCardInner } from "@/components/training/scoring/ScoreCard";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import type { ScoreData as EngineScoreData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import type { MessageData } from "./record-detail/MessagePlayback";
@@ -27,7 +25,6 @@ import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
-	const [showScore, setShowScore] = useState(false);
 	const [retrying, setRetrying] = useState(false);
 	const [retryProgress, setRetryProgress] = useState<number | null>(null);
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
@@ -256,8 +253,8 @@ export default function RecordDetail() {
 
 	return (
 		<>
-			<div className="max-w-4xl mx-auto space-y-4 pt-2">
-				<div className="flex items-center gap-2">
+			<div className="max-w-6xl mx-auto pt-2">
+				<div className="flex items-center gap-2 mb-3">
 					<button onClick={() => navigate("/history")} className="size-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
 						<ArrowLeft size={16} />
 					</button>
@@ -280,49 +277,58 @@ export default function RecordDetail() {
 					onRetry={handleRetryScoring}
 				/>
 
-				{hasScore && recordScore && (
-					<ScoreResultSection
-						recordScore={recordScore}
-						isReviewed={isReviewed}
-						review={review ?? null}
-						scoreReview={scoreReview}
-						isTeacher={hasScoreReview}
-						expanded={expanded}
-						onToggleExpand={handleToggleExpand}
-						onReviewClick={() => setShowReviewEditor(true)}
-						onExport={handleExport}
-						onDetailedScoreClick={() => setShowScore(true)}
-						scoreMax={scoreMax}
-						categories={categories}
-						hasDetailItems={hasDetailItems}
-					/>
-				)}
+				{/* Split pane on large screens */}
+				<div className="flex flex-col lg:flex-row gap-4 mt-4 lg:h-[calc(100vh-220px)]">
+					{/* Left: conversation + extras */}
+					<div className="flex-1 lg:overflow-y-auto min-h-0 space-y-4">
+						<MessagePlayback messages={messages} />
 
-				{record.triage_result && Object.keys(record.triage_result).length > 0 && (
-					<div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-3">
-						<h3 className="text-base font-semibold">分诊结果</h3>
-						<div className="space-y-2 text-sm">
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">MEWS 评分</span>
-								<span className="font-medium tabular-nums">{String(record.triage_result.mews_score ?? "-")}/14</span>
+						{record.triage_result && Object.keys(record.triage_result).length > 0 && (
+							<div className="rounded-xl border border-border bg-card p-5 space-y-3">
+								<h3 className="text-base font-semibold">分诊结果</h3>
+								<div className="space-y-2 text-sm">
+									<div className="flex justify-between">
+										<span className="text-muted-foreground">MEWS 评分</span>
+										<span className="font-medium tabular-nums">{String(record.triage_result.mews_score ?? "-")}/14</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-muted-foreground">分诊级别</span>
+										<span className="font-medium">{String(record.triage_result.category || "未选择")}</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-muted-foreground">建议科室</span>
+										<span className="font-medium">{String(record.triage_result.department || "未选择")}</span>
+									</div>
+								</div>
 							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">分诊级别</span>
-								<span className="font-medium">{String(record.triage_result.category || "未选择")}</span>
-							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">建议科室</span>
-								<span className="font-medium">{String(record.triage_result.department || "未选择")}</span>
-							</div>
-						</div>
+						)}
+
+						{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
+							<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
+						)}
 					</div>
-				)}
 
-				{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
-					<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
-				)}
-
-				<MessagePlayback messages={messages} />
+					{/* Right: score panel */}
+					{hasScore && recordScore && (
+						<div className="lg:w-[420px] lg:overflow-y-auto lg:shrink-0">
+							<ScoreResultSection
+								recordScore={recordScore}
+								isReviewed={isReviewed}
+								review={review ?? null}
+								scoreReview={scoreReview}
+								isTeacher={hasScoreReview}
+								expanded={expanded}
+								onToggleExpand={handleToggleExpand}
+								onReviewClick={() => setShowReviewEditor(true)}
+								onExport={handleExport}
+								onDetailedScoreClick={() => {}}
+								scoreMax={scoreMax}
+								categories={categories}
+								hasDetailItems={hasDetailItems}
+							/>
+						</div>
+					)}
+				</div>
 			</div>
 
 			{postQShouldShow && postCheckResponse && (
@@ -336,12 +342,6 @@ export default function RecordDetail() {
 				/>
 			)}
 
-			{showScore && record.score && (
-				<ScoreCardInner
-					score={record.score as EngineScoreData}
-					onClose={() => setShowScore(false)}
-				/>
-			)}
 
 			{showReviewEditor && record.score && (
 				<ReviewEditor

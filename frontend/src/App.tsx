@@ -69,7 +69,7 @@ export default function App() {
 									<Route path="/showcase" element={<Showcase />} />
 									<Route element={<ProtectedRoute />}>
 										<Route element={<Layout />}>
-											<Route index element={<Navigate to="/home" replace />} />
+											<Route index element={<Navigate to="/training" replace />} />
 											{APP_ROUTES.map((r) => (
 												<Route
 													key={r.path}

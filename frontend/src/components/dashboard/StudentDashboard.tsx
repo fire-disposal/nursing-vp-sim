@@ -15,7 +15,7 @@ type CaseBrief = components["schemas"]["CaseBrief"];
 type DurationStats = components["schemas"]["DurationStats"];
 
 const SCORE_COLORS = (s: number) =>
-	s >= 85 ? "text-success-foreground" : s >= 70 ? "text-info-foreground" : s >= 60 ? "text-warning-foreground" : "text-danger-foreground";
+	s >= 85 ? "text-success-foreground" : s >= 70 ? "text-info-foreground" : s >= 60 ? "text-neutral-foreground" : "text-danger-foreground";
 
 const SCORE_LABEL = (s: number) =>
 	s >= 85 ? "优秀" : s >= 70 ? "良好" : s >= 60 ? "一般" : "待提高";

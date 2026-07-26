@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, EarOff, Volume2, X } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, Clock, EarOff, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
@@ -113,16 +113,17 @@ export function TrainingHeader() {
 		portraitUrl ||
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
 
+
 	return (
 		<>
 			<header
-				className="shrink-0 border-b border-border bg-card/95 backdrop-blur-sm px-2 sm:px-4 h-12 sm:h-14"
+				className="absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 h-10 sm:h-12 shadow-sm"
 				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
 			>
 				<div className="flex items-center gap-2 h-full">
 					<button
 						onClick={() => navigate("/training")}
-						className="size-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
+						className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
 						title="返回训练选择"
 						aria-label="返回训练选择"
 					>
@@ -146,7 +147,7 @@ export function TrainingHeader() {
 					</div>
 
 					{patient.age != null && (
-						<span className="text-xs text-muted-foreground shrink-0 hidden sm:inline tabular-nums">
+						<span className="text-xs text-muted-foreground shrink-0 tabular-nums">
 							{patient.gender === "male" ? "男" : "女"} · {patient.age}岁
 						</span>
 					)}
@@ -175,32 +176,30 @@ export function TrainingHeader() {
 						<span>{formatTime(remaining)}</span>
 					</div>
 
-					{!isCompact && (
 					<button
 						type="button"
 						onClick={onTtsToggle}
 						className={cn(
-							"w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
+							"size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
 							ttsAutoPlay && "border-primary bg-primary/10 text-primary hover:bg-primary/20",
 						)}
 						title={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
 					>
-						{ttsAutoPlay ? <Volume2 size={14} className="sm:size-[16px]" /> : <EarOff size={14} className="sm:size-[16px]" />}
+						{ttsAutoPlay ? <Volume2 size={16} /> : <EarOff size={16} />}
 					</button>
-					)}
 
 					
 
-					<button
-						data-end-training
+					<Button
+						variant="end"
+						size="sm"
 						onClick={handleEndClick}
-						className="flex items-center gap-1 px-2.5 h-9 rounded-md bg-destructive text-destructive-foreground text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/90 transition-colors active:scale-95 shadow-sm"
-						title="结束训练并生成评分"
+						title="完成训练并查看评分"
 					>
-						<X size={14} className="sm:size-[15px]" />
-						<span className="hidden sm:inline">结束训练</span>
-						<span className="sm:hidden">结束训练</span>
-					</button>
+						<ClipboardCheck size={14} className="sm:size-[15px]" />
+						<span className="hidden sm:inline">完成训练</span>
+						<span className="sm:hidden">完成</span>
+					</Button>
 				</div>
 			</header>
 
@@ -220,7 +219,7 @@ export function TrainingHeader() {
 					>
 						取消
 					</Button>
-					<Button variant="destructive" size="sm" onClick={executeEnd}>
+					<Button variant="end" size="sm" onClick={executeEnd}>
 						确认结束
 					</Button>
 				</div>
@@ -235,11 +234,11 @@ export function TrainingHeader() {
 				<p className="text-sm text-muted-foreground mb-2">
 					本次训练时间已用尽，即将自动结束。
 				</p>
-				<p className="text-2xl font-bold text-center tabular-nums mb-5 text-destructive">
+				<p className="text-2xl font-bold text-center tabular-nums mb-5 text-end">
 					{autoEndCountdown} 秒
 				</p>
 				<div className="flex justify-center">
-					<Button variant="destructive" size="sm" onClick={executeEnd}>
+					<Button variant="end" size="sm" onClick={executeEnd}>
 						立即结束
 					</Button>
 				</div>

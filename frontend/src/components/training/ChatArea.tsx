@@ -89,7 +89,7 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="flex flex-col h-full pt-10 sm:pt-12">
 			<AnimatePresence mode="wait">
 				{!hasMessages && !hasHistory ? (
 					<motion.div

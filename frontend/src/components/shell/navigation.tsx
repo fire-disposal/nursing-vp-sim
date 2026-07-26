@@ -1,21 +1,18 @@
 import {
-	Activity,
+	Activity as ActivityIcon,
 	BarChart3,
-	Bell,
 	BookOpen,
 	ClipboardCheck,
 	ClipboardList,
 	Coins,
 	FileText,
 	GraduationCap,
-	HelpCircle,
-	Home,
 	type LucideIcon,
 	Megaphone,
 	MessageSquare,
-	Settings,
 	Shield,
 	Stethoscope,
+	User,
 	UserSearch,
 	Users,
 } from "lucide-react";
@@ -23,6 +20,7 @@ import { lazy, type ReactNode } from "react";
 import type { Permission } from "@/utils/permissions";
 
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
+
 const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
 const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
@@ -61,9 +59,11 @@ const TeacherRecordsPage = lazy(
 );
 const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 
+export type Activity = "practice" | "review" | "manage";
+
 export type NavSection = "user" | "admin";
 
-export type NavGroupKey = "teaching" | "people" | "system" | "feedback";
+export type NavGroupKey = "teaching" | "people" | "system";
 
 export interface NavGroupDef {
 	key: NavGroupKey;
@@ -73,10 +73,9 @@ export interface NavGroupDef {
 }
 
 export const NAV_GROUPS: NavGroupDef[] = [
-	{ key: "teaching", label: "教学中心", icon: GraduationCap, defaultOpen: true },
-	{ key: "people", label: "人员管理", icon: Users, defaultOpen: false },
-	{ key: "system", label: "系统运维", icon: Activity, defaultOpen: false },
-	{ key: "feedback", label: "反馈中心", icon: MessageSquare, defaultOpen: false },
+	{ key: "teaching", label: "教学", icon: GraduationCap, defaultOpen: true },
+	{ key: "people", label: "人员", icon: Users, defaultOpen: false },
+	{ key: "system", label: "系统", icon: ActivityIcon, defaultOpen: false },
 ];
 
 export interface NavMeta {
@@ -92,23 +91,21 @@ export interface AppRoute {
 	path: string;
 	element: ReactNode;
 	permission?: Permission;
+	activity: Activity;
 	nav?: NavMeta;
 }
 
 export const APP_ROUTES: AppRoute[] = [
 	// ── User area ──
-	{
-		path: "/home",
-		element: <DashboardHome />,
-		nav: { label: "首页", icon: Home, section: "user", end: true },
-	},
+	// /home retained for admin redirect; not in student nav.
+	{ path: "/home", element: <DashboardHome />, activity: "manage" },
 	{
 		path: "/training",
 		element: <TrainingSelect />,
 		permission: "training_access",
+		activity: "manage",
 		nav: {
-			label: "病例训练",
-			shortLabel: "训练",
+			label: "训练",
 			icon: Stethoscope,
 			section: "user",
 		},
@@ -117,157 +114,140 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/training/:recordId",
 		element: <TrainingEntry />,
 		permission: "training_access",
+		activity: "practice",
 	},
 	{
 		path: "/history",
 		element: <History />,
+		activity: "manage",
 		nav: {
-			label: "训练记录",
-			shortLabel: "记录",
+			label: "记录",
 			icon: ClipboardList,
 			section: "user",
 		},
 	},
-	{ path: "/record/:id", element: <RecordDetail /> },
+	// Sub-pages under 记录 — not primary nav items.
+	{ path: "/record/:id", element: <RecordDetail />, activity: "manage" },
+	{ path: "/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
+	{ path: "/my-responses", element: <MyResponses />, activity: "manage" },
+	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
+	// Sub-pages under 我的 — not primary nav items.
+	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
+	// QA — accessible via profile quick link, not primary nav.
+	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage" },
 	{
-		path: "/my-feedback",
-		element: <MyFeedbackPage />,
+		path: "/profile",
+		element: <Profile />,
+		activity: "manage",
 		nav: {
-			label: "我的反馈",
-			icon: MessageSquare,
+			label: "我的",
+			icon: User,
 			section: "user",
 		},
 	},
-	{
-		path: "/notifications",
-		element: <NotificationInboxPage />,
-		nav: {
-			label: "通知中心",
-			icon: Bell,
-			section: "user",
-		},
-	},
-	{
-		path: "/qa",
-		element: <QA />,
-		permission: "qa_access",
-		nav: {
-			label: "护理问答",
-			shortLabel: "问答",
-			icon: HelpCircle,
-			section: "user",
-		},
-	},
-	{
-		path: "/stats",
-		element: <StatsPage />,
-		permission: "stats_view",
-		nav: {
-			label: "训练统计",
-			shortLabel: "统计",
-			icon: BarChart3,
-			section: "user",
-		},
-	},
-	{
-		path: "/my-responses",
-		element: <MyResponses />,
-		nav: {
-			label: "我的问卷",
-			shortLabel: "问卷",
-			icon: ClipboardCheck,
-			section: "user",
-		},
-	},
-	{ path: "/profile", element: <Profile /> },
 
 	// ── Admin area ──
 	{
 		path: "/admin/users",
 		element: <AdminUsers />,
 		permission: "user_manage",
+		activity: "manage",
 		nav: { label: "用户管理", icon: Users, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/users/:userId",
 		element: <AdminUserDetail />,
 		permission: "user_manage",
+		activity: "manage",
 	},
 	{
 		path: "/admin/roles",
 		element: <AdminRoles />,
 		permission: "role_manage",
+		activity: "manage",
 		nav: { label: "角色管理", icon: Shield, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/grades-classes",
 		element: <AdminGradesClasses />,
 		permission: "grade_class_manage",
+		activity: "manage",
 		nav: { label: "班级管理", icon: GraduationCap, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/cases",
 		element: <AdminCases />,
 		permission: "case_manage",
+		activity: "manage",
 		nav: { label: "病例库", icon: UserSearch, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments",
 		element: <AssignmentsPage />,
 		permission: "assignment_manage",
+		activity: "manage",
 		nav: { label: "作业管理", icon: ClipboardList, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments/:id",
 		element: <AssignmentDetailPage />,
 		permission: "assignment_manage",
+		activity: "manage",
 	},
 	{
 		path: "/admin",
 		element: <Admin />,
 		permission: "score_review",
-		nav: { label: "教学看板", icon: Settings, section: "admin", group: "teaching", end: true },
+		activity: "manage",
+		nav: { label: "教学看板", icon: BarChart3, section: "admin", group: "teaching", end: true },
 	},
 	{
 		path: "/admin/records",
 		element: <TeacherRecordsPage />,
 		permission: "score_review",
+		activity: "manage",
 		nav: { label: "训练记录", icon: FileText, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/rubric",
 		element: <RubricPage />,
 		permission: "score_review",
+		activity: "manage",
 		nav: { label: "评分标准", icon: BookOpen, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/costs",
 		element: <CostManagement />,
 		permission: "llm_monitor",
+		activity: "manage",
 		nav: { label: "成本管理", icon: Coins, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/feedback",
 		element: <AdminFeedback />,
 		permission: "feedback_review",
-		nav: { label: "用户反馈", icon: MessageSquare, section: "admin", group: "feedback" },
+		activity: "manage",
+		nav: { label: "用户反馈", icon: MessageSquare, section: "admin" },
 	},
 	{
 		path: "/admin/questionnaires",
 		element: <AdminQuestionnaires />,
 		permission: "questionnaire_manage",
+		activity: "manage",
 		nav: { label: "问卷管理", icon: ClipboardCheck, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/system-ops",
 		element: <SystemOpsPage />,
 		permission: "api_manage",
-		nav: { label: "运维仪表盘", icon: Activity, section: "admin", group: "system" },
+		activity: "manage",
+		nav: { label: "运维仪表盘", icon: ActivityIcon, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/system-notifications",
 		element: <SystemNotificationsPage />,
 		permission: "api_manage",
+		activity: "manage",
 		nav: { label: "系统通知", icon: Megaphone, section: "admin", group: "system" },
 	},
 ];

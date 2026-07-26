@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatBubble } from "@/components/training/ChatBubble";
 import { ExamResultCard } from "@/components/training/ExamResultCard";
@@ -122,7 +123,13 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 						return <ExamResultCard key={gi} result={firstMsg.examResult} />;
 					}
 					return (
-						<div key={gi} className="flex flex-col gap-1">
+						<motion.div
+							key={gi}
+							className="flex flex-col gap-1"
+							initial={{ opacity: 0, y: 8 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.2, ease: "easeOut" }}
+						>
 							{group.messages.map((msg, mi) => (
 								<ChatBubble
 									key={msg.id ?? mi}
@@ -138,7 +145,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 									showAvatar={mi === 0}
 								/>
 							))}
-						</div>
+						</motion.div>
 					);
 				})}
 				{examResults

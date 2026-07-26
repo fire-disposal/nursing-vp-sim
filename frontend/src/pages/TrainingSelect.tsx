@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, ClipboardList, Play, RotateCcw, Search, Star, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -54,7 +55,7 @@ function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
   return (
     <div className="flex gap-1 flex-wrap">
       {enabled.map(([key, def]) => (
-        <span key={key} className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", CAP_COLORS[key] ?? "bg-muted text-muted-foreground")}>
+        <span key={key} className={cn("text-xs px-1.5 py-0.5 rounded font-medium", CAP_COLORS[key] ?? "bg-muted text-muted-foreground")}>
           {def.label}
         </span>
       ))}
@@ -179,7 +180,13 @@ export default function TrainingSelect() {
                   const summary = getPatientSummary(c.patient_summary);
                   const inProgress = inProgressByCase.get(c.id);
                   return (
-                    <div key={c.id} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30">
+                    <motion.div
+                      key={c.id}
+                      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: cases.indexOf(c) * 0.04, ease: "easeOut" }}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-semibold truncate">{c.name}</h3>
@@ -199,7 +206,7 @@ export default function TrainingSelect() {
                       ) : (
                         <Button className="mt-auto w-full" size="sm" onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })} disabled={startMutation.isPending}>开始训练</Button>
                       )}
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -210,41 +217,39 @@ export default function TrainingSelect() {
       )}
 
       {tab === "assignments" && (
-        <>
-          {!assignmentsData ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
-          ) : assignments.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {assignments.map((a) => {
-                const isExpired = a.end_time && new Date(a.end_time) < new Date();
-                const isCompleted = a.status === "completed";
-                const isInProgress = a.status === "in_progress";
-                return (
-                  <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-red-200 bg-red-50/30" : isCompleted ? "border-emerald-200 bg-emerald-50/30" : "border-border bg-card hover:border-primary/30")}>
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-sm font-semibold truncate flex-1">{a.title}</h3>
-                        {isExpired && <span className="shrink-0 inline-flex items-center rounded bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">已过期</span>}
-                        {isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">已完成</span>}
-                        {!isExpired && !isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">待完成</span>}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{a.case_name}{a.score_total != null && <> · 得分 {a.score_total}</>}</p>
+        !assignmentsData ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
+        ) : assignments.length === 0 ? (
+          <EmptyState icon={ClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {assignments.map((a) => {
+              const isExpired = a.end_time && new Date(a.end_time) < new Date();
+              const isCompleted = a.status === "completed";
+              const isInProgress = a.status === "in_progress";
+              return (
+                <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-red-200 bg-red-50/30" : isCompleted ? "border-emerald-200 bg-emerald-50/30" : "border-border bg-card hover:border-primary/30")}>
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-sm font-semibold truncate flex-1">{a.title}</h3>
+                      {isExpired && <span className="shrink-0 inline-flex items-center rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">已过期</span>}
+                      {isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">已完成</span>}
+                      {!isExpired && !isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">待完成</span>}
                     </div>
-                    <div className="mt-auto">
-                      {isInProgress && a.record_id ? (
-                        <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
-                      ) : !isExpired && !isCompleted ? (
-                        <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
-                      ) : null}
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{a.case_name}{a.score_total != null && <> · 得分 {a.score_total}</>}</p>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+                  <div className="mt-auto">
+                    {isInProgress && a.record_id ? (
+                      <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
+                    ) : !isExpired && !isCompleted ? (
+                      <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );

@@ -18,7 +18,7 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 					item.score >= itemMax
 						? "bg-success"
 						: item.score >= Math.ceil(itemMax * 0.6)
-							? "bg-warning"
+							? "bg-neutral"
 							: "bg-danger",
 				)}
 			>
@@ -36,7 +36,7 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 						item.score >= itemMax
 							? "text-success-foreground"
 							: item.score >= Math.ceil(itemMax * 0.6)
-								? "text-warning-foreground"
+								? "text-neutral-foreground"
 								: "text-danger-foreground",
 					)}
 				>

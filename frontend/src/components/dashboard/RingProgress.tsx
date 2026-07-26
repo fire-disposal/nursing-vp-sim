@@ -12,7 +12,7 @@ interface RingProgressProps {
 
 function ringColor(pct: number): string {
 	if (pct >= 80) return "text-success-foreground";
-	if (pct >= 60) return "text-warning-foreground";
+	if (pct >= 60) return "text-neutral-foreground";
 	return "text-danger-foreground";
 }
 

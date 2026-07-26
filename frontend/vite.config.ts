@@ -41,7 +41,6 @@ export default defineConfig({
 					)
 						return "markdown";
 					if (id.includes("node_modules/zustand")) return "vendor";
-					if (id.includes("node_modules/@radix-ui")) return "vendor";
 					if (id.includes("node_modules/@tanstack")) return "vendor";
 				},
 			},

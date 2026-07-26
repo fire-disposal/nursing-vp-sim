@@ -72,7 +72,7 @@ export const ChatBubble = memo(function ChatBubble({
 				)}
 				<div
 					className={cn(
-						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
+						"max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
 						"bg-card text-foreground border-2",
 						emotionBorder,
 						!isStreamingEmpty &&
@@ -81,7 +81,7 @@ export const ChatBubble = memo(function ChatBubble({
 					)}
 				>
 					{initiative && (
-						<span data-badge className="inline-block text-[10px] font-medium bg-warning text-warning-foreground px-1.5 py-0.5 rounded-sm mb-1">
+						<span data-badge className="inline-block text-xs font-medium bg-warning text-warning-foreground px-1.5 py-0.5 rounded-sm mb-1">
 							患者自主反应
 						</span>
 					)}
@@ -107,7 +107,7 @@ export const ChatBubble = memo(function ChatBubble({
 						</div>
 					)}
 					{!isStreamingEmpty && message.streamError && (
-						<span className="inline-flex items-center gap-1 mt-1 text-[10px] text-warning-foreground bg-warning/20 rounded px-1.5 py-0.5">
+						<span className="inline-flex items-center gap-1 mt-1 text-xs text-warning-foreground bg-warning/20 rounded px-1.5 py-0.5">
 							⚠ 回复中断
 						</span>
 					)}
@@ -120,7 +120,7 @@ export const ChatBubble = memo(function ChatBubble({
 		<div className="flex items-start gap-2 justify-end" data-role="student">
 			<div
 				className={cn(
-					"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-md text-sm sm:text-base leading-relaxed break-words",
+					"max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-md text-sm sm:text-base leading-relaxed break-words",
 					"bg-primary text-primary-foreground",
 				)}
 			>

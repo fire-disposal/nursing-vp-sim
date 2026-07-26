@@ -47,7 +47,7 @@ export default function SceneToolbar() {
             <button
               key={tool.id}
               onClick={() => setActiveId(isActive ? null : tool.id)}
-              className="flex items-center gap-1 px-2 h-9 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0 text-xs"
+              className="flex items-center gap-1 px-2.5 h-11 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0 text-sm"
               title={cap?.label ?? tool.id}
               style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
             >
