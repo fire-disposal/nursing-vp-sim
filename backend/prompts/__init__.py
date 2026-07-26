@@ -12,6 +12,6 @@ Import from this package or sub-packages directly:
   from prompts.training.patient import PATIENT_SYSTEM
 """
 
-from prompts.engine import render_template
+from prompts.engine import render_template, validate_template_vars
 
-__all__ = ["render_template"]
+__all__ = ["render_template", "validate_template_vars"]

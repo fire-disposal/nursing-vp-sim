@@ -18,4 +18,16 @@ def render_template(template: str, **kwargs) -> str:
         raise RuntimeError(f"Template rendering error: {e}")
 
 
-__all__ = ["render_template"]
+def validate_template_vars(
+    template: str, allowed_vars: frozenset[str]
+) -> list[str]:
+    """Check that all {#var#} references in *template* are in *allowed_vars*.
+
+    Returns a list of unrecognised variable names (empty = valid).
+    Useful in tests and CI to catch stale/renamed template variables early.
+    """
+    referenced = {m.group(1).strip() for m in _VAR_RE.finditer(template)}
+    return sorted(referenced - allowed_vars)
+
+
+__all__ = ["render_template", "validate_template_vars"]

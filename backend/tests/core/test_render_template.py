@@ -7,6 +7,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 import pytest
 
 from prompts import render_template
+from prompts import validate_template_vars
 
 
 class TestRenderTemplate:
@@ -58,3 +59,80 @@ class TestRenderTemplate:
         )
         assert "张三，45岁，男" in r
         assert "头痛3天" in r
+
+
+
+class TestValidateTemplateVars:
+    def test_all_vars_recognised(self):
+        tmpl = "{#a#} {#b#}"
+        assert validate_template_vars(tmpl, frozenset(["a", "b"])) == []
+
+    def test_unknown_var_detected(self):
+        tmpl = "{#a#} {#c#}"
+        assert validate_template_vars(tmpl, frozenset(["a", "b"])) == ["c"]
+
+    def test_empty_template(self):
+        assert validate_template_vars("no vars here", frozenset(["a"])) == []
+
+    def test_subset_allowed(self):
+        tmpl = "{#a#}"
+        assert validate_template_vars(tmpl, frozenset(["a", "b", "c"])) == []
+
+
+class TestPromptVariableContracts:
+    """Verify that every prompt template's variables match its TypedDict."""
+
+    def test_scoring_system_vars(self):
+        from prompts.training.scoring import SCORING_SYSTEM
+        from prompts.variables import ScoringSystemVars
+
+        allowed = frozenset(ScoringSystemVars.__annotations__.keys())
+        unknown = validate_template_vars(SCORING_SYSTEM, allowed)
+        assert unknown == [], f"Unknown vars in SCORING_SYSTEM: {unknown}"
+
+    def test_scoring_user_vars(self):
+        from prompts.training.scoring import SCORING_USER
+        from prompts.variables import ScoringUserVars
+
+        allowed = frozenset(ScoringUserVars.__annotations__.keys())
+        unknown = validate_template_vars(SCORING_USER, allowed)
+        assert unknown == [], f"Unknown vars in SCORING_USER: {unknown}"
+
+    def test_emotion_analysis_user_vars(self):
+        from prompts.training.emotion import EMOTION_ANALYSIS_USER
+        from prompts.variables import EmotionAnalysisUserVars
+
+        allowed = frozenset(EmotionAnalysisUserVars.__annotations__.keys())
+        unknown = validate_template_vars(EMOTION_ANALYSIS_USER, allowed)
+        assert unknown == [], f"Unknown vars: {unknown}"
+
+    def test_patient_system_vars(self):
+        from prompts.training.patient import PATIENT_SYSTEM
+        from prompts.variables import PatientSystemVars
+
+        allowed = frozenset(PatientSystemVars.__annotations__.keys())
+        unknown = validate_template_vars(PATIENT_SYSTEM, allowed)
+        assert unknown == [], f"Unknown vars in PATIENT_SYSTEM: {unknown}"
+
+    def test_patient_dynamic_vars(self):
+        from prompts.training.patient import PATIENT_DYNAMIC
+        from prompts.variables import PatientDynamicVars
+
+        allowed = frozenset(PatientDynamicVars.__annotations__.keys())
+        unknown = validate_template_vars(PATIENT_DYNAMIC, allowed)
+        assert unknown == [], f"Unknown vars in PATIENT_DYNAMIC: {unknown}"
+
+    def test_qa_system_vars(self):
+        from prompts.qa import QA_SYSTEM
+        from prompts.variables import QASystemVars
+
+        allowed = frozenset(QASystemVars.__annotations__.keys())
+        unknown = validate_template_vars(QA_SYSTEM, allowed)
+        assert unknown == [], f"Unknown vars in QA_SYSTEM: {unknown}"
+    def test_generation_head_vars(self):
+        from prompts.generation import CASE_GENERATION_HEAD
+        from prompts.variables import CaseGenerationSystemVars
+
+        allowed = frozenset(CaseGenerationSystemVars.__annotations__.keys())
+        unknown = validate_template_vars(CASE_GENERATION_HEAD, allowed)
+        assert unknown == [], f"Unknown vars in CASE_GENERATION_HEAD: {unknown}"
