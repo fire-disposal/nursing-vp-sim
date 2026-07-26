@@ -83,7 +83,9 @@ class PersonalityProfile:
         """Apply personality modulation to raw (trust_delta, comfort_delta).
 
         Uses neg_amplify when either delta is negative, pos_amplify otherwise.
+        Uses round() instead of int() to prevent systematic rounding-toward-zero
+        that makes small positive deltas vanish (e.g. int(1 * 0.7) = 0).
         """
         if dt < 0 or dc < 0:
-            return (int(dt * self.neg_amplify), int(dc * self.neg_amplify))
-        return (int(dt * self.pos_amplify), int(dc * self.pos_amplify))
+            return (round(dt * self.neg_amplify), round(dc * self.neg_amplify))
+        return (round(dt * self.pos_amplify), round(dc * self.pos_amplify))

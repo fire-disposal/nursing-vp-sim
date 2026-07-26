@@ -54,7 +54,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
 	const patientAccRef = useRef("");
 
-	const { setEmotion } = useEmotion();
+	const { setEmotion, setTrustComfort } = useEmotion();
 	const { setPortraitUrl } = usePortrait();
 
 	useEffect(() => {
@@ -208,14 +208,17 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	useEffect(() => {
 		return busRef.current.on(
 			"emotion:changed",
-			(data: { state: string }) => {
+			(data: { state: string; trust?: number; comfort?: number }) => {
 				setEmotion((data.state in EMOTION_LABELS ? data.state : "neutral") as EmotionState);
+				if (data.trust != null && data.comfort != null) {
+					setTrustComfort(data.trust, data.comfort);
+				}
 				if (patient) {
 					setPortraitUrl(getPatientPortraitUrl(patient, data.state));
 				}
 			},
 		);
-	}, [setEmotion, setPortraitUrl, patient]);
+	}, [setEmotion, setTrustComfort, setPortraitUrl, patient]);
 
 
 

@@ -47,9 +47,10 @@ def _lookup_state(trust: int, comfort: int) -> tuple[str, str]:
 
 
 def _s_curve(value: int, delta: int) -> int:
-    """Apply S-curve modulation: delta effectiveness peaks at value=50, tapers at extremes."""
+    """Apply S-curve modulation: delta effectiveness peaks at value=50, tapers at extremes.
+    Uses round() instead of int() to prevent systematic truncation."""
     factor = 1.0 - abs(value - 50) / 50.0
-    return int(delta * factor)
+    return round(delta * factor)
 
 
 @dataclass

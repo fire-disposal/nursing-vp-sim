@@ -52,6 +52,9 @@ export const EMOTION_LABELS: Record<EmotionState, string> = {
 interface PanelStateContextValue {
 	emotion: EmotionState;
 	setEmotion: (e: EmotionState) => void;
+	trust: number;
+	comfort: number;
+	setTrustComfort: (trust: number, comfort: number) => void;
 	portraitUrl: string | null;
 	setPortraitUrl: (url: string | null) => void;
 }
@@ -59,31 +62,33 @@ interface PanelStateContextValue {
 const PanelStateCtx = createContext<PanelStateContextValue>({
 	emotion: "neutral",
 	setEmotion: () => {},
+	trust: 50,
+	comfort: 50,
+	setTrustComfort: () => {},
 	portraitUrl: null,
 	setPortraitUrl: () => {},
 });
 
-/**
- * 合并 EmotionProvider + PortraitProvider —— 二者始终成对出现。
- * 减少一层 Provider 嵌套。
- */
 export function PanelStateProvider({ children }: { children: ReactNode }) {
 	const [emotion, setEmotion] = useState<EmotionState>("neutral");
+	const [trust, setTrust] = useState(50);
+	const [comfort, setComfort] = useState(50);
 	const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+	const setTrustComfort = (t: number, c: number) => { setTrust(t); setComfort(c); };
 	const value = useMemo(
-		() => ({ emotion, setEmotion, portraitUrl, setPortraitUrl }),
-		[emotion, portraitUrl],
+		() => ({ emotion, setEmotion, trust, comfort, setTrustComfort, portraitUrl, setPortraitUrl }),
+		[emotion, trust, comfort, portraitUrl],
 	);
 	return (
 		<PanelStateCtx.Provider value={value}>{children}</PanelStateCtx.Provider>
 	);
 }
 
-/** 读 emotion 状态 */
 export function useEmotion() {
 	const ctx = useContext(PanelStateCtx);
-	return { emotion: ctx.emotion, setEmotion: ctx.setEmotion };
+	return { emotion: ctx.emotion, setEmotion: ctx.setEmotion, trust: ctx.trust, comfort: ctx.comfort, setTrustComfort: ctx.setTrustComfort };
 }
+
 
 /** 读 portraitUrl 状态 */
 export function usePortrait() {

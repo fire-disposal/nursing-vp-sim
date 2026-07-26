@@ -37,9 +37,7 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 };
 
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
-	const { emotion } = useEmotion();
-	const [trust, setTrust] = useState(50);
-	const [_comfort, _setComfort] = useState(50);
+	const { emotion, trust, comfort } = useEmotion();
 	const [pulse, setPulse] = useState(false);
 	const [emojiPop, setEmojiPop] = useState(false);
 	const prevEmotionRef = useRef(emotion);
@@ -145,9 +143,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	useEffect(() => {
 		const unsub = bus.on(
 			"emotion:changed",
-			(data: { state: string; trust: number; comfort: number }) => {
-				setTrust(data.trust);
-				_setComfort(data.comfort);
+			() => {
 				setPulse(true);
 				if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
 				pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
@@ -167,9 +163,9 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	}, [emotion]);
 
 	if (!capabilities.emotion) return null;
-
 	const label = EMOTION_LABELS[emotion];
 	const trustPct = Math.max(0, Math.min(100, trust));
+	const comfortPct = Math.max(0, Math.min(100, comfort));
 
 	if (compact) {
 		return (
@@ -189,6 +185,11 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 						{EMOTION_ICONS[emotion]}
 					</span>
 					<span className="text-[11px] text-muted-foreground truncate">{label}</span>
+					{/* Trust micro-bar */}
+					<div className="h-1 w-10 rounded-full bg-muted overflow-hidden shrink-0">
+						<div className={cn("h-full rounded-full transition-all duration-700", trustPct >= 60 ? "bg-green-500" : trustPct >= 40 ? "bg-amber-500" : "bg-red-500")}
+							style={{ width: `${trustPct}%` }} />
+					</div>
 					<div className="ml-auto flex items-center gap-2">
 						{showInitiative && initPercent > 0 && (
 							<div className="h-1 w-12 rounded-full bg-muted overflow-hidden shrink-0">
