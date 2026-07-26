@@ -236,6 +236,9 @@ class DiagnoseService:
         else:
             err = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "unique_24h": 0, "burst_5min": 0, "recent": []}
 
+        fe_buffer = getattr(self._app_ref.state, "frontend_error_buffer", None) if self._app_ref else None
+        frontend_errors = fe_buffer.snapshot() if fe_buffer else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
+
         ss = DiagnoseSnapshot(
             database=await self._db_status(),
             llm=self._llm_status,
@@ -248,6 +251,7 @@ class DiagnoseService:
             "database": ss.database,
             "llm": ss.llm,
             "errors": ss.errors,
+            "frontend_errors": frontend_errors,
             "active_sessions": ss.active_sessions,
             "cached_at": ss.cached_at,
         }

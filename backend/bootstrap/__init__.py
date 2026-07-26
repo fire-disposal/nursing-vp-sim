@@ -50,6 +50,8 @@ async def shutdown(app):
     await app_state.task_queue.stop()
     if hasattr(app_state, "log_worker") and app_state.log_worker:
         await app_state.log_worker.stop()
+    if hasattr(app_state, "realtime_hub") and app_state.realtime_hub:
+        app_state.realtime_hub.stop()
 
     tts_pool = getattr(app_state, "tts_pool", None)
     if tts_pool is not None:

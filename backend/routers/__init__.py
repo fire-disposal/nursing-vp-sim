@@ -36,7 +36,8 @@ def register_routers(app: FastAPI) -> None:
     # ── infrastructure routers (third-party integration endpoints) ──
     from routers.health import router as health_router
     from routers.profiles import router as profiles_router
+    from routers.telemetry import router as telemetry_router
     from routers.tts import router as tts_router
 
-    for r in (health_router, profiles_router, tts_router):
+    for r in (health_router, profiles_router, telemetry_router, tts_router):
         app.include_router(r)

@@ -28,7 +28,14 @@ async def init_infra(app_state, llm_router):
     app_state.emotion_cache = EmotionCache()
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()
-    app_state.realtime_hub = RealtimeHub()
+    from infrastructure.frontend_telemetry import FrontendErrorBuffer
+    app_state.frontend_error_buffer = FrontendErrorBuffer()
+
+    loop = asyncio.get_running_loop()
+    hub = RealtimeHub()
+    hub.start(loop)
+    app_state.realtime_hub = hub
+    log.info("RealtimeHub: PG LISTEN/NOTIFY listener started")
 
     metrics = MetricsSnapshot()
     app_state.metrics = metrics

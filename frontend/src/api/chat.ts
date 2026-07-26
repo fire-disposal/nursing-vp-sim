@@ -1,3 +1,4 @@
+import { reportError } from "@/utils/telemetry";
 import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
 import type { InitiativeStateData } from "./sse";
@@ -87,11 +88,13 @@ export async function sendMessageStream(
 			if (signal?.aborted) return;
 			if ((e as Error)?.name === "AbortError") {
 				onError("请求超时，请重试");
+				reportError("AbortError", "请求超时，请重试", `/api/chat/${recordId}/message/stream`);
 				return;
 			}
 			const isNetworkError = e instanceof TypeError || (e as { code?: string }).code === "ERR_NETWORK";
 			if (!isNetworkError || attempt >= MAX_RETRIES) {
 				onError(e instanceof Error ? e.message : "连接失败");
+				reportError("NetworkError", e instanceof Error ? e.message : "连接失败", `/api/chat/${recordId}/message/stream`);
 				return;
 			}
 			if (!navigator.onLine) {
