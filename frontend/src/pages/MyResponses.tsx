@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardCheck, Eye, RefreshCw } from "lucide-react";
+import { ClipboardCheck, Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getMyResponses } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
+import ErrorDisplay from "@/components/ui/error-display";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
@@ -142,17 +143,12 @@ export default function MyResponses() {
 				{isLoading ? (
 					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
-						<ClipboardCheck size={40} className="text-muted-foreground/40" />
-						<p className="text-sm text-destructive">
-							{(error as { response?: { data?: { detail?: string } } })
-								?.response?.data?.detail || "加载失败"}
-						</p>
-						<Button variant="outline" size="sm" onClick={() => refetch()}>
-							<RefreshCw size={14} className="mr-1.5" />
-							重试
-						</Button>
-					</div>
+					<ErrorDisplay
+						icon={ClipboardCheck}
+						message={(error as { response?: { data?: { detail?: string } } })
+							?.response?.data?.detail || "加载失败"}
+						onRetry={() => refetch()}
+					/>
 				) : responses.length === 0 ? (
 					<div className="rounded-xl border bg-card">
 						<EmptyState

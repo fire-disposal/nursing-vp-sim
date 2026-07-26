@@ -1,6 +1,6 @@
 ﻿import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { ClipboardList, Play, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
@@ -9,6 +9,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
+import ErrorDisplay from "@/components/ui/error-display";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
@@ -171,17 +172,12 @@ export default function History() {
 				{isLoading ? (
 					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
-						<ClipboardList size={40} className="text-muted-foreground/40" />
-						<p className="text-sm text-destructive">
-							{(error as { response?: { data?: { detail?: string } } })
-								?.response?.data?.detail || "加载记录失败"}
-						</p>
-						<Button variant="outline" size="sm" onClick={() => refetch()}>
-							<RefreshCw size={14} />
-							重试
-						</Button>
-					</div>
+					<ErrorDisplay
+						icon={ClipboardList}
+						message={(error as { response?: { data?: { detail?: string } } })
+							?.response?.data?.detail || "加载记录失败"}
+						onRetry={() => refetch()}
+					/>
 				) : records.length === 0 ? (
 					<div className="rounded-xl border bg-card">
 						<EmptyState icon={ClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />

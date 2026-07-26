@@ -4,9 +4,9 @@ import {
 	ArrowUp,
 	ArrowUpDown,
 	ClipboardList,
-	RefreshCw,
 	Trash2,
 } from "lucide-react";
+import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -372,17 +372,12 @@ export default function TeacherRecordsPage() {
 				{isLoading ? (
 					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
-						<ClipboardList size={40} className="text-muted-foreground/40" />
-						<p className="text-sm text-destructive">
-							{(error as { response?: { data?: { detail?: string } } })
-								?.response?.data?.detail || "加载记录失败"}
-						</p>
-						<Button variant="outline" size="sm" onClick={() => refetch()}>
-							<RefreshCw size={14} />
-							重试
-						</Button>
-					</div>
+					<ErrorDisplay
+						icon={ClipboardList}
+						message={(error as { response?: { data?: { detail?: string } } })
+							?.response?.data?.detail || "加载记录失败"}
+						onRetry={() => refetch()}
+					/>
 				) : sortedRecords.length === 0 ? (
 					<div className="rounded-xl border bg-card">
 						<EmptyState icon={ClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
