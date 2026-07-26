@@ -1,10 +1,11 @@
 """操作处理器 — 配置驱动的查体/测量操作
 
-从 case_data.exam_anchors 读取配置，支持两种格式：
+从 case_data.tools.physical_exam 读取配置（向后兼容 case_data.exam_anchors）。
+支持两种格式：
 1. 新格式：含 groups 结构（前端直接消费）
 2. 旧格式：自动从 vital_signs/skin/pain_score 推导
 
-当 exam_anchors 未配置某项测量时，根据患者年龄返回临床合理默认值。
+当未配置某项测量时，根据患者年龄返回临床合理默认值。
 """
 
 from __future__ import annotations
@@ -86,8 +87,8 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
     所有标准操作始终可用：优先从 exam_anchors 读取配置值，缺失时
     根据患者年龄返回临床合理默认值。
     """
-    anchors = case_data.get("exam_anchors", {}) if isinstance(case_data, dict) else {}
-
+    tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
+    anchors = tools.get("physical_exam") if isinstance(tools.get("physical_exam"), dict) else case_data.get("exam_anchors", {})
     op_defs = _collect_op_defs(anchors)
     op_def = op_defs.get(op_type)
     if not op_def:

@@ -84,29 +84,33 @@ def _build_config(features: dict | None = None, time_limit_minutes: int | None =
 
 
 def _extract_vitals(case_data: dict, training_type: str) -> dict:
-    """Extract initial vital signs for scene state seeding.
+    """Extract initial vital signs from tools.physical_exam.
 
-    Triage cases have a flat top-level ``vitals`` dict. History-taking
-    cases store ranges inside ``exam_anchors.vital_signs`` which are
-    resolved to midpoint numeric values.
+    Resolution order: tools.physical_exam.vital_signs → exam_anchors.vital_signs → vitals.
+    Range strings are resolved to midpoint numeric values.
     """
-    if training_type != "history_taking":
-        return case_data.get("vitals", {})
+    tools = (case_data or {}).get("tools", {}) if isinstance(case_data, dict) else {}
+    anchors = tools.get("physical_exam") if isinstance(tools.get("physical_exam"), dict) else None
+    if not anchors:
+        anchors = case_data.get("exam_anchors", {})
 
-    vital_signs = (case_data.get("exam_anchors") or {}).get("vital_signs") or {}
-    if not isinstance(vital_signs, dict):
-        return {}
+    vital_signs = (anchors or {}).get("vital_signs") or {}
+    if isinstance(vital_signs, dict) and vital_signs:
+        return _resolve_vital_signs(vital_signs)
 
+    # Backward compat: triage flat vitals dict
+    vitals = case_data.get("vitals", {}) if isinstance(case_data, dict) else {}
+    return dict(vitals) if isinstance(vitals, dict) else {}
+
+
+def _resolve_vital_signs(vital_signs: dict) -> dict:
     result: dict[str, float | int | None] = {}
-
     temp = vital_signs.get("temperature")
     if temp:
         result["temp"] = _resolve_vital_num(str(temp))
-
     hr = vital_signs.get("heart_rate")
     if hr:
         result["hr"] = int(_resolve_vital_num(str(hr)))
-
     bp = vital_signs.get("blood_pressure")
     if bp:
         try:
@@ -116,22 +120,18 @@ def _extract_vitals(case_data: dict, training_type: str) -> dict:
             result["bp_dia"] = int(float(d))
         except (ValueError, IndexError):
             pass
-
     rr = vital_signs.get("respiratory_rate")
     if rr:
         result["rr"] = int(_resolve_vital_num(str(rr)))
-
     spo2 = vital_signs.get("spo2")
     if spo2:
         result["spo2"] = _resolve_vital_num(str(spo2))
-
     pain = vital_signs.get("pain_score")
     if pain is not None:
         try:
             result["pain"] = int(float(str(pain).split("-")[0].strip()))
         except (ValueError, IndexError):
             pass
-
     return result
 
 

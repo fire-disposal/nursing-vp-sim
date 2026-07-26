@@ -6,7 +6,7 @@ import logging
 
 from contexts.training.capabilities import is_enabled
 
-from .base import ToolContext, ToolHandler, ToolResult
+from .base import ToolContext, ToolHandler, ToolResult, get_tool_config
 
 log = logging.getLogger(__name__)
 
@@ -31,10 +31,9 @@ class QuizHandler(ToolHandler):
         return ToolResult(ok=False, error=f"Unknown action: {action}")
 
     def _load(self, ctx: ToolContext) -> ToolResult:
-        quiz_config = ctx.case_data.get("quiz")
+        quiz_config = get_tool_config(ctx.case_data, "quiz")
         if not quiz_config:
             return ToolResult(ok=True, data={"quiz": None})
-
         questions = quiz_config.get("questions", [])
         safe_questions = [
             {"id": q.get("id"), "stem": q.get("stem"), "options": q.get("options", [])} for q in questions
@@ -50,10 +49,9 @@ class QuizHandler(ToolHandler):
         )
 
     def _submit(self, question_id: str, answer: str, ctx: ToolContext) -> ToolResult:
-        quiz_config = ctx.case_data.get("quiz")
+        quiz_config = get_tool_config(ctx.case_data, "quiz")
         if not quiz_config:
             return ToolResult(ok=False, error="无 quiz 配置")
-
         questions = quiz_config.get("questions", [])
         target = None
         for q in questions:

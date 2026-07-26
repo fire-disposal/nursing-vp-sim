@@ -172,7 +172,7 @@ export function TrainingHeader() {
 					>
 						<WSStatusDot />
 						<Clock size={12} className="sm:size-[14px] shrink-0" />
-						<span>{formatTime(remaining)}</span>
+						<span>{formatTime(hasStarted && remaining != null ? remaining : timeLimitMinutes * 60)}</span>
 					</div>
 
 					<button

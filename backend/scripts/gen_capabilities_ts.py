@@ -24,7 +24,7 @@ def _binding_to_obj(b) -> dict:
         "key": b.tool,
         "label": b.label,
         "description": b.description,
-        "tier": b.tier,
+        "tier": "toggleable",
         "trainingTypes": list(get_known_types()),
         "requires": [],
     }
@@ -34,9 +34,8 @@ def main_gen() -> None:
     bindings = all_bindings()
     all_caps = {b.tool: _binding_to_obj(b) for b in bindings}
 
-    # toggleable keys across all training types
     training_caps = {
-        t: [b.tool for b in bindings if b.tier == "toggleable"] for t in get_known_types()
+        t: [b.tool for b in bindings] for t in get_known_types()
     }
 
     all_json = json.dumps(all_caps, ensure_ascii=False, indent=2)

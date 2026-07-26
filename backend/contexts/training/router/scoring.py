@@ -222,6 +222,18 @@ async def _run_scoring_background(
             log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
             return
 
+        # 拒绝对无意义对话评分（仅 greeting，无学生消息）
+        student_count = db.query(func.count(Message.id)).filter(
+            Message.record_id == record_id,
+            Message.role == "student",
+        ).scalar() or 0
+        if student_count == 0:
+            log.warning("评分拒绝：无学生消息 record_id=%d", record_id)
+            record.scoring_status = "completed"
+            record.scoring_error = "无有效对话内容，跳过评分"
+            db.commit()
+            return
+
         # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:

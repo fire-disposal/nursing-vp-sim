@@ -60,17 +60,19 @@
       "answer": "有，吐了两回了。什么东西都吃不下，一吃就恶心。"
     }
   ],
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "37.5-38.2",
-      "heart_rate": "92-105",
-      "blood_pressure": "118/72-128/80",
-      "respiratory_rate": "18-22",
-      "spo2": "97-99"
+  "tools": {
+    "physical_exam": {
+      "vital_signs": {
+        "temperature": "37.5-38.2",
+        "heart_rate": "92-105",
+        "blood_pressure": "118/72-128/80",
+        "respiratory_rate": "18-22",
+        "spo2": "97-99"
+      },
+      "skin": {
+        "腹部": "腹部平坦，右下腹麦氏点压痛阳性"
+      }
     },
-    "skin": {
-      "腹部": "腹部平坦，右下腹麦氏点压痛阳性"
-    }
-  },
-  "nursing_record": {}
+    "nursing_record": true
+  }
 }

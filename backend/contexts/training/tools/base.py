@@ -31,3 +31,14 @@ class ToolHandler:
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
         raise NotImplementedError
+
+
+def get_tool_config(case_data: dict, tool_name: str) -> dict | None:
+    """Read tool config from ``case_data.tools.<tool_name>``, with legacy fallback."""
+    tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
+    cfg = tools.get(tool_name)
+    if isinstance(cfg, dict):
+        return cfg
+    # Backward compat: top-level field
+    legacy = case_data.get(tool_name) if isinstance(case_data, dict) else None
+    return legacy if isinstance(legacy, dict) else None

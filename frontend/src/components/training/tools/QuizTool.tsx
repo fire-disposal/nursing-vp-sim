@@ -24,10 +24,10 @@ function optionStyle(
 	optKey: string,
 	isCorrectAnswer: boolean,
 ): string {
-	if (!selected) return "border-border bg-muted/30 hover:bg-muted cursor-pointer";
-	if (isCorrectAnswer) return "border-emerald-500/40 bg-emerald-50/70";
-	if (selected === optKey && !isCorrectAnswer) return "border-red-500/40 bg-red-50/70";
-	return "border-border bg-muted/30 opacity-50";
+	if (!selected) return "border-border bg-muted/30 hover:bg-muted cursor-pointer dark:bg-muted/20 dark:hover:bg-muted/40";
+	if (isCorrectAnswer) return "border-emerald-500/40 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-950/50";
+	if (selected === optKey && !isCorrectAnswer) return "border-red-500/40 bg-red-50/70 dark:border-red-500/30 dark:bg-red-950/50";
+	return "border-border bg-muted/30 opacity-50 dark:bg-muted/20";
 }
 
 export default function QuizTool(props: TrainingToolProps) {
@@ -225,8 +225,8 @@ export default function QuizTool(props: TrainingToolProps) {
 								"rounded-xl border p-3 transition-colors",
 								hasResult
 									? isCorrect
-										? "border-emerald-500/30 bg-emerald-50/50"
-										: "border-red-500/30 bg-red-50/50"
+										? "border-emerald-500/30 bg-emerald-50/50 dark:border-emerald-500/20 dark:bg-emerald-950/30"
+										: "border-red-500/30 bg-red-50/50 dark:border-red-500/20 dark:bg-red-950/30"
 									: "border-border bg-card",
 							)}
 						>
@@ -246,13 +246,12 @@ export default function QuizTool(props: TrainingToolProps) {
 									hasResult && (
 										<span className="shrink-0">
 											{isCorrect ? (
-												<CheckCircle2 size={14} className="text-emerald-600" />
+												<CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
 											) : (
-												<XCircle size={14} className="text-red-500" />
+												<XCircle size={14} className="text-red-500 dark:text-red-400" />
 											)}
 										</span>
-									)
-								)}
+							))}
 							</div>
 
 							<div className="mt-2.5 space-y-1">

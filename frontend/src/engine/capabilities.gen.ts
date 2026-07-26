@@ -52,6 +52,16 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
       "history_taking"
     ],
     "requires": []
+  },
+  "nursing_diagnosis": {
+    "key": "nursing_diagnosis",
+    "label": "护理诊断",
+    "description": "NANDA 护理诊断制定与优先级排序",
+    "tier": "toggleable",
+    "trainingTypes": [
+      "history_taking"
+    ],
+    "requires": []
   }
 };
 
@@ -61,6 +71,7 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
     "quiz",
     "physical_exam",
     "nursing_record",
-    "mews"
+    "mews",
+    "nursing_diagnosis"
   ]
 };

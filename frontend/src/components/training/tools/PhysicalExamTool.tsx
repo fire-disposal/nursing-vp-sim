@@ -157,7 +157,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
                   onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; }}}
                   className={cn(
                     "absolute flex items-center justify-center rounded-lg cursor-pointer transition-all text-[10px] font-medium border",
-                    sel ? "border-primary bg-primary/10 text-primary" : measured ? "border-emerald-500/30 bg-emerald-50/50 text-emerald-700" : "border-transparent text-muted-foreground/60 hover:border-border hover:bg-accent",
+                    sel ? "border-primary bg-primary/10 text-primary dark:bg-primary/20" : measured ? "border-emerald-500/30 bg-emerald-50/50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-400" : "border-transparent text-muted-foreground/60 hover:border-border hover:bg-accent dark:hover:bg-accent/30",
                   )}
                   style={{ left: `${part.x}%`, top: `${part.y}%`, width: `${part.w}%`, height: `${part.h}%` }}
                 >
@@ -166,7 +166,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
                 </div>
 
                 {sel && (
-                  <div className="absolute z-10 bg-popover border border-border rounded-xl shadow-xl p-2"
+                  <div className="absolute z-10 bg-popover border border-border rounded-xl shadow-xl p-2 dark:bg-card"
                     style={{ left: `${part.x + part.w / 2}%`, top: `${part.y + part.h / 2}%`, transform: "translate(-50%, -50%)", minWidth: 160 }}
                   >
                     {groupByCat(part.ops).map(([cat, ids]) => (
@@ -186,12 +186,14 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
                                 className={cn(
                                   "px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border",
                                   pending && "opacity-50 cursor-wait",
+                                  done && "bg-emerald-50/70 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+                                  !done && !pending && "bg-muted text-muted-foreground",
                                 )}
-                                style={{ background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : done ? "var(--color-muted)" : "var(--color-muted)", borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44` }}
+                                style={{ background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : undefined, borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44` }}
                               >
                                 {pending ? <Loader2 size={10} className="animate-spin inline mr-0.5" /> : null}
                                 {def.label}
-                                {done && <span className="ml-0.5 text-emerald-600 font-bold">{done.value}{def.unit}</span>}
+                                {done && <span className="ml-0.5 text-emerald-600 dark:text-emerald-400 font-bold">{done.value}{def.unit}</span>}
                               </button>
                             );
                           })}
@@ -206,9 +208,10 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
         </div>
       </div>
 
-      <div className="min-h-9 border-t border-border bg-card flex items-center gap-1.5 px-2 overflow-x-auto shrink-0">
+      <div className="border-t border-border bg-card shrink-0">
+        <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto">
         {Object.keys(results).length === 0 && errorCount === 0 ? (
-          <span className="text-xs text-muted-foreground/60 px-1">点击人体部位选择检查项目</span>
+          <span className="text-xs text-muted-foreground/60 px-1 py-1">点击人体部位选择检查项目</span>
         ) : (
           <>
             {Object.entries(results).map(([id, r]) => {
@@ -218,25 +221,26 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
               const isError = opErrors[id];
               return (
                 <span key={id} className={cn(
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] whitespace-nowrap shrink-0",
-                  isError ? "bg-red-50 text-red-700" : isPending ? "bg-blue-50 text-blue-600" : "bg-muted text-muted-foreground",
+                  "inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] whitespace-nowrap shrink-0",
+                  isError ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : isPending ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" : "bg-muted text-muted-foreground",
                 )}>
                   <span className="size-1.5 rounded-full shrink-0" style={{ background: isError ? "#ef4444" : isPending ? "#3b82f6" : (CAT_COLOR[def.cat] ?? "#888") }} />
                   {def.label}{" "}
-                  {isPending ? <Loader2 size={10} className="animate-spin" /> : <span className="font-semibold max-w-[80px] truncate">{r.value}</span>}
+                  {isPending ? <Loader2 size={10} className="animate-spin" /> : <span className="font-semibold max-w-[120px] truncate">{r.value}</span>}
                   {def.unit && !isPending && <span className="opacity-70">{def.unit}</span>}
                   {isError && <AlertCircle size={10} />}
                 </span>
               );
             })}
             {Object.entries(opErrors).filter(([id]) => !results[id]).map(([id, err]) => (
-              <span key={`err-${id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-red-50 text-red-700 shrink-0">
+              <span key={`err-${id}`} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 shrink-0">
                 <AlertCircle size={10} />
                 {NORMALS[id]?.label ?? id}: {err}
               </span>
             ))}
           </>
         )}
+        </div>
       </div>
     </div>
   );

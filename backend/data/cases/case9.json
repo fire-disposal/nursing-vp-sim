@@ -62,17 +62,19 @@
       "answer": "哪有什么扶手，住了20年的老房子了。厕所地上经常有水的，我眼神不好有时候看不清。没事，我小心点就行，别给你们添麻烦。"
     }
   ],
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "36.2-36.8",
-      "heart_rate": "68-78",
-      "blood_pressure": "125/75-140/85",
-      "respiratory_rate": "14-18",
-      "spo2": "95-98"
+  "tools": {
+    "physical_exam": {
+      "vital_signs": {
+        "temperature": "36.2-36.8",
+        "heart_rate": "68-78",
+        "blood_pressure": "125/75-140/85",
+        "respiratory_rate": "14-18",
+        "spo2": "95-98"
+      },
+      "skin": {
+        "全身": "皮肤干燥，弹性减退，可见多处老年斑"
+      }
     },
-    "skin": {
-      "全身": "皮肤干燥，弹性减退，可见多处老年斑"
-    }
-  },
-  "nursing_record": {}
+    "nursing_record": true
+  }
 }

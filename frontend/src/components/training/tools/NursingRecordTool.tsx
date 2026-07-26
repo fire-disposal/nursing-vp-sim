@@ -158,6 +158,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 		return bus.on("training:beforeEnd", handler);
 	}, [bus, sheet, doSave]);
 
+
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-32 text-muted-foreground">

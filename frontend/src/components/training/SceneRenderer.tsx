@@ -18,6 +18,7 @@ export function SceneRenderer() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [closingId, setClosingId] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const quizAutoOpenedRef = useRef(false);
 
   const toolProps: TrainingToolProps = { bus, recordId, recordDetail };
 
@@ -45,8 +46,17 @@ export function SceneRenderer() {
     }, ANIM_DURATION);
   }, [activeId]);
 
-  // Cleanup timer on unmount
-  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+	// Auto-open quiz tool on initial load when quiz capability is present
+	useEffect(() => {
+		if (quizAutoOpenedRef.current) return;
+		if (capabilities.quiz && tools.some((t) => t.id === "quiz")) {
+			quizAutoOpenedRef.current = true;
+			setActiveId("quiz");
+		}
+	}, [capabilities.quiz, tools]);
+
+	// Cleanup timer on unmount
+	useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   if (tools.length === 0) return null;
 

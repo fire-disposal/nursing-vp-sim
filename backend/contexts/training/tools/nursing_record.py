@@ -1,9 +1,4 @@
-"""Nursing record tool handler — template-driven ADPIE form storage.
-
-On first load (no saved record), the handler builds a template from
-``case_data.nursing_record`` configuration, pre-filling patient context
-into the Objective section. Subsequent saves persist normally.
-"""
+"""Nursing record tool handler — ADPIE form storage with patient context prefill."""
 
 from __future__ import annotations
 
@@ -17,7 +12,7 @@ from .base import ToolContext, ToolHandler, ToolResult
 
 log = logging.getLogger(__name__)
 
-_FIELD_LABELS = {
+_FIELD_LABELS: dict[str, str] = {
     "subjective": "主观资料 (S)",
     "objective": "客观资料 (O)",
     "assessment": "评估 (A)",
@@ -25,14 +20,13 @@ _FIELD_LABELS = {
     "evaluation": "评价 (E)",
 }
 
-_FALLBACK_HINTS = {
+_HINTS: dict[str, str] = {
     "subjective": "记录患者主诉、症状感受、现病史和既往史要点",
     "objective": "记录生命体征、体格检查结果、实验室数据等客观信息",
     "assessment": "基于收集的信息提出护理诊断，评估风险等级",
     "plan": "制定具体的护理措施、预期目标和健康教育内容",
     "evaluation": "评价措施效果，记录病情变化和后续计划",
 }
-
 
 class NursingRecordHandler(ToolHandler):
     tool_name = "nursing_record"
@@ -106,54 +100,28 @@ class NursingRecordHandler(ToolHandler):
         )
 
     def _build_template(self, ctx: ToolContext) -> dict:
-        """Build an initial template from case_data.nursing_record config."""
-        config = (ctx.case_data or {}).get("nursing_record") or {}
-        if not isinstance(config, dict):
-            config = {}
-
-        hints = self._resolve_hints(config)
-        sheet_data = self._build_sheet_data(config, ctx.case_data)
-
+        """Build template with fixed hints and patient context prefill."""
+        case_data = ctx.case_data or {}
+        sheet: dict[str, str] = dict.fromkeys(_FIELD_LABELS, "")
+        info = case_data.get("patient_info") or {}
+        name = info.get("name", "患者")
+        age = info.get("age", "")
+        gender = info.get("gender", "")
+        chief = case_data.get("chief_complaint", "")
+        parts = [f"患者{name}"]
+        if age:
+            parts.append(f"{age}岁")
+        if gender:
+            parts.append(gender)
+        patient_line = "，".join(parts)
+        objective = patient_line
+        if chief:
+            objective += f"。主诉：{chief}"
+        objective += "。\n\n生命体征：\n\n体格检查：\n\n实验室检查："
+        sheet["objective"] = objective
         return {
             "id": 0,
-            "sheet_data": sheet_data,
+            "sheet_data": sheet,
             "status": "draft",
-            "template": {"hints": hints, "fields": _FIELD_LABELS},
+            "template": {"hints": dict(_HINTS), "fields": dict(_FIELD_LABELS)},
         }
-
-    def _resolve_hints(self, config: dict) -> dict[str, str]:
-        """Merge case-specific hints with fallback defaults."""
-        configured = config.get("hints") or {}
-        if not isinstance(configured, dict):
-            configured = {}
-        result: dict[str, str] = {}
-        for field in _FIELD_LABELS:
-            result[field] = configured.get(field) or _FALLBACK_HINTS.get(field, "")
-        return result
-
-    def _build_sheet_data(self, config: dict, case_data: dict) -> dict[str, str]:
-        """Build initial sheet_data, optionally pre-filling patient context."""
-        sheet: dict[str, str] = dict.fromkeys(_FIELD_LABELS, "")
-
-        if config.get("prefill_objective", True):
-            info = case_data.get("patient_info") or {}
-            name = info.get("name", "患者")
-            age = info.get("age", "")
-            gender = info.get("gender", "")
-            chief = case_data.get("chief_complaint", "")
-
-            parts = [f"患者{name}"]
-            if age:
-                parts.append(f"{age}岁")
-            if gender:
-                parts.append(gender)
-            patient_line = "，".join(parts)
-
-            objective = patient_line
-            if chief:
-                objective += f"。主诉：{chief}"
-            objective += "。\n\n生命体征：\n\n体格检查：\n\n实验室检查："
-
-            sheet["objective"] = objective
-
-        return sheet

@@ -63,17 +63,19 @@
       "answer": "有，好几年了。平时吃药断断续续的，忙起来就忘了……是不是跟这个有关系？"
     }
   ],
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "36.5-37.0",
-      "heart_rate": "88-105",
-      "blood_pressure": "135/85-150/95",
-      "respiratory_rate": "18-22",
-      "spo2": "96-99"
+  "tools": {
+    "physical_exam": {
+      "vital_signs": {
+        "temperature": "36.5-37.0",
+        "heart_rate": "88-105",
+        "blood_pressure": "135/85-150/95",
+        "respiratory_rate": "18-22",
+        "spo2": "96-99"
+      },
+      "skin": {
+        "全身": "皮肤温暖干燥，未见皮疹"
+      }
     },
-    "skin": {
-      "全身": "皮肤温暖干燥，未见皮疹"
-    }
-  },
-  "nursing_record": {}
+    "nursing_record": true
+  }
 }

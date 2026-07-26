@@ -1,7 +1,10 @@
 """Tool binding — "数据即能力": tools are enabled by the presence of their config fields in case_data.
 
-No more DataPredicate rules, no more capabilities dict.  Each ToolBinding declares which
-case_data field activates it.  The detection engine is a one-liner: field exists + non-empty.
+No explicit boolean flags. The system inspects what data the case actually contains
+and enables tools accordingly.
+
+Assignment.features can still opt-out (force-disable) a capability, but cannot
+opt-in if the case data doesn't support it.
 """
 
 from __future__ import annotations
@@ -12,13 +15,17 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ToolBinding:
-    """Maps a case_data field to a tool — field exists → tool enabled."""
+    """Maps a case_data field to a tool — field exists → tool enabled.
+
+    ``field`` is the canonical dotted path (e.g. ``tools.physical_exam``).
+    ``legacy_field`` is the old top-level key for backward compat (e.g. ``exam_anchors``).
+    """
 
     tool: str
     field: str
     label: str = ""
     description: str = ""
-    tier: str = "toggleable"  # "builtin" | "toggleable"
+    legacy_field: str | None = None
 
     @property
     def key(self) -> str:
@@ -30,27 +37,35 @@ class ToolBinding:
 TOOL_BINDINGS: list[ToolBinding] = [
     ToolBinding(
         tool="quiz",
-        field="quiz",
+        field="tools.quiz",
         label="随堂测验",
         description="训练过程中弹出选择题/判断题，检测学生知识掌握情况",
     ),
     ToolBinding(
         tool="physical_exam",
-        field="exam_anchors",
+        field="tools.physical_exam",
+        legacy_field="exam_anchors",
         label="护理查体",
         description="学生可进行虚拟体格检查（测量生命体征）",
     ),
     ToolBinding(
         tool="nursing_record",
-        field="nursing_record",
+        field="tools.nursing_record",
         label="护理记录",
         description="生成结构化护理记录（ADPIE 格式）",
     ),
     ToolBinding(
         tool="mews",
-        field="vitals",
+        field="tools.mews",
+        legacy_field="vitals",
         label="MEWS 评分",
         description="早期预警评分计算工具",
+    ),
+    ToolBinding(
+        tool="nursing_diagnosis",
+        field="tools.nursing_diagnosis",
+        label="护理诊断",
+        description="NANDA 护理诊断制定与优先级排序",
     ),
 ]
 
@@ -78,6 +93,11 @@ def detect_capabilities(
         result = {}
         for b in TOOL_BINDINGS:
             val = _resolve_path(case_data, b.field)
+            if val is None:
+                if b.legacy_field:
+                    val = case_data.get(b.legacy_field)
+                elif "." in b.field:
+                    val = case_data.get(b.field.rsplit(".", 1)[-1])
             result[b.tool] = _is_non_empty(val)
 
     # Builtins: always on unless explicitly disabled via features
@@ -107,6 +127,7 @@ def is_enabled(record, key: str) -> bool:
         case_data, training_type=record.training_type, overrides=features
     ).get(key, False)
 
+
 # ── Internal helpers ──
 
 
@@ -114,9 +135,10 @@ def _resolve_path(data: dict, path: str) -> Any:
     """Resolve a dotted JSON path within a dict."""
     current: Any = data
     for part in path.split("."):
-        if isinstance(current, dict):
-            current = current.get(part)
-        else:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+        if current is None:
             return None
     return current
 
@@ -127,8 +149,12 @@ def _is_non_empty(val: Any) -> bool:
         return False
     if isinstance(val, bool):
         return val
-    if isinstance(val, (dict, list)):
-        return len(val) > 0
+    if isinstance(val, (int, float)):
+        return True
     if isinstance(val, str):
-        return bool(val.strip())
+        return len(val) > 0
+    if isinstance(val, (list, tuple)):
+        return len(val) > 0
+    if isinstance(val, dict):
+        return len(val) > 0
     return True

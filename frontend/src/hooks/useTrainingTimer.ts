@@ -12,6 +12,10 @@ export function useTrainingTimer({
 }: UseTrainingTimerOptions) {
 	const [remaining, setRemaining] = useState<number | null>(initialRemaining);
 	const [timerActive, setTimerActive] = useState(false);
+	const remainingRef = useRef(remaining);
+	const timerActiveRef = useRef(timerActive);
+	remainingRef.current = remaining;
+	timerActiveRef.current = timerActive;
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const warned5Ref = useRef(false);
 	const warned2Ref = useRef(false);
@@ -20,10 +24,10 @@ export function useTrainingTimer({
 
 	useEffect(() => {
 		if (initialRemaining == null) return;
-		if (remaining == null || Math.abs((remaining ?? 0) - initialRemaining) > 10) {
+		if (remainingRef.current == null || Math.abs((remainingRef.current ?? 0) - initialRemaining) > 10) {
 			setRemaining(initialRemaining);
 		}
-		if (initialRemaining > 0 && !timerActive) {
+		if (initialRemaining > 0 && !timerActiveRef.current) {
 			setTimerActive(true);
 		}
 		warned5Ref.current = false;

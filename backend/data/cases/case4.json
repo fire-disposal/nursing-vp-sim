@@ -57,17 +57,19 @@
       "answer": "贴膏药、热水袋敷，有时候吃止痛片。但是也不敢多吃，怕伤胃。我闺女说让我去理疗，一直也没去。"
     }
   ],
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "36.5-37.0",
-      "heart_rate": "72-82",
-      "blood_pressure": "128/80-138/88",
-      "respiratory_rate": "16-18",
-      "spo2": "97-99"
+  "tools": {
+    "physical_exam": {
+      "vital_signs": {
+        "temperature": "36.5-37.0",
+        "heart_rate": "72-82",
+        "blood_pressure": "128/80-138/88",
+        "respiratory_rate": "16-18",
+        "spo2": "97-99"
+      },
+      "skin": {
+        "双膝": "双膝关节轻度肿胀，皮温略高"
+      }
     },
-    "skin": {
-      "双膝": "双膝关节轻度肿胀，皮温略高"
-    }
-  },
-  "nursing_record": {}
+    "nursing_record": true
+  }
 }
