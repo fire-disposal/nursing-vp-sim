@@ -97,4 +97,5 @@ class TrainingRecordDetail(BaseModel):
     profile_info: dict[str, Any] = Field(default_factory=dict)
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
+    scene: dict[str, Any] | None = None
     is_test: bool = False

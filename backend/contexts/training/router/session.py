@@ -611,6 +611,7 @@ def get_record_detail(
         pending_questionnaires=pending_questionnaires,
         exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
+        scene=dict(record.runtime_state or {}).get("scene"),
         triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
         nursing_record_sheet=_load_nursing_sheet(db, record.id),
         case_data=case_data,

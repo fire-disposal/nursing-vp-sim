@@ -242,6 +242,17 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		emotionSeededRef.current = true;
 	}, [_restoreRecord]);
 
+	// 播种服务器端持久化的 scene 状态（生命体征/环境/患者状态），仅一次。
+	const sceneSeededRef = useRef(false);
+	useEffect(() => {
+		if (sceneSeededRef.current || !_restoreRecord) return;
+		const sc = (_restoreRecord as unknown as { scene?: Record<string, unknown> }).scene;
+		if (sc && Object.keys(sc).length > 0) {
+			busRef.current.emit("scene:state", sc);
+		}
+		sceneSeededRef.current = true;
+	}, [_restoreRecord]);
+
 	useEffect(() => {
 		if (_restoreRecord) {
 			const rec = _restoreRecord as unknown as { status?: string };

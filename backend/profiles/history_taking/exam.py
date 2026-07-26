@@ -245,29 +245,3 @@ def _resolve_bp(raw: str) -> str:
         return raw
 
 
-# ── 生命体征汇总 ─────────────────────────────────────────────────────────
-
-
-def _format_vitals(vs: dict) -> dict:
-    lines: list[str] = []
-    mappings = [
-        ("体温", "temperature", "°C"),
-        ("心率", "heart_rate", "次/分"),
-        ("血压", "blood_pressure", "mmHg"),
-        ("呼吸", "respiratory_rate", "次/分"),
-        ("SpO2", "spo2", "%"),
-    ]
-    for label, key, unit in mappings:
-        val = vs.get(key, "")
-        if not val:
-            continue
-        if "-" in str(val):
-            lines.append(f"{label}: {_resolve_range(str(val))}")
-        else:
-            lines.append(f"{label}: {val}")
-    return {
-        "type": "vitals",
-        "label": "生命体征",
-        "value": "\n".join(lines) if lines else "未配置",
-        "unit": "",
-    }
