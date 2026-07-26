@@ -19,7 +19,7 @@ from profiles.registry import get_profile
 from profiles.rubric_loader import get_rubric_version_id, load_rubric
 
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
-from .prompts import (
+from prompts.training.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,

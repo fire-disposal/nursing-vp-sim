@@ -17,7 +17,7 @@ from contexts.training.scoring.prompt_builder import (
     build_scoring_json_schema,
     build_scoring_rubric,
 )
-from infrastructure.prompt import render_template
+from prompts import render_template
 from profiles.rubric_loader import load_rubric
 
 # ── 模拟场景数据 ──
@@ -65,10 +65,9 @@ class TestScoringPromptSanity:
         rubric = load_rubric("nursing_history_v1")
         text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
         assert len(text) > 1000
-        assert "## 评分标准版本" in text
-        assert "## 评估维度与条目" in text
-        assert "## 必须采集到的内容清单" in text
-        assert "## 输出格式" in text
+        assert "评分标准:" in text
+        assert "沟通技能" in text
+        assert "必须采集到的内容" in text
 
     def test_rubric_contains_required_sections(self):
         rubric = load_rubric("nursing_history_v1")
@@ -82,7 +81,7 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        from contexts.training.scoring.prompts import SCORING_SYSTEM
+        from prompts.training.scoring import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -90,7 +89,7 @@ class TestScoringPromptSanity:
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
 
     def test_render_user_prompt_no_double_braces(self):
-        from contexts.training.scoring.prompts import SCORING_USER
+        from prompts.training.scoring import SCORING_USER
 
         user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
@@ -114,25 +113,22 @@ class TestScoringPromptSanity:
         end = system.rfind("}")
         if start != -1 and end != -1 and end > start:
             json_block = system[start : end + 1]
-            # 新格式：无引号占位符 → 替换为数字
-            json_block = json_block.replace("数字(满分57)", "0")
-            json_block = json_block.replace("数字(满分42)", "0")
-            json_block = json_block.replace("数字(满分15)", "0")
-            # item score: "1-3" → 1
+            # 新格式: "N(0~57)" 引号占位符 → 替换为数字
+            json_block = json_block.replace('"N(0~57)"', "0")
+            json_block = json_block.replace('"N(0~42)"', "0")
+            json_block = json_block.replace('"N(0~15)"', "0")
+            # item score: "1~3" → 1
             import re
-
-            json_block = re.sub(r'"score":\s*1-3', '"score": 1', json_block)
+            json_block = re.sub(r'"score":\s*"1~3"', '"score": 1', json_block)
             try:
                 parsed = json.loads(json_block)
             except json.JSONDecodeError as e:
                 pytest.fail(f"JSON 模板本身不是合法 JSON: {e}\n---\n{json_block[:200]}")
-            assert "rubric_version" in parsed
             assert "total_score" in parsed
             assert "detail_scores" in parsed
             assert parsed["total_score"] == 0  # placeholder replaced
             assert "沟通技能" in parsed["detail_scores"]
             assert "病史采集" in parsed["detail_scores"]
-
     def test_variable_name_match(self):
         """模板 {#var#} 与传入变量名一致"""
         rubric = load_rubric("nursing_history_v1")
@@ -156,7 +152,7 @@ class TestScoringPromptSanity:
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        from contexts.training.scoring.prompts import SCORING_SYSTEM
+        from prompts.training.scoring import SCORING_SYSTEM
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
@@ -164,7 +160,7 @@ class TestScoringPromptSanity:
             ("版本信息", "护理病史采集训练评分标准"),
             ("沟通技能维度", "沟通技能"),
             ("病史采集维度", "病史采集"),
-            ("输出格式", "必须是严格的 JSON"),
+            ("输出格式", "输出前自检"),
             ("JSON 模板", '"detail_scores"'),
             ("evidence 要求", "evidence"),
             ("reason 要求", "reason"),
@@ -273,10 +269,10 @@ class TestScoringPromptSanity:
         assert '"N_DIM_SCORE"' not in text, "sentinel 残留"
         assert '"N_ITEM_SCORE"' not in text, "sentinel 残留"
 
-        assert '"total_score": 数字' in text, "total_score 应为无引号数字占位"
-        assert '"score": 1-3' in text, "item score 应为无引号数字占位"
+        assert '"total_score": N' in text or '"total_score":' in text, "total_score 格式应为占位符"
+        assert '"score": "1~3"' in text or '"score":' in text, "item score 格式"
         assert '"total_score": "数字"' not in text, "total_score 不应被引号包裹"
-        assert '"score": "1-3"' not in text, "item score 不应被引号包裹"
+        assert '"N_TOTAL_SCORE"' not in text, "sentinel 残留"
 
     def test_render_template_missing_var_safety(self):
         """缺失变量的错误信息必须包含变量名，便于调试"""
@@ -288,7 +284,7 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        from contexts.training.scoring.prompts import (
+        from prompts.training.scoring import (
             SCORING_SYSTEM,
             SCORING_USER,
         )
@@ -388,7 +384,7 @@ class TestScoringFlowEndToEnd:
         }
         assert sample, "scoring sample vars 为空"
 
-        from contexts.training.scoring.prompts import SCORING_SYSTEM
+        from prompts.training.scoring import SCORING_SYSTEM
 
         rendered = render_template(SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000

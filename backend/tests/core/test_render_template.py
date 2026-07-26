@@ -6,7 +6,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from infrastructure.prompt import render_template
+from prompts import render_template
 
 
 class TestRenderTemplate:

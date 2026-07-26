@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from contexts.training.patient_ai.initiative import (
+from prompts.training.initiative import (
     should_initiate,
 )
 from contexts.training.session.cache import InitiativeCache

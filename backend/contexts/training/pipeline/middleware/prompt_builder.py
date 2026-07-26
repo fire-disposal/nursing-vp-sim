@@ -11,7 +11,6 @@ import importlib
 import logging
 
 from contexts.training.patient_ai.chat_messages import build_patient_chat_messages
-from contexts.training.patient_ai.template import PATIENT_DYNAMIC_TEMPLATE
 from contexts.training.session.state import (
     SceneState,
     format_scene_for_prompt,
@@ -72,10 +71,8 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     prompt_ctx.register("author", {"author_note": author_note if author_note.strip() else ""})
     prompt_ctx.register("scene", {"scene_state": _resolve_scene_text(ctx)})
 
-    # Profile prompt templates (global constant as fallback)
-    system_template = profile.prompts.system or PATIENT_DYNAMIC_TEMPLATE
-    dynamic_template = profile.prompts.dynamic or PATIENT_DYNAMIC_TEMPLATE
-
+    system_template = profile.prompts.system
+    dynamic_template = profile.prompts.dynamic
     system_prompt = render_template(str(system_template), **prompt_ctx.as_dict())
     try:
         dynamic_prompt = render_template(str(dynamic_template), **prompt_ctx.as_dict())
