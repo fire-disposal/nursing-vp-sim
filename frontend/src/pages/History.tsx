@@ -1,7 +1,7 @@
 ﻿import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { BarChart3, ClipboardCheck, ClipboardList, Loader2, MessageSquare, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -116,13 +116,41 @@ export default function History() {
 		setSearchParams({}, { replace: true });
 	};
 
+const SUB_NAV = [
+	{ to: "/history", icon: ClipboardList, label: "训练记录" },
+	{ to: "/stats", icon: BarChart3, label: "训练统计" },
+	{ to: "/my-responses", icon: ClipboardCheck, label: "我的问卷" },
+	{ to: "/my-feedback", icon: MessageSquare, label: "我的反馈" },
+];
+
 	return (
 		<>
 			<PageHeader
-				title="我的训练记录"
-				subtitle="查看你的历史训练记录和评分结果"
+				title="记录"
+				subtitle="训练记录、统计、问卷与反馈"
 				icon={ClipboardList}
 			/>
+
+			{/* Sub-navigation */}
+			<nav className="flex gap-1 overflow-x-auto pb-1">
+				{SUB_NAV.map((item) => {
+					const Icon = item.icon;
+					const active = location.pathname === item.to || (item.to !== "/history" && location.pathname.startsWith(item.to));
+					return (
+						<Link
+							key={item.to}
+							to={item.to}
+							className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+								active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+							}`}
+						>
+							<Icon size={15} />
+							<span className="hidden sm:inline">{item.label}</span>
+						</Link>
+					);
+				})}
+			</nav>
+
 
 			<div className="space-y-4">
 				<div className="rounded-xl border bg-card p-4 sm:p-5">
