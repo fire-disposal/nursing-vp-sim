@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 
 from contexts.training.tools import ToolContext, dispatch
 from core.database import SessionLocal
-from core.security import ALGORITHM, JWT_SECRET_KEY, load_role_permissions
+from core.security import ALGORITHM, JWT_SECRET_KEY, _set_user_permissions
 from models import Case, TrainingRecord, User
 
 log = logging.getLogger(__name__)
@@ -78,7 +78,11 @@ async def training_ws(
         log.warning("WS auth failed — closing with 4001")
         await websocket.close(code=4001)
         return
-    load_role_permissions(user)
+    db = SessionLocal()
+    try:
+        _set_user_permissions(user, db)
+    finally:
+        db.close()
     if not user.has_permission("training_access"):
         log.warning("WS auth: user %d lacks training_access", user.id)
         await websocket.close(code=4003)
