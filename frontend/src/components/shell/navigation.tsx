@@ -24,6 +24,7 @@ const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
 const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
+const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
 const StatsPage = lazy(() => import("@/pages/admin/StatsPage"));
@@ -209,7 +210,7 @@ export const APP_ROUTES: AppRoute[] = [
 	},
 	{
 		path: "/admin/records/:id",
-		element: <RecordDetail />,
+		element: <TeacherRecordDetail />,
 		permission: "score_review",
 		activity: "manage",
 	},
