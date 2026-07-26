@@ -13,7 +13,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm";
+import { ConfirmDialog, useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import {
@@ -64,6 +64,7 @@ const DEFAULT_VALUES: NotificationValues = {
 export default function SystemNotificationsPage() {
 	const qc = useQueryClient();
 	const toast = useToast();
+	const { confirm } = useConfirm();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editing, setEditing] = useState<SystemNotification | null>(null);
 	const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -231,9 +232,12 @@ export default function SystemNotificationsPage() {
 					))}
 				</div>
 			)}
-			<Dialog open={modalOpen} onOpenChange={(o) => {
+			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
-					if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+					if (form.formState.isDirty) {
+						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+						if (!ok) return;
+					}
 					setModalOpen(false);
 				}
 			}}>
@@ -310,7 +314,13 @@ export default function SystemNotificationsPage() {
 								<Button
 									type="button"
 									variant="outline"
-									onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; setModalOpen(false); }}
+									onClick={async () => {
+										if (form.formState.isDirty) {
+											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+											if (!ok) return;
+										}
+										setModalOpen(false);
+									}}
 								>
 									取消
 								</Button>

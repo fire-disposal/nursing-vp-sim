@@ -393,9 +393,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			)}
 		/>
 
-			<Dialog open={modalOpen} onOpenChange={(o) => {
+			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
-					if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
+					if (form.formState.isDirty) {
+						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+						if (!ok) return;
+					}
 					setModalOpen(false);
 				}
 			}}>
@@ -553,7 +556,13 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								<Button
 									type="button"
 									variant="outline"
-									onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; setModalOpen(false); }}
+									onClick={async () => { 
+										if (form.formState.isDirty) {
+											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+											if (!ok) return;
+										}
+										setModalOpen(false);
+									}}
 								>
 									取消
 								</Button>

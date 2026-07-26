@@ -20,6 +20,7 @@ import {
 } from "@/schemas/user";
 import type { ClassItem, Grade } from "@/types/store";
 import { cn } from "@/utils/cn";
+import { useConfirm } from "@/components/ui/confirm";
 import type {
   EditUserFormValues,
   RoleOption,
@@ -95,6 +96,7 @@ export default function UserForm({
   const [editClasses, setEditClasses] = useState<ClassItem[]>([]);
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
+  const { confirm } = useConfirm();
 
   const { isDirty: regDirty } = regForm.formState;
   const { isDirty: editDirty } = editForm.formState;
@@ -199,9 +201,14 @@ export default function UserForm({
     return (
       <Dialog
         open={open}
-        onOpenChange={(o) => {
+        onOpenChange={async (o) => {
           if (!o && editForm.formState.isDirty) {
-            if (!window.confirm("内容未保存，确定关闭？")) return;
+            const ok = await confirm({
+              title: "未保存的更改",
+              message: "内容未保存，确定关闭？",
+              danger: true,
+            });
+            if (!ok) return;
           }
           if (!o) onClose();
         }}
@@ -340,12 +347,15 @@ export default function UserForm({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    if (
-                      editForm.formState.isDirty &&
-                      !window.confirm("内容未保存，确定关闭？")
-                    )
-                      return;
+                  onClick={async () => {
+                    if (editForm.formState.isDirty) {
+                      const ok = await confirm({
+                        title: "未保存的更改",
+                        message: "内容未保存，确定关闭？",
+                        danger: true,
+                      });
+                      if (!ok) return;
+                    }
                     onClose();
                   }}
                 >
@@ -365,9 +375,14 @@ export default function UserForm({
   return (
     <Dialog
       open={open}
-      onOpenChange={(o) => {
+      onOpenChange={async (o) => {
         if (!o && regForm.formState.isDirty) {
-          if (!window.confirm("内容未保存，确定关闭？")) return;
+          const ok = await confirm({
+            title: "未保存的更改",
+            message: "内容未保存，确定关闭？",
+            danger: true,
+          });
+          if (!ok) return;
         }
         if (!o) onClose();
       }}

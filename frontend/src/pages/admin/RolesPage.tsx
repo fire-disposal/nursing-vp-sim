@@ -281,13 +281,16 @@ export default function RolesPage() {
 
 			<Dialog
 				open={showCreate}
-				onOpenChange={(o) => {
-					if (!o) {
-						if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
-						form.reset();
-						setShowCreate(false);
+			onOpenChange={async (o) => {
+				if (!o) {
+					if (form.formState.isDirty) {
+						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+						if (!ok) return;
 					}
-				}}
+					form.reset();
+					setShowCreate(false);
+				}
+			}}
 			>
 					<DialogContent title="新建角色" maxWidth={560}>
 						<Form {...form}>
@@ -328,7 +331,7 @@ export default function RolesPage() {
 									<Button
 										type="button"
 										variant="outline"
-									onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; form.reset(); setShowCreate(false); }}
+									onClick={async () => { if (form.formState.isDirty) { const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true }); if (!ok) return; } form.reset(); setShowCreate(false); }}
 									>
 										取消
 									</Button>

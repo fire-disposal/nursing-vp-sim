@@ -7,7 +7,6 @@ import {
 	ChevronRight,
 	ChevronUp,
 	MessageSquare,
-	Search,
 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -35,6 +34,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
+import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
 
@@ -589,17 +589,11 @@ export default function FeedbackTab() {
 				</div>
 
 				<div className="flex gap-2 flex-wrap items-center">
-					<div className="relative">
-						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-						<input
-							type="text"
-							placeholder="搜索反馈内容..."
-							aria-label="搜索反馈内容"
-							value={searchInput}
-							onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
-							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"
-						/>
-					</div>
+					<SearchInput
+						value={searchInput}
+						onChange={(v) => { handleSearchChange(v); setOffset(0); }}
+						placeholder="搜索反馈内容..."
+					/>
 					<select
 						value={replyStatus}
 						onChange={(e) => { setReplyStatus(e.target.value); setOffset(0); }}

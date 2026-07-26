@@ -4,7 +4,6 @@ import {
 	Edit3,
 	FileText,
 	Plus,
-	Search,
 	Trash2,
 } from "lucide-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
@@ -13,6 +12,7 @@ import { inputClass } from "@/utils/styles";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/utils/cn";
 
 interface QuestionnaireListProps {
@@ -203,20 +203,11 @@ export default function QuestionnaireList({
 							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
 								搜索
 							</span>
-							<div className="relative">
-								<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-								<input
-									type="text"
-									placeholder="搜索标题..."
-									aria-label="搜索问卷标题"
-									value={searchText}
-									onChange={(e) => {
-										onSearchChange(e.target.value);
-										onOffsetChange(0);
-									}}
-									className="pl-8 pr-3 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring"
-								/>
-							</div>
+							<SearchInput
+								value={searchText}
+								onChange={(v) => { onSearchChange(v); onOffsetChange(0); }}
+								placeholder="搜索标题..."
+							/>
 						</label>
 					</div>
 				</div>

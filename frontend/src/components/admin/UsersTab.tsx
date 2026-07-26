@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Search, Users } from "lucide-react";
+import { Loader2, Plus, Users } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { getClasses } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
+import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
 import type { ClassItem } from "@/types/store";
@@ -297,23 +298,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 			<div className="rounded-xl border border-border bg-card shadow-sm p-6">
 				<div className="mb-3 flex gap-2 items-center">
-					<div className="relative flex-1 max-w-[320px]">
-						<Search
-							size={14}
-							className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70"
-						/>
-						<input
-							type="text"
-							placeholder="搜索用户名、姓名或学号..."
-						aria-label="搜索用户名、姓名或学号"
-							value={search}
-							onChange={(e) => {
-								setSearch(e.target.value);
-								resetToFirstPage();
-							}}
-							className="w-full py-1.5 pl-[30px] pr-2.5 border border-border rounded-lg text-sm"
-						/>
-					</div>
+					<SearchInput
+						value={search}
+						onChange={(v) => { setSearch(v); resetToFirstPage(); }}
+						placeholder="搜索用户名、姓名或学号..."
+					/>
 					<select
 						value={roleFilter}
 						onChange={(e) => {

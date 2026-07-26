@@ -3,6 +3,7 @@ import { DollarSign, Hash, Percent, Volume2 } from "lucide-react";
 import { fetchVoiceUsage } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
@@ -36,7 +37,7 @@ function TTSUsageTable() {
 			</CardHeader>
 			<CardContent>
 				{ttsData.length === 0 ? (
-					<div className="text-muted-foreground text-sm text-center py-4">暂无数据</div>
+					<EmptyState icon={Volume2} title="暂无数据" />
 				) : (
 					<>
 						{/* 宽屏表格 */}

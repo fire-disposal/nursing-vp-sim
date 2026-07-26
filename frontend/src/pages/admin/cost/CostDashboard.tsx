@@ -3,6 +3,7 @@ import {
 	CircleDollarSign,
 	TrendingUp,
 	Volume2,
+	Users,
 } from "lucide-react";
 import {
 	Area,
@@ -19,6 +20,7 @@ import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
@@ -101,8 +103,8 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 				<CardHeader>
 					<CardTitle>30 天费用趋势</CardTitle>
 				</CardHeader>
-				<CardContent className="text-muted-foreground text-sm text-center py-8">
-					暂无数据
+				<CardContent>
+					<EmptyState icon={TrendingUp} title="暂无数据" />
 				</CardContent>
 			</Card>
 		);
@@ -236,9 +238,7 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 			</CardHeader>
 			<CardContent>
 				{users.length === 0 ? (
-					<div className="text-muted-foreground text-sm text-center py-4">
-						暂无数据
-					</div>
+					<EmptyState icon={Users} title="暂无数据" />
 				) : (
 					<Table>
 						<TableHeader>
