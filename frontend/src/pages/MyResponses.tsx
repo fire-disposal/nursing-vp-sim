@@ -8,6 +8,7 @@ import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
+import HistoryTabs from "@/components/shell/HistoryTabs";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import {
@@ -125,6 +126,7 @@ export default function MyResponses() {
 
 	return (
 		<>
+			<HistoryTabs />
 			<PageHeader
 				title="我的问卷回答"
 				subtitle="查看你提交过的前后测问卷回答记录"

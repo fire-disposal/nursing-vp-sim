@@ -1,5 +1,5 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BarChart3 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -253,9 +253,9 @@ export default function RecordDetail() {
 
 	return (
 		<>
-			<div className="max-w-6xl mx-auto pt-2">
+			<div className="max-w-6xl mx-auto pt-2 pb-8">
 				<div className="flex items-center gap-2 mb-3">
-					<button onClick={() => navigate("/history")} className="size-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
+					<button onClick={() => navigate("/history")} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
 						<ArrowLeft size={16} />
 					</button>
 					<h1 className="text-sm font-semibold truncate">
@@ -306,11 +306,19 @@ export default function RecordDetail() {
 						{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
 							<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
 						)}
+
+						{/* Mobile-only score preview: show "查看评分" link before the full section */}
+						{hasScore && recordScore && (
+							<a href="#score-section" className="lg:hidden flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-primary/30 bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
+								<BarChart3 size={16} />
+								查看评分详情 ({recordScore.total_score}/{scoreMax}分)
+							</a>
+						)}
 					</div>
 
 					{/* Right: score panel */}
 					{hasScore && recordScore && (
-						<div className="lg:w-[420px] lg:overflow-y-auto lg:shrink-0">
+						<div id="score-section" className="lg:w-[420px] lg:overflow-y-auto lg:shrink-0 scroll-mt-4">
 							<ScoreResultSection
 								recordScore={recordScore}
 								isReviewed={isReviewed}
@@ -341,7 +349,6 @@ export default function RecordDetail() {
 					onSubmit={postQSubmit}
 				/>
 			)}
-
 
 			{showReviewEditor && record.score && (
 				<ReviewEditor

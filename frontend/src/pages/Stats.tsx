@@ -32,6 +32,7 @@ import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
+import HistoryTabs from "@/components/shell/HistoryTabs";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
@@ -180,6 +181,7 @@ function StatsContent({
 
 	return (
 		<>
+			<HistoryTabs />
 			<PageHeader
 				title="训练统计"
 				subtitle={

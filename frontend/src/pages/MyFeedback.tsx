@@ -9,6 +9,7 @@ import Badge from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import HistoryTabs from "@/components/shell/HistoryTabs";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/utils/cn";
@@ -70,6 +71,7 @@ export default function MyFeedbackPage() {
 
 	return (
 		<div className="space-y-6">
+			<HistoryTabs />
 			<PageHeader title="我的反馈" icon={MessageSquare} />
 
 			<div className="flex flex-wrap items-center gap-3 mb-4">

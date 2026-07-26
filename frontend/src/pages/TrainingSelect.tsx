@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, ClipboardList, Play, RotateCcw, Search, Star, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getRecords, startTraining } from "@/api";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
@@ -82,8 +82,21 @@ export default function TrainingSelect() {
   const { data: assignmentsData } = useQuery({
     queryKey: queryKeys.assignments.student,
     queryFn: () => getStudentAssignments().then((r) => r.data),
-    staleTime: 30_000, enabled: tab === "assignments",
+    staleTime: 30_000,
   });
+
+  // Auto-default to "assignments" tab when there are pending assignments
+  const tabAutoSetRef = useRef(false);
+  useEffect(() => {
+    if (tabAutoSetRef.current) return;
+    const pendingAssignments = (assignmentsData ?? []).filter(
+      (a: { status: string }) => a.status === "in_progress",
+    );
+    if (pendingAssignments.length > 0) {
+      setTab("assignments");
+    }
+    tabAutoSetRef.current = true;
+  }, [assignmentsData]);
 
   const { data: inProgressData } = useQuery({
     queryKey: queryKeys.training.records({ status: "in_progress", limit: 100, offset: 0 }),
@@ -142,11 +155,11 @@ export default function TrainingSelect() {
       <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
         <button
           onClick={() => setTab("self")}
-          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors", tab === "self" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "self" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
         ><BookOpen size={14} />自主训练</button>
         <button
           onClick={() => setTab("assignments")}
-          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors", tab === "assignments" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "assignments" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
         ><ClipboardList size={14} />我的作业</button>
       </div>
 

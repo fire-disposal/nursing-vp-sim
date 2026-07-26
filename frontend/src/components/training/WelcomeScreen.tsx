@@ -90,13 +90,14 @@ export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: Wel
 				)}
 
 				<div className="pt-3 border-t border-border">
+					<p className="text-[11px] text-muted-foreground/70 mb-2.5">选择一句开始与患者对话：</p>
 					<div className="flex flex-col gap-2 w-full">
 						{prompts.map((prompt, i) => (
 							<button
 								key={i}
 								type="button"
 								onClick={() => onQuickPrompt?.(prompt)}
-								className="rounded-xl border bg-card px-4 py-2.5 text-sm text-left hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer"
+								className="rounded-xl border bg-card px-4 py-3 text-sm text-left hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98] transition-all cursor-pointer min-h-[44px]"
 							>
 								{prompt}
 							</button>

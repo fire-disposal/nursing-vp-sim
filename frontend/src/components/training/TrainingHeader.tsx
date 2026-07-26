@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait, useTrainingContext } from "@/engine";
-import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -106,18 +105,14 @@ export function TrainingHeader() {
 		}
 	}, [autoEndOpen, autoEndCountdown, executeEnd]);
 
-	const layout = useLayoutMode();
-	const isCompact = layout === "phone";
-
 	const avatarSrc =
 		portraitUrl ||
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
 
-
 	return (
 		<>
 			<header
-				className="absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 h-10 sm:h-12 shadow-sm"
+				className="absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 h-11 sm:h-12 shadow-sm"
 				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
 			>
 				<div className="flex items-center gap-2 h-full">
@@ -187,9 +182,6 @@ export function TrainingHeader() {
 					>
 						{ttsAutoPlay ? <Volume2 size={16} /> : <EarOff size={16} />}
 					</button>
-
-					
-
 					<Button
 						variant="end"
 						size="sm"

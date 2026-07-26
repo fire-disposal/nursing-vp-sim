@@ -89,7 +89,7 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		<div className="flex flex-col h-full pt-10 sm:pt-12">
+		<div className="flex flex-col flex-1 min-h-0 pt-11 sm:pt-12">
 			<AnimatePresence mode="wait">
 				{!hasMessages && !hasHistory ? (
 					<motion.div
@@ -98,6 +98,7 @@ export function ChatArea({
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0, y: -16 }}
 						transition={{ duration: 0.2 }}
+						className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
 					>
 						<WelcomeScreen
 							patient={patient}

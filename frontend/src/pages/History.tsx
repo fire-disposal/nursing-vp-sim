@@ -1,7 +1,8 @@
 ﻿import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import HistoryTabs from "@/components/shell/HistoryTabs";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -115,38 +116,9 @@ export default function History() {
 		setSearchParams({}, { replace: true });
 	};
 
-	const location = useLocation();
-
-	const RECORD_TABS = [
-		{ key: "records", to: "/history", label: "训练记录" },
-		{ key: "stats", to: "/stats", label: "训练统计" },
-		{ key: "responses", to: "/my-responses", label: "我的问卷" },
-		{ key: "feedback", to: "/my-feedback", label: "我的反馈" },
-	] as const;
-
-
 	return (
 		<>
-			{/* Tab switcher */}
-			<nav className="flex gap-1 rounded-lg bg-muted p-1 w-fit overflow-x-auto">
-				{RECORD_TABS.map((tab) => {
-					const active = location.pathname === tab.to || (tab.key !== "records" && location.pathname.startsWith(tab.to));
-					return (
-						<Link
-							key={tab.key}
-							to={tab.to}
-							className={cn(
-								"inline-flex items-center shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-								active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							{tab.label}
-						</Link>
-					);
-				})}
-			</nav>
-
-
+			<HistoryTabs />
 
 			<div className="space-y-4">
 				<div className="rounded-xl border bg-card p-4 sm:p-5">

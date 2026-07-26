@@ -49,7 +49,7 @@ export function BottomTabBar() {
 
 	return (
 		<nav
-			className="flex items-center justify-around border-t border-border bg-card shrink-0 md:hidden"
+			className="flex items-center justify-around border-t border-border bg-card/95 backdrop-blur-sm shrink-0 md:hidden"
 			style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
 		>
 			{BOTTOM_TABS.map((tab) => {
@@ -60,18 +60,22 @@ export function BottomTabBar() {
 						key={tab.to}
 						type="button"
 						onClick={() => navigate(tab.to)}
-						className="flex flex-1 flex-col items-center justify-center gap-0.5 h-full transition-colors"
+						className="relative flex flex-1 flex-col items-center justify-center gap-0.5 h-full transition-all active:scale-95"
 					>
+						{isActive && (
+							<span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-primary" />
+						)}
 						<Icon
 							size={22}
+							strokeWidth={isActive ? 2.5 : 2}
 							className={cn(
-								"transition-colors",
+								"transition-all duration-200",
 								isActive ? "text-primary" : "text-muted-foreground",
 							)}
 						/>
 						<span
 							className={cn(
-								"text-[10px] font-medium leading-tight transition-colors",
+								"text-[10px] font-semibold leading-tight transition-colors",
 								isActive
 									? "text-primary"
 									: "text-muted-foreground",

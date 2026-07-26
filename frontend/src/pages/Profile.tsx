@@ -236,27 +236,27 @@ export default function Profile() {
 							<QuickLink to="/stats" icon={BarChart3} label="训练统计" desc="查看训练时长和成绩趋势" />
 							<QuickLink to="/qa" icon={HelpCircle} label="护理问答" desc="护理知识问答练习" />
 
-				{/* Theme + Logout */}
-				<div className="rounded-xl border border-border bg-card p-6">
-					<h3 className="mb-3 text-sm font-semibold">系统</h3>
-					<div className="space-y-0.5">
-						<ThemeToggleButton />
-						<button
-							type="button"
-							onClick={() => { useAuthStore.getState().logout(); navigate("/login"); }}
-							className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted text-destructive"
-						>
-							<div className="flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-								<LogOut size={18} />
-							</div>
-							<div className="min-w-0 flex-1">
-								<div className="text-sm font-medium">退出登录</div>
-								<div className="text-xs text-muted-foreground">安全退出当前账号</div>
-							</div>
-						</button>
+						</div>
 					</div>
-				</div>
 
+					{/* Theme + Logout */}
+					<div className="rounded-xl border border-border bg-card p-6">
+						<h3 className="mb-3 text-sm font-semibold">系统</h3>
+						<div className="space-y-0.5">
+							<ThemeToggleButton />
+							<button
+								type="button"
+								onClick={() => { useAuthStore.getState().logout(); navigate("/login"); }}
+								className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted text-destructive"
+							>
+								<div className="flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+									<LogOut size={18} />
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="text-sm font-medium">退出登录</div>
+									<div className="text-xs text-muted-foreground">安全退出当前账号</div>
+								</div>
+							</button>
 						</div>
 					</div>
 

@@ -30,10 +30,10 @@ function TabBarLayout({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<div className="flex flex-col h-dvh overflow-hidden">
+		<div className="flex flex-col h-screen overflow-hidden" style={{ height: "100dvh" }}>
 			{!isOnline && <NetworkBanner />}
 			<StudentTopNav links={links} />
-			<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+			<div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
 				<ShellTransition>{children}</ShellTransition>
 			</div>
 			<BottomTabBar />
@@ -62,7 +62,7 @@ function AdminLayout({
 	const isOnline = useNetworkStatus();
 
 	return (
-		<div className="flex h-dvh overflow-hidden">
+		<div className="flex h-screen overflow-hidden" style={{ height: "100dvh" }}>
 			{mobileOpen && (
 				<div
 					className="fixed inset-0 z-40 bg-black/40 md:hidden"
