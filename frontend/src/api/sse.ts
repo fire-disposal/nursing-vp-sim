@@ -26,7 +26,7 @@ export interface SSEHandlers {
 	onInitiativeState?: (data: InitiativeStateData) => void;
 }
 
-const STREAM_IDLE_TIMEOUT = 25_000;
+const STREAM_IDLE_TIMEOUT = 60_000;
 
 export async function readSSEStream(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
