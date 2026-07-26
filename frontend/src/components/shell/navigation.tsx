@@ -49,7 +49,7 @@ const AssignmentDetailPage = lazy(
 );
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
-const AdminQuestionnaires = lazy(() => import("@/pages/admin/AdminQuestionnaires"));
+const ClassDetailPage = lazy(() => import("@/pages/admin/ClassDetailPage"));
 const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/admin/SystemNotificationsPage"),
@@ -189,9 +189,9 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "作业管理", icon: ClipboardList, section: "admin", group: "teaching" },
 	},
 	{
-		path: "/admin/assignments/:id",
-		element: <AssignmentDetailPage />,
-		permission: "assignment_manage",
+		path: "/admin/classes/:classId",
+		element: <ClassDetailPage />,
+		permission: "grade_class_manage",
 		activity: "manage",
 	},
 	{
@@ -227,20 +227,6 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "llm_monitor",
 		activity: "manage",
 		nav: { label: "成本管理", icon: Coins, section: "admin", group: "system" },
-	},
-	{
-		path: "/admin/feedback",
-		element: <AdminFeedback />,
-		permission: "feedback_review",
-		activity: "manage",
-		nav: { label: "用户反馈", icon: MessageSquare, section: "admin" },
-	},
-	{
-		path: "/admin/questionnaires",
-		element: <AdminQuestionnaires />,
-		permission: "questionnaire_manage",
-		activity: "manage",
-		nav: { label: "问卷管理", icon: ClipboardCheck, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/system-ops",

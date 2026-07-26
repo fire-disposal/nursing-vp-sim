@@ -20,6 +20,8 @@ export const deleteGrade = (id: number | string) =>
 
 export const getClasses = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["ClassResponse"][]>("/admin/classes", { params });
+export const getClass = (id: number | string) =>
+	api.get<Schemas["ClassResponse"]>(`/admin/classes/${id}` as ApiPath);
 
 export const createClass = (data: Schemas["ClassCreate"]) =>
 	api.post<Schemas["ClassResponse"]>("/admin/classes", data);

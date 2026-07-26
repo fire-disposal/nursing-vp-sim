@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { GraduationCap } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
@@ -35,6 +36,7 @@ import { formatDate } from "@/utils/date";
 import { selectClass } from "@/utils/styles";
 
 export default function GradesClassesPage() {
+	const navigate = useNavigate();
 	const [tab, setTab] = useState<"grades" | "classes">("grades");
 	const [gradeFilter, setGradeFilter] = useState("");
 	const {
@@ -318,6 +320,7 @@ export default function GradesClassesPage() {
 								{c.grade_name} · {c.student_count ?? 0} 名学生
 							</div>
 							<div className="flex gap-1">
+								<Button variant="outline" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
 								<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
 								<Button variant="outline" size="sm" onClick={() => handleDeleteClass(c)}>删除</Button>
 							</div>
