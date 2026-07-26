@@ -132,10 +132,10 @@ export function ChatArea({
 							/>
 						</div>
 						<SceneToolbar />
-						<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 					</motion.div>
 				)}
 			</AnimatePresence>
+			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
 			<Dialog open={inquiryModalOpen} onOpenChange={(o) => { if (!o) setInquiryModalOpen(false); }}>
 				<DialogContent title="问诊内容全部覆盖" maxWidth={360}>
