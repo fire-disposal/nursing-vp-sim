@@ -1,5 +1,5 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
-import { Activity, Stethoscope } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
+import FormMessageBanner from "@/components/ui/form-message-banner";
 import LoginIllustration from "./LoginIllustration";
 
 function isTokenExpired(token: string): boolean {
@@ -114,12 +115,7 @@ export default function Login() {
 					</div>
 
 					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-						{error && (
-							<div className="mb-4 flex items-center gap-2 rounded-lg border border-danger bg-danger px-3 py-2.5 text-sm text-danger-foreground">
-								<Activity size={16} className="shrink-0" />
-								<span>{error}</span>
-							</div>
-						)}
+						<FormMessageBanner type="error" message={error} />
 
 						<Form {...form}>
 							<form

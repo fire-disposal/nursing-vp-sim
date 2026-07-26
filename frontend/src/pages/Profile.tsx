@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { changePassword, updateMyProfile } from "@/api";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import Button from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
 	Form,
@@ -113,7 +114,7 @@ export default function Profile() {
 					onSubmit={profileForm.handleSubmit(handleSave)}
 					className="space-y-6"
 				>
-					<div className="rounded-xl border border-border bg-card p-6">
+					<Card className="p-6">
 						<FormField
 							control={profileForm.control}
 							name="gender"
@@ -145,10 +146,11 @@ export default function Profile() {
 								</div>
 							)}
 						/>
-					</div>
+					</Card>
 
-					<div className="rounded-xl border border-border bg-card p-6">
-						<h3 className="mb-4 text-sm font-semibold">基本信息</h3>
+					<Card>
+						<CardHeader><CardTitle>基本信息</CardTitle></CardHeader>
+						<CardContent>
 						<div className="space-y-4">
 							<div>
 								<label className="block text-sm font-medium mb-1.5">
@@ -210,29 +212,33 @@ export default function Profile() {
 								/>
 							</div>
 						</div>
-					</div>
+						</CardContent>
+					</Card>
 
-					<div className="rounded-xl border border-border bg-card p-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<h3 className="text-sm font-semibold">账户安全</h3>
-								<p className="mt-1 text-xs text-muted-foreground">修改登录密码</p>
+					<Card>
+						<CardHeader>
+							<div className="flex items-center justify-between">
+								<div>
+									<CardTitle className="text-sm font-semibold">账户安全</CardTitle>
+									<p className="mt-1 text-xs text-muted-foreground">修改登录密码</p>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={openPasswordDialog}
+								>
+									<Key size={14} />
+									修改密码
+								</Button>
 							</div>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={openPasswordDialog}
-							>
-								<Key size={14} />
-								修改密码
-							</Button>
-						</div>
-					</div>
+						</CardHeader>
+					</Card>
 
 					{/* Theme + Logout */}
-					<div className="rounded-xl border border-border bg-card p-6">
-						<h3 className="mb-3 text-sm font-semibold">系统</h3>
+					<Card>
+						<CardHeader><CardTitle>系统</CardTitle></CardHeader>
+						<CardContent>
 						<div className="space-y-0.5">
 							<ThemeToggleButton />
 							<button
@@ -249,7 +255,8 @@ export default function Profile() {
 								</div>
 							</button>
 						</div>
-					</div>
+						</CardContent>
+					</Card>
 
 					<div className="flex justify-end">
 						<Button

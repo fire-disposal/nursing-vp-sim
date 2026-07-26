@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff } from "lucide-react";
+import EmptyState from "@/components/ui/empty-state";
 import { useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
@@ -213,12 +214,10 @@ export default function NotificationInboxPage() {
 					))}
 				</div>
 			) : (
-				<div className="py-16 text-center">
-					<Bell size={40} className="text-muted-foreground/20 mx-auto mb-3" />
-					<span className="text-sm text-muted-foreground">
-						{typeFilter ? "该类型暂无通知" : "暂无通知"}
-					</span>
-				</div>
+				<EmptyState
+					icon={Bell}
+					title={typeFilter ? "该类型暂无通知" : "暂无通知"}
+				/>
 			)}
 
 			<Pagination
