@@ -90,8 +90,8 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				/>
 
 				<ExamAnchorsEditor
-					value={objField(state, "exam_anchors") as Record<string, string>}
-					onChange={(v) => set("exam_anchors", v)}
+					value={objField(state, "tools.physical_exam") as Record<string, string>}
+					onChange={(v) => set("tools.physical_exam", v)}
 					disabled={disabled}
 				/>
 
@@ -104,8 +104,8 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				{trainingType === "triage" ? null : (
 					<>
 						<QuizEditor
-							value={objField(state, "quiz", { title: "", questions: [] }) as never}
-							onChange={(v) => set("quiz", v)}
+							value={objField(state, "tools.quiz", { title: "", questions: [] }) as never}
+							onChange={(v) => set("tools.quiz", v)}
 							disabled={disabled}
 						/>
 						<PhasesEditor
