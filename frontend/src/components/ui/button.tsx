@@ -20,7 +20,7 @@ import { cn } from "@/utils/cn";
 				abandon:
 					"bg-abandon/10 text-abandon hover:bg-abandon/20 focus-visible:border-abandon/40 focus-visible:ring-abandon/20 dark:bg-abandon/20 dark:hover:bg-abandon/30 dark:focus-visible:ring-abandon/40",
 				end:
-					"bg-end/10 text-end hover:bg-end/20 focus-visible:border-end/40 focus-visible:ring-end/20 dark:bg-end/20 dark:hover:bg-end/30 dark:focus-visible:ring-end/40",
+					"bg-end/40 text-end hover:bg-end/55 focus-visible:border-end/40 focus-visible:ring-end/20 dark:bg-end/40 dark:hover:bg-end/55 dark:focus-visible:ring-end/40",
 				link: "text-primary underline-offset-4 hover:underline",
 			},
 			size: {

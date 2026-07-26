@@ -135,7 +135,7 @@ export default function TrainingSelect() {
       if (typeof (data as { record_id?: number }).record_id === "number") {
         navigate(`/training/${(data as { record_id: number }).record_id}`);
       }
-    } catch { toast.error("开始作业失败"); }
+    } catch (err: unknown) { toast.apiError(err, "开始作业失败，请刷新后重试"); }
   };
 
   const cases = casesData?.items ?? [];
@@ -254,6 +254,8 @@ export default function TrainingSelect() {
                   <div className="mt-auto">
                     {isInProgress && a.record_id ? (
                       <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
+                    ) : !isExpired && isCompleted ? (
+                      <Button size="sm" variant="outline" className="w-full" onClick={() => handleStartAssignment(a.id)}><RotateCcw size={14} />重新训练</Button>
                     ) : !isExpired && !isCompleted ? (
                       <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
                     ) : null}

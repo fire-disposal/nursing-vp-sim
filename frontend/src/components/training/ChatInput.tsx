@@ -88,7 +88,7 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				enterKeyHint="send"
 				autoCapitalize="off"
 				autoCorrect="off"
-				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"
+				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
 			/>
 			<button
 				type="button"

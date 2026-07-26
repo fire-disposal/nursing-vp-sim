@@ -15,6 +15,7 @@ export default function TrainingEntry() {
 		queryKey: queryKeys.training.record(recordId),
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
+		retry: 5,
 	});
 
 	const caseId = record?.case_id ?? null;
