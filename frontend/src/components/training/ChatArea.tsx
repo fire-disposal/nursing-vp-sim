@@ -42,7 +42,15 @@ export function ChatArea({
 	recordDetail,
 	endTraining,
 }: ChatAreaProps) {
-  const hasMessages = messages.length > 0;
+  const hasStudentMessages = messages.some(m => m.role === "student") || (hasHistory && recordDetail?.messages?.some(m => m.role === "student"));
+  const greeting = useMemo(() => {
+    const msgs = recordDetail?.messages;
+    if (msgs && msgs.length > 0) {
+      const firstPatient = msgs.find(m => m.role === "patient");
+      if (firstPatient) return firstPatient.content;
+    }
+    return undefined;
+  }, [recordDetail]);
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
   const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
   const shownRef = useRef(false);
@@ -94,7 +102,7 @@ export function ChatArea({
 	return (
 		<div className={cn("flex flex-col flex-1 min-h-0", isShort ? "pt-9" : "pt-11 sm:pt-12")}>
 			<AnimatePresence mode="wait">
-				{!hasMessages && !hasHistory ? (
+				{!hasStudentMessages ? (
 					<motion.div
 						key="welcome"
 						initial={{ opacity: 0 }}
@@ -108,6 +116,15 @@ export function ChatArea({
 							onQuickPrompt={onSend}
 							capabilities={capabilities}
 						/>
+						{greeting && (
+							<div className="px-3 mt-3 mx-auto w-full max-w-3xl">
+								<div className="flex justify-start">
+									<div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-muted text-sm text-foreground leading-relaxed">
+										{greeting}
+									</div>
+								</div>
+							</div>
+						)}
 					</motion.div>
 				) : (
 					<motion.div

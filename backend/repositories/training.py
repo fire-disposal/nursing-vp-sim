@@ -86,6 +86,7 @@ class TrainingRepository(SyncRepository):
         if record:
             record.status = "completed"
             record.end_time = datetime.now(UTC)
+            record.scoring_status = "pending"
             if record.assignment_id and not record.is_overdue:
                 assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
                 if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):

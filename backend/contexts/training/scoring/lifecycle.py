@@ -13,7 +13,7 @@ def acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
         text(
             "UPDATE training_records SET scoring_status = 'pending'"
             + (" , scoring_error = NULL" if allow_retry else "")
-            + " WHERE id = :id AND ("
+            + " WHERE id = :id AND status != 'completed' AND ("
             + (
                 "scoring_status IS NULL OR scoring_status IN ('completed', 'failed')"
                 if allow_retry

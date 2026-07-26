@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from contexts.training.capabilities import is_enabled
+
 from .base import ToolContext, ToolHandler, ToolResult
 
 log = logging.getLogger(__name__)
@@ -13,6 +15,9 @@ class MewsHandler(ToolHandler):
     tool_name = "mews"
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
+        if not is_enabled(ctx.record, "mews"):
+            return ToolResult(ok=False, error="本次训练未启用 MEWS 评分")
+
         if action == "load":
             return self._load(ctx)
 

@@ -52,6 +52,7 @@ export function WelcomeScreen({ patient, onQuickPrompt: _onQuickPrompt, capabili
 					))}
 				</div>
 
+
 				<p className="text-xs text-muted-foreground/70 pt-2 border-t border-border">
 					在下方输入框中向患者提问，开始采集病史。对话将自动评分。
 				</p>

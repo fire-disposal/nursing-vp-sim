@@ -270,13 +270,21 @@ export class ScoreManager {
 	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。 */
 	async retry(): Promise<void> {
 		if (!this.recordId) return;
+		if (this._polling) return;
 		this.stopPolling();
+		this._polling = true;
 		this._score = null;
 		this._progress = { phase: "loading", percentage: 5, message: "正在重新触发评分..." };
 		this.notify();
-		await retryScoring(this.recordId);
+		try {
+			await retryScoring(this.recordId);
+		} catch (e) {
+			this._polling = false;
+			this._progress = { phase: "failed", percentage: 0, message: "重新触发评分失败，请稍后重试" };
+			this.notify();
+			throw e;
+		}
 		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
-		this._polling = true;
 		this.notify();
 		this.startPolling();
 	}

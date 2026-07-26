@@ -54,7 +54,17 @@ function buildWsUrl(): string {
 }
 
 function _connect() {
-	if (_aborted || (_ws && _ws.readyState === WebSocket.OPEN)) return;
+	if (_aborted) return;
+	// Close any existing socket and neutralize its event handlers
+	// to prevent stale onclose from destroying the new connection.
+	if (_ws) {
+		_ws.onclose = null;
+		_ws.onerror = null;
+		_ws.onopen = null;
+		_ws.onmessage = null;
+		_ws.close();
+		_ws = null;
+	}
 
 	const ws = new WebSocket(buildWsUrl());
 	_ws = ws;
@@ -84,12 +94,14 @@ function _connect() {
 	};
 
 	ws.onclose = (ev) => {
-		_ws = null;
+		// Only clear _ws if THIS socket is still the active one.
+		// A stale onclose from a superseded socket must not destroy
+		// the reference to a newer connection.
+		if (_ws === ws) _ws = null;
 		_setConnected(false);
 		if (_aborted) return;
 		console.warn("[TrainingWS] closed code=%d reason=%s", ev.code, ev.reason || "(none)");
-		// 4001 = 鉴权失败。可能是 access token 已过期 —— 先刷新一次令牌再重连；
-		// 若刷新后仍 4001，说明 refresh token 也失效，放弃（等待显式重连/登出）。
+		// 4001 = 鉴权失败
 		if (ev.code === 4001) {
 			if (_authRetried) return;
 			_authRetried = true;
@@ -102,7 +114,7 @@ function _connect() {
 				.catch(() => {});
 			return;
 		}
-		// 指数退避 + ±50% 抖动，避免后端重启时 21 个客户端齐步重连（惊群）。
+		// 指数退避 + 抖动
 		const base = Math.min(1000 * 2 ** _retryCount, 30000);
 		const delay = base / 2 + Math.random() * (base / 2);
 		_retryCount = Math.min(_retryCount + 1, 5);
@@ -147,9 +159,11 @@ export function useTrainingWS(
 			if (_refCount === 0) {
 				_aborted = true;
 				if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
-				if (_ws) { _ws.close(); _ws = null; }
+				if (_ws) { _ws.onclose = null; _ws.close(); _ws = null; }
 				_setConnected(false);
+				_pending.length = 0;
 				_listeners.clear();
+				_connListeners.clear();
 			}
 		};
 	}, []);

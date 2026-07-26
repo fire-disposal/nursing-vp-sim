@@ -95,12 +95,17 @@ def detect_capabilities(
 
 
 def is_enabled(record, key: str) -> bool:
-    """Runtime gate: re-detect from the record's snapshot."""
-    snapshot = record.practice_snapshot or {}
-    case_data = snapshot.get("case_data") or {}
-    features = snapshot.get("features") or {}
-    return detect_capabilities(case_data, training_type=record.training_type, overrides=features).get(key, False)
+    """Data-driven runtime gate — same detection as API response.
 
+    Fully driven by case_data content: field exists → tool enabled.
+    ``practice_snapshot.features`` only provides opt-out overrides
+    (teacher-assigned force-disables).
+    """
+    case_data = record.case_snapshot or {}
+    features = (record.practice_snapshot or {}).get("features") or {}
+    return detect_capabilities(
+        case_data, training_type=record.training_type, overrides=features
+    ).get(key, False)
 
 # ── Internal helpers ──
 

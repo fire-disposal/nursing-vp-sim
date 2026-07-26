@@ -54,9 +54,9 @@ export function TrainingHeader() {
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const autoEndFiredRef = useRef(false);
 
+
 	const studentMsgs = messages.filter(m => m.role === "student");
 	const hasStarted = studentMsgs.length > 0;
-
 	const initialRemaining =
 		!hasStarted ? null
 		: autoEndFiredRef.current ? null
@@ -201,8 +201,7 @@ export function TrainingHeader() {
 
 			<Dialog
 				open={endConfirmOpen}
-				onOpenChange={(o) => !o && setEndConfirmOpen(false)}
-			>
+				onOpenChange={(o) => !o && setEndConfirmOpen(false)}>
 				<DialogContent title="结束训练" maxWidth={360}>
 				<p className="text-sm text-muted-foreground mb-5">
 					已发送 {studentMsgs.length} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
