@@ -140,9 +140,11 @@ async def lifespan(app: FastAPI):
     log_config(log)
 
     init_db()
-    seed_all()
-    log.info("Seeds: complete")
-
+    if os.getenv("SKIP_SEED") == "1":
+        log.info("Seeds: 跳过（SKIP_SEED=1）")
+    else:
+        seed_all()
+        log.info("Seeds: complete")
     _recover_stuck_scoring_records()
     log.info("Scoring recovery: done")
 
@@ -161,7 +163,11 @@ async def lifespan(app: FastAPI):
         ),
     )
 
-    app.state.llm_router = ProfileRouter()
+    try:
+        app.state.llm_router = ProfileRouter()
+    except Exception:
+        log.exception("LLM ProfileRouter 初始化失败 — LLM 功能不可用")
+        app.state.llm_router = None
 
     from bootstrap import shutdown as bootstrap_shutdown
     from bootstrap import startup as bootstrap_startup

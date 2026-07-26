@@ -189,7 +189,11 @@ def _seed_cases() -> None:
             except (OSError, json.JSONDecodeError) as e:
                 log.warning("病例文件读取失败 %s: %s", fpath.name, e)
         if imported:
-            db.commit()
+            try:
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                log.warning("病例种子写入失败（数据库 schema 不匹配？）: %s", e)
         log.debug("病例导入完成: 新增 %d, 跳过 %d", imported, skipped)
     finally:
         db.close()

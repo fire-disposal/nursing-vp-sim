@@ -11,8 +11,15 @@ log = logging.getLogger(__name__)
 
 async def init_llm(app_state, httpx_client, llm_router, metrics):
     """Initialize LLM infrastructure: warm-up router, start log worker, create client."""
-    await llm_router.load_from_db()
-    log.info("Profile router: ready")
+    if llm_router is None:
+        log.warning("LLM router 不可用，跳过 LLM 基础设施初始化")
+        return
+    try:
+        await llm_router.load_from_db()
+    except Exception:
+        log.exception("LLM router 加载失败，跳过 LLM 基础设施初始化")
+        app_state.llm_router = None
+        return
 
     if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
         import infrastructure.llm.router as llm_router_mod
