@@ -80,14 +80,16 @@ export function StudentTopNav({
 						<span className="hidden sm:inline">反馈</span>
 					</button>
 					<NotificationBell />
-					<ModeToggle />
-					<button
-						onClick={onLogout}
-						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-						title="退出登录"
-					>
-						<LogOut size={15} />
-					</button>
+					<div className="hidden md:flex items-center gap-0.5">
+						<ModeToggle />
+						<button
+							onClick={onLogout}
+							className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+							title="退出登录"
+						>
+							<LogOut size={15} />
+						</button>
+					</div>
 				</div>
 			</div>
 		</header>

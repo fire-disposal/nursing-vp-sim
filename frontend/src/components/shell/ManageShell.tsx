@@ -37,7 +37,7 @@ function TabBarLayout({ children }: { children: ReactNode }) {
 	};
 
 	return (
-		<div className="flex flex-col h-screen overflow-hidden">
+		<div className="flex flex-col h-dvh overflow-hidden">
 			{!isOnline && <NetworkBanner />}
 			<StudentTopNav links={links} onLogout={handleLogout} />
 			<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
@@ -68,7 +68,7 @@ function AdminLayout({
 	const isOnline = useNetworkStatus();
 
 	return (
-		<div className="flex h-screen overflow-hidden">
+		<div className="flex h-dvh overflow-hidden">
 			{mobileOpen && (
 				<div
 					className="fixed inset-0 z-40 bg-black/40 md:hidden"
