@@ -1,6 +1,6 @@
 ﻿import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { ClipboardList, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
@@ -12,6 +12,7 @@ import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import {
 	Table,
 	TableBody,
@@ -168,10 +169,7 @@ export default function History() {
 				</div>
 
 				{isLoading ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3">
-						<Loader2 size={36} className="animate-spin text-muted-foreground" />
-						<span className="text-sm text-muted-foreground">加载中...</span>
-					</div>
+					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
 					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
 						<ClipboardList size={40} className="text-muted-foreground/40" />

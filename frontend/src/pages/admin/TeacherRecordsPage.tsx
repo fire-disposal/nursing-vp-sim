@@ -4,10 +4,10 @@ import {
 	ArrowUp,
 	ArrowUpDown,
 	ClipboardList,
-	Loader2,
 	RefreshCw,
 	Trash2,
 } from "lucide-react";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
@@ -370,10 +370,7 @@ export default function TeacherRecordsPage() {
 				</div>
 
 				{isLoading ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3">
-						<Loader2 size={36} className="animate-spin text-muted-foreground" />
-						<span className="text-sm text-muted-foreground">加载中...</span>
-					</div>
+					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
 					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
 						<ClipboardList size={40} className="text-muted-foreground/40" />

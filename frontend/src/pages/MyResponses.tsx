@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardCheck, Eye, Loader2, RefreshCw } from "lucide-react";
+import { ClipboardCheck, Eye, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getMyResponses } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import Pagination from "@/components/ui/pagination";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import {
 	Table,
 	TableBody,
@@ -139,10 +140,7 @@ export default function MyResponses() {
 
 			<div className="space-y-4">
 				{isLoading ? (
-					<div className="flex flex-col items-center justify-center py-20 gap-3">
-						<Loader2 size={36} className="animate-spin text-muted-foreground" />
-						<span className="text-sm text-muted-foreground">加载中...</span>
-					</div>
+					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
 					<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
 						<ClipboardCheck size={40} className="text-muted-foreground/40" />
