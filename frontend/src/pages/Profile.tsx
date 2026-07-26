@@ -1,8 +1,9 @@
+import { BarChart3, ChevronRight, ClipboardCheck, HelpCircle, Key, Loader2, LogOut, MessageSquare, Moon, Save, Sun, User } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BarChart3, ChevronRight, ClipboardCheck, HelpCircle, Key, Loader2, MessageSquare, Save, User } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { changePassword, updateMyProfile } from "@/api";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -27,6 +28,8 @@ import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 
 export default function Profile() {
+	const navigate = useNavigate();
+
 	const storeUser = useAuthStore((s) => s.user);
 	const refreshUser = useAuthStore((s) => s.refreshUser);
 
@@ -232,6 +235,28 @@ export default function Profile() {
 							<QuickLink to="/my-feedback" icon={MessageSquare} label="我的反馈" desc="提交意见反馈和问题报告" />
 							<QuickLink to="/stats" icon={BarChart3} label="训练统计" desc="查看训练时长和成绩趋势" />
 							<QuickLink to="/qa" icon={HelpCircle} label="护理问答" desc="护理知识问答练习" />
+
+				{/* Theme + Logout */}
+				<div className="rounded-xl border border-border bg-card p-6">
+					<h3 className="mb-3 text-sm font-semibold">系统</h3>
+					<div className="space-y-0.5">
+						<ThemeToggleButton />
+						<button
+							type="button"
+							onClick={() => { useAuthStore.getState().logout(); navigate("/login"); }}
+							className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted text-destructive"
+						>
+							<div className="flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+								<LogOut size={18} />
+							</div>
+							<div className="min-w-0 flex-1">
+								<div className="text-sm font-medium">退出登录</div>
+								<div className="text-xs text-muted-foreground">安全退出当前账号</div>
+							</div>
+						</button>
+					</div>
+				</div>
+
 						</div>
 					</div>
 
@@ -317,6 +342,27 @@ export default function Profile() {
 				</DialogContent>
 			</Dialog>
 		</div>
+	);
+}
+
+
+function ThemeToggleButton() {
+	const { theme, setTheme } = useTheme();
+	const isDark = theme === "dark";
+	return (
+		<button
+			type="button"
+			onClick={() => setTheme(isDark ? "light" : "dark")}
+			className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted"
+		>
+			<div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+				{isDark ? <Sun size={18} /> : <Moon size={18} />}
+			</div>
+			<div className="min-w-0 flex-1">
+				<div className="text-sm font-medium">{isDark ? "浅色模式" : "深色模式"}</div>
+				<div className="text-xs text-muted-foreground">切换界面颜色主题</div>
+			</div>
+		</button>
 	);
 }
 

@@ -1,5 +1,5 @@
 import { Suspense, useMemo, useState, type ReactNode } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import { BottomTabBar } from "./BottomTabBar";
 import BreadcrumbBar from "./BreadcrumbBar";
@@ -17,9 +17,7 @@ import { isAdminPermissions } from "@/utils/permissions";
  * TabBarLayout — 学生端 Tab 导航布局
  */
 function TabBarLayout({ children }: { children: ReactNode }) {
-	const navigate = useNavigate();
 	const permissions = useAuthStore((s) => s.permissions);
-	const logout = useAuthStore((s) => s.logout);
 	const permKey = permissions.join(",");
 	const isOnline = useNetworkStatus();
 
@@ -31,15 +29,10 @@ function TabBarLayout({ children }: { children: ReactNode }) {
 		[permKey],
 	);
 
-	const handleLogout = () => {
-		logout();
-		navigate("/login");
-	};
-
 	return (
 		<div className="flex flex-col h-dvh overflow-hidden">
 			{!isOnline && <NetworkBanner />}
-			<StudentTopNav links={links} onLogout={handleLogout} />
+			<StudentTopNav links={links} />
 			<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 				<ShellTransition>{children}</ShellTransition>
 			</div>
@@ -47,6 +40,7 @@ function TabBarLayout({ children }: { children: ReactNode }) {
 		</div>
 	);
 }
+
 
 /**
  * AdminLayout — 管理员侧边栏布局

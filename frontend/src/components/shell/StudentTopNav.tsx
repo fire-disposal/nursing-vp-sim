@@ -1,8 +1,7 @@
-import { LogOut, MessageSquarePlus, Stethoscope } from "lucide-react";
+import { MessageSquarePlus, Stethoscope } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import NotificationBell from "@/components/NotificationBell";
-import { ModeToggle } from "@/components/ui/mode-toggle";
 import type { NavItem } from "./navigation";
 import { cn } from "@/utils/cn";
 
@@ -24,15 +23,10 @@ function isLinkActive(pathname: string, link: NavItem): boolean {
  * StudentTopNav — 学生端顶部导航栏
  *
  * 桌面端显示水平导航链接（3 项：训练 | 记录 | 我的）。
- * 子页面（如 /record/:id）会保持其父级 Tab 高亮。
+ * 移动端仅显示品牌 + 通知铃铛 + 反馈入口。
+ * 登出和主题切换已移至 Profile 页面。
  */
-export function StudentTopNav({
-	links,
-	onLogout,
-}: {
-	links: NavItem[];
-	onLogout: () => void;
-}) {
+export function StudentTopNav({ links }: { links: NavItem[] }) {
 	const { openFeedback } = useFeedback();
 	const { pathname } = useLocation();
 
@@ -68,7 +62,7 @@ export function StudentTopNav({
 					})}
 				</nav>
 
-				{/* Right side — utility icons (compact on mobile) */}
+				{/* Right side — utility icons */}
 				<div className="flex items-center gap-0.5 ml-auto">
 					<button
 						onClick={openFeedback}
@@ -80,16 +74,6 @@ export function StudentTopNav({
 						<span className="hidden sm:inline">反馈</span>
 					</button>
 					<NotificationBell />
-					<div className="hidden md:flex items-center gap-0.5">
-						<ModeToggle />
-						<button
-							onClick={onLogout}
-							className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-							title="退出登录"
-						>
-							<LogOut size={15} />
-						</button>
-					</div>
 				</div>
 			</div>
 		</header>

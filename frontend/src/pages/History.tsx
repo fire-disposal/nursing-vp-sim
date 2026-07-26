@@ -1,7 +1,7 @@
 ﻿import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, ClipboardCheck, ClipboardList, Loader2, MessageSquare, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -10,7 +10,6 @@ import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import {
 	Table,
@@ -116,40 +115,37 @@ export default function History() {
 		setSearchParams({}, { replace: true });
 	};
 
-const SUB_NAV = [
-	{ to: "/history", icon: ClipboardList, label: "训练记录" },
-	{ to: "/stats", icon: BarChart3, label: "训练统计" },
-	{ to: "/my-responses", icon: ClipboardCheck, label: "我的问卷" },
-	{ to: "/my-feedback", icon: MessageSquare, label: "我的反馈" },
-];
+	const location = useLocation();
+
+	const RECORD_TABS = [
+		{ key: "records", to: "/history", label: "训练记录" },
+		{ key: "stats", to: "/stats", label: "训练统计" },
+		{ key: "responses", to: "/my-responses", label: "我的问卷" },
+		{ key: "feedback", to: "/my-feedback", label: "我的反馈" },
+	] as const;
+
 
 	return (
 		<>
-			<PageHeader
-				title="记录"
-				subtitle="训练记录、统计、问卷与反馈"
-				icon={ClipboardList}
-			/>
-
-			{/* Sub-navigation */}
-			<nav className="flex gap-1 overflow-x-auto pb-1">
-				{SUB_NAV.map((item) => {
-					const Icon = item.icon;
-					const active = location.pathname === item.to || (item.to !== "/history" && location.pathname.startsWith(item.to));
+			{/* Tab switcher */}
+			<nav className="flex gap-1 rounded-lg bg-muted p-1 w-fit overflow-x-auto">
+				{RECORD_TABS.map((tab) => {
+					const active = location.pathname === tab.to || (tab.key !== "records" && location.pathname.startsWith(tab.to));
 					return (
 						<Link
-							key={item.to}
-							to={item.to}
-							className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-								active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-							}`}
+							key={tab.key}
+							to={tab.to}
+							className={cn(
+								"inline-flex items-center shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+								active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+							)}
 						>
-							<Icon size={15} />
-							<span className="hidden sm:inline">{item.label}</span>
+							{tab.label}
 						</Link>
 					);
 				})}
 			</nav>
+
 
 
 			<div className="space-y-4">
