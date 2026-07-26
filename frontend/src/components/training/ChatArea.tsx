@@ -48,7 +48,7 @@ export function ChatArea({
   const shownRef = useRef(false);
   const layout = useLayoutMode();
   const isCompact = layout === "phone";
-	const isShort = useShortViewport();
+  const isShort = useShortViewport();
 
   const inquiriesComplete = useMemo(() => {
     const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};

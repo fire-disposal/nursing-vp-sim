@@ -1,28 +1,7 @@
 import { Loader2, Send } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { cn } from "@/utils/cn";
 
-function useVisualViewportOffset() {
-	const [offset, setOffset] = useState(0);
-
-	useEffect(() => {
-		const vv = window.visualViewport;
-		if (!vv) return;
-
-		const onResize = () => {
-			const bottom = window.innerHeight - (vv.height + vv.offsetTop);
-			setOffset(Math.max(0, bottom));
-		};
-		vv.addEventListener("resize", onResize);
-		vv.addEventListener("scroll", onResize);
-		return () => {
-			vv.removeEventListener("resize", onResize);
-			vv.removeEventListener("scroll", onResize);
-		};
-	}, []);
-
-	return offset;
-}
 
 interface ChatInputProps {
 	onSend: (text: string) => void;
@@ -34,7 +13,6 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
-	const vvOffset = useVisualViewportOffset();
 
 
 	const handleSend = useCallback(() => {
@@ -68,11 +46,8 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 
 	return (
 		<div
-			className="border-t border-border bg-muted/30 shrink-0 transition-transform duration-150"
-			style={{
-				paddingBottom: `max(env(safe-area-inset-bottom), 0.5rem)`,
-				transform: vvOffset > 0 ? `translateY(-${vvOffset}px)` : undefined,
-			}}
+			className="border-t border-border bg-muted/30 shrink-0"
+			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
 		>
 			<div className="relative mx-auto flex w-full max-w-3xl items-end gap-2.5 px-3 sm:px-4 py-2.5">
 			<textarea

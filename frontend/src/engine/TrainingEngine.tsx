@@ -311,7 +311,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	if (loading) {
 		return (
-			<div className="flex flex-col h-dvh">
+			<div className="flex flex-col h-screen" style={{ height: "100dvh" }}>
 				<div className="p-3 border-b shrink-0">
 					<LoadingSkeleton variant="stats" />
 				</div>
@@ -324,7 +324,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	if (!patient) {
 		return (
-			<div className="flex h-dvh items-center justify-center text-muted-foreground">
+			<div className="flex h-screen items-center justify-center text-muted-foreground" style={{ height: "100dvh" }}>
 				{patientError || "患者信息加载失败"}
 			</div>
 		);

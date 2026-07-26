@@ -120,7 +120,7 @@ export function TrainingHeader() {
 				<div className="flex items-center gap-2 h-full">
 					<button
 						onClick={() => navigate("/training")}
-						className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
+						className="size-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
 						title="返回训练选择"
 						aria-label="返回训练选择"
 					>
@@ -177,7 +177,7 @@ export function TrainingHeader() {
 						type="button"
 						onClick={onTtsToggle}
 						className={cn(
-							"size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
+							"size-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
 							ttsAutoPlay && "border-primary bg-primary/10 text-primary hover:bg-primary/20",
 						)}
 						title={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
@@ -185,7 +185,7 @@ export function TrainingHeader() {
 						{ttsAutoPlay ? <Volume2 size={16} /> : <EarOff size={16} />}
 					</button>
 					<Button
-						variant="end"
+						variant="destructive"
 						size="sm"
 						onClick={handleEndClick}
 						title="完成训练并查看评分"
