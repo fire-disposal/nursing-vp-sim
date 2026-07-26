@@ -22,9 +22,9 @@ EMOTION_ANALYSIS_SYSTEM = """你是护理对话情绪分析助手。分析护士
 """
 
 EMOTION_ANALYSIS_USER = """护士最新提问：
-{nurse_message}
+{#nurse_message#}
 
 患者最新回复：
-{patient_reply}
+{#patient_reply#}
 
 请分析并返回 JSON。"""

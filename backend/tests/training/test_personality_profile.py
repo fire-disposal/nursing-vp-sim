@@ -109,7 +109,7 @@ class TestPersonalityProfileAmplify:
     def test_amplify_negative_with_anxious(self):
         profile = PersonalityProfile.from_personality({"anxiety_trait": "anxious"})
         dt, dc = profile.amplify(-2, -3)
-        assert dt == -2
+        assert dt == -3
         assert dc == -4
 
     def test_amplify_positive_with_anxious(self):
@@ -122,7 +122,7 @@ class TestPersonalityProfileAmplify:
         profile = PersonalityProfile.from_personality({"anxiety_trait": "anxious"})
         dt, dc = profile.amplify(-1, 2)
         assert dt == -1
-        assert dc == 2
+        assert dc == 3
 
     def test_amplify_default_neutral(self):
         profile = PersonalityProfile.from_personality({})

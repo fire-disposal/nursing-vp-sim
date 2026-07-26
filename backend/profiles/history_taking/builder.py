@@ -49,8 +49,8 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
             if val:
                 parts.append(val)
 
-        # 组合加成：危险搭配产生更强烈的行为描述
         combo = []
+        # 组合加成：危险搭配产生更强烈的行为描述
         is_anxious = p.get("anxiety_trait") == "anxious"
         is_low_patience = p.get("patience") == "low"
         is_low_lit = p.get("health_literacy") in ("low",)
@@ -124,7 +124,6 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
     else:
         kwargs["author_note"] = ""
 
-    kwargs["emotion_instruction"] = ""
     return kwargs
 
 

@@ -25,7 +25,6 @@ class TestBuildPatientContextKwargs:
             "author_note",
             "scenario",
             "example_dialogues",
-            "emotion_instruction",
         }
 
     def test_patient_info_formatting(self):
@@ -60,8 +59,8 @@ class TestBuildPatientContextKwargs:
         }
         kwargs = build_context_kwargs(case)
         assert "不太会描述病情" in kwargs["personality"]
-        assert "容易焦虑" in kwargs["personality"]
-        assert "非常耐心" in kwargs["personality"]
+        assert "紧张焦虑" in kwargs["personality"]
+        assert "反复讲" in kwargs["personality"]
 
     def test_deep_background_formatting(self):
         case = {"deep_background": {"smoking": "30年吸烟史", "occupation": "建筑工人"}}

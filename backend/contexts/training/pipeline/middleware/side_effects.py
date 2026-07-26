@@ -9,6 +9,7 @@ from contexts.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_in
 from contexts.training.pipeline.middleware.emotion_prompts import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 from infrastructure.llm.client import CallContext
 from profiles.history_taking.emotion_profile import PersonalityProfile
+from infrastructure.prompt import render_template
 
 from ..context import (
     STATE_FEATURES,
@@ -42,7 +43,8 @@ async def _analyze_and_apply(
 ) -> None:
     """Background task: analyze this turn's reply and apply delta for the next turn."""
     try:
-        user_msg = EMOTION_ANALYSIS_USER.format(
+        user_msg = render_template(
+            EMOTION_ANALYSIS_USER,
             nurse_message=student_input,
             patient_reply=patient_reply,
         )
