@@ -1,4 +1,4 @@
-import { Eye, EyeOff, MoreHorizontal, Pencil, Play, Plus, Search, Trash2, Wand2, X } from "lucide-react";
+import { Pencil, Play, Plus, Search, Trash2, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/button";
 import Pagination from "@/components/ui/pagination";
@@ -41,30 +41,6 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 	);
 }
 
-function ContextMenu({ onEdit, onDelete, onClose }: { onEdit: () => void; onDelete: () => void; onClose: () => void }) {
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const handler = (e: MouseEvent) => {
-			if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-		};
-		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
-	}, [onClose]);
-
-	useEffect(() => {
-		const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
-	}, [onClose]);
-
-	return (
-		<div ref={ref} className="absolute right-2 top-10 z-20 w-32 rounded-lg border border-border bg-popover shadow-lg py-1" role="menu">
-			<button onClick={() => { onEdit(); onClose(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted" role="menuitem"><Pencil size={12} />编辑</button>
-			<button onClick={() => { onDelete(); onClose(); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-destructive" role="menuitem"><Trash2 size={12} />删除</button>
-		</div>
-	);
-}
 
 export default function CaseList({
 	cases, total, offset, limit,
@@ -72,7 +48,6 @@ export default function CaseList({
 	onSearchChange, onFilterChange, onOffsetChange,
 	onAdd, onAIAdd, onEdit, onDelete, onToggleOpen,
 }: CaseListProps) {
-	const [menuOpen, setMenuOpen] = useState<number | null>(null);
 
 	return (
 		<div className="space-y-4">
@@ -109,57 +84,41 @@ export default function CaseList({
 			</div>
 
 			{/* Table */}
-			<div className="rounded-lg border border-border bg-card overflow-hidden">
-				<table className="w-full text-sm">
+			<div className="rounded-lg border border-border bg-card overflow-x-auto">
+				<table className="w-full text-sm table-fixed min-w-[640px]">
 					<thead>
 						<tr className="border-b border-border bg-muted/50">
-							<th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">病例名称</th>
-							<th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">难度</th>
-							<th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden md:table-cell">类型</th>
-							<th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden lg:table-cell">能力</th>
-							<th className="text-center px-4 py-2.5 text-xs font-medium text-muted-foreground w-20">状态</th>
-							<th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground w-12"></th>
+							<th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-[26%]">病例名称</th>
+							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[10%]">难度</th>
+							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[12%]">类型</th>
+							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[22%]">能力</th>
+							<th className="text-center px-2 py-2 text-xs font-medium text-muted-foreground w-[16%]">状态</th>
+							<th className="text-center px-2 py-2 text-xs font-medium text-muted-foreground w-[14%]">操作</th>
 						</tr>
 					</thead>
 					<tbody>
 						{cases.map((c) => (
 							<tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-								<td className="px-4 py-3">
-									<div className="font-medium truncate max-w-[200px]">{c.name}</div>
-									<div className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
+								<td className="px-3 py-2">
+									<div className="font-medium text-xs truncate">{c.name}</div>
+									<div className="text-[10px] text-muted-foreground truncate mt-0.5">
 										{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
 									</div>
 								</td>
-								<td className="px-4 py-3 hidden sm:table-cell">
-									<span className="text-xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</span>
-								</td>
-								<td className="px-4 py-3 hidden md:table-cell">
-									<span className="text-xs text-muted-foreground">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</span>
-								</td>
-								<td className="px-4 py-3 hidden lg:table-cell">
-									<CapabilityBadges caps={c.capabilities} />
-								</td>
-								<td className="px-4 py-3 text-center">
+								<td className="px-2 py-2"><span className="text-xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</span></td>
+								<td className="px-2 py-2"><span className="text-xs text-muted-foreground">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</span></td>
+								<td className="px-2 py-2"><CapabilityBadges caps={c.capabilities} /></td>
+								<td className="px-2 py-2 text-center">
 									<button type="button" onClick={() => onToggleOpen(c)}
-										className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-											c.is_open ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-muted text-muted-foreground hover:bg-muted/70"
-										}`}>
-										{c.is_open ? <Eye size={12} /> : <EyeOff size={12} />}
+										className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${c.is_open ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
 										{c.is_open ? "开放" : "关闭"}
 									</button>
 								</td>
-								<td className="px-4 py-3 text-right relative">
-									<button type="button" onClick={() => setMenuOpen(menuOpen === c.id ? null : c.id)}
-										className="p-1 rounded hover:bg-muted text-muted-foreground" aria-haspopup="menu" aria-expanded={menuOpen === c.id}>
-										<MoreHorizontal size={16} />
-									</button>
-									{menuOpen === c.id && (
-										<ContextMenu
-											onEdit={() => onEdit(c)}
-											onDelete={() => onDelete(c)}
-											onClose={() => setMenuOpen(null)}
-										/>
-									)}
+								<td className="px-2 py-2">
+									<div className="flex items-center justify-center gap-0.5">
+										<button type="button" onClick={() => onEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="编辑"><Pencil size={13} /></button>
+										<button type="button" onClick={() => onDelete(c)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 dark:hover:bg-red-950/30" title="删除"><Trash2 size={13} /></button>
+									</div>
 								</td>
 							</tr>
 						))}
