@@ -60,7 +60,7 @@ export function SceneRenderer() {
       <div
         style={{ width: showPanel && displayTool ? panelWidth(displayTool) : 0, transition: `width ${ANIM_DURATION}ms ease-out` }}
         className={cn(
-          "h-full flex flex-col border-l border-border bg-card overflow-hidden",
+          "h-full flex flex-col border-l border-border bg-card overflow-hidden pt-11 sm:pt-12",
           showPanel ? "opacity-100" : "opacity-0 border-l-0",
         )}
       >
