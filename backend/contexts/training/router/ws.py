@@ -66,6 +66,8 @@ async def _authenticate(token: str) -> User | None:
     finally:
         db.close()
 
+
+@router.websocket("/ws")
 async def training_ws(
     websocket: WebSocket,
     token: str = Query(default=""),
