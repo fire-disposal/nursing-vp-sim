@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import NotificationBell from "@/components/NotificationBell";
 import type { NavItem } from "./navigation";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import { cn } from "@/utils/cn";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
@@ -29,10 +30,11 @@ function isLinkActive(pathname: string, link: NavItem): boolean {
 export function StudentTopNav({ links }: { links: NavItem[] }) {
 	const { openFeedback } = useFeedback();
 	const { pathname } = useLocation();
+	const isShort = useShortViewport();
 
 	return (
 		<header className="shrink-0 border-b border-border bg-card">
-			<div className="flex items-center gap-2 px-3 h-10 md:h-14">
+			<div className={cn("flex items-center gap-2 px-3", isShort ? "h-8" : "h-10 md:h-14")}>
 				{/* Brand */}
 				<div className="flex items-center gap-2">
 					<div className="flex size-7 md:size-8 items-center justify-center rounded-lg bg-primary">

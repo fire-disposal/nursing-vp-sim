@@ -1,5 +1,6 @@
 import { ClipboardList, Stethoscope, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import { cn } from "@/utils/cn";
 
 /**
@@ -46,6 +47,10 @@ const BOTTOM_TABS: Array<{
 export function BottomTabBar() {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const isShort = useShortViewport();
+
+	if (isShort) return null;
+
 
 	return (
 		<nav

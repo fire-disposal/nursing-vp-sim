@@ -105,7 +105,7 @@ const SidebarNav = memo(function SidebarNav({
 /**
  * AdminSidebar — 管理员侧边导航栏
  *
- * 固定左侧 260px 宽，包含用户信息、导航分组、工具按钮。
+ * 固定左侧 240px 宽，包含用户信息、导航分组、工具按钮。
  * 移动端通过 mobileOpen 控制滑入/滑出。
  */
 export default function AdminSidebar({

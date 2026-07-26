@@ -8,6 +8,7 @@ import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
+import { useShortViewport } from "@/hooks/useShortViewport";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
 function WSStatusDot() {
@@ -43,6 +44,7 @@ export function TrainingHeader() {
 		timeLimitMinutes,
 		remainingSeconds,
 	} = useTrainingContext();
+	const isShort = useShortViewport();
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
@@ -112,7 +114,7 @@ export function TrainingHeader() {
 	return (
 		<>
 			<header
-				className="absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 h-11 sm:h-12 shadow-sm"
+				className={cn("absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 shadow-sm", isShort ? "h-9" : "h-11 sm:h-12")}
 				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
 			>
 				<div className="flex items-center gap-2 h-full">

@@ -9,8 +9,10 @@ import type { NavItem } from "./navigation";
 import { NAV_ITEMS } from "./navigation";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import LoadingState from "@/components/ui/loading-state";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
+import { cn } from "@/utils/cn";
 import { isAdminPermissions } from "@/utils/permissions";
 
 /**
@@ -60,6 +62,7 @@ function AdminLayout({
 }) {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const isOnline = useNetworkStatus();
+	const isShort = useShortViewport();
 
 	return (
 		<div className="flex h-screen overflow-hidden" style={{ height: "100dvh" }}>
@@ -87,7 +90,7 @@ function AdminLayout({
 				{!isOnline && <NetworkBanner />}
 
 				{/* Mobile top bar */}
-				<div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0">
+				<div className={cn("flex items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0", isShort ? "h-10" : "h-14")}>
 					<button
 						type="button"
 						className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
@@ -103,7 +106,7 @@ function AdminLayout({
 
 				<BreadcrumbBar className="px-4 py-1.5 border-b border-border bg-card/50 shrink-0 hidden md:block" />
 
-				<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+				<div className={cn("flex-1 overflow-y-auto", isShort ? "p-2" : "p-4 sm:p-6 lg:p-8")}>
 					<ShellTransition>{children}</ShellTransition>
 				</div>
 			</div>

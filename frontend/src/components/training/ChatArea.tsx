@@ -11,6 +11,8 @@ import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
+import { cn } from "@/utils/cn";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 interface ChatAreaProps {
@@ -46,6 +48,7 @@ export function ChatArea({
   const shownRef = useRef(false);
   const layout = useLayoutMode();
   const isCompact = layout === "phone";
+	const isShort = useShortViewport();
 
   const inquiriesComplete = useMemo(() => {
     const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};
@@ -89,7 +92,7 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		<div className="flex flex-col flex-1 min-h-0 pt-11 sm:pt-12">
+		<div className={cn("flex flex-col flex-1 min-h-0", isShort ? "pt-9" : "pt-11 sm:pt-12")}>
 			<AnimatePresence mode="wait">
 				{!hasMessages && !hasHistory ? (
 					<motion.div
