@@ -120,54 +120,29 @@ export default function History() {
 
 	return (
 		<RecordSubPageLayout title="训练记录" icon={ClipboardList}>
-				<div className="rounded-xl border bg-card p-4 sm:p-5">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
-						<div className="flex-1 min-w-[140px]">
-							<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-								状态
-							</label>
-							<select
-								value={status}
-								onChange={(e) => setParam("status", e.target.value)}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-							>
-								<option value="">全部</option>
-								<option value="in_progress">进行中</option>
-								<option value="completed">已完成</option>
-								<option value="abandoned">已放弃</option>
-							</select>
-						</div>
-						<div className="flex-1 min-w-[140px]">
-							<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-								开始日期(起)
-							</label>
-							<input
-								type="date"
-								value={date_from}
-								onChange={(e) =>
-									setParam("date_from", e.target.value)
-								}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-							/>
-						</div>
-						<div className="flex-1 min-w-[140px]">
-							<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-								开始日期(止)
-							</label>
-							<input
-								type="date"
-								value={date_to}
-								onChange={(e) => setParam("date_to", e.target.value)}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-							/>
-						</div>
-						<div className="flex gap-2 items-end">
-							<Button variant="outline" size="default" onClick={clearFilters}>
-								清除过滤
-							</Button>
-						</div>
-					</div>
+			<div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
+				<div className="flex items-center gap-2 flex-wrap">
+					<span className="text-xs text-muted-foreground shrink-0">共 {total} 条</span>
+					{records.length > 0 && (
+						<span className="text-xs text-muted-foreground shrink-0">
+							· 已完成 {records.filter(r => r.status === "completed").length}
+						</span>
+					)}
+					<div className="flex-1" />
+					<select value={status} onChange={(e) => setParam("status", e.target.value)}
+						className="h-8 rounded-md border border-input bg-background px-2 text-xs">
+						<option value="">全部状态</option>
+						<option value="in_progress">进行中</option>
+						<option value="completed">已完成</option>
+						<option value="abandoned">已放弃</option>
+					</select>
+					<input type="date" value={date_from} onChange={(e) => setParam("date_from", e.target.value)}
+						className="h-8 rounded-md border border-input bg-background px-2 text-xs" />
+					<input type="date" value={date_to} onChange={(e) => setParam("date_to", e.target.value)}
+						className="h-8 rounded-md border border-input bg-background px-2 text-xs" />
+					<Button variant="outline" size="xs" onClick={clearFilters}>清除</Button>
 				</div>
+			</div>
 
 				{isLoading ? (
 					<LoadingSkeleton variant="spinner" message="加载中..." />

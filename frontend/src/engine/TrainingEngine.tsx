@@ -94,17 +94,15 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		};
 	}, [recordNum]);
 
-	// Auto-play first patient greeting 2s after page loads
+	// TTS auto-play: wait until training actually starts (first student message sent)
+	const trainingStartedRef = useRef(false);
 	const firstGreetingRef = useRef(false);
 	useEffect(() => {
-		if (firstGreetingRef.current || !ttsAutoPlay) return;
+		if (firstGreetingRef.current || !ttsAutoPlay || !trainingStartedRef.current) return;
 		const firstPatient = messages.find((m) => m.role === "patient");
 		if (!firstPatient) return;
 		firstGreetingRef.current = true;
-		const timer = setTimeout(() => {
-			ttsRef.current.speak(firstPatient.content);
-		}, 2000);
-		return () => clearTimeout(timer);
+		ttsRef.current.speak(firstPatient.content);
 	}, [messages, ttsAutoPlay]);
 
 	useEffect(() => {
@@ -125,8 +123,8 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 
 	const sendMessage = useCallback(
 		async (text: string) => {
+			trainingStartedRef.current = true;
 			const bus = busRef.current;
-			patientAccRef.current = "";
 			bus.emit("chat:beforeSend");
 			streamRef.current.send(text, {
 				onPatientChunk: (chunk: string) => {

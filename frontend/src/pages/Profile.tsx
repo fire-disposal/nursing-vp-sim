@@ -114,105 +114,55 @@ export default function Profile() {
 					onSubmit={profileForm.handleSubmit(handleSave)}
 					className="space-y-6"
 				>
-					<Card className="p-6">
-						<FormField
-							control={profileForm.control}
-							name="gender"
-							render={({ field }) => (
-								<div className="flex flex-col items-center gap-4">
-									<img
-										src={getUserAvatar(field.value)}
-										alt="头像"
-										className="size-24 rounded-full object-cover ring-2 ring-border bg-muted"
+					<Card className="p-5">
+						<div className="flex items-center gap-4">
+							<FormField
+								control={profileForm.control}
+								name="gender"
+								render={({ field }) => (
+									<div className="flex flex-col items-center gap-2 shrink-0">
+										<img src={getUserAvatar(field.value)} alt="头像"
+											className="size-16 rounded-full object-cover ring-2 ring-border bg-muted" />
+										<div className="flex gap-1">
+											<Button type="button" variant={field.value === "男" ? "default" : "outline"} size="xs"
+												onClick={() => field.onChange("男")}>男</Button>
+											<Button type="button" variant={field.value === "女" ? "default" : "outline"} size="xs"
+												onClick={() => field.onChange("女")}>女</Button>
+										</div>
+									</div>
+								)}
+							/>
+							<div className="min-w-0 flex-1">
+								<div className="flex items-center gap-2">
+									<FormField control={profileForm.control} name="displayName"
+										render={({ field }) => (
+											<FormItem className="flex-1">
+												<FormLabel className="text-xs text-muted-foreground">显示名称</FormLabel>
+												<FormControl><Input placeholder="显示名称" className="h-9" {...field} /></FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
 									/>
-									<div className="flex gap-2">
-										<Button
-											type="button"
-											variant={field.value === "男" ? "default" : "outline"}
-											size="sm"
-											onClick={() => field.onChange("男")}
-										>
-											男
-										</Button>
-										<Button
-											type="button"
-											variant={field.value === "女" ? "default" : "outline"}
-											size="sm"
-											onClick={() => field.onChange("女")}
-										>
-											女
-										</Button>
+									<FormField control={profileForm.control} name="studentId"
+										render={({ field }) => (
+											<FormItem className="flex-1">
+												<FormLabel className="text-xs text-muted-foreground">学号</FormLabel>
+												<FormControl><Input placeholder="学号（选填）" className="h-9" {...field} /></FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								</div>
+								<div className="flex items-center gap-4 mt-2">
+									<div className="text-sm text-muted-foreground">
+										用户名：{storeUser?.username || "-"}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										角色：{storeUser?.role_display_name || storeUser?.role || "-"}
 									</div>
 								</div>
-							)}
-						/>
-					</Card>
-
-					<Card>
-						<CardHeader><CardTitle>基本信息</CardTitle></CardHeader>
-						<CardContent>
-						<div className="space-y-4">
-							<div>
-								<label className="block text-sm font-medium mb-1.5">
-									用户名
-								</label>
-								<Input
-									value={storeUser?.username || ""}
-									disabled
-									className="h-10 bg-muted/50"
-								/>
-								<p className="mt-1 text-xs text-muted-foreground">
-									用户名不可修改
-								</p>
-							</div>
-							<FormField
-								control={profileForm.control}
-								name="displayName"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="block text-sm font-medium mb-1.5">
-											显示名称
-										</FormLabel>
-										<FormControl>
-											<Input
-												placeholder="输入你的显示名称"
-												className="h-10"
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={profileForm.control}
-								name="studentId"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="block text-sm font-medium mb-1.5">
-											学号
-										</FormLabel>
-										<FormControl>
-											<Input
-												placeholder="输入学号（选填）"
-												className="h-10"
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<div>
-								<label className="block text-sm font-medium mb-1.5">角色</label>
-								<Input
-									value={storeUser?.role_display_name || storeUser?.role || ""}
-									disabled
-									className="h-10 bg-muted/50"
-								/>
 							</div>
 						</div>
-						</CardContent>
 					</Card>
 
 					<Card>

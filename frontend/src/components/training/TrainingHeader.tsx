@@ -55,9 +55,11 @@ export function TrainingHeader() {
 	const autoEndFiredRef = useRef(false);
 
 	const studentMsgs = messages.filter(m => m.role === "student");
+	const hasStarted = studentMsgs.length > 0;
 
 	const initialRemaining =
-		autoEndFiredRef.current ? null
+		!hasStarted ? null
+		: autoEndFiredRef.current ? null
 		: remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
 
 	const {
