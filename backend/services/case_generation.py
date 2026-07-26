@@ -19,10 +19,10 @@ from core.exceptions import (
 )
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_llm_config
-from infrastructure.prompt import render_template
+from prompts import render_template
 from models import Case, User
 from profiles.history_taking.builder import format_case_for_prompt
-from profiles.history_taking.case_generation_prompts import build_system_prompt
+from prompts.generation import build_system_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
 from schemas.case_schema import list_valid_training_types, validate_case_data
 

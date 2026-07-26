@@ -9,13 +9,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from contexts.qa.qa_prompts import QA_SYSTEM
+from prompts.qa import QA_SYSTEM
 from core.database import db_session, get_db
 from core.rate_limits import check_qa_limit
 from core.security import require_permission
 from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
-from infrastructure.prompt import render_template
+from prompts import render_template
 from models import QARecord, QASession, User
 from schemas import Citation, QAAskResponse, QASessionCreate, SectionTextResponse
 

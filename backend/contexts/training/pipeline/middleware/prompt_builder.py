@@ -16,7 +16,7 @@ from contexts.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
-from infrastructure.prompt import render_template
+from prompts import render_template
 from profiles.registry import get_profile
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext

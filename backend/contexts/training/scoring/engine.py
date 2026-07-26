@@ -13,7 +13,7 @@ from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
-from infrastructure.prompt import render_template
+from prompts import render_template
 from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from profiles.rubric_loader import get_rubric_version_id, load_rubric

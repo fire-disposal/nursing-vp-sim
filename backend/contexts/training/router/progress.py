@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from contexts.training.capabilities import is_enabled
 from contexts.training.patient_ai.emotion import get_emotion
-from contexts.training.patient_ai.initiative import (
+from prompts.training.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
     generate_initiative_llm,
