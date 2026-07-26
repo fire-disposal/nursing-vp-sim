@@ -50,6 +50,8 @@ export function TrainingHeader() {
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
+	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+	const [leaving, setLeaving] = useState(false);
 	const endingRef = useRef(false);
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const autoEndFiredRef = useRef(false);
@@ -121,7 +123,7 @@ export function TrainingHeader() {
 			>
 				<div className="flex items-center gap-2 h-full">
 					<button
-						onClick={() => navigate("/training")}
+						onClick={() => setLeaveDialogOpen(true)}
 						className="size-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
 						title="返回训练选择"
 						aria-label="返回训练选择"
@@ -240,8 +242,28 @@ export function TrainingHeader() {
 				</DialogContent>
 			</Dialog>
 
-
-			
+			<Dialog open={leaveDialogOpen} onOpenChange={(o) => !o && setLeaveDialogOpen(false)}>
+				<DialogContent title="离开训练" maxWidth={300}>
+					<p className="text-sm text-muted-foreground mb-5">训练仍在进行中</p>
+					<div className="flex flex-col gap-2">
+						<Button variant="outline" onClick={() => { setLeaveDialogOpen(false); navigate("/training"); }}>
+							暂离，保留进度
+						</Button>
+						<Button variant="destructive" onClick={async () => {
+							setLeaving(true);
+							try { await onEnd(); } catch { /* ignore */ }
+							setLeaving(false);
+							setLeaveDialogOpen(false);
+							navigate("/training");
+						}} disabled={leaving}>
+							结束训练并评分
+						</Button>
+						<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
+							继续训练
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }
