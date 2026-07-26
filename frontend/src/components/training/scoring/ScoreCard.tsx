@@ -262,7 +262,10 @@ export function ScoreCard({
 
 	useEffect(() => {
 		const unsub = bus.on("score:ready", () => {
-			navigate(`/record/${recordId}`, { replace: true });
+			// Brief pause so the user sees the completion state in ScoringOverlay
+			setTimeout(() => {
+				navigate(`/record/${recordId}`, { replace: true });
+			}, 1500);
 		});
 		return unsub;
 	}, [bus, recordId, navigate]);

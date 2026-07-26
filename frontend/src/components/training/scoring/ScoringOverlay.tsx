@@ -38,7 +38,7 @@ export function ScoringOverlay({
 	const [visible, setVisible] = useState(false);
 	const [closing, setClosing] = useState(false);
 	const [retrying, setRetrying] = useState(false);
-	const [showThought, setShowThought] = useState(false);
+	const [showThought, setShowThought] = useState(true);
 	const [progress, setProgress] = useState<Progress>({ phase: null, percentage: 0, message: "" });
 
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
@@ -103,25 +103,25 @@ export function ScoringOverlay({
 						style={{ width: `${Math.max(4, progress.percentage)}%` }} />
 				</div>
 
-				{/* AI thought — collapsed by default */}
+				{/* AI thought — expanded by default for entertainment while waiting */}
 				{isActive && (progress.score_thought || progress.feedback_thought) && (
 					<div className="mb-3">
 						<button type="button" onClick={() => setShowThought((v) => !v)}
 							className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-							{showThought ? "▲ 隐藏" : "▼ 显示"} AI 分析详情
+							{showThought ? "▲ 收起" : "▼ 展开"} AI 实时分析
 						</button>
 						{showThought && (
 							<div className="grid grid-cols-2 gap-2 mt-1">
 								<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
-									<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring</div>
-									<div ref={scoreScrollRef} className="max-h-24 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
-										{progress.score_thought ? <p className="text-foreground/60 whitespace-pre-wrap break-all">{progress.score_thought.slice(0, 300)}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 分析中...</p>}
+									<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring_dims</div>
+									<div ref={scoreScrollRef} className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+										{progress.score_thought ? <p className="text-foreground/70 whitespace-pre-wrap break-all">{progress.score_thought}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 等待评分维度分析...</p>}
 									</div>
 								</div>
 								<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
-									<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback</div>
-									<div ref={feedbackScrollRef} className="max-h-24 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
-										{progress.feedback_thought ? <p className="text-foreground/60 whitespace-pre-wrap break-all">{progress.feedback_thought.slice(0, 300)}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 生成中...</p>}
+									<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback_gen</div>
+									<div ref={feedbackScrollRef} className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+										{progress.feedback_thought ? <p className="text-foreground/70 whitespace-pre-wrap break-all">{progress.feedback_thought}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 等待反馈生成...</p>}
 									</div>
 								</div>
 							</div>
@@ -146,10 +146,10 @@ export function ScoringOverlay({
 				{/* Footer */}
 				{isActive && (
 					<div className="mt-3 flex items-center justify-between gap-3">
-						<p className="text-[11px] text-muted-foreground leading-tight">评分将在后台自动完成，<br />完成时会自动跳转到结果页</p>
-						<button type="button" onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate("/training"); }, 200); toast.info("评分将在后台继续，完成时会自动显示结果"); }}
+						<p className="text-[11px] text-muted-foreground leading-tight">评分完成后自动跳转结果页，<br />也可提前返回训练选择</p>
+						<button type="button" onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate("/training"); }, 200); }}
 							className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted transition-colors">
-							最小化
+							返回训练选择
 						</button>
 					</div>
 				)}
