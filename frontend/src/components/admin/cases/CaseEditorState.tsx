@@ -102,7 +102,7 @@ const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
 	social_history: "",
 	voice_type: "",
 	voice_override: "",
-	capabilities: {},
+	tools: {},
 	required_inquiries: [],
 	hidden_info: [],
 };
