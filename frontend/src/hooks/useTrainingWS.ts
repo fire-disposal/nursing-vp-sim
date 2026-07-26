@@ -54,7 +54,7 @@ function buildWsUrl(): string {
 }
 
 function _connect() {
-	if (_aborted || _ws) return;
+	if (_aborted || (_ws && _ws.readyState === WebSocket.OPEN)) return;
 
 	const ws = new WebSocket(buildWsUrl());
 	_ws = ws;
@@ -79,15 +79,15 @@ function _connect() {
 		}
 	};
 
-	ws.onerror = (ev) => {
+	ws.onerror = () => {
 		// will trigger onclose
-		console.warn("[TrainingWS] connection error — will close and retry", ev);
 	};
 
 	ws.onclose = (ev) => {
 		_ws = null;
 		_setConnected(false);
 		if (_aborted) return;
+		console.warn("[TrainingWS] closed code=%d reason=%s", ev.code, ev.reason || "(none)");
 		// 4001 = 鉴权失败。可能是 access token 已过期 —— 先刷新一次令牌再重连；
 		// 若刷新后仍 4001，说明 refresh token 也失效，放弃（等待显式重连/登出）。
 		if (ev.code === 4001) {

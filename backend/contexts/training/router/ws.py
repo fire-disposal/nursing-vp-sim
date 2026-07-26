@@ -62,24 +62,25 @@ async def _authenticate(token: str) -> User | None:
         if token_tv != user.token_version:
             log.warning("WS auth: token_version mismatch tv=%d db=%d for user %d", token_tv, user.token_version, user_id)
             return None
+        return user
     finally:
         db.close()
 
-@router.websocket("/ws")
 async def training_ws(
     websocket: WebSocket,
     token: str = Query(default=""),
 ):
+    await websocket.accept()
     user = await _authenticate(token)
     if not user:
+        log.warning("WS auth failed — closing with 4001")
         await websocket.close(code=4001)
         return
     load_role_permissions(user)
     if not user.has_permission("training_access"):
+        log.warning("WS auth: user %d lacks training_access", user.id)
         await websocket.close(code=4003)
         return
-
-    await websocket.accept()
 
     manager = websocket.app.state.realtime_hub
     queue = await manager.subscribe(user.id)
