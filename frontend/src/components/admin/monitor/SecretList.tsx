@@ -2,11 +2,11 @@ import { Info } from "lucide-react";
 import type { components } from "@/api/api-types.gen";
 import { cn } from "@/utils/cn";
 import {
-	costColorClass,
 	degradedReasonLabel,
+	costColorClass,
 	recoveryText,
 	statusText,
-} from "./llm-status";
+} from "@/utils/llm-status";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type FallbackState = components["schemas"]["FallbackStateResponse"];

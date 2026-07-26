@@ -32,8 +32,7 @@ import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
-import HistoryTabs from "@/components/shell/HistoryTabs";
-import PageHeader from "@/components/ui/page-header";
+import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
 import {
@@ -180,17 +179,11 @@ function StatsContent({
 	const barColors = useBarColors();
 
 	return (
-		<>
-			<HistoryTabs />
-			<PageHeader
-				title="训练统计"
-				subtitle={
-					hasTeacherView
-						? "查看所有学生的训练趋势、时长和得分统计"
-						: "查看你的训练投入与效果趋势"
-				}
-				icon={BarChart3}
-			/>
+		<RecordSubPageLayout
+			title="训练统计"
+			subtitle={hasTeacherView ? "查看所有学生的训练趋势、时长和得分统计" : "查看你的训练投入与效果趋势"}
+			icon={BarChart3}
+		>
 
 			{trends && (
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
@@ -500,7 +493,7 @@ function StatsContent({
 					</CardContent>
 				</Card>
 			)}
-		</>
+		</RecordSubPageLayout>
 	);
 }
 

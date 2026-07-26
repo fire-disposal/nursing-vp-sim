@@ -4,7 +4,7 @@ import {
 	degradedReasonLabel,
 	recoveryText,
 	statusText,
-} from "./llm-status";
+} from "@/utils/llm-status";
 
 describe("degradedReasonLabel", () => {
 	it("maps known reasons", () => {

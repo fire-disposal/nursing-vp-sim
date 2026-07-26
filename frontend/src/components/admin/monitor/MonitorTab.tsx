@@ -13,7 +13,7 @@ import { useSearchParams } from "react-router-dom";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import CallLogTimeline from "@/components/admin/CallLogTimeline";
+import CallLogTimeline from "./CallLogTimeline";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { exportRecords, getRecords } from "@/api";
 import { queryKeys } from "@/api/query-keys";
-import { TeachingDashboard } from "@/components/dashboard/TeachingDashboard";
+import { TeachingDashboard } from "@/pages/admin/dashboard/TeachingDashboard";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import type { RecordExtended } from "@/types/record";

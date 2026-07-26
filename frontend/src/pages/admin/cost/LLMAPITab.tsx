@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CircleDollarSign, Cpu, TrendingUp } from "lucide-react";
 import { fetchSecrets } from "@/api/admin/api-management";
 import { queryKeys } from "@/api/query-keys";
-import ApiManagementTab from "@/components/admin/ApiManagementTab";
+import ApiManagementTab from "@/components/admin/monitor/ApiManagementTab";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import StatCard from "@/components/ui/stat-card";
 

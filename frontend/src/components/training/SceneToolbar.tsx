@@ -6,7 +6,7 @@
  */
 import { Suspense, useCallback, useEffect, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import Bottomsheet from "@/components/ui/Bottomsheet";
+import Bottomsheet from "@/components/ui/bottomsheet";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";

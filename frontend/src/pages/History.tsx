@@ -1,8 +1,8 @@
-﻿import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, Play, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
-import HistoryTabs from "@/components/shell/HistoryTabs";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -117,10 +117,7 @@ export default function History() {
 	};
 
 	return (
-		<>
-			<HistoryTabs />
-
-			<div className="space-y-4">
+		<RecordSubPageLayout title="训练记录" icon={ClipboardList}>
 				<div className="rounded-xl border bg-card p-4 sm:p-5">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
 						<div className="flex-1 min-w-[140px]">
@@ -469,7 +466,6 @@ export default function History() {
 						onChange={(newOffset) => setParam("offset", String(newOffset))}
 					/>
 				</div>
-			</div>
-		</>
+		</RecordSubPageLayout>
 	);
 }

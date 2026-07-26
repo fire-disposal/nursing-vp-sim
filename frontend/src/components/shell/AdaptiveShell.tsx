@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { ActivityProvider, useActivity } from "./ActivityContext";
 import ManageShell from "./ManageShell";
 import PracticeShell from "./PracticeShell";
-import ReviewShell from "./ReviewShell";
 import type { NavItem } from "./navigation";
 
 function ShellPicker({
@@ -23,8 +22,6 @@ function ShellPicker({
 	switch (activity) {
 		case "practice":
 			return <PracticeShell>{children}</PracticeShell>;
-		case "review":
-			return <ReviewShell>{children}</ReviewShell>;
 		default:
 			return (
 				<ManageShell

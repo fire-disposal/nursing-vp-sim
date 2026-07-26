@@ -4,7 +4,7 @@ import { useState } from "react";
 import { getRecordLogs } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import CallLogDetail from "@/components/admin/CallLogDetail";
+import CallLogDetail from "./CallLogDetail";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { RingProgress } from "@/components/dashboard/RingProgress";
+import { RingProgress } from "@/pages/admin/dashboard/RingProgress";
 
 describe("RingProgress", () => {
 	it("renders percentage and label", () => {

@@ -49,7 +49,7 @@ const AssignmentDetailPage = lazy(
 );
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
-const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
+const AdminQuestionnaires = lazy(() => import("@/pages/admin/AdminQuestionnaires"));
 const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/admin/SystemNotificationsPage"),

@@ -1,6 +1,6 @@
 import { Coins } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import MonitorTab from "@/components/admin/MonitorTab";
+import MonitorTab from "@/components/admin/monitor/MonitorTab";
 import PageHeader from "@/components/ui/page-header";
 import Tabs from "@/components/ui/tabs";
 import CostDashboard from "@/pages/admin/cost/CostDashboard";

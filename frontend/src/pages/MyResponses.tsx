@@ -8,8 +8,7 @@ import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
-import HistoryTabs from "@/components/shell/HistoryTabs";
-import PageHeader from "@/components/ui/page-header";
+import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import Pagination from "@/components/ui/pagination";
 import {
 	Table,
@@ -125,14 +124,7 @@ export default function MyResponses() {
 	}, [rawResponses, statusFilter]);
 
 	return (
-		<>
-			<HistoryTabs />
-			<PageHeader
-				title="我的问卷回答"
-				subtitle="查看你提交过的前后测问卷回答记录"
-				icon={ClipboardCheck}
-			/>
-
+		<RecordSubPageLayout title="我的问卷回答" subtitle="查看你提交过的前后测问卷回答记录" icon={ClipboardCheck}>
 			<div className="flex items-center gap-2 mb-4">
 				<select
 					value={statusFilter}
@@ -251,6 +243,6 @@ export default function MyResponses() {
 				open={detailResponse !== null}
 				onClose={() => setDetailResponse(null)}
 			/>
-		</>
+		</RecordSubPageLayout>
 	);
 }

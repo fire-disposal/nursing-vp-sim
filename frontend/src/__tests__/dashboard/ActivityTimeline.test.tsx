@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	ActivityTimeline,
 	type ActivityEvent,
-} from "@/components/dashboard/ActivityTimeline";
+} from "@/pages/admin/dashboard/ActivityTimeline";
 
 const mockEvents: ActivityEvent[] = [
 	{
