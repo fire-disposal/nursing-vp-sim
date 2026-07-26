@@ -332,7 +332,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			<div className="flex flex-1 min-h-0">
 				<div className="flex flex-col flex-1 min-w-0">
 				<TrainingHeader />
-				<div className="flex-1 overflow-hidden relative">
+				<div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
 					<ErrorBoundary
 						fallback={
 							<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
