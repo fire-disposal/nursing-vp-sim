@@ -1,10 +1,11 @@
-import { BarChart3, ChevronRight, ClipboardCheck, HelpCircle, Key, Loader2, LogOut, MessageSquare, Moon, Save, Sun, User } from "lucide-react";
+import { Key, Loader2, LogOut, Moon, Save, Sun, User } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { changePassword, updateMyProfile } from "@/api";
+import ProfileTabs from "@/components/shell/ProfileTabs";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -95,6 +96,7 @@ export default function Profile() {
 
 	return (
 		<div className="mx-auto max-w-2xl">
+			<ProfileTabs />
 			<PageHeader
 				title="个人资料"
 				subtitle="管理你的个人信息与安全"
@@ -228,17 +230,6 @@ export default function Profile() {
 						</div>
 					</div>
 
-					<div className="rounded-xl border border-border bg-card p-6">
-						<h3 className="mb-3 text-sm font-semibold">快捷入口</h3>
-						<div className="space-y-0.5">
-							<QuickLink to="/my-responses" icon={ClipboardCheck} label="我的问卷" desc="查看已完成的问卷调查" />
-							<QuickLink to="/my-feedback" icon={MessageSquare} label="我的反馈" desc="提交意见反馈和问题报告" />
-							<QuickLink to="/stats" icon={BarChart3} label="训练统计" desc="查看训练时长和成绩趋势" />
-							<QuickLink to="/qa" icon={HelpCircle} label="护理问答" desc="护理知识问答练习" />
-
-						</div>
-					</div>
-
 					{/* Theme + Logout */}
 					<div className="rounded-xl border border-border bg-card p-6">
 						<h3 className="mb-3 text-sm font-semibold">系统</h3>
@@ -366,22 +357,3 @@ function ThemeToggleButton() {
 	);
 }
 
-function QuickLink({ to, icon: Icon, label, desc }: { to: string; icon: React.ComponentType<{ size?: number }>; label: string; desc: string }) {
-	const navigate = useNavigate();
-	return (
-		<button
-			type="button"
-			onClick={() => navigate(to)}
-			className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted"
-		>
-			<div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-				<Icon size={18} />
-			</div>
-			<div className="min-w-0 flex-1">
-				<div className="text-sm font-medium">{label}</div>
-				<div className="text-xs text-muted-foreground">{desc}</div>
-			</div>
-			<ChevronRight size={16} className="text-muted-foreground shrink-0" />
-		</button>
-	);
-}

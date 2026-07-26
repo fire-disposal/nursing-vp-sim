@@ -10,6 +10,7 @@ import {
 	getQASessionMessages,
 	getQASessions,
 } from "@/api";
+import ProfileTabs from "@/components/shell/ProfileTabs";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -248,7 +249,9 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<div className="flex h-full overflow-hidden">
+		<div className="flex flex-col h-full">
+			<ProfileTabs />
+		<div className="flex flex-1 min-h-0 overflow-hidden">
 				{showSidebar && (
 					<div
 						className="fixed inset-0 z-40 bg-black/40 md:hidden"
@@ -469,5 +472,6 @@ export default function QA() {
 					</div>
 				</main>
 			</div>
+		</div>
 	);
 }

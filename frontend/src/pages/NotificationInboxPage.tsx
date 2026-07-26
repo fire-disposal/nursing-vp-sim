@@ -9,6 +9,7 @@ import {
 	markNotificationRead,
 	markNotificationUnread,
 } from "@/api/notifications";
+import ProfileTabs from "@/components/shell/ProfileTabs";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
@@ -115,6 +116,7 @@ export default function NotificationInboxPage() {
 
 	return (
 		<div className="space-y-6 max-w-3xl mx-auto">
+			<ProfileTabs />
 			<PageHeader
 				title="通知中心"
 				subtitle={total > 0 ? `共 ${total} 条通知` : "暂无通知"}
