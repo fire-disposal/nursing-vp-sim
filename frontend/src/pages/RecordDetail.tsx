@@ -10,6 +10,8 @@ import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
 import ScoreResultSection from "./record-detail/ScoreResultSection";
+import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
+import type { DetailScoreCategory, ScoreData } from "@/types/score";
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -21,23 +23,48 @@ export default function RecordDetail() {
 	});
 
 	const { data: record, isError: recordError } = useQuery({
-		queryKey: queryKeys.training.detail(id!),
-		queryFn: () => getRecordDetail(id!).then((r) => r.data),
+		queryKey: queryKeys.training.record(Number(id)),
+		queryFn: () => getRecordDetail(Number(id)).then((r) => r.data),
 		enabled: !!id,
 	});
 
 	useEffect(() => {
 		if (recordError) {
-			toast.error("加载记录详情失败");
+			toast.apiError(recordError, "加载失败");
 			navigate("/history");
 		}
 	}, [recordError, navigate, toast]);
 
 	if (!record) return <LoadingSkeleton />;
 
+	const duration = (record as { end_time?: string | null; start_time?: string }).end_time
+		? Math.round(
+				(new Date((record as { end_time: string }).end_time).getTime() -
+					new Date((record as { start_time: string }).start_time).getTime()) /
+					60000,
+			)
+		: null;
+	const recordScore = record.score as ScoreData | null;
+	const hasScore = !!recordScore;
+	const scoreMax = recordScore?.detail_scores
+		? Object.values(recordScore.detail_scores).reduce((sum, value) => {
+				if (value && typeof value === "object" && "max" in (value as DetailScoreCategory))
+					return sum + ((value as DetailScoreCategory).max || 0);
+				return sum + 30;
+			}, 0)
+		: 100;
+	const detailScores = recordScore?.detail_scores ?? {};
+	const categories = Object.entries(detailScores);
+	const hasDetailItems = categories.some(
+		([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0,
+	);
+
 	const messages = (record.messages as MessageData[] | undefined) ?? [];
-	const score = record.score as { total_score?: number; detail_scores?: Record<string, { score: number; comment?: string }>; feedback?: Record<string, string> } | null | undefined;
 	const sheet = (record as { nursing_record_sheet?: Record<string, string> }).nursing_record_sheet;
+
+	const handleToggleExpand = (key: string) => {
+		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
 
 	return (
 		<div className="max-w-6xl mx-auto pt-2 pb-8">
@@ -45,28 +72,44 @@ export default function RecordDetail() {
 				<button onClick={() => navigate("/history")} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
 					<ArrowLeft size={16} />
 				</button>
-				<h1 className="text-sm font-semibold truncate">{record.user_display_name || ""} · {record.case_name || ""}</h1>
+				<h1 className="text-sm font-semibold truncate">{(record as { user_display_name?: string }).user_display_name || ""} · {(record as { case_name?: string }).case_name || ""}</h1>
 			</div>
 
 			<RecordStatsBar
-				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; training_type?: string }}
-				duration={null}
-				hasScore={!!score}
-				recordScore={null}
-				scoreMax={100}
+				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; training_type?: string; user_display_name?: string; case_name?: string }}
+				duration={duration}
+				hasScore={hasScore}
+				recordScore={recordScore}
+				scoreMax={scoreMax}
 			/>
-			{record.scoring_status === "pending" || record.scoring_status === "processing" ? (
-				<div className="rounded-xl border border-border bg-card p-4 text-center text-sm text-muted-foreground mt-4">评分进行中，请稍后刷新</div>
-			) : record.scoring_status === "failed" ? (
-				<div className="rounded-xl border border-red-500/30 bg-red-50/50 dark:bg-red-950/30 p-4 text-center text-sm text-red-700 dark:text-red-400 mt-4">评分失败</div>
-			) : null}
 
-			{score && score.total_score != null && (
-				<div className="rounded-xl border border-border bg-card p-5 mt-4">
-					<h3 className="text-base font-semibold mb-3">评分结果</h3>
-					<div className="text-3xl font-bold text-primary">{score.total_score} 分</div>
+			<ScoringPendingBanner
+				record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
+				retrying={false}
+				onRetry={() => {}}
+			/>
+
+			{recordScore && (
+				<div className="mt-4">
+					<ScoreResultSection
+						recordScore={recordScore}
+						isReviewed={false}
+						review={null}
+						scoreReview={null}
+						isTeacher={false}
+						expanded={expanded}
+						onToggleExpand={handleToggleExpand}
+						onReviewClick={() => {}}
+						onExport={() => {}}
+						onDetailedScoreClick={() => {}}
+						scoreMax={scoreMax}
+						categories={categories as [string, DetailScoreCategory][]}
+						hasDetailItems={hasDetailItems}
+					/>
 				</div>
 			)}
+
+			{sheet && <NursingRecordSection sheet={sheet} />}
 
 			<div className="mt-4">
 				<MessagePlayback messages={messages} />
@@ -85,15 +128,13 @@ function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
 	if (fields.length === 0) return null;
 	return (
 		<div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-3 mt-4">
-			<h3 className="text-base font-semibold">护理评估记录</h3>
-			<div className="space-y-3">
-				{fields.map(([key, label]) => (
-					<div key={key}>
-						<div className="text-xs font-medium text-muted-foreground mb-1">{label}</div>
-						<pre className="text-sm whitespace-pre-wrap font-sans">{sheet[key]}</pre>
-					</div>
-				))}
-			</div>
+			<h3 className="text-base font-semibold">护理记录</h3>
+			{fields.map(([key, label]) => (
+				<div key={key}>
+					<div className="text-xs text-muted-foreground mb-1">{label}</div>
+					<div className="text-sm whitespace-pre-wrap">{sheet[key]}</div>
+				</div>
+			))}
 		</div>
 	);
 }
