@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from core.deps import DbSession
 from core.security import require_permission
-from infrastructure.llm import decrypt_api_key, get_env_fallback_state
+from infrastructure.llm import get_env_fallback_state
 from models import ApiSecret, User
 from schemas import (
     ApiSecretCreate,
@@ -64,7 +64,7 @@ async def delete_secret(secret_id: int, request: Request, current_user: _Manager
 
 
 async def _test_secret(secret, client: httpx.AsyncClient, timeout: float = 10) -> dict:
-    api_key = decrypt_api_key(secret.encrypted_key)
+    api_key = secret.api_key
     base_url = secret.base_url or ""
     try:
         t0 = time.monotonic()

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import ConflictError, ValidationError
 from core.unit_of_work import unit_of_work
-from infrastructure.llm import decrypt_api_key, encrypt_api_key
+
 from models import ApiSecret
 from repositories.api_secret import ApiSecretRepository
 
@@ -30,7 +30,7 @@ class ApiSecretService:
                 {
                     "id": s.id,
                     "label": s.label,
-                    "key_suffix": s.key_suffix,
+                    "key_suffix": s.api_key[-4:] if s.api_key and len(s.api_key) >= 4 else "****",
                     "base_url": s.base_url or "",
                     "status": s.status,
                     "degraded_reason": s.degraded_reason,
@@ -57,20 +57,14 @@ class ApiSecretService:
 
         raw_key = data.get("raw_key", "")
         for existing in self.repo.list_all():
-            try:
-                if decrypt_api_key(existing.encrypted_key) == raw_key:
-                    raise ConflictError("该 API Key 已存在，请勿重复添加")
-            except Exception as exc:
-                log.debug("decrypt check skipped: %s", exc)
-                continue
+            if existing.api_key == raw_key:
+                raise ConflictError("该 API Key 已存在，请勿重复添加")
 
-        suffix = raw_key[-4:] if len(raw_key) >= 4 else "****"
         with unit_of_work(self.db, conflict_detail="创建密钥失败"):
             s = self.repo.add(
                 ApiSecret(
                     label=data["label"],
-                    encrypted_key=encrypt_api_key(raw_key),
-                    key_suffix=suffix,
+                    api_key=raw_key,
                     base_url=data.get("base_url", ""),
                     price_input_per_1m=data.get("price_input_per_1m", 0),
                     price_output_per_1m=data.get("price_output_per_1m", 0),
@@ -78,7 +72,7 @@ class ApiSecretService:
                 )
             )
         self.db.refresh(s)
-        return {"id": s.id, "key_suffix": s.key_suffix}
+        return {"id": s.id, "key_suffix": s.api_key[-4:] if s.api_key and len(s.api_key) >= 4 else "****"}
 
     def update(self, secret_id: int, data: dict) -> None:
         s = self.repo.get(secret_id)

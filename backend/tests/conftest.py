@@ -3,7 +3,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message=".*httpx.*starlette.*deprecated.*")
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
-os.environ["FERNET_KEY"] = "mEfG2QoOjqYKPhq2YK8t0POrs3Ix4YdOX9Q4dZq_GdI="
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 os.environ["SKIP_SEED"] = "1"
 os.environ["SKIP_MIGRATION"] = "1"

@@ -13,7 +13,6 @@ from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
-from infrastructure.llm import encrypt_api_key
 from models import ApiSecret, Case, Role, RolePermission, User, VoiceConfig
 
 log = logging.getLogger(__name__)
@@ -202,15 +201,15 @@ def _seed_cases() -> None:
 def _seed_llm() -> None:
     db = SessionLocal()
     try:
-        env_encrypted = encrypt_api_key(DEEPSEEK_API_KEY)
-        suffix = DEEPSEEK_API_KEY[-4:]
+        raw_key = DEEPSEEK_API_KEY
+
 
         # 清理重复密钥（同 label + suffix 只保留第一个）
         dupes = (
             db.query(ApiSecret)
             .filter(
                 ApiSecret.label == "初始服务密钥",
-                ApiSecret.key_suffix == suffix,
+                ApiSecret.api_key == raw_key,
             )
             .order_by(ApiSecret.id)
             .all()
@@ -224,8 +223,8 @@ def _seed_llm() -> None:
         matched = dupes[0] if dupes else None
         if matched:
             needs_sync = False
-            if matched.encrypted_key != env_encrypted:
-                matched.encrypted_key = env_encrypted
+            if matched.api_key != raw_key:
+                matched.api_key = raw_key
                 needs_sync = True
             if matched.base_url != DEEPSEEK_BASE_URL:
                 matched.base_url = DEEPSEEK_BASE_URL
@@ -243,8 +242,7 @@ def _seed_llm() -> None:
         else:
             secret = ApiSecret(
                 label="初始服务密钥",
-                encrypted_key=env_encrypted,
-                key_suffix=suffix,
+                api_key=raw_key,
                 base_url=DEEPSEEK_BASE_URL,
                 price_input_per_1m=1.0,
                 price_output_per_1m=2.0,

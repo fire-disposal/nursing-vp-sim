@@ -22,8 +22,6 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 # JWT 签名密钥 —— 独立环境变量
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
 
-# Fernet 加密密钥 —— 独立环境变量
-FERNET_KEY = os.getenv("FERNET_KEY", "")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
@@ -36,17 +34,6 @@ def validate_config():
             "JWT_SECRET_KEY 未配置。请在项目根目录的 .env 文件中设置 JWT 签名密钥。\n"
             '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
         )
-    if not FERNET_KEY:
-        raise RuntimeError(
-            "FERNET_KEY 未配置。请在项目根目录的 .env 文件中设置 Fernet 加密密钥。\n"
-            '可使用 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 生成。'
-        )
-    try:
-        from cryptography.fernet import Fernet
-
-        Fernet(FERNET_KEY.encode())
-    except Exception:
-        raise RuntimeError(f"FERNET_KEY 格式无效: {FERNET_KEY[:8]}... 应为 32 字节的 base64-urlsafe 编码（44 字符）。")
 
     db = urlparse(DATABASE_URL)
     if not db.scheme or not db.hostname:
@@ -133,8 +120,6 @@ def log_config(logger):
     logger.info("  CORS:       %s", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000"))
     jwt_tail = JWT_SECRET_KEY[-4:] if len(JWT_SECRET_KEY) >= 4 else "****"
     logger.info("  JWT 密钥:   ***%s (%d 位)", jwt_tail, len(JWT_SECRET_KEY))
-    fernet_tail = FERNET_KEY[-4:] if len(FERNET_KEY) >= 4 else "****"
-    logger.info("  Fernet 密钥: ***%s", fernet_tail)
     logger.info("  DeepSeek:   %s (key=***%s)", DEEPSEEK_BASE_URL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  诊断令牌:   %s", "已配置" if DIAGNOSE_TOKEN else "未配置（运维端点隐藏）")

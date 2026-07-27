@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from infrastructure.llm import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
 from infrastructure.tts.mapper import DEFAULT_SPEAKER
 from models import VoiceConfig
@@ -22,15 +21,9 @@ def _fallback_speaker(vc: VoiceConfig) -> str:
 
 
 def _mask_api_key(vc: VoiceConfig) -> str:
-    try:
-        raw = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
-        if not raw:
-            return "未设置"
-        if vc.api_key_suffix and not raw.endswith(vc.api_key_suffix):
-            return "***mismatch***"
-    except Exception:
-        logging.getLogger(__name__).warning("Failed to decrypt voice config API key", exc_info=True)
-        return "***error***"
+    raw = vc.api_key or ""
+    if not raw:
+        return "未设置"
     if len(raw) <= 8:
         return "***...***"
     return f"{'*' * 8}{raw[-4:]}"
@@ -47,7 +40,7 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
         tts_model=vc.tts_model,
         tts_sample_rate=vc.tts_sample_rate,
         tts_format=vc.tts_format,
-        tts_timeout=vc.tts_timeout,
+        api_key_suffix=vc.api_key[-8:] if vc.api_key and len(vc.api_key) >= 8 else "****",
         monthly_budget=vc.monthly_budget,
         is_active=vc.is_active,
         speaker_library=vc.speaker_library,
@@ -80,8 +73,7 @@ class VoiceConfigService:
                 if data.get("provider"):
                     vc.provider = data["provider"]
                 if data.get("api_key"):
-                    vc.api_key_enc = encrypt_api_key(data["api_key"])
-                    vc.api_key_suffix = data["api_key"][-8:] if len(data["api_key"]) >= 8 else data["api_key"]
+                    vc.api_key = data["api_key"]
                 for field in (
                     "tts_resource_id",
                     "tts_model",
@@ -98,13 +90,9 @@ class VoiceConfigService:
                     lib = data["speaker_library"]
                     vc.speaker_library = lib or None
             else:
-                api_key_enc = encrypt_api_key(data.get("api_key", "")) if data.get("api_key") else ""
-                raw_key = data.get("api_key", "")
-                api_key_suffix = raw_key[-8:] if len(raw_key) >= 8 else raw_key
                 vc = VoiceConfig(
                     provider=data.get("provider", ""),
-                    api_key_enc=api_key_enc,
-                    api_key_suffix=api_key_suffix,
+                    api_key=data.get("api_key", ""),
                     tts_resource_id=data.get("tts_resource_id"),
                     tts_model=data.get("tts_model"),
                     tts_sample_rate=data.get("tts_sample_rate"),
@@ -119,17 +107,10 @@ class VoiceConfigService:
         return _build_voice_config_response(vc)
 
     def _decrypt_key(self, vc: VoiceConfig) -> str:
-        try:
-            key = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
-            if not key:
-                raise ValidationError("尚未设置 API Key")
-            if vc.api_key_suffix and not key.endswith(vc.api_key_suffix):
-                raise ValidationError("API Key 完整性校验失败，请重新设置")
-            return key
-        except (NotFoundError, ValidationError):
-            raise
-        except Exception:
-            raise ValidationError("无法解密 API Key")
+        key = vc.api_key or ""
+        if not key:
+            raise ValidationError("尚未设置 API Key")
+        return key
 
     async def test_tts(self, pool=None) -> VoiceStatusResponse:
         vc = self._get_active()

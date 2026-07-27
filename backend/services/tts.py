@@ -13,7 +13,6 @@ from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from core.unit_of_work import unit_of_work
-from infrastructure.llm import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
 from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
@@ -63,13 +62,9 @@ def load_tts_state(app_state, db: Session) -> None:
         "speaker_library": vc.speaker_library if vc else None,
     }
 
-    if vc and vc.api_key_enc:
-        try:
-            api_key = decrypt_api_key(vc.api_key_enc)
-        except Exception:
-            log.warning("TTS load: api_key decryption failed")
-            api_key = ""
-        if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
+    if vc and vc.api_key:
+        api_key = vc.api_key
+        if api_key:
             app_state.tts_client = VolcBidirectionalTTSClient(
                 api_key=api_key,
                 resource_id=vc.tts_resource_id,
