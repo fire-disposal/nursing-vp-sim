@@ -8,7 +8,6 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -20,12 +19,11 @@ from models._base import TimestampMixin, _now_utc
 
 class ApiSecret(Base, TimestampMixin):
     __tablename__ = "api_secrets"
-    __table_args__ = (UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),)
+
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     label: Mapped[str] = mapped_column(String(80))
-    encrypted_key: Mapped[str] = mapped_column(Text)
-    key_suffix: Mapped[str] = mapped_column(String(8))
+    api_key: Mapped[str] = mapped_column(Text)
     base_url: Mapped[str] = mapped_column(String(200), default="")
     status: Mapped[str] = mapped_column(String(20), default="active")
     degraded_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)

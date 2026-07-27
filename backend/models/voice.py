@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class VoiceConfig(Base, TimestampMixin):
-    """TTS unified configuration. API key is Fernet-encrypted.
+    """TTS unified configuration. API key stored as plaintext.
 
     Uses the new Volcengine console single ``X-Api-Key`` (v3 binary protocol).
     """
@@ -24,8 +24,7 @@ class VoiceConfig(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(20), default="volcengine")
-    api_key_enc: Mapped[str] = mapped_column(Text, default="")
-    api_key_suffix: Mapped[str] = mapped_column(String(8), default="")
+    api_key: Mapped[str] = mapped_column(Text, default="")
     tts_resource_id: Mapped[str] = mapped_column(String(64), default="seed-tts-2.0")
     tts_speaker: Mapped[str] = mapped_column(String(64), default="zh_female_vv_uranus_bigtts")
     tts_model: Mapped[str] = mapped_column(String(40), default="seed-tts-2.0-standard")
