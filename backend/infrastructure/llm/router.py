@@ -1,11 +1,14 @@
 """LLM 路由调度器 —— 档案状态驱动 + 优先级密钥池"""
 
+
 import asyncio
 import logging
 import threading
 import time as _time
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+from dataclasses import dataclass
 
 from core.datetime_utils import ensure_utc
 
@@ -17,9 +20,29 @@ DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
 
 
+@dataclass
+class EnvConfig:
+    """Lightweight config for env fallback — mimics ApiSecret interface."""
+    id: int = -1
+    label: str = "DeepSeek (env)"
+    api_key: str = ""
+    base_url: str = ""
+    status: str = "active"
+    priority: int = -1
+    model_override: str | None = None
+
+
 async def get_env_fallback_state() -> dict:
-    """Stub — env fallback removed. Returns empty state for admin API compat."""
-    return {"available": False, "label": "已移除 (v2026.07.27)", "key_suffix": "****", "base_url": ""}
+    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
+    available = bool(DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"))
+    return {
+        "available": available,
+        "label": "环境变量兜底",
+        "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
+        "base_url": DEEPSEEK_BASE_URL,
+    }
+
 
 
 class ProfileRouter:
@@ -91,6 +114,20 @@ class ProfileRouter:
                     p.consecutive_failures = 0
                     self._bindings[purpose] = p
                     return p
+
+        # Last resort: env fallback
+        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+        from infrastructure.llm.profile import get_model
+
+        if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+            log.warning("ProfileRouter: env 兜底 (purpose=%s)", purpose)
+            cfg = EnvConfig(
+                api_key=DEEPSEEK_API_KEY,
+                base_url=DEEPSEEK_BASE_URL,
+                model_override=get_model(purpose),
+            )
+            self._bindings[purpose] = cfg
+            return cfg
 
         with self._state_lock:
             self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)

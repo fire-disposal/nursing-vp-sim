@@ -36,26 +36,25 @@ def test_select_single_binding():
     result = router.select("qa")
     assert result.id == 1
 
-
-def test_select_skips_disabled_secret_raises():
+def test_select_skips_disabled_falls_back_to_env():
     router = ProfileRouter()
     secret = _make_secret(status="disabled")
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": secret}
 
-    with pytest.raises(RuntimeError, match="无可用密钥"):
-        router.select("qa")
+    result = router.select("qa")
+    assert result.id == -1  # env fallback
 
-
-def test_select_skips_degraded_profile_raises():
+def test_select_skips_degraded_falls_back_to_env():
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_until = datetime.now(UTC) + timedelta(minutes=5)
+    secret._last_db_check = time.monotonic()
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": secret}
 
-    with pytest.raises(RuntimeError, match="无可用密钥"):
-        router.select("qa")
+    result = router.select("qa")
+    assert result.id == -1  # env fallback
 
 
 def test_select_uses_degraded_after_ttl():
@@ -78,32 +77,33 @@ def test_select_handles_naive_degraded_until_expired():
     secret._last_db_check = time.monotonic()  # suppress DB refresh
     router._bindings = {"qa": secret}
 
+    router._profiles = {secret.id: secret}
     router.select("qa")
     assert secret.status == "active"
 
 
 def test_select_handles_naive_degraded_until_active():
-    """回归：naive 且未过期的 degraded_until 也不得崩溃，应保持降级。"""
+    """回归：naive 且未过期的 degraded_until 也不得崩溃，应回退到 env 兜底。"""
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_until = datetime.utcnow() + timedelta(minutes=10)  # naive UTC, active
-    secret._last_db_check = time.monotonic()  # suppress DB refresh
+    secret._last_db_check = time.monotonic()
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": secret}
 
-    with pytest.raises(RuntimeError, match="无可用密钥"):
-        router.select("qa")
-    assert secret.status == "degraded"
+    result = router.select("qa")
+    assert result.id == -1  # env fallback
+    assert secret.status == "degraded"  # original still degraded
 
 
-def test_select_all_unavailable_raises():
+def test_select_all_unavailable_falls_back_to_env():
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_until = datetime.now(UTC) + timedelta(minutes=10)
     router._profiles = {secret.id: secret}
 
-    with pytest.raises(RuntimeError, match="无可用密钥"):
-        router.select("qa")
+    result = router.select("qa")
+    assert result.id == -1  # env fallback
 
 
 def test_select_falls_back_to_second_priority():
@@ -137,11 +137,12 @@ def test_get_api_key():
     assert router.get_api_key(secret) == "sk-my-real-key"
 
 
-def test_select_no_config_for_purpose_raises():
+def test_select_no_config_falls_back_to_env():
     router = ProfileRouter()
 
-    with pytest.raises(RuntimeError, match="无可用密钥"):
-        router.select("qa")
+    result = router.select("qa")
+    assert result.id == -1
+    assert result.label == "DeepSeek (env)"
 
 
 @pytest.mark.asyncio
