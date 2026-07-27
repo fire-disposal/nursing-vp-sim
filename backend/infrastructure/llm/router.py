@@ -197,13 +197,13 @@ class ProfileRouter:
         return False
 
     def _refresh_profile_from_db(self, profile) -> None:
+        """Refresh a single profile from DB. Caller MUST hold _state_lock."""
         from services.llm_data import LLMDataService
 
         try:
             fresh = LLMDataService.get_profile(profile.id)
             if fresh:
-                with self._state_lock:
-                    self._profiles[profile.id] = fresh
+                self._profiles[profile.id] = fresh
         except Exception:
             log.debug("_refresh_profile_from_db failed for id=%d", profile.id, exc_info=True)
 
