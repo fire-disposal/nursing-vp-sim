@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 # Module-level shared state — initialized by bootstrap
 
+
 async def init_infra(app_state, llm_router):
     """Initialize task queue, caches, metrics, diagnose, and realtime hub."""
     task_queue = TaskQueue()
@@ -29,6 +30,7 @@ async def init_infra(app_state, llm_router):
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()
     from infrastructure.frontend_telemetry import FrontendErrorBuffer
+
     app_state.frontend_error_buffer = FrontendErrorBuffer()
 
     loop = asyncio.get_running_loop()
@@ -51,6 +53,7 @@ async def init_infra(app_state, llm_router):
     diagnose_svc.set_app(app_state.app)
 
     return metrics
+
 
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None

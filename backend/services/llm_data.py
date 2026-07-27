@@ -8,27 +8,20 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from infrastructure.llm.profile import PROFILES
+
 if TYPE_CHECKING:
     from models import ApiSecret
-
-
 class LLMDataService:
-    def load_all() -> tuple[dict[int, ApiSecret], dict[str, object]]:
-        from sqlalchemy.orm import joinedload
-
+    @staticmethod
+    def load_all() -> tuple[dict[int, ApiSecret], dict[str, ApiSecret]]:
         from core.database import SessionLocal
-        from models import ApiSecret, LLMConfig
+        from models import ApiSecret
 
         db = SessionLocal()
         try:
             now = datetime.now(UTC)
-            profiles = db.query(ApiSecret).all()
-            bindings = (
-                db.query(LLMConfig)
-                .options(joinedload(LLMConfig.secret))
-                .order_by(LLMConfig.purpose, LLMConfig.status != "active", LLMConfig.id)
-                .all()
-            )
+            profiles = db.query(ApiSecret).order_by(ApiSecret.priority.asc(), ApiSecret.id.asc()).all()
 
             recovered = 0
             for p in profiles:
@@ -46,10 +39,14 @@ class LLMDataService:
                 db.commit()
 
             profiles_map = {p.id: p for p in profiles}
-            bindings_map = {}
-            for b in bindings:
-                if b.purpose not in bindings_map or b.status == "active":
-                    bindings_map[b.purpose] = b
+
+            bindings_map: dict[str, ApiSecret] = {}
+            # active non-degraded ApiSecret. All purposes share the same key pool.
+            for purpose in PROFILES:
+                for p in profiles:
+                    if p.status == "active":
+                        bindings_map[purpose] = p
+                        break
 
             return profiles_map, bindings_map
         except Exception:

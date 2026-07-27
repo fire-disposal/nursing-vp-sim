@@ -16,4 +16,5 @@ def register_all():
     register(MewsHandler())
     register(NursingDiagnosisHandler())
 
+
 __all__ = ["ToolContext", "ToolHandler", "ToolResult", "dispatch", "register", "register_all", "registry"]

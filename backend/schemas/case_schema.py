@@ -138,4 +138,3 @@ def assert_valid_case_data(data: dict) -> dict:
 def list_valid_training_types() -> list[str]:
     """Return training types that have a registered validator/profile."""
     return list(_TYPE_VALIDATORS.keys())
-

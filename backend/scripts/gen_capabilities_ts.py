@@ -34,9 +34,7 @@ def main_gen() -> None:
     bindings = all_bindings()
     all_caps = {b.tool: _binding_to_obj(b) for b in bindings}
 
-    training_caps = {
-        t: [b.tool for b in bindings] for t in get_known_types()
-    }
+    training_caps = {t: [b.tool for b in bindings] for t in get_known_types()}
 
     all_json = json.dumps(all_caps, ensure_ascii=False, indent=2)
     training_json = json.dumps(training_caps, ensure_ascii=False, indent=2)

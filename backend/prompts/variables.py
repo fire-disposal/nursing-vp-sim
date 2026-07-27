@@ -16,8 +16,8 @@ Usage:
 
 from typing import TypedDict
 
-
 # ── Training: Scoring ──
+
 
 class ScoringSystemVars(TypedDict):
     scoring_criteria: str
@@ -52,12 +52,14 @@ class FeedbackRetryUserVars(TypedDict):
 
 # ── Training: Emotion ──
 
+
 class EmotionAnalysisUserVars(TypedDict):
     nurse_message: str
     patient_reply: str
 
 
 # ── Training: Initiative ──
+
 
 class InitiativeSystemVars(TypedDict):
     case_name: str
@@ -81,6 +83,7 @@ class InitiativeUserVars(TypedDict):
 
 # ── Training: Patient ──
 
+
 class PatientSystemVars(TypedDict, total=False):
     patient_info: str
     scenario: str
@@ -103,12 +106,14 @@ class PatientDynamicVars(TypedDict, total=False):
 
 # ── QA ──
 
+
 class QASystemVars(TypedDict):
     user_name: str
     user_role: str
 
 
 # ── Case Generation ──
+
 
 class CaseGenerationSystemVars(TypedDict):
     training_type_label: str

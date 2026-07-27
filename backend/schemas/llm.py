@@ -22,6 +22,8 @@ class ApiSecretUpdate(BaseModel):
     price_input_per_1m: float | None = Field(default=None, ge=0)
     price_output_per_1m: float | None = Field(default=None, ge=0)
     monthly_cost_limit: float | None = Field(default=None, ge=0)
+    priority: int | None = Field(default=None, ge=0)
+    model_override: str | None = Field(default=None, max_length=80)
 
 
 class ApiSecretResponse(BaseModel):
@@ -40,7 +42,8 @@ class ApiSecretResponse(BaseModel):
     total_tokens_today: int = 0
     total_cost_today: float = 0
     monthly_cost_used: float = 0
-    config_count: int = 0
+    priority: int = 0
+    model_override: str | None = None
     last_used_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
@@ -49,42 +52,6 @@ class ApiSecretResponse(BaseModel):
 class SecretCreateResponse(BaseModel):
     id: int
     key_suffix: str
-
-
-class LLMConfigCreate(BaseModel):
-    model_config = _REQ_CFG
-    secret_id: int = Field(gt=0)
-    purpose: str = Field(min_length=1, max_length=40)
-    label: str = Field(default="", max_length=80)
-    model_override: str | None = Field(default=None, max_length=80)
-
-
-class LLMConfigUpdate(BaseModel):
-    model_config = _REQ_CFG
-    secret_id: int | None = None
-    purpose: str | None = Field(default=None, max_length=40)
-    label: str | None = Field(default=None, max_length=80)
-    model_override: str | None = Field(default=None, max_length=80)
-    status: str | None = Field(default=None, pattern="^(active|disabled)$")
-
-
-class LLMConfigResponse(BaseModel):
-    model_config = _RESP_CFG
-    id: int
-    secret_id: int
-    secret_label: str = ""
-    secret_suffix: str = ""
-    base_url: str = ""
-    label: str = ""
-    purpose: str
-    status: str = "active"
-    model_override: str | None = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class ConfigCreateResponse(BaseModel):
-    id: int
 
 
 class HealthCheckItem(BaseModel):

@@ -4737,118 +4737,14 @@
         }
       }
     },
-    "/api/admin/configs": {
-      "get": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "List Configs",
-        "operationId": "list_configs_api_admin_configs_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "purpose",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Purpose"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LLMConfigResponse"
-                  },
-                  "title": "Response List Configs Api Admin Configs Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/admin/secrets/{secret_id}/test": {
       "post": {
         "tags": [
           "管理",
           "API管理"
         ],
-        "summary": "Create Config",
-        "operationId": "create_config_api_admin_configs_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LLMConfigCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfigCreateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/configs/{config_id}": {
-      "put": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Update Config",
-        "operationId": "update_config_api_admin_configs__config_id__put",
+        "summary": "Test Secret",
+        "operationId": "test_secret_api_admin_secrets__secret_id__test_post",
         "security": [
           {
             "HTTPBearer": []
@@ -4856,212 +4752,12 @@
         ],
         "parameters": [
           {
-            "name": "config_id",
+            "name": "secret_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Config Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LLMConfigUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Delete Config",
-        "operationId": "delete_config_api_admin_configs__config_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "config_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Config Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/configs/{config_id}/toggle": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Toggle Config",
-        "operationId": "toggle_config_api_admin_configs__config_id__toggle_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "config_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Config Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ToggleStatusResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/configs/{config_id}/reset": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Reset Profile",
-        "operationId": "reset_profile_api_admin_configs__config_id__reset_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "config_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Config Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/configs/{config_id}/test": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Test Config",
-        "operationId": "test_config_api_admin_configs__config_id__test_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "config_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Config Id"
+              "title": "Secret Id"
             }
           }
         ],
@@ -5089,14 +4785,14 @@
         }
       }
     },
-    "/api/admin/configs/test-all": {
+    "/api/admin/secrets/test-all": {
       "post": {
         "tags": [
           "管理",
           "API管理"
         ],
-        "summary": "Test All Configs",
-        "operationId": "test_all_configs_api_admin_configs_test_all_post",
+        "summary": "Test All Secrets",
+        "operationId": "test_all_secrets_api_admin_secrets_test_all_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8096,10 +7792,21 @@
             "title": "Monthly Cost Used",
             "default": 0
           },
-          "config_count": {
+          "priority": {
             "type": "integer",
-            "title": "Config Count",
+            "title": "Priority",
             "default": 0
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
           },
           "last_used_at": {
             "anyOf": [
@@ -8195,6 +7902,30 @@
               }
             ],
             "title": "Monthly Cost Limit"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
           }
         },
         "additionalProperties": false,
@@ -9573,19 +9304,6 @@
         "type": "object",
         "title": "ClassUpdate"
       },
-      "ConfigCreateResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "ConfigCreateResponse"
-      },
       "CostBreakdown": {
         "properties": {
           "calls": {
@@ -10541,183 +10259,6 @@
           "created_at"
         ],
         "title": "LLMCallLogItem"
-      },
-      "LLMConfigCreate": {
-        "properties": {
-          "secret_id": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Secret Id"
-          },
-          "purpose": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Purpose"
-          },
-          "label": {
-            "type": "string",
-            "maxLength": 80,
-            "title": "Label",
-            "default": ""
-          },
-          "model_override": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 80
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Override"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "secret_id",
-          "purpose"
-        ],
-        "title": "LLMConfigCreate"
-      },
-      "LLMConfigResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "secret_id": {
-            "type": "integer",
-            "title": "Secret Id"
-          },
-          "secret_label": {
-            "type": "string",
-            "title": "Secret Label",
-            "default": ""
-          },
-          "secret_suffix": {
-            "type": "string",
-            "title": "Secret Suffix",
-            "default": ""
-          },
-          "base_url": {
-            "type": "string",
-            "title": "Base Url",
-            "default": ""
-          },
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "default": ""
-          },
-          "purpose": {
-            "type": "string",
-            "title": "Purpose"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "active"
-          },
-          "model_override": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Override"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "secret_id",
-          "purpose",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "LLMConfigResponse"
-      },
-      "LLMConfigUpdate": {
-        "properties": {
-          "secret_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secret Id"
-          },
-          "purpose": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Purpose"
-          },
-          "label": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 80
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label"
-          },
-          "model_override": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 80
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Override"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(active|disabled)$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "LLMConfigUpdate"
       },
       "LLMStatsResponse": {
         "properties": {
@@ -13522,24 +13063,6 @@
           "ok"
         ],
         "title": "TestResultItem"
-      },
-      "ToggleStatusResponse": {
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "title": "Ok",
-            "default": true
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status"
-        ],
-        "title": "ToggleStatusResponse"
       },
       "TokenResponse": {
         "properties": {

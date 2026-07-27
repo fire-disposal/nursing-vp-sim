@@ -141,7 +141,9 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
             try:
                 emotion_state = get_emotion(ctx.record.id, app.emotion_cache, ctx.db)
                 case_data = ctx.case_data or {}
-                personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
+                personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get(
+                    "personality", {}
+                )
 
                 elapsed, threshold = get_initiative_seconds(
                     ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort

@@ -60,7 +60,9 @@ async def _authenticate(token: str) -> User | None:
             return None
         token_tv = payload.get("tv", 0)
         if token_tv != user.token_version:
-            log.warning("WS auth: token_version mismatch tv=%d db=%d for user %d", token_tv, user.token_version, user_id)
+            log.warning(
+                "WS auth: token_version mismatch tv=%d db=%d for user %d", token_tv, user.token_version, user_id
+            )
             return None
         return user
     finally:

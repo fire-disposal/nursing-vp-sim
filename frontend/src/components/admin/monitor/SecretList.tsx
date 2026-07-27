@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import type { components } from "@/api/api-types.gen";
+import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
 import { cn } from "@/utils/cn";
 import {
 	degradedReasonLabel,
@@ -8,12 +8,9 @@ import {
 	statusText,
 } from "@/utils/llm-status";
 
-type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
-type FallbackState = components["schemas"]["FallbackStateResponse"];
-
 interface SecretListProps {
 	secrets: ApiSecretResponse[];
-	envFallback: FallbackState | undefined;
+	envFallback: FallbackStateResponse | undefined;
 	onEdit: (secret: ApiSecretResponse) => void;
 	onDelete: (secret: ApiSecretResponse) => void;
 }
@@ -34,7 +31,9 @@ export default function SecretList({
 		<div className="border border-border rounded-lg overflow-hidden">
 			<table className="w-full text-sm">
 				<tbody className="divide-y divide-border">
-					{secrets.map((s) => {
+					{[...secrets]
+						.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+						.map((s) => {
 						const cost = Number(s.monthly_cost_used ?? 0);
 						const limit = s.monthly_cost_limit ?? null;
 						const recovery =
@@ -51,6 +50,11 @@ export default function SecretList({
 										)}
 									/>
 									<span className="font-semibold">{s.label}</span>
+								</td>
+								<td className="py-2 px-3 whitespace-nowrap">
+									<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+										P{s.priority ?? 0}
+									</span>
 								</td>
 								<td className="py-2 px-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
 									sk-...{s.key_suffix}

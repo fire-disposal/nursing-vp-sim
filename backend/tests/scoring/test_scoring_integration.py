@@ -17,8 +17,8 @@ from contexts.training.scoring.prompt_builder import (
     build_scoring_json_schema,
     build_scoring_rubric,
 )
-from prompts import render_template
 from profiles.rubric_loader import load_rubric
+from prompts import render_template
 
 # ── 模拟场景数据 ──
 
@@ -119,6 +119,7 @@ class TestScoringPromptSanity:
             json_block = json_block.replace('"N(0~15)"', "0")
             # item score: "1~3" → 1
             import re
+
             json_block = re.sub(r'"score":\s*"1~3"', '"score": 1', json_block)
             try:
                 parsed = json.loads(json_block)
@@ -129,6 +130,7 @@ class TestScoringPromptSanity:
             assert parsed["total_score"] == 0  # placeholder replaced
             assert "沟通技能" in parsed["detail_scores"]
             assert "病史采集" in parsed["detail_scores"]
+
     def test_variable_name_match(self):
         """模板 {#var#} 与传入变量名一致"""
         rubric = load_rubric("nursing_history_v1")

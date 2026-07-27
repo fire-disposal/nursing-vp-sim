@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 
 from contexts.training.capabilities import is_enabled
 from contexts.training.patient_ai.emotion import get_emotion
+from core.database import get_db
+from core.security import get_current_user
+from infrastructure.llm.client import CallContext
+from models import Case, Message, TrainingRecord, User
+from profiles.history_taking.emotion_profile import PersonalityProfile
 from prompts.training.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
@@ -13,11 +18,6 @@ from prompts.training.initiative import (
     should_initiate,
     update_initiative_timer,
 )
-from core.database import get_db
-from core.security import get_current_user
-from infrastructure.llm.client import CallContext
-from models import Case, Message, TrainingRecord, User
-from profiles.history_taking.emotion_profile import PersonalityProfile
 from schemas import InitiativeTriggerResponse
 
 router = APIRouter()

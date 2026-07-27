@@ -223,10 +223,15 @@ async def _run_scoring_background(
             return
 
         # 拒绝对无意义对话评分（仅 greeting，无学生消息）
-        student_count = db.query(func.count(Message.id)).filter(
-            Message.record_id == record_id,
-            Message.role == "student",
-        ).scalar() or 0
+        student_count = (
+            db.query(func.count(Message.id))
+            .filter(
+                Message.record_id == record_id,
+                Message.role == "student",
+            )
+            .scalar()
+            or 0
+        )
         if student_count == 0:
             log.warning("评分拒绝：无学生消息 record_id=%d", record_id)
             record.scoring_status = "completed"

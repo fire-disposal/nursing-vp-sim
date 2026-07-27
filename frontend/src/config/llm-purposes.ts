@@ -1,6 +1,6 @@
-// LLM 用途单一来源 —— 与后端 backend/core/llm_profile.py 的 PROFILES 保持一致。
-// 新增/调整用途时同步修改两处。通配符 "*" 已退役，不再是有效用途。
-
+// LLM 用途标签用于日志显示等引用场景。
+// 密钥→用途绑定层已移除；用途由路由层按优先级自动选择密钥。
+// 与后端 backend/core/llm_profile.py 的 PROFILES 保持一致。
 export interface LlmPurpose {
 	value: string;
 	label: string;

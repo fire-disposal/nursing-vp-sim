@@ -87,6 +87,7 @@ class LLMClient:
             p: asyncio.Semaphore(max(1, pf.semaphore // _divisor)) for p, pf in PROFILES.items()
         }
         self._default_sem = asyncio.Semaphore(max(1, 500 // _divisor))
+
     # ── Public API ──
 
     def _sem_for(self, purpose: str) -> asyncio.Semaphore:
@@ -96,9 +97,16 @@ class LLMClient:
         return self._default_sem
 
     async def call(
-        self, messages: list[dict], *, purpose: str, temperature: float = 0.7,
-        max_tokens: int = 512, timeout: int = 30, max_retries: int = 2,
-        response_format: dict | None = None, ctx: CallContext | None = None,
+        self,
+        messages: list[dict],
+        *,
+        purpose: str,
+        temperature: float = 0.7,
+        max_tokens: int = 512,
+        timeout: int = 30,
+        max_retries: int = 2,
+        response_format: dict | None = None,
+        ctx: CallContext | None = None,
     ) -> str:
         ctx = ctx or CallContext(purpose=purpose)
         state = _CallState()
@@ -111,33 +119,64 @@ class LLMClient:
         try:
             result = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
             meta = CallMeta(
-                purpose=purpose, model=state.model, temperature=temperature, max_tokens=max_tokens,
-                latency_ms=int((time.perf_counter() - t0) * 1000), status="success",
-                request_text=request_text, response_text=result.content, usage=result.usage or None,
-                meta=ctx.log_meta, config_id=state.config_id, provider_name=state.provider_name,
-                price_input=state.price_input, price_output=state.price_output,
-                cache_hit_tokens=result.cache_hit_tokens, cache_miss_tokens=result.cache_miss_tokens,
-                user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id,
+                purpose=purpose,
+                model=state.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                latency_ms=int((time.perf_counter() - t0) * 1000),
+                status="success",
+                request_text=request_text,
+                response_text=result.content,
+                usage=result.usage or None,
+                meta=ctx.log_meta,
+                config_id=state.config_id,
+                provider_name=state.provider_name,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                cache_hit_tokens=result.cache_hit_tokens,
+                cache_miss_tokens=result.cache_miss_tokens,
+                user_id=ctx.user_id,
+                record_id=ctx.record_id,
+                case_id=ctx.case_id,
             )
             self._recorder.record_success(meta)
             return result.content
         except Exception:
             meta = CallMeta(
-                purpose=purpose, model=state.model, temperature=temperature, max_tokens=max_tokens,
-                latency_ms=int((time.perf_counter() - t0) * 1000), status="failed",
-                error_type="all_providers_failed", request_text=request_text, meta=ctx.log_meta,
-                config_id=state.config_id, provider_name=state.provider_name,
-                price_input=state.price_input, price_output=state.price_output,
-                user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id,
+                purpose=purpose,
+                model=state.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                latency_ms=int((time.perf_counter() - t0) * 1000),
+                status="failed",
+                error_type="all_providers_failed",
+                request_text=request_text,
+                meta=ctx.log_meta,
+                config_id=state.config_id,
+                provider_name=state.provider_name,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                user_id=ctx.user_id,
+                record_id=ctx.record_id,
+                case_id=ctx.case_id,
             )
             log.exception("LLM call failed: purpose=%s latency=%dms", purpose, meta.latency_ms)
             self._recorder.record_failure(meta)
             raise
 
     async def call_with_tools(
-        self, messages: list[dict], tools: list[dict], tool_handlers: dict[str, Callable], *,
-        purpose: str, temperature: float = 0.7, max_tokens: int = 512, timeout: int = 30,
-        max_retries: int = 2, max_tool_rounds: int = 5, ctx: CallContext | None = None,
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        tool_handlers: dict[str, Callable],
+        *,
+        purpose: str,
+        temperature: float = 0.7,
+        max_tokens: int = 512,
+        timeout: int = 30,
+        max_retries: int = 2,
+        max_tool_rounds: int = 5,
+        ctx: CallContext | None = None,
     ) -> str:
         ctx = ctx or CallContext(purpose=purpose)
         state = _CallState()
@@ -150,12 +189,25 @@ class LLMClient:
         cumulative_cache_miss = 0
 
         for tool_rounds in range(1, max_tool_rounds + 1):
-            result = await self._attempt_tool_call(msgs, state, purpose, temperature, max_tokens, timeout, ctx, tools, max_retries)
+            result = await self._attempt_tool_call(
+                msgs, state, purpose, temperature, max_tokens, timeout, ctx, tools, max_retries
+            )
             if not result.tool_calls:
-                return self._finalize_tool_success(result, cumulative_usage, cumulative_cache_hit, cumulative_cache_miss,
-                                                   state, ctx, request_text, temperature, max_tokens, t0)
+                return self._finalize_tool_success(
+                    result,
+                    cumulative_usage,
+                    cumulative_cache_hit,
+                    cumulative_cache_miss,
+                    state,
+                    ctx,
+                    request_text,
+                    temperature,
+                    max_tokens,
+                    t0,
+                )
             cumulative_usage, cumulative_cache_hit, cumulative_cache_miss = self._accumulate_usage(
-                result, cumulative_usage, cumulative_cache_hit, cumulative_cache_miss)
+                result, cumulative_usage, cumulative_cache_hit, cumulative_cache_miss
+            )
             msgs = await self._append_tool_messages(msgs, result, tool_handlers)
 
         return await self._force_final_response(msgs, purpose, temperature, max_tokens, timeout, ctx)
@@ -163,30 +215,67 @@ class LLMClient:
     async def _attempt_tool_call(self, msgs, state, purpose, temperature, max_tokens, timeout, ctx, tools, max_retries):
         async def _attempt() -> _CallResult:
             return await self._do_call(msgs, state, purpose, temperature, max_tokens, timeout, None, ctx, tools=tools)
+
         try:
             return await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
         except Exception as e:
-            self._recorder.record_failure(CallMeta(
-                purpose=purpose, model="", status="failed", error_type=type(e).__name__,
-                latency_ms=0, user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id, meta=ctx.log_meta))
+            self._recorder.record_failure(
+                CallMeta(
+                    purpose=purpose,
+                    model="",
+                    status="failed",
+                    error_type=type(e).__name__,
+                    latency_ms=0,
+                    user_id=ctx.user_id,
+                    record_id=ctx.record_id,
+                    case_id=ctx.case_id,
+                    meta=ctx.log_meta,
+                )
+            )
             raise
 
-    def _finalize_tool_success(self, result, cumulative_usage, cumulative_cache_hit, cumulative_cache_miss,
-                                state, ctx, request_text, temperature, max_tokens, t0):
+    def _finalize_tool_success(
+        self,
+        result,
+        cumulative_usage,
+        cumulative_cache_hit,
+        cumulative_cache_miss,
+        state,
+        ctx,
+        request_text,
+        temperature,
+        max_tokens,
+        t0,
+    ):
         content = result.content or ""
         for k, v in (result.usage or {}).items():
             if isinstance(v, (int, float)):
                 cumulative_usage[k] = cumulative_usage.get(k, 0) + v
         cumulative_cache_hit += result.cache_hit_tokens or 0
         cumulative_cache_miss += result.cache_miss_tokens or 0
-        self._recorder.record_success(CallMeta(
-            purpose=ctx.purpose, model=state.model, temperature=temperature, max_tokens=max_tokens,
-            latency_ms=int((time.perf_counter() - t0) * 1000), status="success",
-            request_text=request_text, response_text=content, usage=cumulative_usage or None,
-            meta=ctx.log_meta, config_id=state.config_id, provider_name=state.provider_name,
-            price_input=state.price_input, price_output=state.price_output,
-            cache_hit_tokens=cumulative_cache_hit, cache_miss_tokens=cumulative_cache_miss,
-            user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id))
+        self._recorder.record_success(
+            CallMeta(
+                purpose=ctx.purpose,
+                model=state.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                latency_ms=int((time.perf_counter() - t0) * 1000),
+                status="success",
+                request_text=request_text,
+                response_text=content,
+                usage=cumulative_usage or None,
+                meta=ctx.log_meta,
+                config_id=state.config_id,
+                provider_name=state.provider_name,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                cache_hit_tokens=cumulative_cache_hit,
+                cache_miss_tokens=cumulative_cache_miss,
+                user_id=ctx.user_id,
+                record_id=ctx.record_id,
+                case_id=ctx.case_id,
+            )
+        )
         return content
 
     @staticmethod
@@ -194,7 +283,11 @@ class LLMClient:
         for k, v in (result.usage or {}).items():
             if isinstance(v, (int, float)):
                 cumulative_usage[k] = cumulative_usage.get(k, 0) + v
-        return cumulative_usage, cache_hit + (result.cache_hit_tokens or 0), cache_miss + (result.cache_miss_tokens or 0)
+        return (
+            cumulative_usage,
+            cache_hit + (result.cache_hit_tokens or 0),
+            cache_miss + (result.cache_miss_tokens or 0),
+        )
 
     async def _append_tool_messages(self, msgs, result, tool_handlers):
         msgs.append({"role": "assistant", "content": result.content or "", "tool_calls": result.tool_calls})
@@ -219,8 +312,15 @@ class LLMClient:
 
     async def _force_final_response(self, msgs, purpose, temperature, max_tokens, timeout, ctx):
         msgs.append({"role": "user", "content": "请根据已检索到的资料，直接回答最初的问题。"})
-        return await self.call(msgs, purpose=purpose, temperature=temperature, max_tokens=max_tokens,
-                               timeout=timeout, max_retries=0, ctx=ctx)
+        return await self.call(
+            msgs,
+            purpose=purpose,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            max_retries=0,
+            ctx=ctx,
+        )
 
     async def stream(
         self,
@@ -274,22 +374,45 @@ class LLMClient:
                 completion_tokens = usage.get("completion_tokens")
                 if prompt_tokens is None or completion_tokens is None:
                     from infrastructure.llm.token_counter import estimate_tokens
+
                     prompt_tokens = estimate_tokens(request_text or "")
                     completion_tokens = estimate_tokens(total_text or "")
                 else:
                     prompt_tokens = prompt_tokens or 0
                     completion_tokens = completion_tokens or 0
                 total_tokens = usage.get("total_tokens") or (prompt_tokens + completion_tokens)
-                await self._router.report_result(state._config, success=True, prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens, total_tokens=total_tokens, latency_ms=latency_ms, error=None)
-                self._recorder.record_success(CallMeta(
-                    purpose=purpose, model=state.model, temperature=temperature, max_tokens=max_tokens,
-                    latency_ms=latency_ms, status="success", request_text=request_text,
-                    response_text=total_text, usage=usage or None, meta=ctx.log_meta,
-                    config_id=state.config_id, provider_name=state.provider_name,
-                    price_input=state.price_input, price_output=state.price_output,
-                    cache_hit_tokens=state.cache_hit_tokens, cache_miss_tokens=state.cache_miss_tokens,
-                    user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id))
+                await self._router.report_result(
+                    state._config,
+                    success=True,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    latency_ms=latency_ms,
+                    error=None,
+                )
+                self._recorder.record_success(
+                    CallMeta(
+                        purpose=purpose,
+                        model=state.model,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        latency_ms=latency_ms,
+                        status="success",
+                        request_text=request_text,
+                        response_text=total_text,
+                        usage=usage or None,
+                        meta=ctx.log_meta,
+                        config_id=state.config_id,
+                        provider_name=state.provider_name,
+                        price_input=state.price_input,
+                        price_output=state.price_output,
+                        cache_hit_tokens=state.cache_hit_tokens,
+                        cache_miss_tokens=state.cache_miss_tokens,
+                        user_id=ctx.user_id,
+                        record_id=ctx.record_id,
+                        case_id=ctx.case_id,
+                    )
+                )
                 return
             except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
                 # 失败已由 _do_stream 上报给 router（与 call()/_do_call() 一致，避免 circuit breaker 双计数）
@@ -306,18 +429,40 @@ class LLMClient:
         latency_ms = int((time.perf_counter() - t0) * 1000)
         if not full_reply:
             try:
-                content = await self.call(messages, purpose=purpose, temperature=temperature,
-                    max_tokens=max_tokens, timeout=timeout, max_retries=0, response_format=response_format, ctx=ctx)
+                content = await self.call(
+                    messages,
+                    purpose=purpose,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    max_retries=0,
+                    response_format=response_format,
+                    ctx=ctx,
+                )
                 yield content
                 return
             except Exception:
                 log.exception("Stream fallback batch call also failed: purpose=%s", purpose)
-        self._recorder.record_failure(CallMeta(
-            purpose=purpose, model=state.model, temperature=temperature, max_tokens=max_tokens,
-            latency_ms=latency_ms, status="failed", error_type="all_providers_failed",
-            request_text=request_text, meta=ctx.log_meta, config_id=state.config_id,
-            provider_name=state.provider_name, price_input=state.price_input, price_output=state.price_output,
-            user_id=ctx.user_id, record_id=ctx.record_id, case_id=ctx.case_id))
+        self._recorder.record_failure(
+            CallMeta(
+                purpose=purpose,
+                model=state.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                latency_ms=latency_ms,
+                status="failed",
+                error_type="all_providers_failed",
+                request_text=request_text,
+                meta=ctx.log_meta,
+                config_id=state.config_id,
+                provider_name=state.provider_name,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                user_id=ctx.user_id,
+                record_id=ctx.record_id,
+                case_id=ctx.case_id,
+            )
+        )
         raise NoProviderAvailable(f"purpose={purpose}")
 
     async def call_json(

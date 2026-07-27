@@ -123,9 +123,7 @@ def is_enabled(record, key: str) -> bool:
     """
     case_data = record.case_snapshot or {}
     features = (record.practice_snapshot or {}).get("features") or {}
-    return detect_capabilities(
-        case_data, training_type=record.training_type, overrides=features
-    ).get(key, False)
+    return detect_capabilities(case_data, training_type=record.training_type, overrides=features).get(key, False)
 
 
 # ── Internal helpers ──

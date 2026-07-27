@@ -12,6 +12,8 @@ export const secretFormSchema = z.object({
 	priceInput: z.number().min(0, "不能为负"),
 	priceOutput: z.number().min(0, "不能为负"),
 	monthlyLimit: z.number().min(0).nullable(),
+	priority: z.number().int().min(0),
+	modelOverride: z.string().nullable(),
 });
 
 export type SecretFormValues = z.infer<typeof secretFormSchema>;

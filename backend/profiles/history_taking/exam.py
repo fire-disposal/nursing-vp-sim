@@ -88,7 +88,11 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
     根据患者年龄返回临床合理默认值。
     """
     tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
-    anchors = tools.get("physical_exam") if isinstance(tools.get("physical_exam"), dict) else case_data.get("exam_anchors", {})
+    anchors = (
+        tools.get("physical_exam")
+        if isinstance(tools.get("physical_exam"), dict)
+        else case_data.get("exam_anchors", {})
+    )
     op_defs = _collect_op_defs(anchors)
     op_def = op_defs.get(op_type)
     if not op_def:
@@ -243,5 +247,3 @@ def _resolve_bp(raw: str) -> str:
         return f"{int(s)}/{int(d)}"
     except (ValueError, IndexError):
         return raw
-
-

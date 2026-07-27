@@ -22,13 +22,10 @@ class ApiSecretService:
     def list_all(self) -> list[ApiSecret]:
         return self.repo.list_all(order_by=ApiSecret.created_at.desc())
 
-    def list_with_config_counts(self) -> list[dict]:
-        from models import LLMConfig
-
+    def list_for_admin(self) -> list[dict]:
         secrets = self.repo.list_all(order_by=ApiSecret.created_at.desc())
         result = []
         for s in secrets:
-            config_count = self.db.query(LLMConfig).filter(LLMConfig.secret_id == s.id).count()
             result.append(
                 {
                     "id": s.id,
@@ -45,7 +42,8 @@ class ApiSecretService:
                     "total_tokens_today": s.total_tokens_today or 0,
                     "total_cost_today": float(s.total_cost_today or 0),
                     "monthly_cost_used": float(s.monthly_cost_used or 0),
-                    "config_count": config_count,
+                    "priority": s.priority or 0,
+                    "model_override": s.model_override,
                     "last_used_at": s.last_used_at,
                     "created_at": s.created_at,
                     "updated_at": s.updated_at,
@@ -87,7 +85,15 @@ class ApiSecretService:
         if not s:
             raise ValidationError("密钥不存在")
         with unit_of_work(self.db, conflict_detail="更新密钥失败"):
-            editable = ("label", "base_url", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit")
+            editable = (
+                "label",
+                "base_url",
+                "price_input_per_1m",
+                "price_output_per_1m",
+                "monthly_cost_limit",
+                "priority",
+                "model_override",
+            )
             for field in editable:
                 val = data.get(field)
                 if val is not None:
@@ -97,8 +103,10 @@ class ApiSecretService:
         s = self.repo.get(secret_id)
         if not s:
             raise ValidationError("密钥不存在")
-        from models import LLMConfig
+        from models import LLMCallLog
 
         with unit_of_work(self.db, conflict_detail="删除密钥失败"):
-            self.db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id).delete()
+            self.db.query(LLMCallLog).filter(LLMCallLog.secret_id == secret_id).update(
+                {LLMCallLog.secret_id: None}, synchronize_session=False
+            )
             self.repo.delete(s)

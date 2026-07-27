@@ -1,4 +1,4 @@
-"""tests for ProfileRouter purpose-based routing"""
+"""tests for ProfileRouter priority-based routing"""
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
@@ -6,16 +6,17 @@ from unittest.mock import patch
 import pytest
 
 from infrastructure.llm import ProfileRouter, _SyntheticConfig
-from models import ApiSecret, LLMConfig
+from models import ApiSecret
 
 
-def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx", status="active"):
+def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx", status="active", priority=0):
     return ApiSecret(
         id=id,
         label=label,
         encrypted_key=key,
         key_suffix=suffix,
         status=status,
+        priority=priority,
         consecutive_failures=0,
         price_input_per_1m=0,
         price_output_per_1m=0,
@@ -26,29 +27,21 @@ def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xx
     )
 
 
-def _make_config(id, secret, purpose="qa", status="active"):
-    c = LLMConfig(id=id, secret_id=secret.id, purpose=purpose, status=status)
-    c.secret = secret
-    return c
-
-
 def test_select_single_binding():
     router = ProfileRouter()
     secret = _make_secret()
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert result.id == 1
 
 
-def test_select_skips_disabled_binding():
+def test_select_skips_disabled_secret():
     router = ProfileRouter()
-    secret = _make_secret()
-    cfg = _make_config(1, secret, status="disabled")
+    secret = _make_secret(status="disabled")
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert isinstance(result, _SyntheticConfig)
@@ -58,9 +51,8 @@ def test_select_skips_degraded_profile():
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_until = datetime.now(UTC) + timedelta(minutes=5)
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert isinstance(result, _SyntheticConfig)
@@ -70,9 +62,8 @@ def test_select_uses_degraded_after_ttl():
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_until = datetime.now(UTC) - timedelta(seconds=1)
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert result.id == 1
@@ -85,9 +76,8 @@ def test_select_handles_naive_degraded_until_expired():
     secret = _make_secret(status="degraded")
     secret.degraded_until = (datetime.now(UTC) - timedelta(seconds=1)).replace(tzinfo=None)
     assert secret.degraded_until.tzinfo is None
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert result.id == 1
@@ -100,9 +90,8 @@ def test_select_handles_naive_degraded_until_active():
     secret = _make_secret(status="degraded")
     secret.degraded_until = (datetime.now(UTC) + timedelta(minutes=5)).replace(tzinfo=None)
     assert secret.degraded_until.tzinfo is None
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     result = router.select("qa")
     assert isinstance(result, _SyntheticConfig)
@@ -112,9 +101,8 @@ def test_select_handles_naive_degraded_until_active():
 def test_select_all_unavailable():
     router = ProfileRouter()
     secret = _make_secret(status="disabled")
-    cfg = _make_config(1, secret, status="disabled")
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {}
 
     result = router.select("qa")
     assert isinstance(result, _SyntheticConfig)
@@ -122,18 +110,43 @@ def test_select_all_unavailable():
     assert len(result._raw_key) > 0
 
 
+def test_select_falls_back_to_second_priority():
+    """When the cached binding is degraded, select should try next priority profile."""
+    router = ProfileRouter()
+    secret1 = _make_secret(id=1, label="high-prio", key="key1", suffix="1111", status="degraded", priority=10)
+    secret1.degraded_until = datetime.now(UTC) + timedelta(minutes=5)
+    secret2 = _make_secret(id=2, label="low-prio", key="key2", suffix="2222", status="active", priority=20)
+    router._profiles = {1: secret1, 2: secret2}
+    router._bindings = {"qa": secret1}  # cached high-prio is degraded
+
+    result = router.select("qa")
+    assert result.id == 2
+    assert result.priority == 20
+
+
+def test_select_uses_highest_priority_active():
+    """When no cached binding, iterate profiles by priority and pick best active."""
+    router = ProfileRouter()
+    secret1 = _make_secret(id=1, label="low-prio", key="key1", suffix="1111", status="active", priority=10)
+    secret2 = _make_secret(id=2, label="high-prio", key="key2", suffix="2222", status="active", priority=5)
+    router._profiles = {1: secret1, 2: secret2}
+    router._bindings = {}
+
+    result = router.select("qa")
+    assert result.id == 2  # priority 5 wins over priority 10
+
+
 @pytest.mark.asyncio
 @patch("services.llm_data.LLMDataService.persist_stats")
 async def test_report_result_circuit_breaks_on_consecutive_failures(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     for _i in range(5):
         await router.report_result(
-            cfg, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="timeout"
+            secret, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="timeout"
         )
     assert secret.status == "degraded"
     assert secret.degraded_reason == "consecutive_failures"
@@ -144,11 +157,12 @@ async def test_report_result_circuit_breaks_on_consecutive_failures(mock_persist
 async def test_report_result_429_sets_rate_limited(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
-    await router.report_result(cfg, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="HTTP 429")
+    await router.report_result(
+        secret, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="HTTP 429"
+    )
     assert secret.status == "degraded"
     assert secret.degraded_reason == "rate_limited"
 
@@ -161,12 +175,11 @@ async def test_report_result_success_clears_degraded(mock_persist):
     secret.degraded_reason = "rate_limited"
     secret.degraded_until = datetime.now(UTC) + timedelta(minutes=5)
     secret.consecutive_failures = 3
-    cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
-    router._bindings = {"qa": cfg}
+    router._bindings = {"qa": secret}
 
     await router.report_result(
-        cfg, success=True, prompt_tokens=70, completion_tokens=30, total_tokens=100, latency_ms=50, error=None
+        secret, success=True, prompt_tokens=70, completion_tokens=30, total_tokens=100, latency_ms=50, error=None
     )
     assert secret.status == "active"
     assert secret.degraded_reason is None
@@ -176,24 +189,9 @@ async def test_report_result_success_clears_degraded(mock_persist):
 def test_select_no_config_for_purpose():
     router = ProfileRouter()
     router._profiles = {}
-    router._bindings = {"qa": None}
+    router._bindings = {}
 
     result = router.select("scoring")
-    assert isinstance(result, _SyntheticConfig)
-    assert "env" in result.label.lower()
-
-
-def test_select_ignores_wildcard_binding():
-    """通配符已退役：即使存在 '*' binding，未显式绑定的 purpose 也不应命中它，而是走 env 兜底。"""
-    secret = _make_secret(id=99)
-    wildcard_cfg = _make_config(99, secret, purpose="*")
-
-    router = ProfileRouter()
-    router._profiles = {secret.id: secret}
-    router._bindings = {"*": wildcard_cfg}
-
-    result = router.select("patient_chat")
-    assert result is not wildcard_cfg
     assert isinstance(result, _SyntheticConfig)
     assert "env" in result.label.lower()
 

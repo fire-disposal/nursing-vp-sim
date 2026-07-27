@@ -8,7 +8,7 @@ Payload ~200 bytes per error, delivered via ``navigator.sendBeacon``.
 
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 _MAX_ERRORS = 2000
@@ -20,13 +20,13 @@ _MSG_MAX = 1000  # 单条错误消息最大字符数
 
 @dataclass
 class FrontendErrorEntry:
-    time: str          # ISO 8601
-    error_type: str    # AbortError, TypeError, NetworkError, ...
-    message: str       # 用户可见消息
-    url: str = ""      # 触发页面或 API 路径
-    user_id: int = 0   # 0 = 未登录
-    ua: str = ""       # 浏览器 UA 摘要
-    count: int = 1     # 去重合并计数
+    time: str  # ISO 8601
+    error_type: str  # AbortError, TypeError, NetworkError, ...
+    message: str  # 用户可见消息
+    url: str = ""  # 触发页面或 API 路径
+    user_id: int = 0  # 0 = 未登录
+    ua: str = ""  # 浏览器 UA 摘要
+    count: int = 1  # 去重合并计数
     timestamp: float = 0.0
 
 
@@ -62,7 +62,10 @@ class FrontendErrorBuffer:
                 self._dedup[key] = (now, count + 1)
                 # 更新 buffer 中对应条目的 count（找最近一条同 key 的）
                 for entry in reversed(self.buffer):
-                    if entry.error_type == error_type and entry.message[:_DEDUP_HASH_HEAD] == message[:_DEDUP_HASH_HEAD]:
+                    if (
+                        entry.error_type == error_type
+                        and entry.message[:_DEDUP_HASH_HEAD] == message[:_DEDUP_HASH_HEAD]
+                    ):
                         entry.count = count + 1
                         entry.timestamp = now
                         break

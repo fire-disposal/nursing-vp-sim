@@ -146,6 +146,7 @@ class TTSService:
             fmt=fmt,
             sample_rate=sample_rate,
         )
+
     def _write_log(
         self,
         *,

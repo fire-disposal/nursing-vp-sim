@@ -28,6 +28,7 @@ _HINTS: dict[str, str] = {
     "evaluation": "评价措施效果，记录病情变化和后续计划",
 }
 
+
 class NursingRecordHandler(ToolHandler):
     tool_name = "nursing_record"
 

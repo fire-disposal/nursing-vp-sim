@@ -44,7 +44,11 @@ class LLMCallLogRepository:
     def total_cost_since(self, since: datetime) -> float:
         return (
             self.db.query(func.sum(LLMCallLog.estimated_cost))
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .filter(
+                LLMCallLog.created_at >= since,
+                LLMCallLog.created_at < datetime.now(UTC),
+                LLMCallLog.status == "success",
+            )
             .scalar()
             or 0
         )

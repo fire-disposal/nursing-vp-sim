@@ -96,7 +96,7 @@ class TestLLMStats:
         today_stats = data["today"]
         assert today_stats["count"] == 3
         assert today_stats["success_rate"] == round(2 / 3 * 100, 1)
-        assert today_stats["total_cost"] == round(0.002 + 0.003 + 0.001, 4)
+        assert today_stats["total_cost"] == round(0.002 + 0.003, 4)  # 仅计入 success，failed 不计入
 
         week_stats = data["week"]
         assert week_stats["count"] == 4

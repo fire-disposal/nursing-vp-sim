@@ -118,8 +118,6 @@ export const queryKeys = {
 	apiManagement: {
 		all: ["admin", "api"] as const,
 		secrets: ["admin", "api", "secrets"] as const,
-		configs: (purpose?: string | null | undefined) =>
-			["admin", "api", "configs", purpose] as const,
 		health: ["admin", "api", "health"] as const,
 		fallback: ["admin", "api", "fallback"] as const,
 	},

@@ -3,7 +3,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { createSecret, updateSecret } from "@/api";
-import type { components } from "@/api/api-types.gen";
+import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
@@ -17,8 +17,6 @@ import {
 } from "@/components/ui/form";
 import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
 
-type Schemas = components["schemas"];
-type ApiSecretResponse = Schemas["ApiSecretResponse"];
 
 interface SecretModalProps {
 	open: boolean;
@@ -49,6 +47,8 @@ export default function SecretModal({
 			priceInput: 0.5,
 			priceOutput: 0.5,
 			monthlyLimit: null,
+			priority: 0,
+			modelOverride: null,
 		},
 	});
 
@@ -61,6 +61,8 @@ export default function SecretModal({
 				priceInput: secret?.price_input_per_1m ?? 0.5,
 				priceOutput: secret?.price_output_per_1m ?? 0.5,
 				monthlyLimit: secret?.monthly_cost_limit ?? null,
+				priority: secret?.priority ?? 0,
+				modelOverride: secret?.model_override ?? null,
 			});
 		}
 	}, [open, secret, form]);
@@ -71,16 +73,18 @@ export default function SecretModal({
 			return;
 		}
 		try {
-			const pricing = {
+			const common = {
 				price_input_per_1m: values.priceInput,
 				price_output_per_1m: values.priceOutput,
 				monthly_cost_limit: values.monthlyLimit,
+				priority: values.priority,
+				model_override: values.modelOverride ?? undefined,
 			};
 			if (isEdit) {
 				await updateSecret(secret.id, {
 					label: values.label.trim(),
 					base_url: values.baseUrl?.trim() ?? "",
-					...pricing,
+					...common,
 				});
 				success("密钥已更新");
 			} else {
@@ -88,7 +92,7 @@ export default function SecretModal({
 					label: values.label.trim(),
 					raw_key: values.rawKey?.trim() ?? "",
 					base_url: values.baseUrl?.trim() || undefined,
-					...pricing,
+					...common,
 				});
 				success("密钥已创建");
 			}
@@ -264,6 +268,55 @@ export default function SecretModal({
 													field.onChange(
 														e.target.value === "" ? null : e.target.valueAsNumber,
 													)
+												}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="priority"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="mb-1 font-semibold text-sm">
+											优先级 (数字越大越优先)
+										</FormLabel>
+										<FormControl>
+											<input
+												type="number"
+												step="1"
+												min="0"
+												className={inputClass}
+												{...field}
+												onChange={(e) =>
+													field.onChange(
+														e.target.value === "" ? 0 : e.target.valueAsNumber,
+													)
+												}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="modelOverride"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="mb-1 font-semibold text-sm">
+											模型覆盖 (可选)
+										</FormLabel>
+										<FormControl>
+											<input
+												placeholder="如: deepseek-v4-pro"
+												className={inputClass}
+												{...field}
+												value={field.value ?? ""}
+												onChange={(e) =>
+													field.onChange(e.target.value || null)
 												}
 											/>
 										</FormControl>

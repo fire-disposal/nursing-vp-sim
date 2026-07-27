@@ -18,9 +18,7 @@ def render_template(template: str, **kwargs) -> str:
         raise RuntimeError(f"Template rendering error: {e}")
 
 
-def validate_template_vars(
-    template: str, allowed_vars: frozenset[str]
-) -> list[str]:
+def validate_template_vars(template: str, allowed_vars: frozenset[str]) -> list[str]:
     """Check that all {#var#} references in *template* are in *allowed_vars*.
 
     Returns a list of unrecognised variable names (empty = valid).

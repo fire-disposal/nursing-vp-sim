@@ -17,9 +17,9 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/telemetry", tags=["遥测"])
 
-_MAX_BATCH = 20       # 单次最多接收的错误数
-_RATE_WINDOW = 60     # 限流窗口秒数
-_RATE_MAX = 5         # 每窗口最大请求数
+_MAX_BATCH = 20  # 单次最多接收的错误数
+_RATE_WINDOW = 60  # 限流窗口秒数
+_RATE_MAX = 5  # 每窗口最大请求数
 
 # 轻量 IP 限流器（进程内 dict + 惰性清理，独立于 PG rate limiter）
 _rate_state: dict[str, tuple[float, int]] = {}

@@ -61,6 +61,7 @@ def _persist_normal(ctx: PipelineContext) -> None:
 
     _reset_initiative_timer(ctx)
 
+
 def _reset_initiative_timer(ctx: PipelineContext) -> None:
     """Reset initiative timer in its own transaction; failures don't affect messages."""
     try:

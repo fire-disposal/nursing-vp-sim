@@ -12,7 +12,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
 from models._base import TimestampMixin, _now_utc
@@ -41,22 +41,8 @@ class ApiSecret(Base, TimestampMixin):
     stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
-
-    configs: Mapped[list["LLMConfig"]] = relationship(back_populates="secret", cascade="all, delete-orphan")
-
-
-class LLMConfig(Base, TimestampMixin):
-    __tablename__ = "llm_configs"
-    __table_args__ = (UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    secret_id: Mapped[int] = mapped_column(Integer, ForeignKey("api_secrets.id"))
-    label: Mapped[str] = mapped_column(String(80), default="")
-    purpose: Mapped[str] = mapped_column(String(40))
-    status: Mapped[str] = mapped_column(String(20), default="active")
+    priority: Mapped[int] = mapped_column(Integer, default=0)
     model_override: Mapped[str | None] = mapped_column(String(80), nullable=True, default=None)
-
-    secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
 
 
 class LLMCallLog(Base):
@@ -69,7 +55,10 @@ class LLMCallLog(Base):
     purpose: Mapped[str] = mapped_column(String(40), index=True)
     provider_name: Mapped[str] = mapped_column(String(40), default="deepseek")
     api_key_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    config_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)
+    config_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    secret_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("api_secrets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     model: Mapped[str] = mapped_column(String(80))
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -91,5 +80,3 @@ class LLMCallLog(Base):
     cache_hit_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cache_miss_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
-
-    config: Mapped["LLMConfig"] = relationship()

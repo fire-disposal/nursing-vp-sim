@@ -23,6 +23,7 @@ from collections import defaultdict
 from typing import Any
 
 import psycopg
+
 from core.config import DATABASE_URL
 
 log = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ def _channel_for(user_id: int) -> str:
 def _user_from_channel(channel: str) -> int | None:
     if channel.startswith(f"{_CHANNEL_PREFIX}_"):
         try:
-            return int(channel[len(_CHANNEL_PREFIX) + 1:])
+            return int(channel[len(_CHANNEL_PREFIX) + 1 :])
         except ValueError:
             return None
     return None
@@ -71,8 +72,9 @@ class PgRealtimeHub:
             if channel not in self._channels:
                 self._channels.add(channel)
                 self._pending_listens.add(channel)
-        log.debug("realtime subscriber: user_id=%d channel=%s total=%d",
-                  user_id, channel, len(self._subscribers[user_id]))
+        log.debug(
+            "realtime subscriber: user_id=%d channel=%s total=%d", user_id, channel, len(self._subscribers[user_id])
+        )
         return queue
 
     def unsubscribe(self, user_id: int, queue: asyncio.Queue[dict[str, Any]]) -> None:
@@ -147,16 +149,14 @@ class PgRealtimeHub:
                     queue.get_nowait()
                     queue.put_nowait(event)
                 except (asyncio.QueueEmpty, asyncio.QueueFull):
-                    log.warning("realtime queue overflow: user_id=%d type=%s",
-                                user_id, event.get("type"))
+                    log.warning("realtime queue overflow: user_id=%d type=%s", user_id, event.get("type"))
 
     def _publish_remote(self, user_id: int, event: dict[str, Any]) -> None:
         """Send a PG NOTIFY so other workers' listeners receive the event."""
         channel = _channel_for(user_id)
         payload = json.dumps(event)
         try:
-            conn = psycopg.connect(self._dsn, autocommit=True,
-                                   connect_timeout=5)
+            conn = psycopg.connect(self._dsn, autocommit=True, connect_timeout=5)
             try:
                 conn.execute("NOTIFY %s, %s", (channel, payload))
             finally:
@@ -174,7 +174,8 @@ class PgRealtimeHub:
             conn = None
             try:
                 conn = psycopg.connect(
-                    self._dsn, autocommit=True,
+                    self._dsn,
+                    autocommit=True,
                     connect_timeout=10,
                     options="-c statement_timeout=0",  # no timeout for LISTEN
                 )
@@ -191,8 +192,7 @@ class PgRealtimeHub:
                         self._dispatch_notify(notify, loop)
             except Exception:
                 if self._running:
-                    log.warning("PG listener disconnected, reconnecting in 1s",
-                                exc_info=True)
+                    log.warning("PG listener disconnected, reconnecting in 1s", exc_info=True)
                     time.sleep(1)
             finally:
                 if conn:

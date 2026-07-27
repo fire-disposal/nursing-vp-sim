@@ -13,12 +13,10 @@ from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
-from prompts import render_template
 from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from profiles.rubric_loader import get_rubric_version_id, load_rubric
-
-from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
+from prompts import render_template
 from prompts.training.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -27,6 +25,8 @@ from prompts.training.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
+
+from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
 from .validation import (
     _check_feedback_empty,
     _clamp_scores,
@@ -330,8 +330,6 @@ def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str
     return scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text
 
 
-
-
 def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
     """护理记录评分注入：nursing_record 能力开启时，读取学生填写的 sheet_data 并格式化。"""
     features = (record.practice_snapshot or {}).get("features", {})
@@ -524,7 +522,12 @@ async def evaluate_training(
     )
     nursing_record_text = _load_nursing_record_text(db, record)
     score_messages, exam_results_text, nursing_record_text = _build_history_messages(
-        record, scoring_criteria_text, required_inquiries_text, scoring_json_schema_text, conversation_text, nursing_record_text
+        record,
+        scoring_criteria_text,
+        required_inquiries_text,
+        scoring_json_schema_text,
+        conversation_text,
+        nursing_record_text,
     )
 
     feedback_messages = _build_feedback_messages(

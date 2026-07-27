@@ -63,8 +63,6 @@ def _cascade_delete_training_record(db: Session, record_id: int) -> None:
         db.query(model).filter(column == record_id).delete(synchronize_session="fetch")
 
 
-
-
 def _count_pending_questionnaires(db: Session, case_id: int) -> int:
     """病例下「必做」问卷的数量（供训练开始/详情响应提示用）。"""
     return (

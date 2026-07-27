@@ -99,13 +99,24 @@ class CallRecorder:
         self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=meta.latency_ms)
 
     @staticmethod
-    def _estimate_cost(prompt_tokens: int, completion_tokens: int, price_input: float, price_output: float,
-                       model: str, cache_hit: int = 0) -> float:
+    def _estimate_cost(
+        prompt_tokens: int,
+        completion_tokens: int,
+        price_input: float,
+        price_output: float,
+        model: str,
+        cache_hit: int = 0,
+    ) -> float:
         from infrastructure.llm.token_counter import estimate_cost_cny
 
-        return estimate_cost_cny(prompt_tokens or 0, completion_tokens or 0,
-                                  price_input=price_input, price_output=price_output,
-                                  model=model, cache_hit_tokens=cache_hit)
+        return estimate_cost_cny(
+            prompt_tokens or 0,
+            completion_tokens or 0,
+            price_input=price_input,
+            price_output=price_output,
+            model=model,
+            cache_hit_tokens=cache_hit,
+        )
 
     def _record_metrics(self, *, status: str, tokens: int, cost: float, latency_ms: int) -> None:
         if self._metrics:

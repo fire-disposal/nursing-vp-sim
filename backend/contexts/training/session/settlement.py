@@ -127,11 +127,7 @@ def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
 
         for record in timeout_records:
             # Skip records with no student messages — nothing to score
-            student_count = (
-                db.query(Message)
-                .filter(Message.record_id == record.id, Message.role == "student")
-                .count()
-            )
+            student_count = db.query(Message).filter(Message.record_id == record.id, Message.role == "student").count()
             if student_count == 0:
                 log.info("Settlement: skipping record_id=%d (no student messages)", record.id)
                 repo.mark_completed_sync(db, record.id)

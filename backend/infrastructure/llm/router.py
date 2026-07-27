@@ -163,27 +163,44 @@ class ProfileRouter:
 
             binding = self._bindings.get(purpose)
 
+            # Refresh cached binding from DB periodically
             if binding and not isinstance(binding, _SyntheticConfig):
-                profile = self._profiles.get(binding.secret_id)
-                if profile and not isinstance(profile, _SyntheticConfig):
-                    last_check = getattr(profile, "_last_db_check", 0.0)
-                    if _time.monotonic() - last_check > 5.0:
-                        self._refresh_profile_from_db(profile)
-                        profile._last_db_check = _time.monotonic()
+                last_check = getattr(binding, "_last_db_check", 0.0)
+                if _time.monotonic() - last_check > 5.0:
+                    self._refresh_profile_from_db(binding)
+                    binding._last_db_check = _time.monotonic()
 
+            # Check cached binding
             if binding and binding.status == "active":
-                profile = self._profiles.get(binding.secret_id)
-                if profile and profile.status == "active":
+                return binding
+            if binding and binding.status == "degraded":
+                if binding.degraded_until and now < ensure_utc(binding.degraded_until):
+                    pass
+                else:
+                    binding.status = "active"
+                    binding.degraded_reason = None
+                    binding.degraded_until = None
+                    binding.consecutive_failures = 0
                     return binding
-                if profile and profile.status == "degraded":
-                    if profile.degraded_until and now < ensure_utc(profile.degraded_until):
-                        pass
-                    else:
-                        profile.status = "active"
-                        profile.degraded_reason = None
-                        profile.degraded_until = None
-                        profile.consecutive_failures = 0
-                        return binding
+
+            # No cached binding or it's degraded — iterate profiles by priority
+            sorted_profiles = sorted(
+                [p for p in self._profiles.values() if not isinstance(p, _SyntheticConfig)],
+                key=lambda p: (getattr(p, "priority", 0), getattr(p, "id", 0)),
+            )
+            for p in sorted_profiles:
+                if p.status == "active":
+                    self._bindings[purpose] = p
+                    return p
+                if p.status == "degraded" and p.degraded_until and now < ensure_utc(p.degraded_until):
+                    continue
+                if p.status == "degraded":
+                    p.status = "active"
+                    p.degraded_reason = None
+                    p.degraded_until = None
+                    p.consecutive_failures = 0
+                    self._bindings[purpose] = p
+                    return p
 
         from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
         from infrastructure.llm.profile import get_model
@@ -221,10 +238,10 @@ class ProfileRouter:
             return config._raw_key
         from . import decrypt_api_key
 
-        profile = self._profiles.get(config.secret_id) if not isinstance(config, _SyntheticConfig) else None
+        profile = self._profiles.get(config.id) if not isinstance(config, _SyntheticConfig) else None
         if profile:
             return decrypt_api_key(profile.encrypted_key)
-        return decrypt_api_key(config.secret.encrypted_key)
+        return decrypt_api_key(config.encrypted_key)
 
     async def report_result(
         self,
@@ -242,7 +259,7 @@ class ProfileRouter:
             return
 
         with self._state_lock:
-            profile = self._profiles.get(config.secret_id)
+            profile = self._profiles.get(config.id)
             if not profile:
                 return
 

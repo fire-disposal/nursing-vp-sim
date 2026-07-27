@@ -3,21 +3,17 @@ import { Activity, Plus } from "lucide-react";
 import { useState } from "react";
 import {
 	deleteSecret,
-	fetchConfigs,
 	fetchEnvFallback,
 	fetchSecrets,
-	testAllConfigs,
+	testAllSecrets,
 } from "@/api";
-import type { components } from "@/api/api-types.gen";
+import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import PurposeCardGrid from "./PurposeCardGrid";
 import SecretList from "./SecretList";
 import SecretModal from "./SecretModal";
-
-type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 
 export default function ApiManagementTab() {
 	const toast = useToast();
@@ -32,11 +28,6 @@ export default function ApiManagementTab() {
 		queryFn: () => fetchSecrets().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
-	const { data: configs = [] } = useQuery({
-		queryKey: queryKeys.apiManagement.configs(),
-		queryFn: () => fetchConfigs(undefined).then((r) => r.data),
-		staleTime: 5 * 60_000,
-	});
 	const { data: envFallback } = useQuery({
 		queryKey: queryKeys.apiManagement.fallback,
 		queryFn: () => fetchEnvFallback().then((r) => r.data),
@@ -45,14 +36,13 @@ export default function ApiManagementTab() {
 
 	const invalidate = () => {
 		void queryClient.invalidateQueries({ queryKey: queryKeys.apiManagement.secrets });
-		void queryClient.invalidateQueries({ queryKey: queryKeys.apiManagement.configs() });
 	};
 
 	const handleDeleteSecret = async (s: ApiSecretResponse) => {
 		if (
 			!(await confirm({
 				title: "删除密钥",
-				message: `删除 "${s.label}"？${s.config_count && s.config_count > 0 ? ` 该密钥仍有 ${s.config_count} 个用途绑定。` : ""}`,
+				message: `删除 "${s.label}"？`,
 				danger: true,
 			}))
 		)
@@ -69,7 +59,7 @@ export default function ApiManagementTab() {
 	const handleTestAll = async () => {
 		setTestingAll(true);
 		try {
-			const r = await testAllConfigs();
+			const r = await testAllSecrets();
 			const results = r.data.results ?? [];
 			const ok = results.filter((x) => x.ok).length;
 			const fail = results.length - ok;
@@ -125,15 +115,6 @@ export default function ApiManagementTab() {
 						onDelete={handleDeleteSecret}
 					/>
 				)}
-			</div>
-
-			<div>
-				<h3 className="text-sm font-semibold text-foreground mb-2">用途配置</h3>
-				<PurposeCardGrid
-					configs={configs}
-					secrets={secrets}
-					onChanged={invalidate}
-				/>
 			</div>
 
 			<SecretModal

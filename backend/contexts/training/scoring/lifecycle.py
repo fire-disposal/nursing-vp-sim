@@ -9,17 +9,16 @@ from sqlalchemy import text
 
 def acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
     # ruff: noqa: S608 — parameterized via :id bound param, no user input concatenated
+    status_cond = (
+        "scoring_status IS NULL OR scoring_status IN ('completed', 'failed')"
+        if allow_retry
+        else "status != 'completed' AND scoring_status IS NULL"
+    )
     result = db.execute(
         text(
             "UPDATE training_records SET scoring_status = 'pending'"
             + (" , scoring_error = NULL" if allow_retry else "")
-            + " WHERE id = :id AND status != 'completed' AND ("
-            + (
-                "scoring_status IS NULL OR scoring_status IN ('completed', 'failed')"
-                if allow_retry
-                else "scoring_status IS NULL"
-            )
-            + ")"
+            + f" WHERE id = :id AND {status_cond}"
         ),
         {"id": record_id},
     )

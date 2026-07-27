@@ -1179,43 +1179,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/configs": {
+    "/api/admin/secrets/{secret_id}/test": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Configs */
-        get: operations["list_configs_api_admin_configs_get"];
+        get?: never;
         put?: never;
-        /** Create Config */
-        post: operations["create_config_api_admin_configs_post"];
+        /** Test Secret */
+        post: operations["test_secret_api_admin_secrets__secret_id__test_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/configs/{config_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Config */
-        put: operations["update_config_api_admin_configs__config_id__put"];
-        post?: never;
-        /** Delete Config */
-        delete: operations["delete_config_api_admin_configs__config_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/configs/{config_id}/toggle": {
+    "/api/admin/secrets/test-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -1224,59 +1205,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Toggle Config */
-        post: operations["toggle_config_api_admin_configs__config_id__toggle_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/configs/{config_id}/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset Profile */
-        post: operations["reset_profile_api_admin_configs__config_id__reset_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/configs/{config_id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test Config */
-        post: operations["test_config_api_admin_configs__config_id__test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/configs/test-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test All Configs */
-        post: operations["test_all_configs_api_admin_configs_test_all_post"];
+        /** Test All Secrets */
+        post: operations["test_all_secrets_api_admin_secrets_test_all_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2252,10 +2182,12 @@ export interface components {
              */
             monthly_cost_used: number;
             /**
-             * Config Count
+             * Priority
              * @default 0
              */
-            config_count: number;
+            priority: number;
+            /** Model Override */
+            model_override?: string | null;
             /** Last Used At */
             last_used_at?: string | null;
             /**
@@ -2281,6 +2213,10 @@ export interface components {
             price_output_per_1m?: number | null;
             /** Monthly Cost Limit */
             monthly_cost_limit?: number | null;
+            /** Priority */
+            priority?: number | null;
+            /** Model Override */
+            model_override?: string | null;
         };
         /** AssignmentCreateRequest */
         AssignmentCreateRequest: {
@@ -2872,11 +2808,6 @@ export interface components {
             /** Grade Id */
             grade_id?: number | null;
         };
-        /** ConfigCreateResponse */
-        ConfigCreateResponse: {
-            /** Id */
-            id: number;
-        };
         /** CostBreakdown */
         CostBreakdown: {
             /** Calls */
@@ -3272,79 +3203,6 @@ export interface components {
              * @default false
              */
             is_aggregated: boolean;
-        };
-        /** LLMConfigCreate */
-        LLMConfigCreate: {
-            /** Secret Id */
-            secret_id: number;
-            /** Purpose */
-            purpose: string;
-            /**
-             * Label
-             * @default
-             */
-            label: string;
-            /** Model Override */
-            model_override?: string | null;
-        };
-        /** LLMConfigResponse */
-        LLMConfigResponse: {
-            /** Id */
-            id: number;
-            /** Secret Id */
-            secret_id: number;
-            /**
-             * Secret Label
-             * @default
-             */
-            secret_label: string;
-            /**
-             * Secret Suffix
-             * @default
-             */
-            secret_suffix: string;
-            /**
-             * Base Url
-             * @default
-             */
-            base_url: string;
-            /**
-             * Label
-             * @default
-             */
-            label: string;
-            /** Purpose */
-            purpose: string;
-            /**
-             * Status
-             * @default active
-             */
-            status: string;
-            /** Model Override */
-            model_override?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** LLMConfigUpdate */
-        LLMConfigUpdate: {
-            /** Secret Id */
-            secret_id?: number | null;
-            /** Purpose */
-            purpose?: string | null;
-            /** Label */
-            label?: string | null;
-            /** Model Override */
-            model_override?: string | null;
-            /** Status */
-            status?: string | null;
         };
         /** LLMStatsResponse */
         LLMStatsResponse: {
@@ -4400,16 +4258,6 @@ export interface components {
             latency_ms?: number | null;
             /** Error */
             error?: string | null;
-        };
-        /** ToggleStatusResponse */
-        ToggleStatusResponse: {
-            /**
-             * Ok
-             * @default true
-             */
-            ok: boolean;
-            /** Status */
-            status: string;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -7665,204 +7513,12 @@ export interface operations {
             };
         };
     };
-    list_configs_api_admin_configs_get: {
-        parameters: {
-            query?: {
-                purpose?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LLMConfigResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_config_api_admin_configs_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LLMConfigCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigCreateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_config_api_admin_configs__config_id__put: {
+    test_secret_api_admin_secrets__secret_id__test_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                config_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LLMConfigUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_config_api_admin_configs__config_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                config_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    toggle_config_api_admin_configs__config_id__toggle_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                config_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ToggleStatusResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_profile_api_admin_configs__config_id__reset_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                config_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    test_config_api_admin_configs__config_id__test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                config_id: number;
+                secret_id: number;
             };
             cookie?: never;
         };
@@ -7888,7 +7544,7 @@ export interface operations {
             };
         };
     };
-    test_all_configs_api_admin_configs_test_all_post: {
+    test_all_secrets_api_admin_secrets_test_all_post: {
         parameters: {
             query?: never;
             header?: never;

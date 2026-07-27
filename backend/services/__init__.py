@@ -8,7 +8,6 @@ from .class_ import ClassService
 from .costs import CostService
 from .feedback import FeedbackService
 from .grade import GradeService
-from .llm_config import LLMConfigService
 from .llm_data import LLMDataService
 from .llm_monitor import LLMMonitorService
 from .notification import SystemNotificationService
@@ -38,7 +37,6 @@ __all__ = [
     "CostService",
     "FeedbackService",
     "GradeService",
-    "LLMConfigService",
     "LLMDataService",
     "LLMMonitorService",
     "QuestionView",

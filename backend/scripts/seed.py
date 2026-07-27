@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from infrastructure.llm import encrypt_api_key
-from models import ApiSecret, Case, LLMConfig, Role, RolePermission, User, VoiceConfig
+from models import ApiSecret, Case, Role, RolePermission, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -217,7 +217,6 @@ def _seed_llm() -> None:
         )
         if len(dupes) > 1:
             for d in dupes[1:]:
-                db.query(LLMConfig).filter(LLMConfig.secret_id == d.id).delete()
                 db.delete(d)
             db.commit()
             log.debug("清理重复密钥: %d → %d", len(dupes), 1)
@@ -254,17 +253,8 @@ def _seed_llm() -> None:
             db.flush()
             log.debug("种子密钥已创建")
 
-        # purpose 是固定集合，单一来源 llm_profile.PROFILES。新增 purpose 只需改该文件，
-        # seed 自动为其建 binding（不再需要 "*" 通配符兜底）。
-        from infrastructure.llm.profile import PROFILES
-
-        purposes = list(PROFILES.keys())
-        for purpose in purposes:
-            cfg = db.query(LLMConfig).filter(LLMConfig.secret_id == secret.id, LLMConfig.purpose == purpose).first()
-            if not cfg:
-                db.add(LLMConfig(secret_id=secret.id, purpose=purpose, status="active"))
         db.commit()
-        log.debug("LLM 种子完成: secret#%d + %d 用途", secret.id, len(purposes))
+        log.debug("LLM 种子完成: secret#%d", secret.id)
     except Exception:
         log.exception("LLM 种子失败，使用环境变量兜底")
         db.rollback()

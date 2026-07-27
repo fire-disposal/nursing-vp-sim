@@ -9,7 +9,6 @@ from .case import CaseRepository
 from .class_ import ClassRepository
 from .feedback import FeedbackRepository
 from .grade import GradeRepository
-from .llm_config import LLMConfigRepository
 from .llm_log import LLMCallLogRepository
 from .notification import SystemNotificationRepository
 from .questionnaire_question import QuestionnaireQuestionRepository
@@ -28,7 +27,6 @@ __all__ = [
     "FeedbackRepository",
     "GradeRepository",
     "LLMCallLogRepository",
-    "LLMConfigRepository",
     "QuestionnaireQuestionRepository",
     "QuestionnaireResponseRepository",
     "QuestionnaireTemplateRepository",

@@ -32,13 +32,16 @@ class ErrorCode(StrEnum):
     INTERNAL = "INTERNAL"
 
 
-
 class AppError(Exception):
     """Base for all application-level exceptions."""
+
+
 class AuthError(HTTPException):
     """Authentication (401) or authorization (403) failure."""
 
-    def __init__(self, detail: str = "认证失败", status_code: int = 401, error_code: ErrorCode = ErrorCode.AUTH_INVALID):
+    def __init__(
+        self, detail: str = "认证失败", status_code: int = 401, error_code: ErrorCode = ErrorCode.AUTH_INVALID
+    ):
         self.error_code = error_code
         super().__init__(status_code=status_code, detail=detail)
 
@@ -65,6 +68,7 @@ class ValidationError(HTTPException):
     def __init__(self, detail: str = "参数校验失败", error_code: ErrorCode = ErrorCode.VALIDATION):
         self.error_code = error_code
         super().__init__(status_code=400, detail=detail)
+
 
 # ── LLM ──
 
@@ -106,10 +110,13 @@ class ScoringFeedbackError(ScoringError):
 
 # ── Exception handlers (for FastAPI add_exception_handler) ──
 
+
 async def _log_and_respond(request: Request, status_code: int, detail: str, exc: Exception | None = None):
     error_code = getattr(exc, "error_code", None)
     if status_code >= 500:
-        log.error("%s %s → %d [%s] %s", request.method, request.url.path, status_code, error_code or "-", detail, exc_info=exc)
+        log.error(
+            "%s %s → %d [%s] %s", request.method, request.url.path, status_code, error_code or "-", detail, exc_info=exc
+        )
     else:
         log.warning("%s %s → %d [%s] %s", request.method, request.url.path, status_code, error_code or "-", detail)
     return JSONResponse(

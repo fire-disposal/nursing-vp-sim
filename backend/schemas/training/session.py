@@ -15,6 +15,7 @@ class TrainingSessionData(BaseModel):
 
     包含训练页首次渲染所需的全部数据，但排除评分/护理记录等记录回顾专有字段。
     """
+
     model_config = _RESP_CFG
     id: int
     status: str = "in_progress"
@@ -46,6 +47,7 @@ class TrainingStartResponse(BaseModel):
     case_name: str = ""
     pending_questionnaires: int = 0
     session: TrainingSessionData | None = None
+
 
 class ChatMessageRequest(BaseModel):
     model_config = _REQ_CFG

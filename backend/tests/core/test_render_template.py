@@ -6,8 +6,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from prompts import render_template
-from prompts import validate_template_vars
+from prompts import render_template, validate_template_vars
 
 
 class TestRenderTemplate:
@@ -59,7 +58,6 @@ class TestRenderTemplate:
         )
         assert "张三，45岁，男" in r
         assert "头痛3天" in r
-
 
 
 class TestValidateTemplateVars:
@@ -129,6 +127,7 @@ class TestPromptVariableContracts:
         allowed = frozenset(QASystemVars.__annotations__.keys())
         unknown = validate_template_vars(QA_SYSTEM, allowed)
         assert unknown == [], f"Unknown vars in QA_SYSTEM: {unknown}"
+
     def test_generation_head_vars(self):
         from prompts.generation import CASE_GENERATION_HEAD
         from prompts.variables import CaseGenerationSystemVars

@@ -4,7 +4,7 @@ from models.auth import Role, RolePermission, User
 from models.case import Case
 from models.feedback import Feedback
 from models.feedback_image import FeedbackImage
-from models.llm import ApiSecret, LLMCallLog, LLMConfig
+from models.llm import ApiSecret, LLMCallLog
 from models.notification import Notification, SystemNotification
 from models.qa import KnowledgeChunk, QARecord, QASession
 from models.questionnaire import (
@@ -38,7 +38,6 @@ __all__ = [
     "Grade",
     "KnowledgeChunk",
     "LLMCallLog",
-    "LLMConfig",
     "Message",
     "Notification",
     "NursingRecord",
