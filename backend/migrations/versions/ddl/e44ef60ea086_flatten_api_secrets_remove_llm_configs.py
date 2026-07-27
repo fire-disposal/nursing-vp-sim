@@ -23,10 +23,10 @@ def upgrade() -> None:
     op.add_column("api_secrets", sa.Column("priority", sa.Integer(), nullable=False, server_default="0"))
     op.add_column("api_secrets", sa.Column("model_override", sa.String(80), nullable=True))
 
-    # 2. 解除 call_logs → llm_configs 的 FK，数据保留
+    # 2. 解除 call_logs → llm_configs 的 FK（数据保留，llm_configs 表暂留待数据迁移处理）
     op.drop_constraint("llm_call_logs_config_id_fkey", "llm_call_logs", type_="foreignkey")
 
-    # 3. 添加 llm_call_logs.secret_id（指向 api_secrets，方便日后直接查询）
+    # 3. 添加 llm_call_logs.secret_id
     op.add_column("llm_call_logs", sa.Column("secret_id", sa.Integer(), nullable=True))
     op.create_foreign_key(
         "fk_llm_call_logs_secret_id",
@@ -34,9 +34,6 @@ def upgrade() -> None:
         ["secret_id"], ["id"],
         ondelete="SET NULL",
     )
-
-    # 4. 删除用途绑定表（call_logs 的 config_id 保留为普通列，不再有 FK 约束）
-    op.drop_table("llm_configs")
 
 
 
