@@ -1,4 +1,4 @@
-"""LLM 路由调度器 —— 档案状态驱动 + 简单用途查找"""
+"""LLM 路由调度器 —— 档案状态驱动 + 优先级密钥池"""
 
 import asyncio
 import logging
@@ -7,7 +7,6 @@ import time as _time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.datetime_utils import ensure_utc
 
 log = logging.getLogger(__name__)
@@ -17,119 +16,10 @@ RATE_LIMIT_COOLDOWN_SECONDS = 60
 DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
 
-_env_fallback_available = False
-_env_fallback_latency_ms: int | None = None
-_env_fallback_error: str | None = None
-_env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
-_env_fallback_lock = asyncio.Lock()
-
-# env 兜底熔断状态（死密钥/限流时停止无谓重试）。
-# 写于 async report_result，读于 sync select()；datetime 赋值在 CPython 下原子，容忍轻微 stale。
-_env_fallback_consecutive_failures = 0
-_env_fallback_degraded_until: datetime | None = None
-_env_fallback_degraded_reason: str | None = None
-
-
-def _env_key_suffix() -> str:
-    return DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else ""
-
-
-def _mirror_env_degradation_from_db(
-    db_key_suffix: str, degraded_until: datetime | None, degraded_reason: str | None
-) -> None:
-    """当 env 兜底密钥与 DB 密钥相同时，镜像 DB 的熔断状态到 env 兜底。"""
-    if _env_key_suffix() and _env_key_suffix() == db_key_suffix:
-        global _env_fallback_degraded_until, _env_fallback_degraded_reason
-        _env_fallback_degraded_until = degraded_until
-        _env_fallback_degraded_reason = degraded_reason
-
-
-def _clear_env_degradation_if_same_key(db_key_suffix: str) -> None:
-    """DB 密钥恢复时，若 env 密钥相同则一并清除熔断。"""
-    if _env_key_suffix() and _env_key_suffix() == db_key_suffix:
-        global _env_fallback_consecutive_failures, _env_fallback_degraded_until, _env_fallback_degraded_reason
-        _env_fallback_consecutive_failures = 0
-        _env_fallback_degraded_until = None
-        _env_fallback_degraded_reason = None
-
-
-async def _record_synthetic_result(
-    success: bool, error: str | None, prompt_tokens: int, completion_tokens: int
-) -> None:
-    global _env_fallback_consecutive_failures, _env_fallback_degraded_until, _env_fallback_degraded_reason
-    global _env_fallback_available
-    async with _env_fallback_lock:
-        if success:
-            _env_fallback_consecutive_failures = 0
-            _env_fallback_degraded_until = None
-            _env_fallback_degraded_reason = None
-            _env_fallback_available = True
-            total = prompt_tokens + completion_tokens
-            _env_fallback_stats["call_count"] += 1
-            _env_fallback_stats["total_tokens"] += total
-            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.0 + completion_tokens * 2.0) / 1_000_000
-            return
-        now = datetime.now(UTC)
-        if error and "429" in error:
-            _env_fallback_degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
-            _env_fallback_degraded_reason = "rate_limited"
-        else:
-            _env_fallback_consecutive_failures += 1
-            if _env_fallback_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-                _env_fallback_degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
-                _env_fallback_degraded_reason = "consecutive_failures"
-
 
 async def get_env_fallback_state() -> dict:
-    async with _env_fallback_lock:
-        return {
-            "available": _env_fallback_available,
-            "label": "环境变量兜底",
-            "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
-            "base_url": DEEPSEEK_BASE_URL,
-            "model_flash": "deepseek-v4-flash",
-            "model_pro": "deepseek-v4-pro",
-            "latency_ms": _env_fallback_latency_ms,
-            "error": _env_fallback_error,
-            "degraded_reason": _env_fallback_degraded_reason,
-            "degraded_until": _env_fallback_degraded_until.isoformat() if _env_fallback_degraded_until else None,
-            "consecutive_failures": _env_fallback_consecutive_failures,
-            "call_count": _env_fallback_stats["call_count"],
-            "total_tokens": _env_fallback_stats["total_tokens"],
-            "total_cost": round(_env_fallback_stats["total_cost"], 4),
-        }
-
-
-class _SyntheticConfig:
-    def __init__(self, label="", base_url="", model="", raw_key=""):
-        self.id = 0
-        self.label = label
-        self.base_url = base_url
-        self.model = model
-        self._raw_key = raw_key
-        self.purpose = "*"
-        self.status = "active"
-        self.consecutive_failures = 0
-        self.degraded_reason = None
-        self.degraded_until = None
-        # 定价从 token_counter 单一来源派生（F-7）
-        if model:
-            from infrastructure.llm.token_counter import get_model_price_cny
-
-            mpi, mpo = get_model_price_cny(model)
-            self.price_input_per_1m = mpi
-            self.price_output_per_1m = mpo
-        else:
-            self.price_input_per_1m = 1.0
-            self.price_output_per_1m = 2.0
-        self.monthly_cost_limit = 0.0
-        self.call_count_today = 0
-        self.total_tokens_today = 0
-        self.total_cost_today = 0.0
-        self.monthly_cost_used = 0.0
-        self.stats_date = None
-        self.stats_month = None
-        self.last_used_at = None
+    """Stub — env fallback removed. Returns empty state for admin API compat."""
+    return {"available": False, "label": "已移除 (v2026.07.27)", "key_suffix": "****", "base_url": ""}
 
 
 class ProfileRouter:
@@ -164,7 +54,7 @@ class ProfileRouter:
             binding = self._bindings.get(purpose)
 
             # Refresh cached binding from DB periodically
-            if binding and not isinstance(binding, _SyntheticConfig):
+            if binding:
                 last_check = getattr(binding, "_last_db_check", 0.0)
                 if _time.monotonic() - last_check > 5.0:
                     self._refresh_profile_from_db(binding)
@@ -185,7 +75,7 @@ class ProfileRouter:
 
             # No cached binding or it's degraded — iterate profiles by priority
             sorted_profiles = sorted(
-                [p for p in self._profiles.values() if not isinstance(p, _SyntheticConfig)],
+                self._profiles.values(),
                 key=lambda p: (getattr(p, "priority", 0), getattr(p, "id", 0)),
             )
             for p in sorted_profiles:
@@ -202,46 +92,13 @@ class ProfileRouter:
                     self._bindings[purpose] = p
                     return p
 
-        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-        from infrastructure.llm.profile import get_model
-
-        if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-            # 若 env 密钥与某个已熔断的 DB 密钥相同 → 镜像熔断状态，fail-fast
-            env_sfx = _env_key_suffix()
-            with self._state_lock:
-                for profile in self._profiles.values():
-                    if isinstance(profile, _SyntheticConfig):
-                        continue
-                    pfx = getattr(profile, "key_suffix", "")
-                    if pfx and pfx == env_sfx and profile.status == "degraded":
-                        if profile.degraded_until and now < ensure_utc(profile.degraded_until):
-                            _mirror_env_degradation_from_db(env_sfx, profile.degraded_until, profile.degraded_reason)
-                            raise RuntimeError(f"purpose={purpose} env 兜底与 DB 密钥({pfx})一致且已熔断")
-            # env 兜底自身已熔断（死密钥/限流）→ 仅对本次调用 fail-fast，不设全局降级。
-            # 熔断窗口本身已阻止返回死配置；不牵连其它绑定了健康 DB 密钥的 purpose。
-            if _env_fallback_degraded_until and now < _env_fallback_degraded_until:
-                raise RuntimeError(f"purpose={purpose} env 兜底已熔断，暂不可用")
-            log.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
-            return _SyntheticConfig(
-                label="DeepSeek (env)",
-                base_url=DEEPSEEK_BASE_URL,
-                model=get_model(purpose),
-                raw_key=DEEPSEEK_API_KEY,
-            )
-
         with self._state_lock:
             self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
-        raise RuntimeError(f"purpose={purpose} 无可用档案")
+        raise RuntimeError(f"purpose={purpose} 无可用密钥")
 
-    def get_decrypted_key(self, config) -> str:
-        if isinstance(config, _SyntheticConfig):
-            return config._raw_key
-        from . import decrypt_api_key
-
-        profile = self._profiles.get(config.id) if not isinstance(config, _SyntheticConfig) else None
-        if profile:
-            return decrypt_api_key(profile.encrypted_key)
-        return decrypt_api_key(config.encrypted_key)
+    def get_api_key(self, config) -> str:
+        """Return the plaintext API key from a profile."""
+        return config.api_key
 
     async def report_result(
         self,
@@ -254,10 +111,6 @@ class ProfileRouter:
         latency_ms: int = 0,
         error: str | None = None,
     ):
-        if isinstance(config, _SyntheticConfig):
-            await _record_synthetic_result(success, error, prompt_tokens, completion_tokens)
-            return
-
         with self._state_lock:
             profile = self._profiles.get(config.id)
             if not profile:
@@ -266,119 +119,74 @@ class ProfileRouter:
             now = datetime.now(UTC)
             if success:
                 profile.consecutive_failures = 0
+                profile.degraded_reason = None
+                profile.degraded_until = None
                 if profile.status == "degraded":
                     profile.status = "active"
-                    profile.degraded_reason = None
-                    profile.degraded_until = None
-                # DB 密钥恢复时，若 env 密钥相同则一并清除熔断
-                pfx = getattr(profile, "key_suffix", "")
-                if pfx:
-                    _clear_env_degradation_if_same_key(pfx)
-                self._update_stats(profile, prompt_tokens, completion_tokens)
-            elif error and "429" in error:
-                profile.status = "degraded"
-                profile.degraded_reason = "rate_limited"
-                profile.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
             else:
                 profile.consecutive_failures += 1
-                if profile.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                if error and "429" in error:
+                    profile.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+                    profile.degraded_reason = "rate_limited"
                     profile.status = "degraded"
-                    profile.degraded_reason = "consecutive_failures"
+                elif profile.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
                     profile.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                    profile.degraded_reason = "consecutive_failures"
+                    profile.status = "degraded"
 
-            # 每次成功调用都持久化计费数据，防止崩溃丢失
+            if profile.status == "active":
+                profile.last_used_at = now
+            profile.call_count_today = (profile.call_count_today or 0) + 1
+            if success:
+                profile.total_tokens_today = (profile.total_tokens_today or 0) + (total_tokens or 0)
+                input_cost = (prompt_tokens or 0) * float(profile.price_input_per_1m or 0) / 1_000_000
+                output_cost = (completion_tokens or 0) * float(profile.price_output_per_1m or 0) / 1_000_000
+                profile.total_cost_today = float(profile.total_cost_today or 0) + input_cost + output_cost
+                profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + input_cost + output_cost
+
             should_persist = success or profile.status == "degraded"
+            if should_persist and _time.monotonic() - self._last_persist_ts.get(config.id, 0) > 5:
+                self._persist_stats(profile)
+                self._last_persist_ts[config.id] = _time.monotonic()
 
-        if should_persist:
-            self._persist_stats(profile)
+    def degraded_count(self) -> int:
+        with self._state_lock:
+            return sum(1 for p in self._profiles.values() if p.status == "degraded")
 
-    def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int, model: str = ""):
-        today = datetime.now(UTC)
-        today_date = today.date()
-        total_tokens = prompt_tokens + completion_tokens
-        if profile.stats_date is None or profile.stats_date.date() < today_date:
-            profile.call_count_today = 0
-            profile.total_tokens_today = 0
-            profile.total_cost_today = float(0)
-            profile.stats_date = today
-
-        current_month = today.strftime("%Y-%m")
-        cached_month = None
-        if profile.stats_month:
-            parts = profile.stats_month.split("-")
-            if len(parts) == 2:
-                cached_month = (int(parts[0]), int(parts[1]))
-        now_month = (today.year, today.month)
-        if cached_month is None or cached_month < now_month:
-            profile.monthly_cost_used = float(0)
-            profile.stats_month = current_month
-
-        profile.call_count_today = (profile.call_count_today or 0) + 1
-        profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
-        from .token_counter import estimate_cost_cny
-
-        cost = estimate_cost_cny(
-            prompt_tokens,
-            completion_tokens,
-            price_input=float(profile.price_input_per_1m or 0),
-            price_output=float(profile.price_output_per_1m or 0),
-            model=model,
-        )
-        profile.total_cost_today = float(profile.total_cost_today or 0) + cost
-        profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
-        profile.last_used_at = datetime.now(UTC)
-
-        limit = float(profile.monthly_cost_limit or 0)
-        if limit > 0 and float(profile.monthly_cost_used) >= limit:
-            profile.status = "degraded"
-            profile.degraded_reason = "cost_exceeded"
-            if profile.degraded_until is None:
-                next_month = today.replace(day=1)
-                if today.month == 12:
-                    next_month = next_month.replace(year=today.year + 1, month=1)
-                else:
-                    next_month = next_month.replace(month=today.month + 1)
-                profile.degraded_until = next_month
+    @property
+    def global_degraded(self) -> bool:
+        if self._global_degraded_until:
+            return datetime.now(UTC) < self._global_degraded_until
+        return False
 
     def _refresh_profile_from_db(self, profile) -> None:
         from services.llm_data import LLMDataService
 
         try:
-            row = LLMDataService.get_profile(profile.id)
-            if row:
-                profile.status = row.status
-                profile.degraded_reason = row.degraded_reason
-                profile.degraded_until = ensure_utc(row.degraded_until) if row.degraded_until else None
-                profile.consecutive_failures = row.consecutive_failures
+            fresh = LLMDataService.get_profile(profile.id)
+            if fresh:
+                with self._state_lock:
+                    self._profiles[profile.id] = fresh
         except Exception:
-            log.debug("Failed to refresh profile %d from DB", profile.id, exc_info=True)
+            log.debug("_refresh_profile_from_db failed for id=%d", profile.id, exc_info=True)
 
-    @staticmethod
-    def _persist_stats(profile):
+    def _persist_stats(self, profile) -> None:
         from services.llm_data import LLMDataService
 
-        data = {
-            "call_count_today": getattr(profile, "call_count_today", None),
-            "total_tokens_today": getattr(profile, "total_tokens_today", None),
-            "total_cost_today": getattr(profile, "total_cost_today", None),
-            "monthly_cost_used": getattr(profile, "monthly_cost_used", None),
-            "stats_date": getattr(profile, "stats_date", None),
-            "stats_month": getattr(profile, "stats_month", None),
-            "last_used_at": getattr(profile, "last_used_at", None),
-            "status": getattr(profile, "status", None),
-            "degraded_reason": getattr(profile, "degraded_reason", None),
-            "degraded_until": getattr(profile, "degraded_until", None),
-            "consecutive_failures": getattr(profile, "consecutive_failures", None),
-        }
-        LLMDataService.persist_stats(profile.id, data)
-
-    def degraded_count(self) -> int:
-        with self._state_lock:
-            return sum(1 for p in self._profiles.values() if getattr(p, "status", "active") == "degraded")
-
-    @property
-    def global_degraded(self) -> bool:
-        with self._state_lock:
-            if not self._global_degraded_until:
-                return False
-            return datetime.now(UTC) < self._global_degraded_until
+        try:
+            LLMDataService.persist_stats(
+                profile.id,
+                {
+                    "status": profile.status,
+                    "degraded_reason": profile.degraded_reason,
+                    "degraded_until": profile.degraded_until,
+                    "consecutive_failures": profile.consecutive_failures,
+                    "call_count_today": profile.call_count_today,
+                    "total_tokens_today": profile.total_tokens_today,
+                    "total_cost_today": float(profile.total_cost_today or 0),
+                    "monthly_cost_used": float(profile.monthly_cost_used or 0),
+                    "last_used_at": profile.last_used_at,
+                },
+            )
+        except Exception:
+            log.debug("_persist_stats failed for id=%d", profile.id, exc_info=True)

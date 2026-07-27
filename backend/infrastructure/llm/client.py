@@ -21,7 +21,7 @@ from infrastructure.llm.circuit import async_retry, backoff_delay
 
 from .logging import LogWorker
 from .parsing import safe_parse_json
-from .router import ProfileRouter, _SyntheticConfig
+from .router import ProfileRouter
 
 log = logging.getLogger(__name__)
 
@@ -497,29 +497,10 @@ class LLMClient:
 
     async def _select_config(self, purpose: str) -> _CallState:
         """Select a profile from the router and build call state."""
-        from cryptography.fernet import InvalidToken as FernetInvalidToken
-
         from infrastructure.llm.profile import get_model
 
         config = self._router.select(purpose)
-        try:
-            api_key = self._router.get_decrypted_key(config)
-        except FernetInvalidToken:
-            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-
-            if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-                log.warning("DB 密钥解密失败（FERNET_KEY 不匹配），回退到 env DEEPSEEK_API_KEY")
-                config = _SyntheticConfig(
-                    label="DeepSeek (env)",
-                    base_url=DEEPSEEK_BASE_URL,
-                    model=get_model(purpose),
-                    raw_key=DEEPSEEK_API_KEY,
-                )
-                api_key = DEEPSEEK_API_KEY
-            else:
-                raise NoProviderAvailable(
-                    f"密钥解密失败：FERNET_KEY 与数据库不匹配，且未配置 DEEPSEEK_API_KEY。purpose={purpose}"
-                )
+        api_key = self._router.get_api_key(config)
 
         state = _CallState()
         state._config = config
@@ -527,17 +508,10 @@ class LLMClient:
         state.model = getattr(config, "model_override", None) or get_model(purpose)
         state.config_id = config.id
 
-        secret = getattr(config, "secret", None)
-        if secret is not None:
-            state.provider_name = secret.label or "deepseek"
-            state.base_url = secret.base_url
-            state.price_input = float(secret.price_input_per_1m or 0)
-            state.price_output = float(secret.price_output_per_1m or 0)
-        else:
-            state.provider_name = getattr(config, "label", None) or "deepseek"
-            state.base_url = getattr(config, "base_url", "")
-            state.price_input = float(getattr(config, "price_input_per_1m", 0) or 0)
-            state.price_output = float(getattr(config, "price_output_per_1m", 0) or 0)
+        state.provider_name = getattr(config, "label", None) or "deepseek"
+        state.base_url = getattr(config, "base_url", "") or "https://api.deepseek.com"
+        state.price_input = float(getattr(config, "price_input_per_1m", 0) or 0)
+        state.price_output = float(getattr(config, "price_output_per_1m", 0) or 0)
 
         return state
 
