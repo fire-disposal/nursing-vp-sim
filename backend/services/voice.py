@@ -39,6 +39,7 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
         tts_model=vc.tts_model,
         tts_sample_rate=vc.tts_sample_rate,
         tts_format=vc.tts_format,
+        tts_timeout=vc.tts_timeout,
         api_key_suffix=vc.api_key[-8:] if vc.api_key and len(vc.api_key) >= 8 else "****",
         monthly_budget=vc.monthly_budget,
         is_active=vc.is_active,
