@@ -83,6 +83,18 @@ def _build_config(features: dict | None = None, time_limit_minutes: int | None =
     }
 
 
+def _compute_personality_label(personality: dict) -> str:
+    """从 personality dict 计算患者画像标签字符串（与 get_record_detail 保持一致）。"""
+    parts = []
+    hl = personality.get("health_literacy")
+    if hl:
+        parts.append({"low": "低素养", "normal": "中等", "high": "高素养"}.get(hl, ""))
+    verb = personality.get("verbosity")
+    if verb:
+        parts.append({"terse": "寡言", "normal": "正常", "verbose": "絮叨"}.get(verb, ""))
+    return "·".join(filter(None, parts))
+
+
 def _extract_vitals(case_data: dict, training_type: str) -> dict:
     """Extract initial vital signs from tools.physical_exam.
 
@@ -259,7 +271,36 @@ def _create_record(
         update_initiative_timer(record.id, app_state.initiative_cache, db)
 
     db.commit()
-    return record, greeting
+
+    # 构建会话数据 — 前端可直接缓存，跳过初始 GET /records/{id} 请求
+    session = {
+        "id": record.id,
+        "status": "in_progress",
+        "training_type": training_type,
+        "case_id": case.id,
+        "time_limit": time_limit,
+        "remaining_seconds": time_limit * 60,
+        "patient_name": patient_name,
+        "patient_age": patient_info.get("age", 0),
+        "patient_gender": normalize_gender(patient_info.get("gender", "")),
+        "case_title": case_data.get("title", "") or case.name,
+        "chief_complaint": case_data.get("chief_complaint", ""),
+        "personality": _compute_personality_label(case_data.get("personality", {})),
+        "patient_info": patient_info,
+        "features": resolved_features,
+        "messages": [
+            {
+                "id": greeting_msg.id,
+                "role": "patient",
+                "content": greeting,
+                "created_at": record.start_time.isoformat() if record.start_time else None,
+            }
+        ],
+        "scene": dict(record.runtime_state or {}).get("scene"),
+        "pending_questionnaires": 0,
+        "from_assignment": assignment_id is not None,
+    }
+    return record, greeting, session
 
 
 @router.post("/start", response_model=TrainingStartResponse)
@@ -277,7 +318,7 @@ def start_training(
 
     config = _build_config(req.features, req.time_limit_minutes)
 
-    record, greeting = _create_record(
+    record, greeting, session = _create_record(
         db,
         current_user.id,
         case,
@@ -295,12 +336,14 @@ def start_training(
         },
     )
     pending_questionnaires = _count_pending_questionnaires(db, case.id)
+    session["pending_questionnaires"] = pending_questionnaires
 
     return TrainingStartResponse(
         record_id=record.id,
         greeting=greeting,
         case_name=case.name,
         pending_questionnaires=pending_questionnaires,
+        session=session,
     )
 
 
@@ -391,7 +434,7 @@ def start_training_from_assignment(
         "behavior": assignment.behavior or {},
     }
 
-    record, greeting = _create_record(
+    record, greeting, session = _create_record(
         db,
         current_user.id,
         case,
@@ -410,6 +453,7 @@ def start_training_from_assignment(
         record_id=record.id,
         greeting=greeting,
         case_name=case.name,
+        session=session,
         pending_questionnaires=_count_pending_questionnaires(db, case.id),
     )
 

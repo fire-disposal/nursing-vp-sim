@@ -4566,11 +4566,97 @@ export interface components {
              * @default 0
              */
             initiative_count: number;
+            /** Scene */
+            scene?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Is Test
              * @default false
              */
             is_test: boolean;
+        };
+        /**
+         * TrainingSessionData
+         * @description 训练会话数据 — 在 TrainingStartResponse 中返回，前端可直接缓存跳过初始 GET /records/{id} 请求。
+         *
+         *     包含训练页首次渲染所需的全部数据，但排除评分/护理记录等记录回顾专有字段。
+         */
+        TrainingSessionData: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @default in_progress
+             */
+            status: string;
+            /**
+             * Training Type
+             * @default history_taking
+             */
+            training_type: string;
+            /** Case Id */
+            case_id: number;
+            /**
+             * Time Limit
+             * @default 20
+             */
+            time_limit: number;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+            /**
+             * Patient Name
+             * @default
+             */
+            patient_name: string;
+            /**
+             * Patient Age
+             * @default 0
+             */
+            patient_age: number;
+            /**
+             * Patient Gender
+             * @default
+             */
+            patient_gender: string;
+            /**
+             * Case Title
+             * @default
+             */
+            case_title: string;
+            /**
+             * Chief Complaint
+             * @default
+             */
+            chief_complaint: string;
+            /**
+             * Personality
+             * @default
+             */
+            personality: string;
+            /** Patient Info */
+            patient_info?: {
+                [key: string]: unknown;
+            } | null;
+            /** Case Data */
+            case_data?: {
+                [key: string]: unknown;
+            } | null;
+            /** Required Inquiries */
+            required_inquiries?: unknown[];
+            /** Exam Anchors */
+            exam_anchors?: {
+                [key: string]: unknown;
+            } | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            };
+            /**
+             * From Assignment
+             * @default false
+             */
+            from_assignment: boolean;
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -4599,6 +4685,7 @@ export interface components {
              * @default 0
              */
             pending_questionnaires: number;
+            session?: components["schemas"]["TrainingSessionData"] | null;
         };
         /** TrendStats */
         TrendStats: {

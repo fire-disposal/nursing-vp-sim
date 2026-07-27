@@ -1,10 +1,11 @@
 import { ListChecks } from "lucide-react";
 import { useMemo } from "react";
-import { useTrainingContext } from "@/engine/TrainingContext";
+import { useTrainingDynamic, useTrainingStatic } from "@/engine/TrainingLayerContexts";
 import { computeCovered } from "./tools/inquiryProgress";
 
 export function InquiryProgressChip() {
-	const { bus, messages, recordDetail } = useTrainingContext();
+	const { bus, recordDetail } = useTrainingStatic();
+	const { messages } = useTrainingDynamic();
 
 	const inquiries: string[] = useMemo(() => {
 		const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};

@@ -1,14 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { queryKeys } from "@/api/query-keys";
-import { getRecordDetail } from "@/api/training";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
@@ -18,11 +14,26 @@ import {
 	useEmotion,
 	usePortrait,
 } from "./PanelContext";
-import { PatientProvider, usePatient } from "./PatientProvider";
+import { PatientProvider } from "./PatientProvider";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
-import type { TrainingRecordDetail } from "./TrainingContext";
-import TrainingContext from "./TrainingContext";
+import {
+	TrainingDynamicProvider,
+	TrainingStaticProvider,
+	TrainingUIStateProvider,
+} from "./TrainingLayerContexts";
+import {
+	useEmotionSeed,
+	useInitialMessages,
+	usePatientData,
+	useRecordAsDetail,
+	useRecordCapabilities,
+	useRecordStatus,
+	useRemainingSeconds,
+	useSceneSeed,
+	useTimeLimit,
+	useTrainingType,
+} from "./TrainingDataContext";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
@@ -35,19 +46,22 @@ interface TrainingEngineProps {
 }
 
 function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
-	const {
-		patient,
-		trainingType,
-		loading,
-		error: patientError,
-		capabilities,
-		initialMessages,
-		timeLimit,
-		remainingSeconds,
-	} = usePatient();
 	const recordNum = Number(recordId);
 	const { error: toastError } = useToast();
 
+	// ── Data from context (single source: TrainingEntry's query) ──
+	const patient = usePatientData();
+	const trainingType = useTrainingType();
+	const capabilities = useRecordCapabilities();
+	const initialMessages = useInitialMessages();
+	const timeLimit = useTimeLimit();
+	const remainingSec = useRemainingSeconds();
+	const emotionSeed = useEmotionSeed();
+	const sceneSeed = useSceneSeed();
+	const recordStatus = useRecordStatus();
+	const recordDetail = useRecordAsDetail();
+
+	// ── Services ──
 	const busRef = useRef(createMessageBus());
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
@@ -71,14 +85,14 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		latencyMs: number;
 	} | null>(null);
 
+	// ── Merge initial messages from server ──
 	useEffect(() => {
 		if (initialMessages.length > 0) {
-			// 15s 轮询回填服务器历史 — mergeHistory 幂等去重，
-			// 修复"本地 UUID/number id 与服务器 string id 不匹配导致消息重复"
 			streamRef.current.mergeHistory(initialMessages);
 		}
 	}, [initialMessages]);
 
+	// ── Stream lifecycle ──
 	useEffect(() => {
 		streamRef.current.setRecordId(recordNum);
 		const unsub = streamRef.current.subscribe(() =>
@@ -105,6 +119,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.speak(firstPatient.content);
 	}, [messages, ttsAutoPlay]);
 
+	// ── Score/TTS lifecycle ──
 	useEffect(() => {
 		scoreRef.current.setRecordId(recordNum);
 		return () => scoreRef.current.dispose();
@@ -114,13 +129,14 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.setRecordId(recordNum);
 	}, [recordNum]);
 
+	// ── Portrait ──
 	useEffect(() => {
 		if (patient) {
 			setPortraitUrl(getPatientPortraitUrl(patient, null));
 		}
 	}, [patient, setPortraitUrl]);
 
-
+	// ── sendMessage ──
 	const sendMessage = useCallback(
 		async (text: string) => {
 			trainingStartedRef.current = true;
@@ -132,8 +148,8 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 					bus.emit("stream:chunk", chunk);
 				},
 				onPatientDone: () => {
-					const text = patientAccRef.current;
-					bus.emit("stream:done", text);
+					const txt = patientAccRef.current;
+					bus.emit("stream:done", txt);
 					patientAccRef.current = "";
 				},
 				onError: (err) => bus.emit("stream:error", err),
@@ -162,6 +178,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			await scoreRef.current.end();
 			setTrainingEnded(true);
 		} catch {
+			// endTraining failure is non-fatal — score polling may still succeed
 		}
 		busRef.current.emit("training:ended");
 	}, []);
@@ -203,6 +220,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		],
 	);
 
+	// ── Emotion changes ──
 	useEffect(() => {
 		return busRef.current.on(
 			"emotion:changed",
@@ -218,56 +236,37 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		);
 	}, [setEmotion, setTrustComfort, setPortraitUrl, patient]);
 
-
-
-	// 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)，仅一次。
-	const { data: _restoreRecord } = useQuery({
-		queryKey: queryKeys.training.record(String(recordNum)),
-		queryFn: () => getRecordDetail(recordNum).then((r) => r.data),
-		enabled: recordNum > 0,
-	});
+	// ── Seed emotion from server (was _restoreRecord query) ──
 	const emotionSeededRef = useRef(false);
 	useEffect(() => {
-		if (emotionSeededRef.current || !_restoreRecord) return;
-		const em = (_restoreRecord as unknown as {
-			emotion?: { trust?: number; comfort?: number; state?: string };
-		}).emotion;
-		if (em && typeof em.trust === "number" && typeof em.comfort === "number") {
-			busRef.current.emit("emotion:changed", {
-				state: em.state ?? "neutral",
-				trust: em.trust,
-				comfort: em.comfort,
-			});
-		}
+		if (emotionSeededRef.current || !emotionSeed) return;
+		busRef.current.emit("emotion:changed", emotionSeed);
 		emotionSeededRef.current = true;
-	}, [_restoreRecord]);
+	}, [emotionSeed]);
 
-	// 播种服务器端持久化的 scene 状态（生命体征/环境/患者状态），仅一次。
+	// ── Seed scene state from server ──
 	const sceneSeededRef = useRef(false);
 	useEffect(() => {
-		if (sceneSeededRef.current || !_restoreRecord) return;
-		const sc = (_restoreRecord as unknown as { scene?: Record<string, unknown> }).scene;
-		if (sc && Object.keys(sc).length > 0) {
-			busRef.current.emit("scene:state", sc);
-		}
+		if (sceneSeededRef.current || !sceneSeed) return;
+		busRef.current.emit("scene:state", sceneSeed);
 		sceneSeededRef.current = true;
-	}, [_restoreRecord]);
+	}, [sceneSeed]);
 
+	// ── Check completed status ──
 	useEffect(() => {
-		if (_restoreRecord) {
-			const rec = _restoreRecord as unknown as { status?: string };
-			if (rec.status === "completed") {
-				setTrainingEnded(true);
-			}
+		if (recordStatus === "completed") {
+			setTrainingEnded(true);
 		}
-	}, [_restoreRecord]);
+	}, [recordStatus]);
 
+	// ── Stream error toast ──
 	useEffect(() => {
 		return busRef.current.on("stream:error", (err: string) => {
 			toastError(err || "发送消息失败，请重试");
 		});
 	}, [toastError]);
 
+	// ── TTS provider status ──
 	useEffect(() => {
 		return busRef.current.on(
 			"tts:provider-status",
@@ -284,108 +283,94 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		if (!next) ttsRef.current.stop();
 	}, [ttsAutoPlay]);
 
-	const ctxValue = useMemo(
+	// ── Split context values ──
+	const staticCtx = useMemo(
 		() => ({
 			bus: busRef.current,
 			recordId,
-			trainingType,
 			patient: patient!,
-			messages,
+			trainingType,
 			capabilities,
-			ttsAutoPlay,
-			sending,
 			timeLimitMinutes: timeLimit,
-			remainingSeconds,
-		voiceStatus,
-		recordDetail: _restoreRecord as TrainingRecordDetail | null,
-		toggleTts: toggleTtsCb,
-		endTraining,
-	}),
-	[
-		recordId,
-		trainingType,
-		patient,
-		messages,
-		capabilities,
-		ttsAutoPlay,
-		sending,
-		timeLimit,
-		remainingSeconds,
-		voiceStatus,
-		_restoreRecord,
-		toggleTtsCb,
-		endTraining,
-	],
+			recordDetail,
+		}),
+		[recordId, patient, trainingType, capabilities, timeLimit, recordDetail],
 	);
 
-	if (loading) {
-		return (
-			<div className="flex flex-col h-screen" style={{ height: "100dvh" }}>
-				<div className="p-3 border-b shrink-0">
-					<LoadingSkeleton variant="stats" />
-				</div>
-				<div className="flex-1 p-4 overflow-hidden">
-					<LoadingSkeleton variant="card" />
-				</div>
-			</div>
-		);
-	}
+	const dynamicCtx = useMemo(
+		() => ({ messages, sending }),
+		[messages, sending],
+	);
+
+	const uiCtx = useMemo(
+		() => ({
+			ttsAutoPlay,
+			toggleTts: toggleTtsCb,
+			voiceStatus,
+			remainingSeconds: remainingSec,
+			endTraining,
+		}),
+		[ttsAutoPlay, toggleTtsCb, voiceStatus, remainingSec, endTraining],
+	);
 
 	if (!patient) {
 		return (
 			<div className="flex h-screen items-center justify-center text-muted-foreground" style={{ height: "100dvh" }}>
-				{patientError || "患者信息加载失败"}
+				患者信息加载失败 — 请返回重试或刷新页面
 			</div>
 		);
 	}
+
 	return (
-		<>
-		<TrainingContext.Provider value={ctxValue}>
-			<div className="flex flex-1 min-h-0">
-				<div className="flex flex-col flex-1 min-w-0">
-				<TrainingHeader />
-				<div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
-					<ErrorBoundary
-						fallback={
-							<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-								<div className="text-sm font-medium">对话区渲染出错</div>
-								<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
+		<TrainingStaticProvider value={staticCtx}>
+			<TrainingDynamicProvider value={dynamicCtx}>
+				<TrainingUIStateProvider value={uiCtx}>
+					<div className="flex flex-1 min-h-0">
+						<div className="flex flex-col flex-1 min-w-0">
+							<TrainingHeader />
+							<div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+								<ErrorBoundary
+									fallback={
+										<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
+											<div className="text-sm font-medium">对话区渲染出错</div>
+											<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
+										</div>
+									}
+								>
+									<ChatArea
+										messages={messages}
+										patient={patient}
+										sending={sending}
+										trainingEnded={trainingEnded}
+										onSend={sendMessage}
+										bus={busRef.current}
+										capabilities={capabilities}
+										recordId={recordNum}
+										hasHistory={initialMessages.length > 0}
+										recordDetail={recordDetail}
+										endTraining={endTraining}
+									/>
+								</ErrorBoundary>
 							</div>
-						}
-					>
-						<ChatArea
-							messages={messages}
-							patient={patient}
-							sending={sending}
-							trainingEnded={trainingEnded}
-							onSend={sendMessage}
-							bus={busRef.current}
-							capabilities={capabilities}
-							recordId={recordNum}
-							hasHistory={initialMessages.length > 0}
-							recordDetail={_restoreRecord as TrainingRecordDetail | null}
-							endTraining={endTraining}
-						/>
-					</ErrorBoundary>
-				</div>
-				</div>
-				{children}
-			</div>
-		</TrainingContext.Provider>
-			<ScoringOverlay
-				bus={busRef.current}
-				getProgress={getProgress}
-				subscribeProgress={subscribeProgress}
-				onRetry={retryScoring}
-			/>
-			<ScoreCard bus={busRef.current} recordId={recordId} />
-		</>
+						</div>
+						{children}
+					</div>
+					<ScoringOverlay
+						bus={busRef.current}
+						getProgress={getProgress}
+						subscribeProgress={subscribeProgress}
+						onRetry={retryScoring}
+					/>
+					<ScoreCard bus={busRef.current} recordId={recordId} />
+				</TrainingUIStateProvider>
+			</TrainingDynamicProvider>
+		</TrainingStaticProvider>
 	);
 }
 
 export function TrainingEngine(props: TrainingEngineProps) {
 	return (
-		<PatientProvider recordId={props.recordId}>
+		<PatientProvider>
 			<PanelStateProvider>
 				<TrainingEngineContent {...props} />
 			</PanelStateProvider>

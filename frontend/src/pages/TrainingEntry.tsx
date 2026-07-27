@@ -4,18 +4,21 @@ import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
-import LoadingState from "@/components/ui/loading-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getRecordDetail } from "../api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
+import { TrainingDataProvider } from "@/engine/TrainingDataContext";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
 
+	// 唯一数据查询 — 整个训练页子树共享此缓存
 	const { data: record, isLoading, error, refetch } = useQuery({
-		queryKey: queryKeys.training.record(recordId),
+		queryKey: queryKeys.training.detail(recordId ?? ""),
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
-		retry: 5,
+		retry: 3,
+		staleTime: 5 * 60_000,  // 5min — 信任 startTraining 返回的 session 缓存数据
 	});
 
 	const caseId = record?.case_id ?? null;
@@ -37,7 +40,7 @@ export default function TrainingEntry() {
 	}, [caseId, qCheck]);
 
 	if (!recordId) return <div>缺少训练记录 ID</div>;
-	if (isLoading) return <LoadingState />;
+	if (isLoading) return <TrainingSkeleton />;
 	if (error) {
 		return (
 			<div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
@@ -63,7 +66,7 @@ export default function TrainingEntry() {
 	const pendingQ = (record as { pending_questionnaires?: number }).pending_questionnaires ?? 0;
 
 	return (
-		<>
+		<TrainingDataProvider value={record}>
 			{qShouldShow && checkResponse && (
 				<QuestionnaireModal
 					open={qShouldShow}
@@ -81,6 +84,19 @@ export default function TrainingEntry() {
 			)}
 			{/* key={recordId}：切换病例时强制重挂场景子树，避免复用旧对话状态 */}
 			<SceneComponent key={recordId} recordId={recordId} />
-		</>
+		</TrainingDataProvider>
+	);
+}
+
+function TrainingSkeleton() {
+	return (
+		<div className="flex flex-col h-screen" style={{ height: "100dvh" }}>
+			<div className="p-3 border-b shrink-0">
+				<LoadingSkeleton variant="stats" />
+			</div>
+			<div className="flex-1 p-4 overflow-hidden">
+				<LoadingSkeleton variant="card" />
+			</div>
+		</div>
 	);
 }

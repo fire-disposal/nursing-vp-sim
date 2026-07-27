@@ -8,14 +8,14 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Bottomsheet from "@/components/ui/bottomsheet";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
-import { useTrainingContext } from "@/engine/TrainingContext";
+import { useTrainingStatic } from "@/engine/TrainingLayerContexts";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useToolBridge } from "@/hooks/useToolBridge";
 import { getTools, TOOL_META } from "./tools/registry";
 
 export default function SceneToolbar() {
-  const { bus, capabilities, trainingType, recordId, recordDetail } = useTrainingContext();
+  const { bus, capabilities, trainingType, recordId, recordDetail } = useTrainingStatic();
   const tools: TrainingTool[] = getTools(trainingType, capabilities);
   const [activeId, setActiveId] = useState<string | null>(null);
 

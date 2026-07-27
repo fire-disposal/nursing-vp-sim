@@ -19,6 +19,7 @@ from schemas.training.scoring import ScoringStatusResponse, ScoringTriggerRespon
 from schemas.training.session import (
     ChatMessageRequest,
     ChatMessageResponse,
+    TrainingSessionData,
     TrainingStartRequest,
     TrainingStartResponse,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "TrainingNotificationItem",
     "TrainingRecordBrief",
     "TrainingRecordDetail",
+    "TrainingSessionData",
     "TrainingStartRequest",
     "TrainingStartResponse",
 ]

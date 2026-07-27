@@ -4,6 +4,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 import FeedbackModal from "./FeedbackModal";
@@ -46,10 +47,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 		setShowPrompt(false);
 	}, []);
 
+	const value = useMemo(
+		() => ({ openFeedback, isOpen, showPrompt, setShowPrompt, closeFeedback }),
+		[openFeedback, isOpen, showPrompt, closeFeedback],
+	);
+
 	return (
-		<FeedbackContext.Provider
-			value={{ openFeedback, isOpen, showPrompt, setShowPrompt, closeFeedback }}
-		>
+		<FeedbackContext.Provider value={value}>
 			{children}
 			<FeedbackModal
 				open={isOpen}

@@ -112,12 +112,22 @@ export default function TrainingSelect() {
     return map;
   }, [inProgressData]);
 
+  type StartResponse = components["schemas"]["TrainingStartResponse"];
+
   const startMutation = useMutation({
     mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
-    onSuccess: (res: { data: { record_id: number } }) => navigate(`/training/${res.data.record_id}`),
+    onSuccess: (res) => {
+      const data: StartResponse = res.data;
+      if (data.session) {
+        queryClient.setQueryData(
+          queryKeys.training.detail(String(data.record_id)),
+          data.session,
+        );
+      }
+      navigate(`/training/${data.record_id}`);
+    },
     onError: () => toast.error("开始训练失败，请重试"),
   });
-
   const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
     const ok = await confirm({
       title: "重新开始训练", message: `放弃「${c.name}」当前未完成的训练并重新开始？`, confirmLabel: "放弃并重开", danger: true,
@@ -127,13 +137,19 @@ export default function TrainingSelect() {
     queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
     startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 });
   };
-
   const handleStartAssignment = async (assignmentId: string) => {
     try {
       const res = await startAssignment(assignmentId);
       const data = res.data as Record<string, unknown>;
       if (typeof (data as { record_id?: number }).record_id === "number") {
-        navigate(`/training/${(data as { record_id: number }).record_id}`);
+        const recordId = (data as { record_id: number }).record_id;
+        if (data.session) {
+          queryClient.setQueryData(
+            queryKeys.training.detail(String(recordId)),
+            data.session,
+          );
+        }
+        navigate(`/training/${recordId}`);
       }
     } catch (err: unknown) { toast.apiError(err, "开始作业失败，请刷新后重试"); }
   };

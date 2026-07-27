@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { usePortrait, useTrainingContext } from "@/engine";
+import { usePortrait } from "@/engine";
+import { useTrainingDynamic, useTrainingStatic, useTrainingUIState } from "@/engine/TrainingLayerContexts";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -35,15 +36,20 @@ function WSStatusDot() {
  * This avoids the prop-explosion problem that accumulated 13+ props.
  */
 export function TrainingHeader() {
+	const staticCtx = useTrainingStatic();
+	const dynamicCtx = useTrainingDynamic();
+	const uiCtx = useTrainingUIState();
 	const {
 		patient,
-		messages,
+		timeLimitMinutes,
+	} = staticCtx;
+	const { messages } = dynamicCtx;
+	const {
 		ttsAutoPlay,
 		toggleTts: onTtsToggle,
 		endTraining: onEnd,
-		timeLimitMinutes,
 		remainingSeconds,
-	} = useTrainingContext();
+	} = uiCtx;
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();

@@ -13932,6 +13932,18 @@
             "title": "Initiative Count",
             "default": 0
           },
+          "scene": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
           "is_test": {
             "type": "boolean",
             "title": "Is Test",
@@ -13950,6 +13962,128 @@
           "messages"
         ],
         "title": "TrainingRecordDetail"
+      },
+      "TrainingSessionData": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "in_progress"
+          },
+          "training_type": {
+            "type": "string",
+            "title": "Training Type",
+            "default": "history_taking"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "time_limit": {
+            "type": "integer",
+            "title": "Time Limit",
+            "default": 20
+          },
+          "remaining_seconds": {
+            "type": "integer",
+            "title": "Remaining Seconds"
+          },
+          "patient_name": {
+            "type": "string",
+            "title": "Patient Name",
+            "default": ""
+          },
+          "patient_age": {
+            "type": "integer",
+            "title": "Patient Age",
+            "default": 0
+          },
+          "patient_gender": {
+            "type": "string",
+            "title": "Patient Gender",
+            "default": ""
+          },
+          "case_title": {
+            "type": "string",
+            "title": "Case Title",
+            "default": ""
+          },
+          "chief_complaint": {
+            "type": "string",
+            "title": "Chief Complaint",
+            "default": ""
+          },
+          "personality": {
+            "type": "string",
+            "title": "Personality",
+            "default": ""
+          },
+          "patient_info": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Info"
+          },
+          "case_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Data"
+          },
+          "required_inquiries": {
+            "items": {},
+            "type": "array",
+            "title": "Required Inquiries"
+          },
+          "exam_anchors": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Anchors"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "from_assignment": {
+            "type": "boolean",
+            "title": "From Assignment",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "case_id",
+          "remaining_seconds"
+        ],
+        "title": "TrainingSessionData",
+        "description": "训练会话数据 — 在 TrainingStartResponse 中返回，前端可直接缓存跳过初始 GET /records/{id} 请求。\n\n包含训练页首次渲染所需的全部数据，但排除评分/护理记录等记录回顾专有字段。"
       },
       "TrainingStartRequest": {
         "properties": {
@@ -14009,6 +14143,16 @@
             "type": "integer",
             "title": "Pending Questionnaires",
             "default": 0
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSessionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { useTrainingContext } from "@/engine/TrainingContext";
+import { useTrainingStatic } from "@/engine/TrainingLayerContexts";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
 import { useToolBridge } from "@/hooks/useToolBridge";
@@ -13,7 +13,7 @@ const PANEL_WIDTH_DEFAULT = 300;
 const ANIM_DURATION = 200; // ms — matches Tailwind duration-200
 
 export function SceneRenderer() {
-  const { bus, capabilities, recordId, trainingType, recordDetail } = useTrainingContext();
+  const { bus, capabilities, recordId, trainingType, recordDetail } = useTrainingStatic();
   const tools = getTools(trainingType, capabilities);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [closingId, setClosingId] = useState<string | null>(null);
