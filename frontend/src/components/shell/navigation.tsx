@@ -189,6 +189,12 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "作业管理", icon: ClipboardList, section: "admin", group: "teaching" },
 	},
 	{
+		path: "/admin/assignments/:id",
+		element: <AssignmentDetailPage />,
+		permission: "assignment_manage",
+		activity: "manage",
+	},
+	{
 		path: "/admin/classes/:classId",
 		element: <ClassDetailPage />,
 		permission: "grade_class_manage",
@@ -241,6 +247,13 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "api_manage",
 		activity: "manage",
 		nav: { label: "系统通知", icon: Megaphone, section: "admin", group: "system" },
+	},
+	{
+		path: "/admin/feedback",
+		element: <AdminFeedback />,
+		permission: "feedback_review",
+		activity: "manage",
+		nav: { label: "用户反馈", icon: MessageSquare, section: "admin", group: "system" },
 	},
 ];
 

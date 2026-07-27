@@ -32,6 +32,8 @@ export class ScoreManager {
 	private _visibilityHandler: (() => void) | null = null;
 	private _sseThought: string = "";
 	private _abortController: AbortController | null = null;
+	private _retryBackoffMs = 2000;
+	private _lastRetryTime = 0;
 
 	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
 
@@ -226,6 +228,8 @@ export class ScoreManager {
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "" };
 		this._sseThought = "";
+		this._retryBackoffMs = 2000;
+		this._lastRetryTime = 0;
 		this.notify();
 	}
 
@@ -268,9 +272,19 @@ export class ScoreManager {
 	}
 
 	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。 */
+	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。
+	 *  内置指数退避：首次 2s，每次失败翻倍，最大 30s，成功后重置。 */
 	async retry(): Promise<void> {
 		if (!this.recordId) return;
 		if (this._polling) return;
+
+		// 指数退避冷却检查
+		const now = Date.now();
+		const elapsed = now - this._lastRetryTime;
+		if (elapsed < this._retryBackoffMs) {
+			throw new Error(`请等待 ${Math.ceil((this._retryBackoffMs - elapsed) / 1000)} 秒后重试`);
+		}
+
 		this.stopPolling();
 		this._polling = true;
 		this._score = null;
@@ -278,8 +292,11 @@ export class ScoreManager {
 		this.notify();
 		try {
 			await retryScoring(this.recordId);
+			this._retryBackoffMs = 2000; // 成功后重置退避
 		} catch (e) {
 			this._polling = false;
+			this._lastRetryTime = Date.now();
+			this._retryBackoffMs = Math.min(this._retryBackoffMs * 2, 30000);
 			this._progress = { phase: "failed", percentage: 0, message: "重新触发评分失败，请稍后重试" };
 			this.notify();
 			throw e;

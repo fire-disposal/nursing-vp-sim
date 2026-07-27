@@ -80,7 +80,7 @@ export function ScoringOverlay({
 		if (!onRetry || retrying) return;
 		setRetrying(true);
 		try { await onRetry(); } catch { /* toast handled by caller */ }
-		finally { setRetrying(false); }
+		finally { setTimeout(() => setRetrying(false), 3000); }
 	};
 
 	return (

@@ -34,6 +34,9 @@ class TrainingSessionData(BaseModel):
     exam_anchors: dict | None = None
     features: dict[str, bool] = Field(default_factory=dict)
     from_assignment: bool = False
+    messages: list = Field(default_factory=list)
+    scene: dict | None = None
+    pending_questionnaires: int = 0
 
 
 class TrainingStartResponse(BaseModel):

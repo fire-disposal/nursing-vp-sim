@@ -42,6 +42,7 @@ export default function BreadcrumbBar({ className }: { className?: string }) {
 		} else if (pathname.startsWith("/admin/users/") && pathname !== "/admin/users") {
 			result.push({ label: "用户管理", to: "/admin/users" });
 		} else if (pathname.startsWith("/admin/assignments/") && pathname !== "/admin/assignments") {
+		result.push({ label: "作业管理", to: "/admin/assignments" });
 		}
 
 		result.push({ label: route.nav.label });

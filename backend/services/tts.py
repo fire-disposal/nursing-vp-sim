@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from core.config import TTS_POOL_SIZE
+from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from core.unit_of_work import unit_of_work
@@ -145,7 +146,6 @@ class TTSService:
             fmt=fmt,
             sample_rate=sample_rate,
         )
-
     def _write_log(
         self,
         *,
@@ -158,8 +158,8 @@ class TTSService:
     ) -> None:
         cost = round(text_length * _COST_PER_CHAR, 6) if status == "success" else 0.0
         try:
-            with unit_of_work(self.db):
-                self.db.add(
+            with SessionLocal() as log_db, unit_of_work(log_db):
+                log_db.add(
                     VoiceCallLog(
                         user_id=user_id,
                         record_id=record_id,

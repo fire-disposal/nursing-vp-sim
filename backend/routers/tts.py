@@ -41,6 +41,7 @@ async def synthesize(
 
     client: VolcBidirectionalTTSClient | None = request.app.state.tts_client
     emotion_state = _resolve_emotion(request, req.record_id, db)
+    db.commit()  # 持久化训练会话状态，释放 row lock
 
     cfg = getattr(request.app.state, "tts_config", {})
     if not cfg:
@@ -86,6 +87,7 @@ async def synthesize_stream(
 
     pool: TTSConnectionPool | None = getattr(request.app.state, "tts_pool", None)
     emotion_state = _resolve_emotion(request, req.record_id, db)
+    db.commit()  # 持久化训练会话状态，释放 row lock，避免流式期间锁争用
 
     cfg = getattr(request.app.state, "tts_config", {})
     if not cfg:
