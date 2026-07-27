@@ -7771,6 +7771,41 @@
         ]
       }
     },
+    "/api/telemetry": {
+      "post": {
+        "tags": [
+          "遥测"
+        ],
+        "summary": "Ingest Telemetry",
+        "description": "Ingest frontend error telemetry.  Always returns 204 (no content).\n\nRate limited per IP: 5 requests per 60-second window.\nMax 20 errors per payload.",
+        "operationId": "ingest_telemetry_api_telemetry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tts/synthesize": {
       "post": {
         "tags": [
@@ -9710,6 +9745,41 @@
           "total_sessions"
         ],
         "title": "DurationStats"
+      },
+      "ErrorItem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Type",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Message",
+            "default": ""
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Url",
+            "default": ""
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id",
+            "default": 0
+          },
+          "ua": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Ua",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ErrorItem"
       },
       "FallbackStateResponse": {
         "properties": {
@@ -13372,6 +13442,20 @@
         ],
         "title": "TeacherSummaryItem"
       },
+      "TelemetryPayload": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorItem"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "title": "TelemetryPayload"
+      },
       "TestAllResultsResponse": {
         "properties": {
           "results": {
@@ -14074,6 +14158,28 @@
             "type": "boolean",
             "title": "From Assignment",
             "default": false
+          },
+          "messages": {
+            "items": {},
+            "type": "array",
+            "title": "Messages"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
+          "pending_questionnaires": {
+            "type": "integer",
+            "title": "Pending Questionnaires",
+            "default": 0
           }
         },
         "type": "object",

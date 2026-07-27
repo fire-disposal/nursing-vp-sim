@@ -2094,6 +2094,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Telemetry
+         * @description Ingest frontend error telemetry.  Always returns 204 (no content).
+         *
+         *     Rate limited per IP: 5 requests per 60-second window.
+         *     Max 20 errors per payload.
+         */
+        post: operations["ingest_telemetry_api_telemetry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tts/synthesize": {
         parameters: {
             query?: never;
@@ -2920,6 +2943,34 @@ export interface components {
             total_minutes: number;
             /** Total Sessions */
             total_sessions: number;
+        };
+        /** ErrorItem */
+        ErrorItem: {
+            /**
+             * Type
+             * @default
+             */
+            type: string;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+            /**
+             * User Id
+             * @default 0
+             */
+            user_id: number;
+            /**
+             * Ua
+             * @default
+             */
+            ua: string;
         };
         /** FallbackStateResponse */
         FallbackStateResponse: {
@@ -4327,6 +4378,11 @@ export interface components {
              */
             total_minutes: number;
         };
+        /** TelemetryPayload */
+        TelemetryPayload: {
+            /** Errors */
+            errors?: components["schemas"]["ErrorItem"][];
+        };
         /** TestAllResultsResponse */
         TestAllResultsResponse: {
             /** Results */
@@ -4657,6 +4713,17 @@ export interface components {
              * @default false
              */
             from_assignment: boolean;
+            /** Messages */
+            messages?: unknown[];
+            /** Scene */
+            scene?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Pending Questionnaires
+             * @default 0
+             */
+            pending_questionnaires: number;
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -9435,6 +9502,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    ingest_telemetry_api_telemetry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
