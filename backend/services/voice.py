@@ -34,7 +34,6 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
         id=vc.id,
         provider=vc.provider,
         api_key_masked=_mask_api_key(vc),
-        api_key_suffix=vc.api_key_suffix or "****",
         tts_resource_id=vc.tts_resource_id,
         tts_speaker=_fallback_speaker(vc),
         tts_model=vc.tts_model,

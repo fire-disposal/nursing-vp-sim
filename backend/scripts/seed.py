@@ -268,8 +268,7 @@ def _seed_voice() -> None:
             db.add(
                 VoiceConfig(
                     provider="volcengine",
-                    api_key_enc="",
-                    api_key_suffix="",
+                    api_key="",
                     tts_resource_id="seed-tts-2.0",
                     tts_speaker="zh_female_vv_uranus_bigtts",
                     tts_model="seed-tts-2.0-standard",

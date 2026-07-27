@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import time
 import pytest
 
 from infrastructure.llm import ProfileRouter
@@ -73,8 +74,8 @@ def test_select_handles_naive_degraded_until_expired():
     """回归：DB 返回 naive datetime（已过期）时不得抛 TypeError，应恢复为 active。"""
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
-    secret.degraded_until = datetime.now() - timedelta(minutes=10)  # naive, expired
-    router._profiles = {secret.id: secret}
+    secret.degraded_until = datetime.utcnow() - timedelta(minutes=10)  # naive UTC, expired
+    secret._last_db_check = time.monotonic()  # suppress DB refresh
     router._bindings = {"qa": secret}
 
     router.select("qa")
@@ -85,7 +86,8 @@ def test_select_handles_naive_degraded_until_active():
     """回归：naive 且未过期的 degraded_until 也不得崩溃，应保持降级。"""
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
-    secret.degraded_until = datetime.now() + timedelta(minutes=10)
+    secret.degraded_until = datetime.utcnow() + timedelta(minutes=10)  # naive UTC, active
+    secret._last_db_check = time.monotonic()  # suppress DB refresh
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": secret}
 
