@@ -87,12 +87,12 @@ def _recover_stuck_scoring_records():
                 rec.scoring_status = "completed"
                 rec.scoring_error = None
             else:
-                rec.scoring_status = "failed"
-                rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
+                rec.scoring_status = "pending"
+                rec.scoring_error = None
         db.commit()
         if stuck:
             log.info(
-                "恢复了 %d 条卡住的评分记录",
+                "恢复了 %d 条卡住的评分记录（已置为 pending，等待重试）",
                 len(stuck),
                 extra={"count": len(stuck), "action": "scoring_recovery"},
             )
@@ -101,6 +101,58 @@ def _recover_stuck_scoring_records():
     finally:
         db.close()
 
+
+
+async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
+    """Re-enqueue scoring for records left in 'pending' state by startup recovery."""
+    from core.database import SessionLocal
+    from models import Case, TrainingRecord
+
+    db = SessionLocal()
+    try:
+        pending = (
+            db.query(TrainingRecord)
+            .filter(
+                TrainingRecord.scoring_status == "pending",
+                TrainingRecord.status == "completed",
+            )
+            .all()
+        )
+        if not pending:
+            return
+
+        task_queue = getattr(app.state, "task_queue", None)
+        if task_queue is None:
+            log.warning("TaskQueue not ready, %d pending scoring records will retry on next restart", len(pending))
+            return
+
+        enqueued = 0
+        for record in pending:
+            case = db.query(Case).filter(Case.id == record.case_id).first()
+            case_data = record.case_snapshot or (case.case_data if case else {})
+            try:
+                from contexts.training.router.scoring import _run_scoring_background
+
+                await task_queue.enqueue(
+                    lambda rid=record.id, cd=case_data: _run_scoring_background(
+                        rid,
+                        cd,
+                        llm_client=app.state.llm_client,
+                        tracker=getattr(app.state, "scoring_tracker", None),
+                        realtime_hub=app.state.realtime_hub,
+                    ),
+                    priority=5,
+                )
+                enqueued += 1
+            except Exception:
+                log.exception("Failed to re-enqueue scoring for record_id=%d", record.id)
+
+        if enqueued:
+            log.info("Re-enqueued %d pending scoring records after restart", enqueued)
+    except Exception:
+        log.exception("Failed to re-enqueue pending scoring records")
+    finally:
+        db.close()
 
 def _warm_knowledge_base() -> None:
     """Index and warm knowledge base for QA. Non-fatal on failure."""
@@ -173,6 +225,8 @@ async def lifespan(app: FastAPI):
     from bootstrap import startup as bootstrap_startup
 
     await bootstrap_startup(app)
+    # Re-enqueue scoring for records recovered as 'pending' on startup
+    await _re_enqueue_pending_scoring(app)
     yield
     await bootstrap_shutdown(app)
 
