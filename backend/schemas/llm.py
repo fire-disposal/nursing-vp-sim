@@ -13,6 +13,8 @@ class ApiSecretCreate(BaseModel):
     price_input_per_1m: float = Field(default=0.5, ge=0)
     price_output_per_1m: float = Field(default=0.5, ge=0)
     monthly_cost_limit: float | None = Field(default=None, ge=0)
+    priority: int = Field(default=0, ge=0)
+    model_override: str | None = Field(default=None, max_length=80)
 
 
 class ApiSecretUpdate(BaseModel):

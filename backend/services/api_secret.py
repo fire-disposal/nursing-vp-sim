@@ -69,6 +69,8 @@ class ApiSecretService:
                     price_input_per_1m=data.get("price_input_per_1m", 0),
                     price_output_per_1m=data.get("price_output_per_1m", 0),
                     monthly_cost_limit=data.get("monthly_cost_limit"),
+                    priority=data.get("priority", 0),
+                    model_override=data.get("model_override"),
                 )
             )
         self.db.refresh(s)
