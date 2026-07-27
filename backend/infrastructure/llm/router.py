@@ -72,20 +72,20 @@ class ProfileRouter:
     def select(self, purpose: str):
         now = datetime.now(UTC)
 
+        # Phase 1: lock → check bindings, detect if DB refresh needed
+        refresh_id: int | None = None
         with self._state_lock:
             if self._global_degraded_until and now < self._global_degraded_until:
                 raise RuntimeError("所有档案不可用，全局降级中")
 
             binding = self._bindings.get(purpose)
-
-            # Refresh cached binding from DB periodically
             if binding:
                 last_check = getattr(binding, "_last_db_check", 0.0)
                 if _time.monotonic() - last_check > 5.0:
-                    self._refresh_profile_from_db(binding)
+                    refresh_id = binding.id
                     binding._last_db_check = _time.monotonic()
 
-            # Check cached binding
+            # Fast path: cached active binding — return immediately
             if binding and binding.status == "active":
                 return binding
             if binding and binding.status == "degraded":
@@ -98,7 +98,12 @@ class ProfileRouter:
                     binding.consecutive_failures = 0
                     return binding
 
-            # No cached binding or it's degraded — iterate profiles by priority
+        # Phase 2: no lock — sync DB refresh (avoids blocking event loop)
+        if refresh_id is not None:
+            self._refresh_profile_from_db(refresh_id)
+
+        # Phase 3: lock → iterate profiles, pick best
+        with self._state_lock:
             sorted_profiles = sorted(
                 self._profiles.values(),
                 key=lambda p: (getattr(p, "priority", 0), getattr(p, "id", 0)),
@@ -150,6 +155,9 @@ class ProfileRouter:
         latency_ms: int = 0,
         error: str | None = None,
     ):
+        should_persist = False
+        persist_profile = None
+
         with self._state_lock:
             profile = self._profiles.get(config.id)
             if not profile:
@@ -183,31 +191,30 @@ class ProfileRouter:
                 profile.total_cost_today = float(profile.total_cost_today or 0) + input_cost + output_cost
                 profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + input_cost + output_cost
 
-            should_persist = success or profile.status == "degraded"
-            if should_persist and _time.monotonic() - self._last_persist_ts.get(config.id, 0) > 5:
-                self._persist_stats(profile)
+            if (success or profile.status == "degraded") and _time.monotonic() - self._last_persist_ts.get(config.id, 0) > 5:
+                should_persist = True
+                persist_profile = profile
                 self._last_persist_ts[config.id] = _time.monotonic()
+
+        # Persist outside lock to avoid blocking event loop
+        if should_persist and persist_profile:
+            self._persist_stats(persist_profile)
 
     def degraded_count(self) -> int:
         with self._state_lock:
             return sum(1 for p in self._profiles.values() if p.status == "degraded")
 
-    @property
-    def global_degraded(self) -> bool:
-        if self._global_degraded_until:
-            return datetime.now(UTC) < self._global_degraded_until
-        return False
-
-    def _refresh_profile_from_db(self, profile) -> None:
-        """Refresh a single profile from DB. Caller MUST hold _state_lock."""
+    def _refresh_profile_from_db(self, profile_id: int) -> None:
+        """Refresh a single profile from DB. Caller MUST NOT hold _state_lock."""
         from services.llm_data import LLMDataService
 
         try:
-            fresh = LLMDataService.get_profile(profile.id)
+            fresh = LLMDataService.get_profile(profile_id)
             if fresh:
-                self._profiles[profile.id] = fresh
+                with self._state_lock:
+                    self._profiles[profile_id] = fresh
         except Exception:
-            log.debug("_refresh_profile_from_db failed for id=%d", profile.id, exc_info=True)
+            log.debug("_refresh_profile_from_db failed for id=%d", profile_id, exc_info=True)
 
     def _persist_stats(self, profile) -> None:
         from services.llm_data import LLMDataService
