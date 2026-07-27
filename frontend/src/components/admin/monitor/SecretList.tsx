@@ -31,17 +31,43 @@ export default function SecretList({
 		<div className="border border-border rounded-lg overflow-hidden">
 			<table className="w-full text-sm">
 				<tbody className="divide-y divide-border">
+					{envFallback?.available !== undefined && (
+						<tr className="bg-emerald-50/50 dark:bg-emerald-950/20">
+							<td className="py-2 px-3 whitespace-nowrap">
+								<span className="inline-block w-2 h-2 rounded-full mr-2 align-middle bg-green-500" />
+								<span className="font-semibold">
+									环境变量
+								</span>
+								<span className="ml-1 text-[10px] px-1 py-px rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+									当前
+								</span>
+							</td>
+							<td className="py-2 px-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
+								sk-...{envFallback?.key_suffix || "****"}
+							</td>
+							<td className="py-2 px-3 text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+								{envFallback?.available ? "可用" : "不可用"}
+							</td>
+							<td className="py-2 px-3 text-xs text-muted-foreground/60 whitespace-nowrap">
+								{(envFallback?.call_count ?? 0) > 0
+									? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
+									: ""}
+							</td>
+							<td className="py-2 px-3" />
+						</tr>
+					)}
 					{[...secrets]
 						.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
 						.map((s) => {
 						const cost = Number(s.monthly_cost_used ?? 0);
 						const limit = s.monthly_cost_limit ?? null;
+						const isDisabled = s.status === "disabled";
 						const recovery =
 							s.status === "degraded"
 								? recoveryText(s.degraded_until, s.degraded_reason)
 								: "";
 						return (
-							<tr key={s.id} className="hover:bg-muted/40">
+							<tr key={s.id} className={cn("hover:bg-muted/40", isDisabled && "opacity-50")}>
 								<td className="py-2 px-3 whitespace-nowrap">
 									<span
 										className={cn(
@@ -50,6 +76,11 @@ export default function SecretList({
 										)}
 									/>
 									<span className="font-semibold">{s.label}</span>
+									{isDisabled && (
+										<span className="ml-1 text-[10px] text-muted-foreground/50">
+											已停用
+										</span>
+									)}
 								</td>
 								<td className="py-2 px-3 whitespace-nowrap">
 									<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
@@ -60,19 +91,10 @@ export default function SecretList({
 									sk-...{s.key_suffix}
 								</td>
 								<td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
-									{statusText(s.status)}
-									{s.status === "degraded" && (
-										<span className="text-muted-foreground/60">
-											{" · "}
-											{degradedReasonLabel(s.degraded_reason)}
-											{recovery ? ` · ${recovery}` : ""}
-										</span>
-									)}
+									{isDisabled ? "已停用" : statusText(s.status)}
 								</td>
 								<td className="py-2 px-3 text-xs whitespace-nowrap">
-									<span
-										className={cn(costColorClass(cost, limit))}
-									>
+									<span className={cn(costColorClass(cost, limit))}>
 										¥{cost.toFixed(2)} /{" "}
 										{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
 									</span>
@@ -96,53 +118,6 @@ export default function SecretList({
 							</tr>
 						);
 					})}
-					{envFallback?.available !== undefined && (
-						<tr className="bg-muted/20">
-							<td className="py-2 px-3 whitespace-nowrap">
-								<span
-									className={cn(
-										"inline-block w-2 h-2 rounded-full mr-2 align-middle",
-										envFallback?.degraded_until &&
-											new Date(envFallback.degraded_until) > new Date()
-											? "bg-amber-500"
-											: envFallback?.available
-												? "bg-green-400"
-												: "bg-red-400",
-									)}
-								/>
-								<span className="font-semibold text-muted-foreground">
-									环境变量兜底
-								</span>
-								<span className="ml-1 text-[10px] px-1 py-px rounded bg-muted text-muted-foreground/70">
-									兜底
-								</span>
-							</td>
-							<td className="py-2 px-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
-								sk-...{envFallback?.key_suffix || "****"}
-							</td>
-							<td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
-								{							envFallback?.degraded_until &&
-								new Date(envFallback.degraded_until) > new Date()
-									? `熔断 · ${degradedReasonLabel(envFallback?.degraded_reason)}`
-									: envFallback?.available
-										? "可用"
-										: "不可用"}
-							</td>
-							<td className="py-2 px-3 text-xs text-muted-foreground/60 whitespace-nowrap">
-								{(envFallback?.call_count ?? 0) > 0
-									? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
-									: ""}
-							</td>
-							<td className="py-2 px-3">
-								<button
-									className="text-muted-foreground/40 hover:text-muted-foreground/70"
-									title="数据库无可用密钥时自动回退到此环境变量密钥"
-								>
-									<Info size={12} />
-								</button>
-							</td>
-						</tr>
-					)}
 				</tbody>
 			</table>
 		</div>

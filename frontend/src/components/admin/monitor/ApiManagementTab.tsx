@@ -82,13 +82,6 @@ export default function ApiManagementTab() {
 					<h3 className="text-sm font-semibold text-foreground">API 密钥</h3>
 					<div className="flex gap-2">
 						<button
-							onClick={handleTestAll}
-							disabled={testingAll}
-							className="inline-flex items-center gap-1 py-1 px-3 border border-border rounded-md bg-muted text-foreground cursor-pointer text-sm disabled:opacity-50"
-						>
-							<Activity size={14} /> {testingAll ? "测试中..." : "测试连通性"}
-						</button>
-						<button
 							onClick={() => {
 								setEditingSecret(null);
 								setShowSecretModal(true);
@@ -99,6 +92,12 @@ export default function ApiManagementTab() {
 						</button>
 					</div>
 				</div>
+				{envFallback?.available && (
+					<div className="mb-3 px-3 py-2 text-xs rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+						当前 LLM 来源：环境变量 (sk-...{envFallback.key_suffix})。
+						数据库密钥已全部停用，添加新密钥后将自动切换。
+					</div>
+				)}
 				{secrets.length === 0 && !envFallback?.available ? (
 					<EmptyState
 						title="暂无密钥"

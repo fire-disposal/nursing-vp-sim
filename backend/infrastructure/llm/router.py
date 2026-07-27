@@ -38,9 +38,11 @@ async def get_env_fallback_state() -> dict:
     available = bool(DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"))
     return {
         "available": available,
-        "label": "环境变量兜底",
+        "label": "环境变量 (当前使用)",
         "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
         "base_url": DEEPSEEK_BASE_URL,
+        "model_flash": "deepseek-v4-flash",
+        "model_pro": "deepseek-v4-pro",
     }
 
 

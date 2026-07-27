@@ -42,10 +42,8 @@ export default function SecretModal({
 		resolver: zodResolver(secretFormSchema),
 		defaultValues: {
 			label: "",
-			baseUrl: "",
+			baseUrl: "https://api.deepseek.com",
 			rawKey: "",
-			priceInput: 0.5,
-			priceOutput: 0.5,
 			monthlyLimit: null,
 			priority: 0,
 			modelOverride: null,
@@ -56,10 +54,8 @@ export default function SecretModal({
 		if (open) {
 			form.reset({
 				label: secret?.label ?? "",
-				baseUrl: secret?.base_url ?? "",
+				baseUrl: secret?.base_url || "https://api.deepseek.com",
 				rawKey: "",
-				priceInput: secret?.price_input_per_1m ?? 0.5,
-				priceOutput: secret?.price_output_per_1m ?? 0.5,
 				monthlyLimit: secret?.monthly_cost_limit ?? null,
 				priority: secret?.priority ?? 0,
 				modelOverride: secret?.model_override ?? null,
@@ -74,8 +70,6 @@ export default function SecretModal({
 		}
 		try {
 			const common = {
-				price_input_per_1m: values.priceInput,
-				price_output_per_1m: values.priceOutput,
 				monthly_cost_limit: values.monthlyLimit,
 				priority: values.priority,
 				model_override: values.modelOverride ?? undefined,
@@ -83,17 +77,17 @@ export default function SecretModal({
 			if (isEdit) {
 				await updateSecret(secret.id, {
 					label: values.label.trim(),
-					base_url: values.baseUrl?.trim() ?? "",
+					base_url: values.baseUrl?.trim() || "https://api.deepseek.com",
 					...common,
-				});
+				} as any);
 				success("密钥已更新");
 			} else {
 				await createSecret({
 					label: values.label.trim(),
 					raw_key: values.rawKey?.trim() ?? "",
-					base_url: values.baseUrl?.trim() || undefined,
+					base_url: values.baseUrl?.trim() || "https://api.deepseek.com",
 					...common,
-				});
+				} as any);
 				success("密钥已创建");
 			}
 			onSaved();
@@ -187,66 +181,6 @@ export default function SecretModal({
 									)}
 								/>
 							)}
-							<div className="grid grid-cols-2 gap-3">
-								<FormField
-									control={form.control}
-									name="priceInput"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="mb-1 font-semibold text-sm">
-												输入价格 (¥/1M tokens)
-											</FormLabel>
-											<FormControl>
-											<input
-												type="number"
-												step="0.01"
-												min="0"
-												className={inputClass}
-												{...field}
-												value={Number.isNaN(field.value) ? "" : field.value}
-												onChange={(e) =>
-													field.onChange(
-														e.target.value === ""
-															? Number.NaN
-															: e.target.valueAsNumber,
-													)
-												}
-											/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="priceOutput"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="mb-1 font-semibold text-sm">
-												输出价格 (¥/1M tokens)
-											</FormLabel>
-											<FormControl>
-											<input
-												type="number"
-												step="0.01"
-												min="0"
-												className={inputClass}
-												{...field}
-												value={Number.isNaN(field.value) ? "" : field.value}
-												onChange={(e) =>
-													field.onChange(
-														e.target.value === ""
-															? Number.NaN
-															: e.target.valueAsNumber,
-													)
-												}
-											/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							</div>
 							<FormField
 								control={form.control}
 								name="monthlyLimit"

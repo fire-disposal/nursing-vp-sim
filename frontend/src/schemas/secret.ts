@@ -9,8 +9,6 @@ export const secretFormSchema = z.object({
 			message: "请输入完整 URL（含 https://）",
 		}),
 	rawKey: z.string().optional(),
-	priceInput: z.number().min(0, "不能为负"),
-	priceOutput: z.number().min(0, "不能为负"),
 	monthlyLimit: z.number().min(0).nullable(),
 	priority: z.number().int().min(0),
 	modelOverride: z.string().nullable(),
