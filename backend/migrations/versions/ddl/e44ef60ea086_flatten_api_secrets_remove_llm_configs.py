@@ -35,17 +35,9 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
 
-    # 4. 回填 secret_id（从 llm_configs 关联）
-    op.execute("""
-        UPDATE llm_call_logs
-        SET secret_id = lc.secret_id
-        FROM llm_configs lc
-        WHERE llm_call_logs.config_id = lc.id
-          AND llm_call_logs.secret_id IS NULL
-    """)
-
-    # 5. 删除用途绑定表
+    # 4. 删除用途绑定表（call_logs 的 config_id 保留为普通列，不再有 FK 约束）
     op.drop_table("llm_configs")
+
 
 
 def downgrade() -> None:
