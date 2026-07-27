@@ -38,21 +38,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 重建 llm_configs
-    op.create_table(
-        "llm_configs",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("secret_id", sa.Integer(), sa.ForeignKey("api_secrets.id"), nullable=False),
-        sa.Column("label", sa.String(80), server_default="", nullable=False),
-        sa.Column("purpose", sa.String(40), nullable=False),
-        sa.Column("status", sa.String(20), server_default="active", nullable=False),
-        sa.Column("model_override", sa.String(80), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),
-    )
-
-    # 恢复 FK
+    # llm_configs 表由 data/ms39fseglx7c 的 downgrade 负责重建
+    # 此处仅恢复 FK 和列
     op.drop_constraint("fk_llm_call_logs_secret_id", "llm_call_logs", type_="foreignkey")
     op.drop_column("llm_call_logs", "secret_id")
     op.create_foreign_key(
@@ -61,7 +48,6 @@ def downgrade() -> None:
         ["config_id"], ["id"],
         ondelete="SET NULL",
     )
-
-    # 移除新增字段
     op.drop_column("api_secrets", "model_override")
     op.drop_column("api_secrets", "priority")
+
