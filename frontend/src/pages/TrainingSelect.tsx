@@ -110,7 +110,7 @@ export default function TrainingSelect() {
 
   // ── Notifications (home tab) ──
   const { data: notifData } = useQuery({
-    queryKey: ["notifications", "recent"],
+    queryKey: queryKeys.notifications.recent(),
     queryFn: () => getNotifications({ limit: 3 }).then((r: { data: { items?: Array<{ id: number; title: string; content?: string; type: string; is_read: boolean; created_at: string; link?: string }> } }) => r.data),
     staleTime: 30_000,
   });

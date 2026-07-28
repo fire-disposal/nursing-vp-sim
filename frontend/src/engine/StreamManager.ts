@@ -106,6 +106,7 @@ export class StreamManager {
 		} finally {
 			if (this.abortController === controller) {
 				this.abortController = null;
+				getTrainingState().setSending(false);
 			}
 		}
 	}

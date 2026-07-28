@@ -1,12 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/components/Toast";
 import { notifyProgress } from "@/engine";
 import { useTrainingWS } from "@/hooks/useTrainingWS";
+import { queryKeys } from "@/api/query-keys";
 
 export function useScoringNotifications() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const location = useLocation();
+	const shouldConnect =
+		location.pathname.startsWith("/training") ||
+		location.pathname.startsWith("/record") ||
+		location.pathname.startsWith("/history") ||
+		location.pathname.startsWith("/admin/records");
 
 	useTrainingWS((msg) => {
 		switch (msg.type) {
@@ -19,7 +26,7 @@ export function useScoringNotifications() {
 					percent: 100,
 					message: "评分完成",
 				});
-				queryClient.invalidateQueries({ queryKey: ["notifications"] });
+				queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 				toast.success("评分已完成！", {
 					description: "训练评分已生成，可点击查看详情",
 					action: {
@@ -39,7 +46,7 @@ export function useScoringNotifications() {
 					percent: 0,
 					message: payload.error || "评分失败",
 				});
-				queryClient.invalidateQueries({ queryKey: ["notifications"] });
+				queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 				toast.error("评分失败", {
 					description: payload.error || "请稍后重试",
 					action: {
@@ -56,5 +63,5 @@ export function useScoringNotifications() {
 				break;
 			}
 		}
-	});
+	}, shouldConnect);
 }

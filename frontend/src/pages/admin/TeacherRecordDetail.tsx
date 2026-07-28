@@ -104,8 +104,7 @@ export default function TeacherRecordDetail() {
 	const handleRetryScoring = async () => {
 		if (retrying) return;
 		if (hasScoreReview && isReviewed) {
-			if (!window.confirm("重新评分将丢弃已有的教师复核，确定继续？")) {
-			}
+			if (!window.confirm("重新评分将丢弃已有的教师复核，确定继续？")) return;
 		}
 		setRetrying(true);
 		setRetryProgress(0);

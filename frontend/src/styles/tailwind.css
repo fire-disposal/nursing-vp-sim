@@ -298,6 +298,17 @@
 	user-select: text;
 }
 
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		scroll-behavior: auto;
+		transition-duration: 0.01ms;
+	}
+}
+
 @media (max-height: 500px) {
 	[data-sonner-toaster] {
 		left: 50%;

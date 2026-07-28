@@ -276,7 +276,7 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 
 function UserCostBreakdown() {
 	const { data, isLoading } = useQuery({
-		queryKey: ["admin", "costs", "users"],
+		queryKey: queryKeys.cost.users,
 		queryFn: () => fetchUserCostBreakdown().then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});

@@ -104,7 +104,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 			setRating(3);
 			setTag("");
 			setContent("");
-			setImages([]);
+			clearImages();
 			onClose();
 			if (onSubmitted) onSubmitted();
 		} catch {

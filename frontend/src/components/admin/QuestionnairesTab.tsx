@@ -64,7 +64,7 @@ export default function QuestionnairesTab() {
 	if (statusFilter) params.is_active = statusFilter === "active";
 
 	const { data: templatesData, isLoading } = useQuery({
-		queryKey: [...queryKeys.questionnaires.all, "templates", offset, typeFilter, searchText, statusFilter] as const,
+		queryKey: queryKeys.questionnaires.templates({ offset, typeFilter, searchText, statusFilter }),
 		queryFn: () => getQuestionnairesTemplates(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,

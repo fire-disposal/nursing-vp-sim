@@ -3,6 +3,7 @@ import { BookOpen, Download, Edit3, Plus, Trash2, X } from "lucide-react";
 import { useState, useCallback, type ChangeEvent } from "react";
 import type { ApiPath } from "@/api/api-path";
 import { api } from "@/api/client";
+import { queryKeys } from "@/api/query-keys";
 import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -163,7 +164,7 @@ export default function RubricPage() {
 	const [draft, setDraft] = useState<RubricData | null>(null);
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["rubric", "current"],
+		queryKey: queryKeys.rubric.current(),
 		queryFn: () => api.get("/rubrics/current" satisfies ApiPath as string).then((r) => r.data),
 		staleTime: 30 * 60_000,
 	});

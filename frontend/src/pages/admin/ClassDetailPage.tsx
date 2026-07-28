@@ -16,19 +16,19 @@ export default function ClassDetailPage() {
 	const cid = Number(classId);
 
 	const { data: cls, isLoading: clsLoading } = useQuery({
-		queryKey: ["class", cid],
+		queryKey: queryKeys.grades.classDetail(cid),
 		queryFn: () => getClass(cid).then((r) => r.data),
 		enabled: !!cid,
 	});
 
 	const { data: summary } = useQuery({
-		queryKey: ["class-summary", cid],
+		queryKey: queryKeys.grades.classSummary(cid),
 		queryFn: () => getClassSummary({ class_id: cid }),
 		enabled: !!cid,
 	});
 
 	const { data: records } = useQuery({
-		queryKey: [...queryKeys.training.all, "class", cid],
+		queryKey: queryKeys.training.classRecords(cid),
 		queryFn: () => getRecords({ class_id: cid, limit: 200 }).then((r) => r.data),
 		enabled: !!cid,
 	});

@@ -14,7 +14,7 @@ export function useUserList(offset: number, params: Record<string, unknown>) {
 
 export function useRolesQuery() {
 	return useQuery({
-		queryKey: [queryKeys.admin.roles],
+		queryKey: queryKeys.admin.roles,
 		queryFn: () => getRoles().then((r) => r.data as RoleOption[]),
 		staleTime: 5 * 60 * 1000,
 	});

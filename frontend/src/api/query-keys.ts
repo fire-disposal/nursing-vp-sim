@@ -32,6 +32,8 @@ export const queryKeys = {
 			[...queryKeys.training.all, "review", id] as const,
 		state: (recordId: number | string | null | undefined) =>
 			[...queryKeys.training.all, "state", recordId] as const,
+		classRecords: (classId: number | string) =>
+			[...queryKeys.training.all, "class", classId] as const,
 	},
 	profiles: {
 		all: ["profiles"] as const,
@@ -43,6 +45,7 @@ export const queryKeys = {
 		all: ["notifications"] as const,
 		list: (params: Record<string, unknown> | null | undefined) =>
 			["notifications", params] as const,
+		recent: () => [...queryKeys.notifications.all, "recent"] as const,
 	},
 	diagnose: ["admin", "diagnose"] as const,
 	voice: {
@@ -58,6 +61,7 @@ export const queryKeys = {
 			granularity: string | null | undefined,
 			format: string | null | undefined,
 		) => ["admin", "cost", "export", startDate, endDate, service, granularity, format] as const,
+		users: ["admin", "cost", "users"] as const,
 	},
 	qa: {
 		all: ["qa"] as const,
@@ -110,9 +114,14 @@ export const queryKeys = {
 		all: ["grades"] as const,
 		classes: (gradeId?: number | null | undefined) =>
 			[...queryKeys.grades.all, "classes", gradeId] as const,
+		classDetail: (classId: number | string) =>
+			[...queryKeys.grades.all, "class", classId] as const,
+		classSummary: (classId: number | string) =>
+			[...queryKeys.grades.all, "classSummary", classId] as const,
 	},
 	rubric: {
 		all: ["rubrics"] as const,
+		current: () => [...queryKeys.rubric.all, "current"] as const,
 		active: () => [...queryKeys.rubric.all, "active"] as const,
 	},
 	apiManagement: {
@@ -131,13 +140,8 @@ export const queryKeys = {
 	},
 	questionnaires: {
 		all: ["questionnaires"] as const,
-		templates: (offset: number, typeFilter?: string) =>
-			[
-				...queryKeys.questionnaires.all,
-				"templates",
-				offset,
-				typeFilter,
-			] as const,
+		templates: (params: Record<string, unknown>) =>
+			[...queryKeys.questionnaires.all, "templates", params] as const,
 		detail: (id: number | null | undefined) =>
 			[...queryKeys.questionnaires.all, "detail", id] as const,
 		stats: (templateId: number | null | undefined) =>
@@ -165,6 +169,7 @@ export const queryKeys = {
 		all: ["assignments"] as const,
 		list: (params?: Record<string, unknown>) =>
 			[...queryKeys.assignments.all, params] as const,
+		admin: () => [...queryKeys.assignments.all, "admin"] as const,
 		detail: (id: string | null | undefined) => [...queryKeys.assignments.all, "detail", id] as const,
 		student: ["student-assignments"] as const,
 	},

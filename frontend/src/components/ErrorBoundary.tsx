@@ -37,13 +37,14 @@ export default class ErrorBoundary extends Component<Props, State> {
 	render() {
 		if (this.state.error) {
 			if (this.props.fallback) return this.props.fallback;
+			const showDeveloperDetails = import.meta.env.DEV;
 
 			return (
 				<div className="flex h-screen flex-col items-center justify-center gap-4 font-sans text-foreground">
 					<CircleAlert className="size-12 text-destructive" />
 					<h2 className="text-lg font-semibold">页面出错了</h2>
 					<p className="max-w-[400px] text-center text-muted-foreground">
-						{this.state.error.message || "发生未知错误"}
+						{showDeveloperDetails && this.state.error.message ? this.state.error.message : "请刷新页面重试，或联系管理员并提供当前页面路径。"}
 					</p>
 					<div className="flex gap-2">
 						<Button variant="outline" onClick={this.handleReset}>
@@ -55,25 +56,29 @@ export default class ErrorBoundary extends Component<Props, State> {
 							返回首页
 						</Button>
 					</div>
-					<button
-						type="button"
-						onClick={this.handleToggleDetails}
-						className="cursor-pointer text-sm text-muted-foreground underline hover:text-foreground"
-					>
-						{this.state.showDetails ? "收起错误详情" : "查看错误详情"}
-					</button>
-					{this.state.showDetails && (
-						<pre className="max-h-64 max-w-[600px] overflow-auto rounded-lg border border-border bg-muted p-4 text-left text-xs text-muted-foreground">
-							{this.state.error.message}
-							{"\n\n"}
-							{this.state.error.stack}
-							{this.state.errorInfo && (
-								<>
-									{"\n\n--- Component Stack ---\n"}
-									{this.state.errorInfo.componentStack}
-								</>
+					{showDeveloperDetails && (
+						<>
+							<button
+								type="button"
+								onClick={this.handleToggleDetails}
+								className="cursor-pointer text-sm text-muted-foreground underline hover:text-foreground"
+							>
+								{this.state.showDetails ? "收起错误详情" : "查看错误详情"}
+							</button>
+							{this.state.showDetails && (
+								<pre className="max-h-64 max-w-[600px] overflow-auto rounded-lg border border-border bg-muted p-4 text-left text-xs text-muted-foreground">
+									{this.state.error.message}
+									{"\n\n"}
+									{this.state.error.stack}
+									{this.state.errorInfo && (
+										<>
+											{"\n\n--- Component Stack ---\n"}
+											{this.state.errorInfo.componentStack}
+										</>
+									)}
+								</pre>
 							)}
-						</pre>
+						</>
 					)}
 				</div>
 			);

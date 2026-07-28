@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import LiveChatSimulation from "../components/LiveChatSimulation";
 import VideoModal from "../components/VideoModal";
 import VirtualPatientMaskText from "../components/VirtualPatientMaskText";
-import { CTA_HREF, PRODUCT_NAME } from "../data";
+import { CTA_HREF, CTA_LABEL, HERO_TITLE, PRODUCT_NAME } from "../data";
 import { ensureGsap, prefersReducedMotion } from "../gsap";
 
 export default function Hero() {
@@ -59,6 +59,7 @@ export default function Hero() {
 					</div>
 					<h1
 						ref={titleRef}
+						aria-label={HERO_TITLE}
 						className="text-4xl font-bold leading-[1.03] tracking-tight text-foreground md:text-6xl lg:text-[5.35rem] [font-family:'Geist_Variable',sans-serif]"
 					>
 						把 LLM 做成可教学、可评估的
@@ -85,7 +86,7 @@ export default function Hero() {
 								className: "h-14 rounded-full px-10 text-lg shadow-xl shadow-primary/20",
 							})}
 						>
-							立即体验
+							{CTA_LABEL}
 						</Link>
 							{/*
 						<button

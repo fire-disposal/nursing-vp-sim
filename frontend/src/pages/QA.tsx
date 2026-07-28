@@ -376,7 +376,7 @@ export default function QA() {
 						className="flex-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-ring disabled:opacity-50"
 						value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
 						placeholder="输入问题..." disabled={loading} enterKeyHint="send" autoCapitalize="off" autoCorrect="off" />
-					<Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()}><Send size={16} /></Button>
+					<Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()} aria-label="发送问题"><Send size={16} /></Button>
 				</div>
 			</div>
 		</div>

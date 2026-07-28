@@ -167,10 +167,10 @@ export default function AdminSidebar({
 					<ModeToggle />
 					<NotificationBell />
 					<div className="flex gap-1">
-						<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}>
+						<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback} aria-label="意见反馈">
 							<MessageSquarePlus size={13} />
 						</Button>
-						<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
+						<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout} aria-label="退出登录">
 							<LogOut size={13} />
 						</Button>
 					</div>

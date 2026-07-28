@@ -32,7 +32,7 @@ export function TeachingDashboard() {
   });
 
   const { data: assignmentsData } = useQuery({
-    queryKey: ["assignments", "admin"],
+    queryKey: queryKeys.assignments.admin(),
     queryFn: () => getAssignments().then((r) => r.data),
     staleTime: 60_000,
   });

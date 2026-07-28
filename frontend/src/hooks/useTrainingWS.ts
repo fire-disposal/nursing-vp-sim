@@ -151,20 +151,22 @@ function _send(msg: TrainingWSMessage) {
  */
 export function useTrainingWS(
 	onEvent?: (msg: TrainingWSMessage) => void,
+	enabled = true,
 ): TrainingWS {
 	const onEventRef = useRef(onEvent);
 	onEventRef.current = onEvent;
 
 	useEffect(() => {
-		if (!onEvent) return;
+		if (!enabled || !onEvent) return;
 		const handler = (msg: TrainingWSMessage) => {
 			onEventRef.current?.(msg);
 		};
 		_listeners.add(handler);
 		return () => { _listeners.delete(handler); };
-	}, []);
+	}, [enabled]);
 
 	useEffect(() => {
+		if (!enabled) return;
 		_refCount += 1;
 		if (_refCount === 1) {
 			_aborted = false;
@@ -180,7 +182,7 @@ export function useTrainingWS(
 				_pending.length = 0;
 			}
 		};
-	}, []);
+	}, [enabled]);
 
 	const sendTool = useCallback((recordId: number, tool: string, action: string, params?: Record<string, unknown>) => {
 		_send({ type: "tool", record_id: recordId, tool, action, params: params ?? {} });
