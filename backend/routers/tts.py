@@ -30,6 +30,12 @@ def _resolve_emotion(request: Request, record_id: int, db) -> str:
     return get_emotion(record_id, emotion_cache, db).state
 
 
+def _require_record_id(record_id: int | None) -> int:
+    if record_id is None:
+        raise HTTPException(status_code=400, detail="record_id 不能为空")
+    return record_id
+
+
 @router.post(
     "/synthesize",
     response_class=Response,
@@ -50,8 +56,9 @@ async def synthesize(
 ) -> Response:
     await check_tts_limit(current_user.id, request)
 
+    record_id = _require_record_id(req.record_id)
     client: VolcBidirectionalTTSClient | None = request.app.state.tts_client
-    emotion_state = _resolve_emotion(request, req.record_id, db)
+    emotion_state = _resolve_emotion(request, record_id, db)
     db.commit()  # 持久化训练会话状态，释放 row lock
 
     cfg = getattr(request.app.state, "tts_config", {})
@@ -60,7 +67,7 @@ async def synthesize(
 
     try:
         audio, emotion, speaker, latency_ms, media_type = await TTSService(db).synthesize(
-            record_id=req.record_id,
+            record_id=record_id,
             text=req.text,
             voice_type=req.voice_type,
             user_id=current_user.id,
@@ -100,8 +107,9 @@ async def synthesize_stream(
     """Sentence-granularity streaming synthesis — PCM chunks as they arrive."""
     await check_tts_limit(current_user.id, request)
 
+    record_id = _require_record_id(req.record_id)
     pool: TTSConnectionPool | None = getattr(request.app.state, "tts_pool", None)
-    emotion_state = _resolve_emotion(request, req.record_id, db)
+    emotion_state = _resolve_emotion(request, record_id, db)
     db.commit()  # 持久化训练会话状态，释放 row lock，避免流式期间锁争用
 
     cfg = getattr(request.app.state, "tts_config", {})
@@ -110,7 +118,7 @@ async def synthesize_stream(
 
     try:
         info, gen = await TTSService(db).stream_synthesize(
-            record_id=req.record_id,
+            record_id=record_id,
             text=req.text,
             voice_type=req.voice_type,
             user_id=current_user.id,

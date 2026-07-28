@@ -20,7 +20,6 @@ from models._base import TimestampMixin, _now_utc
 class ApiSecret(Base, TimestampMixin):
     __tablename__ = "api_secrets"
 
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     label: Mapped[str] = mapped_column(String(80))
     api_key: Mapped[str] = mapped_column(Text)

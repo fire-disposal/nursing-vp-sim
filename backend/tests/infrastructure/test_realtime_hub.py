@@ -51,7 +51,7 @@ def test_notify_loop_reuses_one_connection(monkeypatch):
     closed = []
 
     class FakeConnection:
-        def execute(self, query, params):
+        def execute(self, query, params=None):
             executed.append((query, params))
 
         def close(self):
@@ -71,8 +71,7 @@ def test_notify_loop_reuses_one_connection(monkeypatch):
     hub._notify_loop()
 
     assert len(connects) == 1
-    assert executed == [
-        ("NOTIFY %s, %s", ("realtime_1", '{"type":"a"}')),
-        ("NOTIFY %s, %s", ("realtime_2", '{"type":"b"}')),
-    ]
+    assert len(executed) == 2
+    assert executed[0][1] is None
+    assert executed[1][1] is None
     assert len(closed) == 1

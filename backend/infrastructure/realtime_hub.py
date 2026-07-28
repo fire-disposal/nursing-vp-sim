@@ -186,7 +186,7 @@ class PgRealtimeHub:
 
     def _publish_remote(self, conn: psycopg.Connection, channel: str, payload: str) -> None:
         """Send a PG NOTIFY through an existing autocommit connection."""
-        conn.execute("NOTIFY %s, %s", (channel, payload))
+        conn.execute(sql.SQL("NOTIFY {}, {}").format(sql.Identifier(channel), sql.Literal(payload)))
 
     def _notify_loop(self) -> None:
         """Run in dedicated thread.  Hold a sync psycopg connection and flush

@@ -1,9 +1,9 @@
 """tests for ProfileRouter priority-based routing (post-Fernet removal)"""
 
+import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-import time
 import pytest
 
 from infrastructure.llm import ProfileRouter
@@ -36,6 +36,7 @@ def test_select_single_binding():
     result = router.select("qa")
     assert result.id == 1
 
+
 def test_select_skips_disabled_falls_back_to_env():
     router = ProfileRouter()
     secret = _make_secret(status="disabled")
@@ -44,6 +45,7 @@ def test_select_skips_disabled_falls_back_to_env():
 
     result = router.select("qa")
     assert result.id == -1  # env fallback
+
 
 def test_select_skips_degraded_falls_back_to_env():
     router = ProfileRouter()
@@ -73,7 +75,7 @@ def test_select_handles_naive_degraded_until_expired():
     """回归：DB 返回 naive datetime（已过期）时不得抛 TypeError，应恢复为 active。"""
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
-    secret.degraded_until = datetime.utcnow() - timedelta(minutes=10)  # naive UTC, expired
+    secret.degraded_until = (datetime.now(UTC) - timedelta(minutes=10)).replace(tzinfo=None)  # naive UTC, expired
     secret._last_db_check = time.monotonic()  # suppress DB refresh
     router._bindings = {"qa": secret}
 
@@ -86,7 +88,7 @@ def test_select_handles_naive_degraded_until_active():
     """回归：naive 且未过期的 degraded_until 也不得崩溃，应回退到 env 兜底。"""
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
-    secret.degraded_until = datetime.utcnow() + timedelta(minutes=10)  # naive UTC, active
+    secret.degraded_until = (datetime.now(UTC) + timedelta(minutes=10)).replace(tzinfo=None)  # naive UTC, active
     secret._last_db_check = time.monotonic()
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": secret}

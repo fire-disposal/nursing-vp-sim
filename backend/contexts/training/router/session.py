@@ -637,7 +637,7 @@ def get_record_detail(
         score=score_obj,
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
-        patient_gender=normalize_gender(patient_info.get("gender", "")),
+        patient_gender=normalize_gender(str(patient_info.get("gender") or "")) or "",
         training_type=record.training_type or "history_taking",
         features=detect_capabilities(
             case_data=case_data,

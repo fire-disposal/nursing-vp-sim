@@ -596,21 +596,18 @@ async def evaluate_training(
     scoring_result_raw: Any = None
     feedback_result_raw: Any = None
 
-    try:
-        done, _pending = await asyncio.wait([scoring_task, feedback_task], return_when=asyncio.FIRST_EXCEPTION)
-        for task in done:
-            exc = task.exception()
-            if exc is not None:
-                if task is scoring_task:
-                    scoring_result_raw = exc
-                else:
-                    feedback_result_raw = exc
-            elif task is scoring_task:
-                scoring_result_raw = task.result()
+    done, _pending = await asyncio.wait([scoring_task, feedback_task], return_when=asyncio.FIRST_EXCEPTION)
+    for task in done:
+        exc = task.exception()
+        if exc is not None:
+            if task is scoring_task:
+                scoring_result_raw = exc
             else:
-                feedback_result_raw = task.result()
-    except asyncio.CancelledError:
-        raise
+                feedback_result_raw = exc
+        elif task is scoring_task:
+            scoring_result_raw = task.result()
+        else:
+            feedback_result_raw = task.result()
 
     if not scoring_task.done():
         feedback_task.cancel()
