@@ -10,6 +10,7 @@
 | [04-前端设计](04-frontend.md) | 组件架构 · 页面路由 · 状态管理 |
 | [05-LLM 与评分](05-llm-design.md) | Prompt 体系 · Provider 路由 · 评分流程 |
 | [09-运维指南](09-operations.md) | 部署 · 备份 · 监控 · 应急预案 |
+| **[10-训练系统路线](10-training-system-roadmap.md)** | 近期产品边界 · 数据模型收敛 · 上下文工程 · 工具与评分演进 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 分支模型 · PR 规范 · 冲突处理 |
 
 ## 项目演进
