@@ -1,14 +1,11 @@
 """LLM 路由调度器 —— 档案状态驱动 + 优先级密钥池"""
 
-
-import asyncio
 import logging
 import threading
 import time as _time
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-from dataclasses import dataclass
 
 from core.datetime_utils import ensure_utc
 
@@ -23,6 +20,7 @@ GLOBAL_DEGRADED_TTL_SECONDS = 30
 @dataclass
 class EnvConfig:
     """Lightweight config for env fallback — mimics ApiSecret interface."""
+
     id: int = -1
     label: str = "DeepSeek (env)"
     api_key: str = ""
@@ -44,7 +42,6 @@ async def get_env_fallback_state() -> dict:
         "model_flash": "deepseek-v4-flash",
         "model_pro": "deepseek-v4-pro",
     }
-
 
 
 class ProfileRouter:
@@ -191,7 +188,9 @@ class ProfileRouter:
                 profile.total_cost_today = float(profile.total_cost_today or 0) + input_cost + output_cost
                 profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + input_cost + output_cost
 
-            if (success or profile.status == "degraded") and _time.monotonic() - self._last_persist_ts.get(config.id, 0) > 5:
+            if (success or profile.status == "degraded") and _time.monotonic() - self._last_persist_ts.get(
+                config.id, 0
+            ) > 5:
                 should_persist = True
                 persist_profile = profile
                 self._last_persist_ts[config.id] = _time.monotonic()

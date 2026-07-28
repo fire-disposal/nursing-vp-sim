@@ -157,6 +157,24 @@ class ScoringProgress(Base, TimestampMixin):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class TrainingToolRequest(Base):
+    __tablename__ = "training_tool_requests"
+    __table_args__ = (
+        UniqueConstraint("record_id", "request_id", name="uq_training_tool_request"),
+        Index("ix_training_tool_requests_record_id", "record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=False
+    )
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    response: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+
+
 class TrainingSessionState(Base):
     __tablename__ = "training_session_state"
 

@@ -2126,6 +2126,13 @@ export interface components {
             price_output_per_1m: number;
             /** Monthly Cost Limit */
             monthly_cost_limit?: number | null;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /** Model Override */
+            model_override?: string | null;
         };
         /** ApiSecretResponse */
         ApiSecretResponse: {
@@ -3411,6 +3418,24 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PatientPublicInfo */
+        PatientPublicInfo: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Age
+             * @default 0
+             */
+            age: number;
+            /**
+             * Gender
+             * @default
+             */
+            gender: string;
+        };
         /** QAAskResponse */
         QAAskResponse: {
             /** Session Id */
@@ -4213,7 +4238,7 @@ export interface components {
             /** Text */
             text: string;
             /** Record Id */
-            record_id?: number | null;
+            record_id: number;
             /** Voice Type */
             voice_type?: string | null;
         };
@@ -4382,12 +4407,7 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["MessageItem"][];
             score?: components["schemas"]["ScoreItem"] | null;
-            /** Required Inquiries */
-            required_inquiries?: unknown[] | null;
-            /** Patient Info */
-            patient_info?: {
-                [key: string]: unknown;
-            } | null;
+            patient_info?: components["schemas"]["PatientPublicInfo"] | null;
             /**
              * Patient Gender
              * @default
@@ -4418,11 +4438,6 @@ export interface components {
              */
             chief_complaint: string;
             /**
-             * Personality
-             * @default
-             */
-            personality: string;
-            /**
              * Case Title
              * @default
              */
@@ -4437,10 +4452,6 @@ export interface components {
              * @default 0
              */
             pending_questionnaires: number;
-            /** Exam Anchors */
-            exam_anchors?: {
-                [key: string]: unknown;
-            };
             /** Exam Results */
             exam_results?: {
                 [key: string]: unknown;
@@ -4453,14 +4464,6 @@ export interface components {
             nursing_record_sheet?: {
                 [key: string]: unknown;
             } | null;
-            /** Case Data */
-            case_data?: {
-                [key: string]: unknown;
-            };
-            /** Profile Info */
-            profile_info?: {
-                [key: string]: unknown;
-            };
             /** Emotion */
             emotion?: {
                 [key: string]: unknown;
@@ -4533,25 +4536,7 @@ export interface components {
              * @default
              */
             chief_complaint: string;
-            /**
-             * Personality
-             * @default
-             */
-            personality: string;
-            /** Patient Info */
-            patient_info?: {
-                [key: string]: unknown;
-            } | null;
-            /** Case Data */
-            case_data?: {
-                [key: string]: unknown;
-            } | null;
-            /** Required Inquiries */
-            required_inquiries?: unknown[];
-            /** Exam Anchors */
-            exam_anchors?: {
-                [key: string]: unknown;
-            } | null;
+            patient_info?: components["schemas"]["PatientPublicInfo"] | null;
             /** Features */
             features?: {
                 [key: string]: boolean;

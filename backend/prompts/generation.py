@@ -103,4 +103,4 @@ def build_system_prompt(
     field_instruction: str,
 ) -> str:
     """按训练类型拼接系统提示词，避免模板内嵌条件变量。"""
-    return "\n\n".join([CASE_GENERATION_HEAD, CASE_GENERATION_TAIL])
+    return f"{CASE_GENERATION_HEAD}\n\n{CASE_GENERATION_TAIL}"

@@ -12,6 +12,8 @@ from infrastructure.llm.profile import PROFILES
 
 if TYPE_CHECKING:
     from models import ApiSecret
+
+
 class LLMDataService:
     @staticmethod
     def load_all() -> tuple[dict[int, ApiSecret], dict[str, ApiSecret]]:

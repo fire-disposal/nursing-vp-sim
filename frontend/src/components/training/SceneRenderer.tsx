@@ -3,7 +3,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { useTrainingStatic } from "@/engine/TrainingLayerContexts";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
-import { useToolBridge } from "@/hooks/useToolBridge";
 import { getTools, TOOL_META } from "./tools/registry";
 
 const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
@@ -22,7 +21,6 @@ export function SceneRenderer() {
 
   const toolProps: TrainingToolProps = { bus, recordId, recordDetail };
 
-  useToolBridge(bus);
 
   useEffect(() => {
     const handler = (payload: { id: string }) => {

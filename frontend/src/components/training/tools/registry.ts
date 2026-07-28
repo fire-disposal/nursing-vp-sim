@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import NursingDiagnosisTool from "./NursingDiagnosisTool";
-import InquiryTool from "./InquiryTool";
 import MewsTool from "./MewsTool";
 import NursingRecordTool from "./NursingRecordTool";
 import PatientInfoTool from "./PatientInfoTool";
@@ -26,7 +25,6 @@ interface ToolDef {
 
 const HISTORY_TAKING: ToolDef[] = [
   { id: "patient-info",        component: PatientInfoTool,                                   priority: 0 },
-  { id: "inquiry",             component: InquiryTool,                                       priority: 1 },
   { id: "physical-exam",       component: PhysicalExamTool,                                  priority: 2, capability: "physical_exam" },
   { id: "nursing-diagnosis",   component: NursingDiagnosisTool,                              priority: 3, capability: "nursing_diagnosis" },
   { id: "nursing-record",      component: NursingRecordTool,                                 priority: 4, capability: "nursing_record" },

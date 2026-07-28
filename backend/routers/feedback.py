@@ -53,7 +53,8 @@ def get_feedback_image(
 ):
     service = FeedbackService(db)
     img = service.get_image(feedback_id, image_id)
-    if img.feedback.user_id != current_user.id and not current_user.has_permission("feedback_review"):
+    feedback = service.repo.get_or_404(feedback_id, "反馈不存在")
+    if feedback.user_id != current_user.id and not current_user.has_permission("feedback_review"):
         raise HTTPException(status_code=404)
     return Response(content=bytes(img.image_data), media_type=img.mime_type)
 

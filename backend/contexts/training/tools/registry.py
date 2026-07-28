@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from fastapi import HTTPException
+
 from .base import ToolContext, ToolHandler, ToolResult
 
 log = logging.getLogger(__name__)
@@ -21,6 +23,8 @@ async def dispatch(tool_name: str, action: str, params: dict, ctx: ToolContext) 
         return ToolResult(ok=False, error=f"Unknown tool: {tool_name}")
     try:
         return await handler.handle(action, params, ctx)
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         log.exception("Tool handler error: tool=%s action=%s", tool_name, action)
-        return ToolResult(ok=False, error=str(e))
+        return ToolResult(ok=False, error="工具操作失败，请稍后重试")

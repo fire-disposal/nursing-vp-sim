@@ -23,6 +23,7 @@ from collections import defaultdict
 from typing import Any
 
 import psycopg
+from psycopg import sql
 
 from core.config import DATABASE_URL
 
@@ -182,7 +183,7 @@ class PgRealtimeHub:
                 # Re-register all known channels after (re)connect
                 with self._lock:
                     for channel in self._channels:
-                        conn.execute("LISTEN %s" % channel)
+                        conn.execute(sql.SQL("LISTEN {}").format(sql.Identifier(channel)))
 
                 while self._running:
                     # Apply pending listen/unlisten requests
@@ -211,12 +212,12 @@ class PgRealtimeHub:
 
         for channel in pending_add:
             try:
-                conn.execute("LISTEN %s" % channel)
+                conn.execute(sql.SQL("LISTEN {}").format(sql.Identifier(channel)))
             except Exception:
                 log.debug("LISTEN failed: channel=%s", channel, exc_info=True)
         for channel in pending_del:
             try:
-                conn.execute("UNLISTEN %s" % channel)
+                conn.execute(sql.SQL("UNLISTEN {}").format(sql.Identifier(channel)))
             except Exception:
                 log.debug("UNLISTEN failed: channel=%s", channel, exc_info=True)
 

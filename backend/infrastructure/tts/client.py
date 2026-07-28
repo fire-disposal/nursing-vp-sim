@@ -190,7 +190,7 @@ async def _read_server_message(ws: ClientConnection) -> ServerMessage:
             data = {"message": raw}
         msg_text = json.dumps(data, ensure_ascii=False)
         log.warning("TTS: unexpected text frame from server: %s", msg_text[:500])
-        raise RuntimeError(f"TTS server error: {data.get('message', raw)[:300]}")
+        raise TypeError(f"TTS server error: {data.get('message', raw)[:300]}")
     if isinstance(raw, bytes):
         return _parse_server_response(raw)
     raise TypeError(f"TTS: unexpected frame type {type(raw)}")

@@ -24,6 +24,7 @@ from models.training import (
     ScoringProgress,
     TrainingRecord,
     TrainingSessionState,
+    TrainingToolRequest,
 )
 from models.voice import VoiceCallLog, VoiceConfig
 
@@ -57,6 +58,7 @@ __all__ = [
     "TimestampMixin",
     "TrainingRecord",
     "TrainingSessionState",
+    "TrainingToolRequest",
     "User",
     "UserClass",
     "VoiceCallLog",

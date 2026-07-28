@@ -151,7 +151,7 @@ class MetricsSnapshot:
 
         if platform.system() != "Linux":
             return 0.0
-        usage = resource.getrusage(resource.RUSAGE_SELF)  # ty: ignore
+        usage = resource.getrusage(resource.RUSAGE_SELF)
         return round(usage.ru_maxrss / 1024, 1)
 
     def snapshot(self) -> dict:

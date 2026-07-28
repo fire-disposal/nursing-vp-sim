@@ -84,12 +84,7 @@ class NursingRecordHandler(ToolHandler):
             )
             ctx.db.add(nr)
 
-        try:
-            ctx.db.commit()
-        except Exception:
-            ctx.db.rollback()
-            raise
-        ctx.db.refresh(nr)
+        ctx.db.flush()
         return ToolResult(
             ok=True,
             data={

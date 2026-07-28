@@ -18,7 +18,7 @@ export interface TrainingWSMessage {
 
 export interface TrainingWS {
 	send(msg: TrainingWSMessage): void;
-	sendTool(recordId: number, tool: string, action: string, params?: Record<string, unknown>): void;
+	sendTool(recordId: number, tool: string, action: string, params?: Record<string, unknown>): string;
 }
 
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
@@ -169,7 +169,16 @@ export function useTrainingWS(
 	}, []);
 
 	const sendTool = useCallback((recordId: number, tool: string, action: string, params?: Record<string, unknown>) => {
-		_send({ type: "tool", record_id: recordId, tool, action, params: params ?? {} });
+		const requestId = crypto.randomUUID();
+		_send({
+			type: "tool",
+			request_id: requestId,
+			record_id: recordId,
+			tool,
+			action,
+			params: params ?? {},
+		});
+		return requestId;
 	}, []);
 
 	return { send: _send, sendTool };

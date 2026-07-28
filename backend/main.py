@@ -102,7 +102,6 @@ def _recover_stuck_scoring_records():
         db.close()
 
 
-
 async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
     """Re-enqueue scoring for records left in 'pending' state by startup recovery."""
     from core.database import SessionLocal
@@ -153,6 +152,7 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
         log.exception("Failed to re-enqueue pending scoring records")
     finally:
         db.close()
+
 
 def _warm_knowledge_base() -> None:
     """Index and warm knowledge base for QA. Non-fatal on failure."""

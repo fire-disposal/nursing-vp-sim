@@ -1,7 +1,6 @@
 """Voice config business logic — single source of truth for voice CRUD, testing, synthesis."""
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 

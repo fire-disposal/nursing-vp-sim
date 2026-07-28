@@ -42,9 +42,6 @@ export function usePatientData(): PatientData | null {
       gender,
       caseTitle: (d.case_title as string) ?? (d.case as { title?: string } | undefined)?.title ?? "",
       chiefComplaint: (d.chief_complaint as string) ?? (d.case as { chief_complaint?: string } | undefined)?.chief_complaint ?? "",
-      personality: (d.personality as string) ?? (d.case as { personality?: string } | undefined)?.personality ?? "",
-      requiredInquiries: (d.required_inquiries as string[]) ?? [],
-      examAnchors: (d.exam_anchors as Record<string, unknown>) ?? {},
     };
   }, [record]);
 }

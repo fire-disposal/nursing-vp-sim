@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
+from schemas.training.records import PatientPublicInfo
 
 
 class TrainingStartRequest(BaseModel):
@@ -28,11 +29,7 @@ class TrainingSessionData(BaseModel):
     patient_gender: str = ""
     case_title: str = ""
     chief_complaint: str = ""
-    personality: str = ""
-    patient_info: dict | None = None
-    case_data: dict | None = None
-    required_inquiries: list = Field(default_factory=list)
-    exam_anchors: dict | None = None
+    patient_info: PatientPublicInfo | None = None
     features: dict[str, bool] = Field(default_factory=dict)
     from_assignment: bool = False
     messages: list = Field(default_factory=list)

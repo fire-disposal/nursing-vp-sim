@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import ConflictError, ValidationError
 from core.unit_of_work import unit_of_work
-
 from models import ApiSecret
 from repositories.api_secret import ApiSecretRepository
 

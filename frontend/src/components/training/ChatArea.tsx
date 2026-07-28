@@ -1,15 +1,11 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import type { TrainingRecordDetail } from "@/engine/TrainingContext";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
-import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
-import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
 import { cn } from "@/utils/cn";
 import { useShortViewport } from "@/hooks/useShortViewport";
@@ -26,7 +22,6 @@ interface ChatAreaProps {
 	recordId: number;
 	hasHistory?: boolean;
 	recordDetail: TrainingRecordDetail | null;
-	endTraining: () => Promise<void>;
 }
 
 export function ChatArea({
@@ -40,7 +35,6 @@ export function ChatArea({
 	recordId,
 	hasHistory,
 	recordDetail,
-	endTraining,
 }: ChatAreaProps) {
   const hasStudentMessages = messages.some(m => m.role === "student") || (hasHistory && recordDetail?.messages?.some(m => m.role === "student"));
   const greeting = useMemo(() => {
@@ -52,36 +46,11 @@ export function ChatArea({
     return undefined;
   }, [recordDetail]);
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
-  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
-  const shownRef = useRef(false);
   const layout = useLayoutMode();
   const isCompact = layout === "phone";
   const isShort = useShortViewport();
 
-  const inquiriesComplete = useMemo(() => {
-    const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};
-    const inquiries = (cd.required_inquiries as string[]) ?? [];
-    if (inquiries.length === 0) return false;
-    const studentText = messages
-      .filter((m) => m.role === "student")
-      .map((m) => String(m.content ?? ""))
-      .join("");
-    return computeCovered(inquiries, studentText).size === inquiries.length;
-  }, [messages, recordDetail]);
 
-  useEffect(() => {
-    if (inquiriesComplete && !shownRef.current && !trainingEnded) {
-      shownRef.current = true;
-      setInquiryModalOpen(true);
-    }
-  }, [inquiriesComplete, trainingEnded]);
-
-  useEffect(() => {
-    if (messages.length === 0) {
-      setInitiativeMsgs(new Set());
-      shownRef.current = false;
-    }
-  }, [messages.length]);
 
   useEffect(() => {
     const MAX_INITIATIVE = 200;
@@ -134,11 +103,12 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						className="flex-1 flex flex-col min-h-0"
 					>
-						{isCompact ? (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact trailing={<InquiryProgressChip />} />
-						) : (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} trailing={<InquiryProgressChip />} />
-						)}
+						<EmotionIndicator
+							bus={bus}
+							capabilities={capabilities}
+							recordId={recordId}
+							compact={isCompact}
+						/>
 						<div className="flex-1 overflow-y-auto overscroll-contain">
 							<ChatDisplay
 								messages={messages}
@@ -154,21 +124,6 @@ export function ChatArea({
 			</AnimatePresence>
 			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
-			<Dialog open={inquiryModalOpen} onOpenChange={(o) => { if (!o) setInquiryModalOpen(false); }}>
-				<DialogContent title="问诊内容全部覆盖" maxWidth={360}>
-					<p className="text-sm text-muted-foreground">
-						你已成功采集了该病例的全部关键病史信息。是否结束本次训练并生成评分？
-					</p>
-					<div className="flex justify-end gap-2 mt-5">
-						<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
-							继续交流
-						</Button>
-						<Button variant="default" size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
-							立即结算
-						</Button>
-					</div>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }

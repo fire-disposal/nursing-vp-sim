@@ -22,9 +22,6 @@ async def init_llm(app_state, httpx_client, llm_router, metrics):
         return
 
     if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-        import infrastructure.llm.router as llm_router_mod
-
-        llm_router_mod._env_fallback_available = True
         log.info("Env fallback: available")
 
     log_worker = LogWorker(

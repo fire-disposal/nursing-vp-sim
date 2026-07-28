@@ -67,7 +67,7 @@ class CaseService:
             training_type=case.training_type,
             patient_name=info.get("name", ""),
             patient_age=info.get("age"),
-            patient_gender=normalize_gender(info.get("gender", "")),
+            patient_gender=normalize_gender(info.get("gender", "")) or "",
             chief_complaint=cd.get("chief_complaint", ""),
             time_limit=cd.get("time_limit", 20),
             difficulty=cd.get("difficulty", 1),
