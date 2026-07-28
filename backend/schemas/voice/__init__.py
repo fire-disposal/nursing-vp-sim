@@ -6,6 +6,7 @@ from schemas.voice.config import (
     VoiceConfigResponse,
     VoiceConfigUpdateRequest,
     VoiceStatusResponse,
+    VoiceTestRequest,
 )
 from schemas.voice.cost import (
     CostBreakdown,
@@ -26,6 +27,7 @@ __all__ = [
     "VoiceConfigResponse",
     "VoiceConfigUpdateRequest",
     "VoiceStatusResponse",
+    "VoiceTestRequest",
     "VoiceUsageItem",
     "VoiceUsageResponse",
 ]

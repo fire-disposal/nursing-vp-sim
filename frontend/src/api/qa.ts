@@ -47,6 +47,9 @@ export async function askInQASessionStream(
 
 	const doFetch = async (timeoutSignal?: AbortSignal): Promise<Response> => {
 		const token = useAuthStore.getState().token;
+		const combined = signal
+			? combineAbortSignals(signal, timeoutSignal)
+			: timeoutSignal;
 		return fetch(`/api/qa/sessions/${sessionId}/ask/stream`, {
 			method: "POST",
 			headers: {
@@ -54,13 +57,21 @@ export async function askInQASessionStream(
 				Authorization: `Bearer ${token}`,
 			},
 			body: JSON.stringify({ question, rag_enabled: ragEnabled }),
-			signal: timeoutSignal || signal,
+			signal: combined,
 		});
 	};
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
-			let resp = await doFetch();
+			const timeoutController = new AbortController();
+			const fetchTimeout = setTimeout(() => timeoutController.abort(), FETCH_TIMEOUT);
+
+			let resp: Response;
+			try {
+				resp = await doFetch(timeoutController.signal);
+			} finally {
+				clearTimeout(fetchTimeout);
+			}
 
 			if (resp.status === 401) {
 				try {
@@ -114,4 +125,20 @@ export async function askInQASessionStream(
 			}
 		}
 	}
+}
+
+function combineAbortSignals(...signals: (AbortSignal | undefined)[]): AbortSignal {
+	const valid = signals.filter(Boolean) as AbortSignal[];
+	if (valid.length === 0) return new AbortController().signal;
+	if (valid.length === 1) return valid[0];
+
+	const controller = new AbortController();
+	for (const s of valid) {
+		if (s.aborted) {
+			controller.abort(s.reason);
+			return controller.signal;
+		}
+		s.addEventListener("abort", () => controller.abort(s.reason), { once: true });
+	}
+	return controller.signal;
 }

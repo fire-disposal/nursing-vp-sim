@@ -184,7 +184,11 @@ async def ask_in_session(
     )
 
 
-@router.post("/sessions/{session_id}/ask/stream")
+@router.post(
+    "/sessions/{session_id}/ask/stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
+)
 async def ask_stream(
     session_id: int,
     req: QASessionCreate,
@@ -210,7 +214,7 @@ async def ask_stream(
         db.refresh(user_record)
 
         async def generate():
-            full_reply = ""
+            reply_chunks: list[str] = []
             llm_client = request.app.state.llm_client
             try:
                 async for chunk in llm_client.stream(
@@ -219,9 +223,9 @@ async def ask_stream(
                     ctx=CallContext(purpose="qa", user_id=current_user.id),
                     **get_llm_config("qa"),
                 ):
-                    full_reply += chunk
+                    reply_chunks.append(chunk)
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
-                stored_content = embed_citations(full_reply, citations)
+                stored_content = embed_citations("".join(reply_chunks), citations)
                 assistant_record = QARecord(
                     session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
                 )

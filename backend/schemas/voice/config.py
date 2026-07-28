@@ -50,6 +50,12 @@ class VoiceStatusResponse(BaseModel):
     tts_pool_in_use: int | None = None
 
 
+class VoiceTestRequest(BaseModel):
+    model_config = _REQ_CFG
+    text: str = Field(default="你好，这是一段测试语音。", min_length=1, max_length=200)
+    speaker: str | None = Field(default=None, max_length=64)
+
+
 class TTSSynthesizeRequest(BaseModel):
     model_config = _REQ_CFG
     text: str = Field(min_length=1, max_length=500)

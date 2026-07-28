@@ -113,7 +113,11 @@ async def send_message(
     )
 
 
-@router.post("/{record_id}/message/stream")
+@router.post(
+    "/{record_id}/message/stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
+)
 async def send_message_stream(
     record_id: int,
     req: ChatMessageRequest,

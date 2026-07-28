@@ -30,7 +30,18 @@ def _resolve_emotion(request: Request, record_id: int, db) -> str:
     return get_emotion(record_id, emotion_cache, db).state
 
 
-@router.post("/synthesize")
+@router.post(
+    "/synthesize",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "audio/mpeg": {"schema": {"type": "string", "format": "binary"}},
+                "audio/pcm": {"schema": {"type": "string", "format": "binary"}},
+            }
+        }
+    },
+)
 async def synthesize(
     req: TTSSynthesizeRequest,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -75,7 +86,11 @@ async def synthesize(
     )
 
 
-@router.post("/stream")
+@router.post(
+    "/stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"audio/pcm": {"schema": {"type": "string", "format": "binary"}}}}},
+)
 async def synthesize_stream(
     req: TTSSynthesizeRequest,
     current_user: Annotated[User, Depends(get_current_user)],

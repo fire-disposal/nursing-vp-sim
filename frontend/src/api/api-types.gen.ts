@@ -2126,6 +2126,13 @@ export interface components {
             price_output_per_1m: number;
             /** Monthly Cost Limit */
             monthly_cost_limit?: number | null;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /** Model Override */
+            model_override?: string | null;
         };
         /** ApiSecretResponse */
         ApiSecretResponse: {
@@ -4793,6 +4800,16 @@ export interface components {
             tts_pool_idle?: number | null;
             /** Tts Pool In Use */
             tts_pool_in_use?: number | null;
+        };
+        /** VoiceTestRequest */
+        VoiceTestRequest: {
+            /**
+             * Text
+             * @default 你好，这是一段测试语音。
+             */
+            text: string;
+            /** Speaker */
+            speaker?: string | null;
         };
         /** VoiceUsageItem */
         VoiceUsageItem: {
@@ -8107,7 +8124,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceTestRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -8115,7 +8136,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "audio/pcm": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8127,7 +8157,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceTestRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -8135,7 +8169,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "audio/mpeg": string;
+                    "audio/pcm": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8281,7 +8325,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -9056,7 +9100,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -9212,7 +9256,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "audio/mpeg": string;
+                    "audio/pcm": string;
                 };
             };
             /** @description Validation Error */
@@ -9245,7 +9290,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "audio/pcm": string;
                 };
             };
             /** @description Validation Error */

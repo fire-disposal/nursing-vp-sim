@@ -15,6 +15,7 @@ from schemas.voice import (
     VoiceConfigResponse,
     VoiceConfigUpdateRequest,
     VoiceStatusResponse,
+    VoiceTestRequest,
 )
 from services.voice import VoiceConfigService
 
@@ -59,16 +60,20 @@ async def test_tts(request: Request, current_user: _Manager, db: Annotated[Sessi
     return await VoiceConfigService(db).test_tts(pool=pool)
 
 
-@router.post("/config/test-stream")
+@router.post(
+    "/config/test-stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"audio/pcm": {"schema": {"type": "string", "format": "binary"}}}}},
+)
 async def test_stream(
+    body: VoiceTestRequest,
     request: Request,
     current_user: _Manager,
     db: Annotated[Session, Depends(get_db)],
 ):
     """Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz)."""
-    body = await request.json()
-    text = str(body.get("text", "你好，这是一段测试语音。"))[:200]
-    speaker_override = body.get("speaker") or None
+    text = body.text[:200]
+    speaker_override = body.speaker
 
     pool = getattr(request.app.state, "tts_pool", None)
     try:
@@ -85,14 +90,25 @@ async def test_stream(
     )
 
 
-@router.post("/config/test-synthesize")
+@router.post(
+    "/config/test-synthesize",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "audio/mpeg": {"schema": {"type": "string", "format": "binary"}},
+                "audio/pcm": {"schema": {"type": "string", "format": "binary"}},
+            }
+        }
+    },
+)
 async def test_synthesize(
+    body: VoiceTestRequest,
     request: Request,
     current_user: _Manager,
     db: Annotated[Session, Depends(get_db)],
 ):
-    body = await request.json()
-    text = str(body.get("text", "你好，这是一段测试语音。"))[:200]
+    text = body.text[:200]
 
     try:
         audio, media_type, ext = await VoiceConfigService(db).synthesize_test(text)
