@@ -1,8 +1,7 @@
-import { Info } from "lucide-react";
+
 import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
 import { cn } from "@/utils/cn";
 import {
-	degradedReasonLabel,
 	costColorClass,
 	recoveryText,
 	statusText,
@@ -62,7 +61,7 @@ export default function SecretList({
 						const cost = Number(s.monthly_cost_used ?? 0);
 						const limit = s.monthly_cost_limit ?? null;
 						const isDisabled = s.status === "disabled";
-						const recovery =
+						const _recovery =
 							s.status === "degraded"
 								? recoveryText(s.degraded_until, s.degraded_reason)
 								: "";

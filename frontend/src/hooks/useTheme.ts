@@ -26,12 +26,12 @@ function setThemeId(id: string) {
     /* quota exceeded — harmless */
   }
   applyThemeVars(getTheme(id));
-  listeners.forEach((fn) => fn());
+  listeners.forEach((fn) => { fn(); });
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => { listeners.delete(listener); };
 }
 
 function getSnapshot(): string {

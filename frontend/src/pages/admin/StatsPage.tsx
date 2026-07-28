@@ -46,7 +46,6 @@ import {
 import { LegacyTabs } from "@/components/ui/tabs";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import useAuthStore from "@/stores/authStore";
-import type { User } from "@/types/store";
 import { cn } from "@/utils/cn";
 import { isAdminPermissions } from "@/utils/permissions";
 
@@ -80,7 +79,6 @@ interface StatsContentProps {
 	rankingOffset: number;
 	setRankingOffset: (n: number) => void;
 	rankingTotal: number;
-	user: User | null;
 	hasTeacherView: boolean;
 	LIMIT?: number;
 }
@@ -90,7 +88,6 @@ function Stats() {
 	const [summaryOffset, setSummaryOffset] = useState(0);
 	const [rankingOffset, setRankingOffset] = useState(0);
 	const _toast = useToast();
-	const user = useAuthStore((s) => s.user);
 	const permissions = useAuthStore((s) => s.permissions);
 	const hasTeacherView = isAdminPermissions(permissions);
 	const LIMIT = 50;
@@ -139,7 +136,6 @@ function Stats() {
 			rankingOffset={rankingOffset}
 			setRankingOffset={setRankingOffset}
 			rankingTotal={rankingTotal}
-			user={user}
 			hasTeacherView={hasTeacherView}
 		/>
 	);
@@ -161,7 +157,6 @@ function StatsContent({
 	rankingOffset,
 	setRankingOffset,
 	rankingTotal,
-	user,
 	hasTeacherView,
 	LIMIT = 50,
 }: StatsContentProps) {

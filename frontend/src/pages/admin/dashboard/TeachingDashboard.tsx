@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, ClipboardList, GraduationCap, Target, TrendingUp, Users } from "lucide-react";
+import { BarChart3, ClipboardList, Target, TrendingUp, Users } from "lucide-react";
 import type { components } from "@/api/api-types.gen";
 import { getAssignments } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";

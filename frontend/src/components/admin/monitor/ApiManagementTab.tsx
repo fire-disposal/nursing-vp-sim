@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import {
 	deleteSecret,
@@ -21,7 +21,7 @@ export default function ApiManagementTab() {
 	const { confirm } = useConfirm();
 	const [showSecretModal, setShowSecretModal] = useState(false);
 	const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(null);
-	const [testingAll, setTestingAll] = useState(false);
+	const [_testingAll, setTestingAll] = useState(false);
 
 	const { data: secrets = [] } = useQuery({
 		queryKey: queryKeys.apiManagement.secrets,
@@ -56,7 +56,7 @@ export default function ApiManagementTab() {
 		}
 	};
 
-	const handleTestAll = async () => {
+	const _handleTestAll = async () => {
 		setTestingAll(true);
 		try {
 			const r = await testAllSecrets();

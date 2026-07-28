@@ -3,7 +3,6 @@ import type {
 	ApiSecretCreate,
 	ApiSecretResponse,
 	ApiSecretUpdate,
-	FallbackStateResponse,
 	HealthCheckItem,
 	OkResponse,
 	SecretCreateResponse,

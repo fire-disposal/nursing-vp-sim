@@ -300,8 +300,8 @@
 
 @media (max-height: 500px) {
 	[data-sonner-toaster] {
-		left: 50% !important;
-		right: auto !important;
-		transform: translateX(-50%) !important;
+		left: 50%;
+		right: auto;
+		transform: translateX(-50%);
 	}
 }

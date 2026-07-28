@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Award, BookOpen, ClipboardCheck, ClipboardList, Clock, Home, Megaphone, Play, RotateCcw, Search, Star, Target, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, BookOpen, ClipboardCheck, ClipboardList, Home, Megaphone, Play, RotateCcw, Search, Star, Target, TrendingUp, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, startTraining } from "@/api";
@@ -168,6 +168,8 @@ export default function TrainingSelect() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
   const recentRecords = records.slice(0, 5);
+  const primaryInProgress = records.find((r) => r.status === "in_progress");
+  const nextAssignment = pendingAssignments[0];
 
   return (
     <div className="flex flex-col gap-4">
@@ -190,18 +192,13 @@ export default function TrainingSelect() {
 
       {tab === "home" && (
         <div className="space-y-4">
-          <div>
-            <h1 className="text-xl font-bold">{greeting}，{user?.display_name || "同学"}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">继续你的护理模拟训练</p>
-          </div>
-
           {/* Notification banner */}
           {recentNotifs.length > 0 && (
             <div className="space-y-2">
               {recentNotifs.map((n: { id: number; title: string; type: string; link?: string }) => (
                 <button key={n.id} type="button"
                   onClick={() => { if (n.link) navigate(n.link); }}
-                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted">
+                  className="flex w-full items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted">
                   <Megaphone size={16} className="text-primary shrink-0" />
                   <span className="text-sm flex-1">{n.title}</span>
                 </button>
@@ -209,68 +206,133 @@ export default function TrainingSelect() {
             </div>
           )}
 
-          {/* Stat cards */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
-              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", inProgressCount > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-warning text-warning-foreground"><Play size={18} /></div>
-              <div className="min-w-0"><div className="text-lg font-bold">{inProgressCount}</div><div className="text-xs text-muted-foreground">进行中训练</div></div>
-            </div>
-            <div onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
-              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", completedCount > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground"><ClipboardCheck size={18} /></div>
-              <div className="min-w-0"><div className="text-lg font-bold">{completedCount}</div><div className="text-xs text-muted-foreground">已完成训练</div></div>
-            </div>
-            <div onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
-              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", pendingAssignments.length > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-danger text-danger-foreground"><BookOpen size={18} /></div>
-              <div className="min-w-0"><div className="text-lg font-bold">{pendingAssignments.length}</div><div className="text-xs text-muted-foreground">待完成作业</div></div>
-            </div>
-          </div>
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
+            <div className="relative overflow-hidden rounded-2xl ring-1 ring-foreground/10 bg-card p-5 shadow-e2 sm:p-6">
+              <div className="absolute inset-0 bg-grid-medical opacity-80" />
+              <div className="absolute -right-12 -top-16 size-48 rounded-full bg-primary/10 blur-3xl" />
+              <div className="relative flex min-h-[220px] flex-col justify-between gap-8">
+                <div>
+                  <p className="text-sm font-medium text-primary">{greeting}，{user?.display_name || "同学"}</p>
+                  <h1 className="mt-3 max-w-2xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                    {primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
+                  </h1>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                    {primaryInProgress
+                      ? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
+                      : nextAssignment
+                        ? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
+                        : "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
+                  </p>
+                </div>
 
-          {/* Training stats (from MyStatsPage) */}
-          {myStats && (
-            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><Target size={16} className="text-muted-foreground" />训练统计</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                <div><div className="text-lg font-bold">{myStats.total_sessions ?? 0}</div><div className="text-xs text-muted-foreground">完成训练</div></div>
-                <div><div className="text-lg font-bold">{myStats.avg_score != null ? `${myStats.avg_score}分` : "--"}</div><div className="text-xs text-muted-foreground">平均得分</div></div>
-                <div><div className="text-lg font-bold">{myStats.rank ? `第${myStats.rank}名` : "--"}</div><div className="text-xs text-muted-foreground">排名</div></div>
-                <div><div className="text-lg font-bold">{myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"}</div><div className="text-xs text-muted-foreground">总时长</div></div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {primaryInProgress ? (
+                    <Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)} className="sm:w-fit">
+                      <Play size={16} />继续训练
+                    </Button>
+                  ) : nextAssignment ? (
+                    <Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)} className="sm:w-fit">
+                      <Play size={16} />开始作业
+                    </Button>
+                  ) : (
+                    <Button size="lg" onClick={() => setTab("self")} className="sm:w-fit">
+                      <BookOpen size={16} />选择病例
+                    </Button>
+                  )}
+                  {(primaryInProgress || nextAssignment) && (
+                    <Button variant="outline" size="lg" onClick={() => setTab("self")} className="sm:w-fit">
+                      {primaryInProgress ? "选择其他病例" : "自主训练"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Pending assignments */}
-          {pendingAssignments.length > 0 && (
-            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-              <h3 className="text-sm font-medium mb-3">待完成作业</h3>
-              <div className="space-y-2">
-                {pendingAssignments.slice(0, 5).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                    <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{a.title}</div><div className="text-xs text-muted-foreground">{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}</div></div>
-                    <Button size="sm" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始</Button>
-                  </div>
-                ))}
+            <aside className="rounded-2xl ring-1 ring-foreground/10 bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">待完成作业</h2>
+                <button type="button" onClick={() => setTab("assignments")} className="text-xs font-medium text-primary hover:text-primary/80">
+                  查看全部
+                </button>
               </div>
-            </div>
-          )}
+              {pendingAssignments.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
+                    <div key={a.id} className="rounded-xl border border-border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{a.title}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}
+                          </div>
+                        </div>
+                        <Button size="sm" onClick={() => handleStartAssignment(a.id)}>
+                          <Play size={14} />开始
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  暂无待完成作业，可以自主选择病例训练。
+                </div>
+              )}
+            </aside>
+          </section>
 
-          {/* Recent records */}
-          {recentRecords.length > 0 && (
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-muted-foreground" />最近训练</h3>
-              <div className="space-y-1">
-                {recentRecords.map((r) => (
-                  <button key={r.id} type="button" onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted">
-                    <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{r.case_name}</div><div className="text-xs text-muted-foreground mt-0.5">{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊</div></div>
-                    <div className="shrink-0 ml-3">{r.status === "completed" && r.score_total != null ? <span className="text-sm font-semibold text-primary tabular-nums">{r.score_total} 分</span> : r.status === "in_progress" ? <Badge variant="info">进行中</Badge> : null}</div>
-                  </button>
-                ))}
-              </div>
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><TrendingUp size={16} className="text-muted-foreground" />最近训练</h3>
+              {recentRecords.length > 0 ? (
+                <div className="space-y-1">
+                  {recentRecords.map((r) => (
+                    <button key={r.id} type="button" onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted">
+                      <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{r.case_name}</div><div className="text-xs text-muted-foreground mt-0.5">{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊</div></div>
+                      <div className="shrink-0 ml-3">{r.status === "completed" && r.score_total != null ? <span className="text-sm font-semibold text-primary tabular-nums">{r.score_total} 分</span> : r.status === "in_progress" ? <Badge variant="info">进行中</Badge> : null}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+                  还没有训练记录。先从一个病例开始。
+                </div>
+              )}
             </div>
-          )}
+
+            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><Target size={16} className="text-muted-foreground" />训练概览</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
+                  className={cn("rounded-lg bg-warning/60 p-3 text-left transition-colors", inProgressCount > 0 && "hover:bg-warning")}>
+                  <Play size={16} className="mb-2 text-warning-foreground" />
+                  <div className="text-lg font-bold tabular-nums">{inProgressCount}</div>
+                  <div className="text-xs text-muted-foreground">进行中</div>
+                </button>
+                <button type="button" onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
+                  className={cn("rounded-lg bg-success/60 p-3 text-left transition-colors", completedCount > 0 && "hover:bg-success")}>
+                  <ClipboardCheck size={16} className="mb-2 text-success-foreground" />
+                  <div className="text-lg font-bold tabular-nums">{completedCount}</div>
+                  <div className="text-xs text-muted-foreground">已完成</div>
+                </button>
+                <button type="button" onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
+                  className={cn("rounded-lg bg-danger/60 p-3 text-left transition-colors", pendingAssignments.length > 0 && "hover:bg-danger")}>
+                  <BookOpen size={16} className="mb-2 text-danger-foreground" />
+                  <div className="text-lg font-bold tabular-nums">{pendingAssignments.length}</div>
+                  <div className="text-xs text-muted-foreground">作业</div>
+                </button>
+              </div>
+              {myStats && (
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-center sm:grid-cols-4 xl:grid-cols-2">
+                  <div><div className="text-lg font-bold">{myStats.total_sessions ?? 0}</div><div className="text-xs text-muted-foreground">完成训练</div></div>
+                  <div><div className="text-lg font-bold">{myStats.avg_score != null ? `${myStats.avg_score}分` : "--"}</div><div className="text-xs text-muted-foreground">平均得分</div></div>
+                  <div><div className="text-lg font-bold">{myStats.rank ? `第${myStats.rank}名` : "--"}</div><div className="text-xs text-muted-foreground">排名</div></div>
+                  <div><div className="text-lg font-bold">{myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"}</div><div className="text-xs text-muted-foreground">总时长</div></div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       )}
 

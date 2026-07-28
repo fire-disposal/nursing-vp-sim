@@ -43,7 +43,7 @@ export function ScoringOverlay({
 
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
 	const feedbackScrollRef = useRef<HTMLDivElement>(null);
-	const toast = useToast();
+	const _toast = useToast();
 	const navigate = useNavigate();
 
 	useEffect(() => {

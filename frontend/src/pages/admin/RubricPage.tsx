@@ -53,7 +53,7 @@ function draftToExport(draft: RubricData): RubricDataRaw {
 	};
 }
 
-function cloneRubric(r: RubricData): RubricData { return JSON.parse(JSON.stringify(r)); }
+function _cloneRubric(r: RubricData): RubricData { return JSON.parse(JSON.stringify(r)); }
 
 function downloadJson(data: unknown, filename: string) {
 	const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });

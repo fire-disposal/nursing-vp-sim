@@ -9,7 +9,7 @@ import { changePassword, updateMyProfile } from "@/api";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -133,7 +133,7 @@ export default function Profile() {
           <button type="button" onClick={openPasswordDialog}
             className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">修改密码</div>
@@ -144,7 +144,7 @@ export default function Profile() {
           <button type="button" onClick={openFeedback}
             className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">意见反馈</div>

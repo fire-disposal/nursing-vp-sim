@@ -1,5 +1,4 @@
-import { Pencil, Play, Plus, Search, Trash2, Wand2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Pencil, Plus, Search, Trash2, Wand2, X } from "lucide-react";
 import Button from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Pagination from "@/components/ui/pagination";

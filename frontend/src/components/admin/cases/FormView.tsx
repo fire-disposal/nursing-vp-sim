@@ -1,10 +1,9 @@
-import type { CaseDispatch, CaseEditorState, CaseJsonValue } from "./CaseEditorState";
+import type { CaseDispatch, CaseEditorState, } from "./CaseEditorState";
 import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
 import CapabilitiesEditor from "./CapabilitiesEditor";
 import { ClinicalSection } from "./ClinicalSection";
-import { DialoguesEditor } from "./DialoguesEditor";
 import { ExamAnchorsEditor } from "./ExamAnchorsEditor";
 import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";

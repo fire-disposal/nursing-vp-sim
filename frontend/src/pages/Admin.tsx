@@ -15,7 +15,7 @@ export default function Admin() {
 		staleTime: 2 * 60_000,
 	});
 
-	const records = (recordsData?.items ?? []) as RecordExtended[];
+	const _records = (recordsData?.items ?? []) as RecordExtended[];
 
 	const handleExport = async () => {
 		try {

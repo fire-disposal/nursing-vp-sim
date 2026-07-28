@@ -3,7 +3,6 @@ import {
 	BarChart3,
 	BookOpen,
 	Bot,
-	ClipboardCheck,
 	ClipboardList,
 	Coins,
 	FileText,
