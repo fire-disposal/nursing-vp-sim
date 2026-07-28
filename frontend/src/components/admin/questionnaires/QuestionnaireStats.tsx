@@ -40,7 +40,7 @@ export default function QuestionnaireStats({
 	};
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
+		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
 			<div className="flex items-center justify-between mb-6">
 				<div>
 					<button

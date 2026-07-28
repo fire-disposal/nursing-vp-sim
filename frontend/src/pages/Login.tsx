@@ -114,7 +114,7 @@ export default function Login() {
 						</div>
 					</div>
 
-					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-e1 sm:p-8">
 						<FormMessageBanner type="error" message={error} />
 
 						<Form {...form}>

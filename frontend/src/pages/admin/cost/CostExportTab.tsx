@@ -21,7 +21,7 @@ import {
 import { cn } from "@/utils/cn";
 
 const selectClass =
-	"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+	"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-e1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function CostExportTab() {
 	const [startDate, setStartDate] = useState("");
@@ -136,7 +136,7 @@ export default function CostExportTab() {
 								className={cn(
 									"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
 									format === "json"
-										? "bg-background text-foreground shadow-sm"
+										? "bg-background text-foreground shadow-e1"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>
@@ -149,7 +149,7 @@ export default function CostExportTab() {
 								className={cn(
 									"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
 									format === "csv"
-										? "bg-background text-foreground shadow-sm"
+										? "bg-background text-foreground shadow-e1"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>

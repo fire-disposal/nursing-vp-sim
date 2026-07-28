@@ -59,7 +59,7 @@ export default function UserList({
 	const navigate = useNavigate();
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
+		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
 			<div className="mb-3 flex gap-2 items-center">
 				<div className="relative flex-1 max-w-[320px]">
 					<Search

@@ -524,7 +524,7 @@ export default function FeedbackTab() {
 	};
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
+		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
 			<div className="mb-4">
 				<button
 					type="button"
@@ -546,7 +546,7 @@ export default function FeedbackTab() {
 				)}
 			</div>
 
-			<div className="flex gap-2 flex-wrap items-center justify-between rounded-xl border border-border bg-muted shadow-sm p-3.5 mb-4">
+			<div className="flex gap-2 flex-wrap items-center justify-between rounded-lg border border-border bg-muted p-3.5 mb-4">
 				<div className="flex gap-2 items-end flex-wrap">
 					<div>
 						<label className="block text-xs text-muted-foreground mb-1">

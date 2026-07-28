@@ -227,7 +227,7 @@ export default function UserDetailPage() {
 				</div>
 			)}
 
-			<div className="bg-card rounded-xl shadow-sm p-6 border border-border overflow-x-auto">
+			<div className="bg-card rounded-xl shadow-e1 p-6 border border-border overflow-x-auto">
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="flex items-center gap-2 text-sm font-semibold">
 						<FileText size={18} /> 最近训练记录 ({recentRecords.length}条)

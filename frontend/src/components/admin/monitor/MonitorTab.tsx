@@ -137,7 +137,7 @@ export default function MonitorTab() {
 
 	if (statsLoading) {
 		return (
-			<div className="rounded-xl border border-border bg-card shadow-sm p-10 text-center text-muted-foreground/70">
+			<div className="rounded-xl border border-border bg-card shadow-e1 p-10 text-center text-muted-foreground/70">
 				<Activity size={36} className="mx-auto mb-3" />
 				<div>正在加载监控数据...</div>
 			</div>
@@ -201,7 +201,7 @@ export default function MonitorTab() {
 					{statCards.map((s, i) => (
 						<div
 							key={i}
-							className="rounded-xl border border-border bg-card shadow-sm p-5 text-center"
+							className="rounded-xl border border-border bg-card shadow-e1 p-5 text-center"
 						>
 							<div className="text-muted-foreground text-xs mb-1.5">
 								{s.label}
@@ -227,7 +227,7 @@ export default function MonitorTab() {
 			</div>
 
 			{stats.by_provider?.length > 0 && (
-				<div className="rounded-xl border border-border bg-card shadow-sm p-4 mb-5">
+				<div className="rounded-xl border border-border bg-card shadow-e1 p-4 mb-5">
 					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
 						<BarChart3 size={14} /> 按 Provider 统计 (7日)
 					</h3>
@@ -275,7 +275,7 @@ export default function MonitorTab() {
 			)}
 
 			{stats.daily.length > 0 && (
-				<div className="rounded-xl border border-border bg-card shadow-sm p-5 mb-5">
+				<div className="rounded-xl border border-border bg-card shadow-e1 p-5 mb-5">
 					<h3 className="text-[0.95rem] font-semibold mb-4 text-muted-foreground flex items-center gap-1.5">
 						<TrendingUp size={16} /> 近30天每日调用趋势
 					</h3>
@@ -312,7 +312,7 @@ export default function MonitorTab() {
 			)}
 
 			<div className="grid grid-cols-[1fr_2fr] gap-4 mb-5 max-[1000px]:grid-cols-1">
-				<div className="rounded-xl border border-border bg-card shadow-sm p-4">
+				<div className="rounded-xl border border-border bg-card shadow-e1 p-4">
 					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
 						<Activity size={14} /> 按用途统计 (7日)
 					</h3>
@@ -360,7 +360,7 @@ export default function MonitorTab() {
 					</div>
 				</div>
 
-				<div className="rounded-xl border border-border bg-card shadow-sm p-4">
+				<div className="rounded-xl border border-border bg-card shadow-e1 p-4">
 					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
 						<Server size={14} /> 最近训练调用日志
 					</h3>

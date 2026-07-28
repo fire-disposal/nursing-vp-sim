@@ -28,12 +28,12 @@ const EMOTION_ICONS: Record<EmotionState, string> = {
 };
 
 const EMOTION_DOT: Record<EmotionState, string> = {
-	withdrawn: "bg-red-500",
-	defensive: "bg-orange-500",
-	anxious: "bg-purple-500",
+	withdrawn: "bg-danger-foreground",
+	defensive: "bg-abandon-foreground",
+	anxious: "bg-end-foreground",
 	neutral: "bg-muted-foreground",
-	relaxed: "bg-blue-500",
-	open: "bg-green-500",
+	relaxed: "bg-info-foreground",
+	open: "bg-success-foreground",
 };
 
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
@@ -187,7 +187,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 					<span className="text-[11px] text-muted-foreground truncate">{label}</span>
 					{/* Trust micro-bar */}
 					<div className="h-1 w-10 rounded-full bg-muted overflow-hidden shrink-0">
-						<div className={cn("h-full rounded-full transition-all duration-700", trustPct >= 60 ? "bg-green-500" : trustPct >= 40 ? "bg-amber-500" : "bg-red-500")}
+						<div className={cn("h-full rounded-full transition-all duration-700", trustPct >= 60 ? "bg-success-foreground" : trustPct >= 40 ? "bg-warning-foreground" : "bg-danger-foreground")}
 							style={{ width: `${trustPct}%` }} />
 					</div>
 					<div className="ml-auto flex items-center gap-2">

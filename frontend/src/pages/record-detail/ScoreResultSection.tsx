@@ -168,10 +168,10 @@ export default function ScoreResultSection({
 										className={cn(
 											"h-full rounded-full transition-all duration-700",
 											pct >= 80
-												? "bg-green-500"
+												? "bg-success-foreground"
 												: pct >= 50
-													? "bg-amber-500"
-													: "bg-red-500",
+													? "bg-warning-foreground"
+													: "bg-danger-foreground",
 										)}
 										style={{ width: `${pct}%` }}
 									/>
@@ -226,10 +226,10 @@ export default function ScoreResultSection({
 															className={cn(
 																"h-full rounded-full",
 																aiPct >= 80
-																	? "bg-green-400/50"
+																	? "bg-success-foreground/50"
 																	: aiPct >= 50
-																		? "bg-amber-400/50"
-																		: "bg-red-400/50",
+																		? "bg-warning-foreground/50"
+																		: "bg-danger-foreground/50",
 															)}
 															style={{ width: `${aiPct}%` }}
 														/>

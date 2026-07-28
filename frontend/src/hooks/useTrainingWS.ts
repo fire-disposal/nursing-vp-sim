@@ -55,6 +55,10 @@ function buildWsUrl(): string {
 
 function _connect() {
 	if (_aborted) return;
+	// Reset auth-retry gate per connection attempt — each fresh WebSocket
+	// gets one 4001→refresh chance (previously only reset in onopen, so a
+	// connection that immediately 4001'd never got a second chance).
+	_authRetried = false;
 	// Close any existing socket and neutralize its event handlers
 	// to prevent stale onclose from destroying the new connection.
 	if (_ws) {
@@ -70,7 +74,6 @@ function _connect() {
 	_ws = ws;
 	ws.onopen = () => {
 		_retryCount = 0;
-		_authRetried = false;
 		_setConnected(true);
 		while (_pending.length > 0) {
 			const msg = _pending.shift()!;
@@ -120,6 +123,19 @@ function _connect() {
 		_retryCount = Math.min(_retryCount + 1, 5);
 		_retryTimer = setTimeout(_connect, delay);
 	};
+
+	// Client-side ping every 25s — keeps proxies/load-balancers from
+	// dropping idle WS connections. Server responds with {"type":"pong"}.
+	const pingTimer = setInterval(() => {
+		if (_ws === ws && ws.readyState === WebSocket.OPEN) {
+			_send({ type: "ping" });
+		}
+	}, 25_000);
+	const _origOnClose = ws.onclose;
+	ws.onclose = (ev) => {
+		clearInterval(pingTimer);
+		if (_origOnClose) _origOnClose.call(ws, ev);
+	};
 }
 function _send(msg: TrainingWSMessage) {
 	if (_ws && _ws.readyState === WebSocket.OPEN) {
@@ -146,7 +162,7 @@ export function useTrainingWS(
 		};
 		_listeners.add(handler);
 		return () => { _listeners.delete(handler); };
-	}, [onEvent]);
+	}, []);
 
 	useEffect(() => {
 		_refCount += 1;
@@ -162,8 +178,6 @@ export function useTrainingWS(
 				if (_ws) { _ws.onclose = null; _ws.close(); _ws = null; }
 				_setConnected(false);
 				_pending.length = 0;
-				_listeners.clear();
-				_connListeners.clear();
 			}
 		};
 	}, []);

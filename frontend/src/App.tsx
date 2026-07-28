@@ -15,8 +15,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import RequirePermission from "@/components/RequirePermission";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_ROUTES } from "@/components/shell/navigation";
 import { onForceLogout } from "@/events";
+import { usePalette } from "@/hooks/useTheme";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -43,6 +45,12 @@ function ForceLogoutListener() {
 	return null;
 }
 
+/** Apply persisted color palette on mount. No UI. */
+function AppPaletteInit() {
+	usePalette();
+	return null;
+}
+
 function PageLoader() {
 	return (
 		<div className="flex h-screen flex-col items-center justify-center gap-3">
@@ -56,9 +64,9 @@ export default function App() {
 	return (
 		<BrowserRouter>
 			<QueryClientProvider client={queryClient}>
-				{/* 尊重系统减弱动态效果偏好（prefers-reduced-motion） */}
+				<TooltipProvider>
 				<MotionConfig reducedMotion="user">
-				<ForceLogoutListener />
+				<AppPaletteInit />
 				<Toaster />
 				<ConfirmProvider>
 					<FeedbackProvider>
@@ -94,6 +102,7 @@ export default function App() {
 					</FeedbackProvider>
 				</ConfirmProvider>
 				</MotionConfig>
+				</TooltipProvider>
 			</QueryClientProvider>
 		</BrowserRouter>
 	);

@@ -53,11 +53,9 @@ export function WelcomeScreen({ patient, onQuickPrompt: _onQuickPrompt, capabili
 				</div>
 
 
-				<p className="text-xs text-muted-foreground/70 pt-2 border-t border-border">
-					在下方输入框中向患者提问，开始采集病史。对话将自动评分。
-				</p>
-				<p className="text-[11px] text-muted-foreground/50 text-center">
-					提示：对话框已就绪，直接输入与患者交流即可
+				<p className="text-xs text-muted-foreground/70 pt-2 border-t border-border leading-relaxed">
+					在下方输入框中向患者提问，开始采集病史。完成问诊后点击右上角
+					<span className="font-medium text-foreground">"结束训练"</span>提交评分。
 				</p>
 			</Card>
 		</div>

@@ -65,7 +65,7 @@ export default function DataTable<T>({
 	className,
 }: DataTableProps<T>) {
 	const wrapper = cn(
-		!bare && "rounded-xl border border-border bg-card shadow-sm overflow-hidden",
+		!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden",
 		className,
 	);
 

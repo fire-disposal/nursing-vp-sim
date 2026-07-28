@@ -44,7 +44,7 @@ export default function ProfileTabs() {
 						className={cn(
 							"inline-flex items-center shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
 							active
-								? "bg-background text-foreground shadow-sm"
+								? "bg-background text-foreground shadow-e1"
 								: "text-muted-foreground hover:text-foreground",
 						)}
 					>

@@ -62,7 +62,7 @@ export default function CallLogTimeline({
 	);
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-sm p-5">
+		<div className="rounded-xl border border-border bg-card shadow-e1 p-5">
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-2">
 					<button

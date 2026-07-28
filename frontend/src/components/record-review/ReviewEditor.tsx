@@ -74,7 +74,7 @@ export default function ReviewEditor({
 
 	return (
 		<div
-			className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]"
+			className="fixed inset-0 bg-background/95 flex items-center justify-center z-[200]"
 			onClick={onClose}
 		>
 			<div

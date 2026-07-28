@@ -2,7 +2,7 @@ import { ChevronLeft } from "lucide-react";
 import type { ElementType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/utils/cn";
-import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/breadcrumb";
+
 
 interface PageHeaderProps {
 	title: string;
@@ -10,7 +10,6 @@ interface PageHeaderProps {
 	icon?: ElementType;
 	actions?: ReactNode;
 	backTo?: string;
-	breadcrumb?: BreadcrumbItem[];
 	className?: string;
 }
 
@@ -20,18 +19,12 @@ export default function PageHeader({
 	icon: Icon,
 	actions,
 	backTo,
-	breadcrumb,
 	className,
 }: PageHeaderProps) {
 	const navigate = useNavigate();
 
 	return (
 		<div className={cn("mb-3 sm:mb-6", className)}>
-			{breadcrumb && breadcrumb.length > 0 && (
-				<div className="mb-2">
-					<Breadcrumb items={breadcrumb} />
-				</div>
-			)}
 			{backTo && (
 				<div className="mb-2">
 					<button

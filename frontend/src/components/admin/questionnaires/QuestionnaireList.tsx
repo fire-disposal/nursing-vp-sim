@@ -160,7 +160,7 @@ export default function QuestionnaireList({
 				</Button>
 			</div>
 
-			<div className="rounded-xl border border-border bg-card shadow-sm p-6">
+			<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
 				<div className="mb-4 rounded-xl border border-border bg-muted p-4">
 					<div className="flex gap-3 flex-wrap items-end">
 						<label>

@@ -154,7 +154,7 @@ export default function VoiceTokenCard() {
 
 	const row = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5";
 	const labelCls = "sm:w-[80px] shrink-0 text-xs text-muted-foreground font-medium";
-	const inputCls = "h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+	const inputCls = "h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm shadow-e1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 	return (
 		<Card>

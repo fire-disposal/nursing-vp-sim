@@ -61,7 +61,7 @@ function _BentoHighlight({ h }: { h: Highlight }) {
 				<div className="absolute -right-20 -top-20 size-40 rounded-full bg-primary/5 blur-3xl transition-all group-hover:bg-primary/10" />
 				<div className="relative z-10 flex flex-1 flex-col">
 					<div className="mb-6 flex items-center gap-4">
-						<div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+						<div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-e1 ring-1 ring-primary/20">
 							<Icon size={24} strokeWidth={1.5} />
 						</div>
 						<h3 className="text-xl font-bold tracking-tight md:text-2xl [font-family:'Geist_Variable',sans-serif]">

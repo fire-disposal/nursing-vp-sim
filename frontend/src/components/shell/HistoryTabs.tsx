@@ -6,7 +6,6 @@ import { cn } from "@/utils/cn";
 const RECORD_TABS = [
 	{ key: "records", to: "/history", label: "训练记录", permission: null },
 	{ key: "stats", to: "/my-stats", label: "训练统计", permission: null },
-	{ key: "responses", to: "/my-responses", label: "我的问卷", permission: null },
 	{ key: "feedback", to: "/my-feedback", label: "我的反馈", permission: null },
 ] as const;
 
@@ -49,7 +48,7 @@ export default function HistoryTabs() {
 						className={cn(
 							"inline-flex items-center shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
 							active
-								? "bg-background text-foreground shadow-sm"
+								? "bg-background text-foreground shadow-e1"
 								: "text-muted-foreground hover:text-foreground",
 						)}
 					>

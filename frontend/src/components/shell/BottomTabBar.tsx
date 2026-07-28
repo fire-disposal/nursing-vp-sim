@@ -1,11 +1,11 @@
-import { ClipboardList, Stethoscope, User } from "lucide-react";
+import { Bot, ClipboardList, Stethoscope, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { cn } from "@/utils/cn";
 
 /**
  * 判断当前路径是否属于某个 Tab 的活动范围。
- * 例如 "记录" Tab 覆盖 /history, /record/:id, /my-stats, /my-responses, /my-feedback。
+ * 例如 "记录" Tab 覆盖 /history, /record/:id, /my-stats, /my-feedback。
  */
 function isTabActive(pathname: string, root: string, subPrefixes: string[]): boolean {
 	if (pathname === root || pathname.startsWith(`${root}/`)) return true;
@@ -28,20 +28,26 @@ const BOTTOM_TABS: Array<{
 		to: "/history",
 		icon: ClipboardList,
 		label: "记录",
-		activeOn: ["/record", "/my-stats", "/my-responses", "/my-feedback"],
+		activeOn: ["/record", "/my-stats", "/my-feedback"],
+	},
+	{
+		to: "/qa",
+		icon: Bot,
+		label: "问答",
+		activeOn: ["/qa"],
 	},
 	{
 		to: "/profile",
 		icon: User,
 		label: "我的",
-		activeOn: ["/notifications", "/qa"],
+		activeOn: ["/notifications"],
 	},
 ];
 
 /**
- * BottomTabBar — 移动端底部 3 Tab 导航栏
+ * BottomTabBar — 移动端底部 4 Tab 导航栏
  *
- * 训练 | 记录 | 我的
+ * 训练 | 记录 | 问答 | 我的
  * 仅在 md 断点以下显示（md:hidden）。
  */
 export function BottomTabBar() {
@@ -54,7 +60,7 @@ export function BottomTabBar() {
 
 	return (
 		<nav
-			className="flex items-center justify-around border-t border-border bg-card/95 backdrop-blur-sm shrink-0 md:hidden"
+			className="flex items-center justify-around border-t border-border bg-card shrink-0 md:hidden"
 			style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
 		>
 			{BOTTOM_TABS.map((tab) => {

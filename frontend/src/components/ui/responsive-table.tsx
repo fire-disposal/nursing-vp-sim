@@ -47,7 +47,7 @@ export default function ResponsiveTable<T>({
 
 	if (loading && rows.length === 0) {
 		return (
-			<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-sm overflow-hidden", className)}>
+			<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden", className)}>
 				<div className="hidden md:block">
 					<DataTable<T> rows={rows} loading={loading} bare {...dataTableProps} />
 				</div>
@@ -63,7 +63,7 @@ export default function ResponsiveTable<T>({
 	}
 
 	return (
-		<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-sm overflow-hidden", className)}>
+		<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden", className)}>
 			<div className="hidden md:block">
 				<DataTable<T> rows={rows} loading={loading} bare {...dataTableProps} />
 			</div>

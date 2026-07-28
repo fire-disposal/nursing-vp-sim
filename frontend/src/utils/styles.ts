@@ -7,7 +7,7 @@ export const btnSecondary =
 	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer";
 
 export const statCardClass =
-	"bg-card rounded-xl shadow-sm p-5 border border-border flex items-center gap-3.5";
+	"bg-card rounded-xl shadow-e1 p-5 border border-border flex items-center gap-3.5";
 
 export const statIconClass =
 	"w-11 h-11 rounded-xl flex items-center justify-center shrink-0";

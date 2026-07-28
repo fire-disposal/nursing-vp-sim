@@ -124,7 +124,7 @@ export function TrainingHeader() {
 	return (
 		<>
 			<header
-				className={cn("absolute top-0 left-0 right-0 z-10 bg-card/80 backdrop-blur-sm px-2 sm:px-4 shadow-sm", isShort ? "h-9" : "h-11 sm:h-12")}
+				className={cn("absolute top-0 left-0 right-0 z-10 bg-card px-2 sm:px-4 shadow-e1", isShort ? "h-9" : "h-11 sm:h-12")}
 				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
 			>
 				<div className="flex items-center gap-2 h-full">
