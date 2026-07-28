@@ -16,7 +16,7 @@ ssh yecaoyun "docker logs nursing-backend-staging --tail 30"
 ssh yecaoyun "docker logs nursing-db-staging --tail 30"
 
 # 综合诊断快照
-ssh yecaoyun "curl -sf 'http://127.0.0.1:9081/api/diagnose?token=AVEDEUSMECHANICUSBENEDICTUSMACHINA'"
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9081/api/diagnose?token=$DIAGNOSE_TOKEN"'
 ```
 
 ## 常见场景

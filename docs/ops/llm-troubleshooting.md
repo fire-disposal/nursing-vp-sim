@@ -6,7 +6,7 @@
 
 ```bash
 # 诊断快照（含 LLM 成功率、限流、错误数）
-ssh yecaoyun "curl -sf 'http://127.0.0.1:9081/api/diagnose?token=AVEDEUSMECHANICUSBENEDICTUSMACHINA' | python3 -m json.tool | grep -A20 '\"llm\"'"
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9081/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -m json.tool | grep -A20 "\"llm\""'
 
 # LLM 调用日志（最近错误）
 ssh yecaoyun "docker logs nursing-backend-staging --tail 100 2>&1 | grep -iE 'llm|deepseek|api_key|rate.limit|timeout'"
