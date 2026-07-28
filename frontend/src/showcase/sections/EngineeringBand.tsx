@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import Reveal from "../components/Reveal";
 import SectionHeading from "../components/SectionHeading";
 

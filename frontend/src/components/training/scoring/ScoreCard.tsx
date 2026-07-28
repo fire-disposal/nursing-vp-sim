@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 // ── Circular Progress Ring ──
 

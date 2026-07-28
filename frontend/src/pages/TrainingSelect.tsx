@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, ClipboardCheck, ClipboardList, Home, Megaphone, Play, RotateCcw, Search, Star, Target, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, BookOpen, ClipboardCheck, ClipboardList, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, startTraining } from "@/api";
@@ -15,10 +15,11 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
+import { SearchInput } from "@/components/ui/search-input";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -304,24 +305,21 @@ export default function TrainingSelect() {
             <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><Target size={16} className="text-muted-foreground" />训练概览</h3>
               <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
-                  className={cn("rounded-lg bg-warning/60 p-3 text-left transition-colors", inProgressCount > 0 && "hover:bg-warning")}>
+                <Button type="button" variant="ghost" onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
+                  className={cn("h-auto flex-col items-start rounded-lg bg-warning/60 p-3 text-left transition-colors", inProgressCount > 0 && "hover:bg-warning")}>
                   <Play size={16} className="mb-2 text-warning-foreground" />
-                  <div className="text-lg font-bold tabular-nums">{inProgressCount}</div>
-                  <div className="text-xs text-muted-foreground">进行中</div>
-                </button>
-                <button type="button" onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
-                  className={cn("rounded-lg bg-success/60 p-3 text-left transition-colors", completedCount > 0 && "hover:bg-success")}>
+                  <div><div className="text-lg font-bold tabular-nums">{inProgressCount}</div><div className="text-xs text-muted-foreground">进行中</div></div>
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
+                  className={cn("h-auto flex-col items-start rounded-lg bg-success/60 p-3 text-left transition-colors", completedCount > 0 && "hover:bg-success")}>
                   <ClipboardCheck size={16} className="mb-2 text-success-foreground" />
-                  <div className="text-lg font-bold tabular-nums">{completedCount}</div>
-                  <div className="text-xs text-muted-foreground">已完成</div>
-                </button>
-                <button type="button" onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
-                  className={cn("rounded-lg bg-danger/60 p-3 text-left transition-colors", pendingAssignments.length > 0 && "hover:bg-danger")}>
+                  <div><div className="text-lg font-bold tabular-nums">{completedCount}</div><div className="text-xs text-muted-foreground">已完成</div></div>
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
+                  className={cn("h-auto flex-col items-start rounded-lg bg-danger/60 p-3 text-left transition-colors", pendingAssignments.length > 0 && "hover:bg-danger")}>
                   <BookOpen size={16} className="mb-2 text-danger-foreground" />
-                  <div className="text-lg font-bold tabular-nums">{pendingAssignments.length}</div>
-                  <div className="text-xs text-muted-foreground">作业</div>
-                </button>
+                  <div><div className="text-lg font-bold tabular-nums">{pendingAssignments.length}</div><div className="text-xs text-muted-foreground">作业</div></div>
+                </Button>
               </div>
               {myStats && (
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-center sm:grid-cols-4 xl:grid-cols-2">
@@ -341,16 +339,12 @@ export default function TrainingSelect() {
         <>
           <div className="flex items-center gap-2 flex-wrap">
             {[0, 1, 2, 3].map((d) => (
-              <button key={d} type="button" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
-                className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors", difficultyFilter === d ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
-              >{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</button>
+              <Button key={d} type="button" variant={difficultyFilter === d ? "default" : "ghost"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+              >{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
             ))}
             <div className="flex-1" />
-            <div className="relative w-40">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={searchInput} onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
-                placeholder="搜索病例…" className="h-8 w-full pl-8 pr-6 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50" />
-              {search && <button onClick={() => handleSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={12} /></button>}
+            <div className="w-44">
+              <SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
             </div>
           </div>
           {casesLoading ? (

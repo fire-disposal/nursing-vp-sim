@@ -13,7 +13,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import VoiceTokenCard from "./VoiceTokenCard";
 
 function TTSUsageTable() {

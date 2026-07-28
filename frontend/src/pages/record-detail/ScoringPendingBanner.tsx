@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface ScoringPendingRecord {
 	status?: string;

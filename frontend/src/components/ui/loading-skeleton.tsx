@@ -1,4 +1,4 @@
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type SkeletonVariant = "card" | "stats" | "table" | "text" | "spinner";
 

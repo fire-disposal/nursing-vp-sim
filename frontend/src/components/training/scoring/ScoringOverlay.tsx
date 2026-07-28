@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/Toast";
 import type { MessageBus, ScorePhase } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const phaseLabels: Record<string, string> = {
 	loading: "正在加载对话记录...",

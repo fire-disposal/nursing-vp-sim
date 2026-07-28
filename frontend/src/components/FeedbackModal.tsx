@@ -3,9 +3,11 @@ import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFeedbackFormData } from "@/api";
 import { useToast } from "@/components/Toast";
+import Button from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
 const RATING_COLORS = [
@@ -205,12 +207,12 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
 						详细描述 <span className="text-muted-foreground/60 font-normal">(选填)</span>
 					</div>
-					<textarea
+					<Textarea
 						placeholder="请详细描述你的想法..."
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
 						rows={4}
-						className="w-full p-3 rounded-md border border-border text-sm resize-y outline-none box-border transition-colors duration-150 bg-card focus:border-primary"
+						className="min-h-28 resize-y"
 					/>
 				</div>
 
@@ -261,30 +263,26 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 			</div>
 
 			<div className="flex justify-between items-center mt-2">
-				<button type="button" onClick={() => { onClose(); navigate("/my-feedback"); }}
-					className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+				<Button type="button" variant="link" size="xs" onClick={() => { onClose(); navigate("/my-feedback"); }}
+					className="h-auto px-0 text-xs text-muted-foreground">
 					<MessageSquare size={13} /> 查看我的反馈
-				</button>
+				</Button>
 				<div className="flex gap-2">
-				<button
-					type="button"
-					onClick={handleClose}
-					disabled={submitting || compressing}
-					className="px-5 py-2 rounded-md border border-border bg-card text-muted-foreground text-sm font-medium cursor-pointer transition-colors duration-150"
-				>
-					取消
-				</button>
-				<button
-					type="button"
-					onClick={handleSubmit}
-					disabled={submitting || compressing}
-					className={cn(
-						"px-5 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
-						submitting ? "bg-muted opacity-60 cursor-not-allowed" : "bg-primary",
-					)}
-				>
-					{submitting ? (<><Loader2 size={14} className="animate-spin" /> 提交中...</>) : (<><Send size={14} /> 提交</>)}
-				</button>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={handleClose}
+						disabled={submitting || compressing}
+					>
+						取消
+					</Button>
+					<Button
+						type="button"
+						onClick={handleSubmit}
+						disabled={submitting || compressing}
+					>
+						{submitting ? (<><Loader2 size={14} className="animate-spin" /> 提交中...</>) : (<><Send size={14} /> 提交</>)}
+					</Button>
 			</div>
 			</div>
 		</ResponsiveDialog>

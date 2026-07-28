@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const STATES = [
 	{ trust: 70, comfort: 70, label: "open",     emoji: "😄", display: "开放信任", desc: "愿意详细叙述，主动补充信息", color: "green" },

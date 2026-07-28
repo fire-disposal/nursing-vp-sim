@@ -19,7 +19,7 @@ import {
   registerUserSchema,
 } from "@/schemas/user";
 import type { ClassItem, Grade } from "@/types/store";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm";
 import type {
   EditUserFormValues,

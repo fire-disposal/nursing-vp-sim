@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const STEPS = [
 	{ label: "初始", text: "轻度回避，仅给出零散信息。", tone: "bg-slate-500" },

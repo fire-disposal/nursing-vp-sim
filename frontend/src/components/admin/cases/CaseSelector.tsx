@@ -1,6 +1,6 @@
 import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export interface CaseOption {
 	id: number;

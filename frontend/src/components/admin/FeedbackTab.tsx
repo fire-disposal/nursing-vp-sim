@@ -36,7 +36,7 @@ import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];

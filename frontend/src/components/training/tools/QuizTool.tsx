@@ -2,7 +2,7 @@ import { AlertCircle, CheckCircle2, ChevronDown, HelpCircle, Loader2, XCircle } 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface QuizQuestion {
 	id: string;

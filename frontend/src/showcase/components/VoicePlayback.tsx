@@ -1,6 +1,6 @@
 import { Pause, Play } from "lucide-react";
 import { useRef, useState } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { TTS_DEMO_ITEMS } from "../data";
 
 export default function VoicePlayback() {

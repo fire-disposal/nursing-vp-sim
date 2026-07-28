@@ -31,7 +31,7 @@ import {
 } from "@/hooks/useGradesClasses";
 import { type GradeClassValues, gradeClassSchema } from "@/schemas/grade-class";
 import type { ClassItem, Grade } from "@/types/store";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/date";
 import { selectClass } from "@/utils/styles";
 
@@ -74,6 +74,16 @@ export default function GradesClassesPage() {
 		setEditId(null);
 		form.reset({ name: "", gradeId: "" });
 		setModalOpen(true);
+	};
+
+	const requestCloseModal = async () => {
+		if (isDirty) {
+			const ok = await confirm({ title: `关闭${tab === "grades" ? "年级" : "班级"}编辑`, message: "内容未保存，确定关闭？" });
+			if (!ok) return;
+		}
+		form.reset({ name: "", gradeId: "" });
+		setEditId(null);
+		setModalOpen(false);
 	};
 	const openEdit = (item: Grade | ClassItem) => {
 		setEditId(item.id);
@@ -333,10 +343,7 @@ export default function GradesClassesPage() {
 				open={modalOpen}
 				onOpenChange={(o) => {
 					if (!o) {
-						if (isDirty && !window.confirm("内容未保存，确定关闭？")) return;
-						form.reset({ name: "", gradeId: "" });
-						setEditId(null);
-						setModalOpen(false);
+						void requestCloseModal();
 					}
 				}}
 			>
@@ -400,8 +407,7 @@ export default function GradesClassesPage() {
 									type="button"
 									variant="outline"
 									onClick={() => {
-										if (isDirty && !window.confirm("内容未保存，确定关闭？")) return;
-										setModalOpen(false);
+										void requestCloseModal();
 									}}
 								>
 									取消

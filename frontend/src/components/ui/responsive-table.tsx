@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import DataTable from "@/components/ui/data-table";
 import type { DataTableProps } from "@/components/ui/data-table";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export interface ResponsiveTableProps<T> extends DataTableProps<T> {
 	/** Card rendering for mobile. Receives row + 0-based index. */

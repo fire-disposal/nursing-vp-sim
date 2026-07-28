@@ -30,7 +30,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 

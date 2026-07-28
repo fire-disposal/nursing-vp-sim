@@ -41,7 +41,7 @@ function TagEditor({ value, onChange, placeholder, disabled }: { value: string[]
 			{!disabled && (
 				<div className="flex gap-2">
 					<input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} className={`${inputClass} flex-1`} />
-					<button type="button" onClick={add} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors"><Plus size={14} /></button>
+					<button type="button" onClick={add} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" aria-label="添加条目"><Plus size={14} /></button>
 				</div>
 			)}
 		</div>

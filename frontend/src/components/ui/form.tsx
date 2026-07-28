@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import {
 	Controller,
 	type ControllerProps,
@@ -8,7 +8,7 @@ import {
 	useFormContext,
 } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 function Slot({
 	children,

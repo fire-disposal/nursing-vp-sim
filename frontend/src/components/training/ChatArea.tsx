@@ -10,7 +10,7 @@ import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
 

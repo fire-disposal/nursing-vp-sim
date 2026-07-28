@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { generateCase, getCaseDetail } from "@/api";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/Toast";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { inputClass } from "@/utils/styles";
 import { safeParse } from "zod";
 import { z } from "zod";
@@ -52,6 +53,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const [aiGenerating, setAiGenerating] = useState(false);
 	const [aiError, setAiError] = useState("");
 	const toast = useToast();
+	const { confirm } = useConfirm();
 
 	const createMutation = useCreateCase();
 	const updateMutation = useUpdateCase();
@@ -159,15 +161,16 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		}
 	};
 
-	const handleClose = () => {
+	const handleClose = async () => {
 		if (state.isDirty && JSON.stringify(state.json) !== state.initialJson) {
-			if (!window.confirm("内容未保存，确定关闭？")) return;
+			const ok = await confirm({ title: "关闭病例编辑", message: "内容未保存，确定关闭？" });
+			if (!ok) return;
 		}
 		onClose();
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+		<Dialog open={open} onOpenChange={(o) => { if (!o) void handleClose(); }}>
 			<DialogContent
 				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
 				maxWidth={state.mode === "json" ? 960 : 900}

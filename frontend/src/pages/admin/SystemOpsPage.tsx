@@ -15,7 +15,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm?.success_rate ?? 100;

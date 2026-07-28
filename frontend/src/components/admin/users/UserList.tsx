@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ClassFilter from "@/components/admin/ClassFilter";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import type { RoleOption, UserBrief } from "./types";
 
 interface UserListProps {

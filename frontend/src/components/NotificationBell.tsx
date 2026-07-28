@@ -120,11 +120,13 @@ export default function NotificationBell() {
 
 	return (
 		<>
-			<button
+			<Button
 				type="button"
+				variant="ghost"
+				size="icon-xs"
 				onClick={() => setOpen(true)}
-				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
+				className="relative"
 			>
 				<motion.div
 					animate={unreadCount > 0 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
@@ -141,7 +143,7 @@ export default function NotificationBell() {
 						{unreadCount > 99 ? "99+" : unreadCount}
 					</motion.span>
 				)}
-			</button>
+			</Button>
 
 		<ResponsiveDialog open={open} onClose={() => setOpen(false)} title="通知" maxWidth={400}>
 			{isError ? (
@@ -180,13 +182,15 @@ export default function NotificationBell() {
 										</button>
 										{n.is_read && (
 											<div className="px-4 pb-2">
-												<button
+												<Button
 													type="button"
-													className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70 hover:text-foreground transition-colors"
+													variant="link"
+													size="xs"
+													className="h-auto px-0 text-[10px] text-muted-foreground/70"
 													onClick={(e) => { e.stopPropagation(); markOneUnreadMutation.mutate(n.id); }}
 												>
 													<EyeOff size={10} /> 标记未读
-												</button>
+												</Button>
 											</div>
 										)}
 									</div>

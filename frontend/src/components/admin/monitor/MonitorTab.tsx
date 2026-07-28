@@ -18,7 +18,7 @@ import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type LLMCallLogItem = Schemas["LLMCallLogItem"];

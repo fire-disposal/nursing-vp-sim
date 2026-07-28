@@ -2,7 +2,7 @@ import { AlertCircle, FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface SheetData {
 	subjective?: string;

@@ -8,6 +8,7 @@ import {
 import { inputClass } from "@/utils/styles";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import LoadingState from "@/components/ui/loading-state";
 
 interface QuestionnaireEditorProps {
@@ -127,17 +128,13 @@ export default function QuestionnaireEditor({
 								状态
 							</label>
 							<div className="flex items-center gap-2 pt-2">
-								<label className="relative inline-flex items-center cursor-pointer">
-									<input
-										type="checkbox"
-										checked={form.is_active}
-										onChange={(e) =>
-											setForm((f) => ({ ...f, is_active: e.target.checked }))
-										}
-										className="sr-only peer"
-									/>
-									<div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
-								</label>
+								<Switch
+									checked={form.is_active}
+									onCheckedChange={(checked) =>
+										setForm((f) => ({ ...f, is_active: checked }))
+									}
+									aria-label="状态"
+								/>
 								<span className="text-sm text-muted-foreground">
 									{form.is_active ? "启用" : "禁用"}
 								</span>

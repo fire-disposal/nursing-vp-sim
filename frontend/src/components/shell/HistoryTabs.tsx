@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const RECORD_TABS = [
 	{ key: "records", to: "/history", label: "训练记录", permission: null },

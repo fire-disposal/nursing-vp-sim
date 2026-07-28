@@ -1,6 +1,6 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const SCORE_ITEMS = [
 	"→ 加载评分标准 v3.2 ...",

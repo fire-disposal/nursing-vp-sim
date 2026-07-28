@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import StatCard from "@/components/ui/stat-card";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function ClassDetailPage() {
 	const { classId } = useParams<{ classId: string }>();

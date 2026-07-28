@@ -11,7 +11,7 @@ import type { NavGroupKey, NavItem } from "./navigation";
 import { NAV_GROUPS } from "./navigation";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/version";
 
 const SidebarNav = memo(function SidebarNav({

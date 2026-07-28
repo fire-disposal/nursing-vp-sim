@@ -180,8 +180,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		setShowUserForm(true);
 	};
 
-	const openEditUser = (u: UserBrief) => {
-		if (showUserForm && editingUser === null && userFormDirtyRef.current && !window.confirm("注册表单内容未保存，确定切换？")) return;
+	const openEditUser = async (u: UserBrief) => {
+		if (showUserForm && editingUser === null && userFormDirtyRef.current) {
+			const ok = await confirm({ title: "切换编辑用户", message: "注册表单内容未保存，确定切换？" });
+			if (!ok) return;
+		}
 		setEditingUser(u);
 		setEditUserMsg("");
 		setShowUserForm(true);

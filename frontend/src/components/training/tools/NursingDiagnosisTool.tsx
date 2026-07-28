@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface Diagnosis {
 	id: string;

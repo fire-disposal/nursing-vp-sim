@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface ClassFilterParams {
   grade_id: number | null;

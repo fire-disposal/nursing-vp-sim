@@ -14,6 +14,7 @@ import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
+import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
@@ -41,6 +42,7 @@ export default function TeacherRecordDetail() {
 	const navigate = useNavigate();
 	const toast = useToast();
 	const queryClient = useQueryClient();
+	const { confirm } = useConfirm();
 	const permissions = useAuthStore((s) => s.permissions);
 
 	const { data: record, isError: recordError } = useQuery({
@@ -104,7 +106,8 @@ export default function TeacherRecordDetail() {
 	const handleRetryScoring = async () => {
 		if (retrying) return;
 		if (hasScoreReview && isReviewed) {
-			if (!window.confirm("重新评分将丢弃已有的教师复核，确定继续？")) return;
+			const ok = await confirm({ title: "重新评分", message: "重新评分将丢弃已有的教师复核，确定继续？" });
+			if (!ok) return;
 		}
 		setRetrying(true);
 		setRetryProgress(0);

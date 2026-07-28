@@ -16,7 +16,7 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 

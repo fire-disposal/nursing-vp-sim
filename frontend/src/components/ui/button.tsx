@@ -1,9 +1,9 @@
 ﻿import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
-	const buttonVariants = cva(
+const buttonVariants = cva(
 	"group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px data-[disabled]:pointer-events-none data-[disabled]:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 	{
 		variants: {
@@ -17,6 +17,12 @@ import { cn } from "@/utils/cn";
 					"hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
 				destructive:
 					"bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+				success:
+					"bg-success text-success-foreground hover:bg-success/80 focus-visible:border-success-foreground/40 focus-visible:ring-success/40",
+				warning:
+					"bg-warning text-warning-foreground hover:bg-warning/80 focus-visible:border-warning-foreground/40 focus-visible:ring-warning/40",
+				info:
+					"bg-info text-info-foreground hover:bg-info/80 focus-visible:border-info-foreground/40 focus-visible:ring-info/40",
 				abandon:
 					"bg-abandon/10 text-abandon hover:bg-abandon/20 focus-visible:border-abandon/40 focus-visible:ring-abandon/20 dark:bg-abandon/20 dark:hover:bg-abandon/30 dark:focus-visible:ring-abandon/40",
 				end:

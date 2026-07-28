@@ -12,7 +12,7 @@ import { getLogDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface CallLogDetailProps {
 	logId: number | null;

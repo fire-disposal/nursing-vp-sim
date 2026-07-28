@@ -1,4 +1,4 @@
-﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -17,7 +17,7 @@ import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { getNurseAvatar } from "@/utils/avatar";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import CitationCard from "@/components/citation/CitationCard";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
@@ -262,7 +262,7 @@ export default function QA() {
 			)}>
 				<div className="flex items-center justify-between p-4 border-b">
 					<h2 className="text-sm font-semibold">对话记录</h2>
-					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(false)}>
+					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(false)} aria-label="关闭对话记录">
 						<X size={16} />
 					</Button>
 				</div>
@@ -280,7 +280,7 @@ export default function QA() {
 								<p className="text-sm truncate">{s.title}</p>
 								<p className="text-xs text-muted-foreground mt-0.5">{new Date(s.updated_at).toLocaleDateString()}</p>
 							</div>
-							<Button variant="ghost" size="icon-xs" className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={(e) => handleDeleteSession(e, s.id)}>
+							<Button variant="ghost" size="icon-xs" className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={(e) => handleDeleteSession(e, s.id)} aria-label="删除会话">
 								<Trash2 size={12} />
 							</Button>
 						</button>
@@ -294,7 +294,7 @@ export default function QA() {
 			<div className="flex-1 flex flex-col min-w-0 md:ml-0">
 				{/* Top bar — title + sidebar toggle on mobile */}
 				<div className="flex items-center gap-2 px-3 h-11 border-b border-border bg-card shrink-0">
-					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(true)}>
+					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(true)} aria-label="打开对话记录">
 						<Menu size={16} />
 					</Button>
 					<h1 className="text-sm font-semibold">护理问答</h1>

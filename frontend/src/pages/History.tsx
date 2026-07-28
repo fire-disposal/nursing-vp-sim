@@ -1,4 +1,4 @@
-﻿import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
+import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Play, Trash2, XCircle } from "lucide-react";
 import { useCallback, useMemo } from "react";
@@ -23,7 +23,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 

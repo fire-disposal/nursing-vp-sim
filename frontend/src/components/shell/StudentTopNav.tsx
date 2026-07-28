@@ -4,7 +4,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import NotificationBell from "@/components/NotificationBell";
 import type { NavItem } from "./navigation";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
 const TAB_SUB_PATHS: Record<string, string[]> = {

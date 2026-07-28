@@ -1,5 +1,5 @@
 import { getUserAvatar } from "@/utils/avatar";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { RoleBadge } from "@/components/ui/role-badge";
 import type { UserBrief } from "./types";

@@ -11,7 +11,7 @@ import LoadingState from "@/components/ui/loading-state";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { isAdminPermissions } from "@/utils/permissions";
 
 /**

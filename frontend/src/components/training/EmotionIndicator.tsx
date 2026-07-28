@@ -7,7 +7,7 @@ import {
 	useTrainingStore,
 } from "@/stores/trainingStore";
 import type { MessageBus } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface EmotionIndicatorProps {
 	bus: MessageBus;

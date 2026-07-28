@@ -5,7 +5,7 @@ import type { SceneState } from "@/engine/scene-state";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const MEASURE_TIMEOUT_MS = 10000;
 

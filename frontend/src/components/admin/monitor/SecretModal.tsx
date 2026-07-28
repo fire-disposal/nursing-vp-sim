@@ -6,6 +6,7 @@ import { createSecret, updateSecret } from "@/api";
 import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
 	Form,
@@ -35,6 +36,7 @@ export default function SecretModal({
 	onSaved,
 }: SecretModalProps) {
 	const { success, apiError } = useToast();
+	const { confirm } = useConfirm();
 	const isEdit = secret != null;
 	const [showKey, setShowKey] = useState(false);
 
@@ -96,12 +98,19 @@ export default function SecretModal({
 			apiError(e, "保存失败");
 		}
 	};
+	const requestClose = async () => {
+		if (form.formState.isDirty) {
+			const ok = await confirm({ title: "关闭密钥编辑", message: "内容未保存，确定关闭？" });
+			if (!ok) return;
+		}
+		onClose();
+	};
+
 
 	return (
 		<Dialog open={open} onOpenChange={(o) => {
 			if (!o) {
-				if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return;
-				onClose();
+				void requestClose();
 			}
 		}}>
 			<DialogContent
@@ -260,7 +269,7 @@ export default function SecretModal({
 							/>
 						</div>
 						<DialogFooter className="mt-4">
-							<Button variant="outline" type="button" onClick={() => { if (form.formState.isDirty && !window.confirm("内容未保存，确定关闭？")) return; onClose(); }}>
+							<Button variant="outline" type="button" onClick={() => { void requestClose(); }}>
 								取消
 							</Button>
 							<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>

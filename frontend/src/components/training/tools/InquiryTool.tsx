@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import type { ChatMessage } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { computeCovered, getInquiryLabel, progressColor } from "./inquiryProgress";
 
 export default function InquiryTool(props: TrainingToolProps) {

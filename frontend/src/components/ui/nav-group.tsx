@@ -1,7 +1,7 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface NavGroupProps {
 	label: string;

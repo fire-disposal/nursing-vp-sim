@@ -14,7 +14,7 @@ import { useState } from "react";
 import { CollapsibleSection, ScoreItem } from "@/components/record-review";
 import Badge from "@/components/ui/badge";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface ReviewData {
 	review_status?: string | null;

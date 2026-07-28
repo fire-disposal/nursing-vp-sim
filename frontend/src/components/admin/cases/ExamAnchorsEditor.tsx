@@ -52,7 +52,7 @@ export function ExamAnchorsEditor({ value, onChange, disabled }: Props) {
 				<div className="flex items-center gap-2">
 					<input value={newKey} onChange={(e) => setNewKey(e.target.value)} className={`${inputClass} flex-1`} placeholder="新 key" />
 					<input value={newVal} onChange={(e) => setNewVal(e.target.value)} className={`${inputClass} flex-[2]`} placeholder="value" />
-					<button type="button" onClick={add} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors shrink-0"><Plus size={14} /></button>
+					<button type="button" onClick={add} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors shrink-0" aria-label="添加查体锚点"><Plus size={14} /></button>
 				</div>
 			)}
 		</fieldset>

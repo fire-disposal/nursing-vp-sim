@@ -8,7 +8,8 @@ import {
 import { inputClass } from "@/utils/styles";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/utils/cn";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 interface QuestionnaireAssignProps {
 	open: boolean;
@@ -147,20 +148,16 @@ export default function QuestionnaireAssign({
 							是否必填
 						</label>
 						<div className="flex items-center gap-2 pt-2">
-							<label className="relative inline-flex items-center cursor-pointer">
-								<input
-									type="checkbox"
-									checked={assignForm.is_required}
-									onChange={(e) =>
-										onAssignFormChange((f) => ({
-											...f,
-											is_required: e.target.checked,
-										}))
-									}
-									className="sr-only peer"
-								/>
-								<div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
-							</label>
+							<Switch
+								checked={assignForm.is_required}
+								onCheckedChange={(checked) =>
+									onAssignFormChange((f) => ({
+										...f,
+										is_required: checked,
+									}))
+								}
+								aria-label="是否必填"
+							/>
 							<span className="text-sm text-muted-foreground">
 								{assignForm.is_required ? "必填" : "选填"}
 							</span>

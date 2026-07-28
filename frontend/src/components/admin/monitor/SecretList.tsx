@@ -1,6 +1,6 @@
 
 import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import {
 	costColorClass,
 	recoveryText,

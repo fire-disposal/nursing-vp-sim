@@ -13,7 +13,7 @@ import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { SearchInput } from "@/components/ui/search-input";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface QuestionnaireListProps {
 	templates: TemplateListItem[];

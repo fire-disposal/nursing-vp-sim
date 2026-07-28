@@ -7,7 +7,7 @@ import { useTrainingStore } from "@/stores/trainingStore";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useShortViewport } from "@/hooks/useShortViewport";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */

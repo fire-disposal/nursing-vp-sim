@@ -3,7 +3,7 @@ import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 interface ChatBubbleProps {
 	message: ChatMessage;

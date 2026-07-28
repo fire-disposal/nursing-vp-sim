@@ -2,7 +2,7 @@ import { AlertCircle, Download, FileText, Upload, Users } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { RoleBadge } from "@/components/ui/role-badge";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { btnPrimary, btnSecondary } from "@/utils/styles";
 import type { BatchUser, RoleOption } from "./types";
 

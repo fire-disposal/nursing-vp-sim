@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 const PROFILE_TABS = [
 	{ key: "profile", to: "/profile", label: "个人资料", permission: null },

@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	Activity,
 	BarChart3,
@@ -46,7 +46,7 @@ import {
 import { LegacyTabs } from "@/components/ui/tabs";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { isAdminPermissions } from "@/utils/permissions";
 
 type TrendStats = components["schemas"]["TrendStats"];

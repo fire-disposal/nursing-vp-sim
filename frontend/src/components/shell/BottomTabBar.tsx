@@ -1,7 +1,7 @@
 import { Bot, ClipboardList, Stethoscope, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 /**
  * 判断当前路径是否属于某个 Tab 的活动范围。

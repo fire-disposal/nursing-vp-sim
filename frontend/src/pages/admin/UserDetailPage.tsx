@@ -28,7 +28,7 @@ import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { statCardClass, statIconClass } from "@/utils/styles";
 
 type Schemas = components["schemas"];

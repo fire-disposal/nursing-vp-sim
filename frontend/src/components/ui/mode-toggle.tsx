@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
 
 const ORDER = ["light", "dark", "system"] as const;
 
@@ -27,14 +28,15 @@ export function ModeToggle() {
 	const Icon = CurrentIcon(theme);
 
 	return (
-		<button
+		<Button
 			type="button"
+			variant="outline"
+			size="icon-xs"
 			onClick={toggle}
-			className="relative flex size-8 items-center justify-center rounded-lg border border-border hover:bg-accent transition-colors"
 			aria-label={Label(theme)}
 			title={Label(theme)}
 		>
 			<Icon size={14} />
-		</button>
+		</Button>
 	);
 }

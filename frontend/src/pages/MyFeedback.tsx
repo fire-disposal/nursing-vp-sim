@@ -11,7 +11,7 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
