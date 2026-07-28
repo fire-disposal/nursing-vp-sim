@@ -46,22 +46,24 @@ const BOTTOM_TABS: Array<{
 
 /**
  * BottomTabBar — 移动端底部 4 Tab 导航栏
- *
  * 训练 | 记录 | 问答 | 我的
- * 仅在 md 断点以下显示（md:hidden）。
+ * 仅在 md 断点以下显示（md:hidden）。短视口压缩为仅图标。
  */
 export function BottomTabBar() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isShort = useShortViewport();
 
-	if (isShort) return null;
-
-
 	return (
 		<nav
-			className="flex items-center justify-around border-t border-border bg-card shrink-0 md:hidden"
-			style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
+			className={cn(
+				"flex items-center justify-around border-t border-border bg-card shrink-0 md:hidden",
+				isShort ? "h-10" : "",
+			)}
+			style={{
+				paddingBottom: isShort ? "0" : "env(safe-area-inset-bottom, 0px)",
+				height: isShort ? "40px" : `calc(56px + env(safe-area-inset-bottom, 0px))`,
+			}}
 		>
 			{BOTTOM_TABS.map((tab) => {
 				const Icon = tab.icon;
@@ -71,29 +73,29 @@ export function BottomTabBar() {
 						key={tab.to}
 						type="button"
 						onClick={() => navigate(tab.to)}
-						className="relative flex flex-1 flex-col items-center justify-center gap-0.5 h-full transition-all active:scale-95"
+						className="relative flex flex-1 flex-col items-center justify-center h-full transition-all active:scale-95"
 					>
 						{isActive && (
 							<span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-primary" />
 						)}
 						<Icon
-							size={22}
+							size={isShort ? 20 : 22}
 							strokeWidth={isActive ? 2.5 : 2}
 							className={cn(
 								"transition-all duration-200",
 								isActive ? "text-primary" : "text-muted-foreground",
 							)}
 						/>
-						<span
-							className={cn(
-								"text-[10px] font-semibold leading-tight transition-colors",
-								isActive
-									? "text-primary"
-									: "text-muted-foreground",
-							)}
-						>
-							{tab.label}
-						</span>
+						{!isShort && (
+							<span
+								className={cn(
+									"text-[10px] font-semibold leading-tight transition-colors",
+									isActive ? "text-primary" : "text-muted-foreground",
+								)}
+							>
+								{tab.label}
+							</span>
+						)}
 					</button>
 				);
 			})}

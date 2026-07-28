@@ -21,7 +21,7 @@ function isLinkActive(pathname: string, link: NavItem): boolean {
 }
 
 /**
- * 桌面端显示水平导航链接（4 项：训练 | 问答 | 记录 | 我的）。
+ * 桌面端显示水平导航链接（4 项：训练 | 记录 | 问答 | 我的）。
  * 登出和主题切换已移至 Profile 页面。
  */
 export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout: () => void }) {
