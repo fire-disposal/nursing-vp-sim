@@ -22,7 +22,7 @@ from infrastructure.scoring_progress import ScoringProgressTracker
 
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
-from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
+from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, TrainingSessionState, User
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
@@ -34,6 +34,31 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 SCORING_RETRY_DELAY_SECONDS = int(os.getenv("SCORING_RETRY_DELAY_SECONDS", "30"))
+NO_STUDENT_MESSAGES_REASON = "no_student_messages"
+NO_STUDENT_MESSAGES_MESSAGE = "本次训练没有有效问诊内容，未生成评分"
+
+
+def _student_message_count(db: Session, record_id: int) -> int:
+    return (
+        db.query(func.count(Message.id))
+        .filter(
+            Message.record_id == record_id,
+            Message.role == "student",
+        )
+        .scalar()
+        or 0
+    )
+
+
+def _discard_unscoreable_record(db: Session, record: TrainingRecord, *, ended_at: datetime | None = None) -> None:
+    """Mark a terminal record with no student messages as discarded, never failed/scored."""
+    record.status = "discarded"
+    record.end_time = ended_at or record.end_time or datetime.now(UTC)
+    record.scoring_status = None
+    record.scoring_error = NO_STUDENT_MESSAGES_REASON
+    _set_overdue_if_needed(record, db)
+    db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
+
 
 # Generation counter to detect stale background scoring tasks.
 # Incremented in acquire_scoring whenever a new scoring session starts.
@@ -109,6 +134,7 @@ def get_scoring_status(
             }
 
     return {
+        "record_status": record.status,
         "scoring_status": record.scoring_status,
         "scoring_error": record.scoring_error,
         "score": {
@@ -222,20 +248,13 @@ async def _run_scoring_background(
             log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
             return
 
-        # 拒绝对无意义对话评分（仅 greeting，无学生消息）
-        student_count = (
-            db.query(func.count(Message.id))
-            .filter(
-                Message.record_id == record_id,
-                Message.role == "student",
-            )
-            .scalar()
-            or 0
-        )
-        if student_count == 0:
-            log.warning("评分拒绝：无学生消息 record_id=%d", record_id)
-            record.scoring_status = "completed"
-            record.scoring_error = "无有效对话内容，跳过评分"
+        db.refresh(record)
+
+        # No student turn means there is no assessable nursing behavior.
+        # Treat it as discarded, not as failed scoring and not as a zero score.
+        if _student_message_count(db, record_id) == 0:
+            log.info("评分跳过：无学生消息 record_id=%d", record_id)
+            _discard_unscoreable_record(db, record)
             db.commit()
             return
 
@@ -273,7 +292,20 @@ async def _run_scoring_background(
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
-        await _attempt_evaluate()
+        try:
+            await _attempt_evaluate()
+        except TimeoutError:
+            raise
+        except Exception as first_error:
+            log.warning(
+                "[SCORING] retrying once record_id=%d after %s: %s",
+                record_id,
+                type(first_error).__name__,
+                str(first_error)[:200],
+            )
+            if SCORING_RETRY_DELAY_SECONDS > 0:
+                await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
+            await _attempt_evaluate()
 
         # Re-fetch record.  Only skip completion if a *newer* retry was explicitly
         # triggered (status='pending' via acquire_scoring).  If settlement sweep
@@ -351,19 +383,43 @@ async def end_training(
             raise HTTPException(status_code=404, detail="训练记录不存在")
         if record.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="只能结束自己的训练")
-        if record.status == "completed":
+        if record.status != "in_progress":
             raise HTTPException(status_code=400, detail="训练已结束")
         if record.scoring_status in ("pending", "processing"):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
         if not acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
+        db.refresh(record)
+
+        ended_at = datetime.now(UTC)
+        if _student_message_count(db, record_id) == 0:
+            _discard_unscoreable_record(db, record, ended_at=ended_at)
+            db.commit()
+            log.info(
+                "训练废弃: record_id=%d case_id=%d reason=%s",
+                record_id,
+                record.case_id,
+                NO_STUDENT_MESSAGES_REASON,
+                extra={
+                    "user_id": current_user.id,
+                    "user_role": current_user.role.name if current_user.role else "",
+                    "action": "training_discard",
+                },
+            )
+            return {
+                "message": NO_STUDENT_MESSAGES_MESSAGE,
+                "record_id": record_id,
+                "scoring_status": None,
+                "record_status": "discarded",
+                "terminal_reason": NO_STUDENT_MESSAGES_REASON,
+            }
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = record.case_snapshot or (case.case_data if case else {})
 
         record.status = "completed"
-        record.end_time = datetime.now(UTC)
+        record.end_time = ended_at
         _set_overdue_if_needed(record, db)
 
         try:
@@ -414,6 +470,7 @@ async def end_training(
             "message": "训练已结束，评分正在后台生成中",
             "record_id": record_id,
             "scoring_status": "pending",
+            "record_status": "completed",
         }
 
 
@@ -432,6 +489,17 @@ async def retry_scoring(
             raise HTTPException(status_code=403, detail="无权操作此记录")
         if record.status != "completed":
             raise HTTPException(status_code=400, detail="训练尚未结束")
+
+        if _student_message_count(db, record_id) == 0:
+            _discard_unscoreable_record(db, record)
+            db.commit()
+            return {
+                "message": NO_STUDENT_MESSAGES_MESSAGE,
+                "record_id": record_id,
+                "scoring_status": None,
+                "record_status": "discarded",
+                "terminal_reason": NO_STUDENT_MESSAGES_REASON,
+            }
 
         now = datetime.now(UTC)
         if record.scoring_status in ("pending", "processing"):

@@ -94,9 +94,21 @@ def query_scoring(db: Session, day_ago: datetime) -> dict:
         .scalar()
         or 0
     )
+    discarded = (
+        db.query(func.count(TrainingRecord.id))
+        .filter(TrainingRecord.status == "discarded", TrainingRecord.end_time >= day_ago)
+        .scalar()
+        or 0
+    )
     total_scored = completed + failed
     success_rate = round(completed / max(total_scored, 1) * 100, 1)
-    return {"pending": pending, "completed_24h": completed, "failed_24h": failed, "success_rate": success_rate}
+    return {
+        "pending": pending,
+        "completed_24h": completed,
+        "failed_24h": failed,
+        "discarded_24h": discarded,
+        "success_rate": success_rate,
+    }
 
 
 def query_sessions(db: Session) -> int:

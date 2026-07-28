@@ -35,7 +35,7 @@ class TrainingRecord(Base):
         Index("ix_tr_start_time", "start_time"),
         Index("ix_tr_case_id", "case_id"),
         CheckConstraint(
-            "status IN ('in_progress', 'completed', 'abandoned')",
+            "status IN ('in_progress', 'completed', 'abandoned', 'discarded')",
             name="ck_training_records_status",
         ),
         CheckConstraint(

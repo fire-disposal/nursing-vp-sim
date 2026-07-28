@@ -2,8 +2,12 @@
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, cast
 
 from models import Case, Message, Score, TrainingRecord, User
+
+if TYPE_CHECKING:
+    from infrastructure.llm.client import LLMClient
 
 
 def _make_record(db_session, scoring_status):
@@ -33,6 +37,8 @@ def test_run_scoring_background_retries_once_and_succeeds(db_session, monkeypatc
     from contexts.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
+    db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
+    db_session.flush()
 
     call_count = [0]
 
@@ -47,7 +53,7 @@ def test_run_scoring_background_retries_once_and_succeeds(db_session, monkeypatc
     monkeypatch.setattr(scoring_mod, "evaluate_training", _fake_evaluate)
     monkeypatch.setattr(scoring_mod, "SCORING_RETRY_DELAY_SECONDS", 0)
 
-    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=None))
+    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=cast("LLMClient", None)))
 
     assert call_count[0] == 2
 
@@ -62,6 +68,8 @@ def test_run_scoring_background_no_retry_on_timeout(db_session, monkeypatch):
     from contexts.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
+    db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
+    db_session.flush()
 
     call_count = [0]
 
@@ -75,7 +83,7 @@ def test_run_scoring_background_no_retry_on_timeout(db_session, monkeypatch):
     monkeypatch.setattr(scoring_mod, "evaluate_training", _fake_evaluate)
     monkeypatch.setattr(scoring_mod, "SCORING_RETRY_DELAY_SECONDS", 0)
 
-    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=None))
+    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=cast("LLMClient", None)))
 
     assert call_count[0] == 1  # No retry
 
@@ -90,6 +98,8 @@ def test_run_scoring_background_retry_exhausted_fails(db_session, monkeypatch):
     from contexts.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
+    db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
+    db_session.flush()
 
     call_count = [0]
 
@@ -103,7 +113,7 @@ def test_run_scoring_background_retry_exhausted_fails(db_session, monkeypatch):
     monkeypatch.setattr(scoring_mod, "evaluate_training", _fake_evaluate)
     monkeypatch.setattr(scoring_mod, "SCORING_RETRY_DELAY_SECONDS", 0)
 
-    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=None))
+    asyncio.run(scoring_mod._run_scoring_background(rec.id, {}, llm_client=cast("LLMClient", None)))
 
     assert call_count[0] == 2  # Original + 1 retry = 2 attempts
 
@@ -129,6 +139,8 @@ def test_sweep_stale_scoring_records_marks_old(db_session):
         end_time=datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES + 5),
     )
     db_session.add(old)
+    db_session.flush()
+    db_session.add(Message(record_id=old.id, role="student", content="主诉是什么？"))
     db_session.flush()
 
     count = _sweep_stale_scoring_records(db_session)
@@ -199,6 +211,8 @@ def test_sweep_stale_scoring_records_marks_pending_too(db_session):
     )
     db_session.add(rec)
     db_session.flush()
+    db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
+    db_session.flush()
 
     count = _sweep_stale_scoring_records(db_session)
     assert count == 1
@@ -206,6 +220,79 @@ def test_sweep_stale_scoring_records_marks_pending_too(db_session):
     db_session.expire_all()
     updated = db_session.query(TrainingRecord).filter(TrainingRecord.id == rec.id).first()
     assert updated.scoring_status == "failed"
+
+
+def test_sweep_stale_scoring_records_discards_no_student_records(db_session):
+    """Stale scoring record with no student turn is discarded, not failed."""
+    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+
+    case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
+    rec = TrainingRecord(
+        user_id=1,
+        case_id=case.id,
+        training_type="history_taking",
+        status="completed",
+        scoring_status="processing",
+        end_time=datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES + 5),
+    )
+    db_session.add(rec)
+    db_session.flush()
+
+    count = _sweep_stale_scoring_records(db_session)
+    assert count == 1
+
+    db_session.expire_all()
+    updated = db_session.query(TrainingRecord).filter(TrainingRecord.id == rec.id).first()
+    assert updated.status == "discarded"
+    assert updated.scoring_status is None
+    assert updated.scoring_error == "no_student_messages"
+
+
+def test_end_training_discards_no_student_messages(client, db_session):
+    """End training with no student messages returns discarded and never queues scoring."""
+    from core.security import hash_password
+    from models import Role
+
+    case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
+    student_role = db_session.query(Role).filter(Role.name == "student").first()
+    user = User(
+        username="empty_end_user",
+        password_hash=hash_password("test123"),
+        role_id=student_role.id,
+        display_name="Empty End User",
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    rec = TrainingRecord(
+        user_id=user.id,
+        case_id=case.id,
+        training_type="history_taking",
+        status="in_progress",
+        scoring_status=None,
+    )
+    db_session.add(rec)
+    db_session.commit()
+
+    resp = client.post("/api/auth/login", json={"username": "empty_end_user", "password": "test123"})
+    assert resp.status_code == 200, resp.text
+    token = resp.json()["access_token"]
+
+    resp = client.post(
+        f"/api/training/{rec.id}/end",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["record_status"] == "discarded"
+    assert body["scoring_status"] is None
+    assert body["terminal_reason"] == "no_student_messages"
+
+    db_session.expire_all()
+    updated = db_session.query(TrainingRecord).filter(TrainingRecord.id == rec.id).first()
+    assert updated.status == "discarded"
+    assert updated.scoring_status is None
+    assert updated.scoring_error == "no_student_messages"
 
 
 # ── 1.7: Queue full rollback ────────────────────────────────────

@@ -10,12 +10,27 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 
 from core.database import SessionLocal
-from models import Notification, Score, TrainingRecord
+from models import Message, Notification, Score, TrainingRecord, TrainingSessionState
 
 log = logging.getLogger(__name__)
 
 SETTLEMENT_LOCK_KEY = 987654321
 STALE_SCORING_SWEEP_MINUTES = 10
+NO_STUDENT_MESSAGES_REASON = "no_student_messages"
+
+
+def _student_message_count(db, record_id: int) -> int:
+    return db.query(Message).filter(Message.record_id == record_id, Message.role == "student").count()
+
+
+def _discard_unscoreable_record(db, record: TrainingRecord) -> None:
+    record.status = "discarded"
+    record.end_time = record.end_time or datetime.now(UTC)
+    record.scoring_status = None
+    record.scoring_error = NO_STUDENT_MESSAGES_REASON
+    db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete(
+        synchronize_session="fetch"
+    )
 
 
 async def settlement_loop(
@@ -95,7 +110,22 @@ def _sweep_stale_scoring_records(db) -> int:
     if stale_ids:
         scored_ids = {r[0] for r in db.query(Score.record_id).filter(Score.record_id.in_(stale_ids)).all()}
 
+    no_student_ids = {
+        record_id
+        for (record_id,) in db.query(TrainingRecord.id)
+        .filter(TrainingRecord.id.in_(stale_ids))
+        .filter(
+            ~db.query(Message.id).filter(Message.record_id == TrainingRecord.id, Message.role == "student").exists()
+        )
+        .all()
+    }
+
     for record in stale:
+        if record.id in no_student_ids:
+            _discard_unscoreable_record(db, record)
+            log.info("settlement: stale scoring discarded (no student messages)", extra={"record_id": record.id})
+            continue
+
         if record.id in scored_ids:
             record.scoring_status = "completed"
             record.scoring_error = None
@@ -123,15 +153,12 @@ def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
 
     if timeout_records:
         log.info("Found %d timed-out sessions, marking completed", len(timeout_records))
-        from models import Message
-
         for record in timeout_records:
-            # Skip records with no student messages — nothing to score
-            student_count = db.query(Message).filter(Message.record_id == record.id, Message.role == "student").count()
-            if student_count == 0:
-                log.info("Settlement: skipping record_id=%d (no student messages)", record.id)
-                repo.mark_completed_sync(db, record.id)
+            # Discard records with no student messages — nothing to score and not a failure.
+            if _student_message_count(db, record.id) == 0:
+                _discard_unscoreable_record(db, record)
                 db.commit()
+                log.info("Settlement: discarded record_id=%d (no student messages)", record.id)
                 continue
 
             try:
