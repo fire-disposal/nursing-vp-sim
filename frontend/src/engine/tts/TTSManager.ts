@@ -1,4 +1,4 @@
-import { EMOTION_LABELS, type EmotionState } from "../PanelContext";
+import { EMOTION_LABELS, type EmotionState } from "@/stores/trainingStore";
 import type { MessageBus } from "../types";
 import { createBrowserTTS } from "./browser-tts";
 import { PcmStreamPlayer } from "./pcm-player";

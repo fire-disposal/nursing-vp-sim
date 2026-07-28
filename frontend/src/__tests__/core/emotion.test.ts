@@ -3,7 +3,7 @@ import {
 	EMOTION_LABELS,
 	getEmotionBorder,
 	getEmotionColor,
-} from "@/engine";
+} from "@/stores/trainingStore";
 
 describe("EmotionState", () => {
 	it("has 6 labels", () => {

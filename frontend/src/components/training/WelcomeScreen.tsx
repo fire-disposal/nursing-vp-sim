@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { usePortrait } from "@/engine";
+import { useTrainingStore } from "@/stores/trainingStore";
 import type { PatientData } from "@/engine/types";
 import { getPatientAvatar } from "@/utils/avatar";
 
@@ -11,7 +11,7 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({ patient, onQuickPrompt: _onQuickPrompt, capabilities = {} }: WelcomeScreenProps) {
-	const { portraitUrl } = usePortrait();
+	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
 	const avatarSrc = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });
 
 	const genderLabel = patient.gender === "male" ? "男" : "女";

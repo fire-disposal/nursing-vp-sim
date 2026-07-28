@@ -1,13 +1,13 @@
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo } from "react";
-import { useTrainingDynamic } from "@/engine/TrainingLayerContexts";
+import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/utils/cn";
 import { computeCovered, getInquiryLabel, progressColor } from "./inquiryProgress";
 
 export default function InquiryTool(props: TrainingToolProps) {
-	const { messages } = useTrainingDynamic();
+	const messages = useTrainingStore((s) => s.messages);
 
 	const inquiries: string[] = useMemo(() => {
 		const cd = (props.recordDetail?.case_data as Record<string, unknown>) ?? {};

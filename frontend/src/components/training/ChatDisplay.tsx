@@ -4,9 +4,8 @@ import { ChatBubble } from "@/components/training/ChatBubble";
 import { ExamResultCard } from "@/components/training/ExamResultCard";
 import {
   getEmotionBorder,
-  useEmotion,
-  usePortrait,
-} from "@/engine";
+  useTrainingStore,
+} from "@/stores/trainingStore";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
 import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
@@ -30,8 +29,8 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const [_isNearBottom, setIsNearBottom] = useState(true);
   const isNearBottomRef = useRef(true);
   const prevCountRef = useRef(0);
-  const { portraitUrl } = usePortrait();
-  const { emotion } = useEmotion();
+  const portraitUrl = useTrainingStore((s) => s.portraitUrl);
+  const emotion = useTrainingStore((s) => s.emotion);
   const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
   const [examResults, setExamResults] = useState<ChatMessage[]>([]);
 

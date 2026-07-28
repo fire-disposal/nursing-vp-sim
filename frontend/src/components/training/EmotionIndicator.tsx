@@ -1,11 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { triggerInitiative } from "@/api/training";
-import type { EmotionState } from "@/engine";
+import type { EmotionState } from "@/stores/trainingStore";
 import {
 	EMOTION_LABELS,
 	getEmotionColor,
-	useEmotion,
-} from "@/engine";
+	useTrainingStore,
+} from "@/stores/trainingStore";
 import type { MessageBus } from "@/engine/types";
 import { cn } from "@/utils/cn";
 
@@ -37,7 +37,9 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 };
 
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
-	const { emotion, trust, comfort } = useEmotion();
+	const emotion = useTrainingStore((s) => s.emotion);
+	const trust = useTrainingStore((s) => s.trust);
+	const comfort = useTrainingStore((s) => s.comfort);
 	const [pulse, setPulse] = useState(false);
 	const [emojiPop, setEmojiPop] = useState(false);
 	const prevEmotionRef = useRef(emotion);
@@ -165,7 +167,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	if (!capabilities.emotion) return null;
 	const label = EMOTION_LABELS[emotion];
 	const trustPct = Math.max(0, Math.min(100, trust));
-	const comfortPct = Math.max(0, Math.min(100, comfort));
+	const _comfortPct = Math.max(0, Math.min(100, comfort));
 
 	if (compact) {
 		return (

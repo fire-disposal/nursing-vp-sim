@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import type { TrainingRecordDetail } from "@/engine/TrainingContext";
+import { useTrainingStore } from "@/stores/trainingStore";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -16,33 +15,23 @@ import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 interface ChatAreaProps {
-	messages: ChatMessage[];
-	patient: PatientData;
-	sending: boolean;
-	trainingEnded?: boolean;
 	onSend: (text: string) => void;
-	bus: MessageBus;
-	capabilities: Record<string, boolean>;
-	recordId: number;
-	hasHistory?: boolean;
-	recordDetail: TrainingRecordDetail | null;
 	endTraining: () => Promise<void>;
 }
 
 export function ChatArea({
-	messages,
-	patient,
-	sending,
-	trainingEnded = false,
 	onSend,
-	bus,
-	capabilities,
-	recordId,
-	hasHistory,
-	recordDetail,
 	endTraining,
 }: ChatAreaProps) {
-  const hasStudentMessages = messages.some(m => m.role === "student") || (hasHistory && recordDetail?.messages?.some(m => m.role === "student"));
+  const messages = useTrainingStore(s => s.messages);
+  const patient = useTrainingStore(s => s.patient)!;
+  const sending = useTrainingStore(s => s.sending);
+  const trainingEnded = useTrainingStore(s => s.trainingEnded);
+  const bus = useTrainingStore(s => s.bus)!;
+  const capabilities = useTrainingStore(s => s.capabilities);
+  const recordId = Number(useTrainingStore(s => s.recordId));
+  const recordDetail = useTrainingStore(s => s.recordDetail);
+  const hasStudentMessages = messages.some(m => m.role === "student") || recordDetail?.messages?.some(m => m.role === "student");
   const greeting = useMemo(() => {
     const msgs = recordDetail?.messages;
     if (msgs && msgs.length > 0) {
@@ -84,6 +73,7 @@ export function ChatArea({
   }, [messages.length]);
 
   useEffect(() => {
+    if (!bus) return;
     const MAX_INITIATIVE = 200;
     const unsub = bus.on(
       "initiative:triggered",

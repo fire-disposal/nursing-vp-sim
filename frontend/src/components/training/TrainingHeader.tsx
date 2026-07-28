@@ -3,8 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { usePortrait } from "@/engine";
-import { useTrainingDynamic, useTrainingStatic, useTrainingUIState } from "@/engine/TrainingLayerContexts";
+import { useTrainingStore } from "@/stores/trainingStore";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -35,24 +34,20 @@ function WSStatusDot() {
  * Zero props — TrainingHeader reads all state from TrainingContext.
  * This avoids the prop-explosion problem that accumulated 13+ props.
  */
-export function TrainingHeader() {
-	const staticCtx = useTrainingStatic();
-	const dynamicCtx = useTrainingDynamic();
-	const uiCtx = useTrainingUIState();
-	const {
-		patient,
-		timeLimitMinutes,
-	} = staticCtx;
-	const { messages } = dynamicCtx;
-	const {
-		ttsAutoPlay,
-		toggleTts: onTtsToggle,
-		endTraining: onEnd,
-		remainingSeconds,
-	} = uiCtx;
+interface TrainingHeaderProps {
+	toggleTts: () => void;
+	endTraining: () => Promise<void>;
+}
+
+export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
+	const patient = useTrainingStore(s => s.patient!);
+	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
+	const messages = useTrainingStore(s => s.messages);
+	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
+	const remainingSeconds = useTrainingStore(s => s.remainingSeconds);
+	const portraitUrl = useTrainingStore(s => s.portraitUrl);
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
-	const { portraitUrl } = usePortrait();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
