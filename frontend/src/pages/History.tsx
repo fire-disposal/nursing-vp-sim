@@ -13,6 +13,7 @@ import ErrorDisplay from "@/components/ui/error-display";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import {
 	Table,
@@ -27,6 +28,22 @@ import { cn } from "@/utils/cn";
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 const LIMIT = 50;
+
+/** Extract repeated field access. Returns minutes or null. */
+function recordDurMins(r: TrainingRecordBrief): number | null {
+	if (!r.end_time) return null;
+	return Math.round(
+		(new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / 60000,
+	);
+}
+
+/** Narrow status used in both mobile cards and desktop table. */
+type RecordStatus = "completed" | "in_progress" | "abandoned";
+function recordStatus(r: TrainingRecordBrief): RecordStatus {
+	if (r.status === "completed" || r.status === "in_progress" || r.status === "abandoned")
+		return r.status;
+	return "in_progress"; // fallback
+}
 
 export default function History() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -129,13 +146,17 @@ export default function History() {
 						</span>
 					)}
 					<div className="flex-1" />
-					<select value={status} onChange={(e) => setParam("status", e.target.value)}
-						className="h-8 rounded-md border border-input bg-background px-2 text-xs">
-						<option value="">全部状态</option>
-						<option value="in_progress">进行中</option>
-						<option value="completed">已完成</option>
-						<option value="abandoned">已放弃</option>
-					</select>
+					<Select value={status ?? "all"} onValueChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}>
+						<SelectTrigger className="h-8 w-[110px] text-xs">
+							<SelectValue placeholder="全部状态" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">全部状态</SelectItem>
+							<SelectItem value="in_progress">进行中</SelectItem>
+							<SelectItem value="completed">已完成</SelectItem>
+							<SelectItem value="abandoned">已放弃</SelectItem>
+						</SelectContent>
+					</Select>
 					<input type="date" value={date_from} onChange={(e) => setParam("date_from", e.target.value)}
 						className="h-8 rounded-md border border-input bg-background px-2 text-xs" />
 					<input type="date" value={date_to} onChange={(e) => setParam("date_to", e.target.value)}
@@ -163,14 +184,8 @@ export default function History() {
 						{/* Mobile: card list */}
 						<div className="space-y-2 p-2 md:hidden">
 							{records.map((r) => {
-								const durMins = r.end_time
-									? Math.round(
-											(new Date(r.end_time).getTime() -
-												new Date(r.start_time).getTime()) / 60000,
-										)
-									: null;
-								const isInProgress = r.status === "in_progress";
-								const isAbandoned = r.status === "abandoned";
+								const durMins = recordDurMins(r);
+								const status = recordStatus(r);
 								return (
 									<div
 										key={r.id}
@@ -193,28 +208,25 @@ export default function History() {
 															month: "numeric", day: "numeric",
 															hour: "2-digit", minute: "2-digit",
 														})}
-														{r.training_type === "triage" ? " · 分诊" : " · 问诊"}
+														 · 问诊
 														{durMins != null ? ` · ${durMins} 分钟` : ""}
 													</div>
 												</div>
 												<div className="flex items-center gap-2 shrink-0">
-													{r.status === "completed" ? (
+													{status === "completed" ? (
 														<span className="text-xs tabular-nums font-semibold">
 															{r.score_total != null ? `${r.score_total} 分` : "评分中"}
 														</span>
-													) : isAbandoned ? (
+													) : status === "abandoned" ? (
 														<span className="text-xs text-muted-foreground">已放弃</span>
 													) : (
-														<span className="flex items-center gap-1 text-xs text-amber-600">
-															<span className="size-1.5 rounded-full bg-amber-500" />
-															进行中
-														</span>
+														<Badge variant="info">进行中</Badge>
 													)}
 												</div>
 											</div>
 										</button>
 										<div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
-											{isInProgress && (
+											{status === "in_progress" && (
 												<>
 													<Button
 														variant="outline"
@@ -240,7 +252,7 @@ export default function History() {
 													</Button>
 												</>
 											)}
-											{isAbandoned && (
+											{status === "abandoned" && (
 												<Button
 													variant="ghost"
 													size="sm"
@@ -302,24 +314,14 @@ export default function History() {
 								</TableHeader>
 								<TableBody>
 									{records.map((r) => {
-										const durMins = r.end_time
-											? Math.round(
-													(new Date(r.end_time).getTime() -
-														new Date(r.start_time).getTime()) /
-														60000,
-												)
-											: null;
+										const durMins = recordDurMins(r);
 										return (
 											<TableRow key={r.id}>
 												<TableCell className="font-medium">
 													{r.case_name}
 												</TableCell>
 												<TableCell>
-													{r.training_type === "triage" ? (
-														<Badge variant="info">分诊</Badge>
-													) : (
-														<Badge variant="secondary">问诊</Badge>
-													)}
+													<Badge variant="secondary">问诊</Badge>
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground">
 													{r.assignment_title ? (

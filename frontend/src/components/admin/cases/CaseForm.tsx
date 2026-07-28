@@ -17,7 +17,7 @@ const caseFormSchema = z.object({
 	name: z.string().min(1, "病例名称不能为空"),
 	time_limit: z.number().int().min(1).max(180),
 	difficulty: z.number().int().min(1).max(3),
-	training_type: z.enum(["history_taking", "triage"]),
+	training_type: z.enum(["history_taking"]),
 });
 
 const AI_FIELD_LABELS: Record<string, string> = {

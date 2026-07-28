@@ -18,7 +18,6 @@ interface CaseSelectorProps {
 
 const TRAINING_TYPE_LABELS: Record<string, string> = {
 	history_taking: "病史采集",
-	triage: "分诊",
 };
 
 const DIFFICULTY_LABELS: Record<number, string> = {

@@ -284,14 +284,12 @@ export default function TeacherRecordDetail() {
 
 						{record.triage_result && Object.keys(record.triage_result).length > 0 && (
 							<div className="rounded-xl border border-border bg-card p-5 space-y-3">
-								<h3 className="text-base font-semibold">分诊结果</h3>
 								<div className="space-y-2 text-sm">
 									<div className="flex justify-between">
 										<span className="text-muted-foreground">MEWS 评分</span>
 										<span className="font-medium tabular-nums">{String(record.triage_result.mews_score ?? "-")}/14</span>
 									</div>
 									<div className="flex justify-between">
-										<span className="text-muted-foreground">分诊级别</span>
 										<span className="font-medium">{String(record.triage_result.category || "未选择")}</span>
 									</div>
 									<div className="flex justify-between">

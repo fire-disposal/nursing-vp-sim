@@ -67,6 +67,7 @@ export default function App() {
 				<TooltipProvider>
 				<MotionConfig reducedMotion="user">
 				<AppPaletteInit />
+				<ForceLogoutListener />
 				<Toaster />
 				<ConfirmProvider>
 					<FeedbackProvider>

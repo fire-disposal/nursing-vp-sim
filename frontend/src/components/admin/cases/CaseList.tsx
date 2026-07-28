@@ -1,6 +1,7 @@
 import { Pencil, Play, Plus, Search, Trash2, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Pagination from "@/components/ui/pagination";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { components } from "@/api/api-types.gen";
@@ -25,7 +26,7 @@ interface CaseListProps {
 }
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
-const STATUS_LABELS: Record<string, string> = { history_taking: "病史采集", triage: "预检分诊" };
+const STATUS_LABELS: Record<string, string> = { history_taking: "病史采集" };
 
 function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 	if (!caps) return null;
@@ -64,23 +65,24 @@ export default function CaseList({
 				</div>
 			</div>
 
-			{/* Filters */}
 			<div className="flex gap-2 flex-wrap">
-				<select value={filters.difficulty} onChange={(e) => onFilterChange({ ...filters, difficulty: e.target.value })}
-					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
-					<option value="">全部难度</option>
-					<option value="1">初级</option><option value="2">中级</option><option value="3">高级</option>
-				</select>
-				<select value={filters.training_type} onChange={(e) => onFilterChange({ ...filters, training_type: e.target.value })}
-					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
-					<option value="">全部类型</option>
-					<option value="history_taking">病史采集</option><option value="triage">预检分诊</option>
-				</select>
-				<select value={filters.is_open} onChange={(e) => onFilterChange({ ...filters, is_open: e.target.value })}
-					className="h-7 rounded-md border border-border bg-background px-2 text-xs">
-					<option value="">全部状态</option>
-					<option value="true">已开放</option><option value="false">已关闭</option>
-				</select>
+				<Select value={filters.difficulty || "all"} onValueChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}>
+					<SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue placeholder="全部难度" /></SelectTrigger>
+					<SelectContent>
+						<SelectItem value="all">全部难度</SelectItem>
+						<SelectItem value="1">初级</SelectItem>
+						<SelectItem value="2">中级</SelectItem>
+						<SelectItem value="3">高级</SelectItem>
+					</SelectContent>
+				</Select>
+				<Select value={filters.is_open ?? "all"} onValueChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}>
+					<SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue placeholder="全部状态" /></SelectTrigger>
+					<SelectContent>
+						<SelectItem value="all">全部状态</SelectItem>
+						<SelectItem value="true">已开放</SelectItem>
+						<SelectItem value="false">已关闭</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 
 			{/* Table */}

@@ -2,6 +2,7 @@ import {
 	Activity as ActivityIcon,
 	BarChart3,
 	BookOpen,
+	Bot,
 	ClipboardCheck,
 	ClipboardList,
 	Coins,
@@ -29,7 +30,6 @@ const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
 const StatsPage = lazy(() => import("@/pages/admin/StatsPage"));
 const MyStatsPage = lazy(() => import("@/pages/MyStatsPage"));
-const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
 const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -133,8 +133,8 @@ export const APP_ROUTES: AppRoute[] = [
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	// Sub-pages under 我的 — not primary nav items.
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
-	// QA — accessible via profile quick link, not primary nav.
-	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage" },
+	// QA — AI 护理导师，学生端独立 Tab。
+	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: Bot, section: "user", shortLabel: "问答" } },
 	{
 		path: "/profile",
 		element: <Profile />,

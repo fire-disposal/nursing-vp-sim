@@ -47,11 +47,7 @@ export default function RecordStatsBar({
 					</div>
 					<div className="flex items-center gap-1.5 mt-0.5">
 						<span className="text-xs text-muted-foreground">病例</span>
-						{record.training_type === "triage" ? (
-							<Badge variant="info" className="text-[10px] px-1 py-0">分诊</Badge>
-						) : (
-							<Badge variant="secondary" className="text-[10px] px-1 py-0">问诊</Badge>
-						)}
+						<Badge variant="secondary" className="text-[10px] px-1 py-0">问诊</Badge>
 					</div>
 				</div>
 			</div>

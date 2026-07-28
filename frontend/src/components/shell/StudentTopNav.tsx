@@ -1,4 +1,4 @@
-import { MessageSquarePlus, Stethoscope } from "lucide-react";
+import { LogOut, MessageSquarePlus, Stethoscope } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import NotificationBell from "@/components/NotificationBell";
@@ -8,8 +8,8 @@ import { cn } from "@/utils/cn";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
 const TAB_SUB_PATHS: Record<string, string[]> = {
-	"/history": ["/record", "/my-stats", "/my-responses", "/my-feedback"],
-	"/profile": ["/notifications", "/qa"],
+	"/history": ["/record", "/my-stats", "/my-feedback"],
+	"/profile": ["/notifications"],
 };
 
 function isLinkActive(pathname: string, link: NavItem): boolean {
@@ -21,13 +21,10 @@ function isLinkActive(pathname: string, link: NavItem): boolean {
 }
 
 /**
- * StudentTopNav — 学生端顶部导航栏
- *
- * 桌面端显示水平导航链接（3 项：训练 | 记录 | 我的）。
- * 移动端仅显示品牌 + 通知铃铛 + 反馈入口。
+ * 桌面端显示水平导航链接（4 项：训练 | 问答 | 记录 | 我的）。
  * 登出和主题切换已移至 Profile 页面。
  */
-export function StudentTopNav({ links }: { links: NavItem[] }) {
+export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout: () => void }) {
 	const { openFeedback } = useFeedback();
 	const { pathname } = useLocation();
 	const isShort = useShortViewport();
@@ -66,16 +63,18 @@ export function StudentTopNav({ links }: { links: NavItem[] }) {
 
 				{/* Right side — utility icons */}
 				<div className="flex items-center gap-0.5 ml-auto">
-					<button
-						onClick={openFeedback}
+					<button onClick={openFeedback}
 						className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-accent transition-colors"
-						title="意见反馈"
-						aria-label="意见反馈"
-					>
+						title="意见反馈" aria-label="意见反馈">
 						<MessageSquarePlus size={14} />
 						<span className="hidden sm:inline">反馈</span>
 					</button>
 					<NotificationBell />
+					<button onClick={onLogout}
+						className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+						title="退出登录" aria-label="退出登录">
+						<LogOut size={14} />
+					</button>
 				</div>
 			</div>
 		</header>

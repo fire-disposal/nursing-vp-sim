@@ -2,7 +2,6 @@ import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import { BottomTabBar } from "./BottomTabBar";
-import BreadcrumbBar from "./BreadcrumbBar";
 import ShellTransition from "./ShellTransition";
 import { StudentTopNav } from "./StudentTopNav";
 import type { NavItem } from "./navigation";
@@ -18,7 +17,7 @@ import { isAdminPermissions } from "@/utils/permissions";
 /**
  * TabBarLayout — 学生端 Tab 导航布局
  */
-function TabBarLayout({ children }: { children: ReactNode }) {
+function TabBarLayout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const permKey = permissions.join(",");
 	const isOnline = useNetworkStatus();
@@ -34,7 +33,7 @@ function TabBarLayout({ children }: { children: ReactNode }) {
 	return (
 		<div className="flex flex-col h-screen overflow-hidden" style={{ height: "100dvh" }}>
 			{!isOnline && <NetworkBanner />}
-			<StudentTopNav links={links} />
+			<StudentTopNav links={links} onLogout={onLogout} />
 			<div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
 				<ShellTransition>{children}</ShellTransition>
 			</div>
@@ -104,7 +103,6 @@ function AdminLayout({
 					</div>
 				</div>
 
-				<BreadcrumbBar className="px-4 py-1.5 border-b border-border bg-card/50 shrink-0 hidden md:block" />
 
 				<div className={cn("flex-1 overflow-y-auto", isShort ? "p-2" : "p-4 sm:p-6 lg:p-8")}>
 					<ShellTransition>{children}</ShellTransition>
@@ -156,5 +154,5 @@ export default function ManageShell({
 		);
 	}
 
-	return <TabBarLayout>{content}</TabBarLayout>;
+	return <TabBarLayout onLogout={onLogout}>{content}</TabBarLayout>;
 }

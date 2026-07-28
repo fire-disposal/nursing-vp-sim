@@ -1,13 +1,15 @@
 import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, ClipboardList, Play, RotateCcw, Search, Star, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Award, BookOpen, ClipboardCheck, ClipboardList, Clock, Home, Megaphone, Play, RotateCcw, Search, Star, Target, TrendingUp, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { abandonRecord, getCases, getRecords, startTraining } from "@/api";
+import { abandonRecord, getCases, getNotifications, getRecords, startTraining } from "@/api";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
+import { getStudentRanking } from "@/api/stats";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
@@ -15,6 +17,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import useAuthStore from "@/stores/authStore";
 import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
@@ -64,7 +67,7 @@ function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 }
 
 export default function TrainingSelect() {
-  const [tab, setTab] = useState<"self" | "assignments">("self");
+  const [tab, setTab] = useState<"home" | "self" | "assignments">("home");
   const [difficultyFilter, setDifficultyFilter] = useState(0);
   const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
   const [offset, setOffset] = useState(0);
@@ -72,8 +75,9 @@ export default function TrainingSelect() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
+  const user = useAuthStore((s) => s.user);
 
-  const { data: casesData, isLoading, isError } = useQuery({
+  const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
     queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
     queryFn: () => getCases({ offset, limit: LIMIT, ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}), ...(search ? { name: search } : {}) }).then((r) => r.data),
     staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
@@ -85,45 +89,55 @@ export default function TrainingSelect() {
     staleTime: 30_000,
   });
 
-  // Auto-default to "assignments" tab when there are pending assignments
-  const tabAutoSetRef = useRef(false);
-  useEffect(() => {
-    if (tabAutoSetRef.current) return;
-    const pendingAssignments = (assignmentsData ?? []).filter(
-      (a: { status: string }) => a.status === "in_progress",
-    );
-    if (pendingAssignments.length > 0) {
-      setTab("assignments");
-    }
-    tabAutoSetRef.current = true;
-  }, [assignmentsData]);
-
-  const { data: inProgressData } = useQuery({
-    queryKey: queryKeys.training.records({ status: "in_progress", limit: 100, offset: 0 }),
-    queryFn: () => getRecords({ status: "in_progress", limit: 100, offset: 0 }).then((r) => r.data),
+  const { data: recordsData } = useQuery({
+    queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
+    queryFn: () => getRecords({ limit: 50, offset: 0 }).then((r) => r.data),
     staleTime: 30_000,
   });
 
+  const records = recordsData?.items ?? [];
+  const assignments = (assignmentsData ?? []) as Array<{
+    id: string; title: string; case_name: string; status: string;
+    end_time: string; record_id?: number | null; score_total?: number | null;
+  }>;
+
+  const inProgressCount = useMemo(() => records.filter((r) => r.status === "in_progress").length, [records]);
+  const completedCount = useMemo(() => records.filter((r) => r.status === "completed").length, [records]);
+  const pendingAssignments = useMemo(
+    () => assignments.filter((a) => a.status === "in_progress" && (!a.end_time || new Date(a.end_time) >= new Date())),
+    [assignments],
+  );
+
+  // ── Notifications (home tab) ──
+  const { data: notifData } = useQuery({
+    queryKey: ["notifications", "recent"],
+    queryFn: () => getNotifications({ limit: 3 }).then((r: { data: { items?: Array<{ id: number; title: string; content?: string; type: string; is_read: boolean; created_at: string; link?: string }> } }) => r.data),
+    staleTime: 30_000,
+  });
+  const recentNotifs = (notifData?.items ?? []).filter((n: { is_read: boolean }) => !n.is_read).slice(0, 2);
+
+  // ── Training stats (home tab, from MyStatsPage) ──
+  const { data: ranking } = useQuery({
+    queryKey: queryKeys.stats.ranking({}),
+    queryFn: () => getStudentRanking().then((r) => r.data),
+    staleTime: 60_000,
+  });
+  const myStats = ranking?.items?.[0];
+
   const inProgressByCase = useMemo(() => {
     const map = new Map<number, TrainingRecordBrief>();
-    for (const r of inProgressData?.items ?? []) {
-      if (!map.has(r.case_id)) map.set(r.case_id, r);
+    for (const r of records) {
+      if (r.status === "in_progress" && !map.has(r.case_id)) map.set(r.case_id, r);
     }
     return map;
-  }, [inProgressData]);
+  }, [records]);
 
   type StartResponse = components["schemas"]["TrainingStartResponse"];
-
   const startMutation = useMutation({
     mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
     onSuccess: (res) => {
       const data: StartResponse = res.data;
-      if (data.session) {
-        queryClient.setQueryData(
-          queryKeys.training.detail(String(data.record_id)),
-          data.session,
-        );
-      }
+      if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
       navigate(`/training/${data.record_id}`);
     },
     onError: () => toast.error("开始训练失败，请重试"),
@@ -142,43 +156,125 @@ export default function TrainingSelect() {
       const res = await startAssignment(assignmentId);
       const data = res.data as Record<string, unknown>;
       if (typeof (data as { record_id?: number }).record_id === "number") {
-        const recordId = (data as { record_id: number }).record_id;
-        if (data.session) {
-          queryClient.setQueryData(
-            queryKeys.training.detail(String(recordId)),
-            data.session,
-          );
-        }
-        navigate(`/training/${recordId}`);
+        if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
+        navigate(`/training/${(data as { record_id: number }).record_id}`);
       }
     } catch (err: unknown) { toast.apiError(err, "开始作业失败，请刷新后重试"); }
   };
 
   const cases = casesData?.items ?? [];
   const total = casesData?.total ?? 0;
-  const assignments = (assignmentsData ?? []) as Array<{
-    id: string; title: string; case_name: string; status: string;
-    end_time: string; record_id?: number | null; score_total?: number | null;
-  }>;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
+  const recentRecords = records.slice(0, 5);
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-bold text-foreground">病例训练</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">选择病例开始护理模拟训练，系统自动评分</p>
+      <div className="flex items-end justify-between">
+        <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+          <button onClick={() => setTab("home")}
+            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "home" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
+          ><Home size={14} />首页</button>
+          <button onClick={() => setTab("self")}
+            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "self" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
+          ><BookOpen size={14} />自主训练</button>
+          <button onClick={() => setTab("assignments")}
+            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "assignments" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
+          ><ClipboardList size={14} />我的作业</button>
+        </div>
+        {tab === "home" && (
+          <span className="text-xs text-muted-foreground">{new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</span>
+        )}
       </div>
 
-      <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
-        <button
-          onClick={() => setTab("self")}
-          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "self" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-        ><BookOpen size={14} />自主训练</button>
-        <button
-          onClick={() => setTab("assignments")}
-          className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "assignments" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-        ><ClipboardList size={14} />我的作业</button>
-      </div>
+      {tab === "home" && (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-xl font-bold">{greeting}，{user?.display_name || "同学"}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">继续你的护理模拟训练</p>
+          </div>
 
+          {/* Notification banner */}
+          {recentNotifs.length > 0 && (
+            <div className="space-y-2">
+              {recentNotifs.map((n: { id: number; title: string; type: string; link?: string }) => (
+                <button key={n.id} type="button"
+                  onClick={() => { if (n.link) navigate(n.link); }}
+                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted">
+                  <Megaphone size={16} className="text-primary shrink-0" />
+                  <span className="text-sm flex-1">{n.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Stat cards */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
+              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", inProgressCount > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-warning text-warning-foreground"><Play size={18} /></div>
+              <div className="min-w-0"><div className="text-lg font-bold">{inProgressCount}</div><div className="text-xs text-muted-foreground">进行中训练</div></div>
+            </div>
+            <div onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
+              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", completedCount > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground"><ClipboardCheck size={18} /></div>
+              <div className="min-w-0"><div className="text-lg font-bold">{completedCount}</div><div className="text-xs text-muted-foreground">已完成训练</div></div>
+            </div>
+            <div onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
+              className={cn("flex items-center gap-3 rounded-xl ring-1 ring-foreground/10 bg-card p-3.5 transition-all", pendingAssignments.length > 0 && "cursor-pointer hover:border-primary hover:shadow-e1")}>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-danger text-danger-foreground"><BookOpen size={18} /></div>
+              <div className="min-w-0"><div className="text-lg font-bold">{pendingAssignments.length}</div><div className="text-xs text-muted-foreground">待完成作业</div></div>
+            </div>
+          </div>
+
+          {/* Training stats (from MyStatsPage) */}
+          {myStats && (
+            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><Target size={16} className="text-muted-foreground" />训练统计</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div><div className="text-lg font-bold">{myStats.total_sessions ?? 0}</div><div className="text-xs text-muted-foreground">完成训练</div></div>
+                <div><div className="text-lg font-bold">{myStats.avg_score != null ? `${myStats.avg_score}分` : "--"}</div><div className="text-xs text-muted-foreground">平均得分</div></div>
+                <div><div className="text-lg font-bold">{myStats.rank ? `第${myStats.rank}名` : "--"}</div><div className="text-xs text-muted-foreground">排名</div></div>
+                <div><div className="text-lg font-bold">{myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"}</div><div className="text-xs text-muted-foreground">总时长</div></div>
+              </div>
+            </div>
+          )}
+
+          {/* Pending assignments */}
+          {pendingAssignments.length > 0 && (
+            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+              <h3 className="text-sm font-medium mb-3">待完成作业</h3>
+              <div className="space-y-2">
+                {pendingAssignments.slice(0, 5).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
+                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{a.title}</div><div className="text-xs text-muted-foreground">{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}</div></div>
+                    <Button size="sm" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent records */}
+          {recentRecords.length > 0 && (
+            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-muted-foreground" />最近训练</h3>
+              <div className="space-y-1">
+                {recentRecords.map((r) => (
+                  <button key={r.id} type="button" onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted">
+                    <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{r.case_name}</div><div className="text-xs text-muted-foreground mt-0.5">{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊</div></div>
+                    <div className="shrink-0 ml-3">{r.status === "completed" && r.score_total != null ? <span className="text-sm font-semibold text-primary tabular-nums">{r.score_total} 分</span> : r.status === "in_progress" ? <Badge variant="info">进行中</Badge> : null}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ Tab: 自主训练 ═══ */}
       {tab === "self" && (
         <>
           <div className="flex items-center gap-2 flex-wrap">
@@ -195,30 +291,25 @@ export default function TrainingSelect() {
               {search && <button onClick={() => handleSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={12} /></button>}
             </div>
           </div>
-
-          {isLoading ? (
+          {casesLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
-          ) : isError ? (
+          ) : casesError ? (
             <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" action={<Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>} />
           ) : cases.length === 0 ? (
             <EmptyState icon={AlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {cases.map((c) => {
+                {cases.map((c, idx) => {
                   const summary = getPatientSummary(c.patient_summary);
                   const inProgress = inProgressByCase.get(c.id);
                   return (
-                    <motion.div
-                      key={c.id}
+                    <motion.div key={c.id}
                       className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: cases.indexOf(c) * 0.04, ease: "easeOut" }}
-                    >
+                      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-semibold truncate">{c.name}</h3>
+                        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold truncate">{c.name}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {[summary.gender, summary.age != null ? `${summary.age}岁` : null].filter(Boolean).join(" · ")}
                             {summary.chief_complaint && <> · {summary.chief_complaint.slice(0, 30)}</>}
@@ -245,6 +336,7 @@ export default function TrainingSelect() {
         </>
       )}
 
+      {/* ═══ Tab: 我的作业 ═══ */}
       {tab === "assignments" && (
         !assignmentsData ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
@@ -257,13 +349,13 @@ export default function TrainingSelect() {
               const isCompleted = a.status === "completed";
               const isInProgress = a.status === "in_progress";
               return (
-                <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-red-200 bg-red-50/30" : isCompleted ? "border-emerald-200 bg-emerald-50/30" : "border-border bg-card hover:border-primary/30")}>
+                <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-danger bg-danger/30" : isCompleted ? "border-success bg-success/30" : "border-border bg-card hover:border-primary/30")}>
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-semibold truncate flex-1">{a.title}</h3>
-                      {isExpired && <span className="shrink-0 inline-flex items-center rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">已过期</span>}
-                      {isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">已完成</span>}
-                      {!isExpired && !isCompleted && <span className="shrink-0 inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">待完成</span>}
+                      {isExpired && <Badge variant="danger">已过期</Badge>}
+                      {isCompleted && <Badge variant="success">已完成</Badge>}
+                      {!isExpired && !isCompleted && <Badge variant="secondary">待完成</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{a.case_name}{a.score_total != null && <> · 得分 {a.score_total}</>}</p>
                   </div>

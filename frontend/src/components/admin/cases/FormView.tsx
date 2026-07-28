@@ -10,7 +10,6 @@ import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";
 import { PhasesEditor } from "./PhasesEditor";
 import { QuizEditor } from "./QuizEditor";
-import { TriageSection } from "./TriageSection";
 import { inputClass } from "@/utils/styles";
 
 interface Props {
@@ -20,7 +19,6 @@ interface Props {
 }
 
 export function FormView({ state, dispatch, disabled }: Props) {
-	const trainingType = stringField(state, "training_type", "history_taking");
 
 	function set(path: string, value: unknown) {
 		dispatch({ type: "SET_FIELD", path, value });
@@ -52,12 +50,6 @@ export function FormView({ state, dispatch, disabled }: Props) {
 						<label className="text-xs text-muted-foreground">时间限制（分钟）</label>
 						<input className={inputClass} type="number" value={timeLimit} onChange={(e) => set("time_limit", Number(e.target.value))} disabled={disabled} min={1} max={180} />
 					</div>
-					<div className="space-y-1">
-						<label className="text-xs text-muted-foreground">训练类型</label>
-						<select className={inputClass} value={trainingType} onChange={(e) => set("training_type", e.target.value)} disabled={disabled}>
-							<option value="history_taking">病史采集</option><option value="triage">预检分诊</option>
-						</select>
-					</div>
 				</div>
 				<div className="mt-3 space-y-1">
 					<label className="text-xs text-muted-foreground">描述</label>
@@ -72,15 +64,9 @@ export function FormView({ state, dispatch, disabled }: Props) {
 			<PatientSection state={state} dispatch={dispatch} disabled={disabled} />
 			<PersonalitySection state={state} dispatch={dispatch} disabled={disabled} />
 
-			{trainingType === "triage" ? (
-				<TriageSection state={state} dispatch={dispatch} disabled={disabled} />
-			) : (
-				<ClinicalSection state={state} dispatch={dispatch} disabled={disabled} />
-			)}
-
+			<ClinicalSection state={state} dispatch={dispatch} disabled={disabled} />
 			<div className="space-y-4">
 				<CapabilitiesEditor state={state} dispatch={dispatch} />
-
 				<AiFieldsSection
 					hiddenInfo={arrayField(state, "hidden_info", []) as string[]}
 					requiredInquiries={arrayField(state, "required_inquiries", []) as string[]}
@@ -101,25 +87,16 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					disabled={disabled}
 				/>
 
-				{trainingType === "triage" ? null : (
-					<>
-						<QuizEditor
-							value={objField(state, "tools.quiz", { title: "", questions: [] }) as never}
-							onChange={(v) => set("tools.quiz", v)}
-							disabled={disabled}
-						/>
-						<PhasesEditor
-							value={objField(state, "phases", [] as never) as unknown as Array<import("./caseFormTypes").PhaseFormData>}
-							onChange={(v) => set("phases", v)}
-							disabled={disabled}
-						/>
-						<DialoguesEditor
-							value={objField(state, "example_dialogues", [] as never) as unknown as Array<{ question: string; answer: string }>}
-							onChange={(v) => set("example_dialogues", v)}
-							disabled={disabled}
-						/>
-					</>
-				)}
+				<QuizEditor
+					value={objField(state, "tools.quiz", { title: "", questions: [] }) as never}
+					onChange={(v) => set("tools.quiz", v)}
+					disabled={disabled}
+				/>
+				<PhasesEditor
+					value={objField(state, "phases", [] as never) as unknown as Array<import("./caseFormTypes").PhaseFormData>}
+					onChange={(v) => set("phases", v)}
+					disabled={disabled}
+				/>
 			</div>
 		</div>
 	);

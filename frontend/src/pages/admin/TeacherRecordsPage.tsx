@@ -302,7 +302,6 @@ export default function TeacherRecordsPage() {
 								>
 									<option value="">全部</option>
 									<option value="history_taking">问诊</option>
-									<option value="triage">分诊</option>
 								</select>
 							</div>
 							<div className="min-w-[140px]">
@@ -447,11 +446,7 @@ export default function TeacherRecordsPage() {
 													{r.case_name}
 												</TableCell>
 												<TableCell>
-													{r.training_type === "triage" ? (
-														<Badge variant="info">分诊</Badge>
-													) : (
-														<Badge variant="secondary">问诊</Badge>
-													)}
+													<Badge variant="secondary">问诊</Badge>
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground">
 													{(r as any).assignment_title ? (

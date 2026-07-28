@@ -6,7 +6,7 @@ import { isAdminPermissions } from "@/utils/permissions";
  * DashboardHome — 角色路由入口
  *
  * 管理员 → /admin
- * 学生   → /training（学生主导航不再包含"首页"）
+ * 学生   → /training（首页作为训练页第一个 Tab）
  */
 export default function DashboardHome() {
 	const perms = useAuthStore((s) => s.permissions);

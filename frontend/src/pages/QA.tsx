@@ -10,7 +10,6 @@ import {
 	getQASessionMessages,
 	getQASessions,
 } from "@/api";
-import ProfileTabs from "@/components/shell/ProfileTabs";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -249,228 +248,136 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<div className="flex flex-col h-full">
-			<ProfileTabs />
-		<div className="flex flex-1 min-h-0 overflow-hidden">
-				{showSidebar && (
-					<div
-						className="fixed inset-0 z-40 bg-black/40 md:hidden"
-						onClick={() => setShowSidebar(false)}
-					/>
-				)}
+		<div className="flex flex-col flex-1 relative">
+			{/* Mobile sidebar backdrop */}
+			{showSidebar && (
+				<div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />
+			)}
 
-				<aside
-					className={cn(
-						"fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-card transition-transform duration-300",
-						"md:static md:translate-x-0 md:order-first",
-						showSidebar ? "translate-x-0" : "-translate-x-full",
-					)}
-				>
-					<div className="flex items-center justify-between p-4 border-b">
-						<h2 className="text-sm font-semibold">对话记录</h2>
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							className="md:hidden"
-							onClick={() => setShowSidebar(false)}
-						>
-							<X size={16} />
-						</Button>
-					</div>
+			{/* Sidebar — absolute within page so it respects shell bounds */}
+			<aside className={cn(
+				"absolute inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-card transition-transform duration-300",
+				"md:static md:translate-x-0",
+				showSidebar ? "translate-x-0" : "-translate-x-full",
+			)}>
+				<div className="flex items-center justify-between p-4 border-b">
+					<h2 className="text-sm font-semibold">对话记录</h2>
+					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(false)}>
+						<X size={16} />
+					</Button>
+				</div>
+				<div className="p-3 border-b">
+					<Button variant="outline" className="w-full justify-start gap-2" onClick={handleNewChat}>
+						<Plus size={16} />新对话
+					</Button>
+				</div>
+				<div className="flex-1 overflow-y-auto p-2">
+					{sessions.map((s) => (
+						<button key={s.id} type="button"
+							className={cn("group flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors", activeSessionId === s.id ? "bg-muted" : "hover:bg-muted/50")}
+							onClick={() => switchSession(s.id)}>
+							<div className="flex-1 min-w-0">
+								<p className="text-sm truncate">{s.title}</p>
+								<p className="text-xs text-muted-foreground mt-0.5">{new Date(s.updated_at).toLocaleDateString()}</p>
+							</div>
+							<Button variant="ghost" size="icon-xs" className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={(e) => handleDeleteSession(e, s.id)}>
+								<Trash2 size={12} />
+							</Button>
+						</button>
+					))}
+					{isError && <EmptyState title="加载失败" description="无法获取对话记录" className="py-8" action={<Button variant="outline" size="sm" onClick={loadSessions}>重试</Button>} />}
+					{sessions.length === 0 && !isError && <EmptyState title="暂无历史对话" description="提问后将自动保存对话记录" className="py-8" />}
+				</div>
+			</aside>
 
-					<div className="p-3 border-b">
-						<Button
-							variant="outline"
-							className="w-full justify-start gap-2"
-							onClick={handleNewChat}
-						>
-							<Plus size={16} />
-							新对话
-						</Button>
-					</div>
-
-					<div className="flex-1 overflow-y-auto p-2">
-						{sessions.map((s) => (
-							<button
-								key={s.id}
-								type="button"
-								className={cn(
-									"group flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors",
-									activeSessionId === s.id ? "bg-muted" : "hover:bg-muted/50",
-								)}
-								onClick={() => switchSession(s.id)}
-							>
-								<div className="flex-1 min-w-0">
-									<p className="text-sm truncate">{s.title}</p>
-									<p className="text-xs text-muted-foreground mt-0.5">
-										{new Date(s.updated_at).toLocaleDateString()}
-									</p>
-								</div>
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-									onClick={(e) => handleDeleteSession(e, s.id)}
-								>
-									<Trash2 size={12} />
-								</Button>
-							</button>
-						))}
-						{isError && (
-							<EmptyState title="加载失败" description="无法获取对话记录" className="py-8" action={<Button variant="outline" size="sm" onClick={loadSessions}>重试</Button>} />
-						)}
-						{sessions.length === 0 && !isError && (
-							<EmptyState title="暂无历史对话" description="提问后将自动保存对话记录" className="py-8" />
-						)}
-					</div>
-				</aside>
-
-				<main className="relative flex-1 flex flex-col min-w-0 bg-background">
-					<Button
-						variant="outline"
-						size="icon-sm"
-						className="absolute top-2 left-2 z-30 md:hidden"
-						onClick={() => setShowSidebar(true)}
-					>
+			{/* Main chat area */}
+			<div className="flex-1 flex flex-col min-w-0 md:ml-0">
+				{/* Top bar — title + sidebar toggle on mobile */}
+				<div className="flex items-center gap-2 px-3 h-11 border-b border-border bg-card shrink-0">
+					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(true)}>
 						<Menu size={16} />
 					</Button>
-
-					{messages.length > 0 && (
-						<div className="flex flex-col gap-4 px-4 sm:px-6 pt-14 md:pt-6 pb-4 flex-1 overflow-y-auto">
-							{messages.map((m, i) => {
-								const isUser = m.role === "user";
-								return (
-									<div
-										key={i}
-										className={cn(
-											"flex items-end gap-2",
-											isUser ? "justify-end" : "justify-start",
-										)}
-									>
-										{!isUser && (
-											<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
-												<Bot size={18} />
-											</div>
-										)}
-										<div
-											className={cn(
-												"max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-normal",
-												isUser
-													? "bg-primary text-primary-foreground rounded-br-md"
-													: "bg-muted text-foreground rounded-bl-md",
-											)}
-										>
-											<div
-												className={cn(
-													BUBBLE_CONTENT_CLASSES,
-													isUser && BUBBLE_CONTENT_USER,
-												)}
-											>
-												<ReactMarkdown remarkPlugins={[remarkGfm]}>
-													{m.content}
-												</ReactMarkdown>
-											</div>
-											{!isUser && m.citations && m.citations.length > 0 && (
-												<CitationCard citations={m.citations} />
-											)}
-										</div>
-										{isUser && (
-											<img
-												className="size-8 rounded-full shrink-0 object-cover bg-muted"
-												src={nurseAvatar}
-												alt="护士"
-											/>
-										)}
-									</div>
-								);
-							})}
-							{loading && (
-								<div className="flex items-end gap-2 justify-start">
-									<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
-										<Bot size={18} />
-									</div>
-									<div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted">
-										{streamingAnswer ? (
-											<div className={BUBBLE_CONTENT_CLASSES}>
-												<ReactMarkdown remarkPlugins={[remarkGfm]}>
-													{streamingAnswer}
-												</ReactMarkdown>
-											</div>
-										) : (
-											<div className="flex gap-1 py-1">
-												<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
-												<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
-												<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
-											</div>
-										)}
-									</div>
-								</div>
-							)}
-							<div ref={messagesEndRef} />
-						</div>
-					)}
-
-					{messages.length === 0 && (
-						<div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 pb-6 pt-14 md:pt-0 text-center">
-							<Lightbulb size={48} className="text-primary/30 mb-2" />
-							<h2 className="text-2xl font-semibold">护理问答</h2>
-							<p className="text-muted-foreground text-sm max-w-sm">
-								向AI护理导师提问，获取专业的护理学知识解答
-							</p>
-							<div className="flex flex-wrap gap-2 justify-center mt-2">
-								{SUGGESTIONS.map((s) => (
-									<button
-										key={s}
-										type="button"
-										className="inline-flex items-center rounded-full border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer"
-										onClick={() => sendMessage(s)}
-									>
-										{s}
-									</button>
-								))}
-							</div>
-						</div>
-					)}
-
-				<div
-					className="flex gap-2 items-center border-t p-4"
-					style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
-				>
-					<button
-						type="button"
-						className={cn(
-							"flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer",
-							ragEnabled
-								? "bg-primary/10 text-primary border-primary/30"
-								: "bg-muted text-muted-foreground border-border hover:border-primary/30",
-						)}
-						onClick={() => setRagEnabled(!ragEnabled)}
-						title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
-					>
-						<BookOpen size={12} />
-						{ragEnabled ? "教材参考" : "基础回答"}
+					<h1 className="text-sm font-semibold">护理问答</h1>
+					<div className="flex-1" />
+					<button type="button" onClick={handleNewChat} className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-muted transition-colors">
+						<Plus size={14} />新对话
 					</button>
-					<input
-							ref={inputRef}
-							className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm placeholder:text-muted-foreground focus-ring disabled:opacity-50"
-							value={input}
-							onChange={(e) => setInput(e.target.value)}
-							onKeyDown={handleKeyDown}
-							placeholder="输入您的问题..."
-							disabled={loading}
-							enterKeyHint="send"
-							autoCapitalize="off"
-							autoCorrect="off"
-						/>
-						<Button
-							size="icon"
-							onClick={() => sendMessage()}
-							disabled={loading || !input.trim()}
-						>
-							<Send size={16} />
-						</Button>
+				</div>
+
+				{/* Messages */}
+				{messages.length > 0 && (
+					<div className="flex flex-col gap-4 px-4 sm:px-6 py-4 flex-1 overflow-y-auto">
+						{messages.map((m, i) => {
+							const isUser = m.role === "user";
+							return (
+								<div key={i} className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}>
+									{!isUser && (
+										<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
+											<Bot size={18} />
+										</div>
+									)}
+									<div className={cn("max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-normal",
+										isUser ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md")}>
+										<div className={cn(BUBBLE_CONTENT_CLASSES, isUser && BUBBLE_CONTENT_USER)}>
+											<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+										</div>
+										{!isUser && m.citations && m.citations.length > 0 && <CitationCard citations={m.citations} />}
+									</div>
+									{isUser && <img className="size-8 rounded-full shrink-0 object-cover bg-muted" src={nurseAvatar} alt="护士" />}
+								</div>
+							);
+						})}
+						{loading && (
+							<div className="flex items-end gap-2 justify-start">
+								<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary"><Bot size={18} /></div>
+								<div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted">
+									{streamingAnswer ? (
+										<div className={BUBBLE_CONTENT_CLASSES}><ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingAnswer}</ReactMarkdown></div>
+									) : (
+										<div className="flex gap-1 py-1">
+											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
+											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
+											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
+										</div>
+									)}
+								</div>
+							</div>
+						)}
+						<div ref={messagesEndRef} />
 					</div>
-				</main>
+				)}
+
+				{/* Empty state */}
+				{messages.length === 0 && (
+					<div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+						<Lightbulb size={48} className="text-primary/30 mb-2" />
+						<h2 className="text-xl font-semibold">护理问答</h2>
+						<p className="text-muted-foreground text-sm max-w-sm">向AI护理导师提问,获取专业的护理学知识解答</p>
+						<div className="flex flex-wrap gap-2 justify-center mt-2">
+							{SUGGESTIONS.map((s) => (
+								<button key={s} type="button" onClick={() => sendMessage(s)}
+									className="inline-flex items-center rounded-full border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer">
+									{s}
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Input bar — always at bottom */}
+				<div className="flex gap-2 items-center border-t bg-card p-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}>
+					<button type="button" onClick={() => setRagEnabled(!ragEnabled)}
+						className={cn("flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer",
+							ragEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border hover:border-primary/30")}
+						title={ragEnabled ? "关闭教材参考" : "开启教材参考"}>
+						<BookOpen size={12} />{ragEnabled ? "教材" : "基础"}
+					</button>
+					<input ref={inputRef}
+						className="flex-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-ring disabled:opacity-50"
+						value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+						placeholder="输入问题..." disabled={loading} enterKeyHint="send" autoCapitalize="off" autoCorrect="off" />
+					<Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()}><Send size={16} /></Button>
+				</div>
 			</div>
 		</div>
 	);

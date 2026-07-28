@@ -2,7 +2,6 @@ import type { ComponentType } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import NursingDiagnosisTool from "./NursingDiagnosisTool";
 import InquiryTool from "./InquiryTool";
-import MewsTool from "./MewsTool";
 import NursingRecordTool from "./NursingRecordTool";
 import PatientInfoTool from "./PatientInfoTool";
 import PhysicalExamTool from "./PhysicalExamTool";
@@ -14,7 +13,6 @@ export const TOOL_META: Record<string, { icon: string; title: string }> = {
   "physical-exam":       { icon: "💓", title: "护理查体" },
   "nursing-record":      { icon: "📄", title: "护理记录" },
   "nursing-diagnosis":   { icon: "🩺", title: "护理诊断" },
-  "mews":                { icon: "📊", title: "MEWS 评分" },
   "quiz":                { icon: "❓", title: "引导题目" },
 };
 interface ToolDef {
@@ -30,8 +28,7 @@ const HISTORY_TAKING: ToolDef[] = [
   { id: "physical-exam",       component: PhysicalExamTool,                                  priority: 2, capability: "physical_exam" },
   { id: "nursing-diagnosis",   component: NursingDiagnosisTool,                              priority: 3, capability: "nursing_diagnosis" },
   { id: "nursing-record",      component: NursingRecordTool,                                 priority: 4, capability: "nursing_record" },
-  { id: "mews",                component: MewsTool,                                          priority: 5, capability: "mews" },
-  { id: "quiz",                component: QuizTool,                                          priority: 6, capability: "quiz" },
+  { id: "quiz",                component: QuizTool,                                          priority: 5, capability: "quiz" },
 ];
 
 
