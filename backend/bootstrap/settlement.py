@@ -4,6 +4,7 @@ import asyncio
 import logging
 import threading
 
+from bootstrap.notifications import notification_publisher
 from contexts.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
 
@@ -49,9 +50,7 @@ async def start_settlement(app_state, cleanup_interval):
     app_state._settlement_task = settlement_task
     log.info("Settlement: started (interval=%ds)", cleanup_interval)
 
-    from main import _notification_publisher
-
-    notif_task = asyncio.create_task(_notification_publisher(interval=60))
+    notif_task = asyncio.create_task(notification_publisher(interval=60))
     app_state._notification_task = notif_task
     log.info("Notification publisher: started (interval=60s)")
 
