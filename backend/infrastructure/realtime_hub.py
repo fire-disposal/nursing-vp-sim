@@ -3,12 +3,12 @@
 Architecture
 ------------
 - ``publish()`` delivers locally to same-worker subscribers (fast path),
-  then sends a PG NOTIFY for cross-worker fan-out.
+  then enqueues a PG NOTIFY for cross-worker fan-out.
 - ``subscribe()`` creates a local ``asyncio.Queue`` and ensures the per-worker
   PG listener thread is watching that user's channel.
-- A dedicated background thread holds a sync psycopg connection, runs
-  ``LISTEN``/``UNLISTEN``, and fans incoming NOTIFY payloads to local subscriber
-  queues via ``loop.call_soon_threadsafe``.
+- Dedicated background threads hold sync psycopg connections: one for
+  ``LISTEN``/``UNLISTEN``, one for queued ``NOTIFY`` writes.  Incoming payloads
+  fan out to local subscriber queues via ``loop.call_soon_threadsafe``.
 
 This replaces the old process-local ``RealtimeHub`` and makes WebSocket event
 delivery safe with ``uvicorn --workers N`` (N > 1).
@@ -17,18 +17,21 @@ delivery safe with ``uvicorn --workers N`` (N > 1).
 import asyncio
 import json
 import logging
+import queue
 import threading
 import time
 from collections import defaultdict
 from typing import Any
 
 import psycopg
+from psycopg import sql
 
 from core.config import DATABASE_URL
 
 log = logging.getLogger(__name__)
 
 _CHANNEL_PREFIX = "realtime"
+_NOTIFY_QUEUE_SIZE = 1000
 
 
 def _channel_for(user_id: int) -> str:
@@ -59,7 +62,10 @@ class PgRealtimeHub:
         self._channels: set[str] = set()
         self._pending_listens: set[str] = set()
         self._pending_unlistens: set[str] = set()
-        self._thread: threading.Thread | None = None
+        self._listener_thread: threading.Thread | None = None
+        self._notify_thread: threading.Thread | None = None
+        self._notify_queue: queue.Queue[tuple[str, str]] = queue.Queue(maxsize=_NOTIFY_QUEUE_SIZE)
+        self._notify_dropped = 0
         self._running = False
 
     # ── public API (preserves old RealtimeHub contract) ──────────────
@@ -96,8 +102,9 @@ class PgRealtimeHub:
         event = {"type": event_type, **data}
         # 1. Local delivery (same worker — fast path, no PG round-trip)
         self._publish_local(user_id, event)
-        # 2. Cross-worker delivery via PG NOTIFY
-        self._publish_remote(user_id, event)
+        # 2. Cross-worker delivery via PG NOTIFY.  Queue only: no sync DB I/O
+        # on the caller's event loop.
+        self._enqueue_remote(user_id, event)
 
     @property
     def stats(self) -> dict[str, int]:
@@ -107,6 +114,8 @@ class PgRealtimeHub:
             return {
                 "total_connections": total,
                 "unique_users": len(self._subscribers),
+                "notify_queue": self._notify_queue.qsize(),
+                "notify_dropped": self._notify_dropped,
             }
 
     # ── lifecycle ───────────────────────────────────────────────────
@@ -119,51 +128,98 @@ class PgRealtimeHub:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(
+        self._listener_thread = threading.Thread(
             target=self._listen_loop,
             args=(loop,),
             name="pg-realtime-listener",
             daemon=True,
         )
-        self._thread.start()
-        log.info("PgRealtimeHub listener started")
+        self._notify_thread = threading.Thread(
+            target=self._notify_loop,
+            name="pg-realtime-notifier",
+            daemon=True,
+        )
+        self._listener_thread.start()
+        self._notify_thread.start()
+        log.info("PgRealtimeHub listener/notifier started")
 
     def stop(self) -> None:
-        """Signal the listener thread to exit.  Does not block."""
+        """Signal background threads to exit and wait briefly for shutdown."""
         self._running = False
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=3.0)
-        log.info("PgRealtimeHub listener stopped")
+        if self._listener_thread and self._listener_thread.is_alive():
+            self._listener_thread.join(timeout=3.0)
+        if self._notify_thread and self._notify_thread.is_alive():
+            self._notify_thread.join(timeout=3.0)
+        log.info("PgRealtimeHub listener/notifier stopped")
 
     # ── internal ────────────────────────────────────────────────────
 
     def _publish_local(self, user_id: int, event: dict[str, Any]) -> None:
         """Deliver event to all local subscriber queues for *user_id*."""
         with self._lock:
-            queues = list(self._subscribers.get(user_id, []))
-        for queue in queues:
+            subscriber_queues = list(self._subscribers.get(user_id, []))
+        for subscriber_queue in subscriber_queues:
             try:
-                queue.put_nowait(event)
+                subscriber_queue.put_nowait(event)
             except asyncio.QueueFull:
                 try:
-                    queue.get_nowait()
-                    queue.put_nowait(event)
+                    subscriber_queue.get_nowait()
+                    subscriber_queue.put_nowait(event)
                 except (asyncio.QueueEmpty, asyncio.QueueFull):
                     log.warning("realtime queue overflow: user_id=%d type=%s", user_id, event.get("type"))
 
-    def _publish_remote(self, user_id: int, event: dict[str, Any]) -> None:
-        """Send a PG NOTIFY so other workers' listeners receive the event."""
+    def _enqueue_remote(self, user_id: int, event: dict[str, Any]) -> None:
+        """Queue a PG NOTIFY payload for cross-worker delivery.
+
+        Best-effort by design: local delivery has already succeeded, so a full
+        remote queue drops only cross-worker fan-out instead of blocking scoring
+        progress or WebSocket handlers.
+        """
         channel = _channel_for(user_id)
         payload = json.dumps(event)
         try:
-            conn = psycopg.connect(self._dsn, autocommit=True, connect_timeout=5)
+            self._notify_queue.put_nowait((channel, payload))
+        except queue.Full:
+            with self._lock:
+                self._notify_dropped += 1
+            log.warning("PG NOTIFY queue full; dropping cross-worker event channel=%s", channel)
+
+    def _publish_remote(self, conn: psycopg.Connection, channel: str, payload: str) -> None:
+        """Send a PG NOTIFY through an existing autocommit connection."""
+        conn.execute("NOTIFY %s, %s", (channel, payload))
+
+    def _notify_loop(self) -> None:
+        """Run in dedicated thread.  Hold a sync psycopg connection and flush
+        queued NOTIFY writes without blocking the asyncio event loop.
+        """
+        conn = None
+        while self._running or not self._notify_queue.empty():
             try:
-                conn.execute("NOTIFY %s, %s", (channel, payload))
-            finally:
+                if conn is None:
+                    conn = psycopg.connect(self._dsn, autocommit=True, connect_timeout=10)
+                try:
+                    channel, payload = self._notify_queue.get(timeout=0.5)
+                except queue.Empty:
+                    continue
+                try:
+                    self._publish_remote(conn, channel, payload)
+                finally:
+                    self._notify_queue.task_done()
+            except Exception:
+                if conn:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    conn = None
+                if self._running:
+                    log.debug("PG NOTIFY worker reconnecting after failure", exc_info=True)
+                    time.sleep(1)
+        if conn:
+            try:
                 conn.close()
-        except Exception:
-            # Best-effort — local delivery already succeeded
-            log.debug("PG NOTIFY failed for channel=%s", channel, exc_info=True)
+            except Exception:
+                pass
 
     def _listen_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """Run in dedicated thread.  Maintain a sync psycopg connection,
@@ -182,7 +238,7 @@ class PgRealtimeHub:
                 # Re-register all known channels after (re)connect
                 with self._lock:
                     for channel in self._channels:
-                        conn.execute("LISTEN %s" % channel)
+                        conn.execute(sql.SQL("LISTEN {}").format(sql.Identifier(channel)))
 
                 while self._running:
                     # Apply pending listen/unlisten requests
@@ -211,12 +267,12 @@ class PgRealtimeHub:
 
         for channel in pending_add:
             try:
-                conn.execute("LISTEN %s" % channel)
+                conn.execute(sql.SQL("LISTEN {}").format(sql.Identifier(channel)))
             except Exception:
                 log.debug("LISTEN failed: channel=%s", channel, exc_info=True)
         for channel in pending_del:
             try:
-                conn.execute("UNLISTEN %s" % channel)
+                conn.execute(sql.SQL("UNLISTEN {}").format(sql.Identifier(channel)))
             except Exception:
                 log.debug("UNLISTEN failed: channel=%s", channel, exc_info=True)
 
