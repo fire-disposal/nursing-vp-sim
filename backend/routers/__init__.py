@@ -4,41 +4,42 @@ from fastapi import FastAPI
 
 
 def register_routers(app: FastAPI) -> None:
-    from modules.assignments import router as assignments
-    from modules.auth import router as auth
-    from modules.cases import router as cases
-    from modules.feedback import router as feedback
-    from modules.questionnaires import router as questionnaires
-
-    # ── domain routers (flat module → .router, each manages its own prefix) ──
-    from routers import (
-        exports,
-        rubrics,
-        stats,
-        student_assignments,
-    )
-
-    for mod in (assignments, auth, cases, feedback, exports, questionnaires, rubrics, stats, student_assignments):
-        app.include_router(mod.router)
-
-    # ── module routers expose APIRouter via __init__.py ──
-    from modules.admin import router as admin_router
-    from modules.qa import router as qa_router
-    from modules.training import (
-        chat_router,
-        training_router,
-    )
-
-    app.include_router(admin_router)
-    app.include_router(qa_router)
-    for r in (training_router, chat_router):
-        app.include_router(r)
-
-    # ── infrastructure routers (third-party integration endpoints) ──
     from infra.diagnostics import router as diagnostics_router
     from infra.telemetry import router as telemetry_router
+    from modules.admin import (
+        exports_router,
+        profiles_router,
+        rubrics_router,
+        stats_router,
+    )
+    from modules.admin import router as admin_router
+    from modules.assignments import router as assignments_router
+    from modules.assignments import student_router as assignments_student_router
+    from modules.auth.router import router as auth_router
+    from modules.cases.router import router as cases_router
+    from modules.feedback.router import router as feedback_router
+    from modules.qa import router as qa_router
+    from modules.questionnaires.router import router as questionnaires_router
+    from modules.training import chat_router, training_router
     from modules.voice.router import router as tts_router
-    from routers.profiles import router as profiles_router
 
-    for r in (diagnostics_router, profiles_router, telemetry_router, tts_router):
+    for r in (
+        admin_router,
+        assignments_router,
+        assignments_student_router,
+        auth_router,
+        cases_router,
+        chat_router,
+        diagnostics_router,
+        exports_router,
+        feedback_router,
+        profiles_router,
+        qa_router,
+        questionnaires_router,
+        rubrics_router,
+        stats_router,
+        telemetry_router,
+        training_router,
+        tts_router,
+    ):
         app.include_router(r)

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
-from core.security import require_permission
+from core.security import get_current_user, require_permission
 from infra.exporter import ColumnDef, export_response
 from models import Assignment, User
 from modules.assignments.service import AssignmentService
@@ -21,6 +21,7 @@ from schemas import (
     AssignmentUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
+    StudentAssignmentItem,
 )
 
 log = logging.getLogger(__name__)
@@ -217,3 +218,14 @@ def export_assignment(
     return export_response(
         students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv"
     )
+
+# ── Student practice ──
+
+student_router = APIRouter(prefix="/api/students/assignments", tags=["学生练习"])
+
+
+@student_router.get("", response_model=list[StudentAssignmentItem])
+def list_student_assignments(current_user: Annotated[User, Depends(get_current_user)], db: DbSession):
+    from services.student import StudentService
+
+    return StudentService(db).list_assignments(current_user.id)
