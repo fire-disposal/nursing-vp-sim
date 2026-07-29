@@ -60,9 +60,10 @@ class TestChatStreamPreValidation:
         assert resp.status_code == 404
 
 
-
 class TestCorrectLastMessageStream:
-    def test_correction_replaces_last_pair_after_reply_succeeds(self, client, student, test_case, db_session, monkeypatch):
+    def test_correction_replaces_last_pair_after_reply_succeeds(
+        self, client, student, test_case, db_session, monkeypatch
+    ):
         from contexts.training.pipeline import STATE_DONE_PAYLOAD
         from contexts.training.pipeline.middleware.persister import _persist_correction
         from models import Message, TrainingRecord

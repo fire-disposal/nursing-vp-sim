@@ -228,7 +228,6 @@ def compute_alerts(dashboard: dict) -> list[str]:
     if error_burst > 5:
         alerts.append(f"LLM 5 分钟突发错误 {error_burst} 次")
 
-
     # ── HTTP/API surface ──
     http_total = http.get("total", 0)
     http_4xx = (http.get("by_status") or {}).get("4xx", 0)

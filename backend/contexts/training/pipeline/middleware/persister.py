@@ -148,6 +148,7 @@ def _next_correction_state(
     ]
     return {"used": used, "limit": limit, "history": history}
 
+
 def _reset_initiative_timer(ctx: PipelineContext) -> None:
     """Reset initiative timer in its own transaction; failures don't affect messages."""
     try:
