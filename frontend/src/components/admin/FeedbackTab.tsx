@@ -556,7 +556,7 @@ export default function FeedbackTab() {
 						/>
 					</div>
 					<span className="text-muted-foreground/70 text-sm self-end pb-1.5">
-						—
+						-
 					</span>
 					<div>
 						<label className="block text-xs text-muted-foreground mb-1">

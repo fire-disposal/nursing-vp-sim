@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import DataTable from "@/components/ui/data-table";
+import Pagination from "@/components/ui/pagination";
 import type { DataTableProps } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +25,41 @@ export default function ResponsiveTable<T>({
 	loading,
 	bare,
 	className,
+	total,
+	offset,
+	limit,
+	onOffsetChange,
+	rowKey,
 	...dataTableProps
 }: ResponsiveTableProps<T>) {
+	const getKey =
+		rowKey ??
+		((row: T, index: number) => {
+			if (row && typeof row === "object" && "id" in row) {
+				const id = row.id;
+				if (typeof id === "string" || typeof id === "number") return id;
+			}
+			return index;
+		});
+
 	const mobileList = (
 		<div className={cn("space-y-2 p-2", cardListClassName)}>
 			{rows.map((row, i) => (
-				<div key={i}>{renderCard(row, i)}</div>
+				<div key={getKey(row, i)}>{renderCard(row, i)}</div>
 			))}
 		</div>
 	);
+	const mobilePagination =
+		total != null && offset != null && limit != null && onOffsetChange && total > 0 ? (
+			<div className="border-t border-border px-3 py-3 md:hidden">
+				<Pagination
+					total={total}
+					offset={offset}
+					limit={limit}
+					onChange={onOffsetChange}
+				/>
+			</div>
+		) : null;
 
 	const loadingFallback = (
 		<div className={cn("space-y-2 p-2 md:hidden", cardListClassName)}>
@@ -49,7 +76,7 @@ export default function ResponsiveTable<T>({
 		return (
 			<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden", className)}>
 				<div className="hidden md:block">
-					<DataTable<T> rows={rows} loading={loading} bare {...dataTableProps} />
+					<DataTable<T> rows={rows} loading={loading} bare rowKey={rowKey} total={total} offset={offset} limit={limit} onOffsetChange={onOffsetChange} {...dataTableProps} />
 				</div>
 				{loadingFallback}
 			</div>
@@ -58,16 +85,16 @@ export default function ResponsiveTable<T>({
 
 	if (rows.length === 0) {
 		return (
-			<DataTable<T> rows={rows} loading={loading} bare={bare} className={className} {...dataTableProps} />
+			<DataTable<T> rows={rows} loading={loading} bare={bare} className={className} rowKey={rowKey} total={total} offset={offset} limit={limit} onOffsetChange={onOffsetChange} {...dataTableProps} />
 		);
 	}
 
 	return (
 		<div className={cn(!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden", className)}>
 			<div className="hidden md:block">
-				<DataTable<T> rows={rows} loading={loading} bare {...dataTableProps} />
+				<DataTable<T> rows={rows} loading={loading} bare rowKey={rowKey} total={total} offset={offset} limit={limit} onOffsetChange={onOffsetChange} {...dataTableProps} />
 			</div>
-			<div className="md:hidden">{mobileList}</div>
+			<div className="md:hidden">{mobileList}{mobilePagination}</div>
 		</div>
 	);
 }

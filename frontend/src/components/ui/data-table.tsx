@@ -91,8 +91,20 @@ export default function DataTable<T>({
 
 	const getKey =
 		rowKey ??
-		((row: T, index: number) =>
-			(row as { id?: string | number }).id ?? index);
+		((row: T, index: number) => {
+			if (row && typeof row === "object" && "id" in row) {
+				const id = row.id;
+				if (typeof id === "string" || typeof id === "number") return id;
+			}
+			return index;
+		});
+
+	const getCellValue = (row: T, key: string) => {
+		if (row && typeof row === "object" && key in row) {
+			return Reflect.get(row, key);
+		}
+		return "";
+	};
 
 	const headerClass = cn(
 		"px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider",
@@ -120,6 +132,17 @@ export default function DataTable<T>({
 							key={getKey(row, idx)}
 							className={cn(onRowClick && "cursor-pointer")}
 							onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
+							onKeyDown={
+								onRowClick
+									? (event) => {
+										if (event.key !== "Enter" && event.key !== " ") return;
+										event.preventDefault();
+										onRowClick(row, idx);
+									}
+									: undefined
+							}
+							tabIndex={onRowClick ? 0 : undefined}
+							role={onRowClick ? "button" : undefined}
 						>
 							{columns.map((col) => (
 								<TableCell
@@ -128,7 +151,7 @@ export default function DataTable<T>({
 								>
 									{col.render
 										? col.render(row, idx)
-										: String((row as Record<string, unknown>)[col.key] ?? "")}
+										: String(getCellValue(row, col.key) ?? "")}
 								</TableCell>
 							))}
 						</TableRow>

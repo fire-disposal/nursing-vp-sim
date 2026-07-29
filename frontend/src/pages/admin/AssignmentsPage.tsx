@@ -47,6 +47,7 @@ interface AssignmentRow {
 	end_time: string;
 	student_count?: number;
 	completed_count?: number;
+	is_closed?: boolean;
 }
 
 interface CaseOption {
@@ -223,7 +224,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	};
 
 	const handleToggleClose = async (a: AssignmentRow) => {
-		const isClosed = (a as any).is_closed as boolean;
+		const isClosed = Boolean(a.is_closed);
 		const ok = await confirm({
 			title: isClosed ? "重新开放作业" : "关闭作业",
 			message: isClosed
@@ -268,14 +269,18 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					? `${a.completed_count}/${a.student_count}`
 					: "-",
 		},
-		{ key: "status", header: "状态", render: (a) => (
-			<div className="flex items-center gap-1.5">
-				{statusBadge(a)}
-				{(a as any).is_closed && (
-					<span className="inline-flex items-center rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">已关闭</span>
-				)}
-			</div>
-		)},
+		{
+			key: "status",
+			header: "状态",
+			render: (a) => (
+				<div className="flex items-center gap-1.5">
+					{statusBadge(a)}
+					{a.is_closed && (
+						<span className="inline-flex items-center rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">已关闭</span>
+					)}
+				</div>
+			),
+		},
 		{
 			key: "actions",
 			header: "操作",
@@ -301,7 +306,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						variant="ghost"
 						size="icon"
 						onClick={() => handleToggleClose(a)}
-						title={(a as any).is_closed ? "重新开放" : "关闭"}
+						title={a.is_closed ? "重新开放" : "关闭"}
 					>
 						<XCircle size={15} />
 					</Button>
@@ -384,10 +389,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						<span className="text-xs text-muted-foreground">
 							{a.completed_count ?? 0}/{a.student_count ?? 0} 完成
 						</span>
-					<div className="flex gap-1">
-						<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
-						<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
-					</div>
+						<div className="grid grid-cols-2 gap-1">
+							<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
+							<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
+							<Button variant="outline" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
+							<Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(a.id)}>删除</Button>
+						</div>
 					</div>
 				</div>
 			)}

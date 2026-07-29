@@ -69,7 +69,7 @@ function AnchorRow({ anchor, onChange, onDelete }: { anchor: RubricAnchor; onCha
 	return (
 		<div className="flex items-center gap-2 text-sm">
 			<Input type="number" value={anchor.score} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, score: Number(e.target.value) })} className="w-16 h-8 text-xs" min={0} />
-			<span className="text-xs text-muted-foreground shrink-0">分 —</span>
+			<span className="text-xs text-muted-foreground shrink-0">分 -</span>
 			<Input value={anchor.description} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, description: e.target.value })} className="flex-1 h-8 text-xs" placeholder="锚点描述…" />
 			<button onClick={onDelete} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="删除锚点"><Trash2 size={14} /></button>
 		</div>
@@ -185,7 +185,7 @@ export default function RubricPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="评分标准"
-				subtitle={editing ? "编辑模式 — 完成后导出 JSON 部署到服务器" : `${displayData.name} · v${displayData.version} · 满分 ${displayData.total_max} 分`}
+				subtitle={editing ? "编辑模式 - 完成后导出 JSON 部署到服务器" : `${displayData.name} · v${displayData.version} · 满分 ${displayData.total_max} 分`}
 				icon={BookOpen}
 				actions={
 					<div className="flex items-center gap-2">
