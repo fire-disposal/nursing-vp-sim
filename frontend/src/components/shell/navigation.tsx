@@ -28,7 +28,6 @@ const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
 const StatsPage = lazy(() => import("@/pages/admin/StatsPage"));
-const MyStatsPage = lazy(() => import("@/pages/MyStatsPage"));
 const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
 const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -127,7 +126,6 @@ export const APP_ROUTES: AppRoute[] = [
 	},
 	// Sub-pages under 记录 — not primary nav items.
 	{ path: "/record/:id", element: <RecordDetail />, activity: "manage" },
-	{ path: "/my-stats", element: <MyStatsPage />, activity: "manage" },
 	{ path: "/admin/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	// Sub-pages under 我的 — not primary nav items.

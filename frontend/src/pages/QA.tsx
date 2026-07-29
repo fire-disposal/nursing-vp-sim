@@ -1,6 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	BookOpen,
+	Bot,
+	ChevronRight,
+	Library,
+	Menu,
+	MessageCircle,
+	Plus,
+	Send,
+	Sparkles,
+	Trash2,
+	X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -12,42 +24,68 @@ import {
 } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/confirm";
-import EmptyState from "@/components/ui/empty-state";
-import { getNurseAvatar } from "@/utils/avatar";
-import { cn } from "@/lib/utils";
 import CitationCard from "@/components/citation/CitationCard";
+import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import EmptyState from "@/components/ui/empty-state";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { getNurseAvatar } from "@/utils/avatar";
+import { useConfirm } from "@/components/ui/confirm";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
+type Citation = NonNullable<QAMessageItem["citations"]>[number];
 
 const SUGGESTIONS = [
-	"病史采集技巧",
-	"护理评估方法",
-	"护理诊断与医疗诊断区别",
-	"无菌技术要点",
-	"生命体征测量规范",
+	{
+		title: "病史采集技巧",
+		description: "追问顺序、开放式问题、关键阴性症状",
+	},
+	{
+		title: "护理评估方法",
+		description: "现病史、既往史、风险评估的组织方式",
+	},
+	{
+		title: "护理诊断与医疗诊断区别",
+		description: "区分护理问题、病因和证据",
+	},
+	{
+		title: "无菌技术要点",
+		description: "操作前、中、后的失误点检查",
+	},
+	{
+		title: "生命体征测量规范",
+		description: "体温、脉搏、呼吸、血压的记录边界",
+	},
 ];
 
 const BUBBLE_CONTENT_CLASSES = [
-	"break-words",
-	"[&_p]:mb-0.5 [&_p:last-child]:mb-0",
-	"[&_code]:bg-black/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono",
-	"[&_pre]:bg-black/[0.06] [&_pre]:p-2.5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-2",
+	"break-words text-[15px] leading-7",
+	"[&_p]:mb-2 [&_p:last-child]:mb-0",
+	"[&_code]:rounded-md [&_code]:bg-foreground/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.92em]",
+	"[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-foreground/[0.06] [&_pre]:p-3",
 	"[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-sm",
-	"[&_ul]:my-1 [&_ul]:pl-6 [&_ol]:my-1 [&_ol]:pl-6",
-	"[&_li]:mb-0.5",
-	"[&_table]:border-collapse [&_table]:my-2 [&_table]:w-full",
-	"[&_th]:bg-black/[0.04] [&_th]:font-semibold [&_th]:border [&_th]:border-black/10 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-sm",
-	"[&_td]:border [&_td]:border-black/10 [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:text-left [&_td]:text-sm",
-	"[&_blockquote]:border-l-[3px] [&_blockquote]:border-black/15 [&_blockquote]:my-2 [&_blockquote]:px-3 [&_blockquote]:py-1 [&_blockquote]:opacity-85",
+	"[&_ul]:my-2 [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:pl-6",
+	"[&_li]:mb-1",
+	"[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-xl",
+	"[&_th]:border [&_th]:border-border [&_th]:bg-muted/70 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-sm [&_th]:font-semibold",
+	"[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-left [&_td]:text-sm",
+	"[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:px-4 [&_blockquote]:py-2",
 ].join(" ");
 
 const BUBBLE_CONTENT_USER = [
 	"[&_code]:bg-white/15 [&_code]:text-white",
 	"[&_pre]:bg-white/10",
-	"[&_blockquote]:border-l-white/30",
+	"[&_blockquote]:border-l-white/30 [&_blockquote]:bg-white/10",
 	"[&_th]:border-white/20 [&_th]:bg-white/[0.08]",
 	"[&_td]:border-white/20",
 ].join(" ");
@@ -63,7 +101,7 @@ export default function QA() {
 	const [ragEnabled, setRagEnabled] = useState(true);
 	const abortRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const { confirm } = useConfirm();
 	const toast = useToast();
 
@@ -72,6 +110,11 @@ export default function QA() {
 		queryFn: () => getQASessions().then((r) => r.data),
 		staleTime: 30_000,
 	});
+
+	const activeSession = useMemo(
+		() => sessions.find((session) => session.id === activeSessionId),
+		[sessions, activeSessionId],
+	);
 
 	const loadSessions = useCallback(async () => {
 		await queryClient.invalidateQueries({ queryKey: queryKeys.qa.all });
@@ -89,13 +132,12 @@ export default function QA() {
 
 	const switchSession = useCallback(
 		async (sessionId: number) => {
-			// 切换会话前中止正在进行的流，避免旧流的 onDone 把上一个会话的
-			// 答案追加进新会话的消息列表（跨会话答案污染）。
 			abortRef.current?.abort();
 			try {
 				const res = await getQASessionMessages(sessionId);
 				setActiveSessionId(sessionId);
 				setMessages(res.data || []);
+				setStreamingAnswer("");
 				setShowSidebar(false);
 			} catch {
 				toast.error("加载会话消息失败");
@@ -135,17 +177,14 @@ export default function QA() {
 					]);
 					await loadSessions();
 				} catch (err: unknown) {
-					if ((err as { name?: string }).name === "CanceledError") return;
-					const axiosErr = err as {
-						response?: { data?: { detail?: string } };
-						message?: string;
-					};
+					if (isCanceledError(err)) return;
+					const errorMessage = getRequestErrorMessage(err);
 					setMessages([
 						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 						{
 							id: -1,
 							role: "assistant",
-							content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "网络错误"}`,
+							content: `抱歉，AI导师暂时无法回复：${errorMessage}`,
 						} as QAMessageItem,
 					]);
 				} finally {
@@ -229,7 +268,7 @@ export default function QA() {
 		[activeSessionId, loadSessions, confirm, toast],
 	);
 
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			sendMessage();
@@ -248,137 +287,451 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<div className="flex flex-col flex-1 relative">
-			{/* Mobile sidebar backdrop */}
+		<main className="relative flex h-[calc(100dvh-6.5rem)] min-h-[32rem] overflow-hidden rounded-xl border border-border bg-card">
 			{showSidebar && (
-				<div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />
+				<button
+					type="button"
+					className="fixed inset-0 z-40 bg-foreground/35 backdrop-blur-sm md:hidden"
+					aria-label="关闭对话记录"
+					onClick={() => setShowSidebar(false)}
+				/>
 			)}
 
-			{/* Sidebar — absolute within page so it respects shell bounds */}
-			<aside className={cn(
-				"absolute inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-card transition-transform duration-300",
-				"md:static md:translate-x-0",
+			<QASidebar
+				activeSessionId={activeSessionId}
+				handleDeleteSession={handleDeleteSession}
+				handleNewChat={handleNewChat}
+				isError={isError}
+				loadSessions={loadSessions}
+				sessions={sessions}
+				showSidebar={showSidebar}
+				switchSession={switchSession}
+				onClose={() => setShowSidebar(false)}
+			/>
+
+			<section className="flex min-w-0 flex-1 flex-col bg-card">
+				<header className="flex min-h-16 items-center gap-3 border-b border-border px-4 sm:px-5">
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						className="md:hidden"
+						onClick={() => setShowSidebar(true)}
+						aria-label="打开对话记录"
+					>
+						<Menu size={17} />
+					</Button>
+					<div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+						<Bot size={20} />
+					</div>
+					<div className="min-w-0 flex-1">
+						<h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
+							护理问答工作台
+						</h1>
+						<p className="hidden truncate text-xs text-muted-foreground sm:block">
+							{activeSession?.title || "教材检索、护理推理和操作规范集中在一个对话里"}
+						</p>
+					</div>
+					<Badge variant={ragEnabled ? "default" : "outline"} className="hidden sm:inline-flex">
+						{ragEnabled ? "教材增强" : "基础模式"}
+					</Badge>
+					<Button variant="outline" size="sm" onClick={handleNewChat}>
+						<Plus size={15} />
+						新对话
+					</Button>
+				</header>
+
+				<div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+					{messages.length === 0 ? (
+						<QAWelcome onAsk={sendMessage} />
+					) : (
+						<div className="mx-auto flex max-w-4xl flex-col gap-5">
+							{messages.map((message, index) => (
+								<MessageBubble
+									key={`${message.id}-${index}`}
+									message={message}
+									nurseAvatar={nurseAvatar}
+								/>
+							))}
+							{loading && <AssistantDraft content={streamingAnswer} />}
+							<div ref={messagesEndRef} />
+						</div>
+					)}
+				</div>
+
+				<Composer
+					input={input}
+					inputRef={inputRef}
+					loading={loading}
+					ragEnabled={ragEnabled}
+					onInput={setInput}
+					onKeyDown={handleKeyDown}
+					onSend={() => sendMessage()}
+					onToggleRag={() => setRagEnabled((value) => !value)}
+				/>
+			</section>
+		</main>
+	);
+}
+
+function QASidebar({
+	activeSessionId,
+	handleDeleteSession,
+	handleNewChat,
+	isError,
+	loadSessions,
+	onClose,
+	sessions,
+	showSidebar,
+	switchSession,
+}: {
+	activeSessionId: number | null;
+	handleDeleteSession: (e: React.MouseEvent, sessionId: number) => void;
+	handleNewChat: () => void;
+	isError: boolean;
+	loadSessions: () => Promise<void>;
+	onClose: () => void;
+	sessions: components["schemas"]["QASessionItem"][];
+	showSidebar: boolean;
+	switchSession: (sessionId: number) => Promise<void>;
+}) {
+	return (
+		<aside
+			className={cn(
+				"absolute inset-y-0 left-0 z-50 flex w-[19rem] flex-col border-r border-border bg-card transition-transform duration-300 md:static md:z-auto md:translate-x-0 md:bg-muted/30",
 				showSidebar ? "translate-x-0" : "-translate-x-full",
-			)}>
-				<div className="flex items-center justify-between p-4 border-b">
-					<h2 className="text-sm font-semibold">对话记录</h2>
-					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(false)} aria-label="关闭对话记录">
-						<X size={16} />
-					</Button>
+			)}
+		>
+			<div className="flex items-center justify-between px-4 py-4">
+				<div>
+					<p className="text-xs font-medium text-muted-foreground">QA history</p>
+					<h2 className="text-lg font-semibold tracking-tight">对话记录</h2>
 				</div>
-				<div className="p-3 border-b">
-					<Button variant="outline" className="w-full justify-start gap-2" onClick={handleNewChat}>
-						<Plus size={16} />新对话
-					</Button>
-				</div>
-				<div className="flex-1 overflow-y-auto p-2">
-					{sessions.map((s) => (
-						<button key={s.id} type="button"
-							className={cn("group flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors", activeSessionId === s.id ? "bg-muted" : "hover:bg-muted/50")}
-							onClick={() => switchSession(s.id)}>
-							<div className="flex-1 min-w-0">
-								<p className="text-sm truncate">{s.title}</p>
-								<p className="text-xs text-muted-foreground mt-0.5">{new Date(s.updated_at).toLocaleDateString()}</p>
-							</div>
-							<Button variant="ghost" size="icon-xs" className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive" onClick={(e) => handleDeleteSession(e, s.id)} aria-label="删除会话">
-								<Trash2 size={12} />
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					className="md:hidden"
+					onClick={onClose}
+					aria-label="关闭对话记录"
+				>
+					<X size={16} />
+				</Button>
+			</div>
+			<div className="px-4 pb-4">
+				<Button className="w-full justify-start" onClick={handleNewChat}>
+					<Plus size={16} />
+					新对话
+				</Button>
+			</div>
+			<Separator />
+			<div className="flex-1 space-y-1 overflow-y-auto p-3">
+				{sessions.map((session) => (
+					<button
+						key={session.id}
+						type="button"
+						className={cn(
+							"group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+							activeSessionId === session.id && "bg-primary/10 text-primary ring-1 ring-primary/20",
+						)}
+						onClick={() => switchSession(session.id)}
+					>
+						<div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-background text-muted-foreground ring-1 ring-border group-hover:text-primary">
+							<MessageCircle size={15} />
+						</div>
+						<div className="min-w-0 flex-1">
+							<p className="truncate text-sm font-medium text-foreground">{session.title}</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{formatSessionDate(session.updated_at)}
+							</p>
+						</div>
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus:opacity-100"
+							onClick={(event) => handleDeleteSession(event, session.id)}
+							aria-label="删除会话"
+						>
+							<Trash2 size={13} />
+						</Button>
+					</button>
+				))}
+				{isError && (
+					<EmptyState
+						title="加载失败"
+						description="无法获取对话记录"
+						className="py-10"
+						action={
+							<Button variant="outline" size="sm" onClick={loadSessions}>
+								重试
 							</Button>
+						}
+					/>
+				)}
+				{sessions.length === 0 && !isError && (
+					<EmptyState
+						title="暂无历史对话"
+						description="提问后将自动保存记录"
+						className="py-10"
+					/>
+				)}
+			</div>
+		</aside>
+	);
+}
+
+function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
+	return (
+		<div className="mx-auto grid min-h-full w-full max-w-5xl content-center gap-6 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:py-12">
+			<section className="flex flex-col justify-center">
+				<div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+					<Sparkles size={15} />
+					教材增强问答
+				</div>
+				<h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+					把护理学问题问到可以执行
+				</h2>
+				<p className="mt-4 max-w-[34rem] text-pretty text-base leading-8 text-muted-foreground">
+					围绕教材原文、临床判断和操作规范回答。适合课前预习、训练复盘和病例讨论。
+				</p>
+				<div className="mt-8 grid gap-3 sm:grid-cols-2">
+					<InfoTile
+						icon={Library}
+						title="引用可回看"
+						description="有教材依据时，可直接打开原文片段。"
+					/>
+					<InfoTile
+						icon={Bot}
+						title="按护理语境回答"
+						description="更关注评估、干预、风险和记录。"
+					/>
+				</div>
+			</section>
+
+			<Card className="rounded-2xl border-border bg-background/80 py-0">
+				<CardHeader className="p-5 pb-3">
+					<CardTitle className="text-lg">从一个具体问题开始</CardTitle>
+					<CardDescription>点击示例后会直接发送，也可以在底部输入自己的问题。</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-2 p-5 pt-0">
+					{SUGGESTIONS.map((suggestion) => (
+						<button
+							key={suggestion.title}
+							type="button"
+							className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:border-primary/35 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 active:translate-y-px"
+							onClick={() => onAsk(suggestion.title)}
+						>
+							<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+								<BookOpen size={16} />
+							</div>
+							<div className="min-w-0 flex-1">
+								<p className="text-sm font-medium text-foreground">{suggestion.title}</p>
+								<p className="mt-0.5 text-xs text-muted-foreground">{suggestion.description}</p>
+							</div>
+							<ChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
 						</button>
 					))}
-					{isError && <EmptyState title="加载失败" description="无法获取对话记录" className="py-8" action={<Button variant="outline" size="sm" onClick={loadSessions}>重试</Button>} />}
-					{sessions.length === 0 && !isError && <EmptyState title="暂无历史对话" description="提问后将自动保存对话记录" className="py-8" />}
-				</div>
-			</aside>
-
-			{/* Main chat area */}
-			<div className="flex-1 flex flex-col min-w-0 md:ml-0">
-				{/* Top bar — title + sidebar toggle on mobile */}
-				<div className="flex items-center gap-2 px-3 h-11 border-b border-border bg-card shrink-0">
-					<Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(true)} aria-label="打开对话记录">
-						<Menu size={16} />
-					</Button>
-					<h1 className="text-sm font-semibold">护理问答</h1>
-					<div className="flex-1" />
-					<button type="button" onClick={handleNewChat} className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-muted transition-colors">
-						<Plus size={14} />新对话
-					</button>
-				</div>
-
-				{/* Messages */}
-				{messages.length > 0 && (
-					<div className="flex flex-col gap-4 px-4 sm:px-6 py-4 flex-1 overflow-y-auto">
-						{messages.map((m, i) => {
-							const isUser = m.role === "user";
-							return (
-								<div key={i} className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}>
-									{!isUser && (
-										<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
-											<Bot size={18} />
-										</div>
-									)}
-									<div className={cn("max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-normal",
-										isUser ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md")}>
-										<div className={cn(BUBBLE_CONTENT_CLASSES, isUser && BUBBLE_CONTENT_USER)}>
-											<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-										</div>
-										{!isUser && m.citations && m.citations.length > 0 && <CitationCard citations={m.citations} />}
-									</div>
-									{isUser && <img className="size-8 rounded-full shrink-0 object-cover bg-muted" src={nurseAvatar} alt="护士" />}
-								</div>
-							);
-						})}
-						{loading && (
-							<div className="flex items-end gap-2 justify-start">
-								<div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary"><Bot size={18} /></div>
-								<div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted">
-									{streamingAnswer ? (
-										<div className={BUBBLE_CONTENT_CLASSES}><ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingAnswer}</ReactMarkdown></div>
-									) : (
-										<div className="flex gap-1 py-1">
-											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
-											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
-											<span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
-										</div>
-									)}
-								</div>
-							</div>
-						)}
-						<div ref={messagesEndRef} />
-					</div>
-				)}
-
-				{/* Empty state */}
-				{messages.length === 0 && (
-					<div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-						<Lightbulb size={48} className="text-primary/30 mb-2" />
-						<h2 className="text-xl font-semibold">护理问答</h2>
-						<p className="text-muted-foreground text-sm max-w-sm">向AI护理导师提问,获取专业的护理学知识解答</p>
-						<div className="flex flex-wrap gap-2 justify-center mt-2">
-							{SUGGESTIONS.map((s) => (
-								<button key={s} type="button" onClick={() => sendMessage(s)}
-									className="inline-flex items-center rounded-full border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer">
-									{s}
-								</button>
-							))}
-						</div>
-					</div>
-				)}
-
-				{/* Input bar — always at bottom */}
-				<div className="flex gap-2 items-center border-t bg-card p-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}>
-					<button type="button" onClick={() => setRagEnabled(!ragEnabled)}
-						className={cn("flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer",
-							ragEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border hover:border-primary/30")}
-						title={ragEnabled ? "关闭教材参考" : "开启教材参考"}>
-						<BookOpen size={12} />{ragEnabled ? "教材" : "基础"}
-					</button>
-					<input ref={inputRef}
-						className="flex-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-ring disabled:opacity-50"
-						value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-						placeholder="输入问题..." disabled={loading} enterKeyHint="send" autoCapitalize="off" autoCorrect="off" />
-					<Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()} aria-label="发送问题"><Send size={16} /></Button>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
+}
+
+function InfoTile({
+	description,
+	icon: Icon,
+	title,
+}: {
+	description: string;
+	icon: typeof Library;
+	title: string;
+}) {
+	return (
+		<div className="rounded-2xl border border-border bg-card/70 p-4">
+			<div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-muted text-primary">
+				<Icon size={18} />
+			</div>
+			<p className="text-sm font-semibold text-foreground">{title}</p>
+			<p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+		</div>
+	);
+}
+
+function MessageBubble({
+	message,
+	nurseAvatar,
+}: {
+	message: QAMessageItem;
+	nurseAvatar: string;
+}) {
+	const isUser = message.role === "user";
+
+	return (
+		<article className={cn("flex items-end gap-3", isUser ? "justify-end" : "justify-start")}>
+			{!isUser && <AssistantAvatar />}
+			<div
+				className={cn(
+					"max-w-[92%] rounded-2xl px-4 py-3 text-sm sm:max-w-[76%] sm:px-5 sm:py-4",
+					isUser
+						? "rounded-br-lg bg-primary text-primary-foreground"
+						: "rounded-bl-lg border border-border/80 bg-background/90 text-foreground",
+				)}
+			>
+				<MarkdownContent isUser={isUser}>{message.content}</MarkdownContent>
+				{!isUser && hasCitations(message.citations) && (
+					<CitationCard citations={message.citations} />
+				)}
+			</div>
+			{isUser && (
+				<img
+					className="size-9 shrink-0 rounded-2xl bg-muted object-cover ring-1 ring-border"
+					src={nurseAvatar}
+					alt="护士头像"
+				/>
+			)}
+		</article>
+	);
+}
+
+function AssistantDraft({ content }: { content: string }) {
+	return (
+		<article className="flex items-end gap-3 justify-start" aria-busy="true">
+			<AssistantAvatar />
+			<div className="max-w-[92%] rounded-2xl rounded-bl-lg border border-border bg-background px-4 py-3 text-sm sm:max-w-[76%] sm:px-5 sm:py-4">
+				{content ? (
+					<MarkdownContent>{content}</MarkdownContent>
+				) : (
+					<div className="typing-dots" role="status" aria-label="AI导师正在思考">
+						<span />
+						<span />
+						<span />
+					</div>
+				)}
+			</div>
+		</article>
+	);
+}
+
+function AssistantAvatar() {
+	return (
+		<div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+			<Bot size={18} />
+		</div>
+	);
+}
+
+function MarkdownContent({
+	children,
+	isUser = false,
+}: {
+	children: string;
+	isUser?: boolean;
+}) {
+	return (
+		<div className={cn(BUBBLE_CONTENT_CLASSES, isUser && BUBBLE_CONTENT_USER)}>
+			<ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+		</div>
+	);
+}
+
+function Composer({
+	input,
+	inputRef,
+	loading,
+	onInput,
+	onKeyDown,
+	onSend,
+	onToggleRag,
+	ragEnabled,
+}: {
+	input: string;
+	inputRef: React.RefObject<HTMLTextAreaElement | null>;
+	loading: boolean;
+	onInput: (value: string) => void;
+	onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+	onSend: () => void;
+	onToggleRag: () => void;
+	ragEnabled: boolean;
+}) {
+	return (
+		<footer
+			className="border-t border-border bg-card p-3 sm:p-4"
+			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+		>
+			<div className="mx-auto flex max-w-4xl items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
+				<button
+					type="button"
+					onClick={onToggleRag}
+					className={cn(
+						"hidden h-10 shrink-0 items-center gap-1.5 rounded-2xl border px-3 text-sm font-medium transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 active:translate-y-px sm:inline-flex",
+						ragEnabled
+							? "border-primary/30 bg-primary/10 text-primary"
+							: "border-border bg-muted text-muted-foreground hover:border-primary/30 hover:text-primary",
+					)}
+					title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
+				>
+					<BookOpen size={14} />
+					{ragEnabled ? "教材" : "基础"}
+				</button>
+				<Textarea
+					ref={inputRef}
+					className="max-h-36 min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-sm shadow-none focus-visible:ring-0 disabled:bg-transparent"
+					value={input}
+					onChange={(event) => onInput(event.target.value)}
+					onKeyDown={onKeyDown}
+					placeholder="输入护理学问题，Enter 发送，Shift + Enter 换行"
+					disabled={loading}
+					autoCapitalize="off"
+					autoCorrect="off"
+				/>
+				<Button
+					size="icon"
+					onClick={onSend}
+					disabled={loading || !input.trim()}
+					aria-label="发送问题"
+					className="rounded-2xl"
+				>
+					<Send size={17} />
+				</Button>
+			</div>
+		</footer>
+	);
+}
+
+function hasCitations(citations: QAMessageItem["citations"]): citations is Citation[] {
+	return Array.isArray(citations) && citations.length > 0;
+}
+
+function isCanceledError(error: unknown): boolean {
+	return (
+		error !== null &&
+		typeof error === "object" &&
+		"name" in error &&
+		error.name === "CanceledError"
+	);
+}
+
+function getRequestErrorMessage(error: unknown): string {
+	if (error === null || typeof error !== "object") return "网络错误";
+	if (
+		"response" in error &&
+		error.response !== null &&
+		typeof error.response === "object" &&
+		"data" in error.response &&
+		error.response.data !== null &&
+		typeof error.response.data === "object" &&
+		"detail" in error.response.data &&
+		typeof error.response.data.detail === "string"
+	) {
+		return error.response.data.detail;
+	}
+	if ("message" in error && typeof error.message === "string") {
+		return error.message;
+	}
+	return "网络错误";
+}
+
+function formatSessionDate(value: string) {
+	return new Date(value).toLocaleDateString("zh-CN", {
+		month: "2-digit",
+		day: "2-digit",
+	});
 }

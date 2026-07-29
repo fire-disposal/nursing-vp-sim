@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * 判断当前路径是否属于某个 Tab 的活动范围。
- * 例如 "记录" Tab 覆盖 /history, /record/:id, /my-stats, /my-feedback。
+ * 例如 "记录" Tab 覆盖 /history, /record/:id, /my-feedback。
  */
 function isTabActive(pathname: string, root: string, subPrefixes: string[]): boolean {
 	if (pathname === root || pathname.startsWith(`${root}/`)) return true;
@@ -28,7 +28,7 @@ const BOTTOM_TABS: Array<{
 		to: "/history",
 		icon: ClipboardList,
 		label: "记录",
-		activeOn: ["/record", "/my-stats", "/my-feedback"],
+		activeOn: ["/record", "/my-feedback"],
 	},
 	{
 		to: "/qa",

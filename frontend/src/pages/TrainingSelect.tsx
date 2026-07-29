@@ -1,11 +1,11 @@
 import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, ClipboardCheck, ClipboardList, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, Award, BarChart3, BookOpen, ClipboardCheck, ClipboardList, Clock, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { abandonRecord, getCases, getNotifications, getRecords, startTraining } from "@/api";
+import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startTraining } from "@/api";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
-import { getStudentRanking } from "@/api/stats";
+import { getStudentRanking, getTrends } from "@/api/stats";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -16,6 +16,7 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
+import StatCard from "@/components/ui/stat-card";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import useAuthStore from "@/stores/authStore";
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
+type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
@@ -77,6 +79,7 @@ export default function TrainingSelect() {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const user = useAuthStore((s) => s.user);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
 
   const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
     queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
@@ -112,18 +115,50 @@ export default function TrainingSelect() {
   // ── Notifications (home tab) ──
   const { data: notifData } = useQuery({
     queryKey: queryKeys.notifications.recent(),
-    queryFn: () => getNotifications({ limit: 3 }).then((r: { data: { items?: Array<{ id: number; title: string; content?: string; type: string; is_read: boolean; created_at: string; link?: string }> } }) => r.data),
+    queryFn: () => getNotifications({ limit: 3 }).then((r) => r.data),
     staleTime: 30_000,
   });
-  const recentNotifs = (notifData?.items ?? []).filter((n: { is_read: boolean }) => !n.is_read).slice(0, 2);
+  const recentNotifs = useMemo(
+    () => (notifData?.items ?? [])
+      .filter((n) => !n.is_read && !dismissedNotificationIds.has(n.id))
+      .slice(0, 2),
+    [notifData?.items, dismissedNotificationIds],
+  );
+  const dismissNotificationMutation = useMutation({
+    mutationFn: (id: number) => markNotificationRead(id),
+    onMutate: (id) => {
+      setDismissedNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    },
+    onError: (_error, id) => {
+      setDismissedNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast.error("关闭通知失败，请重试");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+    },
+  });
 
-  // ── Training stats (home tab, from MyStatsPage) ──
+  // ── Training stats (home tab) ──
   const { data: ranking } = useQuery({
     queryKey: queryKeys.stats.ranking({}),
     queryFn: () => getStudentRanking().then((r) => r.data),
     staleTime: 60_000,
   });
   const myStats = ranking?.items?.[0];
+  const { data: trends } = useQuery({
+    queryKey: queryKeys.stats.trends("month"),
+    queryFn: () => getTrends().then((r) => r.data),
+    staleTime: 60_000,
+  });
+  const trendItems = trends?.daily ?? [];
 
   const inProgressByCase = useMemo(() => {
     const map = new Map<number, TrainingRecordBrief>();
@@ -193,18 +228,49 @@ export default function TrainingSelect() {
 
       {tab === "home" && (
         <div className="space-y-4">
-          {/* Notification banner */}
           {recentNotifs.length > 0 && (
-            <div className="space-y-2">
-              {recentNotifs.map((n: { id: number; title: string; type: string; link?: string }) => (
-                <button key={n.id} type="button"
-                  onClick={() => { if (n.link) navigate(n.link); }}
-                  className="flex w-full items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted">
-                  <Megaphone size={16} className="text-primary shrink-0" />
-                  <span className="text-sm flex-1">{n.title}</span>
-                </button>
-              ))}
-            </div>
+            <section className="overflow-hidden rounded-2xl border border-primary/15 bg-card shadow-e2">
+              <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-primary/5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Megaphone size={16} />
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">新的训练通知</h2>
+                    <p className="text-xs text-muted-foreground">可关闭，关闭后会标记为已读</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => navigate("/notifications")}>
+                  查看全部
+                </Button>
+              </div>
+              <div className="divide-y divide-border/70">
+                {recentNotifs.map((n: TrainingNotificationItem) => (
+                  <div key={n.id} className="flex items-start gap-3 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => navigate(n.record_id ? `/training/${n.record_id}` : "/notifications")}
+                      className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+                    >
+                      <p className="truncate text-sm font-medium text-foreground">{n.title}</p>
+                      {n.body && (
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{n.body}</p>
+                      )}
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => dismissNotificationMutation.mutate(n.id)}
+                      disabled={dismissNotificationMutation.isPending}
+                      aria-label={`关闭通知：${n.title}`}
+                    >
+                      <X size={15} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
@@ -322,13 +388,30 @@ export default function TrainingSelect() {
                 </Button>
               </div>
               {myStats && (
-                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-center sm:grid-cols-4 xl:grid-cols-2">
-                  <div><div className="text-lg font-bold">{myStats.total_sessions ?? 0}</div><div className="text-xs text-muted-foreground">完成训练</div></div>
-                  <div><div className="text-lg font-bold">{myStats.avg_score != null ? `${myStats.avg_score}分` : "--"}</div><div className="text-xs text-muted-foreground">平均得分</div></div>
-                  <div><div className="text-lg font-bold">{myStats.rank ? `第${myStats.rank}名` : "--"}</div><div className="text-xs text-muted-foreground">排名</div></div>
-                  <div><div className="text-lg font-bold">{myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"}</div><div className="text-xs text-muted-foreground">总时长</div></div>
+                <div className="mt-4 grid grid-cols-1 gap-3 border-t border-border pt-4 sm:grid-cols-2 xl:grid-cols-1">
+                  <StatCard icon={Target} label="完成训练" value={myStats.total_sessions ?? 0} color="teal" className="p-3" />
+                  <StatCard icon={Award} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" className="p-3" />
+                  <StatCard icon={TrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" className="p-3" />
+                  <StatCard icon={Clock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" className="p-3" />
                 </div>
               )}
+              <div className="mt-4 border-t border-border pt-4">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-medium"><BarChart3 size={16} className="text-muted-foreground" />进步趋势</h4>
+                {trendItems.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {trendItems.slice(0, 8).map((item, index) => (
+                      <div key={`${String(item.period_label ?? "period")}-${index}`} className="rounded-lg bg-muted/70 p-2 text-center">
+                        <div className="text-sm font-semibold tabular-nums">{item.average_score != null ? String(item.average_score) : "--"}</div>
+                        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{item.period_label != null ? String(item.period_label) : `第${index + 1}周`}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                    完成更多训练后显示趋势
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         </div>
