@@ -12,6 +12,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.security import require_permission
 from infrastructure.exporter import ColumnDef, export_response
 from models import Assignment, User
+from modules.assignments.service import AssignmentService
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -21,7 +22,6 @@ from schemas import (
     DeleteResponse,
     PaginatedResponse,
 )
-from services.assignment import AssignmentService
 
 log = logging.getLogger(__name__)
 
