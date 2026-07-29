@@ -96,6 +96,48 @@ class TestStartTraining:
         data = resp.json()
         assert data["pending_questionnaires"] == 1
 
+    def test_student_session_and_detail_redact_case_ground_truth(self, client, student, test_case, db_session):
+        case_data = dict(test_case.case_data)
+        case_data.update(
+            {
+                "patient_info": {
+                    "name": "王大爷",
+                    "age": 65,
+                    "gender": "男",
+                    "medication_history": "不应公开",
+                },
+                "personality": {"health_literacy": "low", "verbosity": "terse"},
+                "required_inquiries": ["吸烟史"],
+                "exam_anchors": {
+                    "vital_signs": {
+                        "heart_rate": "112",
+                        "blood_pressure": "180/110",
+                    }
+                },
+                "deep_background": "仅患者模型可见",
+            }
+        )
+        test_case.case_data = case_data
+        db_session.commit()
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        start = client.post("/api/training/start", json={"case_id": test_case.id}, headers=headers)
+        assert start.status_code == 200
+        session = start.json()["session"]
+        assert session["patient_info"] == {"name": "王大爷", "age": 65, "gender": "男"}
+        assert session["scene"]["vitals"] == {}
+        for hidden_key in ("case_data", "required_inquiries", "exam_anchors", "personality"):
+            assert hidden_key not in session
+
+        detail = client.get(f"/api/training/records/{start.json()['record_id']}", headers=headers)
+        assert detail.status_code == 200
+        payload = detail.json()
+        assert payload["patient_info"] == {"name": "王大爷", "age": 65, "gender": "男"}
+        assert payload["scene"]["vitals"] == {}
+        for hidden_key in ("case_data", "required_inquiries", "exam_anchors", "personality", "profile_info"):
+            assert hidden_key not in payload
+
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):

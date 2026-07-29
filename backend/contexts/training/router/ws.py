@@ -24,7 +24,8 @@ import logging
 import jwt
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 
-from contexts.training.tools import ToolContext, dispatch
+from contexts.training.tools import ToolContext
+from contexts.training.tools.service import execute_tool_request
 from core.database import SessionLocal
 from core.security import ALGORITHM, JWT_SECRET_KEY, _set_user_permissions
 from models import Case, TrainingRecord, User
@@ -116,17 +117,19 @@ async def training_ws(
             msg_type = raw.get("type")
 
             if msg_type == "tool":
+                request_id = raw.get("request_id")
                 record_id = raw.get("record_id")
                 tool_name = raw.get("tool")
                 action = raw.get("action")
                 params = raw.get("params") or {}
-                if not record_id or not tool_name or not action:
+                if not request_id or not record_id or not tool_name or not action or not isinstance(params, dict):
                     if not await _safe_send(
                         {
                             "type": "tool:error",
+                            "request_id": request_id or "",
                             "tool": tool_name or "",
                             "action": action or "",
-                            "detail": "Missing record_id, tool, or action",
+                            "detail": "Missing or invalid request_id, record_id, tool, action, or params",
                         }
                     ):
                         return
@@ -137,7 +140,13 @@ async def training_ws(
                     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
                     if not record:
                         ok = await _safe_send(
-                            {"type": "tool:error", "tool": tool_name, "action": action, "detail": "训练记录不存在"}
+                            {
+                                "type": "tool:error",
+                                "request_id": request_id,
+                                "tool": tool_name,
+                                "action": action,
+                                "detail": "训练记录不存在",
+                            }
                         )
                         if not ok:
                             return
@@ -145,13 +154,20 @@ async def training_ws(
                     case = db.query(Case).filter(Case.id == record.case_id).first()
                     ctx = ToolContext(
                         record=record,
-                        case_data=case.case_data if case else {},
+                        case_data=record.case_snapshot or (case.case_data if case else {}),
                         current_user=user,
                         db=db,
                     )
-                    result = await dispatch(tool_name, action, params, ctx)
+                    result = await execute_tool_request(
+                        request_id=str(request_id),
+                        tool_name=str(tool_name),
+                        action=str(action),
+                        params=params,
+                        ctx=ctx,
+                    )
                     payload = {
                         "type": "tool:result",
+                        "request_id": request_id,
                         "tool": tool_name,
                         "action": action,
                         "ok": result.ok,
@@ -163,12 +179,29 @@ async def training_ws(
                         payload["error"] = result.error
                     ok = await _safe_send(payload)
                 except HTTPException as e:
+                    db.rollback()
                     ok = await _safe_send(
-                        {"type": "tool:error", "tool": tool_name, "action": action, "detail": e.detail}
+                        {
+                            "type": "tool:error",
+                            "request_id": request_id,
+                            "tool": tool_name,
+                            "action": action,
+                            "status_code": e.status_code,
+                            "detail": e.detail,
+                        }
                     )
-                except Exception as e:
+                except Exception:
+                    db.rollback()
                     log.exception("WS tool dispatch failed")
-                    ok = await _safe_send({"type": "tool:error", "tool": tool_name, "action": action, "detail": str(e)})
+                    ok = await _safe_send(
+                        {
+                            "type": "tool:error",
+                            "request_id": request_id,
+                            "tool": tool_name,
+                            "action": action,
+                            "detail": "工具操作失败，请稍后重试",
+                        }
+                    )
                 finally:
                     db.close()
                 if not ok:
@@ -199,6 +232,6 @@ async def training_ws(
     finally:
         for t in (client_task, server_task):
             t.cancel()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await asyncio.gather(client_task, server_task, return_exceptions=True)
         manager.unsubscribe(user.id, queue)

@@ -10,6 +10,7 @@ from schemas.training.notification import TrainingNotificationItem
 from schemas.training.nursing import NursingRecordResponse, NursingRecordSave
 from schemas.training.records import (
     MessageItem,
+    PatientPublicInfo,
     ScoreItem,
     ScoreReviewItem,
     TrainingRecordBrief,
@@ -35,6 +36,7 @@ __all__ = [
     "MessageItem",
     "NursingRecordResponse",
     "NursingRecordSave",
+    "PatientPublicInfo",
     "ScoreItem",
     "ScoreReviewItem",
     "ScoringStatusResponse",

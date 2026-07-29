@@ -62,6 +62,12 @@ class ScoreItem(BaseModel):
     created_at: datetime
 
 
+class PatientPublicInfo(BaseModel):
+    name: str = ""
+    age: int = 0
+    gender: str = ""
+
+
 class TrainingRecordDetail(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -77,24 +83,19 @@ class TrainingRecordDetail(BaseModel):
     remaining_seconds: int | None = None
     messages: list[MessageItem]
     score: ScoreItem | None = None
-    required_inquiries: list | None = None
-    patient_info: dict[str, Any] | None = None
+    patient_info: PatientPublicInfo | None = None
     patient_gender: str = ""
     training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
     patient_name: str = ""
     patient_age: int = 0
     chief_complaint: str = ""
-    personality: str = ""
     case_title: str = ""
     from_assignment: bool = False
     pending_questionnaires: int = 0
-    exam_anchors: dict[str, Any] = Field(default_factory=dict)
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
     triage_result: dict[str, Any] = Field(default_factory=dict)
     nursing_record_sheet: dict[str, Any] | None = None
-    case_data: dict[str, Any] = Field(default_factory=dict)
-    profile_info: dict[str, Any] = Field(default_factory=dict)
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
     scene: dict[str, Any] | None = None

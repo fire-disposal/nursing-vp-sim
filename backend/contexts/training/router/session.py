@@ -34,6 +34,7 @@ from schemas import (
     DeleteResponse,
     OkResponse,
     PaginatedResponse,
+    PatientPublicInfo,
     ScoreItem,
     ScoreReviewItem,
     TrainingRecordBrief,
@@ -81,16 +82,43 @@ def _build_config(features: dict | None = None, time_limit_minutes: int | None =
     }
 
 
-def _compute_personality_label(personality: dict) -> str:
-    """从 personality dict 计算患者画像标签字符串（与 get_record_detail 保持一致）。"""
-    parts = []
-    hl = personality.get("health_literacy")
-    if hl:
-        parts.append({"low": "低素养", "normal": "中等", "high": "高素养"}.get(hl, ""))
-    verb = personality.get("verbosity")
-    if verb:
-        parts.append({"terse": "寡言", "normal": "正常", "verbose": "絮叨"}.get(verb, ""))
-    return "·".join(filter(None, parts))
+def _public_patient_info(case_data: dict) -> dict:
+    """Return only patient facts known before the interview starts."""
+    raw = case_data.get("patient_info") if isinstance(case_data, dict) else None
+    info = raw if isinstance(raw, dict) else {}
+    return {
+        "name": str(info.get("name") or "患者"),
+        "age": int(info.get("age") or 0),
+        "gender": normalize_gender(info.get("gender", "")),
+    }
+
+
+_VITAL_KEYS_BY_EXAM: dict[str, tuple[str, ...]] = {
+    "hr": ("hr",),
+    "bp": ("bp_sys", "bp_dia"),
+    "rr": ("rr",),
+    "spo2": ("spo2",),
+    "temp": ("temp",),
+    "pain": ("pain",),
+}
+
+
+def _public_scene(record: TrainingRecord) -> dict | None:
+    """Redact unmeasured vital signs from history-taking scene state."""
+    raw = dict(record.runtime_state or {}).get("scene")
+    if not isinstance(raw, dict):
+        return None
+    scene = deepcopy(raw)
+    if (record.training_type or "history_taking") != "history_taking":
+        return scene
+
+    exam_results = dict(record.runtime_state or {}).get("exam_results", [])
+    completed = {str(item.get("type") or item.get("op_type")) for item in exam_results if isinstance(item, dict)}
+    allowed_vitals = {key for op_type in completed for key in _VITAL_KEYS_BY_EXAM.get(op_type, ())}
+    vitals = scene.get("vitals")
+    if isinstance(vitals, dict):
+        scene["vitals"] = {key: value for key, value in vitals.items() if key in allowed_vitals}
+    return scene
 
 
 def _extract_vitals(case_data: dict, training_type: str) -> dict:
@@ -225,6 +253,7 @@ def _create_record(
     }
 
     patient_info = case_data.get("patient_info", {})
+    public_patient_info = _public_patient_info(case_data)
     patient_name = patient_info.get("name", "患者")
     opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
     greeting = f"你好，我是{patient_name}。{opening_line}"
@@ -234,7 +263,7 @@ def _create_record(
 
     # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）
     patient_info = case_data.get("patient_info", {})
-    vitals = _extract_vitals(case_data, training_type)
+    vitals = _extract_vitals(case_data, training_type) if training_type == "triage" else {}
     record.runtime_state = {
         "scene": {
             "environment": {
@@ -278,13 +307,12 @@ def _create_record(
         "case_id": case.id,
         "time_limit": time_limit,
         "remaining_seconds": time_limit * 60,
-        "patient_name": patient_name,
-        "patient_age": patient_info.get("age", 0),
-        "patient_gender": normalize_gender(patient_info.get("gender", "")),
+        "patient_name": public_patient_info["name"],
+        "patient_age": public_patient_info["age"],
+        "patient_gender": public_patient_info["gender"],
         "case_title": case_data.get("title", "") or case.name,
         "chief_complaint": case_data.get("chief_complaint", ""),
-        "personality": _compute_personality_label(case_data.get("personality", {})),
-        "patient_info": patient_info,
+        "patient_info": public_patient_info,
         "features": resolved_features,
         "messages": [
             {
@@ -294,7 +322,7 @@ def _create_record(
                 "created_at": record.start_time.isoformat() if record.start_time else None,
             }
         ],
-        "scene": dict(record.runtime_state or {}).get("scene"),
+        "scene": _public_scene(record),
         "pending_questionnaires": 0,
         "from_assignment": assignment_id is not None,
     }
@@ -585,14 +613,8 @@ def get_record_detail(
     if record.status == "in_progress" and record.start_time:
         elapsed = (datetime.now(UTC) - ensure_utc(record.start_time)).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
-    patient_info = case_data.get("patient_info", {})
-
-    profile_info = {}
-    try:
-        p = get_profile(record.training_type or "history_taking")
-        profile_info = {"type": p.name, "label": "病史采集" if p.name == "history_taking" else "预检分诊"}
-    except KeyError:
-        pass
+    patient_info = _public_patient_info(case_data)
+    case_title = case_data.get("title", "") or (case.name if case else "")
 
     # 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)与主动追问计数。
     session_state = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
@@ -606,20 +628,6 @@ def get_record_detail(
             es = EmotionState.from_dict(es_dict)
             emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}
         initiative_count = session_state.initiative_count or 0
-
-    case_title = case_data.get("title", "") or (case.name if case else "")
-
-    personality_dict = case_data.get("personality", {})
-    personality_parts = []
-    if personality_dict.get("health_literacy"):
-        personality_parts.append(
-            {"low": "低素养", "normal": "中等", "high": "高素养"}.get(personality_dict["health_literacy"], "")
-        )
-    if personality_dict.get("verbosity"):
-        personality_parts.append(
-            {"terse": "寡言", "normal": "正常", "verbose": "絮叨"}.get(personality_dict["verbosity"], "")
-        )
-    personality_label = "·".join(filter(None, personality_parts))
 
     return TrainingRecordDetail(
         id=record.id,
@@ -635,8 +643,7 @@ def get_record_detail(
         remaining_seconds=remaining_seconds,
         messages=record.messages,  # ty: ignore[invalid-argument-type]
         score=score_obj,
-        required_inquiries=case_data.get("required_inquiries", []),
-        patient_info=patient_info,
+        patient_info=PatientPublicInfo.model_validate(patient_info),
         patient_gender=normalize_gender(str(patient_info.get("gender") or "")) or "",
         training_type=record.training_type or "history_taking",
         features=detect_capabilities(
@@ -644,20 +651,16 @@ def get_record_detail(
             training_type=record.training_type or "history_taking",
             overrides=(record.practice_snapshot or {}).get("features"),
         ),
-        patient_name=patient_info.get("name", ""),
-        patient_age=patient_info.get("age", 0),
+        patient_name=patient_info["name"],
+        patient_age=patient_info["age"],
         chief_complaint=case_data.get("chief_complaint", ""),
-        personality=personality_label,
         case_title=case_title,
         from_assignment=record.assignment_id is not None,
         pending_questionnaires=pending_questionnaires,
-        exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
-        scene=dict(record.runtime_state or {}).get("scene"),
+        scene=_public_scene(record),
         triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
         nursing_record_sheet=_load_nursing_sheet(db, record.id),
-        case_data=case_data,
-        profile_info=profile_info,
         emotion=emotion,
         initiative_count=initiative_count,
         is_test=record.is_test,

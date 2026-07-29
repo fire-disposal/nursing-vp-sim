@@ -59,7 +59,7 @@ class VoiceTestRequest(BaseModel):
 class TTSSynthesizeRequest(BaseModel):
     model_config = _REQ_CFG
     text: str = Field(min_length=1, max_length=500)
-    record_id: int | None = None
+    record_id: int
     voice_type: str | None = Field(default=None, max_length=40)
 
 

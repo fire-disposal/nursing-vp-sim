@@ -2,9 +2,7 @@ import { createContext, useContext } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "./types";
 
 export interface TrainingRecordDetail {
-	case_data?: Record<string, unknown>;
 	exam_results?: Array<{ type: string; value: string; label?: string; unit?: string }>;
-	required_inquiries?: string[];
 	triage_result?: Record<string, unknown>;
 	nursing_record_sheet?: Record<string, string>;
 	sheet_data?: Record<string, unknown>;

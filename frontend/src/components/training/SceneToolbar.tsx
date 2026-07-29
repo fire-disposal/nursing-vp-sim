@@ -11,7 +11,6 @@ import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import { SceneStateProvider } from "@/engine/useSceneBus";
-import { useToolBridge } from "@/hooks/useToolBridge";
 import { getTools, TOOL_META } from "./tools/registry";
 
 export default function SceneToolbar() {
@@ -28,7 +27,6 @@ export default function SceneToolbar() {
 
   const handleClose = useCallback(() => setActiveId(null), []);
 
-  useToolBridge(bus);
 
   useEffect(() => {
     const handler = (payload: { id: string }) => {

@@ -10875,6 +10875,27 @@
         ],
         "title": "PaginatedResponse[UserBrief]"
       },
+      "PatientPublicInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age",
+            "default": 0
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "PatientPublicInfo"
+      },
       "QAAskResponse": {
         "properties": {
           "session_id": {
@@ -12512,6 +12533,17 @@
       },
       "ScoringStatusResponse": {
         "properties": {
+          "record_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Status"
+          },
           "scoring_status": {
             "anyOf": [
               {
@@ -12573,8 +12605,37 @@
             "title": "Record Id"
           },
           "scoring_status": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Scoring Status"
+          },
+          "record_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Status"
+          },
+          "terminal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Reason"
           }
         },
         "type": "object",
@@ -13000,14 +13061,7 @@
             "title": "Text"
           },
           "record_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Record Id"
           },
           "voice_type": {
@@ -13026,7 +13080,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "text"
+          "text",
+          "record_id"
         ],
         "title": "TTSSynthesizeRequest"
       },
@@ -13492,29 +13547,15 @@
               }
             ]
           },
-          "required_inquiries": {
-            "anyOf": [
-              {
-                "items": {},
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Required Inquiries"
-          },
           "patient_info": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PatientPublicInfo"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Patient Info"
+            ]
           },
           "patient_gender": {
             "type": "string",
@@ -13548,11 +13589,6 @@
             "title": "Chief Complaint",
             "default": ""
           },
-          "personality": {
-            "type": "string",
-            "title": "Personality",
-            "default": ""
-          },
           "case_title": {
             "type": "string",
             "title": "Case Title",
@@ -13567,11 +13603,6 @@
             "type": "integer",
             "title": "Pending Questionnaires",
             "default": 0
-          },
-          "exam_anchors": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Exam Anchors"
           },
           "exam_results": {
             "items": {
@@ -13597,16 +13628,6 @@
               }
             ],
             "title": "Nursing Record Sheet"
-          },
-          "case_data": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Case Data"
-          },
-          "profile_info": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Profile Info"
           },
           "emotion": {
             "anyOf": [
@@ -13710,51 +13731,15 @@
             "title": "Chief Complaint",
             "default": ""
           },
-          "personality": {
-            "type": "string",
-            "title": "Personality",
-            "default": ""
-          },
           "patient_info": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PatientPublicInfo"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Patient Info"
-          },
-          "case_data": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Case Data"
-          },
-          "required_inquiries": {
-            "items": {},
-            "type": "array",
-            "title": "Required Inquiries"
-          },
-          "exam_anchors": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Exam Anchors"
+            ]
           },
           "features": {
             "additionalProperties": {

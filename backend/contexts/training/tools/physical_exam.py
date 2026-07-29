@@ -4,7 +4,6 @@ import logging
 
 from contexts.training.capabilities import is_enabled
 from core.exceptions import AuthError, ValidationError
-from core.unit_of_work import unit_of_work
 from profiles.history_taking.exam import handle_operation
 
 from .base import ToolContext, ToolHandler, ToolResult
@@ -81,9 +80,6 @@ class PhysicalExamHandler(ToolHandler):
             rs.setdefault("scene", {}).setdefault("vitals", {}).update(vitals_patch)
 
         record.runtime_state = rs
-
-        with unit_of_work(ctx.db, conflict_detail="体检操作冲突"):
-            ctx.db.flush()
 
         return ToolResult(
             ok=True,

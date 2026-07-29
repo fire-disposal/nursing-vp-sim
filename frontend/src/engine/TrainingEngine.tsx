@@ -6,6 +6,7 @@ import { ChatArea } from "@/components/training/ChatArea";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
+import { useToolBridge, waitForPendingToolRequests } from "@/hooks/useToolBridge";
 import { createMessageBus } from "./MessageBus";
 import {
 	useTrainingStore,
@@ -56,6 +57,8 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
 	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
 	const patientAccRef = useRef("");
+	const endingRef = useRef(false);
+	useToolBridge(busRef.current);
 
 	// ── Init store once on mount / record change ──
 	const initedRef = useRef(false);
@@ -145,15 +148,20 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	);
 
 	const endTraining = useCallback(async () => {
+		if (endingRef.current) return;
+		endingRef.current = true;
 		try {
 			busRef.current.emit("training:beforeEnd");
+			await waitForPendingToolRequests(busRef.current);
 			await scoreRef.current.end();
 			getTrainingState().setTrainingEnded(true);
+			busRef.current.emit("training:ended");
 		} catch {
-			// endTraining failure is non-fatal
+			toastError("训练内容尚未保存，未开始结算，请重试");
+		} finally {
+			endingRef.current = false;
 		}
-		busRef.current.emit("training:ended");
-	}, []);
+	}, [toastError]);
 
 	const retryScoring = useCallback(async () => {
 		try {

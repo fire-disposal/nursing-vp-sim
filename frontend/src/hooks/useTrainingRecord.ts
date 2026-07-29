@@ -49,9 +49,6 @@ export function useTrainingRecord(recordId: string) {
 			case_title?: string;
 			chief_complaint?: string;
 			training_type?: string;
-			personality?: string;
-			required_inquiries?: string[];
-			exam_anchors?: Record<string, unknown>;
 			features?: Record<string, boolean>;
 			from_assignment?: boolean;
 			messages?: Array<{ id: number; role: string; content: string }>;
@@ -63,7 +60,6 @@ export function useTrainingRecord(recordId: string) {
 				age?: number;
 				title?: string;
 				chief_complaint?: string;
-				personality?: string;
 			};
 		};
 
@@ -77,9 +73,6 @@ export function useTrainingRecord(recordId: string) {
 			gender,
 			caseTitle: d.case_title ?? d.case?.title ?? "",
 			chiefComplaint: d.chief_complaint ?? d.case?.chief_complaint ?? "",
-			personality: d.personality ?? d.case?.personality ?? "",
-			requiredInquiries: d.required_inquiries ?? [],
-			examAnchors: d.exam_anchors ?? {},
 		};
 
 		const msgs = d.messages ?? [];
