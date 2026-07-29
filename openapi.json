@@ -1910,10 +1910,8 @@
                   "type": "null"
                 }
               ],
-              "description": "搜索用户名/姓名/学号",
               "title": "Search"
-            },
-            "description": "搜索用户名/姓名/学号"
+            }
           },
           {
             "name": "role",
@@ -1928,10 +1926,8 @@
                   "type": "null"
                 }
               ],
-              "description": "角色筛选 student/teacher",
               "title": "Role"
-            },
-            "description": "角色筛选 student/teacher"
+            }
           },
           {
             "name": "class_id",
@@ -2010,7 +2006,7 @@
             "schema": {
               "type": "string",
               "pattern": "^(csv|xlsx)$",
-              "default": "csv",
+              "default": "xlsx",
               "title": "Format"
             }
           }
@@ -2412,7 +2408,6 @@
           "语音管理"
         ],
         "summary": "Test Stream",
-        "description": "Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz).",
         "operationId": "test_stream_api_admin_voice_config_test_stream_post",
         "requestBody": {
           "content": {
@@ -2428,11 +2423,8 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "audio/pcm": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -2476,17 +2468,8 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "audio/mpeg": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "audio/pcm": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
+              "application/json": {
+                "schema": {}
               }
             }
           },

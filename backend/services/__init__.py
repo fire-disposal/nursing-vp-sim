@@ -20,7 +20,6 @@ from modules.voice.service import TTSService, load_tts_state
 from .costs import CostService
 from .llm_data import LLMDataService
 from .llm_monitor import LLMMonitorService
-from .stats import StatsService
 from .user import StudentDetailView, UserBriefView, UserService
 from .voice import VoiceConfigService
 
@@ -37,7 +36,6 @@ __all__ = [
     "QuestionnaireQuestionService",
     "QuestionnaireResponseService",
     "QuestionnaireTemplateService",
-    "StatsService",
     "StudentDetailView",
     "TTSService",
     "TemplateDetailView",

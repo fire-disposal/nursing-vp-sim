@@ -672,10 +672,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Test Stream
-         * @description Test synthesis through the PRODUCTION streaming path (pool + PCM 24kHz).
-         */
+        /** Test Stream */
         post: operations["test_stream_api_admin_voice_config_test_stream_post"];
         delete?: never;
         options?: never;
@@ -5998,9 +5995,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
-                /** @description 角色筛选 student/teacher */
                 role?: string | null;
                 class_id?: number | null;
                 grade_id?: number | null;
@@ -6337,7 +6332,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "audio/pcm": string;
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -6370,8 +6365,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "audio/mpeg": string;
-                    "audio/pcm": string;
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
