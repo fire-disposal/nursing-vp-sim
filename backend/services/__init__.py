@@ -1,11 +1,11 @@
 """Business logic layer."""
 
+from modules.cases.service import CaseManageView, CaseService
 from modules.voice.service import TTSService, load_tts_state
 
 from .api_secret import ApiSecretService
 from .assignment import AssignmentService
 from .auth import AuthService
-from .case import CaseManageView, CaseService
 from .class_ import ClassService
 from .costs import CostService
 from .feedback import FeedbackService

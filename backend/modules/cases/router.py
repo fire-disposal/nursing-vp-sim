@@ -8,6 +8,8 @@ from contexts.training.capabilities import detect_capabilities
 from core.deps import CurrentUser, DbSession
 from core.security import require_permission
 from models import Case, User
+from modules.cases.generation import generate_case as _generate_case
+from modules.cases.service import CaseManageView, CaseService
 from profiles.registry import get_profile
 from schemas import (
     CaseBrief,
@@ -20,8 +22,6 @@ from schemas import (
     DeleteResponse,
     PaginatedResponse,
 )
-from services.case import CaseManageView, CaseService
-from services.case_generation import generate_case as _generate_case
 
 log = logging.getLogger(__name__)
 

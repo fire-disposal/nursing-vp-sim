@@ -4,11 +4,12 @@ from fastapi import FastAPI
 
 
 def register_routers(app: FastAPI) -> None:
+    from modules.cases import router as cases
+
     # ── domain routers (flat module → .router, each manages its own prefix) ──
     from routers import (
         assignments,
         auth,
-        cases,
         exports,
         feedback,
         questionnaires,
