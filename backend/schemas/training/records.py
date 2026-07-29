@@ -94,7 +94,6 @@ class TrainingRecordDetail(BaseModel):
     from_assignment: bool = False
     pending_questionnaires: int = 0
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
-    triage_result: dict[str, Any] = Field(default_factory=dict)
     nursing_record_sheet: dict[str, Any] | None = None
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0

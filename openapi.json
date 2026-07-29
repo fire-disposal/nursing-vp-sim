@@ -13697,11 +13697,6 @@
             "type": "array",
             "title": "Exam Results"
           },
-          "triage_result": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Triage Result"
-          },
           "nursing_record_sheet": {
             "anyOf": [
               {

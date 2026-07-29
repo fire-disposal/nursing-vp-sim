@@ -43,16 +43,6 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     ],
     "requires": []
   },
-  "mews": {
-    "key": "mews",
-    "label": "MEWS 评分",
-    "description": "早期预警评分计算工具",
-    "tier": "toggleable",
-    "trainingTypes": [
-      "history_taking"
-    ],
-    "requires": []
-  },
   "nursing_diagnosis": {
     "key": "nursing_diagnosis",
     "label": "护理诊断",
@@ -71,7 +61,6 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
     "quiz",
     "physical_exam",
     "nursing_record",
-    "mews",
     "nursing_diagnosis"
   ]
 };

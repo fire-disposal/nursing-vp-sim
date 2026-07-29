@@ -55,13 +55,6 @@ TOOL_BINDINGS: list[ToolBinding] = [
         description="生成结构化护理记录（ADPIE 格式）",
     ),
     ToolBinding(
-        tool="mews",
-        field="tools.mews",
-        legacy_field="vitals",
-        label="MEWS 评分",
-        description="早期预警评分计算工具",
-    ),
-    ToolBinding(
         tool="nursing_diagnosis",
         field="tools.nursing_diagnosis",
         label="护理诊断",

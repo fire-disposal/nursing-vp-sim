@@ -1,9 +1,8 @@
-import { BarChart3, ClipboardList, FileText, HeartPulse, HelpCircle, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
+import { ClipboardList, FileText, HeartPulse, HelpCircle, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import NursingDiagnosisTool from "./NursingDiagnosisTool";
 import InquiryTool from "./InquiryTool";
-import MewsTool from "./MewsTool";
 import NursingRecordTool from "./NursingRecordTool";
 import PatientInfoTool from "./PatientInfoTool";
 import PhysicalExamTool from "./PhysicalExamTool";
@@ -15,7 +14,6 @@ export const TOOL_META: Record<string, { icon: LucideIcon; title: string }> = {
   "physical-exam": { icon: HeartPulse, title: "护理查体" },
   "nursing-record": { icon: FileText, title: "护理记录" },
   "nursing-diagnosis": { icon: Stethoscope, title: "护理诊断" },
-  "mews": { icon: BarChart3, title: "MEWS 评分" },
   "quiz": { icon: HelpCircle, title: "引导题目" },
 };
 interface ToolDef {
@@ -31,7 +29,6 @@ const HISTORY_TAKING: ToolDef[] = [
   { id: "physical-exam",       component: PhysicalExamTool,                                  priority: 2, capability: "physical_exam" },
   { id: "nursing-diagnosis",   component: NursingDiagnosisTool,                              priority: 3, capability: "nursing_diagnosis" },
   { id: "nursing-record",      component: NursingRecordTool,                                 priority: 4, capability: "nursing_record" },
-  { id: "mews",                component: MewsTool,                                          priority: 5, capability: "mews" },
   { id: "quiz",                component: QuizTool,                                          priority: 6, capability: "quiz" },
 ];
 

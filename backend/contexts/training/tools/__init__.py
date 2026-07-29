@@ -4,7 +4,6 @@ from .registry import dispatch, register, registry
 
 def register_all():
     """Auto-discover and register all tool handlers."""
-    from .mews import MewsHandler
     from .nursing_diagnosis import NursingDiagnosisHandler
     from .nursing_record import NursingRecordHandler
     from .physical_exam import PhysicalExamHandler
@@ -13,7 +12,6 @@ def register_all():
     register(PhysicalExamHandler())
     register(NursingRecordHandler())
     register(QuizHandler())
-    register(MewsHandler())
     register(NursingDiagnosisHandler())
 
 

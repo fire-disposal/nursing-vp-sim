@@ -4494,10 +4494,6 @@ export interface components {
             exam_results?: {
                 [key: string]: unknown;
             }[];
-            /** Triage Result */
-            triage_result?: {
-                [key: string]: unknown;
-            };
             /** Nursing Record Sheet */
             nursing_record_sheet?: {
                 [key: string]: unknown;

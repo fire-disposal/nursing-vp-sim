@@ -284,23 +284,6 @@ export default function TeacherRecordDetail() {
 					<div className="flex-1 lg:overflow-y-auto min-h-0 space-y-4">
 						<MessagePlayback messages={messages} />
 
-						{record.triage_result && Object.keys(record.triage_result).length > 0 && (
-							<div className="rounded-xl border border-border bg-card p-5 space-y-3">
-								<div className="space-y-2 text-sm">
-									<div className="flex justify-between">
-										<span className="text-muted-foreground">MEWS 评分</span>
-										<span className="font-medium tabular-nums">{String(record.triage_result.mews_score ?? "-")}/14</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="font-medium">{String(record.triage_result.category || "未选择")}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-muted-foreground">建议科室</span>
-										<span className="font-medium">{String(record.triage_result.department || "未选择")}</span>
-									</div>
-								</div>
-							</div>
-						)}
 
 						{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
 							<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />

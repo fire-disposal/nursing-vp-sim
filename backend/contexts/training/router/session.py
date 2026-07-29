@@ -698,7 +698,6 @@ def get_record_detail(
         pending_questionnaires=pending_questionnaires,
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
         scene=_public_scene(record),
-        triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
         nursing_record_sheet=_load_nursing_sheet(db, record.id),
         emotion=emotion,
         initiative_count=initiative_count,

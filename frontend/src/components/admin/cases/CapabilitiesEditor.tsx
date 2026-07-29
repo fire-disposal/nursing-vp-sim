@@ -6,7 +6,6 @@ const TOOL_LIST: { key: string; label: string; desc: string }[] = [
 	{ key: "physical_exam", label: "护理查体", desc: "学生可进行虚拟体格检查" },
 	{ key: "nursing_diagnosis", label: "护理诊断", desc: "NANDA 护理诊断制定与排序" },
 	{ key: "nursing_record", label: "护理记录", desc: "生成结构化 ADPIE 护理记录" },
-	{ key: "mews", label: "MEWS 评分", desc: "早期预警评分计算工具" },
 	{ key: "quiz", label: "引导题目", desc: "训练中弹出选择题/判断题" },
 ];
 

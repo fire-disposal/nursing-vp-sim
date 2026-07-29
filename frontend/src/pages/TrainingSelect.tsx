@@ -33,7 +33,6 @@ const CAP_COLORS: Record<string, string> = {
   physical_exam: "bg-purple-50 text-purple-700",
   nursing_record: "bg-teal-50 text-teal-700",
   quiz: "bg-blue-50 text-blue-700",
-  mews: "bg-amber-50 text-amber-700",
 };
 
 function getPatientSummary(ps: CaseBrief["patient_summary"]): { gender?: string; age?: number; chief_complaint?: string } {
