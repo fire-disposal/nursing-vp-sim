@@ -1,14 +1,26 @@
-name: Emergency Rollback (Production)
+name: Emergency Rollback
 
-run-name: "[Production] Rollback to v${{ inputs.version }}"
+run-name: "[${{ inputs.environment }}] Rollback to v${{ inputs.version }}"
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Rollback target environment"
+        required: true
+        type: choice
+        default: prod
+        options:
+          - prod
+          - staging
       version:
-        description: 'Rollback target version (e.g. 2026.06.02-2)'
+        description: "Rollback target version (e.g. 2026.06.02-2)"
         required: true
         type: string
+
+concurrency:
+  group: ${{ inputs.environment }}-release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -32,11 +44,15 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOST: ${{ secrets.SSH_HOST }}
           USER: ${{ secrets.SSH_USER }}
+          TARGET_ENV: ${{ inputs.environment }}
+          TARGET_VERSION: ${{ inputs.version }}
         run: |
           set -e
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
           ssh "$USER@$HOST" "echo '$TOKEN' | docker login ghcr.io -u ${{ github.actor }} --password-stdin" 2>&1 | tail -1
 
+          ssh "$USER@$HOST" "mkdir -p /opt/nursing-vp-sim/deploy"
           scp deploy/rollback.sh "$USER@$HOST":/opt/nursing-vp-sim/rollback.sh
-          ssh "$USER@$HOST" "chmod +x /opt/nursing-vp-sim/rollback.sh && cd /opt/nursing-vp-sim && bash rollback.sh --yes ${{ inputs.version }}"
+          scp deploy/db-backup.sh "$USER@$HOST":/opt/nursing-vp-sim/deploy/db-backup.sh
+          ssh "$USER@$HOST" "chmod +x /opt/nursing-vp-sim/rollback.sh /opt/nursing-vp-sim/deploy/db-backup.sh && cd /opt/nursing-vp-sim && bash rollback.sh --env '$TARGET_ENV' --yes '$TARGET_VERSION'"

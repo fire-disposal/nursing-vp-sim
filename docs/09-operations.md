@@ -16,7 +16,7 @@
 | `deploy-pr-staging.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
 | `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
-| `rollback-production.yml` | `workflow_dispatch`（手动） | 回滚 | — |
+| `rollback-production.yml` | `workflow_dispatch`（手动） | 正式服 / 测试服定向回滚 | `iomt.205716.xyz` / `test.205716.xyz` |
 
 ### 日常发布流程
 
@@ -95,54 +95,73 @@ IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-fi
 
 ## 紧急回滚
 
-### 方式一：SSH 交互式（推荐）
+### 方式一：SSH 交互式 / 非交互式（推荐）
 
 ```bash
-ssh 用户名@服务器IP "cd /opt/nursing-vp-sim && bash rollback.sh"
+# Production 交互回滚
+ssh 用户名@服务器IP "cd /opt/nursing-vp-sim && bash rollback.sh --env prod"
+
+# Staging 交互回滚
+ssh 用户名@服务器IP "cd /opt/nursing-vp-sim && bash rollback.sh --env staging"
 ```
 
 交互流程：
 
 ```
-  可用部署历史 (最近 5 次):
+  staging 可用部署历史 (最近 5 次):
   ┌──────────────────────────────────────────────────────────┐
-  │ [1] v2026.06.02-3      2026-06-02T14:30:00Z   ← 当前
-  │ [2] v2026.06.02-2      2026-06-01T10:00:00Z
-  │ [3] v2026.06.02-1      2026-05-30T09:15:00Z
+  │ [1] 2026.06.02-3 2026-06-02T14:30:00Z  ← 当前
+  │ [2] 2026.06.02-2 2026-06-01T10:00:00Z
+  │ [3] 2026.06.02-1 2026-05-30T09:15:00Z
   └──────────────────────────────────────────────────────────┘
 
   请选择要回滚的版本 [1-3] (q 退出): 2
 
-  将回滚到:
-    版本:   v2026.06.02-2
-    后端:   ghcr.io/xxx/nursing-vp-sim-backend:v2026.06.02-2
-    前端:   ghcr.io/xxx/nursing-vp-sim-frontend:v2026.06.02-2
+  将回滚 staging 到:
+    版本:   2026.06.02-2
+    后端:   ghcr.io/xxx/nursing-vp-sim-backend:2026.06.02-2
+    前端:   ghcr.io/xxx/nursing-vp-sim-frontend:2026.06.02-2
+    迁移:   abc123def
 
-  确认回滚? (y/n): y
-
+  >> 回滚前备份数据库 ...
   >> 拉取镜像...
-  >> 更新 compose 配置...
+  >> 回滚数据库迁移 ...
   >> 重启服务...
-  >> 回滚完成，服务已恢复至 v2026.06.02-2
+  >> API 版本已确认
+  >> 回滚完成
 ```
 
 非交互参数：
 
 ```bash
-# 直接回滚到指定版本，跳过确认
-bash rollback.sh --yes 2026.06.02-2
+# 直接回滚 production 到指定版本，跳过确认
+bash rollback.sh --env prod --yes 2026.06.02-2
+
+# 直接回滚 staging 到指定版本，跳过确认
+bash rollback.sh --env staging --yes 2026.06.02-2
 
 # 仅列出版本历史
-bash rollback.sh --list
+bash rollback.sh --env prod --list
+bash rollback.sh --env staging --list
 ```
+
+脚本安全机制：
+
+- 回滚前执行 `deploy/db-backup.sh <env> backup`，备份失败则停止。
+- 目标版本可带或不带前导 `v`。
+- 有 Alembic revision 记录时，迁移回滚失败或 `alembic current` 不匹配都会停止。
+- 使用临时 compose override 指定历史镜像，不改写主 compose 文件。
+- Docker health、`/api/health`、API 返回版本均通过后才写入版本历史。
+- 回滚成功会追加一条 `rollback` 记录，保证 `.version-history-*` 最后一行代表当前版本。
 
 ### 方式二：GitHub Actions
 
 1. 打开仓库 Actions 页面
 2. 选择 **Emergency Rollback**
 3. 点击 "Run workflow"
-4. 输入目标版本号（如 `2026.06.02-2`）
-5. 点击 "Run workflow" 执行
+4. 选择环境：`prod` 或 `staging`
+5. 输入目标版本号（如 `2026.06.02-2`）
+6. 点击 "Run workflow" 执行
 
 ### 版本历史文件
 
@@ -155,11 +174,12 @@ staging 和 production 各自独立文件，统一格式（`|` 分隔）：
 
 ```
 2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:...|ghcr.io/owner/nursing-vp-sim-frontend:...|abc123def
+2026.06.02-2|2026-06-02T15:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:...|ghcr.io/owner/nursing-vp-sim-frontend:...|abc123def|rollback
 ```
 
-字段含义：`版本号 | 部署时间 | 后端镜像 | 前端镜像 | alembic revision`（第 5 字段用于精确多版本回滚）
+字段含义：`版本号 | 部署/回滚时间 | 后端镜像 | 前端镜像 | alembic revision | 事件类型(可选)`。第 5 字段用于精确多版本回滚。
 
-每次成功部署追加一行，保留最近 50 次记录。
+每次成功部署或回滚追加一行，保留最近 50 次记录。
 
 ```bash
 # 查看历史
