@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from contexts.training.patient_ai.note_source import OperationNoteSource
-from contexts.training.patient_ai.notes import EmotionNoteSource, IdentityGuardSource
+from modules.training.patient_ai.note_source import OperationNoteSource
+from modules.training.patient_ai.notes import EmotionNoteSource, IdentityGuardSource
 from prompts.training.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
 
 if TYPE_CHECKING:
-    from contexts.training.patient_ai.note_source import NoteSource
+    from modules.training.patient_ai.note_source import NoteSource
 
 
 @dataclass

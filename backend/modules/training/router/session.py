@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from contexts.training.capabilities import detect_capabilities
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
@@ -30,6 +29,7 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
+from modules.training.capabilities import detect_capabilities
 from profiles.history_taking import PROFILE
 from schemas import (
     DeleteResponse,
@@ -245,7 +245,7 @@ def _create_record(
         training_type=training_type,
         overrides=(record.practice_snapshot or {}).get("features"),
     )
-    from contexts.training.scoring.rubric import build_final_rubric
+    from modules.training.scoring.rubric import build_final_rubric
 
     record.rubric_snapshot = build_final_rubric(profile.rubric, resolved_features)
     record.prompt_snapshot = {
@@ -635,7 +635,7 @@ def get_record_detail(
     if session_state is not None:
         es_dict = session_state.emotion_state
         if isinstance(es_dict, dict) and "trust" in es_dict:
-            from contexts.training.patient_ai.emotion import EmotionState
+            from modules.training.patient_ai.emotion import EmotionState
 
             es = EmotionState.from_dict(es_dict)
             emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}

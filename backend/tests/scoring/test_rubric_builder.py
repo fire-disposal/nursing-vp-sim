@@ -1,6 +1,6 @@
 """build_final_rubric 纯函数单元测试"""
 
-from contexts.training.scoring.rubric import build_final_rubric
+from modules.training.scoring.rubric import build_final_rubric
 
 BASE_RUBRIC = {
     "id": "test_v1",

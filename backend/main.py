@@ -128,7 +128,7 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
             case = db.query(Case).filter(Case.id == record.case_id).first()
             case_data = record.case_snapshot or (case.case_data if case else {})
             try:
-                from contexts.training.router.scoring import _run_scoring_background
+                from modules.training.router.scoring import _run_scoring_background
 
                 await task_queue.enqueue(
                     lambda rid=record.id, cd=case_data: _run_scoring_background(
@@ -320,7 +320,7 @@ app.add_middleware(
 
 
 # Tool registration
-from contexts.training.tools import register_all
+from modules.training.tools import register_all
 
 register_all()
 

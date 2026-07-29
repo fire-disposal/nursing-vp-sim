@@ -2,8 +2,8 @@
 
 import pytest
 
-from contexts.training.router.scoring import _resolve_terminal_status
-from models import Case, Score, TrainingRecord
+from models import Case, Message, Score, TrainingRecord
+from modules.training.router.scoring import _resolve_terminal_status
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def test_handle_scoring_failure_corrects_to_completed_when_score_exists(db_sessi
     monkeypatch.setattr(core.database, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(db_session, "close", lambda: None)
 
-    from contexts.training.router import scoring as scoring_mod
+    from modules.training.router import scoring as scoring_mod
 
     scoring_mod._handle_scoring_failure(record_with_score.id, "评分超时")
 
@@ -103,6 +103,8 @@ def _make_record(db_session, scoring_status):
     )
     db_session.add(rec)
     db_session.flush()
+    db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
+    db_session.flush()
     return rec
 
 
@@ -111,7 +113,7 @@ def _run_background_with_mocked_evaluate(db_session, monkeypatch, rec):
     import asyncio
 
     import core.database
-    from contexts.training.router import scoring as scoring_mod
+    from modules.training.router import scoring as scoring_mod
 
     monkeypatch.setattr(core.database, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(scoring_mod, "SessionLocal", lambda: db_session)

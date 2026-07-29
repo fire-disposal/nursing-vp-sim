@@ -5,7 +5,7 @@ import logging
 import threading
 
 from bootstrap.notifications import notification_publisher
-from contexts.training.session.settlement import settlement_loop
+from modules.training.session.settlement import settlement_loop
 from repositories.training import TrainingRepository
 
 from .infra import set_training_infra
@@ -28,7 +28,7 @@ async def start_settlement(app_state, cleanup_interval):
     """Start settlement loop and notification publisher as background tasks."""
 
     async def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
-        from contexts.training.router.scoring import _run_scoring_background
+        from modules.training.router.scoring import _run_scoring_background
 
         await app_state.task_queue.enqueue(
             lambda rid=record_id, cd=case_data: _run_scoring_background(

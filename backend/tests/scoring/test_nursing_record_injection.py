@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-from contexts.training.scoring.engine import _build_history_messages, _load_nursing_record_text
 from models import NursingRecord, TrainingRecord
+from modules.training.scoring.engine import _build_history_messages, _load_nursing_record_text
 
 
 class TestLoadNursingRecordText:

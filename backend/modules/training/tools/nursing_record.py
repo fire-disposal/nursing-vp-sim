@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from contexts.training.capabilities import is_enabled
 from models import NursingRecord
+from modules.training.capabilities import is_enabled
 
 from .base import ToolContext, ToolHandler, ToolResult
 

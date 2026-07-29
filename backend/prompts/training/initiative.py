@@ -27,9 +27,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-from contexts.training.session.cache import InitiativeCache
 from infrastructure.llm.client import CallContext
 from infrastructure.llm.profile import get_llm_config
+from modules.training.session.cache import InitiativeCache
 from prompts.engine import render_template
 
 log = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ def _last_resort_fallback(mood: str) -> str:
 
 
 def _describe_mood(trust: int, comfort: int) -> str:
-    from contexts.training.patient_ai.emotion import _lookup_state
+    from modules.training.patient_ai.emotion import _lookup_state
 
     label, _ = _lookup_state(trust, comfort)
     mood_map = {
@@ -214,7 +214,7 @@ def apply_initiative_penalty(
     emotion_cache,
     db: Session,
 ) -> dict:
-    from contexts.training.patient_ai.emotion import get_emotion
+    from modules.training.patient_ai.emotion import get_emotion
 
     count = cache.get_count(record_id, db)
     emotion = get_emotion(record_id, emotion_cache, db)

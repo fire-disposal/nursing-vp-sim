@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from contexts.training.scoring.engine import evaluate_training
 from core.config import (
     SCORING_RETRY_GRACE_SECONDS,
     SCORING_TIMEOUT_SECONDS,
@@ -23,6 +22,7 @@ from infrastructure.scoring_progress import ScoringProgressTracker
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, TrainingSessionState, User
+from modules.training.scoring.engine import evaluate_training
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
@@ -261,7 +261,7 @@ async def _run_scoring_background(
         # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
-                from contexts.training.scoring.rubric import build_final_rubric
+                from modules.training.scoring.rubric import build_final_rubric
                 from profiles.history_taking import PROFILE
 
                 record.prompt_snapshot = {
@@ -440,7 +440,7 @@ async def end_training(
 
         db.commit()
 
-        from contexts.training.capabilities import detect_capabilities
+        from modules.training.capabilities import detect_capabilities
 
         features = detect_capabilities(
             case_data=record.case_snapshot or {},
@@ -452,7 +452,7 @@ async def end_training(
 
             cleanup_initiative(record.id, request.app.state.initiative_cache, db)
         if features.get("emotion"):
-            from contexts.training.patient_ai.emotion import cleanup_emotion
+            from modules.training.patient_ai.emotion import cleanup_emotion
 
             cleanup_emotion(record.id, request.app.state.emotion_cache, db)
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from contexts.training.capabilities import all_bindings
+from modules.training.capabilities import all_bindings
 
 KNOWN_TRAINING_TYPES = ["history_taking"]
 

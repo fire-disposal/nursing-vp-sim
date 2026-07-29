@@ -68,7 +68,7 @@ def _authorize(ctx: ToolContext, tool_name: str, action: str) -> None:
     if not is_read and ctx.record.status != "in_progress":
         raise ValidationError(detail="训练已结束，不能继续操作")
 
-    from contexts.training.capabilities import is_enabled
+    from modules.training.capabilities import is_enabled
 
     if not is_enabled(ctx.record, tool_name):
         raise ValidationError(detail=f"本次训练未启用工具: {tool_name}")

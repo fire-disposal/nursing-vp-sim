@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from contexts.training.capabilities import is_enabled
+from modules.training.capabilities import is_enabled
 
 from .base import ToolContext, ToolHandler, ToolResult, get_tool_config
 

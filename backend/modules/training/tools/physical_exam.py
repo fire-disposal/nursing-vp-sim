@@ -2,8 +2,8 @@
 
 import logging
 
-from contexts.training.capabilities import is_enabled
 from core.exceptions import AuthError, ValidationError
+from modules.training.capabilities import is_enabled
 from profiles.history_taking.exam import handle_operation
 
 from .base import ToolContext, ToolHandler, ToolResult

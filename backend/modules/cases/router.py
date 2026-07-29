@@ -4,12 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError as PydanticValidationError
 
-from contexts.training.capabilities import detect_capabilities
 from core.deps import CurrentUser, DbSession
 from core.security import require_permission
 from models import Case, User
 from modules.cases.generation import generate_case as _generate_case
 from modules.cases.service import CaseManageView, CaseService
+from modules.training.capabilities import detect_capabilities
 from schemas import (
     CaseBrief,
     CaseCreateRequest,

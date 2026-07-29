@@ -23,7 +23,7 @@ def register_routers(app: FastAPI) -> None:
 
     # ── composite routers (contexts expose a single APIRouter via __init__.py) ──
     from contexts.qa import router as qa_router
-    from contexts.training import (
+    from modules.training import (
         chat_router,
         training_router,
     )

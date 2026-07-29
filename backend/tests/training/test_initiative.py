@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from contexts.training.session.cache import InitiativeCache
+from modules.training.session.cache import InitiativeCache
 from prompts.training.initiative import (
     should_initiate,
 )

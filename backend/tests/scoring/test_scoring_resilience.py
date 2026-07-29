@@ -34,7 +34,7 @@ def _make_record(db_session, scoring_status):
 def test_run_scoring_background_retries_once_and_succeeds(db_session, monkeypatch):
     """evaluate_training fails once, succeeds on retry → completed."""
     import core.database
-    from contexts.training.router import scoring as scoring_mod
+    from modules.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
     db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
@@ -65,7 +65,7 @@ def test_run_scoring_background_retries_once_and_succeeds(db_session, monkeypatc
 def test_run_scoring_background_no_retry_on_timeout(db_session, monkeypatch):
     """TimeoutError → no retry, fail immediately."""
     import core.database
-    from contexts.training.router import scoring as scoring_mod
+    from modules.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
     db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
@@ -95,7 +95,7 @@ def test_run_scoring_background_no_retry_on_timeout(db_session, monkeypatch):
 def test_run_scoring_background_retry_exhausted_fails(db_session, monkeypatch):
     """Two consecutive non-timeout failures → fail after retry exhausted."""
     import core.database
-    from contexts.training.router import scoring as scoring_mod
+    from modules.training.router import scoring as scoring_mod
 
     rec = _make_record(db_session, scoring_status="pending")
     db_session.add(Message(record_id=rec.id, role="student", content="主诉是什么？"))
@@ -127,7 +127,7 @@ def test_run_scoring_background_retry_exhausted_fails(db_session, monkeypatch):
 
 def test_sweep_stale_scoring_records_marks_old(db_session):
     """scoring_status='processing' + end_time 15 min ago → marked failed."""
-    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from modules.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     old = TrainingRecord(
@@ -154,7 +154,7 @@ def test_sweep_stale_scoring_records_marks_old(db_session):
 
 def test_sweep_stale_scoring_records_ignores_recent(db_session):
     """scoring_status='processing' + end_time 5 min ago → untouched."""
-    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from modules.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     recent = TrainingRecord(
@@ -178,7 +178,7 @@ def test_sweep_stale_scoring_records_ignores_recent(db_session):
 
 def test_sweep_stale_scoring_records_handles_null_end_time(db_session):
     """Records with NULL end_time are ignored (safety)."""
-    from contexts.training.session.settlement import _sweep_stale_scoring_records
+    from modules.training.session.settlement import _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     null_end = TrainingRecord(
@@ -198,7 +198,7 @@ def test_sweep_stale_scoring_records_handles_null_end_time(db_session):
 
 def test_sweep_stale_scoring_records_marks_pending_too(db_session):
     """scoring_status='pending' + stale end_time → also swept."""
-    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from modules.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     rec = TrainingRecord(
@@ -224,7 +224,7 @@ def test_sweep_stale_scoring_records_marks_pending_too(db_session):
 
 def test_sweep_stale_scoring_records_discards_no_student_records(db_session):
     """Stale scoring record with no student turn is discarded, not failed."""
-    from contexts.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
+    from modules.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
     rec = TrainingRecord(

@@ -33,7 +33,7 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
         result.extend(stage_buckets.get(stage, []))
 
     # --- assemble NoteCollector ---
-    from contexts.training.patient_ai.note_collector import NoteCollector
+    from modules.training.patient_ai.note_collector import NoteCollector
     from profiles.history_taking import PROFILE
 
     collector = NoteCollector()

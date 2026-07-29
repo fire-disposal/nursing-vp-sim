@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-    from contexts.training.patient_ai.emotion import EmotionState
     from models import TrainingSessionState
+    from modules.training.patient_ai.emotion import EmotionState
 
 log = logging.getLogger(__name__)
 
@@ -27,13 +27,13 @@ class EmotionCache:
         row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
         if row is None or not isinstance(row.emotion_state, dict) or "trust" not in row.emotion_state:
             return None
-        from contexts.training.patient_ai.emotion import EmotionState
+        from modules.training.patient_ai.emotion import EmotionState
 
         return EmotionState.from_dict(row.emotion_state)
 
     def set(self, record_id: int, state: EmotionState, db: Session) -> None:
-        from contexts.training.patient_ai.emotion import EmotionState
         from models import TrainingSessionState
+        from modules.training.patient_ai.emotion import EmotionState
 
         if isinstance(state, EmotionState):
             row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()

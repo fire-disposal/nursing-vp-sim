@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from contexts.training.pipeline.context import PipelineContext
+    from modules.training.pipeline.context import PipelineContext
 
 from .note_source import NoteSource
 

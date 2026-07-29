@@ -1,8 +1,8 @@
-"""Unit tests for pure functions in contexts.training.service."""
+"""Unit tests for pure functions in modules.training.service."""
 
 import pytest
 
-from contexts.training.scoring.validation import (
+from modules.training.scoring.validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
     _convert_to_100_scale,

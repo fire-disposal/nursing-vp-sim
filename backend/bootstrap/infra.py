@@ -6,13 +6,13 @@ import threading
 
 import httpx
 
-from contexts.training.session.cache import EmotionCache, InitiativeCache
 from infrastructure.diagnose import get_diagnose_service
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue
 from infrastructure.realtime_hub import RealtimeHub
 from infrastructure.scoring_progress import ScoringProgressTracker
+from modules.training.session.cache import EmotionCache, InitiativeCache
 
 log = logging.getLogger(__name__)
 

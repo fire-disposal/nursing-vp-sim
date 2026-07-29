@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from contexts.training.pipeline import PipelineContext, get_pipeline, run_pipeline
+from modules.training.pipeline import PipelineContext, get_pipeline, run_pipeline
 
 
 @pytest.mark.asyncio

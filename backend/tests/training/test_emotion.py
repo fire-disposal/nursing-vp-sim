@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-from contexts.training.patient_ai.emotion import EmotionState
-from contexts.training.pipeline.middleware.side_effects import _read_emotion_state
+from modules.training.patient_ai.emotion import EmotionState
+from modules.training.pipeline.middleware.side_effects import _read_emotion_state
 from modules.voice.router import _resolve_emotion
 
 

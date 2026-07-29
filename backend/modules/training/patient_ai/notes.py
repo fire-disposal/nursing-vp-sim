@@ -6,9 +6,9 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from contexts.training.pipeline.context import PipelineContext
+    from modules.training.pipeline.context import PipelineContext
 
-from contexts.training.patient_ai.note_source import NoteSource
+from modules.training.patient_ai.note_source import NoteSource
 
 from .guards import get_identity_correction_note, has_identity_leak
 

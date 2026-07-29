@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError as PydanticValidationError
 
-from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import (
     LLMConcurrencyExceeded,
     LLMError,
@@ -20,6 +19,7 @@ from core.exceptions import (
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_llm_config
 from models import Case, User
+from modules.training.pipeline.prompt_context import PromptContext
 from profiles.history_taking.builder import format_case_for_prompt
 from prompts import render_template
 from prompts.generation import build_system_prompt

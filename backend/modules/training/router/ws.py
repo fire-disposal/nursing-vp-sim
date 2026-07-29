@@ -24,11 +24,11 @@ import logging
 import jwt
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 
-from contexts.training.tools import ToolContext
-from contexts.training.tools.service import execute_tool_request
 from core.database import SessionLocal
 from core.security import ALGORITHM, JWT_SECRET_KEY, _set_user_permissions
 from models import Case, TrainingRecord, User
+from modules.training.tools import ToolContext
+from modules.training.tools.service import execute_tool_request
 
 log = logging.getLogger(__name__)
 

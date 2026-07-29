@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
-from contexts.training.patient_ai.emotion import EmotionState
 from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
@@ -15,6 +14,7 @@ from infrastructure.tts.circuit import CircuitOpenError
 from infrastructure.tts.client import VolcBidirectionalTTSClient
 from infrastructure.tts.pool import TTSConnectionPool
 from models import User
+from modules.training.patient_ai.emotion import EmotionState
 from modules.voice.service import TTSService
 from schemas.voice import TTSSynthesizeRequest
 

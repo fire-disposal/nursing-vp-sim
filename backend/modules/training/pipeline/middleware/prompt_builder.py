@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 
-from contexts.training.patient_ai.chat_messages import build_patient_chat_messages
-from contexts.training.session.state import (
+from modules.training.patient_ai.chat_messages import build_patient_chat_messages
+from modules.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )

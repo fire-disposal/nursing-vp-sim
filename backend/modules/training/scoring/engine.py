@@ -8,12 +8,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import LLMParseError
 from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
+from modules.training.pipeline.prompt_context import PromptContext
 from profiles.history_taking import PROFILE
 from profiles.rubric_loader import get_rubric_version_id
 from prompts import render_template
