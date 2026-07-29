@@ -21,8 +21,8 @@ def register_routers(app: FastAPI) -> None:
     for mod in (assignments, auth, cases, feedback, exports, questionnaires, rubrics, stats, student_assignments):
         app.include_router(mod.router)
 
-    # ── composite routers (contexts expose a single APIRouter via __init__.py) ──
-    from contexts.qa import router as qa_router
+    # ── module routers expose APIRouter via __init__.py ──
+    from modules.qa import router as qa_router
     from modules.training import (
         chat_router,
         training_router,

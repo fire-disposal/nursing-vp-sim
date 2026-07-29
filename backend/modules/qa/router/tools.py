@@ -75,7 +75,7 @@ QA_TOOLS: list[dict[str, Any]] = [
 
 def build_tool_handlers() -> dict:
     """Build async tool handlers backed by chapter_index."""
-    from contexts.qa.knowledge_base.chapter_index import list_chapters, list_textbooks, read_section, search
+    from modules.qa.knowledge_base.chapter_index import list_chapters, list_textbooks, read_section, search
 
     handlers = {
         "list_textbooks": lambda _: json.dumps(list_textbooks(), ensure_ascii=False),
@@ -99,7 +99,7 @@ def build_tool_handlers() -> dict:
 def pre_search(question: str) -> list[dict[str, str]]:
     """Quick keyword search to provide citation metadata + snippets. Never raises."""
     try:
-        from contexts.qa.knowledge_base.chapter_index import search as chapter_search
+        from modules.qa.knowledge_base.chapter_index import search as chapter_search
 
         results = chapter_search(question, top_k=2)
         return [
@@ -125,7 +125,7 @@ def inject_search_context(
     if not citations:
         return
     try:
-        from contexts.qa.knowledge_base.chapter_index import read_section
+        from modules.qa.knowledge_base.chapter_index import read_section
 
         parts = ["【参考教材信息】"]
         parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
