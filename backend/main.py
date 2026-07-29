@@ -219,8 +219,8 @@ async def lifespan(app: FastAPI):
         log.exception("LLM ProfileRouter 初始化失败 — LLM 功能不可用")
         app.state.llm_router = None
 
-    from bootstrap import shutdown as bootstrap_shutdown
-    from bootstrap import startup as bootstrap_startup
+    from infrastructure.bootstrap import shutdown as bootstrap_shutdown
+    from infrastructure.bootstrap import startup as bootstrap_startup
 
     await bootstrap_startup(app)
     # Re-enqueue scoring for records recovered as 'pending' on startup
