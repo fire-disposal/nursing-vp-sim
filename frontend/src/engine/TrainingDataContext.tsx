@@ -1,11 +1,13 @@
 import { createContext, useContext, useMemo } from "react";
 import type { components } from "@/api/api-types.gen";
 import type { ChatMessage, PatientData } from "./types";
-import type { TrainingRecordDetail } from "./TrainingContext";
+import type { TrainingRecordDetail } from "./training-record-types";
 
 // ── Raw record from API (single source of truth) ──
 
 type TrainingRecord = components["schemas"]["TrainingRecordDetail"];
+const EMPTY_CAPABILITIES: Record<string, boolean> = {};
+
 
 const TrainingDataCtx = createContext<TrainingRecord | null>(null);
 
@@ -64,7 +66,7 @@ export function useInitialMessages(): ChatMessage[] {
 
 export function useRecordCapabilities(): Record<string, boolean> {
   const record = useTrainingData();
-  return useMemo(() => record?.features ?? {}, [record]);
+  return useMemo(() => record?.features ?? EMPTY_CAPABILITIES, [record]);
 }
 
 // ── Derived: training type ──

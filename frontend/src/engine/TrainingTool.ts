@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { TrainingRecordDetail } from "./TrainingContext";
+import type { TrainingRecordDetail } from "./training-record-types";
 import type { MessageBus } from "./types";
 
 /** A training tool = a protocolised frontend component.

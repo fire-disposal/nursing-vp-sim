@@ -7,7 +7,7 @@
  */
 import { create } from "zustand";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import type { TrainingRecordDetail } from "@/engine/TrainingContext";
+import type { TrainingRecordDetail } from "@/engine/training-record-types";
 
 export type EmotionState =
 	| "withdrawn"

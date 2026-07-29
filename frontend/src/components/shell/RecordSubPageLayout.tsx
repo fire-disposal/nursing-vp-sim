@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import HistoryTabs from "@/components/shell/HistoryTabs";
 import PageHeader from "@/components/ui/page-header";
 
 interface RecordSubPageLayoutProps {
@@ -11,10 +10,9 @@ interface RecordSubPageLayoutProps {
 }
 
 /**
- * Unified layout shell for the "记录" sub-pages:
- * /history, /my-feedback.
+ * Unified layout shell for record-owned pages.
  *
- * Ensures consistent HistoryTabs + PageHeader + content spacing.
+ * Feedback lives under "我的", so this shell only wraps training records.
  */
 export default function RecordSubPageLayout({
 	title,
@@ -24,7 +22,6 @@ export default function RecordSubPageLayout({
 }: RecordSubPageLayoutProps) {
 	return (
 		<div className="space-y-4">
-			<HistoryTabs />
 			<PageHeader title={title} subtitle={subtitle} icon={icon} />
 			{children}
 		</div>

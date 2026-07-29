@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
 const TAB_SUB_PATHS: Record<string, string[]> = {
-	"/history": ["/record", "/my-feedback"],
-	"/profile": ["/notifications"],
+	"/history": ["/record"],
+	"/profile": ["/notifications", "/my-feedback"],
 };
 
 function isLinkActive(pathname: string, link: NavItem): boolean {

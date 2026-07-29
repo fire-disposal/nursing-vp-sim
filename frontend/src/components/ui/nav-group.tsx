@@ -1,7 +1,8 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 
 interface NavGroupProps {
 	label: string;
@@ -19,14 +20,10 @@ export function NavGroup({
 	children,
 }: NavGroupProps) {
 	const location = useLocation();
-	const [open, setOpen] = useState(() => {
-		try {
-			const stored = localStorage.getItem(`navgroup-${storageKey}`);
-			return stored !== null ? stored === "true" : defaultOpen;
-		} catch {
-			return defaultOpen;
-		}
-	});
+	const open = useUiPrefsStore((s) =>
+		s.getNavGroupOpen(storageKey, defaultOpen),
+	);
+	const setNavGroupOpen = useUiPrefsStore((s) => s.setNavGroupOpen);
 
 	const currentPath = location.pathname;
 
@@ -36,22 +33,14 @@ export function NavGroup({
 				`[data-navgroup="${storageKey}"]`,
 			);
 			if (container?.querySelector("[aria-current=\"page\"]")) {
-				setOpen(true);
+				setNavGroupOpen(storageKey, true);
 			}
 		}
-	}, [currentPath, open, storageKey]);
+	}, [currentPath, open, setNavGroupOpen, storageKey]);
 
 	const toggle = useCallback(() => {
-		setOpen((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem(`navgroup-${storageKey}`, String(next));
-			} catch {
-				// localStorage unavailable
-			}
-			return next;
-		});
-	}, [storageKey]);
+		setNavGroupOpen(storageKey, !open);
+	}, [open, setNavGroupOpen, storageKey]);
 
 	if (
 		!children ||

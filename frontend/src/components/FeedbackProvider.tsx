@@ -1,12 +1,6 @@
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useFeedbackStore } from "@/stores/feedbackStore";
 import FeedbackModal from "./FeedbackModal";
 
 interface FeedbackContextValue {
@@ -17,55 +11,33 @@ interface FeedbackContextValue {
 	closeFeedback: () => void;
 }
 
-const FeedbackContext = createContext<FeedbackContextValue | null>(null);
-
-const STORAGE_KEY = "feedback_v1_prompted";
-
-export function FeedbackProvider({ children }: { children: ReactNode }) {
-	const [isOpen, setIsOpen] = useState(false);
-	const [showPrompt, setShowPrompt] = useState(false);
+export function FeedbackHost() {
+	const isOpen = useFeedbackStore((s) => s.isOpen);
+	const closeFeedback = useFeedbackStore((s) => s.closeFeedback);
+	const markSubmitted = useFeedbackStore((s) => s.markSubmitted);
+	const initializePrompt = useFeedbackStore((s) => s.initializePrompt);
 
 	useEffect(() => {
-		const prompted = localStorage.getItem(STORAGE_KEY);
-		if (!prompted) {
-			setShowPrompt(true);
-		}
-	}, []);
-
-	const openFeedback = useCallback(() => {
-		setIsOpen(true);
-	}, []);
-
-	const closeFeedback = useCallback(() => {
-		localStorage.setItem(STORAGE_KEY, "1");
-		setIsOpen(false);
-		setShowPrompt(false);
-	}, []);
-
-	const handleSubmitted = useCallback(() => {
-		localStorage.setItem(STORAGE_KEY, "1");
-		setShowPrompt(false);
-	}, []);
-
-	const value = useMemo(
-		() => ({ openFeedback, isOpen, showPrompt, setShowPrompt, closeFeedback }),
-		[openFeedback, isOpen, showPrompt, closeFeedback],
-	);
+		initializePrompt();
+	}, [initializePrompt]);
 
 	return (
-		<FeedbackContext.Provider value={value}>
-			{children}
-			<FeedbackModal
-				open={isOpen}
-				onClose={closeFeedback}
-				onSubmitted={handleSubmitted}
-			/>
-		</FeedbackContext.Provider>
+		<FeedbackModal
+			open={isOpen}
+			onClose={closeFeedback}
+			onSubmitted={markSubmitted}
+		/>
 	);
 }
 
 export function useFeedback(): FeedbackContextValue {
-	const ctx = useContext(FeedbackContext);
-	if (!ctx) throw new Error("useFeedback must be inside FeedbackProvider");
-	return ctx;
+	return useFeedbackStore(
+		useShallow((s) => ({
+			openFeedback: s.openFeedback,
+			isOpen: s.isOpen,
+			showPrompt: s.showPrompt,
+			setShowPrompt: s.setShowPrompt,
+			closeFeedback: s.closeFeedback,
+		})),
+	);
 }

@@ -22,6 +22,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { feedbackImageUrl, getFeedbackStats, getFeedbacks, replyFeedback } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -474,7 +475,6 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 	);
 }
 
-const CHARTS_KEY = "admin:feedbackChartsOpen";
 
 export default function FeedbackTab() {
 	const [tag, setTag] = useState("");
@@ -483,9 +483,8 @@ export default function FeedbackTab() {
 	const [offset, setOffset] = useState(0);
 	const { searchInput, debouncedValue: searchText, handleSearchChange } = useDebouncedSearch("", 300);
 	const [replyStatus, setReplyStatus] = useState("");
-	const [chartsOpen, setChartsOpen] = useState(
-		() => localStorage.getItem(CHARTS_KEY) === "1",
-	);
+	const chartsOpen = useUiPrefsStore((s) => s.feedbackChartsOpen);
+	const setChartsOpen = useUiPrefsStore((s) => s.setFeedbackChartsOpen);
 	const LIMIT = 20;
 	const _toast = useToast();
 
@@ -517,10 +516,7 @@ export default function FeedbackTab() {
 	};
 
 	const toggleCharts = () => {
-		setChartsOpen((prev) => {
-			localStorage.setItem(CHARTS_KEY, prev ? "0" : "1");
-			return !prev;
-		});
+		setChartsOpen(!chartsOpen);
 	};
 
 	return (

@@ -127,8 +127,8 @@ export const APP_ROUTES: AppRoute[] = [
 	// Sub-pages under 记录 — not primary nav items.
 	{ path: "/record/:id", element: <RecordDetail />, activity: "manage" },
 	{ path: "/admin/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
-	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	// Sub-pages under 我的 — not primary nav items.
+	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
 	// QA — AI 护理导师，学生端独立 Tab。
 	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: Bot, section: "user", shortLabel: "问答" } },

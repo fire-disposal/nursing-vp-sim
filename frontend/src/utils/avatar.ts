@@ -57,6 +57,14 @@ export function getPatientKey(patientInfo?: PatientInfo | null): string {
 	return `patient_${group}_${sex}`;
 }
 
+
+export function safeAvatarUrl(
+	url: string | null | undefined,
+	fallback = avatars.patient_middle_male,
+): string {
+	if (!url || /^\s*file:/i.test(url)) return fallback;
+	return url;
+}
 export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
 	const key = getPatientKey(patientInfo);
 	return avatars[key] || avatars.patient_middle_male;

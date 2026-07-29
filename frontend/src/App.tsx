@@ -9,11 +9,11 @@ import {
 	useNavigate,
 } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { FeedbackProvider } from "@/components/FeedbackProvider";
+import { FeedbackHost } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RequirePermission from "@/components/RequirePermission";
-import { ConfirmProvider } from "@/components/ui/confirm";
+import { ConfirmHost } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_ROUTES } from "@/components/shell/navigation";
@@ -83,39 +83,37 @@ export default function App() {
 				<ForceLogoutListener />
 				<TelemetryInit />
 				<Toaster />
-				<ConfirmProvider>
-					<FeedbackProvider>
-						<ErrorBoundary>
-							<Suspense fallback={<PageLoader />}>
-								<Routes>
-									<Route path="/login" element={<Login />} />
-									<Route path="/showcase" element={<Showcase />} />
-									<Route element={<ProtectedRoute />}>
-										<Route element={<Layout />}>
-											<Route index element={<Navigate to="/training" replace />} />
-											{APP_ROUTES.map((r) => (
-												<Route
-													key={r.path}
-													path={r.path}
-													element={
-														r.permission ? (
-															<RequirePermission permission={r.permission}>
-																{r.element}
-															</RequirePermission>
-														) : (
-															r.element
-														)
-													}
-												/>
-											))}
-										</Route>
-									</Route>
-									<Route path="*" element={<Navigate to="/login" replace />} />
-								</Routes>
-							</Suspense>
-						</ErrorBoundary>
-					</FeedbackProvider>
-				</ConfirmProvider>
+				<ConfirmHost />
+				<FeedbackHost />
+				<ErrorBoundary>
+					<Suspense fallback={<PageLoader />}>
+						<Routes>
+							<Route path="/login" element={<Login />} />
+							<Route path="/showcase" element={<Showcase />} />
+							<Route element={<ProtectedRoute />}>
+								<Route element={<Layout />}>
+									<Route index element={<Navigate to="/training" replace />} />
+									{APP_ROUTES.map((r) => (
+										<Route
+											key={r.path}
+											path={r.path}
+											element={
+												r.permission ? (
+													<RequirePermission permission={r.permission}>
+														{r.element}
+													</RequirePermission>
+												) : (
+													r.element
+												)
+											}
+										/>
+									))}
+								</Route>
+							</Route>
+							<Route path="*" element={<Navigate to="/login" replace />} />
+						</Routes>
+					</Suspense>
+				</ErrorBoundary>
 				</MotionConfig>
 				</TooltipProvider>
 			</QueryClientProvider>

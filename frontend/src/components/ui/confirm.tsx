@@ -1,12 +1,6 @@
 import { AlertTriangle } from "lucide-react";
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useRef,
-	useState,
-} from "react";
+import type { ReactNode } from "react";
+import { useConfirmStore } from "@/stores/confirmStore";
 import {
 	Dialog,
 	DialogAction,
@@ -80,49 +74,35 @@ function ConfirmDialogView({
 	);
 }
 
-const ConfirmContext = createContext<ConfirmContextType | null>(null);
-
 export function useConfirm(): ConfirmContextType {
-	const ctx = useContext(ConfirmContext);
-	if (!ctx) throw new Error("useConfirm must be used within ConfirmProvider");
-	return ctx;
+	const confirm = useConfirmStore((s) => s.confirm);
+	return { confirm };
+}
+
+export function ConfirmHost() {
+	const current = useConfirmStore((s) => s.current);
+	const closeConfirm = useConfirmStore((s) => s.closeConfirm);
+
+	return (
+		<ConfirmDialogView
+			open={current != null}
+			title={current?.title ?? ""}
+			message={current?.message ?? ""}
+			confirmLabel={current?.confirmLabel}
+			cancelLabel={current?.cancelLabel}
+			danger={current?.danger}
+			onConfirm={() => closeConfirm(true)}
+			onCancel={() => closeConfirm(false)}
+		/>
+	);
 }
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
-	const [state, setState] = useState<
-		(ConfirmOptions & { open: boolean }) | null
-	>(null);
-	const resolveRef = useRef<((val: boolean) => void) | null>(null);
-
-	const confirm = useCallback(
-		(opts: ConfirmOptions): Promise<boolean> =>
-			new Promise((resolve) => {
-				resolveRef.current = resolve;
-				setState({ ...opts, open: true });
-			}),
-		[],
-	);
-
-	const handleClose = useCallback((val: boolean) => {
-		resolveRef.current?.(val);
-		resolveRef.current = null;
-		setState(null);
-	}, []);
-
 	return (
-		<ConfirmContext.Provider value={{ confirm }}>
+		<>
 			{children}
-			<ConfirmDialogView
-				open={state?.open ?? false}
-				title={state?.title ?? ""}
-				message={state?.message ?? ""}
-				confirmLabel={state?.confirmLabel}
-				cancelLabel={state?.cancelLabel}
-				danger={state?.danger}
-				onConfirm={() => handleClose(true)}
-				onCancel={() => handleClose(false)}
-			/>
-		</ConfirmContext.Provider>
+			<ConfirmHost />
+		</>
 	);
 }
 

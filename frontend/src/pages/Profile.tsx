@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import { Input } from "@/components/ui/input";
+import ProfileTabs from "@/components/shell/ProfileTabs";
 import PageHeader from "@/components/ui/page-header";
 import {
   type PasswordChangeFormValues,
@@ -104,6 +105,7 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
+      <ProfileTabs />
       <PageHeader title="个人中心" subtitle="管理你的账户与偏好" icon={User} />
 
       {/* ── Profile info ── */}

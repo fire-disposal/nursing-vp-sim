@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { PatientData } from "@/engine/types";
-import { getPatientAvatar } from "@/utils/avatar";
+import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 
 interface WelcomeScreenProps {
 	patient: PatientData;
@@ -12,7 +12,8 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ patient, onQuickPrompt: _onQuickPrompt, capabilities = {} }: WelcomeScreenProps) {
 	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
-	const avatarSrc = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });
+	const fallbackAvatar = getPatientAvatar({ name: patient.name, gender: patient.gender });
+	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);
 
 	const genderLabel = patient.gender === "male" ? "男" : "女";
 	const ageLabel = patient.age ? `${patient.age}岁` : "";

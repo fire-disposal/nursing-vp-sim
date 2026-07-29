@@ -1,5 +1,5 @@
 import type { PatientInfo } from "./avatar";
-import { getPatientAvatar, getPatientKey } from "./avatar";
+import { getPatientAvatar, getPatientKey, safeAvatarUrl } from "./avatar";
 
 const variantModules = import.meta.glob<{ default: string }>(
 	"@/assets/avatars/*-{a,h,s,n}.png",
@@ -29,5 +29,5 @@ export function getPatientPortraitUrl(
 	const suffix = EMOTION_SUFFIX[emotion];
 	if (!suffix) return getPatientAvatar(patientInfo);
 	const key = getPatientKey(patientInfo);
-	return variantMap[`${key}${suffix}`] || getPatientAvatar(patientInfo);
+	return safeAvatarUrl(variantMap[`${key}${suffix}`], getPatientAvatar(patientInfo));
 }

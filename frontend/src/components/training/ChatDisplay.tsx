@@ -8,7 +8,7 @@ import {
 } from "@/stores/trainingStore";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
-import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
+import { getNurseAvatar, getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 
 interface ChatDisplayProps {
   messages: ChatMessage[];
@@ -97,9 +97,11 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		return unsub;
 	}, [bus]);
 
-	const patientAvatar =
-		portraitUrl ||
-		getPatientAvatar({ name: patient.name, gender: patient.gender });
+	const fallbackPatientAvatar = getPatientAvatar({
+		name: patient.name,
+		gender: patient.gender,
+	});
+	const patientAvatar = safeAvatarUrl(portraitUrl, fallbackPatientAvatar);
 	const nurseGender = useAuthStore((s) => s.user?.gender);
 	const nurseAvatar = getNurseAvatar(nurseGender);
 

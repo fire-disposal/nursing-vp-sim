@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
+import { ConfirmHost, ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 
 function ConfirmTrigger({ onResult }: { onResult: (v: boolean) => void }) {
 	const { confirm } = useConfirm();
@@ -83,13 +83,18 @@ describe("ConfirmDialog", () => {
 		expect(titles.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("throws error when useConfirm used outside provider", () => {
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => {});
-		expect(() => render(<ConfirmTrigger onResult={() => {}} />)).toThrow(
-			"useConfirm must be used within ConfirmProvider",
+	it("works with a standalone ConfirmHost", async () => {
+		const onResult = vi.fn();
+		render(
+			<>
+				<ConfirmHost />
+				<ConfirmTrigger onResult={onResult} />
+			</>,
 		);
-		consoleError.mockRestore();
+
+		await userEvent.click(screen.getByText("Delete"));
+		await userEvent.click(screen.getByText("确定"));
+
+		expect(onResult).toHaveBeenCalledWith(true);
 	});
 });

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
@@ -35,6 +35,20 @@ interface TrainingEngineProps {
 	children: ReactNode;
 }
 
+function TrainingBootSkeleton() {
+	return (
+		<div
+			className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground"
+			style={{ height: "100dvh" }}
+		>
+			<div className="space-y-3 text-center">
+				<div className="mx-auto size-8 animate-pulse rounded-full bg-primary/20" />
+				<div>正在准备训练场景…</div>
+			</div>
+		</div>
+	);
+}
+
 export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const recordNum = Number(recordId);
 	const { error: toastError } = useToast();
@@ -60,10 +74,13 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const endingRef = useRef(false);
 	useToolBridge(busRef.current);
 
-	// ── Init store once on mount / record change ──
-	const initedRef = useRef(false);
+	// ── Init store before rendering store-backed training children ──
+	const [readyRecordId, setReadyRecordId] = useState<string | null>(null);
 	useEffect(() => {
-		if (!patient) return;
+		if (!patient) {
+			setReadyRecordId(null);
+			return;
+		}
 		const store = getTrainingState();
 		store.init({
 			bus: busRef.current,
@@ -77,7 +94,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			remainingSeconds: remainingSec,
 			emotionSeed,
 		});
-		initedRef.current = true;
+		setReadyRecordId(recordId);
 	}, [
 		recordId, patient, trainingType, capabilities, timeLimit,
 		recordDetail, initialMessages, remainingSec, emotionSeed,
@@ -276,12 +293,8 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.speak(firstPatient.content);
 	}, [messages, ttsAutoPlay]);
 
-	if (!patient) {
-		return (
-			<div className="flex h-screen items-center justify-center text-muted-foreground" style={{ height: "100dvh" }}>
-				患者信息加载失败 — 请返回重试或刷新页面
-			</div>
-		);
+	if (!patient || readyRecordId !== recordId) {
+		return <TrainingBootSkeleton />;
 	}
 
 	return (

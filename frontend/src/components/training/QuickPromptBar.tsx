@@ -1,9 +1,9 @@
 import { ChevronDown, ChevronUp, MessageSquareQuote } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { PatientData } from "@/engine/types";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { EXTRA_CHAT_PROMPTS, getQuickPrompts } from "./quick-prompts";
 
-const COLLAPSE_KEY = "training:quickPromptsCollapsed";
 
 interface QuickPromptBarProps {
 	patient: PatientData;
@@ -16,9 +16,8 @@ interface QuickPromptBarProps {
  * 点击即发送；可折叠，折叠状态 localStorage 持久化。
  */
 export function QuickPromptBar({ patient, disabled, onSelect }: QuickPromptBarProps) {
-	const [collapsed, setCollapsed] = useState(
-		() => localStorage.getItem(COLLAPSE_KEY) === "1",
-	);
+	const collapsed = useUiPrefsStore((s) => s.quickPromptsCollapsed);
+	const setCollapsed = useUiPrefsStore((s) => s.setQuickPromptsCollapsed);
 
 	const prompts = useMemo(
 		() => [...getQuickPrompts(patient), ...EXTRA_CHAT_PROMPTS],
@@ -26,10 +25,7 @@ export function QuickPromptBar({ patient, disabled, onSelect }: QuickPromptBarPr
 	);
 
 	const toggle = () => {
-		setCollapsed((prev) => {
-			localStorage.setItem(COLLAPSE_KEY, prev ? "0" : "1");
-			return !prev;
-		});
+		setCollapsed(!collapsed);
 	};
 
 	if (collapsed) {

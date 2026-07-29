@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 const PROFILE_TABS = [
 	{ key: "profile", to: "/profile", label: "个人资料", permission: null },
 	{ key: "notifications", to: "/notifications", label: "通知", permission: null },
-	{ key: "qa", to: "/qa", label: "护理问答", permission: "qa_access" as const },
+	{ key: "feedback", to: "/my-feedback", label: "我的反馈", permission: null },
 ] as const;
 
 /**
  * Shared sub-tab bar for the "我的" (Profile) section.
  *
- * Renders on /profile, /notifications, and /qa,
- * ensuring consistent sub-navigation within the third tab group.
+ * Renders on /profile, /notifications, and /my-feedback,
+ * keeping account-owned pages grouped together.
  *
  * Tabs with permission requirements are hidden from users
  * who lack them. If only one tab is visible, the bar hides.

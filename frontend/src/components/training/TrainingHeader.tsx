@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { getPatientAvatar } from "@/utils/avatar";
+import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 import { cn } from "@/lib/utils";
 import { useShortViewport } from "@/hooks/useShortViewport";
 
@@ -31,7 +31,7 @@ function WSStatusDot() {
 }
 
 /**
- * Zero props — TrainingHeader reads all state from TrainingContext.
+ * Zero props — TrainingHeader reads precisely selected fields from trainingStore.
  * This avoids the prop-explosion problem that accumulated 13+ props.
  */
 interface TrainingHeaderProps {
@@ -40,7 +40,7 @@ interface TrainingHeaderProps {
 }
 
 export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
-	const patient = useTrainingStore(s => s.patient!);
+	const patient = useTrainingStore(s => s.patient);
 	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
 	const messages = useTrainingStore(s => s.messages);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
@@ -112,9 +112,24 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 		}
 	}, [autoEndOpen, autoEndCountdown, executeEnd]);
 
-	const avatarSrc =
-		portraitUrl ||
-		getPatientAvatar({ name: patient.name, gender: patient.gender });
+	if (!patient) {
+		return (
+			<header
+				className={cn("absolute top-0 left-0 right-0 z-10 bg-card px-2 sm:px-4 shadow-e1", isShort ? "h-9" : "h-11 sm:h-12")}
+				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+			>
+				<div className="flex h-full items-center text-xs text-muted-foreground">
+					正在准备患者信息…
+				</div>
+			</header>
+		);
+	}
+
+	const fallbackAvatar = getPatientAvatar({
+		name: patient.name,
+		gender: patient.gender,
+	});
+	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);
 
 	return (
 		<>
