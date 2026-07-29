@@ -122,7 +122,24 @@ jobs:
 
             OLD_BACKEND=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
             OLD_VER=\$(echo "\$OLD_BACKEND" | rev | cut -d: -f1 | rev)
-            echo ">> Current production: v\$OLD_VER"
+            OLD_DB_REV=\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}' || true)
+            echo ">> Current production: v\$OLD_VER (db=\${OLD_DB_REV:-unknown})"
+            rollback_deploy() {
+              echo "  ✗ \$1 Rolling back..."
+              if [ -n "\$OLD_DB_REV" ]; then
+                echo "  >> attempting alembic downgrade to \$OLD_DB_REV before rolling back image..."
+                docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic downgrade "\$OLD_DB_REV" 2>/dev/null \
+                  || echo "  ⚠ downgrade to \$OLD_DB_REV failed; restore backup manually: \$BAK"
+              else
+                echo "  ⚠ previous DB revision unknown; skipping automatic migration downgrade"
+              fi
+              if [ -n "\$OLD_VER" ]; then
+                IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
+                echo "  ⚠ rolled back to v\$OLD_VER"
+              else
+                echo "  ✗ no previous version to roll back to"
+              fi
+            }
 
             echo ">> Deploy v$VER"
             STAGING_VER=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null | rev | cut -d: -f1 | rev || echo "none")
@@ -153,21 +170,12 @@ jobs:
               case "\$S" in
                 healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
                 unhealthy)
-                  echo "  ✗ unhealthy! Rolling back..."
-                  echo "  >> attempting alembic downgrade before rolling back image..."
-                  docker compose -f docker-compose.yml --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
-                    || echo "  ⚠ downgrade failed (container may be too broken, will be dropped)"
-                  if [ -n "\$OLD_VER" ]; then
-                    IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
-                    echo "  ⚠ rolled back to v\$OLD_VER"
-                  else
-                    echo "  ✗ no previous version to roll back to"
-                  fi
+                  rollback_deploy "backend unhealthy!"
                   exit 1 ;;
               esac
               sleep 2
             done
-            [ "\$OK" = true ] || { echo "  ✗ timeout (unhealthy?)"; exit 1; }
+            [ "\$OK" = true ] || { rollback_deploy "health check timeout."; exit 1; }
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
             echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
