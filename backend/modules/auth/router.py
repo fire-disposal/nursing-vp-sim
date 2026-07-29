@@ -7,6 +7,7 @@ from core.deps import CurrentUser, DbSession
 from core.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from core.security import decode_token_allow_expired, require_permission
 from models import User
+from modules.auth.service import AuthService
 from schemas import (
     ChangePasswordRequest,
     LoginRequest,
@@ -17,7 +18,6 @@ from schemas import (
     UserBrief,
     UserProfileUpdateRequest,
 )
-from services.auth import AuthService
 
 log = logging.getLogger(__name__)
 

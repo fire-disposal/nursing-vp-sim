@@ -96,8 +96,8 @@ class TestRegister:
 
         from core.exceptions import ConflictError
         from models import Role, User
+        from modules.auth.service import AuthService
         from schemas import RegisterRequest
-        from services.auth import AuthService
 
         results = []
         barrier = threading.Barrier(2)
