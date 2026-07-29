@@ -22,14 +22,14 @@ def register_routers(app: FastAPI) -> None:
         app.include_router(mod.router)
 
     # ── module routers expose APIRouter via __init__.py ──
+    from modules.admin import router as admin_router
     from modules.qa import router as qa_router
     from modules.training import (
         chat_router,
         training_router,
     )
-    from routers import admin
 
-    app.include_router(admin.router)
+    app.include_router(admin_router)
     app.include_router(qa_router)
     for r in (training_router, chat_router):
         app.include_router(r)

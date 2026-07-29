@@ -1,5 +1,5 @@
 """Shared diagnostic query helpers — consumed by both public ops endpoints
-(``routers/ops.py``) and admin ops endpoints (``routers/admin/ops.py``).
+(``infra/diagnostics.py``) and admin ops endpoints (``modules/admin/ops.py``).
 
 All functions accept a SQLAlchemy ``Session`` and return plain dicts / lists —
 callers are responsible for auth, response shaping, and alert derivation.
