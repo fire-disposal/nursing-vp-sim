@@ -500,11 +500,14 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 | `version` | 当前部署版本 |
 | `health` | 健康状态 |
 | `summary` | 汇总状态（healthy / degraded）|
+| `generated_at` / `windows` | 响应生成时间与各指标统计窗口说明 |
 | `llm` | LLM 调用统计（24h 调用量/成功率/错误数/延迟/top错误） |
 | `scoring` | 评分队列状态（success_rate / pending / in_progress / completed_24h / failed_24h） |
 | `voice` | 语音服务 TTS/ASR 统计 |
 | `voice_budget` | 语音月度预算使用 |
 | `metrics` | 系统指标快照（uptime/请求/活跃会话/内存/队列） |
+| `database` / `runtime` | DB 探测、LLM router 降级状态、诊断缓存时间 |
+| `frontend_errors` | 前端 ErrorBoundary / window error / unhandled rejection 遥测摘要 |
 | `errors` | 错误计数（last_5min / last_hour / unique_24h / total_captured）及最近错误列表 |
 | `alerts` | 自动告警列表 |
 
@@ -513,7 +516,7 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 
 综合诊断快照 `/api/diagnose`，单端点聚合，使用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）。
 
-返回字段: `version`, `health`, `summary`, `llm`, `scoring`, `voice`, `voice_budget`, `metrics`, `errors`, `alerts`。
+返回字段: `version`, `generated_at`, `windows`, `health`, `summary`, `database`, `runtime`, `llm`, `scoring`, `voice`, `voice_budget`, `business`, `metrics`, `frontend_errors`, `errors`, `alerts`。
 
 `/api/diagnose` 自动告警阈值：
 
@@ -526,9 +529,12 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 | 排队评分 | > 30 条 |
 | 活跃会话 | > 50 个 |
 | TTS 成功率 | < 90% |
-| ASR 成功率 | < 80% |
-| TTS/ASR 24h 错误数 | > 20 |
+| TTS 24h 错误数 | > 20 |
 | 语音月度预算 | > 90% |
+| HTTP 4xx 占比 | 请求总量 >= 20 且 4xx > 20% |
+| HTTP p95 延迟 | > 2000ms |
+| 前端 5min 错误 | > 0 |
+| 前端 1h 错误 | > 10 |
 
 ## 关键指标
 

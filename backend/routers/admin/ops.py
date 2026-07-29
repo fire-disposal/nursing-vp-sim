@@ -67,13 +67,17 @@ async def admin_ops_dashboard(
     try:
         diag_svc = get_diagnose_service()
         diagnostic = await diag_svc.get_diagnose()
-        system_errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
+        raw_system_errors = diagnostic.get("errors") if isinstance(diagnostic, dict) else None
+        raw_frontend_errors = diagnostic.get("frontend_errors") if isinstance(diagnostic, dict) else None
+        system_errors = raw_system_errors if isinstance(raw_system_errors, dict) else {}
+        frontend_errors = raw_frontend_errors if isinstance(raw_frontend_errors, dict) else {}
         data["error_burst_5min"] = system_errors.get("burst_5min", 0)
+        data["frontend_errors"] = frontend_errors
+        data["http"] = metrics_snapshot.get("requests", {})
     except Exception:
-        diagnostic = {"error": "diagnose service unavailable"}
         system_errors = {}
+        frontend_errors = {}
         data["error_burst_5min"] = 0
-
     errors_structured = {
         "count": {
             "last_5min": system_errors.get("last_5min", 0),
@@ -84,6 +88,8 @@ async def admin_ops_dashboard(
         },
         "recent": system_errors.get("recent", []),
     }
+
+    alerts = compute_alerts(data)
 
     return {
         "health": {"status": "ok", "version": APP_VERSION},
@@ -97,6 +103,8 @@ async def admin_ops_dashboard(
         "sse": sse_stats,
         "metrics": metrics_snapshot,
         "errors": errors_structured,
+        "frontend_errors": frontend_errors,
+        "alerts": alerts,
     }
 
 

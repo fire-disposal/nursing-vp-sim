@@ -191,6 +191,46 @@ function AlertsCard({ data }: { data: DiagnoseResponse }) {
 	);
 }
 
+function HttpFrontendCard({ data }: { data: DiagnoseResponse }) {
+	const requests = data.metrics?.requests;
+	const frontend = data.frontend_errors;
+	const top4xx = requests?.top_4xx ?? [];
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>HTTP & 前端遥测</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="grid grid-cols-2 gap-y-3 text-sm">
+					<span className="text-muted-foreground">请求总数</span>
+					<span className="text-right tabular-nums">{requests?.total ?? 0}</span>
+					<span className="text-muted-foreground">4xx</span>
+					<span className="text-right tabular-nums text-amber-600">{requests?.by_status?.["4xx"] ?? 0}</span>
+					<span className="text-muted-foreground">p95</span>
+					<span className="text-right tabular-nums">{requests?.latency_ms?.p95 ?? 0} ms</span>
+					<span className="text-muted-foreground">前端错误 5min / 1h</span>
+					<span className="text-right tabular-nums">
+						{frontend?.last_5min ?? 0} / {frontend?.last_hour ?? 0}
+					</span>
+				</div>
+				{top4xx.length > 0 && (
+					<div className="mt-3 border-t pt-3">
+						<div className="mb-2 text-xs text-muted-foreground">Top 4xx</div>
+						<div className="space-y-1">
+							{top4xx.slice(0, 5).map((item) => (
+								<div key={`${item.route}-${item.status}`} className="flex justify-between gap-3 text-xs">
+									<span className="truncate font-mono text-muted-foreground">{item.route}</span>
+									<span className="shrink-0 tabular-nums">{item.status} · {item.count}</span>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 	const entries = data.errors?.recent || [];
 	return (
@@ -290,6 +330,7 @@ export default function SystemOpsPage() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<LLMDetailCard data={data} />
 				<ScoringSessionsCard data={data} />
+				<HttpFrontendCard data={data} />
 			</div>
 
 			<AlertsCard data={data} />
