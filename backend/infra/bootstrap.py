@@ -104,7 +104,7 @@ async def init_infra(app_state, llm_router):
     app_state.emotion_cache = EmotionCache()
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()
-    from infra.frontend_telemetry import FrontendErrorBuffer
+    from infra.telemetry import FrontendErrorBuffer
 
     app_state.frontend_error_buffer = FrontendErrorBuffer()
 

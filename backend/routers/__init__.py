@@ -35,10 +35,10 @@ def register_routers(app: FastAPI) -> None:
         app.include_router(r)
 
     # ── infrastructure routers (third-party integration endpoints) ──
+    from infra.diagnostics import router as diagnostics_router
+    from infra.telemetry import router as telemetry_router
     from modules.voice.router import router as tts_router
-    from routers.health import router as health_router
     from routers.profiles import router as profiles_router
-    from routers.telemetry import router as telemetry_router
 
-    for r in (health_router, profiles_router, telemetry_router, tts_router):
+    for r in (diagnostics_router, profiles_router, telemetry_router, tts_router):
         app.include_router(r)

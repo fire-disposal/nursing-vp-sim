@@ -1,39 +1,52 @@
-"""In-memory ring buffer for frontend error telemetry.
+"""Frontend telemetry buffer and ingest endpoint.
 
-Same pattern as ``ErrorCaptureHandler`` in ``infrastructure/diagnose.py``:
-deduplicated ring buffer, zero disk IO, queryable via ops dashboard.
-
-Payload ~200 bytes per error, delivered via ``navigator.sendBeacon``.
+Telemetry is best-effort runtime infrastructure: it never blocks user requests and is exposed
+through diagnostics snapshots.
 """
 
+from __future__ import annotations
+
+import logging
 import time
 from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/telemetry", tags=["遥测"])
+
 _MAX_ERRORS = 2000
-_DEDUP_WINDOW = 300  # 5 分钟去重窗口
-_DEDUP_HASH_HEAD = 120  # 去重 message 取前 N 字符
+_DEDUP_WINDOW = 300
+_DEDUP_HASH_HEAD = 120
 _RECENT_N = 20
-_MSG_MAX = 1000  # 单条错误消息最大字符数
+_MSG_MAX = 1000
+_MAX_BATCH = 20
+_RATE_WINDOW = 60
+_RATE_MAX = 5
+
+_rate_state: dict[str, tuple[float, int]] = {}
 
 
 @dataclass
 class FrontendErrorEntry:
-    time: str  # ISO 8601
-    error_type: str  # AbortError, TypeError, NetworkError, ...
-    message: str  # 用户可见消息
-    url: str = ""  # 触发页面或 API 路径
-    user_id: int = 0  # 0 = 未登录
-    ua: str = ""  # 浏览器 UA 摘要
-    source: str = ""  # ErrorBoundary, window.error, unhandledrejection, api
-    component_stack: str = ""  # React component stack, truncated
-    count: int = 1  # 去重合并计数
+    time: str
+    error_type: str
+    message: str
+    url: str = ""
+    user_id: int = 0
+    ua: str = ""
+    source: str = ""
+    component_stack: str = ""
+    count: int = 1
     timestamp: float = 0.0
 
 
 class FrontendErrorBuffer:
-    """线程安全的内存环缓冲。"""
+    """Thread-safe enough in-memory ring buffer for process-local frontend errors."""
 
     def __init__(self):
         self.buffer: deque[FrontendErrorEntry] = deque(maxlen=_MAX_ERRORS)
@@ -64,7 +77,6 @@ class FrontendErrorBuffer:
             if key in self._dedup:
                 _, count = self._dedup[key]
                 self._dedup[key] = (now, count + 1)
-                # 更新 buffer 中对应条目的 count（找最近一条同 key 的）
                 for entry in reversed(self.buffer):
                     if (
                         entry.source == source
@@ -127,3 +139,58 @@ class FrontendErrorBuffer:
             "total_captured": self.total_captured,
             "recent": self.get_recent(),
         }
+
+
+def _rate_check(ip: str) -> bool:
+    now = time.time()
+    stale = [k for k, (ts, _) in _rate_state.items() if now - ts > _RATE_WINDOW]
+    for k in stale:
+        del _rate_state[k]
+    ts, count = _rate_state.get(ip, (0, 0))
+    if now - ts > _RATE_WINDOW:
+        _rate_state[ip] = (now, 1)
+        return True
+    if count >= _RATE_MAX:
+        return False
+    _rate_state[ip] = (ts, count + 1)
+    return True
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+class ErrorItem(BaseModel):
+    type: str = Field(default="", max_length=200)
+    message: str = Field(default="", max_length=1000)
+    url: str = Field(default="", max_length=500)
+    user_id: int = Field(default=0)
+    ua: str = Field(default="", max_length=200)
+    source: str = Field(default="", max_length=120)
+    component_stack: str = Field(default="", max_length=1000)
+
+
+class TelemetryPayload(BaseModel):
+    errors: list[ErrorItem] = Field(default_factory=list, max_length=_MAX_BATCH)
+
+
+@router.post("", status_code=204)
+async def ingest_telemetry(payload: TelemetryPayload, request: Request):
+    """Ingest frontend error telemetry.  Always returns 204 (no content).
+
+    Rate limited per IP: 5 requests per 60-second window.
+    Max 20 errors per payload.
+    """
+    ip = _client_ip(request)
+    if not _rate_check(ip):
+        return
+    buffer = getattr(request.app.state, "frontend_error_buffer", None)
+    if buffer is None or not payload.errors:
+        return
+    entries = [e.model_dump() for e in payload.errors]
+    types = sorted({e.type or "unknown" for e in payload.errors})[:5]
+    log.info("Frontend telemetry ingest: count=%d ip=%s types=%s", len(entries), ip, types)
+    buffer.ingest(*entries)
