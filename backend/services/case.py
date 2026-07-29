@@ -110,7 +110,7 @@ class CaseService:
         return self.repo.get_or_404(case_id, "病例不存在")
 
     def create(self, case_data: dict, user_id: int, user_role: str, *, is_open: bool = True) -> CaseManageView:
-        training_type = case_data.get("training_type", "history_taking")
+        training_type = "history_taking"
         cd = validate_case_data(training_type, case_data, strict=True)
         case = Case(
             name=cd["name"],
@@ -131,7 +131,7 @@ class CaseService:
 
     def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
         case = self.repo.get_or_404(case_id, "病例不存在")
-        training_type = case_data.get("training_type", "history_taking")
+        training_type = "history_taking"
         cd = validate_case_data(training_type, case_data, strict=True)
         case.name = cd["name"]
         case.description = cd.get("description", "")

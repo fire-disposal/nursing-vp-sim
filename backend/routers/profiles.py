@@ -43,25 +43,20 @@ def list_profiles(db: DbSession, current_user: CurrentUser):
 
 _TYPE_LABELS = {
     "history_taking": "病史采集",
-    "triage": "预检分诊",
 }
 
 _TYPE_DESCRIPTIONS = {
     "history_taking": "与虚拟患者对话，采集完整病史信息。练习问诊技巧、沟通能力和临床思维。",
-    "triage": "根据患者生命体征和临床表现，快速完成分诊评估。练习MEWS评分、分诊级别判定。",
 }
 
 _TYPE_ICONS = {
     "history_taking": "Stethoscope",
-    "triage": "Ambulance",
 }
 
 _TYPE_COLORS = {
     "history_taking": "blue",
-    "triage": "red",
 }
 
 _TYPE_HINTS = {
     "history_taking": "",
-    "triage": "",
 }

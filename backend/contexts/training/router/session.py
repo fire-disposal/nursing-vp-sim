@@ -209,7 +209,7 @@ def _create_record(
     is_overdue: bool = False,
     app_state=None,
 ):
-    training_type = case.training_type or "history_taking"
+    training_type = "history_taking"
 
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
     time_limit = max(5, min(120, int(time_limit)))
@@ -261,30 +261,39 @@ def _create_record(
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
 
-    # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）
+    # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）。
+    # 分诊/急诊只作为 history_taking 的 scene 设定存在，不再切换训练类型。
     patient_info = case_data.get("patient_info", {})
-    vitals = _extract_vitals(case_data, training_type) if training_type == "triage" else {}
+    raw_scene = case_data.get("scene")
+    scene_seed = raw_scene if isinstance(raw_scene, dict) else {}
+    raw_environment = scene_seed.get("environment")
+    raw_patient = scene_seed.get("patient")
+    raw_vitals = scene_seed.get("vitals")
+    environment_seed = raw_environment if isinstance(raw_environment, dict) else {}
+    patient_seed = raw_patient if isinstance(raw_patient, dict) else {}
+    vitals_seed = raw_vitals if isinstance(raw_vitals, dict) else {}
     record.runtime_state = {
         "scene": {
             "environment": {
-                "type": "ward" if training_type in ("history_taking",) else "er",
-                "time_of_day": "day",
-                "equipment": [],
+                "type": environment_seed.get("type", "ward"),
+                "time_of_day": environment_seed.get("time_of_day", "day"),
+                "equipment": environment_seed.get("equipment", []),
+                "noise_level": environment_seed.get("noise_level", "quiet"),
             },
             "patient": {
-                "position": "semi-recumbent",
-                "consciousness": "alert",
-                "visible_symptoms": patient_info.get("visible_symptoms", []),
-                "expression": patient_info.get("expression", "neutral"),
+                "position": patient_seed.get("position", "semi-recumbent"),
+                "consciousness": patient_seed.get("consciousness", "alert"),
+                "visible_symptoms": patient_seed.get("visible_symptoms", patient_info.get("visible_symptoms", [])),
+                "expression": patient_seed.get("expression", patient_info.get("expression", "neutral")),
             },
             "vitals": {
-                "hr": vitals.get("hr"),
-                "bp_sys": vitals.get("bp_sys"),
-                "bp_dia": vitals.get("bp_dia"),
-                "spo2": vitals.get("spo2"),
-                "rr": vitals.get("rr"),
-                "temp": vitals.get("temp"),
-                "pain": vitals.get("pain"),
+                "hr": vitals_seed.get("hr"),
+                "bp_sys": vitals_seed.get("bp_sys"),
+                "bp_dia": vitals_seed.get("bp_dia"),
+                "spo2": vitals_seed.get("spo2"),
+                "rr": vitals_seed.get("rr"),
+                "temp": vitals_seed.get("temp"),
+                "pain": vitals_seed.get("pain"),
             },
         }
     }
@@ -496,9 +505,12 @@ def get_records(
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
-    training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking/triage)")] = None,
+    training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
 ):
+    if training_type and training_type != "history_taking":
+        return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
+
     base = db.query(TrainingRecord)
 
     if not current_user.has_permission("score_review"):
@@ -513,8 +525,7 @@ def get_records(
                 UserClass.class_id == class_id
             )
 
-    if training_type:
-        base = base.filter(TrainingRecord.training_type == training_type)
+    base = base.filter(TrainingRecord.training_type == "history_taking")
     if exclude_is_test:
         base = base.filter(TrainingRecord.is_test == False)
 

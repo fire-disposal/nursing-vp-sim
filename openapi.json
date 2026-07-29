@@ -685,10 +685,10 @@
                   "type": "null"
                 }
               ],
-              "description": "训练类型 history_taking/triage",
+              "description": "训练类型(history_taking)",
               "title": "Training Type"
             },
-            "description": "训练类型 history_taking/triage"
+            "description": "训练类型(history_taking)"
           },
           {
             "name": "difficulty",
@@ -884,10 +884,10 @@
                   "type": "null"
                 }
               ],
-              "description": "训练类型 history_taking/triage",
+              "description": "训练类型(history_taking)",
               "title": "Training Type"
             },
-            "description": "训练类型 history_taking/triage"
+            "description": "训练类型(history_taking)"
           },
           {
             "name": "is_open",
@@ -6608,10 +6608,10 @@
                   "type": "null"
                 }
               ],
-              "description": "按训练类型筛选(history_taking/triage)",
+              "description": "按训练类型筛选(history_taking)",
               "title": "Training Type"
             },
-            "description": "按训练类型筛选(history_taking/triage)"
+            "description": "按训练类型筛选(history_taking)"
           },
           {
             "name": "exclude_is_test",

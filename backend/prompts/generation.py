@@ -62,15 +62,6 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
 - **exam_anchors**：护理查体时的预期发现。使用固定值（如 `"temperature": "36.8"`），系统会在显示时做微小随机偏移
 - **example_dialogues**：2-3 组护患典型问答，口语化，体现个性"""
 
-CASE_GENERATION_TRIAGE_EXTRA = """
-## 分诊病例额外输出字段
-分诊病例须额外包含以下字段：
-- **arrival_mode**: 患者到达方式（"ambulance"/"stretcher"/"walking"）
-- **vitals**: 生命体征对象（hr/bp_sys/bp_dia/rr/spo2/temp）
-- **consciousness**: 意识状态（"alert"/"lethargic"/"confused"/"unresponsive"）
-- **red_flags**: 警示信号数组
-- **mews_score**: 默认填 0（由学生评估后填写）
-"""
 
 CASE_GENERATION_TAIL = """
 ## 用户描述

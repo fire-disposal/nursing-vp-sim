@@ -82,7 +82,7 @@ def list_cases(
     current_user: CurrentUser,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    training_type: Annotated[str | None, Query(description="训练类型 history_taking/triage")] = None,
+    training_type: Annotated[str | None, Query(description="训练类型(history_taking)")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
 ):
@@ -108,7 +108,7 @@ def list_cases_manage(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
-    training_type: Annotated[str | None, Query(description="训练类型 history_taking/triage")] = None,
+    training_type: Annotated[str | None, Query(description="训练类型(history_taking)")] = None,
     is_open: Annotated[bool | None, Query(description="是否向学生开放")] = None,
 ):
     views, total = CaseService(db).list_manage(

@@ -121,8 +121,8 @@ records history_taking 3,  triage 0
 | 工具幂等 | [部分] | `TrainingToolRequest(record_id, request_id)` 已用于 mutation 去重和结果缓存；只读 `load` 不持久化，稳定错误码体系仍未完成。 |
 | 前端 Bridge 单实例 | [完成] | 生产代码仅 `TrainingEngine` 注册 `useToolBridge()`；测试文件中的注册仅用于单测。 |
 | 结束训练等待 pending 工具请求 | [部分] | `endTraining()` 已等待 `waitForPendingToolRequests()` 后再触发评分；但“护理评估最终提交版本”尚未成为强制步骤。 |
-| TOOL 栏在线消失风险 | [部分] | 本地融合后 `SceneToolbar` 保留，registry 同时注册 `InquiryTool` 与远端新增 `MewsTool`；但线上版本仍不包含本地融合提交，且真实浏览器验收尚未执行。 |
-| triage / MEWS 删除 | [冲突待决] | 本文路线要求删除，但当前融合为了保留远端能力，代码中仍存在 triage 分支、MEWS capability、`MewsTool`、`MewsHandler` 和相关生成类型。是否继续删除需要业务确认。 |
+| TOOL 栏在线消失风险 | [部分] | 本地融合后 `SceneToolbar` 保留，registry 同时注册 `InquiryTool` 与远端新增 `MewsTool`；按最新执行约束，暂不减少或移除任何工具能力。 |
+| triage 训练类型删除 | [部分] | 业务已确认分诊系统暂不需要；当前执行先把新建/更新/开始训练强制收敛到 `history_taking`，并通过 `scene` 表达急诊/分诊氛围。`MewsTool` 与工具 capability 暂时保留，避免学生感知系统能力退化。 |
 | Grade / UserClass 删除 | [未完成] | `Grade`、`UserClass`、年级管理 API、用户/班级 join、迁移和前端筛选仍存在。 |
 | ORM `ScoringProgress` 删除 | [未完成] | 运行时已有内存 `ScoringProgressTracker`，但 ORM model、初始 migration 表和级联删除引用仍存在。 |
 | Prompt 三段式与旧快照兼容 | [未完成] | 本次融合未合入候选提示词分支；当前仍需单独实施 prompt snapshot schema、token 预算和双格式 reader。 |
@@ -964,14 +964,14 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 
 任务：
 
-1. `[冲突待决]` 完整删除 triage 与 MEWS。当前代码仍保留 triage/MEWS；是否删除需要业务确认。
+1. `[部分]` 完整删除 triage 与 MEWS。当前先删除/停用 triage 训练类型路径；按最新执行约束，暂不减少或移除任何工具能力，因此 `MewsTool` 与 capability 延后处理。
 2. `[未完成]` 删除 Grade，Class 名称成为直接组织标识。
 3. `[未完成]` `UserClass` 迁移为 `User.class_id`。
 4. `[未完成]` 决定删除或规范化 `Assignment.student_ids`。
 5. `[未完成]` 删除 ORM `ScoringProgress`。
 6. `[未完成]` 清理 Case 列与 `case_data` 重复字段。
-7. `[未完成]` 删除 `training_type` 及 Profile registry。
-8. `[部分]` 更新数据库文档、OpenAPI 和前端生成类型。本次融合后已重新生成 OpenAPI/API types/capabilities/permissions，但删除型更新尚未发生。
+7. `[部分]` 删除 `training_type` 及 Profile registry。当前新建、更新、开始训练已收敛到 `history_taking`；数据库列、响应字段和兼容筛选仍保留。
+8. `[部分]` 更新数据库文档、OpenAPI 和前端生成类型。本次需要重新生成 OpenAPI/API types；工具能力生成物保持不删。
 
 退出条件：
 
@@ -980,6 +980,8 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 - Case 元数据只有一个权威来源。
 - Alembic upgrade/downgrade roundtrip 通过。
 - 所有部署环境历史数据都有迁移或归档结论。
+
+注：按 2026-07-29 最新执行约束，工具删除项不在本次变更范围内；因此涉及 `MewsTool`/capability 的退出条件只能在后续允许减少工具能力时完成。
 
 ## 10.3 第三阶段：择优合入提示词优化
 

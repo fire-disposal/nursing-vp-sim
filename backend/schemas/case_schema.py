@@ -100,6 +100,7 @@ class CaseDataSchema(JsonbModel):
     required_inquiries: list[str] = []
 
     exam_anchors: dict[str, Any] = {}
+    scene: dict[str, Any] = {}
     nursing_record: dict[str, Any] = {}
     hidden_info: list[str] = []
 

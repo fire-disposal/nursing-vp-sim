@@ -5254,7 +5254,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                /** @description 训练类型 history_taking/triage */
+                /** @description 训练类型(history_taking) */
                 training_type?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
@@ -5329,7 +5329,7 @@ export interface operations {
                 name?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
-                /** @description 训练类型 history_taking/triage */
+                /** @description 训练类型(history_taking) */
                 training_type?: string | null;
                 /** @description 是否向学生开放 */
                 is_open?: boolean | null;
@@ -8595,7 +8595,7 @@ export interface operations {
                 /** @description 结束日期 ISO 格式 (含) */
                 date_to?: string | null;
                 class_id?: number | null;
-                /** @description 按训练类型筛选(history_taking/triage) */
+                /** @description 按训练类型筛选(history_taking) */
                 training_type?: string | null;
                 /** @description 排除试跑记录 */
                 exclude_is_test?: boolean;
