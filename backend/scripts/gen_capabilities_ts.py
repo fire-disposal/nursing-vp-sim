@@ -12,9 +12,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import main  # noqa: F401 — trigger profile + tool registration
 from contexts.training.capabilities import all_bindings
-from profiles.registry import get_known_types
+
+KNOWN_TRAINING_TYPES = ["history_taking"]
 
 OUT = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" / "engine" / "capabilities.gen.ts"
 
@@ -25,7 +25,7 @@ def _binding_to_obj(b) -> dict:
         "label": b.label,
         "description": b.description,
         "tier": "toggleable",
-        "trainingTypes": list(get_known_types()),
+        "trainingTypes": KNOWN_TRAINING_TYPES,
         "requires": [],
     }
 
@@ -34,7 +34,7 @@ def main_gen() -> None:
     bindings = all_bindings()
     all_caps = {b.tool: _binding_to_obj(b) for b in bindings}
 
-    training_caps = {t: [b.tool for b in bindings] for t in get_known_types()}
+    training_caps = {t: [b.tool for b in bindings] for t in KNOWN_TRAINING_TYPES}
 
     all_json = json.dumps(all_caps, ensure_ascii=False, indent=2)
     training_json = json.dumps(training_caps, ensure_ascii=False, indent=2)

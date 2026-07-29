@@ -7,7 +7,7 @@ from sqlalchemy import func
 
 from core.deps import CurrentUser, DbSession
 from models import Case
-from profiles.registry import get_known_types, get_profile
+from profiles.history_taking import PROFILE
 
 log = logging.getLogger(__name__)
 
@@ -24,20 +24,17 @@ def list_profiles(db: DbSession, current_user: CurrentUser):
         .group_by(Case.training_type)
         .all()
     }
-    types = get_known_types()
-    result = []
-    for t in types:
-        p = get_profile(t)
-        result.append(
-            {
-                "type": p.name,
-                "label": _TYPE_LABELS.get(p.name, p.name),
-                "description": _TYPE_DESCRIPTIONS.get(p.name, ""),
-                "icon": _TYPE_ICONS.get(p.name, "ClipboardList"),
-                "color": _TYPE_COLORS.get(p.name, "blue"),
-                "case_count": type_counts.get(p.name, 0),
-            }
-        )
+    p = PROFILE
+    result = [
+        {
+            "type": p.name,
+            "label": _TYPE_LABELS.get(p.name, p.name),
+            "description": _TYPE_DESCRIPTIONS.get(p.name, ""),
+            "icon": _TYPE_ICONS.get(p.name, "ClipboardList"),
+            "color": _TYPE_COLORS.get(p.name, "blue"),
+            "case_count": type_counts.get(p.name, 0),
+        }
+    ]
     return {"items": result}
 
 

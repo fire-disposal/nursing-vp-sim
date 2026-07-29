@@ -7,7 +7,6 @@ is explicit, debuggable, and extensible without touching the flat
 
 from __future__ import annotations
 
-import importlib
 import logging
 
 from contexts.training.patient_ai.chat_messages import build_patient_chat_messages
@@ -15,7 +14,8 @@ from contexts.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
-from profiles.registry import get_profile
+from profiles.history_taking import PROFILE
+from profiles.history_taking.builder import build_context_kwargs
 from prompts import render_template
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
@@ -46,23 +46,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     if ctx.note_collector:
         author_note = await ctx.note_collector.collect(ctx)
 
-    training_type = getattr(ctx.record, "training_type", None) or "history_taking"
-    try:
-        profile = get_profile(training_type)
-    except KeyError:
-        log.warning("Unknown training_type=%s, falling back to history_taking", training_type)
-        training_type = "history_taking"
-        profile = get_profile(training_type)
+    profile = PROFILE
 
     # Case-data kwargs — cached across turns (personality, background, …)
     cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
     if cached is None:
-        try:
-            builder_mod = importlib.import_module(f"profiles.{training_type}.builder")
-            cached = builder_mod.build_context_kwargs(ctx.case_data)
-        except ModuleNotFoundError:
-            log.warning("No builder module for training_type=%s, using empty kwargs", training_type)
-            cached = {}
+        cached = build_context_kwargs(ctx.case_data)
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
 
     # Assemble all sources into a PromptContext
@@ -77,7 +66,7 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     try:
         dynamic_prompt = render_template(str(dynamic_template), **prompt_ctx.as_dict())
     except Exception as e:
-        log.exception("动态模板渲染失败 training_type=%s: %s", training_type, e)
+        log.exception("动态模板渲染失败 profile=history_taking: %s", e)
         dynamic_prompt = ""
 
     ctx.llm_messages = build_patient_chat_messages(

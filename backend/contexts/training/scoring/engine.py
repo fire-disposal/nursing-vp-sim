@@ -14,8 +14,8 @@ from infrastructure.llm import safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
-from profiles.registry import get_profile
-from profiles.rubric_loader import get_rubric_version_id, load_rubric
+from profiles.history_taking import PROFILE
+from profiles.rubric_loader import get_rubric_version_id
 from prompts import render_template
 from prompts.training.scoring import (
     FEEDBACK_RETRY_USER,
@@ -301,11 +301,7 @@ async def _load_record_and_messages(
 def _resolve_rubric(db: Session, record: TrainingRecord) -> dict:
     rubric = record.rubric_snapshot
     if not rubric:
-        try:
-            profile = get_profile(record.training_type or "history_taking")
-            base_rubric = profile.rubric
-        except KeyError:
-            base_rubric = load_rubric("nursing_history_v1")
+        base_rubric = PROFILE.rubric
         from .rubric import build_final_rubric
 
         features = (record.practice_snapshot or {}).get("features", {})

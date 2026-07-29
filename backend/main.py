@@ -318,11 +318,6 @@ app.add_middleware(
 )
 # EnvelopeMiddleware removed — API now returns standard JSON with HTTP status codes.
 
-# Profile registration
-from profiles.history_taking import PROFILE as _HISTORY_TAKING_PROFILE
-from profiles.registry import register_profile
-
-register_profile("history_taking", _HISTORY_TAKING_PROFILE)
 
 # Tool registration
 from contexts.training.tools import register_all

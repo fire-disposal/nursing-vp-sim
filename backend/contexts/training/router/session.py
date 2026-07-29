@@ -30,7 +30,7 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
-from profiles.registry import get_profile
+from profiles.history_taking import PROFILE
 from schemas import (
     DeleteResponse,
     OkResponse,
@@ -239,7 +239,7 @@ def _create_record(
     db.flush()
 
     record.case_snapshot = deepcopy(case_data)
-    profile = get_profile(training_type)
+    profile = PROFILE
     resolved_features = detect_capabilities(
         case_data=case_data,
         training_type=training_type,

@@ -34,18 +34,10 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
 
     # --- assemble NoteCollector ---
     from contexts.training.patient_ai.note_collector import NoteCollector
-    from profiles.registry import get_profile
+    from profiles.history_taking import PROFILE
 
     collector = NoteCollector()
-    pt = training_type or "history_taking"
-    try:
-        profile = get_profile(pt)
-        for src_cls in profile.note_sources:
-            collector.add(src_cls())
-    except KeyError:
-        log.warning("Unknown training type %r, using generic OperationNoteSource only", pt)
-        from contexts.training.patient_ai.note_source import OperationNoteSource
-
-        collector.add(OperationNoteSource())
+    for src_cls in PROFILE.note_sources:
+        collector.add(src_cls())
 
     return result, collector

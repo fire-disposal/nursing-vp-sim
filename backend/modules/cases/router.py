@@ -10,7 +10,6 @@ from core.security import require_permission
 from models import Case, User
 from modules.cases.generation import generate_case as _generate_case
 from modules.cases.service import CaseManageView, CaseService
-from profiles.registry import get_profile
 from schemas import (
     CaseBrief,
     CaseCreateRequest,
@@ -33,12 +32,7 @@ _CaseManager = Annotated[User, Depends(require_permission("case_manage"))]
 
 
 def _to_case_brief(c: Case) -> CaseBrief:
-    profile_info = {}
-    try:
-        p = get_profile(c.training_type or "history_taking")
-        profile_info = {"type": p.name, "label": "病史采集" if p.name == "history_taking" else "预检分诊"}
-    except KeyError:
-        pass
+    profile_info = {"type": c.training_type or "history_taking", "label": "病史采集"}
     return CaseBrief(
         id=c.id,
         name=c.name,

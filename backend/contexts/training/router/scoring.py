@@ -262,17 +262,16 @@ async def _run_scoring_background(
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
                 from contexts.training.scoring.rubric import build_final_rubric
-                from profiles.registry import get_profile
+                from profiles.history_taking import PROFILE
 
-                profile = get_profile(record.training_type)
                 record.prompt_snapshot = {
-                    "system": profile.prompts.system,
-                    "dynamic": profile.prompts.dynamic,
+                    "system": PROFILE.prompts.system,
+                    "dynamic": PROFILE.prompts.dynamic,
                 }
                 features = (record.practice_snapshot or {}).get("features", {})
-                record.rubric_snapshot = build_final_rubric(profile.rubric, features)
+                record.rubric_snapshot = build_final_rubric(PROFILE.rubric, features)
                 db.commit()
-            except (KeyError, AttributeError):
+            except AttributeError:
                 pass
 
         if tracker:
