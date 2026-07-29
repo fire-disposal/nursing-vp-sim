@@ -150,7 +150,7 @@ class VoiceConfigService:
         Returns (speaker, sample_rate, chunk_generator). Raises RuntimeError
         on upstream failure so the admin sees the real error.
         """
-        from services.tts import STREAM_FORMAT, STREAM_SAMPLE_RATE
+        from modules.voice.service import STREAM_FORMAT, STREAM_SAMPLE_RATE
 
         vc = self._get_active()
         if not vc:

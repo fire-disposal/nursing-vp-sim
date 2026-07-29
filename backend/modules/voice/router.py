@@ -15,8 +15,8 @@ from infrastructure.tts.circuit import CircuitOpenError
 from infrastructure.tts.client import VolcBidirectionalTTSClient
 from infrastructure.tts.pool import TTSConnectionPool
 from models import User
+from modules.voice.service import TTSService
 from schemas.voice import TTSSynthesizeRequest
-from services.tts import TTSService
 
 log = logging.getLogger(__name__)
 

@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from routers import tts as tts_router
+from modules.voice import router as tts_router
+from modules.voice.service import TTSStreamInfo
 from schemas.voice import TTSSynthesizeRequest
-from services.tts import TTSStreamInfo
 
 
 class _FakeTTSService:

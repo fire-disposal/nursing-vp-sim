@@ -9,7 +9,7 @@ def init_tts(app_state):
     """Load TTS state into app. Non-fatal on failure."""
     try:
         from core.database import SessionLocal
-        from services.tts import load_tts_state
+        from modules.voice.service import load_tts_state
 
         db_voice = SessionLocal()
         try:

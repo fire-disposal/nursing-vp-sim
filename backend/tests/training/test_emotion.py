@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from contexts.training.patient_ai.emotion import EmotionState
 from contexts.training.pipeline.middleware.side_effects import _read_emotion_state
-from routers.tts import _resolve_emotion
+from modules.voice.router import _resolve_emotion
 
 
 class TestEmotionState:

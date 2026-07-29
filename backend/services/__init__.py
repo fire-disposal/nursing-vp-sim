@@ -1,5 +1,7 @@
 """Business logic layer."""
 
+from modules.voice.service import TTSService, load_tts_state
+
 from .api_secret import ApiSecretService
 from .assignment import AssignmentService
 from .auth import AuthService
@@ -23,7 +25,6 @@ from .record import RecordService
 from .role import RoleService
 from .stats import StatsService
 from .student import StudentService
-from .tts import TTSService, load_tts_state
 from .user import StudentDetailView, UserBriefView, UserService
 from .voice import VoiceConfigService
 

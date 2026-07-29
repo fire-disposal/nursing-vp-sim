@@ -27,7 +27,7 @@ _Manager = Annotated[User, Depends(require_permission("llm_monitor"))]
 
 
 def _reload_tts_client(app_state) -> None:
-    from services.tts import load_tts_state
+    from modules.voice.service import load_tts_state
 
     db = SessionLocal()
     try:
