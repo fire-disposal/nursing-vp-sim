@@ -19,8 +19,6 @@ class CaseRepository(Repository[Case]):
         name: str | None = None,
     ) -> tuple[list[Case], int]:
         q = self.db.query(Case).filter(Case.is_open == True, Case.training_type == "history_taking").order_by(Case.id)
-        if training_type and training_type != "history_taking":
-            return [], 0
         if difficulty is not None:
             q = q.filter(Case.difficulty == difficulty)
         if name:
@@ -46,8 +44,6 @@ class CaseRepository(Repository[Case]):
             q = q.filter(Case.name.ilike(f"%{name}%"))
         if difficulty is not None:
             q = q.filter(Case.case_data["difficulty"].as_integer() == difficulty)
-        if training_type and training_type != "history_taking":
-            return [], 0
         total = q.order_by(None).count()
         items = q.offset(offset).limit(limit).all()
         return items, total

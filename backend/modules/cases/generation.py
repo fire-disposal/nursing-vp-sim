@@ -24,7 +24,7 @@ from profiles.history_taking.builder import format_case_for_prompt
 from prompts import render_template
 from prompts.generation import build_system_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
-from schemas.case_schema import list_valid_training_types, validate_case_data
+from schemas.case_schema import validate_case_data
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -77,9 +77,6 @@ async def generate_case(
     if not data.description.strip():
         raise ValidationError(detail="描述不能为空")
 
-    valid_types = set(list_valid_training_types())
-    if data.training_type not in valid_types:
-        raise ValidationError(detail=f"不支持的训练类型: {data.training_type}，可选: {sorted(valid_types)}")
 
     reference_material = _build_reference_material(db, data)
     field_instruction = _build_field_instruction(data)
@@ -130,7 +127,7 @@ async def generate_case(
         return CaseGenerateResponse(field_value=field_value, field=data.field)
 
     try:
-        result = validate_case_data(data.training_type, result, strict=True)
+        result = validate_case_data(result, strict=True)
     except PydanticValidationError as e:
         raise ValidationError(detail=f"病例数据验证失败: {e}")
     return CaseGenerateResponse(case_data=result)

@@ -33,15 +33,18 @@ for r in (
     router.include_router(r)
 
 # ── top-level routers (own absolute prefixes, registered at app root) ──
-from .exports import router as exports_router
-from .profiles import router as profiles_router
-from .rubrics import router as rubrics_router
-from .stats import router as stats_router
+# Lazy-loaded to avoid circular imports from profiles → training chain.
 
 __all__ = [
-    "exports_router",
-    "profiles_router",
+    "get_top_level_routers",
     "router",
-    "rubrics_router",
-    "stats_router",
 ]
+
+
+def get_top_level_routers():
+    from .exports import router as exports_router
+    from .profiles import router as profiles_router
+    from .rubrics import router as rubrics_router
+    from .stats import router as stats_router
+
+    return exports_router, profiles_router, rubrics_router, stats_router

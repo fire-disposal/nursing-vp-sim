@@ -108,8 +108,6 @@ def _public_scene(record: TrainingRecord) -> dict | None:
     if not isinstance(raw, dict):
         return None
     scene = deepcopy(raw)
-    if (record.training_type or "history_taking") != "history_taking":
-        return scene
 
     exam_results = dict(record.runtime_state or {}).get("exam_results", [])
     completed = {str(item.get("type") or item.get("op_type")) for item in exam_results if isinstance(item, dict)}
@@ -214,7 +212,7 @@ def _create_record(
     time_limit = max(5, min(120, int(time_limit)))
 
     config["features"] = config.get("features") or {}
-    validate_case_data(training_type, case_data, strict=False)
+    validate_case_data(case_data, strict=False)
 
     record = TrainingRecord(
         user_id=user_id,
@@ -507,8 +505,6 @@ def get_records(
     training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
 ):
-    if training_type and training_type != "history_taking":
-        return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
 
     base = db.query(TrainingRecord)
 

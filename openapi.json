@@ -1465,8 +1465,8 @@
           "管理",
           "API管理"
         ],
-        "summary": "Test Secret",
-        "operationId": "test_secret_api_admin_secrets__secret_id__test_post",
+        "summary": "Test Secret Endpoint",
+        "operationId": "test_secret_endpoint_api_admin_secrets__secret_id__test_post",
         "security": [
           {
             "HTTPBearer": []

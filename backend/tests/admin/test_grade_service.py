@@ -1,7 +1,7 @@
 import pytest
 
 from core.exceptions import NotFoundError, ValidationError
-from services.grade import GradeService
+from modules.admin.grades import GradeService
 
 
 def test_create_list_update(db_session):

@@ -6,12 +6,7 @@ from fastapi import FastAPI
 def register_routers(app: FastAPI) -> None:
     from infra.diagnostics import router as diagnostics_router
     from infra.telemetry import router as telemetry_router
-    from modules.admin import (
-        exports_router,
-        profiles_router,
-        rubrics_router,
-        stats_router,
-    )
+    from modules.admin import get_top_level_routers
     from modules.admin import router as admin_router
     from modules.assignments import router as assignments_router
     from modules.assignments import student_router as assignments_student_router
@@ -23,6 +18,7 @@ def register_routers(app: FastAPI) -> None:
     from modules.training import chat_router, training_router
     from modules.voice.router import router as tts_router
 
+    exports_router, profiles_router, rubrics_router, stats_router = get_top_level_routers()
     for r in (
         admin_router,
         assignments_router,

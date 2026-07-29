@@ -111,31 +111,18 @@ class CaseDataSchema(JsonbModel):
     example_dialogues: list[dict] = []
 
 
-_TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
-    "history_taking": CaseDataSchema,
-}
 
-
-def validate_case_data(training_type: str, data: dict, *, strict: bool = False) -> dict:
-    """Validate case_data against the schema for the given training_type."""
-    schema_cls = _TYPE_VALIDATORS.get(training_type)
-    if schema_cls is None:
-        log.warning("No validator for training_type=%s, skipping validation", training_type)
-        return data
+def validate_case_data(data: dict, *, strict: bool = False) -> dict:
+    """Validate case_data against CaseDataSchema."""
     try:
-        validated = schema_cls(**data)
+        validated = CaseDataSchema(**data)
         return validated.model_dump()
     except Exception:
         if strict:
             raise
-        log.warning("case_data validation warning for type=%s", training_type, exc_info=True)
+        log.warning("case_data validation warning", exc_info=True)
         return data
 
 
 def assert_valid_case_data(data: dict) -> dict:
-    return validate_case_data("history_taking", data, strict=True)
-
-
-def list_valid_training_types() -> list[str]:
-    """Return training types that have a registered validator/profile."""
-    return list(_TYPE_VALIDATORS.keys())
+    return validate_case_data(data, strict=True)

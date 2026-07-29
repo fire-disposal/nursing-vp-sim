@@ -395,8 +395,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Test Secret */
-        post: operations["test_secret_api_admin_secrets__secret_id__test_post"];
+        /** Test Secret Endpoint */
+        post: operations["test_secret_endpoint_api_admin_secrets__secret_id__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5731,7 +5731,7 @@ export interface operations {
             };
         };
     };
-    test_secret_api_admin_secrets__secret_id__test_post: {
+    test_secret_endpoint_api_admin_secrets__secret_id__test_post: {
         parameters: {
             query?: never;
             header?: never;
