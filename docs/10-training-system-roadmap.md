@@ -1,6 +1,6 @@
 # 10 — 训练系统收敛与演进路线
 
-> 状态：近期研发方向的指导性文档
+> 状态：近期研发方向的指导性文档；2026-07-29 主干融合后核实：第一阶段部分完成，第二阶段及之后大多未完成
 > 决策日期：2026-07-29
 > 适用范围：训练领域、病例模型、上下文工程、训练工具、评分与相关前端
 > 基线：`master@bd135dd4`；同时审查候选分支 `提示词构筑优化@4a859dd1`
@@ -99,6 +99,34 @@ records history_taking 3,  triage 0
 ```
 
 这只说明本地迁移风险较低，不能替代部署环境迁移前的数据盘点。任何删除迁移都必须先在目标数据库统计行数和外键引用。
+
+### 2.4 2026-07-29 主干融合后完成度核实
+
+核实时点：`master@75f74de8`，已合入 `origin/master@0b89575e`，本地领先远端 14 个提交，工作区干净；未 push、未 tag、未部署。
+
+状态标记：
+
+- `[完成]` 代码中已有单一实现，并通过本次针对性验证。
+- `[部分]` 核心路径已有实现，但仍有边界、历史数据或验收缺口。
+- `[未完成]` 仍主要停留在路线或旧实现中。
+- `[冲突待决]` 当前代码与本文产品取舍不一致，需要业务决策后再继续。
+
+| 事项 | 当前核实状态 | 证据与缺口 |
+|---|---|---|
+| 学生记录详情不直接返回完整 `case_data` | [部分] | `TrainingRecordDetail` 已无 `case_data`、`required_inquiries`、`exam_anchors` 字段，`get_record_detail()` 只返回 `patient_info`、主诉、scene、已执行结果等投影；但尚未定义正式 `StudentCaseView`，教师内部视图也未拆分。 |
+| 患者信息工具最小化 | [完成] | `PatientInfoTool` 只读取 `patient_info`、姓名、年龄、性别、主诉，不再遍历病例背景字段。 |
+| 问诊指引与标准清单 | [部分] | 学生响应不再携带 `case_data` 后，`InquiryProgressChip` 与 `ChatArea` 中从 `recordDetail.case_data.required_inquiries` 读取的逻辑会自然为空并隐藏；但“引导模式展示高层类别、考核模式隐藏”的替代协议未完成。 |
+| WebSocket 工具基础授权 | [完成] | `execute_tool_request()` 在 dispatcher 前集中校验工具存在、记录 owner/复核权限、进行中状态和 capability。 |
+| 工具 mutation 事务与持久化 | [部分] | mutation 通过 `TrainingToolRequest`、`request_id` 和 `commit()` 持久化结果；但正式 `TrainingAction` 尚未建立，部分 Handler 仍写 `runtime_state` 或 `NursingRecord`。 |
+| 工具幂等 | [部分] | `TrainingToolRequest(record_id, request_id)` 已用于 mutation 去重和结果缓存；只读 `load` 不持久化，稳定错误码体系仍未完成。 |
+| 前端 Bridge 单实例 | [完成] | 生产代码仅 `TrainingEngine` 注册 `useToolBridge()`；测试文件中的注册仅用于单测。 |
+| 结束训练等待 pending 工具请求 | [部分] | `endTraining()` 已等待 `waitForPendingToolRequests()` 后再触发评分；但“护理评估最终提交版本”尚未成为强制步骤。 |
+| TOOL 栏在线消失风险 | [部分] | 本地融合后 `SceneToolbar` 保留，registry 同时注册 `InquiryTool` 与远端新增 `MewsTool`；但线上版本仍不包含本地融合提交，且真实浏览器验收尚未执行。 |
+| triage / MEWS 删除 | [冲突待决] | 本文路线要求删除，但当前融合为了保留远端能力，代码中仍存在 triage 分支、MEWS capability、`MewsTool`、`MewsHandler` 和相关生成类型。是否继续删除需要业务确认。 |
+| Grade / UserClass 删除 | [未完成] | `Grade`、`UserClass`、年级管理 API、用户/班级 join、迁移和前端筛选仍存在。 |
+| ORM `ScoringProgress` 删除 | [未完成] | 运行时已有内存 `ScoringProgressTracker`，但 ORM model、初始 migration 表和级联删除引用仍存在。 |
+| Prompt 三段式与旧快照兼容 | [未完成] | 本次融合未合入候选提示词分支；当前仍需单独实施 prompt snapshot schema、token 预算和双格式 reader。 |
+| 真实浏览器端到端验收 | [未完成] | 本次只完成类型、构建、单元/后端针对性测试；移动/桌面真实训练流尚未通过浏览器验证。 |
 
 ---
 
@@ -913,14 +941,14 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 
 任务：
 
-1. 定义 `StudentCaseView`，从训练记录详情删除原始 `case_data`、`required_inquiries`、`exam_anchors` 和 personality。
-2. 为教师复核建立独立的内部病例视图，禁止复用学生响应模型。
-3. 在 WebSocket dispatcher 前统一验证 owner、权限、record status、capability 和 action。
-4. 工具 mutation 使用统一 Unit of Work，commit 后才发送成功。
-5. Bridge 收敛为一个实例。
-6. 协议增加 `request_id`、幂等与稳定错误码。
-7. 训练结束等待 pending mutations 和护理评估最终提交。
-8. 修复或回退候选分支 `ToolContext.app_state` 依赖。
+1. `[部分]` 定义 `StudentCaseView`，从训练记录详情删除原始 `case_data`、`required_inquiries`、`exam_anchors` 和 personality。当前响应模型已移除这些字段，但正式 schema/命名尚未落地。
+2. `[未完成]` 为教师复核建立独立的内部病例视图，禁止复用学生响应模型。
+3. `[完成]` 在 WebSocket dispatcher 前统一验证 owner、权限、record status、capability 和 action。
+4. `[部分]` 工具 mutation 使用统一 Unit of Work，commit 后才发送成功。当前工具请求服务已 commit 后返回，但正式 Action 表和所有历史写入路径尚未统一。
+5. `[完成]` Bridge 收敛为一个实例。
+6. `[部分]` 协议增加 `request_id`、幂等与稳定错误码。当前 mutation 已按 `request_id` 去重；错误码和只读请求结果查询仍需完善。
+7. `[部分]` 训练结束等待 pending mutations 和护理评估最终提交。当前已等待 pending tool requests；护理评估最终提交未强制。
+8. `[完成]` 修复或回退候选分支 `ToolContext.app_state` 依赖。当前训练工具 `ToolContext` 不含 `app_state`，相关运行时 Exam LLM 路径未合入。
 
 退出条件：
 
@@ -936,14 +964,14 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 
 任务：
 
-1. 完整删除 triage 与 MEWS。
-2. 删除 Grade，Class 名称成为直接组织标识。
-3. `UserClass` 迁移为 `User.class_id`。
-4. 决定删除或规范化 `Assignment.student_ids`。
-5. 删除 ORM `ScoringProgress`。
-6. 清理 Case 列与 `case_data` 重复字段。
-7. 删除 `training_type` 及 Profile registry。
-8. 更新数据库文档、OpenAPI 和前端生成类型。
+1. `[冲突待决]` 完整删除 triage 与 MEWS。当前代码仍保留 triage/MEWS；是否删除需要业务确认。
+2. `[未完成]` 删除 Grade，Class 名称成为直接组织标识。
+3. `[未完成]` `UserClass` 迁移为 `User.class_id`。
+4. `[未完成]` 决定删除或规范化 `Assignment.student_ids`。
+5. `[未完成]` 删除 ORM `ScoringProgress`。
+6. `[未完成]` 清理 Case 列与 `case_data` 重复字段。
+7. `[未完成]` 删除 `training_type` 及 Profile registry。
+8. `[部分]` 更新数据库文档、OpenAPI 和前端生成类型。本次融合后已重新生成 OpenAPI/API types/capabilities/permissions，但删除型更新尚未发生。
 
 退出条件：
 
@@ -1216,5 +1244,7 @@ UI 变更不以组件测试作为最终证明，必须在真实浏览器验证�
 - 评分绑定真实模型、rubric 和 prompt 审计信息。
 - 五轮对话、检查、刷新、结束、评分和旧记录重载的完整场景通过。
 - 数据迁移 roundtrip、前端类型检查和真实移动/桌面浏览器验证通过。
+
+当前核实结论：以上完成定义尚未满足。第一阶段安全止血已有可用基础，但数据投影命名、教师内部视图、护理评估最终提交、TrainingAction、删除型迁移、提示词三段式、旧快照兼容和真实浏览器端到端验收仍未完成。
 
 这套收敛不是缩小产品理想，而是在建立可以承载未来扩展的可信底座。只有当病史采集闭环具备数据边界、操作审计、历史可重放和评分一致性后，第二训练类型、更多工具和更复杂的教学策略才有稳定落点。
