@@ -8,11 +8,11 @@ def register_routers(app: FastAPI) -> None:
     from modules.auth import router as auth
     from modules.cases import router as cases
     from modules.feedback import router as feedback
+    from modules.questionnaires import router as questionnaires
 
     # ── domain routers (flat module → .router, each manages its own prefix) ──
     from routers import (
         exports,
-        questionnaires,
         rubrics,
         stats,
         student_assignments,

@@ -15,13 +15,13 @@ from models import (
     QuestionnaireResponse,
     QuestionnaireTemplate,
 )
+from modules.questionnaires.service import template_to_detail
 from repositories.questionnaire_response import QuestionnaireResponseRepository
 from schemas.questionnaire import (
     QuestionnaireCheckResponse,
     QuestionnaireStatsResponse,
     QuestionStatsItem,
 )
-from services.questionnaire import template_to_detail
 
 
 @dataclass

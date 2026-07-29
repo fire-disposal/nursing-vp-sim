@@ -9,6 +9,14 @@ from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infrastructure.exporter import ColumnDef, export_response
 from models import User
+from modules.questionnaires.response_service import QuestionnaireResponseService
+from modules.questionnaires.service import (
+    QuestionnaireQuestionService,
+    QuestionnaireTemplateService,
+    QuestionView,
+    TemplateDetailView,
+    TemplateView,
+)
 from schemas import (
     CaseAssignmentRequest,
     DeleteResponse,
@@ -27,14 +35,6 @@ from schemas import (
     QuestionnaireTemplateResponse,
     QuestionnaireTemplateUpdate,
 )
-from services.questionnaire import (
-    QuestionnaireQuestionService,
-    QuestionnaireTemplateService,
-    QuestionView,
-    TemplateDetailView,
-    TemplateView,
-)
-from services.questionnaire_response import QuestionnaireResponseService
 
 router = APIRouter(prefix="/api", tags=["问卷"])
 _Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]
