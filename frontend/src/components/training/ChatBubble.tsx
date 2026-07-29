@@ -84,7 +84,7 @@ export const ChatBubble = memo(function ChatBubble({
 				)}
 				<div
 					className={cn(
-						"max-w-[85%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
+						"max-w-[88%] sm:max-w-[78%] md:max-w-[72%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
 						"bg-card text-foreground border-2",
 						emotionBorder,
 						!isStreamingEmpty &&
@@ -98,10 +98,11 @@ export const ChatBubble = memo(function ChatBubble({
 						</span>
 					)}
 					{isStreamingEmpty ? (
-						<div className="flex items-center gap-2 py-1">
-							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />
-							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:150ms]" />
-							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
+						<div className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
+							<span>患者正在回复</span>
+							<span className="size-1.5 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />
+							<span className="size-1.5 rounded-full bg-foreground/30 animate-bounce [animation-delay:150ms]" />
+							<span className="size-1.5 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
 						</div>
 					) : (
 						<div className="prose prose-sm dark:prose-invert max-w-none
@@ -131,7 +132,7 @@ export const ChatBubble = memo(function ChatBubble({
 	if (editing) {
 		return (
 			<div className="flex items-start gap-2 justify-end" data-role="student">
-				<div className="w-full max-w-[85%] sm:max-w-[70%] md:max-w-[60%] rounded-2xl rounded-tr-md bg-primary/10 border border-primary/30 p-2.5">
+				<div className="w-full max-w-[88%] sm:max-w-[78%] md:max-w-[72%] rounded-2xl rounded-tr-md bg-primary/10 border border-primary/30 p-2.5">
 					<textarea
 						value={draft}
 						onChange={(e) => setDraft(e.target.value)}
@@ -182,10 +183,10 @@ export const ChatBubble = memo(function ChatBubble({
 
 	return (
 		<div className="group flex items-start gap-2 justify-end" data-role="student">
-			<div className="flex flex-col items-end gap-1">
+			<div className="flex w-full flex-col items-end gap-1">
 				<div
 					className={cn(
-						"max-w-[85vw] sm:max-w-[70vw] md:max-w-[60vw] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-md text-sm sm:text-base leading-relaxed break-words",
+						"max-w-[88%] sm:max-w-[78%] md:max-w-[72%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-md text-sm sm:text-base leading-relaxed break-words",
 						"bg-primary text-primary-foreground",
 					)}
 				>

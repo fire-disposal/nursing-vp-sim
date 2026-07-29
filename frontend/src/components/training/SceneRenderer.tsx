@@ -28,7 +28,7 @@ export function SceneRenderer() {
 
   useEffect(() => {
     const handler = (payload: { id: string }) => {
-      if (!window.matchMedia("(min-width: 768px)").matches) return;
+      if (!window.matchMedia("(min-width: 1024px)").matches) return;
       if (tools.some((t) => t.id === payload.id)) {
         if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
         setClosingId(null);
@@ -66,7 +66,7 @@ export function SceneRenderer() {
   const displayTool = tools.find((c) => c.id === (closingId || activeId));
 
   return (
-    <div className="shrink-0 hidden md:flex h-full">
+    <div className="shrink-0 hidden lg:flex h-full">
       {/* Panel — always mounted during animation, width: 0 when closed */}
       <div
         style={{ width: showPanel && displayTool ? panelWidth(displayTool) : 0, transition: `width ${ANIM_DURATION}ms ease-out` }}
@@ -78,8 +78,12 @@ export function SceneRenderer() {
         {showPanel && displayTool && (
           <>
             <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 shrink-0">
-              <span className="text-xs font-medium text-muted-foreground truncate min-w-0">
-                {TOOL_META[displayTool.id]?.icon ?? "◻"} {TOOL_META[displayTool.id]?.title ?? displayTool.id}
+              <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground truncate min-w-0">
+                {(() => {
+                  const Icon = TOOL_META[displayTool.id]?.icon;
+                  return Icon ? <Icon className="size-3.5 shrink-0" /> : null;
+                })()}
+                {TOOL_META[displayTool.id]?.title ?? displayTool.id}
               </span>
               <button onClick={handleClose} className="text-muted-foreground hover:text-foreground text-xs leading-none px-1 shrink-0" title="收起面板" aria-label="收起面板">✕</button>
             </div>
@@ -100,12 +104,18 @@ export function SceneRenderer() {
       <div className="flex flex-col items-center gap-1 border-l border-border bg-card py-2 px-1 h-full overflow-y-auto">
         {tools.map((tool) => {
           const isActive = tool.id === activeId;
+          const Icon = TOOL_META[tool.id]?.icon;
           return (
             <button key={tool.id} onClick={() => isActive ? handleClose() : setActiveId(tool.id)}
-              className="flex items-center justify-center size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className={cn(
+                "relative flex items-center justify-center size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
+                isActive && "border-primary bg-primary/10 text-primary",
+              )}
               title={TOOL_META[tool.id]?.title ?? tool.id}
-              style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
-            ><span className="text-sm">{TOOL_META[tool.id]?.icon ?? "◻"}</span></button>
+            >
+              {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />}
+              {Icon ? <Icon className="size-4" /> : null}
+            </button>
           );
         })}
       </div>

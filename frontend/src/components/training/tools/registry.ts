@@ -1,3 +1,4 @@
+import { BarChart3, ClipboardList, FileText, HeartPulse, HelpCircle, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import NursingDiagnosisTool from "./NursingDiagnosisTool";
@@ -8,14 +9,14 @@ import PatientInfoTool from "./PatientInfoTool";
 import PhysicalExamTool from "./PhysicalExamTool";
 import QuizTool from "./QuizTool";
 
-export const TOOL_META: Record<string, { icon: string; title: string }> = {
-  "patient-info":        { icon: "👤", title: "患者信息" },
-  "inquiry":             { icon: "📋", title: "问诊指引" },
-  "physical-exam":       { icon: "💓", title: "护理查体" },
-  "nursing-record":      { icon: "📄", title: "护理记录" },
-  "nursing-diagnosis":   { icon: "🩺", title: "护理诊断" },
-  "mews":                { icon: "📊", title: "MEWS 评分" },
-  "quiz":                { icon: "❓", title: "引导题目" },
+export const TOOL_META: Record<string, { icon: LucideIcon; title: string }> = {
+  "patient-info": { icon: UserRound, title: "患者信息" },
+  "inquiry": { icon: ClipboardList, title: "问诊指引" },
+  "physical-exam": { icon: HeartPulse, title: "护理查体" },
+  "nursing-record": { icon: FileText, title: "护理记录" },
+  "nursing-diagnosis": { icon: Stethoscope, title: "护理诊断" },
+  "mews": { icon: BarChart3, title: "MEWS 评分" },
+  "quiz": { icon: HelpCircle, title: "引导题目" },
 };
 interface ToolDef {
   id: string;
