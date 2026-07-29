@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 
-from contexts.training.patient_ai.emotion import get_emotion
+from contexts.training.patient_ai.emotion import EmotionState, get_emotion
 from infrastructure.llm.client import CallContext
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from prompts import render_template
@@ -29,6 +29,22 @@ def _parse_emotion_result(raw: str) -> tuple[int, int, str]:
     except (json.JSONDecodeError, ValueError, TypeError):
         log.warning("Failed to parse emotion analysis result: %s", raw[:200])
         return 0, 0, ""
+
+
+def _read_emotion_state(record_id: int, emotion_cache, db, personality: dict):
+    """Return current emotion state without creating/updating rows."""
+    profile = PersonalityProfile.from_personality(personality)
+    state = None
+    if emotion_cache is not None:
+        try:
+            state = emotion_cache.get(record_id, db)
+        except Exception:
+            log.warning("Emotion state read failed: record_id=%d", record_id, exc_info=True)
+    if isinstance(state, EmotionState):
+        if state.profile.trust_base == 50 and profile.trust_base != 50:
+            state.profile = profile
+        return state
+    return EmotionState(trust=profile.trust_base, comfort=profile.comfort_base, profile=profile)
 
 
 async def _analyze_and_apply(
@@ -105,10 +121,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
             return
         case_data = ctx.case_data or {}
         personality = case_data.get("personality", {}) or {}
-        profile = PersonalityProfile.from_personality(personality)
-        emotion = get_emotion(ctx.record.id, emotion_cache, ctx.db, profile=profile)
+        emotion = _read_emotion_state(ctx.record.id, emotion_cache, ctx.db, personality)
         emotion.apply_decay()
-        emotion_cache.set(ctx.record.id, emotion, ctx.db)
 
         ctx.system_events.append(
             {
@@ -139,11 +153,12 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         initiative_cache = getattr(app, "initiative_cache", None)
         if initiative_cache is not None:
             try:
-                emotion_state = get_emotion(ctx.record.id, app.emotion_cache, ctx.db)
                 case_data = ctx.case_data or {}
                 personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get(
                     "personality", {}
                 )
+                emotion_cache = getattr(app, "emotion_cache", None)
+                emotion_state = _read_emotion_state(ctx.record.id, emotion_cache, ctx.db, personality)
 
                 elapsed, threshold = get_initiative_seconds(
                     ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
@@ -164,4 +179,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
             except Exception:
                 log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
 
-    ctx.db.commit()
+    try:
+        ctx.db.commit()
+    except Exception:
+        ctx.db.rollback()
+        log.warning("Side effects commit failed: record_id=%d", ctx.record.id, exc_info=True)

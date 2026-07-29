@@ -1,6 +1,10 @@
 """Unit tests for emotion engine (2D trust-comfort model)."""
 
+from types import SimpleNamespace
+
 from contexts.training.patient_ai.emotion import EmotionState
+from contexts.training.pipeline.middleware.side_effects import _read_emotion_state
+from routers.tts import _resolve_emotion
 
 
 class TestEmotionState:
@@ -59,3 +63,47 @@ class TestEmotionState:
         note = e.note
         assert "信赖" in note
         assert "舒适" in note
+
+
+class _FakeEmotionCache:
+    def __init__(self, state=None, error: Exception | None = None):
+        self.state = state
+        self.error = error
+        self.set_calls = 0
+
+    def get(self, record_id, db):
+        if self.error:
+            raise self.error
+        return self.state
+
+    def set(self, record_id, state, db):
+        self.set_calls += 1
+
+
+class TestEmotionConsumers:
+    def test_tts_resolves_existing_emotion_without_writing(self):
+        cache = _FakeEmotionCache(EmotionState(trust=90, comfort=90))
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(emotion_cache=cache)))
+
+        assert _resolve_emotion(request, 123, object()) == "open"
+        assert cache.set_calls == 0
+
+    def test_tts_falls_back_to_neutral_without_creating_state(self):
+        cache = _FakeEmotionCache()
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(emotion_cache=cache)))
+
+        assert _resolve_emotion(request, 123, object()) == "neutral"
+        assert cache.set_calls == 0
+
+    def test_side_effect_emotion_read_uses_default_without_writing(self):
+        cache = _FakeEmotionCache()
+        state = _read_emotion_state(
+            123,
+            cache,
+            object(),
+            {"anxiety_trait": "calm", "patience": "high", "health_literacy": "high", "compliance": "dependent"},
+        )
+
+        assert state.trust == 65
+        assert state.comfort == 61
+        assert cache.set_calls == 0

@@ -14,6 +14,9 @@ _URL = DATABASE_URL
 if _URL.startswith("postgresql://") and "+" not in _URL.split("://")[0]:
     _URL = _URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
+_SESSION_OPTIONS = "-c statement_timeout=120000 -c lock_timeout=3000"
+
+
 engine = create_engine(
     _URL,
     poolclass=QueuePool,
@@ -22,7 +25,7 @@ engine = create_engine(
     pool_timeout=30,
     pool_pre_ping=True,
     pool_recycle=3600,
-    connect_args={"connect_timeout": 10, "options": "-c statement_timeout=120000"},
+    connect_args={"connect_timeout": 10, "options": _SESSION_OPTIONS},
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

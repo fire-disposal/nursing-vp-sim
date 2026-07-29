@@ -310,6 +310,56 @@ with unit_of_work(db):
 
 `endTraining()` 必须等待后端确认，不能只广播 `training:beforeEnd` 后立即开始评分。
 
+
+## 4.6 实时状态写入拖垮主链路
+
+2026-07-29 测试服事故暴露了另一类最高优先级风险：将短生命周期、允许降级的实时状态直接写入 PostgreSQL 热点行，并让这些辅助写入运行在 chat/TTS 主链路中。
+
+已观测故障形态：
+
+- `/api/tts/stream` 因情绪状态读取隐式创建或更新 `training_session_state`，等待行锁直到 `statement_timeout` 后返回 500。
+- 情绪与主动发问状态共用 `training_session_state`，同一训练记录会形成热点行。
+- `StreamingResponse` 若在返回后仍持有数据库事务，会把外部 TTS/LLM 延迟转化为数据库连接占用。
+- 单纯增加 HTTP timeout 或 statement timeout 只会延长不可用窗口。
+
+### 决策
+
+训练运行态按“是否必须强一致、是否属于正式训练产物”分层：
+
+1. **正式产物**：Message、TrainingAction、NursingAssessment、Score 必须落 PostgreSQL，事务成功才算业务成功。
+2. **辅助实时状态**：emotion、initiative timer/count、presence、TTS 播放上下文必须 best-effort；失败只能降级，不能阻塞主链路。
+3. **高频计数与限流**：短期可继续使用 PostgreSQL，但必须有 bounded timeout；并发增长后迁移 Redis。
+
+PostgreSQL-only 阶段的硬性规则：
+
+- TTS 是情绪状态消费者，不得在读取路径创建或更新 `training_session_state`。
+- side effects 不得让情绪、initiative 或统计写入失败冒泡为 chat/TTS 失败。
+- 流式响应返回前必须释放所有只读事务；流式期间不得持有无必要的数据库事务。
+- 热点状态写入必须短事务、幂等、可丢失或可重算；锁等待使用短 `lock_timeout` 快速失败。
+- 不通过引入 Redis 掩盖错误事务边界；Redis 只能承接已明确为短生命周期、高频、可降级的运行态。
+
+Redis 触发条件：
+
+- 同时在线训练数稳定超过 20 或峰值超过 50。
+- `/api/diagnose` 显示 DB pool checked_out 持续偏高，或出现 `training_session_state` 锁等待。
+- rate limit、presence、initiative timer、emotion state 写入成为主要数据库写负载。
+- 多 worker 之间需要低延迟共享训练运行态，而这些状态不要求关系型强一致审计。
+
+Redis 首批只承接：
+
+- `training:{record_id}:emotion`
+- `training:{record_id}:initiative`
+- TTS/rate-limit counters
+- active session / websocket presence
+
+不得迁移到 Redis 的内容：
+
+- 对话 Message
+- 工具 Action
+- 护理评估正式提交
+- 评分与复核
+- LLM/语音调用审计日志
+
 ---
 
 ## 五、目标领域模型
@@ -949,6 +999,7 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 6. `[部分]` 协议增加 `request_id`、幂等与稳定错误码。当前 mutation 已按 `request_id` 去重；错误码和只读请求结果查询仍需完善。
 7. `[部分]` 训练结束等待 pending mutations 和护理评估最终提交。当前已等待 pending tool requests；护理评估最终提交未强制。
 8. `[完成]` 修复或回退候选分支 `ToolContext.app_state` 依赖。当前训练工具 `ToolContext` 不含 `app_state`，相关运行时 Exam LLM 路径未合入。
+9. `[部分]` 实时状态写入从主链路剥离。当前 TTS 已只读情绪状态，side effects 情绪写入已降级为后台 best-effort，并增加短 `lock_timeout`；initiative 状态仍需进一步短事务化或迁移到可降级运行态。
 
 退出条件：
 
@@ -1010,6 +1061,10 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 - 中途刷新可恢复对话、情绪和检查状态。
 - v1、v2 prompt snapshot 都能重载和评分。
 - prompt 各段 token 和裁剪原因可观测。
+
+- 情绪状态更新失败时，患者对话和 TTS 仍能继续，最多退化为默认情绪或上一轮状态。
+- TTS 流式响应期间不持有数据库事务；连接池 checked_out 不随音频播放时长线性增长。
+
 
 ## 10.4 第四阶段：工具产品化
 
@@ -1089,6 +1144,8 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 6. 三段式 prompt 切换
 7. TrainingAction 与护理评估整合
 
+8. 实时训练状态降级与 DB 事务拆分
+
 每个切片都必须能部署、观察和回滚。
 
 ---
@@ -1132,7 +1189,16 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 - provider 返回无 usage 或 tokenizer 估算偏差
 - LLM 失败、重试和评分恢复
 
-### 12.4 数据迁移
+
+### 12.4 可用性与数据库退化
+
+- 锁住同一 `training_session_state` 行时，TTS 情绪读取不创建或更新状态，仍返回 `neutral` 或已有状态。
+- 情绪后台更新超时或失败时，chat SSE 不返回 500，训练消息仍持久化。
+- TTS stream 返回 `StreamingResponse` 前释放只读事务；音频流播放期间 DB pool checked_out 不增加。
+- `lock_timeout` 触发时记录可观测 warning，不把请求拖到全局 `statement_timeout`。
+- 主动发问 initiative 更新失败时只影响提示状态，不影响学生消息、患者回复或评分基础数据。
+
+### 12.5 数据迁移
 
 - 没有班级的用户保持 `class_id = NULL`。
 - 一个班级的用户正确回填。
@@ -1141,7 +1207,7 @@ LLM 只可用于病例编辑阶段辅助生成 exam anchors，结果必须通过
 - triage 历史若存在，按事先决定归档或只读保留。
 - migration chain 完整且 roundtrip 通过。
 
-### 12.5 前端实际体验
+### 12.6 前端实际体验
 
 UI 变更不以组件测试作为最终证明，必须在真实浏览器验证：
 
@@ -1180,6 +1246,11 @@ UI 变更不以组件测试作为最终证明，必须在真实浏览器验证�
 - prompt snapshot 版本分布
 - 旧格式快照待迁移数
 
+- DB pool checked_out / overflow / wait timeout
+- `training_session_state` lock timeout 数
+- emotion / initiative best-effort 写入失败数
+- TTS stream active count 与流式期间 DB checked_out 高水位
+
 如果诊断端点变慢，应逐项计时内部查询并检查数据库锁与执行计划，不通过单纯增加 HTTP timeout 掩盖问题。
 
 ### 13.3 成本指标
@@ -1212,6 +1283,10 @@ UI 变更不以组件测试作为最终证明，必须在真实浏览器验证�
 10. **UI 不是安全边界。** 隐藏组件、折叠面板和 feature flag 不能代替后端字段隔离。
 11. **先修闭环，再扩类型。** 新能力必须证明会进入训练、记录和评分，而不是只增加入口。
 12. **当前仓库事实优先。** 历史设计文档用于回溯，不自动代表当前决策。
+13. **实时状态可降级。** emotion、initiative、presence、rate-limit 等运行态不能阻塞 Message、Action、Assessment 和 Score 这些正式产物。
+14. **流式响应不持有无关事务。** SSE、TTS 和导出类接口必须证明返回后没有不必要的 DB transaction 悬挂。
+15. **Redis 不是遮羞布。** 只有先拆清事务边界和数据归属，才允许把短生命周期运行态迁移到 Redis。
+
 
 ---
 
@@ -1228,6 +1303,8 @@ UI 变更不以组件测试作为最终证明，必须在真实浏览器验证�
 - 不保留 Grade、UserClass、Profile registry 的兼容别名和长期 shim。
 - 不在一个不可回滚提交中同时完成全部迁移。
 - 不用更多测试替代真实浏览器端到端训练验证。
+- 不用 Redis 掩盖错误的数据库事务生命周期、热点行写入和主链路辅助 side effects。
+
 
 ---
 
@@ -1245,8 +1322,9 @@ UI 变更不以组件测试作为最终证明，必须在真实浏览器验证�
 - 旧、新 prompt snapshot 均可恢复和重评分。
 - 评分绑定真实模型、rubric 和 prompt 审计信息。
 - 五轮对话、检查、刷新、结束、评分和旧记录重载的完整场景通过。
+- 情绪、主动发问、presence 和限流等实时状态具备可降级边界，不会阻塞对话、工具、护理评估和评分正式产物。
 - 数据迁移 roundtrip、前端类型检查和真实移动/桌面浏览器验证通过。
 
-当前核实结论：以上完成定义尚未满足。第一阶段安全止血已有可用基础，但数据投影命名、教师内部视图、护理评估最终提交、TrainingAction、删除型迁移、提示词三段式、旧快照兼容和真实浏览器端到端验收仍未完成。
+当前核实结论：以上完成定义尚未满足。第一阶段安全止血已有可用基础，但数据投影命名、教师内部视图、护理评估最终提交、TrainingAction、实时状态降级边界、删除型迁移、提示词三段式、旧快照兼容和真实浏览器端到端验收仍未完成。
 
 这套收敛不是缩小产品理想，而是在建立可以承载未来扩展的可信底座。只有当病史采集闭环具备数据边界、操作审计、历史可重放和评分一致性后，第二训练类型、更多工具和更复杂的教学策略才有稳定落点。

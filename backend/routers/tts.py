@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
-from contexts.training.patient_ai.emotion import get_emotion
+from contexts.training.patient_ai.emotion import EmotionState
 from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
@@ -24,10 +24,20 @@ router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 
 def _resolve_emotion(request: Request, record_id: int, db) -> str:
+    """Read emotion without creating/updating session state.
+
+    TTS is a consumer of emotion state. Creating the default row here can block
+    behind training side effects and turn audio playback into a 120s DB timeout.
+    """
     emotion_cache = getattr(request.app.state, "emotion_cache", None)
     if emotion_cache is None:
         return "neutral"
-    return get_emotion(record_id, emotion_cache, db).state
+    try:
+        state = emotion_cache.get(record_id, db)
+    except Exception:
+        log.warning("TTS emotion lookup failed: record_id=%d", record_id, exc_info=True)
+        return "neutral"
+    return state.state if isinstance(state, EmotionState) else "neutral"
 
 
 def _require_record_id(record_id: int | None) -> int:
@@ -59,7 +69,7 @@ async def synthesize(
     record_id = _require_record_id(req.record_id)
     client: VolcBidirectionalTTSClient | None = request.app.state.tts_client
     emotion_state = _resolve_emotion(request, record_id, db)
-    db.commit()  # 持久化训练会话状态，释放 row lock
+    db.rollback()  # 只读情绪查询结束后立即释放连接事务；TTS 流式期间不持有快照
 
     cfg = getattr(request.app.state, "tts_config", {})
     if not cfg:
@@ -110,7 +120,7 @@ async def synthesize_stream(
     record_id = _require_record_id(req.record_id)
     pool: TTSConnectionPool | None = getattr(request.app.state, "tts_pool", None)
     emotion_state = _resolve_emotion(request, record_id, db)
-    db.commit()  # 持久化训练会话状态，释放 row lock，避免流式期间锁争用
+    db.rollback()  # 只读情绪查询结束后立即释放连接事务；TTS 流式期间不持有快照
 
     cfg = getattr(request.app.state, "tts_config", {})
     if not cfg:
@@ -127,6 +137,7 @@ async def synthesize_stream(
             timeout=cfg.get("timeout", 8),
             speaker_library=cfg.get("speaker_library"),
         )
+        db.rollback()  # 释放 _resolve_request 的只读事务；StreamingResponse 不持有 DB 事务
     except CircuitOpenError:
         raise HTTPException(status_code=503, detail="TTS 服务暂时不可用，已切换浏览器端语音")
     except TimeoutError as e:
