@@ -1,4 +1,4 @@
-"""Tests for ScoringProgressTracker (DB-backed)."""
+"""Tests for ScoringProgressTracker (in-memory dict)."""
 
 import pytest
 

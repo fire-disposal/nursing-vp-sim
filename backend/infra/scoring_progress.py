@@ -1,16 +1,9 @@
 """Scoring progress tracker — in-memory single source of truth.
 
-Previously backed by a PostgreSQL table (ScoringProgress model), which
-created a new DB session on *every update* (~8 per scoring run).  This
-is transient UI-facing data that no other service reads — storing it in
-the database buys zero durability and costs a connection-open + query +
-commit + close per update.
-
-Now a plain dict.  The public API is unchanged, so callers are unaffected.
-
-TTL auto-eviction on get() prevents stale entries from polluting polling
-responses after process crashes or unexpected task failures.
+A plain dict with TTL auto-eviction on get(), preventing stale entries from
+polluting polling responses after process crashes or unexpected task failures.
 """
+
 
 from __future__ import annotations
 

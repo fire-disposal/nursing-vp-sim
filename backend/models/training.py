@@ -146,16 +146,6 @@ class NursingRecord(Base, TimestampMixin):
     user: Mapped[User] = relationship()
 
 
-class ScoringProgress(Base, TimestampMixin):
-    __tablename__ = "scoring_progress"
-    __table_args__ = (UniqueConstraint("record_id", name="uq_sp_record"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", ondelete="CASCADE"), unique=True)
-    stage: Mapped[str] = mapped_column(String(20), default="pending")
-    percent: Mapped[int] = mapped_column(Integer, default=0)
-    message: Mapped[str | None] = mapped_column(Text, nullable=True)
-
 
 class TrainingToolRequest(Base):
     __tablename__ = "training_tool_requests"

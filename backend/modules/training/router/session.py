@@ -21,7 +21,6 @@ from models import (
     QuestionnaireResponse,
     Score,
     ScoreReview,
-    ScoringProgress,
     TrainingRecord,
     TrainingSessionState,
     TrainingToolRequest,
@@ -59,7 +58,6 @@ def _cascade_delete_training_record(db: Session, record_id: int) -> None:
         (NursingRecord, NursingRecord.record_id),
         (VoiceCallLog, VoiceCallLog.record_id),
         (TrainingSessionState, TrainingSessionState.record_id),
-        (ScoringProgress, ScoringProgress.record_id),
     ]
     for model, column in tables:
         db.query(model).filter(column == record_id).delete(synchronize_session="fetch")
