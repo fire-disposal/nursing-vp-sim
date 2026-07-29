@@ -15,9 +15,9 @@ from core.config import (
 from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
-from infrastructure.llm.client import LLMClient
-from infrastructure.queue import QueueFullError
-from infrastructure.scoring_progress import ScoringProgressTracker
+from infra.llm.client import LLMClient
+from infra.queue import QueueFullError
+from infra.scoring_progress import ScoringProgressTracker
 
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。

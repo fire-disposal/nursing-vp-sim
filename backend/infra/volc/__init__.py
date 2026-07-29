@@ -1,6 +1,6 @@
 """Volcengine shared helpers (v3 authentication)."""
 
-from infrastructure.volc.auth import (
+from infra.volc.auth import (
     VOLC_BASE_URL,
     VOLC_WS_BASE_URL,
     tts_headers,

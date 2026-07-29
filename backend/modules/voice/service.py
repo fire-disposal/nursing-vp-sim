@@ -13,10 +13,10 @@ from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from core.unit_of_work import unit_of_work
-from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
-from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
-from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
-from infrastructure.tts.pool import TTSConnectionPool
+from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
+from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
+from infra.tts.mapper import emotion_to_tts, resolve_voice_type
+from infra.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)

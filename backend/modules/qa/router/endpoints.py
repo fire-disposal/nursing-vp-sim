@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from core.database import db_session, get_db
 from core.rate_limits import check_qa_limit
 from core.security import require_permission
-from infrastructure.llm.client import CallContext
-from infrastructure.llm.profile import get_llm_config
+from infra.llm.client import CallContext
+from infra.llm.profile import get_llm_config
 from models import QARecord, QASession, User
 from prompts import render_template
 from prompts.qa import QA_SYSTEM

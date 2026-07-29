@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 
-from infrastructure.llm.client import CallContext
+from infra.llm.client import CallContext
 from modules.training.patient_ai.emotion import EmotionState, get_emotion
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from prompts import render_template

@@ -107,7 +107,7 @@ class CallRecorder:
         model: str,
         cache_hit: int = 0,
     ) -> float:
-        from infrastructure.llm.token_counter import estimate_cost_cny
+        from infra.llm.token_counter import estimate_cost_cny
 
         return estimate_cost_cny(
             prompt_tokens or 0,

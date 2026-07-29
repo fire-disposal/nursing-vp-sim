@@ -121,7 +121,7 @@ class ProfileRouter:
 
         # Last resort: env fallback
         from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-        from infrastructure.llm.profile import get_model
+        from infra.llm.profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
             log.warning("ProfileRouter: env 兜底 (purpose=%s)", purpose)

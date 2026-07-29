@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 
 from core.deps import DbSession
 from core.security import require_permission
-from infrastructure.llm import get_env_fallback_state
+from infra.llm import get_env_fallback_state
 from models import ApiSecret, User
 from schemas import (
     ApiSecretCreate,

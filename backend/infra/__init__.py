@@ -17,12 +17,12 @@
 - prompt/ — 通用模板引擎 (render_template)
 """
 
-from infrastructure.exporter import ColumnDef, CSVExporter, XLSXExporter, export_response
-from infrastructure.logging_setup import setup_logging
-from infrastructure.metrics import MetricsSnapshot
-from infrastructure.queue import TaskQueue
-from infrastructure.realtime_hub import RealtimeHub
-from infrastructure.scoring_progress import ScoringProgressTracker
+from infra.exporter import ColumnDef, CSVExporter, XLSXExporter, export_response
+from infra.logging_setup import setup_logging
+from infra.metrics import MetricsSnapshot
+from infra.queue import TaskQueue
+from infra.realtime_hub import RealtimeHub
+from infra.scoring_progress import ScoringProgressTracker
 
 __all__ = [
     "CSVExporter",

@@ -31,7 +31,7 @@ def _start(client, token: str, case_id: int) -> int:
 
 
 def _install_realtime_hub(client) -> None:
-    from infrastructure.realtime_hub import RealtimeHub
+    from infra.realtime_hub import RealtimeHub
 
     client.app.state.realtime_hub = RealtimeHub()
 

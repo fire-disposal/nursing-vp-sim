@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import require_permission
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from models import User
 from schemas import (
     AdminStats,

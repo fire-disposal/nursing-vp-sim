@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 from models import Case, Message, Score, TrainingRecord, User
 
 if TYPE_CHECKING:
-    from infrastructure.llm.client import LLMClient
+    from infra.llm.client import LLMClient
 
 
 def _make_record(db_session, scoring_status):
@@ -301,7 +301,7 @@ def test_end_training_discards_no_student_messages(client, db_session):
 def test_end_training_queue_full_rollback(client, db_session, monkeypatch):
     """QueueFullError → 503, scoring_status=NULL, status stays in_progress."""
     from core.security import hash_password
-    from infrastructure.queue import QueueFullError
+    from infra.queue import QueueFullError
     from models import Role
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
@@ -355,7 +355,7 @@ def test_end_training_queue_full_rollback(client, db_session, monkeypatch):
 def test_retry_scoring_queue_full_preserves_old_score(client, db_session, monkeypatch):
     """QueueFullError in retry → 503, scoring_status=NULL, old Score preserved."""
     from core.security import hash_password
-    from infrastructure.queue import QueueFullError
+    from infra.queue import QueueFullError
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
 

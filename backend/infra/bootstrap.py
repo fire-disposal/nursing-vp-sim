@@ -23,13 +23,13 @@ from core.config import (
     LLM_LOG_OVERFLOW_MAX_SIZE_MB,
 )
 from core.database import SessionLocal, engine
-from infrastructure.diagnose import get_diagnose_service
-from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.llm.client import LLMClient
-from infrastructure.metrics import MetricsSnapshot
-from infrastructure.queue import TaskQueue
-from infrastructure.realtime_hub import RealtimeHub
-from infrastructure.scoring_progress import ScoringProgressTracker
+from infra.diagnose import get_diagnose_service
+from infra.llm import LogWorker, ProfileRouter
+from infra.llm.client import LLMClient
+from infra.metrics import MetricsSnapshot
+from infra.queue import TaskQueue
+from infra.realtime_hub import RealtimeHub
+from infra.scoring_progress import ScoringProgressTracker
 from models import Notification, SystemNotification, User
 from modules.training.session.cache import EmotionCache, InitiativeCache
 from modules.training.session.settlement import settlement_loop
@@ -104,7 +104,7 @@ async def init_infra(app_state, llm_router):
     app_state.emotion_cache = EmotionCache()
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()
-    from infrastructure.frontend_telemetry import FrontendErrorBuffer
+    from infra.frontend_telemetry import FrontendErrorBuffer
 
     app_state.frontend_error_buffer = FrontendErrorBuffer()
 

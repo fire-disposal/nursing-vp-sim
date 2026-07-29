@@ -17,8 +17,8 @@ from sqlalchemy import text
 
 from core.config import APP_VERSION, DIAGNOSE_TOKEN
 from core.database import SessionLocal, engine
-from infrastructure.diagnose import get_diagnose_service
-from infrastructure.ops_queries import build_dashboard, compute_alerts
+from infra.diagnose import get_diagnose_service
+from infra.ops_queries import build_dashboard, compute_alerts
 from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)

@@ -44,7 +44,7 @@ def get_cached_answer(question: str, user_id: int, db: Session) -> str | None:
 
 MAX_HISTORY_TOKENS = 2000
 
-from infrastructure.llm.token_counter import estimate_tokens
+from infra.llm.token_counter import estimate_tokens
 
 
 def build_qa_history(session_id: int, db: Session) -> list[dict]:

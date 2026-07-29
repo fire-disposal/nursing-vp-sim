@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
 from core.deps import CurrentUser, DbSession
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from services.record import RecordService
 
 router = APIRouter(prefix="/api/export", tags=["导出"])

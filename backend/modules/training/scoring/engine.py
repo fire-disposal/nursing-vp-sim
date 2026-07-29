@@ -9,9 +9,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.exceptions import LLMParseError
-from infrastructure.llm import safe_parse_json
-from infrastructure.llm.client import CallContext, LLMClient
-from infrastructure.llm.profile import get_enable_thinking, get_llm_config
+from infra.llm import safe_parse_json
+from infra.llm.client import CallContext, LLMClient
+from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
 from profiles.history_taking import PROFILE

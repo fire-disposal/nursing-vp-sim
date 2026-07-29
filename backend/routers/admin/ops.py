@@ -1,7 +1,7 @@
 """Admin ops endpoints — same diagnostic data as /api/diagnose but authenticated
 via ``api_manage`` permission.  Consumed by the frontend SystemOpsPage.
 
-All query logic is delegated to ``infrastructure.ops_queries`` — the only
+All query logic is delegated to ``infra.ops_queries`` — the only
 difference between public and admin endpoints is the authentication layer.
 """
 
@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 from core.config import APP_VERSION
 from core.database import get_db
 from core.security import require_permission
-from infrastructure.diagnose import get_diagnose_service
-from infrastructure.ops_queries import build_dashboard, compute_alerts
+from infra.diagnose import get_diagnose_service
+from infra.ops_queries import build_dashboard, compute_alerts
 from models import User
 
 log = logging.getLogger(__name__)

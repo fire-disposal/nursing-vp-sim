@@ -2,7 +2,7 @@
 
 import pytest
 
-from infrastructure.llm.token_counter import estimate_tokens
+from infra.llm.token_counter import estimate_tokens
 from modules.training.patient_ai.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,

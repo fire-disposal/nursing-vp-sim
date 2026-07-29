@@ -4,12 +4,12 @@ import httpx
 import pytest
 
 from core.exceptions import LLMRateLimited, NoProviderAvailable
-from infrastructure.llm.circuit import async_retry, backoff_delay
+from infra.llm.circuit import async_retry, backoff_delay
 
 
 @pytest.fixture(autouse=True)
 def _skip_retry_delays():
-    with patch("infrastructure.llm.circuit.asyncio.sleep", new_callable=AsyncMock):
+    with patch("infra.llm.circuit.asyncio.sleep", new_callable=AsyncMock):
         yield
 
 

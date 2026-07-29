@@ -2,7 +2,7 @@
 
 import logging
 
-from infrastructure.llm.client import CallContext
+from infra.llm.client import CallContext
 
 from ..context import (
     STATE_IDENTITY_CORRECTION_COUNT,
@@ -41,7 +41,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
     llm_client = app.llm_client
     llm_cfg = ctx.state.get(STATE_PATIENT_CHAT_CFG)
     if llm_cfg is None:
-        from infrastructure.llm.profile import get_llm_config
+        from infra.llm.profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
         ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
@@ -108,7 +108,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
     llm_client = app.llm_client
     llm_cfg = ctx.state.get(STATE_PATIENT_CHAT_CFG)
     if llm_cfg is None:
-        from infrastructure.llm.profile import get_llm_config
+        from infra.llm.profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
         ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg

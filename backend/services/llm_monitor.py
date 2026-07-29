@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session, selectinload
 
 from core.exceptions import NotFoundError
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from models import LLMCallLog, TrainingRecord, User
 from repositories.llm_log import LLMCallLogRepository
 from schemas import LLMCallLogItem, LLMStatsResponse, PaginatedResponse

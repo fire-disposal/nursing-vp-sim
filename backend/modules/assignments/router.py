@@ -10,7 +10,7 @@ from core.database import get_db
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
 from core.security import require_permission
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from models import Assignment, User
 from modules.assignments.service import AssignmentService
 from schemas import (

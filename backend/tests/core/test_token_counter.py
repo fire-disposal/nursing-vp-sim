@@ -1,4 +1,4 @@
-from infrastructure.llm.token_counter import estimate_cost_cny
+from infra.llm.token_counter import estimate_cost_cny
 
 
 def test_pro_model_priced_by_model_not_key_flat_price():

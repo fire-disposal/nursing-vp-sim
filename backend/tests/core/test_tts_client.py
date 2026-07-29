@@ -7,7 +7,7 @@ be run against the staging environment with a valid API key.
 
 import pytest
 
-from infrastructure.tts.client import TTSRequest
+from infra.tts.client import TTSRequest
 
 
 class TestVolcBidirectionalTTSClient:

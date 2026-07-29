@@ -35,8 +35,8 @@ from core.exceptions import (
     scoring_error_handler,
     validation_error_handler,
 )
-from infrastructure.llm import ProfileRouter
-from infrastructure.logging_setup import setup_logging
+from infra.llm import ProfileRouter
+from infra.logging_setup import setup_logging
 from scripts.seed import seed_all
 
 log = logging.getLogger(__name__)
@@ -219,8 +219,8 @@ async def lifespan(app: FastAPI):
         log.exception("LLM ProfileRouter 初始化失败 — LLM 功能不可用")
         app.state.llm_router = None
 
-    from infrastructure.bootstrap import shutdown as bootstrap_shutdown
-    from infrastructure.bootstrap import startup as bootstrap_startup
+    from infra.bootstrap import shutdown as bootstrap_shutdown
+    from infra.bootstrap import startup as bootstrap_startup
 
     await bootstrap_startup(app)
     # Re-enqueue scoring for records recovered as 'pending' on startup

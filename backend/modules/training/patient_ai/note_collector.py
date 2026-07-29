@@ -12,7 +12,7 @@ from .note_source import NoteSource
 
 log = logging.getLogger(__name__)
 
-from infrastructure.llm.token_counter import estimate_tokens
+from infra.llm.token_counter import estimate_tokens
 
 MAX_AUTHOR_NOTE_TOKENS = 300
 

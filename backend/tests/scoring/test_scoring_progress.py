@@ -2,7 +2,7 @@
 
 import pytest
 
-from infrastructure.scoring_progress import ScoringProgressTracker
+from infra.scoring_progress import ScoringProgressTracker
 from models import Case, TrainingRecord, User
 
 

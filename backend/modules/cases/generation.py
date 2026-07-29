@@ -16,8 +16,8 @@ from core.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from infrastructure.llm.client import CallContext, LLMClient
-from infrastructure.llm.profile import get_llm_config
+from infra.llm.client import CallContext, LLMClient
+from infra.llm.profile import get_llm_config
 from models import Case, User
 from modules.training.pipeline.prompt_context import PromptContext
 from profiles.history_taking.builder import format_case_for_prompt

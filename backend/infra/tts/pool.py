@@ -13,7 +13,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from infrastructure.tts.client import VolcTTSConnection
+from infra.tts.client import VolcTTSConnection
 
 log = logging.getLogger(__name__)
 

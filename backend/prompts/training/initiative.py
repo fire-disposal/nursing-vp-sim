@@ -27,8 +27,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-from infrastructure.llm.client import CallContext
-from infrastructure.llm.profile import get_llm_config
+from infra.llm.client import CallContext
+from infra.llm.profile import get_llm_config
 from modules.training.session.cache import InitiativeCache
 from prompts.engine import render_template
 

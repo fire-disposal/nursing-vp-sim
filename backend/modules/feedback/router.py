@@ -8,7 +8,7 @@ from core.config import FEEDBACK_BOT_TOKEN
 from core.database import get_db
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from models import Feedback, User
 from modules.feedback.service import FeedbackService
 from schemas import (

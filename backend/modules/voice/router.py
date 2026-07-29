@@ -10,9 +10,9 @@ from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
 from core.security import get_current_user
-from infrastructure.tts.circuit import CircuitOpenError
-from infrastructure.tts.client import VolcBidirectionalTTSClient
-from infrastructure.tts.pool import TTSConnectionPool
+from infra.tts.circuit import CircuitOpenError
+from infra.tts.client import VolcBidirectionalTTSClient
+from infra.tts.pool import TTSConnectionPool
 from models import User
 from modules.training.patient_ai.emotion import EmotionState
 from modules.voice.service import TTSService

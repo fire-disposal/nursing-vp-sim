@@ -8,7 +8,7 @@ the low-latency ``standard`` model. Both rates are in the range [-50, 100].
 import logging
 
 from core.gender import GENDER_FEMALE, GENDER_MALE
-from infrastructure.tts.client import TTSRequest
+from infra.tts.client import TTSRequest
 
 log = logging.getLogger(__name__)
 

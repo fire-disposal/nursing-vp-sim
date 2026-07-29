@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from core.exceptions import LLMParseError, NoProviderAvailable
-from infrastructure.llm.client import CallContext, LLMClient
+from infra.llm.client import CallContext, LLMClient
 
 
 @pytest.fixture

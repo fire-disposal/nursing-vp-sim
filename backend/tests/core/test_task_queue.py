@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from infrastructure.queue import TaskQueue
+from infra.queue import TaskQueue
 
 
 @pytest.fixture

@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 import httpx
 
 from core.exceptions import LLMParseError, NoProviderAvailable
-from infrastructure.llm.call_recorder import CallMeta, CallRecorder
-from infrastructure.llm.circuit import async_retry, backoff_delay
+from infra.llm.call_recorder import CallMeta, CallRecorder
+from infra.llm.circuit import async_retry, backoff_delay
 
 from .logging import LogWorker
 from .parsing import safe_parse_json
@@ -80,7 +80,7 @@ class LLMClient:
         self._log_worker = log_worker
         self._metrics = metrics
         self._recorder = CallRecorder(log_worker, metrics)
-        from infrastructure.llm.profile import PROFILES
+        from infra.llm.profile import PROFILES
 
         _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
         self._semaphores: dict[str, asyncio.Semaphore] = {
@@ -373,7 +373,7 @@ class LLMClient:
                 prompt_tokens = usage.get("prompt_tokens")
                 completion_tokens = usage.get("completion_tokens")
                 if prompt_tokens is None or completion_tokens is None:
-                    from infrastructure.llm.token_counter import estimate_tokens
+                    from infra.llm.token_counter import estimate_tokens
 
                     prompt_tokens = estimate_tokens(request_text or "")
                     completion_tokens = estimate_tokens(total_text or "")
@@ -497,7 +497,7 @@ class LLMClient:
 
     async def _select_config(self, purpose: str) -> _CallState:
         """Select a profile from the router and build call state."""
-        from infrastructure.llm.profile import get_model
+        from infra.llm.profile import get_model
 
         config = self._router.select(purpose)
         api_key = self._router.get_api_key(config)

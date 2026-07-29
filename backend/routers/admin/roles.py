@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from core.deps import DbSession
 from core.security import load_role_permissions, require_permission
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 from models import User
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
 from services.role import RoleService

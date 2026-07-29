@@ -179,7 +179,7 @@ class TestScoringPromptSanity:
 
     def testsafe_parse_json_with_valid_llm_response(self):
         """模拟 LLM 正确返回的 JSON 能否被解析"""
-        from infrastructure.llm import safe_parse_json
+        from infra.llm import safe_parse_json
 
         response = {
             "rubric_version": "nursing_history_v1@1.0",

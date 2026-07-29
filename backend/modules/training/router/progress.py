@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user
-from infrastructure.llm.client import CallContext
+from infra.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
 from modules.training.capabilities import is_enabled
 from modules.training.patient_ai.emotion import get_emotion

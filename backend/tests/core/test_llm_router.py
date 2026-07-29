@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from infrastructure.llm import ProfileRouter
+from infra.llm import ProfileRouter
 from models import ApiSecret
 
 

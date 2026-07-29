@@ -24,7 +24,7 @@ from schemas import (
 
 log = logging.getLogger(__name__)
 
-from infrastructure.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, export_response
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 

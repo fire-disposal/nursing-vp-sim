@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
-from infrastructure.tts.mapper import DEFAULT_SPEAKER
+from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient
+from infra.tts.mapper import DEFAULT_SPEAKER
 from models import VoiceConfig
 from schemas.voice import VoiceConfigResponse, VoiceStatusResponse
 

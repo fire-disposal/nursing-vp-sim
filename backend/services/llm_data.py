@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from infrastructure.llm.profile import PROFILES
+from infra.llm.profile import PROFILES
 
 if TYPE_CHECKING:
     from models import ApiSecret
