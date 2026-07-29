@@ -10,6 +10,7 @@ from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infrastructure.exporter import ColumnDef, export_response
 from models import Feedback, User
+from modules.feedback.service import FeedbackService
 from schemas import (
     FeedbackDailyItem,
     FeedbackItem,
@@ -18,7 +19,6 @@ from schemas import (
     PaginatedResponse,
     StorageStatsResponse,
 )
-from services.feedback import FeedbackService
 
 router = APIRouter(prefix="/api", tags=["反馈"])
 
