@@ -26,6 +26,8 @@ class FrontendErrorEntry:
     url: str = ""  # 触发页面或 API 路径
     user_id: int = 0  # 0 = 未登录
     ua: str = ""  # 浏览器 UA 摘要
+    source: str = ""  # ErrorBoundary, window.error, unhandledrejection, api
+    component_stack: str = ""  # React component stack, truncated
     count: int = 1  # 去重合并计数
     timestamp: float = 0.0
 
@@ -35,10 +37,10 @@ class FrontendErrorBuffer:
 
     def __init__(self):
         self.buffer: deque[FrontendErrorEntry] = deque(maxlen=_MAX_ERRORS)
-        self._dedup: dict[tuple[str, str], tuple[float, int]] = {}
+        self._dedup: dict[tuple[str, str, str], tuple[float, int]] = {}
 
-    def _dedup_key(self, error_type: str, message: str) -> tuple[str, str]:
-        return (error_type, message[:_DEDUP_HASH_HEAD])
+    def _dedup_key(self, source: str, error_type: str, message: str) -> tuple[str, str, str]:
+        return (source, error_type, message[:_DEDUP_HASH_HEAD])
 
     def _prune_dedup(self, now: float) -> None:
         stale = [k for k, (ts, _) in self._dedup.items() if now - ts > _DEDUP_WINDOW]
@@ -50,20 +52,23 @@ class FrontendErrorBuffer:
         now = time.time()
         self._prune_dedup(now)
         for e in entries:
-            error_type = str(e.get("type", "") or "")[:_MSG_MAX]
+            error_type = str(e.get("type", "") or "")[:200]
             message = str(e.get("message", "") or "")[:_MSG_MAX]
             url = str(e.get("url", "") or "")[:500]
             user_id = int(e.get("user_id", 0) or 0)
             ua = str(e.get("ua", "") or "")[:200]
+            source = str(e.get("source", "") or "")[:120]
+            component_stack = str(e.get("component_stack", "") or "")[:1000]
 
-            key = self._dedup_key(error_type, message)
+            key = self._dedup_key(source, error_type, message)
             if key in self._dedup:
                 _, count = self._dedup[key]
                 self._dedup[key] = (now, count + 1)
                 # 更新 buffer 中对应条目的 count（找最近一条同 key 的）
                 for entry in reversed(self.buffer):
                     if (
-                        entry.error_type == error_type
+                        entry.source == source
+                        and entry.error_type == error_type
                         and entry.message[:_DEDUP_HASH_HEAD] == message[:_DEDUP_HASH_HEAD]
                     ):
                         entry.count = count + 1
@@ -79,6 +84,8 @@ class FrontendErrorBuffer:
                     url=url,
                     user_id=user_id,
                     ua=ua,
+                    source=source,
+                    component_stack=component_stack,
                     timestamp=now,
                 )
             )
@@ -93,6 +100,8 @@ class FrontendErrorBuffer:
                 "url": e.url,
                 "user_id": e.user_id,
                 "count": e.count,
+                "source": e.source,
+                "component_stack": e.component_stack,
             }
             for e in entries
         ]

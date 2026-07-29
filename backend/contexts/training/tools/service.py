@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from sqlalchemy.exc import IntegrityError
@@ -9,6 +10,8 @@ from models import TrainingRecord, TrainingToolRequest
 
 from .base import ToolContext, ToolResult
 from .registry import dispatch, registry
+
+log = logging.getLogger(__name__)
 
 _READ_ACTIONS = frozenset({"load"})
 
@@ -95,6 +98,10 @@ async def execute_tool_request(
 
     cached = _cached_result(ctx, request_id, tool_name, action)
     if cached is not None:
+        log.info(
+            "Training tool request deduplicated",
+            extra={"record_id": ctx.record.id, "tool": tool_name, "action": action},
+        )
         return cached
 
     request_row = TrainingToolRequest(
@@ -119,6 +126,10 @@ async def execute_tool_request(
     if result.ok:
         request_row.response = payload
         ctx.db.commit()
+        log.info(
+            "Training tool request completed",
+            extra={"record_id": ctx.record.id, "tool": tool_name, "action": action},
+        )
         return result
 
     ctx.db.rollback()
@@ -136,4 +147,8 @@ async def execute_tool_request(
         )
     )
     ctx.db.commit()
+    log.warning(
+        "Training tool request returned error",
+        extra={"record_id": ctx.record.id, "tool": tool_name, "action": action, "error": result.error[:200]},
+    )
     return result

@@ -1,7 +1,7 @@
 """Frontend error telemetry endpoint — lightweight, zero-auth POST.
 
 Payload: JSON array of error objects.
-Example: [{"type":"AbortError","message":"请求超时，请重试","url":"/api/chat/...","user_id":50,"ua":"Chrome/131"}]
+Example: [{"type":"AbortError","message":"请求超时，请重试","url":"/api/chat/...","source":"api","user_id":50,"ua":"Chrome/131"}]
 
 Rate-limited per IP (5 req/min) + hard cap batch size (20).
 Fire-and-forget: always returns 204, never blocks the caller.
@@ -54,6 +54,8 @@ class ErrorItem(BaseModel):
     url: str = Field(default="", max_length=500)
     user_id: int = Field(default=0)
     ua: str = Field(default="", max_length=200)
+    source: str = Field(default="", max_length=120)
+    component_stack: str = Field(default="", max_length=1000)
 
 
 class TelemetryPayload(BaseModel):
@@ -76,4 +78,6 @@ async def ingest_telemetry(payload: TelemetryPayload, request: Request):
     if not payload.errors:
         return
     entries = [e.model_dump() for e in payload.errors]
+    types = sorted({e.type or "unknown" for e in payload.errors})[:5]
+    log.info("Frontend telemetry ingest: count=%d ip=%s types=%s", len(entries), ip, types)
     buffer.ingest(*entries)

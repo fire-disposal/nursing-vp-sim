@@ -19,6 +19,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_ROUTES } from "@/components/shell/navigation";
 import { onForceLogout } from "@/events";
 import { usePalette } from "@/hooks/useTheme";
+import useAuthStore from "@/stores/authStore";
+import { installGlobalTelemetry, setTelemetryUserId } from "@/utils/telemetry";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -51,6 +53,17 @@ function AppPaletteInit() {
 	return null;
 }
 
+function TelemetryInit() {
+	const userId = useAuthStore((s) => s.user?.user_id ?? 0);
+	useEffect(() => {
+		installGlobalTelemetry();
+	}, []);
+	useEffect(() => {
+		setTelemetryUserId(userId);
+	}, [userId]);
+	return null;
+}
+
 function PageLoader() {
 	return (
 		<div className="flex h-screen flex-col items-center justify-center gap-3">
@@ -68,6 +81,7 @@ export default function App() {
 				<MotionConfig reducedMotion="user">
 				<AppPaletteInit />
 				<ForceLogoutListener />
+				<TelemetryInit />
 				<Toaster />
 				<ConfirmProvider>
 					<FeedbackProvider>

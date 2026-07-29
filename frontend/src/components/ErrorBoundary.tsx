@@ -1,6 +1,7 @@
 import { CircleAlert, Home } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/utils/telemetry";
 
 interface Props {
 	children: ReactNode;
@@ -23,6 +24,10 @@ export default class ErrorBoundary extends Component<Props, State> {
 	componentDidCatch(error: Error, info: ErrorInfo) {
 		console.error("[ErrorBoundary] caught:", error);
 		console.error("[ErrorBoundary] componentStack:", info.componentStack);
+		reportError(error.name || "RenderError", error.message || "React render error", window.location.pathname, {
+			source: "ErrorBoundary",
+			componentStack: info.componentStack ?? "",
+		});
 		this.setState({ errorInfo: info });
 	}
 

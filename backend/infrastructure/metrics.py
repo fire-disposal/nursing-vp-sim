@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import time
 from collections import defaultdict
@@ -22,6 +23,14 @@ class _PoolProtocol(Protocol):
 
 log = logging.getLogger(__name__)
 
+_ROUTE_ID_RE = re.compile(r"^\d+$|^[0-9a-f]{8,}$", re.IGNORECASE)
+
+
+def _route_key(method: str, path: str) -> str:
+    """Collapse path identifiers so diagnostics show route shape, not records."""
+    parts = [":id" if _ROUTE_ID_RE.match(p) else p for p in path.strip("/").split("/") if p]
+    return f"{method.upper()} /{'/'.join(parts)}" if parts else f"{method.upper()} /"
+
 
 class MetricsSnapshot:
     def __init__(self) -> None:
@@ -31,15 +40,20 @@ class MetricsSnapshot:
     _request_lock = threading.Lock()
     _request_total: int = 0
     _request_by_status: dict[str, int] = defaultdict(int)
+    _request_by_status_code: dict[str, int] = defaultdict(int)
+    _request_by_route_status: dict[tuple[str, str, int], int] = defaultdict(int)
     _request_latencies: list[float] = []  # last N latencies in ms, circular
 
     _LATENCY_BUFFER = 2000  # keep last 2k latencies for percentile calc
 
-    def record_request(self, status_code: int, latency_ms: float) -> None:
+    def record_request(self, status_code: int, latency_ms: float, *, method: str = "", path: str = "") -> None:
         with self._request_lock:
             self._request_total += 1
             bucket = f"{status_code // 100}xx"
             self._request_by_status[bucket] += 1
+            self._request_by_status_code[str(status_code)] += 1
+            if method and path:
+                self._request_by_route_status[(method.upper(), _route_key(method, path), status_code)] += 1
             self._request_latencies.append(latency_ms)
             if len(self._request_latencies) > self._LATENCY_BUFFER:
                 self._request_latencies = self._request_latencies[-self._LATENCY_BUFFER :]
@@ -90,10 +104,29 @@ class MetricsSnapshot:
         with self._request_lock:
             total = self._request_total
             by_status = dict(self._request_by_status)
+            by_status_code = dict(self._request_by_status_code)
+            by_route_status = dict(self._request_by_route_status)
             lats = sorted(self._request_latencies[:])
+
+        top_4xx = [
+            {"route": route, "status": status, "count": count}
+            for (_, route, status), count in by_route_status.items()
+            if 400 <= status < 500
+        ]
+        top_5xx = [
+            {"route": route, "status": status, "count": count}
+            for (_, route, status), count in by_route_status.items()
+            if status >= 500
+        ]
+        top_4xx.sort(key=lambda x: x["count"], reverse=True)
+        top_5xx.sort(key=lambda x: x["count"], reverse=True)
+
         return dict(
             total=total,
             by_status=by_status,
+            by_status_code=by_status_code,
+            top_4xx=top_4xx[:10],
+            top_5xx=top_5xx[:10],
             latency_ms=dict(
                 p50=self._percentile(lats, 50),
                 p95=self._percentile(lats, 95),
@@ -142,16 +175,19 @@ class MetricsSnapshot:
 
     @staticmethod
     def _memory_mb() -> float:
-        try:
-            import resource
-        except ImportError:
-            return 0.0
-
         import platform
 
         if platform.system() != "Linux":
             return 0.0
-        usage = resource.getrusage(resource.RUSAGE_SELF)
+        try:
+            import resource
+        except ImportError:
+            return 0.0
+        getrusage = getattr(resource, "getrusage", None)
+        self_usage = getattr(resource, "RUSAGE_SELF", None)
+        if not callable(getrusage) or self_usage is None:
+            return 0.0
+        usage = getrusage(self_usage)
         return round(usage.ru_maxrss / 1024, 1)
 
     def snapshot(self) -> dict:

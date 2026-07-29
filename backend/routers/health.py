@@ -83,19 +83,20 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
         # DB-backed snapshot
         dashboard = build_dashboard(db, now)
 
-        # Inject error burst from in-memory handler (not in DB)
-        system_errors: dict = {}
+        # Runtime snapshot: in-memory backend/frontend errors, DB probe, LLM router state.
         try:
             diag_svc = get_diagnose_service()
             diagnostic = await diag_svc.get_diagnose()
-            errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
-            system_errors = errors
-            dashboard["error_burst_5min"] = errors.get("burst_5min", 0)
         except Exception:
+            log.exception("/api/diagnose runtime snapshot unavailable")
             diagnostic = {"error": "diagnose service unavailable"}
-            dashboard["error_burst_5min"] = 0
 
-        alerts = compute_alerts(dashboard)
+        raw_system_errors = diagnostic.get("errors") if isinstance(diagnostic, dict) else None
+        raw_frontend_errors = diagnostic.get("frontend_errors") if isinstance(diagnostic, dict) else None
+        system_errors = raw_system_errors if isinstance(raw_system_errors, dict) else {}
+        frontend_errors = raw_frontend_errors if isinstance(raw_frontend_errors, dict) else {}
+        dashboard["error_burst_5min"] = system_errors.get("burst_5min", 0)
+        dashboard["frontend_errors"] = frontend_errors
 
         # Scoring in-progress count (from app state, not DB)
         scoring_in_progress = 0
@@ -112,18 +113,36 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
             try:
                 metrics_snapshot = request.app.state.metrics.snapshot()
             except Exception:
-                pass
+                log.exception("/api/diagnose metrics snapshot failed")
+        dashboard["http"] = metrics_snapshot.get("requests", {})
+
+        alerts = compute_alerts(dashboard)
 
         return {
             "version": APP_VERSION,
+            "generated_at": now.isoformat(),
+            "windows": {
+                "llm": "rolling_24h",
+                "scoring": "rolling_24h_by_record_end_time",
+                "voice": "rolling_24h",
+                "business": "natural_day_asia_shanghai",
+                "metrics": "process_since_start",
+                "errors": "in_memory_process_ring_buffer",
+            },
             "health": {"status": "ok"},
             "summary": {"status": "degraded" if alerts else "healthy"},
+            "database": diagnostic.get("database", {}) if isinstance(diagnostic, dict) else {},
+            "runtime": {
+                "llm_router": diagnostic.get("llm", {}) if isinstance(diagnostic, dict) else {},
+                "diagnose_cached_at": diagnostic.get("cached_at", "") if isinstance(diagnostic, dict) else "",
+            },
             "llm": dashboard["llm"],
             "scoring": dashboard["scoring"],
             "voice": dashboard["voice"],
             "voice_budget": dashboard["voice_budget"],
             "business": dashboard["business"],
             "metrics": metrics_snapshot,
+            "frontend_errors": frontend_errors,
             "errors": {
                 "count": {
                     "last_5min": system_errors.get("last_5min", 0),

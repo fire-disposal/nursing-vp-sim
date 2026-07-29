@@ -204,6 +204,8 @@ def compute_alerts(dashboard: dict) -> list[str]:
     voice = dashboard.get("voice", {})
     voice_budget = dashboard.get("voice_budget", {})
     error_burst = dashboard.get("error_burst_5min", 0)
+    http = dashboard.get("http", {})
+    frontend_errors = dashboard.get("frontend_errors", {})
 
     alerts: list[str] = []
 
@@ -226,6 +228,21 @@ def compute_alerts(dashboard: dict) -> list[str]:
     if error_burst > 5:
         alerts.append(f"LLM 5 分钟突发错误 {error_burst} 次")
 
+
+    # ── HTTP/API surface ──
+    http_total = http.get("total", 0)
+    http_4xx = (http.get("by_status") or {}).get("4xx", 0)
+    if http_total >= 20 and http_4xx / max(http_total, 1) > 0.2:
+        alerts.append(f"HTTP 4xx 占比 {round(http_4xx / http_total * 100, 1)}% 偏高")
+    http_latency = http.get("latency_ms") or {}
+    if http_latency.get("p95", 0) > 2000:
+        alerts.append(f"HTTP p95 延迟 {http_latency['p95']}ms 偏高")
+
+    # ── Frontend telemetry ──
+    if frontend_errors.get("last_5min", 0) > 0:
+        alerts.append(f"前端 5 分钟错误 {frontend_errors['last_5min']} 次")
+    elif frontend_errors.get("last_hour", 0) > 10:
+        alerts.append(f"前端 1 小时错误 {frontend_errors['last_hour']} 次")
     # ── Scoring ──
     total_scored = scoring.get("completed_24h", 0) + scoring.get("failed_24h", 0)
     if total_scored > 0 and scoring.get("success_rate", 100) < 80:

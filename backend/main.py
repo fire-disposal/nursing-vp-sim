@@ -275,7 +275,7 @@ async def _log_requests(request: Request, call_next):
         log.warning("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     metrics = getattr(request.app.state, "metrics", None)
     if metrics and request.url.path not in ("/api/metrics", "/api/health"):
-        metrics.record_request(response.status_code, ms)
+        metrics.record_request(response.status_code, ms, method=request.method, path=request.url.path)
     return response
 
 

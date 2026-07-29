@@ -2,60 +2,91 @@
  *
  * Uses `navigator.sendBeacon` (non-blocking, survives page unload).
  * Errors are batched in-memory and flushed every 10s or when 5 accumulate.
- * Payload ~200 bytes per error. Rate limited server-side (5 req/min per IP).
- *
- * Usage:
- *   import { reportError } from "@/utils/telemetry";
- *   reportError("AbortError", "请求超时，请重试", "/api/chat/285/message/stream");
+ * Payload is sanitized before send. Rate limited server-side (5 req/min per IP).
  */
 
 const ENDPOINT = "/api/telemetry";
-const FLUSH_INTERVAL = 10_000; // 10s batch window
-const MAX_BATCH = 5;          // flush early when N errors accumulate
+const FLUSH_INTERVAL = 10_000;
+const MAX_BATCH = 5;
+
+interface ErrorMeta {
+	source?: string;
+	componentStack?: string;
+}
 
 interface ErrorEntry {
-  type: string;
-  message: string;
-  url: string;
-  user_id: number;
-  ua: string;
+	type: string;
+	message: string;
+	url: string;
+	user_id: number;
+	ua: string;
+	source: string;
+	component_stack: string;
 }
 
 let buffer: ErrorEntry[] = [];
-let timer: ReturnType<typeof setTimeout> | null = null;
-let userId: number = 0;
+let timer: number | null = null;
+let userId = 0;
+let globalTelemetryInstalled = false;
 const ua = navigator.userAgent.slice(0, 200);
 
 export function setTelemetryUserId(id: number): void {
-  userId = id;
+	userId = id;
+}
+
+function sanitizeUrl(url: string): string {
+	return url
+		.replace(/([?&](token|access_token|refresh_token)=)[^&]*/gi, "$1***")
+		.slice(0, 500);
 }
 
 function flush(): void {
-  if (buffer.length === 0) return;
-  const payload = JSON.stringify({ errors: buffer });
-  buffer = [];
-  if (timer) { clearTimeout(timer); timer = null; }
-  navigator.sendBeacon(ENDPOINT, payload);
+	if (buffer.length === 0) return;
+	const payload = JSON.stringify({ errors: buffer });
+	buffer = [];
+	if (timer) {
+		clearTimeout(timer);
+		timer = null;
+	}
+	navigator.sendBeacon(ENDPOINT, payload);
 }
 
 function scheduleFlush(): void {
-  if (timer) return;
-  timer = setTimeout(flush, FLUSH_INTERVAL);
+	if (timer) return;
+	timer = window.setTimeout(flush, FLUSH_INTERVAL);
 }
 
-export function reportError(type: string, message: string, url: string = ""): void {
-  // Strip token from URLs to avoid leaking credentials in telemetry
-  const cleanUrl = url.replace(/([?&]token=)[^&]*/i, "$1***");
-  buffer.push({
-    type: type.slice(0, 200),
-    message: message.slice(0, 1000),
-    url: cleanUrl.slice(0, 500),
-    user_id: userId,
-    ua,
-  });
-  if (buffer.length >= MAX_BATCH) {
-    flush();
-  } else {
-    scheduleFlush();
-  }
+export function reportError(type: string, message: string, url = "", meta: ErrorMeta = {}): void {
+	buffer.push({
+		type: type.slice(0, 200),
+		message: message.slice(0, 1000),
+		url: sanitizeUrl(url || window.location.pathname),
+		user_id: userId,
+		ua,
+		source: (meta.source || "").slice(0, 120),
+		component_stack: (meta.componentStack || "").slice(0, 1000),
+	});
+	if (buffer.length >= MAX_BATCH) {
+		flush();
+	} else {
+		scheduleFlush();
+	}
+}
+
+export function installGlobalTelemetry(): void {
+	if (globalTelemetryInstalled) return;
+	globalTelemetryInstalled = true;
+
+	window.addEventListener("error", (event) => {
+		const message = event.error instanceof Error ? event.error.message : event.message || "window error";
+		reportError(event.error?.name || "WindowError", message, window.location.pathname, { source: "window.error" });
+	});
+
+	window.addEventListener("unhandledrejection", (event) => {
+		const reason = event.reason;
+		const message = reason instanceof Error ? reason.message : String(reason || "unhandled rejection");
+		reportError(reason?.name || "UnhandledRejection", message, window.location.pathname, {
+			source: "unhandledrejection",
+		});
+	});
 }

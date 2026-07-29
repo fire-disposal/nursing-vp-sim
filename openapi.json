@@ -9580,6 +9580,18 @@
             "maxLength": 200,
             "title": "Ua",
             "default": ""
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Source",
+            "default": ""
+          },
+          "component_stack": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Component Stack",
+            "default": ""
           }
         },
         "type": "object",

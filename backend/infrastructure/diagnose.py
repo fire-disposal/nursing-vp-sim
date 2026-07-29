@@ -191,7 +191,7 @@ class DiagnoseService:
                     pool_size = getattr(pool, "size", 0)
                     if callable(pool_size):
                         pool_size = pool_size()
-                    checked_out = getattr(pool, "checkedin", 0)
+                    checked_out = getattr(pool, "checkedout", 0)
                     if callable(checked_out):
                         checked_out = checked_out()
                     info["pool_size"] = pool_size

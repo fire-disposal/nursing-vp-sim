@@ -2909,6 +2909,16 @@ export interface components {
              * @default
              */
             ua: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Component Stack
+             * @default
+             */
+            component_stack: string;
         };
         /** FallbackStateResponse */
         FallbackStateResponse: {
