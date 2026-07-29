@@ -1,6 +1,6 @@
 # 09 — 运维安全指南
 
-> 适用版本: v2026.06.22-16 | 最后更新: 2026-06-22
+> 适用版本: v2026.07.29 起 | 最后更新: 2026-07-29
 
 面对生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点、应急预案。
 
@@ -40,17 +40,19 @@ deploy-pr-staging.yml 自动打 tag
      ▼ deploy-production.yml
   检查: staging 正跑着同一版本吗？
      ├─ ✗ 不匹配 → 拒绝（必须先经过测试服）
-     └─ ✓ 匹配 → 备份DB → 拉镜像 → 部署 → 健康检查
+     └─ ✓ 匹配 → 备份DB → 记录当前 Alembic revision → 拉镜像 → 部署 → 健康检查
                    ├─ healthy  → 完成
-                   └─ unhealthy → 自动回滚旧版本
+                   └─ unhealthy/timeout → DB 回滚到部署前 revision → 回滚旧镜像
 ```
+
+部署失败的自动回滚以“部署前 Alembic revision”为目标，而不是固定 `downgrade -1`。若精确迁移回滚失败，production 以部署前 `pg_dump` 备份作为最终兜底。
 
 ### 部署前检查清单
 
 - [ ] `JWT_SECRET_KEY` 已手动设置为 ≥32 字符随机字符串（deploy-production.yml **不**自动生成，须手动写入 `.env`；可用 `python -c "import secrets; print(secrets.token_urlsafe(32))"` 生成）
 - [ ] `CORS_ORIGINS` 已改为实际生产域名（默认模板为 `http://localhost`）
 - [ ] `DEEPSEEK_API_KEY` 已填入有效的 API Key
-- [ ] `POSTGRES_PASSWORD` 不为默认值（deploy-production.yml 自动生成 `openssl rand -hex 16`）
+- [ ] `POSTGRES_PASSWORD` 已手动设置为强密码（不会由 workflow 自动生成）
 - [ ] 服务器上 `/opt/nursing-vp-sim/.env` 已编辑非模板值
 
 ### 首次部署
@@ -58,13 +60,15 @@ deploy-pr-staging.yml 自动打 tag
 首次部署时 deploy-production.yml 自动执行：
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
-2. 编辑 `.env`（`POSTGRES_PASSWORD` 须改为强密码；`JWT_SECRET_KEY` / `FERNET_KEY` 须手动生成写入）
-3. 生成 `docker-compose.yml`
-4. 拉取镜像并启动
+2. 同步 compose、rollback、backup、monitor、nginx 配置到服务器
+3. 拉取镜像并启动
+4. 执行健康检查
 
-**首次部署后必须手动编辑 `.env`：**
+**首次部署前必须手动编辑 `/opt/nursing-vp-sim/.env`：**
+- `POSTGRES_PASSWORD=<强随机密码>`
+- `JWT_SECRET_KEY=<至少 32 字符随机串>`
 - `DEEPSEEK_API_KEY=sk-xxx`（替换占位符）
-- `CORS_ORIGINS=https://你的域名`（替换 `http://localhost`）
+- `CORS_ORIGINS=https://iomt.205716.xyz`（替换模板值）
 
 ### Staging 测试服
 
@@ -82,13 +86,13 @@ deploy-pr-staging.yml 自动打 tag
 手动部署（当 CD 不可用时）：
 ```bash
 cd /opt/nursing-vp-sim
-IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env up -d
+IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d
 ```
 
 清理重建（数据库重置）：
 ```bash
 docker compose -f docker-compose.staging.yml --env-file .env down -v
-IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env up -d
+IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d
 ```
 
 ---
@@ -149,10 +153,13 @@ bash rollback.sh --env staging --list
 
 - 回滚前执行 `deploy/db-backup.sh <env> backup`，备份失败则停止。
 - 目标版本可带或不带前导 `v`。
-- 有 Alembic revision 记录时，迁移回滚失败或 `alembic current` 不匹配都会停止。
+- 版本历史第 5 字段记录 Alembic revision；存在时回滚到该精确 revision 并校验。
+- 缺少 Alembic revision 的历史记录只能退化为 `downgrade -1`，无法精确校验，应用于旧历史记录应格外谨慎。
 - 使用临时 compose override 指定历史镜像，不改写主 compose 文件。
 - Docker health、`/api/health`、API 返回版本均通过后才写入版本历史。
 - 回滚成功会追加一条 `rollback` 记录，保证 `.version-history-*` 最后一行代表当前版本。
+
+注意：部署 workflow 的自动失败回滚不同于 `rollback.sh` 手动回滚；workflow 会先记录部署前 DB revision，失败时用新镜像的一次性 backend 容器执行 `alembic downgrade <部署前 revision>`，再拉回旧镜像。
 
 ### 方式二：GitHub Actions
 
@@ -284,15 +291,15 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 | JWT_SECRET_KEY | 须手动写入 `.env`，确保 ≥32 字符随机串。deploy-production.yml **不**自动生成 |
 | CORS_ORIGINS | 改为精确的生产域名，不要用 `*` |
 | 禁用种子数据 | 生产环境设置 `ENV=production`（plan）或确保首次部署后不再重建空 DB |
-| PostgreSQL 密码 | deploy-production.yml 自动生成随机密码，不使用默认 `postgres` |
+| PostgreSQL 密码 | 须手动写入 `.env`，确保非默认强密码 |
 
 ### 建议加固
 
 | 事项 | 说明 | 影响 |
 |------|------|------|
 | 固定 SSH host key | 将服务器指纹存入 GitHub Secret，替换 `ssh-keyscan` TOFU 模式 | 防 MITM |
-| 启用 SLSA 溯源 | deploy-production.yml 中 `provenance: false` → `provenance: true` | 供应链安全 |
-| 测试数据库端口绑定 | `docker-compose.test.yml` 端口改为 `127.0.0.1:5432:5432` | 防局域网暴露 |
+| 镜像溯源 | staging 构建已开启 `provenance: true`；production 只拉取已在 staging 验证的同 tag 镜像 | 降低供应链风险 |
+| 备份恢复演练 | 定期将最新 prod 备份恢复到 staging 或临时库验证可用性 | 防备份不可恢复 |
 | 备份端点环境隔离 | 缩小 `pg_dump` 子进程的环境变量传递 | 防密钥泄露 |
 
 ### GitHub Secrets 清单
@@ -343,7 +350,7 @@ docker restart nursing-vp-sim-backend-1
 
 # 方案 C: 回滚到最近的稳定版本
 cat .version-history-prod
-bash rollback.sh --yes <上一个版本号>
+bash rollback.sh --env prod --yes <上一个版本号>
 ```
 
 **恢复验证**: `curl -f http://localhost:9001/api/health`
