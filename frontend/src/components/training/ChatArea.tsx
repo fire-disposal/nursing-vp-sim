@@ -16,11 +16,13 @@ import { WelcomeScreen } from "./WelcomeScreen";
 
 interface ChatAreaProps {
 	onSend: (text: string) => void;
+	onCorrectLast: (messageId: string | number, text: string) => void;
 	endTraining: () => Promise<void>;
 }
 
 export function ChatArea({
 	onSend,
+	onCorrectLast,
 	endTraining,
 }: ChatAreaProps) {
   const messages = useTrainingStore(s => s.messages);
@@ -136,6 +138,7 @@ export function ChatArea({
 								bus={bus}
 								initiativeMsgs={initiativeMsgs}
 								hasStreaming={sending}
+								onCorrectLast={onCorrectLast}
 							/>
 						</div>
 						<SceneToolbar />

@@ -7412,6 +7412,63 @@
         }
       }
     },
+    "/api/chat/{record_id}/message/correct-last/stream": {
+      "post": {
+        "tags": [
+          "对话"
+        ],
+        "summary": "Correct Last Message Stream",
+        "operationId": "correct_last_message_stream_api_chat__record_id__message_correct_last_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatCorrectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -9178,6 +9235,22 @@
           "new_password"
         ],
         "title": "ChangePasswordRequest"
+      },
+      "ChatCorrectionRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "ChatCorrectionRequest"
       },
       "ChatMessageRequest": {
         "properties": {
@@ -13657,6 +13730,11 @@
             "type": "integer",
             "title": "Initiative Count",
             "default": 0
+          },
+          "message_correction": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Message Correction"
           },
           "scene": {
             "anyOf": [

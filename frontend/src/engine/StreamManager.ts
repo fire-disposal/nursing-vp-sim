@@ -4,7 +4,7 @@
  * Zustand 迁移后不再持有 messages 数组；消息全部通过 trainingStore 管理。
  * 本类仅负责：SSE 回调→store action 的接线、AbortController 生命周期、loading 状态。
  */
-import { sendMessageStream } from "@/api";
+import { correctLastMessageStream, sendMessageStream } from "@/api";
 import type { InitiativeStateData } from "@/api/sse";
 import { getTrainingState } from "@/stores/trainingStore";
 
@@ -103,6 +103,60 @@ export class StreamManager {
 				hasContent,
 			);
 			callbacks.onError?.((err as Error)?.message || "发送失败");
+		} finally {
+			if (this.abortController === controller) {
+				this.abortController = null;
+				getTrainingState().setSending(false);
+			}
+		}
+	}
+
+	async correctLastMessage(messageId: string | number, content: string, callbacks: StreamCallbacks = {}): Promise<void> {
+		const store = getTrainingState();
+		if (store.sending) {
+			console.warn("[StreamManager] correctLastMessage() called while already sending — ignoring");
+			return;
+		}
+		if (!this.recordId) {
+			callbacks.onError?.("训练尚未就绪，请稍后重试");
+			return;
+		}
+
+		const snapshot = store.beginCorrection(messageId, content);
+		if (!snapshot) {
+			callbacks.onError?.("只能修正最近一次发言");
+			return;
+		}
+
+		store.setSending(true);
+		const controller = new AbortController();
+		this.abortController = controller;
+
+		try {
+			await correctLastMessageStream(
+				this.recordId,
+				content,
+				(chunk) => {
+					store.appendChunk(snapshot.placeholderId, chunk);
+					callbacks.onPatientChunk?.(chunk);
+				},
+				(done) => {
+					store.finalizeCorrection(snapshot, done);
+					callbacks.onPatientDone?.(done.patient_id ?? done.id);
+				},
+				(err) => {
+					store.rollbackCorrection(snapshot);
+					callbacks.onError?.(err);
+				},
+				(sysMsg) => callbacks.onSystem?.(sysMsg),
+				controller.signal,
+				(emotionChange) => callbacks.onEmotionChange?.(emotionChange),
+				(initiative) => callbacks.onInitiative?.(initiative),
+				(initiativeState) => callbacks.onInitiativeState?.(initiativeState),
+			);
+		} catch (err: unknown) {
+			store.rollbackCorrection(snapshot);
+			callbacks.onError?.((err as Error)?.message || "修正失败");
 		} finally {
 			if (this.abortController === controller) {
 				this.abortController = null;

@@ -6,6 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from .context import (
+    STATE_DONE_PAYLOAD,
     STATE_POST_STREAM_EVENTS,
     STATE_SAVED_MESSAGES,
     STATE_STREAM_CHUNKS,
@@ -109,7 +110,8 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
             done_id = msg.id
             break
 
-    yield f"data: {json.dumps({'done': True, 'id': done_id}, ensure_ascii=False)}\n\n"
+    done_payload = {"done": True, "id": done_id, **ctx.state.get(STATE_DONE_PAYLOAD, {})}
+    yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
 
 async def _emit_chunks(ctx: PipelineContext):

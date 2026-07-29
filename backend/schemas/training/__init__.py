@@ -18,14 +18,17 @@ from schemas.training.records import (
 )
 from schemas.training.scoring import ScoringStatusResponse, ScoringTriggerResponse
 from schemas.training.session import (
+    ChatCorrectionRequest,
     ChatMessageRequest,
     ChatMessageResponse,
+    MessageCorrectionStatus,
     TrainingSessionData,
     TrainingStartRequest,
     TrainingStartResponse,
 )
 
 __all__ = [
+    "ChatCorrectionRequest",
     "ChatMessageRequest",
     "ChatMessageResponse",
     "EmotionStateResponse",
@@ -33,6 +36,7 @@ __all__ = [
     "ExamOperationResult",
     "InitiativeStateResponse",
     "InitiativeTriggerResponse",
+    "MessageCorrectionStatus",
     "MessageItem",
     "NursingRecordResponse",
     "NursingRecordSave",

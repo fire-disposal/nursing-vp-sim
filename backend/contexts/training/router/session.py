@@ -25,6 +25,7 @@ from models import (
     ScoringProgress,
     TrainingRecord,
     TrainingSessionState,
+    TrainingToolRequest,
     User,
     UserClass,
     VoiceCallLog,
@@ -639,6 +640,33 @@ def get_record_detail(
             es = EmotionState.from_dict(es_dict)
             emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}
         initiative_count = session_state.initiative_count or 0
+    correction_raw = dict(record.runtime_state or {}).get("message_correction")
+    correction_state = correction_raw if isinstance(correction_raw, dict) else {}
+    correction_limit = int(correction_state.get("limit") or 3)
+    correction_used = max(0, int(correction_state.get("used") or 0))
+    eligible_last_message_id = None
+    if (
+        record.status == "in_progress"
+        and record.scoring_status not in {"pending", "processing", "completed"}
+        and score is None
+        and correction_used < correction_limit
+    ):
+        ordered_messages = list(record.messages or [])
+        patient = ordered_messages[-1] if ordered_messages and ordered_messages[-1].role == "patient" else None
+        student_idx = len(ordered_messages) - 2 if patient is not None else len(ordered_messages) - 1
+        if student_idx >= 0 and ordered_messages[student_idx].role == "student":
+            student = ordered_messages[student_idx]
+            mutation = (
+                db.query(TrainingToolRequest.id)
+                .filter(
+                    TrainingToolRequest.record_id == record.id,
+                    TrainingToolRequest.action != "load",
+                    TrainingToolRequest.created_at > student.created_at,
+                )
+                .first()
+            )
+            if mutation is None:
+                eligible_last_message_id = student.id
 
     return TrainingRecordDetail(
         id=record.id,
@@ -674,6 +702,12 @@ def get_record_detail(
         nursing_record_sheet=_load_nursing_sheet(db, record.id),
         emotion=emotion,
         initiative_count=initiative_count,
+        message_correction={
+            "used": correction_used,
+            "limit": correction_limit,
+            "remaining": max(0, correction_limit - correction_used),
+            "eligible_last_message_id": eligible_last_message_id,
+        },
         is_test=record.is_test,
     )
 

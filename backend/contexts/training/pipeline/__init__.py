@@ -2,6 +2,8 @@
 
 from .builder import build_pipeline
 from .context import (
+    STATE_CORRECTION_TARGET,
+    STATE_DONE_PAYLOAD,
     STATE_FEATURES,
     STATE_IDENTITY_CORRECTION_COUNT,
     STATE_PATIENT_CHAT_CFG,
@@ -18,6 +20,8 @@ from .runner import run_pipeline, stream_pipeline
 from .stages import PipelineMiddleware, PipelineStage, stage_order
 
 __all__ = [
+    "STATE_CORRECTION_TARGET",
+    "STATE_DONE_PAYLOAD",
     "STATE_FEATURES",
     "STATE_IDENTITY_CORRECTION_COUNT",
     "STATE_PATIENT_CHAT_CFG",

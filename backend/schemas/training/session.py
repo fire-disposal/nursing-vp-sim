@@ -51,6 +51,19 @@ class ChatMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=2000)
 
 
+class ChatCorrectionRequest(BaseModel):
+    model_config = _REQ_CFG
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class MessageCorrectionStatus(BaseModel):
+    model_config = _RESP_CFG
+    used: int = 0
+    limit: int = 3
+    remaining: int = 3
+    eligible_last_message_id: int | None = None
+
+
 class ChatMessageResponse(BaseModel):
     model_config = _RESP_CFG
     role: str

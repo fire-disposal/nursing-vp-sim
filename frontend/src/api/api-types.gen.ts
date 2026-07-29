@@ -1941,6 +1941,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/{record_id}/message/correct-last/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Correct Last Message Stream */
+        post: operations["correct_last_message_stream_api_chat__record_id__message_correct_last_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2722,6 +2739,11 @@ export interface components {
             old_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** ChatCorrectionRequest */
+        ChatCorrectionRequest: {
+            /** Content */
+            content: string;
         };
         /** ChatMessageRequest */
         ChatMessageRequest: {
@@ -4489,6 +4511,10 @@ export interface components {
              * @default 0
              */
             initiative_count: number;
+            /** Message Correction */
+            message_correction?: {
+                [key: string]: unknown;
+            };
             /** Scene */
             scene?: {
                 [key: string]: unknown;
@@ -9085,6 +9111,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChatMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correct_last_message_stream_api_chat__record_id__message_correct_last_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatCorrectionRequest"];
             };
         };
         responses: {

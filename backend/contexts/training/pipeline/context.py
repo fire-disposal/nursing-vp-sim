@@ -23,6 +23,8 @@ STATE_STREAM_CHUNKS: str = "_stream_chunks"
 STATE_STREAM_QUEUE: str = "_stream_queue"
 STATE_SAVED_MESSAGES: str = "_saved_messages"
 STATE_POST_STREAM_EVENTS: str = "_post_stream_events"
+STATE_DONE_PAYLOAD: str = "_done_payload"
+STATE_CORRECTION_TARGET: str = "_correction_target"
 
 
 @dataclass

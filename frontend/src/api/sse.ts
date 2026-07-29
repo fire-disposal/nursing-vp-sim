@@ -16,9 +16,18 @@ export interface InitiativeStateData {
 	percent: number;
 }
 
+export interface StreamDonePayload {
+	id?: number;
+	student_id?: number;
+	patient_id?: number;
+	corrections_used?: number;
+	corrections_remaining?: number;
+	citations?: Array<{ source: string; section: string }>;
+}
+
 export interface SSEHandlers {
 	onChunk?: (text: string) => void;
-	onDone?: (id?: number, citations?: Array<{ source: string; section: string }>) => void;
+	onDone?: (id?: number, citations?: Array<{ source: string; section: string }>, payload?: StreamDonePayload) => void;
 	onError?: (msg: string) => void;
 	onSystem?: (text: string) => void;
 	onEmotionChange?: (data: { state: string; trust: number; comfort: number }) => void;
@@ -84,7 +93,7 @@ export async function readSSEStream(
 					if (data.initiative) { handlers.onInitiative?.(data.initiative); continue; }
 					if (data.done) {
 						clearIdleTimer();
-						handlers.onDone?.(data.id, data.citations);
+						handlers.onDone?.(data.id, data.citations, data as StreamDonePayload);
 						try { reader.cancel(); } catch { /* ignore */ }
 						return;
 					}

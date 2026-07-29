@@ -1,7 +1,7 @@
 import { reportError } from "@/utils/telemetry";
 import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
-import type { InitiativeStateData } from "./sse";
+import type { InitiativeStateData, StreamDonePayload } from "./sse";
 import { readSSEStream } from "./sse";
 
 export async function sendMessageStream(
@@ -18,7 +18,45 @@ export async function sendMessageStream(
 		comfort: number;
 	}) => void,
 	onInitiative?: (data: { content: string }) => void,
-  onInitiativeState?: (data: InitiativeStateData) => void,
+	onInitiativeState?: (data: InitiativeStateData) => void,
+) {
+	return postChatStream(`/api/chat/${recordId}/message/stream`, content, onChunk, (id) => onDone(id), onError, onSystem, signal, onEmotionChange, onInitiative, onInitiativeState);
+}
+
+export async function correctLastMessageStream(
+	recordId: number | string,
+	content: string,
+	onChunk: (text: string) => void,
+	onDone: (payload: StreamDonePayload) => void,
+	onError: (msg: string) => void,
+	onSystem?: (text: string) => void,
+	signal?: AbortSignal,
+	onEmotionChange?: (change: {
+		state: string;
+		trust: number;
+		comfort: number;
+	}) => void,
+	onInitiative?: (data: { content: string }) => void,
+	onInitiativeState?: (data: InitiativeStateData) => void,
+) {
+	return postChatStream(`/api/chat/${recordId}/message/correct-last/stream`, content, onChunk, (_id, payload) => onDone(payload ?? {}), onError, onSystem, signal, onEmotionChange, onInitiative, onInitiativeState);
+}
+
+async function postChatStream(
+	url: string,
+	content: string,
+	onChunk: (text: string) => void,
+	onDone: (id?: number, payload?: StreamDonePayload) => void,
+	onError: (msg: string) => void,
+	onSystem?: (text: string) => void,
+	signal?: AbortSignal,
+	onEmotionChange?: (change: {
+		state: string;
+		trust: number;
+		comfort: number;
+	}) => void,
+	onInitiative?: (data: { content: string }) => void,
+	onInitiativeState?: (data: InitiativeStateData) => void,
 ) {
 	const MAX_RETRIES = 3;
 	const FETCH_TIMEOUT = 30_000;
@@ -28,7 +66,7 @@ export async function sendMessageStream(
 		const combined = signal
 			? combineAbortSignals(signal, timeoutSignal)
 			: timeoutSignal;
-		return fetch(`/api/chat/${recordId}/message/stream`, {
+		return fetch(url, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -74,9 +112,9 @@ export async function sendMessageStream(
 			}
 
 			const reader = resp.body.getReader();
-		await readSSEStream(reader, {
+			await readSSEStream(reader, {
 				onChunk,
-				onDone,
+				onDone: (id, _citations, payload) => onDone(id, payload),
 				onError,
 				onSystem,
 				onEmotionChange,
@@ -88,13 +126,13 @@ export async function sendMessageStream(
 			if (signal?.aborted) return;
 			if ((e as Error)?.name === "AbortError") {
 				onError("请求超时，请重试");
-				reportError("AbortError", "请求超时，请重试", `/api/chat/${recordId}/message/stream`);
+				reportError("AbortError", "请求超时，请重试", url);
 				return;
 			}
 			const isNetworkError = e instanceof TypeError || (e as { code?: string }).code === "ERR_NETWORK";
 			if (!isNetworkError || attempt >= MAX_RETRIES) {
 				onError(e instanceof Error ? e.message : "连接失败");
-				reportError("NetworkError", e instanceof Error ? e.message : "连接失败", `/api/chat/${recordId}/message/stream`);
+				reportError("NetworkError", e instanceof Error ? e.message : "连接失败", url);
 				return;
 			}
 			if (!navigator.onLine) {

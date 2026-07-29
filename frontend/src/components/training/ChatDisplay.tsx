@@ -16,6 +16,7 @@ interface ChatDisplayProps {
   bus: MessageBus;
   initiativeMsgs?: Set<string>;
   hasStreaming?: boolean;
+  onCorrectLast?: (messageId: string | number, text: string) => void;
 }
 
 const ChatDisplayInner = memo(function ChatDisplayInner({
@@ -23,6 +24,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   patient,
   bus,
   initiativeMsgs,
+  onCorrectLast,
 }: ChatDisplayProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -32,6 +34,11 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const portraitUrl = useTrainingStore((s) => s.portraitUrl);
   const emotion = useTrainingStore((s) => s.emotion);
   const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
+  const sending = useTrainingStore((s) => s.sending);
+  const trainingEnded = useTrainingStore((s) => s.trainingEnded);
+  const correction = useTrainingStore((s) => s.recordDetail?.message_correction as { remaining?: number; eligible_last_message_id?: number | null } | undefined);
+  const eligibleLastMessageId = correction?.eligible_last_message_id;
+  const correctionsRemaining = correction?.remaining ?? 0;
   const [examResults, setExamResults] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
@@ -129,21 +136,37 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.2, ease: "easeOut" }}
 						>
-							{group.messages.map((msg, mi) => (
-								<ChatBubble
-									key={msg.id ?? mi}
-									message={msg}
-									patientAvatar={patientAvatar}
-									nurseAvatar={nurseAvatar}
-									emotionBorder={emotionBorder}
-									portraitUrl={portraitUrl}
-									initiative={
-										msg.role === "patient" &&
-										initiativeMsgs?.has(msg.content)
-									}
-									showAvatar={mi === 0}
-								/>
-							))}
+							{group.messages.map((msg, mi) => {
+								const canCorrect =
+									msg.role === "student" &&
+									msg.id != null &&
+									String(msg.id) === String(eligibleLastMessageId ?? "") &&
+									correctionsRemaining > 0 &&
+									!sending &&
+									!trainingEnded;
+								return (
+									<ChatBubble
+										key={msg.id ?? mi}
+										message={msg}
+										patientAvatar={patientAvatar}
+										nurseAvatar={nurseAvatar}
+										emotionBorder={emotionBorder}
+										portraitUrl={portraitUrl}
+										initiative={
+											msg.role === "patient" &&
+											initiativeMsgs?.has(msg.content)
+										}
+										showAvatar={mi === 0}
+										canCorrect={canCorrect}
+										correctionsRemaining={correctionsRemaining}
+										onCorrect={
+											onCorrectLast && msg.id != null
+												? (text) => onCorrectLast(msg.id!, text)
+												: undefined
+										}
+									/>
+								);
+							})}
 						</motion.div>
 					);
 				})}

@@ -51,6 +51,19 @@ export function getEmotionBorder(emotion: EmotionState): string {
 export function getEmotionColor(emotion: EmotionState): string {
 	return EMOTION_COLOR[emotion] || EMOTION_COLOR.neutral;
 }
+interface CorrectionSnapshot {
+	messages: ChatMessage[];
+	studentId: string | number;
+	placeholderId: string;
+}
+
+interface CorrectionDonePayload {
+	student_id?: number;
+	patient_id?: number;
+	corrections_used?: number;
+	corrections_remaining?: number;
+}
+
 
 export interface TrainingStore {
 	bus: MessageBus | null;
@@ -87,6 +100,9 @@ export interface TrainingStore {
 
 	setMessages: (msgs: ChatMessage[]) => void;
 	addStudentMessage: (content: string) => { studentId: string; placeholderId: string };
+	beginCorrection: (messageId: string | number, content: string) => CorrectionSnapshot | null;
+	finalizeCorrection: (snapshot: CorrectionSnapshot, payload: CorrectionDonePayload) => void;
+	rollbackCorrection: (snapshot: CorrectionSnapshot) => void;
 	appendChunk: (placeholderId: string, chunk: string) => void;
 	finalizeMessage: (placeholderId: string, serverId?: number) => void;
 	handleStreamError: (studentId: string, placeholderId: string, err: string, hasContent: boolean) => void;
@@ -167,6 +183,66 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			],
 		}));
 		return { studentId, placeholderId };
+	},
+
+	beginCorrection(messageId, content) {
+		const messages = get().messages;
+		const idx = messages.findIndex((m) => String(m.id) === String(messageId));
+		if (idx < 0 || messages[idx]?.role !== "student") return null;
+		const next = messages[idx + 1];
+		if (idx !== messages.length - 2 || next?.role !== "patient") return null;
+		const placeholderId = crypto.randomUUID();
+		const snapshot = {
+			messages,
+			studentId: messageId,
+			placeholderId,
+		};
+		set({
+			messages: [
+				...messages.slice(0, idx),
+				{ ...messages[idx], content },
+				{ id: placeholderId, role: "patient", content: "", streaming: true },
+			],
+		});
+		return snapshot;
+	},
+
+	finalizeCorrection(snapshot, payload) {
+		set((s) => ({
+			messages: s.messages.map((m) => {
+				if (String(m.id) === String(snapshot.studentId) && payload.student_id) {
+					return { ...m, id: String(payload.student_id) };
+				}
+				if (m.id === snapshot.placeholderId) {
+					return {
+						...m,
+						streaming: false,
+						...(payload.patient_id ? { id: String(payload.patient_id) } : {}),
+					};
+				}
+				return m;
+			}),
+			recordDetail: s.recordDetail
+				? {
+						...s.recordDetail,
+						message_correction: {
+							...(s.recordDetail.message_correction ?? {}),
+							...(payload.corrections_used !== undefined
+								? { used: payload.corrections_used }
+								: {}),
+							...(payload.corrections_remaining !== undefined
+								? { remaining: payload.corrections_remaining }
+								: {}),
+							eligible_last_message_id: payload.student_id ?? null,
+						},
+					}
+				: s.recordDetail,
+			sending: false,
+		}));
+	},
+
+	rollbackCorrection(snapshot) {
+		set({ messages: snapshot.messages, sending: false });
 	},
 
 	appendChunk(placeholderId, chunk) {

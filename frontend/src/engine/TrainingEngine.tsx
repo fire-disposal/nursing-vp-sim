@@ -137,6 +137,31 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		[],
 	);
 
+	const correctLastMessage = useCallback(
+		async (messageId: string | number, text: string) => {
+			const bus = busRef.current;
+			patientAccRef.current = "";
+			bus.emit("chat:beforeSend");
+			streamRef.current.correctLastMessage(messageId, text, {
+				onPatientChunk: (chunk: string) => {
+					patientAccRef.current += chunk;
+					bus.emit("stream:chunk", chunk);
+				},
+				onPatientDone: () => {
+					const txt = patientAccRef.current;
+					bus.emit("stream:done", txt);
+					patientAccRef.current = "";
+				},
+				onError: (err) => bus.emit("stream:error", err),
+				onEmotionChange: (change) => bus.emit("emotion:changed", change),
+				onInitiative: (initiative) =>
+					bus.emit("initiative:triggered", { content: initiative }),
+				onInitiativeState: (data) => bus.emit("initiative:state", data),
+			});
+		},
+		[],
+	);
+
 	const getProgress = useCallback(
 		() => scoreRef.current?.progress ?? { phase: null, percentage: 0, message: "" },
 		[],
@@ -278,6 +303,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 						<ChatArea
 							onSend={sendMessage}
 							endTraining={endTraining}
+							onCorrectLast={correctLastMessage}
 						/>
 					</ErrorBoundary>
 				</div>

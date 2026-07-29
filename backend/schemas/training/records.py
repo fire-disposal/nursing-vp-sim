@@ -98,5 +98,6 @@ class TrainingRecordDetail(BaseModel):
     nursing_record_sheet: dict[str, Any] | None = None
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
+    message_correction: dict[str, Any] = Field(default_factory=dict)
     scene: dict[str, Any] | None = None
     is_test: bool = False
