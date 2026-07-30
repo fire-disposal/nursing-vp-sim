@@ -50,7 +50,7 @@ function DeployBanner() {
 	const msg = warning.message || "系统即将更新，可能短暂中断";
 	return (
 		<div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-2.5">
-			<div className="pointer-events-auto w-80 overflow-hidden rounded-full bg-amber-500/90 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
+			<div className="pointer-events-auto w-80 select-none overflow-hidden rounded-full bg-amber-500/90 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm transition-opacity hover:opacity-40">
 				<div className="flex w-max animate-[marquee_18s_linear_infinite] whitespace-nowrap">
 					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
 					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
