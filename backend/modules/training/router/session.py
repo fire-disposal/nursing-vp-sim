@@ -338,6 +338,27 @@ def start_training(
     if not case.is_open:
         raise AuthError(detail="该病例暂未开放", status_code=403)
 
+    # Global: only ONE in_progress regardless of assignment or free practice
+    global_existing = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.status == "in_progress",
+        )
+        .first()
+    )
+    if global_existing:
+        gc = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "existing_training",
+                "record_id": global_existing.id,
+                "case_name": gc.name if gc else "未知病例",
+                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
+            },
+        )
+
     config = _build_config(req.features, req.time_limit_minutes)
 
     record, greeting, session = _create_record(
@@ -397,7 +418,6 @@ def start_training_from_assignment(
             UserClass.user_id == current_user.id,
             UserClass.class_id == assignment.class_id,
         )
-        .first()
     )
     if not user_class:
         raise AuthError(detail="你不在该练习的目标班级中", status_code=403)
@@ -418,17 +438,16 @@ def start_training_from_assignment(
 
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
         raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
-    # Global: only ONE in_progress training at a time
+    # Global: only ONE in_progress regardless of assignment or is_test
     global_existing = (
         db.query(TrainingRecord)
         .filter(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.status == "in_progress",
-            TrainingRecord.is_test == False,
         )
         .first()
     )
-    if global_existing and global_existing.assignment_id != assignment.id:
+    if global_existing and (global_existing.assignment_id != assignment.id or global_existing.case_id != (assignment.case.id if assignment.case else None)):
         case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
         raise HTTPException(
             status_code=409,

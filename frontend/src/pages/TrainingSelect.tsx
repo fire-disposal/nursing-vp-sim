@@ -379,9 +379,14 @@ export default function TrainingSelect() {
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground truncate">{primaryInProgress.case_name}</div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
-                      继续
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
+                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={async () => {
+                        const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
+                        if (!ok) return;
+                        try { await abandonRecord(primaryInProgress.id); queryClient.invalidateQueries({ queryKey: queryKeys.training.all }); } catch { toast.apiError(null, "放弃失败"); }
+                      }}>放弃</Button>
+                    </div>
                   </div>
                 </div>
               )}
