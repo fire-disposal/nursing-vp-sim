@@ -1,7 +1,6 @@
 import { AlertTriangle, MessageSquare, Stethoscope, X } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { api } from "@/api/client";
 import { useFeedback } from "@/components/FeedbackProvider";
 import AdaptiveShell from "@/components/shell/AdaptiveShell";
 import { NAV_ITEMS } from "@/components/shell/navigation";
@@ -37,16 +36,15 @@ function RouteContentLoader() {
 function DeployBanner() {
 	const [warning, setWarning] = useState<{ active: boolean; message?: string } | null>(null);
 	useEffect(() => {
-		let active = true;
-		const poll = async () => {
+		const es = new EventSource("/api/deploy-status/stream");
+		es.onmessage = (ev) => {
 			try {
-				const { data } = await api.get<{ active: boolean; message?: string }>("/deploy-status" as never);
-				if (active) setWarning(data.active ? data : null);
+				const data = JSON.parse(ev.data) as { active: boolean; message?: string };
+				setWarning(data.active ? data : null);
 			} catch { /* ignore */ }
 		};
-		const timer = setInterval(poll, 30_000);
-		poll();
-		return () => { active = false; clearInterval(timer); };
+		es.onerror = () => { es.close(); };
+		return () => { es.close(); };
 	}, []);
 	if (!warning?.active) return null;
 	return (
