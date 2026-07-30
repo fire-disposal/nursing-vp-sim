@@ -44,10 +44,13 @@ class NursingRecordHandler(ToolHandler):
 
         if action == "save":
             sheet_data = params.get("sheet_data")
-            status = params.get("status", "draft")
             if not isinstance(sheet_data, dict):
-                return ToolResult(ok=False, error="sheet_data must be a dict")
+                return ToolResult(ok=False, error="sheet_data 必须是对象")
+            status = params.get("status", "draft")
             return self._save(sheet_data, status, ctx)
+
+        if action == "submit":
+            return self._submit(ctx)
 
         return ToolResult(ok=False, error=f"Unknown action: {action}")
 
@@ -72,6 +75,8 @@ class NursingRecordHandler(ToolHandler):
     def _save(self, sheet_data: dict, status: str, ctx: ToolContext) -> ToolResult:
         nr = ctx.db.query(NursingRecord).filter(NursingRecord.record_id == ctx.record.id).first()
         if nr:
+            if nr.submitted_at is not None:
+                return ToolResult(ok=False, error="护理评估已提交，不可修改")
             nr.sheet_data = sheet_data
             nr.status = status
             nr.updated_at = datetime.now(UTC)
@@ -94,6 +99,20 @@ class NursingRecordHandler(ToolHandler):
                 "updated_at": nr.updated_at.isoformat() if nr.updated_at else None,
             },
         )
+
+    def _submit(self, ctx: ToolContext) -> ToolResult:
+        """Finalize the nursing assessment — idempotent, locks content."""
+        nr = ctx.db.query(NursingRecord).filter(NursingRecord.record_id == ctx.record.id).first()
+        if nr is None:
+            return ToolResult(ok=False, error="护理评估尚未创建，请先保存")
+        if nr.submitted_at is not None:
+            # Idempotent: already submitted
+            return ToolResult(ok=True, data={"id": nr.id, "submitted_at": nr.submitted_at.isoformat()})
+        nr.submitted_at = datetime.now(UTC)
+        nr.status = "submitted"
+        nr.updated_at = datetime.now(UTC)
+        ctx.db.flush()
+        return ToolResult(ok=True, data={"id": nr.id, "submitted_at": nr.submitted_at.isoformat()})
 
     def _build_template(self, ctx: ToolContext) -> dict:
         """Build template with fixed hints and patient context prefill."""

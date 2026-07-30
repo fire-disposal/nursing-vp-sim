@@ -125,6 +125,18 @@ async def execute_tool_request(
     payload = _serialize_result(result)
     if result.ok:
         request_row.response = payload
+        # Dual-write: immutable audit timeline for scoring
+        from models import TrainingAction
+
+        ctx.db.add(
+            TrainingAction(
+                record_id=ctx.record.id,
+                request_id=request_id,
+                kind=tool_name,
+                input=params,
+                result=payload.get("data") or {},
+            )
+        )
         ctx.db.commit()
         log.info(
             "Training tool request completed",

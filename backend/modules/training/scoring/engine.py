@@ -343,6 +343,7 @@ def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
 
 
 def _build_history_messages(
+    db: Session,
     record: TrainingRecord,
     scoring_criteria_text: str,
     required_inquiries_text: str,
@@ -350,7 +351,21 @@ def _build_history_messages(
     conversation_text: str,
     nursing_record_text: str = "",
 ) -> tuple[list[dict], str, str]:
-    exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
+    # Prefer TrainingAction audit timeline; fall back to legacy runtime_state
+    from models import TrainingAction
+
+    actions = (
+        db.query(TrainingAction)
+        .filter(TrainingAction.record_id == record.id, TrainingAction.kind == "physical_exam")
+        .order_by(TrainingAction.created_at)
+        .all()
+    )
+    if actions:
+        exam_results_raw = [a.result for a in actions]
+    else:
+        exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
+        if exam_results_raw:
+            log.info("Scoring using legacy runtime_state exam_results: record_id=%d", record.id)
     exam_results_text = (
         json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
     )
@@ -485,6 +500,10 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         )
         return None
 
+    from infra.llm.profile import get_model
+    from modules.training.pipeline.snapshot_compat import read_prompt_snapshot
+
+    snapshot = read_prompt_snapshot(record.prompt_snapshot if record else None)
     score = Score(
         record_id=record_id,
         total_score=result["total_score"],
@@ -494,8 +513,8 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         missed_content=result["missed_content"],
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
-        prompt_version=0,
-        score_scale=100,
+        model_name=get_model("scoring"),
+        prompt_version=snapshot.schema_version if snapshot else 1,
     )
     db.add(score)
     db.commit()
@@ -528,6 +547,7 @@ async def evaluate_training(
     )
     nursing_record_text = _load_nursing_record_text(db, record)
     score_messages, exam_results_text, nursing_record_text = _build_history_messages(
+        db,
         record,
         scoring_criteria_text,
         required_inquiries_text,

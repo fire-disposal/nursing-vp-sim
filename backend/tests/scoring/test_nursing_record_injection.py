@@ -57,9 +57,10 @@ class TestLoadNursingRecordText:
 
 
 class TestBuildHistoryMessagesInjection:
-    def _build(self, nursing_record_text=""):
-        record = SimpleNamespace(runtime_state={})
+    def _build(self, db_session, nursing_record_text=""):
+        record = SimpleNamespace(runtime_state={}, id=99999)
         msgs, _exam, nr_text = _build_history_messages(
+            db_session,
             record,
             "评分标准TEXT",
             "清单TEXT",
@@ -69,14 +70,15 @@ class TestBuildHistoryMessagesInjection:
         )
         return msgs, nr_text
 
-    def test_appends_record_to_criteria(self):
-        msgs, nr_text = self._build("SUBJECTIVE: 患者诉胸闷")
+    def test_appends_record_to_criteria(self, db_session):
+        msgs, nr_text = self._build(db_session, "SUBJECTIVE: 患者诉胸闷")
         system = msgs[0]["content"]
         assert "## 学生提交的护理评估记录" in system
         assert "SUBJECTIVE: 患者诉胸闷" in system
         assert nr_text == "SUBJECTIVE: 患者诉胸闷"
 
-    def test_empty_text_no_append(self):
-        msgs, _ = self._build("")
+    def test_empty_text_no_append(self, db_session):
+        msgs, _ = self._build(db_session, "")
         system = msgs[0]["content"]
         assert "学生提交的护理评估记录" not in system
+

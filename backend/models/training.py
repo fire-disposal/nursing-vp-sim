@@ -107,7 +107,6 @@ class Score(Base):
     rubric_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
-    score_scale: Mapped[int | None] = mapped_column(Integer, nullable=True, default=100)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     record: Mapped[TrainingRecord] = relationship(back_populates="score")
@@ -141,6 +140,7 @@ class NursingRecord(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     sheet_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="draft")
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     record: Mapped[TrainingRecord] = relationship()
     user: Mapped[User] = relationship()
@@ -164,6 +164,31 @@ class TrainingToolRequest(Base):
     response: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
+
+
+class TrainingAction(Base):
+    """Immutable operation audit log — one row per student action in a training.
+
+    Unlike TrainingToolRequest (RPC dedup log), this is the domain timeline:
+    scoring reads actions in chronological order to evaluate student choices.
+    """
+
+    __tablename__ = "training_actions"
+    __table_args__ = (
+        UniqueConstraint("record_id", "request_id", name="uq_training_action_record_request"),
+        Index("ix_training_actions_record_id", "record_id"),
+        Index("ix_training_actions_record_kind", "record_id", "kind"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=False
+    )
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    input: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
 class TrainingSessionState(Base):
     __tablename__ = "training_session_state"
