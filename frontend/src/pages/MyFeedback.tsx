@@ -61,7 +61,6 @@ export default function MyFeedbackPage() {
 		queryFn: () => getMyFeedback(params).then((r) => r.data),
 		staleTime: 0,
 		placeholderData: keepPreviousData,
-		refetchOnWindowFocus: false,
 	});
 
 	const items = (data?.items ?? []) as FeedbackItem[];
