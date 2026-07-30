@@ -3,7 +3,7 @@
 import logging
 
 from models import Message
-from prompts.training.initiative import update_initiative_timer
+from modules.training.patient_ai.initiative import update_initiative_timer
 
 from ..context import (
     STATE_CORRECTION_TARGET,

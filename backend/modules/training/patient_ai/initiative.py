@@ -1,24 +1,6 @@
 from __future__ import annotations
 
-"""患者主动追问 — 当护士沉默超过阈值时，患者根据性格/信赖/舒适/等待时长
-从行为池中抽取符合人设的自然反应。"""
-
-
-INITIATIVE_SYSTEM = """你正在模拟一位护理训练中的患者。
-病例：{#case_name#}。{#traits#}
-当前情绪状态：{#mood#}（信任度{#trust#}/100，舒适度{#comfort#}/100）。
-护士沉默了一段时间没有回应。请以患者的身份主动说一句话（15-40字），
-根据你的性格和情绪，可以是催促、抱怨不适、转移话题，或沉默的肢体语言（用[]标注）。
-必须自然、符合当前情绪，不要重复之前已经说过的话。
-只输出患者的话，不要任何解释、前缀或标签。
-
-最近护士说：{#student_msg#}"""
-
-INITIATIVE_SYSTEM_SHORT = """你是一位{#mood#}的患者。
-病例：{#case_name#}。{#traits#}
-当前情绪状态：{#mood#}（信任度{#trust#}/100，舒适度{#comfort#}/100）。
-护士沉默了一段时间。请用15-30字说一句自然的追问或反应（肢体语言用[]标注）。
-必须符合当前情绪与性格，不要重复之前说过的话。只输出患者的话。"""
+"""Patient initiative runtime state and LLM generation."""
 
 import logging
 from datetime import UTC, datetime
@@ -29,6 +11,7 @@ if TYPE_CHECKING:
 
 from infra.llm.client import CallContext
 from infra.llm.profile import get_llm_config
+from modules.training.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 from modules.training.session.cache import InitiativeCache
 from prompts.engine import render_template
 

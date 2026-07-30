@@ -6,10 +6,10 @@ import logging
 
 from infra.llm.client import CallContext
 from modules.training.patient_ai.emotion import EmotionState, get_emotion
+from modules.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
 from profiles.history_taking.emotion_profile import PersonalityProfile
 from prompts import render_template
 from prompts.training.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
-from prompts.training.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
 
 from ..context import (
     STATE_FEATURES,

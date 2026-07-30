@@ -10,14 +10,14 @@ from infra.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
 from modules.training.capabilities import is_enabled
 from modules.training.patient_ai.emotion import get_emotion
-from profiles.history_taking.emotion_profile import PersonalityProfile
-from prompts.training.initiative import (
+from modules.training.patient_ai.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
     generate_initiative_llm,
     should_initiate,
     update_initiative_timer,
 )
+from profiles.history_taking.emotion_profile import PersonalityProfile
 from schemas import InitiativeTriggerResponse
 
 router = APIRouter()

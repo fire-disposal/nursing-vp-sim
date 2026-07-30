@@ -299,7 +299,7 @@ def _create_record(
     snapshot["features"] = resolved_features
     record.practice_snapshot = snapshot
     if app_state is not None and resolved_features.get("patient_initiative"):
-        from prompts.training.initiative import update_initiative_timer
+        from modules.training.patient_ai.initiative import update_initiative_timer
 
         update_initiative_timer(record.id, app_state.initiative_cache, db)
 
