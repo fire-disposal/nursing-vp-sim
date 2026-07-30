@@ -4,7 +4,7 @@ import queue
 
 import pytest
 
-from infra.realtime_hub import PgRealtimeHub
+from infra.realtime import PgRealtimeHub
 
 
 @pytest.mark.asyncio
@@ -62,7 +62,7 @@ def test_notify_loop_reuses_one_connection(monkeypatch):
         connects.append(conn)
         return conn
 
-    monkeypatch.setattr("infra.realtime_hub.psycopg.connect", fake_connect)
+    monkeypatch.setattr("infra.realtime.psycopg.connect", fake_connect)
 
     hub = PgRealtimeHub(dsn="postgresql://example")
     hub._notify_queue.put_nowait(("realtime_1", '{"type":"a"}'))

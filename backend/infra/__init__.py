@@ -21,7 +21,7 @@ from infra.exporter import ColumnDef, CSVExporter, XLSXExporter, export_response
 from infra.logging_setup import setup_logging
 from infra.metrics import MetricsSnapshot
 from infra.queue import TaskQueue
-from infra.realtime_hub import RealtimeHub
+from infra.realtime import RealtimeHub
 from infra.scoring_progress import ScoringProgressTracker
 
 __all__ = [

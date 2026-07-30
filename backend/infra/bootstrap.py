@@ -28,7 +28,7 @@ from infra.llm import LogWorker, ProfileRouter
 from infra.llm.client import LLMClient
 from infra.metrics import MetricsSnapshot
 from infra.queue import TaskQueue
-from infra.realtime_hub import RealtimeHub
+from infra.realtime import RealtimeHub
 from infra.scoring_progress import ScoringProgressTracker
 from models import Notification, SystemNotification, User
 from modules.training.session.cache import EmotionCache, InitiativeCache

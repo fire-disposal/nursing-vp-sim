@@ -266,8 +266,7 @@ def update_config(
     req: VoiceConfigUpdateRequest,
 ):
     data = req.model_dump(exclude_none=True)
-    result = VoiceConfigService(db).update_config(data)
-    return result
+    return VoiceConfigService(db).update_config(data)
 
 
 @router.post("/config/test-tts", response_model=VoiceStatusResponse)
