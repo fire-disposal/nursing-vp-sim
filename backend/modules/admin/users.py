@@ -387,6 +387,7 @@ class UserService:
             self.db.commit()
         except Exception:
             self.db.rollback()
+            log.exception("batch create commit failed")
             raise
         return BatchCreateResult(created=created, skipped=skipped, errors=errors)
 
@@ -413,6 +414,7 @@ class UserService:
                         self.db.add(UserClass(user_id=uid, class_id=class_id))
                     assigned += 1
                 except Exception:
+                    log.warning("bulk assign failed for uid", exc_info=True)
                     errors.append(f"用户 {uid} 分配失败")
 
         return BulkAssignClassResult(assigned=assigned, skipped=skipped, errors=errors)

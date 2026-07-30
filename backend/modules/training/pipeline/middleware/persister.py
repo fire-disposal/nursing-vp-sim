@@ -159,6 +159,6 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
     except Exception:
         try:
             ctx.db.rollback()
-        except Exception:
+            log.warning("Rollback failed during initiative timer reset: record_id=%d", ctx.record.id, exc_info=True)
             pass
         log.warning("Failed to reset initiative timer: record_id=%d", ctx.record.id, exc_info=True)

@@ -179,6 +179,7 @@ class VoiceConfigService:
             await asyncio.wait_for(conn.begin_session(tts_req), timeout=max(0.1, deadline - loop.time()))
         except Exception:
             await conn_ctx.__aexit__(None, None, None)
+            log.warning("voice config reload cleanup failed", exc_info=True)
             raise
 
         async def _gen() -> AsyncIterator[bytes]:

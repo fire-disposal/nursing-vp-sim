@@ -5,6 +5,10 @@ Each method owns its own session to avoid coupling with request-scoped sessions.
 
 from __future__ import annotations
 
+import logging
+
+log = logging.getLogger(__name__)
+
 from typing import TYPE_CHECKING
 
 from infra.llm.profile import PROFILES
@@ -31,6 +35,7 @@ class LLMDataService:
             return profiles_map, bindings_map
         except Exception:
             db.rollback()
+            log.exception("LLM data operation failed")
             raise
         finally:
             db.close()
@@ -74,6 +79,7 @@ class LLMDataService:
                 db.commit()
         except Exception:
             db.rollback()
+            log.exception("LLM data operation failed")
             raise
         finally:
             db.close()

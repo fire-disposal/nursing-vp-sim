@@ -1,5 +1,6 @@
 """Chat router — thin dispatcher delegating to pipeline."""
 
+import asyncio
 import logging
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
@@ -229,8 +230,10 @@ async def send_message_stream(
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
         pipe, collector = build_pipeline(training_type=ctx.record.training_type)
         ctx.note_collector = collector
-    except BaseException:
+    except BaseException as exc:
         await stack.aclose()
+        if not isinstance(exc, (GeneratorExit, asyncio.CancelledError)):
+            log.warning("send_message_stream context build failed", exc_info=True)
         raise
 
     async def _stream_with_db():
@@ -264,8 +267,10 @@ async def correct_last_message_stream(
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
         pipe, collector = build_pipeline(training_type=ctx.record.training_type)
         ctx.note_collector = collector
-    except BaseException:
+    except BaseException as exc:
         await stack.aclose()
+        if not isinstance(exc, (GeneratorExit, asyncio.CancelledError)):
+            log.warning("correct_last_message_stream context build failed", exc_info=True)
         raise
 
     async def _stream_with_db():

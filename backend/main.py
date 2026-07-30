@@ -244,12 +244,12 @@ app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=li
 
 # ── Custom exception handlers (registered before the generic handler) ──
 
-app.add_exception_handler(AuthError, auth_error_handler)  # ty: ignore[invalid-argument-type]
-app.add_exception_handler(NotFoundError, not_found_handler)  # ty: ignore[invalid-argument-type]
-app.add_exception_handler(ConflictError, conflict_handler)  # ty: ignore[invalid-argument-type]
-app.add_exception_handler(ValidationError, validation_error_handler)  # ty: ignore[invalid-argument-type]
-app.add_exception_handler(LLMError, llm_error_handler)  # ty: ignore[invalid-argument-type]
-app.add_exception_handler(ScoringError, scoring_error_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(AuthError, auth_error_handler)        # ty: ignore — FastAPI handler type covariance
+app.add_exception_handler(NotFoundError, not_found_handler)     # ty: ignore — FastAPI handler type covariance
+app.add_exception_handler(ConflictError, conflict_handler)      # ty: ignore — FastAPI handler type covariance
+app.add_exception_handler(ValidationError, validation_error_handler)  # ty: ignore — FastAPI handler type covariance
+app.add_exception_handler(LLMError, llm_error_handler)          # ty: ignore — FastAPI handler type covariance
+app.add_exception_handler(ScoringError, scoring_error_handler)  # ty: ignore — FastAPI handler type covariance
 
 
 @app.exception_handler(Exception)

@@ -1,5 +1,10 @@
 """Citations marker embedding — zero-migration persistence via HTML comment in content."""
 
+import logging
+
+log = logging.getLogger(__name__)
+
+
 import base64 as _b64
 import json as _json_lib
 
@@ -27,6 +32,7 @@ def extract_citations(content: str) -> tuple[str, list[dict[str, str]] | None]:
         clean = content[:idx].rstrip()
         return clean, citations
     except Exception:
+        log.warning("citation parsing failed", exc_info=True)
         return content, None
 
 

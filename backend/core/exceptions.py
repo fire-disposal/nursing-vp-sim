@@ -161,3 +161,13 @@ async def scoring_error_handler(request: Request, exc: ScoringError):
     else:
         status_code = 500
     return await _log_and_respond(request, status_code, str(exc), exc)
+
+
+def log_error(logger: logging.Logger, msg: str, extra: dict | None = None) -> None:
+    """Standardized error logging — logs at ERROR with full traceback.
+
+    One-line replacement for the repetitive ``except Exception: log.exception(...)``
+    pattern.  Pass *extra* dict with ``record_id``, ``user_id`` etc. for
+    structured correlation across log lines.
+    """
+    logger.exception(msg, extra=extra or {})

@@ -47,6 +47,7 @@ async def admin_ops_dashboard(
         try:
             scoring_in_progress = len(request.app.state.scoring_tracker._store)
         except Exception:
+            log.warning("scoring_tracker read failed", exc_info=True)
             pass
     data["scoring"]["in_progress"] = scoring_in_progress
 
@@ -55,6 +56,7 @@ async def admin_ops_dashboard(
         try:
             sse_stats = request.app.state.realtime_hub.stats
         except Exception:
+            log.warning("realtime_hub stats read failed", exc_info=True)
             pass
 
     metrics_snapshot = {}
@@ -62,6 +64,7 @@ async def admin_ops_dashboard(
         try:
             metrics_snapshot = request.app.state.metrics.snapshot()
         except Exception:
+            log.warning("metrics snapshot read failed", exc_info=True)
             pass
 
     try:
@@ -75,6 +78,7 @@ async def admin_ops_dashboard(
         data["frontend_errors"] = frontend_errors
         data["http"] = metrics_snapshot.get("requests", {})
     except Exception:
+        log.warning("ops diagnostic failed", exc_info=True)
         system_errors = {}
         frontend_errors = {}
         data["error_burst_5min"] = 0
@@ -128,6 +132,7 @@ async def admin_ops_errors(
             "recent": (errors.get("recent") or [])[:n],
         }
     except Exception:
+        log.warning("ops errors query failed", exc_info=True)
         return {"count": {}, "recent": []}
 
 
