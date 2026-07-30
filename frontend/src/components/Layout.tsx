@@ -46,19 +46,15 @@ function DeployBanner() {
 		es.onerror = () => { es.close(); };
 		return () => { es.close(); };
 	}, []);
-	if (!warning?.active) return null;
+	if (!warning) return null;
+	const msg = warning.message || "系统即将更新，可能短暂中断";
 	return (
-		<div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-3">
-			<div className="pointer-events-auto overflow-hidden rounded-full bg-amber-500/85 px-5 py-1.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
-				<div className="flex w-max animate-[marquee_14s_linear_infinite] gap-8 whitespace-nowrap">
-					<span className="inline-flex items-center gap-1.5">
-						<AlertTriangle size={14} />
-						{warning.message || "系统即将更新，可能短暂中断"}
-					</span>
-					<span className="inline-flex items-center gap-1.5">
-						<AlertTriangle size={14} />
-						{warning.message || "系统即将更新，可能短暂中断"}
-					</span>
+		<div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-2.5">
+			<div className="pointer-events-auto w-80 overflow-hidden rounded-full bg-amber-500/90 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
+				<div className="flex w-max animate-[marquee_18s_linear_infinite] whitespace-nowrap">
+					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
+					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
+					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
 				</div>
 			</div>
 		</div>
