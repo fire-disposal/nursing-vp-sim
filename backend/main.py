@@ -178,6 +178,24 @@ def _warm_knowledge_base() -> None:
         log.exception("Chapter index warming failed (non-fatal)")
 
 
+def _validate_prompt_templates(logger) -> None:
+    """Check all prompt templates against their TypedDict contracts at startup.
+
+    Non-fatal — logs warnings for mismatches so placeholder drift is caught
+    on deploy rather than silently producing ``{#unresolved#}`` at runtime.
+    """
+    try:
+        from core.template_variables import validate_all_templates
+
+        warnings = validate_all_templates()
+        if warnings:
+            for w in warnings:
+                logger.warning("Prompt template contract mismatch: %s", w)
+        else:
+            logger.info("Prompt templates: all contracts verified")
+    except Exception:
+        logger.exception("Prompt template validation failed (non-fatal)")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -190,6 +208,8 @@ async def lifespan(app: FastAPI):
     log.info("──────────────────────────────────────────────\n")
     log.info("虚拟患者训练系统 v%s", APP_VERSION)
     log_config(log)
+
+    _validate_prompt_templates(log)
 
     init_db()
     if os.getenv("SKIP_SEED") == "1":

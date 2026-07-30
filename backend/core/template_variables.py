@@ -123,3 +123,49 @@ class CaseGenerationUserVars(TypedDict):
     description: str
     field_instruction: str
     reference_material: str
+
+
+def validate_all_templates() -> list[str]:
+    """Validate all known templates against their TypedDict contracts.
+
+    Returns a list of warning messages (empty = all clean).  Call once at
+    startup so placeholder mismatches are caught on deploy, not at runtime.
+    """
+    from core.template import validate_template_vars
+    from modules.cases.prompts import CASE_GENERATION_HEAD, CASE_GENERATION_TAIL
+    from modules.qa.prompts import QA_SYSTEM
+    from modules.training.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
+    from modules.training.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
+    from modules.training.prompts.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
+    from modules.training.prompts.scoring import (
+        FEEDBACK_RETRY_USER,
+        SCORING_FEEDBACK_SYSTEM,
+        SCORING_FEEDBACK_USER,
+        SCORING_RETRY_USER,
+        SCORING_SYSTEM,
+        SCORING_USER,
+    )
+
+    checks: list[tuple[str, str, frozenset[str]]] = [
+        ("SCORING_SYSTEM", SCORING_SYSTEM, frozenset(ScoringSystemVars.__annotations__.keys())),
+        ("SCORING_USER", SCORING_USER, frozenset(ScoringUserVars.__annotations__.keys())),
+        ("SCORING_FEEDBACK_SYSTEM", SCORING_FEEDBACK_SYSTEM, frozenset(ScoringFeedbackSystemVars.__annotations__.keys())),
+        ("SCORING_FEEDBACK_USER", SCORING_FEEDBACK_USER, frozenset(ScoringFeedbackUserVars.__annotations__.keys())),
+        ("SCORING_RETRY_USER", SCORING_RETRY_USER, frozenset(ScoringRetryUserVars.__annotations__.keys())),
+        ("FEEDBACK_RETRY_USER", FEEDBACK_RETRY_USER, frozenset(FeedbackRetryUserVars.__annotations__.keys())),
+        ("EMOTION_ANALYSIS_USER", EMOTION_ANALYSIS_USER, frozenset(EmotionAnalysisUserVars.__annotations__.keys())),
+        ("INITIATIVE_SYSTEM", INITIATIVE_SYSTEM, frozenset(InitiativeSystemVars.__annotations__.keys())),
+        ("INITIATIVE_SYSTEM_SHORT", INITIATIVE_SYSTEM_SHORT, frozenset(InitiativeShortSystemVars.__annotations__.keys())),
+        ("PATIENT_SYSTEM", PATIENT_SYSTEM, frozenset(PatientSystemVars.__annotations__.keys())),
+        ("PATIENT_DYNAMIC", PATIENT_DYNAMIC, frozenset(PatientDynamicVars.__annotations__.keys())),
+        ("QA_SYSTEM", QA_SYSTEM, frozenset(QASystemVars.__annotations__.keys())),
+        ("CASE_GENERATION_HEAD", CASE_GENERATION_HEAD, frozenset(CaseGenerationSystemVars.__annotations__.keys())),
+        ("CASE_GENERATION_TAIL", CASE_GENERATION_TAIL, frozenset(CaseGenerationUserVars.__annotations__.keys())),
+    ]
+
+    warnings: list[str] = []
+    for name, template, allowed in checks:
+        unknown = validate_template_vars(template, allowed)
+        if unknown:
+            warnings.append(f"{name}: unknown placeholders {unknown}")
+    return warnings
