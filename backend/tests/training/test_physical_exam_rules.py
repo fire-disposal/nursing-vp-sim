@@ -1,6 +1,6 @@
 """Tests for physical exam operation handler and age-adaptive defaults."""
 
-from profiles.history_taking.exam import (
+from modules.training.tools.physical_exam_rules import (
     _format_skin,
     _get_age_group,
     _get_default,

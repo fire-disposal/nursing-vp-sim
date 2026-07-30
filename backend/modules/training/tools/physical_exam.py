@@ -4,7 +4,7 @@ import logging
 
 from core.exceptions import AuthError, ValidationError
 from modules.training.capabilities import is_enabled
-from profiles.history_taking.exam import handle_operation
+from modules.training.tools.physical_exam_rules import handle_operation
 
 from .base import ToolContext, ToolHandler, ToolResult
 
