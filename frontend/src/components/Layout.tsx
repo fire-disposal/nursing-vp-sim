@@ -48,9 +48,19 @@ function DeployBanner() {
 	}, []);
 	if (!warning?.active) return null;
 	return (
-		<div className="flex items-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900 shrink-0">
-			<AlertTriangle size={16} className="shrink-0" />
-			<span className="flex-1">{warning.message || "系统即将更新，可能短暂中断"}</span>
+		<div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-3">
+			<div className="pointer-events-auto overflow-hidden rounded-full bg-amber-500/85 px-5 py-1.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
+				<div className="flex w-max animate-[marquee_14s_linear_infinite] gap-8 whitespace-nowrap">
+					<span className="inline-flex items-center gap-1.5">
+						<AlertTriangle size={14} />
+						{warning.message || "系统即将更新，可能短暂中断"}
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<AlertTriangle size={14} />
+						{warning.message || "系统即将更新，可能短暂中断"}
+					</span>
+				</div>
+			</div>
 		</div>
 	);
 }
