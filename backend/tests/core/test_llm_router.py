@@ -148,7 +148,7 @@ def test_select_no_config_falls_back_to_env():
 
 
 @pytest.mark.asyncio
-@patch("services.llm_data.LLMDataService.persist_stats")
+@patch("infra.llm.data.LLMDataService.persist_stats")
 async def test_report_result_circuit_breaks_on_consecutive_failures(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
@@ -162,7 +162,7 @@ async def test_report_result_circuit_breaks_on_consecutive_failures(mock_persist
 
 
 @pytest.mark.asyncio
-@patch("services.llm_data.LLMDataService.persist_stats")
+@patch("infra.llm.data.LLMDataService.persist_stats")
 async def test_report_result_429_sets_rate_limited(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
@@ -175,7 +175,7 @@ async def test_report_result_429_sets_rate_limited(mock_persist):
 
 
 @pytest.mark.asyncio
-@patch("services.llm_data.LLMDataService.persist_stats")
+@patch("infra.llm.data.LLMDataService.persist_stats")
 async def test_report_result_success_clears_degraded(mock_persist):
     router = ProfileRouter()
     secret = _make_secret(status="degraded", priority=0)

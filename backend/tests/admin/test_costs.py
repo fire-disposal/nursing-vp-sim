@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from models import LLMCallLog
-from services.costs import CostService
+from modules.admin.costs import CostService
 
 
 def _add_log(db, status, cost, created_at=None):

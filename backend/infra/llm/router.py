@@ -53,7 +53,7 @@ class ProfileRouter:
         self._last_persist_ts: dict[int, float] = {}
 
     async def load_from_db(self):
-        from services.llm_data import LLMDataService
+        from infra.llm.data import LLMDataService
 
         try:
             profiles, bindings = LLMDataService.load_all()
@@ -205,7 +205,7 @@ class ProfileRouter:
 
     def _refresh_profile_from_db(self, profile_id: int) -> None:
         """Refresh a single profile from DB. Caller MUST NOT hold _state_lock."""
-        from services.llm_data import LLMDataService
+        from infra.llm.data import LLMDataService
 
         try:
             fresh = LLMDataService.get_profile(profile_id)
@@ -216,7 +216,7 @@ class ProfileRouter:
             log.debug("_refresh_profile_from_db failed for id=%d", profile_id, exc_info=True)
 
     def _persist_stats(self, profile) -> None:
-        from services.llm_data import LLMDataService
+        from infra.llm.data import LLMDataService
 
         try:
             LLMDataService.persist_stats(
