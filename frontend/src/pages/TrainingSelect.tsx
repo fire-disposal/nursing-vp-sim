@@ -95,7 +95,7 @@ export default function TrainingSelect() {
   const { data: recordsData } = useQuery({
     queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
     queryFn: () => getRecords({ limit: 50, offset: 0 }).then((r) => r.data),
-    staleTime: 30_000,
+    staleTime: 0,  // always refetch on mount — in_progress records change frequently
   });
 
   const records = recordsData?.items ?? [];
@@ -370,6 +370,21 @@ export default function TrainingSelect() {
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><TrendingUp size={16} className="text-muted-foreground" />最近训练</h3>
+              {primaryInProgress && (
+                <div className="mb-3 -mx-1 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-warning-foreground">
+                        <Play size={12} />进行中的训练
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground truncate">{primaryInProgress.case_name}</div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
+                      继续
+                    </Button>
+                  </div>
+                </div>
+              )}
               {recentRecords.length > 0 ? (
                 <div className="space-y-1">
                   {recentRecords.map((r) => (
