@@ -1,13 +1,13 @@
-import { motion } from "motion/react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Award, BarChart3, BookOpen, ClipboardCheck, ClipboardList, Clock, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp, X } from "lucide-react";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startTraining } from "@/api";
-import { getStudentAssignments, startAssignment } from "@/api/assignments";
-import { getStudentRanking, getTrends } from "@/api/stats";
 import type { components } from "@/api/api-types.gen";
+import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
+import { getStudentRanking, getTrends } from "@/api/stats";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -19,8 +19,8 @@ import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import useAuthStore from "@/stores/authStore";
 import { cn } from "@/lib/utils";
+import useAuthStore from "@/stores/authStore";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -175,7 +175,28 @@ export default function TrainingSelect() {
       if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
       navigate(`/training/${data.record_id}`);
     },
-    onError: () => toast.error("开始训练失败，请重试"),
+    onError: (err: unknown) => {
+      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+        const detail = axiosErr.response.data.detail;
+        confirm({
+          title: "有进行中的训练",
+          message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
+          confirmLabel: "放弃并开始新训练",
+          danger: true,
+        }).then((ok) => {
+          if (ok) {
+            abandonRecord(String(detail.record_id!)).then(() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+            });
+          } else if (detail.record_id) {
+            navigate(`/training/${detail.record_id}`);
+          }
+        });
+        return;
+      }
+      toast.error("开始训练失败，请重试");
+    },
   });
   const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
     const ok = await confirm({
@@ -195,23 +216,23 @@ export default function TrainingSelect() {
         navigate(`/training/${(data as { record_id: number }).record_id}`);
       }
     } catch (err: unknown) {
-      if ((err as { status?: number }).status === 409) {
-        const detail = (err as { response?: { data?: { code?: string; record_id?: number; case_name?: string } } }).response?.data;
-        if (detail?.code === "existing_training") {
-          const ok = await confirm({
-            title: "有进行中的训练",
-            message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
-            confirmLabel: "放弃并开始新训练",
-            danger: true,
-          });
-          if (ok) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-            handleStartAssignment(assignmentId);
-          } else if (detail.record_id) {
-            navigate(`/training/${detail.record_id}`);
-          }
-          return;
+      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+        const detail = axiosErr.response.data.detail;
+        const ok = await confirm({
+          title: "有进行中的训练",
+          message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
+          confirmLabel: "放弃并开始新训练",
+          danger: true,
+        });
+        if (ok) {
+          await abandonRecord(String(detail.record_id!));
+          queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+          handleStartAssignment(assignmentId);
+        } else if (detail.record_id) {
+          navigate(`/training/${detail.record_id}`);
         }
+        return;
       }
       toast.apiError(err, "开始作业失败，请刷新后重试");
     }
