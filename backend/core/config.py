@@ -88,7 +88,7 @@ LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
 LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 
-LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "1"))
+LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "2"))
 
 # 批量建用户上限 —— 防止单次请求过大导致系统卡死
 BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
@@ -100,7 +100,9 @@ BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 SCORING_TIMEOUT_SECONDS = int(os.getenv("SCORING_TIMEOUT_SECONDS", "180"))
 SCORING_RETRY_DELAY_SECONDS = int(os.getenv("SCORING_RETRY_DELAY_SECONDS", "30"))
-SCORING_WORKERS = int(os.getenv("SCORING_WORKERS", "8"))
+# 每 worker 的评分并发数。2-worker 部署时实际总并发 = SCORING_WORKERS × 2。
+# 受 LLM 信号量约束，超过 10 无额外吞吐。默认 4（2w = 8 总并发）。
+SCORING_WORKERS = int(os.getenv("SCORING_WORKERS", "4"))
 QUEUE_ENQUEUE_TIMEOUT = float(os.getenv("QUEUE_ENQUEUE_TIMEOUT", "10"))
 MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 # retry_scoring 判定"评分仍在进行中"的宽限窗口 —— 必须 >= SCORING_TIMEOUT_SECONDS，
