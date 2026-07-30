@@ -22,7 +22,7 @@ from ..pipeline import (
     STATE_FEATURES,
     STATE_STREAM_MODE,
     PipelineContext,
-    get_pipeline,
+    build_pipeline,
     run_pipeline,
     stream_pipeline,
 )
@@ -197,7 +197,7 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    pipe, collector = get_pipeline(training_type=ctx.record.training_type)
+    pipe, collector = build_pipeline(training_type=ctx.record.training_type)
     ctx.note_collector = collector
     await run_pipeline(ctx, pipe)
 
@@ -227,7 +227,7 @@ async def send_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        pipe, collector = get_pipeline(training_type=ctx.record.training_type)
+        pipe, collector = build_pipeline(training_type=ctx.record.training_type)
         ctx.note_collector = collector
     except BaseException:
         await stack.aclose()
@@ -262,7 +262,7 @@ async def correct_last_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
-        pipe, collector = get_pipeline(training_type=ctx.record.training_type)
+        pipe, collector = build_pipeline(training_type=ctx.record.training_type)
         ctx.note_collector = collector
     except BaseException:
         await stack.aclose()

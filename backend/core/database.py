@@ -1,3 +1,12 @@
+"""Database engine, session factory, and lifecycle.
+
+**Pool**: QueuePool (10+10), 30s timeout, 3600s recycle, pre-ping enabled.
+**Session options**: ``statement_timeout=120000`` (2 min), ``lock_timeout=3000`` (3 s).
+**Streaming transactions**: sessions MUST close before the request ends.
+  ``SessionLocal`` sessions are not async-safe; streaming endpoints open a
+  fresh ``SessionLocal`` per pipeline step and close it immediately.
+  ``StreamingResponse`` must never hold an open DB session past yield.
+"""
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
