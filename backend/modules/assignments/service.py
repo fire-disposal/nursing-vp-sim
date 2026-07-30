@@ -206,14 +206,14 @@ class AssignmentService:
             best = None
             best_score = None
             for r in user_records:
-                if r.status == "abandoned":
+                if r.status in ("abandoned", "discarded"):
                     continue
                 if r.scoring_status == "completed" and r.score and r.score.total_score is not None:
                     if best_score is None or r.score.total_score > best_score:
                         best = r
                         best_score = r.score.total_score
             if best is None:
-                non_abandoned = [r for r in user_records if r.status != "abandoned"]
+                non_abandoned = [r for r in user_records if r.status not in ("abandoned", "discarded")]
                 if non_abandoned:
                     best = max(non_abandoned, key=lambda r: r.start_time or datetime.min.replace(tzinfo=UTC))
                 else:

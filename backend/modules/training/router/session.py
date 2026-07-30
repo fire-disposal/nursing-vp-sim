@@ -411,7 +411,7 @@ def start_training_from_assignment(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
             TrainingRecord.is_test == False,
-            TrainingRecord.status != "in_progress",
+            TrainingRecord.status.notin_(["in_progress", "discarded"]),
         )
         .count()
     )
