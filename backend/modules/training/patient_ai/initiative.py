@@ -13,7 +13,7 @@ from infra.llm.client import CallContext
 from infra.llm.profile import get_llm_config
 from modules.training.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 from modules.training.session.cache import InitiativeCache
-from prompts.engine import render_template
+from core.template import render_template
 
 log = logging.getLogger(__name__)
 

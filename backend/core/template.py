@@ -1,3 +1,5 @@
+"""Simple template engine — ``{#var#}`` syntax, strict variable checking."""
+
 import re
 
 _VAR_RE = re.compile(r"\{#([^}#]+)#\}")

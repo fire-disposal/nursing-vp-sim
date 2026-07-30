@@ -6,9 +6,9 @@ and documentation — the runtime enforcement is handled by render_template()'s
 built-in RuntimeError on missing variables.
 
 Usage:
-    from prompts.variables import ScoringSystemVars
-    from prompts.training.scoring import SCORING_SYSTEM
-    from prompts import render_template
+    from core.template_variables import ScoringSystemVars
+    from modules.training.prompts.scoring import SCORING_SYSTEM
+    from core.template import render_template
 
     kwargs: ScoringSystemVars = { ... }
     result = render_template(SCORING_SYSTEM, **kwargs)

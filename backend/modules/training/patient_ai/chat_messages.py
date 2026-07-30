@@ -4,7 +4,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from prompts import render_template
+from core.template import render_template
 
 AUTHOR_NOTE_TEMPLATE = """{#author_note#}"""
 

@@ -21,8 +21,8 @@ from infra.llm.profile import get_llm_config
 from models import Case, User
 from modules.training.pipeline.prompt_context import PromptContext
 from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
-from prompts import render_template
-from prompts.generation import build_system_prompt
+from core.template import render_template
+from modules.cases.prompts import build_system_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
 from schemas.case_schema import validate_case_data
 

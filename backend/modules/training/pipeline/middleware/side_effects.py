@@ -8,8 +8,8 @@ from infra.llm.client import CallContext
 from modules.training.patient_ai.emotion import EmotionState, get_emotion
 from modules.training.patient_ai.emotion_profile import PersonalityProfile
 from modules.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
-from prompts import render_template
-from prompts.training.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
+from core.template import render_template
+from modules.training.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 
 from ..context import (
     STATE_FEATURES,

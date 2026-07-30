@@ -15,8 +15,8 @@ from core.security import require_permission
 from infra.llm.client import CallContext
 from infra.llm.profile import get_llm_config
 from models import QARecord, QASession, User
-from prompts import render_template
-from prompts.qa import QA_SYSTEM
+from core.template import render_template
+from modules.qa.prompts import QA_SYSTEM
 from schemas import Citation, QAAskResponse, QASessionCreate, SectionTextResponse
 
 from ..citations import embed_citations

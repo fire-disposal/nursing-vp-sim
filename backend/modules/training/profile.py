@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from modules.training.patient_ai.note_source import OperationNoteSource
 from modules.training.patient_ai.notes import EmotionNoteSource, IdentityGuardSource
-from prompts.training.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
+from modules.training.prompts.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
 
 if TYPE_CHECKING:
     from modules.training.patient_ai.note_source import NoteSource

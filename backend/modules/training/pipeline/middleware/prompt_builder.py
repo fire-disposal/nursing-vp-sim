@@ -16,7 +16,7 @@ from modules.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
-from prompts import render_template
+from core.template import render_template
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
 from ..prompt_context import PromptContext

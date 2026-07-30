@@ -16,8 +16,8 @@ from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
 from modules.training.profile import PROFILE
 from modules.training.scoring.rubric_loader import get_rubric_version_id
-from prompts import render_template
-from prompts.training.scoring import (
+from core.template import render_template
+from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,
