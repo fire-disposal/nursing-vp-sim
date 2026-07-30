@@ -43,7 +43,9 @@ function DeployBanner() {
 				setWarning(data.active ? data : null);
 			} catch { /* ignore */ }
 		};
-		es.onerror = () => { es.close(); };
+		// 不人工 close：让 EventSource 自动重连。后端容器随部署重启时
+		// SSE 会断开，自动重连后新后端推送 {"active": false} 即可清除横幅。
+		es.onerror = () => { /* auto-reconnect, don't close */ };
 		return () => { es.close(); };
 	}, []);
 	if (!warning) return null;
