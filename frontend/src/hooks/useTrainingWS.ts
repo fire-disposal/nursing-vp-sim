@@ -117,14 +117,15 @@ function _connect() {
 			return;
 		}
 		// 指数退避 + 抖动
+		if (_retryCount >= 5) {
+			console.warn("[TrainingWS] max retries reached, giving up");
+			return;
+		}
 		const base = Math.min(1000 * 2 ** _retryCount, 30000);
 		const delay = base / 2 + Math.random() * (base / 2);
 		_retryCount = Math.min(_retryCount + 1, 5);
 		_retryTimer = setTimeout(_connect, delay);
 	};
-
-	// Client-side ping every 25s — keeps proxies/load-balancers from
-	// dropping idle WS connections. Server responds with {"type":"pong"}.
 	const pingTimer = setInterval(() => {
 		if (_ws === ws && ws.readyState === WebSocket.OPEN) {
 			_send({ type: "ping" });
