@@ -466,9 +466,9 @@ async def end_training(
 
             cleanup_initiative(record.id, request.app.state.initiative_cache, db)
         if features.get("emotion"):
-            from modules.training.patient_ai.emotion import cleanup_emotion
+            from modules.training.patient_ai.emotion import EmotionRepository
 
-            cleanup_emotion(record.id, request.app.state.emotion_cache, db)
+            EmotionRepository().cleanup(record.id, db)
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(

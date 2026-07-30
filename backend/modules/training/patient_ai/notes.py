@@ -21,24 +21,10 @@ class EmotionNoteSource(NoteSource):
     max_tokens = 300
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        # 优先使用 analysis middleware 已计算的行为策略 note
         cached_note = ctx.state.get("_emotion_note")
         if cached_note:
             return cached_note
-
-        # 回退：使用旧 v2 系统
-        from modules.training.patient_ai.emotion_profile import PersonalityProfile
-
-        from .emotion._legacy import get_emotion
-
-        cache = getattr(ctx.app_state, "emotion_cache", None)
-        if cache is None:
-            return None
-        case_data = getattr(ctx, "case_data", None) or {}
-        personality = case_data.get("personality", {}) or {}
-        profile = PersonalityProfile.from_personality(personality)
-        emotion = get_emotion(ctx.record.id, cache, ctx.db, profile=profile)
-        return emotion.note
+        return None
 
 
 class IdentityGuardSource(NoteSource):

@@ -58,7 +58,6 @@ const EMOTION_BORDER: Record<EmotionState, string> = {
 	relaxed: "border-blue-400",
 	open: "border-green-400",
 };
-
 const EMOTION_COLOR: Record<EmotionState, string> = {
 	withdrawn: "text-red-600",
 	defensive: "text-orange-600",
@@ -68,12 +67,24 @@ const EMOTION_COLOR: Record<EmotionState, string> = {
 	open: "text-green-600",
 };
 
-export function getEmotionBorder(emotion: EmotionState): string {
-	return EMOTION_BORDER[emotion] || EMOTION_BORDER.neutral;
+const EMOTION_4D_BORDER: Record<string, string> = {
+	open_trusting: "border-green-400",
+	trusting_anxious: "border-blue-400",
+	irritated: "border-orange-400",
+	anxious_cooperative: "border-purple-400",
+	anxious_guarded: "border-purple-400",
+	withdrawn: "border-red-400",
+	defensive: "border-orange-400",
+	relaxed: "border-blue-400",
+	neutral: "border-border",
+};
+
+export function getEmotionBorder(emotion: string): string {
+	return EMOTION_4D_BORDER[emotion] || EMOTION_BORDER[emotion as EmotionState] || EMOTION_BORDER.neutral;
 }
 
-export function getEmotionColor(emotion: EmotionState): string {
-	return EMOTION_COLOR[emotion] || EMOTION_COLOR.neutral;
+export function getEmotionColor(emotion: string): string {
+	return EMOTION_COLOR[emotion as EmotionState] || EMOTION_COLOR.neutral;
 }
 interface CorrectionSnapshot {
 	messages: ChatMessage[];

@@ -41,13 +41,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     features = ctx.state.get(STATE_FEATURES) or {}
 
     has_emotion = features.get("emotion", False)
-
     if has_emotion and ctx.llm_reply:
-        emotion_cache = getattr(app, "emotion_cache", None)
-        if emotion_cache is None:
-            return
-
-        # 推送 emotion_change — 优先使用 4D 新格式
+        # 推送 4D emotion_change
         change_4d = ctx.state.get("_emotion_change")
         dominant = ctx.state.get("_emotion_dominant")
         if change_4d and dominant:
@@ -59,22 +54,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                     }
                 }
             )
-        else:
-            # 回退：v2 格式
-            case_data = ctx.case_data or {}
-            personality = case_data.get("personality", {}) or {}
-            emotion = _read_emotion_state(ctx.record.id, emotion_cache, ctx.db, personality)
-            emotion.apply_decay()
-            ctx.system_events.append(
-                {
-                    "emotion_change": {
-                        "state": emotion.state,
-                        "trust": emotion.trust,
-                        "comfort": emotion.comfort,
-                    }
-                }
-            )
-
     has_initiative = features.get("patient_initiative", False)
 
     if has_initiative and ctx.llm_reply:
@@ -85,11 +64,14 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get(
                     "personality", {}
                 )
-                emotion_cache_obj = getattr(app, "emotion_cache", None)
-                emotion_state = _read_emotion_state(ctx.record.id, emotion_cache_obj, ctx.db, personality)
+                from modules.training.patient_ai.emotion import EmotionRepository, EmotionVector
+
+                repo = EmotionRepository()
+                state = repo.get(ctx.record.id, ctx.db)
+                vector = state.vector if state else EmotionVector.neutral()
 
                 elapsed, threshold = get_initiative_seconds(
-                    ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
+                    ctx.record.id, initiative_cache, ctx.db, personality, vector
                 )
                 count = initiative_cache.get_count(ctx.record.id, ctx.db)
                 max_reached = count >= MAX_INITIATIVE_COUNT

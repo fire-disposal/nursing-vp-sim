@@ -23,8 +23,7 @@ from .events import AppliedEmotionEvent, DetectedEmotionEvent, EmotionAnalysisRe
 from .models import EmotionDelta, EmotionState as EmoState, EmotionVector
 from .profile import EmotionProfile
 from .renderer import derive_speech_policy, render_behavior_note, resolve_dominant_state
-
-# ── v2 旧系统（向后兼容） ──
+from .repository import EmotionRepository
 from ._legacy import (  # noqa: E402
     EmotionState,  # v2 EmotionState
     _build_author_note,
@@ -59,8 +58,10 @@ __all__ = [
     "render_behavior_note",
     "resolve_dominant_state",
     "derive_speech_policy",
+    # repository
+    "EmotionRepository",
     # v2 legacy
-    "EmotionState",  # v2
+    "EmotionState",
     "get_emotion",
     "cleanup_emotion",
     "_STATE_TABLE",

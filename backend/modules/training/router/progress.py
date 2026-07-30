@@ -8,9 +8,7 @@ from core.database import get_db
 from core.security import get_current_user
 from infra.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
-from modules.training.capabilities import is_enabled
-from modules.training.patient_ai.emotion import get_emotion
-from modules.training.patient_ai.emotion_profile import PersonalityProfile
+from modules.training.patient_ai.emotion import EmotionRepository, EmotionVector
 from modules.training.patient_ai.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
@@ -46,18 +44,15 @@ async def trigger_initiative(
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
     app_state = request.app.state
-    emotion = get_emotion(
-        record_id, app_state.emotion_cache, db, profile=PersonalityProfile.from_personality(personality)
-    )
 
-    if not should_initiate(record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort):
-        return {"triggered": False, "message": None}
+    repo = EmotionRepository()
+    state = repo.get_or_create(record_id, db)
+    vector = state.vector
 
     msg = await generate_initiative_llm(
         request.app.state.llm_client,
         personality,
-        emotion.trust,
-        emotion.comfort,
+        vector,
         case_data.get("name", "未知病例"),
         recent_student_msg="",
         ctx=CallContext(
@@ -76,9 +71,7 @@ async def trigger_initiative(
         db.refresh(patient_msg)
 
         count = request.app.state.initiative_cache.increment_count(record_id, db)
-        emotion_data = apply_initiative_penalty(
-            record_id, request.app.state.initiative_cache, request.app.state.emotion_cache, db
-        )
+        emotion_data = apply_initiative_penalty(record_id, request.app.state.initiative_cache, db)
 
         if count < MAX_INITIATIVE_COUNT:
             update_initiative_timer(record_id, request.app.state.initiative_cache, db)
