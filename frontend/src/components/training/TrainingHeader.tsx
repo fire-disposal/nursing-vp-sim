@@ -3,12 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useTrainingStore } from "@/stores/trainingStore";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 import { cn } from "@/lib/utils";
-import { useShortViewport } from "@/hooks/useShortViewport";
+import { useTrainingStore } from "@/stores/trainingStore";
+import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
 function WSStatusDot() {
@@ -42,7 +42,8 @@ interface TrainingHeaderProps {
 export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
 	const patient = useTrainingStore(s => s.patient);
 	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
-	const messages = useTrainingStore(s => s.messages);
+	const hasStarted = useTrainingStore(s => s.messages.some(m => m.role === "student"));
+	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
 	const remainingSeconds = useTrainingStore(s => s.remainingSeconds);
 	const portraitUrl = useTrainingStore(s => s.portraitUrl);
@@ -58,8 +59,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const autoEndFiredRef = useRef(false);
 
 
-	const studentMsgs = messages.filter(m => m.role === "student");
-	const hasStarted = studentMsgs.length > 0;
 	const initialRemaining =
 		!hasStarted ? null
 		: autoEndFiredRef.current ? null
@@ -222,7 +221,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 				onOpenChange={(o) => !o && setEndConfirmOpen(false)}>
 				<DialogContent title="结束训练" maxWidth={360}>
 				<p className="text-sm text-muted-foreground mb-5">
-					已发送 {studentMsgs.length} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
+					已发送 {studentMsgCount} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
 				</p>
 				<div className="flex justify-end gap-2">
 					<Button
