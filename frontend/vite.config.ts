@@ -20,6 +20,8 @@ export default defineConfig({
 				target: "http://localhost:8000",
 				changeOrigin: true,
 				ws: true,
+				proxyTimeout: 10_000,  // 10s — backend down → 504 instead of hang
+				timeout: 10_000,
 			},
 		},
 	},

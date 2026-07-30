@@ -3,7 +3,7 @@ import useAuthStore, { isRefreshing, setRefreshing } from "@/stores/authStore";
 
 export const api = axios.create({
 	baseURL: "/api",
-	timeout: 120000,
+	timeout: 30_000,  // 30s — LLM streaming uses SSE, not axios
 });
 
 let failedQueue: Array<{
