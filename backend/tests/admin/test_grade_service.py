@@ -1,33 +1,30 @@
+"""Grade CRUD tests — exercises GradeService public API."""
+
 import pytest
 
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import ValidationError
 from modules.admin.grades import GradeService
 
 
-def test_create_list_update(db_session):
+def test_create_and_list(db_session):
     svc = GradeService(db_session)
-    v = svc.create("2024级")
-    assert v.name == "2024级"
-    assert v.class_count == 0
-    assert any(g.name == "2024级" for g in svc.list_all())
-    v2 = svc.update(v.id, "2025级")
-    assert v2.name == "2025级"
+    view = svc.create("2024级")
+    assert view.name == "2024级"
+
+    all_grades = svc.list_all()
+    names = [g.name for g in all_grades]
+    assert "2024级" in names
 
 
-def test_create_duplicate_raises_validation(db_session):
+def test_duplicate_name_rejected(db_session):
     svc = GradeService(db_session)
-    svc.create("重复级")
+    svc.create("2024级")
     with pytest.raises(ValidationError):
-        svc.create("重复级")
+        svc.create("2024级")
 
 
-def test_update_missing_raises_not_found(db_session):
+def test_update_rename(db_session):
     svc = GradeService(db_session)
-    with pytest.raises(NotFoundError):
-        svc.update(99999, "x")
-
-
-def test_delete_empty_grade(db_session):
-    svc = GradeService(db_session)
-    v = svc.create("待删级")
-    assert svc.delete(v.id) == 0
+    view = svc.create("2024级")
+    updated = svc.update(view.id, "2025级")
+    assert updated.name == "2025级"

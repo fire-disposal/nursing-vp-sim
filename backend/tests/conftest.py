@@ -19,57 +19,56 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text
 
-from core.database import Base, get_db
+from core.database import Base, SessionLocal
 from core.security import hash_password
 from models import Case, User
 
-
-@pytest.fixture
+@pytest.fixture(scope="session")
 def engine():
+    """Session-scoped: create schema once, seed static data, drop at end."""
     eng = create_engine(TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1))
-    Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:
-        conn.execute(
-            Base.metadata.tables["roles"]
-            .insert()
-            .values(
-                [
-                    {"name": "teacher", "display_name": "教师", "is_system": True},
-                    {"name": "student", "display_name": "学生", "is_system": True},
-                ]
-            )
-        )
-        conn.execute(
-            Base.metadata.tables["role_permissions"]
-            .insert()
-            .values(
-                [
-                    {"role_id": 1, "permission": p}
-                    for p in [
-                        "teacher_access",
-                        "user_manage",
-                        "case_manage",
-                        "score_review",
-                        "llm_monitor",
-                        "api_manage",
-                        "assignment_manage",
-                        "grade_class_manage",
-                        "stats_view",
-                        "feedback_review",
-                        "questionnaire_manage",
-                        "export_data",
+        if conn.execute(text("SELECT COUNT(*) FROM roles")).scalar() == 0:
+            conn.execute(
+                Base.metadata.tables["roles"]
+                .insert()
+                .values(
+                    [
+                        {"name": "teacher", "display_name": "教师", "is_system": True},
+                        {"name": "student", "display_name": "学生", "is_system": True},
                     ]
-                ]
-                + [{"role_id": 2, "permission": p} for p in ["training_access", "qa_access"]]
-                + [{"role_id": 1, "permission": "training_access"}]  # teacher needs for is_test preview
+                )
             )
-        )
-        conn.commit()
+            conn.execute(
+                Base.metadata.tables["role_permissions"]
+                .insert()
+                .values(
+                    [
+                        {"role_id": 1, "permission": p}
+                        for p in [
+                            "teacher_access",
+                            "user_manage",
+                            "case_manage",
+                            "score_review",
+                            "llm_monitor",
+                            "api_manage",
+                            "assignment_manage",
+                            "grade_class_manage",
+                            "stats_view",
+                            "feedback_review",
+                            "questionnaire_manage",
+                            "export_data",
+                        ]
+                    ]
+                    + [{"role_id": 2, "permission": p} for p in ["training_access", "qa_access"]]
+                    + [{"role_id": 1, "permission": "training_access"}]
+                )
+            )
+            conn.commit()
 
     yield eng
     Base.metadata.drop_all(bind=eng)
@@ -78,7 +77,30 @@ def engine():
 
 @pytest.fixture
 def db_session(engine):
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    """Function-scoped: connection-level transaction, rollback on teardown.
+
+    Sets ``_test_connection`` ContextVar so ALL ``SessionLocal()`` calls
+    (including those outside Depends injection) are bound to this
+    connection and rolled back together.
+    """
+    import core.database as db_module
+    connection = engine.connect()
+    transaction = connection.begin()
+    # Reset all sequences so auto-increment IDs start from 1 each test
+    connection.execute(text("""
+        DO $$
+        DECLARE r RECORD;
+        BEGIN
+            FOR r IN SELECT c.relname FROM pg_class c
+                     JOIN pg_namespace n ON n.oid = c.relnamespace
+                     WHERE c.relkind = 'S' AND n.nspname = 'public'
+            LOOP
+                EXECUTE 'ALTER SEQUENCE ' || quote_ident(r.relname) || ' RESTART WITH 1';
+            END LOOP;
+        END $$;
+    """))
+    token = db_module._test_connection.set(connection)
+
     session = SessionLocal()
     try:
         user = session.query(User).filter(User.username == "__seed_test_user__").first()
@@ -106,21 +128,15 @@ def db_session(engine):
 
         yield session
     finally:
-        session.rollback()
         session.close()
-
+        transaction.rollback()
+        connection.close()
+        db_module._test_connection.reset(token)
 
 @pytest.fixture
-def client(engine, db_session):
+def client(engine):
     from main import app
 
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
 
     # Skip real lifespan — manually set up all app.state mocks
     @asynccontextmanager

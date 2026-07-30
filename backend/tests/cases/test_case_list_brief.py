@@ -1,9 +1,9 @@
-"""list_brief 的 name 模糊搜索测试。"""
+"""Case list_brief query tests — exercised through CaseService."""
 
 import pytest
 
 from models import Case
-from repositories.case import CaseRepository
+from modules.cases.service import CaseService
 
 
 @pytest.fixture
@@ -20,19 +20,20 @@ def three_cases(db_session):
         db_session.add(c)
         db_session.flush()
         ids.append(c.id)
+    db_session.commit()
     return ids
 
 
 def test_list_brief_filters_by_name(db_session, three_cases):
-    repo = CaseRepository(db_session)
-    items, _total = repo.list_brief(0, 50, name="胸")
+    svc = CaseService(db_session)
+    items, _total = svc.list_brief(0, 50, name="胸")
     names = {c.name for c in items}
     assert names == {"急性胸痛", "胸闷气短"}
 
 
 def test_list_brief_no_name_returns_all(db_session, three_cases):
-    repo = CaseRepository(db_session)
-    items, total = repo.list_brief(0, 50)
+    svc = CaseService(db_session)
+    items, total = svc.list_brief(0, 50)
     result_ids = {c.id for c in items}
     assert set(three_cases).issubset(result_ids)
     assert total >= 3
