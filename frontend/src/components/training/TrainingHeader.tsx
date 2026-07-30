@@ -53,7 +53,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-	const [leaving, setLeaving] = useState(false);
 	const endingRef = useRef(false);
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const autoEndFiredRef = useRef(false);
@@ -259,19 +258,10 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 
 			<Dialog open={leaveDialogOpen} onOpenChange={(o) => !o && setLeaveDialogOpen(false)}>
 				<DialogContent title="离开训练" maxWidth={300}>
-					<p className="text-sm text-muted-foreground mb-5">训练仍在进行中</p>
+					<p className="text-sm text-muted-foreground mb-5">训练仍在进行中，进度已自动保存</p>
 					<div className="flex flex-col gap-2">
-						<Button variant="outline" onClick={() => { setLeaveDialogOpen(false); navigate("/training"); }}>
+						<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate("/training"); }}>
 							暂离，保留进度
-						</Button>
-						<Button variant="destructive" onClick={async () => {
-							setLeaving(true);
-							try { await onEnd(); } catch { /* ignore */ }
-							setLeaving(false);
-							setLeaveDialogOpen(false);
-							navigate("/training");
-						}} disabled={leaving}>
-							结束训练并评分
 						</Button>
 						<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
 							继续训练
