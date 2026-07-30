@@ -8,7 +8,7 @@
     "prepare": "husky",
     "dev": "npx kill-port 8000 && cross-env FORCE_COLOR=1 concurrently -n BE,FE -c blue,green --kill-others \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
     "dev:backend": "cd backend && cross-env PYTHONUTF8=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
-    "dev:frontend": "cd frontend && cross-env FORCE_COLOR=1 pnpm dev",
+    "dev:frontend": "npx wait-on tcp:8000 && cd frontend && cross-env FORCE_COLOR=1 pnpm dev",
     "dev:sandbox": "pnpm --filter sandbox dev",
     "check": "pnpm run check:backend && pnpm run check:frontend",
     "check:full": "pnpm run check && pnpm run test:backend",
@@ -38,6 +38,7 @@
     "@commitlint/config-conventional": "^19",
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
-    "husky": "^9"
+    "husky": "^9",
+    "wait-on": "^9.1.0"
   }
 }
