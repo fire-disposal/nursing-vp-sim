@@ -10,8 +10,7 @@ export default function InquiryTool(props: TrainingToolProps) {
 	const messages = useTrainingStore((s) => s.messages);
 
 	const inquiries: string[] = useMemo(() => {
-		const cd = (props.recordDetail?.case_data as Record<string, unknown>) ?? {};
-		return (cd.required_inquiries as string[]) ?? [];
+		return (props.recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
 	}, [props.recordDetail]);
 
 	const studentText = useMemo(

@@ -50,8 +50,7 @@ export function ChatArea({
   const isShort = useShortViewport();
 
   const inquiriesComplete = useMemo(() => {
-    const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};
-    const inquiries = (cd.required_inquiries as string[]) ?? [];
+    const inquiries = (recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
     if (inquiries.length === 0) return false;
     const studentText = messages
       .filter((m) => m.role === "student")

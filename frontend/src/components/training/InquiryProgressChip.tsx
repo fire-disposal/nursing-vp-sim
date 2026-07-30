@@ -9,8 +9,7 @@ export function InquiryProgressChip() {
 	const messages = useTrainingStore((s) => s.messages);
 
 	const inquiries: string[] = useMemo(() => {
-		const cd = (recordDetail?.case_data as Record<string, unknown>) ?? {};
-		return (cd.required_inquiries as string[]) ?? [];
+		return (recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
 	}, [recordDetail]);
 
 	const studentText = useMemo(

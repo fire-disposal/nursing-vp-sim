@@ -99,4 +99,5 @@ class TrainingRecordDetail(BaseModel):
     initiative_count: int = 0
     message_correction: dict[str, Any] = Field(default_factory=dict)
     scene: dict[str, Any] | None = None
+    required_inquiries: list[str] = Field(default_factory=list)
     is_test: bool = False

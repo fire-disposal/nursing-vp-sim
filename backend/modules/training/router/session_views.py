@@ -252,6 +252,7 @@ def get_record_detail(
             "remaining": max(0, correction_limit - correction_used),
             "eligible_last_message_id": eligible_last_message_id,
         },
+        required_inquiries=case_data.get("required_inquiries", []),
         is_test=record.is_test,
     )
 
