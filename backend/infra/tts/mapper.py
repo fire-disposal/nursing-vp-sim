@@ -16,12 +16,19 @@ DEFAULT_SPEAKER = "zh_female_vv_uranus_bigtts"
 
 # emotion state → (speech_rate, loudness_rate)
 EMOTION_TTS_MAP: dict[str, tuple[int, int]] = {
+    # ── v2 compat ──
     "withdrawn": (-15, -10),
-    "defensive": (15, 10),
     "anxious": (10, 0),
     "neutral": (0, 0),
-    "relaxed": (-5, 0),
     "open": (0, 5),
+    # ── v3 4D labels ──
+    "open_trusting": (0, 5),
+    "trusting_anxious": (10, 0),
+    "irritated": (20, 12),
+    "anxious_cooperative": (8, 0),
+    "anxious_guarded": (8, -5),
+    "defensive": (15, 10),
+    "relaxed": (-5, 2),
 }
 
 # Built-in defaults — overridden by VoiceConfig.speaker_library in DB.
