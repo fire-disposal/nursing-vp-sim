@@ -10,14 +10,13 @@ Manual override reason: data_only — DML that must run exactly once.
 from datetime import UTC, datetime
 
 from alembic import op
-
 import sqlalchemy as sa
-from datetime import UTC, datetime
-
 
 # revision identifiers
 revision: str = "d4e5f6a7b8c9"
-
+down_revision: str | None = "c4d5e6f7a8b9"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 def upgrade() -> None:
     conn = op.get_bind()
