@@ -59,15 +59,14 @@ function _connect() {
 	// gets one 4001→refresh chance (previously only reset in onopen, so a
 	// connection that immediately 4001'd never got a second chance).
 	_authRetried = false;
-	// Close any existing socket and neutralize its event handlers
-	// to prevent stale onclose from destroying the new connection.
 	if (_ws) {
-		_ws.onclose = null;
-		_ws.onerror = null;
-		_ws.onopen = null;
-		_ws.onmessage = null;
-		_ws.close();
+		const old = _ws;
 		_ws = null;
+		old.onclose = null;
+		old.onerror = null;
+		old.onopen = null;
+		old.onmessage = null;
+		setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0);
 	}
 
 	const ws = new WebSocket(buildWsUrl());
@@ -177,8 +176,7 @@ export function useTrainingWS(
 			if (_refCount === 0) {
 				_aborted = true;
 				if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
-				if (_ws) { _ws.onclose = null; _ws.close(); _ws = null; }
-				_setConnected(false);
+				if (_ws) { const old = _ws; _ws = null; old.onclose = null; setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0); _setConnected(false); }
 				_pending.length = 0;
 			}
 		};
