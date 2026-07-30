@@ -5,7 +5,6 @@ Each method owns its own session to avoid coupling with request-scoped sessions.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from infra.llm.profile import PROFILES
@@ -22,14 +21,13 @@ class LLMDataService:
 
         db = SessionLocal()
         try:
-            now = datetime.now(UTC)
             secrets = db.query(ApiSecret).all()
             profiles_map: dict[int, ApiSecret] = {}
             bindings_map: dict[str, ApiSecret] = {}
             for s in secrets:
                 profiles_map[s.id] = s
-                for binding in PROFILES:
-                    bindings_map[binding] = s
+                for purpose in PROFILES:
+                    bindings_map[purpose] = s
             return profiles_map, bindings_map
         except Exception:
             db.rollback()
@@ -57,9 +55,14 @@ class LLMDataService:
         try:
             db_p = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
             if db_p:
-                for field in ("call_count_today", "total_tokens_today", "total_cost_today", "monthly_cost_used"):
-                    if field in data:
-                        setattr(db_p, field, data[field])
+                if "call_count_today" in data:
+                    db_p.call_count_today = data["call_count_today"]
+                if "total_tokens_today" in data:
+                    db_p.total_tokens_today = data["total_tokens_today"]
+                if "total_cost_today" in data:
+                    db_p.total_cost_today = data["total_cost_today"]
+                if "monthly_cost_used" in data:
+                    db_p.monthly_cost_used = data["monthly_cost_used"]
                 if data.get("last_used_at"):
                     db_p.last_used_at = data["last_used_at"]
                 if data.get("degraded_reason") is not None:

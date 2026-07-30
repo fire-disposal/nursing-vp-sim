@@ -21,7 +21,6 @@ from core.security import require_permission
 from core.unit_of_work import unit_of_work
 from infra.llm import get_env_fallback_state
 from models import ApiSecret, LLMCallLog, User
-from repositories.api_secret import ApiSecretRepository
 from schemas import (
     ApiSecretCreate,
     ApiSecretResponse,
@@ -41,13 +40,12 @@ log = logging.getLogger(__name__)
 class ApiSecretService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = ApiSecretRepository(db)
 
     def list_all(self) -> list[ApiSecret]:
-        return self.repo.list_all(order_by=ApiSecret.created_at.desc())
+        return self.db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
 
     def list_for_admin(self) -> list[dict]:
-        secrets = self.repo.list_all(order_by=ApiSecret.created_at.desc())
+        secrets = self.db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
         result = []
         for s in secrets:
             result.append(
@@ -80,28 +78,28 @@ class ApiSecretService:
             raise ValidationError("base_url 必须以 http:// 或 https:// 开头")
 
         raw_key = data.get("raw_key", "")
-        for existing in self.repo.list_all():
+        for existing in self.db.query(ApiSecret).all():
             if existing.api_key == raw_key:
                 raise ConflictError("该 API Key 已存在，请勿重复添加")
 
         with unit_of_work(self.db, conflict_detail="创建密钥失败"):
-            s = self.repo.add(
-                ApiSecret(
-                    label=data["label"],
-                    api_key=raw_key,
-                    base_url=data.get("base_url", ""),
-                    price_input_per_1m=data.get("price_input_per_1m", 0),
-                    price_output_per_1m=data.get("price_output_per_1m", 0),
-                    monthly_cost_limit=data.get("monthly_cost_limit"),
-                    priority=data.get("priority", 0),
-                    model_override=data.get("model_override"),
-                )
+            s = ApiSecret(
+                label=data["label"],
+                api_key=raw_key,
+                base_url=data.get("base_url", ""),
+                price_input_per_1m=data.get("price_input_per_1m", 0),
+                price_output_per_1m=data.get("price_output_per_1m", 0),
+                monthly_cost_limit=data.get("monthly_cost_limit"),
+                priority=data.get("priority", 0),
+                model_override=data.get("model_override"),
             )
+            self.db.add(s)
+            self.db.flush()
         self.db.refresh(s)
         return {"id": s.id, "key_suffix": s.api_key[-4:] if s.api_key and len(s.api_key) >= 4 else "****"}
 
     def update(self, secret_id: int, data: dict) -> None:
-        s = self.repo.get(secret_id)
+        s = self.db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
         if not s:
             raise ValidationError("密钥不存在")
         with unit_of_work(self.db, conflict_detail="更新密钥失败"):
@@ -120,7 +118,7 @@ class ApiSecretService:
                     setattr(s, field, val)
 
     def delete(self, secret_id: int) -> None:
-        s = self.repo.get(secret_id)
+        s = self.db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
         if not s:
             raise ValidationError("密钥不存在")
 
@@ -128,7 +126,8 @@ class ApiSecretService:
             self.db.query(LLMCallLog).filter(LLMCallLog.secret_id == secret_id).update(
                 {LLMCallLog.secret_id: None}, synchronize_session=False
             )
-            self.repo.delete(s)
+            self.db.delete(s)
+            self.db.flush()
 
 
 router = APIRouter(prefix="", tags=["API管理"])
