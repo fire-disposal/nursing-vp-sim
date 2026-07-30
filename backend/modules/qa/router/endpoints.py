@@ -216,36 +216,43 @@ async def ask_stream(
         async def generate():
             reply_chunks: list[str] = []
             llm_client = request.app.state.llm_client
-            try:
-                async for chunk in llm_client.stream(
-                    llm_messages,
-                    purpose="qa",
-                    ctx=CallContext(purpose="qa", user_id=current_user.id),
-                    **get_llm_config("qa"),
-                ):
-                    reply_chunks.append(chunk)
-                    yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
-                stored_content = embed_citations("".join(reply_chunks), citations)
-                assistant_record = QARecord(
-                    session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
-                )
-                from core.database import SessionLocal
-
-                _db = SessionLocal()
+            last_error = None
+            for attempt in range(2):
                 try:
-                    _db.add(assistant_record)
-                    _db_session = _db.query(QASession).filter(QASession.id == session_id).first()
-                    if _db_session:
-                        _db_session.updated_at = func.now()
-                    _db.commit()
-                    _db.refresh(assistant_record)
-                    record_id = assistant_record.id
-                finally:
-                    _db.close()
-                yield f"data: {_json.dumps({'done': True, 'id': record_id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
-            except Exception as e:
-                log.exception("QA stream error: session_id=%d", session_id)
-                yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+                    async for chunk in llm_client.stream(
+                        llm_messages,
+                        purpose="qa",
+                        ctx=CallContext(purpose="qa", user_id=current_user.id),
+                        **get_llm_config("qa"),
+                    ):
+                        reply_chunks.append(chunk)
+                        yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                    break
+                except Exception as e:
+                    last_error = e
+                    if attempt == 0:
+                        log.warning("QA stream retry: session_id=%d attempt=%d", session_id, attempt + 1)
+                        reply_chunks.clear()
+                    else:
+                        log.exception("QA stream error: session_id=%d", session_id)
+                        yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+                        return
+            stored_content = embed_citations("".join(reply_chunks), citations)
+            assistant_record = QARecord(
+                session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
+            )
+            _db = SessionLocal()
+            try:
+                _db.add(assistant_record)
+                _db_session = _db.query(QASession).filter(QASession.id == session_id).first()
+                if _db_session:
+                    _db_session.updated_at = func.now()
+                _db.commit()
+                _db.refresh(assistant_record)
+                record_id = assistant_record.id
+            finally:
+                _db.close()
+            yield f"data: {_json.dumps({'done': True, 'id': record_id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 
