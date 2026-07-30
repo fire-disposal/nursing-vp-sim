@@ -49,7 +49,6 @@ def _add_score_and_review(db_session, record_id, reviewer_id):
         suggestions="d",
         rubric_version="v1",
         prompt_version=0,
-        score_scale=100,
     )
     db_session.add(score)
     db_session.flush()
@@ -150,7 +149,6 @@ class TestRetryScoringReviewGuard:
             suggestions="d",
             rubric_version="v1",
             prompt_version=0,
-            score_scale=100,
         )
         db_session.add(score)
         db_session.commit()

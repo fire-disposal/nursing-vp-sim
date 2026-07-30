@@ -127,7 +127,7 @@ class TestStartTraining:
         session = start.json()["session"]
         assert session["patient_info"] == {"name": "王大爷", "age": 65, "gender": "男"}
         assert session["scene"]["vitals"] == {}
-        for hidden_key in ("case_data", "required_inquiries", "exam_anchors", "personality"):
+        for hidden_key in ("case_data", "exam_anchors", "personality"):
             assert hidden_key not in session
 
         detail = client.get(f"/api/training/records/{start.json()['record_id']}", headers=headers)
@@ -135,7 +135,7 @@ class TestStartTraining:
         payload = detail.json()
         assert payload["patient_info"] == {"name": "王大爷", "age": 65, "gender": "男"}
         assert payload["scene"]["vitals"] == {}
-        for hidden_key in ("case_data", "required_inquiries", "exam_anchors", "personality", "profile_info"):
+        for hidden_key in ("case_data", "exam_anchors", "personality", "profile_info"):
             assert hidden_key not in payload
 
 

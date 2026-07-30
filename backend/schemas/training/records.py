@@ -53,7 +53,6 @@ class ScoreItem(BaseModel):
     rubric_version: str | None = None
     model_name: str | None = None
     prompt_version: int | None = None
-    score_scale: int | None = None
     review_status: str | None = None
     reviewed_by_name: str | None = None
     reviewed_at: datetime | None = None

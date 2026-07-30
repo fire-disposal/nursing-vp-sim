@@ -236,8 +236,12 @@ def _create_record(
 
     record.rubric_snapshot = build_final_rubric(profile.rubric, resolved_features)
     record.prompt_snapshot = {
-        "system": profile.prompts.system,
-        "dynamic": profile.prompts.dynamic,
+        "schema_version": 2,
+        "purpose": "patient_chat",
+        "segments": {
+            "system": profile.prompts.system,
+            "dynamic": profile.prompts.dynamic,
+        },
     }
 
     patient_info = case_data.get("patient_info", {})

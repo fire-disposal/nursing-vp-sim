@@ -30,7 +30,6 @@ def record_with_score(db_session):
         suggestions="d",
         rubric_version="v1",
         prompt_version=0,
-        score_scale=100,
     )
     db_session.add(score)
     db_session.flush()

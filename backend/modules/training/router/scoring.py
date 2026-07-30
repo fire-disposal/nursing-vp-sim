@@ -264,8 +264,12 @@ async def _run_scoring_background(
                 from modules.training.scoring.rubric import build_final_rubric
 
                 record.prompt_snapshot = {
-                    "system": PROFILE.prompts.system,
-                    "dynamic": PROFILE.prompts.dynamic,
+                    "schema_version": 2,
+                    "purpose": "patient_chat",
+                    "segments": {
+                        "system": PROFILE.prompts.system,
+                        "dynamic": PROFILE.prompts.dynamic,
+                    },
                 }
                 features = (record.practice_snapshot or {}).get("features", {})
                 record.rubric_snapshot = build_final_rubric(PROFILE.rubric, features)
@@ -417,6 +421,15 @@ async def end_training(
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = record.case_snapshot or (case.case_data if case else {})
+
+        # Auto-submit nursing assessment if it exists but wasn't explicitly submitted
+        from models import NursingRecord
+
+        nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
+        if nr is not None and nr.submitted_at is None:
+            nr.submitted_at = ended_at
+            nr.status = "submitted"
+            nr.updated_at = ended_at
 
         record.status = "completed"
         record.end_time = ended_at
