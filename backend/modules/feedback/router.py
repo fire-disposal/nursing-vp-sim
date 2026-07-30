@@ -40,7 +40,7 @@ async def submit_feedback(
         image_data = [(await img.read(), img.content_type or "application/octet-stream") for img in images]
 
     fb = FeedbackService(db).submit(current_user.id, rating, tag, content, image_data)
-    img_count = FeedbackService(db).repo.image_count_for_feedback(fb.id)
+    img_count = FeedbackService(db).image_count_for_feedback(fb.id)
     return {"id": fb.id, "image_count": img_count, "created_at": fb.created_at}
 
 
@@ -53,7 +53,9 @@ def get_feedback_image(
 ):
     service = FeedbackService(db)
     img = service.get_image(feedback_id, image_id)
-    feedback = service.repo.get_or_404(feedback_id, "反馈不存在")
+    feedback = db.get(Feedback, feedback_id)
+    if feedback is None:
+        raise HTTPException(status_code=404, detail="反馈不存在")
     if feedback.user_id != current_user.id and not current_user.has_permission("feedback_review"):
         raise HTTPException(status_code=404)
     return Response(content=bytes(img.image_data), media_type=img.mime_type)

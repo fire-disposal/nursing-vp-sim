@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.config import APP_VERSION
@@ -11,7 +11,6 @@ from core.pagination import paginate
 from core.unit_of_work import unit_of_work
 from models import Feedback, Notification, User
 from models.feedback_image import FeedbackImage
-from repositories.feedback import FeedbackRepository
 
 
 @dataclass
@@ -33,7 +32,6 @@ class FeedbackRow:
 class FeedbackService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = FeedbackRepository(db)
 
     def submit(
         self,
@@ -50,15 +48,15 @@ class FeedbackService:
                 self._validate_image(data, mime)
 
         with unit_of_work(self.db, conflict_detail="反馈提交冲突"):
-            fb = self.repo.add(
-                Feedback(
-                    user_id=user_id,
-                    rating=rating,
-                    tag=tag or "",
-                    content=content,
-                    version=APP_VERSION,
-                )
+            fb = Feedback(
+                user_id=user_id,
+                rating=rating,
+                tag=tag or "",
+                content=content,
+                version=APP_VERSION,
             )
+            self.db.add(fb)
+            self.db.flush()
             if images:
                 for data, mime in images:
                     self.db.add(
@@ -84,7 +82,7 @@ class FeedbackService:
         df = self._parse_date(date_from)
         dt = self._parse_date(date_to)
 
-        q = self.repo.query_admin_list(tag=tag, date_from=df, date_to=dt, search=search, replied=replied)
+        q = self._query_admin_list(tag=tag, date_from=df, date_to=dt, search=search, replied=replied)
         q = q.add_columns(User.display_name.label("user_name")).join(User, Feedback.user_id == User.id)
 
         rows, total = paginate(q, offset, limit)
@@ -217,7 +215,7 @@ class FeedbackService:
     def daily_stats(self, date_from: str | None = None, date_to: str | None = None) -> list[dict]:
         df = self._parse_date(date_from)
         dt = self._parse_date(date_to)
-        rows = self.repo.query_daily_stats(date_from=df, date_to=dt).all()
+        rows = self._query_daily_stats(date_from=df, date_to=dt).all()
         return [
             {
                 "date": str(r.date),
@@ -231,13 +229,90 @@ class FeedbackService:
         ]
 
     def get_image(self, feedback_id: int, image_id: int) -> FeedbackImage:
-        img = self.repo.get_image(feedback_id, image_id)
+        img = self._get_image(feedback_id, image_id)
         if img is None:
             raise NotFoundError("图片不存在")
         return img
 
+    def image_count_for_feedback(self, feedback_id: int) -> int:
+        return (
+            self.db.query(func.count(FeedbackImage.id))
+            .filter(FeedbackImage.feedback_id == feedback_id)
+            .scalar()
+        ) or 0
+
     def storage_stats(self) -> dict:
-        return self.repo.storage_stats()
+        total_images = self.db.query(func.count(FeedbackImage.id)).scalar() or 0
+        total_bytes = self.db.query(func.coalesce(func.sum(FeedbackImage.file_size), 0)).scalar() or 0
+        return {
+            "total_images": total_images,
+            "total_bytes": total_bytes,
+            "total_mb": round(total_bytes / (1024 * 1024), 2),
+        }
+
+    def _query_admin_list(
+        self,
+        tag: str | None = None,
+        date_from=None,
+        date_to=None,
+        search: str | None = None,
+        replied: bool | None = None,
+    ):
+        q = self.db.query(
+            Feedback.id,
+            Feedback.user_id,
+            Feedback.rating,
+            Feedback.tag,
+            Feedback.content,
+            Feedback.version,
+            Feedback.developer_reply,
+            Feedback.replied_at,
+            Feedback.created_at,
+        ).order_by(Feedback.created_at.desc())
+
+        if tag:
+            q = q.filter(Feedback.tag == tag)
+        if date_from is not None:
+            q = q.filter(Feedback.created_at >= date_from)
+        if date_to is not None:
+            q = q.filter(Feedback.created_at < date_to)
+        if search:
+            q = q.filter(Feedback.content.ilike(f"%{search}%"))
+        if replied is True:
+            q = q.filter(Feedback.developer_reply.isnot(None))
+        elif replied is False:
+            q = q.filter(Feedback.developer_reply.is_(None))
+
+        return q
+
+    def _query_daily_stats(self, date_from=None, date_to=None):
+        q = (
+            self.db.query(
+                func.date(Feedback.created_at).label("date"),
+                func.count(case((Feedback.rating == 1, 1))).label("rating_1"),
+                func.count(case((Feedback.rating == 2, 1))).label("rating_2"),
+                func.count(case((Feedback.rating == 3, 1))).label("rating_3"),
+                func.count(case((Feedback.rating == 4, 1))).label("rating_4"),
+                func.count(case((Feedback.rating == 5, 1))).label("rating_5"),
+            )
+            .group_by(func.date(Feedback.created_at))
+            .order_by(func.date(Feedback.created_at))
+        )
+        if date_from is not None:
+            q = q.filter(Feedback.created_at >= date_from)
+        if date_to is not None:
+            q = q.filter(Feedback.created_at < date_to)
+        return q
+
+    def _get_image(self, feedback_id: int, image_id: int) -> FeedbackImage | None:
+        return (
+            self.db.query(FeedbackImage)
+            .filter(
+                FeedbackImage.feedback_id == feedback_id,
+                FeedbackImage.id == image_id,
+            )
+            .first()
+        )
 
     @staticmethod
     def _validate_image(data: bytes, mime_type: str) -> None:

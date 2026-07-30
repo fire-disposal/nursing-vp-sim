@@ -9,7 +9,7 @@
 """
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
+from contextvars import ContextVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -36,8 +36,23 @@ engine = create_engine(
     pool_recycle=3600,
     connect_args={"connect_timeout": 10, "options": _SESSION_OPTIONS},
 )
+_SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_test_connection: ContextVar = ContextVar("_test_connection", default=None)
+
+
+def SessionLocal():
+    """Return a synchronous SQLAlchemy session.
+
+    In tests, sessions are bound to a single connection with an open
+    transaction so all writes roll back at fixture teardown.  In production
+    the ContextVar default is ``None`` and the engine-pooled sessionmaker
+    is used instead.
+    """
+    conn = _test_connection.get(None)
+    if conn is not None:
+        return sessionmaker(bind=conn)()
+    return _SessionLocal()
 
 
 class Base(DeclarativeBase):

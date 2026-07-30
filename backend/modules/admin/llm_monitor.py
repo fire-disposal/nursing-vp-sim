@@ -2,18 +2,19 @@
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from sqlalchemy import Integer as SAInteger, func
 from sqlalchemy.orm import Session, selectinload
 
 from core.deps import DbSession
+from core.datetime_utils import parse_iso_datetime
 from core.exceptions import NotFoundError
 from core.security import require_permission
 from infra.exporter import ColumnDef, export_response
-from models import LLMCallLog, TrainingRecord, User
-from repositories.llm_log import LLMCallLogRepository
+from models import Case, LLMCallLog, TrainingRecord, User
 from schemas import LLMCallLogItem, LLMStatsResponse, PaginatedResponse
 
 log = logging.getLogger(__name__)
@@ -24,15 +25,182 @@ EXCEL_EXPORT_ROW_LIMIT = 10000
 class LLMMonitorService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = LLMCallLogRepository(db)
+
+    # --- inlined from LLMCallLogRepository ---
+    def _llm_count_since(self, since: datetime) -> int:
+        return (
+            self.db.query(LLMCallLog)
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .count()
+        )
+
+    def _llm_success_count_since(self, since: datetime) -> int:
+        return (
+            self.db.query(LLMCallLog)
+            .filter(
+                LLMCallLog.created_at >= since,
+                LLMCallLog.created_at < datetime.now(UTC),
+                LLMCallLog.status == "success",
+            )
+            .count()
+        )
+
+    def _llm_avg_latency_since(self, since: datetime) -> float:
+        return (
+            self.db.query(func.avg(LLMCallLog.latency_ms))
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .scalar()
+            or 0
+        )
+
+    def _llm_total_cost_since(self, since: datetime) -> float:
+        return (
+            self.db.query(func.sum(LLMCallLog.estimated_cost))
+            .filter(
+                LLMCallLog.created_at >= since,
+                LLMCallLog.created_at < datetime.now(UTC),
+                LLMCallLog.status == "success",
+            )
+            .scalar()
+            or 0
+        )
+
+    def _llm_stats_by_purpose(self, since: datetime, now: datetime) -> list[Any]:
+        return (
+            self.db.query(
+                LLMCallLog.purpose,
+                func.count().label("count"),
+                func.avg(LLMCallLog.latency_ms).label("avg_latency"),
+                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
+            )
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < now)
+            .group_by(LLMCallLog.purpose)
+            .all()
+        )
+
+    def _llm_daily_stats(self, since: datetime, now: datetime) -> list[Any]:
+        return (
+            self.db.query(
+                func.date(LLMCallLog.created_at).label("date"),
+                func.count().label("count"),
+                func.sum(func.cast(LLMCallLog.status == "success", type_=SAInteger)).label("success_count"),
+                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("fail_count"),
+                func.sum(LLMCallLog.estimated_cost).label("total_cost"),
+            )
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < now)
+            .group_by("date")
+            .order_by("date")
+            .all()
+        )
+
+    def _llm_stats_by_provider(self, since: datetime, now: datetime) -> list[Any]:
+        return (
+            self.db.query(
+                LLMCallLog.provider_name,
+                func.count().label("count"),
+                func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("total_cost"),
+                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
+            )
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < now)
+            .group_by(LLMCallLog.provider_name)
+            .all()
+        )
+
+    def _llm_aggregated_logs(
+        self,
+        record_id: int | None,
+        date_from: str | None,
+        date_to: str | None,
+        status: str | None,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Any], int]:
+        q = (
+            self.db.query(
+                LLMCallLog.record_id.label("record_id"),
+                func.max(LLMCallLog.id).label("id"),
+                func.max(LLMCallLog.user_id).label("user_id"),
+                func.max(LLMCallLog.case_id).label("case_id"),
+                func.count().label("call_count"),
+                func.avg(LLMCallLog.latency_ms).label("latency_ms"),
+                func.sum(LLMCallLog.prompt_tokens).label("prompt_tokens"),
+                func.sum(LLMCallLog.completion_tokens).label("completion_tokens"),
+                func.sum(LLMCallLog.total_tokens).label("total_tokens"),
+                func.max(LLMCallLog.token_estimated).label("token_estimated"),
+                func.sum(LLMCallLog.estimated_cost).label("estimated_cost"),
+                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
+                func.min(LLMCallLog.created_at).label("first_called_at"),
+                func.max(LLMCallLog.created_at).label("created_at"),
+                User.display_name.label("student_name"),
+                Case.name.label("case_name"),
+                LLMCallLog.provider_name.label("provider_display_name"),
+            )
+            .join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id, isouter=True)
+            .join(User, TrainingRecord.user_id == User.id, isouter=True)
+            .join(Case, TrainingRecord.case_id == Case.id, isouter=True)
+            .filter(LLMCallLog.purpose == "patient_chat", LLMCallLog.record_id.isnot(None))
+        )
+        if record_id is not None:
+            q = q.filter(LLMCallLog.record_id == record_id)
+        if date_from:
+            q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
+        if date_to:
+            q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
+        q = q.group_by(LLMCallLog.record_id, User.display_name, Case.name, LLMCallLog.provider_name)
+        if status == "success":
+            q = q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) == 0)
+        elif status == "failed":
+            q = q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) > 0)
+        total = q.order_by(None).count()
+        rows = q.order_by(func.max(LLMCallLog.created_at).desc()).offset(offset).limit(limit).all()
+        return rows, total
+
+    def _llm_raw_logs(
+        self,
+        purpose: str | None,
+        record_id: int | None,
+        status: str | None,
+        date_from: str | None,
+        date_to: str | None,
+        offset: int,
+        limit: int,
+        exclude_purpose: str | None = None,
+    ) -> tuple[list[LLMCallLog], int]:
+        q = self.db.query(LLMCallLog)
+        if record_id is not None:
+            q = q.filter(LLMCallLog.record_id == record_id)
+        if purpose:
+            q = q.filter(LLMCallLog.purpose == purpose)
+        if exclude_purpose:
+            q = q.filter(LLMCallLog.purpose != exclude_purpose)
+        if status:
+            q = q.filter(LLMCallLog.status == status)
+        if date_from:
+            q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
+        if date_to:
+            q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
+        total = q.order_by(None).count()
+        rows = q.order_by(LLMCallLog.created_at.desc()).offset(offset).limit(limit).all()
+        return rows, total
+
+    def _llm_get_by_id(self, log_id: int) -> LLMCallLog | None:
+        return self.db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
+
+    def _llm_export_query(self, date_from: str | None, date_to: str | None, limit: int = 50000) -> list[LLMCallLog]:
+        q = self.db.query(LLMCallLog)
+        if date_from:
+            q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
+        if date_to:
+            q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
+        return q.order_by(LLMCallLog.created_at.desc()).limit(limit).all()
 
     def _build_stats(self, since: datetime):
-        total = self.repo.count_since(since)
+        total = self._llm_count_since(since)
         if total == 0:
             return {"count": 0, "success_rate": 0, "avg_latency_ms": 0, "total_cost": 0}
-        success_count = self.repo.success_count_since(since)
-        avg_latency = self.repo.avg_latency_since(since)
-        total_cost = self.repo.total_cost_since(since)
+        success_count = self._llm_success_count_since(since)
+        avg_latency = self._llm_avg_latency_since(since)
+        total_cost = self._llm_total_cost_since(since)
         return {
             "count": total,
             "success_rate": round(success_count / total * 100, 1),
@@ -51,12 +219,12 @@ class LLMMonitorService:
         month_start_cal = today_start.replace(day=1)
         month_stats = self._build_stats(month_start_cal)
 
-        rows = self.repo.stats_by_purpose(week_start, now)
+        rows = self._llm_stats_by_purpose(week_start, now)
         by_purpose = [
             {"purpose": r[0], "count": r[1], "avg_latency_ms": round(r[2] or 0, 0), "error_count": r[3]} for r in rows
         ]
 
-        daily_rows = self.repo.daily_stats(month_start, now)
+        daily_rows = self._llm_daily_stats(month_start, now)
         daily = [
             {
                 "date": str(r[0]),
@@ -68,7 +236,7 @@ class LLMMonitorService:
             for r in daily_rows
         ]
 
-        provider_rows = self.repo.stats_by_provider(week_start, now)
+        provider_rows = self._llm_stats_by_provider(week_start, now)
         by_provider = [
             {
                 "provider": r[0] or "unknown",
@@ -108,7 +276,7 @@ class LLMMonitorService:
         raw_rows = []
 
         if do_agg:
-            agg_rows, agg_count = self.repo.aggregated_logs(
+            agg_rows, agg_count = self._llm_aggregated_logs(
                 record_id=record_id,
                 date_from=date_from,
                 date_to=date_to,
@@ -127,7 +295,7 @@ class LLMMonitorService:
             remaining_offset = max(0, offset - agg_count)
             remaining_limit = max(0, limit - len(agg_rows))
 
-            raw_rows, raw_count = self.repo.raw_logs(
+            raw_rows, raw_count = self._llm_raw_logs(
                 purpose=raw_purpose,
                 record_id=record_id,
                 status=status,
@@ -193,7 +361,7 @@ class LLMMonitorService:
         return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
     def get_llm_log_detail(self, log_id: int) -> LLMCallLog:
-        entry = self.repo.get_by_id(log_id)
+        entry = self._llm_get_by_id(log_id)
         if not entry:
             raise NotFoundError("日志不存在")
         return entry
@@ -202,7 +370,7 @@ class LLMMonitorService:
         self, fmt: str | None = None, date_from: str | None = None, date_to: str | None = None
     ) -> Response:
         file_format = fmt or "csv"
-        entries = self.repo.export_query(date_from=date_from, date_to=date_to)
+        entries = self._llm_export_query(date_from=date_from, date_to=date_to)
 
         columns = [
             ColumnDef("ID", key="id", fmt=str),

@@ -1,16 +1,16 @@
+from sqlalchemy import func
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
 from core.deps import DbSession
-from core.exceptions import AuthError, ValidationError
+from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.permissions import PERMISSION_KEYS
 from core.security import clear_permission_cache, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
 from models import Role, RolePermission, User
-from repositories.role import RoleRepository
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
 
 if TYPE_CHECKING:
@@ -30,7 +30,6 @@ class RoleView:
 class RoleService:
     def __init__(self, db: "Session"):
         self.db = db
-        self.repo = RoleRepository(db)
 
     def _view(self, role: Role, permissions: list[str], user_count: int) -> RoleView:
         return RoleView(
@@ -43,11 +42,55 @@ class RoleService:
         )
 
     def list_all(self, search: str = "") -> list[RoleView]:
-        roles = self.repo.list_roles(search)
+        roles = self.list_roles(search)
         role_ids = [r.id for r in roles]
-        perms_map = self.repo.permissions_map(role_ids)
-        counts = self.repo.user_counts(role_ids)
+        perms_map = self.permissions_map(role_ids)
+        counts = self.user_counts(role_ids)
         return [self._view(r, perms_map.get(r.id, []), counts.get(r.id, 0)) for r in roles]
+
+    def list_roles(self, search: str = "") -> list[Role]:
+        q = self.db.query(Role)
+        if search:
+            q = q.filter(Role.display_name.ilike(f"%{search}%"))
+        return q.order_by(Role.id).all()
+
+    def name_exists(self, name: str, exclude_id: int | None = None) -> bool:
+        q = self.db.query(Role).filter(Role.name == name)
+        if exclude_id is not None:
+            q = q.filter(Role.id != exclude_id)
+        return bool(self.db.query(q.exists()).scalar())
+
+    def permissions_map(self, role_ids: list[int]) -> dict[int, list[str]]:
+        if not role_ids:
+            return {}
+        rows = self.db.query(RolePermission).filter(RolePermission.role_id.in_(role_ids)).all()
+        result: dict[int, list[str]] = {}
+        for p in rows:
+            result.setdefault(p.role_id, []).append(p.permission)
+        return result
+
+    def user_counts(self, role_ids: list[int]) -> dict[int, int]:
+        if not role_ids:
+            return {}
+        rows = (
+            self.db.query(User.role_id, func.count(User.id))
+            .filter(User.role_id.in_(role_ids))
+            .group_by(User.role_id)
+            .all()
+        )
+        return {role_id: cnt for role_id, cnt in rows}
+
+    def get_permissions(self, role_id: int) -> list[str]:
+        rows = self.db.query(RolePermission.permission).filter(RolePermission.role_id == role_id).all()
+        return [r[0] for r in rows]
+
+    def replace_permissions(self, role_id: int, permissions: list[str]) -> None:
+        self.db.query(RolePermission).filter(RolePermission.role_id == role_id).delete(synchronize_session="fetch")
+        for perm in permissions:
+            self.db.add(RolePermission(role_id=role_id, permission=perm))
+
+    def user_count(self, role_id: int) -> int:
+        return self.db.query(func.count(User.id)).filter(User.role_id == role_id).scalar() or 0
 
     def _validate_permissions(self, permissions: list[str], grantable: set[str] | None) -> None:
         unknown = sorted(set(permissions) - set(PERMISSION_KEYS))
@@ -66,11 +109,13 @@ class RoleService:
         *,
         grantable: set[str] | None = None,
     ) -> RoleView:
-        if self.repo.name_exists(name):
+        if self.name_exists(name):
             raise ValidationError("角色名已存在")
         self._validate_permissions(permissions, grantable)
         with unit_of_work(self.db, conflict_detail="角色名已存在"):
-            role = self.repo.add(Role(name=name, display_name=display_name, is_system=False))
+            role = Role(name=name, display_name=display_name, is_system=False)
+            self.db.add(role)
+            self.db.flush()
             for perm in permissions:
                 self.db.add(RolePermission(role_id=role.id, permission=perm))
         return self._view(role, list(permissions), 0)
@@ -83,7 +128,9 @@ class RoleService:
         permissions: list[str] | None = None,
         grantable: set[str] | None = None,
     ) -> RoleView:
-        role = self.repo.get_or_404(role_id, "角色不存在")
+        role = self.db.get(Role, role_id)
+        if role is None:
+            raise NotFoundError("角色不存在")
         if role.is_system:
             raise AuthError("系统角色不可修改", status_code=403)
         if permissions is not None:
@@ -92,22 +139,25 @@ class RoleService:
             if display_name is not None:
                 role.display_name = display_name
             if permissions is not None:
-                self.repo.replace_permissions(role.id, permissions)
+                self.replace_permissions(role.id, permissions)
                 clear_permission_cache(role.id)
-        perms = self.repo.get_permissions(role.id)
-        user_count = self.repo.user_count(role.id)
+        perms = self.get_permissions(role.id)
+        user_count = self.user_count(role.id)
         return self._view(role, perms, user_count)
 
     def delete(self, role_id: int) -> str:
-        role = self.repo.get_or_404(role_id, "角色不存在")
+        role = self.db.get(Role, role_id)
+        if role is None:
+            raise NotFoundError("角色不存在")
         if role.is_system:
             raise ValidationError("系统角色不可删除")
-        user_count = self.repo.user_count(role.id)
+        user_count = self.user_count(role.id)
         if user_count > 0:
             raise ValidationError(f"该角色下还有 {user_count} 个用户，无法删除")
         name = role.name
         with unit_of_work(self.db, conflict_detail="角色冲突"):
-            self.repo.delete(role)
+            self.db.delete(role)
+            self.db.flush()
         return name
 
 router = APIRouter(prefix="/roles", tags=["角色管理"])

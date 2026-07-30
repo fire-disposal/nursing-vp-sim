@@ -3,15 +3,14 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, update as sa_update
 from sqlalchemy.orm import Session
 
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
-from models import Class, User
-from repositories.class_ import ClassRepository
-from repositories.shared import nullify_user_class_associations
+from models import Class, User, Assignment, Grade, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse
 
 
@@ -28,12 +27,11 @@ class ClassView:
 class ClassService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = ClassRepository(db)
 
     def list_all(self, grade_id: int | None = None) -> list[ClassView]:
-        rows = self.repo.list_with_grade(grade_id)
+        rows = self._list_with_grade(grade_id)
         class_ids = [cls.id for cls, _ in rows]
-        counts = self.repo.student_counts(class_ids)
+        counts = self._student_counts(class_ids)
         return [
             ClassView(
                 id=cls.id,
@@ -47,13 +45,15 @@ class ClassService:
         ]
 
     def create(self, grade_id: int, name: str) -> ClassView:
-        grade = self.repo.get_grade(grade_id)
+        grade = self._get_grade(grade_id)
         if not grade:
             raise NotFoundError("年级不存在")
-        if self.repo.name_exists_in_grade(grade_id, name):
+        if self._name_exists_in_grade(grade_id, name):
             raise ValidationError("该年级下班级名称重复")
         with unit_of_work(self.db, conflict_detail="该年级下班级名称重复"):
-            cls = self.repo.add(Class(grade_id=grade_id, name=name))
+            cls = Class(grade_id=grade_id, name=name)
+            self.db.add(cls)
+            self.db.flush()
         return ClassView(
             id=cls.id,
             grade_id=cls.grade_id,
@@ -64,19 +64,21 @@ class ClassService:
         )
 
     def update(self, class_id: int, *, name: str | None = None, grade_id: int | None = None) -> ClassView:
-        cls = self.repo.get_or_404(class_id, "班级不存在")
+        cls = self.db.get(Class, class_id)
+        if cls is None:
+            raise NotFoundError("班级不存在")
         if grade_id is not None:
-            grade = self.repo.get_grade(grade_id)
+            grade = self._get_grade(grade_id)
             if not grade:
                 raise NotFoundError("年级不存在")
-            if self.repo.name_exists_in_grade(grade_id, name or cls.name):
+            if self._name_exists_in_grade(grade_id, name or cls.name):
                 raise ValidationError("该年级下班级名称重复")
             cls.grade_id = grade_id
         if name is not None:
-            if self.repo.name_exists_in_grade(cls.grade_id, name, exclude_id=cls.id):
+            if self._name_exists_in_grade(cls.grade_id, name, exclude_id=cls.id):
                 raise ValidationError("该年级下班级名称重复")
             cls.name = name
-        self.repo.flush()
+        self.db.flush()
         return ClassView(
             id=cls.id,
             grade_id=cls.grade_id,
@@ -87,12 +89,49 @@ class ClassService:
         )
 
     def delete(self, class_id: int) -> str:
-        cls = self.repo.get_or_404(class_id, "班级不存在")
+        cls = self.db.get(Class, class_id)
+        if cls is None:
+            raise NotFoundError("班级不存在")
         name = cls.name
         with unit_of_work(self.db, conflict_detail="无法删除"):
-            self.repo.delete(cls)
-            nullify_user_class_associations(self.db, class_id=class_id)
+            self.db.delete(cls)
+            self.db.flush()
+            self.db.execute(
+                sa_update(UserClass)
+                .where(UserClass.class_id.in_([class_id]))
+                .values(class_id=None)
+            )
         return name
+
+    def _list_with_grade(self, grade_id: int | None = None):
+        q = self.db.query(Class, Grade.name.label("grade_name"))
+        q = q.join(Grade, Grade.id == Class.grade_id)
+        if grade_id is not None:
+            q = q.filter(Class.grade_id == grade_id)
+        return q.order_by(Grade.name, Class.name).all()
+
+    def _student_counts(self, class_ids: list[int]) -> dict[int, int]:
+        if not class_ids:
+            return {}
+        rows = (
+            self.db.query(UserClass.class_id, func.count(UserClass.user_id))
+            .filter(UserClass.class_id.in_(class_ids))
+            .group_by(UserClass.class_id)
+            .all()
+        )
+        return {class_id: count for class_id, count in rows}
+
+    def _get_grade(self, grade_id: int) -> Grade | None:
+        return self.db.query(Grade).filter(Grade.id == grade_id).first()
+
+    def _name_exists_in_grade(self, grade_id: int, name: str, exclude_id: int | None = None) -> bool:
+        q = self.db.query(Class).filter(Class.grade_id == grade_id, Class.name == name)
+        if exclude_id is not None:
+            q = q.filter(Class.id != exclude_id)
+        return bool(self.db.query(q.exists()).scalar())
+
+    def _assignment_count(self, class_id: int) -> int:
+        return self.db.query(func.count(Assignment.id)).filter(Assignment.class_id == class_id).scalar() or 0
 
 router = APIRouter(prefix="/classes", tags=["班级管理"])
 

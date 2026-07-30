@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func as sa_func
-from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func, or_
+from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
@@ -17,7 +17,6 @@ from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from models.school import Grade
-from repositories.user import UserRepository
 from schemas import (
     AdminStats,
     BatchCreateResult,
@@ -97,7 +96,6 @@ class StudentDetailView:
 class UserService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = UserRepository(db)
 
     def _brief(self, user: User) -> UserBriefView:
         ucs = user.user_classes
@@ -130,9 +128,9 @@ class UserService:
     ) -> PaginatedUsersView:
         role_id: int | None = None
         if role:
-            role_obj = self.repo.get_role_by_name(role)
+            role_obj = self.get_role_by_name(role)
             role_id = role_obj.id if role_obj else -1
-        total, users = self.repo.list_paginated(
+        total, users = self.list_paginated(
             offset=offset,
             limit=limit,
             search=search,
@@ -148,7 +146,7 @@ class UserService:
         )
 
     def update(self, user_id: int, req: UserUpdateRequest, current_user: User | None = None) -> UserBriefView:
-        user = self.repo.get_with_relations(user_id)
+        user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
         with unit_of_work(self.db):
@@ -159,7 +157,7 @@ class UserService:
             if req.role is not None:
                 if current_user and current_user.id == user_id:
                     raise ValidationError("不能修改自己的角色")
-                role_obj = self.repo.get_role_by_name(req.role)
+                role_obj = self.get_role_by_name(req.role)
                 if not role_obj:
                     raise ValidationError("角色不存在")
                 user.role_id = role_obj.id
@@ -173,10 +171,10 @@ class UserService:
                 user.avatar = req.avatar or None
             if req.class_id is not None:
                 if req.class_id != 0:
-                    cls = self.repo.get_class(req.class_id)
+                    cls = self.get_class(req.class_id)
                     if not cls:
                         raise ValidationError("班级不存在")
-                uc = self.repo.get_user_class(user_id)
+                uc = self.get_user_class(user_id)
                 if req.class_id == 0:
                     if uc:
                         self.db.delete(uc)
@@ -191,24 +189,25 @@ class UserService:
     def delete(self, user_id: int, current_user_id: int) -> str:
         if user_id == current_user_id:
             raise ValidationError("不能删除自己")
-        user = self.repo.get_by_id(user_id)
+        user = self.db.get(User, user_id)
         if not user:
             raise NotFoundError("用户不存在")
-        record_count = self.repo.record_count(user_id)
+        record_count = self.record_count(user_id)
         if record_count > 0:
             raise ValidationError(f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。")
         target_name = user.username
         with unit_of_work(self.db):
-            self.repo.delete(user)
+            self.db.delete(user)
+            self.db.flush()
         return target_name
 
     def get_detail(self, user_id: int) -> StudentDetailView:
-        user = self.repo.get_with_role(user_id)
+        user = self.get_with_role(user_id)
         if not user:
             raise NotFoundError("用户不存在")
         since = datetime.now(UTC) - timedelta(days=_DETAIL_DAYS)
 
-        stats = self.repo.training_summary(user_id)
+        stats = self.training_summary(user_id)
         total_sessions = int(stats.total_sessions or 0) if stats else 0
         total_minutes = round(float(stats.total_minutes or 0)) if stats else 0
         avg_score = round(float(stats.avg_score), 1) if stats and stats.avg_score else None
@@ -220,7 +219,7 @@ class UserService:
                 "minutes": round(float(r.minutes or 0), 1),
                 "avg_score": round(float(r.avg_score), 1) if r.avg_score is not None else None,
             }
-            for r in self.repo.daily_stats(user_id, since)
+            for r in self.daily_stats(user_id, since)
         ]
 
         recent_records = [
@@ -239,7 +238,7 @@ class UserService:
                 assignment_id=r.assignment_id,
                 assignment_title=r.assignment.title if r.assignment else None,
             )
-            for r in self.repo.recent_records(user_id, _DETAIL_RECENT_LIMIT)
+            for r in self.recent_records(user_id, _DETAIL_RECENT_LIMIT)
         ]
 
         return StudentDetailView(
@@ -392,7 +391,7 @@ class UserService:
         return BatchCreateResult(created=created, skipped=skipped, errors=errors)
 
     def bulk_assign_class(self, user_ids: list[int], class_id: int) -> BulkAssignClassResult:
-        target_class = self.repo.get_class(class_id)
+        target_class = self.get_class(class_id)
         if not target_class:
             raise NotFoundError("班级不存在")
 
@@ -402,12 +401,12 @@ class UserService:
 
         with unit_of_work(self.db, conflict_detail="操作冲突，请重试"):
             for uid in user_ids:
-                user_obj = self.repo.get_by_id(uid)
+                user_obj = self.db.get(User, uid)
                 if not user_obj:
                     skipped += 1
                     continue
                 try:
-                    uc = self.repo.get_user_class(uid)
+                    uc = self.get_user_class(uid)
                     if uc:
                         uc.class_id = class_id
                     else:
@@ -417,6 +416,136 @@ class UserService:
                     errors.append(f"用户 {uid} 分配失败")
 
         return BulkAssignClassResult(assigned=assigned, skipped=skipped, errors=errors)
+
+    def get_by_username(self, username: str) -> User | None:
+        return self.db.query(User).filter(User.username == username).first()
+
+    def get_with_relations(self, user_id: int) -> User | None:
+        return (
+            self.db.query(User)
+            .options(
+                joinedload(User.role),
+                joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade),
+            )
+            .filter(User.id == user_id)
+            .first()
+        )
+
+    def get_with_role(self, user_id: int) -> User | None:
+        return self.db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+
+    def get_role_by_name(self, name: str) -> Role | None:
+        return self.db.query(Role).filter(Role.name == name).first()
+
+    def get_class(self, class_id: int) -> Class | None:
+        return self.db.query(Class).filter(Class.id == class_id).first()
+
+    def get_user_class(self, user_id: int) -> UserClass | None:
+        return self.db.query(UserClass).filter(UserClass.user_id == user_id).first()
+
+    def create(self, **kwargs) -> User:
+        user = User(**kwargs)
+        self.db.add(user)
+        self.db.flush()
+        return user
+
+    def list_paginated(
+        self,
+        *,
+        offset: int,
+        limit: int,
+        search: str | None,
+        role_id: int | None,
+        class_id: int | None,
+        grade_id: int | None,
+    ) -> tuple[int, list[User]]:
+        q = self.db.query(User)
+        if class_id is not None or grade_id is not None:
+            q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
+            if class_id is not None:
+                q = q.filter(UserClass.class_id == class_id)
+            elif grade_id is not None:
+                q = q.join(Class, Class.id == UserClass.class_id)
+                q = q.filter(Class.grade_id == grade_id)
+        if search:
+            term = f"%{search}%"
+            q = q.filter(
+                or_(
+                    User.username.ilike(term),
+                    User.display_name.ilike(term),
+                    User.student_id.ilike(term),
+                )
+            )
+        if role_id is not None:
+            q = q.filter(User.role_id == role_id)
+        total = q.count()
+        users = (
+            q.options(
+                joinedload(User.role),
+                joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade),
+            )
+            .order_by(User.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return total, users
+
+    def record_count(self, user_id: int) -> int:
+        return self.db.query(sa_func.count(TrainingRecord.id)).filter(TrainingRecord.user_id == user_id).scalar() or 0
+
+    def training_summary(self, user_id: int):
+        return (
+            self.db.query(
+                sa_func.count(TrainingRecord.id).label("total_sessions"),
+                sa_func.coalesce(
+                    sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
+                    0,
+                ).label("total_minutes"),
+                sa_func.coalesce(sa_func.avg(Score.total_score), 0).label("avg_score"),
+            )
+            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            .filter(
+                TrainingRecord.user_id == user_id,
+                TrainingRecord.status == "completed",
+            )
+            .first()
+        )
+
+    def daily_stats(self, user_id: int, since: datetime):
+        return (
+            self.db.query(
+                sa_func.date(TrainingRecord.start_time).label("d"),
+                sa_func.count().label("sessions"),
+                sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label(
+                    "minutes"
+                ),
+                sa_func.avg(Score.total_score).label("avg_score"),
+            )
+            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            .filter(
+                TrainingRecord.user_id == user_id,
+                TrainingRecord.status == "completed",
+                TrainingRecord.start_time >= since,
+            )
+            .group_by(sa_func.date(TrainingRecord.start_time))
+            .order_by("d")
+            .all()
+        )
+
+    def recent_records(self, user_id: int, limit: int) -> list[TrainingRecord]:
+        return (
+            self.db.query(TrainingRecord)
+            .options(
+                joinedload(TrainingRecord.case),
+                joinedload(TrainingRecord.score),
+                joinedload(TrainingRecord.assignment),
+            )
+            .filter(TrainingRecord.user_id == user_id)
+            .order_by(TrainingRecord.start_time.desc())
+            .limit(limit)
+            .all()
+        )
 
 
 router = APIRouter()

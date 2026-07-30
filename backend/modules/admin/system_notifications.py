@@ -19,19 +19,24 @@ from schemas.notification import (
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
+from core.exceptions import NotFoundError
 
 from core.unit_of_work import unit_of_work
 from models import SystemNotification
-from repositories.notification import SystemNotificationRepository
 
 
 class SystemNotificationService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = SystemNotificationRepository(db)
 
     def list_all(self, offset: int, limit: int) -> list[SystemNotification]:
-        return self.repo.list_paginated(offset, limit)
+        return (
+            self.db.query(SystemNotification)
+            .order_by(SystemNotification.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
     def create(self, data: dict, created_by: int) -> SystemNotification:
         sn = SystemNotification(
@@ -43,12 +48,15 @@ class SystemNotificationService:
             published_at=data.get("published_at") or datetime.now(UTC),
         )
         with unit_of_work(self.db, conflict_detail="创建通知失败"):
-            self.repo.add(sn)
+            self.db.add(sn)
+            self.db.flush()
         self.db.refresh(sn)
         return sn
 
     def update(self, notif_id: int, data: dict) -> SystemNotification:
-        sn = self.repo.get_or_404(notif_id, "通知不存在")
+        sn = self.db.get(SystemNotification, notif_id)
+        if sn is None:
+            raise NotFoundError("通知不存在")
         with unit_of_work(self.db, conflict_detail="更新通知失败"):
             for k, v in data.items():
                 setattr(sn, k, v)
@@ -57,9 +65,12 @@ class SystemNotificationService:
         return sn
 
     def delete(self, notif_id: int) -> None:
-        sn = self.repo.get_or_404(notif_id, "通知不存在")
+        sn = self.db.get(SystemNotification, notif_id)
+        if sn is None:
+            raise NotFoundError("通知不存在")
         with unit_of_work(self.db, conflict_detail="删除通知失败"):
-            self.repo.delete(sn)
+            self.db.delete(sn)
+            self.db.flush()
 
 router = APIRouter(prefix="/system-notifications", tags=["admin"])
 

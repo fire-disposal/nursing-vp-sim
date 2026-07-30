@@ -4,17 +4,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import List
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.exceptions import ValidationError
+from core.exceptions import NotFoundError, ValidationError
+from core.pagination import paginate
 from core.unit_of_work import unit_of_work
 from models import (
+    Case,
     CaseQuestionnaire,
+    QuestionnaireAnswer,
     QuestionnaireQuestion,
+    QuestionnaireResponse,
     QuestionnaireTemplate,
 )
-from repositories.questionnaire_question import QuestionnaireQuestionRepository
-from repositories.questionnaire_template import QuestionnaireTemplateRepository
 from schemas.questionnaire import (
     QuestionnaireQuestionResponse,
     QuestionnaireTemplateDetailResponse,
@@ -138,11 +141,47 @@ def _template_detail_view(
 class QuestionnaireTemplateService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = QuestionnaireTemplateRepository(db)
+
+    def _list_query(self, type_: str | None = None):
+        q = self.db.query(QuestionnaireTemplate)
+        if type_:
+            q = q.filter(QuestionnaireTemplate.type == type_)
+        return q.order_by(QuestionnaireTemplate.updated_at.desc())
+
+    def list_filtered(self, type_: str | None, offset: int, limit: int) -> tuple[list[QuestionnaireTemplate], int]:
+        return paginate(self._list_query(type_), offset, limit)
+
+    def response_counts(self, template_ids: list[int]) -> dict[int, int]:
+        if not template_ids:
+            return {}
+        rows = (
+            self.db.query(QuestionnaireResponse.template_id, func.count(QuestionnaireResponse.id))
+            .filter(
+                QuestionnaireResponse.template_id.in_(template_ids),
+                QuestionnaireResponse.status == "completed",
+            )
+            .group_by(QuestionnaireResponse.template_id)
+            .all()
+        )
+        return {tid: cnt for tid, cnt in rows}
+
+    def case_links_for(self, template_id: int) -> list[CaseQuestionnaire]:
+        return self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
+
+    def delete_case_links(self, template_id: int) -> None:
+        self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete(
+            synchronize_session="fetch"
+        )
+
+    def case_exists(self, case_id: int) -> bool:
+        q = self.db.query(Case).filter(Case.id == case_id)
+        return bool(self.db.query(q.exists()).scalar())
 
     def get_detail(self, template_id: int) -> TemplateDetailView:
-        t = self.repo.get_or_404(template_id, "问卷模板不存在")
-        cq_rows = self.repo.case_links_for(template_id)
+        t = self.db.get(QuestionnaireTemplate, template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
+        cq_rows = self.case_links_for(template_id)
         case_ids = [cq.case_id for cq in cq_rows]
         return _template_detail_view(t, case_ids=case_ids)
 
@@ -155,14 +194,14 @@ class QuestionnaireTemplateService:
         questions: List[dict],
     ) -> TemplateDetailView:
         with unit_of_work(self.db, conflict_detail="创建问卷模板失败"):
-            t = self.repo.add(
-                QuestionnaireTemplate(
-                    title=title,
-                    type=type_,
-                    description=description,
-                    is_active=is_active,
-                )
+            t = QuestionnaireTemplate(
+                title=title,
+                type=type_,
+                description=description,
+                is_active=is_active,
             )
+            self.db.add(t)
+            self.db.flush()
             for i, q_data in enumerate(questions):
                 self.db.add(
                     QuestionnaireQuestion(
@@ -186,8 +225,9 @@ class QuestionnaireTemplateService:
         is_active: bool | None,
         questions: List[dict] | None,
     ) -> TemplateDetailView:
-        t = self.repo.get_or_404(template_id, "问卷模板不存在")
-        q_repo = QuestionnaireQuestionRepository(self.db)
+        t = self.db.get(QuestionnaireTemplate, template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
 
         with unit_of_work(self.db, conflict_detail="更新问卷模板失败"):
             if title is not None:
@@ -226,20 +266,28 @@ class QuestionnaireTemplateService:
                 for qid, q in existing.items():
                     if qid in seen_ids:
                         continue
-                    if q_repo.answer_count_for(qid) == 0:
+                    answer_count = (
+                        self.db.query(func.count(QuestionnaireAnswer.id))
+                        .filter(QuestionnaireAnswer.question_id == qid)
+                        .scalar()
+                    ) or 0
+                    if answer_count == 0:
                         self.db.delete(q)
 
             t.updated_at = datetime.now(UTC)
 
         self.db.refresh(t)
-        cq_rows = self.repo.case_links_for(template_id)
+        cq_rows = self.case_links_for(template_id)
         case_ids = [cq.case_id for cq in cq_rows]
         return _template_detail_view(t, case_ids=case_ids)
 
     def delete(self, template_id: int) -> None:
-        t = self.repo.get_or_404(template_id, "问卷模板不存在")
+        t = self.db.get(QuestionnaireTemplate, template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="删除问卷模板失败"):
-            self.repo.delete(t)
+            self.db.delete(t)
+            self.db.flush()
 
     def assign_cases(
         self,
@@ -248,11 +296,13 @@ class QuestionnaireTemplateService:
         is_required: bool,
         trigger_event: str,
     ) -> None:
-        self.repo.get_or_404(template_id, "问卷模板不存在")
+        t = self.db.get(QuestionnaireTemplate, template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="病例分配失败"):
-            self.repo.delete_case_links(template_id)
+            self.delete_case_links(template_id)
             for cid in case_ids:
-                if not self.repo.case_exists(cid):
+                if not self.case_exists(cid):
                     raise ValidationError(f"病例 {cid} 不存在")
                 self.db.add(
                     CaseQuestionnaire(
@@ -264,9 +314,9 @@ class QuestionnaireTemplateService:
                 )
 
     def list_all(self, type_: str | None = None, offset: int = 0, limit: int = 20) -> tuple[List[TemplateView], int]:
-        rows, total = self.repo.list_filtered(type_, offset, limit)
+        rows, total = self.list_filtered(type_, offset, limit)
         template_ids = [r.id for r in rows]
-        counts = self.repo.response_counts(template_ids)
+        counts = self.response_counts(template_ids)
         views = [_template_view(r, counts.get(r.id, 0)) for r in rows]
         return views, total
 
@@ -274,8 +324,6 @@ class QuestionnaireTemplateService:
 class QuestionnaireQuestionService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = QuestionnaireTemplateRepository(db)
-        self.q_repo = QuestionnaireQuestionRepository(db)
 
     def create(
         self,
@@ -286,18 +334,20 @@ class QuestionnaireQuestionService:
         required: bool,
         options: List[str] | None,
     ) -> QuestionView:
-        self.repo.get_or_404(template_id, "问卷模板不存在")
+        t = self.db.get(QuestionnaireTemplate, template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="添加题目失败"):
-            q = self.q_repo.add(
-                QuestionnaireQuestion(
-                    template_id=template_id,
-                    sort_order=sort_order,
-                    content=content,
-                    question_type=question_type,
-                    required=required,
-                    options=options,
-                )
+            q = QuestionnaireQuestion(
+                template_id=template_id,
+                sort_order=sort_order,
+                content=content,
+                question_type=question_type,
+                required=required,
+                options=options,
             )
+            self.db.add(q)
+            self.db.flush()
         self.db.refresh(q)
         return _question_view(q)
 
@@ -311,8 +361,12 @@ class QuestionnaireQuestionService:
         sort_order: int | None,
         options: List[str] | None,
     ) -> QuestionView:
-        q = self.q_repo.get_or_404(question_id, "题目不存在")
-        self.repo.get_or_404(q.template_id, "问卷模板不存在")
+        q = self.db.get(QuestionnaireQuestion, question_id)
+        if q is None:
+            raise NotFoundError("题目不存在")
+        t = self.db.get(QuestionnaireTemplate, q.template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="更新题目失败"):
             if content is not None:
                 q.content = content
@@ -328,7 +382,12 @@ class QuestionnaireQuestionService:
         return _question_view(q)
 
     def delete(self, template_id: int, question_id: int) -> None:
-        q = self.q_repo.get_or_404(question_id, "题目不存在")
-        self.repo.get_or_404(q.template_id, "问卷模板不存在")
+        q = self.db.get(QuestionnaireQuestion, question_id)
+        if q is None:
+            raise NotFoundError("题目不存在")
+        t = self.db.get(QuestionnaireTemplate, q.template_id)
+        if t is None:
+            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="删除题目失败"):
-            self.q_repo.delete(q)
+            self.db.delete(q)
+            self.db.flush()

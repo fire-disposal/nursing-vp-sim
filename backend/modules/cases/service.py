@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from core.exceptions import ConflictError
+from core.exceptions import ConflictError, NotFoundError
 from core.unit_of_work import unit_of_work
-from models import Case
-from repositories.case import CaseRepository
+from models import Case, TrainingRecord
 from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
@@ -54,7 +54,6 @@ class CaseManageView:
 class CaseService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = CaseRepository(db)
 
     def _manage_view(self, case: Case, training_count: int = 0) -> CaseManageView:
         cd = case.case_data or {}
@@ -87,7 +86,14 @@ class CaseService:
         difficulty: int | None = None,
         name: str | None = None,
     ) -> tuple[list[Case], int]:
-        return self.repo.list_brief(offset, limit, training_type=training_type, difficulty=difficulty, name=name)
+        q = self.db.query(Case).filter(Case.is_open == True, Case.training_type == "history_taking").order_by(Case.id)
+        if difficulty is not None:
+            q = q.filter(Case.difficulty == difficulty)
+        if name:
+            q = q.filter(Case.name.ilike(f"%{name}%"))
+        total = q.order_by(None).count()
+        items = q.offset(offset).limit(limit).all()
+        return items, total
 
     def list_manage(
         self,
@@ -99,15 +105,34 @@ class CaseService:
         training_type: str | None = None,
         is_open: bool | None = None,
     ) -> tuple[list[CaseManageView], int]:
-        cases, total = self.repo.list_manage(
-            offset, limit, name=name, difficulty=difficulty, training_type=training_type, is_open=is_open
-        )
-        training_counts = self.repo.training_counts([c.id for c in cases])
+        q = self.db.query(Case).filter(Case.training_type == "history_taking").order_by(Case.created_at.desc())
+        if is_open is not None:
+            q = q.filter(Case.is_open == is_open)
+        if name:
+            q = q.filter(Case.name.ilike(f"%{name}%"))
+        if difficulty is not None:
+            q = q.filter(Case.case_data["difficulty"].as_integer() == difficulty)
+        total = q.order_by(None).count()
+        cases = q.offset(offset).limit(limit).all()
+        case_ids = [c.id for c in cases]
+        if case_ids:
+            rows = (
+                self.db.query(TrainingRecord.case_id, func.count(TrainingRecord.id))
+                .filter(TrainingRecord.case_id.in_(case_ids))
+                .group_by(TrainingRecord.case_id)
+                .all()
+            )
+            training_counts = {cid: cnt for cid, cnt in rows}
+        else:
+            training_counts = {}
         views = [self._manage_view(c, training_counts.get(c.id, 0)) for c in cases]
         return views, total
 
     def get(self, case_id: int) -> Case:
-        return self.repo.get_or_404(case_id, "病例不存在")
+        case = self.db.get(Case, case_id)
+        if case is None:
+            raise NotFoundError("病例不存在")
+        return case
 
     def create(self, case_data: dict, user_id: int, user_role: str, *, is_open: bool = True) -> CaseManageView:
         training_type = "history_taking"
@@ -122,7 +147,7 @@ class CaseService:
             is_open=is_open,
         )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
-            self.repo.add(case)
+            self.db.add(case); self.db.flush()
         log.info(
             f"病例创建: case_id={case.id} case_name={case.name}",
             extra={"user_id": user_id, "user_role": user_role},
@@ -130,7 +155,9 @@ class CaseService:
         return self._manage_view(case, 0)
 
     def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
-        case = self.repo.get_or_404(case_id, "病例不存在")
+        case = self.db.get(Case, case_id)
+        if case is None:
+            raise NotFoundError("病例不存在")
         training_type = "history_taking"
         cd = validate_case_data(case_data, strict=True)
         case.name = cd["name"]
@@ -145,24 +172,28 @@ class CaseService:
             f"病例编辑: case_id={case_id} case_name={case.name}",
             extra={"user_id": user_id, "user_role": user_role},
         )
-        count = self.repo.training_count(case_id)
+        count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count)
 
     def delete(self, case_id: int, user_id: int, user_role: str) -> None:
-        case = self.repo.get_or_404(case_id, "病例不存在")
-        count = self.repo.training_count(case_id)
+        case = self.db.get(Case, case_id)
+        if case is None:
+            raise NotFoundError("病例不存在")
+        count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         if count > 0:
             raise ConflictError(detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。")
         case_name = case.name
         with unit_of_work(self.db, conflict_detail="病例删除冲突"):
-            self.repo.delete(case)
+            self.db.delete(case); self.db.flush()
         log.info(
             f"病例删除: case_id={case_id} case_name={case_name}",
             extra={"user_id": user_id, "user_role": user_role},
         )
 
     def set_open(self, case_id: int, is_open: bool) -> Case:
-        case = self.repo.get_or_404(case_id, "病例不存在")
+        case = self.db.get(Case, case_id)
+        if case is None:
+            raise NotFoundError("病例不存在")
         case.is_open = is_open
         with unit_of_work(self.db, conflict_detail="切换开放状态冲突"):
             self.db.flush()

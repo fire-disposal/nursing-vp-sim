@@ -2,13 +2,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 
-from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError, ValidationError
+from core.pagination import paginate
 from core.unit_of_work import unit_of_work
 from models import Assignment, Case, TrainingRecord, User, UserClass
-from repositories.assignment import AssignmentRepository
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,91 @@ class AssignmentDetailView:
 class AssignmentService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = AssignmentRepository(db)
+
+
+    def get_with_relations(self, id_: str) -> Assignment | None:
+        return (
+            self.db.query(Assignment)
+            .options(
+                joinedload(Assignment.case),
+                joinedload(Assignment.class_),
+            )
+            .filter(Assignment.id == id_)
+            .first()
+        )
+
+    def list_with_counts(
+        self,
+        teacher_id: int | None,
+        class_id: int | None,
+        status: str | None,
+        now,
+        offset: int,
+        limit: int,
+    ) -> tuple[list, int]:
+        student_sub = (
+            self.db.query(func.count(TrainingRecord.id))
+            .filter(TrainingRecord.assignment_id == Assignment.id)
+            .correlate(Assignment)
+            .scalar_subquery()
+        )
+        completed_sub = (
+            self.db.query(func.count(TrainingRecord.id))
+            .filter(TrainingRecord.assignment_id == Assignment.id, TrainingRecord.status == "completed")
+            .correlate(Assignment)
+            .scalar_subquery()
+        )
+
+        q = self.db.query(
+            Assignment,
+            student_sub.label("student_count"),
+            completed_sub.label("completed_count"),
+        ).options(
+            joinedload(Assignment.case),
+            joinedload(Assignment.class_),
+            joinedload(Assignment.teacher),
+        )
+
+        if teacher_id is not None:
+            q = q.filter(Assignment.teacher_id == teacher_id)
+
+        if class_id is not None:
+            q = q.filter(Assignment.class_id == class_id)
+
+        if status == "active":
+            q = q.filter(Assignment.end_time >= now)
+        elif status == "ended":
+            q = q.filter(Assignment.end_time < now)
+
+        q = q.order_by(Assignment.created_at.desc())
+        return paginate(q, offset, limit)
+
+    def get_students_in_class(self, class_id: int) -> list[User]:
+        return (
+            self.db.query(User)
+            .join(UserClass, UserClass.user_id == User.id)
+            .filter(UserClass.class_id == class_id)
+            .all()
+        )
+
+    def get_records_for_assignment(self, assignment_id: str) -> list[TrainingRecord]:
+        return (
+            self.db.query(TrainingRecord)
+            .options(joinedload(TrainingRecord.score))
+            .filter(
+                TrainingRecord.assignment_id == assignment_id,
+                TrainingRecord.is_test == False,
+            )
+            .all()
+        )
+
+    def has_any_records(self, assignment_id: str) -> bool:
+        return bool(
+            self.db.query(TrainingRecord)
+            .filter(TrainingRecord.assignment_id == assignment_id)
+            .with_for_update()
+            .first()
+        )
 
     @staticmethod
     def _is_auto_closed(assignment: Assignment) -> bool:
@@ -89,17 +173,18 @@ class AssignmentService:
     def _get_target_student_ids(self, assignment: Assignment) -> list[int]:
         if assignment.student_ids:
             return assignment.student_ids
-        students = self.repo.get_students_in_class(assignment.class_id)
+        students = self.get_students_in_class(assignment.class_id)
         return [s.id for s in students]
 
     def _get_target_students(self, assignment: Assignment) -> list[User]:
         if assignment.student_ids:
             return self.db.query(User).filter(User.id.in_(assignment.student_ids)).all()
-        return self.repo.get_students_in_class(assignment.class_id)
+        return self.get_students_in_class(assignment.class_id)
 
     def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
         students_in_class = self._get_target_students(assignment)
-        training_records = self.repo.get_records_for_assignment(assignment.id)
+        training_records = self.get_records_for_assignment(assignment.id)
+
 
         records_by_user: dict[int, list[TrainingRecord]] = {}
         for r in training_records:
@@ -220,21 +305,21 @@ class AssignmentService:
             raise ValidationError("截止时间必须晚于开始时间")
 
         with unit_of_work(self.db, conflict_detail="创建失败，请重试"):
-            assignment = self.repo.add(
-                Assignment(
-                    case_id=case_id,
-                    class_id=class_id,
-                    teacher_id=teacher_id,
-                    title=title,
-                    description=description,
-                    features=features or {},
-                    behavior=behavior or {},
-                    student_ids=student_ids,
-                    start_time=start_time,
-                    end_time=end_time,
-                    max_attempts=max_attempts,
-                )
+            assignment = Assignment(
+                case_id=case_id,
+                class_id=class_id,
+                teacher_id=teacher_id,
+                title=title,
+                description=description,
+                features=features or {},
+                behavior=behavior or {},
+                student_ids=student_ids,
+                start_time=start_time,
+                end_time=end_time,
+                max_attempts=max_attempts,
             )
+            self.db.add(assignment)
+            self.db.flush()
         self.db.refresh(assignment)
 
         self._notify_students(assignment, case.name if case else "")
@@ -249,7 +334,7 @@ class AssignmentService:
         offset: int,
         limit: int,
     ) -> tuple[list[AssignmentListView], int]:
-        rows, total = self.repo.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
+        rows, total = self.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
         items = [
             AssignmentListView(
                 id=r[0].id,
@@ -269,7 +354,7 @@ class AssignmentService:
         return items, total
 
     def get(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> AssignmentDetailView:
-        assignment = self.repo.get_with_relations(assignment_id)
+        assignment = self.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
         if not skip_ownership and assignment.teacher_id != teacher_id:
@@ -293,14 +378,14 @@ class AssignmentService:
         max_attempts: int | None = None,
         skip_ownership: bool = False,
     ) -> AssignmentDetailView:
-        assignment = self.repo.get_with_relations(assignment_id)
+        assignment = self.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
 
         if case_id is not None or class_id is not None:
-            if self.repo.has_any_records(assignment_id):
+            if self.has_any_records(assignment_id):
                 raise ValidationError("已有学生开始练习，不能更换病例或班级")
 
         if case_id is not None:
@@ -345,22 +430,23 @@ class AssignmentService:
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权删除", status_code=403)
 
-        if self.repo.has_any_records(assignment_id):
+        if self.has_any_records(assignment_id):
             raise ValidationError("已有学生开始练习，无法删除")
 
         with unit_of_work(self.db, conflict_detail="删除失败，请刷新后重试"):
-            self.repo.delete(assignment)
+            self.db.delete(assignment)
+            self.db.flush()
 
         return {"message": "练习发布已删除"}
 
     def send_reminder(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> dict:
-        assignment = self.repo.get_with_relations(assignment_id)
+        assignment = self.get_with_relations(assignment_id)
         if not assignment:
             raise NotFoundError("练习发布不存在")
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权操作", status_code=403)
 
-        records = self.repo.get_records_for_assignment(assignment_id)
+        records = self.get_records_for_assignment(assignment_id)
         submitted_user_ids = {r.user_id for r in records if r.status == "completed"}
 
         target_ids = self._get_target_student_ids(assignment)
@@ -378,55 +464,41 @@ class AssignmentService:
 
         return {"message": f"已提醒 {len(not_submitted)} 位学生", "reminded": len(not_submitted)}
 
-    @staticmethod
-    def _notify_students(assignment: Assignment, case_name: str) -> None:
+    def _notify_students(self, assignment: Assignment, case_name: str) -> None:
         from models.notification import Notification
 
         target_ids = None
         if assignment.student_ids:
             target_ids = assignment.student_ids
         else:
-            db2 = SessionLocal()
-            try:
-                students = db2.query(UserClass.user_id).filter(UserClass.class_id == assignment.class_id).all()
-                target_ids = [s[0] for s in students]
-            finally:
-                db2.close()
+            target_ids = [
+                row[0]
+                for row in self.db.query(UserClass.user_id)
+                .filter(UserClass.class_id == assignment.class_id)
+                .all()
+            ]
 
         if not target_ids:
             return
 
-        db = SessionLocal()
-        try:
-            body = f"病例：{case_name}" if case_name else ""
-            now = datetime.now(UTC)
-            for uid in target_ids:
-                db.add(
-                    Notification(
-                        user_id=uid,
-                        type="assignment_new",
-                        title=f"新作业：{assignment.title}",
-                        body=body,
-                        created_at=now,
-                    )
+        body = f"病例：{case_name}" if case_name else ""
+        now = datetime.now(UTC)
+        for uid in target_ids:
+            self.db.add(
+                Notification(
+                    user_id=uid,
+                    type="assignment_new",
+                    title=f"新作业：{assignment.title}",
+                    body=body,
+                    created_at=now,
                 )
-            db.commit()
-        except Exception:
-            db.rollback()
-        finally:
-            db.close()
+            )
+        self.db.commit()
 
-    @staticmethod
-    def _push_notifications(user_ids: list[int], type_: str, title: str, body: str) -> None:
+    def _push_notifications(self, user_ids: list[int], type_: str, title: str, body: str) -> None:
         from models.notification import Notification
 
-        db = SessionLocal()
-        try:
-            now = datetime.now(UTC)
-            for uid in user_ids:
-                db.add(Notification(user_id=uid, type=type_, title=title, body=body, created_at=now))
-            db.commit()
-        except Exception:
-            db.rollback()
-        finally:
-            db.close()
+        now = datetime.now(UTC)
+        for uid in user_ids:
+            self.db.add(Notification(user_id=uid, type=type_, title=title, body=body, created_at=now))
+        self.db.commit()

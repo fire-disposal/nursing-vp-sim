@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 
 from core.database import SessionLocal
+from infra.training_queries import find_timeout_records, mark_completed
 from models import Message, Notification, Score, TrainingRecord, TrainingSessionState
 
 log = logging.getLogger(__name__)
@@ -32,16 +33,14 @@ def _discard_unscoreable_record(db, record: TrainingRecord) -> None:
         synchronize_session="fetch"
     )
 
-
 async def settlement_loop(
-    repo,
     *,
     interval: int = 30,
     enqueue_scoring=None,
 ) -> None:
     while True:
         await asyncio.sleep(interval)
-        settled: list[tuple[int, int, dict]] = await asyncio.to_thread(_settle_with_lock, repo)
+        settled: list[tuple[int, int, dict]] = await asyncio.to_thread(_settle_with_lock)
         for record_id, case_id, case_data in settled:
             if enqueue_scoring:
                 try:
@@ -49,10 +48,10 @@ async def settlement_loop(
                     log.info("Settlement: enqueued scoring for record_id=%d", record_id)
                 except Exception:
                     log.exception("Settlement: failed to enqueue scoring for record_id=%d", record_id)
-                    _revert_settled_record(repo, record_id)
+                    _revert_settled_record(record_id)
 
 
-def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
+def _settle_with_lock() -> list[tuple[int, int, dict]]:
     db = SessionLocal()
     settled: list[tuple[int, int, dict]] = []
     try:
@@ -60,7 +59,7 @@ def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
         if not locked:
             return settled
         try:
-            settled = _settle_once_sync(repo, db)
+            settled = _settle_once_sync(db)
         finally:
             db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": SETTLEMENT_LOCK_KEY})
     except Exception:
@@ -71,7 +70,7 @@ def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
     return settled
 
 
-def _revert_settled_record(repo, record_id: int) -> None:
+def _revert_settled_record(record_id: int) -> None:
     db = SessionLocal()
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -147,8 +146,8 @@ def _sweep_stale_scoring_records(db) -> int:
     return len(stale)
 
 
-def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
-    timeout_records = repo.find_timeout_records_sync(db)
+def _settle_once_sync(db) -> list[tuple[int, int, dict]]:
+    timeout_records = find_timeout_records(db)
     settled: list[tuple[int, int, dict]] = []
 
     if timeout_records:
@@ -162,7 +161,7 @@ def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
                 continue
 
             try:
-                repo.mark_completed_sync(db, record.id)
+                mark_completed(db, record.id)
 
                 from models import Case, TrainingSessionState
 

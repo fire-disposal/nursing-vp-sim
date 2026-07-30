@@ -251,26 +251,25 @@ async def ask_stream(
 
 
 @router.get("/section-text", response_model=SectionTextResponse)
-def get_section_text(source: str, section: str):
+def get_section_text(
+    source: str,
+    section: str,
+    db: Annotated[Session, Depends(get_db)],
+):
     """Return the full textbook section text for a citation (no LLM)."""
-    from core.database import SessionLocal
     from models import KnowledgeChunk
 
-    db = SessionLocal()
-    try:
-        source_key = f"textbook:{source}" if not source.startswith("textbook:") else source
-        chunks = (
-            db.query(KnowledgeChunk)
-            .filter(KnowledgeChunk.source == source_key, KnowledgeChunk.section.like(f"{section}%"))
-            .order_by(KnowledgeChunk.section)
-            .all()
-        )
-        if not chunks:
-            raise HTTPException(status_code=404, detail="教材章节不存在")
-        parts = [c.chunk_text for c in chunks]
-        return {"source": source, "section": section, "text": "\n\n".join(parts)}
-    finally:
-        db.close()
+    source_key = f"textbook:{source}" if not source.startswith("textbook:") else source
+    chunks = (
+        db.query(KnowledgeChunk)
+        .filter(KnowledgeChunk.source == source_key, KnowledgeChunk.section.like(f"{section}%"))
+        .order_by(KnowledgeChunk.section)
+        .all()
+    )
+    if not chunks:
+        raise HTTPException(status_code=404, detail="教材章节不存在")
+    parts = [c.chunk_text for c in chunks]
+    return {"source": source, "section": section, "text": "\n\n".join(parts)}
 
 
 @router.post("/ask", response_model=QAAskResponse)

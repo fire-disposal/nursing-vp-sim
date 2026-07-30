@@ -33,7 +33,6 @@ from infra.scoring_progress import ScoringProgressTracker
 from models import Notification, SystemNotification, User
 from modules.training.session.cache import EmotionCache, InitiativeCache
 from modules.training.session.settlement import settlement_loop
-from repositories.training import TrainingRepository
 
 if TYPE_CHECKING:
     import httpx
@@ -207,7 +206,6 @@ async def start_settlement(app_state, cleanup_interval):
 
     settlement_task = asyncio.create_task(
         settlement_loop(
-            repo=TrainingRepository(),
             interval=cleanup_interval,
             enqueue_scoring=_enqueue_settlement_scoring,
         )
