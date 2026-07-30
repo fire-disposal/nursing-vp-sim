@@ -313,12 +313,14 @@ async def _run_scoring_background(
         if record.scoring_status == "pending":
             log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
             return
+        if record.scoring_status != "processing":
+            log.info("评分状态已变更（%s），跳过完成状态更新", record.scoring_status, extra={"record_id": record_id})
+            return
 
         record.scoring_status = "completed"
         record.scoring_error = None
         if tracker:
             tracker.update(record_id, "completed", 100, "评分完成")
-        db.commit()
         log.info("[SCORING] DONE record_id=%d", record_id)
 
         _create_notification(

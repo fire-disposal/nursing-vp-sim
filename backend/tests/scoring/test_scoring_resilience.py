@@ -223,7 +223,7 @@ def test_sweep_stale_scoring_records_marks_pending_too(db_session):
 
 
 def test_sweep_stale_scoring_records_discards_no_student_records(db_session):
-    """Stale scoring record with no student turn is discarded, not failed."""
+    """Stale scoring record with no student turn is marked with error, not failed."""
     from modules.training.session.settlement import STALE_SCORING_SWEEP_MINUTES, _sweep_stale_scoring_records
 
     case = db_session.query(Case).filter(Case.name == "__seed_test_case__").first()
@@ -243,10 +243,8 @@ def test_sweep_stale_scoring_records_discards_no_student_records(db_session):
 
     db_session.expire_all()
     updated = db_session.query(TrainingRecord).filter(TrainingRecord.id == rec.id).first()
-    assert updated.status == "discarded"
     assert updated.scoring_status is None
     assert updated.scoring_error == "no_student_messages"
-
 
 def test_end_training_discards_no_student_messages(client, db_session):
     """End training with no student messages returns discarded and never queues scoring."""

@@ -473,7 +473,18 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
     return result
 
 
-def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> Score:
+def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> Score | None:
+    # Guard: timeout handler may have already marked scoring_status='failed'.
+    # Don't write an orphan Score that won't match the record status.
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if record and record.scoring_status not in ("processing", "pending", None):
+        log.warning(
+            "评分结果已过期（状态=%s），不写入孤儿 Score",
+            record.scoring_status,
+            extra={"record_id": record_id},
+        )
+        return None
+
     score = Score(
         record_id=record_id,
         total_score=result["total_score"],
@@ -490,7 +501,6 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
     db.commit()
     db.refresh(score)
     return score
-
 
 async def evaluate_training(
     record_id: int,
