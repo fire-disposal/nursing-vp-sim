@@ -1,6 +1,7 @@
-import { MessageSquare, Stethoscope, X } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
+import { AlertTriangle, MessageSquare, Stethoscope, X } from "lucide-react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
+import { api } from "@/api/client";
 import { useFeedback } from "@/components/FeedbackProvider";
 import AdaptiveShell from "@/components/shell/AdaptiveShell";
 import { NAV_ITEMS } from "@/components/shell/navigation";
@@ -29,6 +30,29 @@ function RouteContentLoader() {
 				</div>
 				<div className="h-40 animate-pulse rounded-lg bg-muted/60" />
 			</div>
+		</div>
+	);
+}
+
+function DeployBanner() {
+	const [warning, setWarning] = useState<{ active: boolean; message?: string } | null>(null);
+	useEffect(() => {
+		let active = true;
+		const poll = async () => {
+			try {
+				const { data } = await api.get<{ active: boolean; message?: string }>("/deploy-status" as never);
+				if (active) setWarning(data.active ? data : null);
+			} catch { /* ignore */ }
+		};
+		const timer = setInterval(poll, 30_000);
+		poll();
+		return () => { active = false; clearInterval(timer); };
+	}, []);
+	if (!warning?.active) return null;
+	return (
+		<div className="flex items-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900 shrink-0">
+			<AlertTriangle size={16} className="shrink-0" />
+			<span className="flex-1">{warning.message || "系统即将更新，可能短暂中断"}</span>
 		</div>
 	);
 }
@@ -79,6 +103,7 @@ export default function Layout() {
 				</div>
 			)}
 
+			<DeployBanner />
 			<AdaptiveShell
 				userLinks={userLinks}
 				adminLinks={adminLinks}

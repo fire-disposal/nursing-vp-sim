@@ -23,6 +23,32 @@ from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
 
+# ── Deploy warning banner ───────────────────────────────────────────────
+
+_deploy_warning: dict | None = None
+
+
+@router.post("/api/admin/deploy-warning")
+def set_deploy_warning(token: str = Query(""), message: str = Query("系统即将进行版本更新，服务可能短暂中断，请保存当前进度。")):
+    _check_token(token)
+    global _deploy_warning
+    _deploy_warning = {"active": True, "message": message, "set_at": datetime.now(UTC).isoformat()}
+    log.warning("Deploy warning activated: %s", message)
+    return _deploy_warning
+
+
+@router.delete("/api/admin/deploy-warning")
+def clear_deploy_warning(token: str = Query("")):
+    _check_token(token)
+    global _deploy_warning
+    _deploy_warning = None
+    log.info("Deploy warning cleared")
+    return {"active": False}
+
+
+@router.get("/api/deploy-status")
+def get_deploy_status():
+    return _deploy_warning or {"active": False}
 router = APIRouter(tags=["ops"])
 
 
