@@ -48,7 +48,7 @@ function flush(): void {
 		clearTimeout(timer);
 		timer = null;
 	}
-	navigator.sendBeacon(ENDPOINT, payload);
+	navigator.sendBeacon(ENDPOINT, new Blob([payload], { type: "application/json" }));
 }
 
 function scheduleFlush(): void {
