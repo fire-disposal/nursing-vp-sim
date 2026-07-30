@@ -30,6 +30,7 @@ class ScoringUserVars(TypedDict):
 
 
 class ScoringFeedbackSystemVars(TypedDict):
+    scoring_criteria: str
     scoring_result: str  # JSON string of the scoring output
     required_inquiries: str
 
@@ -67,6 +68,7 @@ class InitiativeSystemVars(TypedDict):
     mood: str
     trust: str  # rendered as string from int
     comfort: str  # rendered as string from int
+    student_msg: str
 
 
 class InitiativeShortSystemVars(TypedDict):
