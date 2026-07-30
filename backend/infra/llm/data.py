@@ -28,7 +28,7 @@ class LLMDataService:
             bindings_map: dict[str, ApiSecret] = {}
             for s in secrets:
                 profiles_map[s.id] = s
-                for binding in PROFILES.get_bindings_for_secret(s.id):
+                for binding in PROFILES:
                     bindings_map[binding] = s
             return profiles_map, bindings_map
         except Exception:
