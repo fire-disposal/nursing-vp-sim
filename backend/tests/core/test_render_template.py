@@ -81,56 +81,56 @@ class TestPromptVariableContracts:
     """Verify that every prompt template's variables match its TypedDict."""
 
     def test_scoring_system_vars(self):
-        from modules.training.prompts.scoring import SCORING_SYSTEM
         from core.template_variables import ScoringSystemVars
+        from modules.training.prompts.scoring import SCORING_SYSTEM
 
         allowed = frozenset(ScoringSystemVars.__annotations__.keys())
         unknown = validate_template_vars(SCORING_SYSTEM, allowed)
         assert unknown == [], f"Unknown vars in SCORING_SYSTEM: {unknown}"
 
     def test_scoring_user_vars(self):
-        from modules.training.prompts.scoring import SCORING_USER
         from core.template_variables import ScoringUserVars
+        from modules.training.prompts.scoring import SCORING_USER
 
         allowed = frozenset(ScoringUserVars.__annotations__.keys())
         unknown = validate_template_vars(SCORING_USER, allowed)
         assert unknown == [], f"Unknown vars in SCORING_USER: {unknown}"
 
     def test_emotion_analysis_user_vars(self):
-        from modules.training.prompts.emotion import EMOTION_ANALYSIS_USER
         from core.template_variables import EmotionAnalysisUserVars
+        from modules.training.prompts.emotion import EMOTION_ANALYSIS_USER
 
         allowed = frozenset(EmotionAnalysisUserVars.__annotations__.keys())
         unknown = validate_template_vars(EMOTION_ANALYSIS_USER, allowed)
         assert unknown == [], f"Unknown vars: {unknown}"
 
     def test_patient_system_vars(self):
-        from modules.training.prompts.patient import PATIENT_SYSTEM
         from core.template_variables import PatientSystemVars
+        from modules.training.prompts.patient import PATIENT_SYSTEM
 
         allowed = frozenset(PatientSystemVars.__annotations__.keys())
         unknown = validate_template_vars(PATIENT_SYSTEM, allowed)
         assert unknown == [], f"Unknown vars in PATIENT_SYSTEM: {unknown}"
 
     def test_patient_dynamic_vars(self):
-        from modules.training.prompts.patient import PATIENT_DYNAMIC
         from core.template_variables import PatientDynamicVars
+        from modules.training.prompts.patient import PATIENT_DYNAMIC
 
         allowed = frozenset(PatientDynamicVars.__annotations__.keys())
         unknown = validate_template_vars(PATIENT_DYNAMIC, allowed)
         assert unknown == [], f"Unknown vars in PATIENT_DYNAMIC: {unknown}"
 
     def test_qa_system_vars(self):
-        from modules.qa.prompts import QA_SYSTEM
         from core.template_variables import QASystemVars
+        from modules.qa.prompts import QA_SYSTEM
 
         allowed = frozenset(QASystemVars.__annotations__.keys())
         unknown = validate_template_vars(QA_SYSTEM, allowed)
         assert unknown == [], f"Unknown vars in QA_SYSTEM: {unknown}"
 
     def test_generation_head_vars(self):
-        from modules.cases.prompts import CASE_GENERATION_HEAD
         from core.template_variables import CaseGenerationSystemVars
+        from modules.cases.prompts import CASE_GENERATION_HEAD
 
         allowed = frozenset(CaseGenerationSystemVars.__annotations__.keys())
         unknown = validate_template_vars(CASE_GENERATION_HEAD, allowed)

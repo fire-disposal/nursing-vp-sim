@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+from core.template import render_template
 from infra.llm.client import CallContext
 from infra.llm.profile import get_llm_config
 from modules.training.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 from modules.training.session.cache import InitiativeCache
-from core.template import render_template
 
 log = logging.getLogger(__name__)
 

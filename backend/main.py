@@ -325,6 +325,23 @@ from modules.training.tools import register_all
 register_all()
 
 # Route registration
-from routers import register_routers
+from infra.diagnostics import router as _diagnostics
+from infra.telemetry import router as _telemetry
+from modules.admin import get_top_level_routers
+from modules.admin import router as _admin
+from modules.assignments import router as _assignments
+from modules.assignments import student_router as _assignments_student
+from modules.auth.router import router as _auth
+from modules.cases.router import router as _cases
+from modules.feedback.router import router as _feedback
+from modules.qa import router as _qa
+from modules.questionnaires.router import router as _questionnaires
+from modules.training import chat_router as _chat
+from modules.training import training_router as _training
+from modules.voice.router import router as _tts
 
-register_routers(app)
+_exports, _profiles, _rubrics, _stats = get_top_level_routers()
+for r in (_admin, _assignments, _assignments_student, _auth, _cases, _chat,
+          _diagnostics, _exports, _feedback, _profiles, _qa, _questionnaires,
+          _rubrics, _stats, _telemetry, _training, _tts):
+    app.include_router(r)

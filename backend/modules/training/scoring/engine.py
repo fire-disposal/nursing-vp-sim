@@ -9,14 +9,13 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.exceptions import LLMParseError
+from core.template import render_template
 from infra.llm import safe_parse_json
 from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
 from modules.training.profile import PROFILE
-from modules.training.scoring.rubric_loader import get_rubric_version_id
-from core.template import render_template
 from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -25,6 +24,7 @@ from modules.training.prompts.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
+from modules.training.scoring.rubric_loader import get_rubric_version_id
 
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
 from .validation import (

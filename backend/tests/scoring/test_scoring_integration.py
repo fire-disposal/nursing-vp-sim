@@ -12,13 +12,13 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
+from core.template import render_template
 from modules.training.scoring.prompt_builder import (
     build_scoring_criteria,
     build_scoring_json_schema,
     build_scoring_rubric,
 )
 from modules.training.scoring.rubric_loader import load_rubric
-from core.template import render_template
 
 # ── 模拟场景数据 ──
 

@@ -4,11 +4,11 @@ import asyncio
 import json
 import logging
 
+from core.template import render_template
 from infra.llm.client import CallContext
 from modules.training.patient_ai.emotion import EmotionState, get_emotion
 from modules.training.patient_ai.emotion_profile import PersonalityProfile
 from modules.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
-from core.template import render_template
 from modules.training.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 
 from ..context import (
