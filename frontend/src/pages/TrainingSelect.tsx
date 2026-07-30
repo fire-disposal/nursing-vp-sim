@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
@@ -79,6 +80,7 @@ export default function TrainingSelect() {
   const { confirm } = useConfirm();
   const user = useAuthStore((s) => s.user);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
+  const [conflict, setConflict] = useState<{ recordId: number; caseName: string } | null>(null);
 
   const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
     queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
@@ -178,21 +180,8 @@ export default function TrainingSelect() {
     onError: (err: unknown) => {
       const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
       if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
-        const detail = axiosErr.response.data.detail;
-        confirm({
-          title: "有进行中的训练",
-          message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
-          confirmLabel: "放弃并开始新训练",
-          danger: true,
-        }).then((ok) => {
-          if (ok) {
-            abandonRecord(String(detail.record_id!)).then(() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-            });
-          } else if (detail.record_id) {
-            navigate(`/training/${detail.record_id}`);
-          }
-        });
+        const d = axiosErr.response.data.detail;
+        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
         return;
       }
       toast.error("开始训练失败，请重试");
@@ -218,20 +207,8 @@ export default function TrainingSelect() {
     } catch (err: unknown) {
       const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
       if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
-        const detail = axiosErr.response.data.detail;
-        const ok = await confirm({
-          title: "有进行中的训练",
-          message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
-          confirmLabel: "放弃并开始新训练",
-          danger: true,
-        });
-        if (ok) {
-          await abandonRecord(String(detail.record_id!));
-          queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-          handleStartAssignment(assignmentId);
-        } else if (detail.record_id) {
-          navigate(`/training/${detail.record_id}`);
-        }
+        const d = axiosErr.response.data.detail;
+        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
         return;
       }
       toast.apiError(err, "开始作业失败，请刷新后重试");
@@ -247,6 +224,27 @@ export default function TrainingSelect() {
   const primaryInProgress = records.find((r) => r.status === "in_progress");
   const nextAssignment = pendingAssignments[0];
 
+
+  if (conflict) return (
+    <Dialog open onOpenChange={() => setConflict(null)}>
+      <DialogContent title="有进行中的训练" maxWidth={360}>
+        <p className="text-sm text-muted-foreground mb-4">你有一个未完成的训练「{conflict.caseName}」。</p>
+        <div className="flex flex-col gap-2">
+          <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
+            继续之前的训练
+          </Button>
+          <Button variant="destructive" onClick={async () => {
+            await abandonRecord(String(conflict.recordId));
+            queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+            setConflict(null);
+          }}>
+            放弃并开始新训练
+          </Button>
+          <Button variant="outline" onClick={() => setConflict(null)}>取消</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between">
