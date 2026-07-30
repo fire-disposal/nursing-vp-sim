@@ -8,7 +8,15 @@ export interface BusEvents {
 	"score:ready": [score: ScoreData];
 	"score:unavailable": [reason?: string];
 	"emotion:changed": [
-		{ state: string; trust: number; comfort: number },
+		{
+			state?: string;
+			trust?: number;
+			comfort?: number;
+			anxiety?: number;
+			irritation?: number;
+			cooperation?: number;
+			dominant_state?: string;
+		},
 	];
 	"scene:state": [Partial<import("./scene-state").SceneState>];
 	"scene:exam": [{ op_type: string; value: string; label?: string; unit?: string }];

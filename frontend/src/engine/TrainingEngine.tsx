@@ -27,9 +27,7 @@ import {
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
-import type { EmotionState } from "@/stores/trainingStore";
-import { EMOTION_LABELS } from "@/stores/trainingStore";
-
+import { EMOTION_LABELS, type Emotion4DLabel, type EmotionState } from "@/stores/trainingStore";
 interface TrainingEngineProps {
 	recordId: string;
 	children: ReactNode;
@@ -220,17 +218,40 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 
 		unsubs.push(busRef.current.on(
 			"emotion:changed",
-			(data: { state: string; trust?: number; comfort?: number }) => {
+			(data: {
+				state?: string;
+				trust?: number;
+				comfort?: number;
+				anxiety?: number;
+				irritation?: number;
+				cooperation?: number;
+				dominant_state?: string;
+			}) => {
 				const store = getTrainingState();
+				// 4D 格式优先
+				if (data.anxiety != null && data.irritation != null && data.cooperation != null) {
+					store.setEmotion4D(
+						data.trust ?? 50,
+						data.anxiety,
+						data.irritation,
+						data.cooperation,
+						(data.dominant_state as Emotion4DLabel) ?? "neutral",
+					);
+					if (patient && data.dominant_state) {
+						store.setPortraitUrl(getPatientPortraitUrl(patient, data.dominant_state));
+					}
+					return;
+				}
+				// 回退：v2 格式
 				store.setEmotion(
-					Object.hasOwn(EMOTION_LABELS, data.state)
+					Object.hasOwn(EMOTION_LABELS, data.state ?? "")
 						? (data.state as EmotionState)
 						: "neutral",
 				);
 				if (data.trust != null && data.comfort != null) {
 					store.setTrustComfort(data.trust, data.comfort);
 				}
-				if (patient) {
+				if (patient && data.state) {
 					store.setPortraitUrl(getPatientPortraitUrl(patient, data.state));
 				}
 			},

@@ -15,12 +15,14 @@ _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
     if not _CORE_MIDDLEWARE:
         from .middleware import (
+            emotion_analysis,
             llm_caller,
             persister,
             prompt_builder,
             side_effects,
         )
 
+        _CORE_MIDDLEWARE[PipelineStage.ANALYSIS] = [emotion_analysis]
         _CORE_MIDDLEWARE[PipelineStage.PROMPT] = [prompt_builder]
         _CORE_MIDDLEWARE[PipelineStage.LLM] = [llm_caller]
         _CORE_MIDDLEWARE[PipelineStage.PERSIST] = [persister]

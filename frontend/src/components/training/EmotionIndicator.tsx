@@ -35,17 +35,20 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	relaxed: "bg-info-foreground",
 	open: "bg-success-foreground",
 };
-
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const emotion = useTrainingStore((s) => s.emotion);
 	const trust = useTrainingStore((s) => s.trust);
 	const comfort = useTrainingStore((s) => s.comfort);
+	const anxiety = useTrainingStore((s) => s.anxiety);
+	const irritation = useTrainingStore((s) => s.irritation);
+	const cooperation = useTrainingStore((s) => s.cooperation);
+	const emotion4D = useTrainingStore((s) => s.emotion4D);
 	const [pulse, setPulse] = useState(false);
 	const [emojiPop, setEmojiPop] = useState(false);
 	const prevEmotionRef = useRef(emotion);
+	const prevEmotion4DRef = useRef(emotion4D);
 	const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
 	// ── Initiative state ──
 	const [initPercent, setInitPercent] = useState(0);
 	const [, setInitCount] = useState(0);
@@ -146,23 +149,22 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 		const unsub = bus.on(
 			"emotion:changed",
 			() => {
-				setPulse(true);
-				if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
-				pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
+			setPulse(true);
+			clearTimeout(pulseTimerRef.current ?? undefined);
+			pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
 			},
 		);
 		return unsub;
 	}, [bus]);
-
-	// Animate emoji on state transition
 	useEffect(() => {
-		if (emotion !== prevEmotionRef.current) {
+		if (emotion !== prevEmotionRef.current || emotion4D !== prevEmotion4DRef.current) {
 			prevEmotionRef.current = emotion;
+			prevEmotion4DRef.current = emotion4D;
 			setEmojiPop(true);
 			if (popTimerRef.current) clearTimeout(popTimerRef.current);
 			popTimerRef.current = setTimeout(() => setEmojiPop(false), 400);
 		}
-	}, [emotion]);
+	}, [emotion, emotion4D]);
 
 	if (!capabilities.emotion) return null;
 	const label = EMOTION_LABELS[emotion];
@@ -235,19 +237,37 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 					<span className={cn("size-1.5 sm:size-2 rounded-full", EMOTION_DOT[emotion])} />
 				</div>
 
-				{/* Trust bar — subtle single bar replacing dual bars */}
-				<div className="flex-1 flex items-center gap-1.5 min-w-0">
-					<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
-						<div
-							className={cn(
-								"h-full rounded-full transition-all duration-700 ease-out",
-								EMOTION_DOT[emotion],
-							)}
-							style={{ width: `${trustPct}%` }}
-						/>
-					</div>
+			{/* 4D bars: trust, anxiety, irritation, cooperation */}
+			<div className="flex-1 flex items-center gap-0.5 min-w-0">
+				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
+					<div
+						className="h-full rounded-full transition-all duration-700 ease-out bg-success-foreground"
+						style={{ width: `${trust}%` }}
+						title={`信任: ${trust}`}
+					/>
 				</div>
-
+				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
+					<div
+						className="h-full rounded-full transition-all duration-700 ease-out bg-purple-500"
+						style={{ width: `${anxiety}%` }}
+						title={`焦虑: ${anxiety}`}
+					/>
+				</div>
+				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
+					<div
+						className="h-full rounded-full transition-all duration-700 ease-out bg-orange-500"
+						style={{ width: `${irritation}%` }}
+						title={`烦躁: ${irritation}`}
+					/>
+				</div>
+				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
+					<div
+						className="h-full rounded-full transition-all duration-700 ease-out bg-blue-500"
+						style={{ width: `${cooperation}%` }}
+						title={`配合: ${cooperation}`}
+					/>
+				</div>
+			</div>
 				{/* Initiative timer */}
 				{showInitiative && initPercent > 0 && (
 					<div className="flex items-center gap-1.5 shrink-0" style={{ maxWidth: "120px" }}>
