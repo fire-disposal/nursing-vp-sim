@@ -41,14 +41,14 @@ class TestRubricsEndpoint:
 class TestLoadRubricHotReload:
     def test_load_rubric_caches_by_mtime(self, tmp_path):
         """load_rubric returns cached data when mtime unchanged."""
-        from profiles.rubric_loader import _CACHE, load_rubric
+        from modules.training.scoring.rubric_loader import _CACHE, load_rubric
 
         rubric_json = tmp_path / "rubric.json"
         rubric_data = {"id": "test_v1", "name": "test", "dimensions": []}
         with open(rubric_json, "w", encoding="utf-8") as f:
             json.dump(rubric_data, f)
 
-        import profiles.rubric_loader as mod
+        import modules.training.scoring.rubric_loader as mod
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = rubric_json
@@ -64,7 +64,7 @@ class TestLoadRubricHotReload:
 
     def test_load_rubric_reloads_on_mtime_change(self, tmp_path):
         """load_rubric reloads data when mtime changes."""
-        from profiles.rubric_loader import _CACHE, load_rubric
+        from modules.training.scoring.rubric_loader import _CACHE, load_rubric
 
         rubric_json = tmp_path / "rubric.json"
         rubric_data_v1 = {"id": "test_v1", "name": "v1", "version": "1.0", "dimensions": []}
@@ -72,7 +72,7 @@ class TestLoadRubricHotReload:
         with open(rubric_json, "w", encoding="utf-8") as f:
             json.dump(rubric_data_v1, f)
 
-        import profiles.rubric_loader as mod
+        import modules.training.scoring.rubric_loader as mod
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = rubric_json
@@ -94,8 +94,8 @@ class TestLoadRubricHotReload:
         """load_rubric raises FileNotFoundError when json missing."""
         import pytest
 
-        import profiles.rubric_loader as mod
-        from profiles.rubric_loader import _CACHE, load_rubric
+        import modules.training.scoring.rubric_loader as mod
+        from modules.training.scoring.rubric_loader import _CACHE, load_rubric
 
         orig_path = mod._RUBRIC_JSON_PATH
         mod._RUBRIC_JSON_PATH = Path("/nonexistent/rubric.json")
@@ -108,8 +108,8 @@ class TestLoadRubricHotReload:
             _CACHE.clear()
 
     def test_rubric_py_loads_from_json(self):
-        """profiles.history_taking.rubric.RUBRIC loads from rubric.json."""
-        from profiles.history_taking.rubric import RUBRIC
+        """modules.training.scoring.rubric_data.RUBRIC loads from rubric.json."""
+        from modules.training.scoring.rubric_data import RUBRIC
 
         assert isinstance(RUBRIC, dict)
         assert RUBRIC["id"] == "nursing_history_v1"

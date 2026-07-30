@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 _CACHE: dict[str, tuple[dict, float]] = {}
-_RUBRIC_JSON_PATH = Path(__file__).parent.parent / "profiles" / "history_taking" / "rubric.json"
+_RUBRIC_JSON_PATH = Path(__file__).parent / "rubric.json"
 
 
 def load_rubric(version: str = "nursing_history_v1") -> dict:

@@ -25,7 +25,7 @@ class TrainingProfile:
     rubric: dict
 
 
-from profiles.history_taking.rubric import RUBRIC as _RUBRIC
+from modules.training.scoring.rubric_data import RUBRIC as _RUBRIC
 
 PROFILE = TrainingProfile(
     name="history_taking",

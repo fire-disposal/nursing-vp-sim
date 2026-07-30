@@ -17,7 +17,7 @@ from modules.training.scoring.prompt_builder import (
     build_scoring_json_schema,
     build_scoring_rubric,
 )
-from profiles.rubric_loader import load_rubric
+from modules.training.scoring.rubric_loader import load_rubric
 from prompts import render_template
 
 # ── 模拟场景数据 ──

@@ -1,6 +1,6 @@
 """Data access layer."""
 
-from profiles.rubric_loader import get_rubric_version_id, load_rubric, validate_dimensions
+from modules.training.scoring.rubric_loader import get_rubric_version_id, load_rubric, validate_dimensions
 
 from .api_secret import ApiSecretRepository
 from .assignment import AssignmentRepository

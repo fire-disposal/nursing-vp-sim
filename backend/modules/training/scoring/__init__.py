@@ -1,35 +1,13 @@
-"""Training scoring subsystem — engine, prompts, validation, lifecycle, mapping, rubric."""
+"""Training scoring subsystem.
 
-from prompts.training.scoring import FEEDBACK_RETRY_USER, SCORING_SYSTEM
+Entry points:
+- ``engine.evaluate_training``: LLM scoring execution.
+- ``lifecycle``: scoring locks and state transitions.
+- ``prompt_builder``: rubric -> prompt/schema text.
+- ``rubric``: final rubric composition.
+- ``rubric_loader`` / ``rubric_data``: bundled nursing history rubric.
+- ``validation``: result shape and semantic checks.
 
-from .engine import _build_history_messages, _load_nursing_record_text, evaluate_training
-from .lifecycle import acquire_scoring, claim_scoring, release_scoring
-from .mapping import SCORE_MAPPING, ScoreMappingConfig, apply_score_mapping
-from .prompt_builder import build_scoring_criteria, build_scoring_json_schema, build_scoring_rubric
-from .rubric import build_final_rubric
-from .validation import (
-    _check_feedback_empty,
-    _validate_scoring_essentials,
-    _validate_scoring_result,
-)
-
-__all__ = [
-    "FEEDBACK_RETRY_USER",
-    "SCORE_MAPPING",
-    "SCORING_SYSTEM",
-    "ScoreMappingConfig",
-    "_build_history_messages",
-    "_check_feedback_empty",
-    "_load_nursing_record_text",
-    "_validate_scoring_essentials",
-    "_validate_scoring_result",
-    "acquire_scoring",
-    "apply_score_mapping",
-    "build_final_rubric",
-    "build_scoring_criteria",
-    "build_scoring_json_schema",
-    "build_scoring_rubric",
-    "claim_scoring",
-    "evaluate_training",
-    "release_scoring",
-]
+Keep imports explicit at call sites. Package-level eager imports create circular
+dependencies with the training profile during app startup.
+"""
