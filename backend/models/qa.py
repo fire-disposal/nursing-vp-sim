@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -41,12 +40,3 @@ class QARecord(Base):
     session: Mapped[QASession] = relationship(back_populates="records")
 
 
-class KnowledgeChunk(Base):
-    __tablename__ = "knowledge_chunks"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source: Mapped[str] = mapped_column(String(100), index=True)
-    section: Mapped[str] = mapped_column(String(200))
-    chunk_text: Mapped[str] = mapped_column(Text)
-    embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)

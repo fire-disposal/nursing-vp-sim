@@ -155,20 +155,7 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
 
 
 def _warm_knowledge_base() -> None:
-    """Index and warm knowledge base for QA. Non-fatal on failure."""
-    try:
-        from modules.qa.knowledge_base.indexer import check_indexed, index_all
-
-        count = check_indexed()
-        if count == 0:
-            log.info("Knowledge base empty, indexing textbooks...")
-            n = index_all()
-            log.info("Knowledge base indexed: %d chunks", n)
-        else:
-            log.info("Knowledge base ready: %d chunks", count)
-    except Exception:
-        log.exception("Knowledge base indexing failed (non-fatal)")
-
+    """Warm the in-memory textbook chapter index for QA tool calls."""
     try:
         from modules.qa.knowledge_base.chapter_index import _ensure_index
 

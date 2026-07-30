@@ -1,4 +1,4 @@
-"""Citations marker embedding — zero-migration persistence via HTML comment in content."""
+"""Citations marker — stores citation metadata as HTML comment in content text."""
 
 import logging
 

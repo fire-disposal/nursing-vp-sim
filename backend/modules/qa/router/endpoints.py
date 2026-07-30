@@ -258,25 +258,19 @@ async def ask_stream(
 
 
 @router.get("/section-text", response_model=SectionTextResponse)
-def get_section_text(
-    source: str,
-    section: str,
-    db: Annotated[Session, Depends(get_db)],
-):
+def get_section_text(source: str, section: str):
     """Return the full textbook section text for a citation (no LLM)."""
-    from models import KnowledgeChunk
+    from modules.qa.knowledge_base.chapter_index import _ensure_index
 
-    source_key = f"textbook:{source}" if not source.startswith("textbook:") else source
-    chunks = (
-        db.query(KnowledgeChunk)
-        .filter(KnowledgeChunk.source == source_key, KnowledgeChunk.section.like(f"{section}%"))
-        .order_by(KnowledgeChunk.section)
-        .all()
-    )
-    if not chunks:
-        raise HTTPException(status_code=404, detail="教材章节不存在")
-    parts = [c.chunk_text for c in chunks]
-    return {"source": source, "section": section, "text": "\n\n".join(parts)}
+    idx = _ensure_index()
+    tb = idx.get(source)
+    if not tb:
+        raise HTTPException(status_code=404, detail=f"教材 '{source}' 不存在")
+    for ch_name, ch_data in tb["chapters"].items():
+        for sec in ch_data["sections"]:
+            if sec["heading"] == section:
+                return {"source": source, "section": section, "text": sec["body"]}
+    raise HTTPException(status_code=404, detail="教材章节不存在")
 
 
 @router.post("/ask", response_model=QAAskResponse)

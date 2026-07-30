@@ -15,11 +15,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-try:
-    import jieba
-except ImportError:
-    jieba = None  # ty: ignore[invalid-assignment]
-
 log = logging.getLogger(__name__)
 
 TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "textbooks"
@@ -101,8 +96,6 @@ def _ensure_index() -> dict[str, Any]:
     return _index
 
 
-def _try_jieba():
-    return jieba is not None
 
 
 # ── Tools exposed to LLM ──
@@ -136,11 +129,7 @@ def search(query: str, textbook: str | None = None, top_k: int = 5) -> list[dict
     Each result: {textbook, chapter, heading, snippet (≤500 chars), match_count}
     """
     idx = _ensure_index()
-    has_jieba = _try_jieba()
-    if has_jieba:
-        terms = [w.strip() for w in jieba.lcut(query) if len(w.strip()) >= 2]
-    else:
-        terms = [w.strip() for w in re.split(r"[,，\s]+", query) if len(w.strip()) >= 2]
+    terms = [w.strip() for w in re.split(r"[,，\s]+", query) if len(w.strip()) >= 2]
 
     if not terms:
         terms = [query]

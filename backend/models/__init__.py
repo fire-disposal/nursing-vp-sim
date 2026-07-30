@@ -6,7 +6,7 @@ from models.feedback import Feedback
 from models.feedback_image import FeedbackImage
 from models.llm import ApiSecret, LLMCallLog
 from models.notification import Notification, SystemNotification
-from models.qa import KnowledgeChunk, QARecord, QASession
+from models.qa import QARecord, QASession
 from models.questionnaire import (
     CaseQuestionnaire,
     QuestionnaireAnswer,
@@ -36,7 +36,6 @@ __all__ = [
     "Feedback",
     "FeedbackImage",
     "Grade",
-    "KnowledgeChunk",
     "LLMCallLog",
     "Message",
     "Notification",
