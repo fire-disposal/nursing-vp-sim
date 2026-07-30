@@ -1910,8 +1910,10 @@
                   "type": "null"
                 }
               ],
+              "description": "搜索用户名/姓名/学号",
               "title": "Search"
-            }
+            },
+            "description": "搜索用户名/姓名/学号"
           },
           {
             "name": "role",
@@ -1926,8 +1928,10 @@
                   "type": "null"
                 }
               ],
+              "description": "角色筛选 student/teacher",
               "title": "Role"
-            }
+            },
+            "description": "角色筛选 student/teacher"
           },
           {
             "name": "class_id",
@@ -2006,7 +2010,7 @@
             "schema": {
               "type": "string",
               "pattern": "^(csv|xlsx)$",
-              "default": "xlsx",
+              "default": "csv",
               "title": "Format"
             }
           }
@@ -3936,6 +3940,136 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/deploy-warning": {
+      "post": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Set Deploy Warning",
+        "operationId": "set_deploy_warning_api_admin_deploy_warning_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "message",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "系统即将进行版本更新，服务可能短暂中断，请保存当前进度。",
+              "title": "Message"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Clear Deploy Warning",
+        "operationId": "clear_deploy_warning_api_admin_deploy_warning_delete",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/deploy-status": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Get Deploy Status",
+        "description": "One-shot status check — CI and health probes use this.",
+        "operationId": "get_deploy_status_api_deploy_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/deploy-status/stream": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Deploy Status Stream",
+        "description": "SSE stream — pushes deploy warning changes with <1s latency.",
+        "operationId": "deploy_status_stream_api_deploy_status_stream_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -6753,6 +6887,145 @@
         }
       }
     },
+    "/api/training/records/{record_id}": {
+      "delete": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Delete Record",
+        "operationId": "delete_record_api_training_records__record_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Record Detail",
+        "operationId": "get_record_detail_api_training_records__record_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingRecordDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/records/{record_id}/abandon": {
+      "put": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Abandon Record",
+        "operationId": "abandon_record_api_training_records__record_id__abandon_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/records": {
       "get": {
         "tags": [
@@ -6914,6 +7187,24 @@
             "description": "按训练类型筛选(history_taking)"
           },
           {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按用户ID筛选（仅 score_review 权限生效）",
+              "title": "User Id"
+            },
+            "description": "按用户ID筛选（仅 score_review 权限生效）"
+          },
+          {
             "name": "exclude_is_test",
             "in": "query",
             "required": false,
@@ -6950,13 +7241,13 @@
         }
       }
     },
-    "/api/training/records/{record_id}": {
-      "get": {
+    "/api/training/{record_id}/initiative/trigger": {
+      "post": {
         "tags": [
           "训练"
         ],
-        "summary": "Get Record Detail",
-        "operationId": "get_record_detail_api_training_records__record_id__get",
+        "summary": "Trigger Initiative",
+        "operationId": "trigger_initiative_api_training__record_id__initiative_trigger_post",
         "security": [
           {
             "HTTPBearer": []
@@ -6979,99 +7270,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrainingRecordDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Delete Record",
-        "operationId": "delete_record_api_training_records__record_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/records/{record_id}/abandon": {
-      "put": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Abandon Record",
-        "operationId": "abandon_record_api_training_records__record_id__abandon_put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
+                  "$ref": "#/components/schemas/InitiativeTriggerResponse"
                 }
               }
             }
@@ -7432,53 +7631,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/{record_id}/initiative/trigger": {
-      "post": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Trigger Initiative",
-        "operationId": "trigger_initiative_api_training__record_id__initiative_trigger_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InitiativeTriggerResponse"
                 }
               }
             }
@@ -13725,6 +13877,13 @@
               }
             ],
             "title": "Scene"
+          },
+          "required_inquiries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Inquiries"
           },
           "is_test": {
             "type": "boolean",

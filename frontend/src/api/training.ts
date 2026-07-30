@@ -33,6 +33,7 @@ export interface GetRecordsParams {
 	class_id?: number;
 	training_type?: string;
 	exclude_is_test?: boolean;
+	user_id?: number;
 }
 
 export const getRecords = (params: GetRecordsParams = {}) =>

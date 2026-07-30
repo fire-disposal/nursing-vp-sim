@@ -72,7 +72,7 @@ class StudentService:
 
             case_name = a.case.name if a.case else ""
             user_records = records_by_assignment.get(a.id, [])
-            attempt_count = sum(1 for r in user_records if r.status != "in_progress")
+            attempt_count = sum(1 for r in user_records if r.status not in ("in_progress", "discarded"))
 
             end_time = ensure_utc(a.end_time)
             if a.is_closed or now > end_time:

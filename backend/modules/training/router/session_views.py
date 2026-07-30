@@ -54,6 +54,7 @@ def get_records(
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
     training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
+    user_id: Annotated[int | None, Query(description="按用户ID筛选（仅 score_review 权限生效）")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
 ):
 
@@ -62,6 +63,8 @@ def get_records(
     if not current_user.has_permission("score_review"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
     else:
+        if user_id is not None:
+            base = base.filter(TrainingRecord.user_id == user_id)
         if student_name:
             base = base.filter(TrainingRecord.user.has(User.display_name.ilike(f"%{student_name}%")))
         if case_id is not None:
@@ -70,7 +73,6 @@ def get_records(
             base = base.join(UserClass, UserClass.user_id == TrainingRecord.user_id).filter(
                 UserClass.class_id == class_id
             )
-
     base = base.filter(TrainingRecord.training_type == "history_taking")
     if exclude_is_test:
         base = base.filter(TrainingRecord.is_test == False)

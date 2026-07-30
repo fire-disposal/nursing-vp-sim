@@ -317,7 +317,7 @@ class TestAssignmentFlow:
         assert s["record_id"] == r_new.id, f"Expected latest record {r_new.id}, got {s['record_id']}"
         assert s["status"] == "in_progress"
         assert s["score_total"] is None
-        assert s["attempt_count"] == 2
+        assert s["attempt_count"] == 1
         assert detail["completed_count"] == 1
         assert detail["scored_count"] == 0
 

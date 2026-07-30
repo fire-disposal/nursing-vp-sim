@@ -383,8 +383,14 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			emptyDescription="点击上方按钮创建第一次作业"
 			renderCard={(a) => (
 				<div className="rounded-lg border bg-card p-3 space-y-2">
-					<div className="text-sm font-medium truncate">{a.title}</div>
+					<div className="flex items-start justify-between gap-2">
+						<div className="text-sm font-medium truncate flex-1">{a.title}</div>
+						{statusBadge(a)}
+					</div>
 					<div className="text-xs text-muted-foreground">{a.case_name} · {a.class_name}</div>
+					<div className="text-xs text-muted-foreground">
+						{formatWindow(a.start_time)} ~ {formatWindow(a.end_time)}
+					</div>
 					<div className="flex items-center justify-between gap-2">
 						<span className="text-xs text-muted-foreground">
 							{a.completed_count ?? 0}/{a.student_count ?? 0} 完成

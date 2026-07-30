@@ -1061,6 +1061,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/deploy-warning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Deploy Warning */
+        post: operations["set_deploy_warning_api_admin_deploy_warning_post"];
+        /** Clear Deploy Warning */
+        delete: operations["clear_deploy_warning_api_admin_deploy_warning_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Deploy Status
+         * @description One-shot status check — CI and health probes use this.
+         */
+        get: operations["get_deploy_status_api_deploy_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-status/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deploy Status Stream
+         * @description SSE stream — pushes deploy warning changes with <1s latency.
+         */
+        get: operations["deploy_status_stream_api_deploy_status_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1855,23 +1913,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Records */
-        get: operations["get_records_api_training_records_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/training/records/{record_id}": {
         parameters: {
             query?: never;
@@ -1901,6 +1942,40 @@ export interface paths {
         /** Abandon Record */
         put: operations["abandon_record_api_training_records__record_id__abandon_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Records */
+        get: operations["get_records_api_training_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/initiative/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger Initiative */
+        post: operations["trigger_initiative_api_training__record_id__initiative_trigger_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2020,23 +2095,6 @@ export interface paths {
         /** Mark Notification Unread */
         put: operations["mark_notification_unread_api_training_notifications__notif_id__unread_put"];
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/initiative/trigger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Trigger Initiative */
-        post: operations["trigger_initiative_api_training__record_id__initiative_trigger_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4512,6 +4570,8 @@ export interface components {
             scene?: {
                 [key: string]: unknown;
             } | null;
+            /** Required Inquiries */
+            required_inquiries?: string[];
             /**
              * Is Test
              * @default false
@@ -5995,7 +6055,9 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
+                /** @description 角色筛选 student/teacher */
                 role?: string | null;
                 class_id?: number | null;
                 grade_id?: number | null;
@@ -7245,6 +7307,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_deploy_warning_api_admin_deploy_warning_post: {
+        parameters: {
+            query?: {
+                token?: string;
+                message?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_deploy_warning_api_admin_deploy_warning_delete: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deploy_status_api_deploy_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    deploy_status_stream_api_deploy_status_stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -8833,53 +8998,6 @@ export interface operations {
             };
         };
     };
-    get_records_api_training_records_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-                /** @description 按学生姓名模糊搜索 */
-                student_name?: string | null;
-                /** @description 按病例ID筛选 */
-                case_id?: number | null;
-                /** @description 按状态筛选(in_progress/completed) */
-                status?: string | null;
-                /** @description 开始日期 ISO 格式 (含) */
-                date_from?: string | null;
-                /** @description 结束日期 ISO 格式 (含) */
-                date_to?: string | null;
-                class_id?: number | null;
-                /** @description 按训练类型筛选(history_taking) */
-                training_type?: string | null;
-                /** @description 排除试跑记录 */
-                exclude_is_test?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_TrainingRecordBrief_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_record_detail_api_training_records__record_id__get: {
         parameters: {
             query?: never;
@@ -8960,6 +9078,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_records_api_training_records_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                /** @description 按学生姓名模糊搜索 */
+                student_name?: string | null;
+                /** @description 按病例ID筛选 */
+                case_id?: number | null;
+                /** @description 按状态筛选(in_progress/completed) */
+                status?: string | null;
+                /** @description 开始日期 ISO 格式 (含) */
+                date_from?: string | null;
+                /** @description 结束日期 ISO 格式 (含) */
+                date_to?: string | null;
+                class_id?: number | null;
+                /** @description 按训练类型筛选(history_taking) */
+                training_type?: string | null;
+                /** @description 按用户ID筛选（仅 score_review 权限生效） */
+                user_id?: number | null;
+                /** @description 排除试跑记录 */
+                exclude_is_test?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_TrainingRecordBrief_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_initiative_api_training__record_id__initiative_trigger_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeTriggerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9172,37 +9370,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    trigger_initiative_api_training__record_id__initiative_trigger_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InitiativeTriggerResponse"];
                 };
             };
             /** @description Validation Error */

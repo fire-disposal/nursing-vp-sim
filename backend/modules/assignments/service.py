@@ -95,22 +95,19 @@ class AssignmentService:
         offset: int,
         limit: int,
     ) -> tuple[list, int]:
-        student_sub = (
-            self.db.query(func.count(TrainingRecord.id))
-            .filter(TrainingRecord.assignment_id == Assignment.id)
-            .correlate(Assignment)
-            .scalar_subquery()
-        )
         completed_sub = (
-            self.db.query(func.count(TrainingRecord.id))
-            .filter(TrainingRecord.assignment_id == Assignment.id, TrainingRecord.status == "completed")
+            self.db.query(func.count(func.distinct(TrainingRecord.user_id)))
+            .filter(
+                TrainingRecord.assignment_id == Assignment.id,
+                TrainingRecord.status == "completed",
+                TrainingRecord.is_test == False,
+            )
             .correlate(Assignment)
             .scalar_subquery()
         )
 
         q = self.db.query(
             Assignment,
-            student_sub.label("student_count"),
             completed_sub.label("completed_count"),
         ).options(
             joinedload(Assignment.case),
@@ -235,7 +232,7 @@ class AssignmentService:
                     start_time=best.start_time,
                     end_time=best.end_time,
                     is_overdue=best.is_overdue,
-                    attempt_count=len(user_records),
+                    attempt_count=sum(1 for r in user_records if r.status not in ("in_progress", "discarded")),
                 )
             )
 
@@ -254,8 +251,7 @@ class AssignmentService:
             min_score_data = round(min(scores), 1)
         else:
             avg_score = max_score_data = min_score_data = None
-        completed_students = sum(1 for s in student_items if s.status == "completed")
-        completion_rate = round(completed_students / len(student_items), 2) if student_items else 0.0
+        completion_rate = round(completed_count / len(student_items), 2) if student_items else 0.0
 
         return AssignmentDetailView(
             id=assignment.id,
@@ -335,6 +331,17 @@ class AssignmentService:
         limit: int,
     ) -> tuple[list[AssignmentListView], int]:
         rows, total = self.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
+
+        class_ids = {r[0].class_id for r in rows}
+        class_sizes: dict[int, int] = {}
+        if class_ids:
+            class_sizes = dict(
+                self.db.query(UserClass.class_id, func.count(UserClass.user_id))
+                .filter(UserClass.class_id.in_(class_ids))
+                .group_by(UserClass.class_id)
+                .all()
+            )
+
         items = [
             AssignmentListView(
                 id=r[0].id,
@@ -344,8 +351,8 @@ class AssignmentService:
                 teacher_name=r[0].teacher.display_name if r[0].teacher else "",
                 start_time=r[0].start_time,
                 end_time=r[0].end_time,
-                student_count=r[1],
-                completed_count=r[2],
+                student_count=len(r[0].student_ids) if r[0].student_ids else class_sizes.get(r[0].class_id, 0),
+                completed_count=r[1],
                 created_at=r[0].created_at,
                 is_closed=r[0].is_closed,
             )

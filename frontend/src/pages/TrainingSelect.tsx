@@ -96,7 +96,7 @@ export default function TrainingSelect() {
 
   const { data: recordsData } = useQuery({
     queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
-    queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false }).then((r) => r.data),
+    queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
     staleTime: 0,  // always refetch on mount — in_progress records change frequently
   });
 
@@ -104,6 +104,7 @@ export default function TrainingSelect() {
   const assignments = (assignmentsData ?? []) as Array<{
     id: string; title: string; case_name: string; status: string;
     end_time: string; record_id?: number | null; score_total?: number | null;
+    is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
   }>;
 
   const inProgressCount = useMemo(() => records.filter((r) => r.status === "in_progress").length, [records]);
@@ -545,6 +546,22 @@ export default function TrainingSelect() {
               const isExpired = a.end_time && new Date(a.end_time) < new Date();
               const isCompleted = a.status === "completed";
               const isInProgress = a.status === "in_progress";
+              const attemptsLeft =
+                a.max_attempts != null && a.max_attempts > 0
+                  ? a.max_attempts - (a.attempt_count ?? 0)
+                  : null;
+              const hasCompletedBefore = (a.attempt_count ?? 0) > 0 && a.status !== "in_progress";
+
+              const handleReattempt = () => {
+                if (isCompleted && a.score_total != null) {
+                  const ok = window.confirm(
+                    `你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`
+                  );
+                  if (!ok) return;
+                }
+                handleStartAssignment(a.id);
+              };
+
               return (
                 <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-danger bg-danger/30" : isCompleted ? "border-success bg-success/30" : "border-border bg-card hover:border-primary/30")}>
                   <div>
@@ -554,13 +571,22 @@ export default function TrainingSelect() {
                       {isCompleted && <Badge variant="success">已完成</Badge>}
                       {!isExpired && !isCompleted && <Badge variant="secondary">待完成</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{a.case_name}{a.score_total != null && <> · 得分 {a.score_total}</>}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {a.case_name}
+                      {a.score_total != null && <> · 得分 {a.score_total}</>}
+                    </p>
+                    {(a.attempt_count ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        已尝试 {a.attempt_count} 次
+                        {attemptsLeft != null && <> · 剩余 {attemptsLeft} 次</>}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-auto">
                     {isInProgress && a.record_id ? (
                       <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
                     ) : !isExpired && isCompleted ? (
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => handleStartAssignment(a.id)}><RotateCcw size={14} />重新训练</Button>
+                      <Button size="sm" variant="outline" className="w-full" onClick={handleReattempt}><RotateCcw size={14} />重新训练</Button>
                     ) : !isExpired && !isCompleted ? (
                       <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
                     ) : null}

@@ -147,7 +147,7 @@ export function ScoringOverlay({
 				{isActive && (
 					<div className="mt-3 flex items-center justify-between gap-3">
 						<p className="text-[11px] text-muted-foreground leading-tight">评分完成后自动跳转结果页，<br />也可提前返回训练选择</p>
-						<button type="button" onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate("/training"); }, 200); }}
+						<button type="button" onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate(-1); }, 200); }}
 							className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted transition-colors">
 							返回训练选择
 						</button>

@@ -31,7 +31,7 @@ export default function RecordDetail() {
 	useEffect(() => {
 		if (recordError) {
 			toast.apiError(recordError, "加载失败");
-			navigate("/history");
+			navigate(-1);
 		}
 	}, [recordError, navigate, toast]);
 
@@ -69,7 +69,7 @@ export default function RecordDetail() {
 	return (
 		<div className="max-w-6xl mx-auto pt-2 pb-8">
 			<div className="flex items-center gap-2 mb-3">
-				<button onClick={() => navigate("/history")} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
+				<button onClick={() => navigate(-1)} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
 					<ArrowLeft size={16} />
 				</button>
 				<h1 className="text-sm font-semibold truncate">{(record as { user_display_name?: string }).user_display_name || ""} · {(record as { case_name?: string }).case_name || ""}</h1>

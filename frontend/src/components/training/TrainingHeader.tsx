@@ -260,7 +260,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 				<DialogContent title="离开训练" maxWidth={300}>
 					<p className="text-sm text-muted-foreground mb-5">训练仍在进行中，进度已自动保存</p>
 					<div className="flex flex-col gap-2">
-						<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate("/training"); }}>
+						<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
 							暂离，保留进度
 						</Button>
 						<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, Search } from "lucide-react";
+import { ArrowLeft, Copy, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
@@ -96,6 +96,17 @@ export default function AssignmentDetailPage() {
 	const allStudents = (data?.students as any[] | undefined) ?? [];
 	const notStartedCount = allStudents.filter((s: any) => s.status === "not_started").length;
 	const overdueCount = allStudents.filter((s: any) => s.status === "overdue").length;
+	const unfinishedStudents = allStudents.filter((s: any) => s.status !== "completed");
+
+	const handleCopyUnfinished = async () => {
+		const names = unfinishedStudents.map((s: any) => s.display_name).join("\n");
+		try {
+			await navigator.clipboard.writeText(names);
+			toast.success(`已复制 ${unfinishedStudents.length} 名未完成学生名单`);
+		} catch {
+			toast.error("复制失败，请手动复制");
+		}
+	};
 
 	if (isLoading) return <LoadingSkeleton />;
 	if (error || !data)
@@ -269,6 +280,16 @@ export default function AssignmentDetailPage() {
 						<option value="not_started">未开始</option>
 						<option value="overdue">已逾期</option>
 					</select>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleCopyUnfinished}
+						disabled={unfinishedStudents.length === 0}
+						title="复制未完成学生名单"
+					>
+						<Copy size={14} className="mr-1" />
+						复制未完成名单{unfinishedStudents.length > 0 ? ` (${unfinishedStudents.length})` : ""}
+					</Button>
 				</div>
 				<div className="overflow-x-auto">
 				<Table>
