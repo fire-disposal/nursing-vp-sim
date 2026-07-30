@@ -1,4 +1,4 @@
-// AUTO-GENERATED from backend/contexts/training/capabilities.py — DO NOT EDIT.
+// AUTO-GENERATED from backend/modules/training/capabilities.py — DO NOT EDIT.
 // 由 `pnpm run cap:generate` 生成；修改能力请改后端并重新生成。
 
 export type CapabilityTier = "builtin" | "toggleable";

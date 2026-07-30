@@ -1,6 +1,6 @@
 """生成前端能力表 frontend/src/engine/capabilities.gen.ts。
 
-单一真相：从 backend/contexts/training/capabilities.py 的 TOOL_BINDINGS 派生。
+单一真相：从 backend/modules/training/capabilities.py 的 TOOL_BINDINGS 派生。
 运行：cd backend && uv run python scripts/gen_capabilities_ts.py
 """
 
@@ -39,7 +39,7 @@ def main_gen() -> None:
     all_json = json.dumps(all_caps, ensure_ascii=False, indent=2)
     training_json = json.dumps(training_caps, ensure_ascii=False, indent=2)
 
-    ts = f"""// AUTO-GENERATED from backend/contexts/training/capabilities.py — DO NOT EDIT.
+    ts = f"""// AUTO-GENERATED from backend/modules/training/capabilities.py — DO NOT EDIT.
 // 由 `pnpm run cap:generate` 生成；修改能力请改后端并重新生成。
 
 export type CapabilityTier = "builtin" | "toggleable";
