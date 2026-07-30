@@ -94,7 +94,7 @@ export default function TrainingSelect() {
 
   const { data: recordsData } = useQuery({
     queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
-    queryFn: () => getRecords({ limit: 50, offset: 0 }).then((r) => r.data),
+    queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false }).then((r) => r.data),
     staleTime: 0,  // always refetch on mount — in_progress records change frequently
   });
 
