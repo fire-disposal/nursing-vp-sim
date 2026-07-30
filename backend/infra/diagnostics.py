@@ -48,6 +48,12 @@ def clear_deploy_warning(token: str = Query("")):
     return {"active": False}
 
 
+
+
+@router.get("/api/deploy-status")
+def get_deploy_status():
+    """One-shot status check — CI and health probes use this."""
+    return _deploy_warning or {"active": False}
 @router.get("/api/deploy-status/stream")
 async def deploy_status_stream(request: Request):
     """SSE stream — pushes deploy warning changes with <1s latency."""
