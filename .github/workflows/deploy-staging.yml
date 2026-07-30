@@ -123,6 +123,12 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+
+      - name: Activate deploy warning banner
+        run: |
+          curl -s -X POST "https://test.205716.xyz/api/admin/deploy-warning?token=${{ secrets.DEPLOY_WARNING_TOKEN }}" \
+            -G --data-urlencode "message=系统即将更新到 ${{ steps.resolve_version.outputs.version }}，预计 3-5 分钟，请保存当前进度。" \
+            || echo "Warning: could not activate deploy banner (server may be down)"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

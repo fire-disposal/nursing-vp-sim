@@ -75,8 +75,10 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 # 运维诊断令牌 — /api/ops/* 和 /api/diagnose 端点的访问密钥
 DIAGNOSE_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
 
-# 反馈 Bot 令牌 — /api/feedback/bot 端点的独立访问密钥（外部 AI 接入）
 FEEDBACK_BOT_TOKEN = os.getenv("FEEDBACK_BOT_TOKEN", "")
+
+# 部署警告横幅专用令牌 —— CI 流水线在构建前调用 /api/admin/deploy-warning 使用
+DEPLOY_WARNING_TOKEN = os.getenv("DEPLOY_WARNING_TOKEN", "")
 
 # LLM HTTP 连接池
 LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))

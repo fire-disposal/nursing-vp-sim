@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from core.config import APP_VERSION, DIAGNOSE_TOKEN
+from core.config import APP_VERSION, DEPLOY_WARNING_TOKEN, DIAGNOSE_TOKEN
 from core.database import SessionLocal, engine
 from infra.diagnose import get_diagnose_service
 from infra.ops_queries import build_dashboard, compute_alerts
@@ -30,7 +30,7 @@ _deploy_warning: dict | None = None
 
 @router.post("/api/admin/deploy-warning")
 def set_deploy_warning(token: str = Query(""), message: str = Query("系统即将进行版本更新，服务可能短暂中断，请保存当前进度。")):
-    _check_token(token)
+    _check_deploy_token(token)
     global _deploy_warning
     _deploy_warning = {"active": True, "message": message, "set_at": datetime.now(UTC).isoformat()}
     log.warning("Deploy warning activated: %s", message)
@@ -39,7 +39,7 @@ def set_deploy_warning(token: str = Query(""), message: str = Query("系统即�
 
 @router.delete("/api/admin/deploy-warning")
 def clear_deploy_warning(token: str = Query("")):
-    _check_token(token)
+    _check_deploy_token(token)
     global _deploy_warning
     _deploy_warning = None
     log.info("Deploy warning cleared")
@@ -58,6 +58,13 @@ def _check_token(token: str) -> None:
     if token != DIAGNOSE_TOKEN:
         raise HTTPException(status_code=403, detail="invalid token")
 
+
+
+def _check_deploy_token(token: str) -> None:
+    if not DEPLOY_WARNING_TOKEN:
+        raise HTTPException(status_code=404, detail="not found")
+    if token != DEPLOY_WARNING_TOKEN:
+        raise HTTPException(status_code=403, detail="invalid token")
 
 # ── Health ──────────────────────────────────────────────────────────────────
 
