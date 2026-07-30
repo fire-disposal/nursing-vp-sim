@@ -1,10 +1,14 @@
 """Unified application exception hierarchy with structured error codes."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from enum import StrEnum
+from typing import TypeVar, cast
 
-from fastapi import HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import Response
+from starlette.types import ExceptionHandler
 
 log = logging.getLogger(__name__)
 
@@ -171,3 +175,22 @@ def log_error(logger: logging.Logger, msg: str, extra: dict | None = None) -> No
     structured correlation across log lines.
     """
     logger.exception(msg, extra=extra or {})
+
+
+ExcT = TypeVar("ExcT", bound=Exception)
+
+TypedExceptionHandler = Callable[[Request, ExcT], Response | Awaitable[Response]]
+
+
+def register_exception_handler(
+    app: FastAPI,
+    exc_type: type[ExcT],
+    handler: TypedExceptionHandler[ExcT],
+) -> None:
+    """Register a type-safe exception handler.
+
+    Starlette's ``add_exception_handler`` cannot express the relationship
+    between *exc_type* and `handler`'s parameter type.  This wrapper uses
+    ``cast`` once so call sites stay clean and type-safe.
+    """
+    app.add_exception_handler(exc_type, cast(ExceptionHandler, handler))

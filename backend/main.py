@@ -8,7 +8,7 @@ import time
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -34,6 +34,7 @@ from core.exceptions import (
     conflict_handler,
     llm_error_handler,
     not_found_handler,
+    register_exception_handler,
     scoring_error_handler,
     validation_error_handler,
 )
@@ -242,21 +243,24 @@ def _handle_task_exception(loop, ctx):
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
 
 
-# ── Custom exception handlers (registered before the generic handler) ──
+# ── Domain exception handlers ──
 
-app.add_exception_handler(AuthError, auth_error_handler)        # ty: ignore — FastAPI handler type covariance
-app.add_exception_handler(NotFoundError, not_found_handler)     # ty: ignore — FastAPI handler type covariance
-app.add_exception_handler(ConflictError, conflict_handler)      # ty: ignore — FastAPI handler type covariance
-app.add_exception_handler(ValidationError, validation_error_handler)  # ty: ignore — FastAPI handler type covariance
-app.add_exception_handler(LLMError, llm_error_handler)          # ty: ignore — FastAPI handler type covariance
-app.add_exception_handler(ScoringError, scoring_error_handler)  # ty: ignore — FastAPI handler type covariance
+register_exception_handler(app, AuthError, auth_error_handler)
+register_exception_handler(app, NotFoundError, not_found_handler)
+register_exception_handler(app, ConflictError, conflict_handler)
+register_exception_handler(app, ValidationError, validation_error_handler)
+register_exception_handler(app, LLMError, llm_error_handler)
+register_exception_handler(app, ScoringError, scoring_error_handler)
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    if isinstance(exc, HTTPException):
-        raise exc
-    log.exception("未处理异常 %s %s", request.method, request.url.path)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    log.error(
+        "未处理异常 %s %s",
+        request.method,
+        request.url.path,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
 

@@ -27,6 +27,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
 REFRESH_MAX_AGE_HOURS = int(os.getenv("REFRESH_MAX_AGE_HOURS", "336"))  # 14 days absolute max
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
 def validate_config():
     if not JWT_SECRET_KEY:
@@ -43,7 +44,7 @@ def validate_config():
     if db.scheme not in ("postgresql", "postgresql+psycopg"):
         raise RuntimeError(f"DATABASE_URL scheme 无效: {db.scheme}（期望 postgresql 或 postgresql+psycopg）")
 
-    cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
+    cors_raw = CORS_ORIGINS
     if not cors_raw or not any(o.strip() for o in cors_raw.split(",")):
         log.warning("CORS_ORIGINS 未配置或为空，跨域请求将全部被拒绝")
     origins = [o.strip() for o in cors_raw.split(",") if o.strip()]
@@ -121,7 +122,7 @@ def log_config(logger):
     logger.info("  环境:       %s", ENV)
     logger.info("  版本:       %s", APP_VERSION)
     logger.info("  数据库:     %s", db_safe)
-    logger.info("  CORS:       %s", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000"))
+    logger.info("  CORS:       %s", CORS_ORIGINS)
     jwt_tail = JWT_SECRET_KEY[-4:] if len(JWT_SECRET_KEY) >= 4 else "****"
     logger.info("  JWT 密钥:   ***%s (%d 位)", jwt_tail, len(JWT_SECRET_KEY))
     logger.info("  DeepSeek:   %s (key=***%s)", DEEPSEEK_BASE_URL, api_tail)
