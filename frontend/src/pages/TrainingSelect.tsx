@@ -194,7 +194,27 @@ export default function TrainingSelect() {
         if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
         navigate(`/training/${(data as { record_id: number }).record_id}`);
       }
-    } catch (err: unknown) { toast.apiError(err, "开始作业失败，请刷新后重试"); }
+    } catch (err: unknown) {
+      if ((err as { status?: number }).status === 409) {
+        const detail = (err as { response?: { data?: { code?: string; record_id?: number; case_name?: string } } }).response?.data;
+        if (detail?.code === "existing_training") {
+          const ok = await confirm({
+            title: "有进行中的训练",
+            message: `你有一个未完成的训练「${detail.case_name ?? "未知"}」。要继续之前的训练，还是放弃并开始新训练？`,
+            confirmLabel: "放弃并开始新训练",
+            danger: true,
+          });
+          if (ok) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+            handleStartAssignment(assignmentId);
+          } else if (detail.record_id) {
+            navigate(`/training/${detail.record_id}`);
+          }
+          return;
+        }
+      }
+      toast.apiError(err, "开始作业失败，请刷新后重试");
+    }
   };
 
   const cases = casesData?.items ?? [];

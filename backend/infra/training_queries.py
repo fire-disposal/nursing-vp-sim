@@ -9,29 +9,25 @@ from core.datetime_utils import ensure_utc
 from models import Assignment, TrainingRecord
 
 
-def find_timeout_records(db: Session) -> list[TrainingRecord]:
-    """Find training records that have timed out."""
-    now = datetime.now(UTC)
+STALE_HOURS = 24
+
+
+def find_stale_records(db: Session) -> list[TrainingRecord]:
+    """Find in_progress records idle for >24h — auto-abandon as safety net."""
+    from datetime import timedelta
+
+    cutoff = datetime.now(UTC) - timedelta(hours=STALE_HOURS)
     return (
         db.query(TrainingRecord)
         .filter(TrainingRecord.status == "in_progress")
-        .filter(
-            text(
-                "training_records.start_time + (training_records.time_limit * interval '1 minute') < :now"
-            ).bindparams(now=now)
-        )
+        .filter(TrainingRecord.start_time < cutoff)
         .all()
     )
 
 
-def mark_completed(db: Session, record_id: int) -> None:
-    """Mark a training record as completed (used in settlement)."""
+def abandon_record(db: Session, record_id: int) -> None:
+    """Auto-abandon a stale record (safety net for abandoned sessions)."""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if record:
-        record.status = "completed"
+    if record and record.status == "in_progress":
+        record.status = "abandoned"
         record.end_time = datetime.now(UTC)
-        record.scoring_status = "pending"
-        if record.assignment_id and not record.is_overdue:
-            assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
-            if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
-                record.is_overdue = True

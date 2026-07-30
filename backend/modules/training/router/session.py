@@ -418,7 +418,29 @@ def start_training_from_assignment(
 
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
         raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
+    # Global: only ONE in_progress training at a time
+    global_existing = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.status == "in_progress",
+            TrainingRecord.is_test == False,
+        )
+        .first()
+    )
+    if global_existing and global_existing.assignment_id != assignment.id:
+        case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "existing_training",
+                "record_id": global_existing.id,
+                "case_name": case.name if case else "未知病例",
+                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
+            },
+        )
 
+    # Same assignment: return existing record
     existing = (
         db.query(TrainingRecord)
         .filter(
