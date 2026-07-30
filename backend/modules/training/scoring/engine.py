@@ -14,8 +14,8 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
+from modules.training.profile import PROFILE
 from modules.training.scoring.rubric_loader import get_rubric_version_id
-from profiles.history_taking import PROFILE
 from prompts import render_template
 from prompts.training.scoring import (
     FEEDBACK_RETRY_USER,

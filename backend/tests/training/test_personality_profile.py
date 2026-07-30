@@ -2,7 +2,7 @@
 
 import pytest
 
-from profiles.history_taking.emotion_profile import PersonalityProfile
+from modules.training.patient_ai.emotion_profile import PersonalityProfile
 
 
 class TestPersonalityProfileDefaults:

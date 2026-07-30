@@ -20,7 +20,7 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_llm_config
 from models import Case, User
 from modules.training.pipeline.prompt_context import PromptContext
-from profiles.history_taking.builder import format_case_for_prompt
+from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
 from prompts import render_template
 from prompts.generation import build_system_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse

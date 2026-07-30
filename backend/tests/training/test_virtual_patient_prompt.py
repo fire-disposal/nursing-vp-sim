@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from modules.training.patient_ai.chat_messages import build_patient_chat_messages
-from profiles.history_taking.builder import build_context_kwargs
+from modules.training.pipeline.prompt_context_builder import build_context_kwargs
 
 
 class TestBuildPatientContextKwargs:

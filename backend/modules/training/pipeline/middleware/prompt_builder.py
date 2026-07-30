@@ -10,12 +10,12 @@ from __future__ import annotations
 import logging
 
 from modules.training.patient_ai.chat_messages import build_patient_chat_messages
+from modules.training.pipeline.prompt_context_builder import build_context_kwargs
+from modules.training.profile import PROFILE
 from modules.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
-from profiles.history_taking import PROFILE
-from profiles.history_taking.builder import build_context_kwargs
 from prompts import render_template
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext

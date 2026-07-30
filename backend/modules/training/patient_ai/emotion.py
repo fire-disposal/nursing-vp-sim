@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+from modules.training.patient_ai.emotion_profile import PersonalityProfile
 from modules.training.session.cache import EmotionCache
-from profiles.history_taking.emotion_profile import PersonalityProfile
 
 log = logging.getLogger(__name__)
 

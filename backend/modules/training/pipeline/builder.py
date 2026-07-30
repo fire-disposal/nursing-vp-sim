@@ -34,7 +34,7 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
 
     # --- assemble NoteCollector ---
     from modules.training.patient_ai.note_collector import NoteCollector
-    from profiles.history_taking import PROFILE
+    from modules.training.profile import PROFILE
 
     collector = NoteCollector()
     for src_cls in PROFILE.note_sources:

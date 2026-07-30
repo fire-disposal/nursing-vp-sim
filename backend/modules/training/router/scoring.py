@@ -261,8 +261,8 @@ async def _run_scoring_background(
         # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
+                from modules.training.profile import PROFILE
                 from modules.training.scoring.rubric import build_final_rubric
-                from profiles.history_taking import PROFILE
 
                 record.prompt_snapshot = {
                     "system": PROFILE.prompts.system,

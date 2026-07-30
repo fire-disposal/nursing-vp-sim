@@ -7,7 +7,7 @@ from sqlalchemy import func
 
 from core.deps import CurrentUser, DbSession
 from models import Case
-from profiles.history_taking import PROFILE
+from modules.training.profile import PROFILE
 
 log = logging.getLogger(__name__)
 

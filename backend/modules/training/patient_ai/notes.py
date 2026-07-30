@@ -21,7 +21,7 @@ class EmotionNoteSource(NoteSource):
     max_tokens = 100
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        from profiles.history_taking.emotion_profile import PersonalityProfile
+        from modules.training.patient_ai.emotion_profile import PersonalityProfile
 
         from .emotion import get_emotion
 

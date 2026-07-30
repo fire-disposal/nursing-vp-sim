@@ -33,7 +33,7 @@ for r in (
     router.include_router(r)
 
 # ── top-level routers (own absolute prefixes, registered at app root) ──
-# Lazy-loaded to avoid circular imports from profiles → training chain.
+# Lazy-loaded to avoid circular imports from training chain on startup.
 
 __all__ = [
     "get_top_level_routers",

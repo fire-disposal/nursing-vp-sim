@@ -29,7 +29,7 @@ from models import (
     VoiceCallLog,
 )
 from modules.training.capabilities import detect_capabilities
-from profiles.history_taking import PROFILE
+from modules.training.profile import PROFILE
 from schemas import (
     DeleteResponse,
     OkResponse,
