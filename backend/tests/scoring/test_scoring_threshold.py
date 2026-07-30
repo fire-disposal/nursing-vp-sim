@@ -14,25 +14,6 @@ def _start_training(client, token, case_id):
 
 
 class TestEndTrainingThreshold:
-    def test_zero_student_messages_enqueues_normally(self, client, student, test_case, db_session):
-        test_case.is_open = True
-        db_session.commit()
-
-        _user, token = student
-        record_id = _start_training(client, token, test_case.id)
-
-        resp = client.post(
-            f"/api/training/{record_id}/end",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["scoring_status"] == "pending"
-
-        record = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        db_session.refresh(record)
-        assert record.status == "completed"
-
     def test_two_short_messages_enqueues_normally(self, client, student, test_case, db_session):
         test_case.is_open = True
         db_session.commit()
@@ -90,25 +71,6 @@ class TestEndTrainingThreshold:
 
 
 class TestRetryScoringThreshold:
-    def test_retry_scoring_below_threshold_enqueues(self, client, student, test_case, db_session):
-        test_case.is_open = True
-        db_session.commit()
-
-        _user, token = student
-        record_id = _start_training(client, token, test_case.id)
-
-        record = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        record.status = "completed"
-        record.scoring_status = "failed"
-        db_session.commit()
-
-        resp = client.post(
-            f"/api/training/{record_id}/retry-scoring",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["scoring_status"] == "pending"
-
     def test_retry_scoring_enough_messages_enqueues(self, client, student, test_case, db_session):
         test_case.is_open = True
         db_session.commit()

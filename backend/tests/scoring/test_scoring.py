@@ -491,7 +491,7 @@ def test_validate_scoring_result_passes_with_complete_valid_data():
 def test_validate_scoring_result_defaults_wrong_type_strengths_then_raises():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": "not a list",
         "weaknesses": ["w"],
         "missed_content": ["m"],
@@ -504,7 +504,7 @@ def test_validate_scoring_result_defaults_wrong_type_strengths_then_raises():
 def test_validate_scoring_result_defaults_wrong_type_suggestions_then_raises():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": ["s"],
         "weaknesses": ["w"],
         "missed_content": ["m"],
@@ -517,7 +517,7 @@ def test_validate_scoring_result_defaults_wrong_type_suggestions_then_raises():
 def test_validate_scoring_result_defaults_wrong_type_weaknesses_then_raises():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": ["s"],
         "weaknesses": "wrong",
         "missed_content": ["m"],
@@ -530,7 +530,7 @@ def test_validate_scoring_result_defaults_wrong_type_weaknesses_then_raises():
 def test_validate_scoring_result_defaults_wrong_type_missed_content_then_raises():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": ["s"],
         "weaknesses": ["w"],
         "missed_content": 42,
@@ -543,7 +543,7 @@ def test_validate_scoring_result_defaults_wrong_type_missed_content_then_raises(
 def test_validate_scoring_result_leaves_correct_types_unchanged():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": ["s"],
         "weaknesses": ["w"],
         "missed_content": ["m"],
@@ -585,7 +585,7 @@ def test_validate_scoring_result_raises_missing_detail_scores():
 def test_validate_scoring_result_raises_missing_feedback_field():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "weaknesses": ["w"],
         "missed_content": ["m"],
         "suggestions": "sug",
@@ -597,7 +597,7 @@ def test_validate_scoring_result_raises_missing_feedback_field():
 def test_validate_scoring_result_raises_empty_strengths():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": [],
         "weaknesses": ["w"],
         "missed_content": ["m"],
@@ -609,7 +609,7 @@ def test_validate_scoring_result_raises_empty_strengths():
 def test_validate_scoring_result_raises_whitespace_suggestions():
     result = {
         "total_score": 80,
-        "detail_scores": {},
+        "detail_scores": {"dim": {"items": []}},
         "strengths": ["s"],
         "weaknesses": ["w"],
         "missed_content": ["m"],
