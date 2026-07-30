@@ -8,7 +8,6 @@ retry, rate-limiting, and logging logic.
 import asyncio
 import json
 import logging
-import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
@@ -81,8 +80,8 @@ class LLMClient:
         self._metrics = metrics
         self._recorder = CallRecorder(log_worker, metrics)
         from infra.llm.profile import PROFILES
-
-        _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
+        from core.config import LLM_WORKER_COUNT
+        _divisor = max(1, LLM_WORKER_COUNT)
         self._semaphores: dict[str, asyncio.Semaphore] = {
             p: asyncio.Semaphore(max(1, pf.semaphore // _divisor)) for p, pf in PROFILES.items()
         }

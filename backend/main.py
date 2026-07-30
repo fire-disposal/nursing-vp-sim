@@ -14,8 +14,10 @@ from fastapi.responses import JSONResponse
 
 from core.config import (
     APP_VERSION,
+    CORS_ORIGINS,
     LLM_CONNECTION_KEEPALIVE,
     LLM_CONNECTION_POOL_SIZE,
+    MAX_REQUEST_BYTES,
     REQUEST_TIMEOUT_SECONDS,
     log_config,
     validate_config,
@@ -37,12 +39,11 @@ from core.exceptions import (
 )
 from infra.llm import ProfileRouter
 from infra.logging_setup import setup_logging
-from scripts.seed import seed_all
+from seed import seed_all
 
 log = logging.getLogger(__name__)
 
-
-_MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
+_MAX_REQUEST_BYTES = MAX_REQUEST_BYTES
 
 
 BANNER = textwrap.dedent(r"""\
@@ -309,7 +310,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         o.strip()
-        for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+        for o in CORS_ORIGINS.split(",")
         if o.strip()
     ],
     allow_credentials=True,

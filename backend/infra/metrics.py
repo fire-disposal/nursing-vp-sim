@@ -12,6 +12,7 @@ import threading
 import time
 from collections import defaultdict
 from collections.abc import Callable
+from core.config import APP_VERSION
 from typing import Protocol, cast
 
 
@@ -200,7 +201,7 @@ class MetricsSnapshot:
 
         return dict(
             uptime_seconds=round(time.time() - self.started_at, 1),
-            version=os.getenv("APP_VERSION", "dev"),
+            version=APP_VERSION,
             requests=_safe(self._request_stats, {}),
             active_sessions=_safe(self.active_sessions_supplier, 0),
             llm=_safe(self._llm_stats, {}),

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -9,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.config import (
+    SCORING_RETRY_DELAY_SECONDS,
     SCORING_RETRY_GRACE_SECONDS,
     SCORING_TIMEOUT_SECONDS,
 )
@@ -33,7 +33,6 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-SCORING_RETRY_DELAY_SECONDS = int(os.getenv("SCORING_RETRY_DELAY_SECONDS", "30"))
 NO_STUDENT_MESSAGES_REASON = "no_student_messages"
 NO_STUDENT_MESSAGES_MESSAGE = "本次训练没有有效问诊内容，未生成评分"
 

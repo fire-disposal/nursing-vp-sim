@@ -17,7 +17,7 @@ from models import ApiSecret, Case, Role, RolePermission, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def seed_all() -> None:

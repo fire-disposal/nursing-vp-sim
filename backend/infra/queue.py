@@ -2,11 +2,11 @@
 
 import asyncio
 import logging
-import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
+from core.config import QUEUE_ENQUEUE_TIMEOUT, SCORING_WORKERS
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -41,7 +41,7 @@ class TaskQueue:
 
     def __init__(self, max_workers: int | None = None, max_size: int = 100):
         if max_workers is None:
-            max_workers = int(os.getenv("SCORING_WORKERS", "8"))
+            max_workers = SCORING_WORKERS
         _practical_max = 10  # bounded by scoring semaphore (llm_profile.py)
         if max_workers > _practical_max:
             log.warning(
@@ -56,7 +56,7 @@ class TaskQueue:
         self._queue: asyncio.PriorityQueue[_Task] = asyncio.PriorityQueue(maxsize=max_size)
         self._max_workers = max_workers
         self._workers: list[asyncio.Task[None]] = []
-        self._enqueue_timeout = float(os.getenv("QUEUE_ENQUEUE_TIMEOUT", "10"))
+        self._enqueue_timeout = QUEUE_ENQUEUE_TIMEOUT
 
     async def start(self) -> None:
         """Spawn worker coroutines."""
