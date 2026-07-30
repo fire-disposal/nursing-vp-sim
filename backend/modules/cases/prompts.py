@@ -72,7 +72,7 @@ CASE_GENERATION_TAIL = """
 
 ## 临床生成指南
 1. **真实可信**：症状描述、时间线、流行病学特征需符合临床实际
-2. **教育价值**：hidden_info 和 required_inquiries 适合护理学生训练
+2. **必问问诊项**：required_inquiries 必须生成 4-6 条，每条 5-15 字，覆盖该病例的核心病史采集点。hidden_info 与之对应——学生问到了问诊项才能发现隐藏信息。
 3. **评分标准**：评分标准由中央 rubric 管理，病例中不包含 scoring_criteria 字段
 4. **语言口语化**：opening_line、communication_style、example_dialogues 要有真实患者的口吻
 5. **患者信息多样化**：姓名随机生成，年龄与疾病流行病学特征匹配
