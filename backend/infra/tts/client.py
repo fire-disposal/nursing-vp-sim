@@ -205,10 +205,8 @@ class TTSRequest:
     speaker: str = "zh_female_vv_uranus_bigtts"
     speech_rate: int = 0
     loudness_rate: int = 0
-    context_texts: list[str] | None = None
     fmt: str = "mp3"
     sample_rate: int = 24000
-
 
 def _build_start_connection() -> bytes:
     """StartConnection — event-only, payload = {}"""
@@ -227,9 +225,6 @@ def _build_finish_connection() -> bytes:
     )
 
 def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
-    additions = {"disable_markdown_filter": False}
-    if req.context_texts:
-        additions["context_texts"] = req.context_texts
     body_json = json.dumps(
         {
             "event": EventType.StartSession,
@@ -243,7 +238,7 @@ def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
                     "speech_rate": req.speech_rate,
                     "loudness_rate": req.loudness_rate,
                 },
-                "additions": json.dumps(additions),
+                "additions": json.dumps({"disable_markdown_filter": False}),
             },
         },
         ensure_ascii=False,

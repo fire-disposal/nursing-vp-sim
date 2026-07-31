@@ -75,31 +75,3 @@ def resolve_voice_type(
 
     return lib["fallback"]
 
-
-# ── Emotion → natural-language context_texts for TTS 2.0 ──
-# TTS 2.0 natively interprets these descriptions — no mechanical
-# speech_rate/loudness_rate manipulation needed.
-# Pattern: verb + body description + scene — describe what the voice
-# sounds like, not just a label.
-
-EMOTION_CONTEXT_MAP: dict[str, str] = {
-    "open_trusting": "用温暖自然的语气，声音平稳，像在跟信任的朋友说话",
-    "trusting_anxious": "用担忧但信任的语气，声音略快，带着关心的急切",
-    "irritated": "用不耐烦的语气，声音有点冲，语速偏快，带着烦躁",
-    "anxious_cooperative": "用略微紧张但愿意配合的语气，声音稍微急促但态度配合",
-    "anxious_guarded": "用紧张戒备的语气，声音压得比较低，回答谨慎犹豫",
-    "withdrawn": "用沉默低落的语气，声音很轻很慢，不想多说",
-    "defensive": "用防备抗拒的语气，声音硬一些，回答简短不情愿",
-    "relaxed": "用放松自然的语气，声音平滑舒适，态度友好",
-    "neutral": "用平稳正常的语气交流",
-}
-
-
-def resolve_emotion_context(state: str) -> list[str]:
-    """Resolve emotion label to context_texts for TTS 2.0.
-
-    Returns a single-element list suitable for the additions.context_texts
-    field. Returns empty list for unknown labels (no emotion control).
-    """
-    prompt = EMOTION_CONTEXT_MAP.get(state)
-    return [prompt] if prompt else []
