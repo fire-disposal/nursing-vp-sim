@@ -5,6 +5,10 @@ deadline = start_time + time_limit minutes (see modules/training/timing.py).
 The chat guard already enforced start_time semantics; the countdown view
 and settlement loop now derive from the same source, so the two columns
 carry no information the rest of the system reads.
+
+Revision ID: f1a2b3c4d5e6
+Revises: b7c8d9e0f1a2
+Create Date: 2026-07-31
 """
 
 from collections.abc import Sequence
