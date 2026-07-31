@@ -203,6 +203,16 @@ class ProfileRouter:
         with self._state_lock:
             return sum(1 for p in self._profiles.values() if p.status == "degraded")
 
+    @property
+    def global_degraded(self) -> bool:
+        """True while the router is in the global-degradation window (no profile usable).
+
+        Exposed for metrics/diagnostics; `select` raises RuntimeError during the window.
+        """
+        now = datetime.now(UTC)
+        with self._state_lock:
+            return bool(self._global_degraded_until) and now < self._global_degraded_until
+
     def _refresh_profile_from_db(self, profile_id: int) -> None:
         """Refresh a single profile from DB. Caller MUST NOT hold _state_lock."""
         from infra.llm.data import LLMDataService

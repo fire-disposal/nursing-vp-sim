@@ -21,6 +21,22 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 STATE_FILE = SCRIPT_DIR / "state.json"
 LOG_FILE = SCRIPT_DIR / "monitor.log"
 
+# ── Deploy-window marker ────────────────────────────────────────────────────
+# Deploy scripts `touch` this file before recreating containers and remove it
+# after the health check passes. While fresh, health-endpoint checks are
+# skipped entirely — a container swap makes 127.0.0.1:<port> unreachable for
+# 30-60s, which would otherwise fire a false-positive alert on every release.
+DEPLOY_MARKER = Path("/opt/monitor/.deploying")
+DEPLOY_MARKER_MAX_AGE_MINUTES = 45  # stale marker (failed deploy) is ignored
+
+
+# ── Health-check debounce ───────────────────────────────────────────────────
+# A single failed round is recorded as pending (no alert) — transient blips
+# (network, container restart) self-heal on the next 15-min round. Only a
+# second consecutive failure escalates to a real alert.
+HEALTH_DEBOUNCE_ROUNDS = 2
+
+
 # ── Cooldown tiers (by alert count for same key) ──────────────────────────────
 # Format: (up_to_count, cooldown_minutes)
 COOLDOWN_TIERS = [
@@ -43,6 +59,25 @@ logging.basicConfig(
     ],
 )
 log = logging.getLogger("monitor")
+
+def _in_deploy_window() -> bool:
+    """True while a deploy marker is fresh — health checks are skipped."""
+    if not DEPLOY_MARKER.exists():
+        return False
+    try:
+        age_min = (time.time() - DEPLOY_MARKER.stat().st_mtime) / 60
+    except OSError:
+        return False
+    if age_min > DEPLOY_MARKER_MAX_AGE_MINUTES:
+        log.warning("Stale deploy marker ignored (age=%.0fmin) — clearing", age_min)
+        try:
+            DEPLOY_MARKER.unlink()
+        except OSError:
+            pass
+        return False
+    log.info("In deploy window (marker age=%.0fmin) — skipping health checks", age_min)
+    return True
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,7 +107,7 @@ def _empty_state():
     - snapshots: endpoint name -> metrics counters (for delta comparison)
     - daily:     {date, sent} email flood counter
     """
-    return {"alerts": {}, "snapshots": {}, "daily": {"date": None, "sent": 0}}
+    return {"alerts": {}, "snapshots": {}, "daily": {"date": None, "sent": 0}, "pending": {}}
 
 
 def _migrate_legacy_state(raw):
@@ -333,6 +368,8 @@ def check_memory():
 
 def check_health_endpoints():
     """Check HTTP health endpoints listed in ENDPOINTS env var."""
+    if _in_deploy_window():
+        return []
     if not ENDPOINTS:
         return []
     failures = []
@@ -691,9 +728,34 @@ def main():
         all_failures.extend(check_metrics_anomalies(state))
 
         alerts = state["alerts"]
+        pending = state.setdefault("pending", {})
 
         # Determine current failing keys
         active_keys = set(alert_key(f) for f in all_failures)
+
+        # Health-check debounce: a first-time failure only records a pending
+        # entry; it escalates to a real alert on the NEXT consecutive failure.
+        # Transient blips (deploy window leaks, container restart) never alert.
+        for key in list(pending):
+            if key not in active_keys:
+                del pending[key]  # recovered between rounds — drop silently
+        for f in list(all_failures):
+            if f["type"] != "health":
+                continue
+            key = alert_key(f)
+            entry = alerts.get(key)
+            first_failure = entry is None or entry.get("resolved")
+            if first_failure and key not in pending:
+                pending[key] = {"first_fail": now.isoformat(), "detail": f["detail"]}
+                all_failures.remove(f)
+                log.info(
+                    "Health debounce: %s first failure (%s) — alert only if it persists",
+                    key,
+                    f["detail"],
+                )
+            elif key in pending:
+                # Second consecutive failure — escalate to a real alert.
+                pending.pop(key, None)
 
         # Detect recoveries: alert entries not marked resolved but no longer failing.
         recovered_keys = []
