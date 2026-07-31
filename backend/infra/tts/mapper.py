@@ -1,28 +1,17 @@
-"""Emotion state → TTS parameter mapping (Volcengine v3 / SeedTTS 2.0).
+"""Speaker resolution for Volcengine SeedTTS 2.0 (v3).
 
-v3 dropped the ``emotion`` field, so the 2D trust-comfort emotion labels are
-expressed through integer ``speech_rate`` + ``loudness_rate`` adjustments on
-the low-latency ``standard`` model. Both rates are in the range [-50, 100].
+TTS 2.0 natively infers emotion from text context — no artificial
+speech_rate/loudness_rate manipulation is applied. The model's neural
+expressiveness is left intact.
 """
 
 import logging
 
 from core.gender import GENDER_FEMALE, GENDER_MALE
-from infra.tts.client import TTSRequest
 
 log = logging.getLogger(__name__)
 
 DEFAULT_SPEAKER = "zh_female_vv_uranus_bigtts"
-
-# emotion state → (speech_rate, loudness_rate)
-EMOTION_TTS_MAP: dict[str, tuple[int, int]] = {
-    "withdrawn": (-15, -10),
-    "defensive": (15, 10),
-    "anxious": (10, 0),
-    "neutral": (0, 0),
-    "relaxed": (-5, 0),
-    "open": (0, 5),
-}
 
 # Built-in defaults — overridden by VoiceConfig.speaker_library in DB.
 # 9 demographic slots with distinct speakers for child/young/middle/elder × male/female.
@@ -86,21 +75,3 @@ def resolve_voice_type(
 
     return lib["fallback"]
 
-
-def emotion_to_tts(
-    text: str,
-    state: str,
-    speaker: str = DEFAULT_SPEAKER,
-    fmt: str = "mp3",
-    sample_rate: int = 24000,
-) -> TTSRequest:
-    """Build a TTSRequest with emotion-driven speech/loudness rates."""
-    speech_rate, loudness_rate = EMOTION_TTS_MAP.get(state, (0, 0))
-    return TTSRequest(
-        text=text,
-        speaker=speaker,
-        speech_rate=speech_rate,
-        loudness_rate=loudness_rate,
-        fmt=fmt,
-        sample_rate=sample_rate,
-    )

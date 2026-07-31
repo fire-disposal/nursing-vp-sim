@@ -13,10 +13,9 @@ from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
-from infra.tts.mapper import emotion_to_tts, resolve_voice_type
+from infra.tts.mapper import resolve_voice_type
 from infra.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
-
 log = logging.getLogger(__name__)
 
 _DEFAULT_TTS_CONFIG = {
@@ -132,14 +131,12 @@ class TTSService:
             speaker_library=speaker_library,
             override=override,
         )
-        return emotion_to_tts(
+        return TTSRequest(
             text=text,
-            state=emotion_state,
             speaker=speaker,
             fmt=fmt,
             sample_rate=sample_rate,
         )
-
     def _write_log(
         self,
         *,

@@ -26,39 +26,16 @@ class FakeContext:
 
 
 class TestEmotionNoteSource:
-    async def test_returns_note_when_present(self, db_session):
-        from models import Case, TrainingRecord, User
-        from modules.training.patient_ai.emotion import EmotionState
-        from modules.training.session.cache import EmotionCache
-
-        user = db_session.query(User).filter(User.is_active == True).first()
-        case = db_session.query(Case).first()
-        if not user or not case:
-            import pytest
-
-            pytest.skip("No user or case in test DB")
-        record = TrainingRecord(user_id=user.id, case_id=case.id, status="in_progress", time_limit=20)
-        db_session.add(record)
-        db_session.flush()
-
-        cache = EmotionCache()
-        cache.set(record.id, EmotionState(trust=70, comfort=80), db_session)
-        db_session.commit()
-
-        ctx = FakeContext(
-            app_state=type("AppState", (), {"emotion_cache": cache})(),
-            record=FakeContext.Record(id_=record.id),
-            db=db_session,
-        )
+    async def test_returns_cached_note_from_state(self):
         src = EmotionNoteSource()
+        note = "【患者当前互动策略】\n- 语气：平稳、正常交流"
+        ctx = FakeContext(state={"_emotion_note": note})
         result = await src.collect(ctx)
-        assert result is not None
-        assert "信赖" in result
-        assert "舒适" in result
+        assert result == note
 
-    async def test_returns_none_when_no_cache(self):
+    async def test_returns_none_when_no_cached_note(self):
         src = EmotionNoteSource()
-        ctx = FakeContext(app_state=type("AppState", (), {"emotion_cache": None})())
+        ctx = FakeContext(state={})
         result = await src.collect(ctx)
         assert result is None
 

@@ -23,6 +23,8 @@ from models.training import (
     ScoreReview,
     TrainingAction,
     TrainingRecord,
+    TrainingSessionEmotionEvent,
+    TrainingSessionEmotionState,
     TrainingSessionState,
     TrainingToolRequest,
 )
@@ -56,6 +58,8 @@ __all__ = [
     "TimestampMixin",
     "TrainingAction",
     "TrainingRecord",
+    "TrainingSessionEmotionEvent",
+    "TrainingSessionEmotionState",
     "TrainingSessionState",
     "TrainingToolRequest",
     "User",

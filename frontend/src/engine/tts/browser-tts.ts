@@ -3,19 +3,25 @@ import type { TTSProvider } from "./types";
 const EMOTION_RATE: Record<string, number> = {
 	withdrawn: 0.85,
 	defensive: 1.15,
-	anxious: 1.1,
+	anxious_guarded: 1.1,
+	anxious_cooperative: 1.05,
+	irritated: 1.15,
 	neutral: 0.95,
 	relaxed: 0.95,
-	open: 1.0,
+	open_trusting: 1.0,
+	trusting_anxious: 1.05,
 };
 
 const EMOTION_PITCH: Record<string, number> = {
 	withdrawn: 0.85,
 	defensive: 1.15,
-	anxious: 1.1,
+	anxious_guarded: 1.1,
+	anxious_cooperative: 1.05,
+	irritated: 1.2,
 	neutral: 1.0,
 	relaxed: 0.95,
-	open: 1.05,
+	open_trusting: 1.05,
+	trusting_anxious: 1.0,
 };
 
 function applyEmotion(

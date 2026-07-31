@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -204,3 +204,47 @@ class TrainingSessionState(Base):
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     record: Mapped[TrainingRecord] = relationship(back_populates="session_state")
+
+
+class TrainingSessionEmotionState(Base):
+    """四维情绪当前状态 — 每 training record 一行，乐观锁版本控制。"""
+
+    __tablename__ = "training_session_emotion_state"
+
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), primary_key=True
+    )
+    trust: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    anxiety: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    irritation: Mapped[float] = mapped_column(Float, nullable=False, default=0.35)
+    cooperation: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    last_turn_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc)
+
+    record: Mapped[TrainingRecord] = relationship()
+
+
+class TrainingSessionEmotionEvent(Base):
+    """情绪事件历史 — append-only 审计日志。"""
+
+    __tablename__ = "training_session_emotion_event"
+    __table_args__ = (
+        Index("ix_emotion_event_record_id", "record_id"),
+        Index("ix_emotion_event_turn_id", "turn_id"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=text("gen_random_uuid()"))
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=False
+    )
+    turn_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    evidence: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    delta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    before_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    after_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+
+    record: Mapped[TrainingRecord] = relationship()

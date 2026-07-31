@@ -32,8 +32,8 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const isNearBottomRef = useRef(true);
   const prevCountRef = useRef(0);
   const portraitUrl = useTrainingStore((s) => s.portraitUrl);
-  const emotion = useTrainingStore((s) => s.emotion);
-  const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
+  const emotion4D = useTrainingStore((s) => s.emotion4D);
+  const emotionBorder = useMemo(() => getEmotionBorder(emotion4D), [emotion4D]);
   const sending = useTrainingStore((s) => s.sending);
   const trainingEnded = useTrainingStore((s) => s.trainingEnded);
   const correction = useTrainingStore((s) => s.recordDetail?.message_correction as { remaining?: number; eligible_last_message_id?: number | null } | undefined);

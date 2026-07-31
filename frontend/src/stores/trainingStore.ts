@@ -17,6 +17,18 @@ export type EmotionState =
 	| "relaxed"
 	| "open";
 
+// ── 四维情绪标签（向后兼容旧的六标签） ──
+export type Emotion4DLabel =
+	| "open_trusting"
+	| "trusting_anxious"
+	| "irritated"
+	| "anxious_cooperative"
+	| "anxious_guarded"
+	| "withdrawn"
+	| "defensive"
+	| "relaxed"
+	| "neutral";
+
 export const EMOTION_LABELS: Record<EmotionState, string> = {
 	withdrawn: "沉默回避",
 	defensive: "防御抵触",
@@ -24,6 +36,18 @@ export const EMOTION_LABELS: Record<EmotionState, string> = {
 	neutral: "正常配合",
 	relaxed: "放松友好",
 	open: "开放信任",
+};
+
+export const EMOTION_4D_LABELS: Record<Emotion4DLabel, string> = {
+	open_trusting: "开放信任",
+	trusting_anxious: "信任但焦虑",
+	irritated: "烦躁抵触",
+	anxious_cooperative: "焦虑但配合",
+	anxious_guarded: "焦虑戒备",
+	withdrawn: "沉默回避",
+	defensive: "防御抵触",
+	relaxed: "放松配合",
+	neutral: "正常交流",
 };
 
 const EMOTION_BORDER: Record<EmotionState, string> = {
@@ -34,7 +58,6 @@ const EMOTION_BORDER: Record<EmotionState, string> = {
 	relaxed: "border-blue-400",
 	open: "border-green-400",
 };
-
 const EMOTION_COLOR: Record<EmotionState, string> = {
 	withdrawn: "text-red-600",
 	defensive: "text-orange-600",
@@ -44,12 +67,24 @@ const EMOTION_COLOR: Record<EmotionState, string> = {
 	open: "text-green-600",
 };
 
-export function getEmotionBorder(emotion: EmotionState): string {
-	return EMOTION_BORDER[emotion] || EMOTION_BORDER.neutral;
+const EMOTION_4D_BORDER: Record<string, string> = {
+	open_trusting: "border-green-400",
+	trusting_anxious: "border-blue-400",
+	irritated: "border-orange-400",
+	anxious_cooperative: "border-purple-400",
+	anxious_guarded: "border-purple-400",
+	withdrawn: "border-red-400",
+	defensive: "border-orange-400",
+	relaxed: "border-blue-400",
+	neutral: "border-border",
+};
+
+export function getEmotionBorder(emotion: string): string {
+	return EMOTION_4D_BORDER[emotion] || EMOTION_BORDER[emotion as EmotionState] || EMOTION_BORDER.neutral;
 }
 
-export function getEmotionColor(emotion: EmotionState): string {
-	return EMOTION_COLOR[emotion] || EMOTION_COLOR.neutral;
+export function getEmotionColor(emotion: string): string {
+	return EMOTION_COLOR[emotion as EmotionState] || EMOTION_COLOR.neutral;
 }
 interface CorrectionSnapshot {
 	messages: ChatMessage[];
@@ -82,6 +117,10 @@ export interface TrainingStore {
 	emotion: EmotionState;
 	trust: number;
 	comfort: number;
+	anxiety: number;
+	irritation: number;
+	cooperation: number;
+	emotion4D: Emotion4DLabel;
 	portraitUrl: string | null;
 
 	init: (data: {
@@ -116,6 +155,7 @@ export interface TrainingStore {
 	setRemainingSeconds: (s: number | null) => void;
 	setEmotion: (e: EmotionState) => void;
 	setTrustComfort: (trust: number, comfort: number) => void;
+	setEmotion4D: (trust: number, anxiety: number, irritation: number, cooperation: number, label: Emotion4DLabel) => void;
 	setPortraitUrl: (url: string | null) => void;
 }
 
@@ -136,6 +176,10 @@ const initialTrainingState = {
 	emotion: "neutral" as EmotionState,
 	trust: 50,
 	comfort: 50,
+	anxiety: 50,
+	irritation: 50,
+	cooperation: 50,
+	emotion4D: "neutral" as Emotion4DLabel,
 	portraitUrl: null as string | null,
 };
 
@@ -161,6 +205,10 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 				: "neutral",
 			trust: data.emotionSeed?.trust ?? 50,
 			comfort: data.emotionSeed?.comfort ?? 50,
+			anxiety: 50,
+			irritation: 50,
+			cooperation: 50,
+			emotion4D: "neutral" as Emotion4DLabel,
 		});
 	},
 
@@ -305,13 +353,12 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 	setSending(v) { set({ sending: v }); },
 	setTrainingEnded(v) { set({ trainingEnded: v }); },
 	setTtsAutoPlay(v) { set({ ttsAutoPlay: v }); },
-	toggleTts() {
-		set((s) => ({ ttsAutoPlay: !s.ttsAutoPlay }));
-	},
+	toggleTts() { set((s) => ({ ttsAutoPlay: !s.ttsAutoPlay })); },
 	setVoiceStatus(s) { set({ voiceStatus: s }); },
 	setRemainingSeconds(s) { set({ remainingSeconds: s }); },
 	setEmotion(e) { set({ emotion: e }); },
 	setTrustComfort(trust, comfort) { set({ trust, comfort }); },
+	setEmotion4D(trust, anxiety, irritation, cooperation, label) { set({ trust, anxiety, irritation, cooperation, emotion4D: label }); },
 	setPortraitUrl(url) { set({ portraitUrl: url }); },
 }));
 

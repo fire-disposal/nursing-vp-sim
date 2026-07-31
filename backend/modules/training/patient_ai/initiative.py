@@ -23,25 +23,23 @@ MAX_INITIATIVE_COUNT = 1
 async def generate_initiative_llm(
     llm_client,
     personality: dict,
-    trust: int,
-    comfort: int,
+    vector,
     case_name: str,
     recent_student_msg: str,
     *,
     ctx: CallContext | None = None,
 ) -> str:
-    mood = _describe_mood(trust, comfort)
+    mood = _describe_mood(vector)
     traits = _describe_traits(personality)
 
-    # 归一到 patient_chat profile（单一来源），不再硬编码参数。
     llm_cfg = get_llm_config("patient_chat")
 
     kwargs = {
         "case_name": case_name,
         "traits": traits,
         "mood": mood,
-        "trust": str(trust),
-        "comfort": str(comfort),
+        "trust": str(round(vector.trust * 100)),
+        "comfort": str(round((1.0 - vector.anxiety * 0.5 - vector.irritation * 0.5) * 100)),
         "student_msg": recent_student_msg or "（护士在沉默）",
     }
 
@@ -88,20 +86,23 @@ def _last_resort_fallback(mood: str) -> str:
     return fallbacks.get(mood, "……")
 
 
-def _describe_mood(trust: int, comfort: int) -> str:
-    from modules.training.patient_ai.emotion import _lookup_state
+def _describe_mood(vector) -> str:
+    """从四维状态解析 mood 标签。"""
+    from modules.training.patient_ai.emotion import resolve_dominant_state
 
-    label, _ = _lookup_state(trust, comfort)
+    label = resolve_dominant_state(vector)
     mood_map = {
         "withdrawn": "沉默回避",
         "defensive": "防御抵触",
-        "anxious": "焦虑不安",
+        "anxious_guarded": "焦虑戒备",
+        "anxious_cooperative": "焦虑但配合",
+        "trusting_anxious": "信任但焦虑",
         "neutral": "正常",
         "relaxed": "放松配合",
-        "open": "开放信任",
+        "open_trusting": "开放信任",
+        "irritated": "烦躁抵触",
     }
     return mood_map.get(label, "正常")
-
 
 def _describe_traits(personality: dict) -> str:
     parts = []
@@ -136,8 +137,7 @@ def get_initiative_seconds(
     cache: InitiativeCache,
     db: Session,
     personality: dict,
-    trust: int,
-    comfort: int,
+    vector,
 ) -> tuple[float, float]:
     now = datetime.now(UTC).timestamp()
     last_reply = cache.get_timer(record_id, now, db)
@@ -147,8 +147,9 @@ def get_initiative_seconds(
     anxiety_trait = personality.get("anxiety_trait", "normal")
     patience_bias = {"low": -8, "normal": 0, "high": +10}
     anxiety_bias = {"anxious": -5, "normal": 0, "calm": +5}
-    comfort_bias = max(0, 50 - comfort) * 0.3
-    threshold = 30.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + comfort_bias
+    discomfort = (vector.anxiety * 0.5 + vector.irritation * 0.5) * 100
+    discomfort_bias = max(0, discomfort - 30) * 0.3
+    threshold = 30.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + discomfort_bias
     threshold = max(15, min(90, threshold))
 
     count = cache.get_count(record_id, db)
@@ -162,12 +163,11 @@ def check_initiate_ready(
     cache: InitiativeCache,
     db: Session,
     personality: dict,
-    trust: int,
-    comfort: int,
+    vector,
 ) -> bool:
     if cache.get_count(record_id, db) >= MAX_INITIATIVE_COUNT:
         return False
-    elapsed, threshold = get_initiative_seconds(record_id, cache, db, personality, trust, comfort)
+    elapsed, threshold = get_initiative_seconds(record_id, cache, db, personality, vector)
     return elapsed >= threshold
 
 
@@ -176,12 +176,11 @@ def should_initiate(
     cache: InitiativeCache,
     db: Session,
     personality: dict,
-    trust: int,
-    comfort: int,
+    vector,
 ) -> bool:
     if cache.get_count(record_id, db) >= MAX_INITIATIVE_COUNT:
         return False
-    if not check_initiate_ready(record_id, cache, db, personality, trust, comfort):
+    if not check_initiate_ready(record_id, cache, db, personality, vector):
         return False
     now = datetime.now(UTC).timestamp()
     last_trigger = cache.get_last_trigger(record_id, db)
@@ -190,28 +189,32 @@ def should_initiate(
     cache.set_last_trigger(record_id, now, db)
     return True
 
-
 def apply_initiative_penalty(
     record_id: int,
     cache: InitiativeCache,
-    emotion_cache,
     db: Session,
 ) -> dict:
-    from modules.training.patient_ai.emotion import get_emotion
+    from modules.training.patient_ai.emotion import EmotionDelta, EmotionRepository
 
     count = cache.get_count(record_id, db)
-    emotion = get_emotion(record_id, emotion_cache, db)
+    repo = EmotionRepository()
+    state = repo.get(record_id, db)
+
+    if state is None:
+        return {"state": "neutral", "trust": 50, "comfort": 50}
 
     if count == 1:
-        trust_delta = -5
-        comfort_delta = -8
+        delta = EmotionDelta(trust=-0.05, cooperation=-0.08, irritation=0.05)
     else:
-        trust_delta = -15
-        comfort_delta = -20
+        delta = EmotionDelta(trust=-0.15, cooperation=-0.20, irritation=0.10)
 
-    emotion.update(trust_delta, comfort_delta, f"initiative:{count}")
-    emotion_cache.set(record_id, emotion, db)
-    return {"state": emotion.state, "trust": emotion.trust, "comfort": emotion.comfort}
+    new_vector = state.vector.apply(delta)
+    repo.save(record_id, state, db)
+    return {
+        "state": state.vector.to_dict(),
+        "trust": round(new_vector.trust * 100),
+        "comfort": round((1.0 - new_vector.anxiety * 0.5 - new_vector.irritation * 0.5) * 100),
+    }
 
 
 def cleanup_initiative(record_id: int, cache: InitiativeCache, db: Session) -> None:

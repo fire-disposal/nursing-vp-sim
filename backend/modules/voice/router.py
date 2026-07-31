@@ -14,7 +14,6 @@ from infra.tts.circuit import CircuitOpenError
 from infra.tts.client import VolcBidirectionalTTSClient
 from infra.tts.pool import TTSConnectionPool
 from models import User
-from modules.training.patient_ai.emotion import EmotionState
 from modules.voice.service import TTSService
 from schemas.voice import TTSSynthesizeRequest
 
@@ -22,22 +21,18 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
-
 def _resolve_emotion(request: Request, record_id: int, db) -> str:
-    """Read emotion without creating/updating session state.
+    """Read 4D emotion state, return dominant state label for TTS."""
+    from modules.training.patient_ai.emotion import EmotionRepository, resolve_dominant_state
 
-    TTS is a consumer of emotion state. Creating the default row here can block
-    behind training side effects and turn audio playback into a 120s DB timeout.
-    """
-    emotion_cache = getattr(request.app.state, "emotion_cache", None)
-    if emotion_cache is None:
-        return "neutral"
     try:
-        state = emotion_cache.get(record_id, db)
+        repo = EmotionRepository()
+        state = repo.get(record_id, db)
+        if state is not None:
+            return resolve_dominant_state(state.vector)
     except Exception:
         log.warning("TTS emotion lookup failed: record_id=%d", record_id, exc_info=True)
-        return "neutral"
-    return state.state if isinstance(state, EmotionState) else "neutral"
+    return "neutral"
 
 
 def _require_record_id(record_id: int | None) -> int:

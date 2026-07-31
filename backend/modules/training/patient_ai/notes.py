@@ -18,21 +18,13 @@ log = logging.getLogger(__name__)
 class EmotionNoteSource(NoteSource):
     name = "emotion"
     priority = 10
-    max_tokens = 100
+    max_tokens = 300
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        from modules.training.patient_ai.emotion_profile import PersonalityProfile
-
-        from .emotion import get_emotion
-
-        cache = getattr(ctx.app_state, "emotion_cache", None)
-        if cache is None:
-            return None
-        case_data = getattr(ctx, "case_data", None) or {}
-        personality = case_data.get("personality", {}) or {}
-        profile = PersonalityProfile.from_personality(personality)
-        emotion = get_emotion(ctx.record.id, cache, ctx.db, profile=profile)
-        return emotion.note
+        cached_note = ctx.state.get("_emotion_note")
+        if cached_note:
+            return cached_note
+        return None
 
 
 class IdentityGuardSource(NoteSource):

@@ -1,15 +1,8 @@
-"""side_effects — post-reply effects: emotion state emission (immediate) + analysis (background)."""
+"""side_effects — post-reply effects: emotion state push (immediate), initiative state."""
 
-import asyncio
-import json
 import logging
 
-from core.template import render_template
-from infra.llm.client import CallContext
-from modules.training.patient_ai.emotion import EmotionState, get_emotion
-from modules.training.patient_ai.emotion_profile import PersonalityProfile
 from modules.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
-from modules.training.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
 
 from ..context import (
     STATE_FEATURES,
@@ -19,20 +12,11 @@ from ..context import (
 log = logging.getLogger(__name__)
 
 
-def _parse_emotion_result(raw: str) -> tuple[int, int, str]:
-    try:
-        data = json.loads(raw.strip())
-        dt = max(-3, min(3, int(data.get("trust_delta", 0))))
-        dc = max(-3, min(3, int(data.get("comfort_delta", 0))))
-        trigger = str(data.get("trigger", ""))
-        return dt, dc, trigger
-    except (json.JSONDecodeError, ValueError, TypeError):
-        log.warning("Failed to parse emotion analysis result: %s", raw[:200])
-        return 0, 0, ""
-
-
 def _read_emotion_state(record_id: int, emotion_cache, db, personality: dict):
-    """Return current emotion state without creating/updating rows."""
+    """Return current emotion state from cache (v2 format)."""
+    from modules.training.patient_ai.emotion._legacy import EmotionState
+    from modules.training.patient_ai.emotion_profile import PersonalityProfile
+
     profile = PersonalityProfile.from_personality(personality)
     state = None
     if emotion_cache is not None:
@@ -47,63 +31,6 @@ def _read_emotion_state(record_id: int, emotion_cache, db, personality: dict):
     return EmotionState(trust=profile.trust_base, comfort=profile.comfort_base, profile=profile)
 
 
-async def _analyze_and_apply(
-    llm_client,
-    emotion_cache,
-    record_id: int,
-    user_id: int,
-    case_id: int,
-    student_input: str,
-    patient_reply: str,
-    personality: dict,
-) -> None:
-    """Background task: analyze this turn's reply and apply delta for the next turn."""
-    try:
-        user_msg = render_template(
-            EMOTION_ANALYSIS_USER,
-            nurse_message=student_input,
-            patient_reply=patient_reply,
-        )
-        messages = [
-            {"role": "system", "content": EMOTION_ANALYSIS_SYSTEM},
-            {"role": "user", "content": user_msg},
-        ]
-        result = await llm_client.call(
-            messages,
-            purpose="emotion_analysis",
-            ctx=CallContext(
-                purpose="emotion_analysis",
-                user_id=user_id,
-                record_id=record_id,
-                case_id=case_id,
-            ),
-            temperature=0.3,
-            max_tokens=128,
-        )
-        dt, dc, trigger = _parse_emotion_result(result)
-    except Exception:
-        log.warning("Emotion analysis failed: record_id=%d", record_id, exc_info=True)
-        return
-
-    if dt == 0 and dc == 0 and not trigger:
-        return
-
-    from core.database import SessionLocal
-
-    db = SessionLocal()
-    try:
-        profile = PersonalityProfile.from_personality(personality)
-        emotion = get_emotion(record_id, emotion_cache, db, profile=profile)
-        emotion.update(dt, dc, trigger)
-        emotion_cache.set(record_id, emotion, db)
-        db.commit()
-    except Exception:
-        db.rollback()
-        log.warning("Emotion background apply failed: record_id=%d", record_id, exc_info=True)
-    finally:
-        db.close()
-
-
 async def side_effects(ctx: PipelineContext, next_mw) -> None:
     await next_mw()
 
@@ -114,39 +41,19 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     features = ctx.state.get(STATE_FEATURES) or {}
 
     has_emotion = features.get("emotion", False)
-
     if has_emotion and ctx.llm_reply:
-        emotion_cache = getattr(app, "emotion_cache", None)
-        if emotion_cache is None:
-            return
-        case_data = ctx.case_data or {}
-        personality = case_data.get("personality", {}) or {}
-        emotion = _read_emotion_state(ctx.record.id, emotion_cache, ctx.db, personality)
-        emotion.apply_decay()
-
-        ctx.system_events.append(
-            {
-                "emotion_change": {
-                    "state": emotion.state,
-                    "trust": emotion.trust,
-                    "comfort": emotion.comfort,
+        # 推送 4D emotion_change
+        change_4d = ctx.state.get("_emotion_change")
+        dominant = ctx.state.get("_emotion_dominant")
+        if change_4d and dominant:
+            ctx.system_events.append(
+                {
+                    "emotion_change": {
+                        **change_4d,
+                        "dominant_state": dominant,
+                    }
                 }
-            }
-        )
-
-        task = asyncio.ensure_future(  # noqa: RUF006
-            _analyze_and_apply(
-                llm_client=app.llm_client,
-                emotion_cache=emotion_cache,
-                record_id=ctx.record.id,
-                user_id=ctx.current_user.id,
-                case_id=ctx.record.case_id,
-                student_input=ctx.student_input,
-                patient_reply=ctx.llm_reply,
-                personality=personality,
             )
-        )
-
     has_initiative = features.get("patient_initiative", False)
 
     if has_initiative and ctx.llm_reply:
@@ -157,11 +64,14 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get(
                     "personality", {}
                 )
-                emotion_cache = getattr(app, "emotion_cache", None)
-                emotion_state = _read_emotion_state(ctx.record.id, emotion_cache, ctx.db, personality)
+                from modules.training.patient_ai.emotion import EmotionRepository, EmotionVector
+
+                repo = EmotionRepository()
+                state = repo.get(ctx.record.id, ctx.db)
+                vector = state.vector if state else EmotionVector.neutral()
 
                 elapsed, threshold = get_initiative_seconds(
-                    ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
+                    ctx.record.id, initiative_cache, ctx.db, personality, vector
                 )
                 count = initiative_cache.get_count(ctx.record.id, ctx.db)
                 max_reached = count >= MAX_INITIATIVE_COUNT
