@@ -260,9 +260,6 @@ export default function TrainingSelect() {
             className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "assignments" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
           ><ClipboardList size={14} />我的作业</button>
         </div>
-        {tab === "home" && (
-          <span className="text-xs text-muted-foreground">{new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</span>
-        )}
       </div>
 
       {tab === "home" && (
