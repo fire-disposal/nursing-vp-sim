@@ -64,8 +64,8 @@ class TrainingRecord(Base):
     is_test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
     timer_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    timer_consumed_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0, server_default=text("'0'"))
 
     user: Mapped[User] = relationship(back_populates="training_records")
     case: Mapped[Case] = relationship()

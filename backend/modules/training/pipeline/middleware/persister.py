@@ -21,11 +21,20 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
-    # Start timer on first student message (not on record creation)
+    # Auto-pause timer: only count time up to PAUSE_THRESHOLD between messages.
+    # Gaps > threshold (student left, closed browser) are capped.
+    PAUSE_THRESHOLD = 300  # 5 minutes
     if ctx.record.timer_started_at is None:
         from datetime import UTC, datetime
 
         ctx.record.timer_started_at = datetime.now(UTC)
+    else:
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        delta = (now - ctx.record.timer_started_at).total_seconds() - ctx.record.timer_consumed_seconds
+        capped = min(delta, PAUSE_THRESHOLD)
+        ctx.record.timer_consumed_seconds += capped
 
     if ctx.state.get(STATE_CORRECTION_TARGET):
         _persist_correction(ctx)
