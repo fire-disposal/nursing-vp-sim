@@ -13,7 +13,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
-from infra.tts.mapper import resolve_voice_type
+from infra.tts.mapper import resolve_emotion_context, resolve_voice_type
 from infra.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 log = logging.getLogger(__name__)
@@ -134,6 +134,7 @@ class TTSService:
         return TTSRequest(
             text=text,
             speaker=speaker,
+            context_texts=resolve_emotion_context(emotion_state),
             fmt=fmt,
             sample_rate=sample_rate,
         )
