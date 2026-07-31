@@ -168,9 +168,9 @@ def get_record_detail(
 
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
     time_limit = record.time_limit or 20
-    remaining_seconds = None
-    if record.status == "in_progress" and record.start_time:
-        elapsed = (datetime.now(UTC) - ensure_utc(record.start_time)).total_seconds()
+    remaining_seconds = time_limit * 60  # 尚未開始互動，顯示全額時間
+    if record.status == "in_progress" and record.timer_started_at:
+        elapsed = (datetime.now(UTC) - ensure_utc(record.timer_started_at)).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
     patient_info = _public_patient_info(case_data)
     case_title = case_data.get("title", "") or (case.name if case else "")

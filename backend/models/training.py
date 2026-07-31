@@ -65,6 +65,8 @@ class TrainingRecord(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    timer_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     user: Mapped[User] = relationship(back_populates="training_records")
     case: Mapped[Case] = relationship()
     assignment: Mapped[Assignment | None] = relationship(back_populates="training_records")

@@ -21,6 +21,12 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
+    # Start timer on first student message (not on record creation)
+    if ctx.record.timer_started_at is None:
+        from datetime import UTC, datetime
+
+        ctx.record.timer_started_at = datetime.now(UTC)
+
     if ctx.state.get(STATE_CORRECTION_TARGET):
         _persist_correction(ctx)
     else:
