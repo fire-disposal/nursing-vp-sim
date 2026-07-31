@@ -18,7 +18,7 @@ import {
 	useRecordCapabilities,
 	useInitialMessages,
 	useTimeLimit,
-	useRemainingSeconds,
+	useStartTime,
 	useEmotionSeed,
 	useSceneSeed,
 	useRecordStatus,
@@ -57,7 +57,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const capabilities = useRecordCapabilities();
 	const initialMessages = useInitialMessages();
 	const timeLimit = useTimeLimit();
-	const remainingSec = useRemainingSeconds();
+	const startTime = useStartTime();
 	const emotionSeed = useEmotionSeed();
 	const sceneSeed = useSceneSeed();
 	const recordStatus = useRecordStatus();
@@ -89,13 +89,13 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			timeLimitMinutes: timeLimit,
 			recordDetail,
 			initialMessages,
-			remainingSeconds: remainingSec,
+			startTime,
 			emotionSeed,
 		});
 		setReadyRecordId(recordId);
 	}, [
 		recordId, patient, trainingType, capabilities, timeLimit,
-		recordDetail, initialMessages, remainingSec, emotionSeed,
+		recordDetail, initialMessages, startTime, emotionSeed,
 	]);
 
 	// ── TTS attach ──

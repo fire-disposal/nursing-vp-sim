@@ -64,8 +64,6 @@ class TrainingRecord(Base):
     is_test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    timer_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    timer_consumed_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0, server_default=text("'0'"))
 
     user: Mapped[User] = relationship(back_populates="training_records")
     case: Mapped[Case] = relationship()
@@ -148,7 +146,6 @@ class NursingRecord(Base, TimestampMixin):
     user: Mapped[User] = relationship()
 
 
-
 class TrainingToolRequest(Base):
     __tablename__ = "training_tool_requests"
     __table_args__ = (
@@ -165,7 +162,6 @@ class TrainingToolRequest(Base):
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     response: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-
 
 
 class TrainingAction(Base):
@@ -191,6 +187,7 @@ class TrainingAction(Base):
     input: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+
 
 class TrainingSessionState(Base):
     __tablename__ = "training_session_state"

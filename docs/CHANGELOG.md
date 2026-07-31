@@ -102,6 +102,13 @@
 - 人格系统扩展（mood/compliance + 组合加成）
 - 问诊进度 chip + 完成弹窗
 
+### 训练倒计时重构（墙钟语义统一）
+- 单一时间源：deadline = `start_time + time_limit` 墙钟，chat 守卫 / 倒计时视图 / 结算循环同源（`modules/training/timing.py`）
+- 移除自动暂停计时（`timer_started_at`/`timer_consumed_seconds` 列及 persister 逻辑），迁移 `f1a2b3c4d5e6` 删除两列
+- 结算循环新增超时自动结算：到期 + 60s 宽限后自动结束并入队评分，关页/断网不再滞留 `in_progress`（复用 `finalize_training` 幂等逻辑）
+- 前端倒计时改 `Date.now()` 基准（免疫后台 tab 节流），autoEnd 弹窗不可关闭（消除"叉掉后永不自动结束"），5/2 分钟提醒改区间触发
+- stale 判定改最后活跃时间（最后消息时间，无消息回退创建时间）
+
 ### 训练系统近期方向确立
 - 形成[训练系统收敛与演进路线](10-training-system-roadmap.md)：近期聚焦“问诊—体查—护理评估—评分”闭环
 - 明确病例数据隔离、工具事务与幂等、三段式上下文、模型简化及分诊体系退场方向

@@ -1,12 +1,11 @@
 import logging
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.datetime_utils import ensure_utc, parse_iso_datetime
+from core.datetime_utils import parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
@@ -19,6 +18,7 @@ from models import (
     UserClass,
 )
 from modules.training.capabilities import detect_capabilities
+from modules.training.timing import remaining_seconds as compute_remaining_seconds
 from schemas import (
     PaginatedResponse,
     PatientPublicInfo,
@@ -168,11 +168,7 @@ def get_record_detail(
 
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
     time_limit = record.time_limit or 20
-    if record.status == "in_progress" and record.timer_started_at:
-        elapsed = record.timer_consumed_seconds or 0
-        remaining_seconds = max(0, int(time_limit * 60 - elapsed))
-    else:
-        remaining_seconds = None if record.status != "in_progress" else time_limit * 60
+    remaining_seconds = compute_remaining_seconds(record)
     patient_info = _public_patient_info(case_data)
     case_title = case_data.get("title", "") or (case.name if case else "")
 
@@ -266,4 +262,3 @@ def get_record_detail(
         required_inquiries=case_data.get("required_inquiries", []),
         is_test=record.is_test,
     )
-

@@ -42,10 +42,10 @@ interface TrainingHeaderProps {
 export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
 	const patient = useTrainingStore(s => s.patient);
 	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
-	const hasStarted = useTrainingStore(s => s.messages.some(m => m.role === "student"));
+	const startTime = useTrainingStore(s => s.startTime);
+	const trainingEnded = useTrainingStore(s => s.trainingEnded);
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
-	const remainingSeconds = useTrainingStore(s => s.remainingSeconds);
 	const portraitUrl = useTrainingStore(s => s.portraitUrl);
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
@@ -55,26 +55,19 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-	const autoEndFiredRef = useRef(false);
-
-
-	const initialRemaining =
-		!hasStarted ? null
-		: autoEndFiredRef.current ? null
-		: remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
+	const autoEndRequestedRef = useRef(false);
 
 	const {
 		remaining,
-		timerActive,
-		stopTimer,
 		formatTime,
 	} = useTrainingTimer({
-		initialRemaining,
+		startTime,
+		timeLimitMinutes,
+		enabled: !trainingEnded,
 		onAutoEnd: () => {
-			autoEndFiredRef.current = true;
+			autoEndRequestedRef.current = true;
 			setAutoEndOpen(true);
 			setAutoEndCountdown(10);
-			stopTimer();
 		},
 	});
 
@@ -85,6 +78,12 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 		setAutoEndOpen(false);
 		try {
 			await onEnd();
+		} catch {
+			// 自动结束时失败：重新弹出倒计时窗口并允许重试；手动结束失败不弹。
+			if (autoEndRequestedRef.current) {
+				setAutoEndOpen(true);
+				setAutoEndCountdown(10);
+			}
 		} finally {
 			endingRef.current = false;
 		}
@@ -170,25 +169,22 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					<div
 						className={cn(
 							"flex items-center gap-1.5 px-2 py-1 rounded-md text-xs sm:text-sm font-bold tabular-nums border shrink-0 transition-colors",
-							!timerActive && "bg-muted/30 text-muted-foreground border-muted",
-							timerActive &&
-								remaining != null &&
-							remaining <= 120 &&
-							"border-transparent bg-danger text-danger-foreground",
-							timerActive &&
-								remaining != null &&
+							remaining == null && "bg-muted/30 text-muted-foreground border-muted",
+							remaining != null &&
+								remaining <= 120 &&
+								"border-transparent bg-danger text-danger-foreground",
+							remaining != null &&
 								remaining > 120 &&
 								remaining <= 300 &&
 								"border-transparent bg-warning text-warning-foreground",
-							timerActive &&
-								remaining != null &&
+							remaining != null &&
 								remaining > 300 &&
 								"border-border text-muted-foreground bg-card",
 						)}
 					>
 						<WSStatusDot />
 						<Clock size={12} className="sm:size-[14px] shrink-0" />
-						<span>{formatTime(hasStarted && remaining != null ? remaining : timeLimitMinutes * 60)}</span>
+						<span>{formatTime(remaining)}</span>
 					</div>
 
 					<button
@@ -237,11 +233,14 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 				</DialogContent>
 			</Dialog>
 
+			{/* 不可关闭：时间到必须结束，叉掉/ESC 只会在旧实现里造成"永不自动结束"的死锁 */}
 			<Dialog
 				open={autoEndOpen}
-				onOpenChange={(o) => !o && setAutoEndOpen(false)}
+				onOpenChange={(o) => {
+					if (o) setAutoEndOpen(true); // 忽略一切关闭请求
+				}}
 			>
-				<DialogContent title="训练时间到" maxWidth={360}>
+				<DialogContent title="训练时间到" maxWidth={360} showCloseButton={false}>
 				<p className="text-sm text-muted-foreground mb-2">
 					本次训练时间已用尽，即将自动结束。
 				</p>

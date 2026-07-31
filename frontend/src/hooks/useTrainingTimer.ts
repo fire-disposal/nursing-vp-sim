@@ -1,90 +1,80 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 
 interface UseTrainingTimerOptions {
-	initialRemaining: number | null;
+	/** ISO 时间戳：训练创建时刻（服务端 `start_time`，倒计时锚点）。 */
+	startTime: string | null;
+	/** 训练时长（分钟），与服务端 `time_limit` 同源。 */
+	timeLimitMinutes: number | null;
+	/** 训练进行中才计时。 */
+	enabled: boolean;
+	/** 本地到达 deadline 时触发一次。 */
 	onAutoEnd: () => void;
 }
 
+/**
+ * 墙钟训练倒计时。
+ *
+ * deadline = start_time + time_limit，用 Date.now() 追踪——不受浏览器后台
+ * tab 节流影响；且与服务端放行规则（chat 守卫用同一 deadline）天然同源，
+ * 前端显示 0 与后端拒发消息之间不再有偏差。
+ */
 export function useTrainingTimer({
-	initialRemaining,
+	startTime,
+	timeLimitMinutes,
+	enabled,
 	onAutoEnd,
 }: UseTrainingTimerOptions) {
-	const [remaining, setRemaining] = useState<number | null>(initialRemaining);
-	const [timerActive, setTimerActive] = useState(false);
-	const remainingRef = useRef(remaining);
-	const timerActiveRef = useRef(timerActive);
-	remainingRef.current = remaining;
-	timerActiveRef.current = timerActive;
-	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const [now, setNow] = useState(() => Date.now());
+	const autoEndRef = useRef(false);
 	const warned5Ref = useRef(false);
 	const warned2Ref = useRef(false);
-	const autoEndRef = useRef(false);
 	const toast = useToast();
 
-	useEffect(() => {
-		if (initialRemaining == null) return;
-		if (remainingRef.current == null || Math.abs((remainingRef.current ?? 0) - initialRemaining) > 10) {
-			setRemaining(initialRemaining);
-		}
-		if (initialRemaining > 0 && !timerActiveRef.current) {
-			setTimerActive(true);
-		}
-		warned5Ref.current = false;
-		warned2Ref.current = false;
-		autoEndRef.current = initialRemaining <= 0;
-	}, [initialRemaining]);
+	const deadlineMs = useMemo(() => {
+		if (!startTime || !timeLimitMinutes) return null;
+		const start = new Date(startTime).getTime();
+		if (Number.isNaN(start)) return null;
+		return start + timeLimitMinutes * 60_000;
+	}, [startTime, timeLimitMinutes]);
 
 	useEffect(() => {
-		if (!timerActive) return;
-		timerRef.current = setInterval(() => {
-			setRemaining((s) => {
-				if (s == null) return s;
-				if (s <= 1) {
-					if (timerRef.current) clearInterval(timerRef.current);
-					return 0;
-				}
-				return s - 1;
-			});
+		if (deadlineMs == null) return;
+		const id = setInterval(() => {
+			if (Date.now() >= deadlineMs) {
+				setNow(deadlineMs); // 钳制在 deadline，停止空转
+				clearInterval(id);
+			} else {
+				setNow(Date.now());
+			}
 		}, 1000);
-		return () => {
-			if (timerRef.current) clearInterval(timerRef.current);
-		};
-	}, [timerActive]);
+		return () => clearInterval(id);
+	}, [deadlineMs]);
 
+	const remaining = useMemo(() => {
+		if (deadlineMs == null || !enabled) return null;
+		return Math.max(0, Math.ceil((deadlineMs - now) / 1000));
+	}, [deadlineMs, now, enabled]);
+
+	// 5/2 分钟提醒 — 区间触发，后台节流跳 tick 也不漏报。
 	useEffect(() => {
-		if (remaining == null || !timerActive) return;
-		if (remaining <= 300 && remaining > 299 && !warned5Ref.current) {
+		if (remaining == null) return;
+		if (remaining <= 300 && remaining > 0 && !warned5Ref.current) {
 			warned5Ref.current = true;
 			toast.warning("训练时间剩余 5 分钟");
 		}
-		if (remaining <= 120 && remaining > 119 && !warned2Ref.current) {
+		if (remaining <= 120 && remaining > 0 && !warned2Ref.current) {
 			warned2Ref.current = true;
 			toast.warning("训练时间剩余 2 分钟，即将自动结束");
 		}
-	}, [remaining, timerActive, toast.warning]);
+	}, [remaining, toast.warning]);
 
 	useEffect(() => {
-		if (remaining === 0 && timerActive && !autoEndRef.current) {
+		if (remaining === 0 && enabled && !autoEndRef.current) {
 			autoEndRef.current = true;
 			onAutoEnd();
 		}
-	}, [remaining, timerActive, onAutoEnd]);
-
-	const stopTimer = useCallback(() => {
-		setTimerActive(false);
-		if (timerRef.current) {
-			clearInterval(timerRef.current);
-			timerRef.current = null;
-		}
-	}, []);
-
-	const resetTimer = useCallback(() => {
-		warned5Ref.current = false;
-		warned2Ref.current = false;
-		autoEndRef.current = false;
-		stopTimer();
-	}, [stopTimer]);
+	}, [remaining, enabled, onAutoEnd]);
 
 	const formatTime = useCallback((sec: number | null): string => {
 		if (sec == null || !Number.isFinite(sec) || sec < 0) return "--:--";
@@ -94,13 +84,5 @@ export function useTrainingTimer({
 		return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 	}, []);
 
-	return {
-		remaining,
-		timerActive,
-		stopTimer,
-		resetTimer,
-		formatTime,
-		setRemaining,
-		setTimerActive,
-	};
+	return { remaining, formatTime };
 }

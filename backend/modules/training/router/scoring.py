@@ -21,8 +21,16 @@ from infra.scoring_progress import ScoringProgressTracker
 
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
-from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, TrainingSessionState, User
+from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from modules.training.scoring.engine import evaluate_training
+from modules.training.session.finalize import (
+    NO_STUDENT_MESSAGES_MESSAGE,
+    NO_STUDENT_MESSAGES_REASON,
+    cleanup_session_runtime,
+    finalize_training,
+    mark_discarded,
+    student_message_count,
+)
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
@@ -33,30 +41,16 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-NO_STUDENT_MESSAGES_REASON = "no_student_messages"
-NO_STUDENT_MESSAGES_MESSAGE = "本次训练没有有效问诊内容，未生成评分"
 
+def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> str:
+    """若记录已存在有效 Score，则终态强制为 'completed'，避免孤儿 Score + failed。
 
-def _student_message_count(db: Session, record_id: int) -> int:
-    return (
-        db.query(func.count(Message.id))
-        .filter(
-            Message.record_id == record_id,
-            Message.role == "student",
-        )
-        .scalar()
-        or 0
-    )
-
-
-def _discard_unscoreable_record(db: Session, record: TrainingRecord, *, ended_at: datetime | None = None) -> None:
-    """Mark a terminal record with no student messages as discarded, never failed/scored."""
-    record.status = "discarded"
-    record.end_time = ended_at or record.end_time or datetime.now(UTC)
-    record.scoring_status = None
-    record.scoring_error = NO_STUDENT_MESSAGES_REASON
-    _set_overdue_if_needed(record, db)
-    db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
+    intended 为调用方本想设置的终态（通常 'failed'）。仅当无 Score 时才沿用。
+    """
+    has_score = db.query(Score.id).filter(Score.record_id == record_id).first() is not None
+    if has_score:
+        return "completed"
+    return intended
 
 
 # Generation counter to detect stale background scoring tasks.
@@ -145,16 +139,6 @@ def get_scoring_status(
         else None,
         "progress": progress,
     }
-
-
-def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
-    if not record.assignment_id or record.is_overdue:
-        return
-    from models import Assignment
-
-    assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
-    if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
-        record.is_overdue = True
 
 
 def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> str:
@@ -251,9 +235,9 @@ async def _run_scoring_background(
 
         # No student turn means there is no assessable nursing behavior.
         # Treat it as discarded, not as failed scoring and not as a zero score.
-        if _student_message_count(db, record_id) == 0:
+        if student_message_count(db, record_id) == 0:
             log.info("评分跳过：无学生消息 record_id=%d", record_id)
-            _discard_unscoreable_record(db, record)
+            mark_discarded(db, record)
             db.commit()
             return
 
@@ -392,13 +376,11 @@ async def end_training(
         if record.scoring_status in ("pending", "processing"):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-        if not acquire_scoring(record_id, db):
+        claimed, kind, case_data = finalize_training(db, record_id, ended_at=datetime.now(UTC))
+        if not claimed:
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
-        db.refresh(record)
 
-        ended_at = datetime.now(UTC)
-        if _student_message_count(db, record_id) == 0:
-            _discard_unscoreable_record(db, record, ended_at=ended_at)
+        if kind == "discarded":
             db.commit()
             log.info(
                 "训练废弃: record_id=%d case_id=%d reason=%s",
@@ -419,22 +401,8 @@ async def end_training(
                 "terminal_reason": NO_STUDENT_MESSAGES_REASON,
             }
 
-        case = db.query(Case).filter(Case.id == record.case_id).first()
-        case_data = record.case_snapshot or (case.case_data if case else {})
-
-        # Auto-submit nursing assessment if it exists but wasn't explicitly submitted
-        from models import NursingRecord
-
-        nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
-        if nr is not None and nr.submitted_at is None:
-            nr.submitted_at = ended_at
-            nr.status = "submitted"
-            nr.updated_at = ended_at
-
-        record.status = "completed"
-        record.end_time = ended_at
-        _set_overdue_if_needed(record, db)
-
+        # kind == "completed" 保证 finalize_training 返回了 case_data
+        assert case_data is not None
         try:
             await request.app.state.task_queue.enqueue(
                 lambda: _run_scoring_background(
@@ -448,27 +416,10 @@ async def end_training(
             )
         except QueueFullError:
             db.rollback()
-            release_scoring(record_id, db)
-            db.commit()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         db.commit()
-
-        from modules.training.capabilities import detect_capabilities
-
-        features = detect_capabilities(
-            case_data=record.case_snapshot or {},
-            training_type=record.training_type or "history_taking",
-            overrides=(record.practice_snapshot or {}).get("features"),
-        )
-        if features.get("patient_initiative"):
-            from modules.training.patient_ai.initiative import cleanup_initiative
-
-            cleanup_initiative(record.id, request.app.state.initiative_cache, db)
-        if features.get("emotion"):
-            from modules.training.patient_ai.emotion import EmotionRepository
-
-            EmotionRepository().cleanup(record.id, db)
+        cleanup_session_runtime(record, request.app.state, db)
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(
@@ -503,8 +454,8 @@ async def retry_scoring(
         if record.status != "completed":
             raise HTTPException(status_code=400, detail="训练尚未结束")
 
-        if _student_message_count(db, record_id) == 0:
-            _discard_unscoreable_record(db, record)
+        if student_message_count(db, record_id) == 0:
+            mark_discarded(db, record)
             db.commit()
             return {
                 "message": NO_STUDENT_MESSAGES_MESSAGE,

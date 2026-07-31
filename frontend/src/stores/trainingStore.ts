@@ -112,7 +112,8 @@ export interface TrainingStore {
 	sending: boolean;
 	ttsAutoPlay: boolean;
 	voiceStatus: { provider: string; latencyMs: number } | null;
-	remainingSeconds: number | null;
+	/** ISO 时间戳：训练创建时刻，倒计时以此为基准（服务端同一语义） */
+	startTime: string | null;
 	trainingEnded: boolean;
 	emotion: EmotionState;
 	trust: number;
@@ -132,7 +133,7 @@ export interface TrainingStore {
 		timeLimitMinutes: number;
 		recordDetail: TrainingRecordDetail | null;
 		initialMessages: ChatMessage[];
-		remainingSeconds: number | null;
+		startTime: string | null;
 		emotionSeed?: { trust: number; comfort: number; state: string } | null;
 	}) => void;
 	reset: () => void;
@@ -152,7 +153,6 @@ export interface TrainingStore {
 	setTtsAutoPlay: (v: boolean) => void;
 	toggleTts: () => void;
 	setVoiceStatus: (s: { provider: string; latencyMs: number } | null) => void;
-	setRemainingSeconds: (s: number | null) => void;
 	setEmotion: (e: EmotionState) => void;
 	setTrustComfort: (trust: number, comfort: number) => void;
 	setEmotion4D: (trust: number, anxiety: number, irritation: number, cooperation: number, label: Emotion4DLabel) => void;
@@ -171,7 +171,7 @@ const initialTrainingState = {
 	sending: false,
 	ttsAutoPlay: true,
 	voiceStatus: null as { provider: string; latencyMs: number } | null,
-	remainingSeconds: null as number | null,
+	startTime: null as string | null,
 	trainingEnded: false,
 	emotion: "neutral" as EmotionState,
 	trust: 50,
@@ -195,7 +195,7 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			capabilities: data.capabilities,
 			timeLimitMinutes: data.timeLimitMinutes,
 			recordDetail: data.recordDetail,
-			remainingSeconds: data.remainingSeconds,
+			startTime: data.startTime,
 			messages: data.initialMessages,
 			sending: false,
 			trainingEnded: false,
@@ -355,7 +355,6 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 	setTtsAutoPlay(v) { set({ ttsAutoPlay: v }); },
 	toggleTts() { set((s) => ({ ttsAutoPlay: !s.ttsAutoPlay })); },
 	setVoiceStatus(s) { set({ voiceStatus: s }); },
-	setRemainingSeconds(s) { set({ remainingSeconds: s }); },
 	setEmotion(e) { set({ emotion: e }); },
 	setTrustComfort(trust, comfort) { set({ trust, comfort }); },
 	setEmotion4D(trust, anxiety, irritation, cooperation, label) { set({ trust, anxiety, irritation, cooperation, emotion4D: label }); },

@@ -76,16 +76,17 @@ export function useTrainingType(): string {
   return record?.training_type || "history_taking";
 }
 
-// ── Derived: time limit / remaining ──
+// ── Derived: time limit / countdown anchor ──
 
 export function useTimeLimit(): number {
   const record = useTrainingData();
   return record?.time_limit ?? 20;
 }
 
-export function useRemainingSeconds(): number | null {
+/** ISO 时间戳：训练创建时刻，倒计时锚点（与服务端同一语义）。 */
+export function useStartTime(): string | null {
   const record = useTrainingData();
-  return record?.remaining_seconds ?? null;
+  return record?.start_time ?? null;
 }
 
 // ── Derived: emotion/scene seed data (was _restoreRecord in TrainingEngine) ──

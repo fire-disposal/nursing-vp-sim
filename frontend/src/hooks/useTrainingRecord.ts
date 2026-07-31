@@ -11,7 +11,8 @@ export interface TrainingRecordData {
 	fromAssignment: boolean;
 	initialMessages: ChatMessage[];
 	timeLimit: number;
-	remainingSeconds: number | null;
+	/** ISO 时间戳：训练创建时刻，倒计时锚点。 */
+	startTime: string | null;
 	status: string;
 }
 
@@ -53,7 +54,7 @@ export function useTrainingRecord(recordId: string) {
 			from_assignment?: boolean;
 			messages?: Array<{ id: number; role: string; content: string }>;
 			time_limit?: number;
-			remaining_seconds?: number | null;
+			start_time?: string | null;
 			status?: string;
 			case?: {
 				name?: string;
@@ -94,7 +95,7 @@ export function useTrainingRecord(recordId: string) {
 			fromAssignment: d.from_assignment ?? false,
 			initialMessages,
 			timeLimit: d.time_limit ?? 20,
-			remainingSeconds: d.remaining_seconds ?? null,
+			startTime: d.start_time ?? null,
 			status: d.status ?? "in_progress",
 		};
 	}, [record]);

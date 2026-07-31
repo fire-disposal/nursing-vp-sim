@@ -2,25 +2,37 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.datetime_utils import ensure_utc
-from models import Assignment, TrainingRecord
-
+from models import TrainingRecord
 
 STALE_HOURS = 24
 
 
 def find_stale_records(db: Session) -> list[TrainingRecord]:
-    """Find in_progress records idle for >24h — auto-abandon as safety net."""
+    """Find in_progress records with no activity for >24h — auto-abandon as safety net.
+
+    Last activity is the most recent message, falling back to record creation
+    when no message exists. Using creation time alone would abandon a session
+    that is still actively used past 24h.
+    """
     from datetime import timedelta
 
+    from sqlalchemy import func
+
+    from models import Message
+
     cutoff = datetime.now(UTC) - timedelta(hours=STALE_HOURS)
+    last_msg = (
+        db.query(Message.record_id, func.max(Message.created_at).label("last_activity"))
+        .group_by(Message.record_id)
+        .subquery()
+    )
     return (
         db.query(TrainingRecord)
+        .outerjoin(last_msg, last_msg.c.record_id == TrainingRecord.id)
         .filter(TrainingRecord.status == "in_progress")
-        .filter(TrainingRecord.start_time < cutoff)
+        .filter(func.coalesce(last_msg.c.last_activity, TrainingRecord.start_time) < cutoff)
         .all()
     )
 

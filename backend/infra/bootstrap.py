@@ -190,9 +190,7 @@ def start_background_loop(app_state, httpx_client, llm_router, log_worker):
 
 async def start_settlement(app_state, cleanup_interval):
     """Start settlement loop and notification publisher as background tasks."""
-    settlement_task = asyncio.create_task(
-        settlement_loop(interval=cleanup_interval)
-    )
+    settlement_task = asyncio.create_task(settlement_loop(interval=cleanup_interval, app_state=app_state))
     app_state._settlement_task = settlement_task
     log.info("Settlement: started (interval=%ds)", cleanup_interval)
 
