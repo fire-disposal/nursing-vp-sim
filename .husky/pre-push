@@ -62,12 +62,18 @@ if $HAS_ALEMBIC; then
     fi
     export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${TEMP_DB}"
   else
-    export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/vptest}"
+    # Never fall back to .env's DATABASE_URL here: a `downgrade base` on a
+    # real database destroys every table. Skip the roundtrip instead — CI
+    # (deploy-staging) still validates single-head + directory contract.
+    echo "  WARNING: psql not found — migration roundtrip skipped"
+    ROUNDTRIP_SKIP=true
   fi
 
   cd "$MIGRATION_DIR" || exit 1
 
-  if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
+  if [ "${ROUNDTRIP_SKIP:-}" = "true" ]; then
+    say "  (skipped — psql unavailable; roundtrip needs a throwaway temp DB)"
+  elif $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
     if $TOCMD_LONG "$ALEMBIC" downgrade base 2>&1; then
       if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
         ok "alembic full upgrade/downgrade roundtrip (base → head → base → head)"

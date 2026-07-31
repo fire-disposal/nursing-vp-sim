@@ -7,7 +7,7 @@
 ```
 git commit → commit-msg: 格式校验 (validate-commit.js)
            → pre-commit: migration 目录检查 + ruff + lint-staged (biome + tsc)
-git push   → pre-push: tag 格式 + alembic roundtrip + 迁移链完整性
+git push   → pre-push: tag 格式 + alembic roundtrip（无 psql 时跳过，绝不 fallback 到 .env 库）+ 迁移链完整性
 ```
 
 提交格式：`<emoji> <type>: <description>`（详见 `pnpm run check` 驳回时打印的 emoji 表）。
@@ -54,7 +54,7 @@ PATCH /api/feedback/bot/{id}?token=xxx                            # 标记 auto_
 
 | 主题 | 位置 |
 |------|------|
-| Tag/部署/CI | 打入 `v*` tag 触发 staging 部署。详见 `.github/workflows/` |
+| Tag/部署/CI | **发布请用 `pnpm run tag`**（`auto-tag.mjs --push`：自动算当天 `vYYYY.MM.DD-N` 序号，脏树/冗余门，推送 master+tag）；只建不推用 `pnpm run tag:local`；手动 `git tag` 亦可但需自算序号，pre-push 会校验格式/日期/序号。tag 触发 staging 部署，详见 `.github/workflows/` |
 | Python | `cd backend && uv run <cmd>` |
 | 测试 | 按域：`pytest tests/<domain>/ -x -q` |
 | 迁移 | `ddl/` 禁 `op.execute()`；`data/` 需 `# Manual override reason: data_only` |
