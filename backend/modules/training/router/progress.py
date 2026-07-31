@@ -8,12 +8,12 @@ from core.database import get_db
 from core.security import get_current_user
 from infra.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
-from modules.training.patient_ai.emotion import EmotionRepository, EmotionVector
+from modules.training.capabilities import is_enabled
+from modules.training.patient_ai.emotion import EmotionRepository
 from modules.training.patient_ai.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
     generate_initiative_llm,
-    should_initiate,
     update_initiative_timer,
 )
 from schemas import InitiativeTriggerResponse
