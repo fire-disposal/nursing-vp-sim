@@ -239,7 +239,9 @@ def get_record_detail(
                 eligible_last_message_id = student.id
 
     hidden_placeholder = _hidden_case(record)
-    redacted_patient_info = {"name": "患者", "age": patient_info["age"], "gender": patient_info["gender"]}
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
+    # 隐藏时全量匿名（姓名/年龄/性别/主诉），避免 PatientInfoTool 等消费点泄露患者特征
+    redacted_patient_info = {"name": "患者", "age": 0, "gender": ""}
     return TrainingRecordDetail(
         id=record.id,
         case_id=record.case_id,
@@ -252,20 +254,20 @@ def get_record_detail(
         end_time=record.end_time,
         time_limit=time_limit,
         remaining_seconds=remaining_seconds,
-        mode=normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode")),
+        mode=mode,
         hide_case_info=bool(hidden_placeholder),
         messages=record.messages,  # ty: ignore[invalid-argument-type]
         score=score_obj,
         patient_info=PatientPublicInfo.model_validate(redacted_patient_info if hidden_placeholder else patient_info),
-        patient_gender=normalize_gender(str(patient_info.get("gender") or "")) or "",
+        patient_gender="" if hidden_placeholder else normalize_gender(str(patient_info.get("gender") or "")) or "",
         training_type=record.training_type or "history_taking",
         features=detect_capabilities(
             case_data=case_data,
             training_type=record.training_type or "history_taking",
             overrides=(record.practice_snapshot or {}).get("features"),
         ),
-        patient_name="" if hidden_placeholder else patient_info["name"],
-        patient_age=patient_info["age"],
+        patient_name="患者" if hidden_placeholder else patient_info["name"],
+        patient_age=0 if hidden_placeholder else patient_info["age"],
         chief_complaint="" if hidden_placeholder else case_data.get("chief_complaint", ""),
         case_title="" if hidden_placeholder else case_title,
         from_assignment=record.assignment_id is not None,
@@ -281,6 +283,7 @@ def get_record_detail(
             "remaining": max(0, correction_limit - correction_used),
             "eligible_last_message_id": eligible_last_message_id,
         },
-        required_inquiries=case_data.get("required_inquiries", []),
+        # 盲盒不显示引导内容（必问清单）；作业隐藏（hide_case_info）仅隐藏病例信息，引导保留
+        required_inquiries=([] if mode == TrainingMode.BLIND_BOX.value else case_data.get("required_inquiries", [])),
         is_test=record.is_test,
     )

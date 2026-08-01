@@ -322,16 +322,12 @@ def _create_record(
         "remaining_seconds": time_limit * 60,
         "mode": normalize_training_mode((config.get("behavior") or {}).get("mode")),
         "hide_case_info": hidden_case,
-        "patient_name": "" if hidden_case else public_patient_info["name"],
-        "patient_age": public_patient_info["age"],
-        "patient_gender": public_patient_info["gender"],
+        "patient_name": "患者" if hidden_case else public_patient_info["name"],
+        "patient_age": 0 if hidden_case else public_patient_info["age"],
+        "patient_gender": "" if hidden_case else public_patient_info["gender"],
         "case_title": "" if hidden_case else case_data.get("title", "") or case.name,
         "chief_complaint": "" if hidden_case else case_data.get("chief_complaint", ""),
-        "patient_info": (
-            {"name": "患者", "age": public_patient_info["age"], "gender": public_patient_info["gender"]}
-            if hidden_case
-            else public_patient_info
-        ),
+        "patient_info": ({"name": "患者", "age": 0, "gender": ""} if hidden_case else public_patient_info),
         "features": resolved_features,
         "messages": [
             {

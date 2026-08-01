@@ -260,7 +260,9 @@ class TestBlindBox:
         assert session["from_assignment"] is False
         assert session["case_title"] == ""
         assert session["chief_complaint"] == ""
-        assert session["patient_name"] == ""
+        assert session["patient_name"] == "患者"
+        assert session["patient_age"] == 0
+        assert session["patient_gender"] == ""
         assert session["patient_info"]["name"] == "患者"
         open_ids = {c.id for c in db_session.query(Case).filter(Case.is_open == True).all()}
         assert session["case_id"] in open_ids
@@ -280,9 +282,12 @@ class TestBlindBox:
         assert detail.status_code == 200
         d = detail.json()
         assert d["case_name"] == "盲盒训练"
-        assert d["patient_name"] == ""
+        assert d["patient_name"] == "患者"
+        assert d["patient_age"] == 0
         assert d["case_title"] == ""
         assert d["chief_complaint"] == ""
+        # 盲盒不显示引导内容：必问清单清空
+        assert d["required_inquiries"] == []
 
         # 结束后（status 离开 in_progress）揭示病例便于复盘
         record = db_session.query(TrainingRecord).filter(TrainingRecord.id == rid).first()
@@ -339,7 +344,8 @@ class TestHiddenCaseAssignment:
         assert "盲盒" not in data["greeting"]
         session = data["session"]
         assert session["hide_case_info"] is True
-        assert session["patient_name"] == ""
+        assert session["patient_name"] == "患者"
+        assert session["patient_age"] == 0
         assert session["case_title"] == ""
         # 作业隐藏是独立开关，不是盲盒 mode
         assert session["mode"] == "guided"
@@ -349,7 +355,10 @@ class TestHiddenCaseAssignment:
         assert detail.status_code == 200
         d = detail.json()
         assert d["hide_case_info"] is True
-        assert d["patient_name"] == ""
+        assert d["patient_name"] == "患者"
+        assert d["patient_age"] == 0
+        # 作业隐藏仅隐藏病例信息，引导（必问清单）保留
+        assert d["required_inquiries"] != []
 
         record = db_session.query(TrainingRecord).filter(TrainingRecord.id == rid).first()
         record.status = TrainingStatus.COMPLETED
