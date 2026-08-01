@@ -615,13 +615,16 @@ export default function TrainingSelect() {
                     )}
                   </div>
                   <div className="mt-auto">
-                    {isInProgress && a.record_id ? (
+                    {isExpired ? (
+                      // 过期作业不提供进入/继续（后端会拒绝继续，前端直接拦截避免交卷倒计时糊脸）
+                      <Button size="sm" variant="outline" disabled className="w-full">已过期</Button>
+                    ) : isInProgress && a.record_id ? (
                       <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
-                    ) : !isExpired && isCompleted ? (
+                    ) : isCompleted ? (
                       <Button size="sm" variant="outline" className="w-full" onClick={handleReattempt}><RotateCcw size={14} />重新训练</Button>
-                    ) : !isExpired && !isCompleted ? (
+                    ) : (
                       <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               );

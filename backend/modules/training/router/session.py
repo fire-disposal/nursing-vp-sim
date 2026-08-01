@@ -56,6 +56,11 @@ def _cascade_delete_training_record(db: Session, record_id: int) -> None:
         db.query(model).filter(column == record_id).delete(synchronize_session="fetch")
 
 
+def _lock_user_row(db: Session, user_id: int) -> None:
+    """行级锁串行化同一用户的并发 start，防全局唯一 in_progress 竞态双开。"""
+    db.query(User).filter(User.id == user_id).with_for_update().first()
+
+
 def _count_pending_questionnaires(db: Session, case_id: int) -> int:
     """病例下「必做」问卷的数量（供训练开始/详情响应提示用）。"""
     return (
@@ -357,6 +362,7 @@ def start_training(
     if not case.is_open:
         raise AuthError(detail="该病例暂未开放", status_code=403)
 
+    _lock_user_row(db, current_user.id)
     # Global: only ONE in_progress regardless of assignment or free practice
     global_existing = (
         db.query(TrainingRecord)
@@ -460,6 +466,7 @@ def start_training_from_assignment(
 
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
         raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
+    _lock_user_row(db, current_user.id)
     # Global: only ONE in_progress regardless of assignment or is_test
     global_existing = (
         db.query(TrainingRecord)
@@ -496,6 +503,9 @@ def start_training_from_assignment(
         .first()
     )
     if existing:
+        if is_overdue:
+            # 超期作业的进行中记录不能继续对话（会立即触发交卷倒计时），明确拒绝
+            raise HTTPException(status_code=400, detail="该作业已过期，无法继续训练，请先交卷查看成绩")
         case = assignment.case
         case_data = case.case_data if case else {}
         patient_info = case_data.get("patient_info", {})
@@ -559,6 +569,7 @@ def start_blind_box_training(
     属自主训练（无 assignment，mode=blind_box）。训练进行中 detail/brief 脱敏，
     结束后揭示病例便于复盘。
     """
+    _lock_user_row(db, current_user.id)
     global_existing = (
         db.query(TrainingRecord)
         .filter(
