@@ -42,7 +42,8 @@ interface TrainingHeaderProps {
 export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
 	const patient = useTrainingStore(s => s.patient);
 	const mode = useTrainingStore(s => s.recordDetail?.mode);
-	const isBlindBox = mode === "blind_box";
+	const hideCaseInfo = useTrainingStore(s => s.recordDetail?.hide_case_info === true);
+	const isHiddenCase = mode === "blind_box" || hideCaseInfo;
 	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
 	const startTime = useTrainingStore(s => s.startTime);
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
@@ -146,13 +147,13 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						<ArrowLeft size={16} className="sm:size-[18px]" />
 					</button>
 
-					{isBlindBox ? (
+					{isHiddenCase ? (
 						<div className="flex items-center gap-2 flex-1 min-w-0">
 							<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
-								盲盒训练
+								{mode === "blind_box" ? "盲盒训练" : "隐藏病例练习"}
 							</div>
 							<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight">
-								随机病例 · 自主练习
+								{mode === "blind_box" ? "随机病例 · 自主练习" : "病例固定 · 结束后揭示"}
 							</div>
 						</div>
 					) : (
@@ -173,7 +174,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						</div>
 					)}
 
-					{!isBlindBox && patient.age != null && (
+					{!isHiddenCase && patient.age != null && (
 						<span className="text-xs text-muted-foreground shrink-0 tabular-nums">
 							{patient.gender === "male" ? "男" : "女"} · {patient.age}岁
 						</span>

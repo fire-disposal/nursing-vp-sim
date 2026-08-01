@@ -4514,6 +4514,11 @@ export interface components {
              * @default guided
              */
             mode: string;
+            /**
+             * Hide Case Info
+             * @default false
+             */
+            hide_case_info: boolean;
             /** Messages */
             messages: components["schemas"]["MessageItem"][];
             score?: components["schemas"]["ScoreItem"] | null;
@@ -4630,6 +4635,11 @@ export interface components {
              * @default guided
              */
             mode: string;
+            /**
+             * Hide Case Info
+             * @default false
+             */
+            hide_case_info: boolean;
             /**
              * Patient Name
              * @default

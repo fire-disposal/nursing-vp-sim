@@ -9,6 +9,7 @@ export const assignmentSchema = z
 		startTime: z.string().min(1, "请选择开始时间"),
 		endTime: z.string().min(1, "请选择截止时间"),
 		maxAttempts: z.number().int("必须为整数").min(0, "不能为负数").nullable().optional(),
+		hideCaseInfo: z.boolean(),
 	})
 	.refine(
 		(data) => !data.endTime || !data.startTime || data.endTime > data.startTime,

@@ -13732,6 +13732,11 @@
             "title": "Mode",
             "default": "guided"
           },
+          "hide_case_info": {
+            "type": "boolean",
+            "title": "Hide Case Info",
+            "default": false
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/MessageItem"
@@ -13931,6 +13936,11 @@
             "type": "string",
             "title": "Mode",
             "default": "guided"
+          },
+          "hide_case_info": {
+            "type": "boolean",
+            "title": "Hide Case Info",
+            "default": false
           },
           "patient_name": {
             "type": "string",

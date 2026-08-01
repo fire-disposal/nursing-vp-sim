@@ -81,6 +81,7 @@ class TrainingRecordDetail(BaseModel):
     time_limit: int = 20
     remaining_seconds: int | None = None
     mode: str = "guided"
+    hide_case_info: bool = False
     messages: list[MessageItem]
     score: ScoreItem | None = None
     patient_info: PatientPublicInfo | None = None

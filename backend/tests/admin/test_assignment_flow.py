@@ -81,6 +81,21 @@ class TestAssignmentFlow:
         resp = client.post("/api/assignments", json=payload, headers=_auth_headers(token))
         assert resp.status_code == 422, resp.text
 
+    def test_create_assignment_rejects_non_bool_hide_case_info(self, client, teacher, test_case, test_class):
+        """hide_case_info 非布尔值 422 拒绝。"""
+        _, token = teacher
+        now = datetime.now(UTC)
+        payload = {
+            "case_id": test_case.id,
+            "behavior": {"hide_case_info": "yes"},
+            "class_id": test_class.id,
+            "title": "非法隐藏开关",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(days=7)).isoformat(),
+        }
+        resp = client.post("/api/assignments", json=payload, headers=_auth_headers(token))
+        assert resp.status_code == 422, resp.text
+
     def test_student_sees_assignment(
         self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
     ):

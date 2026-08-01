@@ -246,12 +246,16 @@ def _create_record(
         },
     }
 
-    blind_box = normalize_training_mode((config.get("behavior") or {}).get("mode")) == TrainingMode.BLIND_BOX.value
+    behavior_cfg = config.get("behavior") or {}
+    # 隐藏病例身份：自主盲盒（mode=blind_box）或作业隐藏开关（hide_case_info）
+    hidden_case = normalize_training_mode(behavior_cfg.get("mode")) == TrainingMode.BLIND_BOX.value or bool(
+        behavior_cfg.get("hide_case_info")
+    )
     patient_info = case_data.get("patient_info", {})
     public_patient_info = _public_patient_info(case_data)
     patient_name = patient_info.get("name", "患者")
-    if blind_box:
-        # 盲盒：问候语中性化，不携带病例/患者线索
+    if hidden_case:
+        # 隐藏病例：问候语中性化，不携带病例/患者线索
         greeting = "你好，我是今天来就诊的患者。你先了解一下我的情况，有什么想问的尽管问我。"
     else:
         opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
@@ -317,14 +321,15 @@ def _create_record(
         "time_limit": time_limit,
         "remaining_seconds": time_limit * 60,
         "mode": normalize_training_mode((config.get("behavior") or {}).get("mode")),
-        "patient_name": "" if blind_box else public_patient_info["name"],
+        "hide_case_info": hidden_case,
+        "patient_name": "" if hidden_case else public_patient_info["name"],
         "patient_age": public_patient_info["age"],
         "patient_gender": public_patient_info["gender"],
-        "case_title": "" if blind_box else case_data.get("title", "") or case.name,
-        "chief_complaint": "" if blind_box else case_data.get("chief_complaint", ""),
+        "case_title": "" if hidden_case else case_data.get("title", "") or case.name,
+        "chief_complaint": "" if hidden_case else case_data.get("chief_complaint", ""),
         "patient_info": (
             {"name": "患者", "age": public_patient_info["age"], "gender": public_patient_info["gender"]}
-            if blind_box
+            if hidden_case
             else public_patient_info
         ),
         "features": resolved_features,
@@ -503,7 +508,9 @@ def start_training_from_assignment(
         return TrainingStartResponse(
             record_id=existing.id,
             greeting=greeting,
-            case_name=case.name if case else "",
+            case_name="隐藏病例练习"
+            if (assignment.behavior or {}).get("hide_case_info")
+            else (case.name if case else ""),
             pending_questionnaires=_count_pending_questionnaires(db, case.id if case else 0),
         )
 
@@ -539,7 +546,7 @@ def start_training_from_assignment(
     return TrainingStartResponse(
         record_id=record.id,
         greeting=greeting,
-        case_name=case.name,
+        case_name="隐藏病例练习" if (assignment.behavior or {}).get("hide_case_info") else case.name,
         session=session,
         pending_questionnaires=_count_pending_questionnaires(db, case.id),
     )

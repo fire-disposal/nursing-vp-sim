@@ -5,17 +5,21 @@ from pydantic import BaseModel, Field, field_validator
 from core.statuses import TrainingMode
 from schemas.common import _REQ_CFG, _RESP_CFG
 
-# 作业可配置的训练模式白名单：盲盒（blind_box）仅限自主触发，作业不可配置。
+# 作业可配置的训练模式白名单。blind_box（随机抽取）仅限自主端点，作业不可配；
+# 作业隐藏病例信息用独立开关 behavior.hide_case_info（教师指定病例，不做随机抽取）。
 _ASSIGNMENT_MODES = {TrainingMode.GUIDED.value, TrainingMode.ASSESSMENT.value}
 
 
-def _check_behavior_mode(v: dict | None) -> dict | None:
-    """behavior.mode 只允许 guided/assessment；非法值 422 拒绝，防止前端静默按 guided 处理。"""
+def _check_behavior(v: dict | None) -> dict | None:
+    """behavior 字段校验：mode 必须在作业白名单；hide_case_info 必须是布尔。"""
     if not v:
         return v
     mode = v.get("mode")
     if mode is not None and mode not in _ASSIGNMENT_MODES:
         raise ValueError(f"behavior.mode 必须是 {'/'.join(sorted(_ASSIGNMENT_MODES))}，收到: {mode!r}")
+    hide = v.get("hide_case_info")
+    if hide is not None and not isinstance(hide, bool):
+        raise ValueError("behavior.hide_case_info 必须是布尔值")
     return v
 
 
@@ -34,8 +38,8 @@ class AssignmentCreateRequest(BaseModel):
 
     @field_validator("behavior")
     @classmethod
-    def _validate_behavior_mode(cls, v: dict) -> dict:
-        return _check_behavior_mode(v)
+    def _validate_behavior(cls, v: dict) -> dict:
+        return _check_behavior(v)
 
 
 class AssignmentUpdateRequest(BaseModel):
@@ -54,8 +58,8 @@ class AssignmentUpdateRequest(BaseModel):
 
     @field_validator("behavior")
     @classmethod
-    def _validate_behavior_mode(cls, v: dict | None) -> dict | None:
-        return _check_behavior_mode(v)
+    def _validate_behavior(cls, v: dict | None) -> dict | None:
+        return _check_behavior(v)
 
 
 class AssignmentListItem(BaseModel):

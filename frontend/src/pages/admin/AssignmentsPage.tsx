@@ -20,6 +20,7 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
+import { Switch } from "@/components/ui/switch";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -93,6 +94,7 @@ const DEFAULT_VALUES: AssignmentValues = {
 	startTime: "",
 	endTime: "",
 	maxAttempts: null as number | null,
+	hideCaseInfo: false,
 };
 
 export default function AssignmentsPage({ embedded = false }: { embedded?: boolean }) {
@@ -173,7 +175,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				classId: d.class_id,
 				startTime: toDatetimeLocal(d.start_time),
 				endTime: toDatetimeLocal(d.end_time),
-				maxAttempts: (d as any).max_attempts ?? null,
+				maxAttempts: d.max_attempts ?? null,
+				hideCaseInfo: d.behavior?.hide_case_info === true,
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
@@ -193,6 +196,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		if (values.maxAttempts != null) {
 			payload.max_attempts = values.maxAttempts;
 		}
+		payload.behavior = { hide_case_info: values.hideCaseInfo };
 		try {
 			if (editingId) {
 				await updateAssignment(editingId, payload as any);
@@ -562,6 +566,21 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 											/>
 										</FormControl>
 										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="hideCaseInfo"
+								render={({ field }) => (
+									<FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
+										<div className="space-y-0.5">
+											<FormLabel>隐藏病例信息</FormLabel>
+											<p className="text-xs text-muted-foreground">训练中不显示病例标题/患者信息，结束后揭示（病例固定，不做随机抽取）</p>
+										</div>
+										<FormControl>
+											<Switch checked={field.value} onCheckedChange={field.onChange} />
+										</FormControl>
 									</FormItem>
 								)}
 							/>

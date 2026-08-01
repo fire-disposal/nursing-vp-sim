@@ -28,6 +28,7 @@ class TrainingSessionData(BaseModel):
     time_limit: int = 20
     remaining_seconds: int
     mode: str = "guided"
+    hide_case_info: bool = False
     patient_name: str = ""
     patient_age: int = 0
     patient_gender: str = ""

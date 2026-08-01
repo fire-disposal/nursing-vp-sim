@@ -304,6 +304,62 @@ class TestBlindBox:
         assert resp.status_code == 400
 
 
+class TestHiddenCaseAssignment:
+    def test_assignment_hide_case_info_redacts_until_end(
+        self, client, student, teacher, test_case, test_class, test_student_in_class, db_session
+    ):
+        """作业配 hide_case_info：session/detail 脱敏、中性问候、mode 仍 guided、结束后揭示。"""
+        from datetime import UTC, datetime, timedelta
+
+        from core.statuses import TrainingStatus
+        from models import Assignment, TrainingRecord
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        now = datetime.now(UTC)
+        assignment = Assignment(
+            title="隐藏病例作业",
+            class_id=test_class.id,
+            case_id=test_case.id,
+            teacher_id=teacher[0].id,
+            behavior={"hide_case_info": True},
+            start_time=now,
+            end_time=now + timedelta(days=1),
+        )
+        db_session.add(assignment)
+        db_session.commit()
+
+        resp = client.post(
+            f"/api/training/start-from-assignment?assignment_id={assignment.id}",
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["case_name"] == "隐藏病例练习"
+        assert "盲盒" not in data["greeting"]
+        session = data["session"]
+        assert session["hide_case_info"] is True
+        assert session["patient_name"] == ""
+        assert session["case_title"] == ""
+        # 作业隐藏是独立开关，不是盲盒 mode
+        assert session["mode"] == "guided"
+
+        rid = data["record_id"]
+        detail = client.get(f"/api/training/records/{rid}", headers=headers)
+        assert detail.status_code == 200
+        d = detail.json()
+        assert d["hide_case_info"] is True
+        assert d["patient_name"] == ""
+
+        record = db_session.query(TrainingRecord).filter(TrainingRecord.id == rid).first()
+        record.status = TrainingStatus.COMPLETED
+        db_session.commit()
+        detail2 = client.get(f"/api/training/records/{rid}", headers=headers)
+        d2 = detail2.json()
+        assert d2["hide_case_info"] is False
+        assert d2["patient_name"] != ""
+
+
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):
         _user, token = student
