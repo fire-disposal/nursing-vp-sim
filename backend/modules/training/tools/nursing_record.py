@@ -108,11 +108,12 @@ class NursingRecordHandler(ToolHandler):
         if nr.submitted_at is not None:
             # Idempotent: already submitted
             return ToolResult(ok=True, data={"id": nr.id, "submitted_at": nr.submitted_at.isoformat()})
-        nr.submitted_at = datetime.now(UTC)
+        submitted_at = datetime.now(UTC)
+        nr.submitted_at = submitted_at
         nr.status = "submitted"
         nr.updated_at = datetime.now(UTC)
         ctx.db.flush()
-        return ToolResult(ok=True, data={"id": nr.id, "submitted_at": nr.submitted_at.isoformat()})
+        return ToolResult(ok=True, data={"id": nr.id, "submitted_at": submitted_at.isoformat()})
 
     def _build_template(self, ctx: ToolContext) -> dict:
         """Build template with fixed hints and patient context prefill."""

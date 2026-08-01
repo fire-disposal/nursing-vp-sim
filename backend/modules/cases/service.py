@@ -55,6 +55,10 @@ class CaseService:
     def __init__(self, db: Session):
         self.db = db
 
+    def training_count(self, case_id: int) -> int:
+        """病例的训练记录数（Phase 5 自 repo 内联迁移）。"""
+        return self.db.query(TrainingRecord).filter(TrainingRecord.case_id == case_id).count()
+
     def _manage_view(self, case: Case, training_count: int = 0) -> CaseManageView:
         cd = case.case_data or {}
         info = cd.get("patient_info", {})

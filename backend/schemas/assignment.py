@@ -38,7 +38,7 @@ class AssignmentCreateRequest(BaseModel):
 
     @field_validator("behavior")
     @classmethod
-    def _validate_behavior(cls, v: dict) -> dict:
+    def _validate_behavior(cls, v: dict) -> dict | None:
         return _check_behavior(v)
 
 

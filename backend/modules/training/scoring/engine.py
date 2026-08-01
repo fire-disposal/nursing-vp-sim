@@ -532,7 +532,7 @@ async def evaluate_training(
     tracker=None,  # ScoringProgressTracker | None
     realtime_hub=None,
     user_id: int | None = None,
-) -> Score:
+) -> Score | None:
     """对训练对话进行评分并保存结果。
 
     两阶段并行：

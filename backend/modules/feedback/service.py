@@ -236,9 +236,7 @@ class FeedbackService:
 
     def image_count_for_feedback(self, feedback_id: int) -> int:
         return (
-            self.db.query(func.count(FeedbackImage.id))
-            .filter(FeedbackImage.feedback_id == feedback_id)
-            .scalar()
+            self.db.query(func.count(FeedbackImage.id)).filter(FeedbackImage.feedback_id == feedback_id).scalar()
         ) or 0
 
     def storage_stats(self) -> dict:

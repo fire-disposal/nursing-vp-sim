@@ -85,9 +85,7 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
             log.debug("Turn %s already processed, skipping emotion update", turn_id)
         elif result.events:
             work_state = EmoState(vector=recovered, version=state.version)
-            new_work_state, applied_events = engine.apply_events(
-                work_state, profile, result.events
-            )
+            new_work_state, applied_events = engine.apply_events(work_state, profile, result.events)
 
             if applied_events:
                 final_state = EmoState(

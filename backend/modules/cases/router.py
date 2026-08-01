@@ -181,7 +181,7 @@ def toggle_case_open(
 ):
     svc = CaseService(db)
     case = svc.set_open(case_id, open)
-    count = svc.repo.training_count(case_id)
+    count = svc.training_count(case_id)
     return _to_manage_item(svc._manage_view(case, count))
 
 

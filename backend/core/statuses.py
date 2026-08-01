@@ -56,4 +56,6 @@ class TrainingMode(StrEnum):
 
 def normalize_training_mode(value: object) -> str:
     """白名单规范化；非法或缺失值一律回退 guided。"""
-    return value if value in TrainingMode else TrainingMode.GUIDED.value
+    if isinstance(value, str) and value in TrainingMode:
+        return value
+    return TrainingMode.GUIDED.value

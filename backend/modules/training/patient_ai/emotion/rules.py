@@ -45,7 +45,6 @@ EVENT_RULES: dict[EmotionEventType, EmotionDelta] = {
         trust=0.04,
         irritation=-0.03,
     ),
-
     # ── 负面事件：护士沟通失误 ──
     EmotionEventType.INTERRUPTION: EmotionDelta(
         trust=-0.03,
@@ -74,7 +73,6 @@ EVENT_RULES: dict[EmotionEventType, EmotionDelta] = {
         irritation=0.07,
         cooperation=-0.06,
     ),
-
     # ── 情境事件：外部临床事件 ──
     EmotionEventType.REQUEST_COOPERATION: EmotionDelta(
         cooperation=0.02,

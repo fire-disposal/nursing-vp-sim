@@ -34,9 +34,7 @@ class EmotionRepository:
 
     def get(self, record_id: int, db: Session) -> EmotionState | None:
         """读取当前 4D 状态。不存在返回 None。"""
-        row = db.query(TrainingSessionEmotionState).filter(
-            TrainingSessionEmotionState.record_id == record_id
-        ).first()
+        row = db.query(TrainingSessionEmotionState).filter(TrainingSessionEmotionState.record_id == record_id).first()
         if row is None:
             return None
         return EmotionState(
@@ -187,9 +185,5 @@ class EmotionRepository:
 
     def cleanup(self, record_id: int, db: Session) -> None:
         """删除指定 record 的状态和事件历史。"""
-        db.query(TrainingSessionEmotionState).filter(
-            TrainingSessionEmotionState.record_id == record_id
-        ).delete()
-        db.query(TrainingSessionEmotionEvent).filter(
-            TrainingSessionEmotionEvent.record_id == record_id
-        ).delete()
+        db.query(TrainingSessionEmotionState).filter(TrainingSessionEmotionState.record_id == record_id).delete()
+        db.query(TrainingSessionEmotionEvent).filter(TrainingSessionEmotionEvent.record_id == record_id).delete()
