@@ -61,6 +61,7 @@ class EmotionEventType(StrEnum):
     BAD_NEWS = "bad_news"
     LONG_WAIT = "long_wait"
     FATIGUE = "fatigue"
+    FEVER = "fever"
 
 
 class DetectedEmotionEvent(BaseModel):

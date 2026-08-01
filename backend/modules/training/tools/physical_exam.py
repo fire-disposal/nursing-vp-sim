@@ -4,6 +4,7 @@ import logging
 
 from core.exceptions import AuthError, ValidationError
 from modules.training.capabilities import is_enabled
+from modules.training.tools.exam_emotion import apply_exam_emotion
 from modules.training.tools.physical_exam_rules import handle_operation
 
 from .base import ToolContext, ToolHandler, ToolResult
@@ -81,12 +82,29 @@ class PhysicalExamHandler(ToolHandler):
 
         record.runtime_state = rs
 
+        data: dict = {
+            "op_type": op_type,
+            "result": result,
+            "all_results": exam_results,
+        }
+
+        # 查体 → 情绪桥接（feedback id=30）：异常值/重复测量产生确定性情绪事件。
+        # 与查体结果同一事务提交；无事件或情绪禁用时返回 None，不影响查体结果。
+        if is_enabled(record, "emotion"):
+            same_op_count = sum(1 for item in exam_results if str(item.get("type")) == op_type)
+            emotion_patch = apply_exam_emotion(
+                record.id,
+                ctx.case_data,
+                op_type,
+                str(result.get("value", "")),
+                same_op_count,
+                ctx.db,
+            )
+            if emotion_patch:
+                data["emotion"] = emotion_patch
+
         return ToolResult(
             ok=True,
-            data={
-                "op_type": op_type,
-                "result": result,
-                "all_results": exam_results,
-            },
+            data=data,
             scene={"vitals": vitals_patch} if vitals_patch else None,
         )

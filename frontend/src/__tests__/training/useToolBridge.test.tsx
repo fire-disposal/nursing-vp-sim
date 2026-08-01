@@ -69,4 +69,43 @@ describe("useToolBridge", () => {
       },
     ]);
   });
+
+  it("forwards exam emotion payload as emotion:changed (feedback id=30)", () => {
+    const bus = createMessageBus();
+    const emotions: Array<Record<string, unknown>> = [];
+    bus.on("emotion:changed", (e: Record<string, unknown>) => emotions.push(e));
+    render(<Bridge bus={bus} />);
+
+    act(() => {
+      wsMock.handler?.({
+        type: "tool:result",
+        request_id: "request-2",
+        tool: "physical_exam",
+        action: "measure",
+        ok: true,
+        data: {
+          op_type: "temp",
+          result: { label: "体温", value: "38.5", unit: "°C" },
+          emotion: { anxiety: 0.54, irritation: 0.35, cooperation: 0.48, trust: 0.5, dominant_state: "anxious_guarded" },
+        },
+      });
+    });
+
+    expect(emotions).toEqual([
+      { anxiety: 0.54, irritation: 0.35, cooperation: 0.48, trust: 0.5, dominant_state: "anxious_guarded" },
+    ]);
+
+    // 无 emotion 字段的工具结果不得触发情绪事件
+    act(() => {
+      wsMock.handler?.({
+        type: "tool:result",
+        request_id: "request-3",
+        tool: "physical_exam",
+        action: "measure",
+        ok: true,
+        data: { op_type: "hr", result: { label: "心率", value: "72" } },
+      });
+    });
+    expect(emotions).toHaveLength(1);
+  });
 });

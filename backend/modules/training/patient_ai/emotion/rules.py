@@ -96,4 +96,9 @@ EVENT_RULES: dict[EmotionEventType, EmotionDelta] = {
         irritation=0.02,
         cooperation=-0.06,
     ),
+    # 查体桥接事件：体温 ≥38°C，患者自觉不适（feedback id=30）
+    EmotionEventType.FEVER: EmotionDelta(
+        anxiety=0.04,
+        cooperation=-0.02,
+    ),
 }

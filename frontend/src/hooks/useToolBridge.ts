@@ -109,5 +109,23 @@ export function useToolBridge(bus: MessageBus) {
     if (msg.scene && typeof msg.scene === "object") {
       bus.emit("scene:state", msg.scene as Record<string, unknown>);
     }
+
+    // 查体 → 情绪桥接（feedback id=30）：工具结果携带 emotion 时驱动情绪条
+    const emotion =
+      msg.data && typeof msg.data === "object"
+        ? (msg.data as Record<string, unknown>).emotion
+        : undefined;
+    if (emotion && typeof emotion === "object") {
+      bus.emit(
+        "emotion:changed",
+        emotion as {
+          trust?: number;
+          anxiety?: number;
+          irritation?: number;
+          cooperation?: number;
+          dominant_state?: string;
+        },
+      );
+    }
   });
 }
