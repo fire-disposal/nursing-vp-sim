@@ -1,8 +1,19 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from core.statuses import TrainingMode
 from schemas.common import _REQ_CFG, _RESP_CFG
+
+
+def _check_behavior_mode(v: dict | None) -> dict | None:
+    """behavior.mode 只允许 guided/assessment；非法值 422 拒绝，防止前端静默按 guided 处理。"""
+    if not v:
+        return v
+    mode = v.get("mode")
+    if mode is not None and mode not in TrainingMode:
+        raise ValueError(f"behavior.mode 必须是 {'/'.join(TrainingMode)}，收到: {mode!r}")
+    return v
 
 
 class AssignmentCreateRequest(BaseModel):
@@ -18,6 +29,11 @@ class AssignmentCreateRequest(BaseModel):
     end_time: datetime
     max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
 
+    @field_validator("behavior")
+    @classmethod
+    def _validate_behavior_mode(cls, v: dict) -> dict:
+        return _check_behavior_mode(v)
+
 
 class AssignmentUpdateRequest(BaseModel):
     model_config = _REQ_CFG
@@ -32,6 +48,11 @@ class AssignmentUpdateRequest(BaseModel):
     end_time: datetime | None = None
     is_closed: bool | None = None
     max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
+
+    @field_validator("behavior")
+    @classmethod
+    def _validate_behavior_mode(cls, v: dict | None) -> dict | None:
+        return _check_behavior_mode(v)
 
 
 class AssignmentListItem(BaseModel):

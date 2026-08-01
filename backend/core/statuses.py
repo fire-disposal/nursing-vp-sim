@@ -35,3 +35,19 @@ class LLMCallStatus(StrEnum):
 
     SUCCESS = "success"
     FAILED = "failed"
+
+
+class TrainingMode(StrEnum):
+    """训练模式 — 作业 behavior.mode 白名单。
+
+    读取端（session / detail 视图）对非法值一律回退 ``GUIDED``，
+    防历史脏数据静默透传到前端（前端把一切非 assessment 当 guided）。
+    """
+
+    GUIDED = "guided"
+    ASSESSMENT = "assessment"
+
+
+def normalize_training_mode(value: object) -> str:
+    """白名单规范化；非法或缺失值一律回退 guided。"""
+    return value if value in TrainingMode else TrainingMode.GUIDED.value

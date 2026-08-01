@@ -10,7 +10,7 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, load_role_permissions, require_permission
-from core.statuses import TrainingStatus
+from core.statuses import TrainingStatus, normalize_training_mode
 from models import (
     Assignment,
     Case,
@@ -310,7 +310,7 @@ def _create_record(
         "start_time": record.start_time.isoformat() if record.start_time else None,
         "time_limit": time_limit,
         "remaining_seconds": time_limit * 60,
-        "mode": str((config.get("behavior") or {}).get("mode") or "guided"),
+        "mode": normalize_training_mode((config.get("behavior") or {}).get("mode")),
         "patient_name": public_patient_info["name"],
         "patient_age": public_patient_info["age"],
         "patient_gender": public_patient_info["gender"],

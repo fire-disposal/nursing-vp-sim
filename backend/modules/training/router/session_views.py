@@ -9,7 +9,7 @@ from core.datetime_utils import parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
-from core.statuses import ScoringStatus, TrainingStatus
+from core.statuses import ScoringStatus, TrainingStatus, normalize_training_mode
 from models import (
     ScoreReview,
     TrainingRecord,
@@ -233,7 +233,7 @@ def get_record_detail(
         end_time=record.end_time,
         time_limit=time_limit,
         remaining_seconds=remaining_seconds,
-        mode=str((record.practice_snapshot or {}).get("behavior", {}).get("mode") or "guided"),
+        mode=normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode")),
         messages=record.messages,  # ty: ignore[invalid-argument-type]
         score=score_obj,
         patient_info=PatientPublicInfo.model_validate(patient_info),

@@ -26,6 +26,7 @@ class TestAssignmentFlow:
         assert resp.status_code == 200, f"Create failed: {resp.text}"
         data = resp.json()
         assert data["title"] == "肺炎病史采集练习"
+
         assert data["case_id"] == test_case.id
         assert data["class_id"] == test_class.id
         assert data["student_count"] >= 0
@@ -49,6 +50,21 @@ class TestAssignmentFlow:
         assert resp.status_code == 200
         assert "text/csv" in resp.headers.get("content-type", "")
         assert assignment_id
+
+    def test_create_assignment_rejects_invalid_behavior_mode(self, client, teacher, test_case, test_class):
+        """behavior.mode 非法值 422 拒绝，防前端静默按 guided 处理。"""
+        _, token = teacher
+        now = datetime.now(UTC)
+        payload = {
+            "case_id": test_case.id,
+            "behavior": {"mode": "exam"},
+            "class_id": test_class.id,
+            "title": "非法模式作业",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(days=7)).isoformat(),
+        }
+        resp = client.post("/api/assignments", json=payload, headers=_auth_headers(token))
+        assert resp.status_code == 422, resp.text
 
     def test_student_sees_assignment(
         self, client, teacher, student, test_case, test_class, test_student_in_class, db_session

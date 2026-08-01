@@ -207,6 +207,41 @@ class TestStartTraining:
         assert detail.status_code == 200
         assert detail.json()["mode"] == "assessment"
 
+    def test_invalid_mode_in_db_falls_back_to_guided(
+        self, client, student, teacher, test_case, test_class, test_student_in_class, db_session
+    ):
+        """库内非法 behavior.mode（绕过 API 校验写入）读取端回退 guided。"""
+        from datetime import UTC, datetime, timedelta
+
+        from models import Assignment
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+
+        now = datetime.now(UTC)
+        assignment = Assignment(
+            title="脏模式作业",
+            class_id=test_class.id,
+            case_id=test_case.id,
+            teacher_id=teacher[0].id,
+            behavior={"mode": "exam"},
+            start_time=now,
+            end_time=now + timedelta(days=1),
+        )
+        db_session.add(assignment)
+        db_session.commit()
+
+        resp = client.post(
+            f"/api/training/start-from-assignment?assignment_id={assignment.id}",
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["session"]["mode"] == "guided"
+
+        detail = client.get(f"/api/training/records/{resp.json()['record_id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["mode"] == "guided"
+
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):
