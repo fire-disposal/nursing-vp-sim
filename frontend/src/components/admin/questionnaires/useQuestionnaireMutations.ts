@@ -38,9 +38,9 @@ export function useSaveTemplateMutation() {
 				})),
 			};
 			if (editingId) {
-				return updateQuestionnaireTemplate(editingId, payload as any);
+				return updateQuestionnaireTemplate(editingId, payload);
 			}
-			return createQuestionnaireTemplate(payload as any);
+			return createQuestionnaireTemplate(payload);
 		},
 		onSuccess: (_data, { editingId }) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.questionnaires.all });

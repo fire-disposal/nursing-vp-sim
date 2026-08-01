@@ -12,6 +12,7 @@ import {
 	updateAssignment,
 } from "@/api/assignments";
 import { getManageCases } from "@/api/cases";
+import type { components } from "@/api/api-types.gen";
 import { getClasses } from "@/api/grades-classes";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
@@ -37,6 +38,8 @@ import ResponsiveTable from "@/components/ui/responsive-table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
+
+type Schemas = components["schemas"];
 
 interface AssignmentRow {
 	id: string;
@@ -185,7 +188,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	};
 
 	const onSubmit = async (values: AssignmentValues) => {
-		const payload: Record<string, unknown> = {
+		const payload: Schemas["AssignmentCreateRequest"] = {
 			title: values.title.trim(),
 			description: values.desc.trim() || null,
 			case_id: values.caseId,
@@ -199,10 +202,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		payload.behavior = { hide_case_info: values.hideCaseInfo };
 		try {
 			if (editingId) {
-				await updateAssignment(editingId, payload as any);
+				await updateAssignment(editingId, payload);
 				toast.success("更新成功");
 			} else {
-				await createAssignment(payload as any);
+				await createAssignment(payload);
 				toast.success("创建成功");
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
@@ -237,7 +240,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		});
 		if (!ok) return;
 		try {
-			await updateAssignment(a.id, { is_closed: !isClosed } as any);
+			await updateAssignment(a.id, { is_closed: !isClosed });
 			toast.success(isClosed ? "已重新开放" : "已关闭");
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 		} catch (e: unknown) {

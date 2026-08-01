@@ -117,7 +117,7 @@ export default function SystemNotificationsPage() {
 	const onSubmit = async (values: NotificationValues) => {
 		try {
 			const publishedAt = fromDatetimeLocal(values.published_at);
-			const body: Record<string, unknown> = {
+			const body: components["schemas"]["SystemNotificationCreateRequest"] = {
 				title: values.title,
 				content: values.content,
 				level: values.level,
@@ -127,10 +127,10 @@ export default function SystemNotificationsPage() {
 				body.published_at = publishedAt;
 			}
 			if (editing) {
-				await updateSystemNotification(editing.id, body as any);
+				await updateSystemNotification(editing.id, body);
 				toast.success("已更新");
 			} else {
-				await createSystemNotification(body as any);
+				await createSystemNotification(body);
 				toast.success(publishedAt ? "已创建定时通知" : "已发送");
 			}
 			qc.invalidateQueries({ queryKey: queryKeys.systemNotifications.all });

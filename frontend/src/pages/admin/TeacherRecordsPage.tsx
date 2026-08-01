@@ -449,7 +449,7 @@ export default function TeacherRecordsPage() {
 													<Badge variant="secondary">问诊</Badge>
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground">
-													{(r as any).assignment_title ? (
+													{r.assignment_title ? (
 														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
 													) : (
 														<span className="text-muted-foreground/40">自由训练</span>

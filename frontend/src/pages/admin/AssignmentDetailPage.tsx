@@ -77,29 +77,29 @@ export default function AssignmentDetailPage() {
 	};
 
 	const filteredStudents = useMemo(() => {
-		const students = (data?.students as any[] | undefined) ?? [];
+		const students = data?.students ?? [];
 		let result = students;
 		if (studentSearch) {
 			const q = studentSearch.toLowerCase();
 			result = result.filter(
-				(s: any) =>
+				(s) =>
 					s.display_name?.toLowerCase().includes(q) ||
 					String(s.student_id || "").toLowerCase().includes(q),
 			);
 		}
 		if (statusFilter) {
-			result = result.filter((s: any) => s.status === statusFilter);
+			result = result.filter((s) => s.status === statusFilter);
 		}
 		return result;
 	}, [data?.students, studentSearch, statusFilter]);
 
-	const allStudents = (data?.students as any[] | undefined) ?? [];
-	const notStartedCount = allStudents.filter((s: any) => s.status === "not_started").length;
-	const overdueCount = allStudents.filter((s: any) => s.status === "overdue").length;
-	const unfinishedStudents = allStudents.filter((s: any) => s.status !== "completed");
+	const allStudents = data?.students ?? [];
+	const notStartedCount = allStudents.filter((s) => s.status === "not_started").length;
+	const overdueCount = allStudents.filter((s) => s.status === "overdue").length;
+	const unfinishedStudents = allStudents.filter((s) => s.status !== "completed");
 
 	const handleCopyUnfinished = async () => {
-		const names = unfinishedStudents.map((s: any) => s.display_name).join("\n");
+		const names = unfinishedStudents.map((s) => s.display_name).join("\n");
 		try {
 			await navigator.clipboard.writeText(names);
 			toast.success(`已复制 ${unfinishedStudents.length} 名未完成学生名单`);
@@ -125,7 +125,7 @@ export default function AssignmentDetailPage() {
 						const base = detail.description
 							? `${detail.case_name} · ${detail.class_name} · ${detail.description}`
 							: `${detail.case_name} · ${detail.class_name}`;
-						const ma = (detail as any).max_attempts;
+						const ma = detail.max_attempts;
 						const maText =
 							ma != null && ma > 0
 								? ` · 最多 ${ma} 次`
@@ -219,8 +219,8 @@ export default function AssignmentDetailPage() {
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">
-							{`${(detail as any).completion_rate != null
-								? ((detail as any).completion_rate as number * 100).toFixed(0)
+							{`${detail.completion_rate != null
+								? (detail.completion_rate * 100).toFixed(0)
 								: "-"}%`}
 						</div>
 					</CardContent>
@@ -233,22 +233,22 @@ export default function AssignmentDetailPage() {
 					</CardHeader>
 					<CardContent>
 						<div className="text-lg font-bold">
-							{(detail as any).avg_score != null ? (detail as any).avg_score : "-"}
+							{detail.avg_score != null ? detail.avg_score : "-"}
 						</div>
 						<div className="text-xs text-muted-foreground">
-							最高 {(detail as any).max_score ?? "-"} / 最低 {(detail as any).min_score ?? "-"}
+							最高 {detail.max_score ?? "-"} / 最低 {detail.min_score ?? "-"}
 						</div>
 					</CardContent>
 				</Card>
 			</div>
 
-			{(detail as any).avg_score != null && (
+			{detail.avg_score != null && (
 				<Card className="mt-4">
 					<CardHeader className="pb-2">
 						<CardTitle className="text-sm">分数分布</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<ScoreDistributionBar students={(detail.students || []) as any[]} />
+						<ScoreDistributionBar students={detail.students ?? []} />
 					</CardContent>
 				</Card>
 			)}
