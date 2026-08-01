@@ -2695,7 +2695,15 @@ export interface components {
             reference_case_ids?: number[] | null;
             /** Reference Text */
             reference_text?: string | null;
-            /** Field */
+            /**
+             * Stage
+             * @default full
+             */
+            stage: string;
+            /**
+             * Field
+             * @description 生成/重生成单个顶层字段（如 present_illness、exam_anchors）
+             */
             field?: string | null;
             /** Current Case Data */
             current_case_data?: {

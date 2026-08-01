@@ -83,7 +83,12 @@ class CaseGenerateRequest(BaseModel):
     description: str = Field(min_length=1, max_length=4096)
     reference_case_ids: list[int] | None = None
     reference_text: str | None = Field(default=None, max_length=16384)
-    field: str | None = Field(default=None, pattern="^(hidden_info|required_inquiries)$")
+    stage: str = Field(default="full", pattern="^(full|core|derivative)$")
+    field: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="生成/重生成单个顶层字段（如 present_illness、exam_anchors）",
+    )
     current_case_data: dict[str, Any] | None = None
 
 

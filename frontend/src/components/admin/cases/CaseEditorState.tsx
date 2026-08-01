@@ -19,6 +19,8 @@ export interface CaseEditorState {
 	isDirty: boolean;
 	/** Which view mode is active. */
 	mode: "form" | "json";
+	/** 撤销栈：AI 批量填充前的快照（最多 10 步）。 */
+	undoStack: Array<Record<string, CaseJsonValue>>;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────
@@ -28,7 +30,9 @@ type Action =
 	| { type: "SET_JSON"; json: Record<string, CaseJsonValue> }
 	| { type: "LOAD_CASE"; json: Record<string, CaseJsonValue> }
 	| { type: "SWITCH_MODE"; mode: "form" | "json" }
-	| { type: "MARK_CLEAN" };
+	| { type: "MARK_CLEAN" }
+	| { type: "PUSH_SNAPSHOT" }
+	| { type: "UNDO" };
 
 // ── JSON path helpers ─────────────────────────────────────────────────────
 
@@ -131,6 +135,7 @@ function reducer(state: CaseEditorState, action: Action): CaseEditorState {
 				initialJson: JSON.stringify(action.json),
 				isDirty: false,
 				mode: "form",
+				undoStack: [],
 			};
 		case "SWITCH_MODE":
 			return { ...state, mode: action.mode };
@@ -139,7 +144,16 @@ function reducer(state: CaseEditorState, action: Action): CaseEditorState {
 				...state,
 				initialJson: JSON.stringify(state.json),
 				isDirty: false,
+				undoStack: [],
 			};
+		case "PUSH_SNAPSHOT":
+			return { ...state, undoStack: [...state.undoStack.slice(-9), state.json] };
+		case "UNDO": {
+			if (state.undoStack.length === 0) return state;
+			const undoStack = state.undoStack.slice(0, -1);
+			const json = state.undoStack[state.undoStack.length - 1];
+			return { ...state, json, undoStack, isDirty: true };
+		}
 	}
 }
 
@@ -151,6 +165,7 @@ export function useCaseEditor(initial?: Record<string, CaseJsonValue>) {
 		initialJson: JSON.stringify(initial ?? getDefaultCaseJson()),
 		isDirty: false,
 		mode: "form",
+		undoStack: [],
 	});
 
 	return { state, dispatch };

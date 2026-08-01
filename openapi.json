@@ -9165,17 +9165,24 @@
             ],
             "title": "Reference Text"
           },
+          "stage": {
+            "type": "string",
+            "pattern": "^(full|core|derivative)$",
+            "title": "Stage",
+            "default": "full"
+          },
           "field": {
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^(hidden_info|required_inquiries)$"
+                "pattern": "^[a-z][a-z0-9_]*$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Field"
+            "title": "Field",
+            "description": "生成/重生成单个顶层字段（如 present_illness、exam_anchors）"
           },
           "current_case_data": {
             "anyOf": [
