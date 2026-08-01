@@ -141,17 +141,6 @@ def get_scoring_status(
     }
 
 
-def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> str:
-    """若记录已存在有效 Score，则终态强制为 'completed'，避免孤儿 Score + failed。
-
-    intended 为调用方本想设置的终态（通常 'failed'）。仅当无 Score 时才沿用。
-    """
-    has_score = db.query(Score.id).filter(Score.record_id == record_id).first() is not None
-    if has_score:
-        return "completed"
-    return intended
-
-
 def _handle_scoring_failure(
     record_id: int,
     error_msg: str,

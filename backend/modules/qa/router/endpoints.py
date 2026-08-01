@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.database import db_session, get_db
+from core.database import SessionLocal, db_session, get_db
 from core.rate_limits import check_qa_limit
 from core.security import require_permission
 from core.template import render_template

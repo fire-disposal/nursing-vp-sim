@@ -24,10 +24,8 @@ export const queryKeys = {
 			[...queryKeys.training.all, "records", params] as const,
 		recentStudent: () => [...queryKeys.training.all, "recent", "student"] as const,
 		recentAdmin: () => [...queryKeys.training.all, "recent", "admin"] as const,
-		record: (id: number | string | null | undefined) =>
-			[...queryKeys.training.all, "detail", id] as const,
 		detail: (id: number | string | null | undefined) =>
-			[...queryKeys.training.all, "detail", id] as const,
+			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
 		review: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "review", id] as const,
 		state: (recordId: number | string | null | undefined) =>

@@ -23,8 +23,8 @@ export default function RecordDetail() {
 	});
 
 	const { data: record, isError: recordError } = useQuery({
-		queryKey: queryKeys.training.record(Number(id)),
-		queryFn: () => getRecordDetail(Number(id)).then((r) => r.data),
+		queryKey: queryKeys.training.detail(id),
+		queryFn: () => getRecordDetail(id!).then((r) => r.data),
 		enabled: !!id,
 	});
 
