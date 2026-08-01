@@ -56,7 +56,7 @@ PATCH /api/feedback/bot/{id}?token=xxx                            # 标记 auto_
 |------|------|
 | Tag/部署/CI | **发布请用 `pnpm run tag`**（`auto-tag.mjs --push`：自动算当天 `vYYYY.MM.DD-N` 序号，脏树/冗余门，推送 master+tag）；只建不推用 `pnpm run tag:local`；手动 `git tag` 亦可但需自算序号，pre-push 会校验格式/日期/序号。tag 触发 staging 部署，详见 `.github/workflows/` |
 | Python | `cd backend && uv run <cmd>` |
-| 测试 | 按域：`pytest tests/<domain>/ -x -q` |
+| 测试 | 日常（无库）：`pnpm test:backend:unit`（`-m "not integration"`）；全量（需 PostgreSQL）：`pnpm test:backend`；库不可达时 integration 自动 skip 不报错 |
 | 迁移 | `ddl/` 禁 `op.execute()`；`data/` 需 `# Manual override reason: data_only` |
 | API 类型 | `pnpm run api:update` 重新生成，禁止手改 `.gen.ts` |
 | 完整文档 | `docs/README.md` |
