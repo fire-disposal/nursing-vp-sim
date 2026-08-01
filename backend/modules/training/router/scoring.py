@@ -15,6 +15,7 @@ from core.config import (
 from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
+from core.statuses import ScoringStatus, TrainingStatus
 from infra.llm.client import LLMClient
 from infra.queue import QueueFullError
 from infra.scoring_progress import ScoringProgressTracker
@@ -49,7 +50,7 @@ def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> s
     """
     has_score = db.query(Score.id).filter(Score.record_id == record_id).first() is not None
     if has_score:
-        return "completed"
+        return ScoringStatus.COMPLETED
     return intended
 
 
@@ -154,12 +155,12 @@ def _handle_scoring_failure(
         try:
             db.expire_all()
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record and record.scoring_status == "processing":
-                terminal = _resolve_terminal_status(db, record_id, intended="failed")
+            if record and record.scoring_status == ScoringStatus.PROCESSING:
+                terminal = _resolve_terminal_status(db, record_id, intended=ScoringStatus.FAILED)
                 record.scoring_status = terminal
-                record.scoring_error = None if terminal == "completed" else error_msg[:2000]
+                record.scoring_error = None if terminal == ScoringStatus.COMPLETED else error_msg[:2000]
                 db.commit()
-                if terminal == "completed":
+                if terminal == ScoringStatus.COMPLETED:
                     log.info("评分超时但已存在有效 Score，纠正为 completed", extra={"record_id": record_id})
                     return
                 actual_user_id = user_id or record.user_id
@@ -283,17 +284,17 @@ async def _run_scoring_background(
         # changed status to 'failed' during scoring, we must still set 'completed'
         # because a Score was just saved — otherwise we get an orphan Score.
         db.refresh(record)
-        if record.scoring_status == "pending":
+        if record.scoring_status == ScoringStatus.PENDING:
             log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
             return
-        if record.scoring_status != "processing":
+        if record.scoring_status != ScoringStatus.PROCESSING:
             log.info("评分状态已变更（%s），跳过完成状态更新", record.scoring_status, extra={"record_id": record_id})
             return
 
-        record.scoring_status = "completed"
+        record.scoring_status = ScoringStatus.COMPLETED
         record.scoring_error = None
         if tracker:
-            tracker.update(record_id, "completed", 100, "评分完成")
+            tracker.update(record_id, ScoringStatus.COMPLETED, 100, "评分完成")
         log.info("[SCORING] DONE record_id=%d", record_id)
 
         _create_notification(
@@ -320,7 +321,7 @@ async def _run_scoring_background(
         log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
         _timeout_msg = f"评分超时（超过{SCORING_TIMEOUT_SECONDS}秒）"
         if tracker:
-            tracker.update(record_id, "failed", 0, _timeout_msg)
+            tracker.update(record_id, ScoringStatus.FAILED, 0, _timeout_msg)
         _handle_scoring_failure(
             record_id,
             _timeout_msg,
@@ -331,7 +332,7 @@ async def _run_scoring_background(
         msg = str(e)[:200]
         log.exception("[SCORING] FAIL record_id=%d error=%s: %s", record_id, type(e).__name__, msg)
         if tracker:
-            tracker.update(record_id, "failed", 0, msg)
+            tracker.update(record_id, ScoringStatus.FAILED, 0, msg)
         _handle_scoring_failure(
             record_id,
             str(e)[:2000] or type(e).__name__,
@@ -356,16 +357,16 @@ async def end_training(
             raise HTTPException(status_code=404, detail="训练记录不存在")
         if record.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="只能结束自己的训练")
-        if record.status != "in_progress":
+        if record.status != TrainingStatus.IN_PROGRESS:
             raise HTTPException(status_code=400, detail="训练已结束")
-        if record.scoring_status in ("pending", "processing"):
+        if record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
         claimed, kind, case_data = finalize_training(db, record_id, ended_at=datetime.now(UTC))
         if not claimed:
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
-        if kind == "discarded":
+        if kind == TrainingStatus.DISCARDED:
             db.commit()
             log.info(
                 "训练废弃: record_id=%d case_id=%d reason=%s",
@@ -382,7 +383,7 @@ async def end_training(
                 "message": NO_STUDENT_MESSAGES_MESSAGE,
                 "record_id": record_id,
                 "scoring_status": None,
-                "record_status": "discarded",
+                "record_status": TrainingStatus.DISCARDED,
                 "terminal_reason": NO_STUDENT_MESSAGES_REASON,
             }
 
@@ -418,8 +419,8 @@ async def end_training(
         return {
             "message": "训练已结束，评分正在后台生成中",
             "record_id": record_id,
-            "scoring_status": "pending",
-            "record_status": "completed",
+            "scoring_status": ScoringStatus.PENDING,
+            "record_status": TrainingStatus.COMPLETED,
         }
 
 
@@ -436,7 +437,7 @@ async def retry_scoring(
             raise HTTPException(status_code=404, detail="训练记录不存在")
         if not current_user.has_permission("score_review") and record.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="无权操作此记录")
-        if record.status != "completed":
+        if record.status != TrainingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="训练尚未结束")
 
         if student_message_count(db, record_id) == 0:
@@ -446,12 +447,12 @@ async def retry_scoring(
                 "message": NO_STUDENT_MESSAGES_MESSAGE,
                 "record_id": record_id,
                 "scoring_status": None,
-                "record_status": "discarded",
+                "record_status": TrainingStatus.DISCARDED,
                 "terminal_reason": NO_STUDENT_MESSAGES_REASON,
             }
 
         now = datetime.now(UTC)
-        if record.scoring_status in ("pending", "processing"):
+        if record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
@@ -496,7 +497,7 @@ async def retry_scoring(
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         db.commit()
-        return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
+        return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": ScoringStatus.PENDING}
 
 
 @router.get("/notifications", response_model=PaginatedResponse[TrainingNotificationItem])

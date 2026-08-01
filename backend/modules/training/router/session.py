@@ -10,6 +10,7 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, load_role_permissions, require_permission
+from core.statuses import TrainingStatus
 from models import (
     Assignment,
     Case,
@@ -212,7 +213,7 @@ def _create_record(
         assignment_id=assignment_id,
         is_overdue=is_overdue,
         training_type=training_type,
-        status="in_progress",
+        status=TrainingStatus.IN_PROGRESS,
         time_limit=time_limit,
     )
 
@@ -303,7 +304,7 @@ def _create_record(
     # 构建会话数据 — 前端可直接缓存，跳过初始 GET /records/{id} 请求
     session = {
         "id": record.id,
-        "status": "in_progress",
+        "status": TrainingStatus.IN_PROGRESS,
         "training_type": training_type,
         "case_id": case.id,
         "start_time": record.start_time.isoformat() if record.start_time else None,
@@ -331,6 +332,7 @@ def _create_record(
     }
     return record, greeting, session
 
+
 @router.post("/start", response_model=TrainingStartResponse)
 def start_training(
     req: TrainingStartRequest,
@@ -349,7 +351,7 @@ def start_training(
         db.query(TrainingRecord)
         .filter(
             TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == "in_progress",
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
         )
         .first()
     )
@@ -418,12 +420,9 @@ def start_training_from_assignment(
 
     is_overdue = now > ensure_utc(assignment.end_time)
 
-    user_class = (
-        db.query(UserClass)
-        .filter(
-            UserClass.user_id == current_user.id,
-            UserClass.class_id == assignment.class_id,
-        )
+    user_class = db.query(UserClass).filter(
+        UserClass.user_id == current_user.id,
+        UserClass.class_id == assignment.class_id,
     )
     if not user_class:
         raise AuthError(detail="你不在该练习的目标班级中", status_code=403)
@@ -437,7 +436,9 @@ def start_training_from_assignment(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
             TrainingRecord.is_test == False,
-            TrainingRecord.status.notin_(["in_progress", "discarded", "abandoned"]),
+            TrainingRecord.status.notin_(
+                [TrainingStatus.IN_PROGRESS, TrainingStatus.DISCARDED, TrainingStatus.ABANDONED]
+            ),
         )
         .count()
     )
@@ -449,11 +450,14 @@ def start_training_from_assignment(
         db.query(TrainingRecord)
         .filter(
             TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == "in_progress",
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
         )
         .first()
     )
-    if global_existing and (global_existing.assignment_id != assignment.id or global_existing.case_id != (assignment.case.id if assignment.case else None)):
+    if global_existing and (
+        global_existing.assignment_id != assignment.id
+        or global_existing.case_id != (assignment.case.id if assignment.case else None)
+    ):
         case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
         raise HTTPException(
             status_code=409,
@@ -471,7 +475,7 @@ def start_training_from_assignment(
         .filter(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
-            TrainingRecord.status == "in_progress",
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
             TrainingRecord.is_test == False,
         )
         .first()
@@ -526,6 +530,7 @@ def start_training_from_assignment(
         pending_questionnaires=_count_pending_questionnaires(db, case.id),
     )
 
+
 @router.delete("/records/{record_id}", response_model=DeleteResponse)
 def delete_record(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
@@ -567,10 +572,10 @@ def abandon_record(
         raise NotFoundError(detail="训练记录不存在")
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise AuthError(detail="无权操作此记录", status_code=403)
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="只能放弃进行中的训练")
 
-    record.status = "abandoned"
+    record.status = TrainingStatus.ABANDONED
     record.end_time = datetime.now(UTC)
     db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).delete()
     db.commit()
@@ -580,4 +585,3 @@ def abandon_record(
         extra={"user_id": current_user.id, "action": "training_abandon"},
     )
     return {"message": "训练记录已放弃"}
-

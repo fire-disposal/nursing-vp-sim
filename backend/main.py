@@ -38,6 +38,7 @@ from core.exceptions import (
     scoring_error_handler,
     validation_error_handler,
 )
+from core.statuses import ScoringStatus, TrainingStatus
 from infra.llm import ProfileRouter
 from infra.logging_setup import setup_logging
 from seed import seed_all
@@ -70,8 +71,8 @@ def _recover_stuck_scoring_records():
         stuck = (
             db.query(TrainingRecord)
             .filter(
-                TrainingRecord.scoring_status.in_(["pending", "processing"]),
-                TrainingRecord.status == "completed",
+                TrainingRecord.scoring_status.in_([ScoringStatus.PENDING, ScoringStatus.PROCESSING]),
+                TrainingRecord.status == TrainingStatus.COMPLETED,
             )
             .all()
         )
@@ -82,10 +83,10 @@ def _recover_stuck_scoring_records():
         )
         for rec in stuck:
             if rec.id in scored_ids:
-                rec.scoring_status = "completed"
+                rec.scoring_status = ScoringStatus.COMPLETED
                 rec.scoring_error = None
             else:
-                rec.scoring_status = "pending"
+                rec.scoring_status = ScoringStatus.PENDING
                 rec.scoring_error = None
         db.commit()
         if stuck:
@@ -110,8 +111,8 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
         pending = (
             db.query(TrainingRecord)
             .filter(
-                TrainingRecord.scoring_status == "pending",
-                TrainingRecord.status == "completed",
+                TrainingRecord.scoring_status == ScoringStatus.PENDING,
+                TrainingRecord.status == TrainingStatus.COMPLETED,
             )
             .all()
         )

@@ -3,6 +3,7 @@
 import logging
 
 from core.exceptions import AuthError, ValidationError
+from core.statuses import TrainingStatus
 from modules.training.capabilities import is_enabled
 from modules.training.tools.exam_emotion import apply_exam_emotion
 from modules.training.tools.physical_exam_rules import handle_operation
@@ -56,7 +57,7 @@ class PhysicalExamHandler(ToolHandler):
         record = ctx.record
         if record.user_id != ctx.current_user.id:
             raise AuthError(detail="只能操作自己的训练", status_code=403)
-        if record.status != "in_progress":
+        if record.status != TrainingStatus.IN_PROGRESS:
             raise ValidationError(detail="训练已结束")
         if not is_enabled(record, "physical_exam"):
             raise ValidationError(detail="本次训练未启用护理查体")

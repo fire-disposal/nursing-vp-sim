@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, text
 
 from core.database import SessionLocal
+from core.statuses import ScoringStatus, TrainingStatus
 from infra.queue import QueueFullError
 from infra.training_queries import STALE_HOURS, abandon_record, find_stale_records
 from models import Message, Notification, Score, TrainingRecord, TrainingSessionState
@@ -66,7 +67,7 @@ def _find_expired_records(db) -> list[TrainingRecord]:
     return (
         db.query(TrainingRecord)
         .filter(
-            TrainingRecord.status == "in_progress",
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
             TrainingRecord.start_time + func.make_interval(0, 0, 0, 0, 0, 0, TrainingRecord.time_limit * 60) < cutoff,
         )
         .all()
@@ -86,7 +87,7 @@ def _settle_expired_records(db) -> list[tuple[int, dict | None]]:
     for record in expired:
         try:
             claimed, kind, case_data = finalize_training(db, record.id, ended_at=now)
-            if claimed and kind == "completed":
+            if claimed and kind == TrainingStatus.COMPLETED:
                 pending.append((record.id, case_data))
             db.commit()
         except Exception:
@@ -158,9 +159,9 @@ def _sweep_stale_scoring_records(db) -> int:
     stale = (
         db.query(TrainingRecord)
         .filter(
-            TrainingRecord.scoring_status.in_(["pending", "processing"]),
+            TrainingRecord.scoring_status.in_([ScoringStatus.PENDING, ScoringStatus.PROCESSING]),
             TrainingRecord.end_time < cutoff,
-            TrainingRecord.status == "completed",
+            TrainingRecord.status == TrainingStatus.COMPLETED,
         )
         .all()
     )
@@ -185,10 +186,10 @@ def _sweep_stale_scoring_records(db) -> int:
             record.scoring_status = None
             record.scoring_error = NO_STUDENT_MESSAGES_REASON
         elif record.id in scored_ids:
-            record.scoring_status = "completed"
+            record.scoring_status = ScoringStatus.COMPLETED
             record.scoring_error = None
         else:
-            record.scoring_status = "failed"
+            record.scoring_status = ScoringStatus.FAILED
             record.scoring_error = "评分超时，已自动标记失败，可手动重试"
             db.add(
                 Notification(

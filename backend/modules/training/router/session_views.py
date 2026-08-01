@@ -9,6 +9,7 @@ from core.datetime_utils import parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
+from core.statuses import ScoringStatus, TrainingStatus
 from models import (
     ScoreReview,
     TrainingRecord,
@@ -198,8 +199,8 @@ def get_record_detail(
     correction_used = max(0, int(correction_state.get("used") or 0))
     eligible_last_message_id = None
     if (
-        record.status == "in_progress"
-        and record.scoring_status not in {"pending", "processing", "completed"}
+        record.status == TrainingStatus.IN_PROGRESS
+        and record.scoring_status not in {ScoringStatus.PENDING, ScoringStatus.PROCESSING, ScoringStatus.COMPLETED}
         and score is None
         and correction_used < correction_limit
     ):

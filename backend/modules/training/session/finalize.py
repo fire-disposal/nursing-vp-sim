@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.datetime_utils import ensure_utc
+from core.statuses import ScoringStatus, TrainingStatus
 from models import Case, Message, NursingRecord, TrainingRecord, TrainingSessionState
 
 from ..scoring.lifecycle import acquire_scoring
@@ -50,7 +51,7 @@ def set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
 
 def mark_discarded(db: Session, record: TrainingRecord, *, ended_at: datetime | None = None) -> None:
     """Terminal state for records with no student messages — discarded, never failed/scored."""
-    record.status = "discarded"
+    record.status = TrainingStatus.DISCARDED
     record.end_time = ended_at or record.end_time or datetime.now(UTC)
     record.scoring_status = None
     record.scoring_error = NO_STUDENT_MESSAGES_REASON
@@ -78,9 +79,9 @@ def finalize_training(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).with_for_update().first()
     if not record:
         return False, None, None
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         return False, None, None
-    if record.scoring_status in ("pending", "processing"):
+    if record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
         return False, None, None
     if not acquire_scoring(record_id, db):
         return False, None, None
@@ -89,7 +90,7 @@ def finalize_training(
     ended = ended_at or datetime.now(UTC)
     if student_message_count(db, record_id) == 0:
         mark_discarded(db, record, ended_at=ended)
-        return True, "discarded", None
+        return True, TrainingStatus.DISCARDED, None
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = record.case_snapshot or (case.case_data if case else {})
@@ -101,10 +102,10 @@ def finalize_training(
         nr.status = "submitted"
         nr.updated_at = ended
 
-    record.status = "completed"
+    record.status = TrainingStatus.COMPLETED
     record.end_time = ended
     set_overdue_if_needed(record, db)
-    return True, "completed", case_data
+    return True, TrainingStatus.COMPLETED, case_data
 
 
 def cleanup_session_runtime(record: TrainingRecord, app_state, db: Session) -> None:

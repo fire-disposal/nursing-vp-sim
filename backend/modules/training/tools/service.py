@@ -6,6 +6,7 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 
 from core.exceptions import AuthError, ConflictError, ValidationError
+from core.statuses import TrainingStatus
 from models import TrainingRecord, TrainingToolRequest
 
 from .base import ToolContext, ToolResult
@@ -65,7 +66,7 @@ def _authorize(ctx: ToolContext, tool_name: str, action: str) -> None:
     can_review = ctx.current_user.has_permission("score_review")
     if not is_owner and not (is_read and can_review):
         raise AuthError(detail="无权访问此训练记录", status_code=403)
-    if not is_read and ctx.record.status != "in_progress":
+    if not is_read and ctx.record.status != TrainingStatus.IN_PROGRESS:
         raise ValidationError(detail="训练已结束，不能继续操作")
 
     from modules.training.capabilities import is_enabled

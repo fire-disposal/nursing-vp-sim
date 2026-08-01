@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from core.database import db_session, get_db
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
+from core.statuses import ScoringStatus, TrainingStatus
 from models import Case, Message, TrainingRecord, TrainingToolRequest, User
 from modules.training.capabilities import detect_capabilities
 from modules.training.timing import is_training_overdue
@@ -45,7 +46,7 @@ async def _build_context(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="只能在自己训练中发送消息")
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="训练已结束")
     # 实时超时守卫（补漏：结算循环每 30s 一次，两次 tick 之间此前仍可发消息）
     if is_training_overdue(record):
@@ -117,9 +118,17 @@ def _latest_correctable_pair(db: Session, record_id: int) -> tuple[Message, Mess
 
 
 def _ensure_correction_allowed(db: Session, record: TrainingRecord, student: Message) -> dict:
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="训练已结束")
-    if record.scoring_status in {"pending", "processing", "completed"} or record.score is not None:
+    if (
+        record.scoring_status
+        in {
+            ScoringStatus.PENDING,
+            ScoringStatus.PROCESSING,
+            ScoringStatus.COMPLETED,
+        }
+        or record.score is not None
+    ):
         raise HTTPException(status_code=400, detail="评分已开始，不能再修正")
     state = _correction_state(record)
     if state["remaining"] <= 0:

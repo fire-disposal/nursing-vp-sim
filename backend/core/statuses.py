@@ -1,0 +1,37 @@
+"""状态机常量 — 训练记录/评分/LLM 调用的状态值唯一真值。
+
+使用 ``StrEnum``：成员是 ``str`` 的子类，与裸字符串比较、JSON 序列化、
+SQLAlchemy 绑定参数均兼容，可安全替换历史散落的字面量。
+"""
+
+from enum import StrEnum
+
+
+class TrainingStatus(StrEnum):
+    """TrainingRecord.status — 训练会话的总体状态。"""
+
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    DISCARDED = "discarded"
+    ABANDONED = "abandoned"
+    FAILED = "failed"
+
+
+class ScoringStatus(StrEnum):
+    """TrainingRecord.scoring_status — 评分流水线状态。"""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class LLMCallStatus(StrEnum):
+    """LLMCallLog.status — LLM 调用结果状态（DB 写入值）。
+
+    消费端全部以 ``== \"success\"`` / ``!= \"success\"`` 二元判断；
+    ``\"error\"`` 仅作为内存 metrics 标签出现，不落库，故不在此列。
+    """
+
+    SUCCESS = "success"
+    FAILED = "failed"

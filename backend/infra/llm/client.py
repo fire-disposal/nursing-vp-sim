@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from core.exceptions import LLMParseError, NoProviderAvailable
+from core.statuses import LLMCallStatus
 from infra.llm.call_recorder import CallMeta, CallRecorder
 from infra.llm.circuit import async_retry, backoff_delay
 
@@ -79,8 +80,9 @@ class LLMClient:
         self._log_worker = log_worker
         self._metrics = metrics
         self._recorder = CallRecorder(log_worker, metrics)
-        from infra.llm.profile import PROFILES
         from core.config import LLM_WORKER_COUNT
+        from infra.llm.profile import PROFILES
+
         _divisor = max(1, LLM_WORKER_COUNT)
         self._semaphores: dict[str, asyncio.Semaphore] = {
             p: asyncio.Semaphore(max(1, pf.semaphore // _divisor)) for p, pf in PROFILES.items()
@@ -123,7 +125,7 @@ class LLMClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 latency_ms=int((time.perf_counter() - t0) * 1000),
-                status="success",
+                status=LLMCallStatus.SUCCESS,
                 request_text=request_text,
                 response_text=result.content,
                 usage=result.usage or None,
@@ -147,7 +149,7 @@ class LLMClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 latency_ms=int((time.perf_counter() - t0) * 1000),
-                status="failed",
+                status=LLMCallStatus.FAILED,
                 error_type="all_providers_failed",
                 request_text=request_text,
                 meta=ctx.log_meta,
@@ -222,7 +224,7 @@ class LLMClient:
                 CallMeta(
                     purpose=purpose,
                     model="",
-                    status="failed",
+                    status=LLMCallStatus.FAILED,
                     error_type=type(e).__name__,
                     latency_ms=0,
                     user_id=ctx.user_id,
@@ -259,7 +261,7 @@ class LLMClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 latency_ms=int((time.perf_counter() - t0) * 1000),
-                status="success",
+                status=LLMCallStatus.SUCCESS,
                 request_text=request_text,
                 response_text=content,
                 usage=cumulative_usage or None,
@@ -396,7 +398,7 @@ class LLMClient:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         latency_ms=latency_ms,
-                        status="success",
+                        status=LLMCallStatus.SUCCESS,
                         request_text=request_text,
                         response_text=total_text,
                         usage=usage or None,
@@ -449,7 +451,7 @@ class LLMClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 latency_ms=latency_ms,
-                status="failed",
+                status=LLMCallStatus.FAILED,
                 error_type="all_providers_failed",
                 request_text=request_text,
                 meta=ctx.log_meta,

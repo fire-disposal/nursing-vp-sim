@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.exceptions import LLMParseError
+from core.statuses import ScoringStatus
 from core.template import render_template
 from infra.llm import safe_parse_json
 from infra.llm.client import CallContext, LLMClient
@@ -492,7 +493,7 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
     # Guard: timeout handler may have already marked scoring_status='failed'.
     # Don't write an orphan Score that won't match the record status.
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if record and record.scoring_status not in ("processing", "pending", None):
+    if record and record.scoring_status not in (ScoringStatus.PROCESSING, ScoringStatus.PENDING, None):
         log.warning(
             "评分结果已过期（状态=%s），不写入孤儿 Score",
             record.scoring_status,
@@ -520,6 +521,7 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
     db.commit()
     db.refresh(score)
     return score
+
 
 async def evaluate_training(
     record_id: int,

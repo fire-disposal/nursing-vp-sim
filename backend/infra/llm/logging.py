@@ -9,6 +9,7 @@ from pathlib import Path
 
 from core.config import LLM_COST_CURRENCY
 from core.database import SessionLocal
+from core.statuses import LLMCallStatus
 from models import LLMCallLog
 
 from .token_counter import estimate_cost_cny, estimate_tokens
@@ -191,7 +192,7 @@ class LogWorker:
         temperature=None,
         max_tokens=None,
         latency_ms=0,
-        status="success",
+        status=LLMCallStatus.SUCCESS,
         error_type=None,
         error_message=None,
         request_text="",

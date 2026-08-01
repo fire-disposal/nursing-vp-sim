@@ -7,6 +7,8 @@ logging across call(), stream(), and call_with_tools().
 import logging
 from dataclasses import dataclass
 
+from core.statuses import LLMCallStatus
+
 log = logging.getLogger(__name__)
 
 
@@ -19,7 +21,7 @@ class CallMeta:
     temperature: float = 0.7
     max_tokens: int = 512
     latency_ms: int = 0
-    status: str = "success"
+    status: str = LLMCallStatus.SUCCESS
     error_type: str | None = None
     request_text: str = ""
     response_text: str = ""
@@ -54,7 +56,7 @@ class CallRecorder:
             temperature=meta.temperature,
             max_tokens=meta.max_tokens,
             latency_ms=meta.latency_ms,
-            status="success",
+            status=LLMCallStatus.SUCCESS,
             request_text=meta.request_text,
             response_text=meta.response_text,
             usage=meta.usage or None,
@@ -73,7 +75,9 @@ class CallRecorder:
         actual_cost = self._estimate_cost(
             prompt_tokens, completion_tokens, meta.price_input, meta.price_output, meta.model, meta.cache_hit_tokens
         )
-        self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=meta.latency_ms)
+        self._record_metrics(
+            status=LLMCallStatus.SUCCESS, tokens=total_tokens, cost=actual_cost, latency_ms=meta.latency_ms
+        )
         return actual_cost
 
     def record_failure(self, meta: CallMeta):
@@ -87,7 +91,7 @@ class CallRecorder:
             temperature=meta.temperature,
             max_tokens=meta.max_tokens,
             latency_ms=meta.latency_ms,
-            status="failed",
+            status=LLMCallStatus.FAILED,
             error_type=meta.error_type or "all_providers_failed",
             request_text=meta.request_text,
             meta=meta.meta,

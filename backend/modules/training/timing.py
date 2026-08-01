@@ -10,6 +10,7 @@ admission can never disagree by design.
 from datetime import UTC, datetime, timedelta
 
 from core.datetime_utils import ensure_utc
+from core.statuses import TrainingStatus
 from models import TrainingRecord
 
 DEFAULT_TIME_LIMIT_MINUTES = 20
@@ -23,7 +24,7 @@ def training_deadline(record: TrainingRecord) -> datetime:
 
 def is_training_overdue(record: TrainingRecord, now: datetime | None = None) -> bool:
     """True when an in-progress training has passed its deadline."""
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         return False
     now = now or datetime.now(UTC)
     return now > training_deadline(record)
@@ -31,7 +32,7 @@ def is_training_overdue(record: TrainingRecord, now: datetime | None = None) -> 
 
 def remaining_seconds(record: TrainingRecord, now: datetime | None = None) -> int | None:
     """Remaining wall-clock seconds; None when the record is not in_progress."""
-    if record.status != "in_progress":
+    if record.status != TrainingStatus.IN_PROGRESS:
         return None
     now = now or datetime.now(UTC)
     return max(0, int((training_deadline(record) - now).total_seconds()))
