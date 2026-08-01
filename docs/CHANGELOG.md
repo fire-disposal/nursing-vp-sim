@@ -112,3 +112,10 @@
 ### 训练系统近期方向确立
 - 形成[训练系统收敛与演进路线](10-training-system-roadmap.md)：近期聚焦“问诊—体查—护理评估—评分”闭环
 - 明确病例数据隔离、工具事务与幂等、三段式上下文、模型简化及分诊体系退场方向
+
+### 线上反馈 07-31 修复：倒计时锚点契约
+- `TrainingStartResponse.session` 增加 `start_time`。此前 session 被前端直接缓存为 detail（staleTime 5min），倒计时唯一锚点缺失导致新开训练显示 `--:--`（feedback id=30）；新增后端回归测试锁定该契约，杜绝静默回归
+- 测试库 teardown 改 `DROP SCHEMA public CASCADE`（metadata 未声明 users→classes FK，`drop_all` 排序报 DependentObjectsStillExist）
+
+### 线上反馈 07-31 修复：查体→情绪桥接
+- 体温 ≥38°C（FEVER 事件）、NRS 疼痛 ≥4（PAINFUL_EXAM）、同类测量重复 ≥3 次（LONG_WAIT）产生确定性 4D 情绪事件（feedback id=30），与查体结果同事务提交，前端工具结果即时驱动情绪条

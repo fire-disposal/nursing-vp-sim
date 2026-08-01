@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
@@ -22,6 +24,7 @@ class TrainingSessionData(BaseModel):
     status: str = "in_progress"
     training_type: str = "history_taking"
     case_id: int
+    start_time: datetime | None = None
     time_limit: int = 20
     remaining_seconds: int
     patient_name: str = ""

@@ -71,7 +71,12 @@ def engine():
             conn.commit()
 
     yield eng
-    Base.metadata.drop_all(bind=eng)
+    # DROP SCHEMA CASCADE：metadata 未声明 users.class_id → classes 的 FK
+    # （alembic 迁移遗留约束），drop_all 的依赖排序不覆盖它，会报
+    # DependentObjectsStillExist。测试库可整体重建，无需关心顺序。
+    with eng.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
     eng.dispose()
 
 

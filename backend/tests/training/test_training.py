@@ -138,6 +138,26 @@ class TestStartTraining:
         for hidden_key in ("case_data", "exam_anchors", "personality", "profile_info"):
             assert hidden_key not in payload
 
+    def test_start_session_contains_countdown_anchor(self, client, student, test_case):
+        """start 响应 session 必须携带 start_time —— 前端倒计时唯一锚点。
+
+        回归：session 曾缺失 start_time，而前端将 session 直接缓存为
+        detail（TrainingSelect.setQueryData → TrainingEntry staleTime=5min），
+        倒计时静默降级为 --:--（线上反馈 id=30）。
+        """
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.post("/api/training/start", json={"case_id": test_case.id}, headers=headers)
+        assert resp.status_code == 200
+        session = resp.json()["session"]
+        assert session["start_time"], "session.start_time 缺失 → 前端倒计时锚点为空"
+        assert session["time_limit"] > 0
+
+        # 前端用同一缓存键消费 session 与 detail，两者时间锚点必须一致
+        detail = client.get(f"/api/training/records/{resp.json()['record_id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["start_time"] == session["start_time"]
+
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):
