@@ -28,8 +28,23 @@ from models import Case, User
 
 @pytest.fixture(scope="session")
 def engine():
-    """Session-scoped: create schema once, seed static data, drop at end."""
-    eng = create_engine(TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1))
+    """Session-scoped: create schema once, seed static data, drop at end.
+
+    PostgreSQL 不可达时跳过所有依赖测试（日常 pytest -m 'not integration'
+    不经过这里；误跑全量时也不会因缺库而失败）。
+    """
+    # Windows 上 loopback 未监听端口是静默丢包而非 ECONNREFUSED，
+    # 无超时会导致探测挂死，显式设 3s 连接超时。
+    eng = create_engine(
+        TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1),
+        connect_args={"connect_timeout": 3},
+    )
+    try:
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        eng.dispose()
+        pytest.skip(f"PostgreSQL 不可用（{TEST_DB_URL}）：{exc}")
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:

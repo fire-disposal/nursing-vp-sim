@@ -28,3 +28,6 @@ def test_update_rename(db_session):
     view = svc.create("2024级")
     updated = svc.update(view.id, "2025级")
     assert updated.name == "2025级"
+
+
+pytestmark = pytest.mark.integration

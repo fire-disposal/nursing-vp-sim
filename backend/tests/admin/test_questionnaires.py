@@ -493,3 +493,6 @@ class TestTeacherResponseView:
         assert "text/csv" in resp.headers.get("content-type", "")
         assert "李明" in resp.text
         assert "测试回复" in resp.text
+
+
+pytestmark = pytest.mark.integration

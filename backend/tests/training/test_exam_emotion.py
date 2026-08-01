@@ -1,5 +1,7 @@
 """Tests for exam → emotion bridge (feedback id=30: exam results never moved 4D emotion)."""
 
+import pytest
+
 from modules.training.patient_ai.emotion.events import EmotionEventType
 from modules.training.tools.exam_emotion import apply_exam_emotion, derive_exam_emotion_events
 
@@ -49,6 +51,7 @@ class TestDeriveExamEmotionEvents:
 
 
 class TestApplyExamEmotion:
+    @pytest.mark.integration
     def test_fever_persists_state_and_event(self, db_session, student, test_case):
         from models import TrainingRecord, TrainingSessionEmotionEvent, TrainingSessionEmotionState
 
@@ -92,6 +95,7 @@ class TestApplyExamEmotion:
         assert len(events) == 1
         assert events[0].event_type == "fever"
 
+    @pytest.mark.integration
     def test_no_signal_returns_none_and_writes_nothing(self, db_session, student, test_case):
         from models import TrainingRecord, TrainingSessionEmotionState
 

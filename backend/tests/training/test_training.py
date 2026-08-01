@@ -158,7 +158,9 @@ class TestStartTraining:
         assert detail.status_code == 200
         assert detail.json()["start_time"] == session["start_time"]
 
-    def test_start_session_mode_defaults_guided(self, client, student, teacher, test_case, test_class, db_session):
+    def test_start_session_mode_defaults_guided(
+        self, client, student, teacher, test_case, test_class, test_student_in_class, db_session
+    ):
         """直接开始训练默认 guided 模式；作业配置的 behavior.mode 透传。"""
         from datetime import UTC, datetime, timedelta
 
@@ -452,3 +454,8 @@ class TestScoreReview:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

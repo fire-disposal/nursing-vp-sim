@@ -255,3 +255,8 @@ def test_is_test_exposed_in_brief_and_detail(
     assert resp3.status_code == 200
     detail = resp3.json()
     assert detail["is_test"] is True
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

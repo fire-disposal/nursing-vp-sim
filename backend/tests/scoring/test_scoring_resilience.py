@@ -295,3 +295,8 @@ def test_end_training_discards_no_student_messages(client, db_session):
 
 
 # ── 1.7: Queue full rollback ────────────────────────────────────
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

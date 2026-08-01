@@ -91,3 +91,8 @@ def test_mark_notification_unread_nonexistent(client, teacher):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 404
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

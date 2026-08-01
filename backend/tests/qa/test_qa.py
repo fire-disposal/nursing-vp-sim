@@ -81,3 +81,8 @@ class TestQAMultiTurn:
     def test_empty_question_rejected(self, client, student):
         resp = client.post("/api/qa/sessions", json={"question": ""}, headers={"Authorization": f"Bearer {student[1]}"})
         assert resp.status_code == 422
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

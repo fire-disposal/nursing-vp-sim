@@ -173,3 +173,8 @@ class TestFeedback:
         day_data = data[0]
         assert day_data["rating_5"] == 2
         assert day_data["rating_3"] == 1
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

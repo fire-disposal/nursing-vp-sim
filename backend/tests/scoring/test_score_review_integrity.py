@@ -163,3 +163,8 @@ class TestReviewIntegrity:
 
         assert detail["score"] is not None
         assert detail["score"]["review"] is None
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

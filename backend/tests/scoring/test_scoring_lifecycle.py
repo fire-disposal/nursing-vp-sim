@@ -157,3 +157,6 @@ def test_run_scoring_background_skips_completed(db_session, monkeypatch):
     called = _run_background_with_mocked_evaluate(db_session, monkeypatch, rec)
 
     assert "record_id" not in called
+
+
+pytestmark = pytest.mark.integration

@@ -102,3 +102,6 @@ def test_auth_has_permission(client, teacher):
     _, token = teacher
     resp = client.get("/api/admin/grades", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
+
+
+pytestmark = pytest.mark.integration

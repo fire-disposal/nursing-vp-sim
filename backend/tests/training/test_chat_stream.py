@@ -158,3 +158,8 @@ class TestCorrectLastMessageStream:
         assert correction["used"] == 0
         assert correction["remaining"] == 3
         assert correction["eligible_last_message_id"] == student_msg.id
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

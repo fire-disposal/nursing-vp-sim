@@ -127,3 +127,8 @@ def test_tool_mutation_rejects_completed_record(client, student, test_case, db_s
     assert response["request_id"] == "completed-request-1"
     assert response["status_code"] == 400
     assert response["detail"] == "训练已结束，不能继续操作"
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

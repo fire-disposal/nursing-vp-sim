@@ -100,3 +100,8 @@ def test_chat_rejects_when_training_expired(client, student, test_case, db_sessi
     )
     assert resp.status_code == 400
     assert "训练时间已到" in resp.json()["detail"]
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

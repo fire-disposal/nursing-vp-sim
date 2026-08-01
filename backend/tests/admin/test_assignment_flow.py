@@ -494,3 +494,8 @@ class TestAssignmentFlow:
         items = resp.json()
         student_item = next(a for a in items if a["id"] == assignment_id)
         assert student_item["status"] == "closed"
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

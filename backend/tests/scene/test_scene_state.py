@@ -30,3 +30,8 @@ class TestSceneStateSeeding:
         assert scene.get("environment", {}).get("type") == "ward"
         assert scene.get("patient", {}).get("consciousness") == "alert"
         assert scene.get("vitals") is not None
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

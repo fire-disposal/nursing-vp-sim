@@ -1,78 +1,43 @@
-"""Unit tests for initiative engine."""
+"""Unit tests for initiative engine — pure, no database."""
 
 from datetime import UTC, datetime
 
-import pytest
-
-from modules.training.patient_ai.initiative import (
-    should_initiate,
-)
+from models import TrainingSessionState
+from modules.training.patient_ai.emotion import EmotionVector
+from modules.training.patient_ai.initiative import should_initiate
 from modules.training.session.cache import InitiativeCache
-
-
-def _create_record(db):
-    """Create minimal TrainingRecord for FK constraint in cache tests."""
-    from models import Case, TrainingRecord, User
-
-    user = db.query(User).filter(User.username == "__seed_test_user__").first()
-    case = db.query(Case).filter(Case.name == "__seed_test_case__").first()
-    if not user or not case:
-        pytest.skip("No user or case in test DB")
-    record = TrainingRecord(
-        user_id=user.id,
-        case_id=case.id,
-        status="in_progress",
-        time_limit=20,
-    )
-    db.add(record)
-    db.flush()
-    return record
+from tests._fakes import FakeSession
 
 
 class TestInitiativeCache:
-    def test_timer_lifecycle(self, db_session):
-        record = _create_record(db_session)
-        db_session.commit()
-
+    def test_timer_lifecycle(self):
+        db = FakeSession()
         cache = InitiativeCache()
         now = datetime.now(UTC).timestamp()
-        cache.update_timer(record.id, now, db_session)
-        db_session.commit()
+        cache.update_timer(1, now, db)
 
-        after = cache.get_timer(record.id, now + 30, db_session)
-        assert after == now
+        assert cache.get_timer(1, now + 30, db) == now
 
-    def test_trigger_cooldown(self, db_session):
-        record = _create_record(db_session)
-        db_session.commit()
-
+    def test_trigger_cooldown(self):
+        db = FakeSession()
         cache = InitiativeCache()
         old_time = datetime.now(UTC).timestamp() - 120
-        cache.update_timer(record.id, old_time, db_session)
-        db_session.commit()
-
-        from modules.training.patient_ai.emotion import EmotionVector
+        # init row with full column defaults (SQLAlchemy fills them on flush)
+        db.rows[1] = TrainingSessionState(record_id=1, initiative_timer=old_time, initiative_count=0)
 
         personality = {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "low"}
         vector = EmotionVector(trust=0.5, anxiety=0.5, irritation=0.0, cooperation=0.5)
 
-        result = should_initiate(record.id, cache, db_session, personality, vector)
-        assert result is True
+        assert should_initiate(1, cache, db, personality, vector) is True
+        assert should_initiate(1, cache, db, personality, vector) is False
 
-        result2 = should_initiate(record.id, cache, db_session, personality, vector)
-        assert result2 is False
-
-    def test_cleanup(self, db_session):
-        record = _create_record(db_session)
-        db_session.commit()
-
+    def test_cleanup(self):
+        db = FakeSession()
         cache = InitiativeCache()
         now = datetime.now(UTC).timestamp()
-        cache.update_timer(record.id, now, db_session)
-        cache.set_last_trigger(record.id, now, db_session)
-        db_session.commit()
+        cache.update_timer(1, now, db)
+        cache.set_last_trigger(1, now, db)
 
-        cache.cleanup(record.id, db_session)
-        db_session.commit()
-        assert cache.get_timer(record.id, now + 10, db_session) == now + 10
-        assert cache.get_last_trigger(record.id, db_session) == 0.0
+        cache.cleanup(1, db)
+        assert cache.get_timer(1, now + 10, db) == now + 10
+        assert cache.get_last_trigger(1, db) == 0.0

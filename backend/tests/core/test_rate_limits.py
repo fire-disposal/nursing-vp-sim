@@ -1,8 +1,17 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlalchemy import text
 
 from core.rate_limits import PgRateLimiter
+
+
+@pytest.fixture(autouse=True)
+def _clean_rate_entries(engine):
+    """rate_limit_entries 是真提交写入（绕过 _test_connection），测试间必须清表，
+    否则前序测试的计数会累积导致后续断言失败。"""
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM rate_limit_entries"))
 
 
 class TestIsAllowed:
@@ -91,3 +100,6 @@ class TestResetKey:
         assert await limiter.is_allowed("key_b", max_requests=5, window_seconds=60) is True
         assert await limiter.is_allowed("key_b", max_requests=5, window_seconds=60) is True
         assert await limiter.is_allowed("key_b", max_requests=5, window_seconds=60) is False
+
+
+pytestmark = pytest.mark.integration

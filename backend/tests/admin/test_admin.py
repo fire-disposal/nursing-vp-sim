@@ -255,3 +255,8 @@ class TestStudentDetail:
         assert data["avg_score"] is not None
         assert len(data["recent_records"]) == 3
         assert len(data["daily"]) > 0
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

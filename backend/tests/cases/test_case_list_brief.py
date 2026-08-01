@@ -37,3 +37,6 @@ def test_list_brief_no_name_returns_all(db_session, three_cases):
     result_ids = {c.id for c in items}
     assert set(three_cases).issubset(result_ids)
     assert total >= 3
+
+
+pytestmark = pytest.mark.integration

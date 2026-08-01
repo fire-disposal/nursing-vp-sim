@@ -102,3 +102,8 @@ class TestAssignmentReentry:
 
         nr_check = db_session.query(NursingRecord).filter(NursingRecord.record_id == rid1).first()
         assert nr_check is not None, "NursingRecord should still exist after re-entry with messages"
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

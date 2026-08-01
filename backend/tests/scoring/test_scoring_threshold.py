@@ -108,3 +108,8 @@ class TestRetryScoringThreshold:
         assert resp.status_code == 200
         data = resp.json()
         assert data["scoring_status"] == "pending"
+
+
+import pytest
+
+pytestmark = pytest.mark.integration

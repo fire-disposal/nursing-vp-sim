@@ -41,3 +41,8 @@ def test_daily_series_buckets_by_shanghai_timezone(db_session):
     by_date = {p.date: p.llm_cost for p in series}
     assert by_date.get("2026-07-01", 0.0) == 0.3
     assert by_date.get("2026-06-30", 0.0) == 0.0
+
+
+import pytest
+
+pytestmark = pytest.mark.integration
