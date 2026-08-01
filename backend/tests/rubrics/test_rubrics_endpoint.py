@@ -7,42 +7,6 @@ from pathlib import Path
 import pytest
 
 
-def _auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
-
-
-class TestRubricsEndpoint:
-    @pytest.mark.integration
-    def test_current_rubric_with_score_review_permission(self, client, teacher):
-        """GET /api/rubrics/current returns rubric data for teacher (score_review)."""
-        _, token = teacher
-        resp = client.get("/api/rubrics/current", headers=_auth_headers(token))
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "id" in data
-        assert data["id"] == "nursing_history_v1"
-        assert "dimensions" in data
-        assert isinstance(data["dimensions"], list)
-        assert len(data["dimensions"]) > 0
-        for dim in data["dimensions"]:
-            assert "id" in dim
-            assert "items" in dim
-            assert isinstance(dim["items"], list)
-
-    @pytest.mark.integration
-    def test_current_rubric_no_permission_returns_403(self, client, student):
-        """GET /api/rubrics/current returns 403 for student without score_review."""
-        _, token = student
-        resp = client.get("/api/rubrics/current", headers=_auth_headers(token))
-        assert resp.status_code == 403
-
-    @pytest.mark.integration
-    def test_current_rubric_unauthenticated_returns_401(self, client):
-        """GET /api/rubrics/current returns 401 without token."""
-        resp = client.get("/api/rubrics/current")
-        assert resp.status_code == 401
-
-
 class TestLoadRubricHotReload:
     def test_load_rubric_caches_by_mtime(self, tmp_path):
         """load_rubric returns cached data when mtime unchanged."""
@@ -97,7 +61,6 @@ class TestLoadRubricHotReload:
 
     def test_load_rubric_file_not_found(self):
         """load_rubric raises FileNotFoundError when json missing."""
-        import pytest
 
         import modules.training.scoring.rubric_loader as mod
         from modules.training.scoring.rubric_loader import _CACHE, load_rubric

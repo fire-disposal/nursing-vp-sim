@@ -10,7 +10,6 @@
 
 import logging
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -40,20 +39,9 @@ engine = create_engine(
 )
 _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-_test_connection: ContextVar = ContextVar("_test_connection", default=None)
-
 
 def SessionLocal():
-    """Return a synchronous SQLAlchemy session.
-
-    In tests, sessions are bound to a single connection with an open
-    transaction so all writes roll back at fixture teardown.  In production
-    the ContextVar default is ``None`` and the engine-pooled sessionmaker
-    is used instead.
-    """
-    conn = _test_connection.get(None)
-    if conn is not None:
-        return sessionmaker(bind=conn)()
+    """Return a synchronous SQLAlchemy session (engine-pooled)."""
     return _SessionLocal()
 
 

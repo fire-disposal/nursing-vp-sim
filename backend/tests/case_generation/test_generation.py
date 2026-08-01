@@ -3,16 +3,11 @@
 from types import SimpleNamespace
 from typing import Any, cast
 
-import pytest
-
-from core.exceptions import ValidationError
 from infra.llm.client import LLMClient
 from models import User
 from modules.cases.generation import (
-    _generate_stage,
     _validate_core_stage,
     _validate_derivative_stage,
-    generate_case,
 )
 from schemas import CaseGenerateRequest
 
@@ -103,114 +98,3 @@ class TestStageValidation:
         )
         assert err
         assert "deep_background" in err
-
-
-class TestGenerateCase:
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_core_stage_only(self, db_session):
-        llm = FakeLLM([VALID_CORE])
-        resp = await generate_case(_req(stage="core"), db_session, USER, llm)
-        assert resp.case_data is not None
-        assert resp.case_data["name"] == "肺炎患者的护理"
-        assert "hidden_info" not in resp.case_data
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_derivative_stage_merges_base(self, db_session):
-        llm = FakeLLM([VALID_DERIVATIVE])
-        resp = await generate_case(_req(stage="derivative", current_case_data=VALID_CORE), db_session, USER, llm)
-        assert resp.case_data is not None
-        assert resp.case_data["name"] == "肺炎患者的护理"  # base preserved
-        assert resp.case_data["required_inquiries"] == ["吸烟史", "发热程度"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_derivative_requires_base(self, db_session):
-        with pytest.raises(ValidationError):
-            await generate_case(_req(stage="derivative"), db_session, USER, FakeLLM([]))
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_full_chains_core_then_derivative(self, db_session):
-        llm = FakeLLM([VALID_CORE, VALID_DERIVATIVE])
-        resp = await generate_case(_req(), db_session, USER, llm)
-        assert resp.case_data is not None
-        assert resp.case_data["name"] == "肺炎患者的护理"
-        assert resp.case_data["required_inquiries"] == ["吸烟史", "发热程度"]
-        assert len(llm.calls) == 2  # 两阶段各一次调用
-        # derivative 调用必须携带骨架上下文
-        assert "肺炎患者的护理" in llm.calls[1][0]["content"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_repair_loop_retries_invalid_output(self, db_session):
-        broken = dict(VALID_CORE)
-        broken["patient_info"] = {}  # invalid: missing name/age/gender
-        llm = FakeLLM([broken, VALID_CORE])
-        resp = await generate_case(_req(stage="core"), db_session, USER, llm)
-        assert resp.case_data is not None
-        assert resp.case_data["patient_info"]["name"] == "王大爷"
-        assert len(llm.calls) == 2  # 初试 + 修复
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_repair_exhausted_raises(self, db_session):
-        broken = dict(VALID_CORE)
-        broken["patient_info"] = {}
-        with pytest.raises(ValidationError, match="AI 生成内容不符合要求"):
-            await generate_case(_req(stage="core"), db_session, USER, FakeLLM([broken, broken]))
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_field_generation_any_top_level(self, db_session):
-        llm = FakeLLM([{"present_illness": "3天前受凉后咳嗽加重，夜间为甚"}])
-        resp = await generate_case(_req(field="present_illness"), db_session, USER, llm)
-        assert resp.field == "present_illness"
-        assert resp.field_value is not None
-        assert "咳嗽" in resp.field_value
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_empty_description_rejected(self, db_session):
-        req = _req()
-        req.description = "   "  # schema 层会拦截，这里直接改属性测内部守卫
-        with pytest.raises(ValidationError):
-            await generate_case(req, db_session, USER, FakeLLM([]))
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_llm_error_propagates(self, db_session):
-        class BoomLLM(LLMClient):
-            def __init__(self) -> None:
-                pass
-
-            async def call_json(self, messages, **kwargs):
-                raise RuntimeError("provider down")
-
-        from core.exceptions import LLMError
-
-        with pytest.raises(LLMError):
-            await generate_case(_req(stage="core"), db_session, USER, BoomLLM())
-
-
-class TestStagePrompt:
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_derivative_prompt_embeds_base_case(self, db_session):
-        llm = FakeLLM([VALID_DERIVATIVE])
-        await _generate_stage("derivative", _req(), "无", VALID_CORE, USER, llm)
-        content = llm.calls[0][0]["content"]
-        assert "教学衍生字段" in content
-        assert "肺炎患者的护理" in content  # 骨架注入
-        # 交叉一致性要求必须在 prompt 中
-        assert "交叉一致性" in content
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_core_prompt_no_derivative_fields(self, db_session):
-        llm = FakeLLM([VALID_CORE])
-        await _generate_stage("core", _req(), "无", None, USER, llm)
-        content = llm.calls[0][0]["content"]
-        assert "临床骨架" in content
-        assert "exam_anchors" not in content

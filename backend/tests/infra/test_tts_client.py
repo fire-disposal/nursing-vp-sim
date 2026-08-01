@@ -5,8 +5,6 @@ and cannot be meaningfully unit-tested with mocks.  Integration tests should
 be run against the staging environment with a valid API key.
 """
 
-import pytest
-
 from infra.tts.client import TTSRequest
 
 
@@ -18,7 +16,3 @@ class TestVolcBidirectionalTTSClient:
         assert req.loudness_rate == -10
         assert req.fmt == "mp3"
         assert req.sample_rate == 24000
-
-    @pytest.mark.skip(reason="requires live Volcengine API endpoint")
-    async def test_integration_synthesize(self) -> None:
-        pass
