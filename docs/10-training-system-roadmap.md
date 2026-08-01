@@ -1,5 +1,6 @@
 # 10 — 训练系统收敛与演进路线
 
+> 最后更新: 2026-08-01（结构梳理与索引完善，内容未变更）
 > 状态：近期研发方向的指导性文档；2026-07-29 主干融合后核实：第一阶段部分完成，第二阶段及之后大多未完成
 > 决策日期：2026-07-29
 > 适用范围：训练领域、病例模型、上下文工程、训练工具、评分与相关前端
@@ -206,7 +207,7 @@ records history_taking 3,  triage 0
 
 关键位置：
 
-- `backend/contexts/training/router/session.py`
+- `modules/training/router/session.py`
 - `backend/schemas/training/records.py`
 - `frontend/src/components/training/tools/PatientInfoTool.tsx`
 - `frontend/src/components/training/InquiryProgressChip.tsx`

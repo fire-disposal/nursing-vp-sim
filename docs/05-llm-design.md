@@ -1,11 +1,11 @@
 # 05 — LLM 设计与提示词工程
 
-> 适用版本: 当前 | 最后更新: 2026-06-22
+> 适用版本: 当前 | 最后更新: 2026-08-01
 
 ## 架构总览
 
 ```
-LLMClient (infrastructure/llm/client.py)
+LLMClient (infra/llm/client.py)
   ┌─ ProfileRouter (router.py) — 按 purpose 选配置 → ApiSecret
   ├─ circuit.py — async_retry + backoff_delay 指数退避
   ├─ logging.py — LogWorker 异步队列批量写 DB
@@ -110,7 +110,7 @@ backoff_delay(attempt)  # attempt 0-indexed
 4. 正则降级提取（逐字段 match total_score、strengths、suggestions 等）
 5. 以上均失败 → ValueError
 
-## Prompt 管理 (infrastructure/prompt/)
+## Prompt 管理 (core/template.py + core/template_variables.py)
 
 ### PromptManager
 - 从 DB `prompt_templates` 表加载模板，按 `purpose` 缓存
@@ -138,7 +138,7 @@ backoff_delay(attempt)  # attempt 0-indexed
 - `required_inquiries` — 必须采集清单（来自病例数据）
 - `scoring_json_schema` — LLM 输出 JSON 格式模板
 
-## 患者安全护栏 (contexts/patient/guards.py)
+## 患者安全护栏 (modules/training/patient_ai/guards.py)
 
 ### PostGuard 策略模式
 - **PatternGuard**（默认）：26 条身份泄露 forbidden pattern（"我是AI"、"评分标准"、"训练模式"等）
@@ -161,15 +161,15 @@ backoff_delay(attempt)  # attempt 0-indexed
 
 | 文件 | 用途 |
 |------|------|
-| `infrastructure/llm/client.py` | LLMClient 统一入口 |
-| `infrastructure/llm/router.py` | ProfileRouter 配置路由 |
-| `infrastructure/llm/circuit.py` | 重试+退避 |
-| `infrastructure/llm/logging.py` | LogWorker 异步日志 |
-| `infrastructure/llm/parsing.py` | JSON 容错解析 |
-| `infrastructure/llm/crypto_utils.py` | Fernet 加密 |
-| `infrastructure/llm/provider_catalog.py` | Provider 目录 |
-| `infrastructure/prompt/manager.py` | Prompt 模板管理 |
-| `infrastructure/prompt/registry.py` | VariableRegistry 变量注册 |
-| `infrastructure/prompt/static.py` | 评分标准文本生成 |
-| `contexts/patient/guards.py` | PostGuard 患者身份保护 |
+| `infra/llm/client.py` | LLMClient 统一入口 |
+| `infra/llm/router.py` | ProfileRouter 配置路由 |
+| `infra/llm/circuit.py` | 重试+退避 |
+| `infra/llm/logging.py` | LogWorker 异步日志 |
+| `infra/llm/parsing.py` | JSON 容错解析 |
+| `infra/llm/crypto_utils.py` | Fernet 加密 |
+| `infra/llm/provider_catalog.py` | Provider 目录 |
+| `core/template.py + core/template_variables.pymanager.py` | Prompt 模板管理 |
+| `core/template.py + core/template_variables.pyregistry.py` | VariableRegistry 变量注册 |
+| `core/template.py + core/template_variables.pystatic.py` | 评分标准文本生成 |
+| `modules/training/patient_ai/guards.py` | PostGuard 患者身份保护 |
 | `core/llm_profile.py` | LLM 配置常量 (LLMProfile dataclass) |

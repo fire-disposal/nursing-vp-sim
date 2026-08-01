@@ -1,7 +1,7 @@
 # 11 — 后端组织结构收敛计划
 
-> 决策日期：2026-07-29 | 最后更新：2026-07-30
-> 状态：Phase 0–4 完成，Phase 5（repository 消除）执行中
+> 决策日期：2026-07-29 | 最后更新：2026-08-01
+> 状态：全部完成（含 Phase 5 repository 消除）
 > 适用范围：`backend/` 目录组织、训练域边界、基础设施与业务模块划分
 > 背景：项目由少量人维护，AI agent 改动频率高于人工审阅频率；目标不是企业级分层，而是可导航、可诊断、低跳转的单体架构。
 
@@ -412,11 +412,11 @@ infra 不得决定学生是否能看病例、训练是否完成、工具是否�
 | `schemas/` 子目录 | 扁平 | `admin/`、`voice/`、`training/` | 复杂域 schema 集中管理 |
 | `infra/` 多出文件 | 少 | `ops_queries.py`、`logging_setup.py`、`diagnose.py`、`scoring_progress.py`、`volc/`、`llm/data.py`、`llm/profile.py` | 外部依赖与运行设施 |
 
-### Phase 5 — 消除 `repositories/` 层 🔄
+### Phase 5 — 消除 `repositories/` 层 ✅
 
 **目标**：消除 `repositories/` 目录，所有数据访问走 `service.py` 的 `db: Session` 直调。
 
-**当前状态**：17 个 repository 文件，被 10 个模块通过 14+ 处 import 引用。`Repository` 基类提供 `get`/`get_or_404`/`add`/`delete`/`list_all`/`exists`/`query` 等 SQLAlchemy 薄封装，每个封装 ≤3 行 —— 收益为零，徒增跳转和两套数据访问模式并存的困惑。
+**结果（2026-08-01 核实）**：`repositories/` 目录与顶层 `routers/`、`services/`、`contexts/` 均不复存在；`Repository` 基类已移除，数据访问全部内联为 `self.db` 直调（`modules/training/patient_ai/emotion/repository.py` 保留为训练域内实现细节，不属于旧分层）。
 
 **策略**：内联 + 优化（非机械搬运）。
 
@@ -500,7 +500,7 @@ After:
 | 所有 side effects 明确 must-succeed / best-effort | ✅ pipeline side_effects 中间件 |
 | `/api/diagnose` 能观察 DB pool、lock timeout、stream active、运行态写入失败 | ✅ `infra/diagnose.py` + `infra/diagnostics.py` |
 | 不再保留没有第二消费者的 registry 或训练类型分支 | ✅ 已删除 |
-| 不再存在 CRUD repository 层 | 🔄 Phase 5 执行中 |
+| 不再存在 CRUD repository 层 | ✅ 已完成（2026-08-01 核实） |
 | 移动后目标模块测试通过 | ✅ 所有测试通过 |
 
 ## 九、最终原则
