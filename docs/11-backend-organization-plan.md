@@ -482,13 +482,18 @@ After:
 | `tests/admin/test_grade_repository.py` | 重写为 `test_grade_service.py`，测试 service 层 |
 | `tests/cases/test_case_list_brief.py` | 将 `CaseRepository` 引用改为直接使用 `CaseService` |
 
+> **2026-08-01 测试体系演变**：repo 消除后 DB 集成测试全部移除，测试纯逻辑化 ——
+> 435 个纯函数测试，`pnpm test:backend` 无库约 4s 全绿。决策背景：两人小项目，
+> DB 测试的 fixture 开销与维护成本超过其回归价值（结算/评分等 SQL 语义保护已明确放弃）。
+> 配套：`core/database.py` 移除 `_test_connection` 测试分支，`tests/conftest.py` 仅保留环境变量。
+
 #### 5.5 完成标准
 
-- [ ] `repositories/` 目录完全删除
-- [ ] `Repository`、`SyncRepository` 基类删除
-- [ ] 所有模块数据访问走 `self.db` 直调
-- [ ] 全量测试通过
-- [ ] `grep -r "from repositories\." backend/` 返回空
+- [x] `repositories/` 目录完全删除
+- [x] `Repository`、`SyncRepository` 基类删除
+- [x] 所有模块数据访问走 `self.db` 直调
+- [x] 全量测试通过（435 passed，无库）
+- [x] `grep -r "from repositories\." backend/` 返回空
 
 ## 八、验收状态
 

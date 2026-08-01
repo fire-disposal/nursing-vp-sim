@@ -75,8 +75,10 @@ pnpm run dev            # :8000 (backend) + :3000 (frontend)
 
 ## 测试
 
+后端测试为纯逻辑（无数据库依赖，约 4s）：
+
 ```bash
-cd backend && uv run python -m pytest    # 后端
+pnpm test:backend                        # 后端全量（无库）
 cd frontend && pnpm vitest run           # 前端
 ```
 
