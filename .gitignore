@@ -59,6 +59,9 @@ tmp_*
 # opencode 本地配置（个人化，不入仓库）
 .opencode/
 
+# Reasonix 本地配置（个人化，不入仓库）
+.reasonix/
+
 # 监控配置（含 SMTP 凭证，勿提交）
 deploy/monitor/config.py
 
