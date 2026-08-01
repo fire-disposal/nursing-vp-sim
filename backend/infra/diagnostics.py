@@ -31,7 +31,9 @@ _deploy_warning: dict | None = None
 
 
 @router.post("/api/admin/deploy-warning")
-def set_deploy_warning(token: str = Query(""), message: str = Query("系统即将进行版本更新，服务可能短暂中断，请保存当前进度。")):
+def set_deploy_warning(
+    token: str = Query(""), message: str = Query("系统即将进行版本更新，服务可能短暂中断，请保存当前进度。")
+):
     _check_deploy_token(token)
     global _deploy_warning
     _deploy_warning = {"active": True, "message": message}
@@ -48,12 +50,12 @@ def clear_deploy_warning(token: str = Query("")):
     return {"active": False}
 
 
-
-
 @router.get("/api/deploy-status")
 def get_deploy_status():
     """One-shot status check — CI and health probes use this."""
     return _deploy_warning or {"active": False}
+
+
 @router.get("/api/deploy-status/stream")
 async def deploy_status_stream(request: Request):
     """SSE stream — pushes deploy warning changes with <1s latency."""
@@ -73,6 +75,7 @@ async def deploy_status_stream(request: Request):
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
+
 def _check_token(token: str) -> None:
     if not DIAGNOSE_TOKEN:
         raise HTTPException(status_code=404, detail="not found")
@@ -80,12 +83,12 @@ def _check_token(token: str) -> None:
         raise HTTPException(status_code=403, detail="invalid token")
 
 
-
 def _check_deploy_token(token: str) -> None:
     if not DEPLOY_WARNING_TOKEN:
         raise HTTPException(status_code=404, detail="not found")
     if token != DEPLOY_WARNING_TOKEN:
         raise HTTPException(status_code=403, detail="invalid token")
+
 
 # ── Health ──────────────────────────────────────────────────────────────────
 

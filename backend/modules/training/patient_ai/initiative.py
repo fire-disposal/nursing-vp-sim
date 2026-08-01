@@ -104,6 +104,7 @@ def _describe_mood(vector) -> str:
     }
     return mood_map.get(label, "正常")
 
+
 def _describe_traits(personality: dict) -> str:
     parts = []
     v = personality.get("verbosity", "normal")
@@ -188,6 +189,7 @@ def should_initiate(
         return False
     cache.set_last_trigger(record_id, now, db)
     return True
+
 
 def apply_initiative_penalty(
     record_id: int,

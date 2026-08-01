@@ -160,6 +160,7 @@ class RoleService:
             self.db.flush()
         return name
 
+
 router = APIRouter(prefix="/roles", tags=["角色管理"])
 
 _Manager = Annotated[User, Depends(require_permission("role_manage"))]

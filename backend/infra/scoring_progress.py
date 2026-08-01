@@ -4,7 +4,6 @@ A plain dict with TTL auto-eviction on get(), preventing stale entries from
 polluting polling responses after process crashes or unexpected task failures.
 """
 
-
 from __future__ import annotations
 
 import time

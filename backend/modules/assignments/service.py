@@ -74,7 +74,6 @@ class AssignmentService:
     def __init__(self, db: Session):
         self.db = db
 
-
     def get_with_relations(self, id_: str) -> Assignment | None:
         return (
             self.db.query(Assignment)
@@ -181,7 +180,6 @@ class AssignmentService:
     def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
         students_in_class = self._get_target_students(assignment)
         training_records = self.get_records_for_assignment(assignment.id)
-
 
         records_by_user: dict[int, list[TrainingRecord]] = {}
         for r in training_records:
@@ -335,12 +333,13 @@ class AssignmentService:
         class_ids = {r[0].class_id for r in rows}
         class_sizes: dict[int, int] = {}
         if class_ids:
-            class_sizes = dict(
+            count_rows = (
                 self.db.query(UserClass.class_id, func.count(UserClass.user_id))
                 .filter(UserClass.class_id.in_(class_ids))
                 .group_by(UserClass.class_id)
                 .all()
             )
+            class_sizes = {r[0]: r[1] for r in count_rows}
 
         items = [
             AssignmentListView(
@@ -480,9 +479,7 @@ class AssignmentService:
         else:
             target_ids = [
                 row[0]
-                for row in self.db.query(UserClass.user_id)
-                .filter(UserClass.class_id == assignment.class_id)
-                .all()
+                for row in self.db.query(UserClass.user_id).filter(UserClass.class_id == assignment.class_id).all()
             ]
 
         if not target_ids:

@@ -126,6 +126,7 @@ class StudentService:
 
         return items
 
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
@@ -320,6 +321,7 @@ def export_assignment(
     return export_response(
         students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv"
     )
+
 
 # ── Student practice ──
 

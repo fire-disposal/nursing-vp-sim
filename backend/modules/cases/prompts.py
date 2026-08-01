@@ -33,7 +33,9 @@ _GENERATION_TAIL = """
 
 # ── 阶段一：临床骨架 ───────────────────────────────────────────────────────
 
-CASE_GENERATION_CORE = _GENERATION_HEAD + """
+CASE_GENERATION_CORE = (
+    _GENERATION_HEAD
+    + """
 
 ## 本次任务：生成临床骨架
 
@@ -65,12 +67,16 @@ CASE_GENERATION_CORE = _GENERATION_HEAD + """
 ```
 
 ## 字段说明
-- **personality**：四维度控制患者 AI 的角色扮演行为。health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）""" + _GENERATION_TAIL
+- **personality**：四维度控制患者 AI 的角色扮演行为。health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）"""
+    + _GENERATION_TAIL
+)
 
 
 # ── 阶段二：教学衍生字段 ───────────────────────────────────────────────────
 
-CASE_GENERATION_DERIVATIVE = _GENERATION_HEAD + """
+CASE_GENERATION_DERIVATIVE = (
+    _GENERATION_HEAD
+    + """
 
 ## 本次任务：生成教学衍生字段
 
@@ -111,7 +117,9 @@ CASE_GENERATION_DERIVATIVE = _GENERATION_HEAD + """
 ## 交叉一致性要求
 - **exam_anchors 必须与骨架匹配**：主诉咳嗽气促 → 呼吸频率/血氧偏离；发热 → 体温升高；疼痛 → pain_score 偏高。不得与骨架矛盾（如主诉无发热却给高体温）
 - **required_inquiries 与 hidden_info 一一对应**：每一条隐藏信息都应能被某条必询项问出
-- **deep_background 补充骨架未覆盖的决策因素**：经济、依从性、社会支持等""" + _GENERATION_TAIL
+- **deep_background 补充骨架未覆盖的决策因素**：经济、依从性、社会支持等"""
+    + _GENERATION_TAIL
+)
 
 
 # ── 字段级生成指令（field 模式） ──────────────────────────────────────────
@@ -155,6 +163,8 @@ def build_system_prompt(
 ) -> str:
     """按生成阶段拼接系统提示词。"""
     template = CASE_GENERATION_DERIVATIVE if stage == "derivative" else CASE_GENERATION_CORE
-    return template.replace("{#description#}", description).replace(
-        "{#reference_material#}", reference_material
-    ).replace("{#field_instruction#}", field_instruction)
+    return (
+        template.replace("{#description#}", description)
+        .replace("{#reference_material#}", reference_material)
+        .replace("{#field_instruction#}", field_instruction)
+    )

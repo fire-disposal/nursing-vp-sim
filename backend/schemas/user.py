@@ -80,4 +80,3 @@ class BatchCreateResult(BaseModel):
     created: int
     skipped: int
     errors: list[str]
-

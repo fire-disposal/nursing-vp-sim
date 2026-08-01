@@ -29,6 +29,7 @@ REFRESH_MAX_AGE_HOURS = int(os.getenv("REFRESH_MAX_AGE_HOURS", "336"))  # 14 day
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
+
 def validate_config():
     if not JWT_SECRET_KEY:
         raise RuntimeError(

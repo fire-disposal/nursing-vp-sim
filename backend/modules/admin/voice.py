@@ -46,7 +46,9 @@ def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
     return VoiceConfigResponse(
         id=vc.id,
         provider=vc.provider,
-        api_key_prefix=_mask_api_key(vc),
+        api_key_masked=_mask_api_key(vc),
+        api_key_suffix=(vc.api_key or "")[-4:],
+        tts_speaker=vc.tts_speaker,
         tts_resource_id=vc.tts_resource_id,
         tts_model=vc.tts_model,
         tts_sample_rate=vc.tts_sample_rate,
@@ -86,8 +88,12 @@ class VoiceConfigService:
                 if data.get("api_key"):
                     vc.api_key = data["api_key"]
                 for field in (
-                    "tts_resource_id", "tts_model", "tts_sample_rate", "tts_format",
-                    "tts_timeout", "monthly_budget",
+                    "tts_resource_id",
+                    "tts_model",
+                    "tts_sample_rate",
+                    "tts_format",
+                    "tts_timeout",
+                    "monthly_budget",
                 ):
                     if field in data:
                         setattr(vc, field, data[field])

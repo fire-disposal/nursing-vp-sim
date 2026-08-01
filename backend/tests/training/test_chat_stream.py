@@ -82,7 +82,7 @@ class TestCorrectLastMessageStream:
             yield 'data: {"content": "新回答"}\n\n'
             yield f'data: {{"done": true, "id": {ctx.state[STATE_DONE_PAYLOAD]["patient_id"]}, "student_id": {ctx.state[STATE_DONE_PAYLOAD]["student_id"]}, "patient_id": {ctx.state[STATE_DONE_PAYLOAD]["patient_id"]}, "corrections_used": 1, "corrections_remaining": 2}}\n\n'
 
-        monkeypatch.setattr("modules.training.router.chat.get_pipeline", lambda training_type=None: ([], None))
+        monkeypatch.setattr("modules.training.router.chat.build_pipeline", lambda training_type=None: ([], None))
         monkeypatch.setattr("modules.training.router.chat.stream_pipeline", fake_stream_pipeline)
 
         resp = client.post(

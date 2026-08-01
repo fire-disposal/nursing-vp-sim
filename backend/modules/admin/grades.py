@@ -70,11 +70,7 @@ class GradeService:
             raise ValidationError(f"该年级下有 {assignment_count} 个作业引用，无法删除。请先删除相关作业。")
         class_count = len(class_ids)
         with unit_of_work(self.db, conflict_detail="操作冲突：该年级下在删除过程中新增了关联资源，请刷新后重试。"):
-            self.db.execute(
-                sa_update(UserClass)
-                .where(UserClass.class_id.in_(class_ids))
-                .values(class_id=None)
-            )
+            self.db.execute(sa_update(UserClass).where(UserClass.class_id.in_(class_ids)).values(class_id=None))
             self.db.delete(grade)
             self.db.flush()
         return class_count
@@ -118,6 +114,7 @@ class GradeService:
         if not class_ids:
             return 0
         return self.db.query(func.count(Assignment.id)).filter(Assignment.class_id.in_(class_ids)).scalar() or 0
+
 
 router = APIRouter(prefix="/grades", tags=["年级管理"])
 

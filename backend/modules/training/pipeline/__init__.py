@@ -46,7 +46,7 @@ __all__ = [
     "PipelineMiddleware",
     "PipelineStage",
     "build_pipeline",
-        "run_pipeline",
+    "run_pipeline",
     "stage_order",
     "stream_pipeline",
 ]

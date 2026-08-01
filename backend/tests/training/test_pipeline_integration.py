@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from modules.training.pipeline import PipelineContext, get_pipeline, run_pipeline
+from modules.training.pipeline import PipelineContext, build_pipeline, run_pipeline
 
 
 @pytest.mark.asyncio
@@ -62,7 +62,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
         messages=[],
     )
     # Run up to prompt_builder only (skip LLM call)
-    history_pipe, _ = get_pipeline()
+    history_pipe, _ = build_pipeline()
     middlewares = [m for m in history_pipe if m.__name__ not in ("_llm_caller",)]
     await run_pipeline(ctx, middlewares)
 

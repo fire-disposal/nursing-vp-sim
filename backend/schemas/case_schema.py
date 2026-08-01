@@ -111,7 +111,6 @@ class CaseDataSchema(JsonbModel):
     example_dialogues: list[dict] = []
 
 
-
 def validate_case_data(data: dict, *, strict: bool = False) -> dict:
     """Validate case_data against CaseDataSchema."""
     try:

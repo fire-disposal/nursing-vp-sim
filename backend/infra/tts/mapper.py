@@ -74,4 +74,3 @@ def resolve_voice_type(
         return lib["female_young"] if (age is not None and age <= 25) else lib["female_middle"]
 
     return lib["fallback"]
-

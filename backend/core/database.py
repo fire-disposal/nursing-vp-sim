@@ -7,6 +7,7 @@
   fresh ``SessionLocal`` per pipeline step and close it immediately.
   ``StreamingResponse`` must never hold an open DB session past yield.
 """
+
 import logging
 from contextlib import asynccontextmanager
 from contextvars import ContextVar

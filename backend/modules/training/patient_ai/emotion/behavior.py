@@ -44,23 +44,15 @@ def derive_behavior(state: EmotionVector) -> PatientBehaviorPolicy:
 
     所有数值基于 [0,1] 范围的浮点状态。
     """
-    disclosure = clamp01(
-        0.15 + state.trust * 0.75 - state.irritation * 0.25
-    )
+    disclosure = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
 
-    verbosity = clamp01(
-        0.45 + state.trust * 0.25 + state.anxiety * 0.15 - state.irritation * 0.45
-    )
+    verbosity = clamp01(0.45 + state.trust * 0.25 + state.anxiety * 0.15 - state.irritation * 0.45)
 
-    initiative = clamp01(
-        0.10 + state.trust * 0.45 + state.anxiety * 0.15 - state.irritation * 0.30
-    )
+    initiative = clamp01(0.10 + state.trust * 0.45 + state.anxiety * 0.15 - state.irritation * 0.30)
 
     cooperation = state.cooperation
 
-    repetition = clamp01(
-        state.anxiety * 0.70 - state.irritation * 0.15
-    )
+    repetition = clamp01(state.anxiety * 0.70 - state.irritation * 0.15)
 
     tone = _resolve_tone(state)
     response_style = _resolve_response_style(state)

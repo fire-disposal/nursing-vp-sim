@@ -38,5 +38,3 @@ class QARecord(Base):
 
     user: Mapped[User] = relationship()
     session: Mapped[QASession] = relationship(back_populates="records")
-
-

@@ -72,6 +72,7 @@ class SystemNotificationService:
             self.db.delete(sn)
             self.db.flush()
 
+
 router = APIRouter(prefix="/system-notifications", tags=["admin"])
 
 _Manager = Annotated[User, Depends(require_permission("api_manage"))]

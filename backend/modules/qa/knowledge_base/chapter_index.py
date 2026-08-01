@@ -96,8 +96,6 @@ def _ensure_index() -> dict[str, Any]:
     return _index
 
 
-
-
 # ── Tools exposed to LLM ──
 
 

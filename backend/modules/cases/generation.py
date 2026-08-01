@@ -98,6 +98,7 @@ def _validate_derivative_stage(data: dict) -> str | None:
 
 # ── LLM 调用与修复循环 ─────────────────────────────────────────────────────
 
+
 async def _call_json(
     llm_client: LLMClient,
     messages: list[dict],
@@ -139,7 +140,10 @@ async def _generate_json_with_repair(
     repair_messages = [
         *messages,
         {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)},
-        {"role": "user", "content": f"上次生成的 JSON 存在以下问题：{error}\n请重新生成，只输出修正后的完整 JSON，不要任何解释。"},
+        {
+            "role": "user",
+            "content": f"上次生成的 JSON 存在以下问题：{error}\n请重新生成，只输出修正后的完整 JSON，不要任何解释。",
+        },
     ]
     repaired = await _call_json(llm_client, repair_messages, current_user, description)
     repair_error = validate(repaired)
@@ -158,7 +162,11 @@ def _build_stage_messages(
     """组装阶段提示词消息。derivative 阶段把骨架注入参考资料。"""
     material = reference_material
     if stage == "derivative" and base_case:
-        material = f"{material}\n\n--- 临床骨架 ---\n{format_case_for_prompt(base_case)}" if material != "无" else format_case_for_prompt(base_case)
+        material = (
+            f"{material}\n\n--- 临床骨架 ---\n{format_case_for_prompt(base_case)}"
+            if material != "无"
+            else format_case_for_prompt(base_case)
+        )
     system_content = build_system_prompt(
         stage=stage,
         description=description,

@@ -90,10 +90,12 @@ def db_session(engine):
     connection and rolled back together.
     """
     import core.database as db_module
+
     connection = engine.connect()
     transaction = connection.begin()
     # Reset all sequences so auto-increment IDs start from 1 each test
-    connection.execute(text("""
+    connection.execute(
+        text("""
         DO $$
         DECLARE r RECORD;
         BEGIN
@@ -104,7 +106,8 @@ def db_session(engine):
                 EXECUTE 'ALTER SEQUENCE ' || quote_ident(r.relname) || ' RESTART WITH 1';
             END LOOP;
         END $$;
-    """))
+    """)
+    )
     token = db_module._test_connection.set(connection)
 
     session = SessionLocal()
@@ -139,10 +142,10 @@ def db_session(engine):
         connection.close()
         db_module._test_connection.reset(token)
 
+
 @pytest.fixture
 def client(engine):
     from main import app
-
 
     # Skip real lifespan — manually set up all app.state mocks
     @asynccontextmanager

@@ -16,9 +16,9 @@ if [ -n "$STAGED_PY" ]; then
   echo "  ruff format + check + ty (backend)"
   cd "$ROOT/backend" || exit 1
   STAGED_PY_REL=$(echo "$STAGED_PY" | sed 's|^backend/||')
-  uv run ruff format --check $STAGED_PY_REL 2>&1 | tail -3
-  uv run ruff check $STAGED_PY_REL 2>&1 | tail -3
-  uv run ty $STAGED_PY_REL 2>&1 | tail -3
+  uv run ruff format --check $STAGED_PY_REL || exit 1
+  uv run ruff check $STAGED_PY_REL || exit 1
+  uv run ty check $STAGED_PY_REL || exit 1
 fi
 
 # Alembic heads check + autogenerate enforcement — if migration files are staged

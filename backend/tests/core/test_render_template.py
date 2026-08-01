@@ -128,10 +128,14 @@ class TestPromptVariableContracts:
         unknown = validate_template_vars(QA_SYSTEM, allowed)
         assert unknown == [], f"Unknown vars in QA_SYSTEM: {unknown}"
 
-    def test_generation_head_vars(self):
-        from core.template_variables import CaseGenerationSystemVars
-        from modules.cases.prompts import CASE_GENERATION_HEAD
+    def test_generation_vars(self):
+        from core.template_variables import CaseGenerationUserVars
+        from modules.cases.prompts import CASE_GENERATION_CORE, CASE_GENERATION_DERIVATIVE
 
-        allowed = frozenset(CaseGenerationSystemVars.__annotations__.keys())
-        unknown = validate_template_vars(CASE_GENERATION_HEAD, allowed)
-        assert unknown == [], f"Unknown vars in CASE_GENERATION_HEAD: {unknown}"
+        allowed = frozenset(CaseGenerationUserVars.__annotations__.keys())
+        for name, tpl in (
+            ("CASE_GENERATION_CORE", CASE_GENERATION_CORE),
+            ("CASE_GENERATION_DERIVATIVE", CASE_GENERATION_DERIVATIVE),
+        ):
+            unknown = validate_template_vars(tpl, allowed)
+            assert unknown == [], f"Unknown vars in {name}: {unknown}"

@@ -420,9 +420,13 @@ def start_training_from_assignment(
 
     is_overdue = now > ensure_utc(assignment.end_time)
 
-    user_class = db.query(UserClass).filter(
-        UserClass.user_id == current_user.id,
-        UserClass.class_id == assignment.class_id,
+    user_class = (
+        db.query(UserClass)
+        .filter(
+            UserClass.user_id == current_user.id,
+            UserClass.class_id == assignment.class_id,
+        )
+        .first()
     )
     if not user_class:
         raise AuthError(detail="你不在该练习的目标班级中", status_code=403)

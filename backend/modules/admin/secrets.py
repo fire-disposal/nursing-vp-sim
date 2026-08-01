@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-
 from core.deps import DbSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.security import require_permission
@@ -180,9 +179,7 @@ async def delete_secret(
 # ── Secret Testing ──
 
 
-async def _test_secret(
-    secret, client: httpx.AsyncClient, timeout: float = 10
-) -> dict:
+async def _test_secret(secret, client: httpx.AsyncClient, timeout: float = 10) -> dict:
     api_key = secret.api_key
     base_url = secret.base_url or ""
     try:
@@ -203,9 +200,7 @@ async def _test_secret(
 
 
 @router.post("/secrets/{secret_id}/test", response_model=TestResultItem)
-async def test_secret_endpoint(
-    secret_id: int, current_user: _Manager, db: DbSession
-):
+async def test_secret_endpoint(secret_id: int, current_user: _Manager, db: DbSession):
     secret = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not secret:
         raise NotFoundError("密钥不存在")

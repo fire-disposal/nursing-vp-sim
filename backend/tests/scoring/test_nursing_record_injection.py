@@ -1,6 +1,7 @@
 """护理记录评分注入测试：sheet_data → 评分 prompt"""
 
 from types import SimpleNamespace
+from typing import cast
 
 from models import NursingRecord, TrainingRecord
 from modules.training.scoring.engine import _build_history_messages, _load_nursing_record_text
@@ -58,7 +59,7 @@ class TestLoadNursingRecordText:
 
 class TestBuildHistoryMessagesInjection:
     def _build(self, db_session, nursing_record_text=""):
-        record = SimpleNamespace(runtime_state={}, id=99999)
+        record = cast("TrainingRecord", SimpleNamespace(runtime_state={}, id=99999))
         msgs, _exam, nr_text = _build_history_messages(
             db_session,
             record,
@@ -81,4 +82,3 @@ class TestBuildHistoryMessagesInjection:
         msgs, _ = self._build(db_session, "")
         system = msgs[0]["content"]
         assert "学生提交的护理评估记录" not in system
-

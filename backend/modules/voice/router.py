@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
+
 def _resolve_emotion(request: Request, record_id: int, db) -> str:
     """Read 4D emotion state, return dominant state label for TTS."""
     from modules.training.patient_ai.emotion import EmotionRepository, resolve_dominant_state

@@ -1,5 +1,7 @@
 """Voice config schemas — TTS configuration, status, and synthesis."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
@@ -35,8 +37,8 @@ class VoiceConfigResponse(BaseModel):
     monthly_budget: float
     is_active: bool
     speaker_library: dict[str, str] | None = None
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class VoiceStatusResponse(BaseModel):

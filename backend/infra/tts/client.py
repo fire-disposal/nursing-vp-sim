@@ -208,6 +208,7 @@ class TTSRequest:
     fmt: str = "mp3"
     sample_rate: int = 24000
 
+
 def _build_start_connection() -> bytes:
     """StartConnection — event-only, payload = {}"""
     return _marshal(
@@ -223,6 +224,7 @@ def _build_finish_connection() -> bytes:
         MsgFlag.WithEvent,
         _write_event(EventType.FinishConnection) + _write_payload(b"{}"),
     )
+
 
 def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
     body_json = json.dumps(

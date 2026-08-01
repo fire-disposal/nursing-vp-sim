@@ -97,11 +97,7 @@ class ClassService:
         with unit_of_work(self.db, conflict_detail="无法删除"):
             self.db.delete(cls)
             self.db.flush()
-            self.db.execute(
-                sa_update(UserClass)
-                .where(UserClass.class_id.in_([class_id]))
-                .values(class_id=None)
-            )
+            self.db.execute(sa_update(UserClass).where(UserClass.class_id.in_([class_id])).values(class_id=None))
         return name
 
     def _list_with_grade(self, grade_id: int | None = None):
@@ -133,6 +129,7 @@ class ClassService:
 
     def _assignment_count(self, class_id: int) -> int:
         return self.db.query(func.count(Assignment.id)).filter(Assignment.class_id == class_id).scalar() or 0
+
 
 router = APIRouter(prefix="/classes", tags=["班级管理"])
 

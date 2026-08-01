@@ -51,12 +51,15 @@ class TestInitiativeCache:
         cache.update_timer(record.id, old_time, db_session)
         db_session.commit()
 
-        personality = {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "low"}
+        from modules.training.patient_ai.emotion import EmotionVector
 
-        result = should_initiate(record.id, cache, db_session, personality, trust=50, comfort=50)
+        personality = {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "low"}
+        vector = EmotionVector(trust=0.5, anxiety=0.5, irritation=0.0, cooperation=0.5)
+
+        result = should_initiate(record.id, cache, db_session, personality, vector)
         assert result is True
 
-        result2 = should_initiate(record.id, cache, db_session, personality, trust=50, comfort=50)
+        result2 = should_initiate(record.id, cache, db_session, personality, vector)
         assert result2 is False
 
     def test_cleanup(self, db_session):

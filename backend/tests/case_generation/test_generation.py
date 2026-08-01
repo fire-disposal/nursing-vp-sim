@@ -1,10 +1,13 @@
 """生成服务测试：两阶段、修复循环、字段模式、校验。"""
 
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
 from core.exceptions import ValidationError
+from infra.llm.client import LLMClient
+from models import User
 from modules.cases.generation import (
     _generate_stage,
     _validate_core_stage,
@@ -13,7 +16,7 @@ from modules.cases.generation import (
 )
 from schemas import CaseGenerateRequest
 
-USER = SimpleNamespace(id=1)
+USER = cast("User", SimpleNamespace(id=1))
 
 VALID_CORE = {
     "name": "肺炎患者的护理",
@@ -42,7 +45,7 @@ VALID_DERIVATIVE = {
 }
 
 
-class FakeLLM:
+class FakeLLM(LLMClient):
     def __init__(self, responses: list[dict]):
         self._responses = list(responses)
         self.calls: list[list[dict]] = []
@@ -55,7 +58,7 @@ class FakeLLM:
 
 
 def _req(**overrides) -> CaseGenerateRequest:
-    base = {
+    base: dict[str, Any] = {
         "mode": "quick",
         "description": "生成一个老年肺炎病例",
     }
@@ -78,12 +81,26 @@ class TestStageValidation:
         assert _validate_core_stage(VALID_CORE) is None
 
     def test_derivative_list_bounds(self):
-        bad = {"hidden_info": [], "required_inquiries": [], "example_dialogues": [], "deep_background": {}, "exam_anchors": {}}
+        bad = {
+            "hidden_info": [],
+            "required_inquiries": [],
+            "example_dialogues": [],
+            "deep_background": {},
+            "exam_anchors": {},
+        }
         assert _validate_derivative_stage(bad)
         assert _validate_derivative_stage(VALID_DERIVATIVE) is None
 
     def test_derivative_wrong_types(self):
-        err = _validate_derivative_stage({"hidden_info": ["a"], "required_inquiries": ["b"], "example_dialogues": [{"q": 1}], "deep_background": "x", "exam_anchors": []})
+        err = _validate_derivative_stage(
+            {
+                "hidden_info": ["a"],
+                "required_inquiries": ["b"],
+                "example_dialogues": [{"q": 1}],
+                "deep_background": "x",
+                "exam_anchors": [],
+            }
+        )
         assert err
         assert "deep_background" in err
 
@@ -93,6 +110,7 @@ class TestGenerateCase:
     async def test_core_stage_only(self, db_session):
         llm = FakeLLM([VALID_CORE])
         resp = await generate_case(_req(stage="core"), db_session, USER, llm)
+        assert resp.case_data is not None
         assert resp.case_data["name"] == "肺炎患者的护理"
         assert "hidden_info" not in resp.case_data
 
@@ -100,6 +118,7 @@ class TestGenerateCase:
     async def test_derivative_stage_merges_base(self, db_session):
         llm = FakeLLM([VALID_DERIVATIVE])
         resp = await generate_case(_req(stage="derivative", current_case_data=VALID_CORE), db_session, USER, llm)
+        assert resp.case_data is not None
         assert resp.case_data["name"] == "肺炎患者的护理"  # base preserved
         assert resp.case_data["required_inquiries"] == ["吸烟史", "发热程度"]
 
@@ -112,6 +131,7 @@ class TestGenerateCase:
     async def test_full_chains_core_then_derivative(self, db_session):
         llm = FakeLLM([VALID_CORE, VALID_DERIVATIVE])
         resp = await generate_case(_req(), db_session, USER, llm)
+        assert resp.case_data is not None
         assert resp.case_data["name"] == "肺炎患者的护理"
         assert resp.case_data["required_inquiries"] == ["吸烟史", "发热程度"]
         assert len(llm.calls) == 2  # 两阶段各一次调用
@@ -124,6 +144,7 @@ class TestGenerateCase:
         broken["patient_info"] = {}  # invalid: missing name/age/gender
         llm = FakeLLM([broken, VALID_CORE])
         resp = await generate_case(_req(stage="core"), db_session, USER, llm)
+        assert resp.case_data is not None
         assert resp.case_data["patient_info"]["name"] == "王大爷"
         assert len(llm.calls) == 2  # 初试 + 修复
 
@@ -139,6 +160,7 @@ class TestGenerateCase:
         llm = FakeLLM([{"present_illness": "3天前受凉后咳嗽加重，夜间为甚"}])
         resp = await generate_case(_req(field="present_illness"), db_session, USER, llm)
         assert resp.field == "present_illness"
+        assert resp.field_value is not None
         assert "咳嗽" in resp.field_value
 
     @pytest.mark.asyncio
@@ -150,7 +172,10 @@ class TestGenerateCase:
 
     @pytest.mark.asyncio
     async def test_llm_error_propagates(self, db_session):
-        class BoomLLM:
+        class BoomLLM(LLMClient):
+            def __init__(self) -> None:
+                pass
+
             async def call_json(self, messages, **kwargs):
                 raise RuntimeError("provider down")
 
