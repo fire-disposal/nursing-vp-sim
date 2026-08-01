@@ -5,11 +5,11 @@ import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { getRecordDetail } from "../api/training";
+import { getRecordDetail, pauseTraining, resumeTraining } from "../api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 import { TrainingDataProvider } from "@/engine/TrainingDataContext";
 
-export default function TrainingEntry() {
+	export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
 
 	// 唯一数据查询 — 整个训练页子树共享此缓存
@@ -20,6 +20,32 @@ export default function TrainingEntry() {
 		retry: 3,
 		staleTime: 5 * 60_000,  // 5min — 信任 startTraining 返回的 session 缓存数据
 	});
+
+	// 进入训练页：恢复倒计时（离开期间服务端暂停，重进后 remaining 顺延）
+	useEffect(() => {
+		if (!recordId) return;
+		resumeTraining(Number(recordId))
+			.catch(() => {})
+			.then(() => refetch());
+	}, [recordId, refetch]);
+
+	// 离开训练页：暂停倒计时（fire-and-forget）
+	useEffect(() => {
+		if (!recordId) return;
+		return () => {
+			pauseTraining(Number(recordId)).catch(() => {});
+		};
+	}, [recordId]);
+
+	// 浏览器关闭/刷新：beacon 暂停（unmount 不触发）
+	useEffect(() => {
+		if (!recordId) return;
+		const handler = () => {
+			navigator.sendBeacon(`/api/training/records/${recordId}/pause`);
+		};
+		window.addEventListener("beforeunload", handler);
+		return () => window.removeEventListener("beforeunload", handler);
+	}, [recordId]);
 
 	const caseId = record?.case_id ?? null;
 

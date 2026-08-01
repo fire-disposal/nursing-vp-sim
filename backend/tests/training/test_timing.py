@@ -51,3 +51,28 @@ def test_remaining_seconds_none_when_not_in_progress():
 def test_remaining_seconds_clamps_to_zero():
     rec = _record(start_time=datetime.now(UTC) - timedelta(minutes=21), time_limit=20)
     assert remaining_seconds(rec) == 0
+
+
+def test_deadline_extended_by_paused_seconds():
+    """离开训练页期间暂停：deadline 顺延累计暂停时长。"""
+    start = datetime(2026, 7, 31, 10, 0, tzinfo=UTC)
+    rec = _record(start_time=start, time_limit=20)
+    rec.runtime_state = {"paused_seconds": 600}  # 离开 10 分钟
+    assert training_deadline(rec) == start + timedelta(minutes=30)
+
+
+def test_paused_seconds_extends_remaining():
+    """暂停后重进：剩余时间不含离开时段。"""
+    start = datetime.now(UTC) - timedelta(minutes=25)
+    rec = _record(start_time=start, time_limit=20)
+    rec.runtime_state = {"paused_seconds": 600}  # 离开 10 分钟 → 有效用时 15 分钟
+    remaining = remaining_seconds(rec)
+    assert 299 <= remaining <= 300  # 还剩 5 分钟
+
+
+def test_no_paused_seconds_unchanged():
+    start = datetime.now(UTC) - timedelta(minutes=10)
+    rec = _record(start_time=start, time_limit=20)
+    rec.runtime_state = {}
+    remaining = remaining_seconds(rec)
+    assert 599 <= remaining <= 600

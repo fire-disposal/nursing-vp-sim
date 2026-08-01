@@ -7,8 +7,7 @@ vi.mock("@/components/Toast", () => ({
 	useToast: () => toastMock,
 }));
 
-const START = "2026-07-31T10:00:00.000Z";
-const START_MS = new Date(START).getTime();
+const START_MS = Date.parse("2026-07-31T10:00:00.000Z");
 
 describe("useTrainingTimer", () => {
 	beforeEach(() => {
@@ -24,16 +23,15 @@ describe("useTrainingTimer", () => {
 	function renderTimer(overrides: Partial<Parameters<typeof useTrainingTimer>[0]> = {}) {
 		return renderHook(() =>
 			useTrainingTimer({
-				startTime: START,
-				timeLimitMinutes: 20,
+				initialRemainingSeconds: 1200,
 				enabled: true,
-				onAutoEnd: vi.fn(),
+				onTimeUp: vi.fn(),
 				...overrides,
 			}),
 		);
 	}
 
-	it("counts down from the wall-clock deadline", () => {
+	it("counts down from the server remaining seconds", () => {
 		const { result } = renderTimer();
 		expect(result.current.remaining).toBe(1200);
 
@@ -44,16 +42,16 @@ describe("useTrainingTimer", () => {
 		expect(result.current.remaining).toBe(1140);
 	});
 
-	it("fires onAutoEnd exactly once at zero", () => {
-		const onAutoEnd = vi.fn();
-		const { result } = renderTimer({ onAutoEnd });
+	it("fires onTimeUp exactly once at zero", () => {
+		const onTimeUp = vi.fn();
+		const { result } = renderTimer({ onTimeUp });
 
 		act(() => vi.advanceTimersByTime(20 * 60 * 1000));
-		expect(onAutoEnd).toHaveBeenCalledTimes(1);
+		expect(onTimeUp).toHaveBeenCalledTimes(1);
 		expect(result.current.remaining).toBe(0);
 
 		act(() => vi.advanceTimersByTime(10_000));
-		expect(onAutoEnd).toHaveBeenCalledTimes(1);
+		expect(onTimeUp).toHaveBeenCalledTimes(1);
 	});
 
 	it("warns at 5 and 2 minutes, once each", () => {
@@ -63,7 +61,7 @@ describe("useTrainingTimer", () => {
 		expect(toastMock.warning).toHaveBeenCalledWith("训练时间剩余 5 分钟");
 
 		act(() => vi.advanceTimersByTime(3 * 60 * 1000)); // 120s left
-		expect(toastMock.warning).toHaveBeenCalledWith("训练时间剩余 2 分钟，即将自动结束");
+		expect(toastMock.warning).toHaveBeenCalledWith("训练时间剩余 2 分钟");
 
 		act(() => vi.advanceTimersByTime(60_000)); // 60s left — no repeats
 		expect(toastMock.warning).toHaveBeenCalledTimes(2);
@@ -78,8 +76,8 @@ describe("useTrainingTimer", () => {
 		expect(result.current.remaining).toBeNull();
 	});
 
-	it("returns null when startTime is missing", () => {
-		const { result } = renderTimer({ startTime: null });
+	it("returns null when remaining is missing", () => {
+		const { result } = renderTimer({ initialRemainingSeconds: null });
 		expect(result.current.remaining).toBeNull();
 	});
 

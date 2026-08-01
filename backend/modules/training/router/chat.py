@@ -15,7 +15,6 @@ from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingStatus
 from models import Case, Message, TrainingRecord, TrainingToolRequest, User
 from modules.training.capabilities import detect_capabilities
-from modules.training.timing import is_training_overdue
 from schemas import ChatCorrectionRequest, ChatMessageRequest, ChatMessageResponse
 
 from ..pipeline import (
@@ -48,9 +47,6 @@ async def _build_context(
         raise HTTPException(status_code=403, detail="只能在自己训练中发送消息")
     if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="训练已结束")
-    # 实时超时守卫（补漏：结算循环每 30s 一次，两次 tick 之间此前仍可发消息）
-    if is_training_overdue(record):
-        raise HTTPException(status_code=400, detail="训练时间已到")
 
     await check_chat_limit(current_user.id, request)
 
@@ -159,8 +155,6 @@ async def _build_correction_context(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="只能在自己训练中修正消息")
-    if is_training_overdue(record):
-        raise HTTPException(status_code=400, detail="训练时间已到")
 
     await check_chat_limit(current_user.id, request)
 

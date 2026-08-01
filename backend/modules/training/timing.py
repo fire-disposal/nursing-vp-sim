@@ -17,9 +17,14 @@ DEFAULT_TIME_LIMIT_MINUTES = 20
 
 
 def training_deadline(record: TrainingRecord) -> datetime:
-    """Wall-clock moment the training expires (start_time + time_limit)."""
+    """Wall-clock moment the training expires (start_time + time_limit + 累计暂停).
+
+    暂停（离开训练页）期间不计时：``paused_seconds`` 由 pause/resume 端点维护，
+    存于 ``runtime_state``，使倒计时/提醒在离开后冻结。
+    """
     start = ensure_utc(record.start_time)
-    return start + timedelta(minutes=record.time_limit or DEFAULT_TIME_LIMIT_MINUTES)
+    paused = int((record.runtime_state or {}).get("paused_seconds", 0))
+    return start + timedelta(minutes=record.time_limit or DEFAULT_TIME_LIMIT_MINUTES, seconds=paused)
 
 
 def is_training_overdue(record: TrainingRecord, now: datetime | None = None) -> bool:

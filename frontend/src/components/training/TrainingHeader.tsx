@@ -7,6 +7,7 @@ import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
 
@@ -44,8 +45,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const mode = useTrainingStore(s => s.recordDetail?.mode);
 	const hideCaseInfo = useTrainingStore(s => s.recordDetail?.hide_case_info === true);
 	const isHiddenCase = mode === "blind_box" || hideCaseInfo;
-	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
-	const startTime = useTrainingStore(s => s.startTime);
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
@@ -53,24 +52,21 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
-	const [autoEndOpen, setAutoEndOpen] = useState(false);
-	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
-	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-	const autoEndRequestedRef = useRef(false);
+	const toast = useToast();
+	// 自定义 detail 类型带索引签名，remaining_seconds 需显式窄化
+	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds) as number | null | undefined;
 
 	const {
 		remaining,
 		formatTime,
 	} = useTrainingTimer({
-		startTime,
-		timeLimitMinutes,
+		initialRemainingSeconds: initialRemaining ?? null,
 		enabled: !trainingEnded,
-		onAutoEnd: () => {
-			autoEndRequestedRef.current = true;
-			setAutoEndOpen(true);
-			setAutoEndCountdown(10);
+		onTimeUp: () => {
+			// 温和提示：时间到不强制交卷，训练结束由用户主动触发
+			toast.info("训练时间已到，你可以继续对话或随时结束训练");
 		},
 	});
 
@@ -78,39 +74,18 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 		if (endingRef.current) return;
 		endingRef.current = true;
 		setEndConfirmOpen(false);
-		setAutoEndOpen(false);
 		try {
 			await onEnd();
 		} catch {
-			// 自动结束时失败：重新弹出倒计时窗口并允许重试；手动结束失败不弹。
-			if (autoEndRequestedRef.current) {
-				setAutoEndOpen(true);
-				setAutoEndCountdown(10);
-			}
+			toast.apiError(null, "结束训练失败，请重试");
 		} finally {
 			endingRef.current = false;
 		}
-	}, [onEnd]);
+	}, [onEnd, toast]);
 
 	const handleEndClick = useCallback(() => {
 		setEndConfirmOpen(true);
 	}, []);
-
-	useEffect(() => {
-		if (!autoEndOpen) return;
-		autoEndTimerRef.current = setInterval(() => {
-			setAutoEndCountdown((c) => (c <= 1 ? 0 : c - 1));
-		}, 1000);
-		return () => {
-			if (autoEndTimerRef.current) clearInterval(autoEndTimerRef.current);
-		};
-	}, [autoEndOpen]);
-
-	useEffect(() => {
-		if (autoEndOpen && autoEndCountdown === 0) {
-			executeEnd();
-		}
-	}, [autoEndOpen, autoEndCountdown, executeEnd]);
 
 	if (!patient) {
 		return (
@@ -242,28 +217,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					</Button>
 					<Button variant="end" size="sm" onClick={executeEnd}>
 						确认结束
-					</Button>
-				</div>
-				</DialogContent>
-			</Dialog>
-
-			{/* 不可关闭：时间到必须结束，叉掉/ESC 只会在旧实现里造成"永不自动结束"的死锁 */}
-			<Dialog
-				open={autoEndOpen}
-				onOpenChange={(o) => {
-					if (o) setAutoEndOpen(true); // 忽略一切关闭请求
-				}}
-			>
-				<DialogContent title="训练时间到" maxWidth={360} showCloseButton={false}>
-				<p className="text-sm text-muted-foreground mb-2">
-					本次训练时间已用尽，即将自动结束。
-				</p>
-				<p className="text-2xl font-bold text-center tabular-nums mb-5 text-end">
-					{autoEndCountdown} 秒
-				</p>
-				<div className="flex justify-center">
-					<Button variant="end" size="sm" onClick={executeEnd}>
-						立即结束
 					</Button>
 				</div>
 				</DialogContent>

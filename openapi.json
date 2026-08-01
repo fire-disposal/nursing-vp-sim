@@ -6868,6 +6868,102 @@
         ]
       }
     },
+    "/api/training/records/{record_id}/pause": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Pause Training",
+        "description": "离开训练页：暂停倒计时（记录暂停起点），幂等。",
+        "operationId": "pause_training_api_training_records__record_id__pause_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/records/{record_id}/resume": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Resume Training",
+        "description": "回到训练页：把暂停时长计入 paused_seconds（倒计时顺延），幂等。",
+        "operationId": "resume_training_api_training_records__record_id__resume_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/records/{record_id}": {
       "delete": {
         "tags": [

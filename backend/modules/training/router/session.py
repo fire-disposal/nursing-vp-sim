@@ -504,8 +504,8 @@ def start_training_from_assignment(
     )
     if existing:
         if is_overdue:
-            # 超期作业的进行中记录不能继续对话（会立即触发交卷倒计时），明确拒绝
-            raise HTTPException(status_code=400, detail="该作业已过期，无法继续训练，请先交卷查看成绩")
+            # 超期作业的进行中记录不再放行继续（作业截止是教师语义，与训练时长无关）
+            raise HTTPException(status_code=400, detail="该作业已过截止时间")
         case = assignment.case
         case_data = case.case_data if case else {}
         patient_info = case_data.get("patient_info", {})
@@ -521,7 +521,7 @@ def start_training_from_assignment(
         )
 
     if is_overdue:
-        raise HTTPException(status_code=400, detail="该作业已过期，无法开始新训练")
+        raise HTTPException(status_code=400, detail="该作业已过截止时间")
 
     case = assignment.case
     if not case:
@@ -618,6 +618,54 @@ def start_blind_box_training(
         pending_questionnaires=pending_questionnaires,
         session=session,
     )
+
+
+@router.post("/records/{record_id}/pause", response_model=OkResponse)
+def pause_training(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """离开训练页：暂停倒计时（记录暂停起点），幂等。"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise NotFoundError(detail="训练记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail="无权操作此记录", status_code=403)
+    if record.status != TrainingStatus.IN_PROGRESS:
+        return OkResponse(message="训练已结束，无需暂停")
+    rs = dict(record.runtime_state or {})
+    if not rs.get("paused_at"):
+        rs["paused_at"] = datetime.now(UTC).isoformat()
+        record.runtime_state = rs
+        db.commit()
+    return OkResponse(message="训练已暂停")
+
+
+@router.post("/records/{record_id}/resume", response_model=OkResponse)
+def resume_training(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """回到训练页：把暂停时长计入 paused_seconds（倒计时顺延），幂等。"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise NotFoundError(detail="训练记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail="无权操作此记录", status_code=403)
+    rs = dict(record.runtime_state or {})
+    paused_at = rs.get("paused_at")
+    if paused_at:
+        try:
+            paused_seconds = max(0, int((datetime.now(UTC) - datetime.fromisoformat(paused_at)).total_seconds()))
+        except ValueError:
+            paused_seconds = 0
+        rs["paused_seconds"] = int(rs.get("paused_seconds", 0)) + paused_seconds
+        rs.pop("paused_at", None)
+        record.runtime_state = rs
+        db.commit()
+    return OkResponse(message="训练已恢复")
 
 
 @router.delete("/records/{record_id}", response_model=DeleteResponse)

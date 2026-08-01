@@ -30,12 +30,12 @@ describe("API axios instance", () => {
 		mockAuthState.token = null;
 	});
 
-	it("creates axios instance with /api baseURL and 120s timeout", async () => {
+	it("creates axios instance with /api baseURL and 30s timeout", async () => {
 		await import("@/api/client");
 		expect(mockAxiosCreate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				baseURL: "/api",
-				timeout: 120000,
+				timeout: 30000, // SSE 流式不走 axios，30s 为普通请求超时
 			}),
 		);
 	});
