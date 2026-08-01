@@ -27,6 +27,7 @@ class TrainingSessionData(BaseModel):
     start_time: datetime | None = None
     time_limit: int = 20
     remaining_seconds: int
+    mode: str = "guided"
     patient_name: str = ""
     patient_age: int = 0
     patient_gender: str = ""

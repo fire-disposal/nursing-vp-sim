@@ -309,6 +309,7 @@ def _create_record(
         "start_time": record.start_time.isoformat() if record.start_time else None,
         "time_limit": time_limit,
         "remaining_seconds": time_limit * 60,
+        "mode": str((config.get("behavior") or {}).get("mode") or "guided"),
         "patient_name": public_patient_info["name"],
         "patient_age": public_patient_info["age"],
         "patient_gender": public_patient_info["gender"],

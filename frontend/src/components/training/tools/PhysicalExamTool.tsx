@@ -21,6 +21,16 @@ const NORMALS: Record<string, { label: string; unit: string; normal: string; cat
 
 const CAT_COLOR: Record<string, string> = { vital: "#4fc3f7", inspection: "#7c4dff" };
 
+interface ExamResultState {
+	value: string;
+	/** 与参考范围对照：normal | high | low（后端 interpretation.status，持久化） */
+	status?: string;
+	/** 解读文案（仅实时测量返回，引导模式展示） */
+	interpretation?: string;
+}
+
+const STATUS_LABEL: Record<string, string> = { high: "偏高", low: "偏低" };
+
 interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
 const PARTS: Part[] = [
   { id: "head",    label: "头部",   x: 38, y: 2,  w: 24, h: 18, ops: ["temp","pain"] },
@@ -58,7 +68,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   const rid = Number(recordId);
   const sceneState = useSceneStateValue();
   const status = classify(sceneState.vitals);
-  const [results, setResults] = useState<Record<string, { value: string }>>({});
+  const [results, setResults] = useState<Record<string, ExamResultState>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pendingOps, setPendingOps] = useState<Set<string>>(new Set());
@@ -76,9 +86,9 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
     if (seededRef.current || !recordDetail) return;
     const prior = recordDetail.exam_results;
     if (Array.isArray(prior) && prior.length > 0) {
-      const seeded: Record<string, { value: string }> = {};
+      const seeded: Record<string, ExamResultState> = {};
       for (const e of prior) {
-        if (e?.type) seeded[e.type] = { value: String(e.value ?? "") };
+        if (e?.type) seeded[e.type] = { value: String(e.value ?? ""), status: typeof e.status === "string" ? e.status : undefined };
       }
       setResults(seeded);
     }
@@ -88,7 +98,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   useEffect(() => {
     const onToolResult = (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown>; error?: string }) => {
       if (payload.tool !== "physical_exam" || payload.action !== "measure") return;
-      const data = payload.data as { op_type?: string; result?: { label?: string; value?: string; unit?: string } };
+      const data = payload.data as { op_type?: string; result?: { label?: string; value?: string; unit?: string; interpretation?: { status?: string; text?: string } } };
       const opType = data.op_type;
       if (!opType) return;
       if (measureTimerRef.current) { clearTimeout(measureTimerRef.current); measureTimerRef.current = null; }
@@ -96,7 +106,14 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
       if (payload.ok) {
         const resultValue = data.result?.value;
         if (resultValue) {
-          setResults((prev) => ({ ...prev, [opType]: { value: resultValue } }));
+          setResults((prev) => ({
+            ...prev,
+            [opType]: {
+              value: resultValue,
+              status: data.result?.interpretation?.status,
+              interpretation: data.result?.interpretation?.text,
+            },
+          }));
         }
         setOpErrors((prev) => { const n = { ...prev }; delete n[opType]; return n; });
       } else {
@@ -132,6 +149,13 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   }, [rid, bus, wsConnected]);
 
   const errorCount = Object.keys(opErrors).length;
+
+  // ── 对照着色 + 异常汇总 + 解读（引导模式） ──
+  // 模式来自作业 behavior.mode（session/detail 下发，默认 guided）
+  const mode = (recordDetail as { mode?: string } | null | undefined)?.mode ?? "guided";
+  const isGuided = mode !== "assessment";
+  const abnormal = Object.entries(results).filter(([, r]) => r.status === "high" || r.status === "low");
+  const hints = abnormal.filter(([, r]) => r.interpretation && isGuided);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -209,6 +233,33 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
       </div>
 
       <div className="border-t border-border bg-card shrink-0">
+        {abnormal.length > 0 && (
+          <div className="flex items-center gap-1.5 px-2 pt-2 flex-wrap">
+            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 shrink-0">异常发现</span>
+            {abnormal.map(([id, r]) => {
+              const def = NORMALS[id];
+              if (!def) return null;
+              return (
+                <span
+                  key={`ab-${id}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 whitespace-nowrap shrink-0"
+                >
+                  {def.label} {r.value}{def.unit}
+                  <span className="opacity-80">{STATUS_LABEL[r.status ?? ""] ?? ""}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+        {isGuided && hints.length > 0 && (
+          <div className="px-2 pt-1.5 space-y-0.5">
+            {hints.map(([id, r]) => (
+              <p key={`hint-${id}`} className="text-[10px] text-muted-foreground leading-snug">
+                {r.interpretation}
+              </p>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto">
         {Object.keys(results).length === 0 && errorCount === 0 ? (
           <span className="text-xs text-muted-foreground/60 px-1 py-1">点击人体部位选择检查项目</span>
@@ -222,8 +273,8 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
               return (
                 <span key={id} className={cn(
                   "inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] whitespace-nowrap shrink-0",
-                  isError ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : isPending ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" : "bg-muted text-muted-foreground",
-                )}>
+                  isError ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : isPending ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" : r.status === "high" || r.status === "low" ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : "bg-muted text-muted-foreground",
+                )} title={r.interpretation ?? undefined}>
                   <span className="size-1.5 rounded-full shrink-0" style={{ background: isError ? "#ef4444" : isPending ? "#3b82f6" : (CAT_COLOR[def.cat] ?? "#888") }} />
                   {def.label}{" "}
                   {isPending ? <Loader2 size={10} className="animate-spin" /> : <span className="font-semibold max-w-[120px] truncate">{r.value}</span>}

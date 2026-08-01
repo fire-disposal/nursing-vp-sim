@@ -14,7 +14,6 @@ import logging
 from typing import Any
 
 log = logging.getLogger(__name__)
-
 # ── 操作定义表（所有标准操作始终可用，未配置时回落默认值）──────────
 
 _LEGACY_OP_DEFS: dict[str, dict] = {
@@ -78,6 +77,186 @@ def _get_age_group(case_data: dict) -> str:
     return "adult"
 
 
+# ── 生理联动网络（TRAINING-ARCH-MEMO 前瞻的最小实现）───────────────
+# 游戏级内部一致性，非科研精度：确定性纯函数，只对「未配置」的体征
+# 按其他已配置体征的偏离做代偿偏移；作者显式配置的体征始终被尊重。
+#   发热（temp > 参考上限）     → HR ↑（每超 1°C 约 +12 次/分）
+#   低血压（收缩压 < 参考下限） → HR ↑（代偿性心动过速）
+#   低血氧（SpO₂ < 95%）        → RR ↑（呼吸代偿）
+#   剧痛（NRS ≥ 7）            → HR ↑、BP ↑（应激反应）
+
+_VITAL_ORDER = ("temp", "hr", "bp", "rr", "spo2", "pain")
+
+_VITAL_NORM_KEY = {
+    "temp": "temperature",
+    "hr": "heart_rate",
+    "rr": "respiratory_rate",
+    "spo2": "spo2",
+}
+
+
+# ── 生理联动网络 ────────────────────────────────────────────────────
+
+
+def _parse_num(raw: Any) -> float | None:
+    """Parse a numeric string; returns None for garbage."""
+    import math
+
+    try:
+        v = float(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(v):
+        return None
+    return v
+
+
+def _parse_bp_pair(raw: Any) -> tuple[int, int] | None:
+    """Parse '120/78' (or midpoint-resolved '125/83') → (sys, dia)."""
+    try:
+        s, d = str(raw).split("/", 1)
+        return round(float(s)), round(float(d))
+    except (TypeError, ValueError):
+        return None
+
+
+def _split_bounds(range_str: str) -> tuple[float, float]:
+    """'36.3-37.2' → (36.3, 37.2)."""
+    lo, hi = range_str.split("-", 1)
+    return float(lo), float(hi)
+
+
+def _bp_bounds(range_str: str) -> tuple[float, float, float, float]:
+    """'110/70-130/85' → (sys_lo, dia_lo, sys_hi, dia_hi)."""
+    left, right = range_str.split("-", 1)
+    s_lo, d_lo = left.split("/")
+    s_hi, d_hi = right.split("/")
+    return float(s_lo), float(d_lo), float(s_hi), float(d_hi)
+
+
+def _compute_link_offsets(configured: dict[str, str], group: str) -> dict[str, float]:
+    """按已配置体征的偏离计算代偿偏移量（纯函数，确定性）。"""
+    offsets = {"hr": 0.0, "rr": 0.0, "bp_sys": 0.0, "bp_dia": 0.0}
+    norms = _AGE_DEFAULTS[group]
+
+    temp = _parse_num(configured.get("temp"))
+    if temp is not None:
+        _lo, hi = _split_bounds(norms["temperature"])
+        if temp > hi:
+            offsets["hr"] += round((temp - hi) * 12)
+
+    spo2 = _parse_num(configured.get("spo2"))
+    if spo2 is not None and spo2 < 95:
+        offsets["rr"] += round(95 - spo2)
+
+    bp = _parse_bp_pair(configured.get("bp"))
+    if bp is not None:
+        sys, _dia = bp
+        sys_lo, _d_lo, _s_hi, _d_hi = _bp_bounds(norms["blood_pressure"])
+        if sys < sys_lo:
+            offsets["hr"] += 15 if sys >= sys_lo - 10 else 25
+
+    pain = _parse_num(configured.get("pain"))
+    if pain is not None and pain >= 7:
+        offsets["hr"] += 10
+        offsets["bp_sys"] += 8
+        offsets["bp_dia"] += 4
+
+    return offsets
+
+
+def _apply_offsets(op_type: str, base: str, offsets: dict[str, float]) -> str:
+    """把代偿偏移应用到年龄默认值上（仅未配置的体征走这里）。"""
+    if op_type == "hr":
+        v = _parse_num(base)
+        return str(round((v or 0) + offsets["hr"])) if v is not None else base
+    if op_type == "rr":
+        v = _parse_num(base)
+        return str(round((v or 0) + offsets["rr"])) if v is not None else base
+    if op_type == "bp":
+        pair = _parse_bp_pair(base)
+        if pair:
+            sys, dia = pair
+            return f"{round(sys + offsets['bp_sys'])}/{round(dia + offsets['bp_dia'])}"
+        return base
+    return base
+
+
+def _resolve_physiology(case_data: dict) -> dict[str, str]:
+    """解析全部体征：已配置的尊重原值，未配置的取年龄默认值并叠加代偿偏移。"""
+    tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
+    anchors = (
+        tools.get("physical_exam")
+        if isinstance(tools.get("physical_exam"), dict)
+        else case_data.get("exam_anchors", {})
+    )
+    op_defs = _collect_op_defs(anchors)
+    group = _get_age_group(case_data)
+
+    configured: dict[str, str] = {}
+    for op_type in _VITAL_ORDER:
+        op_def = op_defs.get(op_type)
+        if not op_def:
+            continue
+        val = _try_from_config(tuple(op_def.get("source", ())), anchors, case_data)
+        if val is not None:
+            configured[op_type] = val
+
+    offsets = _compute_link_offsets(configured, group)
+
+    result: dict[str, str] = {}
+    for op_type in _VITAL_ORDER:
+        if op_type in configured:
+            result[op_type] = configured[op_type]
+        else:
+            result[op_type] = _apply_offsets(op_type, _get_default(op_type, case_data), offsets)
+    return result
+
+
+# ── 解读提示（引导模式展示；考核模式由前端门控隐藏） ──────────────
+
+
+def _interpret_measurement(op_type: str, value: str, label: str, case_data: dict) -> dict | None:
+    """生成查体结果的对照解读：status + 一句非答案式教学文案。"""
+    if op_type not in _VITAL_OPS:
+        return None
+    group = _get_age_group(case_data)
+    norms = _AGE_DEFAULTS[group]
+
+    if op_type == "bp":
+        pair = _parse_bp_pair(value)
+        if pair is None:
+            return None
+        sys, dia = pair
+        s_lo, d_lo, s_hi, d_hi = _bp_bounds(norms["blood_pressure"])
+        if sys > s_hi or dia > d_hi:
+            status = "high"
+            text = f"{label} {value} mmHg，高于参考范围（{s_lo:.0f}-{s_hi:.0f}/{d_lo:.0f}-{d_hi:.0f}）"
+        elif sys < s_lo or dia < d_lo:
+            status = "low"
+            text = f"{label} {value} mmHg，低于参考范围（{s_lo:.0f}-{s_hi:.0f}/{d_lo:.0f}-{d_hi:.0f}）"
+        else:
+            status = "normal"
+            text = f"{label} {value} mmHg，在参考范围内"
+        return {"status": status, "text": text}
+
+    v = _parse_num(value)
+    if v is None:
+        return None
+    lo, hi = _split_bounds(norms[_VITAL_NORM_KEY[op_type]])
+    unit = _LEGACY_OP_DEFS[op_type]["unit"]
+    if v > hi:
+        status = "high"
+        text = f"{label} {value}{unit}，高于参考范围（{lo:.1f}-{hi:.1f}{unit}）"
+    elif v < lo:
+        status = "low"
+        text = f"{label} {value}{unit}，低于参考范围（{lo:.1f}-{hi:.1f}{unit}）"
+    else:
+        status = "normal"
+        text = f"{label} {value}{unit}，在参考范围（{lo:.1f}-{hi:.1f}{unit}）内"
+    return {"status": status, "text": text}
+
+
 # ── 公共入口 ────────────────────────────────────────────────────────────
 
 
@@ -98,14 +277,22 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
     if not op_def:
         return {"type": "error", "label": "未知操作", "value": f"不支持的操作: {op_type}", "unit": ""}
 
-    value = _resolve_value(op_type, op_def, anchors, case_data)
+    if op_type in _VITAL_OPS or op_type == "pain":
+        value = _resolve_physiology(case_data).get(op_type, "—")
+    else:
+        value = _resolve_value(op_type, op_def, anchors, case_data)
+
     category = "vitals" if op_type in _VITAL_OPS else "exam"
-    return {
+    result = {
         "type": category,
         "label": op_def["label"],
         "value": value,
         "unit": op_def["unit"],
     }
+    interpretation = _interpret_measurement(op_type, value, op_def["label"], case_data)
+    if interpretation:
+        result["interpretation"] = interpretation
+    return result
 
 
 # ── 操作定义收集 ────────────────────────────────────────────────────────

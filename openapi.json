@@ -12502,17 +12502,6 @@
             ],
             "title": "Prompt Version"
           },
-          "score_scale": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Score Scale"
-          },
           "review_status": {
             "anyOf": [
               {
@@ -13750,6 +13739,11 @@
             ],
             "title": "Remaining Seconds"
           },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "guided"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/MessageItem"
@@ -13924,6 +13918,18 @@
             "type": "integer",
             "title": "Case Id"
           },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
           "time_limit": {
             "type": "integer",
             "title": "Time Limit",
@@ -13932,6 +13938,11 @@
           "remaining_seconds": {
             "type": "integer",
             "title": "Remaining Seconds"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "guided"
           },
           "patient_name": {
             "type": "string",

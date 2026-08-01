@@ -80,6 +80,7 @@ class TrainingRecordDetail(BaseModel):
     end_time: datetime | None
     time_limit: int = 20
     remaining_seconds: int | None = None
+    mode: str = "guided"
     messages: list[MessageItem]
     score: ScoreItem | None = None
     patient_info: PatientPublicInfo | None = None

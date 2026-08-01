@@ -4070,8 +4070,6 @@ export interface components {
             model_name?: string | null;
             /** Prompt Version */
             prompt_version?: number | null;
-            /** Score Scale */
-            score_scale?: number | null;
             /** Review Status */
             review_status?: string | null;
             /** Reviewed By Name */
@@ -4497,6 +4495,11 @@ export interface components {
             time_limit: number;
             /** Remaining Seconds */
             remaining_seconds?: number | null;
+            /**
+             * Mode
+             * @default guided
+             */
+            mode: string;
             /** Messages */
             messages: components["schemas"]["MessageItem"][];
             score?: components["schemas"]["ScoreItem"] | null;
@@ -4599,6 +4602,8 @@ export interface components {
             training_type: string;
             /** Case Id */
             case_id: number;
+            /** Start Time */
+            start_time?: string | null;
             /**
              * Time Limit
              * @default 20
@@ -4606,6 +4611,11 @@ export interface components {
             time_limit: number;
             /** Remaining Seconds */
             remaining_seconds: number;
+            /**
+             * Mode
+             * @default guided
+             */
+            mode: string;
             /**
              * Patient Name
              * @default

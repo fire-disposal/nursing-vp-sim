@@ -39,7 +39,53 @@ class TestTokenEstimation:
         assert estimate_tokens("\u4f53\u6e29 38.5 \u00b0C") == 4
 
 
-class TestNoteCollector:
+class TestOperationNoteSource:
+    """查体注记携带测量值（feedback id=30：患者对自身发烧/剧痛要有言语反应）。"""
+
+    @staticmethod
+    def _ctx(exam_results):
+        from types import SimpleNamespace
+
+        record = SimpleNamespace(runtime_state={"exam_results": exam_results})
+        return SimpleNamespace(record=record)
+
+    @pytest.mark.asyncio
+    async def test_note_carries_measured_value(self):
+        from modules.training.patient_ai.note_source import OperationNoteSource
+
+        src = OperationNoteSource()
+        ctx = self._ctx([{"type": "temp", "label": "体温", "value": "38.5", "unit": "°C"}])
+        note = await src.collect(ctx)
+        assert "体温测量" in note
+        assert "测得 38.5°C" in note
+
+    @pytest.mark.asyncio
+    async def test_skin_value_not_carried(self):
+        from modules.training.patient_ai.note_source import OperationNoteSource
+
+        src = OperationNoteSource()
+        ctx = self._ctx([{"type": "skin", "label": "皮肤检查", "value": "右足底溃烂", "unit": ""}])
+        note = await src.collect(ctx)
+        assert "皮肤检查" in note
+        assert "溃烂" not in note  # 皮肤是文字描述，不让患者复述自己看不到的体征
+
+    @pytest.mark.asyncio
+    async def test_repeated_measure_carries_latest_value(self):
+        from modules.training.patient_ai.note_source import OperationNoteSource
+
+        src = OperationNoteSource()
+        ctx = self._ctx(
+            [
+                {"type": "temp", "label": "体温", "value": "38.1", "unit": "°C"},
+                {"type": "temp", "label": "体温", "value": "38.5", "unit": "°C"},
+                {"type": "temp", "label": "体温", "value": "38.6", "unit": "°C"},
+            ]
+        )
+        note = await src.collect(ctx)
+        assert "反复测量了3次" in note
+        assert "测得 38.6°C" in note
+        assert "测得 38.1°C" not in note
+
     @pytest.mark.asyncio
     async def test_empty(self):
         collector = NoteCollector()

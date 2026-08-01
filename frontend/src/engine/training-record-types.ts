@@ -1,5 +1,5 @@
 export interface TrainingRecordDetail {
-	exam_results?: Array<{ type: string; value: string; label?: string; unit?: string }>;
+	exam_results?: Array<{ type: string; value: string; label?: string; unit?: string; status?: string }>;
 	nursing_record_sheet?: Record<string, string>;
 	sheet_data?: Record<string, unknown>;
 	quiz?: { questions?: Array<Record<string, unknown>> };

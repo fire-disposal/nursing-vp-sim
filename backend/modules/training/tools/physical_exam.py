@@ -73,6 +73,9 @@ class PhysicalExamHandler(ToolHandler):
             "value": str(result.get("value", "")),
             "unit": result.get("unit", ""),
         }
+        interpretation = result.get("interpretation")
+        if isinstance(interpretation, dict) and interpretation.get("status"):
+            entry["status"] = interpretation["status"]
         exam_results.append(entry)
         rs["exam_results"] = exam_results
 

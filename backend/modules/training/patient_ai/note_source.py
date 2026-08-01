@@ -63,24 +63,37 @@ class OperationNoteSource(NoteSource):
         lines: list[str] = []
 
         # Build the list of performed operations with repetition markers
-        examined: list[str] = []
+        examined: list[tuple[str, str]] = []
         for type_ in ordered:
             count = counts[type_]
             desc = _OPS_EXPERIENCE_DESCRIPTIONS.get(type_)
             if not desc:
                 continue
             if count == 1:
-                examined.append(desc)
+                examined.append((type_, desc))
             elif count == 2:
-                examined.append(f"{desc}（重复了{count}次）")
+                examined.append((type_, f"{desc}（重复了{count}次）"))
             else:
-                examined.append(f"{desc}（反复测量了{count}次）")
+                examined.append((type_, f"{desc}（反复测量了{count}次）"))
+
+        # 携带最近一次测量值（feedback id=30：患者对自己的发烧/剧痛要有言语反应）
+        latest_values: dict[str, str] = {}
+        for op in ops:
+            type_ = op.get("type", "")
+            value = str(op.get("value", "")).strip()
+            if type_ and value and type_ != "skin":
+                unit = str(op.get("unit", "")).strip()
+                latest_values[type_] = f"{value}{unit}"
+
+        def _with_value(desc: str, type_: str) -> str:
+            measured = latest_values.get(type_)
+            return f"{desc}，测得 {measured}" if measured else desc
 
         if not examined:
             return None
 
         lines.append("护士对你进行了以下操作：")
-        lines.append("- " + "\n- ".join(examined))
+        lines.append("- " + "\n- ".join(_with_value(d, t) for t, d in examined))
 
         # ── excessive/repetitive measurement signals ──
         repeated = [(type_, c) for type_, c in counts.items() if c >= 3]

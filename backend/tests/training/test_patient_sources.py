@@ -85,8 +85,9 @@ class TestOperationNoteSource:
         assert "血压测量" in result
         assert "体温计置于腋下" in result
         assert "袖带绑在左上臂" in result
-        assert "36.5" not in result
-        assert "120/80" not in result
+        # 反馈 id=30 修复：测量值随注记告知患者，患者对自身发烧/剧痛才有言语反应
+        assert "测得 36.5℃" in result
+        assert "测得 120/80mmHg" in result
 
     async def test_returns_none_when_no_results(self):
         src = OperationNoteSource()

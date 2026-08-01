@@ -181,3 +181,76 @@ class TestHandleOperation:
         val = float(result["value"])
         assert val > 36
         assert val < 38
+
+
+class TestPhysiologyLinkage:
+    """联动网络：未配置体征按已配置体征的偏离做代偿偏移（确定性）。"""
+
+    def test_fever_lifts_unconfigured_hr(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        # adult hr 默认中点 80；(39.0-37.2)*12 ≈ 22 → 102
+        assert handle_operation("hr", case)["value"] == "102"
+
+    def test_fever_respects_configured_hr(self):
+        case = {
+            "patient_info": {"age": 40},
+            "exam_anchors": {"vital_signs": {"temperature": "39.0", "heart_rate": "76"}},
+        }
+        assert handle_operation("hr", case)["value"] == "76"
+
+    def test_low_bp_raises_hr(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"blood_pressure": "90/60"}}}
+        # adult 收缩压低限 110，低于 10+ → hr +25 → 105
+        assert handle_operation("hr", case)["value"] == "105"
+
+    def test_low_spo2_raises_rr(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"spo2": "90"}}}
+        # adult rr 默认中点 16；(95-90) → 21
+        assert handle_operation("rr", case)["value"] == "21"
+
+    def test_severe_pain_raises_hr_and_bp(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"pain_score": "8"}}}
+        assert handle_operation("hr", case)["value"] == "90"  # 80 + 10（应激）
+        assert handle_operation("bp", case)["value"] == "128/82"  # 120/78 + 8/4
+
+    def test_normal_config_no_offset(self):
+        case = {
+            "patient_info": {"age": 40},
+            "exam_anchors": {"vital_signs": {"temperature": "36.8", "heart_rate": "76"}},
+        }
+        assert handle_operation("hr", case)["value"] == "76"
+        assert handle_operation("rr", case)["value"] == "16"  # 无偏移 → 默认中点
+
+    def test_deterministic_same_input_same_output(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        assert handle_operation("hr", case)["value"] == handle_operation("hr", case)["value"]
+
+
+class TestInterpretation:
+    """解读提示：status + 非答案式教学文案（前端按模式门控显示）。"""
+
+    def test_high_temp_interpretation(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        interp = handle_operation("temp", case)["interpretation"]
+        assert interp["status"] == "high"
+        assert "高于参考范围" in interp["text"]
+
+    def test_normal_hr_interpretation(self):
+        case = {"patient_info": {"age": 40}}
+        interp = handle_operation("hr", case)["interpretation"]
+        assert interp["status"] == "normal"
+        assert "参考范围" in interp["text"]
+
+    def test_bp_interpretation(self):
+        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"blood_pressure": "150/95"}}}
+        interp = handle_operation("bp", case)["interpretation"]
+        assert interp["status"] == "high"
+
+    def test_skin_no_interpretation(self):
+        case = {"patient_info": {"age": 40}}
+        assert "interpretation" not in handle_operation("skin", case)
+
+    def test_elderly_range_applied(self):
+        # 老年 spo2 参考下限 93：94% 属于正常
+        case = {"patient_info": {"age": 70}, "exam_anchors": {"vital_signs": {"spo2": "94"}}}
+        assert handle_operation("spo2", case)["interpretation"]["status"] == "normal"

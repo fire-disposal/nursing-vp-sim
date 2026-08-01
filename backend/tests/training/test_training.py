@@ -158,6 +158,53 @@ class TestStartTraining:
         assert detail.status_code == 200
         assert detail.json()["start_time"] == session["start_time"]
 
+    def test_start_session_mode_defaults_guided(self, client, student, teacher, test_case, test_class, db_session):
+        """直接开始训练默认 guided 模式；作业配置的 behavior.mode 透传。"""
+        from datetime import UTC, datetime, timedelta
+
+        from models import Assignment
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.post("/api/training/start", json={"case_id": test_case.id}, headers=headers)
+        assert resp.status_code == 200
+        session = resp.json()["session"]
+        assert session["mode"] == "guided"
+
+        detail = client.get(f"/api/training/records/{resp.json()['record_id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["mode"] == "guided"
+
+        # 作业 behavior.mode=assessment 应透传到 session 与 detail
+        # （先放弃直开记录，满足单进行中互斥）
+        first_id = resp.json()["record_id"]
+        ab = client.put(f"/api/training/records/{first_id}/abandon", headers=headers)
+        assert ab.status_code == 200
+
+        now = datetime.now(UTC)
+        assignment = Assignment(
+            title="考核作业",
+            class_id=test_class.id,
+            case_id=test_case.id,
+            teacher_id=teacher[0].id,
+            behavior={"mode": "assessment"},
+            start_time=now,
+            end_time=now + timedelta(days=1),
+        )
+        db_session.add(assignment)
+        db_session.commit()
+
+        resp = client.post(
+            f"/api/training/start-from-assignment?assignment_id={assignment.id}",
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        session = resp.json()["session"]
+        assert session["mode"] == "assessment"
+        detail = client.get(f"/api/training/records/{resp.json()['record_id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["mode"] == "assessment"
+
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):
