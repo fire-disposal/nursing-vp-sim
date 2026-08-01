@@ -243,6 +243,67 @@ class TestStartTraining:
         assert detail.json()["mode"] == "guided"
 
 
+class TestBlindBox:
+    def test_start_returns_redacted_session(self, client, student, test_case, db_session):
+        """盲盒 start：随机开放病例、mode=blind_box、无 assignment、session 脱敏、中性问候。"""
+        from models import Case
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.post("/api/training/start-blind-box", headers=headers)
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["case_name"] == "盲盒训练"
+        assert "盲盒" not in data["greeting"]
+        session = data["session"]
+        assert session["mode"] == "blind_box"
+        assert session["from_assignment"] is False
+        assert session["case_title"] == ""
+        assert session["chief_complaint"] == ""
+        assert session["patient_name"] == ""
+        assert session["patient_info"]["name"] == "患者"
+        open_ids = {c.id for c in db_session.query(Case).filter(Case.is_open == True).all()}
+        assert session["case_id"] in open_ids
+
+    def test_detail_redacted_while_in_progress_revealed_after_end(self, client, student, test_case, db_session):
+        """盲盒 detail 进行中脱敏，训练结束后揭示便于复盘。"""
+        from core.statuses import TrainingStatus
+        from models import TrainingRecord
+
+        _, token = student
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.post("/api/training/start-blind-box", headers=headers)
+        assert resp.status_code == 200, resp.text
+        rid = resp.json()["record_id"]
+
+        detail = client.get(f"/api/training/records/{rid}", headers=headers)
+        assert detail.status_code == 200
+        d = detail.json()
+        assert d["case_name"] == "盲盒训练"
+        assert d["patient_name"] == ""
+        assert d["case_title"] == ""
+        assert d["chief_complaint"] == ""
+
+        # 结束后（status 离开 in_progress）揭示病例便于复盘
+        record = db_session.query(TrainingRecord).filter(TrainingRecord.id == rid).first()
+        record.status = TrainingStatus.COMPLETED
+        db_session.commit()
+        detail2 = client.get(f"/api/training/records/{rid}", headers=headers)
+        d2 = detail2.json()
+        assert d2["case_name"] != "盲盒训练"
+        assert d2["patient_name"] != ""
+        assert d2["mode"] == "blind_box"
+
+    def test_no_open_cases_returns_400(self, client, student, db_session):
+        """无开放病例时盲盒返回 400（关闭操作在同一测试事务内，teardown 回滚）。"""
+        from models import Case
+
+        db_session.query(Case).update({Case.is_open: False})
+        _, token = student
+        resp = client.post("/api/training/start-blind-box", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 400
+
+
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case, db_session):
         _user, token = student

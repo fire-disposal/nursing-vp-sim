@@ -6841,6 +6841,33 @@
         }
       }
     },
+    "/api/training/start-blind-box": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Start Blind Box Training",
+        "description": "盲盒训练：从全部开放病例随机抽取一个开始，隐藏标题与引导内容。\n\n属自主训练（无 assignment，mode=blind_box）。训练进行中 detail/brief 脱敏，\n结束后揭示病例便于复盘。",
+        "operationId": "start_blind_box_training_api_training_start_blind_box_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingStartResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/training/records/{record_id}": {
       "delete": {
         "tags": [
@@ -14453,10 +14480,12 @@
           },
           "created_at": {
             "type": "string",
+            "format": "date-time",
             "title": "Created At"
           },
           "updated_at": {
             "type": "string",
+            "format": "date-time",
             "title": "Updated At"
           }
         },

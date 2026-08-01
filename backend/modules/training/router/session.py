@@ -4,13 +4,14 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, load_role_permissions, require_permission
-from core.statuses import TrainingStatus, normalize_training_mode
+from core.statuses import TrainingMode, TrainingStatus, normalize_training_mode
 from models import (
     Assignment,
     Case,
@@ -245,11 +246,16 @@ def _create_record(
         },
     }
 
+    blind_box = normalize_training_mode((config.get("behavior") or {}).get("mode")) == TrainingMode.BLIND_BOX.value
     patient_info = case_data.get("patient_info", {})
     public_patient_info = _public_patient_info(case_data)
     patient_name = patient_info.get("name", "患者")
-    opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
-    greeting = f"你好，我是{patient_name}。{opening_line}"
+    if blind_box:
+        # 盲盒：问候语中性化，不携带病例/患者线索
+        greeting = "你好，我是今天来就诊的患者。你先了解一下我的情况，有什么想问的尽管问我。"
+    else:
+        opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
+        greeting = f"你好，我是{patient_name}。{opening_line}"
 
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
@@ -311,12 +317,16 @@ def _create_record(
         "time_limit": time_limit,
         "remaining_seconds": time_limit * 60,
         "mode": normalize_training_mode((config.get("behavior") or {}).get("mode")),
-        "patient_name": public_patient_info["name"],
+        "patient_name": "" if blind_box else public_patient_info["name"],
         "patient_age": public_patient_info["age"],
         "patient_gender": public_patient_info["gender"],
-        "case_title": case_data.get("title", "") or case.name,
-        "chief_complaint": case_data.get("chief_complaint", ""),
-        "patient_info": public_patient_info,
+        "case_title": "" if blind_box else case_data.get("title", "") or case.name,
+        "chief_complaint": "" if blind_box else case_data.get("chief_complaint", ""),
+        "patient_info": (
+            {"name": "患者", "age": public_patient_info["age"], "gender": public_patient_info["gender"]}
+            if blind_box
+            else public_patient_info
+        ),
         "features": resolved_features,
         "messages": [
             {
@@ -532,6 +542,67 @@ def start_training_from_assignment(
         case_name=case.name,
         session=session,
         pending_questionnaires=_count_pending_questionnaires(db, case.id),
+    )
+
+
+@router.post("/start-blind-box", response_model=TrainingStartResponse)
+def start_blind_box_training(
+    current_user: Annotated[User, Depends(require_permission("training_access"))],
+    db: Annotated[Session, Depends(get_db)],
+    request: Request,
+):
+    """盲盒训练：从全部开放病例随机抽取一个开始，隐藏标题与引导内容。
+
+    属自主训练（无 assignment，mode=blind_box）。训练进行中 detail/brief 脱敏，
+    结束后揭示病例便于复盘。
+    """
+    global_existing = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
+        )
+        .first()
+    )
+    if global_existing:
+        gc = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "existing_training",
+                "record_id": global_existing.id,
+                "case_name": gc.name if gc else "未知病例",
+                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
+            },
+        )
+
+    case = db.query(Case).filter(Case.is_open == True).order_by(func.random()).first()
+    if not case:
+        raise HTTPException(status_code=400, detail="暂无可用的自主练习病例，请稍后再试")
+
+    config = {
+        "id": 0,
+        "name": "盲盒训练",
+        "features": {},
+        "behavior": {"mode": TrainingMode.BLIND_BOX.value},
+    }
+    record, greeting, session = _create_record(
+        db,
+        current_user.id,
+        case,
+        case.case_data or {},
+        config,
+        app_state=request.app.state,
+    )
+
+    pending_questionnaires = _count_pending_questionnaires(db, case.id)
+    session["pending_questionnaires"] = pending_questionnaires
+    return TrainingStartResponse(
+        record_id=record.id,
+        greeting=greeting,
+        case_name="盲盒训练",
+        pending_questionnaires=pending_questionnaires,
+        session=session,
     )
 
 

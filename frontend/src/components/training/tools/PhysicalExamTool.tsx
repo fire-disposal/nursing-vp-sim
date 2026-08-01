@@ -153,7 +153,8 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   // ── 对照着色 + 异常汇总 + 解读（引导模式） ──
   // 模式来自作业 behavior.mode（session/detail 下发，默认 guided）
   const mode = recordDetail?.mode ?? "guided";
-  const isGuided = mode !== "assessment";
+  // 仅 guided 显示解读；考核（assessment）与盲盒（blind_box）都隐藏引导内容
+  const isGuided = mode === "guided";
   const abnormal = Object.entries(results).filter(([, r]) => r.status === "high" || r.status === "low");
   const hints = abnormal.filter(([, r]) => r.interpretation && isGuided);
 

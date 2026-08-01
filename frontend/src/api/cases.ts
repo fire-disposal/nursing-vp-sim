@@ -29,6 +29,13 @@ export const startTraining = (
 		},
 	);
 
+/** 盲盒训练：后端随机抽取开放病例，隐藏标题与引导内容。 */
+export const startBlindBox = () =>
+	api.post<Schemas["TrainingStartResponse"]>(
+		"/training/start-blind-box" satisfies ApiPath as string,
+		{},
+	);
+
 export const getManageCases = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_CaseManageItem_"]>(
 		"/cases/manage/list" satisfies ApiPath as string,

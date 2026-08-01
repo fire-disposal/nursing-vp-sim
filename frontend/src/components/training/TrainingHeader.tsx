@@ -41,6 +41,8 @@ interface TrainingHeaderProps {
 
 export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
 	const patient = useTrainingStore(s => s.patient);
+	const mode = useTrainingStore(s => s.recordDetail?.mode);
+	const isBlindBox = mode === "blind_box";
 	const timeLimitMinutes = useTrainingStore(s => s.timeLimitMinutes);
 	const startTime = useTrainingStore(s => s.startTime);
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
@@ -144,23 +146,34 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						<ArrowLeft size={16} className="sm:size-[18px]" />
 					</button>
 
-					<div className="flex items-center gap-2 flex-1 min-w-0">
-						<img
-							className="size-6 sm:w-9 sm:h-9 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
-							src={avatarSrc}
-							alt={patient.name}
-						/>
-						<div className="min-w-0">
+					{isBlindBox ? (
+						<div className="flex items-center gap-2 flex-1 min-w-0">
 							<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
-								{patient.name}
+								盲盒训练
 							</div>
 							<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight">
-								{patient.caseTitle || patient.chiefComplaint}
+								随机病例 · 自主练习
 							</div>
 						</div>
-					</div>
+					) : (
+						<div className="flex items-center gap-2 flex-1 min-w-0">
+							<img
+								className="size-6 sm:w-9 sm:h-9 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
+								src={avatarSrc}
+								alt={patient.name}
+							/>
+							<div className="min-w-0">
+								<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
+									{patient.name}
+								</div>
+								<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight">
+									{patient.caseTitle || patient.chiefComplaint}
+								</div>
+							</div>
+						</div>
+					)}
 
-					{patient.age != null && (
+					{!isBlindBox && patient.age != null && (
 						<span className="text-xs text-muted-foreground shrink-0 tabular-nums">
 							{patient.gender === "male" ? "男" : "女"} · {patient.age}岁
 						</span>

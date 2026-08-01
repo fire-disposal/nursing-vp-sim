@@ -9,7 +9,7 @@ from core.datetime_utils import parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
-from core.statuses import ScoringStatus, TrainingStatus, normalize_training_mode
+from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
 from models import (
     ScoreReview,
     TrainingRecord,
@@ -40,6 +40,12 @@ from .session import (
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _blind_box_active(record: TrainingRecord) -> bool:
+    """盲盒且在训：隐藏病例身份；结束后揭示以便复盘。"""
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
+    return mode == TrainingMode.BLIND_BOX.value and record.status == TrainingStatus.IN_PROGRESS
 
 
 @router.get("/records", response_model=PaginatedResponse[TrainingRecordBrief])
@@ -106,7 +112,7 @@ def get_records(
         TrainingRecordBrief(
             id=r.id,
             case_id=r.case_id,
-            case_name=r.case.name if r.case else "",
+            case_name="盲盒训练" if _blind_box_active(r) else (r.case.name if r.case else ""),
             training_type=r.training_type or "history_taking",
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
@@ -221,10 +227,12 @@ def get_record_detail(
             if mutation is None:
                 eligible_last_message_id = student.id
 
+    blind_box = _blind_box_active(record)
+    redacted_patient_info = {"name": "患者", "age": patient_info["age"], "gender": patient_info["gender"]}
     return TrainingRecordDetail(
         id=record.id,
         case_id=record.case_id,
-        case_name=case.name if case else "",
+        case_name="盲盒训练" if blind_box else (case.name if case else ""),
         user_display_name=user.display_name if user else "",
         status=record.status,
         scoring_status=record.scoring_status,
@@ -236,7 +244,7 @@ def get_record_detail(
         mode=normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode")),
         messages=record.messages,  # ty: ignore[invalid-argument-type]
         score=score_obj,
-        patient_info=PatientPublicInfo.model_validate(patient_info),
+        patient_info=PatientPublicInfo.model_validate(redacted_patient_info if blind_box else patient_info),
         patient_gender=normalize_gender(str(patient_info.get("gender") or "")) or "",
         training_type=record.training_type or "history_taking",
         features=detect_capabilities(
@@ -244,10 +252,10 @@ def get_record_detail(
             training_type=record.training_type or "history_taking",
             overrides=(record.practice_snapshot or {}).get("features"),
         ),
-        patient_name=patient_info["name"],
+        patient_name="" if blind_box else patient_info["name"],
         patient_age=patient_info["age"],
-        chief_complaint=case_data.get("chief_complaint", ""),
-        case_title=case_title,
+        chief_complaint="" if blind_box else case_data.get("chief_complaint", ""),
+        case_title="" if blind_box else case_title,
         from_assignment=record.assignment_id is not None,
         pending_questionnaires=pending_questionnaires,
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),

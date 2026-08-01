@@ -1896,6 +1896,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/start-blind-box": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Blind Box Training
+         * @description 盲盒训练：从全部开放病例随机抽取一个开始，隐藏标题与引导内容。
+         *
+         *     属自主训练（无 assignment，mode=blind_box）。训练进行中 detail/brief 脱敏，
+         *     结束后揭示病例便于复盘。
+         */
+        post: operations["start_blind_box_training_api_training_start_blind_box_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/training/records/{record_id}": {
         parameters: {
             query?: never;
@@ -4797,9 +4820,15 @@ export interface components {
             speaker_library?: {
                 [key: string]: string;
             } | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
         };
         /** VoiceConfigUpdateRequest */
@@ -8962,6 +8991,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_blind_box_training_api_training_start_blind_box_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingStartResponse"];
                 };
             };
         };

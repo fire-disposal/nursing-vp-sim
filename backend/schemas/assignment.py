@@ -5,14 +5,17 @@ from pydantic import BaseModel, Field, field_validator
 from core.statuses import TrainingMode
 from schemas.common import _REQ_CFG, _RESP_CFG
 
+# 作业可配置的训练模式白名单：盲盒（blind_box）仅限自主触发，作业不可配置。
+_ASSIGNMENT_MODES = {TrainingMode.GUIDED.value, TrainingMode.ASSESSMENT.value}
+
 
 def _check_behavior_mode(v: dict | None) -> dict | None:
     """behavior.mode 只允许 guided/assessment；非法值 422 拒绝，防止前端静默按 guided 处理。"""
     if not v:
         return v
     mode = v.get("mode")
-    if mode is not None and mode not in TrainingMode:
-        raise ValueError(f"behavior.mode 必须是 {'/'.join(TrainingMode)}，收到: {mode!r}")
+    if mode is not None and mode not in _ASSIGNMENT_MODES:
+        raise ValueError(f"behavior.mode 必须是 {'/'.join(sorted(_ASSIGNMENT_MODES))}，收到: {mode!r}")
     return v
 
 

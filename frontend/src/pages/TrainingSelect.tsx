@@ -1,9 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Award, BarChart3, BookOpen, ClipboardCheck, ClipboardList, Clock, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, Award, BarChart3, BookOpen, ClipboardCheck, ClipboardList, Clock, Gift, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startTraining } from "@/api";
+import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
@@ -186,6 +186,23 @@ export default function TrainingSelect() {
         return;
       }
       toast.error("开始训练失败，请重试");
+    },
+  });
+  const blindBoxMutation = useMutation({
+    mutationFn: () => startBlindBox(),
+    onSuccess: (res) => {
+      const data: StartResponse = res.data;
+      if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
+      navigate(`/training/${data.record_id}`);
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+        const d = axiosErr.response.data.detail;
+        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+        return;
+      }
+      toast.error("盲盒训练开始失败，请重试");
     },
   });
   const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
@@ -485,6 +502,24 @@ export default function TrainingSelect() {
             <div className="w-44">
               <SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
             </div>
+          </div>
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <Gift size={15} className="text-primary shrink-0" />盲盒训练
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                随机抽取一个开放病例，隐藏标题与引导，考验临场问诊
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={() => blindBoxMutation.mutate()}
+              disabled={blindBoxMutation.isPending}
+            >
+              {blindBoxMutation.isPending ? "抽取中…" : "开始盲盒"}
+            </Button>
           </div>
           {casesLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>

@@ -38,14 +38,20 @@ class LLMCallStatus(StrEnum):
 
 
 class TrainingMode(StrEnum):
-    """训练模式 — 作业 behavior.mode 白名单。
+    """训练模式 — 训练进行方式，三值互斥。
+
+    - ``GUIDED``：引导模式，显示标题/引导内容（自主选病例与作业默认）
+    - ``ASSESSMENT``：考核模式，隐藏解读（作业 behavior.mode 可配置）
+    - ``BLIND_BOX``：盲盒模式，隐藏标题与引导，病例随机抽取（仅自主触发，
+      作业不可配置，见 schemas/assignment.py 白名单）
 
     读取端（session / detail 视图）对非法值一律回退 ``GUIDED``，
-    防历史脏数据静默透传到前端（前端把一切非 assessment 当 guided）。
+    防历史脏数据静默透传。
     """
 
     GUIDED = "guided"
     ASSESSMENT = "assessment"
+    BLIND_BOX = "blind_box"
 
 
 def normalize_training_mode(value: object) -> str:

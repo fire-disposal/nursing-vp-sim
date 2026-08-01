@@ -89,6 +89,16 @@ describe("PhysicalExamTool 解读与异常汇总", () => {
 		expect(screen.queryByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeNull();
 	});
 
+	it("盲盒模式（recordDetail.mode=blind_box）同样隐藏解读但保留汇总", () => {
+		const bus = makeBus();
+		const recordDetail = { mode: "blind_box" } as never;
+		render(<PhysicalExamTool recordId="1" bus={bus} recordDetail={recordDetail} />);
+		act(() => { bus.fireResult(HIGH_TEMP_RESULT); });
+
+		expect(screen.getByText("异常发现")).toBeTruthy();
+		expect(screen.queryByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeNull();
+	});
+
 	it("正常测量：无异常汇总、无解读", () => {
 		const bus = makeBus();
 		render(<PhysicalExamTool recordId="1" bus={bus} recordDetail={null} />);
