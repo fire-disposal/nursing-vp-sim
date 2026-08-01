@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 /**
  * Minimal CSS media query hook — use for one-off breakpoints only.
  * For most cases, prefer useLayoutMode which provides standardised
- * "desktop / tablet / phone" modes with a single breakpoint source of truth.
+ * "desktop / phone" modes with a single breakpoint source of truth.
  */
 export function useMediaQuery(query: string): boolean {
 	const [matches, setMatches] = useState(() => {

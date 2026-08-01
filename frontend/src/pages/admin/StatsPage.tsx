@@ -28,7 +28,6 @@ import {
 } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
@@ -87,7 +86,6 @@ function Stats() {
 	const [period, setPeriod] = useState("month");
 	const [summaryOffset, setSummaryOffset] = useState(0);
 	const [rankingOffset, setRankingOffset] = useState(0);
-	const _toast = useToast();
 	const permissions = useAuthStore((s) => s.permissions);
 	const hasTeacherView = isAdminPermissions(permissions);
 	const LIMIT = 50;

@@ -38,7 +38,6 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const emotion = useTrainingStore((s) => s.emotion);
 	const trust = useTrainingStore((s) => s.trust);
-	const comfort = useTrainingStore((s) => s.comfort);
 	const anxiety = useTrainingStore((s) => s.anxiety);
 	const irritation = useTrainingStore((s) => s.irritation);
 	const cooperation = useTrainingStore((s) => s.cooperation);
@@ -51,7 +50,6 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// ── Initiative state ──
 	const [initPercent, setInitPercent] = useState(0);
-	const [, setInitCount] = useState(0);
 	const maxReachedRef = useRef(false);
 	const elapsedRef = useRef(0);
 	const thresholdRef = useRef(30);
@@ -123,7 +121,6 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 				elapsedRef.current = data.elapsed_seconds ?? 0;
 				thresholdRef.current = data.threshold_seconds ?? 30;
 				setInitPercent(data.percent ?? 0);
-				setInitCount(data.initiative_count ?? 0);
 				waitingRef.current = false;
 				startTicker();
 			},
@@ -169,7 +166,6 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	if (!capabilities.emotion) return null;
 	const label = EMOTION_LABELS[emotion];
 	const trustPct = Math.max(0, Math.min(100, trust));
-	const _comfortPct = Math.max(0, Math.min(100, comfort));
 
 	if (compact) {
 		return (

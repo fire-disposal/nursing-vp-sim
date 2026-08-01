@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type LayoutMode = "desktop" | "tablet" | "phone";
+export type LayoutMode = "desktop" | "phone";
 
 const MOBILE_BP = 768;
 

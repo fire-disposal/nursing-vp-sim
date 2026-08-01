@@ -486,7 +486,6 @@ export default function FeedbackTab() {
 	const chartsOpen = useUiPrefsStore((s) => s.feedbackChartsOpen);
 	const setChartsOpen = useUiPrefsStore((s) => s.setFeedbackChartsOpen);
 	const LIMIT = 20;
-	const _toast = useToast();
 
 	// 服务端过滤：search / replied 与分页 total 同源，避免"过滤后空页"脱节
 	const params: Record<string, unknown> = { offset, limit: LIMIT };

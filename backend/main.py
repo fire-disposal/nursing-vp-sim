@@ -44,8 +44,6 @@ from seed import seed_all
 
 log = logging.getLogger(__name__)
 
-_MAX_REQUEST_BYTES = MAX_REQUEST_BYTES
-
 
 BANNER = textwrap.dedent(r"""\
  ____             __                             ____    ____    
@@ -183,6 +181,7 @@ def _validate_prompt_templates(logger) -> None:
     except Exception:
         logger.exception("Prompt template validation failed (non-fatal)")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -296,11 +295,11 @@ async def _limit_body_size(request: Request, call_next):
     content_length = request.headers.get("content-length")
     transfer_encoding = request.headers.get("transfer-encoding", "").lower()
     if content_length:
-        if int(content_length) > _MAX_REQUEST_BYTES:
+        if int(content_length) > MAX_REQUEST_BYTES:
             return JSONResponse(status_code=413, content={"detail": "请求体过大"})
     elif transfer_encoding == "chunked":
         body = await request.body()
-        if len(body) > _MAX_REQUEST_BYTES:
+        if len(body) > MAX_REQUEST_BYTES:
             return JSONResponse(status_code=413, content={"detail": "请求体过大"})
     return await call_next(request)
 
@@ -319,16 +318,11 @@ async def _request_timeout(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        o.strip()
-        for o in CORS_ORIGINS.split(",")
-        if o.strip()
-    ],
+    allow_origins=[o.strip() for o in CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# EnvelopeMiddleware removed — API now returns standard JSON with HTTP status codes.
 
 
 # Tool registration
@@ -353,7 +347,23 @@ from modules.training import training_router as _training
 from modules.voice.router import router as _tts
 
 _exports, _profiles, _rubrics, _stats = get_top_level_routers()
-for r in (_admin, _assignments, _assignments_student, _auth, _cases, _chat,
-          _diagnostics, _exports, _feedback, _profiles, _qa, _questionnaires,
-          _rubrics, _stats, _telemetry, _training, _tts):
+for r in (
+    _admin,
+    _assignments,
+    _assignments_student,
+    _auth,
+    _cases,
+    _chat,
+    _diagnostics,
+    _exports,
+    _feedback,
+    _profiles,
+    _qa,
+    _questionnaires,
+    _rubrics,
+    _stats,
+    _telemetry,
+    _training,
+    _tts,
+):
     app.include_router(r)

@@ -1,7 +1,6 @@
 import { Brain, Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/components/Toast";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +42,6 @@ export function ScoringOverlay({
 
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
 	const feedbackScrollRef = useRef<HTMLDivElement>(null);
-	const _toast = useToast();
 	const navigate = useNavigate();
 
 	useEffect(() => {

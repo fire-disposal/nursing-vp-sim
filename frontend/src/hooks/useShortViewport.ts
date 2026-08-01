@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMediaQuery } from "./useMediaQuery";
 
 /**
  * Detects short viewports (landscape phones, height < 500px).
@@ -6,18 +6,5 @@ import { useEffect, useState } from "react";
  * where vertical screen real estate is at a premium.
  */
 export function useShortViewport(): boolean {
-	const [isShort, setIsShort] = useState(() => {
-		if (typeof window === "undefined") return false;
-		return window.innerHeight < 500;
-	});
-
-	useEffect(() => {
-		const mq = window.matchMedia("(max-height: 500px)");
-		const onChange = (e: MediaQueryListEvent) => setIsShort(e.matches);
-		setIsShort(mq.matches);
-		mq.addEventListener("change", onChange);
-		return () => mq.removeEventListener("change", onChange);
-	}, []);
-
-	return isShort;
+	return useMediaQuery("(max-height: 500px)");
 }

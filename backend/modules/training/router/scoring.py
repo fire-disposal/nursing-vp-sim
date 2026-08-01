@@ -150,8 +150,6 @@ def _handle_scoring_failure(
 ) -> None:
     """Shared error handling — updates DB status, creates notification, publishes SSE."""
     try:
-        from core.database import SessionLocal
-
         db = SessionLocal()
         try:
             db.expire_all()
@@ -175,8 +173,6 @@ def _handle_scoring_failure(
                 )
                 db.commit()
                 if realtime_hub:
-                    import asyncio
-
                     asyncio.ensure_future(  # noqa: RUF006
                         _publish_scoring_event(
                             realtime_hub,
