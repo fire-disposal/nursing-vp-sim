@@ -3,6 +3,8 @@
 覆盖：EmotionVector, EmotionDelta, EmotionState, clamp, 边界行为。
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from modules.training.patient_ai.emotion.models import (
@@ -61,7 +63,7 @@ class TestEmotionDelta:
 
     def test_frozen(self):
         d = EmotionDelta(trust=0.1)
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             d.trust = 0.2  # type: ignore[misc]
 
 

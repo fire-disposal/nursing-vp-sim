@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 
-from .events import AppliedEmotionEvent, DetectedEmotionEvent, EmotionEventType
+from .events import AppliedEmotionEvent, DetectedEmotionEvent
 from .models import EmotionDelta, EmotionState, EmotionVector, clamp01
 from .profile import EmotionProfile
 from .rules import EVENT_RULES
@@ -116,14 +116,12 @@ class EmotionEngine:
         delta = self._apply_boundary_damping(vector, delta)
 
         # 5. 舍入到合理精度
-        delta = EmotionDelta(
+        return EmotionDelta(
             trust=round(delta.trust, 4),
             anxiety=round(delta.anxiety, 4),
             irritation=round(delta.irritation, 4),
             cooperation=round(delta.cooperation, 4),
         )
-
-        return delta
 
     @staticmethod
     def _apply_dimension_sensitivity(delta: EmotionDelta, profile: EmotionProfile) -> EmotionDelta:

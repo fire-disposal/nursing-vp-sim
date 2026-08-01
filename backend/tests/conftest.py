@@ -25,6 +25,7 @@ from core.database import Base, SessionLocal
 from core.security import hash_password
 from models import Case, User
 
+
 @pytest.fixture(scope="session")
 def engine():
     """Session-scoped: create schema once, seed static data, drop at end."""

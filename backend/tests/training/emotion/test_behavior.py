@@ -3,6 +3,8 @@
 覆盖 behavior.py 和 renderer.py。
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from modules.training.patient_ai.emotion.behavior import (
@@ -51,11 +53,15 @@ class TestDeriveBehavior:
     def test_frozen_dataclass(self):
         """PatientBehaviorPolicy 是不可变的。"""
         policy = PatientBehaviorPolicy(
-            disclosure=0.5, verbosity=0.5, initiative=0.3,
-            cooperation=0.5, repetition=0.0,
-            tone="平稳", response_style="正常",
+            disclosure=0.5,
+            verbosity=0.5,
+            initiative=0.3,
+            cooperation=0.5,
+            repetition=0.0,
+            tone="平稳",
+            response_style="正常",
         )
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             policy.disclosure = 0.8  # type: ignore[misc]
 
     def test_open_trusting_tone(self):

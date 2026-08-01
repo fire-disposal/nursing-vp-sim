@@ -6,7 +6,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func as sa_func, or_
+from sqlalchemy import func as sa_func
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS

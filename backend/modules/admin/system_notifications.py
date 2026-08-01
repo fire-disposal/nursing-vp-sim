@@ -19,8 +19,8 @@ from schemas.notification import (
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
-from core.exceptions import NotFoundError
 
+from core.exceptions import NotFoundError
 from core.unit_of_work import unit_of_work
 from models import SystemNotification
 

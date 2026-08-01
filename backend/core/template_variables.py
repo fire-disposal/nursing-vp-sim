@@ -136,7 +136,7 @@ def validate_all_templates() -> list[str]:
     from core.template import validate_template_vars
     from modules.cases.prompts import CASE_GENERATION_HEAD, CASE_GENERATION_TAIL
     from modules.qa.prompts import QA_SYSTEM
-    from modules.training.prompts.emotion import EMOTION_ANALYSIS_SYSTEM, EMOTION_ANALYSIS_USER
+    from modules.training.prompts.emotion import EMOTION_ANALYSIS_USER
     from modules.training.prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
     from modules.training.prompts.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
     from modules.training.prompts.scoring import (

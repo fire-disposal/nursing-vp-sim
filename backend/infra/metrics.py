@@ -6,14 +6,14 @@ Exposes a snapshot dict consumed by /api/metrics and external monitoring.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import threading
 import time
 from collections import defaultdict
 from collections.abc import Callable
-from core.config import APP_VERSION
 from typing import Protocol, cast
+
+from core.config import APP_VERSION
 
 
 class _PoolProtocol(Protocol):

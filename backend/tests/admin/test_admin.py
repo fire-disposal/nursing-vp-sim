@@ -216,7 +216,6 @@ class TestStudentDetail:
         assert data["daily"] == []
 
     def test_get_detail_with_records(self, client, teacher, db_session, test_case):
-        from datetime import datetime
 
         from core.security import hash_password
         from models import Role, Score, TrainingRecord, User

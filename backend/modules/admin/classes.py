@@ -3,14 +3,15 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, update as sa_update
+from sqlalchemy import func
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
-from models import Class, User, Assignment, Grade, UserClass
+from models import Assignment, Class, Grade, User, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse
 
 

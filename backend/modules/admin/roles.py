@@ -1,8 +1,8 @@
-from sqlalchemy import func
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import func
 
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError

@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-from models import Case, Message, Score, TrainingRecord, User
+from models import Case, Message, TrainingRecord, User
 
 if TYPE_CHECKING:
     from infra.llm.client import LLMClient

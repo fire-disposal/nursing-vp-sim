@@ -2,8 +2,8 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from core.exceptions import ConflictError, NotFoundError
 from core.unit_of_work import unit_of_work
@@ -147,7 +147,8 @@ class CaseService:
             is_open=is_open,
         )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
-            self.db.add(case); self.db.flush()
+            self.db.add(case)
+            self.db.flush()
         log.info(
             f"病例创建: case_id={case.id} case_name={case.name}",
             extra={"user_id": user_id, "user_role": user_role},
@@ -184,7 +185,8 @@ class CaseService:
             raise ConflictError(detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。")
         case_name = case.name
         with unit_of_work(self.db, conflict_detail="病例删除冲突"):
-            self.db.delete(case); self.db.flush()
+            self.db.delete(case)
+            self.db.flush()
         log.info(
             f"病例删除: case_id={case_id} case_name={case_name}",
             extra={"user_id": user_id, "user_role": user_role},

@@ -55,8 +55,6 @@ ignore = [
     "ASYNC109", # timeout parameter name (legacy, not using asyncio.timeout)
     "B008",   # Depends in argument defaults (standard FastAPI idiom)
     "B904",   # raise from (style preference)
-    "BLE001", # blind except (some intentional; review later)
-    "C901",   # too-complex (known complex functions, refactor later)
     "COM812", # conflicts with formatter
     "D",      # docstrings
     "E402",   # import after env var setup (test conftest pattern)
@@ -69,6 +67,7 @@ ignore = [
     "G004",   # f-string in logging (style)
     "INP001", # implicit namespace (alembic env.py)
     "N801",   # class naming convention (intentional lowercase)
+    "N802",   # function naming (SessionLocal — SQLAlchemy sessionmaker convention)
     "N806",   # uppercase in function (test fixture naming)
     "N814",   # camelCase import alias (locale abbreviations AS/LC/PT)
     "N817",   # camelCase import alias (locale abbreviations)
@@ -135,6 +134,50 @@ ignore = [
     "SIM105", # contextlib.suppress (style)
     "TRY400", # logging.exception vs error (style)
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# BLE001/C901 存量债务逐文件豁免（2026-05 收紧）：新文件默认遵守规则，
+# 未来按文件修复后从豁免列表移除。infra/core/seed/tests 为合理兜底模式。
+"infra/**" = ["BLE001", "C901"]
+"core/*.py" = ["BLE001", "C901"]
+"seed.py" = ["BLE001", "C901"]
+"tests/**" = ["BLE001", "C901"]
+# ── modules/ 存量豁免（逐文件，勿复制到新文件） ──
+"modules/admin/ops.py" = ["BLE001", "C901"]
+"modules/admin/secrets.py" = ["BLE001", "C901"]
+"modules/admin/users.py" = ["BLE001", "C901"]
+"modules/admin/voice.py" = ["BLE001", "C901"]
+"modules/assignments/service.py" = ["BLE001", "C901"]
+"modules/cases/service.py" = ["BLE001", "C901"]
+"modules/qa/citations.py" = ["BLE001", "C901"]
+"modules/qa/knowledge_base/chapter_index.py" = ["BLE001", "C901"]
+"modules/qa/router/tools.py" = ["BLE001", "C901"]
+"modules/questionnaires/service.py" = ["BLE001", "C901"]
+"modules/training/pipeline/middleware/emotion_analysis.py" = ["BLE001", "C901"]
+"modules/training/pipeline/middleware/llm_caller.py" = ["BLE001", "C901"]
+"modules/training/pipeline/middleware/persister.py" = ["BLE001", "C901"]
+"modules/training/pipeline/middleware/prompt_builder.py" = ["BLE001", "C901"]
+"modules/training/pipeline/middleware/side_effects.py" = ["BLE001", "C901"]
+"modules/training/pipeline/prompt_context_builder.py" = ["BLE001", "C901"]
+"modules/training/pipeline/runner.py" = ["BLE001", "C901"]
+"modules/training/patient_ai/emotion/__init__.py" = ["BLE001", "C901"]
+"modules/training/patient_ai/emotion/analyzer.py" = ["BLE001", "C901"]
+"modules/training/patient_ai/emotion/engine.py" = ["BLE001", "C901"]
+"modules/training/patient_ai/initiative.py" = ["BLE001", "C901"]
+"modules/training/patient_ai/note_source.py" = ["BLE001", "C901"]
+"modules/training/router/scoring.py" = ["BLE001", "C901"]
+"modules/training/router/session.py" = ["BLE001", "C901"]
+"modules/training/router/session_views.py" = ["BLE001", "C901"]
+"modules/training/router/ws.py" = ["BLE001", "C901"]
+"modules/training/scoring/engine.py" = ["BLE001", "C901"]
+"modules/training/scoring/rubric_loader.py" = ["BLE001", "C901"]
+"modules/training/scoring/validation.py" = ["BLE001", "C901"]
+"modules/training/session/finalize.py" = ["BLE001", "C901"]
+"modules/training/session/state.py" = ["BLE001", "C901"]
+"modules/training/tools/exam_emotion.py" = ["BLE001", "C901"]
+"modules/training/tools/physical_exam.py" = ["BLE001", "C901"]
+"modules/voice/router.py" = ["BLE001", "C901"]
+"modules/voice/service.py" = ["BLE001", "C901"]
 
 [tool.ruff.lint.flake8-unused-arguments]
 ignore-variadic-names = true

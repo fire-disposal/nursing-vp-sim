@@ -3,12 +3,14 @@
 import logging
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
-from starlette.types import ExceptionHandler
+
+if TYPE_CHECKING:
+    from starlette.types import ExceptionHandler
 
 log = logging.getLogger(__name__)
 
@@ -193,4 +195,4 @@ def register_exception_handler(
     between *exc_type* and `handler`'s parameter type.  This wrapper uses
     ``cast`` once so call sites stay clean and type-safe.
     """
-    app.add_exception_handler(exc_type, cast(ExceptionHandler, handler))
+    app.add_exception_handler(exc_type, cast("ExceptionHandler", handler))

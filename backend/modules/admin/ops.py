@@ -48,7 +48,6 @@ async def admin_ops_dashboard(
             scoring_in_progress = len(request.app.state.scoring_tracker._store)
         except Exception:
             log.warning("scoring_tracker read failed", exc_info=True)
-            pass
     data["scoring"]["in_progress"] = scoring_in_progress
 
     sse_stats = {}
@@ -57,7 +56,6 @@ async def admin_ops_dashboard(
             sse_stats = request.app.state.realtime_hub.stats
         except Exception:
             log.warning("realtime_hub stats read failed", exc_info=True)
-            pass
 
     metrics_snapshot = {}
     if hasattr(request.app.state, "metrics"):
@@ -65,7 +63,6 @@ async def admin_ops_dashboard(
             metrics_snapshot = request.app.state.metrics.snapshot()
         except Exception:
             log.warning("metrics snapshot read failed", exc_info=True)
-            pass
 
     try:
         diag_svc = get_diagnose_service()

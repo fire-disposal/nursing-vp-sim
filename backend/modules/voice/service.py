@@ -16,6 +16,7 @@ from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConn
 from infra.tts.mapper import resolve_voice_type
 from infra.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
+
 log = logging.getLogger(__name__)
 
 _DEFAULT_TTS_CONFIG = {

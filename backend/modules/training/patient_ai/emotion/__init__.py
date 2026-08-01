@@ -16,26 +16,27 @@
 """
 
 # ── v3 新系统 ──
-from .analyzer import EmotionAnalyzer
-from .behavior import PatientBehaviorPolicy, derive_behavior
-from .engine import EmotionEngine
-from .events import AppliedEmotionEvent, DetectedEmotionEvent, EmotionAnalysisResult, EmotionEventType
-from .models import EmotionDelta, EmotionState as EmoState, EmotionVector
-from .profile import EmotionProfile
-from .renderer import derive_speech_policy, render_behavior_note, resolve_dominant_state
-from .repository import EmotionRepository
-from ._legacy import (  # noqa: E402
+from ._legacy import (
+    _STATE_TABLE,
+    MAX_HISTORY,
     EmotionState,  # v2 EmotionState
     _build_author_note,
     _lookup_state,
     _s_curve,
-    _STATE_TABLE,
-    MAX_HISTORY,
     cleanup_emotion,
     get_emotion,
 )
+from .analyzer import EmotionAnalyzer
+from .behavior import PatientBehaviorPolicy, derive_behavior
+from .engine import EmotionEngine
+from .events import AppliedEmotionEvent, DetectedEmotionEvent, EmotionAnalysisResult, EmotionEventType
+from .models import EmotionDelta, EmotionVector
+from .models import EmotionState as EmoState
+from .profile import EmotionProfile
+from .renderer import derive_speech_policy, render_behavior_note, resolve_dominant_state
+from .repository import EmotionRepository
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — 按 v2/v3 分组注释排序，保持可读性
     # v3 models
     "EmoState",
     "EmotionVector",

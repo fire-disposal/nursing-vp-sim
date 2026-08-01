@@ -17,12 +17,11 @@ from __future__ import annotations
 import logging
 
 from modules.training.patient_ai.emotion import (
+    EmoState,
     EmotionAnalyzer,
     EmotionEngine,
     EmotionProfile,
     EmotionRepository,
-    EmoState,
-    EmotionVector,
     derive_behavior,
     render_behavior_note,
     resolve_dominant_state,

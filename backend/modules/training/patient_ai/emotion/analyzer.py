@@ -16,7 +16,7 @@ import logging
 from core.template import render_template
 from infra.llm.client import CallContext
 
-from .events import EmotionAnalysisResult, DetectedEmotionEvent, EmotionEventType
+from .events import DetectedEmotionEvent, EmotionAnalysisResult, EmotionEventType
 
 log = logging.getLogger(__name__)
 

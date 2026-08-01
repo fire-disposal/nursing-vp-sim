@@ -3,8 +3,8 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from modules.training.patient_ai.emotion import EmoState, EmotionVector
 from modules.training.patient_ai.emotion import EmotionState as LegacyEmotionState
-from modules.training.patient_ai.emotion import EmotionVector, EmoState
 from modules.training.pipeline.middleware.side_effects import _read_emotion_state
 
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
 from core.config import QUEUE_ENQUEUE_TIMEOUT, SCORING_WORKERS
+
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
