@@ -5286,52 +5286,6 @@
         }
       }
     },
-    "/api/qa/ask": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask Question Legacy",
-        "operationId": "ask_question_legacy_api_qa_ask_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QAAskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/qa/sessions/{session_id}": {
       "delete": {
         "tags": [

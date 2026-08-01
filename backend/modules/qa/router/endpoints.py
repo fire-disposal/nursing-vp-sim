@@ -271,13 +271,3 @@ def get_section_text(source: str, section: str):
             if sec["heading"] == section:
                 return {"source": source, "section": section, "text": sec["body"]}
     raise HTTPException(status_code=404, detail="教材章节不存在")
-
-
-@router.post("/ask", response_model=QAAskResponse)
-async def ask_question_legacy(
-    req: QASessionCreate,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("qa_access"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    return await create_session(req, request=request, current_user=current_user, db=db)

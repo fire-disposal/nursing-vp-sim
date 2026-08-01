@@ -1478,23 +1478,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/qa/ask": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ask Question Legacy */
-        post: operations["ask_question_legacy_api_qa_ask_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/qa/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -8069,39 +8052,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SectionTextResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ask_question_legacy_api_qa_ask_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QASessionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QAAskResponse"];
                 };
             };
             /** @description Validation Error */
