@@ -91,55 +91,31 @@ class TestRegister:
         )
         assert resp.status_code == 409
 
-    @pytest.mark.skip(
-        reason="Windows 下 threading.Barrier 双线程并发写库时连接获取阻塞导致挂死（30s 超时）；待重写为可回滚方案"
-    )
-    def test_register_duplicate_race_returns_409(self, client, teacher, db_session, engine):
-        import threading
+    def test_register_conflict_maps_to_conflict_error(self, client, teacher, db_session):
+        """唯一约束冲突经 unit_of_work 映射为 ConflictError，不泄漏裸 IntegrityError/500。
 
-        from sqlalchemy.orm import sessionmaker
-
+        原并发版（threading + 真提交）在 Windows 下挂死，改为顺序双注册：
+        语义等价于并发下的胜者/败者结果（一个成功 + 一个 ConflictError），且事务可回滚。
+        """
         from core.exceptions import ConflictError
         from models import Role, User
         from modules.auth.service import AuthService
         from schemas import RegisterRequest
 
-        results = []
-        barrier = threading.Barrier(2)
+        teacher_user = db_session.query(User).join(User.role).filter(Role.name == "teacher").first()
+        svc = AuthService(db_session)
+        req = RegisterRequest(
+            username="conc_dup",
+            password="123456",
+            role="student",
+            display_name="Conc",
+        )
 
-        def do_register():
-            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-            session = SessionLocal()
-            try:
-                teacher_user = session.query(User).join(User.role).filter(Role.name == "teacher").first()
-                svc = AuthService(session)
-                req = RegisterRequest(
-                    username="conc_dup",
-                    password="123456",
-                    role="student",
-                    display_name="Conc",
-                )
-                barrier.wait()
-                try:
-                    svc.register(req, teacher_user)
-                    results.append("ok")
-                except ConflictError:
-                    results.append("conflict")
-                except Exception:
-                    results.append("error")
-            finally:
-                session.rollback()
-                session.close()
-
-        t1 = threading.Thread(target=do_register)
-        t2 = threading.Thread(target=do_register)
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
-        assert "ok" in results, f"Expected one success, got {results}"
-        assert "error" not in results, f"Expected no raw IntegrityError (500), got {results}"
+        # 第一次注册成功
+        svc.register(req, teacher_user)
+        # 同事务内再次注册同用户名 → 唯一约束冲突 → ConflictError
+        with pytest.raises(ConflictError):
+            svc.register(req, teacher_user)
 
     def test_register_requires_teacher(self, client, student):
         """Student cannot register users."""
