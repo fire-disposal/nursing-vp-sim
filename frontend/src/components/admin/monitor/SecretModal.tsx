@@ -81,15 +81,18 @@ export default function SecretModal({
 					label: values.label.trim(),
 					base_url: values.baseUrl?.trim() || "https://api.deepseek.com",
 					...common,
-				} as any);
+				});
 				success("密钥已更新");
 			} else {
 				await createSecret({
 					label: values.label.trim(),
 					raw_key: values.rawKey?.trim() ?? "",
 					base_url: values.baseUrl?.trim() || "https://api.deepseek.com",
+					// 与后端默认一致（price 默认 0.5），仅将隐式默认显式化
+					price_input_per_1m: 0.5,
+					price_output_per_1m: 0.5,
 					...common,
-				} as any);
+				});
 				success("密钥已创建");
 			}
 			onSaved();

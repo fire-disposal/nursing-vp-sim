@@ -93,6 +93,7 @@ function _connect() {
 
 	ws.onerror = () => {
 		// will trigger onclose
+		console.warn("[TrainingWS] socket error (onclose will follow)");
 	};
 
 	ws.onclose = (ev) => {

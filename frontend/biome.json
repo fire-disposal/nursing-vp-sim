@@ -45,7 +45,18 @@
 			}
 		}
 	},
-	"overrides": [],
+	"overrides": [
+		{
+			"includes": ["src/pages/admin/**", "src/components/admin/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "error"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

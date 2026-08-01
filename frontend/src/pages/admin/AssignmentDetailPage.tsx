@@ -71,8 +71,8 @@ export default function AssignmentDetailPage() {
 			a.click();
 			URL.revokeObjectURL(url);
 			toast.success("导出成功");
-		} catch (e: any) {
-			toast.error(e.message || "导出失败");
+		} catch (e: unknown) {
+			toast.error(e instanceof Error ? e.message : "导出失败");
 		}
 	};
 
@@ -305,7 +305,7 @@ export default function AssignmentDetailPage() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredStudents.map((s: any) => (
+						{filteredStudents.map((s) => (
 							<TableRow key={s.user_id}>
 								<TableCell className="text-xs font-mono">
 									{s.student_id || "-"}
