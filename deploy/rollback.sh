@@ -95,39 +95,19 @@ compose_with_override() {
     docker compose -f "$COMPOSE_FILE" -f "$ROLLBACK_OVERRIDE" --env-file .env "${COMPOSE_PROJECT_ARGS[@]}" "$@"
 }
 
-# 镜像可用性检查：本地 > ghcr > 需源码重建。ghcr 探测需要有效 ghcr 凭据。
+# 镜像可用性检查 —— 纯本地判定，不查询 ghcr：
+#   [local]   本地镜像存在，可直接回滚
+#   [ghcr]    历史文件记录在案（部署/回滚时 pull 成功过 → ghcr 必存在，
+#             且 GitHub Packages 无自动删除；pull 失败时另有本地/重建兜底）
+# 无网络、无凭据依赖，秒级返回。
 _IMG_PREFIX="ghcr.io/fire-disposal/nursing-vp-sim-backend"
-_GCHR_AUTH_OK=""
-
-_ghcr_auth_ok() {
-    # 用历史最新版本探测 ghcr 凭据有效性（当前部署版本必然存在）
-    if [[ -z "$_GCHR_AUTH_OK" ]]; then
-        local latest_ver
-        latest_ver=$(tail -1 "$HISTORY_FILE" | cut -d'|' -f1)
-        if docker manifest inspect "${_IMG_PREFIX}:${latest_ver}" >/dev/null 2>&1; then
-            _GCHR_AUTH_OK="1"
-        else
-            _GCHR_AUTH_OK="0"
-        fi
-    fi
-    [[ "$_GCHR_AUTH_OK" == "1" ]]
-}
 
 _availability_of() {
     local ver=$1
-    local img="${_IMG_PREFIX}:${ver}"
-    if docker image inspect "$img" >/dev/null 2>&1; then
+    if docker image inspect "${_IMG_PREFIX}:${ver}" >/dev/null 2>&1; then
         echo "[local]"
-    elif _ghcr_auth_ok; then
-        # 凭据有效时才逐个探测 ghcr（避免凭据过期时 50 次网络往返）
-        if docker manifest inspect "$img" >/dev/null 2>&1; then
-            echo "[ghcr]"
-        else
-            echo "[rebuild]"
-        fi
     else
-        # ghcr 凭据失效（GITHUB_TOKEN 短效）：无法区分 [ghcr]/[rebuild]
-        echo "[ghcr?]"
+        echo "[ghcr]"
     fi
 }
 
@@ -147,10 +127,7 @@ list_versions() {
 
     echo ""
     echo "  ${ENV_NAME} 可用部署历史 (最近 ${total} 次):"
-    echo "  [local] 本地有镜像，可立即回滚 | [ghcr] 需从 ghcr 拉取 | [rebuild] 需从 git tag 重建"
-    if ! _ghcr_auth_ok; then
-        echo "  ⚠ ghcr 凭据失效（GITHUB_TOKEN 短效）：非 local 版本状态未知；"
-    fi
+    echo "  [local] 本地有镜像，直接回滚 | [ghcr] 历史在案，需从 ghcr 拉取（本地无镜像时）"
     echo "  ┌────────────────────────────────────────────────────────────┐"
     local i=1
     while [[ $i -le $total ]]; do
@@ -274,20 +251,18 @@ rollback_to() {
     msg_ok "生成临时 compose override ..."
     write_override "$backend_img" "$frontend_img"
 
-    msg_ok "拉取镜像..."
-    if ! docker pull "$backend_img" 2>/dev/null; then
-        if docker image inspect "$backend_img" >/dev/null 2>&1; then
-            msg_warn "ghcr 拉取失败，使用本地缓存: ${backend_img}"
-        else
-            msg_fatal "后端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${backend_img}"
-        fi
+    # 本地优先：有镜像直接用（不碰网络/凭据）；没有才从 ghcr 拉取
+    if docker image inspect "$backend_img" >/dev/null 2>&1; then
+        msg_ok "后端使用本地镜像: ${backend_img##*:}"
+    else
+        msg_ok "拉取后端镜像 (ghcr)..."
+        docker pull "$backend_img" || msg_fatal "后端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${backend_img}"
     fi
-    if ! docker pull "$frontend_img" 2>/dev/null; then
-        if docker image inspect "$frontend_img" >/dev/null 2>&1; then
-            msg_warn "ghcr 拉取失败，使用本地缓存: ${frontend_img}"
-        else
-            msg_fatal "前端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${frontend_img}"
-        fi
+    if docker image inspect "$frontend_img" >/dev/null 2>&1; then
+        msg_ok "前端使用本地镜像: ${frontend_img##*:}"
+    else
+        msg_ok "拉取前端镜像 (ghcr)..."
+        docker pull "$frontend_img" || msg_fatal "前端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${frontend_img}"
     fi
 
     if [[ -n "$target_rev" ]]; then
