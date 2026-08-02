@@ -8,7 +8,6 @@ import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
-import PatientFacePanel from "./face/PatientFacePanel";
 import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
 import { cn } from "@/lib/utils";
@@ -126,7 +125,6 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						className="flex-1 flex flex-col min-h-0"
 					>
-						<PatientFacePanel />
 						{isCompact ? (
 							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact trailing={<InquiryProgressChip />} />
 						) : (
