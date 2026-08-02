@@ -1,8 +1,11 @@
+import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+
+log = logging.getLogger(__name__)
 
 from core.database import get_db
 from core.security import get_current_user
@@ -96,6 +99,14 @@ async def trigger_initiative(
     )
 
     if msg:
+        # ── 出站守卫：主动追问绕过了 llm_caller 的泄漏检查，这里必须补上 ──
+        from modules.training.context.leak_guard import find_hidden_topic_leaks
+        from modules.training.patient_ai.guards import has_identity_leak
+
+        if has_identity_leak(msg) or find_hidden_topic_leaks(msg, case_data, student_msg):
+            log.warning("Initiative message leaked, discarding: record_id=%d", record_id)
+            return {"triggered": False, "message": None}
+
         now = datetime.now(UTC)
         patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
         db.add(patient_msg)
