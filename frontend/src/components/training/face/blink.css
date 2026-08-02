@@ -1,0 +1,34 @@
+/**
+ * 眨眼动画 — 纯 CSS，无 JS 开销。
+ *
+ * 周期默认 4.5s（可用 --blink-interval 覆盖），闭合窗口约 90ms：
+ *   0%-91%  睁眼
+ *   94%-96% 闭眼（scaleY 0.06 = 一条缝）
+ *   96%-100% 睁开
+ * scaleY 以眼睛自身包围盒中心为原点（transform-box: fill-box）。
+ * 尊重 prefers-reduced-motion。
+ */
+
+@keyframes patient-blink {
+	0%,
+	91%,
+	100% {
+		transform: scaleY(1);
+	}
+	94%,
+	96% {
+		transform: scaleY(0.06);
+	}
+}
+
+.face-blink {
+	animation: patient-blink var(--blink-interval, 4.5s) infinite;
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.face-blink {
+		animation: none;
+	}
+}

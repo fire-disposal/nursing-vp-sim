@@ -1,6 +1,7 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 import type { FaceConfig } from "./expressionMap";
 import type { PremiumExtras } from "./premiumExtras";
+import "./blink.css";
 
 /**
  * PremiumFaceArtwork — 高级参数化患者脸（分层 SVG 插画）。
@@ -15,6 +16,10 @@ interface PremiumFaceArtworkProps {
 	extras: PremiumExtras;
 	size?: number;
 	className?: string;
+	/** 眨眼动画（默认开）；纯 CSS，尊重 reduced-motion */
+	blink?: boolean;
+	/** 眨眼周期 ms（默认 4500） */
+	blinkInterval?: number;
 }
 
 // ── 调色板 ──
@@ -41,7 +46,7 @@ const FACE_PATH =
 
 /** 颈 + 肩（画在脸后面，露出下巴以下） */
 const NECK_SHOULDER_PATH =
-	"M 84 148 L 116 148 L 122 182 L 78 182 Z";
+	"M 84 148 L 116 148 L 120 170 L 80 170 Z";
 
 /** 短发 — 平滑发帽，前额可见（患者短发；底缘远离眉毛，零重叠） */
 const SHORT_HAIR_PATH =
@@ -162,9 +167,17 @@ function Eye({
 	);
 }
 
-export default function PremiumFaceArtwork({ cfg, extras, size = 64, className }: PremiumFaceArtworkProps) {
+export default function PremiumFaceArtwork({
+	cfg,
+	extras,
+	size = 64,
+	className,
+	blink = true,
+	blinkInterval = 4500,
+}: PremiumFaceArtworkProps) {
 	const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-	const { browAngle: a, eyeOpenness: o, eyeShape, mouth, blush, tears } = cfg;
+	const blinkStyle = { "--blink-interval": `${blinkInterval}ms` } as CSSProperties;
+	const blinkClass = blink ? "face-blink" : undefined;	const { browAngle: a, eyeOpenness: o, eyeShape, mouth, blush, tears } = cfg;
 	const { headTilt, sweat, furrow } = extras;
 
 	// 眉毛：外端微动、拱点随张力、内端随 browAngle（负 = 内端下压/怒）
@@ -209,7 +222,15 @@ export default function PremiumFaceArtwork({ cfg, extras, size = 64, className }
 	})();
 
 	return (
-		<svg viewBox="0 0 200 200" width={size} height={size} className={className} role="img" aria-label="患者表情">
+		<svg
+			viewBox="0 0 200 200"
+			width={size}
+			height={size}
+			className={className}
+			style={blinkStyle}
+			role="img"
+			aria-label="患者表情"
+		>
 			<defs>
 				<radialGradient id={`${uid}-skin`} cx="0.36" cy="0.28" r="0.95">
 					<stop offset="0%" stopColor={SKIN_LIGHT} />
@@ -239,7 +260,7 @@ export default function PremiumFaceArtwork({ cfg, extras, size = 64, className }
 			<g transform={`rotate(${headTilt} 100 100)`}>
 				{/* 颈肩 */}
 				<path d={NECK_SHOULDER_PATH} fill={SKIN_DEEP} />
-				<path d="M 78 182 L 122 182 L 128 196 L 72 196 Z" fill="#dfe7ee" />
+				<path d="M 80 170 L 120 170 L 126 184 L 74 184 Z" fill="#dfe7ee" />
 				{/* 耳朵（内侧被脸覆盖；拉高为耳廓比例） */}
 				<ellipse cx="37" cy="96" rx="4" ry="9.5" fill={SKIN_DEEP} />
 				<ellipse cx="163" cy="96" rx="4" ry="9.5" fill={SKIN_DEEP} />
@@ -247,11 +268,13 @@ export default function PremiumFaceArtwork({ cfg, extras, size = 64, className }
 				<path d="M 164 92 Q 160.5 96 164 100" stroke={SKIN_MID} strokeWidth={1.3} fill="none" strokeLinecap="round" />
 				{/* 脸 */}
 				<path d={FACE_PATH} fill={`url(#${uid}-skin)`} />
-				{/* 短发（画在脸前，眉眼之下） */}
-				<path d={SHORT_HAIR_PATH} fill={`url(#${uid}-hair)`} />
-				<path d="M 84 32 Q 100 27 116 32" stroke={HAIR_LIGHT} strokeWidth={1.6} opacity={0.3} fill="none" strokeLinecap="round" />
+				{/* 短发（画在脸前，眉眼之下；整体下移 9px 压低发际线） */}
+				<g transform="translate(0 9)">
+					<path d={SHORT_HAIR_PATH} fill={`url(#${uid}-hair)`} />
+					<path d="M 84 32 Q 100 27 116 32" stroke={HAIR_LIGHT} strokeWidth={1.6} opacity={0.3} fill="none" strokeLinecap="round" />
+				</g>
 				{/* 额头发光（下移到可见前额区） */}
-				<ellipse cx="100" cy="66" rx="13" ry="5" fill="#fff" opacity="0.1" />
+				<ellipse cx="100" cy="72" rx="13" ry="5" fill="#fff" opacity="0.1" />
 				{/* 颊下阴影（下巴） */}
 				<ellipse cx="100" cy="146" rx="30" ry="10" fill={SKIN_DEEP} opacity="0.16" />
 
@@ -289,9 +312,11 @@ export default function PremiumFaceArtwork({ cfg, extras, size = 64, className }
 					</>
 				)}
 
-				{/* 眼睛 */}
-				<Eye cx={70} openness={o} shape={eyeShape} lid={extras.eyeLid} irisShift={extras.irisShift} gradientId={uid} />
-				<Eye cx={130} openness={o} shape={eyeShape} lid={extras.eyeLid} irisShift={extras.irisShift} gradientId={uid} />
+				{/* 眼睛（眨眼动画挂在包裹双眼的同一组上，保证同步） */}
+				<g className={blinkClass}>
+					<Eye cx={70} openness={o} shape={eyeShape} lid={extras.eyeLid} irisShift={extras.irisShift} gradientId={uid} />
+					<Eye cx={130} openness={o} shape={eyeShape} lid={extras.eyeLid} irisShift={extras.irisShift} gradientId={uid} />
+				</g>
 
 				{/* 鼻子 — 桥线 + 鼻翼阴影 */}
 				<path d="M 100 82 L 100 104" stroke={BROW} strokeWidth={1.5} opacity={0.14} strokeLinecap="round" />

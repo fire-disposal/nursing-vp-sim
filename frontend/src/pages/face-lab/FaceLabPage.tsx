@@ -129,6 +129,8 @@ export default function FaceLabPage() {
 	const [duration, setDuration] = useState(600);
 	const [easing, setEasing] = useState<EasingName>("easeOut");
 	const [autoCycle, setAutoCycle] = useState(false);
+	const [blink, setBlink] = useState(true);
+	const [blinkInterval, setBlinkInterval] = useState(4500);
 	const [manual, setManual] = useState(false);
 	const [overrides, setOverrides] = useState<Overrides>({});
 
@@ -228,6 +230,8 @@ export default function FaceLabPage() {
 								cfg={display.cfg}
 								extras={display.extras}
 								size={220}
+								blink={blink}
+								blinkInterval={blinkInterval}
 							/>
 							<div className="flex items-center gap-2">
 								<Badge variant="secondary">{EMOTION_4D_LABELS[label]}</Badge>
@@ -323,6 +327,20 @@ export default function FaceLabPage() {
 									label="自动轮播 9 态（4s/态）"
 									checked={autoCycle}
 									onChange={setAutoCycle}
+								/>
+								<div className="flex items-center justify-between py-1">
+									<span className="text-xs text-muted-foreground">眨眼（CSS 动画）</span>
+									<Switch checked={blink} onCheckedChange={setBlink} />
+								</div>
+								<RangeRow
+									label="眨眼周期"
+									value={blinkInterval}
+									min={2000}
+									max={8000}
+									step={250}
+									disabled={!blink}
+									display={`${blinkInterval}ms`}
+									onChange={setBlinkInterval}
 								/>
 							</CardContent>
 						</Card>
