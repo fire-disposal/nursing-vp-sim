@@ -95,6 +95,42 @@ compose_with_override() {
     docker compose -f "$COMPOSE_FILE" -f "$ROLLBACK_OVERRIDE" --env-file .env "${COMPOSE_PROJECT_ARGS[@]}" "$@"
 }
 
+# 镜像可用性检查：本地 > ghcr > 需源码重建。ghcr 探测需要有效 ghcr 凭据。
+_IMG_PREFIX="ghcr.io/fire-disposal/nursing-vp-sim-backend"
+_GCHR_AUTH_OK=""
+
+_ghcr_auth_ok() {
+    # 用历史最新版本探测 ghcr 凭据有效性（当前部署版本必然存在）
+    if [[ -z "$_GCHR_AUTH_OK" ]]; then
+        local latest_ver
+        latest_ver=$(tail -1 "$HISTORY_FILE" | cut -d'|' -f1)
+        if docker manifest inspect "${_IMG_PREFIX}:${latest_ver}" >/dev/null 2>&1; then
+            _GCHR_AUTH_OK="1"
+        else
+            _GCHR_AUTH_OK="0"
+        fi
+    fi
+    [[ "$_GCHR_AUTH_OK" == "1" ]]
+}
+
+_availability_of() {
+    local ver=$1
+    local img="${_IMG_PREFIX}:${ver}"
+    if docker image inspect "$img" >/dev/null 2>&1; then
+        echo "[local]"
+    elif _ghcr_auth_ok; then
+        # 凭据有效时才逐个探测 ghcr（避免凭据过期时 50 次网络往返）
+        if docker manifest inspect "$img" >/dev/null 2>&1; then
+            echo "[ghcr]"
+        else
+            echo "[rebuild]"
+        fi
+    else
+        # ghcr 凭据失效（GITHUB_TOKEN 短效）：无法区分 [ghcr]/[rebuild]
+        echo "[ghcr?]"
+    fi
+}
+
 list_versions() {
     if [[ ! -f "$HISTORY_FILE" ]]; then
         msg_fatal "未找到版本历史文件 (${HISTORY_FILE})"
@@ -111,7 +147,11 @@ list_versions() {
 
     echo ""
     echo "  ${ENV_NAME} 可用部署历史 (最近 ${total} 次):"
-    echo "  ┌──────────────────────────────────────────────────────────┐"
+    echo "  [local] 本地有镜像，可立即回滚 | [ghcr] 需从 ghcr 拉取 | [rebuild] 需从 git tag 重建"
+    if ! _ghcr_auth_ok; then
+        echo "  ⚠ ghcr 凭据失效（GITHUB_TOKEN 短效）：非 local 版本状态未知；"
+    fi
+    echo "  ┌────────────────────────────────────────────────────────────┐"
     local i=1
     while [[ $i -le $total ]]; do
         IFS='|' read -r ver ts _ _ _ event <<< "${entries[$((i-1))]}"
@@ -123,10 +163,12 @@ list_versions() {
         if [[ -n "${event:-}" ]]; then
             event_label=" (${event})"
         fi
-        printf "  │ ${CYAN}[%d]${NC} %-12s %s%s  %s\n" "$i" "$ver" "$ts" "$event_label" "$mark"
+        local avail
+        avail=$(_availability_of "$ver")
+        printf "  │ ${CYAN}[%d]${NC} %-12s %-11s %s%s  %s\n" "$i" "$ver" "$avail" "$ts" "$event_label" "$mark"
         i=$((i + 1))
     done
-    echo "  └──────────────────────────────────────────────────────────┘"
+    echo "  └────────────────────────────────────────────────────────────┘"
     echo ""
 }
 
@@ -233,8 +275,20 @@ rollback_to() {
     write_override "$backend_img" "$frontend_img"
 
     msg_ok "拉取镜像..."
-    docker pull "$backend_img" || msg_fatal "后端镜像拉取失败"
-    docker pull "$frontend_img" || msg_fatal "前端镜像拉取失败"
+    if ! docker pull "$backend_img" 2>/dev/null; then
+        if docker image inspect "$backend_img" >/dev/null 2>&1; then
+            msg_warn "ghcr 拉取失败，使用本地缓存: ${backend_img}"
+        else
+            msg_fatal "后端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${backend_img}"
+        fi
+    fi
+    if ! docker pull "$frontend_img" 2>/dev/null; then
+        if docker image inspect "$frontend_img" >/dev/null 2>&1; then
+            msg_warn "ghcr 拉取失败，使用本地缓存: ${frontend_img}"
+        else
+            msg_fatal "前端镜像不可用（ghcr 拉取失败且本地无缓存），需从 git tag 重建: ${frontend_img}"
+        fi
+    fi
 
     if [[ -n "$target_rev" ]]; then
         msg_ok "回滚数据库迁移 → ${target_rev} ..."
