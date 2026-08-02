@@ -1,5 +1,5 @@
+import { User } from "lucide-react";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-import PatientFacePremium from "@/components/training/face/PatientFacePremium";
 
 export default function PatientInfoTool(props: TrainingToolProps) {
   const detail = props.recordDetail as Record<string, unknown> | null;
@@ -13,7 +13,9 @@ export default function PatientInfoTool(props: TrainingToolProps) {
   return (
     <div className="p-3">
       <div className="flex items-center gap-3">
-        <PatientFacePremium size={52} className="shrink-0" />
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <User className="text-primary" size={24} />
+        </div>
         <div>
           <p className="font-semibold text-base">{name}</p>
           <p className="text-xs text-muted-foreground">
