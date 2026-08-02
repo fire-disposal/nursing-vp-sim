@@ -164,6 +164,35 @@ def describe_traits(personality: dict) -> str:
     return "性格特点：" + "，".join(parts) if parts else ""
 
 
+def build_patient_context(case_data: dict) -> str:
+    """患者可知的病例视图（主动追问用）— 不含医生视角 deep_background。
+
+    与四域组装的 SESSION 域同源字段（chief_complaint/present_illness/allergy…），
+    保证主动追问与正式患者回复读到的病例一致。
+    """
+    def _get(key: str, default: str = "无") -> str:
+        return str(case_data.get(key, "")).strip() or default
+
+    pi = case_data.get("patient_info") or {}
+    name = str(pi.get("name", "患者") or "患者")
+    age = pi.get("age", "")
+    gender = pi.get("gender", "")
+    info = f"{name}，{age}岁，{gender}" if age else name
+
+    lines = [
+        f"基本信息：{info}",
+        f"主诉：{_get('chief_complaint')}",
+        f"现病史：{_get('present_illness')}",
+    ]
+    traits = describe_traits(case_data.get("personality") or {})
+    if traits:
+        lines.append(traits)
+    allergy = _get("allergy_history")
+    if allergy and "无" not in allergy:
+        lines.append(f"过敏史：{allergy}")
+    return "\n".join(lines)
+
+
 async def generate_initiative_llm(
     llm_client,
     vector,
@@ -171,17 +200,17 @@ async def generate_initiative_llm(
     case_name: str,
     student_msg: str,
     context_tail: str,
+    patient_context: str = "",
     *,
     ctx: CallContext | None = None,
 ) -> str:
-    """情绪基调 + 真实对话上下文生成患者主动话语。"""
+    """情绪基调 + 真实对话上下文 + 患者可知病例视图生成患者主动话语。"""
     tone = _mood_of(vector)
-    traits = describe_traits(personality)
 
     llm_cfg = get_llm_config("patient_chat")
     kwargs = {
         "case_name": case_name,
-        "traits": traits,
+        "case_context": patient_context or describe_traits(personality) or "（普通患者）",
         "mood": tone,
         "trust": str(round(vector.trust * 100)),
         "comfort": str(round((1.0 - vector.anxiety * 0.5 - vector.irritation * 0.5) * 100)),

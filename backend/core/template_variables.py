@@ -64,19 +64,21 @@ class EmotionAnalysisUserVars(TypedDict):
 
 class InitiativeSystemVars(TypedDict):
     case_name: str
-    traits: str
+    case_context: str
     mood: str
     trust: str  # rendered as string from int
     comfort: str  # rendered as string from int
     student_msg: str
+    context_tail: str
 
 
 class InitiativeShortSystemVars(TypedDict):
     case_name: str
-    traits: str
+    case_context: str
     mood: str
     trust: str
     comfort: str
+    context_tail: str
 
 
 class InitiativeUserVars(TypedDict):

@@ -10,6 +10,7 @@ from models import TrainingSessionState
 from modules.training.patient_ai.emotion import EmotionVector
 from modules.training.patient_ai.initiative import (
     MAX_INITIATIVE_PER_SESSION,
+    build_patient_context,
     can_initiate,
     derive_initiative_policy,
 )
@@ -64,6 +65,30 @@ class TestDerivePolicy:
             dict(PERSONALITY, patience="low", anxiety_trait="anxious"),
         )
         assert policy.threshold >= 15
+
+
+class TestPatientContext:
+    def test_includes_patient_known_fields_only(self):
+        case = {
+            "patient_info": {"name": "王建国", "age": 68, "gender": "男"},
+            "chief_complaint": "喘不上气",
+            "present_illness": "两天了",
+            "personality": {"patience": "low"},
+            "allergy_history": "青霉素过敏",
+            "deep_background": {"职业": "退休工人"},
+        }
+        text = build_patient_context(case)
+        assert "王建国" in text
+        assert "喘不上气" in text
+        assert "青霉素过敏" in text
+        assert "缺乏耐心" in text
+        # 医生视角信息绝不注入主动追问
+        assert "退休工人" not in text
+
+    def test_defaults_for_empty_case(self):
+        text = build_patient_context({})
+        assert "患者" in text
+        assert "主诉：无" in text
 
 
 class TestCanInitiate:

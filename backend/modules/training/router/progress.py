@@ -15,6 +15,7 @@ from modules.training.capabilities import is_enabled
 from modules.training.patient_ai.emotion import EmotionRepository
 from modules.training.patient_ai.initiative import (
     apply_initiative_penalty,
+    build_patient_context,
     can_initiate,
     derive_initiative_policy,
     generate_initiative_llm,
@@ -90,6 +91,7 @@ async def trigger_initiative(
         case_data.get("name", "未知病例"),
         student_msg=student_msg,
         context_tail=context_tail,
+        patient_context=build_patient_context(case_data),
         ctx=CallContext(
             purpose="patient_chat",
             user_id=current_user.id,
