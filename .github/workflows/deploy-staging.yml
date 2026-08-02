@@ -178,6 +178,7 @@ jobs:
           ssh "$USER@$HOST" "mkdir -p /opt/nursing-vp-sim/deploy"
           scp deploy/docker-compose.staging.yml "$USER@$HOST":/opt/nursing-vp-sim/docker-compose.staging.yml
           scp deploy/db-backup.sh "$USER@$HOST":/opt/nursing-vp-sim/deploy/db-backup.sh
+          scp deploy/prune-images.sh "$USER@$HOST":/opt/nursing-vp-sim/deploy/prune-images.sh
 
           echo ">> Deploy monitor scripts"
           ssh "$USER@$HOST" "mkdir -p /opt/monitor"
@@ -246,7 +247,8 @@ jobs:
             curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging v$VER ✓"
             echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-backend-staging alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-staging
             tail -50 .version-history-staging > .version-history-staging.tmp && mv .version-history-staging.tmp .version-history-staging
-            docker image prune -f
+            # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
+            bash deploy/prune-images.sh || echo "⚠ image prune skipped (non-fatal)"
           DEPLOY
 
       - name: Publish dev report (non-blocking)

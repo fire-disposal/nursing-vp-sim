@@ -91,6 +91,7 @@ jobs:
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
           scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
+          scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
 
           echo ">> Deploy monitor scripts"
           ssh "$USER@$HOST" "mkdir -p /opt/monitor"
@@ -184,7 +185,8 @@ jobs:
             echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
             tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
             echo ">> Production v$VER ✓"
-            docker image prune -f
+            # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
+            bash deploy/prune-images.sh || echo "⚠ image prune skipped (non-fatal)"
           DEPLOY
 
       - name: Notify DingTalk
