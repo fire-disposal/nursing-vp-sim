@@ -264,20 +264,30 @@ async def _run_scoring_background(
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
-        try:
-            await _attempt_evaluate()
-        except TimeoutError:
-            raise
-        except Exception as first_error:
-            log.warning(
-                "[SCORING] retrying once record_id=%d after %s: %s",
-                record_id,
-                type(first_error).__name__,
-                str(first_error)[:200],
-            )
-            if SCORING_RETRY_DELAY_SECONDS > 0:
-                await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
-            await _attempt_evaluate()
+        async def _attempt_with_retry():
+            """单次尝试 + 非超时失败重试一次。
+
+            整个序列（含 30s 重试间隔）受 SCORING_GLOBAL_TIMEOUT 约束：
+            任务总时长 ≤ SCORING_TIMEOUT_SECONDS < SCORING_RETRY_GRACE_SECONDS，
+            否则重试序列（2×180s+30s ≈ 390s）会超出 210s 重试守卫窗口，
+            出现"旧任务仍在跑却被 retry_scoring 抢占"的错配。
+            """
+            try:
+                await _attempt_evaluate()
+            except TimeoutError:
+                raise
+            except Exception as first_error:
+                log.warning(
+                    "[SCORING] retrying once record_id=%d after %s: %s",
+                    record_id,
+                    type(first_error).__name__,
+                    str(first_error)[:200],
+                )
+                if SCORING_RETRY_DELAY_SECONDS > 0:
+                    await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
+                await _attempt_evaluate()
+
+        await asyncio.wait_for(_attempt_with_retry(), timeout=SCORING_GLOBAL_TIMEOUT)
 
         # Re-fetch record.  Only skip completion if a *newer* retry was explicitly
         # triggered (status='pending' via acquire_scoring).  If settlement sweep
