@@ -69,6 +69,12 @@ LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
 LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "2"))
 LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 
+# DeepSeek 峰谷计费（官方：高峰时段=北京时间每日 09:00~12:00、14:00~18:00，
+# 价格为平时 2 倍，适用所有计费项；官方标注“以正式通知为准”，故默认关闭，
+# 开启需显式 LLM_PEAK_PRICING_ENABLED=true）
+LLM_PEAK_PRICING_ENABLED = os.getenv("LLM_PEAK_PRICING_ENABLED", "false").lower() == "true"
+LLM_PEAK_MULTIPLIER = float(os.getenv("LLM_PEAK_MULTIPLIER", "2"))
+
 # DeepSeek API 连接（首次启动种子用，后续通过管理面板管理密钥）
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")

@@ -182,9 +182,12 @@ class ProfileRouter:
                 profile.last_used_at = now
             profile.call_count_today = (profile.call_count_today or 0) + 1
             if success:
+                from infra.llm.token_counter import peak_multiplier
+
                 profile.total_tokens_today = (profile.total_tokens_today or 0) + (total_tokens or 0)
-                input_cost = (prompt_tokens or 0) * float(profile.price_input_per_1m or 0) / 1_000_000
-                output_cost = (completion_tokens or 0) * float(profile.price_output_per_1m or 0) / 1_000_000
+                mult = peak_multiplier(now)
+                input_cost = (prompt_tokens or 0) * float(profile.price_input_per_1m or 0) / 1_000_000 * mult
+                output_cost = (completion_tokens or 0) * float(profile.price_output_per_1m or 0) / 1_000_000 * mult
                 profile.total_cost_today = float(profile.total_cost_today or 0) + input_cost + output_cost
                 profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + input_cost + output_cost
 
