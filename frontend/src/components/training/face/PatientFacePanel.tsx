@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { appearanceForPatient } from "./appearance";
 import { faceConfigFrom4D } from "./expressionMap";
@@ -8,13 +8,13 @@ import { premiumExtrasFrom4D } from "./premiumExtras";
 import PremiumFaceArtwork from "./PremiumFaceArtwork";
 
 /**
- * PatientFacePanel — 训练级患者表情（左侧弹出抽屉）。
+ * PatientFacePanel — 训练级患者表情（常驻小方块 + 轻量弹出）。
  *
  * 定位：全局患者呈现组件，不在 tools 协议内（脸是被观察对象，无需
  * case 字段激活；按患者年龄/性别自动适配外观）。
- * 交互：平时只显示一个展开按钮；点击后左侧滑出大脸抽屉。
- * 情绪展示归 EmotionIndicator（情绪栏）——本面板不做任何重复展示，
- * 脸本身即情绪信号。
+ * 交互：常驻一个小方块脸（桌面左缘 / 移动端上部），点击弹出大脸，
+ * 不遮挡内容区（轻量 popover，非全高抽屉）。
+ * 情绪展示归 EmotionIndicator（情绪栏）——面板不做重复文字展示。
  */
 
 export default function PatientFacePanel() {
@@ -39,37 +39,35 @@ export default function PatientFacePanel() {
 
 	return (
 		<>
-			{/* 平时只显示展开按钮（悬浮在训练区左缘） */}
-			{!open && (
-				<button
-					type="button"
-					onClick={() => setOpen(true)}
-					className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full border border-border bg-background/90 p-1 shadow-sm transition-colors hover:bg-muted"
-					aria-label="展开患者表情"
-				>
-					<PremiumFaceArtwork cfg={cfg} extras={extras} appearance={appearance} size={28} />
-				</button>
-			)}
+			{/* 常驻小方块：桌面左缘垂直居中 / 移动端上部（头部之下） */}
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				aria-label={open ? "折叠患者表情" : "展开患者表情"}
+				className={cn(
+					"absolute z-30 rounded-lg border border-border bg-background/95 p-0.5 shadow-md transition-transform hover:scale-105",
+					"left-2 top-1/2 -translate-y-1/2",
+					"max-md:left-auto max-md:right-3 max-md:top-12 max-md:-translate-y-0",
+				)}
+			>
+				<PremiumFaceArtwork cfg={cfg} extras={extras} appearance={appearance} size={44} />
+			</button>
 
-			{/* 左侧滑出抽屉 */}
+			{/* 轻量弹出：大脸（不遮内容区的锚定 popover） */}
 			<AnimatePresence>
 				{open && (
 					<motion.div
-						initial={{ x: -190 }}
-						animate={{ x: 0 }}
-						exit={{ x: -190 }}
-						transition={{ duration: 0.2, ease: "easeOut" }}
-						className="absolute left-0 top-0 z-40 flex h-full w-[190px] flex-col items-center justify-center gap-4 border-r border-border bg-background/95 px-4 shadow-lg backdrop-blur"
+						initial={{ opacity: 0, scale: 0.9 }}
+						animate={{ opacity: 1, scale: 1 }}
+						exit={{ opacity: 0, scale: 0.9 }}
+						transition={{ duration: 0.15, ease: "easeOut" }}
+						className={cn(
+							"absolute z-40 flex flex-col items-center rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur",
+							"left-14 top-1/2 -translate-y-1/2",
+							"max-md:left-1/2 max-md:right-auto max-md:top-16 max-md:-translate-x-1/2 max-md:-translate-y-0",
+						)}
 					>
 						<PremiumFaceArtwork cfg={cfg} extras={extras} appearance={appearance} size={150} />
-						<button
-							type="button"
-							onClick={() => setOpen(false)}
-							className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted"
-							aria-label="折叠患者表情"
-						>
-							<X className="size-4" />
-						</button>
 					</motion.div>
 				)}
 			</AnimatePresence>
