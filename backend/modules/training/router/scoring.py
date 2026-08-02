@@ -319,7 +319,9 @@ async def _run_scoring_background(
         )
     except TimeoutError:
         log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
-        _timeout_msg = f"评分超时（超过{SCORING_TIMEOUT_SECONDS}秒）"
+        # 实际触发点是最内层 LLM 客户端超时（profile timeout + 10s），
+        # 而非 SCORING_TIMEOUT_SECONDS 全局值——不写具体秒数避免误导。
+        _timeout_msg = "评分超时"
         if tracker:
             tracker.update(record_id, ScoringStatus.FAILED, 0, _timeout_msg)
         _handle_scoring_failure(

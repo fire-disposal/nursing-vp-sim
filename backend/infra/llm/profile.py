@@ -47,7 +47,7 @@ PROFILES: dict[str, LLMProfile] = {
         semaphore=500,
     ),
     "scoring": LLMProfile(
-        model="deepseek-v4-pro",
+        model="deepseek-v4-flash",
         timeout=120,
         max_tokens=65536,
         temperature=0,
@@ -57,7 +57,7 @@ PROFILES: dict[str, LLMProfile] = {
         enable_thinking=True,
     ),
     "scoring_feedback": LLMProfile(
-        model="deepseek-v4-pro",
+        model="deepseek-v4-flash",
         timeout=60,
         max_tokens=65536,
         temperature=0.3,
