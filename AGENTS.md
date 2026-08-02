@@ -38,6 +38,7 @@ curl -s "...token=$TOKEN" | python3 -c "import sys,json; print(json.load(sys.std
 ```
 GET  /api/feedback/bot?token=xxx&limit=50&include_fixed=false   # 读反馈（默认排除已修复）
 PATCH /api/feedback/bot/{id}?token=xxx                            # 标记 auto_fix_attempted
+PUT   /api/feedback/bot/{id}/reply?token=xxx&overwrite=false      # 直写开发者回复（body: {"reply": "..."}，署名 FEEDBACK_BOT_NAME 默认「系统助手」，已回复默认 409 防覆盖人工回复）
 ```
 
 | 参数 | 说明 |
