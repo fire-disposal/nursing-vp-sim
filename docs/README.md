@@ -42,6 +42,6 @@
 
 | 文档 | 状态 | 要点 |
 |------|------|------|
-| [12-电话式纯语音采集可行性](ideas/12-voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP；PSTN 明确不做 |
+| [电话式纯语音采集可行性](ideas/voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP；PSTN 明确不做 |
 
 

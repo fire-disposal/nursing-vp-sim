@@ -6,7 +6,7 @@
 
 | 项 | 规则 |
 |----|------|
-| 命名 | `NN-主题.md`（接续 docs 编号）或语义名，如 `12-voice-call-feasibility.md` |
+| 命名 | `主题名.md`，语义命名，如 `voice-call-feasibility.md`（无需编号） |
 | 状态标记 | 文件头部 `> 状态：论证文档（非决策）/ 待评审 / 已否决 / 已转正` |
 | 转正 | 点子被采纳进入实施时，移出 `ideas/` 成为正式编号文档，并在 [README](../README.md) 更新 |
 | 回收 | 论证结论为"不做"的，保留在 `ideas/` 并标注 `已否决` 及原因，不删除（防重复论证） |
@@ -15,6 +15,6 @@
 
 | 文档 | 状态 | 要点 |
 |------|------|------|
-| [12-电话式纯语音采集可行性](12-voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP 3-5 周；B 形态 PSTN 明确不做 |
-| [13-患者上下文机制重构](13-context-mechanism-redesign.md) | 已转正（实施中） | 四域消息组装 + token 预算历史 + few-shot 示例段 + 隐藏主题泄漏守卫 |
-| [14-Seedance 视频情绪循环系统](14-seedance-emotion-loop-design.md) | 待评审（暂不实施） | 5 原型×2 变体通用 mood loop + 双缓冲边界调度；防素材膨胀 D1-D4 |
+| [电话式纯语音采集可行性](voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP 3-5 周；B 形态 PSTN 明确不做 |
+| [患者上下文机制重构](context-mechanism-redesign.md) | 已转正（实施中） | 四域消息组装 + token 预算历史 + few-shot 示例段 + 隐藏主题泄漏守卫 |
+| [Seedance 视频情绪循环系统](seedance-emotion-loop-design.md) | 待评审（暂不实施） | 5 原型×2 变体通用 mood loop + 双缓冲边界调度；防素材膨胀 D1-D4 |

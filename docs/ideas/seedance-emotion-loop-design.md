@@ -2,7 +2,7 @@
 
 > 状态：待评审（暂不实施）。2026-08-02。
 > 范围：虚拟患者情绪可视化升级——Seedance 预生成 mood loop 视频，运行时按情绪状态无缝切换。
-> 关联：SVG 参数化表情已实现（`PatientFace`，refactor/tools-rework 分支）；立绘已随情绪切换（`portraitUrl`）；四域 context 改造见 `13-context-mechanism-redesign.md`。
+> 关联：SVG 参数化表情已实现（`PatientFace`，refactor/tools-rework 分支）；立绘已随情绪切换（`portraitUrl`）；四域 context 改造见 `context-mechanism-redesign.md`。
 
 ---
 
