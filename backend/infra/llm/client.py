@@ -544,6 +544,9 @@ class LLMClient:
             payload["response_format"] = response_format
         if tools:
             payload["tools"] = tools
+        # thinking 显式关闭（flash-0731 默认开启）：非评分链走非推理模式。
+        # 评分链经 stream() 路径传 enable_thinking=True，不经过此处。
+        payload["thinking"] = {"type": "disabled"}
 
         t0 = time.perf_counter()
         try:
@@ -631,6 +634,11 @@ class LLMClient:
         if enable_thinking:
             payload["reasoning_effort"] = "high"
             payload["thinking"] = {"type": "enabled"}
+        else:
+            # V4-Flash-0731 起 thinking 默认开启：未显式启用时必须显式关闭，
+            # 否则 enable_thinking=False 的用途（patient_chat/qa/emotion…）会静默
+            # 进入推理模式——延迟、成本、温度语义全部漂移。
+            payload["thinking"] = {"type": "disabled"}
         if response_format:
             payload["response_format"] = response_format
         if ctx and ctx.record_id:
