@@ -1386,6 +1386,26 @@ export interface paths {
         patch: operations["bot_mark_fix_attempted_api_feedback_bot__feedback_id__patch"];
         trace?: never;
     };
+    "/api/feedback/bot/{feedback_id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Bot Reply Feedback
+         * @description Bot 直写开发者回复 — 写入 developer_reply 并推送用户通知。
+         */
+        put: operations["bot_reply_feedback_api_feedback_bot__feedback_id__reply_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profiles": {
         parameters: {
             query?: never;
@@ -7944,6 +7964,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bot_reply_feedback_api_feedback_bot__feedback_id__reply_put: {
+        parameters: {
+            query: {
+                token: string;
+                /** @description 已有回复时是否覆盖（默认拒绝，防止覆盖人工回复） */
+                overwrite?: boolean;
+            };
+            header?: never;
+            path: {
+                feedback_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackItem"];
                 };
             };
             /** @description Validation Error */

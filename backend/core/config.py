@@ -84,6 +84,9 @@ DIAGNOSE_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
 
 FEEDBACK_BOT_TOKEN = os.getenv("FEEDBACK_BOT_TOKEN", "")
 
+# 反馈 Bot 回复署名（展示给学生，env 可覆盖）
+FEEDBACK_BOT_NAME = os.getenv("FEEDBACK_BOT_NAME", "系统助手")
+
 # 部署警告横幅专用令牌 —— CI 流水线在构建前调用 /api/admin/deploy-warning 使用
 DEPLOY_WARNING_TOKEN = os.getenv("DEPLOY_WARNING_TOKEN", "")
 

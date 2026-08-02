@@ -4986,6 +4986,80 @@
         }
       }
     },
+    "/api/feedback/bot/{feedback_id}/reply": {
+      "put": {
+        "tags": [
+          "反馈"
+        ],
+        "summary": "Bot Reply Feedback",
+        "description": "Bot 直写开发者回复 — 写入 developer_reply 并推送用户通知。",
+        "operationId": "bot_reply_feedback_api_feedback_bot__feedback_id__reply_put",
+        "parameters": [
+          {
+            "name": "feedback_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Feedback Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "overwrite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "已有回复时是否覆盖（默认拒绝，防止覆盖人工回复）",
+              "default": false,
+              "title": "Overwrite"
+            },
+            "description": "已有回复时是否覆盖（默认拒绝，防止覆盖人工回复）"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profiles": {
       "get": {
         "tags": [

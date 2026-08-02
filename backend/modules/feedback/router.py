@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from core.config import FEEDBACK_BOT_TOKEN
+from core.config import FEEDBACK_BOT_NAME, FEEDBACK_BOT_TOKEN
 from core.database import get_db
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
@@ -247,3 +247,17 @@ def bot_mark_fix_attempted(
 ):
     _check_bot_token(token)
     return FeedbackService(db).bot_mark_fix_attempted(feedback_id)
+
+
+@router.put("/feedback/bot/{feedback_id}/reply", response_model=FeedbackItem)
+def bot_reply_feedback(
+    feedback_id: int,
+    req: FeedbackReplyRequest,
+    db: DbSession,
+    token: str = Query(...),
+    overwrite: bool = Query(default=False, description="已有回复时是否覆盖（默认拒绝，防止覆盖人工回复）"),
+):
+    """Bot 直写开发者回复 — 写入 developer_reply 并推送用户通知。"""
+    _check_bot_token(token)
+    fb = FeedbackService(db).bot_reply(feedback_id, req.reply, FEEDBACK_BOT_NAME, overwrite=overwrite)
+    return _to_item_from_model(fb)

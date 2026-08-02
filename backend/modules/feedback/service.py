@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.config import APP_VERSION
 from core.datetime_utils import parse_iso_datetime
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.unit_of_work import unit_of_work
 from models import Feedback, Notification, User
@@ -409,3 +409,15 @@ class FeedbackService:
         fb.auto_fix_at = now
         self.db.commit()
         return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": now.isoformat()}
+
+    def bot_reply(self, feedback_id: int, reply_text: str, admin_name: str, overwrite: bool = False) -> Feedback:
+        """Bot 直写开发者回复（token 鉴权路由复用）。
+
+        已回复且未显式 overwrite 时拒绝，防止自动回复静默覆盖人工回复。
+        """
+        fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
+        if not fb:
+            raise NotFoundError("反馈不存在")
+        if fb.developer_reply is not None and not overwrite:
+            raise ConflictError("该反馈已有回复，如需覆盖请传 overwrite=true")
+        return self.reply(feedback_id, reply_text, admin_name)
