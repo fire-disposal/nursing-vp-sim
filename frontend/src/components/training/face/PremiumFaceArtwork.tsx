@@ -176,9 +176,12 @@ export default function PremiumFaceArtwork({
 	blinkInterval = 4500,
 }: PremiumFaceArtworkProps) {
 	const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-	const blinkStyle = { "--blink-interval": `${blinkInterval}ms` } as CSSProperties;
-	const blinkClass = blink ? "face-blink" : undefined;	const { browAngle: a, eyeOpenness: o, eyeShape, mouth, blush, tears } = cfg;
+	const { browAngle: a, eyeOpenness: o, eyeShape, mouth, blush, tears } = cfg;
 	const { headTilt, sweat, furrow } = extras;
+
+	const blinkStyle = { "--blink-interval": `${blinkInterval}ms` } as CSSProperties;
+	// 眨眼仅在睁眼椭圆形态下启用：闭弧（openness<0.35）与笑眯眼（curve）已是"闭眼"观感，叠加压合会双重关闭
+	const blinkClass = blink && o >= 0.35 && eyeShape !== "curve" ? "face-blink" : undefined;
 
 	// 眉毛：外端微动、拱点随张力、内端随 browAngle（负 = 内端下压/怒）
 	const browLeft = (cx: number, by: number) =>
