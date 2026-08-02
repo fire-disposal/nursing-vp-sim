@@ -17,3 +17,4 @@
 |------|------|------|
 | [12-电话式纯语音采集可行性](12-voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP 3-5 周；B 形态 PSTN 明确不做 |
 | [13-患者上下文机制重构](13-context-mechanism-redesign.md) | 已转正（实施中） | 四域消息组装 + token 预算历史 + few-shot 示例段 + 隐藏主题泄漏守卫 |
+| [14-Seedance 视频情绪循环系统](14-seedance-emotion-loop-design.md) | 待评审（暂不实施） | 5 原型×2 变体通用 mood loop + 双缓冲边界调度；防素材膨胀 D1-D4 |
