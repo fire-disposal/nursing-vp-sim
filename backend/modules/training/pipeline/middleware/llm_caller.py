@@ -3,9 +3,14 @@
 import logging
 
 from infra.llm.client import CallContext
+from modules.training.context.leak_guard import (
+    find_hidden_topic_leaks,
+    get_hidden_topic_correction_note,
+)
+from modules.training.patient_ai.guards import get_identity_correction_note, has_identity_leak
 
 from ..context import (
-    STATE_IDENTITY_CORRECTION_COUNT,
+    STATE_LEAK_CORRECTION_COUNT,
     STATE_PATIENT_CHAT_CFG,
     STATE_SOURCE_TRACES,
     STATE_STREAM_CHUNKS,
@@ -15,6 +20,21 @@ from ..context import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _collect_leak_corrections(ctx: PipelineContext, reply: str) -> list[str]:
+    """检测身份/隐藏主题泄漏，返回需要追加的修正指令列表（空 = 无泄漏）。"""
+    corrections: list[str] = []
+    if has_identity_leak(reply):
+        corrections.append(get_identity_correction_note())
+    leaks = find_hidden_topic_leaks(
+        reply,
+        ctx.case_data,
+        ctx.student_display or ctx.student_input,
+    )
+    if leaks:
+        corrections.append(get_hidden_topic_correction_note(leaks))
+    return corrections
 
 
 async def llm_caller(ctx: PipelineContext, next_mw) -> None:
@@ -34,8 +54,6 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 
 async def _call_batch(ctx: PipelineContext) -> None:
     import httpx
-
-    from modules.training.patient_ai.guards import get_identity_correction_note, has_identity_leak
 
     app = ctx.app_state
     llm_client = app.llm_client
@@ -67,16 +85,17 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
     ctx.llm_reply = reply
 
-    if has_identity_leak(reply):
-        log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
-        count = ctx.state.get(STATE_IDENTITY_CORRECTION_COUNT, 0)
+    corrections = _collect_leak_corrections(ctx, reply)
+    if corrections:
+        log.warning("Patient reply leaked: record_id=%d, corrections=%d", ctx.record.id, len(corrections))
+        count = ctx.state.get(STATE_LEAK_CORRECTION_COUNT, 0)
         if count < 2:
-            ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = count + 1
+            ctx.state[STATE_LEAK_CORRECTION_COUNT] = count + 1
             if ctx.llm_messages is None:
                 ctx.llm_reply = reply
                 return
             msgs = list(ctx.llm_messages)
-            msgs.append({"role": "system", "content": get_identity_correction_note()})
+            msgs.extend({"role": "system", "content": c} for c in corrections)
             try:
                 retry = await llm_client.call(
                     msgs,
@@ -93,7 +112,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 if retry.strip():
                     ctx.llm_reply = retry
             except Exception:
-                log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
+                log.warning("Leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
         ctx.error = "LLM 服务暂时不可用，请稍后重试"
@@ -102,8 +121,6 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
-    from modules.training.patient_ai.guards import get_identity_correction_note, has_identity_leak
-
     app = ctx.app_state
     llm_client = app.llm_client
     llm_cfg = ctx.state.get(STATE_PATIENT_CHAT_CFG)
@@ -140,19 +157,19 @@ async def _call_stream(ctx: PipelineContext) -> None:
         ctx.should_shortcut = True
         return
 
-    if has_identity_leak(full_reply):
-        correction_count = ctx.state.get(STATE_IDENTITY_CORRECTION_COUNT, 0)
+    corrections = _collect_leak_corrections(ctx, full_reply)
+    if corrections:
+        correction_count = ctx.state.get(STATE_LEAK_CORRECTION_COUNT, 0)
         if correction_count >= 2:
-            log.warning("Identity leak correction limit reached (stream): record_id=%d", ctx.record.id)
+            log.warning("Leak correction limit reached (stream): record_id=%d", ctx.record.id)
         else:
-            log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
-            ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = correction_count + 1
-            corrected = get_identity_correction_note()
+            log.warning("Leak in stream: record_id=%d, retrying", ctx.record.id)
+            ctx.state[STATE_LEAK_CORRECTION_COUNT] = correction_count + 1
             if ctx.llm_messages is None:
                 ctx.llm_reply = full_reply
                 return
             msgs = list(ctx.llm_messages)
-            msgs.append({"role": "system", "content": corrected})
+            msgs.extend({"role": "system", "content": c} for c in corrections)
             try:
                 retry = ""
                 async for chunk in llm_client.stream(
@@ -172,7 +189,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                     full_reply = retry
                     chunks = [retry]
             except Exception:
-                log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id, exc_info=True)
+                log.warning("Leak retry failed (stream): record_id=%d", ctx.record.id, exc_info=True)
 
     if not full_reply.strip():
         ctx.error = "LLM 服务暂时不可用，请稍后重试"

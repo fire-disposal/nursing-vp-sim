@@ -53,7 +53,7 @@ async def _build_context(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
 
-    # 只加载最近消息用于 LLM 上下文（MAX_HISTORY_ROUNDS * 2 + 缓冲区）
+    # 只加载最近消息用于 LLM 上下文（token 预算 + 保护集在 context.budget 处理；120 条上限足够）
     # 使用子查询避免加载整张表，减少 ~60-80% 的 DB I/O
     _subq = (
         db.query(Message.id)

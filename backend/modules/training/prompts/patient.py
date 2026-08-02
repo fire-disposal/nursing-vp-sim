@@ -47,8 +47,4 @@ PATIENT_DYNAMIC = """## 病情信息
 **个人史（患者的职业、生活习惯等）**: {#social_history#}
 
 **医生视角诊断（作为患者你并不知道以下信息，不要主动提及——除非学生已经通过问诊自己推断出来了）**: {#deep_background#}
-
-**对话参考**: {#example_dialogues#}
-
-**当前状态**: {#scene_state#}
 """

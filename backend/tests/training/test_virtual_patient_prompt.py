@@ -1,8 +1,9 @@
-"""Tests for virtual_patient_prompt service"""
+"""Tests for virtual_patient_prompt service — case_data → template kwargs.
 
-from unittest.mock import MagicMock
+四域组装（static/session/examples/history/per-turn）的测试见
+``test_context_assembler.py``；本文件专注 case 模板变量提取。
+"""
 
-from modules.training.patient_ai.chat_messages import build_patient_chat_messages
 from modules.training.pipeline.prompt_context_builder import build_context_kwargs
 
 
@@ -10,9 +11,9 @@ class TestBuildPatientContextKwargs:
     def test_returns_all_expected_keys(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
         kwargs = build_context_kwargs(case)
-        assert set(kwargs.keys()) == {
-            "communication_style",
+        expected = {
             "patient_info",
+            "scenario",
             "chief_complaint",
             "present_illness",
             "past_history",
@@ -20,12 +21,15 @@ class TestBuildPatientContextKwargs:
             "allergy_history",
             "family_history",
             "social_history",
+            "communication_style",
             "personality",
             "deep_background",
-            "author_note",
-            "scenario",
-            "example_dialogues",
         }
+        assert expected <= set(kwargs)
+        # 四域重构后：示例对话与 author_note 不再进入模板变量
+        # （分别由 few-shot 消息对与 per-turn 状态消息承载）
+        assert "example_dialogues" not in kwargs
+        assert "author_note" not in kwargs
 
     def test_patient_info_formatting(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
@@ -39,9 +43,9 @@ class TestBuildPatientContextKwargs:
 
     def test_defaults_for_missing_fields(self):
         kwargs = build_context_kwargs({})
-        assert len(kwargs["communication_style"]) > 0
-        assert kwargs["allergy_history"] == "无已知过敏史"
-        assert kwargs["author_note"] == ""
+        assert kwargs["patient_info"] == "患者"
+        assert "无特殊既往史" in kwargs["past_history"]
+        assert kwargs["communication_style"] == "用口语化、真实患者的口吻交流。"
 
     def test_custom_values_override(self):
         case = {"chief_complaint": "咳嗽三天"}
@@ -49,18 +53,10 @@ class TestBuildPatientContextKwargs:
         assert kwargs["chief_complaint"] == "咳嗽三天"
 
     def test_personality_formatting(self):
-        case = {
-            "personality": {
-                "health_literacy": "low",
-                "verbosity": "verbose",
-                "anxiety_trait": "anxious",
-                "patience": "high",
-            }
-        }
+        case = {"personality": {"patience": "high", "mood": "irritable"}}
         kwargs = build_context_kwargs(case)
-        assert "不太会描述病情" in kwargs["personality"]
-        assert "紧张焦虑" in kwargs["personality"]
         assert "反复讲" in kwargs["personality"]
+        assert "烦躁易怒" in kwargs["personality"]
 
     def test_deep_background_formatting(self):
         case = {"deep_background": {"smoking": "30年吸烟史", "occupation": "建筑工人"}}
@@ -72,76 +68,3 @@ class TestBuildPatientContextKwargs:
         case = {"deep_background": {}}
         kwargs = build_context_kwargs(case)
         assert "无额外背景" in kwargs["deep_background"]
-
-
-class TestBuildPatientChatMessages:
-    def _make_msg(self, role, content):
-        m = MagicMock()
-        m.role = role
-        m.content = content
-        return m
-
-    def test_system_prompt_is_first(self):
-        history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages("static", "dynamic", history, "test")
-        assert msgs[0] == {"role": "system", "content": "static"}
-        assert msgs[1] == {"role": "system", "content": "dynamic"}
-
-    def test_author_note_injected_after_input(self):
-        history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages(
-            "static", "dynamic", history, "test question", author_note="【当前: 患者焦虑】"
-        )
-        assert msgs[-2] == {"role": "user", "content": "test question"}
-        assert msgs[-1] == {"role": "system", "content": "【当前: 患者焦虑】"}
-
-    def test_no_author_note_when_empty(self):
-        history = []
-        msgs = build_patient_chat_messages("static", "dynamic", history, "test", author_note="")
-        assert msgs[-1] == {"role": "user", "content": "test"}
-
-    def test_student_message_is_last(self):
-        history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages("sys", "dyn", history, "当前问题")
-        assert msgs[-1] == {"role": "user", "content": "当前问题"}
-
-    def test_role_mapping(self):
-        history = [
-            self._make_msg("student", "问诊内容"),
-            self._make_msg("patient", "患者回答"),
-        ]
-        msgs = build_patient_chat_messages("sys", "dyn", history, "追问")
-        assert msgs[2] == {"role": "user", "content": "问诊内容"}
-        assert msgs[3] == {"role": "assistant", "content": "患者回答"}
-
-    def test_history_truncation(self):
-        history = [self._make_msg("student", f"q{i}") for i in range(20)]
-        msgs = build_patient_chat_messages("sys", "dyn", history, "last", max_rounds=3)
-        assert len(msgs) == 9
-
-    def test_empty_history(self):
-        msgs = build_patient_chat_messages("sys", "dyn", [], "hello")
-        assert len(msgs) == 3
-        assert msgs[0]["role"] == "system"
-        assert msgs[2] == {"role": "user", "content": "hello"}
-
-    def test_system_role_messages_skipped(self):
-        from unittest.mock import MagicMock
-
-        def _make(role, content):
-            m = MagicMock()
-            m.role = role
-            m.content = content
-            return m
-
-        history = [
-            _make("student", "你好护士"),
-            _make("system", "体温: 36.5℃"),
-            _make("patient", "我有点不舒服"),
-        ]
-        msgs = build_patient_chat_messages("sys", "dyn", history, "追问")
-        roles = [m["role"] for m in msgs]
-        contents = [m["content"] for m in msgs]
-        assert "system" not in roles[2:]
-        assert "体温: 36.5℃" not in contents[2:]
-        assert len(msgs) == 5  # sys + dyn + student + patient + user

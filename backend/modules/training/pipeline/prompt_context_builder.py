@@ -5,11 +5,8 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, str]:
+def build_context_kwargs(case_data: dict) -> dict[str, str]:
     """从 case_data 构建该 profile 的模板变量字典。"""
-    from core.template import render_template
-    from modules.training.patient_ai.chat_messages import AUTHOR_NOTE_TEMPLATE
-
     def _get(key: str, default: str = "无") -> str:
         return str(case_data.get(key, "")).strip() or default
 
@@ -76,19 +73,8 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
             return "（无额外背景信息）"
         return "\n".join(f"- {v}" for v in db.values())
 
-    def _format_example_dialogues(examples: list) -> str:
-        if not examples:
-            return "（无示例对话，按性格自由发挥）"
-        lines = []
-        for ex in examples[:3]:
-            q, a = ex.get("question", ""), ex.get("answer", "")
-            if q and a:
-                lines.extend([f"护士问：{q}", f"你回答：{a}\n"])
-        return "\n".join(lines) if lines else "（按性格自由发挥）"
-
     personality = case_data.get("personality", {})
     deep_bg = case_data.get("deep_background", {})
-    examples = case_data.get("example_dialogues", [])
 
     pi = case_data.get("patient_info", {})
     patient_name = pi.get("name", "患者")
@@ -102,8 +88,8 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
     patient_info_str = "，".join(parts) if len(parts) > 1 else patient_name
     scenario = "你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。请根据你的主诉和现病史如实回答。"
 
-    kwargs = {
-        "patient_info": patient_info_str or "未知患者",
+    return {
+        "patient_info": patient_info_str or "患者",
         "scenario": scenario,
         "chief_complaint": _get("chief_complaint"),
         "present_illness": _get("present_illness"),
@@ -115,16 +101,7 @@ def build_context_kwargs(case_data: dict, author_note: str = "") -> dict[str, st
         "communication_style": _get("communication_style", "用口语化、真实患者的口吻交流。"),
         "personality": _format_personality(personality),
         "deep_background": _format_deep_background(deep_bg),
-        "example_dialogues": _format_example_dialogues(examples),
     }
-
-    if author_note.strip():
-        rendered = render_template(AUTHOR_NOTE_TEMPLATE, author_note=author_note)
-        kwargs["author_note"] = rendered
-    else:
-        kwargs["author_note"] = ""
-
-    return kwargs
 
 
 def format_case_for_prompt(case_data: dict) -> str:
