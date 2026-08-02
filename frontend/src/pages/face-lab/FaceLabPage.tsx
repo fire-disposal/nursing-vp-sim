@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import PremiumFaceArtwork from "@/components/training/face/PremiumFaceArtwork";
+import { appearanceFor, type AgeGroup, type Gender } from "@/components/training/face/appearance";
 import {
 	faceConfigFrom4D,
 	type EmotionValues,
@@ -123,7 +124,9 @@ const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; cls: string }>
 	{ key: "cooperation", name: "配合", cls: "bg-blue-500" },
 ];
 
-export default function FaceLabPage() {
+	export default function FaceLabPage() {
+	const [gender, setGender] = useState<Gender>("female");
+	const [ageGroup, setAgeGroup] = useState<AgeGroup>("young");
 	const [label, setLabel] = useState<Emotion4DLabel>("neutral");
 	const [values, setValues] = useState<EmotionValues>({ ...PRESETS.neutral });
 	const [duration, setDuration] = useState(600);
@@ -147,6 +150,7 @@ export default function FaceLabPage() {
 	);
 
 	const display = useAnimatedFace(targetCfg, targetExtras, duration, easing);
+	const appearance = useMemo(() => appearanceFor(gender, ageGroup), [gender, ageGroup]);
 
 	useEffect(() => {
 		if (!autoCycle) return;
@@ -229,6 +233,7 @@ export default function FaceLabPage() {
 							<PremiumFaceArtwork
 								cfg={display.cfg}
 								extras={display.extras}
+								appearance={appearance}
 								size={220}
 								blink={blink}
 								blinkInterval={blinkInterval}
@@ -256,6 +261,45 @@ export default function FaceLabPage() {
 					</Card>
 
 					<div className="space-y-6">
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-sm">外观（男女老少）</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="flex items-center gap-3">
+									<div className="flex-1 space-y-1">
+										<Label className="text-xs text-muted-foreground">性别</Label>
+										<Select value={gender} onValueChange={(v) => setGender(v as Gender)}>
+											<SelectTrigger className="h-8 text-xs">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="female">女</SelectItem>
+												<SelectItem value="male">男</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="flex-1 space-y-1">
+										<Label className="text-xs text-muted-foreground">年龄段</Label>
+										<Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
+											<SelectTrigger className="h-8 text-xs">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="child">儿童（≤12）</SelectItem>
+												<SelectItem value="young">青年（13-25）</SelectItem>
+												<SelectItem value="middle">中年（26-59）</SelectItem>
+												<SelectItem value="elderly">老年（≥60）</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+								<p className="text-[10px] text-muted-foreground">
+									外观与情绪正交：6 基础外观 × 9 情绪叠加，零笛卡尔积。切换外观后可用上方情绪控件叠加验证。
+								</p>
+							</CardContent>
+						</Card>
+
 						{/* ── 情绪标签 + 4D ── */}
 						<Card>
 							<CardHeader className="pb-2">
@@ -421,21 +465,33 @@ export default function FaceLabPage() {
 					</div>
 				</div>
 
-				{/* ── 静态参考网格 ── */}
+				{/* ── 静态参考网格：6 外观组合 ── */}
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="text-sm">9 态静态参考（默认映射）</CardTitle>
+						<CardTitle className="text-sm">8 外观组合参考（中性情绪，四阶段×性别）</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
-							{LABELS.map((l) => (
-								<div key={l} className="flex flex-col items-center gap-1">
+						<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+							{(
+								[
+									["female", "child", "女 · 儿童"],
+									["female", "young", "女 · 青年"],
+									["female", "middle", "女 · 中年"],
+									["female", "elderly", "女 · 老年"],
+									["male", "child", "男 · 儿童"],
+									["male", "young", "男 · 青年"],
+									["male", "middle", "男 · 中年"],
+									["male", "elderly", "男 · 老年"],
+								] as Array<[Gender, AgeGroup, string]>
+							).map(([g, a, name]) => (
+								<div key={name} className="flex flex-col items-center gap-1">
 									<PremiumFaceArtwork
-										cfg={faceConfigFrom4D(l, PRESETS[l])}
-										extras={premiumExtrasFrom4D(l, PRESETS[l])}
-										size={84}
+										cfg={faceConfigFrom4D("neutral", PRESETS.neutral)}
+										extras={premiumExtrasFrom4D("neutral", PRESETS.neutral)}
+										appearance={appearanceFor(g, a)}
+										size={96}
 									/>
-									<span className="text-[10px] text-muted-foreground">{EMOTION_4D_LABELS[l]}</span>
+									<span className="text-[10px] text-muted-foreground">{name}</span>
 								</div>
 							))}
 						</div>

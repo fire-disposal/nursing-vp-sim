@@ -8,7 +8,7 @@ import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
-import PatientFace from "./face/PatientFace";
+import PatientFacePremium from "./face/PatientFacePremium";
 import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
 import { cn } from "@/lib/utils";
@@ -127,7 +127,7 @@ export function ChatArea({
 						className="flex-1 flex flex-col min-h-0"
 					>
 						<div className="flex items-stretch">
-							<PatientFace size={40} className="px-3 sm:px-4 py-2 border-b border-border" />
+							<PatientFacePremium size={40} className="px-3 sm:px-4 py-2 border-b border-border" />
 							{isCompact ? (
 								<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact trailing={<InquiryProgressChip />} />
 							) : (
