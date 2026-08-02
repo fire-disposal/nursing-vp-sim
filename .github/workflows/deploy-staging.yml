@@ -28,9 +28,20 @@ jobs:
   staging:
     runs-on: ubuntu-latest
     steps:
+      # workflow_dispatch 输入历史版本时，必须 checkout 对应 tag 的源码，
+      # 否则会拿 master 代码冒充旧版本镜像（tag push 触发时 github.ref 即 tag）
+      - name: Resolve ref (dispatch → version tag)
+        id: ref
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          RAW="${{ inputs.version }}"
+          CLEAN="${RAW#v}"
+          echo "ref=refs/tags/v${CLEAN}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ steps.ref.outputs.ref || github.ref }}
 
       - name: Validate alembic migrations
         run: |
