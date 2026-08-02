@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
-import PatientFacePanel from "@/components/training/face/PatientFacePanel";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
@@ -343,7 +342,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					</ErrorBoundary>
 				</div>
 			</div>
-			<PatientFacePanel />
 			{children}
 			<ScoringOverlay
 				bus={busRef.current}

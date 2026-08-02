@@ -9,7 +9,7 @@ import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useTrainingStore } from "@/stores/trainingStore";
-import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
+import PatientHeaderFace from "./face/PatientHeaderFace";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
 function WSStatusDot() {
@@ -48,7 +48,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
-	const portraitUrl = useTrainingStore(s => s.portraitUrl);
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
@@ -100,12 +99,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 		);
 	}
 
-	const fallbackAvatar = getPatientAvatar({
-		name: patient.name,
-		gender: patient.gender,
-	});
-	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);
-
 	return (
 		<>
 			<header
@@ -133,11 +126,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						</div>
 					) : (
 						<div className="flex items-center gap-2 flex-1 min-w-0">
-							<img
-								className="size-6 sm:w-9 sm:h-9 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
-								src={avatarSrc}
-								alt={patient.name}
-							/>
+							<PatientHeaderFace name={patient.name} />
 							<div className="min-w-0">
 								<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
 									{patient.name}
