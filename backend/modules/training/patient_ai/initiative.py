@@ -170,6 +170,7 @@ def build_patient_context(case_data: dict) -> str:
     与四域组装的 SESSION 域同源字段（chief_complaint/present_illness/allergy…），
     保证主动追问与正式患者回复读到的病例一致。
     """
+
     def _get(key: str, default: str = "无") -> str:
         return str(case_data.get(key, "")).strip() or default
 
@@ -290,9 +291,15 @@ def apply_initiative_penalty(
         state = repo.get(record_id, db)
         if not state:
             return {}
-        delta = EmotionDelta(trust=-8, cooperation=-4)
-        state, events = repo.apply(record_id, delta, db, source="initiative_penalty")
-        return {"trust": state.vector.trust, "anxiety": state.vector.anxiety}
+        delta = EmotionDelta(trust=-0.08, cooperation=-0.04)
+        # v3 API：state.apply(delta, turn_id) + 乐观锁 save。
+        # 旧写法 repo.apply(...) 是 v2 残留，方法已不存在，运行时必然 AttributeError 被吞，
+        # 导致忽视患者的惩罚从未真正落库（线上反馈曾观察到 emotion 恒为空）。
+        # 注意：v3 情绪向量为 [0,1] 刻度（最强调负事件约 -0.08），旧 -8/-4 是 v2 的 0-100 残留，
+        # 直接套用会被 clamp01 钳到 0，等价于一次性清零信任。
+        new_state = state.apply(delta, turn_id=f"{record_id}-initiative_penalty")
+        saved = repo.save(record_id, new_state, db)
+        return {"trust": saved.vector.trust, "anxiety": saved.vector.anxiety}
     except Exception:
         log.warning("Initiative penalty failed: record_id=%d", record_id, exc_info=True)
         return {}

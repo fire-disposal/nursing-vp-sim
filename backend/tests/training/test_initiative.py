@@ -118,7 +118,9 @@ class TestCanInitiate:
 
     def test_rejects_silent_patient(self):
         cache, db = self._seed(count=0, timer_age=120, last_trigger_age=600)
-        ok, reason = can_initiate(1, cache, db, derive_initiative_policy(_vector(trust=0.2, cooperation=0.2), PERSONALITY))
+        ok, reason = can_initiate(
+            1, cache, db, derive_initiative_policy(_vector(trust=0.2, cooperation=0.2), PERSONALITY)
+        )
         assert ok is False
         assert reason == "withdrawn"
 

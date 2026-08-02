@@ -7,6 +7,7 @@ log = logging.getLogger(__name__)
 
 def build_context_kwargs(case_data: dict) -> dict[str, str]:
     """从 case_data 构建该 profile 的模板变量字典。"""
+
     def _get(key: str, default: str = "无") -> str:
         return str(case_data.get(key, "")).strip() or default
 

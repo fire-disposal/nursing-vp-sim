@@ -76,7 +76,8 @@ export class StreamManager {
 					callbacks.onPatientDone?.(doneId);
 				},
 				(err) => {
-					const msgs = store.messages;
+					// zustand set() 每次生成新 state 对象 —— 必须实时取，否则读到的永远是发送前的空数组
+					const msgs = getTrainingState().messages;
 					const partial = msgs.find((m) => m.id === placeholderId);
 					const hasContent = !!(partial?.content.trim());
 					store.handleStreamError(studentId, placeholderId, err, hasContent);
@@ -93,7 +94,7 @@ export class StreamManager {
 				(initiativeState) => callbacks.onInitiativeState?.(initiativeState),
 			);
 		} catch (err: unknown) {
-			const msgs = store.messages;
+			const msgs = getTrainingState().messages;
 			const partial = msgs.find((m) => m.id === placeholderId);
 			const hasContent = !!(partial?.content.trim());
 			store.handleStreamError(

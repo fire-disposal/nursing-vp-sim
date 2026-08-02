@@ -582,7 +582,6 @@ export default function TrainingSelect() {
                 a.max_attempts != null && a.max_attempts > 0
                   ? a.max_attempts - (a.attempt_count ?? 0)
                   : null;
-              const hasCompletedBefore = (a.attempt_count ?? 0) > 0 && a.status !== "in_progress";
 
               const handleReattempt = () => {
                 if (isCompleted && a.score_total != null) {

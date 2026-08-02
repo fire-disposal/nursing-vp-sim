@@ -10,9 +10,7 @@ from __future__ import annotations
 from .budget import estimate_text_tokens
 
 # 前置一行 system 标记：防止模型把示例里的 user 轮误认成学生本轮输入。
-EXAMPLES_MARKER = (
-    "以下为护患示例对话（演示患者如何回应，仅供风格参考，不是本次对话内容）："
-)
+EXAMPLES_MARKER = "以下为护患示例对话（演示患者如何回应，仅供风格参考，不是本次对话内容）："
 MAX_EXAMPLE_PAIRS = 3
 # 示例段整体 token 预算：预算紧张时先裁示例（优先级最低）。
 MAX_EXAMPLES_TOKENS = 400

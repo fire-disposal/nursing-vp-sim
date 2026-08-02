@@ -15,6 +15,7 @@ def _bj(hour: int, minute: int = 0) -> datetime:
 
 # ── is_peak_hour 北京时间边界 ──
 
+
 def test_peak_boundary_0859_flat():
     assert not is_peak_hour(_bj(8, 59))
 
@@ -53,6 +54,7 @@ def test_peak_midnight_flat():
 
 # ── 时区校准：UTC 时刻须换算为北京时间判定 ──
 
+
 def test_utc_morning_is_beijing_peak():
     """UTC 01:30 = 北京 09:30（高峰）。若误用 UTC 小时判定会得到平峰，必须校准。"""
     utc_ts = datetime(2026, 8, 2, 1, 30, tzinfo=UTC)
@@ -80,6 +82,7 @@ def test_naive_datetime_treated_as_utc():
 
 # ── peak_multiplier：默认关闭 → 恒 1.0；开启后高峰 ×2 ──
 
+
 def test_multiplier_disabled_by_default():
     with patch("core.config.LLM_PEAK_PRICING_ENABLED", new=False):
         assert peak_multiplier(_bj(10, 0)) == 1.0
@@ -99,6 +102,7 @@ def test_multiplier_custom_rate():
 
 # ── estimate_cost_cny：峰谷作用于所有计费项（输入/输出/缓存命中） ──
 
+
 def test_estimate_cost_flat_by_default():
     """默认关闭峰谷时，高峰时刻成本与平峰相同。"""
     cost = estimate_cost_cny(1_000_000, 500_000, model="deepseek-v4-flash", at=_bj(10, 0))
@@ -108,12 +112,8 @@ def test_estimate_cost_flat_by_default():
 def test_estimate_cost_peak_doubles_all_items():
     """开启后高峰 ×2：输入 1M×¥1 + 输出 0.5M×¥2 + 缓存命中 0.5M×¥0.02。"""
     with patch("core.config.LLM_PEAK_PRICING_ENABLED", new=True):
-        flat = estimate_cost_cny(
-            1_000_000, 500_000, model="deepseek-v4-flash", cache_hit_tokens=500_000, at=_bj(20, 0)
-        )
-        peak = estimate_cost_cny(
-            1_000_000, 500_000, model="deepseek-v4-flash", cache_hit_tokens=500_000, at=_bj(10, 0)
-        )
+        flat = estimate_cost_cny(1_000_000, 500_000, model="deepseek-v4-flash", cache_hit_tokens=500_000, at=_bj(20, 0))
+        peak = estimate_cost_cny(1_000_000, 500_000, model="deepseek-v4-flash", cache_hit_tokens=500_000, at=_bj(10, 0))
     assert peak == round(flat * 2, 6)
 
 

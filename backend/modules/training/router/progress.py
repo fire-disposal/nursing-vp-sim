@@ -28,13 +28,7 @@ router = APIRouter()
 
 def _build_initiative_context(db: Session, record_id: int) -> tuple[str, str]:
     """取最近两轮对话，返回 (学生最后消息, 上下文文本)。"""
-    recent = (
-        db.query(Message)
-        .filter(Message.record_id == record_id)
-        .order_by(Message.created_at.desc())
-        .limit(4)
-        .all()
-    )
+    recent = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at.desc()).limit(4).all()
     recent.reverse()
     lines = []
     student_msg = ""

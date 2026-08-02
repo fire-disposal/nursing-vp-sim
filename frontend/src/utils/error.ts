@@ -1,5 +1,8 @@
 export function getApiErrorMessage(e: unknown, fallback = "操作失败"): string {
-	const err = e as { response?: { data?: { detail?: unknown } }; message?: string };
+	const err = (e ?? {}) as {
+		response?: { data?: { detail?: unknown } };
+		message?: string;
+	};
 	const detail = err.response?.data?.detail;
 	if (typeof detail === "string") return detail;
 	if (Array.isArray(detail)) {

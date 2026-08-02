@@ -49,7 +49,7 @@ class CSVExporter(Exporter[T]):
 
     def export(self, items: Sequence[T], columns: list[ColumnDef[T]], title: str = "") -> bytes:
         buf = io.StringIO()
-        buf.write("\ufeff")
+        # utf-8-sig 编码自带 BOM；这里显式再写一个会造成双 BOM，Excel 首格会多出不可见字符
         w = csv.writer(buf)
         w.writerow([c.header for c in columns])
         for item in items:
