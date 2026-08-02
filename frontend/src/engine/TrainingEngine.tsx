@@ -7,6 +7,8 @@ import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
+import { useShortViewport } from "@/hooks/useShortViewport";
+import { cn } from "@/lib/utils";
 import { useToolBridge, waitForPendingToolRequests } from "@/hooks/useToolBridge";
 import { createMessageBus } from "./MessageBus";
 import {
@@ -315,6 +317,8 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.speak(firstPatient.content);
 	}, [messages, ttsAutoPlay]);
 
+	const isShort = useShortViewport();
+
 	if (!patient || readyRecordId !== recordId) {
 		return <TrainingBootSkeleton />;
 	}
@@ -326,10 +330,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					toggleTts={toggleTts}
 					endTraining={endTraining}
 				/>
-				{/* 三区布局：患者区 | 对话区（工具区 = children） */}
-				<div className="flex flex-1 overflow-hidden min-h-0">
+				{/* 三区布局：患者区 | 对话区（工具区 = children）
+				    顶栏为 absolute 全宽 chrome——内容行按顶栏高度退避（isShort 同步 h-9/11/12）
+				    移动端纵向堆叠（患者区在上可折叠，对话区在下）；桌面横向三列 */}
+				<div
+					className={cn(
+						"flex flex-1 overflow-hidden min-h-0",
+						isShort ? "pt-9" : "pt-11 sm:pt-12",
+						"flex-col md:flex-row",
+					)}
+				>
 					<PatientStage />
-					<div className="flex min-w-0 flex-1 flex-col border-l border-border">
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border md:border-l md:border-t-0">
 						<ErrorBoundary
 							fallback={
 								<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
