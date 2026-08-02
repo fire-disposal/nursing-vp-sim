@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
+import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
@@ -325,21 +326,25 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					toggleTts={toggleTts}
 					endTraining={endTraining}
 				/>
-				<div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
-					<ErrorBoundary
-						fallback={
-							<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-								<div className="text-sm font-medium">对话区渲染出错</div>
-								<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
-							</div>
-						}
-					>
-						<ChatArea
-							onSend={sendMessage}
-							endTraining={endTraining}
-							onCorrectLast={correctLastMessage}
-						/>
-					</ErrorBoundary>
+				{/* 三区布局：患者区 | 对话区（工具区 = children） */}
+				<div className="flex flex-1 overflow-hidden min-h-0">
+					<PatientStage />
+					<div className="flex min-w-0 flex-1 flex-col border-l border-border">
+						<ErrorBoundary
+							fallback={
+								<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
+									<div className="text-sm font-medium">对话区渲染出错</div>
+									<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
+								</div>
+							}
+						>
+							<ChatArea
+								onSend={sendMessage}
+								endTraining={endTraining}
+								onCorrectLast={correctLastMessage}
+							/>
+						</ErrorBoundary>
+					</div>
 				</div>
 			</div>
 			{children}

@@ -1,14 +1,11 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTrainingStore } from "@/stores/trainingStore";
-import { useLayoutMode } from "@/hooks/useLayoutMode";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
-import { EmotionIndicator } from "./EmotionIndicator";
-import { InquiryProgressChip } from "./InquiryProgressChip";
 import SceneToolbar from "./SceneToolbar";
 import { cn } from "@/lib/utils";
 import { useShortViewport } from "@/hooks/useShortViewport";
@@ -31,7 +28,6 @@ export function ChatArea({
   const trainingEnded = useTrainingStore(s => s.trainingEnded);
   const bus = useTrainingStore(s => s.bus)!;
   const capabilities = useTrainingStore(s => s.capabilities);
-  const recordId = Number(useTrainingStore(s => s.recordId));
   const recordDetail = useTrainingStore(s => s.recordDetail);
   const hasStudentMessages = messages.some(m => m.role === "student") || recordDetail?.messages?.some(m => m.role === "student");
   const greeting = useMemo(() => {
@@ -45,8 +41,6 @@ export function ChatArea({
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
   const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
   const shownRef = useRef(false);
-  const layout = useLayoutMode();
-  const isCompact = layout === "phone";
   const isShort = useShortViewport();
 
   const inquiriesComplete = useMemo(() => {
@@ -125,11 +119,6 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						className="flex-1 flex flex-col min-h-0"
 					>
-						{isCompact ? (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} compact trailing={<InquiryProgressChip />} />
-						) : (
-							<EmotionIndicator bus={bus} capabilities={capabilities} recordId={recordId} trailing={<InquiryProgressChip />} />
-						)}
 						<div className="flex-1 overflow-y-auto overscroll-contain">
 							<ChatDisplay
 								messages={messages}

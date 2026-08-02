@@ -9,7 +9,6 @@ import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useTrainingStore } from "@/stores/trainingStore";
-import PatientHeaderFace from "./face/PatientHeaderFace";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
 function WSStatusDot() {
@@ -126,7 +125,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						</div>
 					) : (
 						<div className="flex items-center gap-2 flex-1 min-w-0">
-							<PatientHeaderFace name={patient.name} />
 							<div className="min-w-0">
 								<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
 									{patient.name}
@@ -136,12 +134,6 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 								</div>
 							</div>
 						</div>
-					)}
-
-					{!isHiddenCase && patient.age != null && (
-						<span className="text-xs text-muted-foreground shrink-0 tabular-nums">
-							{patient.gender === "male" ? "男" : "女"} · {patient.age}岁
-						</span>
 					)}
 
 					<div
