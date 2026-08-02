@@ -20,7 +20,6 @@ from ._legacy import (
     _STATE_TABLE,
     MAX_HISTORY,
     EmotionState,  # v2 EmotionState
-    _build_author_note,
     _lookup_state,
     _s_curve,
     cleanup_emotion,
@@ -68,6 +67,5 @@ __all__ = [  # noqa: RUF022 — 按 v2/v3 分组注释排序，保持可读性
     "_STATE_TABLE",
     "_lookup_state",
     "_s_curve",
-    "_build_author_note",
     "MAX_HISTORY",
 ]

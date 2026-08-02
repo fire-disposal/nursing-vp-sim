@@ -9,10 +9,10 @@ Usage in prompt_builder::
 
     ctx = PromptContext()
     ctx.register("case", cached)         # flattens → {patient_name, chief_complaint, …}
-    ctx.register("author", {"author_note": note})
-    ctx.register("scene", {"scene_state": text})
 
     render_template(template, **ctx.as_dict())
+
+四域重构后仅剩 case 命名空间：静态人设卡与 SESSION 病例均由它渲染。
 """
 
 from __future__ import annotations

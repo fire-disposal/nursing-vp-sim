@@ -66,10 +66,6 @@ class EmotionState:
         label, _ = _lookup_state(self.trust, self.comfort)
         return label
 
-    @property
-    def note(self) -> str:
-        return _build_author_note(self.trust, self.comfort)
-
     def apply_decay(self, now: datetime | None = None) -> None:
         """Regress trust/comfort toward baseline based on elapsed time since last update."""
         if self.last_updated is None:
@@ -151,37 +147,6 @@ class EmotionState:
             profile=profile or PersonalityProfile(),
             last_updated=last_updated,
         )
-
-
-def _build_author_note(trust: int, comfort: int) -> str:
-    label, desc = _lookup_state(trust, comfort)
-    parts = [f"信赖: {trust} | 舒适: {comfort}"]
-
-    if trust < 30:
-        parts.append("患者对护士专业能力存疑")
-    elif trust < 60:
-        parts.append("患者基本配合但保留")
-    else:
-        parts.append("患者信任护士的专业判断")
-
-    if comfort < 30:
-        parts.append("情绪紧张不安，回答简短回避")
-    elif comfort < 60:
-        parts.append("情绪平稳，按常规节奏交流")
-    else:
-        parts.append("心情放松，愿意开放交流")
-
-    extra = {
-        "withdrawn": "你不想说话，对周围的人和事都提不起兴趣",
-        "defensive": "你对问东问西感到烦躁，对方不解释原因你会更抵触",
-        "anxious": "你处于紧张不安的状态，需要听到肯定的语气才能放松一点",
-        "neutral": "你对护士保持一定距离，问什么答什么",
-        "relaxed": "你心情不错，多聊一两句也无妨",
-        "open": "你信任眼前的护士，愿意多说几句",
-    }
-    parts.append(extra.get(label, ""))
-
-    return "【" + " | ".join(parts) + "】"
 
 
 # ── 缓存 API（与 v1 完全兼容） ──

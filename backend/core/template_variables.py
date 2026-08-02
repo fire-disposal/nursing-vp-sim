@@ -81,10 +81,6 @@ class InitiativeShortSystemVars(TypedDict):
     context_tail: str
 
 
-class InitiativeUserVars(TypedDict):
-    student_msg: str
-
-
 # ── Training: Patient ──
 
 
@@ -104,8 +100,6 @@ class PatientDynamicVars(TypedDict, total=False):
     family_history: str
     social_history: str
     deep_background: str
-    example_dialogues: str
-    scene_state: str
 
 
 # ── QA ──

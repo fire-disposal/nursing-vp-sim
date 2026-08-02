@@ -1,4 +1,8 @@
-"""NoteCollector — pipeline-level author_note assembly with budget management."""
+"""NoteCollector — 每轮状态注记收集（供 PatientState 消息合成）。
+
+四域重构后不再是 "author_note"，而是 per-turn 状态消息（情绪策略/操作注记）
+的来源：prompt_builder 把 collect() 结果交给 build_patient_state。
+"""
 
 from __future__ import annotations
 

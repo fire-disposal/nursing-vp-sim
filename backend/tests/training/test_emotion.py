@@ -60,12 +60,6 @@ class TestEmotionState:
         assert LegacyEmotionState(trust=40, comfort=70).state == "relaxed"
         assert LegacyEmotionState(trust=80, comfort=80).state == "open"
 
-    def test_note_includes_dimensions(self):
-        e = LegacyEmotionState(trust=25, comfort=18)
-        note = e.note
-        assert "信赖" in note
-        assert "舒适" in note
-
 
 class _FakeEmotionCache:
     def __init__(self, state=None, error: Exception | None = None):
