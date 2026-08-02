@@ -2,7 +2,10 @@
 
 import logging
 
-from modules.training.patient_ai.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
+from modules.training.patient_ai.initiative import (
+    MAX_INITIATIVE_PER_SESSION,
+    get_initiative_policy_seconds,
+)
 
 from ..context import (
     STATE_FEATURES,
@@ -70,11 +73,11 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 state = repo.get(ctx.record.id, ctx.db)
                 vector = state.vector if state else EmotionVector.neutral()
 
-                elapsed, threshold = get_initiative_seconds(
-                    ctx.record.id, initiative_cache, ctx.db, personality, vector
+                elapsed, threshold = get_initiative_policy_seconds(
+                    ctx.record.id, initiative_cache, ctx.db, vector, personality
                 )
                 count = initiative_cache.get_count(ctx.record.id, ctx.db)
-                max_reached = count >= MAX_INITIATIVE_COUNT
+                max_reached = count >= MAX_INITIATIVE_PER_SESSION
                 ctx.system_events.append(
                     {
                         "initiative_state": {

@@ -11,14 +11,35 @@ from models import Case, Message, TrainingRecord, User
 from modules.training.capabilities import is_enabled
 from modules.training.patient_ai.emotion import EmotionRepository
 from modules.training.patient_ai.initiative import (
-    MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
+    can_initiate,
+    derive_initiative_policy,
     generate_initiative_llm,
-    update_initiative_timer,
+    mark_initiative_triggered,
 )
 from schemas import InitiativeTriggerResponse
 
 router = APIRouter()
+
+
+def _build_initiative_context(db: Session, record_id: int) -> tuple[str, str]:
+    """取最近两轮对话，返回 (学生最后消息, 上下文文本)。"""
+    recent = (
+        db.query(Message)
+        .filter(Message.record_id == record_id)
+        .order_by(Message.created_at.desc())
+        .limit(4)
+        .all()
+    )
+    recent.reverse()
+    lines = []
+    student_msg = ""
+    for m in recent:
+        if m.role in ("student", "patient"):
+            lines.append(f"{'护士' if m.role == 'student' else '患者'}：{m.content}")
+            if m.role == "student" and not student_msg:
+                student_msg = m.content
+    return student_msg, "\n".join(lines[-4:])
 
 
 @router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)
@@ -44,17 +65,28 @@ async def trigger_initiative(
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
     app_state = request.app.state
+    cache = app_state.initiative_cache
 
     repo = EmotionRepository()
     state = repo.get_or_create(record_id, db)
     vector = state.vector
 
+    # ── 决策 + 守卫：后端唯一权威，未过守卫绝不生成/写入 ──
+    policy = derive_initiative_policy(vector, personality)
+    allowed, reason = can_initiate(record_id, cache, db, policy)
+    if not allowed:
+        return {"triggered": False, "message": None}
+
+    # ── 真实上下文：最近两轮对话 + 学生最后消息 ──
+    student_msg, context_tail = _build_initiative_context(db, record_id)
+
     msg = await generate_initiative_llm(
         request.app.state.llm_client,
-        personality,
         vector,
+        personality,
         case_data.get("name", "未知病例"),
-        recent_student_msg="",
+        student_msg=student_msg,
+        context_tail=context_tail,
         ctx=CallContext(
             purpose="patient_chat",
             user_id=current_user.id,
@@ -70,17 +102,19 @@ async def trigger_initiative(
         db.flush()
         db.refresh(patient_msg)
 
-        count = request.app.state.initiative_cache.increment_count(record_id, db)
-        emotion_data = apply_initiative_penalty(record_id, request.app.state.initiative_cache, db)
-
-        if count < MAX_INITIATIVE_COUNT:
-            update_initiative_timer(record_id, request.app.state.initiative_cache, db)
+        mark_initiative_triggered(record_id, cache, db)
+        emotion_data = apply_initiative_penalty(record_id, cache, db)
 
         try:
             db.commit()
         except Exception:
             db.rollback()
             raise
-        return {"triggered": True, "message": msg, "id": patient_msg.id, "emotion": emotion_data}
+        return {
+            "triggered": True,
+            "message": msg,
+            "id": patient_msg.id,
+            "emotion": emotion_data,
+        }
 
     return {"triggered": False, "message": None}

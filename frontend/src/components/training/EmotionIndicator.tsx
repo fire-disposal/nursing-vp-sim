@@ -73,10 +73,17 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 					bus.emit("emotion:changed", res.data.emotion as { state: string; trust: number; comfort: number });
 				}
 			}
-		} catch { /* ignore */ } finally {
+			// 后端是唯一决策者：任何响应（触发/拒绝/上限）都停表，直到下一轮 initiative:state 重新武装。
+			// 防洪水：同窗口内绝不重试，即使 triggered=false。
+			maxReachedRef.current = true;
+			stopTicker();
+			setInitPercent(0);
+		} catch {
+			// 网络错误：保持可重试（下一 tick 再试），但不超过 ticker 的自然频率
+		} finally {
 			pollingRef.current = false;
 		}
-	}, [recordId, bus]);
+	}, [recordId, bus, stopTicker]);
 
 	const startTicker = useCallback(() => {
 		if (tickRef.current) return;
