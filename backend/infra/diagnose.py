@@ -216,6 +216,7 @@ class DiagnoseService:
             return {
                 "degraded_providers": router.degraded_count() if hasattr(router, "degraded_count") else 0,
                 "global_degraded": router.global_degraded if hasattr(router, "global_degraded") else False,
+                "degraded_by_reason": (router.degraded_by_reason() if hasattr(router, "degraded_by_reason") else {}),
             }
         except Exception as e:
             return {"status": "error", "detail": str(e)[:200]}

@@ -85,6 +85,7 @@ class DiagnoseDBInfo(BaseModel):
 class DiagnoseLLMInfo(BaseModel):
     degraded_providers: int = 0
     global_degraded: bool = False
+    degraded_by_reason: dict[str, int] = {}
     status: str | None = None
     detail: str | None = None
 

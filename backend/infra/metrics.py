@@ -91,6 +91,8 @@ class MetricsSnapshot:
     # ── circuit breaker / LLM router status ────────────────────────────────
     degraded_providers_supplier: Callable[..., int] = lambda _self: 0
     global_degraded_supplier: Callable[..., bool] = lambda _self: False
+    # reason -> count, e.g. {"insufficient_balance": 1, "rate_limited": 2}
+    degraded_by_reason_supplier: Callable[..., dict] = lambda _self: {}
 
     # ── helpers ────────────────────────────────────────────────────────────
     @staticmethod
@@ -156,6 +158,7 @@ class MetricsSnapshot:
             ),
             degraded_providers=self.degraded_providers_supplier(),
             global_degraded=self.global_degraded_supplier(),
+            degraded_by_reason=self.degraded_by_reason_supplier(),
         )
 
     @staticmethod

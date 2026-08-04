@@ -121,6 +121,7 @@ async def init_infra(app_state, llm_router):
     )
     metrics.degraded_providers_supplier = lambda: llm_router.degraded_count() if llm_router else 0
     metrics.global_degraded_supplier = lambda: llm_router.global_degraded if llm_router else False
+    metrics.degraded_by_reason_supplier = lambda: llm_router.degraded_by_reason() if llm_router else {}
 
     diagnose_svc = get_diagnose_service()
     diagnose_svc.install_handler()

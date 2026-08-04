@@ -1,6 +1,7 @@
 """LLM 路由调度器 —— 档案状态驱动 + 优先级密钥池"""
 
 import logging
+import re
 import threading
 import time as _time
 from dataclasses import dataclass
@@ -15,6 +16,39 @@ CIRCUIT_BREAKER_THRESHOLD = 5
 RATE_LIMIT_COOLDOWN_SECONDS = 60
 DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
+# 402 (余额不足) 属人工动作型故障：长 TTL 避免死密钥被反复试探，
+# 同时让监控侧能把它与容量型降级明确区分开。
+INSUFFICIENT_BALANCE_TTL_SECONDS = 6 * 3600
+
+# 余额耗尽关键字（one-api 等网关可能用 429 携带余额错误体，不能只看状态码）
+_BALANCE_KEYWORDS = ("insufficient balance", "balance insufficient", "余额不足", "欠费", "account balance")
+_STATUS_RE = re.compile(r"\b([45]\d\d)\b")
+
+
+def classify_llm_error(error: str | None) -> str | None:
+    """把供应商错误字符串映射为降级原因。
+
+    - ``insufficient_balance``: 402 或余额相关错误体 —— 钱花光了，需人工充值
+    - ``rate_limited``: 429 —— 官方限流（QPS/并发承载）
+    - ``provider_overloaded``: 5xx —— 官方承载能力下降
+    - ``None``: 其它错误，走连续失败熔断（consecutive_failures）
+    """
+    if not error:
+        return None
+    lowered = error.lower()
+    if any(k in lowered for k in _BALANCE_KEYWORDS):
+        return "insufficient_balance"
+    m = _STATUS_RE.search(error)
+    if not m:
+        return None
+    status = int(m.group(1))
+    if status == 402:
+        return "insufficient_balance"
+    if status == 429:
+        return "rate_limited"
+    if status in (500, 502, 503, 504):
+        return "provider_overloaded"
+    return None
 
 
 @dataclass
@@ -169,13 +203,19 @@ class ProfileRouter:
                     profile.status = "active"
             else:
                 profile.consecutive_failures += 1
-                if error and "429" in error:
+                reason = classify_llm_error(error)
+                if reason == "insufficient_balance":
+                    # 余额耗尽：长冷却，避免死密钥被反复试探；监控侧据此立即告警。
+                    profile.degraded_until = now + timedelta(seconds=INSUFFICIENT_BALANCE_TTL_SECONDS)
+                    profile.degraded_reason = reason
+                    profile.status = "degraded"
+                elif reason == "rate_limited":
                     profile.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
-                    profile.degraded_reason = "rate_limited"
+                    profile.degraded_reason = reason
                     profile.status = "degraded"
                 elif profile.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
                     profile.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
-                    profile.degraded_reason = "consecutive_failures"
+                    profile.degraded_reason = reason or "consecutive_failures"
                     profile.status = "degraded"
 
             if profile.status == "active":
@@ -205,6 +245,17 @@ class ProfileRouter:
     def degraded_count(self) -> int:
         with self._state_lock:
             return sum(1 for p in self._profiles.values() if p.status == "degraded")
+
+    def degraded_by_reason(self) -> dict[str, int]:
+        """按原因统计降级密钥数 —— 让监控侧区分可人工处理的余额型降级
+        (insufficient_balance) 与官方容量波动型降级 (rate_limited/provider_overloaded)。"""
+        counts: dict[str, int] = {}
+        with self._state_lock:
+            for p in self._profiles.values():
+                if p.status == "degraded":
+                    key = p.degraded_reason or "unknown"
+                    counts[key] = counts.get(key, 0) + 1
+        return counts
 
     @property
     def global_degraded(self) -> bool:

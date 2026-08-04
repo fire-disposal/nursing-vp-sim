@@ -176,6 +176,73 @@ async def test_report_result_429_sets_rate_limited(mock_persist):
 
 @pytest.mark.asyncio
 @patch("infra.llm.data.LLMDataService.persist_stats")
+async def test_report_result_402_sets_insufficient_balance_long_ttl(mock_persist):
+    """402 (余额不足) 必须立即可识别为 insufficient_balance，且 TTL 显著长于容量型降级。"""
+    from infra.llm.router import INSUFFICIENT_BALANCE_TTL_SECONDS, RATE_LIMIT_COOLDOWN_SECONDS
+
+    router = ProfileRouter()
+    secret = _make_secret()
+    router._profiles = {secret.id: secret}
+
+    await router.report_result(secret, success=False, error="HTTP 402 Insufficient Balance")
+
+    assert secret.status == "degraded"
+    assert secret.degraded_reason == "insufficient_balance"
+    assert secret.degraded_until > datetime.now(UTC) + timedelta(seconds=INSUFFICIENT_BALANCE_TTL_SECONDS - 10)
+    assert INSUFFICIENT_BALANCE_TTL_SECONDS > 60 * RATE_LIMIT_COOLDOWN_SECONDS
+
+
+@pytest.mark.asyncio
+@patch("infra.llm.data.LLMDataService.persist_stats")
+async def test_report_result_429_with_balance_body_is_insufficient_balance(mock_persist):
+    """one-api 等网关可能用 429 携带余额错误体 —— 按 body 关键字识别为余额不足。"""
+    router = ProfileRouter()
+    secret = _make_secret()
+    router._profiles = {secret.id: secret}
+
+    await router.report_result(secret, success=False, error='HTTP 429 {"error": "insufficient balance"}')
+
+    assert secret.status == "degraded"
+    assert secret.degraded_reason == "insufficient_balance"
+
+
+@pytest.mark.asyncio
+@patch("infra.llm.data.LLMDataService.persist_stats")
+async def test_report_result_5xx_counts_toward_provider_overloaded(mock_persist):
+    """5xx (官方承载能力下降) 走连续失败熔断，但原因标注 provider_overloaded。"""
+    router = ProfileRouter()
+    secret = _make_secret()
+    router._profiles = {secret.id: secret}
+
+    for _ in range(5):
+        await router.report_result(secret, success=False, error="HTTP 503 Service Unavailable")
+
+    assert secret.status == "degraded"
+    assert secret.degraded_reason == "provider_overloaded"
+
+
+def test_degraded_by_reason_breakdown():
+    """degraded_by_reason 按原因统计，供监控侧区分余额型与容量型降级。"""
+    router = ProfileRouter()
+    s1 = _make_secret(id=1, status="degraded")
+    s1.degraded_reason = "insufficient_balance"
+    s2 = _make_secret(id=2, status="degraded")
+    s2.degraded_reason = "rate_limited"
+    s3 = _make_secret(id=3, status="degraded")
+    s3.degraded_reason = "provider_overloaded"
+    s4 = _make_secret(id=4, status="active")
+    router._profiles = {1: s1, 2: s2, 3: s3, 4: s4}
+
+    assert router.degraded_by_reason() == {
+        "insufficient_balance": 1,
+        "rate_limited": 1,
+        "provider_overloaded": 1,
+    }
+    assert router.degraded_count() == 3
+
+
+@pytest.mark.asyncio
+@patch("infra.llm.data.LLMDataService.persist_stats")
 async def test_report_result_success_clears_degraded(mock_persist):
     router = ProfileRouter()
     secret = _make_secret(status="degraded", priority=0)

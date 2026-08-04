@@ -37,6 +37,20 @@ DEPLOY_MARKER_MAX_AGE_MINUTES = 45  # stale marker (failed deploy) is ignored
 HEALTH_DEBOUNCE_ROUNDS = 2
 
 
+# ── LLM 降级告警策略 ─────────────────────────────────────────────────────────
+# DeepSeek 官方承载能力波动会让密钥在 degraded/active 之间反复横跳，若对任何
+# 降级立即告警、恢复立即通知，会形成 告警→恢复→告警 的乒乓推送。策略：
+#   • 余额型降级 (402 insufficient_balance) —— 钱花光了，需人工充值：
+#     立即告警，不降噪。
+#   • 容量型降级 (429 / 5xx rate_limited / provider_overloaded) —— 官方承载
+#     能力波动：必须持续 LLM_DEGRADED_SUSTAIN_ROUNDS 个连续 15 分钟周期才告警
+#     （8 轮 = 持续 2 小时），短时承载波动直接忽略。
+#   • 恢复通知：需连续 RECOVERY_CONFIRM_ROUNDS 个干净周期确认稳定后才推送，
+#     避免"恢复一下又降级"期间的重复恢复通知。
+LLM_DEGRADED_SUSTAIN_ROUNDS = 8  # 15min × 8 = 持续 2 小时承载故障才报警
+RECOVERY_CONFIRM_ROUNDS = 2
+
+
 # ── Cooldown tiers (by alert count for same key) ──────────────────────────────
 # Format: (up_to_count, cooldown_minutes)
 COOLDOWN_TIERS = [
@@ -404,7 +418,9 @@ def check_health_endpoints():
             failures.append({"type": "health", "name": name, "detail": "数据库连接失败"})
 
         if data.get("llm") in ("unavailable", "low"):
-            label = "LLM 额度不足" if data["llm"] == "low" else "LLM 不可用"
+            # low ≠ 额度不足：health 的 llm 字段表示服务状态（容量波动也会 low），
+            # 余额问题由 metrics.degraded_by_reason.insufficient_balance 精确识别。
+            label = "LLM 状态异常（降级）" if data["llm"] == "low" else "LLM 不可用"
             failures.append({"type": "health", "name": name, "detail": label})
 
     return failures
@@ -478,29 +494,36 @@ def check_metrics_anomalies(state: dict):
                 }
             )
 
-        # Anomaly: LLM degraded providers > 0
+        # LLM 降级异常 —— 区分余额型（立即告警）与容量型（需持续降级才告警）。
         degraded = llm.get("degraded_providers", 0)
-        if degraded > 0:
+        degraded_by_reason = llm.get("degraded_by_reason") or {}
+        balance_degraded = int(degraded_by_reason.get("insufficient_balance", 0) or 0)
+        capacity_degraded = max(0, degraded - balance_degraded)
+        global_degraded = bool(llm.get("global_degraded"))
+
+        # 容量型持续计数：降级周期 +1，干净周期清零（存 snapshots 命名空间）。
+        prev_rounds = int(prev.get("_llm_capacity_rounds", 0))
+        cur_rounds = prev_rounds + 1 if (capacity_degraded > 0 or global_degraded) else 0
+
+        # 余额不足 —— 需人工充值，立即告警，不降噪。
+        if balance_degraded > 0:
             anomalies.append(
                 {
                     "type": "metrics",
                     "name": name,
-                    "detail": f"LLM Provider 降级: {degraded} 个",
+                    "detail": f"LLM 余额不足: {balance_degraded} 个密钥 (402) — 需充值",
                 }
             )
 
-        # Anomaly: global LLM degraded
-        if llm.get("global_degraded"):
-            anomalies.append(
-                {
-                    "type": "metrics",
-                    "name": name,
-                    "detail": "LLM 全局降级",
-                }
-            )
+        # 容量型降级 —— 官方承载能力波动，持续 >= LLM_DEGRADED_SUSTAIN_ROUNDS
+        # 个周期（8 轮 = 2 小时）才告警，短时承载波动直接忽略，消除反复告警。
+        if (capacity_degraded > 0 or global_degraded) and cur_rounds >= LLM_DEGRADED_SUSTAIN_ROUNDS:
+            detail = "LLM 全局持续降级" if global_degraded else f"LLM 服务持续降级: {capacity_degraded} 个密钥 (官方容量波动)"
+            anomalies.append({"type": "metrics", "name": name, "detail": detail})
 
         # Store current snapshot for next comparison, in the snapshots namespace.
         state["snapshots"][name] = {
+            "_llm_capacity_rounds": cur_rounds,
             "total": reqs.get("total", 0),
             "err5xx": reqs.get("by_status", {}).get("5xx", 0),
             "uptime_seconds": m.get("uptime_seconds", 0),
@@ -758,9 +781,17 @@ def main():
                 pending.pop(key, None)
 
         # Detect recoveries: alert entries not marked resolved but no longer failing.
+        # 需要连续 RECOVERY_CONFIRM_ROUNDS 个干净周期确认稳定后才推送恢复通知，
+        # 避免"恢复一下又降级"（容量波动）导致的 告警→恢复→告警 乒乓。
         recovered_keys = []
         for key, entry in alerts.items():
-            if not entry.get("resolved") and key not in active_keys:
+            if entry.get("resolved"):
+                continue
+            if key in active_keys:
+                entry["clean_rounds"] = 0
+                continue
+            entry["clean_rounds"] = entry.get("clean_rounds", 0) + 1
+            if entry["clean_rounds"] >= RECOVERY_CONFIRM_ROUNDS:
                 recovered_keys.append(key)
 
         # Send recovery email
@@ -768,6 +799,7 @@ def main():
             for key in recovered_keys:
                 alerts[key]["resolved"] = True
                 alerts[key]["resolved_at"] = now.isoformat()
+                alerts[key]["clean_rounds"] = 0
             rec_subject = f"[RECOVERY] {hostname} — {len(recovered_keys)} issue(s) resolved"
             rec_body = build_recovery_body(recovered_keys, hostname)
             if send_email(rec_subject, rec_body):

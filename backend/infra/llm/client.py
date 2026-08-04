@@ -592,11 +592,12 @@ class LLMClient:
                 cache_miss_tokens=state.cache_miss_tokens,
             )
         except Exception as e:
-            log.error("_do_call HTTP/post-parse failure: purpose=%s model=%s error=%s", purpose, state.model, e)
+            error_str = self._describe_llm_error(e)
+            log.error("_do_call HTTP/post-parse failure: purpose=%s model=%s error=%s", purpose, state.model, error_str)
             await self._router.report_result(
                 state._config,
                 success=False,
-                error=str(e),
+                error=error_str,
             )
             raise
 
@@ -682,13 +683,31 @@ class LLMClient:
                             state.cache_hit_tokens = last_obj["usage"].get("prompt_cache_hit_tokens", 0) or 0
                             state.cache_miss_tokens = last_obj["usage"].get("prompt_cache_miss_tokens", 0) or 0
         except Exception as e:
-            log.error("_do_stream failure: purpose=%s model=%s error=%s", purpose, state.model, e)
+            error_str = self._describe_llm_error(e)
+            log.error("_do_stream failure: purpose=%s model=%s error=%s", purpose, state.model, error_str)
             await self._router.report_result(
                 state._config,
                 success=False,
-                error=str(e),
+                error=error_str,
             )
             raise
+
+    @staticmethod
+    def _describe_llm_error(e: Exception) -> str:
+        """Enrich provider HTTP errors with status code + response body snippet.
+
+        router.report_result() 据此分类 402 (余额不足) / 429 / 5xx (容量波动)：
+        httpx str(e) 不含响应体，DeepSeek 的 "Insufficient Balance" 等错误信息
+        只在 body 里，必须带上才能可靠区分"钱花光了"和"官方承载能力下降"。
+        """
+        if isinstance(e, httpx.HTTPStatusError):
+            body = ""
+            try:
+                body = (e.response.text or "")[:200]
+            except Exception:
+                pass
+            return f"HTTP {e.response.status_code} {body}".strip()
+        return str(e)
 
     @staticmethod
     def _copy_state(src: _CallState, dst: _CallState) -> None:
