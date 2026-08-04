@@ -247,7 +247,7 @@ def build_email(data: dict, online: dict) -> str:
                 f"延迟 <strong>{latency}ms</strong></div></div>"
             )
 
-    # ── LLM degradation ──
+    # ── LLM degradation — 区分余额耗尽(需充值)与官方容量波动(等待恢复) ──
     for env_name, pm in [
         ("正式服", prod.get("metrics", {})), ("测试服", stag.get("metrics", {})),
     ]:
@@ -255,12 +255,21 @@ def build_email(data: dict, online: dict) -> str:
         degraded = llm_m.get("degraded_providers", 0)
         gd = llm_m.get("global_degraded", False)
         if degraded or gd:
-            msg = f"降级 Provider: {degraded} 个"
+            by_reason = llm_m.get("degraded_by_reason") or {}
+            balance = int(by_reason.get("insufficient_balance", 0) or 0)
+            capacity = max(0, degraded - balance)
+            parts = [f"降级 Provider: {degraded} 个"]
+            if balance:
+                parts.append(f"余额不足 {balance} 个 (需充值)")
+            if capacity:
+                parts.append(f"容量波动 {capacity} 个")
             if gd:
-                msg += " ｜ 全局降级"
+                parts.append("全局降级")
+            # 余额不足/全局降级属需关注项标红，纯容量波动仅作提示
+            severity = "h-err" if (balance or gd) else ""
             sections.append(
-                _card(f"LLM 状态 — {env_name}", "⚡", "h-err")
-                + f'<div class="mono">{msg}</div></div>'
+                _card(f"LLM 状态 — {env_name}", "⚡", severity)
+                + f'<div class="mono">{" ｜ ".join(parts)}</div></div>'
             )
 
     # ── Uptime ──
