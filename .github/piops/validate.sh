@@ -23,10 +23,10 @@ if [[ "$backend_changed" == true ]]; then
 fi
 
 if [[ "$frontend_changed" == true ]]; then
+  pnpm install --frozen-lockfile
   pushd frontend >/dev/null
-  npm ci
-  npm run lint
-  npm run build
+  pnpm lint
+  pnpm build
   popd >/dev/null
 fi
 
