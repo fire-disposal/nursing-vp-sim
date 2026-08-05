@@ -33,7 +33,8 @@ def main() -> None:
         "developer_reply",
         "created_at",
         "replied_at",
-        "fix_attempted",
+        "auto_fix_attempted",
+        "auto_fix_at",
     }
     cleaned: dict[str, Any] = {key: value for key, value in match.items() if key in allowed}
     Path(output).write_text(
