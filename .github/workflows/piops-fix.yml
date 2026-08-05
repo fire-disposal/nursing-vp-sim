@@ -228,7 +228,7 @@ jobs:
           git config user.name "piops[bot]"
           git config user.email "piops[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add -A
+          git add -A -- . ':(exclude).piops-runtime/**'
           git commit -m "fix: propose repair from production diagnostics"
           git push origin "$branch"
           echo "name=$branch" >> "$GITHUB_OUTPUT"
