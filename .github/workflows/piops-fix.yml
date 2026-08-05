@@ -39,7 +39,7 @@ jobs:
       FEEDBACK_ID: ${{ inputs.feedback_id }}
       ERROR_WINDOW: ${{ inputs.error_window_minutes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: .github/piops
@@ -88,7 +88,7 @@ jobs:
           python -m json.tool context/diagnostics.json >/dev/null
           python -m json.tool context/feedback.json >/dev/null
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: piops-context
           path: context
@@ -105,29 +105,28 @@ jobs:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
       DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-v4-flash' }}
-      PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-agent
       PI_SKIP_VERSION_CHECK: "1"
       PI_TELEMETRY: "0"
       TASK_TYPE: ${{ inputs.task_type }}
       FEEDBACK_ID: ${{ inputs.feedback_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: piops-context
           path: .piops-runtime/context
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v9
         with:
           version: latest
           enable-cache: true
@@ -138,6 +137,8 @@ jobs:
 
       - name: Configure DeepSeek-compatible provider
         shell: bash
+        env:
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-agent
         run: |
           set -euo pipefail
           test -n "$DEEPSEEK_API_KEY"
@@ -159,6 +160,8 @@ jobs:
 
       - name: Run Pi in temporary source workspace
         shell: bash
+        env:
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-agent
         run: |
           set -euo pipefail
           pi --print \
@@ -193,7 +196,7 @@ jobs:
             > .piops-runtime/pi.patch
           test -s .piops-runtime/pi.patch
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: piops-proposal
           path: |
@@ -211,12 +214,12 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: piops-proposal
           path: .piops-runtime

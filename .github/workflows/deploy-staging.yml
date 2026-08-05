@@ -38,7 +38,7 @@ jobs:
           CLEAN="${RAW#v}"
           echo "ref=refs/tags/v${CLEAN}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ steps.ref.outputs.ref || github.ref }}
@@ -98,7 +98,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
           tags: type=match,pattern=v(.*),group=1
@@ -141,17 +141,17 @@ jobs:
             -G --data-urlencode "message=系统即将更新到 ${{ steps.resolve_version.outputs.version }}，预计 3-5 分钟，请保存当前进度。" \
             || echo "Warning: could not activate deploy banner (server may be down)"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push backend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.backend
@@ -163,7 +163,7 @@ jobs:
           provenance: true
 
       - name: Build & push frontend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.frontend
@@ -175,7 +175,7 @@ jobs:
           provenance: true
 
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
