@@ -47,7 +47,7 @@ DEEPSEEK_API_KEY=...
 
 ## PR 与 CI
 
-草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建（署名 `piops[bot]`）。实测 `pull_request` 事件不会被抑制：PR Gate 会在 PR 创建后自动运行，commit-format 要求提交信息符合 `<emoji> <type>: <描述>` 格式。第一版保留人工审核。
+草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建（署名 `piops[bot]`）。`pull_request` 事件会正常触发 PR Gate 自动运行，但 bot 创建 PR 的首次运行可能被 GitHub 暂停为 `action_required`（需维护者在 Actions 页批准一次），批准后自动执行。commit-format 要求提交信息符合 `<emoji> <type>: <描述>` 格式。合入 `piops/*` 分支后由 `piops-auto-deploy` 自动打 tag 并 dispatch deploy-staging（见 `docs/09-operations.md`）。第一版保留人工审核。
 
 ## 安全边界
 
