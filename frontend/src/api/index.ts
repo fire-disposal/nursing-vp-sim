@@ -8,5 +8,6 @@ export * from "./grades-classes";
 export * from "./notifications";
 export * from "./qa";
 export * from "./questionnaires";
+export * from "./scoreboard";
 export * from "./stats";
 export * from "./training";

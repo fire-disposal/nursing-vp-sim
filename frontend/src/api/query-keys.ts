@@ -171,6 +171,13 @@ export const queryKeys = {
 		detail: (id: string | null | undefined) => [...queryKeys.assignments.all, "detail", id] as const,
 		student: ["student-assignments"] as const,
 	},
+	scoreboard: {
+		all: ["scoreboard"] as const,
+		ranking: (params: Record<string, unknown>) =>
+			[...queryKeys.scoreboard.all, "ranking", params] as const,
+		trend: (userId: number | null | undefined, params: Record<string, unknown>) =>
+			[...queryKeys.scoreboard.all, "trend", userId, params] as const,
+	},
 	llmCallLogs: {
 		timeline: (recordId: number | null | undefined) => ["recordLogs", recordId] as const,
 		detail: (logId: number | null | undefined) => ["logDetail", logId] as const,

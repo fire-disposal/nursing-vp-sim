@@ -12,6 +12,7 @@ import {
 	MessageSquare,
 	Shield,
 	Stethoscope,
+	Trophy,
 	User,
 	UserSearch,
 	Users,
@@ -45,6 +46,7 @@ const AssignmentsPage = lazy(
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
+const ScoreboardPage = lazy(() => import("@/pages/admin/ScoreboardPage"));
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
 const ClassDetailPage = lazy(() => import("@/pages/admin/ClassDetailPage"));
@@ -190,6 +192,18 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <AssignmentDetailPage />,
 		permission: "assignment_manage",
 		activity: "manage",
+	},
+	{
+		path: "/admin/scoreboard",
+		element: <ScoreboardPage />,
+		permission: "assignment_manage",
+		activity: "manage",
+		nav: {
+			label: "成绩管理",
+			icon: Trophy,
+			section: "admin",
+			group: "teaching",
+		},
 	},
 	{
 		path: "/admin/classes/:classId",

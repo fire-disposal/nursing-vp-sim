@@ -1086,10 +1086,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Deploy Status
-         * @description One-shot status check — CI and health probes use this.
-         */
+        /** Get Deploy Status */
         get: operations["get_deploy_status_api_deploy_status_get"];
         put?: never;
         post?: never;
@@ -1106,10 +1103,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Deploy Status Stream
-         * @description SSE stream — pushes deploy warning changes with <1s latency.
-         */
+        /** Deploy Status Stream */
         get: operations["deploy_status_stream_api_deploy_status_stream_get"];
         put?: never;
         post?: never;
@@ -1126,10 +1120,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Health
-         * @description 数据库连通性检查 —— 负载均衡器健康探针。
-         */
+        /** Health */
         get: operations["health_api_health_get"];
         put?: never;
         post?: never;
@@ -1146,10 +1137,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Metrics
-         * @description 指标快照 —— 内部监控消费。
-         */
+        /** Metrics */
         get: operations["metrics_api_metrics_get"];
         put?: never;
         post?: never;
@@ -1168,10 +1156,11 @@ export interface paths {
         };
         /**
          * Diagnose
-         * @description 综合诊断快照 —— 运维监控统一入口。
+         * @description Return a bounded machine-oriented diagnostic snapshot.
          *
-         *     一次调用返回：系统版本、健康状态、LLM 统计、评分队列、
-         *     语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。
+         *     Error context is grouped by stable fingerprint and backed by a rotating JSONL
+         *     archive, so recent evidence survives process and container restarts without
+         *     allowing the response size to grow without bound.
          */
         get: operations["diagnose_api_diagnose_get"];
         put?: never;
@@ -1766,6 +1755,40 @@ export interface paths {
         };
         /** Get Current Rubric */
         get: operations["get_current_rubric_api_rubrics_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoreboard/ranking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scoreboard Ranking */
+        get: operations["scoreboard_ranking_api_scoreboard_ranking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoreboard/students/{user_id}/trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Student Trend */
+        get: operations["student_trend_api_scoreboard_students__user_id__trend_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4204,6 +4227,110 @@ export interface components {
             /** Review Comment */
             review_comment?: string | null;
         };
+        /**
+         * ScoreboardRankingItem
+         * @description 单个学生在所选范围内的排名条目。
+         */
+        ScoreboardRankingItem: {
+            /**
+             * Rank
+             * @default 0
+             */
+            rank: number;
+            /** User Id */
+            user_id: number;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /**
+             * Class Name
+             * @default
+             */
+            class_name: string;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Best Score */
+            best_score?: number | null;
+            /** Avg Duration Seconds */
+            avg_duration_seconds?: number | null;
+            /**
+             * Training Count
+             * @default 0
+             */
+            training_count: number;
+            /**
+             * Case Count
+             * @default 0
+             */
+            case_count: number;
+            /**
+             * Tier
+             * @default none
+             */
+            tier: string;
+            /** Progress Delta */
+            progress_delta?: number | null;
+            /**
+             * Progress Trend
+             * @default none
+             */
+            progress_trend: string;
+        };
+        /** ScoreboardRankingResponse */
+        ScoreboardRankingResponse: {
+            summary: components["schemas"]["ScoreboardSummary"];
+            /** Items */
+            items?: components["schemas"]["ScoreboardRankingItem"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Limit
+             * @default 0
+             */
+            limit: number;
+        };
+        /**
+         * ScoreboardSummary
+         * @description 当前筛选范围的整体概览（基于全量学生，不受分页影响）。
+         */
+        ScoreboardSummary: {
+            /**
+             * Record Count
+             * @default 0
+             */
+            record_count: number;
+            /**
+             * Student Count
+             * @default 0
+             */
+            student_count: number;
+            /**
+             * Case Count
+             * @default 0
+             */
+            case_count: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Avg Duration Seconds */
+            avg_duration_seconds?: number | null;
+            /** Tier Counts */
+            tier_counts?: {
+                [key: string]: number;
+            };
+            /** Thresholds */
+            thresholds?: {
+                [key: string]: number;
+            };
+        };
         /** ScoringStatusResponse */
         ScoringStatusResponse: {
             /** Record Status */
@@ -4338,6 +4465,83 @@ export interface components {
              * @default []
              */
             daily: unknown[];
+        };
+        /**
+         * StudentTrendRecord
+         * @description 学生单次训练的成绩点（按时间升序，供趋势图直接绘制）。
+         */
+        StudentTrendRecord: {
+            /** Record Id */
+            record_id: number;
+            /** Case Id */
+            case_id: number;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
+            /** Assignment Id */
+            assignment_id?: string | null;
+            /** Assignment Title */
+            assignment_title?: string | null;
+            /** Score */
+            score: number;
+            /**
+             * Duration Seconds
+             * @default 0
+             */
+            duration_seconds: number;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /** End Time */
+            end_time?: string | null;
+        };
+        /**
+         * StudentTrendResponse
+         * @description 单个学生的成绩趋势（图表数据源）。
+         */
+        StudentTrendResponse: {
+            /** User Id */
+            user_id: number;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /**
+             * Class Name
+             * @default
+             */
+            class_name: string;
+            /**
+             * Training Count
+             * @default 0
+             */
+            training_count: number;
+            /**
+             * Total Duration Seconds
+             * @default 0
+             */
+            total_duration_seconds: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Best Score */
+            best_score?: number | null;
+            /** First Score */
+            first_score?: number | null;
+            /** Latest Score */
+            latest_score?: number | null;
+            /** Progress Delta */
+            progress_delta?: number | null;
+            /**
+             * Progress Trend
+             * @default none
+             */
+            progress_trend: string;
+            /** Records */
+            records?: components["schemas"]["StudentTrendRecord"][];
         };
         /** SystemNotificationCreateRequest */
         SystemNotificationCreateRequest: {
@@ -7559,6 +7763,8 @@ export interface operations {
             query?: {
                 /** @description 诊断令牌 */
                 token?: string;
+                error_window_minutes?: number;
+                error_groups?: number;
             };
             header?: never;
             path?: never;
@@ -8844,6 +9050,98 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    scoreboard_ranking_api_scoreboard_ranking_get: {
+        parameters: {
+            query?: {
+                /** @description 病例范围，缺省=全部病例 */
+                case_id?: number | null;
+                /** @description 班级筛选 */
+                class_id?: number | null;
+                /** @description 指定作业 */
+                assignment_id?: string | null;
+                /** @description 作业状态限定：active|ended */
+                assignment_status?: string | null;
+                /** @description 是否纳入自主训练（无作业关联）记录 */
+                include_free?: boolean;
+                /** @description 学生姓名/学号模糊检索 */
+                search?: string | null;
+                /** @description 排序：avg_score|best_score|avg_duration|training_count|progress */
+                sort_by?: string;
+                /** @description 排序方向：desc|asc */
+                order?: string;
+                /** @description 分层过滤：good|medium|poor */
+                tier?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreboardRankingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_trend_api_scoreboard_students__user_id__trend_get: {
+        parameters: {
+            query?: {
+                /** @description 病例范围，缺省=全部病例 */
+                case_id?: number | null;
+                /** @description 班级筛选 */
+                class_id?: number | null;
+                /** @description 指定作业 */
+                assignment_id?: string | null;
+                /** @description 作业状态限定：active|ended */
+                assignment_status?: string | null;
+                /** @description 是否纳入自主训练（无作业关联）记录 */
+                include_free?: boolean;
+            };
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentTrendResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -4042,7 +4042,6 @@
           "ops"
         ],
         "summary": "Get Deploy Status",
-        "description": "One-shot status check — CI and health probes use this.",
         "operationId": "get_deploy_status_api_deploy_status_get",
         "responses": {
           "200": {
@@ -4062,7 +4061,6 @@
           "ops"
         ],
         "summary": "Deploy Status Stream",
-        "description": "SSE stream — pushes deploy warning changes with <1s latency.",
         "operationId": "deploy_status_stream_api_deploy_status_stream_get",
         "responses": {
           "200": {
@@ -4082,7 +4080,6 @@
           "ops"
         ],
         "summary": "Health",
-        "description": "数据库连通性检查 —— 负载均衡器健康探针。",
         "operationId": "health_api_health_get",
         "responses": {
           "200": {
@@ -4104,7 +4101,6 @@
           "ops"
         ],
         "summary": "Metrics",
-        "description": "指标快照 —— 内部监控消费。",
         "operationId": "metrics_api_metrics_get",
         "responses": {
           "200": {
@@ -4124,7 +4120,7 @@
           "ops"
         ],
         "summary": "Diagnose",
-        "description": "综合诊断快照 —— 运维监控统一入口。\n\n一次调用返回：系统版本、健康状态、LLM 统计、评分队列、\n语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。",
+        "description": "Return a bounded machine-oriented diagnostic snapshot.\n\nError context is grouped by stable fingerprint and backed by a rotating JSONL\narchive, so recent evidence survives process and container restarts without\nallowing the response size to grow without bound.",
         "operationId": "diagnose_api_diagnose_get",
         "parameters": [
           {
@@ -4138,6 +4134,30 @@
               "title": "Token"
             },
             "description": "诊断令牌"
+          },
+          {
+            "name": "error_window_minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1440,
+              "minimum": 1,
+              "default": 60,
+              "title": "Error Window Minutes"
+            }
+          },
+          {
+            "name": "error_groups",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Error Groups"
+            }
           }
         ],
         "responses": {
@@ -6473,6 +6493,343 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/scoreboard/ranking": {
+      "get": {
+        "tags": [
+          "成绩管理"
+        ],
+        "summary": "Scoreboard Ranking",
+        "operationId": "scoreboard_ranking_api_scoreboard_ranking_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "病例范围，缺省=全部病例",
+              "title": "Case Id"
+            },
+            "description": "病例范围，缺省=全部病例"
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "班级筛选",
+              "title": "Class Id"
+            },
+            "description": "班级筛选"
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "指定作业",
+              "title": "Assignment Id"
+            },
+            "description": "指定作业"
+          },
+          {
+            "name": "assignment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "作业状态限定：active|ended",
+              "title": "Assignment Status"
+            },
+            "description": "作业状态限定：active|ended"
+          },
+          {
+            "name": "include_free",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否纳入自主训练（无作业关联）记录",
+              "default": false,
+              "title": "Include Free"
+            },
+            "description": "是否纳入自主训练（无作业关联）记录"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "学生姓名/学号模糊检索",
+              "title": "Search"
+            },
+            "description": "学生姓名/学号模糊检索"
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序：avg_score|best_score|avg_duration|training_count|progress",
+              "default": "avg_score",
+              "title": "Sort By"
+            },
+            "description": "排序：avg_score|best_score|avg_duration|training_count|progress"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序方向：desc|asc",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "排序方向：desc|asc"
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分层过滤：good|medium|poor",
+              "title": "Tier"
+            },
+            "description": "分层过滤：good|medium|poor"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreboardRankingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scoreboard/students/{user_id}/trend": {
+      "get": {
+        "tags": [
+          "成绩管理"
+        ],
+        "summary": "Student Trend",
+        "operationId": "student_trend_api_scoreboard_students__user_id__trend_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "病例范围，缺省=全部病例",
+              "title": "Case Id"
+            },
+            "description": "病例范围，缺省=全部病例"
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "班级筛选",
+              "title": "Class Id"
+            },
+            "description": "班级筛选"
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "指定作业",
+              "title": "Assignment Id"
+            },
+            "description": "指定作业"
+          },
+          {
+            "name": "assignment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "作业状态限定：active|ended",
+              "title": "Assignment Status"
+            },
+            "description": "作业状态限定：active|ended"
+          },
+          {
+            "name": "include_free",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否纳入自主训练（无作业关联）记录",
+              "default": false,
+              "title": "Include Free"
+            },
+            "description": "是否纳入自主训练（无作业关联）记录"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentTrendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/stats/duration": {
@@ -12898,6 +13255,202 @@
         ],
         "title": "ScoreReviewResponse"
       },
+      "ScoreboardRankingItem": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank",
+            "default": 0
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "best_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Score"
+          },
+          "avg_duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration Seconds"
+          },
+          "training_count": {
+            "type": "integer",
+            "title": "Training Count",
+            "default": 0
+          },
+          "case_count": {
+            "type": "integer",
+            "title": "Case Count",
+            "default": 0
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "default": "none"
+          },
+          "progress_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Delta"
+          },
+          "progress_trend": {
+            "type": "string",
+            "title": "Progress Trend",
+            "default": "none"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "title": "ScoreboardRankingItem",
+        "description": "单个学生在所选范围内的排名条目。"
+      },
+      "ScoreboardRankingResponse": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ScoreboardSummary"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreboardRankingItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "default": 0
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "ScoreboardRankingResponse"
+      },
+      "ScoreboardSummary": {
+        "properties": {
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count",
+            "default": 0
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "case_count": {
+            "type": "integer",
+            "title": "Case Count",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "avg_duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration Seconds"
+          },
+          "tier_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tier Counts"
+          },
+          "thresholds": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Thresholds"
+          }
+        },
+        "type": "object",
+        "title": "ScoreboardSummary",
+        "description": "当前筛选范围的整体概览（基于全量学生，不受分页影响）。"
+      },
       "ScoringStatusResponse": {
         "properties": {
           "record_status": {
@@ -13238,6 +13791,192 @@
           "created_at"
         ],
         "title": "StudentDetail"
+      },
+      "StudentTrendRecord": {
+        "properties": {
+          "record_id": {
+            "type": "integer",
+            "title": "Record Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          },
+          "assignment_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Title"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "title": "Duration Seconds",
+            "default": 0
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "case_id",
+          "score",
+          "start_time"
+        ],
+        "title": "StudentTrendRecord",
+        "description": "学生单次训练的成绩点（按时间升序，供趋势图直接绘制）。"
+      },
+      "StudentTrendResponse": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "training_count": {
+            "type": "integer",
+            "title": "Training Count",
+            "default": 0
+          },
+          "total_duration_seconds": {
+            "type": "integer",
+            "title": "Total Duration Seconds",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "best_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Score"
+          },
+          "first_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Score"
+          },
+          "latest_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Score"
+          },
+          "progress_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Delta"
+          },
+          "progress_trend": {
+            "type": "string",
+            "title": "Progress Trend",
+            "default": "none"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/StudentTrendRecord"
+            },
+            "type": "array",
+            "title": "Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "title": "StudentTrendResponse",
+        "description": "单个学生的成绩趋势（图表数据源）。"
       },
       "SystemNotificationCreateRequest": {
         "properties": {
