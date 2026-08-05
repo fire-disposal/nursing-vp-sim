@@ -1,0 +1,39 @@
+name: PiOps merged auto-deploy staging
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+concurrency:
+  group: piops-auto-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-staging:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'piops/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Tag current master (skip redundancy gate)
+        run: |
+          node .husky/_/auto-tag.mjs --push --force
+
+      - name: Trigger staging deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(git tag --sort=-creatordate -l 'v*' | head -1)
+          gh workflow run deploy-staging.yml -f "version=${TAG#v}" --repo "$GITHUB_REPOSITORY"
+          echo "dispatched deploy-staging for $TAG"
