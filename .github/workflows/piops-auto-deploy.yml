@@ -28,6 +28,8 @@ jobs:
 
       - name: Tag current master (skip redundancy gate)
         run: |
+          git config user.name "piops[bot]"
+          git config user.email "piops[bot]@users.noreply.github.com"
           node .husky/_/auto-tag.mjs --push --force
 
       - name: Trigger staging deploy
