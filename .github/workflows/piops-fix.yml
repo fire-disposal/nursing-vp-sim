@@ -111,7 +111,7 @@ jobs:
           cache-dependency-glob: backend/uv.lock
 
       - name: Install Pi
-        run: npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+        run: npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.83.0
 
       - name: Configure DeepSeek-compatible provider
         shell: bash
@@ -159,7 +159,7 @@ jobs:
             --model "$DEEPSEEK_MODEL" \
             --thinking high \
             --tools read,grep,find,ls,edit,write,bash \
-            "$(cat .piops-runtime/prompt.md)" \
+            @.piops-runtime/prompt.md \
             | tee .piops-runtime/pi-output.txt
 
       - name: Guard and validate proposal

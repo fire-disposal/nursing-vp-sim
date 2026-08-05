@@ -20,7 +20,7 @@ def main() -> None:
             "piops-deepseek": {
                 "baseUrl": args.base_url.rstrip("/"),
                 "api": "openai-completions",
-                "apiKey": "DEEPSEEK_API_KEY",
+                "apiKey": "$DEEPSEEK_API_KEY",
                 "authHeader": True,
                 "models": [
                     {
