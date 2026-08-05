@@ -106,7 +106,7 @@ Rules:
 5. Do not access network services, print environment variables, inspect credentials, push branches, create commits, or create pull requests.
 6. Add or adjust focused tests when practical. Run relevant local validation commands.
 7. If evidence is insufficient for a safe repair, make no source changes and explain the missing evidence.
-8. Write a concise Markdown report to `.piops-runtime/pi-report.md` with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback.
+8. Write a concise Markdown report to `.piops-runtime/pi-report.md` in Chinese (中文), with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback.
 
 <UNTRUSTED_EVIDENCE kind="diagnostics">
 {json.dumps(_filter_diagnostics(diagnostics), ensure_ascii=False, indent=2)}

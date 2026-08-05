@@ -43,11 +43,11 @@ DEEPSEEK_API_KEY=...
 - 数据库迁移、依赖锁文件和二进制文件；
 - 超过 12 个文件或 800 行的补丁。
 
-后端变更会运行 `uv sync --frozen --group dev`、Ruff、Python compileall，以及本次新增或修改的测试文件。前端变更会运行 `npm ci`、lint 和 build。
+后端变更会运行 `uv sync --frozen --group dev`、Ruff、Python compileall，以及本次新增或修改的测试文件。前端变更会运行 `pnpm install --frozen-lockfile`、lint 和 build。
 
 ## PR 与 CI
 
-草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建。GitHub 会抑制由该 token 触发的部分递归工作流事件，因此自动创建的 PR 可能不会立即触发现有 PR CI。第一版保留人工审核；需要完整自动触发时，再把发布 Job 切换为最小权限 GitHub App installation token，而不改变 Pi 运行流程。
+草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建（署名 `piops[bot]`）。实测 `pull_request` 事件不会被抑制：PR Gate 会在 PR 创建后自动运行，commit-format 要求提交信息符合 `<emoji> <type>: <描述>` 格式。第一版保留人工审核。
 
 ## 安全边界
 
