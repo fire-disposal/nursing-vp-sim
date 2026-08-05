@@ -12,6 +12,13 @@ git push   → pre-push: tag 格式 + alembic roundtrip（无 psql 时跳过，�
 
 提交格式：`<emoji> <type>: <description>`（详见 `pnpm run check` 驳回时打印的 emoji 表）。
 
+## 部署红线（不可违反）
+
+- **严禁 Agent 直接触发正式服（生产环境）发版**：不得运行 `gh workflow run deploy-production.yml`、不得推送生产部署所需 tag 时绕过人工确认、不得以任何自动化方式直接对 `iomt.205716.xyz` 发布版本。
+- 生产发布的**唯一合法路径**：Agent 完成代码与验证 → 推送 master → **人工**审阅后由人执行生产部署（`deploy-production.yml` workflow_dispatch 或人工 tag 流程）。
+- Agent 可自主执行到 **staging（测试服，test.205716.xyz）** 为止：`pnpm run tag` 触发 staging 部署、PiOps 自动部署 staging 均属允许范围。
+- 违反此红线视为重大事故；如需生产发布，明确向用户请求人工确认，等待用户执行。
+
 ## 诊断端点 `/api/diagnose`
 
 运维监控统一入口。Agent 故障诊断、日报脚本的数据源。token 鉴权。
