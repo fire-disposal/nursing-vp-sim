@@ -55,6 +55,7 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--focus-hint", default="", help="可选操作员排查方向提示（可信，非证据）")
     parser.add_argument("--checkout-baseline", default="", help="checkout 源码的 git describe 基线（如 v2026.08.05-3）")
+    parser.add_argument("--target-env", default="production", choices=("staging", "production"), help="诊断数据来源环境")
     args = parser.parse_args()
 
     diagnostics = _read_json(args.diagnostics, _MAX_DIAGNOSTICS_CHARS)
@@ -108,6 +109,9 @@ def main() -> None:
             )
 
     prompt = f"""You are executing a constrained maintenance workflow in a temporary checkout of nursing-vp-sim.
+
+Target environment (source of the diagnostic evidence below): {args.target_env}
+{'This is the STAGING environment — defects here may be new deployments not yet shipped to production.' if args.target_env == 'staging' else 'This is PRODUCTION — user-facing defects have real impact; be conservative.'}
 
 Objective:
 {objective}

@@ -23,6 +23,14 @@ on:
         description: 可选排查方向提示（如 "LLM 余额告警频繁"、"反馈集中在训练页"），两种任务模式均可用
         required: false
         type: string
+      target_env:
+        description: 诊断数据来源环境 — 测试服更易暴露问题，默认推荐
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
 
 concurrency:
   group: piops-${{ github.repository }}
@@ -35,13 +43,14 @@ jobs:
     permissions:
       contents: read
     env:
-      DIAGNOSE_URL: ${{ vars.PIOPS_DIAGNOSE_URL }}
-      FEEDBACK_URL: ${{ vars.PIOPS_FEEDBACK_URL }}
+      DIAGNOSE_URL: ${{ inputs.target_env == 'staging' && vars.PIOPS_STAGING_DIAGNOSE_URL || vars.PIOPS_DIAGNOSE_URL }}
+      FEEDBACK_URL: ${{ inputs.target_env == 'staging' && vars.PIOPS_STAGING_FEEDBACK_URL || vars.PIOPS_FEEDBACK_URL }}
       DIAGNOSE_TOKEN: ${{ secrets.PIOPS_DIAGNOSE_TOKEN }}
       FEEDBACK_TOKEN: ${{ secrets.PIOPS_FEEDBACK_TOKEN }}
       TASK_TYPE: ${{ inputs.task_type }}
       FEEDBACK_ID: ${{ inputs.feedback_id }}
       ERROR_WINDOW: ${{ inputs.error_window_minutes }}
+      TARGET_ENV: ${{ inputs.target_env }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -63,7 +72,7 @@ jobs:
           [[ "$ERROR_WINDOW" =~ ^[0-9]+$ ]]
           (( ERROR_WINDOW >= 1 && ERROR_WINDOW <= 1440 ))
 
-      - name: Fetch bounded production context
+      - name: Fetch bounded context from target env
         shell: bash
         run: |
           set -euo pipefail
@@ -114,6 +123,7 @@ jobs:
       TASK_TYPE: ${{ inputs.task_type }}
       FEEDBACK_ID: ${{ inputs.feedback_id }}
       FOCUS_HINT: ${{ inputs.focus_hint }}
+      TARGET_ENV: ${{ inputs.target_env }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -169,6 +179,7 @@ jobs:
             --feedback .piops-runtime/context/feedback.json \
             --focus-hint "$FOCUS_HINT" \
             --checkout-baseline "${{ steps.baseline.outputs.checkout_baseline }}" \
+            --target-env "$TARGET_ENV" \
             --output .piops-runtime/prompt.md
 
       - name: Run Pi in temporary source workspace
@@ -250,9 +261,10 @@ jobs:
         env:
           TASK_TYPE: ${{ inputs.task_type }}
           FEEDBACK_ID: ${{ inputs.feedback_id }}
+          TARGET_ENV: ${{ inputs.target_env }}
         run: |
           set -euo pipefail
-          branch="piops/${TASK_TYPE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          branch="piops/${TARGET_ENV}-${TASK_TYPE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git config user.name "piops[bot]"
           git config user.email "piops[bot]@users.noreply.github.com"
           git switch -c "$branch"
@@ -272,13 +284,14 @@ jobs:
           HEAD_BRANCH: ${{ steps.branch.outputs.name }}
           TASK_TYPE: ${{ inputs.task_type }}
           FEEDBACK_ID: ${{ inputs.feedback_id }}
+          TARGET_ENV: ${{ inputs.target_env }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
-            title="fix: PiOps proposal for feedback ${FEEDBACK_ID}"
+            title="fix: [${TARGET_ENV}] PiOps proposal for feedback ${FEEDBACK_ID}"
           else
-            title="fix: PiOps proposal from production diagnostics"
+            title="fix: [${TARGET_ENV}] PiOps proposal from diagnostics"
           fi
           gh pr create \
             --draft \
