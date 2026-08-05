@@ -29,15 +29,16 @@ class ErrorArchive:
         self._lock = threading.Lock()
 
     def append(self, event: dict[str, Any]) -> None:
-        line = json.dumps(event, ensure_ascii=False, separators=(",", ":"), default=str)
+        line = json.dumps(event, ensure_ascii=False, separators=(",", ":"), default=str) + "\n"
         with self._lock:
             stream = self._writer._open() if self._writer.stream is None else self._writer.stream
             self._writer.stream = stream
-            if self._writer.shouldRollover(None):  # type: ignore[arg-type]
+            stream.seek(0, 2)
+            if self._writer.maxBytes > 0 and stream.tell() + len(line.encode("utf-8")) >= self._writer.maxBytes:
                 self._writer.doRollover()
                 stream = self._writer._open()
                 self._writer.stream = stream
-            stream.write(line + "\n")
+            stream.write(line)
             stream.flush()
 
     def query(
@@ -47,11 +48,7 @@ class ErrorArchive:
         end: datetime,
         max_events: int = 500,
     ) -> list[dict[str, Any]]:
-        """Read recent events in the requested window, newest first.
-
-        Files are small and queries are rare, so a reverse line scan is simpler and
-        safer than maintaining another database or index.
-        """
+        """Read recent events in the requested window, newest first."""
         start = _as_utc(start)
         end = _as_utc(end)
         events: list[dict[str, Any]] = []
@@ -83,10 +80,7 @@ class ErrorArchive:
             self._writer.close()
 
     def _paths_newest_first(self) -> list[Path]:
-        paths = [self.path]
-        for index in range(1, self._writer.backupCount + 1):
-            paths.append(Path(f"{self.path}.{index}"))
-        return paths
+        return [self.path, *(Path(f"{self.path}.{index}") for index in range(1, self._writer.backupCount + 1))]
 
 
 def _parse_time(value: Any) -> datetime:
