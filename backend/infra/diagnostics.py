@@ -1,12 +1,4 @@
-"""系统端点 — 健康检查、指标、综合诊断。
-
-* ``/api/health``    — 数据库连通性检查（公开，无认证）
-* ``/api/metrics``   — Prometheus 格式指标快照（公开，无认证）
-* ``/api/diagnose``  — 综合诊断快照（token 认证，OpenClaw Agent / 日报脚本统一入口）
-
-``/api/diagnose`` 取代了原有的 ``/api/ops/*`` 三元组（dashboard / errors / report），
-将运维面板、错误日志、告警计算合并为一个综合响应，一次调用获取全部运维信息。
-"""
+"""System health, metrics, deployment status, and machine diagnostics."""
 
 import logging
 from datetime import UTC, datetime
@@ -22,11 +14,7 @@ from infra.ops_queries import build_dashboard, compute_alerts
 from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
-
 router = APIRouter(tags=["ops"])
-
-# ── Deploy warning banner ───────────────────────────────────────────────
-
 _deploy_warning: dict | None = None
 
 
@@ -52,13 +40,11 @@ def clear_deploy_warning(token: str = Query("")):
 
 @router.get("/api/deploy-status")
 def get_deploy_status():
-    """One-shot status check — CI and health probes use this."""
     return _deploy_warning or {"active": False}
 
 
 @router.get("/api/deploy-status/stream")
 async def deploy_status_stream(request: Request):
-    """SSE stream — pushes deploy warning changes with <1s latency."""
     import asyncio
 
     async def generate():
@@ -90,81 +76,68 @@ def _check_deploy_token(token: str) -> None:
         raise HTTPException(status_code=403, detail="invalid token")
 
 
-# ── Health ──────────────────────────────────────────────────────────────────
-
-
 @router.get("/api/health", response_model=HealthResponse)
 def health():
-    """数据库连通性检查 —— 负载均衡器健康探针。"""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:
-        log.exception("/api/health 数据库连通性检查失败")
+        log.exception("/api/health database check failed")
         return JSONResponse(status_code=503, content={"detail": "database unreachable"})
     return {"status": "ok", "version": APP_VERSION}
 
 
-# ── Metrics ─────────────────────────────────────────────────────────────────
-
-
 @router.get("/api/metrics")
 def metrics(request: Request):
-    """指标快照 —— 内部监控消费。"""
-    m = getattr(request.app.state, "metrics", None)
-    if m is None:
+    snapshot = getattr(request.app.state, "metrics", None)
+    if snapshot is None:
         return JSONResponse(status_code=503, content={"error": "metrics not initialized"})
     try:
-        return m.snapshot()
-    except Exception as e:
+        return snapshot.snapshot()
+    except Exception as exc:
         log.exception("/api/metrics snapshot failed")
-        return JSONResponse(status_code=500, content={"error": str(e)[:200]})
-
-
-# ── Diagnose (comprehensive) ────────────────────────────────────────────────
+        return JSONResponse(status_code=500, content={"error": str(exc)[:200]})
 
 
 @router.get("/api/diagnose")
-async def diagnose(request: Request, token: str = Query("", description="诊断令牌")):
-    """综合诊断快照 —— 运维监控统一入口。
+async def diagnose(
+    request: Request,
+    token: str = Query("", description="诊断令牌"),
+    error_window_minutes: int = Query(60, ge=1, le=1440),
+    error_groups: int = Query(20, ge=1, le=50),
+):
+    """Return a bounded machine-oriented diagnostic snapshot.
 
-    一次调用返回：系统版本、健康状态、LLM 统计、评分队列、
-    语音服务 (TTS) 统计、系统错误日志、指标快照、告警列表。
+    Error context is grouped by stable fingerprint and backed by a rotating JSONL
+    archive, so recent evidence survives process and container restarts without
+    allowing the response size to grow without bound.
     """
     _check_token(token)
-
     db = SessionLocal()
     try:
         now = datetime.now(UTC)
-
-        # DB-backed snapshot
         dashboard = build_dashboard(db, now)
+        diag_svc = get_diagnose_service()
 
-        # Runtime snapshot: in-memory backend/frontend errors, DB probe, LLM router state.
         try:
-            diag_svc = get_diagnose_service()
             diagnostic = await diag_svc.get_diagnose()
         except Exception:
             log.exception("/api/diagnose runtime snapshot unavailable")
-            diagnostic = {"error": "diagnose service unavailable"}
+            diagnostic = {}
 
-        raw_system_errors = diagnostic.get("errors") if isinstance(diagnostic, dict) else None
-        raw_frontend_errors = diagnostic.get("frontend_errors") if isinstance(diagnostic, dict) else None
-        system_errors = raw_system_errors if isinstance(raw_system_errors, dict) else {}
-        frontend_errors = raw_frontend_errors if isinstance(raw_frontend_errors, dict) else {}
+        system_errors = diagnostic.get("errors", {}) if isinstance(diagnostic, dict) else {}
+        frontend_errors = diagnostic.get("frontend_errors", {}) if isinstance(diagnostic, dict) else {}
+        error_context = diag_svc.get_error_context(minutes=error_window_minutes, max_groups=error_groups)
+
         dashboard["error_burst_5min"] = system_errors.get("burst_5min", 0)
         dashboard["frontend_errors"] = frontend_errors
 
-        # Scoring in-progress count (from app state, not DB)
-        scoring_in_progress = 0
         if hasattr(request.app.state, "scoring_tracker"):
             try:
-                scoring_in_progress = len(request.app.state.scoring_tracker._store)
+                dashboard["scoring"]["in_progress"] = len(request.app.state.scoring_tracker._store)
             except Exception:
-                pass
-        dashboard["scoring"]["in_progress"] = scoring_in_progress
+                log.warning("scoring tracker snapshot failed", exc_info=True)
 
-        # Metrics snapshot
         metrics_snapshot = {}
         if hasattr(request.app.state, "metrics"):
             try:
@@ -172,26 +145,48 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
             except Exception:
                 log.exception("/api/diagnose metrics snapshot failed")
         dashboard["http"] = metrics_snapshot.get("requests", {})
-
         alerts = compute_alerts(dashboard)
 
         return {
+            "schema_version": 2,
             "version": APP_VERSION,
             "generated_at": now.isoformat(),
+            "summary": {
+                "status": "degraded" if alerts else "healthy",
+                "alerts": alerts,
+            },
+            "alerts": alerts,
             "windows": {
                 "llm": "rolling_24h",
                 "scoring": "rolling_24h_by_record_end_time",
                 "voice": "rolling_24h",
                 "business": "natural_day_asia_shanghai",
                 "metrics": "process_since_start",
-                "errors": "in_memory_process_ring_buffer",
+                "errors": f"rolling_{error_window_minutes}m_persistent_archive",
             },
-            "health": {"status": "ok"},
-            "summary": {"status": "degraded" if alerts else "healthy"},
-            "database": diagnostic.get("database", {}) if isinstance(diagnostic, dict) else {},
             "runtime": {
-                "llm_router": diagnostic.get("llm", {}) if isinstance(diagnostic, dict) else {},
-                "diagnose_cached_at": diagnostic.get("cached_at", "") if isinstance(diagnostic, dict) else "",
+                "uptime_seconds": diagnostic.get("server", {}).get("uptime_seconds", 0),
+                "database": diagnostic.get("database", {}),
+                "llm_router": diagnostic.get("llm", {}),
+                "active_sessions": diagnostic.get("active_sessions", 0),
+                "diagnose_cached_at": diagnostic.get("cached_at", ""),
+            },
+            "errors": {
+                "count": {
+                    "last_5min": system_errors.get("last_5min", 0),
+                    "last_hour": system_errors.get("last_hour", 0),
+                    "total_captured": system_errors.get("total_captured", 0),
+                    "unique_24h": system_errors.get("unique_24h", 0),
+                },
+                **error_context,
+            },
+            "frontend_errors": {
+                "count": {
+                    "last_5min": frontend_errors.get("last_5min", 0),
+                    "last_hour": frontend_errors.get("last_hour", 0),
+                    "total_captured": frontend_errors.get("total_captured", 0),
+                },
+                "groups": (frontend_errors.get("recent") or [])[:20],
             },
             "llm": dashboard["llm"],
             "scoring": dashboard["scoring"],
@@ -199,18 +194,6 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
             "voice_budget": dashboard["voice_budget"],
             "business": dashboard["business"],
             "metrics": metrics_snapshot,
-            "frontend_errors": frontend_errors,
-            "errors": {
-                "count": {
-                    "last_5min": system_errors.get("last_5min", 0),
-                    "last_hour": system_errors.get("last_hour", 0),
-                    "total_captured": system_errors.get("total_captured", 0),
-                    "unique_24h": system_errors.get("unique_24h", 0),
-                    "burst_5min": system_errors.get("burst_5min", 0),
-                },
-                "recent": (system_errors.get("recent") or []),
-            },
-            "alerts": alerts,
         }
     finally:
         db.close()
