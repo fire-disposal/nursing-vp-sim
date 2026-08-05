@@ -1,167 +1,191 @@
-"""
-诊断服务 —— 应用内错误日志收集 + 诊断数据快照
+"""Application diagnostics: bounded error capture, persistence and snapshots."""
 
-- ErrorCaptureHandler: 挂在 Python logging 上，实时捕获 ERROR+ 级别日志到内存环缓冲
-- DiagnoseService: 聚合服务诊断数据（服务器、DB、LLM、错误日志），带 TTL 缓存
-"""
+from __future__ import annotations
 
+import hashlib
 import logging
+import os
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from core.config import APP_VERSION
+from infra.error_archive import ErrorArchive
 
 log = logging.getLogger(__name__)
 
-# ── 常量 ───────────────────────────────────────────────────────────────────────
-
-_MAX_ERRORS = 2000  # 内存环缓冲最大错误条数
-_CACHE_TTL = 120  # 诊断快照缓存秒数
-_RECENT_ERRORS_N = 20  # 返回的最新错误数
-_DEDUP_WINDOW = 300  # 去重窗口秒数（5 分钟内相同 logger+message 合并）
-_DEDUP_HASH_HEAD = 200  # 去重 hash 的消息取前 N 字符
-_MSG_MAX = 4000  # 单条错误消息最大字符数
-_MSG_HEAD = 1200  # 截断时保留的头部字符数（含日志上下文）
-_PROCESS_START = time.time()  # 进程启动时间戳
+_MAX_ERRORS = 2000
+_CACHE_TTL = 120
+_RECENT_ERRORS_N = 20
+_DEDUP_WINDOW = 300
+_DEDUP_HASH_HEAD = 200
+_MSG_MAX = 4000
+_MSG_HEAD = 1200
+_PROCESS_START = time.time()
 
 
 def _truncate_message(msg: str) -> str:
-    """截断超长错误消息，但保留尾部——traceback 的根因行在末尾。"""
     if len(msg) <= _MSG_MAX:
         return msg
-    tail = _MSG_MAX - _MSG_HEAD - len("\n...[truncated]...\n")
-    return f"{msg[:_MSG_HEAD]}\n...[truncated]...\n{msg[-tail:]}"
+    marker = "\n...[truncated]...\n"
+    tail = _MSG_MAX - _MSG_HEAD - len(marker)
+    return f"{msg[:_MSG_HEAD]}{marker}{msg[-tail:]}"
 
 
-# ── 错误日志收集器 ──────────────────────────────────────────────────────────────
+def _fingerprint(logger_name: str, message: str) -> str:
+    normalized = f"{logger_name}\n{message[:_DEDUP_HASH_HEAD]}".encode("utf-8", errors="replace")
+    return hashlib.sha256(normalized).hexdigest()[:16]
 
 
 @dataclass
 class ErrorEntry:
-    """单条错误日志"""
-
     level: str
     logger: str
     message: str
-    time: str  # ISO format
-    timestamp: float  # unix seconds
+    time: str
+    timestamp: float
+    fingerprint: str
+    count: int = 1
+    first_seen: str = ""
 
 
 class ErrorCaptureHandler(logging.Handler):
-    """日志处理器：将 ERROR+ 级别日志缓存到内存环缓冲，带去重合并。"""
+    """Capture ERROR+ logs in memory and optionally in a bounded JSONL archive."""
 
-    def __init__(self, max_errors: int = _MAX_ERRORS):
+    def __init__(self, max_errors: int = _MAX_ERRORS, archive: ErrorArchive | None = None):
         super().__init__(level=logging.ERROR)
         self.buffer: deque[ErrorEntry] = deque(maxlen=max_errors)
-        self._dedup: dict[tuple[str, str], tuple[float, int]] = {}
+        self.archive = archive
+        self._dedup: dict[tuple[str, str], tuple[float, ErrorEntry]] = {}
         self.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-8s %(name)s %(message)s"))
 
-    def _dedup_key(self, logger: str, message: str) -> tuple[str, str]:
-        return (logger, message[:_DEDUP_HASH_HEAD])
+    def _dedup_key(self, logger_name: str, message: str) -> tuple[str, str]:
+        return logger_name, message[:_DEDUP_HASH_HEAD]
 
     def _prune_dedup(self, now: float) -> None:
-        stale = [k for k, (ts, _) in self._dedup.items() if now - ts > _DEDUP_WINDOW]
-        for k in stale:
-            del self._dedup[k]
+        stale = [key for key, (seen_at, _) in self._dedup.items() if now - seen_at > _DEDUP_WINDOW]
+        for key in stale:
+            del self._dedup[key]
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
-            msg = self.format(record)
-        except Exception:
-            msg = record.getMessage()
-        ts = time.time()
-        key = self._dedup_key(record.name, msg)
-        self._prune_dedup(ts)
-        if key in self._dedup:
-            _, count = self._dedup[key]
-            self._dedup[key] = (ts, count + 1)
-            return
-        self._dedup[key] = (ts, 1)
-        self.buffer.append(
-            ErrorEntry(
+            message = _truncate_message(self.format(record))
+            timestamp = float(record.created)
+            now_iso = datetime.fromtimestamp(timestamp, tz=UTC).isoformat()
+            key = self._dedup_key(record.name, message)
+            self._prune_dedup(timestamp)
+
+            existing = self._dedup.get(key)
+            if existing is not None:
+                _, entry = existing
+                entry.count += 1
+                entry.timestamp = timestamp
+                entry.time = now_iso
+                self._dedup[key] = (timestamp, entry)
+                return
+
+            entry = ErrorEntry(
                 level=record.levelname,
                 logger=record.name,
-                message=_truncate_message(msg),
-                time=datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
-                timestamp=record.created,
+                message=message,
+                time=now_iso,
+                timestamp=timestamp,
+                fingerprint=_fingerprint(record.name, message),
+                first_seen=now_iso,
             )
-        )
+            self.buffer.append(entry)
+            self._dedup[key] = (timestamp, entry)
+            if self.archive is not None:
+                self.archive.append(_serialize_entry(entry, version=APP_VERSION))
+        except Exception:
+            self.handleError(record)
 
-    def get_recent(self, n: int = _RECENT_ERRORS_N) -> list[dict]:
-        """返回最近的 N 条错误（不含时间戳字段）"""
-        entries = list(self.buffer)[-n:]
-        return [_strip_diagnose_entry(e) for e in entries]
+    def get_recent(self, n: int = _RECENT_ERRORS_N) -> list[dict[str, Any]]:
+        return [_serialize_entry(entry) for entry in list(self.buffer)[-n:]]
+
+    def _count_since(self, seconds: int) -> int:
+        cutoff = time.time() - seconds
+        return sum(entry.count for entry in self.buffer if entry.timestamp >= cutoff)
 
     @property
     def error_count_last_hour(self) -> int:
-        """过去 1 小时内的错误数（含去重计数）"""
-        cutoff = time.time() - 3600
-        return sum(1 for e in self.buffer if e.timestamp >= cutoff)
+        return self._count_since(3600)
 
     @property
     def error_count_last_5min(self) -> int:
-        """过去 5 分钟内的错误数（含去重计数）"""
-        cutoff = time.time() - 300
-        return sum(1 for e in self.buffer if e.timestamp >= cutoff)
+        return self._count_since(300)
 
     @property
     def unique_error_count_24h(self) -> int:
-        """过去 24 小时内不重复错误类型数"""
         cutoff = time.time() - 86400
-        return len({(e.logger, e.message[:_DEDUP_HASH_HEAD]) for e in self.buffer if e.timestamp >= cutoff})
+        return len({entry.fingerprint for entry in self.buffer if entry.timestamp >= cutoff})
 
     @property
     def error_burst_5min(self) -> int:
-        """过去 5 分钟错误突增计数（用于短窗口告警）"""
         return self.error_count_last_5min
 
 
-def _strip_diagnose_entry(e: ErrorEntry) -> dict:
-    return {"time": e.time, "level": e.level, "logger": e.logger, "message": e.message}
-
-
-# ── 诊断服务 ───────────────────────────────────────────────────────────────────
+def _serialize_entry(entry: ErrorEntry, *, version: str | None = None) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "time": entry.time,
+        "first_seen": entry.first_seen,
+        "level": entry.level,
+        "logger": entry.logger,
+        "message": entry.message,
+        "fingerprint": entry.fingerprint,
+        "count": entry.count,
+    }
+    if version is not None:
+        result["version"] = version
+    return result
 
 
 @dataclass
 class DiagnoseSnapshot:
-    """一次性诊断快照"""
-
-    server: dict = field(
+    server: dict[str, Any] = field(
         default_factory=lambda: {
             "version": APP_VERSION,
             "uptime_seconds": int(time.time() - _PROCESS_START),
         }
     )
-    database: dict | None = None
-    llm: dict | None = None
-    errors: dict | None = None
+    database: dict[str, Any] | None = None
+    llm: dict[str, Any] | None = None
+    errors: dict[str, Any] | None = None
     active_sessions: int = 0
     cached_at: str = ""
 
 
 class DiagnoseService:
-    """诊断数据聚合服务，带 TTL 缓存"""
-
-    def __init__(self):
+    def __init__(self) -> None:
         self._handler: ErrorCaptureHandler | None = None
-        self._cache: dict | None = None
-        self._cache_time: float = 0
+        self._archive: ErrorArchive | None = None
+        self._cache: dict[str, Any] | None = None
+        self._cache_time = 0.0
         self._app_ref = None
 
-    def install_handler(self):
-        """将 ErrorCaptureHandler 挂到 root logger"""
+    def install_handler(self) -> None:
         if self._handler is not None:
             return
-        self._handler = ErrorCaptureHandler()
+        archive_path = os.getenv("DIAGNOSTIC_ERROR_PATH", "/app/data/diagnostics/backend-errors.jsonl").strip()
+        if archive_path:
+            try:
+                max_mb = max(1, int(os.getenv("DIAGNOSTIC_ERROR_MAX_MB", "10")))
+                backup_count = max(1, int(os.getenv("DIAGNOSTIC_ERROR_BACKUPS", "3")))
+                self._archive = ErrorArchive(archive_path, max_bytes=max_mb * 1024 * 1024, backup_count=backup_count)
+            except Exception:
+                log.exception("Diagnostic error archive unavailable; continuing with memory buffer")
+        self._handler = ErrorCaptureHandler(archive=self._archive)
         logging.root.addHandler(self._handler)
-        log.info("ErrorCaptureHandler installed on root logger")
+        log.info("Diagnostic error capture installed (persistent=%s)", self._archive is not None)
 
-    def set_app(self, app):
-        """保存 FastAPI 引用，用于读取 llm_router / metrics 等状态"""
+    def set_app(self, app) -> None:
         self._app_ref = app
+
+    @property
+    def archive(self) -> ErrorArchive | None:
+        return self._archive
 
     @property
     def _active_sessions(self) -> int:
@@ -169,44 +193,37 @@ class DiagnoseService:
             return 0
         try:
             metrics = getattr(self._app_ref.state, "metrics", None)
-            if metrics:
-                snap = metrics.snapshot()
-                return snap.get("active_sessions", 0)
+            return metrics.snapshot().get("active_sessions", 0) if metrics else 0
         except Exception:
-            log.warning("Metrics snapshot _active_sessions failed", exc_info=True)
-        return 0
+            log.warning("Metrics active session snapshot failed", exc_info=True)
+            return 0
 
-    async def _db_status(self) -> dict:
+    async def _db_status(self) -> dict[str, Any]:
         import asyncio
 
-        def _check():
+        def _check() -> dict[str, Any]:
             try:
                 from sqlalchemy import text
-
                 from core.database import engine
 
                 pool = getattr(engine, "pool", None)
-                info: dict = {"connected": False, "pool_size": 0, "checked_out": 0}
+                info: dict[str, Any] = {"connected": False, "pool_size": 0, "checked_out": 0}
                 if pool:
-                    pool_size = getattr(pool, "size", 0)
-                    if callable(pool_size):
-                        pool_size = pool_size()
+                    size = getattr(pool, "size", 0)
                     checked_out = getattr(pool, "checkedout", 0)
-                    if callable(checked_out):
-                        checked_out = checked_out()
-                    info["pool_size"] = pool_size
-                    info["checked_out"] = checked_out
+                    info["pool_size"] = size() if callable(size) else size
+                    info["checked_out"] = checked_out() if callable(checked_out) else checked_out
                 with engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
                 info["connected"] = True
                 return info
-            except Exception as e:
-                return {"connected": False, "error": str(e)[:200]}
+            except Exception as exc:
+                return {"connected": False, "error": str(exc)[:200]}
 
         return await asyncio.to_thread(_check)
 
     @property
-    def _llm_status(self) -> dict:
+    def _llm_status(self) -> dict[str, Any]:
         if self._app_ref is None:
             return {"status": "unknown"}
         try:
@@ -215,61 +232,67 @@ class DiagnoseService:
                 return {"status": "not_loaded"}
             return {
                 "degraded_providers": router.degraded_count() if hasattr(router, "degraded_count") else 0,
-                "global_degraded": router.global_degraded if hasattr(router, "global_degraded") else False,
-                "degraded_by_reason": (router.degraded_by_reason() if hasattr(router, "degraded_by_reason") else {}),
+                "global_degraded": getattr(router, "global_degraded", False),
+                "degraded_by_reason": router.degraded_by_reason() if hasattr(router, "degraded_by_reason") else {},
             }
-        except Exception as e:
-            return {"status": "error", "detail": str(e)[:200]}
+        except Exception as exc:
+            return {"status": "error", "detail": str(exc)[:200]}
 
-    async def build_snapshot(self) -> dict:
-        """构建一次完整的诊断快照（不走缓存）"""
+    async def build_snapshot(self) -> dict[str, Any]:
         now_iso = datetime.now(UTC).isoformat()
-        err = None
         if self._handler:
-            err = {
+            errors = {
                 "last_5min": self._handler.error_count_last_5min,
                 "last_hour": self._handler.error_count_last_hour,
-                "total_captured": len(self._handler.buffer),
+                "total_captured": sum(entry.count for entry in self._handler.buffer),
                 "unique_24h": self._handler.unique_error_count_24h,
                 "burst_5min": self._handler.error_burst_5min,
-                "recent": self._handler.get_recent(_RECENT_ERRORS_N),
+                "recent": self._handler.get_recent(),
+                "persistent": self._archive is not None,
             }
         else:
-            err = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "unique_24h": 0, "burst_5min": 0, "recent": []}
+            errors = {
+                "last_5min": 0,
+                "last_hour": 0,
+                "total_captured": 0,
+                "unique_24h": 0,
+                "burst_5min": 0,
+                "recent": [],
+                "persistent": False,
+            }
 
-        fe_buffer = getattr(self._app_ref.state, "frontend_error_buffer", None) if self._app_ref else None
-        frontend_errors = (
-            fe_buffer.snapshot() if fe_buffer else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
-        )
-
-        ss = DiagnoseSnapshot(
+        frontend_buffer = getattr(self._app_ref.state, "frontend_error_buffer", None) if self._app_ref else None
+        frontend_errors = frontend_buffer.snapshot() if frontend_buffer else {
+            "last_5min": 0,
+            "last_hour": 0,
+            "total_captured": 0,
+            "recent": [],
+        }
+        snapshot = DiagnoseSnapshot(
             database=await self._db_status(),
             llm=self._llm_status,
-            errors=err,
+            errors=errors,
             active_sessions=self._active_sessions,
             cached_at=now_iso,
         )
         return {
-            "server": ss.server,
-            "database": ss.database,
-            "llm": ss.llm,
-            "errors": ss.errors,
+            "server": snapshot.server,
+            "database": snapshot.database,
+            "llm": snapshot.llm,
+            "errors": snapshot.errors,
             "frontend_errors": frontend_errors,
-            "active_sessions": ss.active_sessions,
-            "cached_at": ss.cached_at,
+            "active_sessions": snapshot.active_sessions,
+            "cached_at": snapshot.cached_at,
         }
 
-    async def get_diagnose(self) -> dict:
-        """获取诊断数据（带 TTL 缓存）"""
+    async def get_diagnose(self, *, fresh: bool = False) -> dict[str, Any]:
         now = time.time()
-        if self._cache and (now - self._cache_time) < _CACHE_TTL:
+        if not fresh and self._cache and now - self._cache_time < _CACHE_TTL:
             return self._cache
         self._cache = await self.build_snapshot()
         self._cache_time = now
         return self._cache
 
-
-# ── 单例 ──────────────────────────────────────────────────────────────────────
 
 _service: DiagnoseService | None = None
 
