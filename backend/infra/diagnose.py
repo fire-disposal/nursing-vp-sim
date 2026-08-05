@@ -22,6 +22,7 @@ _DEDUP_WINDOW = 300
 _DEDUP_HASH_HEAD = 300
 _MSG_MAX = 4000
 _MSG_HEAD = 1200
+_MAX_GROUP_MESSAGES = 5
 _ARCHIVE_PATH = os.getenv("DIAGNOSTIC_ERROR_ARCHIVE", "/app/data/diagnostics/backend-errors.jsonl")
 _ARCHIVE_MAX_BYTES = int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_MAX_MB", "5")) * 1024 * 1024
 _ARCHIVE_BACKUPS = int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_BACKUPS", "3"))
@@ -249,13 +250,15 @@ class DiagnoseService:
             count = max(1, int(event.get("count", 1) or 1))
             first_seen = str(event.get("first_seen") or event.get("time") or "")
             last_seen = str(event.get("last_seen") or event.get("time") or "")
+            msg = str(event.get("message", ""))[:_MSG_MAX]
             group = groups.setdefault(
                 fp,
                 {
                     "fingerprint": fp,
                     "level": event.get("level", "ERROR"),
                     "logger": event.get("logger", ""),
-                    "message": str(event.get("message", ""))[:_MSG_MAX],
+                    "message": msg,
+                    "messages": [],
                     "count": 0,
                     "first_seen": first_seen,
                     "last_seen": last_seen,
@@ -266,7 +269,11 @@ class DiagnoseService:
                 group["first_seen"] = first_seen
             if last_seen and last_seen > group["last_seen"]:
                 group["last_seen"] = last_seen
-                group["message"] = str(event.get("message", ""))[:_MSG_MAX]
+                group["message"] = msg
+            # 保留变体消息（去重、按首次出现顺序、上限 _MAX_GROUP_MESSAGES 条），
+            # 避免同指纹的早期消息被 last_seen 单条覆盖而丢失根因线索。
+            if msg not in group["messages"] and len(group["messages"]) < _MAX_GROUP_MESSAGES:
+                group["messages"].append(msg)
 
         ordered = sorted(groups.values(), key=lambda item: (item["last_seen"], item["count"]), reverse=True)
         selected = ordered[:max_groups]
