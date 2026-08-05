@@ -1,0 +1,265 @@
+name: PiOps repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_type:
+        description: 固定工作流类型
+        required: true
+        type: choice
+        options:
+          - fix_feedback
+          - diagnose_current
+      feedback_id:
+        description: fix_feedback 时必填的反馈 ID
+        required: false
+        type: string
+      error_window_minutes:
+        description: 线上错误窗口（分钟）
+        required: true
+        default: "60"
+        type: string
+
+concurrency:
+  group: piops-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  collect-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      DIAGNOSE_URL: ${{ vars.PIOPS_DIAGNOSE_URL }}
+      FEEDBACK_URL: ${{ vars.PIOPS_FEEDBACK_URL }}
+      DIAGNOSE_TOKEN: ${{ secrets.PIOPS_DIAGNOSE_TOKEN }}
+      FEEDBACK_TOKEN: ${{ secrets.PIOPS_FEEDBACK_TOKEN }}
+      TASK_TYPE: ${{ inputs.task_type }}
+      FEEDBACK_ID: ${{ inputs.feedback_id }}
+      ERROR_WINDOW: ${{ inputs.error_window_minutes }}
+    steps:
+      - name: Validate configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DIAGNOSE_URL"
+          test -n "$DIAGNOSE_TOKEN"
+          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
+            test -n "$FEEDBACK_URL"
+            test -n "$FEEDBACK_TOKEN"
+            [[ "$FEEDBACK_ID" =~ ^[0-9]+$ ]]
+          fi
+          [[ "$ERROR_WINDOW" =~ ^[0-9]+$ ]]
+          (( ERROR_WINDOW >= 1 && ERROR_WINDOW <= 1440 ))
+
+      - name: Fetch bounded production context
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p context
+          curl --fail --silent --show-error --max-time 20 --retry 2 \
+            --get "$DIAGNOSE_URL" \
+            --data-urlencode "token=$DIAGNOSE_TOKEN" \
+            --data-urlencode "error_window_minutes=$ERROR_WINDOW" \
+            --data-urlencode "error_groups=20" \
+            --output context/diagnostics.json
+
+          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
+            curl --fail --silent --show-error --max-time 20 --retry 2 \
+              --get "$FEEDBACK_URL" \
+              --data-urlencode "token=$FEEDBACK_TOKEN" \
+              --data-urlencode "include_fixed=true" \
+              --data-urlencode "limit=200" \
+              --output context/feedback-list.json
+            python .github/piops/select_feedback.py \
+              context/feedback-list.json "$FEEDBACK_ID" context/feedback.json
+            rm context/feedback-list.json
+          else
+            printf '{"feedback":null}\n' > context/feedback.json
+          fi
+
+          python -m json.tool context/diagnostics.json >/dev/null
+          python -m json.tool context/feedback.json >/dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piops-context
+          path: context
+          retention-days: 2
+          if-no-files-found: error
+
+  pi-work:
+    needs: collect-context
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+      DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-v4-flash' }}
+      PI_CODING_AGENT_DIR: ${{ runner.temp }}/pi-agent
+      PI_SKIP_VERSION_CHECK: "1"
+      PI_TELEMETRY: "0"
+      TASK_TYPE: ${{ inputs.task_type }}
+      FEEDBACK_ID: ${{ inputs.feedback_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: piops-context
+          path: .piops-runtime/context
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: latest
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Pi
+        run: npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+
+      - name: Configure DeepSeek-compatible provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY"
+          test -n "$DEEPSEEK_BASE_URL"
+          mkdir -p "$PI_CODING_AGENT_DIR"
+          python .github/piops/configure_pi.py \
+            --base-url "$DEEPSEEK_BASE_URL" \
+            --model "$DEEPSEEK_MODEL" \
+            --output "$PI_CODING_AGENT_DIR/models.json"
+
+      - name: Build fixed task prompt
+        run: |
+          python .github/piops/build_prompt.py \
+            --task-type "$TASK_TYPE" \
+            --feedback-id "$FEEDBACK_ID" \
+            --diagnostics .piops-runtime/context/diagnostics.json \
+            --feedback .piops-runtime/context/feedback.json \
+            --output .piops-runtime/prompt.md
+
+      - name: Run Pi in temporary source workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          pi --print \
+            --no-session \
+            --no-extensions \
+            --no-skills \
+            --no-prompt-templates \
+            --no-themes \
+            --no-context-files \
+            --provider piops-deepseek \
+            --model "$DEEPSEEK_MODEL" \
+            --thinking high \
+            --tools read,grep,find,ls,edit,write,bash \
+            "$(cat .piops-runtime/prompt.md)" \
+            | tee .piops-runtime/pi-output.txt
+
+      - name: Guard and validate proposal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/piops/check_diff.py
+          bash .github/piops/validate.sh
+          test -s .piops-runtime/pi-report.md
+
+      - name: Export proposal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -N .
+          git diff --binary -- . \
+            ':(exclude).piops-runtime/**' \
+            > .piops-runtime/pi.patch
+          test -s .piops-runtime/pi.patch
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piops-proposal
+          path: |
+            .piops-runtime/pi.patch
+            .piops-runtime/pi-report.md
+            .piops-runtime/pi-output.txt
+          retention-days: 7
+          if-no-files-found: error
+
+  publish-pr:
+    needs: pi-work
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: piops-proposal
+          path: .piops-runtime
+
+      - name: Apply validated patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .piops-runtime/pi.patch
+          git apply .piops-runtime/pi.patch
+
+      - name: Push proposal branch
+        id: branch
+        shell: bash
+        env:
+          TASK_TYPE: ${{ inputs.task_type }}
+          FEEDBACK_ID: ${{ inputs.feedback_id }}
+        run: |
+          set -euo pipefail
+          branch="piops/${TASK_TYPE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "piops[bot]"
+          git config user.email "piops[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
+            message="fix: propose repair for feedback ${FEEDBACK_ID}"
+          else
+            message="fix: propose repair from production diagnostics"
+          fi
+          git commit -m "$message"
+          git push origin "$branch"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ steps.branch.outputs.name }}
+          TASK_TYPE: ${{ inputs.task_type }}
+          FEEDBACK_ID: ${{ inputs.feedback_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
+            title="fix: PiOps proposal for feedback ${FEEDBACK_ID}"
+          else
+            title="fix: PiOps proposal from production diagnostics"
+          fi
+          gh pr create \
+            --draft \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "$HEAD_BRANCH" \
+            --title "$title" \
+            --body-file .piops-runtime/pi-report.md
