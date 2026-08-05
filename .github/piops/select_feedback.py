@@ -35,6 +35,8 @@ def main() -> None:
         "replied_at",
         "auto_fix_attempted",
         "auto_fix_at",
+        "image_ids",
+        "image_count",
     }
     cleaned: dict[str, Any] = {key: value for key, value in match.items() if key in allowed}
     Path(output).write_text(

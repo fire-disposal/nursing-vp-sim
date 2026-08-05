@@ -154,6 +154,12 @@ jobs:
             --model "$DEEPSEEK_MODEL" \
             --output "$PI_CODING_AGENT_DIR/models.json"
 
+      - name: Resolve checkout baseline
+        id: baseline
+        run: |
+          DESCRIBE=$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD)
+          echo "checkout_baseline=$DESCRIBE" >> "$GITHUB_OUTPUT"
+
       - name: Build fixed task prompt
         run: |
           python .github/piops/build_prompt.py \
@@ -162,6 +168,7 @@ jobs:
             --diagnostics .piops-runtime/context/diagnostics.json \
             --feedback .piops-runtime/context/feedback.json \
             --focus-hint "$FOCUS_HINT" \
+            --checkout-baseline "${{ steps.baseline.outputs.checkout_baseline }}" \
             --output .piops-runtime/prompt.md
 
       - name: Run Pi in temporary source workspace
