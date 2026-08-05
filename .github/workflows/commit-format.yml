@@ -58,6 +58,20 @@ jobs:
   # ── Migration sanity (mirrors husky pre-commit alembic + autogen check) ──
   migration:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v7
 
@@ -103,6 +117,19 @@ jobs:
           done
           [ $FAIL -eq 0 ] || exit 1
           echo "✓ Migration directory contract OK"
+
+      - name: Alembic roundtrip (only when migrations changed)
+        run: |
+          cd backend
+          git fetch origin "${GITHUB_BASE_REF:-master}" --depth=1 2>/dev/null || true
+          FILES=$(git diff --name-only "origin/${GITHUB_BASE_REF:-master}"...HEAD -- 'migrations/versions/**/*.py' 2>/dev/null || true)
+          [ -n "$FILES" ] || { echo "No migration files changed — skipping roundtrip"; exit 0; }
+          pip install -q alembic psycopg sqlalchemy >/dev/null 2>&1
+          export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+          alembic upgrade head || { echo "::error::alembic upgrade head failed"; exit 1; }
+          alembic downgrade base || { echo "::error::alembic downgrade base failed — irreversible migration?"; exit 1; }
+          alembic upgrade head || { echo "::error::alembic re-upgrade failed after full downgrade"; exit 1; }
+          echo "✓ alembic roundtrip (base → head → base → head)"
 
   # ── Backend quality (mirrors husky pre-commit: ruff + ty) ───────────────
   backend:

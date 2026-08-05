@@ -12,9 +12,9 @@
 
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
-| `commit-format.yml` | PR → master（自动） | 提交格式 + 代码质量门禁 | — |
-| `deploy-pr-staging.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
-| `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
+| `commit-format.yml` | PR → master（自动） | 提交格式 + 代码质量门禁 + 迁移往返 | — |
+| `piops-auto-deploy.yml` | `piops/*` 分支 PR 合并（自动） | 打 tag → dispatch deploy-staging | — |
+| `deploy-staging.yml` | 推送 `v*` tag / `workflow_dispatch` | 测试服 | `test.205716.xyz` |
 | `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback-production.yml` | `workflow_dispatch`（手动） | 正式服 / 测试服定向回滚 | `iomt.205716.xyz` / `test.205716.xyz` |
 
@@ -23,14 +23,15 @@
 ```
 PR 创建 → commit-format.yml 门禁
   ├─ commit-msg 格式检查
-  ├─ migration 完整性
+  ├─ migration 完整性 + alembic 往返（仅迁移变更时）
   ├─ ruff + ty (backend)
   └─ biome + tsc (frontend)
      │
      ▼ 通过后合并 PR
-deploy-pr-staging.yml 自动打 tag
+     ├─ piops/* 分支 → piops-auto-deploy 自动打 tag + dispatch deploy-staging
+     └─ 其他分支 → 人工 `pnpm run tag` 推 tag（本地 pre-push 做迁移往返）
      │
-     ▼ deploy-staging.yml 自动触发
+     ▼ deploy-staging.yml
    构建镜像 → 部署到测试服（~3min）
      │
      ▼ 验证通过
