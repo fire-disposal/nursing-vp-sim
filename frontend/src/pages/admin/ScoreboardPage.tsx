@@ -225,6 +225,7 @@ export default function ScoreboardPage() {
 		queryKey: queryKeys.scoreboard.ranking({
 			case_id: scope.case_id,
 			class_id: scope.class_id,
+			assignment_id: scope.assignment_id,
 			assignment_status: scope.assignment_status,
 			include_free: scope.include_free,
 			search: search || null,
@@ -237,6 +238,7 @@ export default function ScoreboardPage() {
 			getScoreboardRanking({
 				case_id: scope.case_id,
 				class_id: scope.class_id,
+				assignment_id: scope.assignment_id,
 				assignment_status: scope.assignment_status,
 				include_free: scope.include_free,
 				search: search || null,
