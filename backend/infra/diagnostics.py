@@ -155,6 +155,7 @@ async def diagnose(
                 "status": "degraded" if alerts else "healthy",
                 "alerts": alerts,
             },
+            "alerts": alerts,
             "windows": {
                 "llm": "rolling_24h",
                 "scoring": "rolling_24h_by_record_end_time",
@@ -174,8 +175,8 @@ async def diagnose(
                 "count": {
                     "last_5min": system_errors.get("last_5min", 0),
                     "last_hour": system_errors.get("last_hour", 0),
-                    "buffered_groups": system_errors.get("total_captured", 0),
-                    "unique_24h_in_process": system_errors.get("unique_24h", 0),
+                    "total_captured": system_errors.get("total_captured", 0),
+                    "unique_24h": system_errors.get("unique_24h", 0),
                 },
                 **error_context,
             },
@@ -183,7 +184,7 @@ async def diagnose(
                 "count": {
                     "last_5min": frontend_errors.get("last_5min", 0),
                     "last_hour": frontend_errors.get("last_hour", 0),
-                    "buffered_groups": frontend_errors.get("total_captured", 0),
+                    "total_captured": frontend_errors.get("total_captured", 0),
                 },
                 "groups": (frontend_errors.get("recent") or [])[:20],
             },
