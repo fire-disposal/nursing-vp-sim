@@ -34,6 +34,7 @@ DEEPSEEK_API_KEY=...
 - `fix_feedback`：填写反馈 ID，固定读取该反馈和当前诊断后尝试最小修复。
 - `diagnose_current`：只根据当前生产诊断尝试修复；证据不足时工作流应失败而不是创建空 PR。
 - `error_window_minutes`：线上错误窗口，默认 60，服务端和工作流都限制最大 1440。
+- `focus_hint`（可选）：操作员排查方向提示，如 `LLM 余额告警频繁` 或 `反馈集中在训练页`。两种任务模式均可用；为空时 Pi 仅依据证据自行判断方向。提示作为可信操作员指令注入 prompt（非 UNTRUSTED_EVIDENCE），单行化并截断至 500 字符。
 
 ## 修改边界
 

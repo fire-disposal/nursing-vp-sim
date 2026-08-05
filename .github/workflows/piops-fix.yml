@@ -19,6 +19,10 @@ on:
         required: true
         default: "60"
         type: string
+      focus_hint:
+        description: 可选排查方向提示（如 "LLM 余额告警频繁"、"反馈集中在训练页"），两种任务模式均可用
+        required: false
+        type: string
 
 concurrency:
   group: piops-${{ github.repository }}
@@ -109,6 +113,7 @@ jobs:
       PI_TELEMETRY: "0"
       TASK_TYPE: ${{ inputs.task_type }}
       FEEDBACK_ID: ${{ inputs.feedback_id }}
+      FOCUS_HINT: ${{ inputs.focus_hint }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -156,6 +161,7 @@ jobs:
             --feedback-id "$FEEDBACK_ID" \
             --diagnostics .piops-runtime/context/diagnostics.json \
             --feedback .piops-runtime/context/feedback.json \
+            --focus-hint "$FOCUS_HINT" \
             --output .piops-runtime/prompt.md
 
       - name: Run Pi in temporary source workspace
