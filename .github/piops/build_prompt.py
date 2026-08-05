@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 _MAX_DIAGNOSTICS_CHARS = 240_000
-_MAX_FEEDBACK_CHARS = 20_000
 _MAX_FOCUS_HINT_CHARS = 500
 
 # 只保留与"定位代码缺陷"相关的诊断字段，砍掉 metrics/资源/预算类噪音。
@@ -48,10 +47,7 @@ def _sanitize_focus_hint(hint: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task-type", choices=("fix_feedback", "diagnose_current"), required=True)
-    parser.add_argument("--feedback-id", default="")
     parser.add_argument("--diagnostics", required=True)
-    parser.add_argument("--feedback", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--focus-hint", default="", help="可选操作员排查方向提示（可信，非证据）")
     parser.add_argument("--checkout-baseline", default="", help="checkout 源码的 git describe 基线（如 v2026.08.05-3）")
@@ -59,31 +55,15 @@ def main() -> None:
     args = parser.parse_args()
 
     diagnostics = _read_json(args.diagnostics, _MAX_DIAGNOSTICS_CHARS)
-    feedback = _read_json(args.feedback, _MAX_FEEDBACK_CHARS)
     focus_hint = _sanitize_focus_hint(args.focus_hint)
     objective = (
-        f"Investigate feedback ID {args.feedback_id} and implement the smallest justified repair."
-        if args.task_type == "fix_feedback"
-        else "Investigate the current production diagnostic evidence and implement a repair only when a clear code defect is supported."
+        "Investigate the current diagnostic evidence and implement a repair only when a clear code defect is supported."
     )
     focus_section = (
         f"\nOperator investigation focus (trusted, provided by the workflow operator):\n{focus_hint}"
         if focus_hint
         else "\nNo operator investigation focus was provided. Determine the direction from the evidence alone."
     )
-
-    # 反馈附图提示：Pi 无读图工具，但至少应知道反馈带图，可提示补充线索。
-    feedback_note = ""
-    fb_data = feedback.get("feedback") if isinstance(feedback, dict) else None
-    if isinstance(fb_data, dict):
-        img_ids = fb_data.get("image_ids") or []
-        img_count = fb_data.get("image_count") or 0
-        n = max(len(img_ids), img_count)
-        if n > 0:
-            feedback_note = (
-                f"\nNote: this feedback includes {n} screenshot(s) (image_ids={json.dumps(img_ids, ensure_ascii=False)}). "
-                "Image content is not available to you; consider whether the referenced UI area is identifiable from the text alone."
-            )
 
     # 版本一致性警示：checkout 是 master（可能领先/落后线上 tag）。
     # 不一致时 Pi 可能在错误的基线上修"线上问题"。
@@ -128,14 +108,9 @@ Rules:
 7. If evidence is insufficient for a safe repair, make no source changes and explain the missing evidence.
 8. Write a concise Markdown report to `.piops-runtime/pi-report.md` with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback.
 
-<UNTRUSTED_EVIDENCE kind="production_diagnostics">
+<UNTRUSTED_EVIDENCE kind="diagnostics">
 {json.dumps(_filter_diagnostics(diagnostics), ensure_ascii=False, indent=2)}
 </UNTRUSTED_EVIDENCE>
-
-<UNTRUSTED_EVIDENCE kind="user_feedback">
-{json.dumps(feedback, ensure_ascii=False, indent=2)}
-</UNTRUSTED_EVIDENCE>
-{feedback_note}
 """
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

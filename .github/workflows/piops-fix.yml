@@ -3,28 +3,17 @@ name: PiOps repair
 on:
   workflow_dispatch:
     inputs:
-      task_type:
-        description: 固定工作流类型
-        required: true
-        type: choice
-        options:
-          - fix_feedback
-          - diagnose_current
-      feedback_id:
-        description: fix_feedback 时必填的反馈 ID
-        required: false
-        type: string
       error_window_minutes:
         description: 线上错误窗口（分钟）
         required: true
         default: "60"
         type: string
       focus_hint:
-        description: 可选排查方向提示（如 "LLM 余额告警频繁"、"反馈集中在训练页"），两种任务模式均可用
+        description: 可选排查方向提示
         required: false
         type: string
       target_env:
-        description: 诊断数据来源环境 — 测试服更易暴露问题，默认推荐
+        description: 诊断数据来源（默认测试服）
         required: true
         type: choice
         default: staging
@@ -44,11 +33,7 @@ jobs:
       contents: read
     env:
       DIAGNOSE_URL: ${{ inputs.target_env == 'staging' && vars.PIOPS_STAGING_DIAGNOSE_URL || vars.PIOPS_DIAGNOSE_URL }}
-      FEEDBACK_URL: ${{ inputs.target_env == 'staging' && vars.PIOPS_STAGING_FEEDBACK_URL || vars.PIOPS_FEEDBACK_URL }}
       DIAGNOSE_TOKEN: ${{ secrets.PIOPS_DIAGNOSE_TOKEN }}
-      FEEDBACK_TOKEN: ${{ secrets.PIOPS_FEEDBACK_TOKEN }}
-      TASK_TYPE: ${{ inputs.task_type }}
-      FEEDBACK_ID: ${{ inputs.feedback_id }}
       ERROR_WINDOW: ${{ inputs.error_window_minutes }}
       TARGET_ENV: ${{ inputs.target_env }}
     steps:
@@ -64,11 +49,6 @@ jobs:
           set -euo pipefail
           test -n "$DIAGNOSE_URL"
           test -n "$DIAGNOSE_TOKEN"
-          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
-            test -n "$FEEDBACK_URL"
-            test -n "$FEEDBACK_TOKEN"
-            [[ "$FEEDBACK_ID" =~ ^[0-9]+$ ]]
-          fi
           [[ "$ERROR_WINDOW" =~ ^[0-9]+$ ]]
           (( ERROR_WINDOW >= 1 && ERROR_WINDOW <= 1440 ))
 
@@ -84,22 +64,7 @@ jobs:
             --data-urlencode "error_groups=20" \
             --output context/diagnostics.json
 
-          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
-            curl --fail --silent --show-error --max-time 20 --retry 2 \
-              --get "$FEEDBACK_URL" \
-              --data-urlencode "token=$FEEDBACK_TOKEN" \
-              --data-urlencode "include_fixed=true" \
-              --data-urlencode "limit=200" \
-              --output context/feedback-list.json
-            python .github/piops/select_feedback.py \
-              context/feedback-list.json "$FEEDBACK_ID" context/feedback.json
-            rm context/feedback-list.json
-          else
-            printf '{"feedback":null}\n' > context/feedback.json
-          fi
-
           python -m json.tool context/diagnostics.json >/dev/null
-          python -m json.tool context/feedback.json >/dev/null
 
       - uses: actions/upload-artifact@v7
         with:
@@ -120,8 +85,6 @@ jobs:
       DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-v4-flash' }}
       PI_SKIP_VERSION_CHECK: "1"
       PI_TELEMETRY: "0"
-      TASK_TYPE: ${{ inputs.task_type }}
-      FEEDBACK_ID: ${{ inputs.feedback_id }}
       FOCUS_HINT: ${{ inputs.focus_hint }}
       TARGET_ENV: ${{ inputs.target_env }}
     steps:
@@ -173,10 +136,7 @@ jobs:
       - name: Build fixed task prompt
         run: |
           python .github/piops/build_prompt.py \
-            --task-type "$TASK_TYPE" \
-            --feedback-id "$FEEDBACK_ID" \
             --diagnostics .piops-runtime/context/diagnostics.json \
-            --feedback .piops-runtime/context/feedback.json \
             --focus-hint "$FOCUS_HINT" \
             --checkout-baseline "${{ steps.baseline.outputs.checkout_baseline }}" \
             --target-env "$TARGET_ENV" \
@@ -259,22 +219,15 @@ jobs:
         id: branch
         shell: bash
         env:
-          TASK_TYPE: ${{ inputs.task_type }}
-          FEEDBACK_ID: ${{ inputs.feedback_id }}
           TARGET_ENV: ${{ inputs.target_env }}
         run: |
           set -euo pipefail
-          branch="piops/${TARGET_ENV}-${TASK_TYPE}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          branch="piops/${TARGET_ENV}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git config user.name "piops[bot]"
           git config user.email "piops[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add -A
-          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
-            message="fix: propose repair for feedback ${FEEDBACK_ID}"
-          else
-            message="fix: propose repair from production diagnostics"
-          fi
-          git commit -m "$message"
+          git commit -m "fix: propose repair from production diagnostics"
           git push origin "$branch"
           echo "name=$branch" >> "$GITHUB_OUTPUT"
 
@@ -282,17 +235,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ steps.branch.outputs.name }}
-          TASK_TYPE: ${{ inputs.task_type }}
-          FEEDBACK_ID: ${{ inputs.feedback_id }}
           TARGET_ENV: ${{ inputs.target_env }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$TASK_TYPE" == "fix_feedback" ]]; then
-            title="fix: [${TARGET_ENV}] PiOps proposal for feedback ${FEEDBACK_ID}"
-          else
-            title="fix: [${TARGET_ENV}] PiOps proposal from diagnostics"
-          fi
+          title="fix: [${TARGET_ENV}] PiOps proposal from diagnostics"
           gh pr create \
             --draft \
             --base "${{ github.event.repository.default_branch }}" \

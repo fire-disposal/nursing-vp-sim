@@ -1,23 +1,21 @@
 # PiOps GitHub Actions 工作流
 
-`PiOps repair` 是一个手动触发的一次性修复工作流。GitHub Runner checkout 当前默认分支，读取线上诊断与指定反馈，运行临时 Pi 实例，完成受控代码修改和验证，最后创建草稿 PR。Runner 结束后不保留 Agent 工作区。
+`PiOps repair` 是手动触发的一次性修复工作流：Runner checkout 默认分支，读取线上诊断，运行临时 Pi 实例完成受控修复与验证，最后创建草稿 PR。Runner 结束后不保留 Agent 工作区。
 
 ## Repository variables
 
 ```text
 PIOPS_DIAGNOSE_URL=https://your-domain.example/api/diagnose
-PIOPS_FEEDBACK_URL=https://your-domain.example/api/feedback/bot
 DEEPSEEK_BASE_URL=https://your-openai-compatible-endpoint.example/v1
 DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-模型 ID 必须与外部 API 实际暴露的 ID 一致。默认值只是项目约定，不代表所有代理服务都使用同一名称。
+模型 ID 必须与外部 API 实际暴露的 ID 一致。
 
 ## Repository secrets
 
 ```text
 PIOPS_DIAGNOSE_TOKEN=...
-PIOPS_FEEDBACK_TOKEN=...
 DEEPSEEK_API_KEY=...
 ```
 
@@ -31,10 +29,11 @@ DEEPSEEK_API_KEY=...
 
 在 GitHub Actions 中选择 `PiOps repair`：
 
-- `fix_feedback`：填写反馈 ID，固定读取该反馈和当前诊断后尝试最小修复。
-- `diagnose_current`：只根据当前生产诊断尝试修复；证据不足时工作流应失败而不是创建空 PR。
-- `error_window_minutes`：线上错误窗口，默认 60，服务端和工作流都限制最大 1440。
-- `focus_hint`（可选）：操作员排查方向提示，如 `LLM 余额告警频繁` 或 `反馈集中在训练页`。两种任务模式均可用；为空时 Pi 仅依据证据自行判断方向。提示作为可信操作员指令注入 prompt（非 UNTRUSTED_EVIDENCE），单行化并截断至 500 字符。
+- `error_window_minutes`：线上错误窗口，默认 60，上限 1440。
+- `focus_hint`（可选）：操作员排查方向提示，如 `LLM 余额告警频繁`。为空时 Pi 仅依据证据自行判断。
+- `target_env`：诊断数据来源（staging 或 production），默认 staging。
+
+证据不足时工作流应失败而不是创建空 PR。
 
 ## 修改边界
 
@@ -52,4 +51,4 @@ DEEPSEEK_API_KEY=...
 
 ## 安全边界
 
-诊断与反馈均作为 `UNTRUSTED_EVIDENCE` 输入模型。它们可以影响分析结论，但不能改变工作流、工具白名单或发布步骤。Pi 的 Bash 仍然具有当前 Runner 的进程权限，因此不要在 `pi-work` Job 中加入生产 token 或仓库写 token。
+诊断作为 `UNTRUSTED_EVIDENCE` 输入模型：可影响分析结论，但不能改变工作流、工具白名单或发布步骤。Pi 的 Bash 具有当前 Runner 的进程权限，`pi-work` 禁止加入生产 token 或仓库写 token。
