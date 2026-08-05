@@ -1,0 +1,15 @@
+Repair complete. Summary:
+
+## Defect confirmed and fixed
+
+**Root cause:** In `ScoreboardPage.tsx`, the 作业 (assignment) filter updated the URL param and flowed into `scope`, but the ranking `useQuery` omitted `assignment_id` from both its request params and its query cache key. The backend `/api/scoreboard/ranking`, the frontend API layer (`getScoreboardRanking` → `ScoreboardRankingParams`), and the query-key builder all already supported it — only the page's wiring was missing.
+
+**Version check:** Checkout is 4 commits ahead of reported production `v2026.08.05-6`, but the only commit touching this file (83d0d177) predates the tag, and `git show v2026.08.05-6:...` confirms the identical defect exists at the production tag — the repair is valid for both.
+
+**Changes (minimal, 2 lines):**
+- `frontend/src/pages/admin/ScoreboardPage.tsx` — added `assignment_id: scope.assignment_id` to both the `queryKeys.scoreboard.ranking(...)` params and the `getScoreboardRanking(...)` call, mirroring the correct pattern already used by `StudentTrendDialog`.
+- `frontend/src/__tests__/admin/ScoreboardPage.test.tsx` — new focused test (3 tests) asserting the ranking request carries the selected `assignment_id` / `null`.
+
+**Validation:** `tsc --noEmit` ✅ · `biome lint` ✅ · full vitest suite 330 passed ✅ · `vite build` ✅
+
+Report written to `.piops-runtime/pi-report.md`.
