@@ -6,7 +6,9 @@ import { ChatArea } from "@/components/training/ChatArea";
 import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
-import { getPatientPortraitUrl } from "@/utils/patient-portrait";
+import { getPatientAvatar } from "@/utils/avatar";
+// 暂停使用基于情绪切换的人像变体，保留实现以便后续恢复。
+// import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { cn } from "@/lib/utils";
 import { useToolBridge, waitForPendingToolRequests } from "@/hooks/useToolBridge";
@@ -121,10 +123,10 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.setRecordId(recordNum);
 	}, [recordNum]);
 
-	// ── Portrait ──
+	// 暂时停用动态病人头像：论文截图使用稳定的 PNG 真人风格头像。
 	useEffect(() => {
 		if (patient) {
-			getTrainingState().setPortraitUrl(getPatientPortraitUrl(patient, null));
+			getTrainingState().setPortraitUrl(getPatientAvatar(patient));
 		}
 	}, [patient]);
 
@@ -240,9 +242,10 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 						data.cooperation,
 						(data.dominant_state as Emotion4DLabel) ?? "neutral",
 					);
-					if (patient && data.dominant_state) {
-						store.setPortraitUrl(getPatientPortraitUrl(patient, data.dominant_state));
-					}
+					// 暂时停用动态病人头像，保留情绪状态更新。
+					// if (patient && data.dominant_state) {
+					// 	store.setPortraitUrl(getPatientPortraitUrl(patient, data.dominant_state));
+					// }
 					return;
 				}
 				// 回退：v2 格式
@@ -254,9 +257,10 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				if (data.trust != null && data.comfort != null) {
 					store.setTrustComfort(data.trust, data.comfort);
 				}
-				if (patient && data.state) {
-					store.setPortraitUrl(getPatientPortraitUrl(patient, data.state));
-				}
+				// 暂时停用动态病人头像，保留情绪状态更新。
+				// if (patient && data.state) {
+				// 	store.setPortraitUrl(getPatientPortraitUrl(patient, data.state));
+				// }
 			},
 		));
 
