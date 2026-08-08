@@ -33,7 +33,7 @@ DEEPSEEK_API_KEY=...
 - `focus_hint`（可选）：操作员排查方向提示，如 `LLM 余额告警频繁`。为空时 Pi 仅依据证据自行判断。
 - `target_env`：诊断数据来源（staging 或 production），默认 staging。
 
-证据不足时工作流应失败而不是创建空 PR。
+证据不足或不适合安全修复时，Pi 必须在 `docs/piops/` 新增一份中文调查报告，同时保留 `.piops-runtime/pi-report.md` 作为本次运行的机器报告和 PR 描述。文档变更本身可以形成审阅用 PR；不得为了通过校验伪造源码修复。
 
 ## 修改边界
 

@@ -105,8 +105,8 @@ Rules:
 4. Do not modify `.github/`, `deploy/`, `.piops-runtime/`, environment files, lock files, or database migrations.
 5. Do not access network services, print environment variables, inspect credentials, push branches, create commits, or create pull requests.
 6. Add or adjust focused tests when practical. Run relevant local validation commands.
-7. If evidence is insufficient for a safe repair, make no source changes and explain the missing evidence.
-8. Write a concise Markdown report to `.piops-runtime/pi-report.md` in Chinese (中文), with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback.
+7. If evidence is insufficient for a safe repair, or no safe source fix is justified, do not invent a workaround and do not suppress the symptom. Create exactly one durable investigation report under `docs/piops/` using a unique filename such as `YYYY-MM-DD-<short-topic>.md` (append `-2`, `-3`, etc. if needed). The report must be a real repository change, written in Chinese, and must include: Summary, Evidence, Root cause, Changes (state "未修改源码" when applicable), Validation, Risks, Rollback. A documentation-only proposal is valid and must be exported for review.
+8. Always write a concise Markdown report to `.piops-runtime/pi-report.md` in Chinese (中文), with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback. When rule 7 applies, the runtime report and the durable `docs/piops/` report must both be written.
 
 <UNTRUSTED_EVIDENCE kind="diagnostics">
 {json.dumps(_filter_diagnostics(diagnostics), ensure_ascii=False, indent=2)}
