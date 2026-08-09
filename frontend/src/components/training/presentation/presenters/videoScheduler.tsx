@@ -38,6 +38,11 @@ function VideoFace({
 		// 该情绪无对应视频段 → poster（静态头像）兜底。
 		return renderAvatarImage({ src: poster, alt }, ctx);
 	}
+	const shape = cn(
+		"shrink-0 bg-muted object-cover",
+		ctx.rounded === "full" ? "rounded-full ring-1 ring-border" : "rounded-2xl ring-1 ring-border",
+		ctx.className,
+	);
 	return (
 		<video
 			key={src}
@@ -47,12 +52,8 @@ function VideoFace({
 			loop
 			muted
 			playsInline
-			style={{ width: ctx.size, height: ctx.size, objectFit: "cover" }}
-			className={cn(
-				"shrink-0 bg-muted",
-				ctx.rounded === "full" ? "rounded-full ring-1 ring-border" : "rounded-2xl ring-1 ring-border",
-				ctx.className,
-			)}
+			style={ctx.fill ? undefined : { width: ctx.size, height: ctx.size, objectFit: "cover" }}
+			className={ctx.fill ? cn("w-full aspect-square", shape) : shape}
 		/>
 	);
 }

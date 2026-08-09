@@ -48,7 +48,7 @@ export default function PatientStage() {
 	const chiefComplaint = patient?.chiefComplaint ?? "";
 
 	return (
-		<aside className="flex shrink-0 flex-col border-border bg-card/40 max-md:w-full max-md:border-b md:w-[280px] md:border-r">
+		<aside className="flex shrink-0 flex-col border-border bg-card/40 max-md:w-full max-md:border-b md:w-[280px] md:self-start md:max-h-full md:overflow-y-auto md:rounded-xl md:border md:p-4 md:my-3 md:ml-3">
 			{/* 移动端折叠头（桌面隐藏） */}
 			<button
 				type="button"
@@ -65,16 +65,17 @@ export default function PatientStage() {
 				)}
 			</button>
 
-			{/* 内容（移动端可折叠，桌面常显） */}
+			{/* 内容（移动端可折叠 + 内边距；桌面为紧凑卡片，随内容自适应高度） */}
 			<div
+				data-patient-stage-content
 				className={cn(
-					"min-h-0 flex-col gap-4 overflow-y-auto p-4",
+					"flex-col gap-4 max-md:p-4",
 					mobileOpen ? "flex" : "hidden md:flex",
 				)}
 			>
-				{/* 患者主视觉 — 表现层渲染（当前：静态头像） */}
+				{/* 患者主视觉 — 表现层渲染，铺满卡片宽（随侧边组件自适应） */}
 				<div className="flex justify-center">
-					<PatientPresenter presentation={presentation} size={200} />
+					<PatientPresenter presentation={presentation} fill />
 				</div>
 
 				{/* 情绪标签 + 4D 条 + 主动追问进度（情绪栏整体迁入） */}

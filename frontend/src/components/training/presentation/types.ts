@@ -42,9 +42,12 @@ export interface PatientIdentity {
 
 /** 渲染上下文 — 表现无关的展示参数，render 阶段消费。 */
 export interface PresentationContext {
-	size: number;
+	/** 定尺寸渲染时的边长；fill 铺满容器宽时忽略。 */
+	size?: number;
 	/** 圆角风格：full 用于小圆头像，2xl 用于大脸卡片。 */
 	rounded?: "full" | "2xl";
+	/** 铺满容器宽（w-full + 正方形）而非固定 size；用于大脸自适应侧边组件宽度。 */
+	fill?: boolean;
 	className?: string;
 }
 

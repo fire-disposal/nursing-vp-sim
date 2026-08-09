@@ -9,13 +9,16 @@ export default function PatientPresenter({
 	presentation,
 	size,
 	rounded = "2xl",
+	fill,
 	className,
 }: {
 	presentation: PatientPresentation;
-	size: number;
+	/** 非 fill（定尺寸）时必传；fill 铺满容器宽时忽略。 */
+	size?: number;
 	rounded?: "full" | "2xl";
+	fill?: boolean;
 	className?: string;
 }) {
-	const ctx: PresentationContext = { size, rounded, className };
+	const ctx: PresentationContext = { size, rounded, fill, className };
 	return PRESENTERS[presentation.kind].render(presentation, ctx);
 }

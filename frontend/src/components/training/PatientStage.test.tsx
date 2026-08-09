@@ -21,8 +21,8 @@ describe("PatientStage", () => {
 			emotion4D: "irritated",
 		});
 		const { container, getAllByText } = render(<PatientStage />);
-		// 大脸 200px（表现层静态头像，不再渲染情绪换脸 SVG）
-		expect(container.querySelector('img[style*="200px"]')).not.toBeNull();
+		// 大脸铺满卡片宽（aspect-square），不再渲染情绪换脸 SVG
+		expect(container.querySelector('img[class*="aspect-square"]')).not.toBeNull();
 		// 姓名出现在折叠头与信息块（两处）
 		expect(getAllByText("王建国").length).toBeGreaterThan(0);
 		expect(getAllByText(/68岁/).length).toBeGreaterThan(0);
@@ -31,7 +31,7 @@ describe("PatientStage", () => {
 
 	it("collapses and expands the content on mobile toggle", () => {
 		const { container, getByLabelText } = render(<PatientStage />);
-		const content = container.querySelector("div.min-h-0");
+		const content = container.querySelector("[data-patient-stage-content]");
 		expect(content?.className).toContain("flex");
 		fireEvent.click(getByLabelText("折叠患者区"));
 		expect(content?.className).toContain("hidden");
@@ -41,6 +41,6 @@ describe("PatientStage", () => {
 
 	it("renders without patient data (anonymized) without crash", () => {
 		const { container } = render(<PatientStage />);
-		expect(container.querySelector('img[style*="200px"]')).not.toBeNull();
+		expect(container.querySelector('img[class*="aspect-square"]')).not.toBeNull();
 	});
 });
