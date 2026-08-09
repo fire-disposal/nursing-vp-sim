@@ -339,13 +339,13 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				    移动端纵向堆叠（患者区在上可折叠，对话区在下）；桌面横向三列 */}
 				<div
 					className={cn(
-						"flex flex-1 overflow-hidden min-h-0",
+						"relative flex flex-1 overflow-hidden min-h-0",
 						isShort ? "pt-9" : "pt-11 sm:pt-12",
 						"flex-col md:flex-row",
 					)}
 				>
 					<PatientStage />
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border md:border-l md:border-t-0">
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border md:border-t-0">
 						<ErrorBoundary
 							fallback={
 								<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
