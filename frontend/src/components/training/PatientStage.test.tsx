@@ -21,8 +21,8 @@ describe("PatientStage", () => {
 			emotion4D: "irritated",
 		});
 		const { container, getAllByText } = render(<PatientStage />);
-		// 大脸 200px（静态头像，不再渲染情绪换脸 SVG）
-		expect(container.querySelector('[class~="size-[200px]"]')).not.toBeNull();
+		// 大脸 200px（表现层静态头像，不再渲染情绪换脸 SVG）
+		expect(container.querySelector('img[style*="200px"]')).not.toBeNull();
 		// 姓名出现在折叠头与信息块（两处）
 		expect(getAllByText("王建国").length).toBeGreaterThan(0);
 		expect(getAllByText(/68岁/).length).toBeGreaterThan(0);
@@ -41,6 +41,6 @@ describe("PatientStage", () => {
 
 	it("renders without patient data (anonymized) without crash", () => {
 		const { container } = render(<PatientStage />);
-		expect(container.querySelector('[class~="size-[200px]"]')).not.toBeNull();
+		expect(container.querySelector('img[style*="200px"]')).not.toBeNull();
 	});
 });
