@@ -1,4 +1,4 @@
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Mic, Send } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +56,15 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
 		>
 			<div className="relative mx-auto flex w-full max-w-3xl items-end gap-2.5 px-3 sm:px-4 py-2.5">
+			<button
+				type="button"
+				onClick={() => {}}
+				aria-label="语音输入"
+				title="语音输入"
+				className="flex shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors size-11 active:scale-95"
+			>
+				<Mic size={18} />
+			</button>
 			<textarea
 				ref={inputRef}
 				value={text}
