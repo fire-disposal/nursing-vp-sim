@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Emotion4DLabel, EmotionState } from "@/stores/trainingStore";
 import type { AppearanceProfile } from "../face/appearance";
 import type { EmotionValues, FaceConfig } from "../face/expressionMap";
@@ -6,18 +7,23 @@ import type { PremiumExtras } from "../face/premiumExtras";
 /**
  * 患者表现层 — 情绪数据 → 表现的分离抽象（技术栈分叉点）。
  *
- * 上游（不可变契约）：情绪数据快照 + 患者身份，来自 trainingStore / SSE。
- * 下游（可插拔）：PatientPresenter 按 kind 渲染，未来换表现只改
- *   `build.ts` 的模式常量 + 注册新 kind，上游与业务组件零改动。
+ * 分层职责：
+ *   - 输入契约（本文件）：情绪快照 + 患者身份，来自 trainingStore / SSE，二者正交。
+ *   - 策略（presenters/）：每个策略一个模块，同一范式 { kind, build, render }；
+ *     build 是纯函数（快照+身份 → 负载或 null），render 只做展示。
+ *   - 路由（build.ts）：策略链顺序即优先级，null = 不适用 → 交给下一策略；
+ *     链必须终止于恒适用策略（static），保证永不落空。
+ *   - 分发（PatientPresenter / registry）：按 kind 查注册表渲染，新增策略零业务改动。
  *
- * 已落地 kind：
- *   - image       静态头像（论文病例写实 PNG，其余简洁头像）— 当前生产模式
- *   - svg         参数化 SVG 脸（原 PremiumFaceArtwork，保留复活能力）
- *   - png-variant 情绪 PNG 变体切换（patient-portrait，保留恢复能力）
- * 未来 kind（如 video-loop 导播调度）：扩展本 union + build 分支 + renderer 即可。
+ * 已落地策略：
+ *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
+ *   - realistic    写实画风专属病例头像路由器（按患者姓名）— 未命中让位
+ *   - png-variant  情绪 PNG 变体路由器（patient-portrait）— 保留恢复能力
+ *   - svg          参数化 SVG 动态渲染器（PremiumFaceArtwork）— 保留恢复能力
+ *   - video        视频调度器（预留：AI 生成视频按情绪剪切切换，无源时回退）
  */
 
-/** 情绪数据快照 — 表现层的唯一输入契约。 */
+/** 情绪快照 — 表现层的唯一输入契约。 */
 export interface EmotionSnapshot {
 	/** 6 态情绪（兼容旧情绪头像变体） */
 	emotion: EmotionState;
@@ -34,11 +40,36 @@ export interface PatientIdentity {
 	age: number | null;
 }
 
-/** 表现协议：情绪快照 + 身份 → 一种可渲染的表现描述。 */
-export type PatientPresentation =
-	| { kind: "image"; src: string; alt: string }
-	| { kind: "svg"; cfg: FaceConfig; extras: PremiumExtras; appearance: AppearanceProfile }
-	| { kind: "png-variant"; src: string; alt: string };
+/** 渲染上下文 — 表现无关的展示参数，render 阶段消费。 */
+export interface PresentationContext {
+	size: number;
+	/** 圆角风格：full 用于小圆头像，2xl 用于大脸卡片。 */
+	rounded?: "full" | "2xl";
+	className?: string;
+}
 
-/** 表现模式 — 技术栈分叉点：切一个常量即切换整套表现。 */
-export type PresentationMode = PatientPresentation["kind"];
+/** 表现负载 — 各策略产出的可渲染数据（判别联合，消费端可获得类型收窄）。 */
+export type PatientPresentation =
+	| { kind: "static"; src: string; alt: string }
+	| { kind: "realistic"; src: string; alt: string }
+	| { kind: "png-variant"; src: string; alt: string }
+	| { kind: "svg"; cfg: FaceConfig; extras: PremiumExtras; appearance: AppearanceProfile }
+	| {
+			kind: "video";
+			alt: string;
+			poster: string;
+			/** 当前情绪对应的视频段；缺该情绪视频时渲染 poster 兜底。 */
+			current: EmotionState;
+			sources: Partial<Record<EmotionState, string>>;
+	  };
+
+export type PresentationKind = PatientPresentation["kind"];
+
+/** 呈现器协议 — 每个策略的标准化接口。 */
+export interface PatientPresenter {
+	readonly kind: PresentationKind;
+	/** 纯函数：快照 + 身份 → 负载；返回 null 表示本策略不适用，交给链上下一策略。 */
+	build(patient: PatientIdentity | null, emotion: EmotionSnapshot): PatientPresentation | null;
+	/** 渲染：负载 → ReactNode（实现内部按 kind 收窄）。 */
+	render(payload: PatientPresentation, ctx: PresentationContext): ReactNode;
+}

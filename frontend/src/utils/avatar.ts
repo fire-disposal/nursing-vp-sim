@@ -82,16 +82,23 @@ export function safeAvatarUrl(
 	if (!url || /^\s*file:/i.test(url)) return fallback;
 	return url;
 }
-export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
-	// 论文展示病例专属写实头像优先（按患者姓名精确匹配）。
-	const filename = patientInfo?.name ? realisticAvatarsByName[patientInfo.name] : undefined;
-	if (filename) {
-		const mod = realisticAvatarModules[`../assets/avatars/realistic/${filename}`];
-		if (mod) return mod.default;
-	}
-	// 其余病例沿用按年龄/性别的默认头像。
+/** 简洁画风路由器：按年龄/性别取默认头像（恒适用，作为策略链兜底）。 */
+export function getBasePatientAvatar(patientInfo?: PatientInfo | null): string {
 	const key = getPatientKey(patientInfo);
 	return avatars[key] || avatars.patient_middle_male;
+}
+
+/** 写实画风路由器：按患者姓名取论文专属写实头像；未绑定或文件缺失返回 null（让位给简洁路由）。 */
+export function getRealisticPatientAvatar(name?: string | null): string | null {
+	if (!name) return null;
+	const filename = realisticAvatarsByName[name];
+	if (!filename) return null;
+	const mod = realisticAvatarModules[`../assets/avatars/realistic/${filename}`];
+	return mod ? mod.default : null;
+}
+
+export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
+	return getRealisticPatientAvatar(patientInfo?.name) ?? getBasePatientAvatar(patientInfo);
 }
 
 export function getNurseAvatar(gender?: string | null): string {

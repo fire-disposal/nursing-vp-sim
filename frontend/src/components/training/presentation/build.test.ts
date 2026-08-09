@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPatientPresentation } from "./build";
+import { buildPatientPresentation, PRESENTATION_CHAIN } from "./build";
+import { PRESENTERS } from "./registry";
 import type { EmotionSnapshot, PatientIdentity } from "./types";
 
 const WANG: PatientIdentity = { name: "王建国", age: 68, gender: "male" };
@@ -18,46 +19,56 @@ const IRRITATED: EmotionSnapshot = {
 	values: { trust: 20, anxiety: 10, irritation: 90, cooperation: 30 },
 };
 
-describe("buildPatientPresentation", () => {
-	it("image mode: 王建国 returns the realistic chest-pain png", () => {
-		const p = buildPatientPresentation(WANG, NEUTRAL, "image");
-		expect(p.kind).toBe("image");
-		if (p.kind === "image") expect(p.src).toContain("case-chest-pain-elder-male");
+describe("buildPatientPresentation — 默认策略链 [video, realistic, static]", () => {
+	it("链上包含 video 预留策略且无源时让位", () => {
+		expect(PRESENTATION_CHAIN).toEqual(["video", "realistic", "static"]);
+		// video 无源 → null，链落到 realistic
+		expect(PRESENTERS.video.build(WANG, NEUTRAL)).toBeNull();
+		const p = buildPatientPresentation(WANG, NEUTRAL);
+		expect(p.kind).toBe("realistic");
 	});
 
-	it("image mode: 张美华 returns the realistic fever png", () => {
-		const p = buildPatientPresentation(ZHANG, NEUTRAL, "image");
-		if (p.kind === "image") expect(p.src).toContain("case-fever-middle-female");
+	it("王建国 → 写实胸痛头像", () => {
+		const p = buildPatientPresentation(WANG, NEUTRAL);
+		expect(p.kind).toBe("realistic");
+		if (p.kind === "realistic") expect(p.src).toContain("case-chest-pain-elder-male");
 	});
 
-	it("image mode: unbound patient falls back to default avatar", () => {
-		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, "image");
-		if (p.kind === "image") expect(p.src).not.toContain("realistic");
+	it("张美华 → 写实发热头像", () => {
+		const p = buildPatientPresentation(ZHANG, NEUTRAL);
+		if (p.kind === "realistic") expect(p.src).toContain("case-fever-middle-female");
 	});
 
-	it("image mode: null patient does not crash", () => {
-		const p = buildPatientPresentation(null, NEUTRAL, "image");
-		expect(p.kind).toBe("image");
+	it("未绑定病例 → 简洁画风兜底", () => {
+		const p = buildPatientPresentation(UNKNOWN, NEUTRAL);
+		expect(p.kind).toBe("static");
+		if (p.kind === "static") expect(p.src).not.toContain("realistic");
 	});
 
-	it("svg mode: derives face config from 4D emotion data", () => {
-		const p = buildPatientPresentation(WANG, IRRITATED, "svg");
+	it("null 患者不崩溃且落到 static", () => {
+		expect(buildPatientPresentation(null, NEUTRAL).kind).toBe("static");
+	});
+});
+
+describe("buildPatientPresentation — 指定策略链", () => {
+	it('["svg"]: 4D 情绪数据派生 FaceConfig', () => {
+		const p = buildPatientPresentation(WANG, IRRITATED, ["svg"]);
 		expect(p.kind).toBe("svg");
 		if (p.kind === "svg") {
-			// 烦躁：眉毛下压（browAngle 为负）
-			expect(p.cfg.browAngle).toBeLessThan(0);
+			expect(p.cfg.browAngle).toBeLessThan(0); // 烦躁 → 眉毛下压
 			expect(p.appearance.gender).toBe("male");
 			expect(p.appearance.ageGroup).toBe("elderly");
 		}
 	});
 
-	it("png-variant mode: maps emotion to a variant png", () => {
-		const p = buildPatientPresentation(WANG, { ...NEUTRAL, emotion: "withdrawn" }, "png-variant");
+	it('["png-variant"]: 情绪映射到变体 PNG', () => {
+		const p = buildPatientPresentation(WANG, { ...NEUTRAL, emotion: "withdrawn" }, ["png-variant"]);
 		expect(p.kind).toBe("png-variant");
 		if (p.kind === "png-variant") expect(p.src).toMatch(/-s\.png/);
 	});
 
-	it("default mode equals current production mode (image)", () => {
-		expect(buildPatientPresentation(WANG, NEUTRAL).kind).toBe("image");
+	it("非法链（无 static）防御性兜底到简洁画风", () => {
+		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, ["video"]);
+		expect(p.kind).toBe("static");
 	});
 });

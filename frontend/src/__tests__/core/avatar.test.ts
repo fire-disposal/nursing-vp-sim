@@ -30,7 +30,13 @@ vi.mock("@/assets/avatars/simple/patient_youth_male.png", () => ({
 }));
 
 import type { PatientInfo } from "@/utils/avatar";
-import { getAgeGroup, getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
+import {
+	getAgeGroup,
+	getBasePatientAvatar,
+	getNurseAvatar,
+	getPatientAvatar,
+	getRealisticPatientAvatar,
+} from "@/utils/avatar";
 
 describe("getAgeGroup", () => {
 	it('returns "child" for age ≤ 12', () => {
@@ -100,6 +106,17 @@ describe("getPatientAvatar", () => {
 		const result = getPatientAvatar(patient);
 		expect(result).toContain("avatars/realistic/case-fever-middle-female.png");
 		expect(result).not.toBe("patient_middle_female");
+	});
+
+	it("getBasePatientAvatar ignores realistic binding (pure age/gender routing)", () => {
+		const patient: PatientInfo = { name: "王建国", age: 68, gender: "男" };
+		expect(getBasePatientAvatar(patient)).toBe("patient_elder_male");
+	});
+
+	it("getRealisticPatientAvatar resolves bound name, null otherwise", () => {
+		expect(getRealisticPatientAvatar("王建国")).toContain("case-chest-pain-elder-male");
+		expect(getRealisticPatientAvatar("李明")).toBeNull();
+		expect(getRealisticPatientAvatar(undefined)).toBeNull();
 	});
 
 	it("uses default avatar for patient without a bound realistic image", () => {

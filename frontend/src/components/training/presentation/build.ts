@@ -1,47 +1,33 @@
-import { getPatientAvatar } from "@/utils/avatar";
-import { getPatientPortraitUrl } from "@/utils/patient-portrait";
-import { appearanceForPatient } from "../face/appearance";
-import { faceConfigFrom4D } from "../face/expressionMap";
-import { premiumExtrasFrom4D } from "../face/premiumExtras";
 import type {
+	EmotionSnapshot,
 	PatientIdentity,
 	PatientPresentation,
-	PresentationMode,
-	EmotionSnapshot,
+	PresentationKind,
 } from "./types";
+import { PRESENTERS } from "./registry";
+import { staticAvatarPresenter } from "./presenters/staticAvatar";
 
 /**
- * 表现构建 — 纯函数：情绪快照 + 患者身份 → 表现描述。
- * 不触碰 React/组件，便于单元测试与未来接入视频导播等新 kind。
+ * 策略链 — 顺序即优先级；策略 build 返回 null 时交给下一策略。
+ * 约束：链必须终止于恒适用策略（static），保证永不落空。
+ *
+ * 当前生产链：video（预留，无源自动让位）→ realistic（论文病例写实）→ static（简洁兜底）。
+ * 切换技术栈示例：
+ *   ["svg"]                    复活 SVG 动态渲染
+ *   ["png-variant", "static"]  启用情绪 PNG 变体（未命中情绪回退简洁）
+ *   ["video", "realistic", "static"]  接入 AI 视频（源表填充后自动生效）
  */
-
-/** 当前表现模式 — 未来切换技术栈只改这里（如 "svg" / "png-variant"）。 */
-export const PATIENT_PRESENTATION_MODE: PresentationMode = "image";
+export const PRESENTATION_CHAIN: PresentationKind[] = ["video", "realistic", "static"];
 
 export function buildPatientPresentation(
 	patient: PatientIdentity | null,
 	emotion: EmotionSnapshot,
-	mode: PresentationMode = PATIENT_PRESENTATION_MODE,
+	chain: PresentationKind[] = PRESENTATION_CHAIN,
 ): PatientPresentation {
-	switch (mode) {
-		case "image":
-			return {
-				kind: "image",
-				src: getPatientAvatar(patient),
-				alt: patient?.name ?? "患者",
-			};
-		case "png-variant":
-			return {
-				kind: "png-variant",
-				src: getPatientPortraitUrl(patient, emotion.emotion),
-				alt: patient?.name ?? "患者",
-			};
-		case "svg":
-			return {
-				kind: "svg",
-				cfg: faceConfigFrom4D(emotion.emotion4D, emotion.values),
-				extras: premiumExtrasFrom4D(emotion.emotion4D, emotion.values),
-				appearance: appearanceForPatient(patient?.age, patient?.gender),
-			};
+	for (const kind of chain) {
+		const built = PRESENTERS[kind].build(patient, emotion);
+		if (built) return built;
 	}
+	// 防御：链配置错误（如不含 static）时兜底到简洁画风。
+	return staticAvatarPresenter.build(patient, emotion) as PatientPresentation;
 }
