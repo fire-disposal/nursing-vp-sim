@@ -1,31 +1,31 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/assets/avatars/nurse_female.png", () => ({
+vi.mock("@/assets/avatars/simple/nurse_female.png", () => ({
 	default: "nurse_female",
 }));
-vi.mock("@/assets/avatars/nurse_male.png", () => ({ default: "nurse_male" }));
-vi.mock("@/assets/avatars/patient_child_female.png", () => ({
+vi.mock("@/assets/avatars/simple/nurse_male.png", () => ({ default: "nurse_male" }));
+vi.mock("@/assets/avatars/simple/patient_child_female.png", () => ({
 	default: "patient_child_female",
 }));
-vi.mock("@/assets/avatars/patient_child_male.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_child_male.png", () => ({
 	default: "patient_child_male",
 }));
-vi.mock("@/assets/avatars/patient_elder_female.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_elder_female.png", () => ({
 	default: "patient_elder_female",
 }));
-vi.mock("@/assets/avatars/patient_elder_male.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_elder_male.png", () => ({
 	default: "patient_elder_male",
 }));
-vi.mock("@/assets/avatars/patient_middle_female.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_middle_female.png", () => ({
 	default: "patient_middle_female",
 }));
-vi.mock("@/assets/avatars/patient_middle_male.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_middle_male.png", () => ({
 	default: "patient_middle_male",
 }));
-vi.mock("@/assets/avatars/patient_youth_female.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_youth_female.png", () => ({
 	default: "patient_youth_female",
 }));
-vi.mock("@/assets/avatars/patient_youth_male.png", () => ({
+vi.mock("@/assets/avatars/simple/patient_youth_male.png", () => ({
 	default: "patient_youth_male",
 }));
 
@@ -85,6 +85,26 @@ describe("getPatientAvatar", () => {
 	it("defaults to male when gender is unknown", () => {
 		const patient: PatientInfo = { age: 25, gender: "未知" };
 		expect(getPatientAvatar(patient)).toBe("patient_youth_male");
+	});
+
+	it("returns realistic avatar for bound patient once png present", () => {
+		// 王建国已绑定写实头像，realistic/ 下存在 PNG 时应返回写实资源而非默认头像。
+		const patient: PatientInfo = { name: "王建国", age: 68, gender: "男" };
+		const result = getPatientAvatar(patient);
+		expect(result).toContain("avatars/realistic/case-chest-pain-elder-male.png");
+		expect(result).not.toBe("patient_elder_male");
+	});
+
+	it("returns realistic avatar for 张美华 (fever female binding)", () => {
+		const patient: PatientInfo = { name: "张美华", age: 55, gender: "女" };
+		const result = getPatientAvatar(patient);
+		expect(result).toContain("avatars/realistic/case-fever-middle-female.png");
+		expect(result).not.toBe("patient_middle_female");
+	});
+
+	it("uses default avatar for patient without a bound realistic image", () => {
+		const patient: PatientInfo = { name: "李明", age: 27, gender: "男" };
+		expect(getPatientAvatar(patient)).toBe("patient_middle_male");
 	});
 });
 

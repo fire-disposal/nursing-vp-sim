@@ -2,7 +2,7 @@ import type { PatientInfo } from "./avatar";
 import { getPatientAvatar, getPatientKey, safeAvatarUrl } from "./avatar";
 
 const variantModules = import.meta.glob<{ default: string }>(
-	"@/assets/avatars/*-{a,h,s,n}.png",
+	"@/assets/avatars/simple/*-{a,h,s,n}.png",
 	{ eager: true },
 );
 

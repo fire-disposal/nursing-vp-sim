@@ -1,13 +1,13 @@
-import nurseFemale from "../assets/avatars/nurse_female.png";
-import nurseMale from "../assets/avatars/nurse_male.png";
-import childFemale from "../assets/avatars/patient_child_female.png";
-import childMale from "../assets/avatars/patient_child_male.png";
-import elderFemale from "../assets/avatars/patient_elder_female.png";
-import elderMale from "../assets/avatars/patient_elder_male.png";
-import middleFemale from "../assets/avatars/patient_middle_female.png";
-import middleMale from "../assets/avatars/patient_middle_male.png";
-import youthFemale from "../assets/avatars/patient_youth_female.png";
-import youthMale from "../assets/avatars/patient_youth_male.png";
+import nurseFemale from "../assets/avatars/simple/nurse_female.png";
+import nurseMale from "../assets/avatars/simple/nurse_male.png";
+import childFemale from "../assets/avatars/simple/patient_child_female.png";
+import childMale from "../assets/avatars/simple/patient_child_male.png";
+import elderFemale from "../assets/avatars/simple/patient_elder_female.png";
+import elderMale from "../assets/avatars/simple/patient_elder_male.png";
+import middleFemale from "../assets/avatars/simple/patient_middle_female.png";
+import middleMale from "../assets/avatars/simple/patient_middle_male.png";
+import youthFemale from "../assets/avatars/simple/patient_youth_female.png";
+import youthMale from "../assets/avatars/simple/patient_youth_male.png";
 
 const avatars: Record<string, string> = {
 	patient_child_male: childMale,
@@ -20,6 +20,23 @@ const avatars: Record<string, string> = {
 	patient_elder_female: elderFemale,
 	nurse_male: nurseMale,
 	nurse_female: nurseFemale,
+};
+
+/**
+ * 论文展示病例专属写实头像：按患者姓名精确绑定（欢迎页/聊天区/结果页三处都能命中）。
+ * 图片放在 realistic/ 目录，用 import.meta.glob 动态加载：
+ *   - 图片尚未放入时 glob 为空，自动回退到按年龄/性别默认头像，构建不受影响；
+ *   - PNG 一旦放入即被自动加载，无需改动代码。
+ * 资源命名遵循 docs/realistic-patient-avatar-plan.md §4.2。
+ */
+const realisticAvatarModules = import.meta.glob<{ default: string }>(
+	"../assets/avatars/realistic/*.png",
+	{ eager: true },
+);
+
+const realisticAvatarsByName: Record<string, string> = {
+	"王建国": "case-chest-pain-elder-male.png",
+	"张美华": "case-fever-middle-female.png",
 };
 
 export interface PatientInfo {
@@ -66,6 +83,13 @@ export function safeAvatarUrl(
 	return url;
 }
 export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
+	// 论文展示病例专属写实头像优先（按患者姓名精确匹配）。
+	const filename = patientInfo?.name ? realisticAvatarsByName[patientInfo.name] : undefined;
+	if (filename) {
+		const mod = realisticAvatarModules[`../assets/avatars/realistic/${filename}`];
+		if (mod) return mod.default;
+	}
+	// 其余病例沿用按年龄/性别的默认头像。
 	const key = getPatientKey(patientInfo);
 	return avatars[key] || avatars.patient_middle_male;
 }
