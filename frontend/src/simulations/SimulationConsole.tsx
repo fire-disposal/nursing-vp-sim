@@ -7,6 +7,7 @@ import {
 	postSimulationAction,
 } from "@/api/simulations";
 import { parseCommand } from "./parser";
+import { TIMELINE_LEGEND, buildTimeline } from "./timeline";
 import "./console.css";
 
 type SimulationSnapshot = components["schemas"]["SimulationSnapshot"];
@@ -193,6 +194,8 @@ export default function SimulationConsole() {
 			? "病例已结束。输入 /status 查看结果，或点「重新开始」"
 			: "输入命令，如 /order cbc";
 
+	const tl = snapshot ? buildTimeline(transcript, snapshot.current_time) : null;
+
 	return (
 		<div className="sim-root">
 			<header className="sim-header">
@@ -234,6 +237,16 @@ export default function SimulationConsole() {
 					</Link>
 				</div>
 			</header>
+
+			{snapshot && tl ? (
+				<div className="sim-timeline">
+					<div className="tl-rows">
+						<div className="tl-bar">08:30 {tl.bar} 10:30</div>
+						<div className="tl-cursor">{tl.cursor}</div>
+						<div className="tl-legend">{TIMELINE_LEGEND}</div>
+					</div>
+				</div>
+			) : null}
 
 			<div ref={listRef} className="sim-log">
 				{transcript.length === 0 ? (

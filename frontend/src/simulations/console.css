@@ -162,6 +162,36 @@
 	background: #0d1117;
 }
 
+.sim-timeline {
+	overflow-x: auto;
+	padding: 6px 16px;
+	border-bottom: 1px solid #21262d;
+	background: #0b0f14;
+	font-size: 12px;
+	color: #8b949e;
+}
+
+.tl-rows {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.45;
+	white-space: pre;
+	font-family: inherit;
+	width: max-content;
+}
+
+.tl-bar {
+	color: #c9d1d9;
+}
+
+.tl-cursor {
+	color: #3fb950;
+}
+
+.tl-legend {
+	color: #6e7681;
+}
+
 .sim-prompt {
 	color: #3fb950;
 	font-weight: 700;
