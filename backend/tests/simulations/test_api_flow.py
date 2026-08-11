@@ -145,3 +145,47 @@ def test_foreign_session_rejected():
     created = _create()
     other = _client.get(f"/api/simulations/sessions/{created['session_id'] + 999}")
     assert other.status_code == 404
+
+
+class _FakeLLM:
+    def __init__(self, response="评估：已知信息有限；建议：复查 CBC 并监测尿量与生命体征。"):
+        self.response = response
+        self.calls = []
+
+    async def call(self, messages, **kwargs):
+        self.calls.append(messages)
+        return self.response
+
+
+class _BoomLLM:
+    async def call(self, messages, **kwargs):
+        raise RuntimeError("llm down")
+
+
+def test_consult_via_api_returns_advice():
+    llm = _FakeLLM()
+    _client.app.state.llm_client = llm
+    created = _create()
+    r = _act(created["session_id"], "CONSULT", None)
+    assert r["accepted"] is True
+    assert r["snapshot"]["cost_total"] == 150
+    assert any("专家建议" in m["text"] for m in r["snapshot"]["messages"])
+    assert llm.calls, "consult must actually call the LLM"
+
+
+def test_consult_refunds_when_llm_fails():
+    _client.app.state.llm_client = _BoomLLM()
+    created = _create()
+    r = _act(created["session_id"], "CONSULT", None)
+    assert r["accepted"] is True
+    assert r["snapshot"]["cost_total"] == 0
+    assert any("不扣费" in m["text"] for m in r["snapshot"]["messages"])
+
+
+def test_consult_refunds_when_llm_unavailable():
+    _client.app.state.llm_client = None
+    created = _create()
+    r = _act(created["session_id"], "CONSULT", None)
+    assert r["accepted"] is True
+    assert r["snapshot"]["cost_total"] == 0
+    assert any("服务未就绪" in m["text"] for m in r["snapshot"]["messages"])
