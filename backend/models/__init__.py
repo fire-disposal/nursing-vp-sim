@@ -16,6 +16,7 @@ from models.questionnaire import (
 )
 from models.rate_limit import RateLimitEntry
 from models.school import Class, Grade, UserClass
+from models.simulation import SimulationSession
 from models.training import (
     Message,
     NursingRecord,
@@ -54,6 +55,7 @@ __all__ = [
     "RolePermission",
     "Score",
     "ScoreReview",
+    "SimulationSession",
     "SystemNotification",
     "TimestampMixin",
     "TrainingAction",

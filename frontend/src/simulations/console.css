@@ -1,0 +1,224 @@
+.sim-root {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	background: #0d1117;
+	color: #c9d1d9;
+	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+@supports (height: 100dvh) {
+	.sim-root {
+		/* dynamic viewport: keeps the input bar above the mobile keyboard/browser chrome */
+		height: 100dvh;
+	}
+}
+
+.sim-header {
+	padding: 10px 16px;
+	padding-top: calc(10px + env(safe-area-inset-top));
+	border-bottom: 1px solid #21262d;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.sim-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #e6edf3;
+}
+
+.sim-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	font-size: 12px;
+	color: #8b949e;
+}
+
+.sim-meta b {
+	color: #e6edf3;
+	font-weight: 600;
+}
+
+.sim-pending {
+	color: #d29922;
+}
+
+.sim-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.sim-btn {
+	background: #21262d;
+	border: 1px solid #30363d;
+	color: #e6edf3;
+	font-family: inherit;
+	font-size: 13px;
+	padding: 6px 12px;
+	min-height: 36px;
+	border-radius: 4px;
+	cursor: pointer;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+}
+
+.sim-btn:hover:not(:disabled) {
+	background: #30363d;
+}
+
+.sim-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.sim-btn-link {
+	background: transparent;
+}
+
+.sim-log {
+	flex: 1;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	padding: 12px 16px;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.msg {
+	display: flex;
+	gap: 10px;
+	padding: 2px 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.msg-kind {
+	flex: none;
+	width: 96px;
+	font-weight: 600;
+}
+
+.msg-time {
+	flex: none;
+	color: #484f58;
+	width: 44px;
+	text-align: right;
+}
+
+.msg-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.msg-system .msg-kind {
+	color: #8b949e;
+}
+.msg-assessment .msg-kind {
+	color: #79c0ff;
+}
+.msg-monitor .msg-kind {
+	color: #d29922;
+}
+.msg-lab .msg-kind {
+	color: #58a6ff;
+}
+.msg-warning .msg-kind {
+	color: #d29922;
+}
+.msg-critical .msg-kind {
+	color: #f85149;
+}
+.msg-audit .msg-kind {
+	color: #3fb950;
+}
+.msg-echo .msg-kind {
+	color: #3fb950;
+}
+.msg-echo .msg-text {
+	color: #8b949e;
+}
+
+.sim-error {
+	margin: 0 16px 8px;
+	padding: 6px 10px;
+	background: #2d0a0a;
+	border: 1px solid #f85149;
+	color: #ffa198;
+	font-size: 12px;
+}
+
+.sim-endbanner {
+	margin: 0 16px 8px;
+	padding: 6px 10px;
+	background: #2d1a05;
+	border: 1px solid #d29922;
+	color: #e3b341;
+	font-size: 12px;
+}
+
+.sim-inputbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 16px;
+	padding-bottom: calc(10px + env(safe-area-inset-bottom));
+	border-top: 1px solid #21262d;
+	background: #0d1117;
+}
+
+.sim-prompt {
+	color: #3fb950;
+	font-weight: 700;
+}
+
+.sim-inputbar input {
+	flex: 1;
+	min-width: 0;
+	background: transparent;
+	border: none;
+	outline: none;
+	color: #e6edf3;
+	font-family: inherit;
+	font-size: 16px; /* >= 16px prevents iOS auto-zoom on focus */
+	line-height: 1.4;
+}
+
+.sim-inputbar input::placeholder {
+	color: #484f58;
+}
+
+/* ── Mobile (<=640px) ── */
+
+@media (max-width: 640px) {
+	.sim-log {
+		font-size: 13px;
+		padding: 10px 12px;
+	}
+	.msg-kind {
+		width: 84px;
+		font-size: 12px;
+	}
+	.msg-time {
+		width: 40px;
+		font-size: 12px;
+	}
+	.sim-btn {
+		min-height: 40px;
+		padding: 8px 14px;
+	}
+	.sim-inputbar {
+		padding: 8px 12px;
+		padding-bottom: calc(8px + env(safe-area-inset-bottom));
+	}
+	.sim-inputbar input {
+		font-size: 16px;
+	}
+	.sim-title {
+		font-size: 13px;
+	}
+}

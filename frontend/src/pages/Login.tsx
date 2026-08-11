@@ -1,8 +1,8 @@
-﻿import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Stethoscope } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
 	Form,
@@ -177,6 +177,12 @@ export default function Login() {
 					<p className="mt-6 text-center text-xs text-muted-foreground lg:text-left lg:pl-0">
 						忘记密码？请联系教师或管理员重置
 					</p>
+					<Link
+						to="/simulation"
+						className="mt-3 block text-center text-xs text-primary/70 transition-colors hover:text-primary lg:text-left lg:pl-0"
+					>
+						临床推理模拟实验（直接体验）→
+					</Link>
 				</div>
 			</div>
 		</div>

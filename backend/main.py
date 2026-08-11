@@ -344,6 +344,7 @@ from modules.feedback.router import router as _feedback
 from modules.qa import router as _qa
 from modules.questionnaires.router import router as _questionnaires
 from modules.scoreboard import router as _scoreboard
+from modules.simulations import simulations_router as _simulations
 from modules.training import chat_router as _chat
 from modules.training import training_router as _training
 from modules.voice.router import router as _tts
@@ -364,6 +365,7 @@ for r in (
     _questionnaires,
     _rubrics,
     _scoreboard,
+    _simulations,
     _stats,
     _telemetry,
     _training,

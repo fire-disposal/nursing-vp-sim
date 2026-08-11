@@ -6832,6 +6832,136 @@
         }
       }
     },
+    "/api/simulations/sessions": {
+      "post": {
+        "tags": [
+          "临床推理模拟"
+        ],
+        "summary": "Create Session",
+        "operationId": "create_session_api_simulations_sessions_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/simulations/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "临床推理模拟"
+        ],
+        "summary": "Get Session",
+        "operationId": "get_session_api_simulations_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/simulations/sessions/{session_id}/actions": {
+      "post": {
+        "tags": [
+          "临床推理模拟"
+        ],
+        "summary": "Post Action",
+        "operationId": "post_action_api_simulations_sessions__session_id__actions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulationActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stats/duration": {
       "get": {
         "tags": [
@@ -8362,6 +8492,46 @@
   },
   "components": {
     "schemas": {
+      "ActionResultResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted"
+          },
+          "case_ended": {
+            "type": "boolean",
+            "title": "Case Ended"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SimulationMessage"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SimulationSnapshot"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "revision",
+          "accepted",
+          "case_ended",
+          "snapshot"
+        ],
+        "title": "ActionResultResponse"
+      },
       "AdminStats": {
         "properties": {
           "total_students": {
@@ -9864,6 +10034,49 @@
         ],
         "title": "CaseUpdateRequest"
       },
+      "CbcRecordSummary": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "sampled_at": {
+            "type": "integer",
+            "title": "Sampled At"
+          },
+          "ready_at": {
+            "type": "integer",
+            "title": "Ready At"
+          },
+          "hb": {
+            "type": "number",
+            "title": "Hb"
+          },
+          "wbc": {
+            "type": "number",
+            "title": "Wbc"
+          },
+          "platelet": {
+            "type": "integer",
+            "title": "Platelet"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "sampled_at",
+          "ready_at",
+          "hb",
+          "wbc",
+          "platelet",
+          "abnormal"
+        ],
+        "title": "CbcRecordSummary"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "old_password": {
@@ -10245,6 +10458,29 @@
         },
         "type": "object",
         "title": "DeleteResponse"
+      },
+      "DrainReadingOut": {
+        "properties": {
+          "minute": {
+            "type": "integer",
+            "title": "Minute"
+          },
+          "output_ml": {
+            "type": "integer",
+            "title": "Output Ml"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minute",
+          "output_ml",
+          "abnormal"
+        ],
+        "title": "DrainReadingOut"
       },
       "DurationStats": {
         "properties": {
@@ -11630,6 +11866,34 @@
         },
         "type": "object",
         "title": "PatientPublicInfo"
+      },
+      "PendingCbcSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sampled_at": {
+            "type": "integer",
+            "title": "Sampled At"
+          },
+          "due_at": {
+            "type": "integer",
+            "title": "Due At"
+          },
+          "due_clock": {
+            "type": "string",
+            "title": "Due Clock"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sampled_at",
+          "due_at",
+          "due_clock"
+        ],
+        "title": "PendingCbcSummary"
       },
       "QAAskResponse": {
         "properties": {
@@ -13607,6 +13871,197 @@
         ],
         "title": "SectionTextResponse"
       },
+      "SessionCreateResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SimulationSnapshot"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "snapshot"
+        ],
+        "title": "SessionCreateResponse"
+      },
+      "SimulationActionIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Type"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "SimulationActionIn"
+      },
+      "SimulationActionRequest": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SimulationActionIn"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "SimulationActionRequest"
+      },
+      "SimulationMessage": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "at_minute": {
+            "type": "integer",
+            "title": "At Minute"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "at_minute",
+          "text"
+        ],
+        "title": "SimulationMessage"
+      },
+      "SimulationSnapshot": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "case_status": {
+            "type": "string",
+            "title": "Case Status"
+          },
+          "current_time": {
+            "type": "integer",
+            "title": "Current Time"
+          },
+          "clock": {
+            "type": "string",
+            "title": "Clock"
+          },
+          "monitoring": {
+            "type": "boolean",
+            "title": "Monitoring"
+          },
+          "reported": {
+            "type": "boolean",
+            "title": "Reported"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SimulationMessage"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          },
+          "vitals": {
+            "items": {
+              "$ref": "#/components/schemas/VitalsReadingOut"
+            },
+            "type": "array",
+            "title": "Vitals",
+            "default": []
+          },
+          "drain": {
+            "items": {
+              "$ref": "#/components/schemas/DrainReadingOut"
+            },
+            "type": "array",
+            "title": "Drain",
+            "default": []
+          },
+          "pending_cbc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PendingCbcSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cbc_records": {
+            "items": {
+              "$ref": "#/components/schemas/CbcRecordSummary"
+            },
+            "type": "array",
+            "title": "Cbc Records",
+            "default": []
+          },
+          "unrevealed_cbc_count": {
+            "type": "integer",
+            "title": "Unrevealed Cbc Count",
+            "default": 0
+          },
+          "cbc_count": {
+            "type": "integer",
+            "title": "Cbc Count",
+            "default": 0
+          },
+          "cost_total": {
+            "type": "integer",
+            "title": "Cost Total",
+            "default": 0
+          },
+          "case_ended_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Ended At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "revision",
+          "case_status",
+          "current_time",
+          "clock",
+          "monitoring",
+          "reported"
+        ],
+        "title": "SimulationSnapshot"
+      },
       "StorageStatsResponse": {
         "properties": {
           "total_images": {
@@ -15332,6 +15787,54 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VitalsReadingOut": {
+        "properties": {
+          "minute": {
+            "type": "integer",
+            "title": "Minute"
+          },
+          "hr": {
+            "type": "integer",
+            "title": "Hr"
+          },
+          "sbp": {
+            "type": "integer",
+            "title": "Sbp"
+          },
+          "dbp": {
+            "type": "integer",
+            "title": "Dbp"
+          },
+          "rr": {
+            "type": "integer",
+            "title": "Rr"
+          },
+          "spo2": {
+            "type": "integer",
+            "title": "Spo2"
+          },
+          "temp": {
+            "type": "number",
+            "title": "Temp"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minute",
+          "hr",
+          "sbp",
+          "dbp",
+          "rr",
+          "spo2",
+          "temp",
+          "abnormal"
+        ],
+        "title": "VitalsReadingOut"
       },
       "VoiceConfigResponse": {
         "properties": {

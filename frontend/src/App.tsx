@@ -38,6 +38,7 @@ const queryClient = new QueryClient({
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const FaceLab = lazy(() => import("@/pages/face-lab/FaceLabPage"));
+const SimulationConsole = lazy(() => import("@/simulations/SimulationConsole"));
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
@@ -93,6 +94,10 @@ export default function App() {
 							<Route path="/showcase" element={<Showcase />} />
 							<Route path="/face-demo" element={<FaceLab />} />
 							<Route element={<ProtectedRoute />}>
+								<Route
+									path="/simulation"
+									element={<SimulationConsole />}
+								/>
 								<Route element={<Layout />}>
 									<Route index element={<Navigate to="/training" replace />} />
 									{APP_ROUTES.map((r) => (

@@ -1797,6 +1797,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/simulations/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Session */
+        post: operations["create_session_api_simulations_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/simulations/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_api_simulations_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/simulations/sessions/{session_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Action */
+        post: operations["post_action_api_simulations_sessions__session_id__actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats/duration": {
         parameters: {
             query?: never;
@@ -2249,6 +2300,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActionResultResponse */
+        ActionResultResponse: {
+            /** Session Id */
+            session_id: number;
+            /** Revision */
+            revision: number;
+            /** Accepted */
+            accepted: boolean;
+            /** Case Ended */
+            case_ended: boolean;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["SimulationMessage"][];
+            snapshot: components["schemas"]["SimulationSnapshot"];
+        };
         /** AdminStats */
         AdminStats: {
             /** Total Students */
@@ -2885,6 +2953,23 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** CbcRecordSummary */
+        CbcRecordSummary: {
+            /** Order Id */
+            order_id: string;
+            /** Sampled At */
+            sampled_at: number;
+            /** Ready At */
+            ready_at: number;
+            /** Hb */
+            hb: number;
+            /** Wbc */
+            wbc: number;
+            /** Platelet */
+            platelet: number;
+            /** Abnormal */
+            abnormal: boolean;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Old Password */
@@ -3044,6 +3129,15 @@ export interface components {
              * @default 删除成功
              */
             message: string;
+        };
+        /** DrainReadingOut */
+        DrainReadingOut: {
+            /** Minute */
+            minute: number;
+            /** Output Ml */
+            output_ml: number;
+            /** Abnormal */
+            abnormal: boolean;
         };
         /** DurationStats */
         DurationStats: {
@@ -3619,6 +3713,17 @@ export interface components {
              * @default
              */
             gender: string;
+        };
+        /** PendingCbcSummary */
+        PendingCbcSummary: {
+            /** Id */
+            id: string;
+            /** Sampled At */
+            sampled_at: number;
+            /** Due At */
+            due_at: number;
+            /** Due Clock */
+            due_clock: string;
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -4377,6 +4482,87 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** SessionCreateResponse */
+        SessionCreateResponse: {
+            /** Session Id */
+            session_id: number;
+            snapshot: components["schemas"]["SimulationSnapshot"];
+        };
+        /** SimulationActionIn */
+        SimulationActionIn: {
+            /** Type */
+            type: string;
+            /** Target */
+            target?: string | null;
+        };
+        /** SimulationActionRequest */
+        SimulationActionRequest: {
+            action: components["schemas"]["SimulationActionIn"];
+        };
+        /** SimulationMessage */
+        SimulationMessage: {
+            /** Kind */
+            kind: string;
+            /** At Minute */
+            at_minute: number;
+            /** Text */
+            text: string;
+        };
+        /** SimulationSnapshot */
+        SimulationSnapshot: {
+            /** Session Id */
+            session_id: number;
+            /** Revision */
+            revision: number;
+            /** Case Status */
+            case_status: string;
+            /** Current Time */
+            current_time: number;
+            /** Clock */
+            clock: string;
+            /** Monitoring */
+            monitoring: boolean;
+            /** Reported */
+            reported: boolean;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["SimulationMessage"][];
+            /**
+             * Vitals
+             * @default []
+             */
+            vitals: components["schemas"]["VitalsReadingOut"][];
+            /**
+             * Drain
+             * @default []
+             */
+            drain: components["schemas"]["DrainReadingOut"][];
+            pending_cbc?: components["schemas"]["PendingCbcSummary"] | null;
+            /**
+             * Cbc Records
+             * @default []
+             */
+            cbc_records: components["schemas"]["CbcRecordSummary"][];
+            /**
+             * Unrevealed Cbc Count
+             * @default 0
+             */
+            unrevealed_cbc_count: number;
+            /**
+             * Cbc Count
+             * @default 0
+             */
+            cbc_count: number;
+            /**
+             * Cost Total
+             * @default 0
+             */
+            cost_total: number;
+            /** Case Ended At */
+            case_ended_at?: number | null;
+        };
         /** StorageStatsResponse */
         StorageStatsResponse: {
             /** Total Images */
@@ -5063,6 +5249,25 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VitalsReadingOut */
+        VitalsReadingOut: {
+            /** Minute */
+            minute: number;
+            /** Hr */
+            hr: number;
+            /** Sbp */
+            sbp: number;
+            /** Dbp */
+            dbp: number;
+            /** Rr */
+            rr: number;
+            /** Spo2 */
+            spo2: number;
+            /** Temp */
+            temp: number;
+            /** Abnormal */
+            abnormal: boolean;
         };
         /** VoiceConfigResponse */
         VoiceConfigResponse: {
@@ -9133,6 +9338,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentTrendResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_session_api_simulations_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCreateResponse"];
+                };
+            };
+        };
+    };
+    get_session_api_simulations_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulationSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_action_api_simulations_sessions__session_id__actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulationActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResultResponse"];
                 };
             };
             /** @description Validation Error */
