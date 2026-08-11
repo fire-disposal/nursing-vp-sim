@@ -68,7 +68,7 @@ def _do_status(state, _target, messages) -> bool:
         lines.append(f"最近尿量（近4h）：{state.urine[-1].output_ml} ml")
     pending = engine._all_pending(state)
     if pending:
-        summary = "、".join(f"{LAB_KINDS[t.kind]['label']}(#{t.id})→{clock_text(t.due_at)}" for t in pending)
+        summary = "、".join(f"{LAB_KINDS[t.kind].label}(#{t.id})→{clock_text(t.due_at)}" for t in pending)
         lines.append(f"进行中检查：{summary}")
     else:
         lines.append("检查：无进行中的申请")
@@ -224,21 +224,13 @@ def _do_order_lab(state, target, messages) -> bool:
             DomainMessage(
                 "LAB",
                 state.current_time,
-                f"已有进行中的{LAB_KINDS[kind]['label']}（order #{pending.id}），预计 {clock_text(pending.due_at)} 返回，拒绝重复申请。",
+                f"已有进行中的{LAB_KINDS[kind].label}（order #{pending.id}），预计 {clock_text(pending.due_at)} 返回，拒绝重复申请。",
             )
         )
         return False
-    cost = LAB_KINDS[kind]["cost"]
-    remaining = BUDGET_START - state.cost_total
-    if cost > remaining:
+    cost = LAB_KINDS[kind].cost
+    if not _check_budget(state, cost, messages, LAB_KINDS[kind].label, f"可用：{lab_options_text()}。"):
         state.insufficient_funds = True
-        messages.append(
-            DomainMessage(
-                "LAB",
-                state.current_time,
-                f"资金不足：{LAB_KINDS[kind]['label']} 需 ¥{cost}，当前剩余 ¥{remaining}。可用：{lab_options_text()}。",
-            )
-        )
         return False
     start = state.current_time
     completion = start + DURATION_MIN["ORDER_LAB"]
@@ -246,7 +238,7 @@ def _do_order_lab(state, target, messages) -> bool:
     state.current_time = completion
     state.seq += 1
     task_id = f"{kind.lower()}-{state.seq}"
-    due_at = completion + LAB_KINDS[kind]["turnaround"]
+    due_at = completion + LAB_KINDS[kind].turnaround
     state.pending_tasks.append(
         PendingTask(
             id=task_id,
@@ -267,7 +259,7 @@ def _do_order_lab(state, target, messages) -> bool:
     if kind == "CBC":
         state.cbc_count += 1
     state.cost_total += cost
-    label = LAB_KINDS[kind]["label"]
+    label = LAB_KINDS[kind].label
     messages.append(
         DomainMessage(
             "LAB",
@@ -291,7 +283,7 @@ def _do_view_lab(state, target, messages) -> bool:
         return False
     recs = [r for r in state.records if r.kind == kind]
     if not recs:
-        messages.append(DomainMessage("LAB", state.current_time, f"{LAB_KINDS[kind]['label']}暂无已返回结果。"))
+        messages.append(DomainMessage("LAB", state.current_time, f"{LAB_KINDS[kind].label}暂无已返回结果。"))
         return True
     rec = max(recs, key=lambda r: r.ready_at)
     rec.revealed = True
@@ -299,35 +291,67 @@ def _do_view_lab(state, target, messages) -> bool:
     return True
 
 
-def _lab_result_text(state, rec: ClinicalRecord) -> str:
+def _earlier_record(state, rec):
+    earlier = [x for x in state.records if x.kind == rec.kind and x.sampled_at < rec.sampled_at]
+    return max(earlier, key=lambda x: x.sampled_at) if earlier else None
+
+
+def _fmt_cbc(state, rec: ClinicalRecord) -> str:
     r = rec.result
     flag = "异常" if r["abnormal"] else "正常"
-    earlier = [x for x in state.records if x.kind == rec.kind and x.sampled_at < rec.sampled_at]
-    prev = max(earlier, key=lambda x: x.sampled_at) if earlier else None
-    if rec.kind == "CBC":
-        text = (
-            f"CBC（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}，返回 {clock_text(rec.ready_at)}）："
-            f"Hb {r['hb']} g/L（{flag}），WBC {r['wbc']} ×10⁹/L，PLT {r['platelet']} ×10⁹/L。"
-        )
-        if prev:
-            d = round(r["hb"] - prev.result["hb"], 1)
-            arrow = "↓" if d < 0 else ("↑" if d > 0 else "→")
-            text += f" 较上次 Hb {prev.result['hb']}→{r['hb']} g/L（{arrow}{abs(d)}）。"
-    elif rec.kind == "ABG":
-        text = (
-            f"动脉血气（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）："
-            f"pH {r['ph']}，乳酸 {r['lactate']} mmol/L（{flag}）。"
-        )
-        if prev:
-            d = round(r["lactate"] - prev.result["lactate"], 2)
-            arrow = "↓" if d < 0 else ("↑" if d > 0 else "→")
-            text += f" 较上次乳酸 {prev.result['lactate']}→{r['lactate']} mmol/L（{arrow}{abs(d)}）。"
-    elif rec.kind == "COAG":
-        text = f"凝血功能（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）：PT-INR {r['inr']}（{flag}）。"
-    else:  # US
-        finding = "腹腔可见游离液体" if r["free_fluid"] else "腹腔未见明显游离液体"
-        text = f"腹部超声（order #{rec.order_id}）：{finding}（{flag}）。"
+    text = (
+        f"CBC（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}，返回 {clock_text(rec.ready_at)}）："
+        f"Hb {r['hb']} g/L（{flag}），WBC {r['wbc']} ×10⁹/L，PLT {r['platelet']} ×10⁹/L。"
+    )
+    prev = _earlier_record(state, rec)
+    if prev:
+        d = round(r["hb"] - prev.result["hb"], 1)
+        arrow = "↓" if d < 0 else ("↑" if d > 0 else "→")
+        text += f" 较上次 Hb {prev.result['hb']}→{r['hb']} g/L（{arrow}{abs(d)}）。"
     return text
+
+
+def _fmt_abg(state, rec: ClinicalRecord) -> str:
+    r = rec.result
+    flag = "异常" if r["abnormal"] else "正常"
+    text = (
+        f"动脉血气（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）："
+        f"pH {r['ph']}，乳酸 {r['lactate']} mmol/L（{flag}）。"
+    )
+    prev = _earlier_record(state, rec)
+    if prev:
+        d = round(r["lactate"] - prev.result["lactate"], 2)
+        arrow = "↓" if d < 0 else ("↑" if d > 0 else "→")
+        text += f" 较上次乳酸 {prev.result['lactate']}→{r['lactate']} mmol/L（{arrow}{abs(d)}）。"
+    return text
+
+
+def _fmt_coag(state, rec: ClinicalRecord) -> str:
+    r = rec.result
+    flag = "异常" if r["abnormal"] else "正常"
+    return f"凝血功能（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）：PT-INR {r['inr']}（{flag}）。"
+
+
+def _fmt_us(state, rec: ClinicalRecord) -> str:
+    r = rec.result
+    flag = "异常" if r["abnormal"] else "正常"
+    finding = "腹腔可见游离液体" if r["free_fluid"] else "腹腔未见明显游离液体"
+    return f"腹部超声（order #{rec.order_id}）：{finding}（{flag}）。"
+
+
+_LAB_FORMATTERS = {
+    "CBC": _fmt_cbc,
+    "ABG": _fmt_abg,
+    "COAG": _fmt_coag,
+    "US": _fmt_us,
+}
+
+
+def _lab_result_text(state, rec: ClinicalRecord) -> str:
+    formatter = _LAB_FORMATTERS.get(rec.kind)
+    if formatter is None:
+        return f"{LAB_KINDS[rec.kind].label}（order #{rec.order_id}）：{rec.result}"
+    return formatter(state, rec)
 
 
 def _do_monitor(state, _target, messages) -> bool:
@@ -442,16 +466,24 @@ def _do_diag(state, target, messages) -> bool:
     return True
 
 
-def _do_consult(state, _target, messages) -> bool:
+def _check_budget(state, cost: int, messages, what: str, hint: str = "") -> bool:
+    """Shared resource gate: reject the action with a clear message when the
+    remaining budget cannot cover ``cost`` (used by lab orders and consults)."""
     remaining = BUDGET_START - state.cost_total
-    if remaining < CONSULT_COST:
-        messages.append(
-            DomainMessage(
-                "SYSTEM",
-                state.current_time,
-                f"资金不足：专家会诊需 ¥{CONSULT_COST}，当前剩余 ¥{remaining}。",
-            )
+    if remaining >= cost:
+        return True
+    messages.append(
+        DomainMessage(
+            "SYSTEM",
+            state.current_time,
+            f"资金不足：{what}需 ¥{cost}，当前剩余 ¥{remaining}。{hint}",
         )
+    )
+    return False
+
+
+def _do_consult(state, _target, messages) -> bool:
+    if not _check_budget(state, CONSULT_COST, messages, "专家会诊"):
         return False
     completion = state.current_time + DURATION_MIN["CONSULT"]
     engine._advance(state, messages, completion)
@@ -623,7 +655,7 @@ def _do_pending(state, _target, messages) -> bool:
     lines = ["进行中检查："]
     for t in pending:
         lines.append(
-            f"{LAB_KINDS[t.kind]['label']}（order #{t.id}）：采血/检查 {clock_text(t.sampled_at)}，预计 {clock_text(t.due_at)} 返回。费用 ¥{t.cost_yuan}。"
+            f"{LAB_KINDS[t.kind].label}（order #{t.id}）：采血/检查 {clock_text(t.sampled_at)}，预计 {clock_text(t.due_at)} 返回。费用 ¥{t.cost_yuan}。"
         )
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True

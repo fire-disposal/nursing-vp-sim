@@ -160,32 +160,9 @@ def _advance(
 
 
 def _handle_event(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
-    if ev.type == "BLEEDING_PROGRESS":
-        _on_bleeding_progress(state, ev, messages)
-    elif ev.type == "LAB_READY":
-        _on_lab_ready(state, ev, messages)
-    elif ev.type == "MONITOR_ALERT":
-        v = vitals(state.hidden.bleeding_severity)
-        messages.append(
-            DomainMessage(
-                "MONITOR",
-                ev.at_minute,
-                f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
-            )
-        )
-    elif ev.type == "SPONTANEOUS_DETERIORATION":
-        v = vitals(state.hidden.bleeding_severity)
-        messages.append(
-            DomainMessage(
-                "CRITICAL",
-                ev.at_minute,
-                f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。",
-            )
-        )
-    elif ev.type == "CASE_SUCCESS":
-        _end_case(state, SUCCESS, ev.at_minute, messages)
-    elif ev.type == "CASE_FAILURE":
-        _end_case(state, FAILURE, ev.at_minute, messages)
+    handler = _EVENT_HANDLERS.get(ev.type)
+    if handler is not None:
+        handler(state, ev, messages)
 
 
 def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
@@ -229,7 +206,7 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
             revealed=False,
         )
     )
-    label = LAB_KINDS[task.kind]["label"]
+    label = LAB_KINDS[task.kind].label
     messages.append(
         DomainMessage(
             "LAB",
@@ -237,6 +214,38 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
             f"{label} 结果已返回（order #{task.id}）。使用 /view {task.kind.lower()} 查看具体数值。",
         )
     )
+
+
+def _on_monitor_alert(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    v = vitals(state.hidden.bleeding_severity)
+    messages.append(
+        DomainMessage(
+            "MONITOR",
+            ev.at_minute,
+            f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
+        )
+    )
+
+
+def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    v = vitals(state.hidden.bleeding_severity)
+    messages.append(
+        DomainMessage(
+            "CRITICAL",
+            ev.at_minute,
+            f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。",
+        )
+    )
+
+
+_EVENT_HANDLERS = {
+    "BLEEDING_PROGRESS": _on_bleeding_progress,
+    "LAB_READY": _on_lab_ready,
+    "MONITOR_ALERT": _on_monitor_alert,
+    "SPONTANEOUS_DETERIORATION": _on_deterioration,
+    "CASE_SUCCESS": lambda state, ev, messages: _end_case(state, SUCCESS, ev.at_minute, messages),
+    "CASE_FAILURE": lambda state, ev, messages: _end_case(state, FAILURE, ev.at_minute, messages),
+}
 
 
 def _end_case(state: SessionState, status: str, minute: int, messages: list[DomainMessage]) -> None:
@@ -385,7 +394,7 @@ def build_consult_summary(state: SessionState) -> str:
         lines.append(
             "检查结果："
             + "；".join(
-                f"{LAB_KINDS[r.kind]['label']} { {k: v for k, v in r.result.items() if k != 'sampled_severity'} }"
+                f"{LAB_KINDS[r.kind].label} { {k: v for k, v in r.result.items() if k != 'sampled_severity'} }"
                 for r in revealed
             )
         )
@@ -411,7 +420,7 @@ def build_consult_summary(state: SessionState) -> str:
         lines.append(f"护士判断：{state.diagnosis}")
     pending = _all_pending(state)
     if pending:
-        lines.append("进行中检查：" + "、".join(LAB_KINDS[t.kind]["label"] for t in pending))
+        lines.append("进行中检查：" + "、".join(LAB_KINDS[t.kind].label for t in pending))
     return "\n".join(lines)
 
 

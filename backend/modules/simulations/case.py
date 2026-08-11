@@ -7,17 +7,23 @@ engineering choices (medical plausibility tunable); no DSL — plain Python.
 
 from __future__ import annotations
 
-from typing import TypedDict
+from collections.abc import Callable
+from dataclasses import dataclass
 
 CASE_NAME = "腹部术后隐匿性出血（MVP-B）"
 CASE_VERSION = "mvpb-1"
 CASE_START_CLOCK = "08:30"  # game minute 0 == 08:30
 
 
-class _LabSpec(TypedDict):
+@dataclass(frozen=True)
+class LabSpec:
+    """One orderable test as a composed entity: cost/turnaround plus how its
+    result is materialized from the sampled-time snapshot."""
+
     label: str
     cost: int
     turnaround: int
+    materialize: Callable[[dict, dict | None], dict]
 
 
 # ── Hidden disease course ──
@@ -39,12 +45,59 @@ TRANSFUSE_PROGRESSION_MULT = 0.7  # sustained until report
 FLUID_BP_MASK_PER_UNIT = 10  # mmHg hidden per support unit on manual vitals
 ANALGESIA_PAIN_MASK = 2  # points hidden on pain assessment
 
-# ── Orderable labs: label / cost (¥) / turnaround (min) ──
-LAB_KINDS: dict[str, _LabSpec] = {
-    "CBC": {"label": "血常规(CBC)", "cost": 35, "turnaround": 15},
-    "ABG": {"label": "动脉血气(ABG)", "cost": 60, "turnaround": 10},
-    "COAG": {"label": "凝血功能", "cost": 50, "turnaround": 20},
-    "US": {"label": "腹部超声", "cost": 120, "turnaround": 20},
+
+# ── Orderable labs: each entry is a composed LabSpec ──
+def _mat_cbc(sample_snapshot: dict, previous: dict | None) -> dict:
+    sev = sample_snapshot["severity"]
+    hb = hb_for(sev)
+    if previous is not None and sev >= previous["sampled_severity"]:
+        hb = min(hb, previous["hb"])  # ongoing bleeding never shows a rise
+    return {
+        "hb": round(hb, 1),
+        "wbc": wbc_for(sev),
+        "platelet": 220,
+        "sampled_severity": round(sev, 4),
+        "abnormal": hb_abnormal(hb),
+    }
+
+
+def _mat_abg(sample_snapshot: dict, previous: dict | None) -> dict:
+    sev = sample_snapshot["severity"]
+    lactate = 0.8 + 6 * sev
+    ph = 7.42 - 0.18 * sev
+    return {
+        "lactate": round(lactate, 2),
+        "ph": round(ph, 2),
+        "sampled_severity": round(sev, 4),
+        "abnormal": lactate >= 2.0 or ph < 7.35,
+    }
+
+
+def _mat_coag(sample_snapshot: dict, previous: dict | None) -> dict:
+    sev = sample_snapshot["severity"]
+    inr = 1.0 + 0.8 * sev
+    return {
+        "inr": round(inr, 2),
+        "sampled_severity": round(sev, 4),
+        "abnormal": inr > 1.2,
+    }
+
+
+def _mat_us(sample_snapshot: dict, previous: dict | None) -> dict:
+    sev = sample_snapshot["severity"]
+    free_fluid = sev >= 0.30
+    return {
+        "free_fluid": free_fluid,
+        "sampled_severity": round(sev, 4),
+        "abnormal": free_fluid,
+    }
+
+
+LAB_KINDS: dict[str, LabSpec] = {
+    "CBC": LabSpec("血常规(CBC)", 35, 15, _mat_cbc),
+    "ABG": LabSpec("动脉血气(ABG)", 60, 10, _mat_abg),
+    "COAG": LabSpec("凝血功能", 50, 20, _mat_coag),
+    "US": LabSpec("腹部超声", 120, 20, _mat_us),
 }
 
 # ── Expert consultation ──
@@ -125,47 +178,15 @@ def materialize_lab(kind: str, sample_snapshot: dict, previous: dict | None) -> 
     the light snapshot saved at sampling time — never from result-return time.
     ``previous`` is the latest same-kind result, used for monotonic trends.
     """
-    sev = sample_snapshot["severity"]
-    if kind == "CBC":
-        hb = hb_for(sev)
-        if previous is not None and sev >= previous["sampled_severity"]:
-            hb = min(hb, previous["hb"])
-        return {
-            "hb": round(hb, 1),
-            "wbc": wbc_for(sev),
-            "platelet": 220,
-            "sampled_severity": round(sev, 4),
-            "abnormal": hb_abnormal(hb),
-        }
-    if kind == "ABG":
-        lactate = 0.8 + 6 * sev
-        ph = 7.42 - 0.18 * sev
-        return {
-            "lactate": round(lactate, 2),
-            "ph": round(ph, 2),
-            "sampled_severity": round(sev, 4),
-            "abnormal": lactate >= 2.0 or ph < 7.35,
-        }
-    if kind == "COAG":
-        inr = 1.0 + 0.8 * sev
-        return {
-            "inr": round(inr, 2),
-            "sampled_severity": round(sev, 4),
-            "abnormal": inr > 1.2,
-        }
-    if kind == "US":
-        free_fluid = sev >= 0.30
-        return {
-            "free_fluid": free_fluid,
-            "sampled_severity": round(sev, 4),
-            "abnormal": free_fluid,
-        }
-    raise ValueError(f"unknown lab kind: {kind}")
+    spec = LAB_KINDS.get(kind)
+    if spec is None:
+        raise ValueError(f"unknown lab kind: {kind}")
+    return spec.materialize(sample_snapshot, previous)
 
 
 def lab_options_text() -> str:
     return "、".join(
-        f"{LAB_KINDS[k]['label']}（¥{LAB_KINDS[k]['cost']}/{LAB_KINDS[k]['turnaround']}min）" for k in sorted(LAB_KINDS)
+        f"{LAB_KINDS[k].label}（¥{LAB_KINDS[k].cost}/{LAB_KINDS[k].turnaround}min）" for k in sorted(LAB_KINDS)
     )
 
 

@@ -39,13 +39,15 @@ main system — it does not touch the training/cases/qa domains or the main UI.
 设计模式（只抽象已有真实重复，不预建空层）：
 - **继承**：`Reading` 基类 + 4 个读数子类（共享 minute/abnormal、统一序列化与遍历）。
 - **组合**：`AssessSpec`（时长/构建/描述/趋势四要素）统一 4 个评估处理器；
-  `InterventionSpec`（时长/效果/提示）统一 3 个干预；`LAB_KINDS` 表驱动检查。
-- **表驱动**：`_HANDLERS` 动作分发表、`_ASSESS_SPECS`、`_INTERVENTIONS`、`LAB_KINDS`。
+  `InterventionSpec`（时长/效果/提示）统一 3 个干预；
+  `LabSpec`（费用/周转/材料化）统一 4 项检查。
+- **表驱动**：`_HANDLERS` 动作分发表、`_EVENT_HANDLERS` 事件分发表、
+  `_ASSESS_SPECS`、`_INTERVENTIONS`、`LAB_KINDS`、`_LAB_FORMATTERS` 结果显示表。
 
 扩展基座（新增业务对象的最小改动）：
 - 新观察 → `_ASSESS_SPECS` 加一项（build/describe/trend 三个小函数）。
 - 新干预 → `_INTERVENTIONS` 加一项（apply 效果函数）。
-- 新检查 → `LAB_KINDS` 加一项（materialize_lab 分支）。
+- 新检查 → `LAB_KINDS` 加一项 LabSpec（materialize 函数）+ `_LAB_FORMATTERS` 显示函数。
 - 引擎保持纯函数：`engine.apply_action(state, action)` 无 DB/HTTP；
   持久化与可见性白名单在 `service`；LLM 边界在 `router`。
 

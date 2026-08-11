@@ -41,7 +41,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
             {
                 "id": t.id,
                 "kind": t.kind,
-                "label": LAB_KINDS[t.kind]["label"],
+                "label": LAB_KINDS[t.kind].label,
                 "sampled_at": t.sampled_at,
                 "due_at": t.due_at,
                 "due_clock": clock_text(t.due_at),
@@ -52,7 +52,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
             {
                 "order_id": r.order_id,
                 "kind": r.kind,
-                "label": LAB_KINDS[r.kind]["label"],
+                "label": LAB_KINDS[r.kind].label,
                 "sampled_at": r.sampled_at,
                 "ready_at": r.ready_at,
                 "result": {k: v for k, v in r.result.items() if k != "sampled_severity"},
