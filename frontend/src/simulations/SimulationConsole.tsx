@@ -209,46 +209,35 @@ export default function SimulationConsole() {
 	return (
 		<div className="sim-root">
 			<header className="sim-header">
-				<div className="sim-title">腹部术后隐匿性出血（临床推理模拟）</div>
-				<div className="sim-goal">
-					目标：评估 → 检查 → 报告，尽早发现并报告隐匿性出血，患者顺利出院。
-					用 /diag 写下你的诊断，/report doctor 提交。
+				<div className="sim-titlerow">
+					<div className="sim-title">腹部术后隐匿性出血</div>
+					<div className="sim-actions">
+						<button
+							type="button"
+							disabled={busy}
+							onClick={newSession}
+							className="sim-btn"
+						>
+							重新开始
+						</button>
+						<Link to="/training" className="sim-btn sim-btn-link">
+							返回
+						</Link>
+					</div>
 				</div>
 				<div className="sim-meta">
-					<span>
-						时间 <b>{snapshot ? snapshot.clock : "--:--"}</b>
+					<span>{snapshot ? snapshot.clock : "--:--"}</span>
+					<span className={snapshot?.case_status === "SUCCESS" ? "sim-ok" : snapshot?.case_status === "FAILURE" ? "sim-bad" : undefined}>
+						{snapshot?.case_status ?? "…"}
 					</span>
-					<span>
-						状态 <b>{snapshot?.case_status ?? "…"}</b>
-					</span>
-					<span>
-						监护 <b>{snapshot?.monitoring ? "开启" : "关闭"}</b>
-					</span>
-					<span>
-						预算 <b>¥{snapshot?.budget ?? 0}</b>
-					</span>
-					<span>
-						已用 <b>¥{snapshot?.cost_total ?? 0}</b>
-					</span>
+					<span>监护{snapshot?.monitoring ? "开" : "关"}</span>
+					<span>预算¥{snapshot?.budget ?? 0}</span>
 					{pendingCount > 0 ? (
-						<span className="sim-pending">检查进行中 ×{pendingCount}</span>
+						<span className="sim-pending">检查×{pendingCount}</span>
 					) : null}
 					{snapshot && snapshot.unrevealed_lab_count > 0 ? (
-						<span className="sim-pending">有检查已返回未查看（/view）</span>
+						<span className="sim-pending">待查看</span>
 					) : null}
-				</div>
-				<div className="sim-actions">
-					<button
-						type="button"
-						disabled={busy}
-						onClick={newSession}
-						className="sim-btn"
-					>
-						重新开始
-					</button>
-					<Link to="/training" className="sim-btn sim-btn-link">
-						返回系统
-					</Link>
 				</div>
 			</header>
 
