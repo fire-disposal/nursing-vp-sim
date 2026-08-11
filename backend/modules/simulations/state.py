@@ -100,6 +100,7 @@ class SessionState:
     cbc_count: int = 0
     cost_total: int = 0
     repeat_while_pending: bool = False
+    delayed_success: bool = False
     case_ended_at: int | None = None
     revision: int = 0
 
@@ -124,6 +125,7 @@ def state_from_dict(raw: dict) -> SessionState:
         cbc_count=raw.get("cbc_count", 0),
         cost_total=raw.get("cost_total", 0),
         repeat_while_pending=raw.get("repeat_while_pending", False),
+        delayed_success=raw.get("delayed_success", False),
         case_ended_at=raw.get("case_ended_at"),
         revision=raw.get("revision", 0),
     )

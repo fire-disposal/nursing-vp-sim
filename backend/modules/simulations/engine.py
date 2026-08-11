@@ -196,6 +196,13 @@ def _audit_summary(state: SessionState, minute: int) -> str:
     parts = [f"结局摘要：CBC 次数 {state.cbc_count}，检查总费用 ¥{state.cost_total}。"]
     if state.repeat_while_pending:
         parts.append("存在 pending 时重复申请。")
+    if state.cbc_count >= 2:
+        latest_two = sorted(state.records, key=lambda r: r.sampled_at)[-2:]
+        interval = latest_two[1].sampled_at - latest_two[0].sampled_at
+        hb_delta = round(latest_two[1].result["hb"] - latest_two[0].result["hb"], 1)
+        parts.append(f"两次 CBC 采样间隔 {interval} 分钟，Hb 变化 {hb_delta:+g} g/L。")
+    if state.delayed_success:
+        parts.append("报告偏晚（已出现明显恶化后）。")
     parts.append(f"病例时长 {minute} 分钟（{clock_text(minute)}）。")
     return " ".join(parts)
 
@@ -304,13 +311,20 @@ def _do_assess_vitals(state: SessionState, messages: list[DomainMessage]) -> boo
     abnormal = vitals_abnormal(v)
     state.vitals.append(VitalsReading(completion, v["hr"], v["sbp"], v["dbp"], v["rr"], v["spo2"], v["temp"], abnormal))
     note = "存在异常" if abnormal else "未见明显异常"
-    messages.append(
-        DomainMessage(
-            "ASSESSMENT",
-            completion,
-            f"生命体征（{clock_text(completion)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}，SpO2 {v['spo2']}%，T {v['temp']}℃。{note}。",
-        )
+    text = (
+        f"生命体征（{clock_text(completion)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，"
+        f"RR {v['rr']}，SpO2 {v['spo2']}%，T {v['temp']}℃。{note}。"
     )
+    prev = state.vitals[-2] if len(state.vitals) >= 2 else None
+    if prev is not None:
+        dh = v["hr"] - prev.hr
+        ds = v["sbp"] - prev.sbp
+        if dh or ds:
+            text += (
+                f" 较上次 HR {prev.hr}→{v['hr']}（{'↑' if dh > 0 else '↓'}{abs(dh)}），"
+                f"BP {prev.sbp}/{prev.dbp}→{v['sbp']}/{v['dbp']}。"
+            )
+    messages.append(DomainMessage("ASSESSMENT", completion, text))
     return True
 
 
@@ -322,9 +336,12 @@ def _do_assess_drain(state: SessionState, messages: list[DomainMessage]) -> bool
     abnormal = drain_abnormal(output)
     state.drain.append(DrainReading(completion, output, abnormal))
     note = "引流增多，异常" if abnormal else "引流量在正常范围"
-    messages.append(
-        DomainMessage("ASSESSMENT", completion, f"引流评估（{clock_text(completion)}）：{output} ml。{note}。")
-    )
+    text = f"引流评估（{clock_text(completion)}）：{output} ml。{note}。"
+    prev = state.drain[-2] if len(state.drain) >= 2 else None
+    if prev is not None and output != prev.output_ml:
+        arrow = "↑" if output > prev.output_ml else "↓"
+        text += f" 较上次 {prev.output_ml}→{output} ml（{arrow}{abs(output - prev.output_ml)}）。"
+    messages.append(DomainMessage("ASSESSMENT", completion, text))
     return True
 
 
@@ -417,6 +434,15 @@ def _do_report(state: SessionState, _target: str | None, messages: list[DomainMe
         return False
     state.hidden.reported_to_doctor = True
     messages.append(DomainMessage("SYSTEM", completion, f"已向医生报告病情（{clock_text(completion)}）。"))
+    if state.hidden.bleeding_severity >= DETERIORATION_SEVERITY:
+        state.delayed_success = True
+        messages.append(
+            DomainMessage(
+                "WARNING",
+                completion,
+                "注意：报告时病情已出现明显恶化——处置及时，但发现偏晚。",
+            )
+        )
     _end_case(state, SUCCESS, completion, messages)
     return True
 
@@ -462,13 +488,17 @@ def _do_view_cbc(state: SessionState, _target: str | None, messages: list[Domain
     rec.revealed = True
     r = rec.result
     flag = "异常" if r["abnormal"] else "正常"
-    messages.append(
-        DomainMessage(
-            "LAB",
-            state.current_time,
-            f"CBC（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}，返回 {clock_text(rec.ready_at)}）：Hb {r['hb']} g/L（{flag}），WBC {r['wbc']} ×10⁹/L，PLT {r['platelet']} ×10⁹/L。",
-        )
+    text = (
+        f"CBC（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}，返回 {clock_text(rec.ready_at)}）："
+        f"Hb {r['hb']} g/L（{flag}），WBC {r['wbc']} ×10⁹/L，PLT {r['platelet']} ×10⁹/L。"
     )
+    earlier = [x for x in state.records if x.sampled_at < rec.sampled_at]
+    if earlier:
+        prev = max(earlier, key=lambda x: x.sampled_at)
+        delta = round(rec.result["hb"] - prev.result["hb"], 1)
+        arrow = "↓" if delta < 0 else ("↑" if delta > 0 else "→")
+        text += f" 较上次 Hb {prev.result['hb']}→{rec.result['hb']} g/L（{arrow}{abs(delta)}）。"
+    messages.append(DomainMessage("LAB", state.current_time, text))
     return True
 
 
