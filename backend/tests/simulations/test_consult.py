@@ -65,6 +65,9 @@ def test_service_appends_provider_advice():
     assert updated.consult_count == 1
     assert updated.diag_spent == CONSULT_COST  # not refunded
     assert any("专家建议" in m.text for m in updated.public_log)
+    # The advice must also be returned to the client this request (display bug fix).
+    msgs, _, _ = _act_through_service(new_session(), fake_provider)
+    assert any("专家建议" in m.text for m in msgs)
 
 
 def test_service_refunds_when_provider_fails():

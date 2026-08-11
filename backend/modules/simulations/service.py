@@ -113,14 +113,25 @@ class SimulationService:
     def _run_consult(
         self, state: SessionState, messages: list[DomainMessage], provider: ConsultProvider | None
     ) -> None:
-        """Call the expert AI with the player's known info; refund on failure."""
+        """Call the expert AI with the player's known info; refund on failure.
+
+        Appends the outcome to BOTH ``messages`` (returned to the client this
+        request) and ``state.public_log`` (persisted for reload), so the console
+        always shows the advice / refund notice immediately.
+        """
         if provider is None:
+            msg = DomainMessage("SYSTEM", state.current_time, "专家会诊服务未就绪，本次不扣检查点。")
             state.diag_spent = max(0, state.diag_spent - CONSULT_COST)
-            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊服务未就绪，本次不扣检查点。"))
+            messages.append(msg)
+            state.public_log.append(msg)
             return
         try:
             advice = provider(build_consult_summary(state))
-            state.public_log.append(DomainMessage("MONITOR", state.current_time, f"专家建议：{advice}"))
+            msg = DomainMessage("MONITOR", state.current_time, f"专家建议：{advice}")
+            messages.append(msg)
+            state.public_log.append(msg)
         except Exception:  # noqa: BLE001 — provider is an external boundary; any failure refunds
             state.diag_spent = max(0, state.diag_spent - CONSULT_COST)
-            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣检查点。"))
+            msg = DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣检查点。")
+            messages.append(msg)
+            state.public_log.append(msg)
