@@ -4585,15 +4585,25 @@ export interface components {
              */
             cbc_count: number;
             /**
-             * Cost Total
+             * Diag Spent
              * @default 0
              */
-            cost_total: number;
+            diag_spent: number;
             /**
-             * Budget
+             * Diag Budget
              * @default 0
              */
-            budget: number;
+            diag_budget: number;
+            /**
+             * Treat Spent
+             * @default 0
+             */
+            treat_spent: number;
+            /**
+             * Treat Budget
+             * @default 0
+             */
+            treat_budget: number;
             /** Case Ended At */
             case_ended_at?: number | null;
         };

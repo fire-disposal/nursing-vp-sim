@@ -13,10 +13,10 @@ owns construction, the event loop, hidden disease course, and endings.
 
 from .case import (
     BLEEDING_INTERVAL_MIN,
-    BUDGET_START,
     DETERIORATION_SEVERITY,
     FAILURE_SEVERITY,
     LAB_KINDS,
+    PATIENT_DESC,
     SEVERITY_START,
     SEVERITY_STEP,
     VITALS_MID_SEVERITY,
@@ -116,7 +116,7 @@ def _seed_handover(state: SessionState) -> None:
         DomainMessage(
             "SYSTEM",
             0,
-            "交班：58 岁女性，昨日腹部手术，术后第 1 日。任务：识别并有效报告隐匿性出血。输入 /help 查看命令（分级）。",
+            f"交班：{PATIENT_DESC}。任务：识别并有效报告隐匿性出血。输入 /help 查看命令（分级）。",
         ),
         DomainMessage(
             "ASSESSMENT",
@@ -276,14 +276,13 @@ def _settlement_verdict(state: SessionState) -> str:
 
 
 def _audit_summary(state: SessionState, minute: int) -> str:
-    remaining = max(0, BUDGET_START - state.cost_total)
-    parts = [f"结局摘要：检查 {len(state.records)} 次，总费用 ¥{state.cost_total}，剩余预算 ¥{remaining}。"]
+    parts = [f"结局摘要：检查 {len(state.records)} 次，耗检查点 {state.diag_spent}，耗治疗点 {state.treat_spent}。"]
     if state.diagnosis:
         parts.append(f"你的诊断：{state.diagnosis}；")
     if state.repeat_while_pending:
         parts.append("存在 pending 时重复申请。")
     if state.insufficient_funds:
-        parts.append("曾因资金不足被拒。")
+        parts.append("曾因资源不足被拒。")
     if state.consult_count:
         parts.append(f"专家会诊 {state.consult_count} 次。")
     cbc_recs = [r for r in state.records if r.kind == "CBC"]
@@ -384,7 +383,7 @@ def build_consult_summary(state: SessionState) -> str:
     Built ONLY from what the player has observed/revealed — never from the
     hidden bleeding state, so the expert cannot leak the hidden course.
     """
-    lines = [f"腹部术后第 1 日，当前时间 {clock_text(state.current_time)}。"]
+    lines = [f"交班：{PATIENT_DESC}。当前时间 {clock_text(state.current_time)}。"]
     for label, attr, fmt in _READING_SECTIONS:
         readings = getattr(state, attr)
         if readings:

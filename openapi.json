@@ -14081,14 +14081,24 @@
             "title": "Cbc Count",
             "default": 0
           },
-          "cost_total": {
+          "diag_spent": {
             "type": "integer",
-            "title": "Cost Total",
+            "title": "Diag Spent",
             "default": 0
           },
-          "budget": {
+          "diag_budget": {
             "type": "integer",
-            "title": "Budget",
+            "title": "Diag Budget",
+            "default": 0
+          },
+          "treat_spent": {
+            "type": "integer",
+            "title": "Treat Spent",
+            "default": 0
+          },
+          "treat_budget": {
+            "type": "integer",
+            "title": "Treat Budget",
             "default": 0
           },
           "case_ended_at": {

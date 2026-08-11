@@ -33,8 +33,10 @@ const baseSnapshot = {
 	lab_records: [],
 	unrevealed_lab_count: 0,
 	cbc_count: 0,
-	cost_total: 0,
-	budget: 300,
+	diag_spent: 0,
+	diag_budget: 400,
+	treat_spent: 0,
+	treat_budget: 100,
 	case_ended_at: null,
 };
 

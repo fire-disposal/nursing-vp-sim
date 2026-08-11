@@ -280,7 +280,8 @@ export default function SimulationConsole() {
 						{snapshot?.case_status ?? "…"}
 					</span>
 					<span>监护{snapshot?.monitoring ? "开" : "关"}</span>
-					<span>预算¥{snapshot?.budget ?? 0}</span>
+					<span>检查点{snapshot?.diag_budget ?? 0}</span>
+					<span>治疗点{snapshot?.treat_budget ?? 0}</span>
 					{pendingCount > 0 ? (
 						<span className="sim-pending">检查×{pendingCount}</span>
 					) : null}

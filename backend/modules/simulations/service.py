@@ -14,7 +14,7 @@ from core.exceptions import NotFoundError
 from core.unit_of_work import unit_of_work
 from models.simulation import SimulationSession
 
-from .case import BUDGET_START, CASE_VERSION, CONSULT_COST, LAB_KINDS, clock_text
+from .case import CASE_VERSION, CONSULT_COST, DIAG_BUDGET_START, LAB_KINDS, TREAT_BUDGET_START, clock_text
 from .engine import apply_action, build_consult_summary, new_session
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
 
@@ -62,8 +62,10 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         ],
         "unrevealed_lab_count": sum(1 for r in state.records if not r.revealed),
         "cbc_count": state.cbc_count,
-        "cost_total": state.cost_total,
-        "budget": max(0, BUDGET_START - state.cost_total),
+        "diag_spent": state.diag_spent,
+        "diag_budget": max(0, DIAG_BUDGET_START - state.diag_spent),
+        "treat_spent": state.treat_spent,
+        "treat_budget": max(0, TREAT_BUDGET_START - state.treat_spent),
         "case_ended_at": state.case_ended_at,
     }
 
@@ -113,12 +115,12 @@ class SimulationService:
     ) -> None:
         """Call the expert AI with the player's known info; refund on failure."""
         if provider is None:
-            state.cost_total = max(0, state.cost_total - CONSULT_COST)
-            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊服务未就绪，本次不扣费。"))
+            state.diag_spent = max(0, state.diag_spent - CONSULT_COST)
+            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊服务未就绪，本次不扣检查点。"))
             return
         try:
             advice = provider(build_consult_summary(state))
             state.public_log.append(DomainMessage("MONITOR", state.current_time, f"专家建议：{advice}"))
         except Exception:  # noqa: BLE001 — provider is an external boundary; any failure refunds
-            state.cost_total = max(0, state.cost_total - CONSULT_COST)
-            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣费。"))
+            state.diag_spent = max(0, state.diag_spent - CONSULT_COST)
+            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣检查点。"))

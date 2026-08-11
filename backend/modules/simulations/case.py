@@ -17,8 +17,8 @@ CASE_START_CLOCK = "08:30"  # game minute 0 == 08:30
 
 @dataclass(frozen=True)
 class LabSpec:
-    """One orderable test as a composed entity: cost/turnaround plus how its
-    result is materialized from the sampled-time snapshot."""
+    """One orderable test as a composed entity: cost in 检查点 and turnaround
+    minutes, plus how its result is materialized from the sampled-time snapshot."""
 
     label: str
     cost: int
@@ -31,8 +31,11 @@ SEVERITY_START = 0.12
 SEVERITY_STEP = 0.06
 BLEEDING_INTERVAL_MIN = 6
 
-# Starting resource budget for ordering labs (¥). Lab orders deduct from it.
-BUDGET_START = 300
+# Resource model: two abstract pools plus time (minutes). Labs/consult spend
+# 检查点 (diagnostic points); interventions spend 治疗点 (treatment points).
+# Neither is money — they are abstract resource points.
+DIAG_BUDGET_START = 400
+TREAT_BUDGET_START = 100
 
 # Severity thresholds (0..1)
 VITALS_MID_SEVERITY = 0.34  # HR>=95 / SBP<=108; also the MONITOR_ALERT trigger
@@ -101,7 +104,14 @@ LAB_KINDS: dict[str, LabSpec] = {
 }
 
 # ── Expert consultation ──
-CONSULT_COST = 150
+CONSULT_COST = 120  # 检查点
+
+# Resource cost of each intervention in 治疗点. Transfusion is the expensive one —
+# a real "spend treatment points or spend time" decision.
+INTERVENTION_COSTS = {"FLUIDS": 30, "TRANSFUSE": 60, "ANALGESIA": 20}
+
+# ── Patient profile (content) ──
+PATIENT_DESC = "王秀兰，58 岁女性，昨日胃癌根治术后，术后第 1 日，术后予低分子肝素预防 VTE"
 
 # ── Active action durations (minutes) ──
 DURATION_MIN = {
@@ -186,7 +196,7 @@ def materialize_lab(kind: str, sample_snapshot: dict, previous: dict | None) -> 
 
 def lab_options_text() -> str:
     return "、".join(
-        f"{LAB_KINDS[k].label}（¥{LAB_KINDS[k].cost}/{LAB_KINDS[k].turnaround}min）" for k in sorted(LAB_KINDS)
+        f"{LAB_KINDS[k].label}（{LAB_KINDS[k].cost}检查点/{LAB_KINDS[k].turnaround}min）" for k in sorted(LAB_KINDS)
     )
 
 

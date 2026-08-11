@@ -119,9 +119,10 @@ class SessionState:
     monitor_alert_fired: bool = False
     deteriorated: bool = False
     diagnosis: str | None = None
+    diag_spent: int = 0
+    treat_spent: int = 0
     seq: int = 0
     cbc_count: int = 0
-    cost_total: int = 0
     repeat_while_pending: bool = False
     insufficient_funds: bool = False
     delayed_success: bool = False
@@ -153,7 +154,8 @@ def state_from_dict(raw: dict) -> SessionState:
         consult_count=raw.get("consult_count", 0),
         seq=raw.get("seq", 0),
         cbc_count=raw.get("cbc_count", 0),
-        cost_total=raw.get("cost_total", 0),
+        diag_spent=raw.get("diag_spent", 0),
+        treat_spent=raw.get("treat_spent", 0),
         repeat_while_pending=raw.get("repeat_while_pending", False),
         insufficient_funds=raw.get("insufficient_funds", False),
         delayed_success=raw.get("delayed_success", False),

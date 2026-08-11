@@ -11,14 +11,16 @@ from dataclasses import dataclass
 from . import engine
 from .case import (
     ANALGESIA_PAIN_MASK,
-    BUDGET_START,
     CASE_NAME,
     CASE_VERSION,
     CONSULT_COST,
     DETERIORATION_SEVERITY,
+    DIAG_BUDGET_START,
     DURATION_MIN,
     FLUID_BP_MASK_PER_UNIT,
+    INTERVENTION_COSTS,
     LAB_KINDS,
+    TREAT_BUDGET_START,
     VITALS_MID_SEVERITY,
     clock_text,
     drain_abnormal,
@@ -47,7 +49,9 @@ from .state import (
 def _do_status(state, _target, messages) -> bool:
     lines = [f"{CASE_NAME}（{CASE_VERSION}）"]
     lines.append(f"病例状态：{state.case_status}")
-    lines.append(f"剩余预算：¥{max(0, BUDGET_START - state.cost_total)}")
+    lines.append(
+        f"资源：检查点 {DIAG_BUDGET_START - state.diag_spent} · 治疗点 {TREAT_BUDGET_START - state.treat_spent} · 已用时 {state.current_time}min"
+    )
     lines.append(f"你的诊断：{state.diagnosis or '未记录（用 /diag 写下你的判断）'}")
     evid = "已获取" if engine._has_abnormal_evidence(state) else "未获取"
     lines.append(
@@ -140,13 +144,15 @@ def _build_urine(state) -> UrineReading:
 def _describe_vitals(state, r) -> str:
     note = "存在异常" if r.abnormal else "未见明显异常"
     text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr}，SpO2 {r.spo2}%，T {r.temp}℃。{note}。"
+    if r.abnormal:
+        text += "皮肤湿冷、脉搏细速。"
     if state.fluid_support > 0:
         text += "（补液支撑下血压）"
     return text
 
 
 def _describe_drain(state, r) -> str:
-    note = "引流增多，异常" if r.abnormal else "引流量在正常范围"
+    note = "引流液呈鲜红色、量增多，警惕活动性出血" if r.abnormal else "引流液淡黄清亮，量在正常范围"
     return f"引流评估：{r.output_ml} ml。{note}。"
 
 
@@ -229,7 +235,7 @@ def _do_order_lab(state, target, messages) -> bool:
         )
         return False
     cost = LAB_KINDS[kind].cost
-    if not _check_budget(state, cost, messages, LAB_KINDS[kind].label, f"可用：{lab_options_text()}。"):
+    if not _check_budget(state, "diag", cost, messages, LAB_KINDS[kind].label, f"可用：{lab_options_text()}。"):
         state.insufficient_funds = True
         return False
     start = state.current_time
@@ -258,13 +264,14 @@ def _do_order_lab(state, target, messages) -> bool:
     engine._schedule(state, due_at, 2, "LAB_READY", {"pending_id": task_id})
     if kind == "CBC":
         state.cbc_count += 1
-    state.cost_total += cost
+    state.diag_spent += cost
     label = LAB_KINDS[kind].label
     messages.append(
         DomainMessage(
             "LAB",
             completion,
-            f"已申请{label}（order #{task_id}），采血/检查完成于 {clock_text(completion)}，预计 {clock_text(due_at)} 返回。扣费 ¥{cost}，剩余预算 ¥{BUDGET_START - state.cost_total}。",
+            f"已申请{label}（order #{task_id}），采血/检查完成于 {clock_text(completion)}，预计 {clock_text(due_at)} 返回。"
+            f"扣 {cost} 检查点，剩余检查点 {DIAG_BUDGET_START - state.diag_spent}。",
         )
     )
     return True
@@ -397,11 +404,20 @@ def _run_intervention(state, kind: str, messages) -> bool:
             )
         )
         return False
+    if not _check_budget(state, "treat", spec.cost, messages, spec.label):
+        return False
     completion = state.current_time + spec.duration_min
     engine._advance(state, messages, completion)
     state.current_time = completion
     spec.apply(state)
-    messages.append(DomainMessage("SYSTEM", completion, f"已{spec.label}。{spec.followup}"))
+    state.treat_spent += spec.cost
+    messages.append(
+        DomainMessage(
+            "SYSTEM",
+            completion,
+            f"已{spec.label}。{spec.followup}扣 {spec.cost} 治疗点，剩余治疗点 {TREAT_BUDGET_START - state.treat_spent}。",
+        )
+    )
     return True
 
 
@@ -420,11 +436,13 @@ def _apply_analgesia(state) -> None:
 
 @dataclass(frozen=True)
 class InterventionSpec:
-    """One intervention as a composition: duration, its effect on the state
-    and the follow-up note. Effects all buy time but mask a clue."""
+    """One intervention as a composition: duration, its effect on the state,
+    its resource cost in 治疗点 and the follow-up note. Effects buy time but
+    mask a clue."""
 
     label: str
     duration_min: int
+    cost: int
     apply: Callable[[SessionState], None]
     followup: str
 
@@ -433,18 +451,21 @@ _INTERVENTIONS: dict[str, InterventionSpec] = {
     "FLUIDS": InterventionSpec(
         "快速补液 500ml",
         DURATION_MIN["FLUIDS"],
+        INTERVENTION_COSTS["FLUIDS"],
         _apply_fluids,
         "血压支撑暂时改善——需明确出血来源，勿被掩盖。",
     ),
     "TRANSFUSE": InterventionSpec(
         "输注红细胞 2U",
         DURATION_MIN["TRANSFUSE"],
+        INTERVENTION_COSTS["TRANSFUSE"],
         _apply_transfuse,
         "失血速度放缓，但仍需明确并处理出血源。",
     ),
     "ANALGESIA": InterventionSpec(
         "给予镇痛",
         DURATION_MIN["ANALGESIA"],
+        INTERVENTION_COSTS["ANALGESIA"],
         _apply_analgesia,
         "注意：可能掩盖腹痛这一早期线索。",
     ),
@@ -466,35 +487,43 @@ def _do_diag(state, target, messages) -> bool:
     return True
 
 
-def _check_budget(state, cost: int, messages, what: str, hint: str = "") -> bool:
-    """Shared resource gate: reject the action with a clear message when the
-    remaining budget cannot cover ``cost`` (used by lab orders and consults)."""
-    remaining = BUDGET_START - state.cost_total
+def _check_budget(state, pool: str, cost: int, messages, what: str, hint: str = "") -> bool:
+    """Shared resource gate over one of the two abstract pools (diag/treat).
+
+    ``pool="diag"`` spends 检查点 (labs + consult); ``pool="treat"`` spends
+    治疗点 (interventions). Returns False and reports the shortfall otherwise.
+    """
+    if pool == "treat":
+        remaining = TREAT_BUDGET_START - state.treat_spent
+        unit = "治疗点"
+    else:
+        remaining = DIAG_BUDGET_START - state.diag_spent
+        unit = "检查点"
     if remaining >= cost:
         return True
     messages.append(
         DomainMessage(
             "SYSTEM",
             state.current_time,
-            f"资金不足：{what}需 ¥{cost}，当前剩余 ¥{remaining}。{hint}",
+            f"{unit}不足：{what}需 {cost} {unit}，当前剩余 {remaining} {unit}。{hint}",
         )
     )
     return False
 
 
 def _do_consult(state, _target, messages) -> bool:
-    if not _check_budget(state, CONSULT_COST, messages, "专家会诊"):
+    if not _check_budget(state, "diag", CONSULT_COST, messages, "专家会诊"):
         return False
     completion = state.current_time + DURATION_MIN["CONSULT"]
     engine._advance(state, messages, completion)
     state.current_time = completion
-    state.cost_total += CONSULT_COST
+    state.diag_spent += CONSULT_COST
     state.consult_count += 1
     messages.append(
         DomainMessage(
             "SYSTEM",
             completion,
-            f"专家会诊已申请（¥{CONSULT_COST}，{DURATION_MIN['CONSULT']}min）。专家正在基于已有信息分析…",
+            f"专家会诊已申请（{CONSULT_COST} 检查点，{DURATION_MIN['CONSULT']}min）。专家正在基于已有信息分析…",
         )
     )
     return True
@@ -613,12 +642,12 @@ def _help_topic(topic: str) -> list[str]:
         ]
     if topic in ("order", "检查"):
         return [
-            "可申请检查（费用/周转）：",
-            "  /order cbc   ¥35/15min   Hb/WBC/PLT",
-            "  /order abg   ¥60/10min   乳酸/pH",
-            "  /order coag  ¥50/20min   PT-INR",
-            "  /order us    ¥120/20min  腹部游离液",
-            "同项目 pending 不可重复；受预算 ¥300 约束；/view <项目> 查结果。",
+            "可申请检查（检查点/周转）：",
+            "  /order cbc   35检查点/15min   Hb/WBC/PLT",
+            "  /order abg   60检查点/10min   乳酸/pH",
+            "  /order coag  50检查点/20min   PT-INR",
+            "  /order us    120检查点/20min  腹部游离液",
+            "同项目 pending 不可重复；受检查点(400)约束；/view <项目> 查结果。",
         ]
     if topic in ("view", "查看"):
         return [
@@ -628,11 +657,11 @@ def _help_topic(topic: str) -> list[str]:
         ]
     if topic in ("intervention", "干预"):
         return [
-            "干预（耗时，均有取舍）：",
-            "  /give fluids  3min  补液：掩盖血压但争取时间",
-            "  /transfuse    5min  输血：放缓失血",
-            "  /analgesia    1min  镇痛：可能掩盖腹痛",
-            "  /consult      ¥150/2min  专家会诊：基于已有信息给建议与检查方向",
+            "干预（耗治疗点 + 时间，均有取舍）：",
+            "  /give fluids  30治疗点/3min   补液：掩盖血压但争取时间",
+            "  /transfuse    60治疗点/5min   输血：放缓失血",
+            "  /analgesia    20治疗点/1min   镇痛：可能掩盖腹痛",
+            "  /consult      120检查点/2min  专家会诊：基于已有信息给建议与检查方向",
             "  /diag <判断>   记录你的诊断/推理",
         ]
     if topic in ("处理", "report", "wait"):

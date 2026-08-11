@@ -24,10 +24,10 @@ export interface Completion {
 }
 
 const LAB_PARAMS = {
-	cbc: "血常规 ¥35/15min",
-	abg: "动脉血气 ¥60/10min",
-	coag: "凝血功能 ¥50/20min",
-	us: "腹部超声 ¥120/20min",
+	cbc: "血常规 35检查点/15min",
+	abg: "动脉血气 60检查点/10min",
+	coag: "凝血功能 50检查点/20min",
+	us: "腹部超声 120检查点/20min",
 };
 
 const ASSESS: CommandDef = {
@@ -45,7 +45,7 @@ const ASSESS: CommandDef = {
 const ORDER: CommandDef = { cmd: "order", desc: "申请检查（扣预算，各带周转）", params: ["cbc", "abg", "coag", "us"], paramDesc: LAB_PARAMS };
 const VIEW: CommandDef = { cmd: "view", desc: "查看已返回检查结果", params: ["cbc", "abg", "coag", "us"], paramDesc: LAB_PARAMS };
 
-const GIVE: CommandDef = { cmd: "give", desc: "快速补液（干预）", params: ["fluids"], paramDesc: { fluids: "补液 500ml（3min）：争取时间但掩盖血压" } };
+const GIVE: CommandDef = { cmd: "give", desc: "快速补液（30治疗点）", params: ["fluids"], paramDesc: { fluids: "补液 500ml（30治疗点/3min）：争取时间但掩盖血压" } };
 const REPORT: CommandDef = { cmd: "report", desc: "向医生报告（需已有异常证据）", params: ["doctor"], paramDesc: { doctor: "向医生报告病情（2min）" } };
 const HELP: CommandDef = {
 	cmd: "help",
@@ -72,9 +72,9 @@ export const COMMAND_GROUPS: CommandGroup[] = [
 		desc: "治疗与支持（有取舍）",
 		commands: [
 			GIVE,
-			{ cmd: "transfuse", desc: "输注红细胞 2U（5min）：放缓失血" },
-			{ cmd: "analgesia", desc: "给予镇痛（1min）：可能掩盖腹痛" },
-			{ cmd: "consult", desc: "专家会诊 ¥150（AI 基于已知信息给建议与检查方向）" },
+			{ cmd: "transfuse", desc: "输注红细胞 2U（60治疗点/5min）：放缓失血" },
+			{ cmd: "analgesia", desc: "给予镇痛（20治疗点/1min）：可能掩盖腹痛" },
+			{ cmd: "consult", desc: "专家会诊 120检查点（AI 基于已知信息给建议与检查方向）" },
 		],
 	},
 	{

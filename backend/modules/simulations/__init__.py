@@ -18,21 +18,23 @@ main system — it does not touch the training/cases/qa domains or the main UI.
  │    └─ UrineReading（尿量 ml）                ← /assess urine
  │
  ├─ 检查 Lab（Order → Record 生命周期，采样时状态一次性实例化）
- │    ├─ CBC / ABG / COAG / US（LAB_KINDS 表：费用/周转/材料化）
+ │    ├─ CBC / ABG / COAG / US（LAB_KINDS 表：检查点/周转/材料化）
  │    ├─ PendingTask（PROCESSING→READY）→ ClinicalRecord（result, revealed）
- │    └─ 受预算约束（BUDGET_START，下单扣费）
+ │    └─ 耗检查点（DIAG_BUDGET_START），下单扣费
  │
- ├─ 干预 Intervention（InterventionSpec 表，均争取时间但掩盖线索）
+ ├─ 干预 Intervention（InterventionSpec 表，耗治疗点，均争取时间但掩盖线索）
  │    ├─ 补液 FLUIDS（掩盖血压 + 减缓失血）
  │    ├─ 输血 TRANSFUSE（减缓失血）
  │    └─ 镇痛 ANALGESIA（掩盖腹痛）
  │
- ├─ 会诊 Consult（¥150，调 AI 基础设施层 infra/llm，仅基于已知信息）
+ ├─ 会诊 Consult（120 检查点，调 AI 基础设施层 infra/llm，仅基于已知信息）
  ├─ 诊断 Diagnosis（/diag 自由文本，报告时带出）
  │
  └─ 报告 Report → 结局 Outcome
       ├─ SUCCESS：患者出院（及时/迟报两种判定）
       └─ FAILURE：延误/漏诊
+
+资源模型：三种资源——检查点（实验室+会诊，400）、治疗点（干预，100）、时间（分钟）。
 
 ```
 

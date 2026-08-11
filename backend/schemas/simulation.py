@@ -88,8 +88,10 @@ class SimulationSnapshot(BaseModel):
     lab_records: list[LabRecordSummary] = []
     unrevealed_lab_count: int = 0
     cbc_count: int = 0
-    cost_total: int = 0
-    budget: int = 0
+    diag_spent: int = 0
+    diag_budget: int = 0
+    treat_spent: int = 0
+    treat_budget: int = 0
     case_ended_at: int | None = None
 
 
