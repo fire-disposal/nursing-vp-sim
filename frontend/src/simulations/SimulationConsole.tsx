@@ -210,6 +210,10 @@ export default function SimulationConsole() {
 		<div className="sim-root">
 			<header className="sim-header">
 				<div className="sim-title">腹部术后隐匿性出血（临床推理模拟）</div>
+				<div className="sim-goal">
+					目标：评估 → 检查 → 报告，尽早发现并报告隐匿性出血，患者顺利出院。
+					用 /diag 写下你的诊断，/report doctor 提交。
+				</div>
 				<div className="sim-meta">
 					<span>
 						时间 <b>{snapshot ? snapshot.clock : "--:--"}</b>
@@ -292,8 +296,11 @@ export default function SimulationConsole() {
 			</div>
 
 			{caseEnded ? (
-				<div className="sim-endbanner">
-					病例已结束（{snapshot.case_status}）。输入 /status 查看结果，或点「重新开始」。
+				<div className={`sim-endbanner ${snapshot.case_status === "SUCCESS" ? "sim-endbanner-good" : "sim-endbanner-bad"}`}>
+					{snapshot.case_status === "SUCCESS"
+						? "患者病情稳定，予以出院（较好结局）。输入 /status 查看结算，或点「重新开始」。"
+						: "患者病情恶化，病例失败。输入 /status 查看结算，或点「重新开始」。"
+					}
 				</div>
 			) : null}
 

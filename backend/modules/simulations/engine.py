@@ -238,13 +238,30 @@ def _end_case(state: SessionState, status: str, minute: int, messages: list[Doma
     if status == FAILURE:
         messages.append(DomainMessage("CRITICAL", minute, "患者病情急剧恶化，隐匿性出血未被及时发现与控制——病例失败。"))
     else:
-        messages.append(DomainMessage("SYSTEM", minute, "病情得到控制，病例结束（较好结局）。"))
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                minute,
+                f"患者病情稳定，恢复良好，予以出院（{clock_text(minute)}）。较好结局达成。",
+            )
+        )
     messages.append(DomainMessage("AUDIT", minute, _audit_summary(state, minute)))
+
+
+def _settlement_verdict(state: SessionState) -> str:
+    """Why this outcome — the explicit settlement judgment for the player."""
+    if state.case_status == FAILURE:
+        return "判定：延误/漏诊——未及时获得异常证据并有效报告，隐匿性出血持续加重。"
+    if state.delayed_success:
+        return "判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。"
+    return "判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。"
 
 
 def _audit_summary(state: SessionState, minute: int) -> str:
     remaining = max(0, BUDGET_START - state.cost_total)
     parts = [f"结局摘要：检查 {len(state.records)} 次，总费用 ¥{state.cost_total}，剩余预算 ¥{remaining}。"]
+    if state.diagnosis:
+        parts.append(f"你的诊断：{state.diagnosis}；")
     if state.repeat_while_pending:
         parts.append("存在 pending 时重复申请。")
     if state.insufficient_funds:
@@ -255,9 +272,8 @@ def _audit_summary(state: SessionState, minute: int) -> str:
         interval = latest_two[1].sampled_at - latest_two[0].sampled_at
         hb_delta = round(latest_two[1].result["hb"] - latest_two[0].result["hb"], 1)
         parts.append(f"两次 CBC 采样间隔 {interval} 分钟，Hb 变化 {hb_delta:+g} g/L。")
-    if state.delayed_success:
-        parts.append("报告偏晚（已出现明显恶化后）。")
     parts.append(f"病例时长 {minute} 分钟（{clock_text(minute)}）。")
+    parts.append(_settlement_verdict(state))
     return " ".join(parts)
 
 

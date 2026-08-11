@@ -115,6 +115,7 @@ class SessionState:
     analgesia: bool = False
     monitor_alert_fired: bool = False
     deteriorated: bool = False
+    diagnosis: str | None = None
     seq: int = 0
     cbc_count: int = 0
     cost_total: int = 0
@@ -141,6 +142,7 @@ def state_from_dict(raw: dict) -> SessionState:
         case_status=raw["case_status"],
         monitor_alert_fired=raw.get("monitor_alert_fired", False),
         deteriorated=raw.get("deteriorated", False),
+        diagnosis=raw.get("diagnosis"),
         fluid_support=raw.get("fluid_support", 0),
         transfused=raw.get("transfused", False),
         analgesia=raw.get("analgesia", False),

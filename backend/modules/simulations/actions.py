@@ -44,6 +44,11 @@ def _do_status(state, _target, messages) -> bool:
     lines = [f"{CASE_NAME}（{CASE_VERSION}）", f"当前时间：{clock_text(state.current_time)}"]
     lines.append(f"病例状态：{state.case_status}")
     lines.append(f"剩余预算：¥{max(0, BUDGET_START - state.cost_total)}")
+    lines.append(f"你的诊断：{state.diagnosis or '未记录（用 /diag 写下你的判断）'}")
+    evid = "已获取" if engine._has_abnormal_evidence(state) else "未获取"
+    lines.append(
+        f"目标清单：异常证据 {evid} · 监护 {'开启' if state.hidden.monitoring_enabled else '未开'} · 已报告 {'是' if state.hidden.reported_to_doctor else '否'}"
+    )
     if state.hidden.monitoring_enabled:
         lines.append("持续生命体征监护：已开启")
     if state.hidden.reported_to_doctor:
@@ -354,6 +359,21 @@ def _do_analgesia(state, _target, messages) -> bool:
     return True
 
 
+def _do_diag(state, target, messages) -> bool:
+    if not target or not target.strip():
+        messages.append(DomainMessage("SYSTEM", state.current_time, "请写出你的判断，如 /diag 疑诊隐匿性出血。"))
+        return False
+    state.diagnosis = target.strip()
+    messages.append(
+        DomainMessage(
+            "SYSTEM",
+            state.current_time,
+            f"已记录你的诊断：{state.diagnosis}。继续收集证据可完善判断，报告时一并提交。",
+        )
+    )
+    return True
+
+
 def _do_report(state, _target, messages) -> bool:
     if not engine._has_abnormal_evidence(state):
         messages.append(
@@ -371,7 +391,22 @@ def _do_report(state, _target, messages) -> bool:
         messages.append(DomainMessage("SYSTEM", completion, "病情已在报告过程中终结，报告无效。"))
         return False
     state.hidden.reported_to_doctor = True
-    messages.append(DomainMessage("SYSTEM", completion, f"已向医生报告病情（{clock_text(completion)}）。"))
+    if state.diagnosis:
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                completion,
+                f"已向医生报告病情（{clock_text(completion)}）。你的诊断：{state.diagnosis}。",
+            )
+        )
+    else:
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                completion,
+                f"已向医生报告病情（{clock_text(completion)}）。",
+            )
+        )
     if state.hidden.bleeding_severity >= DETERIORATION_SEVERITY:
         state.delayed_success = True
         messages.append(
@@ -441,6 +476,7 @@ def _do_help(state, _target, messages) -> bool:
         "/order cbc|abg|coag|us 申请检查（3 min，各带周转/费用）",
         "/view cbc|abg|coag|us  查看已返回检查",
         "/monitor vitals        开启持续监护（2 min）",
+        "/diag <你的判断>        记录你的诊断/推理（报告时一并提交）",
         "/give fluids           快速补液（3 min，争取时间但掩盖血压）",
         "/transfuse             输注红细胞（5 min，放缓失血）",
         "/analgesia             给予镇痛（1 min，可能掩盖腹痛）",
@@ -472,6 +508,7 @@ _HANDLERS = {
     "ASSESS": _do_assess,
     "ORDER": _do_order_lab,
     "VIEW": _do_view_lab,
+    "DIAG": _do_diag,
     "MONITOR": _do_monitor,
     "FLUIDS": _do_give_fluids,
     "TRANSFUSE": _do_transfuse,

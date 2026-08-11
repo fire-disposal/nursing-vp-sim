@@ -12,6 +12,7 @@ export type SimActionType =
 	| "ORDER"
 	| "VIEW"
 	| "MONITOR"
+	| "DIAG"
 	| "FLUIDS"
 	| "TRANSFUSE"
 	| "ANALGESIA"
@@ -50,6 +51,8 @@ export function parseCommand(raw: string): ParseResult {
 			return { action: { type: "VIEW", target } };
 		case "monitor":
 			return { action: { type: "MONITOR", target: "vitals" } };
+		case "diag":
+			return { action: { type: "DIAG", target: rest.join(" ") } };
 		case "give":
 			if (target === "fluids") return { action: { type: "FLUIDS" } };
 			return { error: "仅支持 /give fluids（快速补液）。" };
