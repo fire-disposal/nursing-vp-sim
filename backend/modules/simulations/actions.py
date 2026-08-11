@@ -10,29 +10,17 @@ from dataclasses import dataclass
 
 from . import engine
 from .case import (
-    ANALGESIA_PAIN_MASK,
-    CASE,
     CASES,
     CONSULT_COST,
-    DETERIORATION_SEVERITY,
     DIAG_BUDGET_START,
     DURATION_MIN,
-    FLUID_BP_MASK_PER_UNIT,
     INTERVENTION_COSTS,
     LAB_KINDS,
     TREAT_BUDGET_START,
-    VITALS_MID_SEVERITY,
+    case_of,
     case_options_text,
     clock_text,
-    drain_abnormal,
-    drain_output,
     lab_options_text,
-    pain_abnormal,
-    pain_score,
-    urine_abnormal,
-    urine_output,
-    vitals,
-    vitals_abnormal,
 )
 from .state import (
     ClinicalRecord,
@@ -48,7 +36,8 @@ from .state import (
 
 
 def _do_status(state, _target, messages) -> bool:
-    lines = [f"{CASE.name}（{CASE.version}）"]
+    case = case_of(state)
+    lines = [f"{case.name}（{case.version}）"]
     lines.append(f"病例状态：{state.case_status}")
     lines.append(
         f"资源：检查点 {DIAG_BUDGET_START - state.diag_spent} · 治疗点 {TREAT_BUDGET_START - state.treat_spent} · 已用时 {state.current_time}min"
@@ -109,13 +98,14 @@ def _run_assess(state, spec, history, messages) -> bool:
 
 
 def _build_vitals(state) -> VitalsReading:
-    v = vitals(state.hidden.bleeding_severity)
+    case = case_of(state)
+    v = case.physiology.vitals(state.hidden.values)
     sbp = v["sbp"]
     if state.fluid_support > 0:
-        sbp = min(118, sbp + FLUID_BP_MASK_PER_UNIT * state.fluid_support)  # bolus masks volume loss
+        sbp = min(118, sbp + case.course.fluid_bp_mask_per_unit * state.fluid_support)  # bolus masks volume loss
     return VitalsReading(
         minute=state.current_time,
-        abnormal=vitals_abnormal({"hr": v["hr"], "sbp": sbp}),
+        abnormal=case.physiology.vitals_abnormal({"hr": v["hr"], "sbp": sbp}),
         hr=v["hr"],
         sbp=sbp,
         dbp=v["dbp"],
@@ -126,20 +116,23 @@ def _build_vitals(state) -> VitalsReading:
 
 
 def _build_drain(state) -> DrainReading:
-    output = drain_output(state.hidden.bleeding_severity)
-    return DrainReading(minute=state.current_time, abnormal=drain_abnormal(output), output_ml=output)
+    case = case_of(state)
+    output = case.physiology.drain(state.hidden.values)
+    return DrainReading(minute=state.current_time, abnormal=case.physiology.drain_abnormal(output), output_ml=output)
 
 
 def _build_pain(state) -> PainReading:
-    score = pain_score(state.hidden.bleeding_severity)
+    case = case_of(state)
+    score = case.physiology.pain(state.hidden.values)
     if state.analgesia:
-        score = max(1, score - ANALGESIA_PAIN_MASK)
-    return PainReading(minute=state.current_time, abnormal=pain_abnormal(score), score=score)
+        score = max(1, score - case.course.analgesia_pain_mask)
+    return PainReading(minute=state.current_time, abnormal=case.physiology.pain_abnormal(score), score=score)
 
 
 def _build_urine(state) -> UrineReading:
-    output = urine_output(state.hidden.bleeding_severity)
-    return UrineReading(minute=state.current_time, abnormal=urine_abnormal(output), output_ml=output)
+    case = case_of(state)
+    output = case.physiology.urine(state.hidden.values)
+    return UrineReading(minute=state.current_time, abnormal=case.physiology.urine_abnormal(output), output_ml=output)
 
 
 def _describe_vitals(state, r) -> str:
@@ -255,7 +248,7 @@ def _do_order_lab(state, target, messages) -> bool:
             sampled_at=completion,
             due_at=due_at,
             sample_snapshot={
-                "severity": state.hidden.bleeding_severity,
+                "values": dict(state.hidden.values),
                 "minute": completion,
                 "monitoring": state.hidden.monitoring_enabled,
             },
@@ -371,14 +364,18 @@ def _do_monitor(state, _target, messages) -> bool:
     state.current_time = completion
     state.hidden.monitoring_enabled = True
     messages.append(DomainMessage("SYSTEM", completion, "已开启持续生命体征监护。"))
-    if not state.monitor_alert_fired and state.hidden.bleeding_severity >= VITALS_MID_SEVERITY:
+    if (
+        not state.monitor_alert_fired
+        and state.hidden.values[case_of(state).course.axis] >= case_of(state).course.mid_severity
+    ):
         state.monitor_alert_fired = True
-        v = vitals(state.hidden.bleeding_severity)
+        case = case_of(state)
+        v = case.physiology.vitals(state.hidden.values)
         messages.append(
             DomainMessage(
                 "MONITOR",
                 completion,
-                CASE.narrative.monitor_alert(v),
+                case.narrative.monitor_alert(v),
             )
         )
     return True
@@ -476,7 +473,9 @@ _INTERVENTIONS: dict[str, InterventionSpec] = {
 def _do_diag(state, target, messages) -> bool:
     if not target or not target.strip():
         messages.append(
-            DomainMessage("SYSTEM", state.current_time, f"请写出你的判断，如 /diag {CASE.narrative.diag_hint}。")
+            DomainMessage(
+                "SYSTEM", state.current_time, f"请写出你的判断，如 /diag {case_of(state).narrative.diag_hint}。"
+            )
         )
         return False
     state.diagnosis = target.strip()
@@ -559,7 +558,7 @@ def _do_report(state, _target, messages) -> bool:
         )
     else:
         messages.append(DomainMessage("SYSTEM", completion, "已向医生报告病情。"))
-    if state.hidden.bleeding_severity >= DETERIORATION_SEVERITY:
+    if state.hidden.values[case_of(state).course.axis] >= case_of(state).course.deterioration_severity:
         state.delayed_success = True
         messages.append(
             DomainMessage(
@@ -615,12 +614,12 @@ def _do_history(state, _target, messages) -> bool:
 
 def _do_help(state, _target, messages) -> bool:
     topic = (_target or "").lower().strip()
-    lines = _help_topic(topic) if topic else _help_overview()
+    lines = _help_topic(topic) if topic else _help_overview(state)
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True
 
 
-def _help_overview() -> list[str]:
+def _help_overview(state) -> list[str]:
     return [
         "可用命令（输入 /help <命令> 查看子命令）：",
         "",
@@ -630,7 +629,7 @@ def _help_overview() -> list[str]:
         "  干预   /give fluids /transfuse /analgesia",
         "  处理   /monitor /report /wait /wait cbc /diag",
         "",
-        f"目标：{CASE.narrative.goal}",
+        f"目标：{case_of(state).narrative.goal}",
     ]
 
 

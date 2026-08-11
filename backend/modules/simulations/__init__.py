@@ -42,9 +42,12 @@ main system — it does not touch the training/cases/qa domains or the main UI.
 - **继承**：`Reading` 基类 + 4 个读数子类（共享 minute/abnormal、统一序列化与遍历）。
 - **组合**：`AssessSpec`（时长/构建/描述/趋势四要素）统一 4 个评估处理器；
   `InterventionSpec`（时长/效果/提示）统一 3 个干预；
-  `LabSpec`（费用/周转/材料化）统一 4 项检查。
+  `LabSpec`（费用/周转/材料化）统一 4 项检查；
+  `PhysiologySpec`（隐藏值→观察映射）构成生理引擎，随病例绑定。
 - **表驱动**：`_HANDLERS` 动作分发表、`_EVENT_HANDLERS` 事件分发表、
   `_ASSESS_SPECS`、`_INTERVENTIONS`、`LAB_KINDS`、`_LAB_FORMATTERS` 结果显示表。
+- **会话级解析**：引擎/动作层经 `case_of(state)` 读当前病例的
+  course/physiology/narrative——切换病例即换生理与文案。
 
 扩展基座（新增业务对象的最小改动）：
 - 新观察 → `_ASSESS_SPECS` 加一项（build/describe/trend 三个小函数）。

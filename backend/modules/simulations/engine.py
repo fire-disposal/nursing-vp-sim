@@ -11,26 +11,7 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
-from .case import (
-    BLEEDING_INTERVAL_MIN,
-    CASE,
-    DETERIORATION_SEVERITY,
-    FAILURE_SEVERITY,
-    LAB_KINDS,
-    SEVERITY_START,
-    SEVERITY_STEP,
-    VITALS_MID_SEVERITY,
-    clock_text,
-    drain_abnormal,
-    drain_output,
-    materialize_lab,
-    pain_abnormal,
-    pain_score,
-    urine_abnormal,
-    urine_output,
-    vitals,
-    vitals_abnormal,
-)
+from .case import LAB_KINDS, case_of, clock_text, get_case, materialize_lab
 from .state import (
     ActionRecord,
     ClinicalRecord,
@@ -65,9 +46,10 @@ _WAIT_HORIZON = 100000
 
 
 def new_session(case_id: str = "mvpb-1") -> SessionState:
+    case = get_case(case_id)
     state = SessionState(
         hidden=HiddenClinicalState(
-            bleeding_severity=SEVERITY_START,
+            values={case.course.axis: case.course.start_severity},
             reported_to_doctor=False,
             monitoring_enabled=False,
         ),
@@ -76,7 +58,7 @@ def new_session(case_id: str = "mvpb-1") -> SessionState:
         case_id=case_id,
     )
     _seed_handover(state)
-    _schedule(state, BLEEDING_INTERVAL_MIN, 0, "BLEEDING_PROGRESS", {})
+    _schedule(state, case.course.interval_min, 0, "BLEEDING_PROGRESS", {})
     return state
 
 
@@ -85,11 +67,15 @@ def _seed_handover(state: SessionState) -> None:
     with. All values are normal at the starting severity, so nothing leaks the
     hidden bleeding — they give the player the case context and a trend baseline.
     """
-    v = vitals(SEVERITY_START)
+    case = case_of(state)
+    v = case.physiology.vitals(state.hidden.values)
+    drain = case.physiology.drain(state.hidden.values)
+    pain = case.physiology.pain(state.hidden.values)
+    urine = case.physiology.urine(state.hidden.values)
     state.vitals.append(
         VitalsReading(
             minute=0,
-            abnormal=vitals_abnormal(v),
+            abnormal=case.physiology.vitals_abnormal(v),
             hr=v["hr"],
             sbp=v["sbp"],
             dbp=v["dbp"],
@@ -98,32 +84,20 @@ def _seed_handover(state: SessionState) -> None:
             temp=v["temp"],
         )
     )
-    state.drain.append(
-        DrainReading(
-            minute=0, abnormal=drain_abnormal(drain_output(SEVERITY_START)), output_ml=drain_output(SEVERITY_START)
-        )
-    )
-    state.pain.append(
-        PainReading(minute=0, abnormal=pain_abnormal(pain_score(SEVERITY_START)), score=pain_score(SEVERITY_START))
-    )
-    state.urine.append(
-        UrineReading(
-            minute=0,
-            abnormal=urine_abnormal(urine_output(SEVERITY_START)),
-            output_ml=urine_output(SEVERITY_START),
-        )
-    )
+    state.drain.append(DrainReading(minute=0, abnormal=case.physiology.drain_abnormal(drain), output_ml=drain))
+    state.pain.append(PainReading(minute=0, abnormal=case.physiology.pain_abnormal(pain), score=pain))
+    state.urine.append(UrineReading(minute=0, abnormal=case.physiology.urine_abnormal(urine), output_ml=urine))
     state.public_log = [
         DomainMessage(
             "SYSTEM",
             0,
-            f"交班：{CASE.patient}。任务：{CASE.narrative.handover_task}。输入 /help 查看命令（分级）。",
+            f"交班：{case.patient}。任务：{case.narrative.handover_task}。输入 /help 查看命令（分级）。",
         ),
         DomainMessage(
             "ASSESSMENT",
             0,
             f"基线：HR {v['hr']} | BP {v['sbp']}/{v['dbp']} | RR {v['rr']} | SpO2 {v['spo2']}% | T {v['temp']}℃ | "
-            f"引流 {state.drain[0].output_ml}ml | VAS {state.pain[0].score} | 尿量 {state.urine[0].output_ml}ml。",
+            f"引流 {drain}ml | VAS {pain} | 尿量 {urine}ml。",
         ),
     ]
 
@@ -167,25 +141,27 @@ def _handle_event(state: SessionState, ev: ScheduledEvent, messages: list[Domain
 
 
 def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    case = case_of(state)
     if state.case_status != ACTIVE or state.hidden.reported_to_doctor:
         return  # bleeding controlled — no further progression, no reschedule
     mult = 1.0
     if state.fluid_support > 0:
-        mult *= CASE.course.fluid_progression_mult
+        mult *= case.course.fluid_progression_mult
         state.fluid_support -= 1  # bolus support is transient
     if state.transfused:
-        mult *= CASE.course.transfuse_progression_mult  # transfusion slows but does not stop the bleed
-    sev = state.hidden.bleeding_severity + SEVERITY_STEP * mult
-    state.hidden.bleeding_severity = sev
-    _schedule(state, ev.at_minute + BLEEDING_INTERVAL_MIN, 0, "BLEEDING_PROGRESS", {})
+        mult *= case.course.transfuse_progression_mult  # transfusion slows but does not stop the bleed
+    values = state.hidden.values
+    sev = values[case.course.axis] + case.course.step * mult
+    values[case.course.axis] = sev
+    _schedule(state, ev.at_minute + case.course.interval_min, 0, "BLEEDING_PROGRESS", {})
 
-    if not state.deteriorated and sev >= DETERIORATION_SEVERITY:
+    if not state.deteriorated and sev >= case.course.deterioration_severity:
         state.deteriorated = True
         _schedule(state, ev.at_minute, 1, "SPONTANEOUS_DETERIORATION", {})
-    if state.hidden.monitoring_enabled and not state.monitor_alert_fired and sev >= VITALS_MID_SEVERITY:
+    if state.hidden.monitoring_enabled and not state.monitor_alert_fired and sev >= case.course.mid_severity:
         state.monitor_alert_fired = True
         _schedule(state, ev.at_minute, 1, "MONITOR_ALERT", {})
-    if sev >= FAILURE_SEVERITY:
+    if sev >= case.course.failure_severity:
         _schedule(state, ev.at_minute, 3, "CASE_FAILURE", {})
 
 
@@ -218,13 +194,15 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
 
 
 def _on_monitor_alert(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
-    v = vitals(state.hidden.bleeding_severity)
-    messages.append(DomainMessage("MONITOR", ev.at_minute, CASE.narrative.monitor_alert(v)))
+    case = case_of(state)
+    v = case.physiology.vitals(state.hidden.values)
+    messages.append(DomainMessage("MONITOR", ev.at_minute, case.narrative.monitor_alert(v)))
 
 
 def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
-    v = vitals(state.hidden.bleeding_severity)
-    messages.append(DomainMessage("CRITICAL", ev.at_minute, CASE.narrative.deterioration(v)))
+    case = case_of(state)
+    v = case.physiology.vitals(state.hidden.values)
+    messages.append(DomainMessage("CRITICAL", ev.at_minute, case.narrative.deterioration(v)))
 
 
 _EVENT_HANDLERS = {
@@ -242,20 +220,22 @@ def _end_case(state: SessionState, status: str, minute: int, messages: list[Doma
         return
     state.case_status = status
     state.case_ended_at = minute
+    case = case_of(state)
     if status == FAILURE:
-        messages.append(DomainMessage("CRITICAL", minute, CASE.narrative.failure()))
+        messages.append(DomainMessage("CRITICAL", minute, case.narrative.failure()))
     else:
-        messages.append(DomainMessage("SYSTEM", minute, CASE.narrative.discharge()))
+        messages.append(DomainMessage("SYSTEM", minute, case.narrative.discharge()))
     messages.append(DomainMessage("AUDIT", minute, _audit_summary(state, minute)))
 
 
 def _settlement_verdict(state: SessionState) -> str:
     """Why this outcome — the explicit settlement judgment for the player."""
+    case = case_of(state)
     if state.case_status == FAILURE:
-        return CASE.narrative.verdict_failure
+        return case.narrative.verdict_failure
     if state.delayed_success:
-        return CASE.narrative.verdict_delayed
-    return CASE.narrative.verdict_timely
+        return case.narrative.verdict_delayed
+    return case.narrative.verdict_timely
 
 
 def _audit_summary(state: SessionState, minute: int) -> str:
@@ -366,7 +346,7 @@ def build_consult_summary(state: SessionState) -> str:
     Built ONLY from what the player has observed/revealed — never from the
     hidden bleeding state, so the expert cannot leak the hidden course.
     """
-    lines = [f"交班：{CASE.patient}。当前时间 {clock_text(state.current_time)}。"]
+    lines = [f"交班：{case_of(state).patient}。当前时间 {clock_text(state.current_time)}。"]
     for label, attr, fmt in _READING_SECTIONS:
         readings = getattr(state, attr)
         if readings:

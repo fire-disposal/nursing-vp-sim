@@ -10,7 +10,10 @@ from dataclasses import asdict, dataclass, field
 
 @dataclass
 class HiddenClinicalState:
-    bleeding_severity: float
+    """Hidden disease axes (e.g. ``{"bleeding": 0.12}``) plus treatment flags.
+    ``values`` is a dict so a case can carry multiple physiological axes."""
+
+    values: dict[str, float]
     reported_to_doctor: bool
     monitoring_enabled: bool
 
@@ -137,9 +140,13 @@ def state_to_dict(s: SessionState) -> dict:
 
 def state_from_dict(raw: dict) -> SessionState:
     hidden = raw["hidden"]
+    values = hidden.get("values")
+    if values is None:
+        # Migrate pre-physiology sessions (single bleeding axis).
+        values = {"bleeding": hidden.get("bleeding_severity", 0.12)}
     state = SessionState(
         hidden=HiddenClinicalState(
-            bleeding_severity=hidden["bleeding_severity"],
+            values=values,
             reported_to_doctor=hidden["reported_to_doctor"],
             monitoring_enabled=hidden["monitoring_enabled"],
         ),

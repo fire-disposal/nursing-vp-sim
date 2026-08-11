@@ -25,10 +25,34 @@ class LabSpec:
 
 
 @dataclass(frozen=True)
+class PhysiologySpec:
+    """The physiology engine per case: deterministic mapping from the hidden
+    ``values`` dict (multi-axis ready) to observable observations.
+
+    ``bleeding`` is the primary disease axis accessor used by the course
+    progression and thresholds; the rest produce what assessments/labs show.
+    """
+
+    bleeding: Callable[[dict], float]
+    vitals: Callable[[dict], dict]
+    vitals_abnormal: Callable[[dict], bool]
+    drain: Callable[[dict], int]
+    drain_abnormal: Callable[[int], bool]
+    pain: Callable[[dict], int]
+    pain_abnormal: Callable[[int], bool]
+    urine: Callable[[dict], int]
+    urine_abnormal: Callable[[int], bool]
+    hb: Callable[[dict], float]
+    hb_abnormal: Callable[[float], bool]
+    wbc: Callable[[dict], float]
+
+
+@dataclass(frozen=True)
 class CourseSpec:
     """Hidden disease course: start/step/interval, thresholds, and how
     interventions modulate progression and mask observations."""
 
+    axis: str
     start_severity: float
     step: float
     interval_min: int
@@ -82,17 +106,19 @@ class CaseSpec:
     course: CourseSpec
     resources: ResourceSpec
     narrative: NarrativeSpec
+    physiology: PhysiologySpec
 
 
 # ── Orderable labs (composed LabSpec entities) ──
 def _mat_cbc(sample_snapshot: dict, previous: dict | None) -> dict:
-    sev = sample_snapshot["severity"]
-    hb = hb_for(sev)
+    values = sample_snapshot["values"]
+    sev = _bleeding(values)
+    hb = hb_for(values)
     if previous is not None and sev >= previous["sampled_severity"]:
         hb = min(hb, previous["hb"])  # ongoing bleeding never shows a rise
     return {
         "hb": round(hb, 1),
-        "wbc": wbc_for(sev),
+        "wbc": wbc_for(values),
         "platelet": 220,
         "sampled_severity": round(sev, 4),
         "abnormal": hb_abnormal(hb),
@@ -100,7 +126,7 @@ def _mat_cbc(sample_snapshot: dict, previous: dict | None) -> dict:
 
 
 def _mat_abg(sample_snapshot: dict, previous: dict | None) -> dict:
-    sev = sample_snapshot["severity"]
+    sev = _bleeding(sample_snapshot["values"])
     lactate = 0.8 + 6 * sev
     ph = 7.42 - 0.18 * sev
     return {
@@ -112,7 +138,7 @@ def _mat_abg(sample_snapshot: dict, previous: dict | None) -> dict:
 
 
 def _mat_coag(sample_snapshot: dict, previous: dict | None) -> dict:
-    sev = sample_snapshot["severity"]
+    sev = _bleeding(sample_snapshot["values"])
     inr = 1.0 + 0.8 * sev
     return {
         "inr": round(inr, 2),
@@ -122,7 +148,7 @@ def _mat_coag(sample_snapshot: dict, previous: dict | None) -> dict:
 
 
 def _mat_us(sample_snapshot: dict, previous: dict | None) -> dict:
-    sev = sample_snapshot["severity"]
+    sev = _bleeding(sample_snapshot["values"])
     free_fluid = sev >= 0.30
     return {
         "free_fluid": free_fluid,
@@ -131,9 +157,14 @@ def _mat_us(sample_snapshot: dict, previous: dict | None) -> dict:
     }
 
 
-# ── Physiology (deterministic severity → observations) ──
-def vitals(severity: float) -> dict:
-    """Deterministic vital-signs snapshot for a given bleeding severity."""
+# ── Physiology (deterministic hidden values → observations) ──
+def _bleeding(values: dict) -> float:
+    return values["bleeding"]
+
+
+def vitals(values: dict) -> dict:
+    """Deterministic vital-signs snapshot for the bleeding axis."""
+    severity = _bleeding(values)
     return {
         "hr": 78 + round(50 * severity),
         "sbp": 122 - round(45 * severity),
@@ -148,40 +179,40 @@ def vitals_abnormal(v: dict) -> bool:
     return v["hr"] >= 95 or v["sbp"] <= 108
 
 
-def drain_output(severity: float) -> int:
-    return 45 + round(180 * severity)
+def drain_output(values: dict) -> int:
+    return 45 + round(180 * _bleeding(values))
 
 
 def drain_abnormal(output_ml: int) -> bool:
     return output_ml >= 80
 
 
-def pain_score(severity: float) -> int:
-    return min(10, 1 + round(8 * severity))
+def pain_score(values: dict) -> int:
+    return min(10, 1 + round(8 * _bleeding(values)))
 
 
 def pain_abnormal(score: int) -> bool:
     return score >= 4
 
 
-def urine_output(severity: float) -> int:
-    return max(20, 200 - round(180 * severity))
+def urine_output(values: dict) -> int:
+    return max(20, 200 - round(180 * _bleeding(values)))
 
 
 def urine_abnormal(output_ml: int) -> bool:
     return output_ml < 120
 
 
-def hb_for(severity: float) -> float:
-    return 145 - 180 * severity
+def hb_for(values: dict) -> float:
+    return 145 - 180 * _bleeding(values)
 
 
 def hb_abnormal(hb: float) -> bool:
     return hb < 115
 
 
-def wbc_for(severity: float) -> float:
-    return round(8.5 + 2 * severity, 1)
+def wbc_for(values: dict) -> float:
+    return round(8.5 + 2 * _bleeding(values), 1)
 
 
 # ── Narrative builders (embed derived vitals) ──
@@ -208,6 +239,7 @@ CASE = CaseSpec(
     start_clock="08:30",  # game minute 0 == 08:30
     patient="王秀兰，58 岁女性，昨日胃癌根治术后，术后第 1 日，术后予低分子肝素预防 VTE",
     course=CourseSpec(
+        axis="bleeding",
         start_severity=0.12,
         step=0.06,
         interval_min=6,
@@ -256,6 +288,20 @@ CASE = CaseSpec(
         verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
         verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
     ),
+    physiology=PhysiologySpec(
+        bleeding=_bleeding,
+        vitals=vitals,
+        vitals_abnormal=vitals_abnormal,
+        drain=drain_output,
+        drain_abnormal=drain_abnormal,
+        pain=pain_score,
+        pain_abnormal=pain_abnormal,
+        urine=urine_output,
+        urine_abnormal=urine_abnormal,
+        hb=hb_for,
+        hb_abnormal=hb_abnormal,
+        wbc=wbc_for,
+    ),
 )
 
 
@@ -278,6 +324,11 @@ def get_case(case_id: str) -> CaseSpec:
 
 def case_options_text() -> str:
     return "、".join(f"{cid} {c.name}" for cid, c in CASES.items())
+
+
+def case_of(state) -> CaseSpec:
+    """Resolve the case a session is bound to (duck-typed: reads ``case_id``)."""
+    return CASES.get(getattr(state, "case_id", "mvpb-1"), CASE)
 
 
 SEVERITY_START = CASE.course.start_severity

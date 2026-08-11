@@ -21,11 +21,11 @@ def test_assess_vitals_consumes_2_minutes():
 def test_hidden_disease_events_not_lost_across_action():
     # Two 3-min drain assessments span the first bleeding tick (minute 6).
     s = new_session()
-    assert s.hidden.bleeding_severity == 0.12
+    assert s.hidden.values["bleeding"] == 0.12
     e.apply_action(s, "ASSESS", "drain")  # 0 -> 3, no tick yet
     e.apply_action(s, "ASSESS", "drain")  # 3 -> 6, tick at 6 processed
     assert s.current_time == 6
-    assert s.hidden.bleeding_severity == 0.18
+    assert s.hidden.values["bleeding"] == 0.18
 
 
 def test_clock_never_goes_backward():

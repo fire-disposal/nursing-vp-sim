@@ -78,7 +78,7 @@ def test_state_roundtrip_preserves_determinism():
     e.apply_action(s, "WAIT_CBC", None)
     raw = state_to_dict(s)
     restored = state_from_dict(raw)
-    assert restored.hidden.bleeding_severity == s.hidden.bleeding_severity
+    assert restored.hidden.values == s.hidden.values
     assert restored.current_time == s.current_time
     assert restored.pending_tasks == s.pending_tasks
     assert restored.records == s.records
