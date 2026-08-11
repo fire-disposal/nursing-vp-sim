@@ -21,7 +21,7 @@ def test_drain_abnormal_not_shown_until_assessed():
     # Only the (normal) handover baseline exists — the abnormal drain is hidden.
     assert len(s.drain) == 1
     assert s.drain[0].abnormal is False
-    assert not any("引流" in m.text and "ml" in m.text for m in s.public_log[6:])
+    assert not any("引流" in m.text and "ml" in m.text for m in s.public_log[2:])
 
 
 def test_no_monitor_alert_without_monitoring():

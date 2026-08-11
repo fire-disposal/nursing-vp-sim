@@ -14,7 +14,6 @@ owns construction, the event loop, hidden disease course, and endings.
 from .case import (
     BLEEDING_INTERVAL_MIN,
     BUDGET_START,
-    CASE_NAME,
     DETERIORATION_SEVERITY,
     FAILURE_SEVERITY,
     LAB_KINDS,
@@ -96,24 +95,13 @@ def _seed_handover(state: SessionState) -> None:
         DomainMessage(
             "SYSTEM",
             0,
-            f"交班（{clock_text(0)}）：58 岁女性，昨日腹部手术，术后第 1 日。{CASE_NAME}。关注术后并发症与隐匿性出血。",
+            "交班：58 岁女性，昨日腹部手术，术后第 1 日。任务：识别并有效报告隐匿性出血。输入 /help 查看命令（分级）。",
         ),
         DomainMessage(
             "ASSESSMENT",
             0,
-            f"交班生命体征（{clock_text(0)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}，SpO2 {v['spo2']}%，T {v['temp']}℃。",
-        ),
-        DomainMessage("ASSESSMENT", 0, f"交班引流（{clock_text(0)}）：{state.drain[0].output_ml} ml。"),
-        DomainMessage("ASSESSMENT", 0, f"交班疼痛（{clock_text(0)}）：VAS {state.pain[0].score}/10。"),
-        DomainMessage(
-            "ASSESSMENT",
-            0,
-            f"交班尿量（{clock_text(0)}，近4h）：{state.urine[0].output_ml} ml。",
-        ),
-        DomainMessage(
-            "SYSTEM",
-            0,
-            "任务：警惕隐匿性出血（HR 上升、BP 下降、引流增多、尿量减少、腹痛）。输入 /help 查看命令与预算。",
+            f"基线：HR {v['hr']} | BP {v['sbp']}/{v['dbp']} | RR {v['rr']} | SpO2 {v['spo2']}% | T {v['temp']}℃ | "
+            f"引流 {state.drain[0].output_ml}ml | VAS {state.pain[0].score} | 尿量 {state.urine[0].output_ml}ml。",
         ),
     ]
 
@@ -161,7 +149,7 @@ def _handle_event(state: SessionState, ev: ScheduledEvent, messages: list[Domain
             DomainMessage(
                 "MONITOR",
                 ev.at_minute,
-                f"监护报警（{clock_text(ev.at_minute)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
+                f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
             )
         )
     elif ev.type == "SPONTANEOUS_DETERIORATION":
@@ -170,7 +158,7 @@ def _handle_event(state: SessionState, ev: ScheduledEvent, messages: list[Domain
             DomainMessage(
                 "CRITICAL",
                 ev.at_minute,
-                f"患者病情明显恶化（{clock_text(ev.at_minute)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。",
+                f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。",
             )
         )
     elif ev.type == "CASE_SUCCESS":
@@ -242,7 +230,7 @@ def _end_case(state: SessionState, status: str, minute: int, messages: list[Doma
             DomainMessage(
                 "SYSTEM",
                 minute,
-                f"患者病情稳定，恢复良好，予以出院（{clock_text(minute)}）。较好结局达成。",
+                "患者病情稳定，恢复良好，予以出院。较好结局达成。",
             )
         )
     messages.append(DomainMessage("AUDIT", minute, _audit_summary(state, minute)))

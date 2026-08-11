@@ -24,6 +24,7 @@ describe("parseCommand", () => {
 		expect(parseCommand("/wait cbc")).toEqual({ action: { type: "WAIT_CBC" } });
 		expect(parseCommand("/history")).toEqual({ action: { type: "HISTORY" } });
 		expect(parseCommand("/help")).toEqual({ action: { type: "HELP" } });
+		expect(parseCommand("/help order")).toEqual({ action: { type: "HELP", target: "order" } });
 		expect(parseCommand("/pending")).toEqual({ action: { type: "PENDING" } });
 	});
 

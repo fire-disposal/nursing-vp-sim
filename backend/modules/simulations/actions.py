@@ -41,7 +41,7 @@ _ASSESS_TARGETS = frozenset({"vitals", "drain", "pain", "urine"})
 
 
 def _do_status(state, _target, messages) -> bool:
-    lines = [f"{CASE_NAME}（{CASE_VERSION}）", f"当前时间：{clock_text(state.current_time)}"]
+    lines = [f"{CASE_NAME}（{CASE_VERSION}）"]
     lines.append(f"病例状态：{state.case_status}")
     lines.append(f"剩余预算：¥{max(0, BUDGET_START - state.cost_total)}")
     lines.append(f"你的诊断：{state.diagnosis or '未记录（用 /diag 写下你的判断）'}")
@@ -98,10 +98,7 @@ def _do_assess_vitals(state, messages) -> bool:
     abnormal = vitals_abnormal({"hr": hr, "sbp": sbp})
     state.vitals.append(VitalsReading(completion, hr, sbp, dbp, rr, spo2, temp, abnormal))
     note = "存在异常" if abnormal else "未见明显异常"
-    text = (
-        f"生命体征（{clock_text(completion)}）：HR {hr} bpm，BP {sbp}/{dbp} mmHg，"
-        f"RR {rr}，SpO2 {spo2}%，T {temp}℃。{note}。"
-    )
+    text = f"生命体征：HR {hr} bpm，BP {sbp}/{dbp} mmHg，RR {rr}，SpO2 {spo2}%，T {temp}℃。{note}。"
     if state.fluid_support > 0:
         text += "（补液支撑下血压）"
     prev = state.vitals[-2] if len(state.vitals) >= 2 else None
@@ -125,7 +122,7 @@ def _do_assess_drain(state, messages) -> bool:
     abnormal = drain_abnormal(output)
     state.drain.append(DrainReading(completion, output, abnormal))
     note = "引流增多，异常" if abnormal else "引流量在正常范围"
-    text = f"引流评估（{clock_text(completion)}）：{output} ml。{note}。"
+    text = f"引流评估：{output} ml。{note}。"
     prev = state.drain[-2] if len(state.drain) >= 2 else None
     if prev is not None and output != prev.output_ml:
         arrow = "↑" if output > prev.output_ml else "↓"
@@ -144,7 +141,7 @@ def _do_assess_pain(state, messages) -> bool:
     abnormal = pain_abnormal(score)
     state.pain.append(PainReading(completion, score, abnormal))
     note = "腹痛明显，警惕" if abnormal else "疼痛可控"
-    text = f"疼痛评估（{clock_text(completion)}）：VAS {score}/10 分。{note}。"
+    text = f"疼痛评估：VAS {score}/10 分。{note}。"
     if state.analgesia:
         text += "（已镇痛，评分可能偏低）"
     messages.append(DomainMessage("ASSESSMENT", completion, text))
@@ -159,7 +156,7 @@ def _do_assess_urine(state, messages) -> bool:
     abnormal = urine_abnormal(output)
     state.urine.append(UrineReading(completion, output, abnormal))
     note = "尿量偏少，警惕低血容量" if abnormal else "尿量尚可"
-    text = f"尿量（{clock_text(completion)}，近4h）：{output} ml。{note}。"
+    text = f"尿量（近4h）：{output} ml。{note}。"
     prev = state.urine[-2] if len(state.urine) >= 2 else None
     if prev is not None and output != prev.output_ml:
         arrow = "↓" if output < prev.output_ml else "↑"
@@ -300,7 +297,7 @@ def _do_monitor(state, _target, messages) -> bool:
     engine._advance(state, messages, completion)
     state.current_time = completion
     state.hidden.monitoring_enabled = True
-    messages.append(DomainMessage("SYSTEM", completion, f"已开启持续生命体征监护（{clock_text(completion)}）。"))
+    messages.append(DomainMessage("SYSTEM", completion, "已开启持续生命体征监护。"))
     if not state.monitor_alert_fired and state.hidden.bleeding_severity >= VITALS_MID_SEVERITY:
         state.monitor_alert_fired = True
         v = vitals(state.hidden.bleeding_severity)
@@ -308,7 +305,7 @@ def _do_monitor(state, _target, messages) -> bool:
             DomainMessage(
                 "MONITOR",
                 completion,
-                f"监护报警（{clock_text(completion)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
+                f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
             )
         )
     return True
@@ -323,7 +320,7 @@ def _do_give_fluids(state, _target, messages) -> bool:
         DomainMessage(
             "SYSTEM",
             completion,
-            f"已快速补液 500ml（{clock_text(completion)}）。血压支撑暂时改善——需明确出血来源，勿被掩盖。",
+            "已快速补液 500ml。血压支撑暂时改善——需明确出血来源，勿被掩盖。",
         )
     )
     return True
@@ -338,7 +335,7 @@ def _do_transfuse(state, _target, messages) -> bool:
         DomainMessage(
             "SYSTEM",
             completion,
-            f"已输注红细胞 2U（{clock_text(completion)}）。失血速度放缓，但仍需明确并处理出血源。",
+            "已输注红细胞 2U。失血速度放缓，但仍需明确并处理出血源。",
         )
     )
     return True
@@ -353,7 +350,7 @@ def _do_analgesia(state, _target, messages) -> bool:
         DomainMessage(
             "SYSTEM",
             completion,
-            f"已给予镇痛（{clock_text(completion)}）。注意：可能掩盖腹痛这一早期线索。",
+            "已给予镇痛。注意：可能掩盖腹痛这一早期线索。",
         )
     )
     return True
@@ -396,17 +393,11 @@ def _do_report(state, _target, messages) -> bool:
             DomainMessage(
                 "SYSTEM",
                 completion,
-                f"已向医生报告病情（{clock_text(completion)}）。你的诊断：{state.diagnosis}。",
+                f"已向医生报告病情。你的诊断：{state.diagnosis}。",
             )
         )
     else:
-        messages.append(
-            DomainMessage(
-                "SYSTEM",
-                completion,
-                f"已向医生报告病情（{clock_text(completion)}）。",
-            )
-        )
+        messages.append(DomainMessage("SYSTEM", completion, "已向医生报告病情。"))
     if state.hidden.bleeding_severity >= DETERIORATION_SEVERITY:
         state.delayed_success = True
         messages.append(
@@ -424,9 +415,7 @@ def _do_wait(state, _target, messages) -> bool:
     until = state.current_time + engine._WAIT_HORIZON
     stopping = engine._advance(state, messages, until, stop_on_interrupt=True)
     if stopping is not None:
-        messages.append(
-            DomainMessage("SYSTEM", stopping.at_minute, f"等待至 {clock_text(stopping.at_minute)}，被事件中断。")
-        )
+        messages.append(DomainMessage("SYSTEM", stopping.at_minute, "等待结束，被事件中断。"))
     else:
         messages.append(DomainMessage("SYSTEM", state.current_time, "等待完成，无新事件。"))
     return True
@@ -443,13 +432,11 @@ def _do_wait_cbc(state, _target, messages) -> bool:
             DomainMessage(
                 "SYSTEM",
                 stopping.at_minute,
-                f"等待被 {engine._interrupt_label(stopping.type)} 打断（{clock_text(stopping.at_minute)}）；CBC 仍 pending。",
+                f"等待被 {engine._interrupt_label(stopping.type)} 打断；CBC 仍 pending。",
             )
         )
     else:
-        messages.append(
-            DomainMessage("SYSTEM", state.current_time, f"等待至 {clock_text(state.current_time)}，CBC 已返回。")
-        )
+        messages.append(DomainMessage("SYSTEM", state.current_time, "等待结束，CBC 已返回。"))
     return True
 
 
@@ -466,27 +453,68 @@ def _do_history(state, _target, messages) -> bool:
 
 
 def _do_help(state, _target, messages) -> bool:
-    lines = [
-        "可用命令：",
-        "/status                查看已知状态",
-        "/assess vitals         测量生命体征（2 min）",
-        "/assess drain          评估引流（3 min）",
-        "/assess pain           疼痛评估（1 min）",
-        "/assess urine          尿量评估（2 min）",
-        "/order cbc|abg|coag|us 申请检查（3 min，各带周转/费用）",
-        "/view cbc|abg|coag|us  查看已返回检查",
-        "/monitor vitals        开启持续监护（2 min）",
-        "/diag <你的判断>        记录你的诊断/推理（报告时一并提交）",
-        "/give fluids           快速补液（3 min，争取时间但掩盖血压）",
-        "/transfuse             输注红细胞（5 min，放缓失血）",
-        "/analgesia             给予镇痛（1 min，可能掩盖腹痛）",
-        "/report doctor         向医生报告（2 min，需已有异常证据）",
-        "/wait                  等待至下一个可见中断事件",
-        "/wait cbc              等待最近一次 pending CBC 返回",
-        "/history /pending /help",
-    ]
+    topic = (_target or "").lower().strip()
+    lines = _help_topic(topic) if topic else _help_overview()
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True
+
+
+def _help_overview() -> list[str]:
+    return [
+        "可用命令（输入 /help <命令> 查看子命令）：",
+        "",
+        "  信息   /status /history /pending /help",
+        "  评估   /assess <目标>        (/help assess)",
+        "  检查   /order <项目> /view <项目>   (/help order)",
+        "  干预   /give fluids /transfuse /analgesia",
+        "  处理   /monitor /report /wait /wait cbc /diag",
+        "",
+        "目标：评估→检查→报告，识别并报告隐匿性出血，患者顺利出院。",
+    ]
+
+
+def _help_topic(topic: str) -> list[str]:
+    if topic in ("assess", "评估"):
+        return [
+            "评估目标（耗时）：",
+            "  /assess vitals  2min  生命体征 HR/BP/RR/SpO2/T",
+            "  /assess drain   3min  引流量",
+            "  /assess pain    1min  疼痛 VAS",
+            "  /assess urine   2min  尿量",
+        ]
+    if topic in ("order", "检查"):
+        return [
+            "可申请检查（费用/周转）：",
+            "  /order cbc   ¥35/15min   Hb/WBC/PLT",
+            "  /order abg   ¥60/10min   乳酸/pH",
+            "  /order coag  ¥50/20min   PT-INR",
+            "  /order us    ¥120/20min  腹部游离液",
+            "同项目 pending 不可重复；受预算 ¥300 约束；/view <项目> 查结果。",
+        ]
+    if topic in ("view", "查看"):
+        return [
+            "查看已返回检查：",
+            "  /view cbc /view abg /view coag /view us",
+            "结果一次性实例化，反映采样时状态。",
+        ]
+    if topic in ("intervention", "干预"):
+        return [
+            "干预（耗时，均有取舍）：",
+            "  /give fluids  3min  补液：掩盖血压但争取时间",
+            "  /transfuse    5min  输血：放缓失血",
+            "  /analgesia    1min  镇痛：可能掩盖腹痛",
+            "  /diag <判断>   记录你的诊断/推理",
+        ]
+    if topic in ("处理", "report", "wait"):
+        return [
+            "处理与等待：",
+            "  /monitor vitals  2min  开启持续监护（达阈值报警）",
+            "  /report doctor   2min  报告（需已有异常证据）",
+            "  /wait            等待至下一可见中断事件",
+            "  /wait cbc        等待最近 pending CBC",
+            "  /diag <判断>     记录你的诊断/推理",
+        ]
+    return [f"未知主题：{topic}。输入 /help 查看命令分组。"]
 
 
 def _do_pending(state, _target, messages) -> bool:

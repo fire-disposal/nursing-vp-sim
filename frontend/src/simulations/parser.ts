@@ -68,7 +68,7 @@ export function parseCommand(raw: string): ParseResult {
 		case "history":
 			return { action: { type: "HISTORY" } };
 		case "help":
-			return { action: { type: "HELP" } };
+			return { action: { type: "HELP", target } };
 		case "pending":
 			return { action: { type: "PENDING" } };
 		default:
