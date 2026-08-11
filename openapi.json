@@ -6839,6 +6839,23 @@
         ],
         "summary": "Create Session",
         "operationId": "create_session_api_simulations_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SessionCreateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6846,6 +6863,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SessionCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -10018,6 +10045,29 @@
           "created_at"
         ],
         "title": "CaseManageItem"
+      },
+      "CaseMeta": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version"
+        ],
+        "title": "CaseMeta"
       },
       "CaseUpdateRequest": {
         "properties": {
@@ -13905,6 +13955,24 @@
         ],
         "title": "SectionTextResponse"
       },
+      "SessionCreateRequest": {
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SessionCreateRequest"
+      },
       "SessionCreateResponse": {
         "properties": {
           "session_id": {
@@ -13998,6 +14066,9 @@
           "case_status": {
             "type": "string",
             "title": "Case Status"
+          },
+          "case_meta": {
+            "$ref": "#/components/schemas/CaseMeta"
           },
           "current_time": {
             "type": "integer",
@@ -14118,6 +14189,7 @@
           "session_id",
           "revision",
           "case_status",
+          "case_meta",
           "current_time",
           "clock",
           "monitoring",

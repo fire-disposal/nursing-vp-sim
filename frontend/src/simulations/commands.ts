@@ -62,6 +62,7 @@ export const COMMAND_GROUPS: CommandGroup[] = [
 			{ cmd: "status", desc: "查看已知状态、目标清单与预算" },
 			{ cmd: "history", desc: "查看已发生动作" },
 			{ cmd: "pending", desc: "查看进行中检查" },
+			{ cmd: "case", desc: "查看 / 切换病例（切换将开启新局）" },
 			HELP,
 		],
 	},

@@ -4,9 +4,12 @@ import { api } from "./client";
 
 type Schemas = components["schemas"];
 
-export const createSimulationSession = () =>
+export const createSimulationSession = (caseId?: string) =>
 	api
-		.post<Schemas["SessionCreateResponse"]>("/simulations/sessions" satisfies ApiPath as string)
+		.post<Schemas["SessionCreateResponse"]>(
+			"/simulations/sessions" satisfies ApiPath as string,
+			caseId ? { case_id: caseId } : undefined,
+		)
 		.then((r) => r.data);
 
 export const getSimulationSession = (sessionId: number) =>

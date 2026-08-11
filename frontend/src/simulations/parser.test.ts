@@ -27,6 +27,8 @@ describe("parseCommand", () => {
 		expect(parseCommand("/help")).toEqual({ action: { type: "HELP" } });
 		expect(parseCommand("/help order")).toEqual({ action: { type: "HELP", target: "order" } });
 		expect(parseCommand("/pending")).toEqual({ action: { type: "PENDING" } });
+		expect(parseCommand("/case")).toEqual({ action: { type: "CASE" } });
+		expect(parseCommand("/case mvpb-1")).toEqual({ action: { type: "CASE", target: "mvpb-1" } });
 	});
 
 	it("passes raw targets through so the backend can guide on typos", () => {

@@ -13,10 +13,10 @@ owns construction, the event loop, hidden disease course, and endings.
 
 from .case import (
     BLEEDING_INTERVAL_MIN,
+    CASE,
     DETERIORATION_SEVERITY,
     FAILURE_SEVERITY,
     LAB_KINDS,
-    PATIENT_DESC,
     SEVERITY_START,
     SEVERITY_STEP,
     VITALS_MID_SEVERITY,
@@ -55,7 +55,7 @@ _INTERRUPT_TYPES = frozenset(
 )
 
 # Non-clinical commands allowed after the case has ended.
-_NON_CLINICAL = frozenset({"STATUS", "VIEW", "HISTORY", "HELP", "PENDING"})
+_NON_CLINICAL = frozenset({"STATUS", "VIEW", "HISTORY", "HELP", "PENDING", "CASE"})
 
 # Waiting horizon — large enough to always reach the failure outcome.
 _WAIT_HORIZON = 100000
@@ -64,7 +64,7 @@ _WAIT_HORIZON = 100000
 # ── Construction ──────────────────────────────────────────────────────────
 
 
-def new_session() -> SessionState:
+def new_session(case_id: str = "mvpb-1") -> SessionState:
     state = SessionState(
         hidden=HiddenClinicalState(
             bleeding_severity=SEVERITY_START,
@@ -73,6 +73,7 @@ def new_session() -> SessionState:
         ),
         current_time=0,
         case_status=ACTIVE,
+        case_id=case_id,
     )
     _seed_handover(state)
     _schedule(state, BLEEDING_INTERVAL_MIN, 0, "BLEEDING_PROGRESS", {})
@@ -116,7 +117,7 @@ def _seed_handover(state: SessionState) -> None:
         DomainMessage(
             "SYSTEM",
             0,
-            f"交班：{PATIENT_DESC}。任务：识别并有效报告隐匿性出血。输入 /help 查看命令（分级）。",
+            f"交班：{CASE.patient}。任务：{CASE.narrative.handover_task}。输入 /help 查看命令（分级）。",
         ),
         DomainMessage(
             "ASSESSMENT",
@@ -170,10 +171,10 @@ def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: lis
         return  # bleeding controlled — no further progression, no reschedule
     mult = 1.0
     if state.fluid_support > 0:
-        mult *= 0.5
+        mult *= CASE.course.fluid_progression_mult
         state.fluid_support -= 1  # bolus support is transient
     if state.transfused:
-        mult *= 0.7  # transfusion slows but does not stop the bleed
+        mult *= CASE.course.transfuse_progression_mult  # transfusion slows but does not stop the bleed
     sev = state.hidden.bleeding_severity + SEVERITY_STEP * mult
     state.hidden.bleeding_severity = sev
     _schedule(state, ev.at_minute + BLEEDING_INTERVAL_MIN, 0, "BLEEDING_PROGRESS", {})
@@ -218,24 +219,12 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
 
 def _on_monitor_alert(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
     v = vitals(state.hidden.bleeding_severity)
-    messages.append(
-        DomainMessage(
-            "MONITOR",
-            ev.at_minute,
-            f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
-        )
-    )
+    messages.append(DomainMessage("MONITOR", ev.at_minute, CASE.narrative.monitor_alert(v)))
 
 
 def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
     v = vitals(state.hidden.bleeding_severity)
-    messages.append(
-        DomainMessage(
-            "CRITICAL",
-            ev.at_minute,
-            f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。",
-        )
-    )
+    messages.append(DomainMessage("CRITICAL", ev.at_minute, CASE.narrative.deterioration(v)))
 
 
 _EVENT_HANDLERS = {
@@ -254,25 +243,19 @@ def _end_case(state: SessionState, status: str, minute: int, messages: list[Doma
     state.case_status = status
     state.case_ended_at = minute
     if status == FAILURE:
-        messages.append(DomainMessage("CRITICAL", minute, "患者病情急剧恶化，隐匿性出血未被及时发现与控制——病例失败。"))
+        messages.append(DomainMessage("CRITICAL", minute, CASE.narrative.failure()))
     else:
-        messages.append(
-            DomainMessage(
-                "SYSTEM",
-                minute,
-                "患者病情稳定，恢复良好，予以出院。较好结局达成。",
-            )
-        )
+        messages.append(DomainMessage("SYSTEM", minute, CASE.narrative.discharge()))
     messages.append(DomainMessage("AUDIT", minute, _audit_summary(state, minute)))
 
 
 def _settlement_verdict(state: SessionState) -> str:
     """Why this outcome — the explicit settlement judgment for the player."""
     if state.case_status == FAILURE:
-        return "判定：延误/漏诊——未及时获得异常证据并有效报告，隐匿性出血持续加重。"
+        return CASE.narrative.verdict_failure
     if state.delayed_success:
-        return "判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。"
-    return "判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。"
+        return CASE.narrative.verdict_delayed
+    return CASE.narrative.verdict_timely
 
 
 def _audit_summary(state: SessionState, minute: int) -> str:
@@ -383,7 +366,7 @@ def build_consult_summary(state: SessionState) -> str:
     Built ONLY from what the player has observed/revealed — never from the
     hidden bleeding state, so the expert cannot leak the hidden course.
     """
-    lines = [f"交班：{PATIENT_DESC}。当前时间 {clock_text(state.current_time)}。"]
+    lines = [f"交班：{CASE.patient}。当前时间 {clock_text(state.current_time)}。"]
     for label, attr, fmt in _READING_SECTIONS:
         readings = getattr(state, attr)
         if readings:

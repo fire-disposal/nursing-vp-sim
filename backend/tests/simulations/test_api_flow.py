@@ -162,6 +162,19 @@ class _BoomLLM:
         raise RuntimeError("llm down")
 
 
+def test_create_session_with_case_and_case_command():
+    r = _client.post("/api/simulations/sessions", json={"case_id": "mvpb-1"})
+    assert r.status_code == 200
+    snap = r.json()["snapshot"]
+    assert snap["case_meta"]["id"] == "mvpb-1"
+    assert snap["case_meta"]["name"]
+    bad = _client.post("/api/simulations/sessions", json={"case_id": "nope"})
+    assert bad.status_code == 404
+    sid = r.json()["session_id"]
+    act = _act(sid, "CASE", None)
+    assert any("可用病例" in m["text"] and "mvpb-1" in m["text"] for m in act["messages"])
+
+
 def test_consult_via_api_returns_advice():
     llm = _FakeLLM()
     _client.app.state.llm_client = llm

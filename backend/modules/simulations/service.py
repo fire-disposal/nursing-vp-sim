@@ -14,7 +14,15 @@ from core.exceptions import NotFoundError
 from core.unit_of_work import unit_of_work
 from models.simulation import SimulationSession
 
-from .case import CASE_VERSION, CONSULT_COST, DIAG_BUDGET_START, LAB_KINDS, TREAT_BUDGET_START, clock_text
+from .case import (
+    CASE_VERSION,
+    CASES,
+    CONSULT_COST,
+    DIAG_BUDGET_START,
+    LAB_KINDS,
+    TREAT_BUDGET_START,
+    clock_text,
+)
 from .engine import apply_action, build_consult_summary, new_session
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
 
@@ -28,6 +36,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "session_id": session_id,
         "revision": state.revision,
         "case_status": state.case_status,
+        "case_meta": {"id": state.case_id, "name": CASES[state.case_id].name, "version": state.case_id},
         "current_time": state.current_time,
         "clock": clock_text(state.current_time),
         "monitoring": state.hidden.monitoring_enabled,
@@ -74,11 +83,14 @@ class SimulationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, user_id: int) -> SimulationSession:
-        state = new_session()
+    def create(self, user_id: int, case_id: str | None = None) -> SimulationSession:
+        cid = case_id or CASE_VERSION
+        if cid not in CASES:
+            raise NotFoundError("未知病例")
+        state = new_session(cid)
         session = SimulationSession(
             user_id=user_id,
-            case_version=CASE_VERSION,
+            case_version=cid,
             status=state.case_status,
             state=state_to_dict(state),
         )

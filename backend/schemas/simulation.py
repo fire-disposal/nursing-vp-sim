@@ -16,6 +16,17 @@ class SimulationActionRequest(BaseModel):
     action: SimulationActionIn
 
 
+class SessionCreateRequest(BaseModel):
+    model_config = _REQ_CFG
+    case_id: str | None = None
+
+
+class CaseMeta(BaseModel):
+    id: str
+    name: str
+    version: str
+
+
 class SimulationMessage(BaseModel):
     kind: str
     at_minute: int
@@ -75,6 +86,7 @@ class SimulationSnapshot(BaseModel):
     session_id: int
     revision: int
     case_status: str
+    case_meta: CaseMeta
     current_time: int
     clock: str
     monitoring: bool

@@ -23,7 +23,8 @@ export type SimActionType =
 	| "STATUS"
 	| "HISTORY"
 	| "HELP"
-	| "PENDING";
+	| "PENDING"
+	| "CASE";
 
 export interface ParsedAction {
 	type: SimActionType;
@@ -74,6 +75,8 @@ export function parseCommand(raw: string): ParseResult {
 			return { action: { type: "HELP", target } };
 		case "pending":
 			return { action: { type: "PENDING" } };
+		case "case":
+			return { action: { type: "CASE", target } };
 		default:
 			return { error: `未知命令：/${cmd}。输入 /help 查看可用命令。` };
 	}

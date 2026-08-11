@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from . import engine
 from .case import (
     ANALGESIA_PAIN_MASK,
-    CASE_NAME,
-    CASE_VERSION,
+    CASE,
+    CASES,
     CONSULT_COST,
     DETERIORATION_SEVERITY,
     DIAG_BUDGET_START,
@@ -22,6 +22,7 @@ from .case import (
     LAB_KINDS,
     TREAT_BUDGET_START,
     VITALS_MID_SEVERITY,
+    case_options_text,
     clock_text,
     drain_abnormal,
     drain_output,
@@ -47,7 +48,7 @@ from .state import (
 
 
 def _do_status(state, _target, messages) -> bool:
-    lines = [f"{CASE_NAME}（{CASE_VERSION}）"]
+    lines = [f"{CASE.name}（{CASE.version}）"]
     lines.append(f"病例状态：{state.case_status}")
     lines.append(
         f"资源：检查点 {DIAG_BUDGET_START - state.diag_spent} · 治疗点 {TREAT_BUDGET_START - state.treat_spent} · 已用时 {state.current_time}min"
@@ -377,7 +378,7 @@ def _do_monitor(state, _target, messages) -> bool:
             DomainMessage(
                 "MONITOR",
                 completion,
-                f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。",
+                CASE.narrative.monitor_alert(v),
             )
         )
     return True
@@ -474,7 +475,9 @@ _INTERVENTIONS: dict[str, InterventionSpec] = {
 
 def _do_diag(state, target, messages) -> bool:
     if not target or not target.strip():
-        messages.append(DomainMessage("SYSTEM", state.current_time, "请写出你的判断，如 /diag 疑诊隐匿性出血。"))
+        messages.append(
+            DomainMessage("SYSTEM", state.current_time, f"请写出你的判断，如 /diag {CASE.narrative.diag_hint}。")
+        )
         return False
     state.diagnosis = target.strip()
     messages.append(
@@ -627,7 +630,7 @@ def _help_overview() -> list[str]:
         "  干预   /give fluids /transfuse /analgesia",
         "  处理   /monitor /report /wait /wait cbc /diag",
         "",
-        "目标：评估→检查→报告，识别并报告隐匿性出血，患者顺利出院。",
+        f"目标：{CASE.narrative.goal}",
     ]
 
 
@@ -676,6 +679,21 @@ def _help_topic(topic: str) -> list[str]:
     return [f"未知主题：{topic}。输入 /help 查看命令分组。"]
 
 
+def _do_case(state, target, messages) -> bool:
+    if not target:
+        lines = [f"当前病例：{state.case_id} {CASES[state.case_id].name}"]
+        lines.append(f"可用病例：{case_options_text()}")
+        lines.append("切换：/case <id>（将开启新局）")
+        messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
+        return True
+    cid = target.strip().lower()
+    if cid not in CASES:
+        messages.append(DomainMessage("SYSTEM", state.current_time, f"未知病例：{cid}。可用：{case_options_text()}。"))
+        return False
+    messages.append(DomainMessage("SYSTEM", state.current_time, f"切换病例 {cid}（{CASES[cid].name}）将开启新局。"))
+    return True
+
+
 def _do_pending(state, _target, messages) -> bool:
     pending = engine._all_pending(state)
     if not pending:
@@ -707,4 +725,5 @@ _HANDLERS = {
     "HISTORY": _do_history,
     "HELP": _do_help,
     "PENDING": _do_pending,
+    "CASE": _do_case,
 }

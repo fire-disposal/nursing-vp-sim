@@ -1,18 +1,16 @@
-"""The single MVP-B clinical case: hidden post-op bleeding on day 1.
+"""Case definitions for the clinical reasoning simulation.
 
-A nurse-station / doctor-facing simulation: the player can order a curated set
-of labs and apply a curated set of interventions. All values are deterministic
-engineering choices (medical plausibility tunable); no DSL — plain Python.
+The single source of truth for everything case-specific is ``CASE`` (a
+``CaseSpec``): meta, hidden disease course, resource model, orderable labs and
+narrative prose. Module-level aliases below are derived from ``CASE`` for
+backward compatibility; new code should read ``CASE`` directly so a second case
+can be added as one more ``CaseSpec`` in a registry.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-
-CASE_NAME = "腹部术后隐匿性出血（MVP-B）"
-CASE_VERSION = "mvpb-1"
-CASE_START_CLOCK = "08:30"  # game minute 0 == 08:30
 
 
 @dataclass(frozen=True)
@@ -26,30 +24,67 @@ class LabSpec:
     materialize: Callable[[dict, dict | None], dict]
 
 
-# ── Hidden disease course ──
-SEVERITY_START = 0.12
-SEVERITY_STEP = 0.06
-BLEEDING_INTERVAL_MIN = 6
+@dataclass(frozen=True)
+class CourseSpec:
+    """Hidden disease course: start/step/interval, thresholds, and how
+    interventions modulate progression and mask observations."""
 
-# Resource model: two abstract pools plus time (minutes). Labs/consult spend
-# 检查点 (diagnostic points); interventions spend 治疗点 (treatment points).
-# Neither is money — they are abstract resource points.
-DIAG_BUDGET_START = 400
-TREAT_BUDGET_START = 100
-
-# Severity thresholds (0..1)
-VITALS_MID_SEVERITY = 0.34  # HR>=95 / SBP<=108; also the MONITOR_ALERT trigger
-DETERIORATION_SEVERITY = 0.60
-FAILURE_SEVERITY = 1.0
-
-# Intervention effects on bleeding progression (multiplier on SEVERITY_STEP)
-FLUID_PROGRESSION_MULT = 0.5  # transient, decays per tick
-TRANSFUSE_PROGRESSION_MULT = 0.7  # sustained until report
-FLUID_BP_MASK_PER_UNIT = 10  # mmHg hidden per support unit on manual vitals
-ANALGESIA_PAIN_MASK = 2  # points hidden on pain assessment
+    start_severity: float
+    step: float
+    interval_min: int
+    mid_severity: float
+    deterioration_severity: float
+    failure_severity: float
+    fluid_progression_mult: float
+    transfuse_progression_mult: float
+    fluid_bp_mask_per_unit: int
+    analgesia_pain_mask: int
 
 
-# ── Orderable labs: each entry is a composed LabSpec ──
+@dataclass(frozen=True)
+class ResourceSpec:
+    """Two abstract pools (检查点 = labs+consult, 治疗点 = interventions) plus
+    per-action durations. Time (minutes) is the third resource."""
+
+    diag_budget: int
+    treat_budget: int
+    consult_cost: int
+    intervention_costs: dict[str, int]
+    durations: dict[str, int]
+    lab_kinds: dict[str, LabSpec]
+
+
+@dataclass(frozen=True)
+class NarrativeSpec:
+    """Case-specific prose. Event texts embed derived vitals, so they are
+    builders taking the vitals dict."""
+
+    handover_task: str
+    diag_hint: str
+    goal: str
+    monitor_alert: Callable[[dict], str]
+    deterioration: Callable[[dict], str]
+    failure: Callable[[], str]
+    discharge: Callable[[], str]
+    verdict_failure: str
+    verdict_delayed: str
+    verdict_timely: str
+
+
+@dataclass(frozen=True)
+class CaseSpec:
+    """One playable case — the aggregation point for everything case-specific."""
+
+    name: str
+    version: str
+    start_clock: str
+    patient: str
+    course: CourseSpec
+    resources: ResourceSpec
+    narrative: NarrativeSpec
+
+
+# ── Orderable labs (composed LabSpec entities) ──
 def _mat_cbc(sample_snapshot: dict, previous: dict | None) -> dict:
     sev = sample_snapshot["severity"]
     hb = hb_for(sev)
@@ -96,39 +131,7 @@ def _mat_us(sample_snapshot: dict, previous: dict | None) -> dict:
     }
 
 
-LAB_KINDS: dict[str, LabSpec] = {
-    "CBC": LabSpec("血常规(CBC)", 35, 15, _mat_cbc),
-    "ABG": LabSpec("动脉血气(ABG)", 60, 10, _mat_abg),
-    "COAG": LabSpec("凝血功能", 50, 20, _mat_coag),
-    "US": LabSpec("腹部超声", 120, 20, _mat_us),
-}
-
-# ── Expert consultation ──
-CONSULT_COST = 120  # 检查点
-
-# Resource cost of each intervention in 治疗点. Transfusion is the expensive one —
-# a real "spend treatment points or spend time" decision.
-INTERVENTION_COSTS = {"FLUIDS": 30, "TRANSFUSE": 60, "ANALGESIA": 20}
-
-# ── Patient profile (content) ──
-PATIENT_DESC = "王秀兰，58 岁女性，昨日胃癌根治术后，术后第 1 日，术后予低分子肝素预防 VTE"
-
-# ── Active action durations (minutes) ──
-DURATION_MIN = {
-    "ASSESS_VITALS": 2,
-    "ASSESS_DRAIN": 3,
-    "ASSESS_PAIN": 1,
-    "ASSESS_URINE": 2,
-    "ORDER_LAB": 3,
-    "MONITOR": 2,
-    "CONSULT": 2,
-    "FLUIDS": 3,
-    "TRANSFUSE": 5,
-    "ANALGESIA": 1,
-    "REPORT": 2,
-}
-
-
+# ── Physiology (deterministic severity → observations) ──
 def vitals(severity: float) -> dict:
     """Deterministic vital-signs snapshot for a given bleeding severity."""
     return {
@@ -179,6 +182,121 @@ def hb_abnormal(hb: float) -> bool:
 
 def wbc_for(severity: float) -> float:
     return round(8.5 + 2 * severity, 1)
+
+
+# ── Narrative builders (embed derived vitals) ──
+def _n_monitor_alert(v: dict) -> str:
+    return f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。生命体征异常，请处理。"
+
+
+def _n_deterioration(v: dict) -> str:
+    return f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，引流增多。需立即处理。"
+
+
+def _n_failure() -> str:
+    return "患者病情急剧恶化，隐匿性出血未被及时发现与控制——病例失败。"
+
+
+def _n_discharge() -> str:
+    return "患者病情稳定，恢复良好，予以出院。较好结局达成。"
+
+
+# ── The single case (aggregation point) ──
+CASE = CaseSpec(
+    name="腹部术后隐匿性出血（MVP-B）",
+    version="mvpb-1",
+    start_clock="08:30",  # game minute 0 == 08:30
+    patient="王秀兰，58 岁女性，昨日胃癌根治术后，术后第 1 日，术后予低分子肝素预防 VTE",
+    course=CourseSpec(
+        start_severity=0.12,
+        step=0.06,
+        interval_min=6,
+        mid_severity=0.34,  # HR>=95 / SBP<=108; also the MONITOR_ALERT trigger
+        deterioration_severity=0.60,
+        failure_severity=1.0,
+        fluid_progression_mult=0.5,  # transient, decays per tick
+        transfuse_progression_mult=0.7,  # sustained until report
+        fluid_bp_mask_per_unit=10,  # mmHg hidden per support unit on manual vitals
+        analgesia_pain_mask=2,  # points hidden on pain assessment
+    ),
+    resources=ResourceSpec(
+        diag_budget=400,
+        treat_budget=100,
+        consult_cost=120,
+        intervention_costs={"FLUIDS": 30, "TRANSFUSE": 60, "ANALGESIA": 20},
+        durations={
+            "ASSESS_VITALS": 2,
+            "ASSESS_DRAIN": 3,
+            "ASSESS_PAIN": 1,
+            "ASSESS_URINE": 2,
+            "ORDER_LAB": 3,
+            "MONITOR": 2,
+            "CONSULT": 2,
+            "FLUIDS": 3,
+            "TRANSFUSE": 5,
+            "ANALGESIA": 1,
+            "REPORT": 2,
+        },
+        lab_kinds={
+            "CBC": LabSpec("血常规(CBC)", 35, 15, _mat_cbc),
+            "ABG": LabSpec("动脉血气(ABG)", 60, 10, _mat_abg),
+            "COAG": LabSpec("凝血功能", 50, 20, _mat_coag),
+            "US": LabSpec("腹部超声", 120, 20, _mat_us),
+        },
+    ),
+    narrative=NarrativeSpec(
+        handover_task="识别并有效报告隐匿性出血",
+        diag_hint="疑诊隐匿性出血",
+        goal="评估→检查→报告，识别并报告隐匿性出血，患者顺利出院。",
+        monitor_alert=_n_monitor_alert,
+        deterioration=_n_deterioration,
+        failure=_n_failure,
+        discharge=_n_discharge,
+        verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，隐匿性出血持续加重。",
+        verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
+        verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    ),
+)
+
+
+# ── Derived aliases (single source of truth is CASE) ──
+CASE_NAME = CASE.name
+CASE_VERSION = CASE.version
+CASE_START_CLOCK = CASE.start_clock
+PATIENT_DESC = CASE.patient
+
+# ── Case registry (explicit, no runtime discovery) ──
+CASES: dict[str, CaseSpec] = {"mvpb-1": CASE}
+
+
+def get_case(case_id: str) -> CaseSpec:
+    case = CASES.get(case_id)
+    if case is None:
+        raise ValueError(f"未知病例：{case_id}")
+    return case
+
+
+def case_options_text() -> str:
+    return "、".join(f"{cid} {c.name}" for cid, c in CASES.items())
+
+
+SEVERITY_START = CASE.course.start_severity
+SEVERITY_STEP = CASE.course.step
+BLEEDING_INTERVAL_MIN = CASE.course.interval_min
+VITALS_MID_SEVERITY = CASE.course.mid_severity
+DETERIORATION_SEVERITY = CASE.course.deterioration_severity
+FAILURE_SEVERITY = CASE.course.failure_severity
+FLUID_PROGRESSION_MULT = CASE.course.fluid_progression_mult
+TRANSFUSE_PROGRESSION_MULT = CASE.course.transfuse_progression_mult
+FLUID_BP_MASK_PER_UNIT = CASE.course.fluid_bp_mask_per_unit
+ANALGESIA_PAIN_MASK = CASE.course.analgesia_pain_mask
+
+DIAG_BUDGET_START = CASE.resources.diag_budget
+TREAT_BUDGET_START = CASE.resources.treat_budget
+CONSULT_COST = CASE.resources.consult_cost
+INTERVENTION_COSTS = CASE.resources.intervention_costs
+DURATION_MIN = CASE.resources.durations
+LAB_KINDS = CASE.resources.lab_kinds
 
 
 def materialize_lab(kind: str, sample_snapshot: dict, previous: dict | None) -> dict:

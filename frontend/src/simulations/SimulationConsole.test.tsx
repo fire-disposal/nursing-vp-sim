@@ -20,6 +20,7 @@ const baseSnapshot = {
 	session_id: 1,
 	revision: 0,
 	case_status: "ACTIVE",
+	case_meta: { id: "mvpb-1", name: "腹部术后隐匿性出血（MVP-B）", version: "mvpb-1" },
 	current_time: 0,
 	clock: "08:30",
 	monitoring: false,

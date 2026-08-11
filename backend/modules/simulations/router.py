@@ -14,6 +14,7 @@ from core.deps import CurrentUser, DbSession
 from infra.llm.client import CallContext
 from schemas.simulation import (
     ActionResultResponse,
+    SessionCreateRequest,
     SessionCreateResponse,
     SimulationActionRequest,
     SimulationSnapshot,
@@ -27,8 +28,9 @@ router = APIRouter(prefix="/api/simulations", tags=["临床推理模拟"])
 
 
 @router.post("/sessions", response_model=SessionCreateResponse)
-def create_session(db: DbSession, user: CurrentUser):
-    session = SimulationService(db).create(user.id)
+def create_session(db: DbSession, user: CurrentUser, body: SessionCreateRequest | None = None):
+    case_id = body.case_id if body else None
+    session = SimulationService(db).create(user.id, case_id=case_id)
     state = state_from_dict(session.state)
     return {"session_id": session.id, "snapshot": build_snapshot(session.id, state)}
 

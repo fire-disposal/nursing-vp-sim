@@ -145,6 +145,16 @@ export default function SimulationConsole() {
 			]);
 			return;
 		}
+		if (parsed.action.type === "CASE" && parsed.action.target) {
+			// Switching case = opening a fresh session in the chosen case.
+			setTranscript((t) => [
+				...t,
+				{ key: `e${++seqRef.current}`, kind: "echo", text: raw.trim() },
+				{ key: `m${++seqRef.current}`, kind: "msg", text: `切换到病例 ${parsed.action.target}，开启新局…`, msgKind: "SYSTEM" },
+			]);
+			await newSession(parsed.action.target);
+			return;
+		}
 		const trimmed = raw.trim();
 		setHistory((h) => [...h, trimmed]);
 		historyIdxRef.current = null;
@@ -175,10 +185,10 @@ export default function SimulationConsole() {
 		}
 	}
 
-	async function newSession() {
+	async function newSession(caseId?: string) {
 		setBusy(true);
 		try {
-			const r = await createSimulationSession();
+			const r = await createSimulationSession(caseId);
 			localStorage.setItem(SESSION_KEY, String(r.session_id));
 			setSnapshot(r.snapshot);
 			setTranscript(
@@ -259,12 +269,14 @@ export default function SimulationConsole() {
 		<div className="sim-root">
 			<header className="sim-header">
 				<div className="sim-titlerow">
-					<div className="sim-title">腹部术后隐匿性出血</div>
+					<div className="sim-title">
+					{snapshot?.case_meta?.name ?? "腹部术后隐匿性出血"}
+				</div>
 					<div className="sim-actions">
 						<button
 							type="button"
 							disabled={busy}
-							onClick={newSession}
+							onClick={() => void newSession()}
 							className="sim-btn"
 						>
 							重新开始

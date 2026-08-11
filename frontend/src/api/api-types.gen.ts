@@ -2946,6 +2946,15 @@ export interface components {
              */
             training_count: number;
         };
+        /** CaseMeta */
+        CaseMeta: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
         /** CaseUpdateRequest */
         CaseUpdateRequest: {
             /** Case Data */
@@ -4497,6 +4506,11 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** SessionCreateRequest */
+        SessionCreateRequest: {
+            /** Case Id */
+            case_id?: string | null;
+        };
         /** SessionCreateResponse */
         SessionCreateResponse: {
             /** Session Id */
@@ -4531,6 +4545,7 @@ export interface components {
             revision: number;
             /** Case Status */
             case_status: string;
+            case_meta: components["schemas"]["CaseMeta"];
             /** Current Time */
             current_time: number;
             /** Clock */
@@ -9411,7 +9426,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SessionCreateRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -9420,6 +9439,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

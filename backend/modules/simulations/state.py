@@ -102,6 +102,7 @@ class SessionState:
     hidden: HiddenClinicalState
     current_time: int
     case_status: str  # ACTIVE | SUCCESS | FAILURE
+    case_id: str = "mvpb-1"
     records: list[ClinicalRecord] = field(default_factory=list)
     pending_tasks: list[PendingTask] = field(default_factory=list)
     events: list[ScheduledEvent] = field(default_factory=list)
@@ -144,6 +145,7 @@ def state_from_dict(raw: dict) -> SessionState:
         ),
         current_time=raw["current_time"],
         case_status=raw["case_status"],
+        case_id=raw.get("case_id", "mvpb-1"),
         monitor_alert_fired=raw.get("monitor_alert_fired", False),
         deteriorated=raw.get("deteriorated", False),
         diagnosis=raw.get("diagnosis"),
