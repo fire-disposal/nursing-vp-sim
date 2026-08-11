@@ -16,36 +16,37 @@ class HiddenClinicalState:
 
 
 @dataclass
-class VitalsReading:
+class Reading:
+    """Base for every clinical observation: when it was taken and whether it
+    flagged abnormal. Subclasses add the specific measured fields."""
+
     minute: int
+    abnormal: bool
+
+
+@dataclass
+class VitalsReading(Reading):
     hr: int
     sbp: int
     dbp: int
     rr: int
     spo2: int
     temp: float
-    abnormal: bool
 
 
 @dataclass
-class DrainReading:
-    minute: int
+class DrainReading(Reading):
     output_ml: int
-    abnormal: bool
 
 
 @dataclass
-class PainReading:
-    minute: int
+class PainReading(Reading):
     score: int
-    abnormal: bool
 
 
 @dataclass
-class UrineReading:
-    minute: int
+class UrineReading(Reading):
     output_ml: int
-    abnormal: bool
 
 
 @dataclass
@@ -111,8 +112,10 @@ class SessionState:
     pain: list[PainReading] = field(default_factory=list)
     urine: list[UrineReading] = field(default_factory=list)
     fluid_support: int = 0
+    fluids_given: bool = False
     transfused: bool = False
     analgesia: bool = False
+    consult_count: int = 0
     monitor_alert_fired: bool = False
     deteriorated: bool = False
     diagnosis: str | None = None
@@ -144,8 +147,10 @@ def state_from_dict(raw: dict) -> SessionState:
         deteriorated=raw.get("deteriorated", False),
         diagnosis=raw.get("diagnosis"),
         fluid_support=raw.get("fluid_support", 0),
+        fluids_given=raw.get("fluids_given", False),
         transfused=raw.get("transfused", False),
         analgesia=raw.get("analgesia", False),
+        consult_count=raw.get("consult_count", 0),
         seq=raw.get("seq", 0),
         cbc_count=raw.get("cbc_count", 0),
         cost_total=raw.get("cost_total", 0),

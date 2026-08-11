@@ -46,6 +46,14 @@ PROFILES: dict[str, LLMProfile] = {
         max_retries=2,
         semaphore=500,
     ),
+    "expert_consult": LLMProfile(
+        model="deepseek-v4-flash",
+        timeout=60,
+        max_tokens=1024,
+        temperature=0.3,
+        max_retries=2,
+        semaphore=100,
+    ),
     "scoring": LLMProfile(
         model="deepseek-v4-flash",
         timeout=120,

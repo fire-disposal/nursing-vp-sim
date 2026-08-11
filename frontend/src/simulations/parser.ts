@@ -12,6 +12,7 @@ export type SimActionType =
 	| "ORDER"
 	| "VIEW"
 	| "MONITOR"
+	| "CONSULT"
 	| "DIAG"
 	| "FLUIDS"
 	| "TRANSFUSE"
@@ -51,6 +52,8 @@ export function parseCommand(raw: string): ParseResult {
 			return { action: { type: "VIEW", target } };
 		case "monitor":
 			return { action: { type: "MONITOR", target: "vitals" } };
+		case "consult":
+			return { action: { type: "CONSULT" } };
 		case "diag":
 			return { action: { type: "DIAG", target: rest.join(" ") } };
 		case "give":

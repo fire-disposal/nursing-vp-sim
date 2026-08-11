@@ -16,6 +16,7 @@ describe("parseCommand", () => {
 		expect(parseCommand("/view abg")).toEqual({ action: { type: "VIEW", target: "abg" } });
 		expect(parseCommand("/monitor vitals")).toEqual({ action: { type: "MONITOR", target: "vitals" } });
 		expect(parseCommand("/give fluids")).toEqual({ action: { type: "FLUIDS" } });
+		expect(parseCommand("/consult")).toEqual({ action: { type: "CONSULT" } });
 		expect(parseCommand("/transfuse")).toEqual({ action: { type: "TRANSFUSE" } });
 		expect(parseCommand("/analgesia")).toEqual({ action: { type: "ANALGESIA" } });
 		expect(parseCommand("/report doctor")).toEqual({ action: { type: "REPORT", target: "doctor" } });

@@ -5,12 +5,16 @@ structured action into time consumption, state changes and messages. They use
 the engine's event loop and shared helpers via ``from . import engine``.
 """
 
+from collections.abc import Callable
+from dataclasses import dataclass
+
 from . import engine
 from .case import (
     ANALGESIA_PAIN_MASK,
     BUDGET_START,
     CASE_NAME,
     CASE_VERSION,
+    CONSULT_COST,
     DETERIORATION_SEVERITY,
     DURATION_MIN,
     FLUID_BP_MASK_PER_UNIT,
@@ -33,11 +37,11 @@ from .state import (
     DrainReading,
     PainReading,
     PendingTask,
+    Reading,
+    SessionState,
     UrineReading,
     VitalsReading,
 )
-
-_ASSESS_TARGETS = frozenset({"vitals", "drain", "pain", "urine"})
 
 
 def _do_status(state, _target, messages) -> bool:
@@ -73,96 +77,133 @@ def _do_status(state, _target, messages) -> bool:
 
 
 def _do_assess(state, target, messages) -> bool:
-    if target not in _ASSESS_TARGETS:
+    spec = _ASSESS_SPECS.get(target or "")
+    if spec is None:
         messages.append(
-            DomainMessage("SYSTEM", state.current_time, f"评估目标无效（{' / '.join(sorted(_ASSESS_TARGETS))}）。")
+            DomainMessage("SYSTEM", state.current_time, f"评估目标无效（{' / '.join(sorted(_ASSESS_SPECS))}）。")
         )
         return False
-    return {
-        "vitals": _do_assess_vitals,
-        "drain": _do_assess_drain,
-        "pain": _do_assess_pain,
-        "urine": _do_assess_urine,
-    }[target](state, messages)
+    return _run_assess(state, spec, getattr(state, target), messages)
 
 
-def _do_assess_vitals(state, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["ASSESS_VITALS"]
+def _run_assess(state, spec, history, messages) -> bool:
+    """Shared skeleton for every observation: consume time, take a reading,
+    record it, and describe it (with trend vs the previous one)."""
+    completion = state.current_time + spec.duration_min
     engine._advance(state, messages, completion)
     state.current_time = completion
+    reading = spec.build(state)
+    history.append(reading)
+    prev = history[-2] if len(history) >= 2 else None
+    text = spec.describe(state, reading) + spec.trend(reading, prev)
+    messages.append(DomainMessage("ASSESSMENT", completion, text))
+    return True
+
+
+# ── Observation builders / describers / trenders (one set per target) ──
+
+
+def _build_vitals(state) -> VitalsReading:
     v = vitals(state.hidden.bleeding_severity)
     sbp = v["sbp"]
     if state.fluid_support > 0:
         sbp = min(118, sbp + FLUID_BP_MASK_PER_UNIT * state.fluid_support)  # bolus masks volume loss
-    hr, dbp, rr, spo2, temp = v["hr"], v["dbp"], v["rr"], v["spo2"], v["temp"]
-    abnormal = vitals_abnormal({"hr": hr, "sbp": sbp})
-    state.vitals.append(VitalsReading(completion, hr, sbp, dbp, rr, spo2, temp, abnormal))
-    note = "存在异常" if abnormal else "未见明显异常"
-    text = f"生命体征：HR {hr} bpm，BP {sbp}/{dbp} mmHg，RR {rr}，SpO2 {spo2}%，T {temp}℃。{note}。"
-    if state.fluid_support > 0:
-        text += "（补液支撑下血压）"
-    prev = state.vitals[-2] if len(state.vitals) >= 2 else None
-    if prev is not None:
-        dh = hr - prev.hr
-        ds = sbp - prev.sbp
-        if dh or ds:
-            text += (
-                f" 较上次 HR {prev.hr}→{hr}（{'↑' if dh > 0 else '↓'}{abs(dh)}），"
-                f"BP {prev.sbp}/{prev.dbp}→{sbp}/{dbp}。"
-            )
-    messages.append(DomainMessage("ASSESSMENT", completion, text))
-    return True
+    return VitalsReading(
+        minute=state.current_time,
+        abnormal=vitals_abnormal({"hr": v["hr"], "sbp": sbp}),
+        hr=v["hr"],
+        sbp=sbp,
+        dbp=v["dbp"],
+        rr=v["rr"],
+        spo2=v["spo2"],
+        temp=v["temp"],
+    )
 
 
-def _do_assess_drain(state, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["ASSESS_DRAIN"]
-    engine._advance(state, messages, completion)
-    state.current_time = completion
+def _build_drain(state) -> DrainReading:
     output = drain_output(state.hidden.bleeding_severity)
-    abnormal = drain_abnormal(output)
-    state.drain.append(DrainReading(completion, output, abnormal))
-    note = "引流增多，异常" if abnormal else "引流量在正常范围"
-    text = f"引流评估：{output} ml。{note}。"
-    prev = state.drain[-2] if len(state.drain) >= 2 else None
-    if prev is not None and output != prev.output_ml:
-        arrow = "↑" if output > prev.output_ml else "↓"
-        text += f" 较上次 {prev.output_ml}→{output} ml（{arrow}{abs(output - prev.output_ml)}）。"
-    messages.append(DomainMessage("ASSESSMENT", completion, text))
-    return True
+    return DrainReading(minute=state.current_time, abnormal=drain_abnormal(output), output_ml=output)
 
 
-def _do_assess_pain(state, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["ASSESS_PAIN"]
-    engine._advance(state, messages, completion)
-    state.current_time = completion
+def _build_pain(state) -> PainReading:
     score = pain_score(state.hidden.bleeding_severity)
     if state.analgesia:
         score = max(1, score - ANALGESIA_PAIN_MASK)
-    abnormal = pain_abnormal(score)
-    state.pain.append(PainReading(completion, score, abnormal))
-    note = "腹痛明显，警惕" if abnormal else "疼痛可控"
-    text = f"疼痛评估：VAS {score}/10 分。{note}。"
+    return PainReading(minute=state.current_time, abnormal=pain_abnormal(score), score=score)
+
+
+def _build_urine(state) -> UrineReading:
+    output = urine_output(state.hidden.bleeding_severity)
+    return UrineReading(minute=state.current_time, abnormal=urine_abnormal(output), output_ml=output)
+
+
+def _describe_vitals(state, r) -> str:
+    note = "存在异常" if r.abnormal else "未见明显异常"
+    text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr}，SpO2 {r.spo2}%，T {r.temp}℃。{note}。"
+    if state.fluid_support > 0:
+        text += "（补液支撑下血压）"
+    return text
+
+
+def _describe_drain(state, r) -> str:
+    note = "引流增多，异常" if r.abnormal else "引流量在正常范围"
+    return f"引流评估：{r.output_ml} ml。{note}。"
+
+
+def _describe_pain(state, r) -> str:
+    note = "腹痛明显，警惕" if r.abnormal else "疼痛可控"
+    text = f"疼痛评估：VAS {r.score}/10 分。{note}。"
     if state.analgesia:
         text += "（已镇痛，评分可能偏低）"
-    messages.append(DomainMessage("ASSESSMENT", completion, text))
-    return True
+    return text
 
 
-def _do_assess_urine(state, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["ASSESS_URINE"]
-    engine._advance(state, messages, completion)
-    state.current_time = completion
-    output = urine_output(state.hidden.bleeding_severity)
-    abnormal = urine_abnormal(output)
-    state.urine.append(UrineReading(completion, output, abnormal))
-    note = "尿量偏少，警惕低血容量" if abnormal else "尿量尚可"
-    text = f"尿量（近4h）：{output} ml。{note}。"
-    prev = state.urine[-2] if len(state.urine) >= 2 else None
-    if prev is not None and output != prev.output_ml:
-        arrow = "↓" if output < prev.output_ml else "↑"
-        text += f" 较上次 {prev.output_ml}→{output} ml（{arrow}{abs(output - prev.output_ml)}）。"
-    messages.append(DomainMessage("ASSESSMENT", completion, text))
-    return True
+def _describe_urine(state, r) -> str:
+    note = "尿量偏少，警惕低血容量" if r.abnormal else "尿量尚可"
+    return f"尿量（近4h）：{r.output_ml} ml。{note}。"
+
+
+def _trend_vitals(r, prev) -> str:
+    if prev is None:
+        return ""
+    dh = r.hr - prev.hr
+    ds = r.sbp - prev.sbp
+    if not (dh or ds):
+        return ""
+    return (
+        f" 较上次 HR {prev.hr}→{r.hr}（{'↑' if dh > 0 else '↓'}{abs(dh)}），BP {prev.sbp}/{prev.dbp}→{r.sbp}/{r.dbp}。"
+    )
+
+
+def _trend_ml(r, prev) -> str:
+    if prev is None or r.output_ml == prev.output_ml:
+        return ""
+    arrow = "↑" if r.output_ml > prev.output_ml else "↓"
+    return f" 较上次 {prev.output_ml}→{r.output_ml} ml（{arrow}{abs(r.output_ml - prev.output_ml)}）。"
+
+
+def _trend_pain(r, prev) -> str:
+    return ""
+
+
+@dataclass(frozen=True)
+class AssessSpec:
+    """How one observation target behaves — composition: duration plus how to
+    build the reading, describe it and compare it with the previous one."""
+
+    label: str
+    duration_min: int
+    build: Callable[[SessionState], Reading]
+    describe: Callable[[SessionState, Reading], str]
+    trend: Callable[[Reading, Reading | None], str]
+
+
+_ASSESS_SPECS: dict[str, AssessSpec] = {
+    "vitals": AssessSpec("生命体征", DURATION_MIN["ASSESS_VITALS"], _build_vitals, _describe_vitals, _trend_vitals),
+    "drain": AssessSpec("引流", DURATION_MIN["ASSESS_DRAIN"], _build_drain, _describe_drain, _trend_ml),
+    "pain": AssessSpec("疼痛", DURATION_MIN["ASSESS_PAIN"], _build_pain, _describe_pain, _trend_pain),
+    "urine": AssessSpec("尿量", DURATION_MIN["ASSESS_URINE"], _build_urine, _describe_urine, _trend_ml),
+}
 
 
 def _do_order_lab(state, target, messages) -> bool:
@@ -311,49 +352,79 @@ def _do_monitor(state, _target, messages) -> bool:
     return True
 
 
-def _do_give_fluids(state, _target, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["FLUIDS"]
-    engine._advance(state, messages, completion)
-    state.current_time = completion
-    state.fluid_support = min(3, state.fluid_support + 2)
-    messages.append(
-        DomainMessage(
-            "SYSTEM",
-            completion,
-            "已快速补液 500ml。血压支撑暂时改善——需明确出血来源，勿被掩盖。",
-        )
-    )
-    return True
+def _do_fluids(state, _target, messages) -> bool:
+    return _run_intervention(state, "FLUIDS", messages)
 
 
 def _do_transfuse(state, _target, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["TRANSFUSE"]
-    engine._advance(state, messages, completion)
-    state.current_time = completion
-    state.transfused = True
-    messages.append(
-        DomainMessage(
-            "SYSTEM",
-            completion,
-            "已输注红细胞 2U。失血速度放缓，但仍需明确并处理出血源。",
-        )
-    )
-    return True
+    return _run_intervention(state, "TRANSFUSE", messages)
 
 
 def _do_analgesia(state, _target, messages) -> bool:
-    completion = state.current_time + DURATION_MIN["ANALGESIA"]
+    return _run_intervention(state, "ANALGESIA", messages)
+
+
+def _run_intervention(state, kind: str, messages) -> bool:
+    spec = _INTERVENTIONS.get(kind)
+    if spec is None:
+        messages.append(
+            DomainMessage(
+                "SYSTEM", state.current_time, f"未知干预：{kind}。可用：{', '.join(sorted(_INTERVENTIONS))}。"
+            )
+        )
+        return False
+    completion = state.current_time + spec.duration_min
     engine._advance(state, messages, completion)
     state.current_time = completion
-    state.analgesia = True
-    messages.append(
-        DomainMessage(
-            "SYSTEM",
-            completion,
-            "已给予镇痛。注意：可能掩盖腹痛这一早期线索。",
-        )
-    )
+    spec.apply(state)
+    messages.append(DomainMessage("SYSTEM", completion, f"已{spec.label}。{spec.followup}"))
     return True
+
+
+def _apply_fluids(state) -> None:
+    state.fluid_support = min(3, state.fluid_support + 2)
+    state.fluids_given = True
+
+
+def _apply_transfuse(state) -> None:
+    state.transfused = True
+
+
+def _apply_analgesia(state) -> None:
+    state.analgesia = True
+
+
+@dataclass(frozen=True)
+class InterventionSpec:
+    """One intervention as a composition: duration, its effect on the state
+    and the follow-up note. Effects all buy time but mask a clue."""
+
+    label: str
+    duration_min: int
+    apply: Callable[[SessionState], None]
+    followup: str
+
+
+_INTERVENTIONS: dict[str, InterventionSpec] = {
+    "FLUIDS": InterventionSpec(
+        "快速补液 500ml",
+        DURATION_MIN["FLUIDS"],
+        _apply_fluids,
+        "血压支撑暂时改善——需明确出血来源，勿被掩盖。",
+    ),
+    "TRANSFUSE": InterventionSpec(
+        "输注红细胞 2U",
+        DURATION_MIN["TRANSFUSE"],
+        _apply_transfuse,
+        "失血速度放缓，但仍需明确并处理出血源。",
+    ),
+    "ANALGESIA": InterventionSpec(
+        "给予镇痛",
+        DURATION_MIN["ANALGESIA"],
+        _apply_analgesia,
+        "注意：可能掩盖腹痛这一早期线索。",
+    ),
+}
 
 
 def _do_diag(state, target, messages) -> bool:
@@ -366,6 +437,32 @@ def _do_diag(state, target, messages) -> bool:
             "SYSTEM",
             state.current_time,
             f"已记录你的诊断：{state.diagnosis}。继续收集证据可完善判断，报告时一并提交。",
+        )
+    )
+    return True
+
+
+def _do_consult(state, _target, messages) -> bool:
+    remaining = BUDGET_START - state.cost_total
+    if remaining < CONSULT_COST:
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                state.current_time,
+                f"资金不足：专家会诊需 ¥{CONSULT_COST}，当前剩余 ¥{remaining}。",
+            )
+        )
+        return False
+    completion = state.current_time + DURATION_MIN["CONSULT"]
+    engine._advance(state, messages, completion)
+    state.current_time = completion
+    state.cost_total += CONSULT_COST
+    state.consult_count += 1
+    messages.append(
+        DomainMessage(
+            "SYSTEM",
+            completion,
+            f"专家会诊已申请（¥{CONSULT_COST}，{DURATION_MIN['CONSULT']}min）。专家正在基于已有信息分析…",
         )
     )
     return True
@@ -503,6 +600,7 @@ def _help_topic(topic: str) -> list[str]:
             "  /give fluids  3min  补液：掩盖血压但争取时间",
             "  /transfuse    5min  输血：放缓失血",
             "  /analgesia    1min  镇痛：可能掩盖腹痛",
+            "  /consult      ¥150/2min  专家会诊：基于已有信息给建议与检查方向",
             "  /diag <判断>   记录你的诊断/推理",
         ]
     if topic in ("处理", "report", "wait"):
@@ -538,7 +636,8 @@ _HANDLERS = {
     "VIEW": _do_view_lab,
     "DIAG": _do_diag,
     "MONITOR": _do_monitor,
-    "FLUIDS": _do_give_fluids,
+    "CONSULT": _do_consult,
+    "FLUIDS": _do_fluids,
     "TRANSFUSE": _do_transfuse,
     "ANALGESIA": _do_analgesia,
     "REPORT": _do_report,

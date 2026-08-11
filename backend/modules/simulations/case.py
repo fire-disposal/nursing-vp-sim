@@ -47,6 +47,9 @@ LAB_KINDS: dict[str, _LabSpec] = {
     "US": {"label": "腹部超声", "cost": 120, "turnaround": 20},
 }
 
+# ── Expert consultation ──
+CONSULT_COST = 150
+
 # ── Active action durations (minutes) ──
 DURATION_MIN = {
     "ASSESS_VITALS": 2,
@@ -55,6 +58,7 @@ DURATION_MIN = {
     "ASSESS_URINE": 2,
     "ORDER_LAB": 3,
     "MONITOR": 2,
+    "CONSULT": 2,
     "FLUIDS": 3,
     "TRANSFUSE": 5,
     "ANALGESIA": 1,

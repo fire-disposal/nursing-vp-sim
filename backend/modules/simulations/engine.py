@@ -86,11 +86,32 @@ def _seed_handover(state: SessionState) -> None:
     """
     v = vitals(SEVERITY_START)
     state.vitals.append(
-        VitalsReading(0, v["hr"], v["sbp"], v["dbp"], v["rr"], v["spo2"], v["temp"], vitals_abnormal(v))
+        VitalsReading(
+            minute=0,
+            abnormal=vitals_abnormal(v),
+            hr=v["hr"],
+            sbp=v["sbp"],
+            dbp=v["dbp"],
+            rr=v["rr"],
+            spo2=v["spo2"],
+            temp=v["temp"],
+        )
     )
-    state.drain.append(DrainReading(0, drain_output(SEVERITY_START), drain_abnormal(drain_output(SEVERITY_START))))
-    state.pain.append(PainReading(0, pain_score(SEVERITY_START), pain_abnormal(pain_score(SEVERITY_START))))
-    state.urine.append(UrineReading(0, urine_output(SEVERITY_START), urine_abnormal(urine_output(SEVERITY_START))))
+    state.drain.append(
+        DrainReading(
+            minute=0, abnormal=drain_abnormal(drain_output(SEVERITY_START)), output_ml=drain_output(SEVERITY_START)
+        )
+    )
+    state.pain.append(
+        PainReading(minute=0, abnormal=pain_abnormal(pain_score(SEVERITY_START)), score=pain_score(SEVERITY_START))
+    )
+    state.urine.append(
+        UrineReading(
+            minute=0,
+            abnormal=urine_abnormal(urine_output(SEVERITY_START)),
+            output_ml=urine_output(SEVERITY_START),
+        )
+    )
     state.public_log = [
         DomainMessage(
             "SYSTEM",
@@ -254,6 +275,8 @@ def _audit_summary(state: SessionState, minute: int) -> str:
         parts.append("存在 pending 时重复申请。")
     if state.insufficient_funds:
         parts.append("曾因资金不足被拒。")
+    if state.consult_count:
+        parts.append(f"专家会诊 {state.consult_count} 次。")
     cbc_recs = [r for r in state.records if r.kind == "CBC"]
     if len(cbc_recs) >= 2:
         latest_two = sorted(cbc_recs, key=lambda r: r.sampled_at)[-2:]
@@ -336,6 +359,60 @@ def _interrupt_label(etype: str) -> str:
         "CASE_SUCCESS": "结局",
         "CASE_FAILURE": "结局",
     }.get(etype, etype)
+
+
+_READING_SECTIONS = (
+    ("生命体征", "vitals", lambda r: f"{clock_text(r.minute)} HR{r.hr} BP{r.sbp}/{r.dbp} RR{r.rr}"),
+    ("引流", "drain", lambda r: f"{clock_text(r.minute)} {r.output_ml}ml"),
+    ("疼痛", "pain", lambda r: f"{clock_text(r.minute)} VAS{r.score}"),
+    ("尿量", "urine", lambda r: f"{clock_text(r.minute)} {r.output_ml}ml"),
+)
+
+
+def build_consult_summary(state: SessionState) -> str:
+    """Known-information summary for the expert consultation.
+
+    Built ONLY from what the player has observed/revealed — never from the
+    hidden bleeding state, so the expert cannot leak the hidden course.
+    """
+    lines = [f"腹部术后第 1 日，当前时间 {clock_text(state.current_time)}。"]
+    for label, attr, fmt in _READING_SECTIONS:
+        readings = getattr(state, attr)
+        if readings:
+            lines.append(f"{label}：" + "；".join(fmt(r) for r in readings))
+    revealed = [r for r in state.records if r.revealed]
+    if revealed:
+        lines.append(
+            "检查结果："
+            + "；".join(
+                f"{LAB_KINDS[r.kind]['label']} { {k: v for k, v in r.result.items() if k != 'sampled_severity'} }"
+                for r in revealed
+            )
+        )
+    alerts = [
+        t
+        for flag, t in ((state.monitor_alert_fired, "已发生监护报警"), (state.deteriorated, "病情已出现明显恶化"))
+        if flag
+    ]
+    if alerts:
+        lines.append("、".join(alerts) + "。")
+    interventions = [
+        label
+        for flag, label in (
+            (state.fluids_given, "已快速补液"),
+            (state.transfused, "已输血"),
+            (state.analgesia, "已镇痛"),
+        )
+        if flag
+    ]
+    if interventions:
+        lines.append("干预：" + "、".join(interventions))
+    if state.diagnosis:
+        lines.append(f"护士判断：{state.diagnosis}")
+    pending = _all_pending(state)
+    if pending:
+        lines.append("进行中检查：" + "、".join(LAB_KINDS[t.kind]["label"] for t in pending))
+    return "\n".join(lines)
 
 
 from .actions import _HANDLERS  # handler table for the dispatch above

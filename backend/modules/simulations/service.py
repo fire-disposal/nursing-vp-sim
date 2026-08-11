@@ -2,8 +2,11 @@
 
 The engine stays pure; this service owns the DB boundary and decides exactly
 what the API may see. ``build_snapshot`` deliberately excludes the hidden
-clinical state and any unrevealed CBC values (MVP-B §4.4 / §9.1).
+clinical state, any unrevealed CBC values, and the internal ``sampled_severity``
+(MVP-B §4.4 / §9.1).
 """
+
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -11,9 +14,11 @@ from core.exceptions import NotFoundError
 from core.unit_of_work import unit_of_work
 from models.simulation import SimulationSession
 
-from .case import BUDGET_START, CASE_VERSION, LAB_KINDS, clock_text
-from .engine import apply_action, new_session
-from .state import SessionState, state_from_dict, state_to_dict
+from .case import BUDGET_START, CASE_VERSION, CONSULT_COST, LAB_KINDS, clock_text
+from .engine import apply_action, build_consult_summary, new_session
+from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
+
+ConsultProvider = Callable[[str], str]
 
 
 def build_snapshot(session_id: int, state: SessionState) -> dict:
@@ -50,7 +55,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
                 "label": LAB_KINDS[r.kind]["label"],
                 "sampled_at": r.sampled_at,
                 "ready_at": r.ready_at,
-                "result": r.result,
+                "result": {k: v for k, v in r.result.items() if k != "sampled_severity"},
                 "abnormal": r.result.get("abnormal", False),
             }
             for r in revealed
@@ -86,11 +91,34 @@ class SimulationService:
             raise NotFoundError("模拟会话不存在")
         return session
 
-    def act(self, session: SimulationSession, action_type: str, target: str | None) -> tuple[list, bool]:
+    def act(
+        self,
+        session: SimulationSession,
+        action_type: str,
+        target: str | None,
+        consult_provider: ConsultProvider | None = None,
+    ) -> tuple[list, bool]:
         state = state_from_dict(session.state)
         accepted, messages = apply_action(state, action_type, target)
+        if accepted and action_type == "CONSULT":
+            self._run_consult(state, messages, consult_provider)
         session.state = state_to_dict(state)
         session.status = state.case_status
         with unit_of_work(self.db, conflict_detail="保存模拟会话冲突"):
             self.db.flush()
         return messages, accepted
+
+    def _run_consult(
+        self, state: SessionState, messages: list[DomainMessage], provider: ConsultProvider | None
+    ) -> None:
+        """Call the expert AI with the player's known info; refund on failure."""
+        if provider is None:
+            state.cost_total = max(0, state.cost_total - CONSULT_COST)
+            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊服务未就绪，本次不扣费。"))
+            return
+        try:
+            advice = provider(build_consult_summary(state))
+            state.public_log.append(DomainMessage("MONITOR", state.current_time, f"专家建议：{advice}"))
+        except Exception:  # noqa: BLE001 — provider is an external boundary; any failure refunds
+            state.cost_total = max(0, state.cost_total - CONSULT_COST)
+            state.public_log.append(DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣费。"))
