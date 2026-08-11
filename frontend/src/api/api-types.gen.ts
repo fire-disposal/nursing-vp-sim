@@ -2953,23 +2953,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** CbcRecordSummary */
-        CbcRecordSummary: {
-            /** Order Id */
-            order_id: string;
-            /** Sampled At */
-            sampled_at: number;
-            /** Ready At */
-            ready_at: number;
-            /** Hb */
-            hb: number;
-            /** Wbc */
-            wbc: number;
-            /** Platelet */
-            platelet: number;
-            /** Abnormal */
-            abnormal: boolean;
-        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Old Password */
@@ -3522,6 +3505,25 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** LabRecordSummary */
+        LabRecordSummary: {
+            /** Order Id */
+            order_id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Sampled At */
+            sampled_at: number;
+            /** Ready At */
+            ready_at: number;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Abnormal */
+            abnormal: boolean;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Username */
@@ -3696,6 +3698,15 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PainReadingOut */
+        PainReadingOut: {
+            /** Minute */
+            minute: number;
+            /** Score */
+            score: number;
+            /** Abnormal */
+            abnormal: boolean;
+        };
         /** PatientPublicInfo */
         PatientPublicInfo: {
             /**
@@ -3714,10 +3725,14 @@ export interface components {
              */
             gender: string;
         };
-        /** PendingCbcSummary */
-        PendingCbcSummary: {
+        /** PendingLabSummary */
+        PendingLabSummary: {
             /** Id */
             id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
             /** Sampled At */
             sampled_at: number;
             /** Due At */
@@ -4539,17 +4554,31 @@ export interface components {
              * @default []
              */
             drain: components["schemas"]["DrainReadingOut"][];
-            pending_cbc?: components["schemas"]["PendingCbcSummary"] | null;
             /**
-             * Cbc Records
+             * Pain
              * @default []
              */
-            cbc_records: components["schemas"]["CbcRecordSummary"][];
+            pain: components["schemas"]["PainReadingOut"][];
             /**
-             * Unrevealed Cbc Count
+             * Urine
+             * @default []
+             */
+            urine: components["schemas"]["UrineReadingOut"][];
+            /**
+             * Pending
+             * @default []
+             */
+            pending: components["schemas"]["PendingLabSummary"][];
+            /**
+             * Lab Records
+             * @default []
+             */
+            lab_records: components["schemas"]["LabRecordSummary"][];
+            /**
+             * Unrevealed Lab Count
              * @default 0
              */
-            unrevealed_cbc_count: number;
+            unrevealed_lab_count: number;
             /**
              * Cbc Count
              * @default 0
@@ -4560,6 +4589,11 @@ export interface components {
              * @default 0
              */
             cost_total: number;
+            /**
+             * Budget
+             * @default 0
+             */
+            budget: number;
             /** Case Ended At */
             case_ended_at?: number | null;
         };
@@ -5178,6 +5212,15 @@ export interface components {
             total_minutes: number;
             /** Avg Score */
             avg_score?: number | null;
+        };
+        /** UrineReadingOut */
+        UrineReadingOut: {
+            /** Minute */
+            minute: number;
+            /** Output Ml */
+            output_ml: number;
+            /** Abnormal */
+            abnormal: boolean;
         };
         /** UserBrief */
         UserBrief: {

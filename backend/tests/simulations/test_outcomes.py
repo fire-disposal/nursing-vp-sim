@@ -12,7 +12,7 @@ def _good_path():
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "MONITOR", "vitals")
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "REPORT", "doctor")
     return s
 
@@ -39,7 +39,7 @@ def test_report_requires_revealed_evidence():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     assert s.records[0].result["abnormal"] is False
     ok, _ = e.apply_action(s, "REPORT", "doctor")
     assert not ok
@@ -73,6 +73,7 @@ def test_summary_contains_key_metrics():
     audit = [m for m in s.public_log if m.kind == "AUDIT"]
     assert audit
     text = audit[-1].text
-    assert "CBC 次数 1" in text
+    assert "检查 1 次" in text
     assert "¥35" in text
+    assert "剩余预算" in text
     assert "分钟" in text

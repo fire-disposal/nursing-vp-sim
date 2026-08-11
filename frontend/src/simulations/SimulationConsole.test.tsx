@@ -27,11 +27,14 @@ const baseSnapshot = {
 	messages: [{ kind: "SYSTEM", at_minute: 0, text: "病例已开始。" }],
 	vitals: [],
 	drain: [],
-	pending_cbc: null,
-	cbc_records: [],
-	unrevealed_cbc_count: 0,
+	pain: [],
+	urine: [],
+	pending: [],
+	lab_records: [],
+	unrevealed_lab_count: 0,
 	cbc_count: 0,
 	cost_total: 0,
+	budget: 300,
 	case_ended_at: null,
 };
 

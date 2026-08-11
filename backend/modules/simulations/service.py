@@ -11,13 +11,13 @@ from core.exceptions import NotFoundError
 from core.unit_of_work import unit_of_work
 from models.simulation import SimulationSession
 
-from .case import CASE_VERSION, clock_text
+from .case import BUDGET_START, CASE_VERSION, LAB_KINDS, clock_text
 from .engine import apply_action, new_session
 from .state import SessionState, state_from_dict, state_to_dict
 
 
 def build_snapshot(session_id: int, state: SessionState) -> dict:
-    pending = next((t for t in state.pending_tasks if t.status == "PROCESSING"), None)
+    pending = [t for t in state.pending_tasks if t.status == "PROCESSING"]
     revealed = [r for r in state.records if r.revealed]
     return {
         "session_id": session_id,
@@ -30,31 +30,35 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "messages": [m.__dict__ for m in state.public_log],
         "vitals": [v.__dict__ for v in state.vitals],
         "drain": [d.__dict__ for d in state.drain],
-        "pending_cbc": (
+        "pain": [p.__dict__ for p in state.pain],
+        "urine": [u.__dict__ for u in state.urine],
+        "pending": [
             {
-                "id": pending.id,
-                "sampled_at": pending.sampled_at,
-                "due_at": pending.due_at,
-                "due_clock": clock_text(pending.due_at),
+                "id": t.id,
+                "kind": t.kind,
+                "label": LAB_KINDS[t.kind]["label"],
+                "sampled_at": t.sampled_at,
+                "due_at": t.due_at,
+                "due_clock": clock_text(t.due_at),
             }
-            if pending
-            else None
-        ),
-        "cbc_records": [
+            for t in pending
+        ],
+        "lab_records": [
             {
                 "order_id": r.order_id,
+                "kind": r.kind,
+                "label": LAB_KINDS[r.kind]["label"],
                 "sampled_at": r.sampled_at,
                 "ready_at": r.ready_at,
-                "hb": r.result["hb"],
-                "wbc": r.result["wbc"],
-                "platelet": r.result["platelet"],
-                "abnormal": r.result["abnormal"],
+                "result": r.result,
+                "abnormal": r.result.get("abnormal", False),
             }
             for r in revealed
         ],
-        "unrevealed_cbc_count": sum(1 for r in state.records if not r.revealed),
+        "unrevealed_lab_count": sum(1 for r in state.records if not r.revealed),
         "cbc_count": state.cbc_count,
         "cost_total": state.cost_total,
+        "budget": max(0, BUDGET_START - state.cost_total),
         "case_ended_at": state.case_ended_at,
     }
 

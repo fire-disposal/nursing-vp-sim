@@ -82,7 +82,7 @@ def test_good_path_via_api():
         ("ORDER", "cbc"),
         ("MONITOR", "vitals"),
         ("WAIT", None),
-        ("VIEW_CBC", None),
+        ("VIEW", "cbc"),
         ("REPORT", "doctor"),
     ]:
         r = _act(sid, atype, target)
@@ -101,8 +101,8 @@ def test_unrevealed_cbc_not_exposed_by_api():
     _act(sid, "ORDER", "cbc")
     _act(sid, "WAIT_CBC", None)
     snap = _act(sid, "STATUS", None)["snapshot"]
-    assert snap["unrevealed_cbc_count"] == 1
-    assert snap["cbc_records"] == []
+    assert snap["unrevealed_lab_count"] == 1
+    assert snap["lab_records"] == []
     assert not any("Hb" in m["text"] for m in snap["messages"])
 
 

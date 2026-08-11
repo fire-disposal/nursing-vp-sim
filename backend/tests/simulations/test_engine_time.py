@@ -31,7 +31,7 @@ def test_hidden_disease_events_not_lost_across_action():
 def test_clock_never_goes_backward():
     s = new_session()
     times = [s.current_time]
-    for action, target in [("ASSESS", "vitals"), ("ASSESS", "drain"), ("WAIT", None), ("VIEW_CBC", None)]:
+    for action, target in [("ASSESS", "vitals"), ("ASSESS", "drain"), ("WAIT", None), ("VIEW", "cbc")]:
         e.apply_action(s, action, target)
         times.append(s.current_time)
     assert times == sorted(times)

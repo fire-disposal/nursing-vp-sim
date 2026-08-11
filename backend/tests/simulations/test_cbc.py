@@ -43,9 +43,9 @@ def test_multiple_views_return_same_record():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     first = s.records[0].result
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     assert len(s.records) == 1
     assert s.records[0].result == first
 
@@ -64,10 +64,10 @@ def test_second_cbc_uses_new_snapshot_and_previous_value():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # sampled@3 severity 0.12 -> Hb 123.4
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "ORDER", "cbc")  # sampled@21 severity 0.30 -> Hb 91
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     first, second = s.records[0].result, s.records[1].result
     # Ongoing bleeding: second Hb must not rise relative to the first.
     assert second["hb"] < first["hb"]

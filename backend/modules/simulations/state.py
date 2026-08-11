@@ -35,6 +35,20 @@ class DrainReading:
 
 
 @dataclass
+class PainReading:
+    minute: int
+    score: int
+    abnormal: bool
+
+
+@dataclass
+class UrineReading:
+    minute: int
+    output_ml: int
+    abnormal: bool
+
+
+@dataclass
 class ClinicalRecord:
     order_id: str
     kind: str
@@ -94,12 +108,18 @@ class SessionState:
     public_log: list[DomainMessage] = field(default_factory=list)
     vitals: list[VitalsReading] = field(default_factory=list)
     drain: list[DrainReading] = field(default_factory=list)
+    pain: list[PainReading] = field(default_factory=list)
+    urine: list[UrineReading] = field(default_factory=list)
+    fluid_support: int = 0
+    transfused: bool = False
+    analgesia: bool = False
     monitor_alert_fired: bool = False
     deteriorated: bool = False
     seq: int = 0
     cbc_count: int = 0
     cost_total: int = 0
     repeat_while_pending: bool = False
+    insufficient_funds: bool = False
     delayed_success: bool = False
     case_ended_at: int | None = None
     revision: int = 0
@@ -121,10 +141,14 @@ def state_from_dict(raw: dict) -> SessionState:
         case_status=raw["case_status"],
         monitor_alert_fired=raw.get("monitor_alert_fired", False),
         deteriorated=raw.get("deteriorated", False),
+        fluid_support=raw.get("fluid_support", 0),
+        transfused=raw.get("transfused", False),
+        analgesia=raw.get("analgesia", False),
         seq=raw.get("seq", 0),
         cbc_count=raw.get("cbc_count", 0),
         cost_total=raw.get("cost_total", 0),
         repeat_while_pending=raw.get("repeat_while_pending", False),
+        insufficient_funds=raw.get("insufficient_funds", False),
         delayed_success=raw.get("delayed_success", False),
         case_ended_at=raw.get("case_ended_at"),
         revision=raw.get("revision", 0),
@@ -136,4 +160,6 @@ def state_from_dict(raw: dict) -> SessionState:
     state.public_log = [DomainMessage(**m) for m in raw.get("public_log", [])]
     state.vitals = [VitalsReading(**v) for v in raw.get("vitals", [])]
     state.drain = [DrainReading(**d) for d in raw.get("drain", [])]
+    state.pain = [PainReading(**p) for p in raw.get("pain", [])]
+    state.urine = [UrineReading(**u) for u in raw.get("urine", [])]
     return state

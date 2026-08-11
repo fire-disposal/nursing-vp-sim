@@ -28,10 +28,10 @@ def test_cbc_delta_shown_on_second_view():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     second_view = [m for m in s.public_log if m.kind == "LAB" and "较上次" in m.text]
     assert second_view
     assert "123.4→91.0" in second_view[-1].text
@@ -56,7 +56,7 @@ def test_early_success_not_flagged_delayed():
     e.apply_action(s, "ORDER", "cbc")
     e.apply_action(s, "MONITOR", "vitals")
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "REPORT", "doctor")
     assert s.case_status == SUCCESS
     assert s.delayed_success is False
@@ -67,10 +67,10 @@ def test_audit_summary_reports_cbc_interval_and_hb_delta():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")       # sampled 3
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "ORDER", "cbc")       # sampled 21
     e.apply_action(s, "WAIT_CBC", None)
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "REPORT", "doctor")   # valid evidence: abnormal Hb
     audit = [m for m in s.public_log if m.kind == "AUDIT"]
     assert audit

@@ -44,12 +44,18 @@ export default function SimulationConsole() {
 	const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
 	const [input, setInput] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const [history, setHistory] = useState<string[]>([]);
 	const historyIdxRef = useRef<number | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const seqRef = useRef(0);
+
+	function push(text: string, msgKind = "SYSTEM") {
+		setTranscript((t) => [
+			...t,
+			{ key: `m${++seqRef.current}`, kind: "msg", text, msgKind },
+		]);
+	}
 
 	useEffect(() => {
 		const stored = localStorage.getItem(SESSION_KEY);
@@ -89,7 +95,7 @@ export default function SimulationConsole() {
 				),
 			);
 		}
-		boot().catch(() => setError("无法创建模拟会话（请确认已登录且后端已启动）。"));
+		boot().catch(() => push("无法创建模拟会话（请确认已登录且后端已启动）。", "CRITICAL"));
 	}, []);
 
 	useEffect(() => {
@@ -97,15 +103,18 @@ export default function SimulationConsole() {
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [transcript.length]);
 
-	const pending = snapshot?.pending_cbc ?? null;
+	const pendingCount = snapshot?.pending.length ?? 0;
 	const caseEnded = snapshot != null && snapshot.case_status !== "ACTIVE";
 
 	async function run(raw: string) {
 		if (!snapshot) return;
-		setError(null);
 		const parsed = parseCommand(raw);
 		if ("error" in parsed) {
-			setError(parsed.error);
+			setTranscript((t) => [
+				...t,
+				{ key: `e${++seqRef.current}`, kind: "echo", text: raw.trim() },
+				{ key: `m${++seqRef.current}`, kind: "msg", text: parsed.error, msgKind: "WARNING" },
+			]);
 			return;
 		}
 		const trimmed = raw.trim();
@@ -131,7 +140,7 @@ export default function SimulationConsole() {
 				),
 			]);
 		} catch {
-			setError("动作提交失败，请重试。");
+			push("动作提交失败，请重试。", "CRITICAL");
 		} finally {
 			setBusy(false);
 			inputRef.current?.focus();
@@ -140,7 +149,6 @@ export default function SimulationConsole() {
 
 	async function newSession() {
 		setBusy(true);
-		setError(null);
 		try {
 			const r = await createSimulationSession();
 			localStorage.setItem(SESSION_KEY, String(r.session_id));
@@ -148,7 +156,7 @@ export default function SimulationConsole() {
 			setTranscript([]);
 			setHistory([]);
 		} catch {
-			setError("无法创建新会话。");
+			push("无法创建新会话。", "CRITICAL");
 		} finally {
 			setBusy(false);
 			inputRef.current?.focus();
@@ -183,7 +191,7 @@ export default function SimulationConsole() {
 		? "处理中…"
 		: caseEnded
 			? "病例已结束。输入 /status 查看结果，或点「重新开始」"
-			: "输入命令，如 /assess vitals";
+			: "输入命令，如 /order cbc";
 
 	return (
 		<div className="sim-root">
@@ -200,16 +208,16 @@ export default function SimulationConsole() {
 						监护 <b>{snapshot?.monitoring ? "开启" : "关闭"}</b>
 					</span>
 					<span>
-						CBC <b>{snapshot?.cbc_count ?? 0}</b>
+						预算 <b>¥{snapshot?.budget ?? 0}</b>
 					</span>
 					<span>
-						费用 <b>¥{snapshot?.cost_total ?? 0}</b>
+						已用 <b>¥{snapshot?.cost_total ?? 0}</b>
 					</span>
-					{pending ? (
-						<span className="sim-pending">CBC 进行中 → {pending.due_clock}</span>
+					{pendingCount > 0 ? (
+						<span className="sim-pending">检查进行中 ×{pendingCount}</span>
 					) : null}
-					{snapshot && snapshot.unrevealed_cbc_count > 0 ? (
-						<span className="sim-pending">CBC 已返回未查看（/view cbc）</span>
+					{snapshot && snapshot.unrevealed_lab_count > 0 ? (
+						<span className="sim-pending">有检查已返回未查看（/view）</span>
 					) : null}
 				</div>
 				<div className="sim-actions">
@@ -232,7 +240,7 @@ export default function SimulationConsole() {
 					<div className="msg msg-system">
 						<span className="msg-kind">[SYSTEM]</span>
 						<span className="msg-text">
-							病例已开始：腹部术后第 1 日患者，需关注隐匿性出血。输入 /help 查看可用命令。
+							病例已开始：腹部术后第 1 日患者，需关注隐匿性出血。输入 /help 查看可用命令与预算。
 						</span>
 					</div>
 				) : (
@@ -260,7 +268,6 @@ export default function SimulationConsole() {
 				)}
 			</div>
 
-			{error ? <div className="sim-error">{error}</div> : null}
 			{caseEnded ? (
 				<div className="sim-endbanner">
 					病例已结束（{snapshot.case_status}）。输入 /status 查看结果，或点「重新开始」。

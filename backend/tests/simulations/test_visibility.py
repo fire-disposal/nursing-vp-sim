@@ -39,7 +39,7 @@ def test_cbc_value_hidden_until_view():
     assert s.records[0].revealed is False
     assert not any("Hb" in m.text for m in s.public_log)
     # View reveals exactly once.
-    e.apply_action(s, "VIEW_CBC", None)
+    e.apply_action(s, "VIEW", "cbc")
     assert s.records[0].revealed is True
     assert any("Hb" in m.text for m in s.public_log[-2:])
 
@@ -61,8 +61,8 @@ def test_snapshot_excludes_hidden_state_and_unrevealed_cbc():
     assert "hidden" not in snap
     assert not any("severity" in str(v) for v in snap["vitals"])
     # Unrevealed CBC exposes no values, only a count.
-    assert snap["unrevealed_cbc_count"] == 1
-    assert snap["cbc_records"] == []
+    assert snap["unrevealed_lab_count"] == 1
+    assert snap["lab_records"] == []
     assert snap["cost_total"] == 35
 
 

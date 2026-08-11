@@ -39,20 +39,34 @@ class DrainReadingOut(BaseModel):
     abnormal: bool
 
 
-class PendingCbcSummary(BaseModel):
+class PainReadingOut(BaseModel):
+    minute: int
+    score: int
+    abnormal: bool
+
+
+class UrineReadingOut(BaseModel):
+    minute: int
+    output_ml: int
+    abnormal: bool
+
+
+class PendingLabSummary(BaseModel):
     id: str
+    kind: str
+    label: str
     sampled_at: int
     due_at: int
     due_clock: str
 
 
-class CbcRecordSummary(BaseModel):
+class LabRecordSummary(BaseModel):
     order_id: str
+    kind: str
+    label: str
     sampled_at: int
     ready_at: int
-    hb: float
-    wbc: float
-    platelet: int
+    result: dict
     abnormal: bool
 
 
@@ -68,11 +82,14 @@ class SimulationSnapshot(BaseModel):
     messages: list[SimulationMessage] = []
     vitals: list[VitalsReadingOut] = []
     drain: list[DrainReadingOut] = []
-    pending_cbc: PendingCbcSummary | None = None
-    cbc_records: list[CbcRecordSummary] = []
-    unrevealed_cbc_count: int = 0
+    pain: list[PainReadingOut] = []
+    urine: list[UrineReadingOut] = []
+    pending: list[PendingLabSummary] = []
+    lab_records: list[LabRecordSummary] = []
+    unrevealed_lab_count: int = 0
     cbc_count: int = 0
     cost_total: int = 0
+    budget: int = 0
     case_ended_at: int | None = None
 
 

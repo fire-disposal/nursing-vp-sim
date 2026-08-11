@@ -10034,49 +10034,6 @@
         ],
         "title": "CaseUpdateRequest"
       },
-      "CbcRecordSummary": {
-        "properties": {
-          "order_id": {
-            "type": "string",
-            "title": "Order Id"
-          },
-          "sampled_at": {
-            "type": "integer",
-            "title": "Sampled At"
-          },
-          "ready_at": {
-            "type": "integer",
-            "title": "Ready At"
-          },
-          "hb": {
-            "type": "number",
-            "title": "Hb"
-          },
-          "wbc": {
-            "type": "number",
-            "title": "Wbc"
-          },
-          "platelet": {
-            "type": "integer",
-            "title": "Platelet"
-          },
-          "abnormal": {
-            "type": "boolean",
-            "title": "Abnormal"
-          }
-        },
-        "type": "object",
-        "required": [
-          "order_id",
-          "sampled_at",
-          "ready_at",
-          "hb",
-          "wbc",
-          "platelet",
-          "abnormal"
-        ],
-        "title": "CbcRecordSummary"
-      },
       "ChangePasswordRequest": {
         "properties": {
           "old_password": {
@@ -11370,6 +11327,50 @@
         ],
         "title": "LLMStatsResponse"
       },
+      "LabRecordSummary": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "sampled_at": {
+            "type": "integer",
+            "title": "Sampled At"
+          },
+          "ready_at": {
+            "type": "integer",
+            "title": "Ready At"
+          },
+          "result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Result"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "kind",
+          "label",
+          "sampled_at",
+          "ready_at",
+          "result",
+          "abnormal"
+        ],
+        "title": "LabRecordSummary"
+      },
       "LoginRequest": {
         "properties": {
           "username": {
@@ -11846,6 +11847,29 @@
         ],
         "title": "PaginatedResponse[UserBrief]"
       },
+      "PainReadingOut": {
+        "properties": {
+          "minute": {
+            "type": "integer",
+            "title": "Minute"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minute",
+          "score",
+          "abnormal"
+        ],
+        "title": "PainReadingOut"
+      },
       "PatientPublicInfo": {
         "properties": {
           "name": {
@@ -11867,11 +11891,19 @@
         "type": "object",
         "title": "PatientPublicInfo"
       },
-      "PendingCbcSummary": {
+      "PendingLabSummary": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
           },
           "sampled_at": {
             "type": "integer",
@@ -11889,11 +11921,13 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
+          "label",
           "sampled_at",
           "due_at",
           "due_clock"
         ],
-        "title": "PendingCbcSummary"
+        "title": "PendingLabSummary"
       },
       "QAAskResponse": {
         "properties": {
@@ -14005,27 +14039,41 @@
             "title": "Drain",
             "default": []
           },
-          "pending_cbc": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PendingCbcSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "cbc_records": {
+          "pain": {
             "items": {
-              "$ref": "#/components/schemas/CbcRecordSummary"
+              "$ref": "#/components/schemas/PainReadingOut"
             },
             "type": "array",
-            "title": "Cbc Records",
+            "title": "Pain",
             "default": []
           },
-          "unrevealed_cbc_count": {
+          "urine": {
+            "items": {
+              "$ref": "#/components/schemas/UrineReadingOut"
+            },
+            "type": "array",
+            "title": "Urine",
+            "default": []
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/PendingLabSummary"
+            },
+            "type": "array",
+            "title": "Pending",
+            "default": []
+          },
+          "lab_records": {
+            "items": {
+              "$ref": "#/components/schemas/LabRecordSummary"
+            },
+            "type": "array",
+            "title": "Lab Records",
+            "default": []
+          },
+          "unrevealed_lab_count": {
             "type": "integer",
-            "title": "Unrevealed Cbc Count",
+            "title": "Unrevealed Lab Count",
             "default": 0
           },
           "cbc_count": {
@@ -14036,6 +14084,11 @@
           "cost_total": {
             "type": "integer",
             "title": "Cost Total",
+            "default": 0
+          },
+          "budget": {
+            "type": "integer",
+            "title": "Budget",
             "default": 0
           },
           "case_ended_at": {
@@ -15499,6 +15552,29 @@
           "total_minutes"
         ],
         "title": "TrendStats"
+      },
+      "UrineReadingOut": {
+        "properties": {
+          "minute": {
+            "type": "integer",
+            "title": "Minute"
+          },
+          "output_ml": {
+            "type": "integer",
+            "title": "Output Ml"
+          },
+          "abnormal": {
+            "type": "boolean",
+            "title": "Abnormal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minute",
+          "output_ml",
+          "abnormal"
+        ],
+        "title": "UrineReadingOut"
       },
       "UserBrief": {
         "properties": {
