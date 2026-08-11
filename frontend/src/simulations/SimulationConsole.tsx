@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import {
@@ -6,6 +6,8 @@ import {
 	getSimulationSession,
 	postSimulationAction,
 } from "@/api/simulations";
+import { computeCompletionGroups } from "./completions";
+import type { Completion } from "./commands";
 import { parseCommand } from "./parser";
 import { TIMELINE_LEGEND, buildTimeline } from "./timeline";
 import "./console.css";
@@ -46,6 +48,9 @@ export default function SimulationConsole() {
 	const [input, setInput] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [history, setHistory] = useState<string[]>([]);
+	const [selIndex, setSelIndex] = useState(-1);
+	const [panelDismissed, setPanelDismissed] = useState(false);
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 	const historyIdxRef = useRef<number | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
@@ -106,6 +111,28 @@ export default function SimulationConsole() {
 
 	const pendingCount = snapshot?.pending.length ?? 0;
 	const caseEnded = snapshot != null && snapshot.case_status !== "ACTIVE";
+
+	const groups = useMemo(() => computeCompletionGroups(input), [input]);
+	const panelVisible = groups.length > 0 && !panelDismissed;
+	// Groups auto-open once a prefix is typed; bare "/" stays folded until clicked.
+	const isOpen = (name: string) => expandedGroups.has(name) || input.trimStart().length > 1;
+	const visibleItems = groups.flatMap((g) => (isOpen(g.name) ? g.items : []));
+
+	function toggleGroup(name: string) {
+		setExpandedGroups((prev) => {
+			const next = new Set(prev);
+			if (next.has(name)) next.delete(name);
+			else next.add(name);
+			return next;
+		});
+	}
+
+	function applyCompletion(c: Completion) {
+		setInput(c.text);
+		setPanelDismissed(true);
+		setSelIndex(-1);
+		inputRef.current?.focus();
+	}
 
 	async function run(raw: string) {
 		if (!snapshot) return;
@@ -175,6 +202,28 @@ export default function SimulationConsole() {
 	}
 
 	function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+		if (panelVisible && visibleItems.length > 0) {
+			if (e.key === "ArrowUp") {
+				e.preventDefault();
+				setSelIndex((i) => (i < 0 ? visibleItems.length - 1 : Math.max(0, i - 1)));
+				return;
+			}
+			if (e.key === "ArrowDown") {
+				e.preventDefault();
+				setSelIndex((i) => (i + 1) % visibleItems.length);
+				return;
+			}
+			if (e.key === "Tab") {
+				e.preventDefault();
+				applyCompletion(visibleItems[selIndex >= 0 ? selIndex : 0]);
+				return;
+			}
+			if (e.key === "Enter" && selIndex >= 0) {
+				e.preventDefault();
+				applyCompletion(visibleItems[selIndex]);
+				return;
+			}
+		}
 		if (e.key === "ArrowUp") {
 			e.preventDefault();
 			if (!history.length) return;
@@ -293,6 +342,44 @@ export default function SimulationConsole() {
 				</div>
 			) : null}
 
+			{panelVisible ? (
+				<div className="sim-completions">
+					{groups.map((g) => {
+						const open = isOpen(g.name);
+						const start = visibleItems.indexOf(g.items[0]);
+						return (
+							<div key={g.name}>
+								<button
+									type="button"
+									className={`sim-comp-group ${open ? "sim-comp-group-open" : ""}`}
+									onClick={() => toggleGroup(g.name)}
+								>
+									<span className="sim-comp-group-name">{open ? "▾" : "▸"} {g.name}</span>
+									<span className="sim-comp-group-desc">{g.desc}</span>
+								</button>
+								{open
+									? g.items.map((c, i) => {
+											const flat = start + i;
+											return (
+												<button
+													key={c.text}
+													type="button"
+													className={`sim-comp ${flat === selIndex ? "sim-comp-sel" : ""}`}
+													onMouseEnter={() => setSelIndex(flat)}
+													onClick={() => applyCompletion(c)}
+												>
+													<span className="sim-comp-cmd">{c.label}</span>
+													<span className="sim-comp-desc">{c.desc}</span>
+												</button>
+											);
+										})
+									: null}
+							</div>
+						);
+					})}
+				</div>
+			) : null}
+
 			<form
 				className="sim-inputbar"
 				onSubmit={(e) => {
@@ -307,7 +394,11 @@ export default function SimulationConsole() {
 					autoFocus
 					value={input}
 					placeholder={placeholder}
-					onChange={(e) => setInput(e.target.value)}
+					onChange={(e) => {
+						setInput(e.target.value);
+						setPanelDismissed(false);
+						setSelIndex(-1);
+					}}
 					onKeyDown={onKeyDown}
 					spellCheck={false}
 					autoComplete="off"

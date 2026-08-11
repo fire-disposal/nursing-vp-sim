@@ -113,15 +113,15 @@ describe("SimulationConsole", () => {
 		await userEvent.type(input, "/status");
 		await userEvent.keyboard("{Enter}");
 		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
-		await userEvent.type(input, "/help");
+		await userEvent.type(input, "/transfuse");
 		await userEvent.keyboard("{Enter}");
 		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(2));
 		await userEvent.keyboard("{ArrowUp}");
-		expect(input).toHaveValue("/help");
+		expect(input).toHaveValue("/transfuse");
 		await userEvent.keyboard("{ArrowUp}");
 		expect(input).toHaveValue("/status");
 		await userEvent.keyboard("{ArrowDown}");
-		expect(input).toHaveValue("/help");
+		expect(input).toHaveValue("/transfuse");
 	});
 
 	it("surfaces parser errors without calling the API", async () => {
@@ -131,5 +131,16 @@ describe("SimulationConsole", () => {
 		await userEvent.keyboard("{Enter}");
 		expect(mocks.post).not.toHaveBeenCalled();
 		await waitFor(() => expect(screen.getByText(/未知命令/)).toBeInTheDocument());
+	});
+
+	it("auto-expands the completion panel and fills input on click", async () => {
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		const input = await screen.findByPlaceholderText(/输入命令/);
+		await userEvent.type(input, "/assess ");
+		const options = await screen.findAllByRole("button", { name: /\/assess (vitals|drain|pain|urine)/ });
+		expect(options).toHaveLength(4);
+		await userEvent.click(screen.getByRole("button", { name: /\/assess vitals/ }));
+		expect(input).toHaveValue("/assess vitals");
+		expect(mocks.post).not.toHaveBeenCalled(); // click only fills, does not run
 	});
 });
