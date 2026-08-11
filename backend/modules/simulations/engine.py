@@ -14,6 +14,7 @@ owns construction, the event loop, hidden disease course, and endings.
 from .case import (
     BLEEDING_INTERVAL_MIN,
     BUDGET_START,
+    CASE_NAME,
     DETERIORATION_SEVERITY,
     FAILURE_SEVERITY,
     LAB_KINDS,
@@ -21,17 +22,28 @@ from .case import (
     SEVERITY_STEP,
     VITALS_MID_SEVERITY,
     clock_text,
+    drain_abnormal,
+    drain_output,
     materialize_lab,
+    pain_abnormal,
+    pain_score,
+    urine_abnormal,
+    urine_output,
     vitals,
+    vitals_abnormal,
 )
 from .state import (
     ActionRecord,
     ClinicalRecord,
     DomainMessage,
+    DrainReading,
     HiddenClinicalState,
+    PainReading,
     PendingTask,
     ScheduledEvent,
     SessionState,
+    UrineReading,
+    VitalsReading,
 )
 
 ACTIVE = "ACTIVE"
@@ -63,8 +75,47 @@ def new_session() -> SessionState:
         current_time=0,
         case_status=ACTIVE,
     )
+    _seed_handover(state)
     _schedule(state, BLEEDING_INTERVAL_MIN, 0, "BLEEDING_PROGRESS", {})
     return state
+
+
+def _seed_handover(state: SessionState) -> None:
+    """Seed the shift handover: baseline observations the player takes over
+    with. All values are normal at the starting severity, so nothing leaks the
+    hidden bleeding — they give the player the case context and a trend baseline.
+    """
+    v = vitals(SEVERITY_START)
+    state.vitals.append(
+        VitalsReading(0, v["hr"], v["sbp"], v["dbp"], v["rr"], v["spo2"], v["temp"], vitals_abnormal(v))
+    )
+    state.drain.append(DrainReading(0, drain_output(SEVERITY_START), drain_abnormal(drain_output(SEVERITY_START))))
+    state.pain.append(PainReading(0, pain_score(SEVERITY_START), pain_abnormal(pain_score(SEVERITY_START))))
+    state.urine.append(UrineReading(0, urine_output(SEVERITY_START), urine_abnormal(urine_output(SEVERITY_START))))
+    state.public_log = [
+        DomainMessage(
+            "SYSTEM",
+            0,
+            f"交班（{clock_text(0)}）：58 岁女性，昨日腹部手术，术后第 1 日。{CASE_NAME}。关注术后并发症与隐匿性出血。",
+        ),
+        DomainMessage(
+            "ASSESSMENT",
+            0,
+            f"交班生命体征（{clock_text(0)}）：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}，SpO2 {v['spo2']}%，T {v['temp']}℃。",
+        ),
+        DomainMessage("ASSESSMENT", 0, f"交班引流（{clock_text(0)}）：{state.drain[0].output_ml} ml。"),
+        DomainMessage("ASSESSMENT", 0, f"交班疼痛（{clock_text(0)}）：VAS {state.pain[0].score}/10。"),
+        DomainMessage(
+            "ASSESSMENT",
+            0,
+            f"交班尿量（{clock_text(0)}，近4h）：{state.urine[0].output_ml} ml。",
+        ),
+        DomainMessage(
+            "SYSTEM",
+            0,
+            "任务：警惕隐匿性出血（HR 上升、BP 下降、引流增多、尿量减少、腹痛）。输入 /help 查看命令与预算。",
+        ),
+    ]
 
 
 def _schedule(state: SessionState, at_minute: int, priority: int, etype: str, payload: dict) -> None:

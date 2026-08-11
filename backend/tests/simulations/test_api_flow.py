@@ -137,7 +137,7 @@ def test_refresh_consistency_via_get():
     assert r.status_code == 200
     snap = r.json()
     assert snap["case_status"] == "ACTIVE"
-    assert len(snap["vitals"]) == 1
+    assert len(snap["vitals"]) == 2  # handover baseline + one assessment
     assert snap["current_time"] == 2
 
 

@@ -154,7 +154,17 @@ export default function SimulationConsole() {
 			const r = await createSimulationSession();
 			localStorage.setItem(SESSION_KEY, String(r.session_id));
 			setSnapshot(r.snapshot);
-			setTranscript([]);
+			setTranscript(
+				r.snapshot.messages.map(
+					(m): TranscriptItem => ({
+						key: `m${++seqRef.current}`,
+						kind: "msg",
+						text: m.text,
+						msgKind: m.kind,
+						atMinute: m.at_minute,
+					}),
+				),
+			);
 			setHistory([]);
 		} catch {
 			push("无法创建新会话。", "CRITICAL");

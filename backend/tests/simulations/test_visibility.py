@@ -6,10 +6,10 @@ from modules.simulations.engine import new_session
 
 def test_initial_state_leaks_no_severity():
     s = new_session()
-    # Public log is empty at start; severity exists only in hidden state.
-    assert s.public_log == []
+    # Handover brief is seeded, but it never exposes the hidden severity.
+    assert s.public_log
     assert not any("严重度" in m.text or "0.12" in m.text for m in s.public_log)
-    # /status must not expose the hidden severity.
+    # /status must not expose the hidden severity either.
     e.apply_action(s, "STATUS", None)
     assert not any("严重度" in m.text for m in s.public_log)
 
@@ -18,8 +18,10 @@ def test_drain_abnormal_not_shown_until_assessed():
     s = new_session()
     # Advance hidden course past the drain threshold without assessing.
     e.apply_action(s, "WAIT", None)  # to minute 48, severity 0.60
-    assert not s.drain  # never assessed -> no drain reading, no leak
-    assert not any("引流" in m.text and "ml" in m.text for m in s.public_log)
+    # Only the (normal) handover baseline exists — the abnormal drain is hidden.
+    assert len(s.drain) == 1
+    assert s.drain[0].abnormal is False
+    assert not any("引流" in m.text and "ml" in m.text for m in s.public_log[6:])
 
 
 def test_no_monitor_alert_without_monitoring():
