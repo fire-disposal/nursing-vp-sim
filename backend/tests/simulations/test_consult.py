@@ -13,21 +13,21 @@ def test_consult_deducts_budget_and_time():
     assert ok
     assert s.current_time == 2
     assert s.consult_count == 1
-    assert s.cost_total == CONSULT_COST
+    assert s.diag_spent == CONSULT_COST
 
 
 def test_consult_rejected_when_insufficient_budget():
     s = new_session()
     e.apply_action(s, "ORDER", "us")    # 120
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "ORDER", "abg")   # +60 -> 180
+    e.apply_action(s, "ORDER", "us")    # +120 -> 240
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "ORDER", "coag")  # +50 -> 230; consult needs 150 > 70
+    e.apply_action(s, "ORDER", "abg")   # +60 -> 300; consult needs 120 > 100 remaining
     ok, msgs = e.apply_action(s, "CONSULT", None)
     assert not ok
-    assert any("资金不足" in m.text for m in msgs)
+    assert any("检查点不足" in m.text for m in msgs)
     assert s.consult_count == 0
-    assert s.cost_total == 230
+    assert s.diag_spent == 300
 
 
 def test_consult_summary_only_contains_known_info():
@@ -63,7 +63,7 @@ def test_service_appends_provider_advice():
     _, accepted, updated = _act_through_service(s, fake_provider)
     assert accepted
     assert updated.consult_count == 1
-    assert updated.cost_total == CONSULT_COST  # not refunded
+    assert updated.diag_spent == CONSULT_COST  # not refunded
     assert any("专家建议" in m.text for m in updated.public_log)
 
 
@@ -75,15 +75,15 @@ def test_service_refunds_when_provider_fails():
 
     _, accepted, updated = _act_through_service(s, boom_provider)
     assert accepted
-    assert updated.cost_total == 0  # refunded
-    assert any("不扣费" in m.text for m in updated.public_log)
+    assert updated.diag_spent == 0  # refunded
+    assert any("不扣检查点" in m.text for m in updated.public_log)
 
 
 def test_service_refunds_when_no_provider():
     s = new_session()
     _, accepted, updated = _act_through_service(s, None)
     assert accepted
-    assert updated.cost_total == 0
+    assert updated.diag_spent == 0
     assert any("服务未就绪" in m.text for m in updated.public_log)
 
 

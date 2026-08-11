@@ -74,8 +74,7 @@ def test_summary_contains_key_metrics():
     assert audit
     text = audit[-1].text
     assert "检查 1 次" in text
-    assert "¥35" in text
-    assert "剩余预算" in text
+    assert "耗检查点 35" in text
     assert "分钟" in text
 
 

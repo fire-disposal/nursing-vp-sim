@@ -13,7 +13,7 @@ def test_order_creates_pending_and_charges_once():
     assert s.pending_tasks[0].cost_yuan == 35
     assert s.pending_tasks[0].due_at == 3 + 15  # sampled 3, turnaround 15
     assert s.cbc_count == 1
-    assert s.cost_total == 35
+    assert s.diag_spent == 35
 
 
 def test_repeat_while_pending_rejected_without_double_charge():
@@ -23,7 +23,7 @@ def test_repeat_while_pending_rejected_without_double_charge():
     assert not ok
     assert s.current_time == 3  # rejected -> no time consumed
     assert s.cbc_count == 1
-    assert s.cost_total == 35
+    assert s.diag_spent == 35
     assert s.repeat_while_pending is True
     assert any("拒绝" in m.text for m in msgs)
 

@@ -91,7 +91,7 @@ def test_good_path_via_api():
     assert r["case_ended"] is True
     assert r["snapshot"]["case_status"] == "SUCCESS"
     assert r["snapshot"]["cbc_count"] == 1
-    assert r["snapshot"]["cost_total"] == 35
+    assert r["snapshot"]["diag_spent"] == 35
     assert any(m["kind"] == "AUDIT" for m in r["snapshot"]["messages"])
 
 
@@ -113,7 +113,7 @@ def test_repeat_pending_rejected_without_extra_charge():
     r = _act(sid, "ORDER", "cbc")
     assert r["accepted"] is False
     assert r["snapshot"]["cbc_count"] == 1
-    assert r["snapshot"]["cost_total"] == 35
+    assert r["snapshot"]["diag_spent"] == 35
     assert any("拒绝" in m["text"] for m in r["messages"])
 
 
@@ -168,7 +168,7 @@ def test_consult_via_api_returns_advice():
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True
-    assert r["snapshot"]["cost_total"] == 150
+    assert r["snapshot"]["diag_spent"] == 120
     assert any("专家建议" in m["text"] for m in r["snapshot"]["messages"])
     assert llm.calls, "consult must actually call the LLM"
 
@@ -178,8 +178,8 @@ def test_consult_refunds_when_llm_fails():
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True
-    assert r["snapshot"]["cost_total"] == 0
-    assert any("不扣费" in m["text"] for m in r["snapshot"]["messages"])
+    assert r["snapshot"]["diag_spent"] == 0
+    assert any("不扣检查点" in m["text"] for m in r["snapshot"]["messages"])
 
 
 def test_consult_refunds_when_llm_unavailable():
@@ -187,5 +187,5 @@ def test_consult_refunds_when_llm_unavailable():
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True
-    assert r["snapshot"]["cost_total"] == 0
+    assert r["snapshot"]["diag_spent"] == 0
     assert any("服务未就绪" in m["text"] for m in r["snapshot"]["messages"])

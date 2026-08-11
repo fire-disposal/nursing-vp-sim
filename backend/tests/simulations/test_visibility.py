@@ -65,7 +65,7 @@ def test_snapshot_excludes_hidden_state_and_unrevealed_cbc():
     # Unrevealed CBC exposes no values, only a count.
     assert snap["unrevealed_lab_count"] == 1
     assert snap["lab_records"] == []
-    assert snap["cost_total"] == 35
+    assert snap["diag_spent"] == 35
 
 
 def test_state_roundtrip_preserves_determinism():

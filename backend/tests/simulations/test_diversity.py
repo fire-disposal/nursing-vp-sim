@@ -87,6 +87,16 @@ def test_abg_and_us_labs_are_orderable_and_evidence():
     assert any("游离液体" in m.text for m in s.public_log[-3:])
 
 
+def test_treat_budget_blocks_third_intervention():
+    s = new_session()
+    e.apply_action(s, "FLUIDS", None)     # 30 治疗点
+    e.apply_action(s, "ANALGESIA", None)  # +20 -> 50
+    ok, msgs = e.apply_action(s, "TRANSFUSE", None)  # needs 60 > 50 remaining
+    assert not ok
+    assert s.treat_spent == 50
+    assert any("治疗点不足" in m.text for m in msgs)
+
+
 def test_unknown_lab_kind_rejected():
     s = new_session()
     ok, msgs = e.apply_action(s, "ORDER", "mri")
@@ -96,14 +106,16 @@ def test_unknown_lab_kind_rejected():
 
 def test_budget_blocks_repeat_orders():
     s = new_session()
-    e.apply_action(s, "ORDER", "us")   # 120
-    e.apply_action(s, "WAIT", None)    # us ready @23
-    e.apply_action(s, "ORDER", "abg")  # +60 -> 180
-    e.apply_action(s, "WAIT", None)    # abg ready @36
-    e.apply_action(s, "ORDER", "coag") # +50 -> 230
-    # Re-order us (already READY, no pending conflict) — 230+120 > 300 budget.
+    e.apply_action(s, "ORDER", "us")    # 120
+    e.apply_action(s, "WAIT", None)     # ready @23
+    e.apply_action(s, "ORDER", "us")    # +120 -> 240
+    e.apply_action(s, "WAIT", None)     # ready @46
+    e.apply_action(s, "ORDER", "abg")   # +60 -> 300
+    e.apply_action(s, "WAIT", None)     # ready @56
+    e.apply_action(s, "ORDER", "coag")  # +50 -> 350
+    # Re-order us — 350+120 > 400 diag budget → rejected, never overspent.
     ok, msgs = e.apply_action(s, "ORDER", "us")
     assert not ok
     assert s.insufficient_funds is True
-    assert s.cost_total == 230  # never overspent
-    assert any("资金不足" in m.text for m in msgs)
+    assert s.diag_spent == 350
+    assert any("检查点不足" in m.text for m in msgs)
