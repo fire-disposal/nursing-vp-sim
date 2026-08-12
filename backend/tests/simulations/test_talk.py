@@ -88,8 +88,9 @@ def test_service_talk_calls_persona_with_known_info_only():
     # Provider was invoked with the player's line; the persona never receives
     # the hidden state (build_consult_summary is the only context).
     assert fake.calls
-    role, summary, line = fake.calls[0]
-    assert role == "patient"
+    system, summary, line = fake.calls[0]
+    assert "王秀兰" in system  # 患者背景来自病例，而非硬编码
+    assert "信任护士" in system  # 患者角色前缀
     assert line == "您现在感觉怎么样？"
     assert "严重度" not in summary
     assert "0.12" not in summary
@@ -145,3 +146,54 @@ def test_talk_roundtrip_persists_session():
     )
     raw = state_to_dict(state_from_dict(session.state))
     assert any(m["kind"] == "TALK" and "头晕" in m["text"] for m in raw["public_log"])
+
+
+class _FakeDiagnose:
+    def __init__(self, verdict="命中：完全命中，诊断正确。"):
+        self.verdict = verdict
+        self.calls: list[str] = []
+
+    def __call__(self, prompt: str) -> str:
+        self.calls.append(prompt)
+        return self.verdict
+
+
+def test_service_diagnosis_review_runs_once_on_case_end():
+    fake = _FakeDiagnose()
+    service = _service()
+    session = service.create(1)
+
+    # 记录诊断（不终结病例）
+    messages, accepted = service.act(session, "DIAG", "疑诊隐匿性出血")
+    assert accepted
+    assert any("已记录你的诊断" in m.text for m in messages)
+
+    # 推进到病例终结（出血病例多次 WAIT 至 failure）
+    for _ in range(12):
+        if session.status != "ACTIVE":
+            break
+        service.act(session, "WAIT", None, diagnose_provider=fake)
+
+    assert session.status != "ACTIVE"
+    # 诊断评分只在终结时触发一次，且 prompt 同时含护士诊断与真实病情
+    assert len(fake.calls) == 1
+    assert "疑诊隐匿性出血" in fake.calls[0]
+    assert "隐匿性出血" in fake.calls[0]  # 真实病情（diag_hint）
+
+    restored = state_from_dict(session.state)
+    assert any(m.kind == "AUDIT" and "诊断复盘" in m.text for m in restored.public_log)
+
+
+def test_service_diagnosis_review_skipped_without_diagnosis():
+    fake = _FakeDiagnose()
+    service = _service()
+    session = service.create(1)
+
+    # 未记录诊断直接终结：不应触发评分
+    for _ in range(12):
+        if session.status != "ACTIVE":
+            break
+        service.act(session, "WAIT", None, diagnose_provider=fake)
+
+    assert session.status != "ACTIVE"
+    assert fake.calls == []

@@ -23,10 +23,12 @@ from .case import (
     clock_text,
 )
 from .engine import apply_action, build_consult_summary, new_session
+from .prompts import family_talk_system, patient_talk_system
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
 
 ConsultProvider = Callable[[str], str]
-TalkProvider = Callable[[str, str, str], str]  # (role, known_summary, player_line) -> persona reply
+TalkProvider = Callable[[str, str, str], str]  # (system, known_summary, player_line) -> persona reply
+DiagnoseProvider = Callable[[str], str]  # (review_prompt) -> scoring verdict
 
 
 def build_snapshot(session_id: int, state: SessionState) -> dict:
@@ -37,7 +39,15 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "session_id": session_id,
         "revision": state.revision,
         "case_status": state.case_status,
-        "case_meta": {"id": state.case_id, "name": case.name, "version": state.case_id},
+        "case_meta": {
+            "id": state.case_id,
+            "name": case.name,
+            "version": state.case_id,
+            "start_clock": case.start_clock,
+        },
+        "cases": [
+            {"id": cid, "name": c.name, "version": cid, "start_clock": c.start_clock} for cid, c in CASES.items()
+        ],
         "surface": {
             "assessments": dict(case.surface.assessments),
             "drugs": dict(case.surface.drugs),
@@ -50,6 +60,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "clock": clock_text(state.current_time, case.start_clock),
         "monitoring": state.hidden.monitoring_enabled,
         "reported": state.hidden.reported_to_doctor,
+        "diagnosis": state.diagnosis,
         "messages": [m.__dict__ for m in state.public_log],
         # Legacy fixed keys (frontend compat) + generic map for any target.
         "vitals": [v.__dict__ for v in state.readings.get("vitals", [])],
@@ -124,13 +135,17 @@ class SimulationService:
         text: str | None = None,
         consult_provider: ConsultProvider | None = None,
         talk_provider: TalkProvider | None = None,
+        diagnose_provider: DiagnoseProvider | None = None,
     ) -> tuple[list, bool]:
         state = state_from_dict(session.state)
+        was_active = state.case_status == "ACTIVE"
         accepted, messages = apply_action(state, action_type, target, text)
         if accepted and action_type == "CONSULT":
             self._run_consult(state, messages, consult_provider)
         if accepted and action_type == "TALK":
             self._run_talk(state, messages, target, text, talk_provider)
+        if was_active and state.case_status != "ACTIVE" and state.diagnosis:
+            self._run_diagnosis_review(state, messages, diagnose_provider)
         session.state = state_to_dict(state)
         session.status = state.case_status
         with unit_of_work(self.db, conflict_detail="保存模拟会话冲突"):
@@ -152,6 +167,8 @@ class SimulationService:
         On provider failure a neutral fallback line keeps the session usable.
         """
         role = "patient" if (target or "").lower() == "patient" else "family"
+        case = CASES[state.case_id]
+        system = patient_talk_system(case.patient) if role == "patient" else family_talk_system(case.family_persona)
         summary = build_consult_summary(state)
         line = (text or "").strip()
         fallback = (
@@ -165,7 +182,7 @@ class SimulationService:
             state.public_log.append(msg)
             return
         try:
-            reply = provider(role, summary, line)
+            reply = provider(system, summary, line)
             msg = DomainMessage("TALK", state.current_time, reply)
             messages.append(msg)
             state.public_log.append(msg)
@@ -199,3 +216,27 @@ class SimulationService:
             msg = DomainMessage("SYSTEM", state.current_time, "专家会诊暂时不可用，本次不扣检查点。")
             messages.append(msg)
             state.public_log.append(msg)
+
+    def _run_diagnosis_review(
+        self, state: SessionState, messages: list[DomainMessage], provider: DiagnoseProvider | None
+    ) -> None:
+        """Score the player's recorded diagnosis against the real condition.
+
+        Runs exactly once when the case transitions out of ACTIVE. The real
+        condition is the case's diag_hint + handover_task — no hidden vitals,
+        so the review judges the diagnosis but never leaks lab values.
+        """
+        if provider is None:
+            return  # 无 LLM 时静默跳过；诊断本身已在 audit summary 展示
+        case = CASES[state.case_id]
+        prompt = (
+            f"【护士的诊断】\n{state.diagnosis}\n\n"
+            f"【真实病情】\n{case.narrative.diag_hint}（{case.narrative.handover_task}）"
+        )
+        try:
+            verdict = provider(prompt)
+            msg = DomainMessage("AUDIT", state.current_time, f"诊断复盘：{verdict}")
+            messages.append(msg)
+            state.public_log.append(msg)
+        except Exception:  # noqa: BLE001 — scoring is an enhancement; never breaks the outcome
+            return

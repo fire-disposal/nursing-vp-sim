@@ -26,6 +26,7 @@ class CaseMeta(BaseModel):
     id: str
     name: str
     version: str
+    start_clock: str = "08:30"  # 分片化：病例起始时钟，前端据此渲染消息/时间轴墙钟
 
 
 class SimulationMessage(BaseModel):
@@ -103,11 +104,13 @@ class SimulationSnapshot(BaseModel):
     revision: int
     case_status: str
     case_meta: CaseMeta
+    cases: list[CaseMeta] = []  # 全部可选病例（含当前），前端据此渲染病例切换入口
     surface: CommandSurfaceOut
     current_time: int
     clock: str
     monitoring: bool
     reported: bool
+    diagnosis: str | None = None
     messages: list[SimulationMessage] = []
     vitals: list[VitalsReadingOut] = []
     drain: list[DrainReadingOut] = []

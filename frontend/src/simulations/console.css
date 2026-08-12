@@ -65,6 +65,48 @@
 	display: flex;
 	gap: 6px;
 	flex: none;
+	align-items: center;
+}
+
+.sim-casemenu {
+	position: relative;
+}
+
+.sim-casemenu-pop {
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 10;
+	min-width: 240px;
+	background: #161b22;
+	border: 1px solid #30363d;
+	border-radius: 6px;
+	padding: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.sim-casemenu-item {
+	text-align: left;
+	background: transparent;
+	border: none;
+	color: #e6edf3;
+	font-family: inherit;
+	font-size: 12px;
+	padding: 6px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.sim-casemenu-item:hover:not(:disabled) {
+	background: #21262d;
+}
+
+.sim-casemenu-item.sim-active {
+	color: #79c0ff;
+	cursor: default;
 }
 
 .sim-btn {
@@ -180,6 +222,61 @@
 	color: #ffa198;
 }
 
+.sim-diag {
+	margin: 0 16px 8px;
+	border: 1px solid #21262d;
+	border-radius: 6px;
+	background: #0b0f14;
+	overflow: hidden;
+}
+
+.sim-diag-toggle {
+	width: 100%;
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 6px 10px;
+	background: none;
+	border: none;
+	color: #c9d1d9;
+	font-size: 12px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.sim-diag-toggle:hover {
+	background: #161b22;
+}
+
+.sim-diag-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 0 10px 10px;
+}
+
+.sim-diag-body textarea {
+	width: 100%;
+	min-height: 64px;
+	resize: vertical;
+	padding: 8px 10px;
+	background: #010409;
+	border: 1px solid #30363d;
+	border-radius: 6px;
+	color: #e6edf3;
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.sim-diag-body textarea:focus {
+	outline: none;
+	border-color: #58a6ff;
+}
+
+.sim-diag-body textarea::placeholder {
+	color: #6e7681;
+}
 .sim-completions {
 	max-height: 42vh;
 	overflow-y: auto;

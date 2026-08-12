@@ -47,6 +47,27 @@ describe("parseCommand", () => {
 		expect(parseCommand("/order")).toEqual({ action: { type: "ORDER" } });
 	});
 
+	it("accepts Chinese command triggers", () => {
+		expect(parseCommand("/状态")).toEqual({ action: { type: "STATUS" } });
+		expect(parseCommand("/评估 生命体征")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
+		expect(parseCommand("/评估 血糖")).toEqual({ action: { type: "ASSESS", target: "glucose" } });
+		expect(parseCommand("/检查 血常规")).toEqual({ action: { type: "ORDER", target: "CBC" } });
+		expect(parseCommand("/给药 吗啡 10")).toEqual({ action: { type: "GIVE", target: "MORPHINE", text: "10" } });
+		expect(parseCommand("/给药 补液")).toEqual({ action: { type: "GIVE", target: "FLUIDS" } });
+		expect(parseCommand("/对话 患者 你现在感觉怎么样")).toEqual({
+			action: { type: "TALK", target: "patient", text: "你现在感觉怎么样" },
+		});
+		expect(parseCommand("/诊断 疑诊出血")).toEqual({ action: { type: "DIAG", target: "疑诊出血" } });
+		expect(parseCommand("/报告")).toEqual({ action: { type: "REPORT", target: "doctor" } });
+		expect(parseCommand("/等待 血气")).toEqual({ action: { type: "WAIT", target: "ABG" } });
+		expect(parseCommand("/帮助")).toEqual({ action: { type: "HELP" } });
+		expect(parseCommand("/病例")).toEqual({ action: { type: "CASE" } });
+	});
+
+	it("mixes Chinese head with English target", () => {
+		expect(parseCommand("/评估 vitals")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
+		expect(parseCommand("/给药 MORPHINE")).toEqual({ action: { type: "GIVE", target: "MORPHINE" } });
+	});
 	it("is case-insensitive and tolerant of whitespace", () => {
 		expect(parseCommand("  /Assess  VITALS ")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
 		expect(parseCommand("/WAIT   CBC")).toEqual({ action: { type: "WAIT", target: "CBC" } });

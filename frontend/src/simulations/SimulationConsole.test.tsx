@@ -139,11 +139,38 @@ describe("SimulationConsole", () => {
 	it("auto-expands the completion panel and fills input on click", async () => {
 		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
 		const input = await screen.findByPlaceholderText(/输入命令/);
-		await userEvent.type(input, "/assess ");
-		const options = await screen.findAllByRole("button", { name: /\/assess (vitals|drain|pain|urine)/ });
+		await userEvent.type(input, "/评估 ");
+		const options = await screen.findAllByRole("button", { name: /\/评估 (生命体征|引流|疼痛|尿量)/ });
 		expect(options).toHaveLength(4);
-		await userEvent.click(screen.getByRole("button", { name: /\/assess vitals/ }));
-		expect(input).toHaveValue("/assess vitals");
+		await userEvent.click(screen.getByRole("button", { name: /\/评估 生命体征/ }));
+		expect(input).toHaveValue("/评估 生命体征");
 		expect(mocks.post).not.toHaveBeenCalled(); // click only fills, does not run
+	});
+
+	it("records and submits a diagnosis from the panel", async () => {
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+
+		// 展开诊断面板并输入诊断
+		await userEvent.click(screen.getByRole("button", { name: /诊断记录/ }));
+		const textarea = await screen.findByPlaceholderText(/写下你的诊断判断/);
+		await userEvent.type(textarea, "疑诊糖尿病酮症酸中毒");
+
+		mocks.post.mockResolvedValue({
+			session_id: 1,
+			revision: 1,
+			accepted: true,
+			case_ended: false,
+			messages: [{ kind: "SYSTEM", at_minute: 0, text: "已记录你的诊断。" }],
+			snapshot: { ...baseSnapshot, revision: 1, diagnosis: "疑诊糖尿病酮症酸中毒" },
+		});
+		await userEvent.click(screen.getByRole("button", { name: /保存诊断/ }));
+
+		await waitFor(() =>
+			expect(mocks.post).toHaveBeenCalledWith(1, {
+				type: "DIAG",
+				target: "疑诊糖尿病酮症酸中毒",
+			}),
+		);
 	});
 });

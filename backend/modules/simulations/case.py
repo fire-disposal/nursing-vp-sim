@@ -317,6 +317,7 @@ class CaseSpec:
     version: str
     start_clock: str
     patient: str
+    family_persona: str
     course: CourseSpec
     resources: ResourceSpec
     narrative: NarrativeSpec
@@ -739,6 +740,7 @@ def _build_case(
     case_id: str,
     name: str,
     patient: str,
+    family_persona: str,
     axis: str,
     coupling: dict,
     start_severity: float,
@@ -773,6 +775,7 @@ def _build_case(
         version=case_id,
         start_clock=start_clock,  # game minute 0 == start_clock
         patient=patient,
+        family_persona=family_persona,
         course=CourseSpec(
             axis=axis,
             start_severity=start_severity,
@@ -832,6 +835,7 @@ CASE = _build_case(
     case_id="mvpb-1",
     name="腹部术后隐匿性出血（MVP-B）",
     patient="王秀兰，58 岁女性，昨日胃癌根治术后，术后第 1 日，术后予低分子肝素预防 VTE",
+    family_persona="你是患者的女儿，陪护了一夜，记得她夜里睡得不踏实、早上说头晕没胃口。",
     axis="bleeding",
     coupling=_BLEEDING_COUPLING,
     start_severity=0.12,
@@ -870,6 +874,7 @@ CASE_INFECTION = _build_case(
     case_id="mvpi-1",
     name="腹部术后腹腔感染（MVP-I）",
     patient="刘国栋，64 岁男性，昨日胃大部切除术后，术后第 1 日，发热伴腹痛",
+    family_persona="你是患者的老伴，陪护了一夜，记得他昨晚开始发热、说肚子疼得厉害。",
     axis="infection",
     coupling=_INFECTION_COUPLING,
     start_severity=0.20,
@@ -910,6 +915,7 @@ CASE_DKA = _build_case(
     case_id="mvpd-1",
     name="糖尿病酮症酸中毒（MVP-D）",
     patient="陈秀芳，52 岁女性，2 型糖尿病史 10 年，近日停用胰岛素，恶心呕吐、烦渴多尿",
+    family_persona="你是患者的女儿，白天送她来急诊，记得她这两天没打胰岛素、一直说口渴恶心。",
     axis="glucose",
     coupling=_DKA_COUPLING,
     start_severity=0.25,
@@ -951,6 +957,7 @@ CASE_CHF = _build_case(
     case_id="mvph-1",
     name="急性失代偿性心力衰竭（MVP-H）",
     patient="赵德发，68 岁男性，冠心病史，近 3 日进行性气促、夜间不能平卧、下肢水肿",
+    family_persona="你是患者的儿子，凌晨送他入院，记得他这几天一躺下就喘、脚肿得厉害。",
     axis="volume",
     coupling=_CHF_COUPLING,
     start_severity=0.30,

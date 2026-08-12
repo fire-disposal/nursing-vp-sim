@@ -3,7 +3,10 @@
  * commands and their parameters in a folded, parameterized way. */
 
 export interface CommandDef {
+	/** 英文命令名（前缀匹配用，稳定 key）。 */
 	cmd: string;
+	/** 中文触发词（面板展示 + 点击填充，便于记忆）。 */
+	zh: string;
 	desc: string;
 	/** Sub-targets for drill-down commands (e.g. /assess <vitals|drain|…>). */
 	params?: string[];
@@ -62,6 +65,7 @@ const DEFAULT_SURFACE: CommandSurface = {
 
 const HELP: CommandDef = {
 	cmd: "help",
+	zh: "帮助",
 	desc: "分级命令帮助",
 	params: ["assess", "order", "view", "give", "talk", "处理"],
 	paramDesc: { assess: "评估目标与耗时", order: "可申请检查、费用与周转", view: "查看结果说明", give: "药物与剂量", talk: "对话对象", 处理: "报告 / 等待说明" },
@@ -70,6 +74,7 @@ const HELP: CommandDef = {
 export function buildCommandGroups(surface: CommandSurface = DEFAULT_SURFACE): CommandGroup[] {
 	const assess: CommandDef = {
 		cmd: "assess",
+		zh: "评估",
 		desc: "主动评估观察（消耗时间）",
 		params: Object.keys(surface.assessments),
 		paramDesc: surface.assessments,
@@ -77,40 +82,43 @@ export function buildCommandGroups(surface: CommandSurface = DEFAULT_SURFACE): C
 	const labParams = Object.fromEntries(
 		Object.entries(surface.labs).map(([k, label]) => [k.toLowerCase(), label]),
 	);
-	const order: CommandDef = { cmd: "order", desc: "申请检查（扣预算，各带周转）", params: Object.keys(labParams), paramDesc: labParams };
-	const view: CommandDef = { cmd: "view", desc: "查看已返回检查结果", params: Object.keys(labParams), paramDesc: labParams };
+	const order: CommandDef = { cmd: "order", zh: "检查", desc: "申请检查（扣预算，各带周转）", params: Object.keys(labParams), paramDesc: labParams };
+	const view: CommandDef = { cmd: "view", zh: "查看", desc: "查看已返回检查结果", params: Object.keys(labParams), paramDesc: labParams };
 	const give: CommandDef = {
 		cmd: "give",
+		zh: "给药",
 		desc: "给药（耗治疗点，剂量可选）",
 		params: Object.keys(surface.drugs),
 		paramDesc: Object.fromEntries(Object.entries(surface.drugs).map(([k, label]) => [k, `${label}：/give ${k} [剂量]`])),
 	};
 	const talk: CommandDef = {
 		cmd: "talk",
+		zh: "对话",
 		desc: "与患者或家属对话（2min）：/talk <对象> <你的话>",
 		params: surface.talk_roles,
 		paramDesc: Object.fromEntries(surface.talk_roles.map((r) => [r, `与${r}交谈`])),
 	};
-	const report: CommandDef = { cmd: "report", desc: "向医生报告（需已有异常证据）", params: ["doctor"], paramDesc: { doctor: "向医生报告病情（2min）" } };
+	const report: CommandDef = { cmd: "report", zh: "报告", desc: "向医生报告（需已有异常证据）", params: ["doctor"], paramDesc: { doctor: "向医生报告病情（2min）" } };
 	const wait: CommandDef = {
 		cmd: "wait",
+		zh: "等待",
 		desc: surface.wait_labs ? "等待至下一事件，或 /wait <检查> 等指定检查" : "等待至下一可见中断事件",
 		params: surface.wait_labs ? Object.keys(labParams) : undefined,
 		paramDesc: surface.wait_labs ? labParams : undefined,
 	};
 	const monitor: CommandDef = surface.monitor
-		? { cmd: "monitor", desc: "开启持续生命体征监护", params: ["vitals"], paramDesc: { vitals: "开启持续监护（2min）" } }
-		: { cmd: "monitor", desc: "开启持续生命体征监护" };
+		? { cmd: "monitor", zh: "监护", desc: "开启持续生命体征监护", params: ["vitals"], paramDesc: { vitals: "开启持续监护（2min）" } }
+		: { cmd: "monitor", zh: "监护", desc: "开启持续生命体征监护" };
 
 	return [
 		{
 			name: "信息",
 			desc: "状态 / 历史 / 进行中 / 帮助",
 			commands: [
-				{ cmd: "status", desc: "查看已知状态、目标清单与预算" },
-				{ cmd: "history", desc: "查看已发生动作" },
-				{ cmd: "pending", desc: "查看进行中检查" },
-				{ cmd: "case", desc: "查看 / 切换病例（切换将开启新局）" },
+				{ cmd: "status", zh: "状态", desc: "查看已知状态、目标清单与预算" },
+				{ cmd: "history", zh: "历史", desc: "查看已发生动作" },
+				{ cmd: "pending", zh: "待办", desc: "查看进行中检查" },
+				{ cmd: "case", zh: "病例", desc: "查看 / 切换病例（切换将开启新局）" },
 				HELP,
 			],
 		},
@@ -119,14 +127,14 @@ export function buildCommandGroups(surface: CommandSurface = DEFAULT_SURFACE): C
 		{
 			name: "给药",
 			desc: "治疗与支持（均有副作用，注意剂量）",
-			commands: [give, { cmd: "consult", desc: "专家会诊 120检查点（AI 基于已知信息给建议与检查方向）" }],
+			commands: [give, { cmd: "consult", zh: "会诊", desc: "专家会诊 120检查点（AI 基于已知信息给建议与检查方向）" }],
 		},
 		{ name: "对话", desc: "与患者 / 家属交谈（LLM 扮演，仅基于已知观察）", commands: [talk] },
 		{
 			name: "处理",
 			desc: "监护 / 诊断 / 报告 / 等待",
 			commands: [
-				{ cmd: "diag", desc: "记录你的诊断/推理（自由文本）" },
+				{ cmd: "diag", zh: "诊断", desc: "记录你的诊断/推理（自由文本）" },
 				monitor,
 				report,
 				wait,

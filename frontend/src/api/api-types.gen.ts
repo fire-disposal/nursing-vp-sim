@@ -2954,6 +2954,11 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+            /**
+             * Start Clock
+             * @default 08:30
+             */
+            start_clock: string;
         };
         /** CaseUpdateRequest */
         CaseUpdateRequest: {
@@ -4593,6 +4598,11 @@ export interface components {
             /** Case Status */
             case_status: string;
             case_meta: components["schemas"]["CaseMeta"];
+            /**
+             * Cases
+             * @default []
+             */
+            cases: components["schemas"]["CaseMeta"][];
             surface: components["schemas"]["CommandSurfaceOut"];
             /** Current Time */
             current_time: number;
@@ -4602,6 +4612,8 @@ export interface components {
             monitoring: boolean;
             /** Reported */
             reported: boolean;
+            /** Diagnosis */
+            diagnosis?: string | null;
             /**
              * Messages
              * @default []

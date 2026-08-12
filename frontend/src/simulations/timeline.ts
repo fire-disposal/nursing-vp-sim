@@ -1,7 +1,9 @@
-/** Terminal-style timeline: a fixed-width monospace bar from 08:30 to 10:30
- * with event markers derived from the player's seen transcript.
+/** Terminal-style timeline: a fixed-width monospace bar spanning the case's
+ * horizon, with event markers derived from the player's seen transcript.
  *
- * Pure function, no React — the console just renders the strings.
+ * Pure function, no React — the console just renders the strings. The wall
+ * clock labels are case-aware (start_clock), matching the backend's
+ * 分片化时间 model.
  */
 
 export interface TimelineEvent {
@@ -20,11 +22,22 @@ const MARKER_BY_KIND: Record<string, string> = {
 const RANK: Record<string, number> = { "▲": 4, "◇": 3, "◆": 2, "●": 1 };
 
 export const TIMELINE_LEGEND = "●评估 ◆检查 ◇报警 ▲恶化/结局 ▸当前";
-export const HORIZON_MIN = 120; // case runs 08:30 → 10:30
+export const HORIZON_MIN = 120; // case horizon in game minutes
 export const BAR_CHARS = 36;
-const LABEL_PAD = "08:30 ".length;
 
-export function buildTimeline(events: TimelineEvent[], currentMinute: number): {
+/** 分片化：起始墙钟标签（如 "22:00"）+ 游戏分钟 → 结束墙钟标签。 */
+export function horizonLabels(startClock = "08:30"): { start: string; end: string } {
+	const [hh, mm] = startClock.split(":").map(Number);
+	const total = hh * 60 + mm + HORIZON_MIN;
+	const end = `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+	return { start: startClock, end };
+}
+
+export function buildTimeline(
+	events: TimelineEvent[],
+	currentMinute: number,
+	startClock = "08:30",
+): {
 	bar: string;
 	cursor: string;
 } {
@@ -49,8 +62,9 @@ export function buildTimeline(events: TimelineEvent[], currentMinute: number): {
 		}
 	}
 	const cursorIdx = Math.min(BAR_CHARS - 1, Math.floor(currentMinute / scale));
+	const labelPad = `${startClock} `.length;
 	return {
 		bar: cells.join(""),
-		cursor: `${" ".repeat(LABEL_PAD + cursorIdx)}▸`,
+		cursor: `${" ".repeat(labelPad + cursorIdx)}▸`,
 	};
 }

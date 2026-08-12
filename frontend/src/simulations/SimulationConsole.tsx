@@ -10,19 +10,21 @@ import { computeCompletionGroups } from "./completions";
 import type { CommandSurface } from "./commands";
 import type { Completion } from "./commands";
 import { parseCommand } from "./parser";
-import { TIMELINE_LEGEND, buildTimeline } from "./timeline";
+import { TIMELINE_LEGEND, buildTimeline, horizonLabels } from "./timeline";
 import "./console.css";
 
 type SimulationSnapshot = components["schemas"]["SimulationSnapshot"];
 
 const SESSION_KEY = "simulation.sessionId";
 
-// Game minute 0 == 08:30 (must stay in sync with backend case.py).
-function clockText(minute: number): string {
-	const total = 8 * 60 + 30 + minute;
-	const hh = Math.floor(total / 60) % 24;
-	const mm = total % 60;
-	return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+// 分片化时间：墙钟 = 病例起始时钟 + 游戏分钟。起始时钟来自快照
+// case_meta.start_clock（后端单一事实源），不再硬编码 08:30。
+function clockText(minute: number, startClock = "08:30"): string {
+	const [hh, mm] = startClock.split(":").map(Number);
+	const total = hh * 60 + mm + minute;
+	const h = Math.floor(total / 60) % 24;
+	const m = total % 60;
+	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -49,15 +51,18 @@ export default function SimulationConsole() {
 	const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
 	const [input, setInput] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [panelDismissed, setPanelDismissed] = useState(false);
 	const [history, setHistory] = useState<string[]>([]);
 	const [selIndex, setSelIndex] = useState(-1);
-	const [panelDismissed, setPanelDismissed] = useState(false);
+	const [caseMenuOpen, setCaseMenuOpen] = useState(false);
 	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+	const [diagOpen, setDiagOpen] = useState(false);
+	const [diagDraft, setDiagDraft] = useState("");
+	const diagSyncedRef = useRef(false);
 	const historyIdxRef = useRef<number | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const seqRef = useRef(0);
-
 	function push(text: string, msgKind = "SYSTEM") {
 		setTranscript((t) => [
 			...t,
@@ -111,6 +116,15 @@ export default function SimulationConsole() {
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [transcript.length]);
 
+	// 诊断草稿：后端 diagnosis 是单一事实源；仅在「已同步且值变化」时回填，
+	// 避免覆盖用户正在编辑的文本。
+	useEffect(() => {
+		if (diagSyncedRef.current) return;
+		if (snapshot?.diagnosis != null) {
+			setDiagDraft(snapshot.diagnosis);
+			diagSyncedRef.current = true;
+		}
+	}, [snapshot?.diagnosis]);
 	const pendingCount = snapshot?.pending.length ?? 0;
 	const caseEnded = snapshot != null && snapshot.case_status !== "ACTIVE";
 
@@ -190,6 +204,33 @@ export default function SimulationConsole() {
 		}
 	}
 
+	async function submitDiagnosis() {
+		if (!snapshot || busy || !diagDraft.trim()) return;
+		setBusy(true);
+		try {
+			const r = await postSimulationAction(snapshot.session_id, {
+				type: "DIAG",
+				target: diagDraft.trim(),
+			});
+			setSnapshot(r.snapshot);
+			setTranscript((t) => [
+				...t,
+				...r.messages.map(
+					(m): TranscriptItem => ({
+						key: `m${++seqRef.current}`,
+						kind: "msg",
+						text: m.text,
+						msgKind: m.kind,
+						atMinute: m.at_minute,
+					}),
+				),
+			]);
+		} catch {
+			push("诊断保存失败，请重试。", "CRITICAL");
+		} finally {
+			setBusy(false);
+		}
+	}
 	async function newSession(caseId?: string) {
 		setBusy(true);
 		try {
@@ -208,6 +249,8 @@ export default function SimulationConsole() {
 				),
 			);
 			setHistory([]);
+			setDiagDraft("");
+			diagSyncedRef.current = false;
 		} catch {
 			push("无法创建新会话。", "CRITICAL");
 		} finally {
@@ -268,7 +311,9 @@ export default function SimulationConsole() {
 			? "病例已结束。输入 /status 查看结果，或点「重新开始」"
 			: "输入命令，如 /order cbc";
 
-	const tl = snapshot ? buildTimeline(transcript, snapshot.current_time) : null;
+	const startClock = snapshot?.case_meta?.start_clock ?? "08:30";
+	const tl = snapshot ? buildTimeline(transcript, snapshot.current_time, startClock) : null;
+	const horizon = horizonLabels(startClock);
 
 	return (
 		<div className="sim-root">
@@ -278,6 +323,37 @@ export default function SimulationConsole() {
 					{snapshot?.case_meta?.name ?? "腹部术后隐匿性出血"}
 				</div>
 					<div className="sim-actions">
+						<div className="sim-casemenu">
+							<button
+								type="button"
+								disabled={busy}
+								onClick={() => setCaseMenuOpen((o) => !o)}
+								className="sim-btn"
+							>
+								切换病例
+							</button>
+							{caseMenuOpen ? (
+								<div className="sim-casemenu-pop">
+									{snapshot?.cases?.map((c) => (
+										<button
+											key={c.id}
+											type="button"
+											disabled={busy}
+											className={
+												c.id === snapshot.case_meta?.id ? "sim-casemenu-item sim-active" : "sim-casemenu-item"
+											}
+											onClick={() => {
+												setCaseMenuOpen(false);
+												if (c.id !== snapshot.case_meta?.id) void newSession(c.id);
+											}}
+										>
+											{c.name}
+											{c.id === snapshot.case_meta?.id ? "（当前）" : ""}
+										</button>
+									))}
+								</div>
+							) : null}
+						</div>
 						<button
 							type="button"
 							disabled={busy}
@@ -311,7 +387,7 @@ export default function SimulationConsole() {
 			{snapshot && tl ? (
 				<div className="sim-timeline">
 					<div className="tl-rows">
-						<div className="tl-bar">08:30 {tl.bar} 10:30</div>
+						<div className="tl-bar">{horizon.start} {tl.bar} {horizon.end}</div>
 						<div className="tl-cursor">{tl.cursor}</div>
 						<div className="tl-legend">{TIMELINE_LEGEND}</div>
 					</div>
@@ -342,7 +418,9 @@ export default function SimulationConsole() {
 									[{KIND_LABEL[item.msgKind ?? "SYSTEM"]}]
 								</span>
 								{item.atMinute != null ? (
-									<span className="msg-time">{clockText(item.atMinute)}</span>
+									<span className="msg-time">
+										{clockText(item.atMinute, snapshot?.case_meta?.start_clock)}
+									</span>
 								) : null}
 								<span className="msg-text">{item.text}</span>
 							</div>
@@ -357,6 +435,39 @@ export default function SimulationConsole() {
 						? "患者病情稳定，予以出院（较好结局）。输入 /status 查看结算，或点「重新开始」。"
 						: "患者病情恶化，病例失败。输入 /status 查看结算，或点「重新开始」。"
 					}
+				</div>
+			) : null}
+
+			{!caseEnded ? (
+				<div className="sim-diag">
+					<button
+						type="button"
+						className="sim-diag-toggle"
+						onClick={() => setDiagOpen((o) => !o)}
+					>
+						{diagOpen ? "▾" : "▸"} 诊断记录
+						{snapshot?.diagnosis
+							? "（已记录，报告时一并提交评分）"
+							: "（可选：写下判断，便于报告时评分）"}
+					</button>
+					{diagOpen ? (
+						<div className="sim-diag-body">
+							<textarea
+								value={diagDraft}
+								onChange={(e) => setDiagDraft(e.target.value)}
+								placeholder="写下你的诊断判断，可反复修改。例：疑诊糖尿病酮症酸中毒（高血糖 + 脱水 + 酸中毒）"
+								spellCheck={false}
+							/>
+							<button
+								type="button"
+								className="sim-btn"
+								disabled={busy || !diagDraft.trim()}
+								onClick={() => void submitDiagnosis()}
+							>
+								保存诊断
+							</button>
+						</div>
+					) : null}
 				</div>
 			) : null}
 

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { BAR_CHARS, buildTimeline } from "./timeline";
+import { BAR_CHARS, buildTimeline, horizonLabels } from "./timeline";
+
+describe("horizonLabels", () => {
+	it("maps a case start clock to its horizon end label", () => {
+		expect(horizonLabels("08:30")).toEqual({ start: "08:30", end: "10:30" });
+		expect(horizonLabels("22:00")).toEqual({ start: "22:00", end: "00:00" });
+		expect(horizonLabels("02:00")).toEqual({ start: "02:00", end: "04:00" });
+	});
+});
 
 describe("buildTimeline", () => {
 	it("renders an empty bar with the cursor at the start", () => {

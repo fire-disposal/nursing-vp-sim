@@ -10059,6 +10059,11 @@
           "version": {
             "type": "string",
             "title": "Version"
+          },
+          "start_clock": {
+            "type": "string",
+            "title": "Start Clock",
+            "default": "08:30"
           }
         },
         "type": "object",
@@ -14131,6 +14136,14 @@
           "case_meta": {
             "$ref": "#/components/schemas/CaseMeta"
           },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseMeta"
+            },
+            "type": "array",
+            "title": "Cases",
+            "default": []
+          },
           "surface": {
             "$ref": "#/components/schemas/CommandSurfaceOut"
           },
@@ -14149,6 +14162,17 @@
           "reported": {
             "type": "boolean",
             "title": "Reported"
+          },
+          "diagnosis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnosis"
           },
           "messages": {
             "items": {

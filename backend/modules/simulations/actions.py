@@ -790,14 +790,14 @@ def _do_help(state, _target, text, messages) -> bool:
 def _help_overview(state) -> list[str]:
     case = case_of(state)
     return [
-        "可用命令（输入 /help <命令> 查看子命令）：",
+        "可用命令（中英文皆可，输入 /帮助 <命令> 查看子命令）：",
         "",
-        "  信息   /status /history /pending /help",
-        f"  评估   /assess <{'|'.join(case.surface.assessments)}>   (/help assess)",
-        "  检查   /order <项目> /view <项目>   (/help order)",
-        f"  给药   /give <{'|'.join(case.surface.drugs)}> [剂量]   (/help give)",
-        f"  对话   /talk <{'|'.join(case.surface.talk_roles)}> <你说的话>   (/help talk)",
-        "  处理   /monitor /report /wait [检查] /diag",
+        "  信息   /状态 /历史 /待办 /帮助",
+        f"  评估   /评估 <{'|'.join(case.surface.assessments)}>   （/帮助 评估）",
+        "  检查   /检查 <项目> /查看 <项目>   （/帮助 检查）",
+        f"  给药   /给药 <{'|'.join(case.surface.drugs)}> [剂量]   （/帮助 给药）",
+        f"  对话   /对话 <{'|'.join(case.surface.talk_roles)}> <你说的话>   （/帮助 对话）",
+        "  处理   /监护 /报告 /等待 [检查] /诊断",
         "",
         f"目标：{case.narrative.goal}",
     ]
