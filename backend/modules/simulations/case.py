@@ -25,6 +25,109 @@ class LabSpec:
 
 
 @dataclass(frozen=True)
+class DrugSpec:
+    """One administrable drug: pharmacokinetics + effects + adverse reactions.
+
+    ``plasma`` concentration decays exponentially (half-life); ``cumulative``
+    tracks total administered amount for overdose detection. Effects are
+    linear in plasma concentration; adverse reactions (respiratory
+    depression, sedation) scale with it too, so repeated dosing — the
+    "spam analgesics" trap — produces real, observable consequences.
+
+    ``progression_mult`` slows the hidden disease axis while on board
+    (transfusion slows bleeding, antibiotics slow infection). Antibiotics
+    are infection-case only: a case declares its drug surface, so the command
+    set is genuinely per-specialty, not a fixed answer machine.
+    """
+
+    label: str
+    unit: str  # mg / ml / U / L
+    default_dose: float
+    max_dose: float  # single-dose ceiling; exceeding it is rejected
+    half_life_min: float
+    cost: int  # 治疗点
+    duration_min: int  # administration time
+    vol_per_dose: float = 0.0  # immediate volume effect per dose (fluids/transfusion)
+    hb_per_dose: float = 0.0  # hemoglobin effect per dose (transfusion)
+    pain_reduction: float = 0.0  # VAS points masked per unit plasma (analgesia)
+    resp_depression: float = 0.0  # RR/SpO2 suppression per unit plasma (opioids)
+    sedation: float = 0.0  # consciousness loss per unit plasma (opioids)
+    spo2_boost: float = 0.0  # SpO2 points per unit plasma (oxygen)
+    progression_mult: float = 1.0  # disease-axis progression multiplier while active
+    toxicity_threshold: float = 1e9  # cumulative dose beyond which an adverse event fires
+    toxicity_label: str = ""  # what the overdose reaction is called
+
+
+# Global drug registry — drugs are universal; cases declare which they stock.
+# Per-case dosing/side-effect intensity can differ by passing a param dict
+# through ``_build_case`` (see the per-case drug surfaces below).
+DRUGS: dict[str, DrugSpec] = {
+    "FLUIDS": DrugSpec(
+        label="快速补液",
+        unit="ml",
+        default_dose=500,
+        max_dose=1500,
+        half_life_min=30,  # bolus support fades quickly
+        cost=30,
+        duration_min=3,
+        vol_per_dose=0.10,
+        toxicity_threshold=2000,
+        toxicity_label="容量超负荷（肺水肿风险）",
+    ),
+    "TRANSFUSE": DrugSpec(
+        label="输注红细胞",
+        unit="U",
+        default_dose=2,
+        max_dose=4,
+        half_life_min=180,
+        cost=60,
+        duration_min=5,
+        vol_per_dose=0.04,
+        hb_per_dose=25.0,
+        progression_mult=0.7,  # slows the bleed, sustained until reported
+        toxicity_threshold=6,
+        toxicity_label="输血反应",
+    ),
+    "MORPHINE": DrugSpec(
+        label="吗啡镇痛",
+        unit="mg",
+        default_dose=5,
+        max_dose=15,
+        half_life_min=90,
+        cost=20,
+        duration_min=1,
+        pain_reduction=2.0,  # VAS points masked per unit plasma
+        resp_depression=0.9,  # strong respiratory drive suppression
+        sedation=0.12,  # heavy sedation per unit plasma
+        toxicity_threshold=40,  # cumulative mg beyond which: respiratory failure
+        toxicity_label="呼吸抑制（吗啡过量）",
+    ),
+    "OXYGEN": DrugSpec(
+        label="给氧",
+        unit="L/min",
+        default_dose=3,
+        max_dose=10,
+        half_life_min=15,  # effect wears off minutes after stopping
+        cost=10,
+        duration_min=2,
+        spo2_boost=3.0,  # SpO2 points per unit
+    ),
+    "ANTIBIOTIC": DrugSpec(
+        label="抗生素",
+        unit="g",
+        default_dose=1,
+        max_dose=2,
+        half_life_min=120,
+        cost=40,
+        duration_min=5,
+        progression_mult=0.55,  # suppresses the infection axis
+        toxicity_threshold=8,
+        toxicity_label="抗生素过敏/肾损伤",
+    ),
+}
+
+
+@dataclass(frozen=True)
 class PhysiologySpec:
     """The discrete compartment physiology engine per case.
 
@@ -45,13 +148,14 @@ class PhysiologySpec:
     vitals_abnormal: Callable[[dict], bool]
     drain: Callable[[dict], int]
     drain_abnormal: Callable[[int], bool]
-    pain: Callable[[dict], int]
+    pain: Callable[[dict, dict], int]
     pain_abnormal: Callable[[int], bool]
     urine: Callable[[dict, dict], int]
     urine_abnormal: Callable[[int], bool]
     hb: Callable[[dict, dict], float]
     hb_abnormal: Callable[[float], bool]
     wbc: Callable[[dict], float]
+    consciousness: Callable[[dict, dict], float]
 
 
 @dataclass(frozen=True)
@@ -102,6 +206,23 @@ class NarrativeSpec:
 
 
 @dataclass(frozen=True)
+class SurfaceSpec:
+    """The player-facing command surface — what this case exposes.
+
+    A case is not an answer machine with a fixed menu: it declares its own
+    assessment targets, stocked drugs, dialogue roles and wait targets. The
+    engine dispatches generically against this surface, so a new specialty is
+    a new surface + params, not a rewrite of the command layer.
+    """
+
+    assessments: dict[str, str]  # /assess target → label (e.g. {"vitals": "生命体征"})
+    drugs: dict[str, str]  # /give drug key → label (stocked drugs only)
+    talk_roles: tuple[str, ...] = ("patient", "family")
+    wait_labs: bool = True  # /wait <lab> supported
+    monitor: bool = True  # /monitor supported
+
+
+@dataclass(frozen=True)
 class CaseSpec:
     """One playable case — the aggregation point for everything case-specific."""
 
@@ -113,6 +234,7 @@ class CaseSpec:
     resources: ResourceSpec
     narrative: NarrativeSpec
     physiology: PhysiologySpec
+    surface: SurfaceSpec
 
 
 # ── Orderable labs (composed LabSpec entities) ──
@@ -251,6 +373,16 @@ def _bleeding(values: dict) -> float:
     return values["bleeding"]
 
 
+# Typed shape of one drug's kinetic state.
+MedState = dict[str, float]  # plasma / cumulative / doses
+
+
+def active_meds(physio: dict) -> dict[str, MedState]:
+    """Typed accessor for the meds compartment: {drug_key: {plasma, cumulative, doses}}."""
+    meds = physio.get("meds")
+    return meds if isinstance(meds, dict) else {}
+
+
 # Public knobs for intervention effects (fluids/transfusion act on compartments).
 PHYSIO_VOL_FLUID_PER_UNIT = _PHYSIO_BLEED["vol_fluid_per_unit"]
 PHYSIO_VOL_TRANSFUSE = _PHYSIO_BLEED["vol_transfuse"]
@@ -279,7 +411,24 @@ class CompartmentPhysiology:
             "svr": 1.0,
             "lactate": p["lac_base"],
             "hb": p["hb_base"] - p["hb_axis_rate"] * sev,
+            "meds": {},
+            "conscious": 1.0,
         }
+
+    @staticmethod
+    def _meds_decay(meds: dict, dt: int) -> dict:
+        """First-order elimination: plasma *= 2^(-dt/half_life). Cumulative
+        and dose counts persist (cumulative drives overdose detection)."""
+        import math
+
+        out = {}
+        for key, med in meds.items():
+            spec = DRUGS.get(key)
+            if spec is None:
+                continue
+            plasma = med["plasma"] * math.exp(-math.log(2) * dt / spec.half_life_min)
+            out[key] = {"plasma": plasma, "cumulative": med["cumulative"], "doses": med["doses"]}
+        return out
 
     def step(self, values: dict, physio: dict, flags: dict, dt: int) -> dict:
         import math
@@ -289,6 +438,7 @@ class CompartmentPhysiology:
         support = flags.get("fluid_support", 0)
         transfused = flags.get("transfused", False)
         p = self._p
+        meds = self._meds_decay(physio.get("meds", {}), dt)
 
         # Volume: fast — snaps to its axis/intervention-driven target.
         vol_target = (
@@ -312,25 +462,54 @@ class CompartmentPhysiology:
         # Hb: fast — axis drains (bleeding), transfusion boosts.
         hb = p["hb_base"] - p["hb_axis_rate"] * sev + (p["hb_transfuse"] if transfused else 0.0)
 
-        return {"vol": vol, "svr": svr, "lactate": lactate, "hb": hb}
+        # Consciousness: driven by perfusion, oxygenation and sedation.
+        sed = sum(meds[k]["plasma"] * DRUGS[k].sedation for k in meds if k in DRUGS)
+        conscious = self._consciousness(vol, infection, meds)
+        return {
+            "vol": vol,
+            "svr": svr,
+            "lactate": lactate,
+            "hb": hb,
+            "meds": meds,
+            "conscious": conscious,
+            "sedation": sed,
+        }
+
+    def _consciousness(self, vol: float, infection: float, meds: dict) -> float:
+        """0..1 — perfusion and oxygenation keep the patient awake; sedation
+        and overwhelming infection pull them under (Casualties-style syncope)."""
+        p = self._p
+        perf = min(1.0, max(0.0, vol / p.get("conscious_vol_ref", 0.72)))
+        oxy = min(1.0, max(0.0, (98.0 - p.get("conscious_spo2_floor", 82.0)) / 16.0))
+        sed = sum(meds[k]["plasma"] * DRUGS[k].sedation for k in meds if k in DRUGS)
+        infection_hit = p.get("conscious_infection", 0.0) * infection
+        return max(0.0, min(1.0, 0.35 * perf + 0.30 * oxy + 0.25 - sed - infection_hit))
 
     def vitals(self, values: dict, physio: dict) -> dict:
         p = self._p
         vol = physio["vol"]
         svr = physio["svr"]
         infection = values.get("infection", 0.0)
+        meds = physio.get("meds", {})
         svr_defense = 1.0 + p["sbp_svr_gain"] * (svr - 1.0)
+
+        # Respiratory drive: opioids suppress it; oxygen supports SpO2.
+        resp_dep = sum(meds[k]["plasma"] * DRUGS[k].resp_depression for k in meds if k in DRUGS)
+        spo2_boost = sum(meds[k]["plasma"] * DRUGS[k].spo2_boost for k in meds if k in DRUGS)
+        base_rr = 16 + round(10 * (1.0 - vol) * 3)
+        rr = max(8, base_rr - round(resp_dep * 6))
+        spo2 = max(60, min(100, round(98 - resp_dep * 8 + spo2_boost)))
         return {
             "hr": p["hr_base"] + round(p["hr_vol_gain"] * (1.0 - vol)) + round(p["hr_infection"] * infection),
             "sbp": round(p["sbp_base"] * vol * svr_defense),
             "dbp": round((p["sbp_base"] - 42) * vol * svr_defense),
-            "rr": 16 + round(10 * (1.0 - vol) * 3),
-            "spo2": 98,
+            "rr": rr,
+            "spo2": spo2,
             "temp": p["temp_base"] + p["temp_axis_gain"] * self.bleeding(values),
         }
 
     def vitals_abnormal(self, v: dict) -> bool:
-        return v["hr"] >= 95 or v["sbp"] <= 108 or v["temp"] >= 38.0
+        return v["hr"] >= 95 or v["sbp"] <= 108 or v["temp"] >= 38.0 or v["spo2"] <= 92 or v["rr"] <= 10
 
     def drain(self, values: dict) -> int:
         p = self._p
@@ -339,9 +518,11 @@ class CompartmentPhysiology:
     def drain_abnormal(self, output_ml: int) -> bool:
         return output_ml >= 80
 
-    def pain(self, values: dict) -> int:
+    def pain(self, values: dict, physio: dict) -> int:
         p = self._p
-        return min(10, p["pain_base"] + round(p["pain_gain"] * self.bleeding(values)))
+        raw = p["pain_base"] + round(p["pain_gain"] * self.bleeding(values))
+        masked = sum(physio.get("meds", {}).get(k, {}).get("plasma", 0.0) * DRUGS[k].pain_reduction for k in DRUGS)
+        return min(10, max(0, raw - round(masked)))
 
     def pain_abnormal(self, score: int) -> bool:
         return score >= 4
@@ -365,6 +546,9 @@ class CompartmentPhysiology:
         p = self._p
         return round(p["wbc_base"] + p["wbc_gain"] * self.bleeding(values), 1)
 
+    def consciousness(self, values: dict, physio: dict) -> float:
+        return physio.get("conscious", 1.0)
+
     def spec(self) -> PhysiologySpec:
         return PhysiologySpec(
             bleeding=self.bleeding,
@@ -381,6 +565,7 @@ class CompartmentPhysiology:
             hb=self.hb_for,
             hb_abnormal=self.hb_abnormal,
             wbc=self.wbc_for,
+            consciousness=self.consciousness,
         )
 
 
@@ -434,11 +619,16 @@ def _build_case(
     verdict_delayed: str,
     verdict_timely: str,
     extra_durations: dict | None = None,
-    extra_intervention_costs: dict | None = None,
+    drug_keys: tuple[str, ...] = ("FLUIDS", "TRANSFUSE", "MORPHINE", "OXYGEN"),
+    assess_targets: dict[str, str] | None = None,
 ) -> CaseSpec:
     """One playable case via the shared compartment engine + lab factory."""
     durations = {**_DURATIONS_BASE, **(extra_durations or {})}
-    intervention_costs = {"FLUIDS": 30, "TRANSFUSE": 60, "ANALGESIA": 20, **(extra_intervention_costs or {})}
+    assessments = assess_targets or {"vitals": "生命体征", "drain": "引流", "pain": "疼痛", "urine": "尿量"}
+    surface = SurfaceSpec(
+        assessments=assessments,
+        drugs={k: DRUGS[k].label for k in drug_keys},
+    )
     return CaseSpec(
         name=name,
         version=case_id,
@@ -460,7 +650,7 @@ def _build_case(
             diag_budget=400,
             treat_budget=100,
             consult_cost=120,
-            intervention_costs=intervention_costs,
+            intervention_costs={k: DRUGS[k].cost for k in surface.drugs},
             durations=durations,
             lab_kinds=_make_lab_kinds(axis, physiology_params),
         ),
@@ -477,6 +667,7 @@ def _build_case(
             verdict_timely=verdict_timely,
         ),
         physiology=CompartmentPhysiology(axis, physiology_params).spec(),
+        surface=surface,
     )
 
 
@@ -547,6 +738,8 @@ CASE_INFECTION = _build_case(
     verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，感染持续加重至休克。",
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    # Infection specialty stocks antibiotics instead of transfusion.
+    drug_keys=("FLUIDS", "MORPHINE", "OXYGEN", "ANTIBIOTIC"),
 )
 
 

@@ -11,7 +11,7 @@
  *   history like a real shell).
  */
 
-import { COMMAND_GROUPS, COMMANDS, type CommandDef, type Completion } from "./commands";
+import { buildCommandGroups, type CommandDef, type CommandSurface, type Completion } from "./commands";
 
 export interface CompletionGroup {
 	name: string;
@@ -19,30 +19,35 @@ export interface CompletionGroup {
 	items: Completion[];
 }
 
-export function computeCompletionGroups(raw: string): CompletionGroup[] {
+export function computeCompletionGroups(raw: string, surface?: CommandSurface): CompletionGroup[] {
 	const input = raw.trimStart();
 	if (!input.startsWith("/")) return [];
+
+	const groups = buildCommandGroups(surface);
+	const commands = groups.flatMap((g) => g.commands);
 
 	const rest = input.slice(1);
 	const [headRaw, ...tailRaw] = rest.split(/\s+/);
 	const head = headRaw.toLowerCase();
 	const param = tailRaw.join(" ").toLowerCase();
 
-	const drill = COMMANDS.find((c) => c.cmd === head && c.params);
+	const drill = commands.find((c) => c.cmd === head && c.params);
 	if (drill) {
 		const items = (drill.params ?? [])
-			.filter((p) => p.startsWith(param) && p !== param)
+			.filter((p) => p.toLowerCase().startsWith(param) && p.toLowerCase() !== param)
 			.map((p) => toCompletion(drill, p));
 		return items.length ? [{ name: drill.cmd, desc: drill.desc, items }] : [];
 	}
 
-	return COMMAND_GROUPS.map((g) => ({
-		name: g.name,
-		desc: g.desc,
-		items: g.commands
-			.filter((c) => c.cmd.startsWith(head) && `/${c.cmd}` !== input.trim())
-			.map((c) => toCompletion(c)),
-	})).filter((g) => g.items.length > 0);
+	return groups
+		.map((g) => ({
+			name: g.name,
+			desc: g.desc,
+			items: g.commands
+				.filter((c) => c.cmd.startsWith(head) && `/${c.cmd}` !== input.trim())
+				.map((c) => toCompletion(c)),
+		}))
+		.filter((g) => g.items.length > 0);
 }
 
 function toCompletion(cmd: CommandDef, param?: string): Completion {

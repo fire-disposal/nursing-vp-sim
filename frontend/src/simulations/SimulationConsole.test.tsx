@@ -116,15 +116,15 @@ describe("SimulationConsole", () => {
 		await userEvent.type(input, "/status");
 		await userEvent.keyboard("{Enter}");
 		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
-		await userEvent.type(input, "/transfuse");
+		await userEvent.type(input, "/give morphine 10");
 		await userEvent.keyboard("{Enter}");
 		await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(2));
 		await userEvent.keyboard("{ArrowUp}");
-		expect(input).toHaveValue("/transfuse");
+		expect(input).toHaveValue("/give morphine 10");
 		await userEvent.keyboard("{ArrowUp}");
 		expect(input).toHaveValue("/status");
 		await userEvent.keyboard("{ArrowDown}");
-		expect(input).toHaveValue("/transfuse");
+		expect(input).toHaveValue("/give morphine 10");
 	});
 
 	it("surfaces parser errors without calling the API", async () => {

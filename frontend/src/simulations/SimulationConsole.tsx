@@ -7,6 +7,7 @@ import {
 	postSimulationAction,
 } from "@/api/simulations";
 import { computeCompletionGroups } from "./completions";
+import type { CommandSurface } from "./commands";
 import type { Completion } from "./commands";
 import { parseCommand } from "./parser";
 import { TIMELINE_LEGEND, buildTimeline } from "./timeline";
@@ -113,7 +114,10 @@ export default function SimulationConsole() {
 	const pendingCount = snapshot?.pending.length ?? 0;
 	const caseEnded = snapshot != null && snapshot.case_status !== "ACTIVE";
 
-	const groups = useMemo(() => computeCompletionGroups(input), [input]);
+	const groups = useMemo(
+		() => computeCompletionGroups(input, snapshot?.surface as CommandSurface | undefined),
+		[input, snapshot?.surface],
+	);
 	const panelVisible = groups.length > 0 && !panelDismissed;
 	// Groups auto-open once a prefix is typed; bare "/" stays folded until clicked.
 	const isOpen = (name: string) => expandedGroups.has(name) || input.trimStart().length > 1;

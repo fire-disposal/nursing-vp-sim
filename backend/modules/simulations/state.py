@@ -136,6 +136,7 @@ class SessionState:
     repeat_while_pending: bool = False
     insufficient_funds: bool = False
     delayed_success: bool = False
+    drug_overdose: bool = False
     case_ended_at: int | None = None
     revision: int = 0
 
@@ -182,6 +183,7 @@ def state_from_dict(raw: dict) -> SessionState:
         repeat_while_pending=raw.get("repeat_while_pending", False),
         insufficient_funds=raw.get("insufficient_funds", False),
         delayed_success=raw.get("delayed_success", False),
+        drug_overdose=raw.get("drug_overdose", False),
         case_ended_at=raw.get("case_ended_at"),
         revision=raw.get("revision", 0),
     )

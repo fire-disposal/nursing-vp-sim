@@ -17,7 +17,7 @@ _ACTIONS = [
     ("ORDER", "abg"),
     ("WAIT", None),
     ("VIEW", "abg"),
-    ("FLUIDS", None),
+    ("GIVE", "FLUIDS"),
     ("WAIT", None),
     ("REPORT", "doctor"),
 ]
@@ -41,7 +41,7 @@ def test_physio_compartments_are_deterministic():
     a = _play()["hidden"]["physio"]
     b = _play()["hidden"]["physio"]
     assert a == b
-    assert set(a) == {"vol", "svr", "lactate", "hb"}
+    assert set(a) == {"vol", "svr", "lactate", "hb", "meds", "conscious", "sedation"}
 
 
 def test_interleaved_actions_replay_exactly():

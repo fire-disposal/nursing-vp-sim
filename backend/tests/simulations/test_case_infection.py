@@ -32,7 +32,7 @@ def test_infection_progression_drives_fever_and_leukocytosis():
     e.apply_action(s, "ASSESS", "drain")  # 3->6, tick at 6
     assert s.hidden.values["infection"] == 0.25
     e.apply_action(s, "ORDER", "cbc")  # sampled @9, sev 0.25
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     assert s.records[0].result["wbc"] == round(8.5 + 12 * 0.25, 1)
 

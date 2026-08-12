@@ -36,7 +36,7 @@ def test_pain_can_be_report_evidence():
 def test_fluids_mask_bp_on_vitals_assessment():
     s = new_session()
     e.apply_action(s, "WAIT", None)  # to 48, severity 0.60, true SBP 95
-    e.apply_action(s, "FLUIDS", None)  # support = 2
+    e.apply_action(s, "GIVE", "FLUIDS")  # support = 2
     e.apply_action(s, "ASSESS", "vitals")
     reading = s.vitals[-1]
     assert reading.sbp > 95  # masked above the true value
@@ -54,20 +54,20 @@ def _deteriorate_minute(setup_action: tuple[str, str | None] | None) -> int:
 
 def test_fluids_delay_deterioration():
     # Same end-state (deterioration) reached later when fluids were given.
-    assert _deteriorate_minute(("FLUIDS", None)) > _deteriorate_minute(None)
+    assert _deteriorate_minute(("GIVE", "FLUIDS")) > _deteriorate_minute(None)
 
 
 def test_transfusion_delay_deterioration():
-    assert _deteriorate_minute(("TRANSFUSE", None)) > _deteriorate_minute(None)
+    assert _deteriorate_minute(("GIVE", "TRANSFUSE")) > _deteriorate_minute(None)
 
 
 def test_analgesia_masks_pain():
     s = new_session()
     e.apply_action(s, "WAIT", None)  # to 48, severity 0.60
-    e.apply_action(s, "ANALGESIA", None)
+    e.apply_action(s, "GIVE", "MORPHINE")
     e.apply_action(s, "ASSESS", "pain")
     # True VAS 6 -> masked to 4 (still >=4 abnormal), but noted as masked.
-    assert any("镇痛" in m.text for m in s.public_log[-2:])
+    assert any("吗啡" in m.text for m in s.public_log[-2:])
     # Without analgesia the raw score would be higher.
     s2 = new_session()
     e.apply_action(s2, "WAIT", None)
@@ -77,11 +77,11 @@ def test_analgesia_masks_pain():
 
 def test_abg_and_us_labs_are_orderable_and_evidence():
     s = new_session()
-    e.apply_action(s, "ORDER", "abg")   # ready at 13
-    e.apply_action(s, "ORDER", "us")    # ready at 23
-    e.apply_action(s, "WAIT", None)     # stops at first LAB_READY (abg@13)
+    e.apply_action(s, "ORDER", "abg")  # ready at 13
+    e.apply_action(s, "ORDER", "us")  # ready at 23
+    e.apply_action(s, "WAIT", None)  # stops at first LAB_READY (abg@13)
     assert s.records[0].kind == "ABG"
-    e.apply_action(s, "WAIT", None)     # to US@23
+    e.apply_action(s, "WAIT", None)  # to US@23
     assert {r.kind for r in s.records} == {"ABG", "US"}
     e.apply_action(s, "VIEW", "us")
     assert any("游离液体" in m.text for m in s.public_log[-3:])
@@ -89,9 +89,9 @@ def test_abg_and_us_labs_are_orderable_and_evidence():
 
 def test_treat_budget_blocks_third_intervention():
     s = new_session()
-    e.apply_action(s, "FLUIDS", None)     # 30 治疗点
-    e.apply_action(s, "ANALGESIA", None)  # +20 -> 50
-    ok, msgs = e.apply_action(s, "TRANSFUSE", None)  # needs 60 > 50 remaining
+    e.apply_action(s, "GIVE", "FLUIDS")  # 30 治疗点
+    e.apply_action(s, "GIVE", "MORPHINE")  # +20 -> 50
+    ok, msgs = e.apply_action(s, "GIVE", "TRANSFUSE")  # needs 60 > 50 remaining
     assert not ok
     assert s.treat_spent == 50
     assert any("治疗点不足" in m.text for m in msgs)
@@ -106,12 +106,12 @@ def test_unknown_lab_kind_rejected():
 
 def test_budget_blocks_repeat_orders():
     s = new_session()
-    e.apply_action(s, "ORDER", "us")    # 120
-    e.apply_action(s, "WAIT", None)     # ready @23
-    e.apply_action(s, "ORDER", "us")    # +120 -> 240
-    e.apply_action(s, "WAIT", None)     # ready @46
-    e.apply_action(s, "ORDER", "abg")   # +60 -> 300
-    e.apply_action(s, "WAIT", None)     # ready @56
+    e.apply_action(s, "ORDER", "us")  # 120
+    e.apply_action(s, "WAIT", None)  # ready @23
+    e.apply_action(s, "ORDER", "us")  # +120 -> 240
+    e.apply_action(s, "WAIT", None)  # ready @46
+    e.apply_action(s, "ORDER", "abg")  # +60 -> 300
+    e.apply_action(s, "WAIT", None)  # ready @56
     e.apply_action(s, "ORDER", "coag")  # +50 -> 350
     # Re-order us — 350+120 > 400 diag budget → rejected, never overspent.
     ok, msgs = e.apply_action(s, "ORDER", "us")

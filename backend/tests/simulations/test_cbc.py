@@ -31,7 +31,7 @@ def test_repeat_while_pending_rejected_without_double_charge():
 def test_cbc_ready_materializes_exactly_once():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     assert len(s.records) == 1
     assert s.pending_tasks[0].status == "READY"
     # Re-processing the ready moment must not add a second record.
@@ -42,7 +42,7 @@ def test_cbc_ready_materializes_exactly_once():
 def test_multiple_views_return_same_record():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     first = s.records[0].result
     e.apply_action(s, "VIEW", "cbc")
@@ -53,7 +53,7 @@ def test_multiple_views_return_same_record():
 def test_result_reflects_sampled_time_not_return_time():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # sampled at minute 3 (severity 0.12)
-    e.apply_action(s, "WAIT_CBC", None)  # returns at minute 18 (severity 0.30)
+    e.apply_action(s, "WAIT", "cbc")  # returns at minute 18 (severity 0.30)
     r = s.records[0].result
     # Sampled severity 0.12 -> Hb 123.4; return-time severity 0.30 -> 91.
     assert r["sampled_severity"] == 0.12
@@ -63,10 +63,10 @@ def test_result_reflects_sampled_time_not_return_time():
 def test_second_cbc_uses_new_snapshot_and_previous_value():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # sampled@3 severity 0.12 -> Hb 123.4
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "ORDER", "cbc")  # sampled@21 severity 0.30 -> Hb 91
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     first, second = s.records[0].result, s.records[1].result
     # Ongoing bleeding: second Hb must not rise relative to the first.
@@ -80,7 +80,7 @@ def test_third_cbc_allowed_after_ready_but_second_blocked_while_pending():
     e.apply_action(s, "ORDER", "cbc")
     ok, _ = e.apply_action(s, "ORDER", "cbc")  # still pending -> blocked
     assert not ok
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     ok, _ = e.apply_action(s, "ORDER", "cbc")  # first ready -> allowed
     assert ok
     assert s.cbc_count == 2

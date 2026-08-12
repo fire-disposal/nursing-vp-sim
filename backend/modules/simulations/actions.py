@@ -13,13 +13,11 @@ from .case import (
     CASES,
     CONSULT_COST,
     DIAG_BUDGET_START,
+    DRUGS,
     DURATION_MIN,
-    INTERVENTION_COSTS,
     LAB_KINDS,
-    PHYSIO_HB_TRANSFUSE,
-    PHYSIO_VOL_FLUID_PER_UNIT,
-    PHYSIO_VOL_TRANSFUSE,
     TREAT_BUDGET_START,
+    active_meds,
     case_of,
     case_options_text,
     clock_text,
@@ -54,6 +52,14 @@ def _do_status(state, _target, text, messages) -> bool:
         lines.append("持续生命体征监护：已开启")
     if state.hidden.reported_to_doctor:
         lines.append("已向医生报告")
+    conscious = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
+    lines.append(
+        f"患者意识：{'清醒' if conscious >= 0.6 else '嗜睡' if conscious >= 0.3 else '昏迷'}（{conscious:.2f}）"
+    )
+    meds = active_meds(state.hidden.physio)
+    active = [f"{DRUGS[k].label} {m['plasma']:.1f}" for k, m in meds.items() if k in DRUGS and m["plasma"] > 0.05]
+    if active:
+        lines.append("体内药物：" + "、".join(active))
     if state.vitals:
         v = state.vitals[-1]
         lines.append(f"最近生命体征：HR {v.hr} bpm，BP {v.sbp}/{v.dbp} mmHg，RR {v.rr}，SpO2 {v.spo2}%")
@@ -75,12 +81,14 @@ def _do_status(state, _target, text, messages) -> bool:
 
 
 def _do_assess(state, target, text, messages) -> bool:
-    spec = _ASSESS_SPECS.get(target or "")
-    if spec is None:
+    case = case_of(state)
+    available = case.surface.assessments
+    if (target or "") not in available:
         messages.append(
-            DomainMessage("SYSTEM", state.current_time, f"评估目标无效（{' / '.join(sorted(_ASSESS_SPECS))}）。")
+            DomainMessage("SYSTEM", state.current_time, f"评估目标无效（{' / '.join(sorted(available))}）。")
         )
         return False
+    spec = _ASSESS_SPECS[target]
     return _run_assess(state, spec, getattr(state, target), messages)
 
 
@@ -124,9 +132,7 @@ def _build_drain(state) -> DrainReading:
 
 def _build_pain(state) -> PainReading:
     case = case_of(state)
-    score = case.physiology.pain(state.hidden.values)
-    if state.analgesia:
-        score = max(1, score - case.course.analgesia_pain_mask)
+    score = case.physiology.pain(state.hidden.values, state.hidden.physio)  # meds mask it
     return PainReading(minute=state.current_time, abnormal=case.physiology.pain_abnormal(score), score=score)
 
 
@@ -139,10 +145,15 @@ def _build_urine(state) -> UrineReading:
 def _describe_vitals(state, r) -> str:
     note = "存在异常" if r.abnormal else "未见明显异常"
     text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr}，SpO2 {r.spo2}%，T {r.temp}℃。{note}。"
-    if r.abnormal:
-        text += "皮肤湿冷、脉搏细速。"
+    if r.rr <= 10:
+        text += "呼吸浅慢，警惕呼吸抑制（药物过量？）。"
+    elif r.spo2 <= 92:
+        text += "血氧下降，警惕低氧。"
     if state.fluid_support > 0:
         text += "（补液支撑下血压）"
+    meds = active_meds(state.hidden.physio)
+    if any(k == "MORPHINE" and m["plasma"] > 0.1 for k, m in meds.items()):
+        text += "（吗啡作用中：呼吸抑制/嗜睡风险）"
     return text
 
 
@@ -154,8 +165,9 @@ def _describe_drain(state, r) -> str:
 def _describe_pain(state, r) -> str:
     note = "腹痛明显，警惕" if r.abnormal else "疼痛可控"
     text = f"疼痛评估：VAS {r.score}/10 分。{note}。"
-    if state.analgesia:
-        text += "（已镇痛，评分可能偏低）"
+    meds = active_meds(state.hidden.physio)
+    if any(k == "MORPHINE" and m["plasma"] > 0.1 for k, m in meds.items()):
+        text += "（吗啡镇痛下，评分可能偏低——可能掩盖病情）"
     return text
 
 
@@ -388,100 +400,114 @@ def _do_monitor(state, _target, text, messages) -> bool:
     return True
 
 
-def _do_fluids(state, _target, text, messages) -> bool:
-    return _run_intervention(state, "FLUIDS", messages)
+def _parse_dose(spec, text) -> float | None:
+    """Resolve dose text to a valid amount, or None if invalid/out of range."""
+    if not (text and text.strip()):
+        return spec.default_dose
+    try:
+        dose = float(text.strip())
+    except ValueError:
+        return None
+    if dose <= 0 or dose > spec.max_dose:
+        return None
+    return dose
 
 
-def _do_transfuse(state, _target, text, messages) -> bool:
-    return _run_intervention(state, "TRANSFUSE", messages)
+def _do_give(state, target, text, messages) -> bool:
+    """给药：/give <药物> [剂量]。药物与剂量上限由病例 surface 声明。
 
-
-def _do_analgesia(state, _target, text, messages) -> bool:
-    return _run_intervention(state, "ANALGESIA", messages)
-
-
-def _run_intervention(state, kind: str, messages) -> bool:
-    spec = _INTERVENTIONS.get(kind)
-    if spec is None:
+    Pharmacokinetics: each dose raises plasma concentration (effects scale
+    with it), which decays by the drug's half-life. Cumulative dose drives
+    overdose — spamming opioids is a real, observable mistake.
+    """
+    case = case_of(state)
+    key = (target or "").upper()
+    if key not in case.surface.drugs:
         messages.append(
             DomainMessage(
-                "SYSTEM", state.current_time, f"未知干预：{kind}。可用：{', '.join(sorted(_INTERVENTIONS))}。"
+                "SYSTEM",
+                state.current_time,
+                f"未知药物：{target}。可用：{', '.join(sorted(case.surface.drugs))}。",
             )
         )
         return False
+    spec = DRUGS[key]
     if not _check_budget(state, "treat", spec.cost, messages, spec.label):
         return False
+
+    dose = _parse_dose(spec, text)
+    if dose is None:
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                state.current_time,
+                f"剂量无效：{text}。默认 {spec.default_dose:.0f}{spec.unit}，上限 {spec.max_dose:.0f}{spec.unit}。",
+            )
+        )
+        return False
+
     completion = state.current_time + spec.duration_min
     engine._advance(state, messages, completion)
     state.current_time = completion
-    spec.apply(state)
     state.treat_spent += spec.cost
+
+    # Pharmacokinetics: raise plasma by dose units (1 default dose = 1 unit).
+    meds = state.hidden.physio.setdefault("meds", {})
+    med = meds.setdefault(key, {"plasma": 0.0, "cumulative": 0.0, "doses": 0})
+    units = dose / spec.default_dose
+    med["plasma"] += units
+    med["cumulative"] += dose
+    med["doses"] += 1
+
+    _apply_drug_effects(state, key, spec, units)
+    _maybe_schedule_overdose(state, key, spec, med, completion)
+
     messages.append(
         DomainMessage(
             "SYSTEM",
             completion,
-            f"已{spec.label}。{spec.followup}扣 {spec.cost} 治疗点，剩余治疗点 {TREAT_BUDGET_START - state.treat_spent}。",
+            f"已给予{spec.label} {dose:.0f}{spec.unit}。{_drug_note(key, spec)}扣 {spec.cost} 治疗点，"
+            f"剩余治疗点 {TREAT_BUDGET_START - state.treat_spent}。",
         )
     )
     return True
 
 
-def _apply_fluids(state) -> None:
-    state.fluid_support = min(3, state.fluid_support + 2)
-    # Bolus expands the volume compartment immediately; support decays per
-    # tick, so the volume (and BP) benefit fades unless bleeding is controlled.
-    state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + PHYSIO_VOL_FLUID_PER_UNIT * 2)
-    state.fluids_given = True
+def _apply_drug_effects(state, key: str, spec, units: float) -> None:
+    """Direct compartment effects (fluids expand volume, transfusion raises Hb)."""
+    if spec.vol_per_dose:
+        state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + spec.vol_per_dose * units)
+    if spec.hb_per_dose:
+        state.hidden.physio["hb"] = min(200.0, state.hidden.physio["hb"] + spec.hb_per_dose * units)
+    # Legacy flags the course progression engine still reads.
+    if key == "FLUIDS":
+        state.fluid_support = min(3, state.fluid_support + 2)
+        state.fluids_given = True
+    if key == "TRANSFUSE":
+        state.transfused = True
+    if key == "MORPHINE":
+        state.analgesia = True
 
 
-def _apply_transfuse(state) -> None:
-    state.transfused = True
-    # Transfusion raises both volume and hemoglobin right away; the next
-    # disease tick keeps the boost while transfused.
-    state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + PHYSIO_VOL_TRANSFUSE)
-    state.hidden.physio["hb"] = min(200.0, state.hidden.physio["hb"] + PHYSIO_HB_TRANSFUSE)
+def _maybe_schedule_overdose(state, key: str, spec, med: dict, completion: int) -> None:
+    """Overdose: cumulative dose beyond the toxicity threshold is an event."""
+    if spec.toxicity_threshold < 1e9 and med["cumulative"] >= spec.toxicity_threshold and not state.drug_overdose:
+        state.drug_overdose = True
+        engine._schedule(state, completion + case_of(state).course.interval_min, 1, "DRUG_ADVERSE", {"drug": key})
 
 
-def _apply_analgesia(state) -> None:
-    state.analgesia = True
-
-
-@dataclass(frozen=True)
-class InterventionSpec:
-    """One intervention as a composition: duration, its effect on the state,
-    its resource cost in 治疗点 and the follow-up note. Effects buy time but
-    mask a clue."""
-
-    label: str
-    duration_min: int
-    cost: int
-    apply: Callable[[SessionState], None]
-    followup: str
-
-
-_INTERVENTIONS: dict[str, InterventionSpec] = {
-    "FLUIDS": InterventionSpec(
-        "快速补液 500ml",
-        DURATION_MIN["FLUIDS"],
-        INTERVENTION_COSTS["FLUIDS"],
-        _apply_fluids,
-        "血压支撑暂时改善——需明确出血来源，勿被掩盖。",
-    ),
-    "TRANSFUSE": InterventionSpec(
-        "输注红细胞 2U",
-        DURATION_MIN["TRANSFUSE"],
-        INTERVENTION_COSTS["TRANSFUSE"],
-        _apply_transfuse,
-        "失血速度放缓，但仍需明确并处理出血源。",
-    ),
-    "ANALGESIA": InterventionSpec(
-        "给予镇痛",
-        DURATION_MIN["ANALGESIA"],
-        INTERVENTION_COSTS["ANALGESIA"],
-        _apply_analgesia,
-        "注意：可能掩盖腹痛这一早期线索。",
-    ),
-}
+def _drug_note(key: str, spec) -> str:
+    if key == "MORPHINE":
+        return "镇痛起效，但可致呼吸抑制与嗜睡——过量危险。"
+    if key == "FLUIDS":
+        return "扩容升压，但过量可致容量超负荷。"
+    if key == "TRANSFUSE":
+        return "输血补充红细胞，注意输血反应风险。"
+    if key == "ANTIBIOTIC":
+        return "抗感染治疗，注意过敏反应。"
+    if key == "OXYGEN":
+        return "提高血氧，但掩盖缺氧的呼吸问题。"
+    return ""
 
 
 def _do_talk(state, target, text, messages) -> bool:
@@ -489,10 +515,12 @@ def _do_talk(state, target, text, messages) -> bool:
 
     The engine consumes the time and records the player's line; the actual
     persona reply is produced at the LLM boundary (service._run_talk), so the
-    engine stays pure and deterministic.
+    engine stays pure and deterministic. An unconscious patient cannot talk —
+    a real consequence of hypoperfusion or opioid overdose.
     """
+    case = case_of(state)
     who = (target or "").lower().strip()
-    if who not in ("patient", "family"):
+    if who not in case.surface.talk_roles:
         messages.append(
             DomainMessage(
                 "SYSTEM",
@@ -511,6 +539,25 @@ def _do_talk(state, target, text, messages) -> bool:
             )
         )
         return False
+    if who == "patient":
+        conscious = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
+        if conscious < 0.3:
+            messages.append(
+                DomainMessage(
+                    "SYSTEM",
+                    state.current_time,
+                    "患者昏迷，无法应答。检查意识状态并处理病因（低灌注/缺氧/药物过量）。",
+                )
+            )
+            return False
+        if conscious < 0.6:
+            messages.append(
+                DomainMessage(
+                    "SYSTEM",
+                    state.current_time,
+                    "患者嗜睡，应答迟缓，信息可能不可靠。",
+                )
+            )
     completion = state.current_time + DURATION_MIN["TALK"]
     engine._advance(state, messages, completion)
     state.current_time = completion
@@ -620,32 +667,43 @@ def _do_report(state, _target, text, messages) -> bool:
     return True
 
 
-def _do_wait(state, _target, text, messages) -> bool:
-    until = state.current_time + engine._WAIT_HORIZON
+def _do_wait(state, target, text, messages) -> bool:
+    """等待至下一可见中断事件；带目标（lab kind）时只等到该检查返回。
+
+    Generic: any pending lab kind is a valid target, not just CBC.
+    """
+    kind = (target or "").upper().strip()
+    if kind:
+        case = case_of(state)
+        if kind not in case.resources.lab_kinds:
+            messages.append(
+                DomainMessage(
+                    "SYSTEM",
+                    state.current_time,
+                    f"未知检查：{target}。可用：{', '.join(sorted(case.resources.lab_kinds))}。",
+                )
+            )
+            return False
+        pending = engine._pending_task(state, kind)
+        if pending is None:
+            messages.append(DomainMessage("SYSTEM", state.current_time, f"没有进行中的 {kind}，无需等待。"))
+            return True
+        until = pending.due_at
+    else:
+        until = state.current_time + engine._WAIT_HORIZON
     stopping = engine._advance(state, messages, until, stop_on_interrupt=True)
     if stopping is not None:
-        messages.append(DomainMessage("SYSTEM", stopping.at_minute, "等待结束，被事件中断。"))
-    else:
-        messages.append(DomainMessage("SYSTEM", state.current_time, "等待完成，无新事件。"))
-    return True
-
-
-def _do_wait_cbc(state, _target, text, messages) -> bool:
-    pending = engine._pending_task(state, "CBC")
-    if pending is None:
-        messages.append(DomainMessage("SYSTEM", state.current_time, "没有进行中的 CBC，无需等待。"))
-        return True
-    stopping = engine._advance(state, messages, pending.due_at, stop_on_interrupt=True)
-    if stopping is not None and stopping.type != "LAB_READY":
         messages.append(
             DomainMessage(
                 "SYSTEM",
                 stopping.at_minute,
-                f"等待被 {engine._interrupt_label(stopping.type)} 打断；CBC 仍 pending。",
+                f"等待被 {engine._interrupt_label(stopping.type)} 打断" + (f"；{kind} 仍 pending。" if kind else "。"),
             )
         )
+    elif kind:
+        messages.append(DomainMessage("SYSTEM", state.current_time, f"等待结束，{kind} 已返回。"))
     else:
-        messages.append(DomainMessage("SYSTEM", state.current_time, "等待结束，CBC 已返回。"))
+        messages.append(DomainMessage("SYSTEM", state.current_time, "等待完成，无新事件。"))
     return True
 
 
@@ -663,64 +721,65 @@ def _do_history(state, _target, text, messages) -> bool:
 
 def _do_help(state, _target, text, messages) -> bool:
     topic = (_target or "").lower().strip()
-    lines = _help_topic(topic) if topic else _help_overview(state)
+    lines = _help_topic(state, topic) if topic else _help_overview(state)
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True
 
 
 def _help_overview(state) -> list[str]:
+    case = case_of(state)
     return [
         "可用命令（输入 /help <命令> 查看子命令）：",
         "",
         "  信息   /status /history /pending /help",
-        "  评估   /assess <目标>        (/help assess)",
+        f"  评估   /assess <{'|'.join(case.surface.assessments)}>   (/help assess)",
         "  检查   /order <项目> /view <项目>   (/help order)",
-        "  干预   /give fluids /transfuse /analgesia",
-        "  对话   /talk patient|family <你说的话>   (/help talk)",
-        "  处理   /monitor /report /wait /wait cbc /diag",
+        f"  给药   /give <{'|'.join(case.surface.drugs)}> [剂量]   (/help give)",
+        f"  对话   /talk <{'|'.join(case.surface.talk_roles)}> <你说的话>   (/help talk)",
+        "  处理   /monitor /report /wait [检查] /diag",
         "",
-        f"目标：{case_of(state).narrative.goal}",
+        f"目标：{case.narrative.goal}",
     ]
 
 
-def _help_topic(topic: str) -> list[str]:
+def _help_topic(state, topic: str) -> list[str]:
+    case = case_of(state)
     if topic in ("assess", "评估"):
         return [
             "评估目标（耗时）：",
-            "  /assess vitals  2min  生命体征 HR/BP/RR/SpO2/T",
-            "  /assess drain   3min  引流量",
-            "  /assess pain    1min  疼痛 VAS",
-            "  /assess urine   2min  尿量",
+            *[
+                f"  /assess {k}  {DURATION_MIN.get(f'ASSESS_{k.upper()}', '?')}min  {v}"
+                for k, v in case.surface.assessments.items()
+            ],
         ]
     if topic in ("order", "检查"):
+        labs = case.resources.lab_kinds
         return [
             "可申请检查（检查点/周转）：",
-            "  /order cbc   35检查点/15min   Hb/WBC/PLT",
-            "  /order abg   60检查点/10min   乳酸/pH",
-            "  /order coag  50检查点/20min   PT-INR",
-            "  /order us    120检查点/20min  腹部游离液",
+            *[f"  /order {k}   {s.cost}检查点/{s.turnaround}min  {s.label}" for k, s in sorted(labs.items())],
             "同项目 pending 不可重复；受检查点(400)约束；/view <项目> 查结果。",
         ]
     if topic in ("view", "查看"):
+        labs = case.resources.lab_kinds
         return [
             "查看已返回检查：",
-            "  /view cbc /view abg /view coag /view us",
+            "  " + " /view ".join(["", *sorted(labs)]),
             "结果一次性实例化，反映采样时状态。",
         ]
-    if topic in ("intervention", "干预"):
+    if topic in ("give", "给药", "intervention", "干预"):
         return [
-            "干预（耗治疗点 + 时间，均有取舍）：",
-            "  /give fluids  30治疗点/3min   补液：掩盖血压但争取时间",
-            "  /transfuse    60治疗点/5min   输血：放缓失血",
-            "  /analgesia    20治疗点/1min   镇痛：可能掩盖腹痛",
+            "给药（耗治疗点 + 时间，均有副作用）：",
+            *[
+                f"  /give {k} [{DRUGS[k].default_dose:.0f}{DRUGS[k].unit}]  {DRUGS[k].cost}治疗点/{DRUGS[k].duration_min}min  {v}"
+                for k, v in case.surface.drugs.items()
+            ],
             "  /consult      120检查点/2min  专家会诊：基于已有信息给建议与检查方向",
             "  /diag <判断>   记录你的诊断/推理",
         ]
     if topic in ("talk", "对话"):
         return [
             "与患者/家属对话（2min/次，仅基于已知观察，不泄露隐藏病程）：",
-            "  /talk patient 你现在感觉怎么样？   问患者本人",
-            "  /talk family  他夜里睡得怎么样？   问陪护家属",
+            *[f"  /talk {role}  与{role}交谈" for role in case.surface.talk_roles],
             "对话用于采集主诉/背景信息，帮助形成判断；不能替代评估与检查证据。",
         ]
     if topic in ("处理", "report", "wait"):
@@ -729,7 +788,7 @@ def _help_topic(topic: str) -> list[str]:
             "  /monitor vitals  2min  开启持续监护（达阈值报警）",
             "  /report doctor   2min  报告（需已有异常证据）",
             "  /wait            等待至下一可见中断事件",
-            "  /wait cbc        等待最近 pending CBC",
+            "  /wait <检查>     等待指定检查返回（如 /wait cbc）",
             "  /diag <判断>     记录你的诊断/推理",
         ]
     return [f"未知主题：{topic}。输入 /help 查看命令分组。"]
@@ -773,12 +832,9 @@ _HANDLERS = {
     "TALK": _do_talk,
     "MONITOR": _do_monitor,
     "CONSULT": _do_consult,
-    "FLUIDS": _do_fluids,
-    "TRANSFUSE": _do_transfuse,
-    "ANALGESIA": _do_analgesia,
+    "GIVE": _do_give,
     "REPORT": _do_report,
     "WAIT": _do_wait,
-    "WAIT_CBC": _do_wait_cbc,
     "HISTORY": _do_history,
     "HELP": _do_help,
     "PENDING": _do_pending,

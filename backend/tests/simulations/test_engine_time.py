@@ -53,7 +53,7 @@ def test_wait_cbc_interrupted_by_earlier_monitor_alert():
     e.apply_action(s, "ASSESS", "drain")  # 2->5
     e.apply_action(s, "ASSESS", "vitals")  # 5->7
     e.apply_action(s, "ORDER", "cbc")  # 7->10, ready at 25
-    ok, _ = e.apply_action(s, "WAIT_CBC", None)
+    ok, _ = e.apply_action(s, "WAIT", "cbc")
     assert ok
     assert s.current_time == 24  # monitor alert fires at severity 0.34 (minute 24)
     assert s.monitor_alert_fired
@@ -62,7 +62,7 @@ def test_wait_cbc_interrupted_by_earlier_monitor_alert():
     assert not s.records
     assert any("打断" in m.text for m in s.public_log[-5:])
     # Player handles, then can wait again to the CBC anchor.
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     assert s.current_time == 25
     assert s.pending_tasks[0].status == "READY"
     assert len(s.records) == 1
@@ -76,7 +76,7 @@ def test_same_minute_events_settle_in_stable_order():
     e.apply_action(s, "ASSESS", "drain")  # 2->5
     e.apply_action(s, "ASSESS", "vitals")  # 5->7
     e.apply_action(s, "ORDER", "cbc")  # 7->10 ready 25
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     alerts = [m for m in s.public_log if m.kind == "MONITOR"]
     assert len(alerts) == 1
     assert alerts[0].at_minute == 24

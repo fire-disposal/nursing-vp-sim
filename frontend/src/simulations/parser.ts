@@ -15,12 +15,9 @@ export type SimActionType =
 	| "CONSULT"
 	| "TALK"
 	| "DIAG"
-	| "FLUIDS"
-	| "TRANSFUSE"
-	| "ANALGESIA"
+	| "GIVE"
 	| "REPORT"
 	| "WAIT"
-	| "WAIT_CBC"
 	| "STATUS"
 	| "HISTORY"
 	| "HELP"
@@ -67,18 +64,19 @@ export function parseCommand(raw: string): ParseResult {
 		}
 		case "diag":
 			return { action: { type: "DIAG", target: rest.join(" ") } };
-		case "give":
-			if (target === "fluids") return { action: { type: "FLUIDS" } };
-			return { error: "仅支持 /give fluids（快速补液）。" };
-		case "transfuse":
-			return { action: { type: "TRANSFUSE" } };
-		case "analgesia":
-			return { action: { type: "ANALGESIA" } };
+		case "give": {
+			// /give <药物> [剂量] — dose is free text, preserved verbatim.
+			const [drug, ...doseWords] = rest;
+			if (!drug) return { error: "用法：/give <药物> [剂量]，如 /give morphine 10。" };
+			return { action: { type: "GIVE", target: drug.toUpperCase(), text: doseWords.join(" ") || undefined } };
+		}
 		case "report":
 			return { action: { type: "REPORT", target: "doctor" } };
-		case "wait":
-			if (target === "cbc") return { action: { type: "WAIT_CBC" } };
-			return { action: { type: "WAIT" } };
+		case "wait": {
+			// /wait [检查] — optional lab target, generic for any pending lab.
+			const [lab] = rest;
+			return { action: { type: "WAIT", target: lab ? lab.toUpperCase() : undefined } };
+		}
 		case "history":
 			return { action: { type: "HISTORY" } };
 		case "help":

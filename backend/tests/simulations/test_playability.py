@@ -7,7 +7,7 @@ from modules.simulations.engine import SUCCESS, new_session
 def test_vitals_trend_shown_on_reassessment():
     s = new_session()
     e.apply_action(s, "ASSESS", "vitals")  # 0->2, HR 84
-    e.apply_action(s, "ASSESS", "drain")   # 2->5
+    e.apply_action(s, "ASSESS", "drain")  # 2->5
     e.apply_action(s, "ASSESS", "vitals")  # 5->7, tick at 6 -> HR 87
     trend = [m for m in s.public_log if m.kind == "ASSESSMENT" and "较上次" in m.text]
     assert trend, "second vitals assessment must compare with the previous one"
@@ -27,10 +27,10 @@ def test_drain_trend_shown_on_reassessment():
 def test_cbc_delta_shown_on_second_view():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     second_view = [m for m in s.public_log if m.kind == "LAB" and "较上次" in m.text]
     assert second_view
@@ -65,13 +65,13 @@ def test_early_success_not_flagged_delayed():
 
 def test_audit_summary_reports_cbc_interval_and_hb_delta():
     s = new_session()
-    e.apply_action(s, "ORDER", "cbc")       # sampled 3
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "ORDER", "cbc")  # sampled 3
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
-    e.apply_action(s, "ORDER", "cbc")       # sampled 21
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "ORDER", "cbc")  # sampled 21
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
-    e.apply_action(s, "REPORT", "doctor")   # valid evidence: abnormal Hb
+    e.apply_action(s, "REPORT", "doctor")  # valid evidence: abnormal Hb
     audit = [m for m in s.public_log if m.kind == "AUDIT"]
     assert audit
     text = audit[-1].text

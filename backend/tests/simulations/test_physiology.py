@@ -42,7 +42,7 @@ def test_progression_writes_axis_value_and_advances_compartments():
 def test_lab_materializes_from_values_snapshot():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # sampled at minute 3, bleeding 0.12
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     assert s.records[0].result["hb"] == 123.4  # reflects sampled values, not return time
 
@@ -113,9 +113,9 @@ def test_transfusion_raises_hb_compartment_and_survives_snapshot():
     # Engine-level: transfusion raises hb immediately, and the monotonic
     # clamp (no rise while bleeding) is skipped when transfused.
     s = new_session()
-    e.apply_action(s, "TRANSFUSE", None)  # hb 123.4 -> 148.4
+    e.apply_action(s, "GIVE", "TRANSFUSE")  # hb 123.4 -> 148.4
     e.apply_action(s, "ORDER", "cbc")  # sampled @8, sev 0.18, transfused boost held
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     hb = s.records[0].result["hb"]
     assert hb == round(145 - 180 * 0.162 + 25.0, 1)  # sev@6 = 0.12+0.06*0.7 (slowed), no clamp

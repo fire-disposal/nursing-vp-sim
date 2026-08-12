@@ -62,8 +62,8 @@ def test_fluids_and_transfusion_delay_deterioration():
         return s.current_time
 
     base = deteriorate_minute(("ASSESS", "vitals"))
-    fluids = deteriorate_minute(("FLUIDS", None))
-    transfuse = deteriorate_minute(("TRANSFUSE", None))
+    fluids = deteriorate_minute(("GIVE", "FLUIDS"))
+    transfuse = deteriorate_minute(("GIVE", "TRANSFUSE"))
     assert fluids > base
     assert transfuse > base
 

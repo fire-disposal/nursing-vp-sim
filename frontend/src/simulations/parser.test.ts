@@ -15,14 +15,14 @@ describe("parseCommand", () => {
 		expect(parseCommand("/view cbc")).toEqual({ action: { type: "VIEW", target: "cbc" } });
 		expect(parseCommand("/view abg")).toEqual({ action: { type: "VIEW", target: "abg" } });
 		expect(parseCommand("/monitor vitals")).toEqual({ action: { type: "MONITOR", target: "vitals" } });
-		expect(parseCommand("/give fluids")).toEqual({ action: { type: "FLUIDS" } });
+		expect(parseCommand("/give fluids")).toEqual({ action: { type: "GIVE", target: "FLUIDS" } });
+		expect(parseCommand("/give morphine 10")).toEqual({ action: { type: "GIVE", target: "MORPHINE", text: "10" } });
 		expect(parseCommand("/consult")).toEqual({ action: { type: "CONSULT" } });
-		expect(parseCommand("/transfuse")).toEqual({ action: { type: "TRANSFUSE" } });
-		expect(parseCommand("/analgesia")).toEqual({ action: { type: "ANALGESIA" } });
 		expect(parseCommand("/report doctor")).toEqual({ action: { type: "REPORT", target: "doctor" } });
 		expect(parseCommand("/diag 疑诊隐匿性出血")).toEqual({ action: { type: "DIAG", target: "疑诊隐匿性出血" } });
 		expect(parseCommand("/wait")).toEqual({ action: { type: "WAIT" } });
-		expect(parseCommand("/wait cbc")).toEqual({ action: { type: "WAIT_CBC" } });
+		expect(parseCommand("/wait cbc")).toEqual({ action: { type: "WAIT", target: "CBC" } });
+		expect(parseCommand("/wait abg")).toEqual({ action: { type: "WAIT", target: "ABG" } });
 		expect(parseCommand("/history")).toEqual({ action: { type: "HISTORY" } });
 		expect(parseCommand("/help")).toEqual({ action: { type: "HELP" } });
 		expect(parseCommand("/help order")).toEqual({ action: { type: "HELP", target: "order" } });
@@ -49,8 +49,8 @@ describe("parseCommand", () => {
 
 	it("is case-insensitive and tolerant of whitespace", () => {
 		expect(parseCommand("  /Assess  VITALS ")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
-		expect(parseCommand("/WAIT   CBC")).toEqual({ action: { type: "WAIT_CBC" } });
-		expect(parseCommand("/GIVE FLUIDS")).toEqual({ action: { type: "FLUIDS" } });
+		expect(parseCommand("/WAIT   CBC")).toEqual({ action: { type: "WAIT", target: "CBC" } });
+		expect(parseCommand("/GIVE FLUIDS")).toEqual({ action: { type: "GIVE", target: "FLUIDS" } });
 	});
 
 	it("rejects commands without a slash", () => {
@@ -58,8 +58,8 @@ describe("parseCommand", () => {
 		expect("error" in r).toBe(true);
 	});
 
-	it("rejects unknown commands and unsupported give targets", () => {
+	it("rejects unknown commands and give without a drug", () => {
 		expect("error" in parseCommand("/xyz")).toBe(true);
-		expect("error" in parseCommand("/give plasma")).toBe(true);
+		expect("error" in parseCommand("/give")).toBe(true);
 	});
 });

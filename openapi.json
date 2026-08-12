@@ -10333,6 +10333,55 @@
         "type": "object",
         "title": "ClassUpdate"
       },
+      "CommandSurfaceOut": {
+        "properties": {
+          "assessments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Assessments",
+            "default": {}
+          },
+          "drugs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Drugs",
+            "default": {}
+          },
+          "labs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Labs",
+            "default": {}
+          },
+          "talk_roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Talk Roles",
+            "default": []
+          },
+          "wait_labs": {
+            "type": "boolean",
+            "title": "Wait Labs",
+            "default": true
+          },
+          "monitor": {
+            "type": "boolean",
+            "title": "Monitor",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "CommandSurfaceOut",
+        "description": "The case-declared command surface — what the player may do here.\n\nThe frontend builds its command palette from this, so a new specialty\ncase's commands are rendered automatically without frontend edits."
+      },
       "CostBreakdown": {
         "properties": {
           "calls": {
@@ -14082,6 +14131,9 @@
           "case_meta": {
             "$ref": "#/components/schemas/CaseMeta"
           },
+          "surface": {
+            "$ref": "#/components/schemas/CommandSurfaceOut"
+          },
           "current_time": {
             "type": "integer",
             "title": "Current Time"
@@ -14202,6 +14254,7 @@
           "revision",
           "case_status",
           "case_meta",
+          "surface",
           "current_time",
           "clock",
           "monitoring",

@@ -33,11 +33,20 @@ TalkProvider = Callable[[str, str, str], str]  # (role, known_summary, player_li
 def build_snapshot(session_id: int, state: SessionState) -> dict:
     pending = [t for t in state.pending_tasks if t.status == "PROCESSING"]
     revealed = [r for r in state.records if r.revealed]
+    case = CASES[state.case_id]
     return {
         "session_id": session_id,
         "revision": state.revision,
         "case_status": state.case_status,
-        "case_meta": {"id": state.case_id, "name": CASES[state.case_id].name, "version": state.case_id},
+        "case_meta": {"id": state.case_id, "name": case.name, "version": state.case_id},
+        "surface": {
+            "assessments": dict(case.surface.assessments),
+            "drugs": dict(case.surface.drugs),
+            "labs": {k: s.label for k, s in case.resources.lab_kinds.items()},
+            "talk_roles": list(case.surface.talk_roles),
+            "wait_labs": case.surface.wait_labs,
+            "monitor": case.surface.monitor,
+        },
         "current_time": state.current_time,
         "clock": clock_text(state.current_time),
         "monitoring": state.hidden.monitoring_enabled,

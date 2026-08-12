@@ -5,11 +5,16 @@ router -> service -> engine -> serialization -> schema contract without a
 database, matching the project's pure/mocked testing philosophy.
 """
 
+from typing import TYPE_CHECKING, cast
+
 from fastapi.testclient import TestClient
 
 from core.database import get_db
 from core.security import get_current_user
 from main import app
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 class _FakeUser:
@@ -51,9 +56,10 @@ def _override_user():
     return _FakeUser()
 
 
-_client = TestClient(app)
-_client.app.dependency_overrides[get_db] = _override_db
-_client.app.dependency_overrides[get_current_user] = _override_user
+_client: TestClient = TestClient(app)
+_client_app = cast("FastAPI", _client.app)
+_client_app.dependency_overrides[get_db] = _override_db
+_client_app.dependency_overrides[get_current_user] = _override_user
 
 
 def _create():
@@ -99,7 +105,7 @@ def test_unrevealed_cbc_not_exposed_by_api():
     created = _create()
     sid = created["session_id"]
     _act(sid, "ORDER", "cbc")
-    _act(sid, "WAIT_CBC", None)
+    _act(sid, "WAIT", "cbc")
     snap = _act(sid, "STATUS", None)["snapshot"]
     assert snap["unrevealed_lab_count"] == 1
     assert snap["lab_records"] == []
@@ -177,7 +183,7 @@ def test_create_session_with_case_and_case_command():
 
 def test_consult_via_api_returns_advice():
     llm = _FakeLLM()
-    _client.app.state.llm_client = llm
+    _client_app.state.llm_client = llm
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True
@@ -187,7 +193,7 @@ def test_consult_via_api_returns_advice():
 
 
 def test_consult_refunds_when_llm_fails():
-    _client.app.state.llm_client = _BoomLLM()
+    _client_app.state.llm_client = _BoomLLM()
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True
@@ -196,7 +202,7 @@ def test_consult_refunds_when_llm_fails():
 
 
 def test_consult_refunds_when_llm_unavailable():
-    _client.app.state.llm_client = None
+    _client_app.state.llm_client = None
     created = _create()
     r = _act(created["session_id"], "CONSULT", None)
     assert r["accepted"] is True

@@ -11,7 +11,7 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
-from .case import LAB_KINDS, case_of, clock_text, get_case, materialize_lab
+from .case import LAB_KINDS, active_meds, case_of, clock_text, get_case, materialize_lab
 from .state import (
     ActionRecord,
     ClinicalRecord,
@@ -32,7 +32,14 @@ FAILURE = "FAILURE"
 
 # Event types that hand control back to the player when they interrupt a wait.
 _INTERRUPT_TYPES = frozenset(
-    {"LAB_READY", "MONITOR_ALERT", "SPONTANEOUS_DETERIORATION", "CASE_SUCCESS", "CASE_FAILURE"}
+    {
+        "LAB_READY",
+        "MONITOR_ALERT",
+        "SPONTANEOUS_DETERIORATION",
+        "DRUG_ADVERSE",
+        "CASE_SUCCESS",
+        "CASE_FAILURE",
+    }
 )
 
 # Non-clinical commands allowed after the case has ended.
@@ -72,7 +79,7 @@ def _seed_handover(state: SessionState) -> None:
     case = case_of(state)
     v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
     drain = case.physiology.drain(state.hidden.values)
-    pain = case.physiology.pain(state.hidden.values)
+    pain = case.physiology.pain(state.hidden.values, state.hidden.physio)
     urine = case.physiology.urine(state.hidden.values, state.hidden.physio)
     state.vitals.append(
         VitalsReading(
@@ -143,6 +150,8 @@ def _handle_event(state: SessionState, ev: ScheduledEvent, messages: list[Domain
 
 
 def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    from .case import DRUGS
+
     case = case_of(state)
     if state.case_status != ACTIVE or state.hidden.reported_to_doctor:
         return  # bleeding controlled — no further progression, no reschedule
@@ -150,8 +159,12 @@ def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: lis
     if state.fluid_support > 0:
         mult *= case.course.fluid_progression_mult
         state.fluid_support -= 1  # bolus support is transient
-    if state.transfused:
-        mult *= case.course.transfuse_progression_mult  # transfusion slows but does not stop the bleed
+    # Active drugs with a progression multiplier slow the axis (antibiotics
+    # suppress infection, transfusion slows bleeding) while plasma is present.
+    for key, med in active_meds(state.hidden.physio).items():
+        spec = DRUGS.get(key)
+        if spec is not None and spec.progression_mult < 1.0 and med["plasma"] > 0.05:
+            mult *= spec.progression_mult
     values = state.hidden.values
     sev = values[case.course.axis] + case.course.step * mult
     values[case.course.axis] = sev
@@ -213,11 +226,37 @@ def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[Do
     messages.append(DomainMessage("CRITICAL", ev.at_minute, case.narrative.deterioration(v)))
 
 
+def _on_drug_adverse(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    """Drug toxicity surfaced: respiratory failure / transfusion reaction.
+
+    The adverse event is a CRITICAL interrupt: the patient's physiology is
+    deteriorating because of what the PLAYER administered. The vitals show
+    it (RR/SpO2 depressed by the opioid, etc.) — a real consequence of
+    spamming medication, not a scripted beat.
+    """
+    from .case import DRUGS
+
+    drug = ev.payload.get("drug", "")
+    spec = DRUGS.get(drug)
+    label = spec.label if spec is not None else drug
+    toxicity = spec.toxicity_label if spec is not None else "药物不良反应"
+    v = case_of(state).physiology.vitals(state.hidden.values, state.hidden.physio)
+    messages.append(
+        DomainMessage(
+            "CRITICAL",
+            ev.at_minute,
+            f"{label}累计剂量过高——{toxicity}。当前 RR {v['rr']}，SpO2 {v['spo2']}%，"
+            f"意识 {case_of(state).physiology.consciousness(state.hidden.values, state.hidden.physio):.2f}。需立即处理。",
+        )
+    )
+
+
 _EVENT_HANDLERS = {
     "BLEEDING_PROGRESS": _on_bleeding_progress,
     "LAB_READY": _on_lab_ready,
     "MONITOR_ALERT": _on_monitor_alert,
     "SPONTANEOUS_DETERIORATION": _on_deterioration,
+    "DRUG_ADVERSE": _on_drug_adverse,
     "CASE_SUCCESS": lambda state, ev, messages: _end_case(state, SUCCESS, ev.at_minute, messages),
     "CASE_FAILURE": lambda state, ev, messages: _end_case(state, FAILURE, ev.at_minute, messages),
 }
@@ -328,7 +367,7 @@ def _has_abnormal_evidence(state: SessionState) -> bool:
         return True
     if any(r.abnormal for r in state.urine):
         return True
-    if state.monitor_alert_fired or state.deteriorated:
+    if state.monitor_alert_fired or state.deteriorated or state.drug_overdose:
         return True
     if any(r.revealed and r.result.get("abnormal") for r in state.records):
         return True
@@ -340,6 +379,7 @@ def _interrupt_label(etype: str) -> str:
         "LAB_READY": "检查返回",
         "MONITOR_ALERT": "监护报警",
         "SPONTANEOUS_DETERIORATION": "病情恶化",
+        "DRUG_ADVERSE": "药物不良反应",
         "CASE_SUCCESS": "结局",
         "CASE_FAILURE": "结局",
     }.get(etype, etype)
@@ -380,17 +420,16 @@ def build_consult_summary(state: SessionState) -> str:
     ]
     if alerts:
         lines.append("、".join(alerts) + "。")
-    interventions = [
-        label
-        for flag, label in (
-            (state.fluids_given, "已快速补液"),
-            (state.transfused, "已输血"),
-            (state.analgesia, "已镇痛"),
-        )
-        if flag
-    ]
-    if interventions:
-        lines.append("干预：" + "、".join(interventions))
+    from .case import DRUGS
+
+    given = [DRUGS[k].label for k in active_meds(state.hidden.physio) if k in DRUGS]
+    if given:
+        lines.append("已给药：" + "、".join(given))
+    conscious = case_of(state).physiology.consciousness(state.hidden.values, state.hidden.physio)
+    if conscious < 0.6:
+        lines.append(f"患者意识状态：{'嗜睡' if conscious >= 0.3 else '昏迷'}")
+    if state.drug_overdose:
+        lines.append("已发生药物不良反应。")
     if state.diagnosis:
         lines.append(f"护士判断：{state.diagnosis}")
     pending = _all_pending(state)

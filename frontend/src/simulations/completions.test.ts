@@ -9,7 +9,7 @@ describe("computeCompletionGroups", () => {
 
 	it("groups all commands by backend help group for a bare slash", () => {
 		const groups = computeCompletionGroups("/");
-		expect(groups.map((g) => g.name)).toEqual(["信息", "评估", "检查", "干预", "对话", "处理"]);
+		expect(groups.map((g) => g.name)).toEqual(["信息", "评估", "检查", "给药", "对话", "处理"]);
 		const info = groups[0];
 		expect(info.items.map((c) => c.label)).toContain("/status");
 		expect(info.items.map((c) => c.label)).toContain("/help");
@@ -38,7 +38,7 @@ describe("computeCompletionGroups", () => {
 	it("prefix-matches sub-targets", () => {
 		expect(computeCompletionGroups("/assess v")[0].items.map((c) => c.label)).toEqual(["/assess vitals"]);
 		expect(computeCompletionGroups("/order c")[0].items.map((c) => c.label)).toEqual(["/order cbc", "/order coag"]);
-		expect(computeCompletionGroups("/give f")[0].items.map((c) => c.label)).toEqual(["/give fluids"]);
+		expect(computeCompletionGroups("/give F")[0].items.map((c) => c.label)).toEqual(["/give FLUIDS"]);
 	});
 
 	it("hides a fully-typed parameter (nothing left to complete)", () => {
@@ -54,7 +54,7 @@ describe("computeCompletionGroups", () => {
 
 	it("hides the panel when a plain command is exactly typed", () => {
 		expect(computeCompletionGroups("/status")).toEqual([]);
-		expect(computeCompletionGroups("/transfuse")).toEqual([]);
+		expect(computeCompletionGroups("/diag")).toEqual([]);
 	});
 
 	it("provides Chinese explanations", () => {

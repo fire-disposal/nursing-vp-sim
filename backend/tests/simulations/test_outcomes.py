@@ -38,7 +38,7 @@ def test_report_requires_revealed_evidence():
     # A CBC that returns normal is not enough on its own.
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     assert s.records[0].result["abnormal"] is False
     ok, _ = e.apply_action(s, "REPORT", "doctor")

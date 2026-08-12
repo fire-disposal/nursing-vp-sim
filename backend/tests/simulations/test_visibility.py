@@ -35,7 +35,7 @@ def test_no_monitor_alert_without_monitoring():
 def test_cbc_value_hidden_until_view():
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # 0->3 ready 18
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     # Result materialized but not revealed.
     assert len(s.records) == 1
     assert s.records[0].revealed is False
@@ -57,7 +57,7 @@ def test_snapshot_excludes_hidden_state_and_unrevealed_cbc():
 
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # hidden severity 0.12, cost 35
-    e.apply_action(s, "WAIT_CBC", None)  # CBC materialized but not revealed
+    e.apply_action(s, "WAIT", "cbc")  # CBC materialized but not revealed
     snap = build_snapshot(1, s)
     # No hidden severity anywhere in the public snapshot.
     assert "hidden" not in snap
@@ -75,7 +75,7 @@ def test_state_roundtrip_preserves_determinism():
     s = new_session()
     e.apply_action(s, "MONITOR", "vitals")
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     raw = state_to_dict(s)
     restored = state_from_dict(raw)
     assert restored.hidden.values == s.hidden.values

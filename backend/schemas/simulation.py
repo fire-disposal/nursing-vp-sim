@@ -63,6 +63,21 @@ class UrineReadingOut(BaseModel):
     abnormal: bool
 
 
+class CommandSurfaceOut(BaseModel):
+    """The case-declared command surface — what the player may do here.
+
+    The frontend builds its command palette from this, so a new specialty
+    case's commands are rendered automatically without frontend edits.
+    """
+
+    assessments: dict[str, str] = {}
+    drugs: dict[str, str] = {}
+    labs: dict[str, str] = {}
+    talk_roles: list[str] = []
+    wait_labs: bool = True
+    monitor: bool = True
+
+
 class PendingLabSummary(BaseModel):
     id: str
     kind: str
@@ -88,6 +103,7 @@ class SimulationSnapshot(BaseModel):
     revision: int
     case_status: str
     case_meta: CaseMeta
+    surface: CommandSurfaceOut
     current_time: int
     clock: str
     monitoring: bool

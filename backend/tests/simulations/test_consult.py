@@ -1,5 +1,7 @@
 """Expert consultation: budget/time, known-info summary, provider wiring."""
 
+from typing import TYPE_CHECKING, cast
+
 from modules.simulations import engine as e
 from modules.simulations.case import CONSULT_COST
 from modules.simulations.engine import build_consult_summary, new_session
@@ -18,11 +20,11 @@ def test_consult_deducts_budget_and_time():
 
 def test_consult_rejected_when_insufficient_budget():
     s = new_session()
-    e.apply_action(s, "ORDER", "us")    # 120
+    e.apply_action(s, "ORDER", "us")  # 120
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "ORDER", "us")    # +120 -> 240
+    e.apply_action(s, "ORDER", "us")  # +120 -> 240
     e.apply_action(s, "WAIT", None)
-    e.apply_action(s, "ORDER", "abg")   # +60 -> 300; consult needs 120 > 100 remaining
+    e.apply_action(s, "ORDER", "abg")  # +60 -> 300; consult needs 120 > 100 remaining
     ok, msgs = e.apply_action(s, "CONSULT", None)
     assert not ok
     assert any("检查点不足" in m.text for m in msgs)
@@ -34,7 +36,7 @@ def test_consult_summary_only_contains_known_info():
     s = new_session()
     e.apply_action(s, "ASSESS", "vitals")
     e.apply_action(s, "ORDER", "cbc")
-    e.apply_action(s, "WAIT_CBC", None)
+    e.apply_action(s, "WAIT", "cbc")
     e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "DIAG", "疑诊术后出血")
     summary = build_consult_summary(s)
@@ -46,10 +48,16 @@ def test_consult_summary_only_contains_known_info():
     assert "sampled_severity" not in summary
 
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from models.simulation import SimulationSession
+
+
 def _act_through_service(s, provider):
     session = _FakeSessionRow(s)
-    service = SimulationService(_FakeDb())
-    messages, accepted = service.act(session, "CONSULT", None, consult_provider=provider)
+    service = SimulationService(cast("Session", _FakeDb()))
+    messages, accepted = service.act(cast("SimulationSession", session), "CONSULT", None, consult_provider=provider)
     updated = state_from_dict(session.state)
     return messages, accepted, updated
 

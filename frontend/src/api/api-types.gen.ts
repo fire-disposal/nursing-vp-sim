@@ -3066,6 +3066,51 @@ export interface components {
             /** Grade Id */
             grade_id?: number | null;
         };
+        /**
+         * CommandSurfaceOut
+         * @description The case-declared command surface — what the player may do here.
+         *
+         *     The frontend builds its command palette from this, so a new specialty
+         *     case's commands are rendered automatically without frontend edits.
+         */
+        CommandSurfaceOut: {
+            /**
+             * Assessments
+             * @default {}
+             */
+            assessments: {
+                [key: string]: string;
+            };
+            /**
+             * Drugs
+             * @default {}
+             */
+            drugs: {
+                [key: string]: string;
+            };
+            /**
+             * Labs
+             * @default {}
+             */
+            labs: {
+                [key: string]: string;
+            };
+            /**
+             * Talk Roles
+             * @default []
+             */
+            talk_roles: string[];
+            /**
+             * Wait Labs
+             * @default true
+             */
+            wait_labs: boolean;
+            /**
+             * Monitor
+             * @default true
+             */
+            monitor: boolean;
+        };
         /** CostBreakdown */
         CostBreakdown: {
             /** Calls */
@@ -4548,6 +4593,7 @@ export interface components {
             /** Case Status */
             case_status: string;
             case_meta: components["schemas"]["CaseMeta"];
+            surface: components["schemas"]["CommandSurfaceOut"];
             /** Current Time */
             current_time: number;
             /** Clock */
