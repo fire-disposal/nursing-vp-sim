@@ -14190,6 +14190,18 @@
             "title": "Urine",
             "default": []
           },
+          "readings": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Readings",
+            "default": {}
+          },
           "pending": {
             "items": {
               "$ref": "#/components/schemas/PendingLabSummary"

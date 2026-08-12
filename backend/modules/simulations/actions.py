@@ -15,7 +15,6 @@ from .case import (
     DIAG_BUDGET_START,
     DRUGS,
     DURATION_MIN,
-    LAB_KINDS,
     TREAT_BUDGET_START,
     active_meds,
     case_of,
@@ -23,10 +22,19 @@ from .case import (
     clock_text,
     lab_options_text,
 )
+
+
+def _clock(state, minute: int) -> str:
+    """模拟分钟 → 本病例起始时钟上的墙钟（分片化时间）。"""
+    return clock_text(minute, case_of(state).start_clock)
+
+
 from .state import (
+    BreathReading,
     ClinicalRecord,
     DomainMessage,
     DrainReading,
+    GlucoseReading,
     PainReading,
     PendingTask,
     Reading,
@@ -34,6 +42,13 @@ from .state import (
     UrineReading,
     VitalsReading,
 )
+
+
+def _status_brief(r) -> str:
+    """One-line value summary for any reading type (compact, factual)."""
+    d = r.__dict__ if hasattr(r, "__dict__") else dict(r)
+    pairs = [f"{k}={v}" for k, v in d.items() if k not in ("minute", "abnormal")]
+    return " ".join(pairs) if pairs else "已评估"
 
 
 def _do_status(state, _target, text, messages) -> bool:
@@ -60,19 +75,15 @@ def _do_status(state, _target, text, messages) -> bool:
     active = [f"{DRUGS[k].label} {m['plasma']:.1f}" for k, m in meds.items() if k in DRUGS and m["plasma"] > 0.05]
     if active:
         lines.append("体内药物：" + "、".join(active))
-    if state.vitals:
-        v = state.vitals[-1]
-        lines.append(f"最近生命体征：HR {v.hr} bpm，BP {v.sbp}/{v.dbp} mmHg，RR {v.rr}，SpO2 {v.spo2}%")
-    if state.drain:
-        lines.append(f"最近引流：{state.drain[-1].output_ml} ml")
-    if state.pain:
-        lines.append(f"最近疼痛：VAS {state.pain[-1].score}/10")
-    if state.urine:
-        lines.append(f"最近尿量（近4h）：{state.urine[-1].output_ml} ml")
+    for target in case.surface.assessments:
+        readings = state.readings.get(target)
+        if readings:
+            r = readings[-1]
+            lines.append(f"最近{case.surface.assessments[target]}：{_status_brief(r)}")
     pending = engine._all_pending(state)
     if pending:
         labs = case.resources.lab_kinds
-        summary = "、".join(f"{labs[t.kind].label}(#{t.id})→{clock_text(t.due_at)}" for t in pending)
+        summary = "、".join(f"{labs[t.kind].label}(#{t.id})→{_clock(state, t.due_at)}" for t in pending)
         lines.append(f"进行中检查：{summary}")
     else:
         lines.append("检查：无进行中的申请")
@@ -89,7 +100,7 @@ def _do_assess(state, target, text, messages) -> bool:
         )
         return False
     spec = _ASSESS_SPECS[target]
-    return _run_assess(state, spec, getattr(state, target), messages)
+    return _run_assess(state, spec, _assess_history(state, target), messages)
 
 
 def _run_assess(state, spec, history, messages) -> bool:
@@ -104,6 +115,13 @@ def _run_assess(state, spec, history, messages) -> bool:
     text = spec.describe(state, reading) + spec.trend(reading, prev)
     messages.append(DomainMessage("ASSESSMENT", completion, text))
     return True
+
+
+def _assess_history(state, target: str) -> list:
+    """The reading list for an assessment target — from the generic container."""
+    if target not in state.readings:
+        state.readings[target] = []
+    return state.readings[target]
 
 
 # ── Observation builders / describers / trenders (one set per target) ──
@@ -204,11 +222,56 @@ class AssessSpec:
     trend: Callable[[Reading, Reading | None], str]
 
 
+def _build_glucose(state) -> GlucoseReading:
+    case = case_of(state)
+    mmol = case.physiology.glucose(state.hidden.values, state.hidden.physio)
+    return GlucoseReading(minute=state.current_time, abnormal=case.physiology.glucose_abnormal(mmol), mmol=mmol)
+
+
+def _describe_glucose(state, r) -> str:
+    note = "超出正常范围" if r.abnormal else "在正常范围"
+    return f"指尖血糖：{r.mmol} mmol/L。{note}。"
+
+
+def _trend_glucose(r, prev) -> str:
+    if prev is None or r.mmol == prev.mmol:
+        return ""
+    arrow = "↑" if r.mmol > prev.mmol else "↓"
+    return f" 较上次 {prev.mmol}→{r.mmol} mmol/L（{arrow}{abs(round(r.mmol - prev.mmol, 1))}）。"
+
+
+def _build_breath(state) -> BreathReading:
+    case = case_of(state)
+    sound = case.physiology.breath(state.hidden.values, state.hidden.physio)
+    return BreathReading(minute=state.current_time, abnormal=case.physiology.breath_abnormal(sound), sound=sound)
+
+
+_SOUND_TEXT = {
+    "clear": "双肺呼吸音清晰",
+    "crackles": "双肺底可闻湿啰音",
+    "wheeze": "双肺可闻哮鸣音",
+    "diminished": "呼吸音减低",
+}
+
+
+def _describe_breath(state, r) -> str:
+    text = f"肺部听诊：{_SOUND_TEXT.get(r.sound, r.sound)}。"
+    return text + ("（异常）" if r.abnormal else "（正常）")
+
+
+def _trend_breath(r, prev) -> str:
+    if prev is None or r.sound == prev.sound:
+        return ""
+    return f" 较上次 {_SOUND_TEXT.get(prev.sound, prev.sound)}→{_SOUND_TEXT.get(r.sound, r.sound)}。"
+
+
 _ASSESS_SPECS: dict[str, AssessSpec] = {
     "vitals": AssessSpec("生命体征", DURATION_MIN["ASSESS_VITALS"], _build_vitals, _describe_vitals, _trend_vitals),
     "drain": AssessSpec("引流", DURATION_MIN["ASSESS_DRAIN"], _build_drain, _describe_drain, _trend_ml),
     "pain": AssessSpec("疼痛", DURATION_MIN["ASSESS_PAIN"], _build_pain, _describe_pain, _trend_pain),
     "urine": AssessSpec("尿量", DURATION_MIN["ASSESS_URINE"], _build_urine, _describe_urine, _trend_ml),
+    "glucose": AssessSpec("血糖", DURATION_MIN["ASSESS_GLUCOSE"], _build_glucose, _describe_glucose, _trend_glucose),
+    "breath": AssessSpec("肺部听诊", DURATION_MIN["ASSESS_BREATH"], _build_breath, _describe_breath, _trend_breath),
 }
 
 
@@ -232,7 +295,7 @@ def _do_order_lab(state, target, text, messages) -> bool:
             DomainMessage(
                 "LAB",
                 state.current_time,
-                f"已有进行中的{labs[kind].label}（order #{pending.id}），预计 {clock_text(pending.due_at)} 返回，拒绝重复申请。",
+                f"已有进行中的{labs[kind].label}（order #{pending.id}），预计 {_clock(state, pending.due_at)} 返回，拒绝重复申请。",
             )
         )
         return False
@@ -270,12 +333,12 @@ def _do_order_lab(state, target, text, messages) -> bool:
     if kind == "CBC":
         state.cbc_count += 1
     state.diag_spent += cost
-    label = LAB_KINDS[kind].label
+    label = labs[kind].label
     messages.append(
         DomainMessage(
             "LAB",
             completion,
-            f"已申请{label}（order #{task_id}），采血/检查完成于 {clock_text(completion)}，预计 {clock_text(due_at)} 返回。"
+            f"已申请{label}（order #{task_id}），采血/检查完成于 {_clock(state, completion)}，预计 {_clock(state, due_at)} 返回。"
             f"扣 {cost} 检查点，剩余检查点 {DIAG_BUDGET_START - state.diag_spent}。",
         )
     )
@@ -313,7 +376,7 @@ def _fmt_cbc(state, rec: ClinicalRecord) -> str:
     r = rec.result
     flag = "异常" if r["abnormal"] else "正常"
     text = (
-        f"CBC（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}，返回 {clock_text(rec.ready_at)}）："
+        f"CBC（order #{rec.order_id}，采血 {_clock(state, rec.sampled_at)}，返回 {_clock(state, rec.ready_at)}）："
         f"Hb {r['hb']} g/L（{flag}），WBC {r['wbc']} ×10⁹/L，PLT {r['platelet']} ×10⁹/L。"
     )
     prev = _earlier_record(state, rec)
@@ -328,7 +391,7 @@ def _fmt_abg(state, rec: ClinicalRecord) -> str:
     r = rec.result
     flag = "异常" if r["abnormal"] else "正常"
     text = (
-        f"动脉血气（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）："
+        f"动脉血气（order #{rec.order_id}，采血 {_clock(state, rec.sampled_at)}）："
         f"pH {r['ph']}，乳酸 {r['lactate']} mmol/L（{flag}）。"
     )
     prev = _earlier_record(state, rec)
@@ -342,7 +405,7 @@ def _fmt_abg(state, rec: ClinicalRecord) -> str:
 def _fmt_coag(state, rec: ClinicalRecord) -> str:
     r = rec.result
     flag = "异常" if r["abnormal"] else "正常"
-    return f"凝血功能（order #{rec.order_id}，采血 {clock_text(rec.sampled_at)}）：PT-INR {r['inr']}（{flag}）。"
+    return f"凝血功能（order #{rec.order_id}，采血 {_clock(state, rec.sampled_at)}）：PT-INR {r['inr']}（{flag}）。"
 
 
 def _fmt_us(state, rec: ClinicalRecord) -> str:
@@ -363,7 +426,7 @@ _LAB_FORMATTERS = {
 def _lab_result_text(state, rec: ClinicalRecord) -> str:
     formatter = _LAB_FORMATTERS.get(rec.kind)
     if formatter is None:
-        return f"{LAB_KINDS[rec.kind].label}（order #{rec.order_id}）：{rec.result}"
+        return f"{case_of(state).resources.lab_kinds[rec.kind].label}（order #{rec.order_id}）：{rec.result}"
     return formatter(state, rec)
 
 
@@ -712,7 +775,7 @@ def _do_history(state, _target, text, messages) -> bool:
     lines = ["历史动作："]
     for a in state.action_log:
         target = f" {a.action_target}" if a.action_target else ""
-        lines.append(f"{clock_text(a.started_at)}→{clock_text(a.completed_at)} /{a.action_type.lower()}{target}")
+        lines.append(f"{_clock(state, a.started_at)}→{_clock(state, a.completed_at)} /{a.action_type.lower()}{target}")
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True
 
@@ -814,8 +877,9 @@ def _do_pending(state, _target, text, messages) -> bool:
         return True
     lines = ["进行中检查："]
     for t in pending:
+        labs = case_of(state).resources.lab_kinds
         lines.append(
-            f"{LAB_KINDS[t.kind].label}（order #{t.id}）：采血/检查 {clock_text(t.sampled_at)}，预计 {clock_text(t.due_at)} 返回。费用 ¥{t.cost_yuan}。"
+            f"{labs[t.kind].label}（order #{t.id}）：采血/检查 {_clock(state, t.sampled_at)}，预计 {_clock(state, t.due_at)} 返回。费用 ¥{t.cost_yuan}。"
         )
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
     return True

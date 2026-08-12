@@ -4628,6 +4628,15 @@ export interface components {
              */
             urine: components["schemas"]["UrineReadingOut"][];
             /**
+             * Readings
+             * @default {}
+             */
+            readings: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+            /**
              * Pending
              * @default []
              */

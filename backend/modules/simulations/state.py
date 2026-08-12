@@ -6,6 +6,7 @@ the engine operates on (and serializes to/from for persistence).
 """
 
 from dataclasses import asdict, dataclass, field
+from typing import cast
 
 
 @dataclass
@@ -56,6 +57,20 @@ class PainReading(Reading):
 @dataclass
 class UrineReading(Reading):
     output_ml: int
+
+
+@dataclass
+class GlucoseReading(Reading):
+    """指尖血糖（mmol/L）— 内科评估目标。"""
+
+    mmol: float
+
+
+@dataclass
+class BreathReading(Reading):
+    """肺部听诊 — 呼吸音分类，提示肺水肿/感染/正常。"""
+
+    sound: str  # clear / crackles / wheeze / diminished
 
 
 @dataclass
@@ -117,11 +132,28 @@ class SessionState:
     events: list[ScheduledEvent] = field(default_factory=list)
     action_log: list[ActionRecord] = field(default_factory=list)
     public_log: list[DomainMessage] = field(default_factory=list)
-    vitals: list[VitalsReading] = field(default_factory=list)
-    drain: list[DrainReading] = field(default_factory=list)
-    pain: list[PainReading] = field(default_factory=list)
-    urine: list[UrineReading] = field(default_factory=list)
+    # Generic observation container: target name → readings list. Every
+    # assessment target (vitals/drain/pain/urine/…) writes here; the engine
+    # and snapshot iterate it, so a new assessment target needs no new field.
+    readings: dict[str, list[Reading]] = field(default_factory=dict)
     fluid_support: int = 0
+
+    @property
+    def vitals(self) -> list[VitalsReading]:
+        return cast("list[VitalsReading]", self.readings.get("vitals", []))
+
+    @property
+    def drain(self) -> list[DrainReading]:
+        return cast("list[DrainReading]", self.readings.get("drain", []))
+
+    @property
+    def pain(self) -> list[PainReading]:
+        return cast("list[PainReading]", self.readings.get("pain", []))
+
+    @property
+    def urine(self) -> list[UrineReading]:
+        return cast("list[UrineReading]", self.readings.get("urine", []))
+
     fluids_given: bool = False
     transfused: bool = False
     analgesia: bool = False
@@ -192,8 +224,22 @@ def state_from_dict(raw: dict) -> SessionState:
     state.events = [ScheduledEvent(**e) for e in raw.get("events", [])]
     state.action_log = [ActionRecord(**a) for a in raw.get("action_log", [])]
     state.public_log = [DomainMessage(**m) for m in raw.get("public_log", [])]
-    state.vitals = [VitalsReading(**v) for v in raw.get("vitals", [])]
-    state.drain = [DrainReading(**d) for d in raw.get("drain", [])]
-    state.pain = [PainReading(**p) for p in raw.get("pain", [])]
-    state.urine = [UrineReading(**u) for u in raw.get("urine", [])]
+    # Fold legacy + serialized readings into typed Reading instances.
+    _READING_TYPES = {
+        "vitals": VitalsReading,
+        "drain": DrainReading,
+        "pain": PainReading,
+        "urine": UrineReading,
+        "glucose": GlucoseReading,
+        "breath": BreathReading,
+    }
+    readings: dict[str, list[Reading]] = {}
+    for key, raw_list in (raw.get("readings") or {}).items():
+        cls = _READING_TYPES.get(key, Reading)
+        readings[key] = [cls(**r) if isinstance(r, dict) else r for r in raw_list]
+    for key, cls in _READING_TYPES.items():
+        legacy = raw.get(key)
+        if legacy and key not in readings:
+            readings[key] = [cls(**r) for r in legacy]
+    state.readings = readings
     return state

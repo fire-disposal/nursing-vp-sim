@@ -26,12 +26,10 @@ describe("computeCompletionGroups", () => {
 	it("drills into sub-targets when a command is fully typed", () => {
 		const groups = computeCompletionGroups("/assess");
 		expect(groups).toHaveLength(1);
-		expect(groups[0].items.map((c) => c.label)).toEqual([
-			"/assess vitals",
-			"/assess drain",
-			"/assess pain",
-			"/assess urine",
-		]);
+		const labels = groups[0].items.map((c) => c.label);
+		for (const target of ["vitals", "drain", "pain", "urine", "glucose", "breath"]) {
+			expect(labels).toContain(`/assess ${target}`);
+		}
 		expect(groups[0].items.find((c) => c.label === "/assess vitals")?.desc).toContain("生命体征");
 	});
 

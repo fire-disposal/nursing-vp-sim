@@ -113,6 +113,7 @@ class SimulationSnapshot(BaseModel):
     drain: list[DrainReadingOut] = []
     pain: list[PainReadingOut] = []
     urine: list[UrineReadingOut] = []
+    readings: dict[str, list[dict]] = {}
     pending: list[PendingLabSummary] = []
     lab_records: list[LabRecordSummary] = []
     unrevealed_lab_count: int = 0

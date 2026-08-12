@@ -40,7 +40,8 @@ def test_consult_summary_only_contains_known_info():
     e.apply_action(s, "VIEW", "cbc")
     e.apply_action(s, "DIAG", "疑诊术后出血")
     summary = build_consult_summary(s)
-    assert "HR" in summary
+    assert "生命体征" in summary
+    assert "hr=84" in summary  # vitals values are present (factual, lowercase)
     assert "血常规(CBC)" in summary
     assert "疑诊术后出血" in summary
     assert "severity" not in summary

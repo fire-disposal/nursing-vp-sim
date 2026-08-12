@@ -11,7 +11,7 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
-from .case import LAB_KINDS, active_meds, case_of, clock_text, get_case, materialize_lab
+from .case import active_meds, case_of, clock_text, get_case, materialize_lab
 from .state import (
     ActionRecord,
     ClinicalRecord,
@@ -81,7 +81,7 @@ def _seed_handover(state: SessionState) -> None:
     drain = case.physiology.drain(state.hidden.values)
     pain = case.physiology.pain(state.hidden.values, state.hidden.physio)
     urine = case.physiology.urine(state.hidden.values, state.hidden.physio)
-    state.vitals.append(
+    state.readings.setdefault("vitals", []).append(
         VitalsReading(
             minute=0,
             abnormal=case.physiology.vitals_abnormal(v),
@@ -93,9 +93,15 @@ def _seed_handover(state: SessionState) -> None:
             temp=v["temp"],
         )
     )
-    state.drain.append(DrainReading(minute=0, abnormal=case.physiology.drain_abnormal(drain), output_ml=drain))
-    state.pain.append(PainReading(minute=0, abnormal=case.physiology.pain_abnormal(pain), score=pain))
-    state.urine.append(UrineReading(minute=0, abnormal=case.physiology.urine_abnormal(urine), output_ml=urine))
+    state.readings.setdefault("drain", []).append(
+        DrainReading(minute=0, abnormal=case.physiology.drain_abnormal(drain), output_ml=drain)
+    )
+    state.readings.setdefault("pain", []).append(
+        PainReading(minute=0, abnormal=case.physiology.pain_abnormal(pain), score=pain)
+    )
+    state.readings.setdefault("urine", []).append(
+        UrineReading(minute=0, abnormal=case.physiology.urine_abnormal(urine), output_ml=urine)
+    )
     state.public_log = [
         DomainMessage(
             "SYSTEM",
@@ -204,7 +210,7 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
             revealed=False,
         )
     )
-    label = LAB_KINDS[task.kind].label
+    label = case_of(state).resources.lab_kinds[task.kind].label
     messages.append(
         DomainMessage(
             "LAB",
@@ -301,7 +307,7 @@ def _audit_summary(state: SessionState, minute: int) -> str:
         interval = latest_two[1].sampled_at - latest_two[0].sampled_at
         hb_delta = round(latest_two[1].result["hb"] - latest_two[0].result["hb"], 1)
         parts.append(f"两次 CBC 采样间隔 {interval} 分钟，Hb 变化 {hb_delta:+g} g/L。")
-    parts.append(f"病例时长 {minute} 分钟（{clock_text(minute)}）。")
+    parts.append(f"病例时长 {minute} 分钟（{clock_text(minute, case_of(state).start_clock)}）。")
     parts.append(_settlement_verdict(state))
     return " ".join(parts)
 
@@ -359,14 +365,9 @@ def _latest_record_result(state: SessionState, kind: str) -> dict | None:
 
 
 def _has_abnormal_evidence(state: SessionState) -> bool:
-    if any(r.abnormal for r in state.vitals):
-        return True
-    if any(r.abnormal for r in state.drain):
-        return True
-    if any(r.abnormal for r in state.pain):
-        return True
-    if any(r.abnormal for r in state.urine):
-        return True
+    for readings in state.readings.values():
+        if any(r.abnormal for r in readings):
+            return True
     if state.monitor_alert_fired or state.deteriorated or state.drug_overdose:
         return True
     if any(r.revealed and r.result.get("abnormal") for r in state.records):
@@ -385,12 +386,14 @@ def _interrupt_label(etype: str) -> str:
     }.get(etype, etype)
 
 
-_READING_SECTIONS = (
-    ("生命体征", "vitals", lambda r: f"{clock_text(r.minute)} HR{r.hr} BP{r.sbp}/{r.dbp} RR{r.rr}"),
-    ("引流", "drain", lambda r: f"{clock_text(r.minute)} {r.output_ml}ml"),
-    ("疼痛", "pain", lambda r: f"{clock_text(r.minute)} VAS{r.score}"),
-    ("尿量", "urine", lambda r: f"{clock_text(r.minute)} {r.output_ml}ml"),
-)
+def _reading_brief(state, label: str, r) -> str:
+    """Compact one-line form for any reading (dataclass or dict)."""
+    d = r.__dict__ if hasattr(r, "__dict__") else dict(r)
+    fields = [f"{k}={v}" for k, v in d.items() if k not in ("minute", "abnormal")]
+    return (
+        f"{label} {clock_text(d['minute'], case_of(state).start_clock)}（{'异常' if d['abnormal'] else '正常'}）"
+        + " ".join(fields)
+    )
 
 
 def build_consult_summary(state: SessionState) -> str:
@@ -399,17 +402,18 @@ def build_consult_summary(state: SessionState) -> str:
     Built ONLY from what the player has observed/revealed — never from the
     hidden bleeding state, so the expert cannot leak the hidden course.
     """
-    lines = [f"交班：{case_of(state).patient}。当前时间 {clock_text(state.current_time)}。"]
-    for label, attr, fmt in _READING_SECTIONS:
-        readings = getattr(state, attr)
+    case = case_of(state)
+    lines = [f"交班：{case.patient}。当前时间 {clock_text(state.current_time, case.start_clock)}。"]
+    for target, readings in state.readings.items():
         if readings:
-            lines.append(f"{label}：" + "；".join(fmt(r) for r in readings))
+            label = case.surface.assessments.get(target, target)
+            lines.append(f"{label}：" + "；".join(_reading_brief(state, target, r) for r in readings))
     revealed = [r for r in state.records if r.revealed]
     if revealed:
         lines.append(
             "检查结果："
             + "；".join(
-                f"{LAB_KINDS[r.kind].label} { {k: v for k, v in r.result.items() if k != 'sampled_severity'} }"
+                f"{case_of(state).resources.lab_kinds[r.kind].label} { {k: v for k, v in r.result.items() if k != 'sampled_severity'} }"
                 for r in revealed
             )
         )
@@ -434,7 +438,8 @@ def build_consult_summary(state: SessionState) -> str:
         lines.append(f"护士判断：{state.diagnosis}")
     pending = _all_pending(state)
     if pending:
-        lines.append("进行中检查：" + "、".join(LAB_KINDS[t.kind].label for t in pending))
+        labs = case_of(state).resources.lab_kinds
+        lines.append("进行中检查：" + "、".join(labs[t.kind].label for t in pending))
     return "\n".join(lines)
 
 

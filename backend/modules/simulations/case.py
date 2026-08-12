@@ -171,6 +171,42 @@ DRUGS: dict[str, DrugSpec] = {
         toxicity_threshold=60,
         toxicity_label="末梢灌注恶化（血管过度收缩）",
     ),
+    "INSULIN": DrugSpec(
+        label="胰岛素",
+        category="代谢",
+        unit="U",
+        default_dose=5,
+        max_dose=15,
+        half_life_min=45,
+        cost=25,
+        duration_min=2,
+        toxicity_threshold=30,
+        toxicity_label="低血糖（胰岛素过量）",
+    ),
+    "SALBUTAMOL": DrugSpec(
+        label="沙丁胺醇",
+        category="呼吸支持",
+        unit="喷",
+        default_dose=2,
+        max_dose=8,
+        half_life_min=60,
+        cost=15,
+        duration_min=2,
+        toxicity_threshold=20,
+        toxicity_label="心动过速/震颤（β激动剂过量）",
+    ),
+    "GLUCOSE": DrugSpec(
+        label="静脉葡萄糖",
+        category="代谢",
+        unit="g",
+        default_dose=25,
+        max_dose=50,
+        half_life_min=30,
+        cost=10,
+        duration_min=1,
+        toxicity_threshold=200,
+        toxicity_label="高血糖（补糖过量）",
+    ),
 }
 
 
@@ -202,6 +238,10 @@ class PhysiologySpec:
     hb: Callable[[dict, dict], float]
     hb_abnormal: Callable[[float], bool]
     wbc: Callable[[dict], float]
+    glucose: Callable[[dict, dict], float]
+    glucose_abnormal: Callable[[float], bool]
+    breath: Callable[[dict, dict], str]
+    breath_abnormal: Callable[[str], bool]
     consciousness: Callable[[dict, dict], float]
 
 
@@ -408,6 +448,11 @@ _KERNEL = {
     "temp_base": 37.0,
     "drain_base": 45,
     "pain_base": 1,
+    "glucose_base": 5.5,  # mmol/L fasting baseline
+    "glucose_insulin_per_unit": 2.5,  # mmol/L drop per unit insulin plasma
+    "glucose_dextrose_per_unit": 1.5,  # mmol/L rise per unit dextrose plasma
+    "glucose_lo": 3.9,
+    "glucose_hi": 11.1,
 }
 
 
@@ -600,6 +645,39 @@ class InternalMedicineKernel:
     def wbc_abnormal(self, wbc: float) -> bool:
         return wbc >= self._thr("wbc_abn")
 
+    def glucose(self, values: dict, physio: dict) -> float:
+        """Fingerstick glucose (mmol/L) — baseline + axis coupling + insulin/dextrose."""
+        c, k = self._c, self._k
+        g = k["glucose_base"] + c.get("glucose_axis_gain", 0.0) * self.bleeding(values)
+        insulin = active_meds(physio).get("INSULIN", {}).get("plasma", 0.0)
+        dextrose = active_meds(physio).get("GLUCOSE", {}).get("plasma", 0.0)
+        g = g - insulin * k["glucose_insulin_per_unit"] + dextrose * k["glucose_dextrose_per_unit"]
+        return max(2.0, round(g, 1))
+
+    def glucose_abnormal(self, mmol: float) -> bool:
+        return mmol < self._thr("glucose_lo") or mmol > self._thr("glucose_hi")
+
+    def breath(self, values: dict, physio: dict) -> str:
+        """Lung auscultation: clear / crackles / wheeze / diminished.
+
+        Crackles (pulmonary edema) scale with volume overload; wheeze with an
+        airway axis; diminished with the disease axis. Salbutamol opens the
+        airways.
+        """
+        c = self._c
+        sev = self.bleeding(values)
+        vol = physio.get("vol", 1.0)
+        if c.get("breath_crackle_vol", 0.0) and vol >= c["breath_crackle_vol"]:
+            return "crackles"
+        if active_meds(physio).get("SALBUTAMOL", {}).get("plasma", 0.0) > 0.05:
+            return "wheeze" if c.get("breath_axis_gain", 0.0) * sev > 0.3 else "clear"
+        if c.get("breath_axis_gain", 0.0) * sev > 0.5:
+            return "diminished"
+        return "clear"
+
+    def breath_abnormal(self, sound: str) -> bool:
+        return sound != "clear"
+
     def consciousness(self, values: dict, physio: dict) -> float:
         return physio.get("conscious", 1.0)
 
@@ -619,6 +697,10 @@ class InternalMedicineKernel:
             hb=self.hb_for,
             hb_abnormal=self.hb_abnormal,
             wbc=self.wbc_for,
+            glucose=self.glucose,
+            glucose_abnormal=self.glucose_abnormal,
+            breath=self.breath,
+            breath_abnormal=self.breath_abnormal,
             consciousness=self.consciousness,
         )
 
@@ -639,6 +721,8 @@ _DURATIONS_BASE = {
     "ASSESS_DRAIN": 3,
     "ASSESS_PAIN": 1,
     "ASSESS_URINE": 2,
+    "ASSESS_GLUCOSE": 1,
+    "ASSESS_BREATH": 2,
     "ORDER_LAB": 3,
     "MONITOR": 2,
     "CONSULT": 2,
@@ -675,6 +759,7 @@ def _build_case(
     extra_durations: dict | None = None,
     drug_keys: tuple[str, ...] = ("FLUIDS", "TRANSFUSE", "MORPHINE", "OXYGEN"),
     assess_targets: dict[str, str] | None = None,
+    start_clock: str = "08:30",  # 分片化：病例起始时间片（早班/夜班/ICU）
 ) -> CaseSpec:
     """One playable case = initial condition + axis coupling on the SHARED kernel."""
     durations = {**_DURATIONS_BASE, **(extra_durations or {})}
@@ -686,7 +771,7 @@ def _build_case(
     return CaseSpec(
         name=name,
         version=case_id,
-        start_clock="08:30",  # game minute 0 == 08:30
+        start_clock=start_clock,  # game minute 0 == start_clock
         patient=patient,
         course=CourseSpec(
             axis=axis,
@@ -806,6 +891,88 @@ CASE_INFECTION = _build_case(
     drug_keys=("FLUIDS", "MORPHINE", "OXYGEN", "ANTIBIOTIC"),
 )
 
+# MVP-D: 糖尿病酮症酸中毒 —— glucose axis: hyperglycemia + dehydration + acidosis.
+_DKA_COUPLING = {
+    "vol_axis_rate": 0.25,  # osmotic diuresis → volume depletion
+    "hb_axis_rate": 0.0,
+    "svr_axis_dilate": 0.3,
+    "lac_axis_gain": 0.6,  # ketoacidosis drives lactate
+    "hr_axis_gain": 25,
+    "temp_axis_gain": 0.0,
+    "wbc_axis_gain": 0.0,
+    "glucose_axis_gain": 12.0,  # glucose 5.5 + 12*sev mmol/L
+    "glucose_hi": 11.1,
+    "pain_axis_gain": 3,
+    "conscious_axis_gain": 0.4,  # hyperglycemia/acidosis cloud consciousness
+}
+
+CASE_DKA = _build_case(
+    case_id="mvpd-1",
+    name="糖尿病酮症酸中毒（MVP-D）",
+    patient="陈秀芳，52 岁女性，2 型糖尿病史 10 年，近日停用胰岛素，恶心呕吐、烦渴多尿",
+    axis="glucose",
+    coupling=_DKA_COUPLING,
+    start_severity=0.25,
+    step=0.06,
+    mid_severity=0.55,  # 血糖 ~12.1 mmol/L
+    deterioration_severity=0.75,
+    failure_severity=1.0,
+    diag_hint="疑诊糖尿病酮症酸中毒",
+    handover_task="识别并有效报告糖尿病酮症酸中毒（高血糖 + 脱水 + 酸中毒）",
+    goal="评估→检查→报告，识别并报告 DKA，纠正脱水与高血糖，患者出院。",
+    monitor_alert="血糖升高伴心率增快，警惕 DKA 加重。",
+    deterioration="意识模糊、深大呼吸（Kussmaul），酸中毒加重。需立即处理。",
+    failure="酮症酸中毒昏迷未被及时识别与控制——病例失败。",
+    discharge="血糖控制良好，脱水与酸中毒纠正，予以出院。较好结局达成。",
+    verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，DKA 进展至昏迷。",
+    verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
+    verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={"vitals": "生命体征", "pain": "疼痛", "urine": "尿量", "glucose": "血糖", "breath": "肺部听诊"},
+    drug_keys=("FLUIDS", "INSULIN", "GLUCOSE", "MORPHINE", "OXYGEN"),
+    start_clock="22:00",  # 急诊夜班
+)
+
+# MVP-H: 急性失代偿性心力衰竭 —— volume axis: congestion + pulmonary edema.
+_CHF_COUPLING = {
+    "vol_axis_rate": -0.30,  # congestion RAISES volume (fluid retention)
+    "hb_axis_rate": 0.0,
+    "svr_axis_dilate": 0.2,
+    "lac_axis_gain": 0.3,
+    "hr_axis_gain": 35,  # tachycardic decompensation
+    "temp_axis_gain": 0.0,
+    "wbc_axis_gain": 0.0,
+    "breath_crackle_vol": 0.85,  # volume overload → crackles
+    "breath_axis_gain": 0.4,
+    "pain_axis_gain": 0,
+    "conscious_axis_gain": 0.2,
+}
+
+CASE_CHF = _build_case(
+    case_id="mvph-1",
+    name="急性失代偿性心力衰竭（MVP-H）",
+    patient="赵德发，68 岁男性，冠心病史，近 3 日进行性气促、夜间不能平卧、下肢水肿",
+    axis="volume",
+    coupling=_CHF_COUPLING,
+    start_severity=0.30,
+    step=0.05,
+    mid_severity=0.60,  # vol 1.18 → crackles
+    deterioration_severity=0.80,
+    failure_severity=1.0,
+    diag_hint="疑诊急性心衰",
+    handover_task="识别并有效报告急性失代偿性心力衰竭（容量超负荷 + 肺水肿）",
+    goal="评估→检查→报告，识别并报告急性心衰，利尿减容，患者出院。",
+    monitor_alert="血氧下降、呼吸急促，警惕肺水肿加重。",
+    deterioration="端坐呼吸、双肺湿啰音弥漫，低氧血症。需立即处理。",
+    failure="心源性休克/呼吸衰竭未被及时识别与控制——病例失败。",
+    discharge="容量控制良好，呼吸困难缓解，予以出院。较好结局达成。",
+    verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，心衰进展至呼吸衰竭。",
+    verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
+    verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={"vitals": "生命体征", "pain": "疼痛", "urine": "尿量", "breath": "肺部听诊", "glucose": "血糖"},
+    drug_keys=("DIURETIC", "OXYGEN", "MORPHINE", "FLUIDS", "VASOPRESSOR"),
+    start_clock="02:00",  # ICU 凌晨
+)
+
 
 # ── Derived aliases (single source of truth is CASE) ──
 CASE_NAME = CASE.name
@@ -814,7 +981,12 @@ CASE_START_CLOCK = CASE.start_clock
 PATIENT_DESC = CASE.patient
 
 # ── Case registry (explicit, no runtime discovery) ──
-CASES: dict[str, CaseSpec] = {"mvpb-1": CASE, "mvpi-1": CASE_INFECTION}
+CASES: dict[str, CaseSpec] = {
+    "mvpb-1": CASE,
+    "mvpi-1": CASE_INFECTION,
+    "mvpd-1": CASE_DKA,
+    "mvph-1": CASE_CHF,
+}
 
 
 def get_case(case_id: str) -> CaseSpec:
@@ -873,8 +1045,16 @@ def lab_options_text() -> str:
     )
 
 
-def clock_text(minute: int) -> str:
-    total = 8 * 60 + 30 + minute
+def _clock_offset(start_clock: str) -> int:
+    """起始时钟（如 "22:00"）→ 距 00:00 的分钟数。分片化：每个病例有
+    自己的起始时间片（早班/夜班/ICU），模拟分钟映射到该病例的时钟。"""
+    hh, mm = (int(x) for x in start_clock.split(":"))
+    return hh * 60 + mm
+
+
+def clock_text(minute: int, start_clock: str = "08:30") -> str:
+    """模拟分钟 → 病例起始时钟上的墙钟时间（默认早班 08:30 兼容）。"""
+    total = _clock_offset(start_clock) + minute
     hh = (total // 60) % 24
     mm = total % 60
     return f"{hh:02d}:{mm:02d}"

@@ -12,6 +12,8 @@ main system — it does not touch the training/cases/qa domains or the main UI.
  │    ├─ values：疾病轴 dict（出血严重度 0~1，每 6min 进展；可带多轴，如 infection）
  │    └─ physio：舱室状态（vol 血容量 / svr 外周阻力 / lactate 乳酸 / hb 血红蛋白）
  │  时间轴：事件队列 ScheduledEvent（BLEEDING_PROGRESS / LAB_READY / 报警 / 结局）
+ │  分片化时间：病例声明起始时钟（早班 08:30 / 急诊夜班 22:00 / ICU 凌晨 02:00），
+ │   模拟分钟映射到各自墙钟（clock_text(minute, start_clock)）
  │  生理引擎：每 tick 经 PhysiologySpec.step 差分推进舱室（确定性，无随机）
  │
  ├─ 观察 Observation（Reading 继承体系，均带 minute + abnormal）

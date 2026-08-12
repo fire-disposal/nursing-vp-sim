@@ -19,7 +19,6 @@ from .case import (
     CASES,
     CONSULT_COST,
     DIAG_BUDGET_START,
-    LAB_KINDS,
     TREAT_BUDGET_START,
     clock_text,
 )
@@ -48,22 +47,24 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
             "monitor": case.surface.monitor,
         },
         "current_time": state.current_time,
-        "clock": clock_text(state.current_time),
+        "clock": clock_text(state.current_time, case.start_clock),
         "monitoring": state.hidden.monitoring_enabled,
         "reported": state.hidden.reported_to_doctor,
         "messages": [m.__dict__ for m in state.public_log],
-        "vitals": [v.__dict__ for v in state.vitals],
-        "drain": [d.__dict__ for d in state.drain],
-        "pain": [p.__dict__ for p in state.pain],
-        "urine": [u.__dict__ for u in state.urine],
+        # Legacy fixed keys (frontend compat) + generic map for any target.
+        "vitals": [v.__dict__ for v in state.readings.get("vitals", [])],
+        "drain": [d.__dict__ for d in state.readings.get("drain", [])],
+        "pain": [p.__dict__ for p in state.readings.get("pain", [])],
+        "urine": [u.__dict__ for u in state.readings.get("urine", [])],
+        "readings": {k: [r.__dict__ for r in v] for k, v in state.readings.items()},
         "pending": [
             {
                 "id": t.id,
                 "kind": t.kind,
-                "label": LAB_KINDS[t.kind].label,
+                "label": case.resources.lab_kinds[t.kind].label,
                 "sampled_at": t.sampled_at,
                 "due_at": t.due_at,
-                "due_clock": clock_text(t.due_at),
+                "due_clock": clock_text(t.due_at, case.start_clock),
             }
             for t in pending
         ],
@@ -71,7 +72,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
             {
                 "order_id": r.order_id,
                 "kind": r.kind,
-                "label": LAB_KINDS[r.kind].label,
+                "label": case.resources.lab_kinds[r.kind].label,
                 "sampled_at": r.sampled_at,
                 "ready_at": r.ready_at,
                 "result": {k: v for k, v in r.result.items() if k != "sampled_severity"},
