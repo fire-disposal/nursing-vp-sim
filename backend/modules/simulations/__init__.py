@@ -60,8 +60,10 @@ main system — it does not touch the training/cases/qa domains or the main UI.
   引擎与前端面板都按 surface 渲染——新专科是数据，不是改命令层。
 - **会话级解析**：引擎/动作层经 `case_of(state)` 读当前病例的
   course/physiology/narrative/surface——切换病例即换生理、文案与命令面。
-- **病例工厂**：`CompartmentPhysiology(axis, params)` 关闭共享舱室引擎 + `_make_lab_kinds`
-  构建实验室目录，新病例 = 一个 `_build_case(...)` 调用（现有 mvpb-1 出血 / mvpi-1 感染）。
+- **通用内科状态机**：`InternalMedicineKernel(axis, coupling)` 一份固定方程服务所有病例；
+  病例 = 初始条件（start_severity）+ 轴耦合表（coupling：轴如何移动共享舱室）+
+  叙事 + 备药（surface.drugs）——新病例是数据，不是代码。
+- **病例工厂**：`_build_case(...)` 一行定义新病例（现有 mvpb-1 出血 / mvpi-1 感染）。
 
 扩展基座（新增业务对象的最小改动）：
 - 新病例 → `_build_case(...)` 一行 + `CASES` 注册（含轴参数表、叙事文案、drug_keys）。

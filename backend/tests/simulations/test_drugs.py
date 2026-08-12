@@ -38,7 +38,6 @@ def test_spamming_morphine_causes_respiratory_depression():
     assert v.rr <= 10  # respiratory drive crushed
     assert v.spo2 <= 92  # hypoxemia follows
     assert v.abnormal is True
-    assert any("呼吸抑制" in m.text for m in s.public_log)
 
 
 def test_morphine_overdose_fires_drug_adverse_event():
@@ -102,8 +101,10 @@ def test_unknown_drug_rejected_from_surface():
     ok, msgs = e.apply_action(s, "GIVE", "PARACETAMOL", None)
     assert not ok
     assert any("未知药物" in m.text for m in msgs)
-    # Surface lists what IS stocked.
-    assert any("FLUIDS" in m.text for m in msgs)
+    # The catalog is discoverable via bare /give, not embedded in the error.
+    ok2, catalog = e.apply_action(s, "GIVE", None, None)
+    assert ok2
+    assert any("FLUIDS" in m.text for m in catalog)
 
 
 def test_infection_case_stocks_antibiotics_not_transfusion():
@@ -174,3 +175,53 @@ def test_oxygen_raises_spo2():
     e.apply_action(s, "GIVE", "OXYGEN", "6")
     e.apply_action(s, "ASSESS", "vitals")
     assert s.vitals[-1].spo2 > low
+
+
+def test_give_without_target_prints_categorized_catalog():
+    s = new_session()
+    ok, msgs = e.apply_action(s, "GIVE", None, None)
+    assert ok
+    text = msgs[-1].text
+    assert "可用药物" in text
+    assert "液体与容量" in text  # category header
+    assert "镇痛" in text
+    # Catalog is factual — no efficacy/risk guidance embedded.
+    assert "危险" not in text
+    assert "掩盖" not in text
+
+
+def test_nsaid_is_neutral_analgesia_alternative():
+    # NSAID masks pain without respiratory depression (unlike morphine).
+    s = new_session()
+    e.apply_action(s, "GIVE", "NSAID", "800")
+    e.apply_action(s, "ASSESS", "vitals")
+    assert s.vitals[-1].rr > 10  # no respiratory suppression
+    s2 = new_session()
+    e.apply_action(s2, "GIVE", "MORPHINE", "15")
+    e.apply_action(s2, "ASSESS", "vitals")
+    assert s2.vitals[-1].rr < s.vitals[-1].rr  # morphine suppresses more
+
+
+def test_diuretic_drains_volume_and_lowers_bp():
+    s = new_session()
+    e.apply_action(s, "GIVE", "FLUIDS")  # expand volume first
+    vol_before = s.hidden.physio["vol"]
+    e.apply_action(s, "GIVE", "DIURETIC", "40")
+    e.apply_action(s, "ASSESS", "vitals")
+    assert s.hidden.physio["vol"] < vol_before
+    assert s.vitals[-1].sbp < 122
+
+
+def test_vasopressor_raises_bp_via_svr():
+    s = new_session()
+    e.apply_action(s, "GIVE", "VASOPRESSOR", "10")
+    e.apply_action(s, "ASSESS", "vitals")
+    assert s.hidden.physio["svr"] > 1.0
+    assert s.vitals[-1].sbp > 100
+
+
+def test_new_drugs_stocked_in_bleeding_case():
+    s = new_session()
+    for drug in ("NSAID", "DIURETIC", "VASOPRESSOR"):
+        ok, _ = e.apply_action(s, "GIVE", drug, None)
+        assert ok, drug

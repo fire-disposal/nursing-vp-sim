@@ -47,21 +47,20 @@ def test_lab_materializes_from_values_snapshot():
     assert s.records[0].result["hb"] == 123.4  # reflects sampled values, not return time
 
 
-def test_extra_axis_couples_into_observations():
-    # The engine is multi-axis: an infection axis drives fever tachycardia,
-    # vasodilation and lactate production — not ignored by the bleeding model.
+def test_coupling_is_per_case_not_global():
+    # The kernel is universal; a case declares its axis coupling table.
+    # The bleeding case declares no fever/vasodilation coupling, so an
+    # injected infection axis is a no-op there — coupling is case data.
     s = new_session()
     s.hidden.values["infection"] = 0.5
     case = case_of(s)
     v = case.physiology.vitals(s.hidden.values, s.hidden.physio)
-    assert v["hr"] > 84  # fever tachycardia vs the pure-bleeding baseline
-    physio = case.physiology.step(
-        s.hidden.values,
-        dict(s.hidden.physio),
-        {"fluid_support": 0, "transfused": False},
-        6,
-    )
-    assert physio["lactate"] > s.hidden.physio["lactate"]  # sepsis drives lactate
+    assert v["hr"] == 84  # bleeding coupling has hr_axis_gain 0
+    # The infection case couples infection → fever + tachycardia.
+    s_inf = new_session("mvpi-1")
+    v_inf = case_of(s_inf).physiology.vitals(s_inf.hidden.values, s_inf.hidden.physio)
+    assert v_inf["temp"] > 37.0  # temp_axis_gain drives fever
+    assert v_inf["hr"] > 78  # hr_axis_gain drives tachycardia
 
 
 def test_lactate_accumulates_under_hypoperfusion_and_clears_with_volume():

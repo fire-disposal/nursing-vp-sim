@@ -11,7 +11,7 @@ def test_pain_assessment_normal_then_abnormal():
     e.apply_action(s, "WAIT", None)  # to deterioration, severity 0.60
     e.apply_action(s, "ASSESS", "pain")  # VAS 6, abnormal
     assert s.pain[-1].abnormal is True
-    assert any(m.kind == "ASSESSMENT" and "腹痛明显" in m.text for m in s.public_log)
+    assert any(m.kind == "ASSESSMENT" and "评分偏高" in m.text for m in s.public_log)
 
 
 def test_urine_output_drops():
@@ -40,7 +40,7 @@ def test_fluids_mask_bp_on_vitals_assessment():
     e.apply_action(s, "ASSESS", "vitals")
     reading = s.vitals[-1]
     assert reading.sbp > 95  # masked above the true value
-    assert any("补液支撑" in m.text for m in s.public_log[-3:])
+    assert any("补液支持" in m.text for m in s.public_log[-3:])
 
 
 def _deteriorate_minute(setup_action: tuple[str, str | None] | None) -> int:

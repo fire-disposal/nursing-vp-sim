@@ -34,7 +34,16 @@ export interface CommandSurface {
 
 const DEFAULT_SURFACE: CommandSurface = {
 	assessments: { vitals: "生命体征", drain: "引流", pain: "疼痛", urine: "尿量" },
-	drugs: { FLUIDS: "快速补液", MORPHINE: "吗啡镇痛", OXYGEN: "给氧" },
+	drugs: {
+		FLUIDS: "快速补液",
+		TRANSFUSE: "输注红细胞",
+		MORPHINE: "吗啡",
+		NSAID: "布洛芬",
+		OXYGEN: "给氧",
+		DIURETIC: "呋塞米",
+		VASOPRESSOR: "去甲肾上腺素",
+		ANTIBIOTIC: "抗生素",
+	},
 	labs: { CBC: "血常规(CBC)", ABG: "动脉血气(ABG)", COAG: "凝血功能", US: "腹部超声" },
 	talk_roles: ["patient", "family"],
 	wait_labs: true,

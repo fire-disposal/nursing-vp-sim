@@ -146,33 +146,26 @@ def _describe_vitals(state, r) -> str:
     note = "存在异常" if r.abnormal else "未见明显异常"
     text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr}，SpO2 {r.spo2}%，T {r.temp}℃。{note}。"
     if r.rr <= 10:
-        text += "呼吸浅慢，警惕呼吸抑制（药物过量？）。"
-    elif r.spo2 <= 92:
-        text += "血氧下降，警惕低氧。"
+        text += "呼吸浅慢。"
+    if r.spo2 <= 92:
+        text += "血氧饱和度低。"
     if state.fluid_support > 0:
-        text += "（补液支撑下血压）"
-    meds = active_meds(state.hidden.physio)
-    if any(k == "MORPHINE" and m["plasma"] > 0.1 for k, m in meds.items()):
-        text += "（吗啡作用中：呼吸抑制/嗜睡风险）"
+        text += "（补液支持中）"
     return text
 
 
 def _describe_drain(state, r) -> str:
-    note = "引流液呈鲜红色、量增多，警惕活动性出血" if r.abnormal else "引流液淡黄清亮，量在正常范围"
+    note = "量超出正常范围" if r.abnormal else "量在正常范围"
     return f"引流评估：{r.output_ml} ml。{note}。"
 
 
 def _describe_pain(state, r) -> str:
-    note = "腹痛明显，警惕" if r.abnormal else "疼痛可控"
-    text = f"疼痛评估：VAS {r.score}/10 分。{note}。"
-    meds = active_meds(state.hidden.physio)
-    if any(k == "MORPHINE" and m["plasma"] > 0.1 for k, m in meds.items()):
-        text += "（吗啡镇痛下，评分可能偏低——可能掩盖病情）"
-    return text
+    note = "评分偏高" if r.abnormal else "评分在正常范围"
+    return f"疼痛评估：VAS {r.score}/10 分。{note}。"
 
 
 def _describe_urine(state, r) -> str:
-    note = "尿量偏少，警惕低血容量" if r.abnormal else "尿量尚可"
+    note = "低于正常范围" if r.abnormal else "在正常范围"
     return f"尿量（近4h）：{r.output_ml} ml。{note}。"
 
 
@@ -413,21 +406,39 @@ def _parse_dose(spec, text) -> float | None:
     return dose
 
 
+def _drug_catalog_text(case) -> str:
+    """分类名录：/give 无目标或 ? 时打印，按类别分组，不评价疗效/风险."""
+    by_cat: dict[str, list[str]] = {}
+    for key in sorted(case.surface.drugs):
+        spec = DRUGS[key]
+        by_cat.setdefault(spec.category, []).append(
+            f"{key}（{spec.default_dose:.0f}{spec.unit}，上限 {spec.max_dose:.0f}{spec.unit}）"
+        )
+    lines = ["可用药物（按类别）："]
+    for cat, items in by_cat.items():
+        lines.append(f"  {cat}：" + "  ".join(items))
+    lines.append("用法：/give <药物> [剂量]")
+    return "\n".join(lines)
+
+
 def _do_give(state, target, text, messages) -> bool:
-    """给药：/give <药物> [剂量]。药物与剂量上限由病例 surface 声明。
+    """给药：/give <药物> [剂量]。无目标/`?` 时打印分类名录。
 
     Pharmacokinetics: each dose raises plasma concentration (effects scale
     with it), which decays by the drug's half-life. Cumulative dose drives
-    overdose — spamming opioids is a real, observable mistake.
+    overdose — effects and risks are discoverable via assessment, not told.
     """
     case = case_of(state)
     key = (target or "").upper()
+    if not key or key == "?":
+        messages.append(DomainMessage("SYSTEM", state.current_time, _drug_catalog_text(case)))
+        return True
     if key not in case.surface.drugs:
         messages.append(
             DomainMessage(
                 "SYSTEM",
                 state.current_time,
-                f"未知药物：{target}。可用：{', '.join(sorted(case.surface.drugs))}。",
+                f"未知药物：{target}。输入 /give 查看分类名录。",
             )
         )
         return False
@@ -466,7 +477,7 @@ def _do_give(state, target, text, messages) -> bool:
         DomainMessage(
             "SYSTEM",
             completion,
-            f"已给予{spec.label} {dose:.0f}{spec.unit}。{_drug_note(key, spec)}扣 {spec.cost} 治疗点，"
+            f"已给予{spec.label} {dose:.0f}{spec.unit}。扣 {spec.cost} 治疗点，"
             f"剩余治疗点 {TREAT_BUDGET_START - state.treat_spent}。",
         )
     )
@@ -474,11 +485,16 @@ def _do_give(state, target, text, messages) -> bool:
 
 
 def _apply_drug_effects(state, key: str, spec, units: float) -> None:
-    """Direct compartment effects (fluids expand volume, transfusion raises Hb)."""
+    """Direct compartment effects (fluids expand volume, transfusion raises Hb,
+    diuretics remove volume, vasopressors add resistance)."""
     if spec.vol_per_dose:
         state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + spec.vol_per_dose * units)
     if spec.hb_per_dose:
         state.hidden.physio["hb"] = min(200.0, state.hidden.physio["hb"] + spec.hb_per_dose * units)
+    if spec.vol_drain:
+        state.hidden.physio["vol"] = max(0.4, state.hidden.physio["vol"] - spec.vol_drain * units)
+    if spec.svr_gain:
+        state.hidden.physio["svr"] = min(1.5, state.hidden.physio["svr"] + spec.svr_gain * units)
     # Legacy flags the course progression engine still reads.
     if key == "FLUIDS":
         state.fluid_support = min(3, state.fluid_support + 2)
@@ -494,20 +510,6 @@ def _maybe_schedule_overdose(state, key: str, spec, med: dict, completion: int) 
     if spec.toxicity_threshold < 1e9 and med["cumulative"] >= spec.toxicity_threshold and not state.drug_overdose:
         state.drug_overdose = True
         engine._schedule(state, completion + case_of(state).course.interval_min, 1, "DRUG_ADVERSE", {"drug": key})
-
-
-def _drug_note(key: str, spec) -> str:
-    if key == "MORPHINE":
-        return "镇痛起效，但可致呼吸抑制与嗜睡——过量危险。"
-    if key == "FLUIDS":
-        return "扩容升压，但过量可致容量超负荷。"
-    if key == "TRANSFUSE":
-        return "输血补充红细胞，注意输血反应风险。"
-    if key == "ANTIBIOTIC":
-        return "抗感染治疗，注意过敏反应。"
-    if key == "OXYGEN":
-        return "提高血氧，但掩盖缺氧的呼吸问题。"
-    return ""
 
 
 def _do_talk(state, target, text, messages) -> bool:
@@ -568,11 +570,7 @@ def _do_talk(state, target, text, messages) -> bool:
 
 def _do_diag(state, target, text, messages) -> bool:
     if not target or not target.strip():
-        messages.append(
-            DomainMessage(
-                "SYSTEM", state.current_time, f"请写出你的判断，如 /diag {case_of(state).narrative.diag_hint}。"
-            )
-        )
+        messages.append(DomainMessage("SYSTEM", state.current_time, "请写出你的判断：/diag <你的判断>。"))
         return False
     state.diagnosis = target.strip()
     messages.append(
@@ -768,12 +766,12 @@ def _help_topic(state, topic: str) -> list[str]:
         ]
     if topic in ("give", "给药", "intervention", "干预"):
         return [
-            "给药（耗治疗点 + 时间，均有副作用）：",
+            "给药（/give <药物> [剂量]，/give 查看分类名录）：",
             *[
-                f"  /give {k} [{DRUGS[k].default_dose:.0f}{DRUGS[k].unit}]  {DRUGS[k].cost}治疗点/{DRUGS[k].duration_min}min  {v}"
-                for k, v in case.surface.drugs.items()
+                f"  /give {k} [{DRUGS[k].default_dose:.0f}{DRUGS[k].unit}]  {DRUGS[k].cost}治疗点/{DRUGS[k].duration_min}min"
+                for k in sorted(case.surface.drugs)
             ],
-            "  /consult      120检查点/2min  专家会诊：基于已有信息给建议与检查方向",
+            "  /consult      120检查点/2min  专家会诊（基于已有信息）",
             "  /diag <判断>   记录你的诊断/推理",
         ]
     if topic in ("talk", "对话"):
