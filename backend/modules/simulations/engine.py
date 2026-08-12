@@ -47,9 +47,11 @@ _WAIT_HORIZON = 100000
 
 def new_session(case_id: str = "mvpb-1") -> SessionState:
     case = get_case(case_id)
+    values = {case.course.axis: case.course.start_severity}
     state = SessionState(
         hidden=HiddenClinicalState(
-            values={case.course.axis: case.course.start_severity},
+            values=values,
+            physio=case.physiology.initial(values),
             reported_to_doctor=False,
             monitoring_enabled=False,
         ),
@@ -68,10 +70,10 @@ def _seed_handover(state: SessionState) -> None:
     hidden bleeding — they give the player the case context and a trend baseline.
     """
     case = case_of(state)
-    v = case.physiology.vitals(state.hidden.values)
+    v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
     drain = case.physiology.drain(state.hidden.values)
     pain = case.physiology.pain(state.hidden.values)
-    urine = case.physiology.urine(state.hidden.values)
+    urine = case.physiology.urine(state.hidden.values, state.hidden.physio)
     state.vitals.append(
         VitalsReading(
             minute=0,
@@ -153,6 +155,12 @@ def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: lis
     values = state.hidden.values
     sev = values[case.course.axis] + case.course.step * mult
     values[case.course.axis] = sev
+    state.hidden.physio = case.physiology.step(
+        values,
+        state.hidden.physio,
+        {"fluid_support": state.fluid_support, "transfused": state.transfused},
+        case.course.interval_min,
+    )
     _schedule(state, ev.at_minute + case.course.interval_min, 0, "BLEEDING_PROGRESS", {})
 
     if not state.deteriorated and sev >= case.course.deterioration_severity:
@@ -195,13 +203,13 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
 
 def _on_monitor_alert(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
     case = case_of(state)
-    v = case.physiology.vitals(state.hidden.values)
+    v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
     messages.append(DomainMessage("MONITOR", ev.at_minute, case.narrative.monitor_alert(v)))
 
 
 def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
     case = case_of(state)
-    v = case.physiology.vitals(state.hidden.values)
+    v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
     messages.append(DomainMessage("CRITICAL", ev.at_minute, case.narrative.deterioration(v)))
 
 
@@ -262,7 +270,12 @@ def _audit_summary(state: SessionState, minute: int) -> str:
 # ── Dispatch ──────────────────────────────────────────────────────────────
 
 
-def apply_action(state: SessionState, action_type: str, target: str | None) -> tuple[bool, list[DomainMessage]]:
+def apply_action(
+    state: SessionState,
+    action_type: str,
+    target: str | None,
+    text: str | None = None,
+) -> tuple[bool, list[DomainMessage]]:
     messages: list[DomainMessage] = []
 
     if action_type not in _NON_CLINICAL and state.case_status != ACTIVE:
@@ -275,7 +288,7 @@ def apply_action(state: SessionState, action_type: str, target: str | None) -> t
         return False, messages
 
     started_at = state.current_time
-    ok = handler(state, target, messages)
+    ok = handler(state, target, text, messages)
     if ok:
         state.revision += 1
         state.action_log.append(ActionRecord(started_at, state.current_time, action_type, target, _outcome(messages)))

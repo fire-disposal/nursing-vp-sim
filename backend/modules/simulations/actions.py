@@ -16,6 +16,9 @@ from .case import (
     DURATION_MIN,
     INTERVENTION_COSTS,
     LAB_KINDS,
+    PHYSIO_HB_TRANSFUSE,
+    PHYSIO_VOL_FLUID_PER_UNIT,
+    PHYSIO_VOL_TRANSFUSE,
     TREAT_BUDGET_START,
     case_of,
     case_options_text,
@@ -35,7 +38,7 @@ from .state import (
 )
 
 
-def _do_status(state, _target, messages) -> bool:
+def _do_status(state, _target, text, messages) -> bool:
     case = case_of(state)
     lines = [f"{case.name}（{case.version}）"]
     lines.append(f"病例状态：{state.case_status}")
@@ -62,7 +65,8 @@ def _do_status(state, _target, messages) -> bool:
         lines.append(f"最近尿量（近4h）：{state.urine[-1].output_ml} ml")
     pending = engine._all_pending(state)
     if pending:
-        summary = "、".join(f"{LAB_KINDS[t.kind].label}(#{t.id})→{clock_text(t.due_at)}" for t in pending)
+        labs = case.resources.lab_kinds
+        summary = "、".join(f"{labs[t.kind].label}(#{t.id})→{clock_text(t.due_at)}" for t in pending)
         lines.append(f"进行中检查：{summary}")
     else:
         lines.append("检查：无进行中的申请")
@@ -70,7 +74,7 @@ def _do_status(state, _target, messages) -> bool:
     return True
 
 
-def _do_assess(state, target, messages) -> bool:
+def _do_assess(state, target, text, messages) -> bool:
     spec = _ASSESS_SPECS.get(target or "")
     if spec is None:
         messages.append(
@@ -99,15 +103,12 @@ def _run_assess(state, spec, history, messages) -> bool:
 
 def _build_vitals(state) -> VitalsReading:
     case = case_of(state)
-    v = case.physiology.vitals(state.hidden.values)
-    sbp = v["sbp"]
-    if state.fluid_support > 0:
-        sbp = min(118, sbp + case.course.fluid_bp_mask_per_unit * state.fluid_support)  # bolus masks volume loss
+    v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
     return VitalsReading(
         minute=state.current_time,
-        abnormal=case.physiology.vitals_abnormal({"hr": v["hr"], "sbp": sbp}),
+        abnormal=case.physiology.vitals_abnormal(v),
         hr=v["hr"],
-        sbp=sbp,
+        sbp=v["sbp"],
         dbp=v["dbp"],
         rr=v["rr"],
         spo2=v["spo2"],
@@ -131,7 +132,7 @@ def _build_pain(state) -> PainReading:
 
 def _build_urine(state) -> UrineReading:
     case = case_of(state)
-    output = case.physiology.urine(state.hidden.values)
+    output = case.physiology.urine(state.hidden.values, state.hidden.physio)
     return UrineReading(minute=state.current_time, abnormal=case.physiology.urine_abnormal(output), output_ml=output)
 
 
@@ -206,9 +207,11 @@ _ASSESS_SPECS: dict[str, AssessSpec] = {
 }
 
 
-def _do_order_lab(state, target, messages) -> bool:
+def _do_order_lab(state, target, text, messages) -> bool:
+    case = case_of(state)
+    labs = case.resources.lab_kinds
     kind = (target or "").upper()
-    if kind not in LAB_KINDS:
+    if kind not in labs:
         messages.append(
             DomainMessage(
                 "SYSTEM",
@@ -224,12 +227,12 @@ def _do_order_lab(state, target, messages) -> bool:
             DomainMessage(
                 "LAB",
                 state.current_time,
-                f"已有进行中的{LAB_KINDS[kind].label}（order #{pending.id}），预计 {clock_text(pending.due_at)} 返回，拒绝重复申请。",
+                f"已有进行中的{labs[kind].label}（order #{pending.id}），预计 {clock_text(pending.due_at)} 返回，拒绝重复申请。",
             )
         )
         return False
-    cost = LAB_KINDS[kind].cost
-    if not _check_budget(state, "diag", cost, messages, LAB_KINDS[kind].label, f"可用：{lab_options_text()}。"):
+    cost = labs[kind].cost
+    if not _check_budget(state, "diag", cost, messages, labs[kind].label, f"可用：{lab_options_text()}。"):
         state.insufficient_funds = True
         return False
     start = state.current_time
@@ -238,7 +241,7 @@ def _do_order_lab(state, target, messages) -> bool:
     state.current_time = completion
     state.seq += 1
     task_id = f"{kind.lower()}-{state.seq}"
-    due_at = completion + LAB_KINDS[kind].turnaround
+    due_at = completion + labs[kind].turnaround
     state.pending_tasks.append(
         PendingTask(
             id=task_id,
@@ -249,8 +252,11 @@ def _do_order_lab(state, target, messages) -> bool:
             due_at=due_at,
             sample_snapshot={
                 "values": dict(state.hidden.values),
+                "physio": dict(state.hidden.physio),
+                "case_id": state.case_id,
                 "minute": completion,
                 "monitoring": state.hidden.monitoring_enabled,
+                "transfused": state.transfused,
             },
             cost_yuan=cost,
         )
@@ -271,9 +277,10 @@ def _do_order_lab(state, target, messages) -> bool:
     return True
 
 
-def _do_view_lab(state, target, messages) -> bool:
+def _do_view_lab(state, target, text, messages) -> bool:
+    labs = case_of(state).resources.lab_kinds
     kind = (target or "").upper()
-    if kind not in LAB_KINDS:
+    if kind not in labs:
         messages.append(
             DomainMessage(
                 "SYSTEM",
@@ -284,7 +291,7 @@ def _do_view_lab(state, target, messages) -> bool:
         return False
     recs = [r for r in state.records if r.kind == kind]
     if not recs:
-        messages.append(DomainMessage("LAB", state.current_time, f"{LAB_KINDS[kind].label}暂无已返回结果。"))
+        messages.append(DomainMessage("LAB", state.current_time, f"{labs[kind].label}暂无已返回结果。"))
         return True
     rec = max(recs, key=lambda r: r.ready_at)
     rec.revealed = True
@@ -355,7 +362,7 @@ def _lab_result_text(state, rec: ClinicalRecord) -> str:
     return formatter(state, rec)
 
 
-def _do_monitor(state, _target, messages) -> bool:
+def _do_monitor(state, _target, text, messages) -> bool:
     if state.hidden.monitoring_enabled:
         messages.append(DomainMessage("SYSTEM", state.current_time, "持续生命体征监护已开启，无需重复开启。"))
         return False
@@ -370,7 +377,7 @@ def _do_monitor(state, _target, messages) -> bool:
     ):
         state.monitor_alert_fired = True
         case = case_of(state)
-        v = case.physiology.vitals(state.hidden.values)
+        v = case.physiology.vitals(state.hidden.values, state.hidden.physio)
         messages.append(
             DomainMessage(
                 "MONITOR",
@@ -381,15 +388,15 @@ def _do_monitor(state, _target, messages) -> bool:
     return True
 
 
-def _do_fluids(state, _target, messages) -> bool:
+def _do_fluids(state, _target, text, messages) -> bool:
     return _run_intervention(state, "FLUIDS", messages)
 
 
-def _do_transfuse(state, _target, messages) -> bool:
+def _do_transfuse(state, _target, text, messages) -> bool:
     return _run_intervention(state, "TRANSFUSE", messages)
 
 
-def _do_analgesia(state, _target, messages) -> bool:
+def _do_analgesia(state, _target, text, messages) -> bool:
     return _run_intervention(state, "ANALGESIA", messages)
 
 
@@ -421,11 +428,18 @@ def _run_intervention(state, kind: str, messages) -> bool:
 
 def _apply_fluids(state) -> None:
     state.fluid_support = min(3, state.fluid_support + 2)
+    # Bolus expands the volume compartment immediately; support decays per
+    # tick, so the volume (and BP) benefit fades unless bleeding is controlled.
+    state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + PHYSIO_VOL_FLUID_PER_UNIT * 2)
     state.fluids_given = True
 
 
 def _apply_transfuse(state) -> None:
     state.transfused = True
+    # Transfusion raises both volume and hemoglobin right away; the next
+    # disease tick keeps the boost while transfused.
+    state.hidden.physio["vol"] = min(1.05, state.hidden.physio["vol"] + PHYSIO_VOL_TRANSFUSE)
+    state.hidden.physio["hb"] = min(200.0, state.hidden.physio["hb"] + PHYSIO_HB_TRANSFUSE)
 
 
 def _apply_analgesia(state) -> None:
@@ -470,7 +484,42 @@ _INTERVENTIONS: dict[str, InterventionSpec] = {
 }
 
 
-def _do_diag(state, target, messages) -> bool:
+def _do_talk(state, target, text, messages) -> bool:
+    """与患者或家属对话：LLM 扮演对应角色，仅基于已知观察作答。
+
+    The engine consumes the time and records the player's line; the actual
+    persona reply is produced at the LLM boundary (service._run_talk), so the
+    engine stays pure and deterministic.
+    """
+    who = (target or "").lower().strip()
+    if who not in ("patient", "family"):
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                state.current_time,
+                "对话对象无效（patient=患者 / family=家属）。用法：/talk patient 你现在感觉怎么样？",
+            )
+        )
+        return False
+    line = (text or "").strip()
+    if not line:
+        messages.append(
+            DomainMessage(
+                "SYSTEM",
+                state.current_time,
+                f"请说出你想问{'患者' if who == 'patient' else '家属'}的话，如 /talk {who} 你现在感觉怎么样？",
+            )
+        )
+        return False
+    completion = state.current_time + DURATION_MIN["TALK"]
+    engine._advance(state, messages, completion)
+    state.current_time = completion
+    role = "患者" if who == "patient" else "家属"
+    messages.append(DomainMessage("TALK", completion, f"你（对{role}说）：{line}"))
+    return True
+
+
+def _do_diag(state, target, text, messages) -> bool:
     if not target or not target.strip():
         messages.append(
             DomainMessage(
@@ -513,7 +562,7 @@ def _check_budget(state, pool: str, cost: int, messages, what: str, hint: str = 
     return False
 
 
-def _do_consult(state, _target, messages) -> bool:
+def _do_consult(state, _target, text, messages) -> bool:
     if not _check_budget(state, "diag", CONSULT_COST, messages, "专家会诊"):
         return False
     completion = state.current_time + DURATION_MIN["CONSULT"]
@@ -531,7 +580,7 @@ def _do_consult(state, _target, messages) -> bool:
     return True
 
 
-def _do_report(state, _target, messages) -> bool:
+def _do_report(state, _target, text, messages) -> bool:
     if not engine._has_abnormal_evidence(state):
         messages.append(
             DomainMessage(
@@ -571,7 +620,7 @@ def _do_report(state, _target, messages) -> bool:
     return True
 
 
-def _do_wait(state, _target, messages) -> bool:
+def _do_wait(state, _target, text, messages) -> bool:
     until = state.current_time + engine._WAIT_HORIZON
     stopping = engine._advance(state, messages, until, stop_on_interrupt=True)
     if stopping is not None:
@@ -581,7 +630,7 @@ def _do_wait(state, _target, messages) -> bool:
     return True
 
 
-def _do_wait_cbc(state, _target, messages) -> bool:
+def _do_wait_cbc(state, _target, text, messages) -> bool:
     pending = engine._pending_task(state, "CBC")
     if pending is None:
         messages.append(DomainMessage("SYSTEM", state.current_time, "没有进行中的 CBC，无需等待。"))
@@ -600,7 +649,7 @@ def _do_wait_cbc(state, _target, messages) -> bool:
     return True
 
 
-def _do_history(state, _target, messages) -> bool:
+def _do_history(state, _target, text, messages) -> bool:
     if not state.action_log:
         messages.append(DomainMessage("SYSTEM", state.current_time, "尚无动作记录。"))
         return True
@@ -612,7 +661,7 @@ def _do_history(state, _target, messages) -> bool:
     return True
 
 
-def _do_help(state, _target, messages) -> bool:
+def _do_help(state, _target, text, messages) -> bool:
     topic = (_target or "").lower().strip()
     lines = _help_topic(topic) if topic else _help_overview(state)
     messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
@@ -627,6 +676,7 @@ def _help_overview(state) -> list[str]:
         "  评估   /assess <目标>        (/help assess)",
         "  检查   /order <项目> /view <项目>   (/help order)",
         "  干预   /give fluids /transfuse /analgesia",
+        "  对话   /talk patient|family <你说的话>   (/help talk)",
         "  处理   /monitor /report /wait /wait cbc /diag",
         "",
         f"目标：{case_of(state).narrative.goal}",
@@ -666,6 +716,13 @@ def _help_topic(topic: str) -> list[str]:
             "  /consult      120检查点/2min  专家会诊：基于已有信息给建议与检查方向",
             "  /diag <判断>   记录你的诊断/推理",
         ]
+    if topic in ("talk", "对话"):
+        return [
+            "与患者/家属对话（2min/次，仅基于已知观察，不泄露隐藏病程）：",
+            "  /talk patient 你现在感觉怎么样？   问患者本人",
+            "  /talk family  他夜里睡得怎么样？   问陪护家属",
+            "对话用于采集主诉/背景信息，帮助形成判断；不能替代评估与检查证据。",
+        ]
     if topic in ("处理", "report", "wait"):
         return [
             "处理与等待：",
@@ -678,7 +735,7 @@ def _help_topic(topic: str) -> list[str]:
     return [f"未知主题：{topic}。输入 /help 查看命令分组。"]
 
 
-def _do_case(state, target, messages) -> bool:
+def _do_case(state, target, text, messages) -> bool:
     if not target:
         lines = [f"当前病例：{state.case_id} {CASES[state.case_id].name}"]
         lines.append(f"可用病例：{case_options_text()}")
@@ -693,7 +750,7 @@ def _do_case(state, target, messages) -> bool:
     return True
 
 
-def _do_pending(state, _target, messages) -> bool:
+def _do_pending(state, _target, text, messages) -> bool:
     pending = engine._all_pending(state)
     if not pending:
         messages.append(DomainMessage("SYSTEM", state.current_time, "当前没有进行中的检查。"))
@@ -713,6 +770,7 @@ _HANDLERS = {
     "ORDER": _do_order_lab,
     "VIEW": _do_view_lab,
     "DIAG": _do_diag,
+    "TALK": _do_talk,
     "MONITOR": _do_monitor,
     "CONSULT": _do_consult,
     "FLUIDS": _do_fluids,

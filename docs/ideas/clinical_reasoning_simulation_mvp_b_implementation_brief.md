@@ -241,7 +241,7 @@ case_status: str
 - 已监护：达到中期阈值时自动产生 `MONITOR_ALERT` Anchor。
 - 晚期：即使未监护也产生明显恶化 Anchor。
 
-具体生命体征由简单确定性映射产生并保存到本次评估结果中，不需要生理引擎。
+具体生命体征由离散舱室生理引擎产生（vol/svr/lactate/hb 四舱室差分推进，反馈环 + 干预作用力）并保存到本次评估结果中——已替代最初的简单确定性映射，详见 `backend/modules/simulations/case.py` 的 `PhysiologySpec`。
 
 ### 6.3 结局
 

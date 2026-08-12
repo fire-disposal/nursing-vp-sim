@@ -9,7 +9,7 @@ describe("computeCompletionGroups", () => {
 
 	it("groups all commands by backend help group for a bare slash", () => {
 		const groups = computeCompletionGroups("/");
-		expect(groups.map((g) => g.name)).toEqual(["信息", "评估", "检查", "干预", "处理"]);
+		expect(groups.map((g) => g.name)).toEqual(["信息", "评估", "检查", "干预", "对话", "处理"]);
 		const info = groups[0];
 		expect(info.items.map((c) => c.label)).toContain("/status");
 		expect(info.items.map((c) => c.label)).toContain("/help");

@@ -20,8 +20,8 @@ from schemas.simulation import (
     SimulationSnapshot,
 )
 
-from .prompts import EXPERT_CONSULT_SYSTEM
-from .service import ConsultProvider, SimulationService, build_snapshot
+from .prompts import EXPERT_CONSULT_SYSTEM, FAMILY_TALK_SYSTEM, PATIENT_TALK_SYSTEM
+from .service import ConsultProvider, SimulationService, TalkProvider, build_snapshot
 from .state import state_from_dict
 
 router = APIRouter(prefix="/api/simulations", tags=["临床推理模拟"])
@@ -64,12 +64,44 @@ def _consult_provider(request: Request, user_id: int) -> ConsultProvider | None:
     return provider
 
 
+def _talk_provider(request: Request, user_id: int) -> TalkProvider | None:
+    """Persona provider: the patient or family answers from known info only."""
+    llm_client = getattr(request.app.state, "llm_client", None)
+    if llm_client is None:
+        return None
+
+    def provider(role: str, summary: str, line: str) -> str:
+        system = PATIENT_TALK_SYSTEM if role == "patient" else FAMILY_TALK_SYSTEM
+
+        async def _run() -> str:
+            return await llm_client.call(
+                [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": f"【已知观察】\n{summary}\n\n【护士说】\n{line}"},
+                ],
+                purpose="patient_talk",
+                ctx=CallContext(purpose="patient_talk", user_id=user_id),
+            )
+
+        return asyncio.run(_run())
+
+    return provider
+
+
 @router.post("/sessions/{session_id}/actions", response_model=ActionResultResponse)
 def post_action(session_id: int, body: SimulationActionRequest, request: Request, db: DbSession, user: CurrentUser):
     service = SimulationService(db)
     session = service.get_owned(session_id, user.id)
-    provider = _consult_provider(request, user.id)
-    messages, accepted = service.act(session, body.action.type, body.action.target, consult_provider=provider)
+    consult_provider = _consult_provider(request, user.id)
+    talk_provider = _talk_provider(request, user.id)
+    messages, accepted = service.act(
+        session,
+        body.action.type,
+        body.action.target,
+        text=body.action.text,
+        consult_provider=consult_provider,
+        talk_provider=talk_provider,
+    )
     state = state_from_dict(session.state)
     return {
         "session_id": session.id,

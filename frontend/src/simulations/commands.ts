@@ -79,6 +79,21 @@ export const COMMAND_GROUPS: CommandGroup[] = [
 		],
 	},
 	{
+		name: "对话",
+		desc: "与患者 / 家属交谈（LLM 扮演，仅基于已知观察）",
+		commands: [
+			{
+				cmd: "talk",
+				desc: "与患者或家属对话（2min）：/talk patient <你的话>",
+				params: ["patient", "family"],
+				paramDesc: {
+					patient: "问患者本人：/talk patient 你现在感觉怎么样？",
+					family: "问陪护家属：/talk family 他夜里睡得怎么样？",
+				},
+			},
+		],
+	},
+	{
 		name: "处理",
 		desc: "监护 / 诊断 / 报告 / 等待",
 		commands: [

@@ -14008,6 +14008,18 @@
               }
             ],
             "title": "Target"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
           }
         },
         "additionalProperties": false,

@@ -13,6 +13,7 @@ export type SimActionType =
 	| "VIEW"
 	| "MONITOR"
 	| "CONSULT"
+	| "TALK"
 	| "DIAG"
 	| "FLUIDS"
 	| "TRANSFUSE"
@@ -29,6 +30,7 @@ export type SimActionType =
 export interface ParsedAction {
 	type: SimActionType;
 	target?: string;
+	text?: string;
 }
 
 export type ParseResult = { action: ParsedAction } | { error: string };
@@ -55,6 +57,14 @@ export function parseCommand(raw: string): ParseResult {
 			return { action: { type: "MONITOR", target: "vitals" } };
 		case "consult":
 			return { action: { type: "CONSULT" } };
+		case "talk": {
+			const [who, ...line] = rest;
+			const target = who?.toLowerCase() ?? "";
+			if (target !== "patient" && target !== "family") {
+				return { error: "对话对象只能是 patient（患者）或 family（家属）。用法：/talk patient 你现在感觉怎么样？" };
+			}
+			return { action: { type: "TALK", target, text: line.join(" ") } };
+		}
 		case "diag":
 			return { action: { type: "DIAG", target: rest.join(" ") } };
 		case "give":

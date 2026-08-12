@@ -143,6 +143,9 @@
 .msg-lab .msg-kind {
 	color: #58a6ff;
 }
+.msg-talk .msg-kind {
+	color: #bc8cff;
+}
 .msg-warning .msg-kind {
 	color: #d29922;
 }

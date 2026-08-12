@@ -10,10 +10,16 @@ from dataclasses import asdict, dataclass, field
 
 @dataclass
 class HiddenClinicalState:
-    """Hidden disease axes (e.g. ``{"bleeding": 0.12}``) plus treatment flags.
-    ``values`` is a dict so a case can carry multiple physiological axes."""
+    """Hidden disease axes plus the compartment physiology state.
+
+    ``values`` is a dict so a case can carry multiple physiological axes
+    (e.g. ``{"bleeding": 0.12}``, optionally ``infection``). ``physio`` holds
+    the compartment state (vol/svr/lactate/hb) advanced by the per-case
+    physiology engine at each disease tick; both stay server-side only.
+    """
 
     values: dict[str, float]
+    physio: dict[str, float]
     reported_to_doctor: bool
     monitoring_enabled: bool
 
@@ -144,9 +150,17 @@ def state_from_dict(raw: dict) -> SessionState:
     if values is None:
         # Migrate pre-physiology sessions (single bleeding axis).
         values = {"bleeding": hidden.get("bleeding_severity", 0.12)}
+    physio = hidden.get("physio")
+    if physio is None:
+        # Migrate sessions saved before the compartment engine: derive the
+        # compartment state from the hidden values at the case's baseline.
+        from .case import get_case
+
+        physio = get_case(raw.get("case_id", "mvpb-1")).physiology.initial(values)
     state = SessionState(
         hidden=HiddenClinicalState(
             values=values,
+            physio=physio,
             reported_to_doctor=hidden["reported_to_doctor"],
             monitoring_enabled=hidden["monitoring_enabled"],
         ),

@@ -4523,6 +4523,8 @@ export interface components {
             type: string;
             /** Target */
             target?: string | null;
+            /** Text */
+            text?: string | null;
         };
         /** SimulationActionRequest */
         SimulationActionRequest: {

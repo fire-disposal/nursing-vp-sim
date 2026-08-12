@@ -29,6 +29,13 @@ describe("parseCommand", () => {
 		expect(parseCommand("/pending")).toEqual({ action: { type: "PENDING" } });
 		expect(parseCommand("/case")).toEqual({ action: { type: "CASE" } });
 		expect(parseCommand("/case mvpb-1")).toEqual({ action: { type: "CASE", target: "mvpb-1" } });
+		expect(parseCommand("/talk patient 你现在感觉怎么样？")).toEqual({
+			action: { type: "TALK", target: "patient", text: "你现在感觉怎么样？" },
+		});
+		expect(parseCommand("/talk family 他夜里睡得怎么样")).toEqual({
+			action: { type: "TALK", target: "family", text: "他夜里睡得怎么样" },
+		});
+		expect(parseCommand("/talk doctor 你好")).toEqual({ error: expect.stringContaining("patient") });
 	});
 
 	it("passes raw targets through so the backend can guide on typos", () => {

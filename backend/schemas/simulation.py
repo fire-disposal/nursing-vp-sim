@@ -9,6 +9,7 @@ class SimulationActionIn(BaseModel):
     model_config = _REQ_CFG
     type: str = Field(min_length=1, max_length=32)
     target: str | None = None
+    text: str | None = Field(default=None, max_length=500)
 
 
 class SimulationActionRequest(BaseModel):

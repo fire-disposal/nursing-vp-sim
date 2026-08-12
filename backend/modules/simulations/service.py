@@ -27,6 +27,7 @@ from .engine import apply_action, build_consult_summary, new_session
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
 
 ConsultProvider = Callable[[str], str]
+TalkProvider = Callable[[str, str, str], str]  # (role, known_summary, player_line) -> persona reply
 
 
 def build_snapshot(session_id: int, state: SessionState) -> dict:
@@ -110,17 +111,58 @@ class SimulationService:
         session: SimulationSession,
         action_type: str,
         target: str | None,
+        text: str | None = None,
         consult_provider: ConsultProvider | None = None,
+        talk_provider: TalkProvider | None = None,
     ) -> tuple[list, bool]:
         state = state_from_dict(session.state)
-        accepted, messages = apply_action(state, action_type, target)
+        accepted, messages = apply_action(state, action_type, target, text)
         if accepted and action_type == "CONSULT":
             self._run_consult(state, messages, consult_provider)
+        if accepted and action_type == "TALK":
+            self._run_talk(state, messages, target, text, talk_provider)
         session.state = state_to_dict(state)
         session.status = state.case_status
         with unit_of_work(self.db, conflict_detail="保存模拟会话冲突"):
             self.db.flush()
         return messages, accepted
+
+    def _run_talk(
+        self,
+        state: SessionState,
+        messages: list[DomainMessage],
+        target: str | None,
+        text: str | None,
+        provider: TalkProvider | None,
+    ) -> None:
+        """Call the persona LLM with the player's line; append its reply.
+
+        Like consult, the persona only ever sees the player's known
+        observations (build_consult_summary) — never the hidden course.
+        On provider failure a neutral fallback line keeps the session usable.
+        """
+        role = "patient" if (target or "").lower() == "patient" else "family"
+        summary = build_consult_summary(state)
+        line = (text or "").strip()
+        fallback = (
+            "（患者虚弱，未能听清，稍作休息后望向护士。）"
+            if role == "patient"
+            else "（家属摇摇头：具体我也不太清楚，您多费心看看。）"
+        )
+        if provider is None:
+            msg = DomainMessage("TALK", state.current_time, fallback)
+            messages.append(msg)
+            state.public_log.append(msg)
+            return
+        try:
+            reply = provider(role, summary, line)
+            msg = DomainMessage("TALK", state.current_time, reply)
+            messages.append(msg)
+            state.public_log.append(msg)
+        except Exception:  # noqa: BLE001 — LLM boundary; any failure degrades gracefully
+            msg = DomainMessage("TALK", state.current_time, fallback)
+            messages.append(msg)
+            state.public_log.append(msg)
 
     def _run_consult(
         self, state: SessionState, messages: list[DomainMessage], provider: ConsultProvider | None
