@@ -1,5 +1,5 @@
 export { default as Badge } from "./badge";
-export { default as Button, buttonVariants } from "./button";
+export { default as Button } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
 export { default as DataTable } from "./data-table";

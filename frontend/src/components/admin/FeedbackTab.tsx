@@ -168,7 +168,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 									<AuthImage
 										src={feedbackImageUrl(fb.id, imgId)}
 										alt={`截图 ${imgId}`}
-										className="h-16 w-auto object-cover"
+										style={{ height: 64, width: "auto", objectFit: "cover" }}
 									/>
 								</UnstyledButton>
 							))}
@@ -244,7 +244,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 			{previewUrl && (
 				<Dialog open onOpenChange={() => setPreviewUrl(null)}>
 					<DialogContent title="截图预览" maxWidth={800}>
-						<AuthImage src={previewUrl} alt="截图预览" className="max-w-full max-h-[70vh] object-contain rounded-md" />
+						<AuthImage src={previewUrl} alt="截图预览" style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }} />
 					</DialogContent>
 				</Dialog>
 			)}

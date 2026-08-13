@@ -1,6 +1,6 @@
 import { render, screen } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
-import { Home, Settings } from "lucide-react";
+import { IconHome, IconSettings } from "@tabler/icons-react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { NavGroup } from "@/components/ui/nav-group";
@@ -11,7 +11,7 @@ describe("NavGroup", () => {
 			<MemoryRouter>
 				<NavGroup
 					label="教学中心"
-					icon={Home}
+					icon={IconHome}
 					defaultOpen
 					storageKey="test"
 				>
@@ -28,7 +28,7 @@ describe("NavGroup", () => {
 			<MemoryRouter>
 				<NavGroup
 					label="教学中心"
-					icon={Home}
+					icon={IconHome}
 					defaultOpen
 					storageKey="test-collapse"
 				>
@@ -48,7 +48,7 @@ describe("NavGroup", () => {
 			<MemoryRouter>
 				<NavGroup
 					label="系统运维"
-					icon={Settings}
+					icon={IconSettings}
 					defaultOpen={false}
 					storageKey="test-closed"
 				>
@@ -64,7 +64,7 @@ describe("NavGroup", () => {
 			<MemoryRouter>
 				<NavGroup
 					label="空组"
-					icon={Settings}
+					icon={IconSettings}
 					defaultOpen
 					storageKey="test-empty"
 				>

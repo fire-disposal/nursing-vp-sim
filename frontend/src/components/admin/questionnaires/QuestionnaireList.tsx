@@ -90,7 +90,6 @@ export default function QuestionnaireList({
 		{
 			key: "question_count",
 			header: "题目数",
-			cellClassName: "text-muted-foreground",
 			render: (t) => t.question_count,
 		},
 		{

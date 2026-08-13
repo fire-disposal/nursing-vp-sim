@@ -1,3 +1,4 @@
+import { Box, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -30,12 +31,14 @@ export function ResponsiveDialog({
 	if (isMobile) {
 		return (
 			<Sheet open={open} onClose={onClose} side="bottom" size="md">
-				<div className="p-5 pt-10">
+				<Box p="lg" pt={40}>
 					{title != null && (
-						<h2 className="text-base font-heading font-medium mb-4">{title}</h2>
+						<Text fw={500} mb="md" size="md">
+							{title}
+						</Text>
 					)}
 					{children}
-				</div>
+				</Box>
 			</Sheet>
 		);
 	}

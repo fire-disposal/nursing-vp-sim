@@ -1,3 +1,4 @@
+import { Center, Loader, Stack, Text } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -60,10 +61,14 @@ function TelemetryInit() {
 
 function PageLoader() {
 	return (
-		<div className="flex h-screen flex-col items-center justify-center gap-3">
-			<div className="size-8 animate-spin rounded-full border-[3px] border-primary/30 border-t-primary" />
-			<p className="text-sm text-muted-foreground">加载中...</p>
-		</div>
+		<Center h="100vh">
+			<Stack align="center" gap="sm">
+				<Loader size="md" />
+				<Text size="sm" c="dimmed">
+					加载中...
+				</Text>
+			</Stack>
+		</Center>
 	);
 }
 

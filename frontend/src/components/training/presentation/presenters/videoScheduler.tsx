@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
 import { getBasePatientAvatar, getRealisticPatientAvatar } from "@/utils/avatar";
 import type { EmotionState } from "@/stores/trainingStore";
 import type { PatientPresenter, PresentationContext } from "../types";
@@ -37,11 +37,13 @@ function VideoFace({
 		// 该情绪无对应视频段 → poster（静态头像）兜底。
 		return renderAvatarImage({ src: poster, alt }, ctx);
 	}
-	const shape = cn(
-		"shrink-0 bg-muted object-cover",
-		ctx.rounded === "full" ? "rounded-full ring-1 ring-border" : "rounded-2xl ring-1 ring-border",
-		ctx.className,
-	);
+	const shape: CSSProperties = {
+		flexShrink: 0,
+		background: "var(--mantine-color-gray-2)",
+		objectFit: "cover",
+		borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
+		boxShadow: "0 0 0 1px var(--mantine-color-default-border)",
+	};
 	return (
 		<video
 			key={src}
@@ -51,8 +53,8 @@ function VideoFace({
 			loop
 			muted
 			playsInline
-			style={ctx.fill ? undefined : { width: ctx.size, height: ctx.size, objectFit: "cover" }}
-			className={ctx.fill ? cn("w-full aspect-square", shape) : shape}
+			style={ctx.fill ? { width: "100%", aspectRatio: "1 / 1", ...shape } : { width: ctx.size, height: ctx.size, ...shape }}
+			className={ctx.className}
 		/>
 	);
 }

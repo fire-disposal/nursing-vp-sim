@@ -10,7 +10,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { createAppTheme } from "./theme";
 import { useBrandStore } from "./theme/brand-store";
-import "./styles/tailwind.css";
+import "./styles/global.css";
 
 // Chunk 加载失败恢复：新部署后浏览器缓存的 index.html 可能
 // 引用已不存在的旧 chunk hash → 强制全量刷新。

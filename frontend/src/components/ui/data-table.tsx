@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { Box, Paper } from "@mantine/core";
+import type { ComponentType, ReactNode } from "react";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
@@ -11,7 +11,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+
+type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
 export interface DataTableColumn<T> {
 	key: string;
@@ -26,7 +27,7 @@ export interface DataTableProps<T> {
 	rows: T[];
 	rowKey?: (row: T) => string | number;
 	loading?: boolean;
-	emptyIcon?: LucideIcon;
+	emptyIcon?: IconType;
 	emptyTitle?: string;
 	emptyDescription?: string;
 	onRowClick?: (row: T, index: number) => void;
@@ -42,10 +43,6 @@ export interface DataTableProps<T> {
 
 /**
  * Column-defined table built on the shared `ui/table` primitives.
- * Handles loading / empty states and optional pagination.
- *
- * NOTE: when `onRowClick` is set, any interactive element inside a column
- * `render` (edit/delete buttons) MUST call `e.stopPropagation()`.
  */
 export default function DataTable<T>({
 	columns,
@@ -64,62 +61,38 @@ export default function DataTable<T>({
 	bare,
 	className,
 }: DataTableProps<T>) {
-	const wrapper = cn(
-		!bare && "rounded-xl border border-border bg-card shadow-e1 overflow-hidden",
-		className,
-	);
-
-	if (loading && rows.length === 0) {
-		return (
-			<div className={cn(wrapper, "p-6")}>
-				<LoadingSkeleton variant="table" />
-			</div>
-		);
-	}
-
-	if (!loading && rows.length === 0) {
-		return (
-			<div className={wrapper}>
-				<EmptyState
-					icon={emptyIcon}
-					title={emptyTitle}
-					description={emptyDescription}
-				/>
-			</div>
-		);
-	}
-
 	const getKey =
 		rowKey ??
 		((row: T, index: number) => {
 			if (row && typeof row === "object" && "id" in row) {
-				const id = row.id;
+				const id = (row as { id?: unknown }).id;
 				if (typeof id === "string" || typeof id === "number") return id;
 			}
 			return index;
 		});
 
 	const getCellValue = (row: T, key: string) => {
-		if (row && typeof row === "object" && key in row) {
-			return Reflect.get(row, key);
-		}
+		if (row && typeof row === "object" && key in row) return Reflect.get(row, key);
 		return "";
 	};
 
-	const headerClass = cn(
-		"px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider",
-		stickyHeader && "sticky top-0 z-10",
-	);
-
-	return (
-		<div className={wrapper}>
+	const table = (
+		<>
 			<Table>
 				<TableHeader>
 					<TableRow>
 						{columns.map((col) => (
 							<TableHead
 								key={col.key}
-								className={cn(headerClass, col.headerClassName)}
+								className={col.headerClassName}
+								style={{
+									position: stickyHeader ? "sticky" : undefined,
+									top: 0,
+									zIndex: 10,
+									textTransform: "uppercase",
+									fontSize: "0.75rem",
+									fontWeight: 600,
+								}}
 							>
 								{col.header}
 							</TableHead>
@@ -130,48 +103,66 @@ export default function DataTable<T>({
 					{rows.map((row, idx) => (
 						<TableRow
 							key={getKey(row, idx)}
-							className={cn(onRowClick && "cursor-pointer")}
 							onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
 							onKeyDown={
 								onRowClick
 									? (event) => {
-										if (event.key !== "Enter" && event.key !== " ") return;
-										event.preventDefault();
-										onRowClick(row, idx);
-									}
+											if (event.key !== "Enter" && event.key !== " ") return;
+											event.preventDefault();
+											onRowClick(row, idx);
+										}
 									: undefined
 							}
 							tabIndex={onRowClick ? 0 : undefined}
 							role={onRowClick ? "button" : undefined}
+							style={onRowClick ? { cursor: "pointer" } : undefined}
 						>
 							{columns.map((col) => (
-								<TableCell
-									key={col.key}
-									className={cn("px-4 py-3", col.cellClassName)}
-								>
-									{col.render
-										? col.render(row, idx)
-										: String(getCellValue(row, col.key) ?? "")}
+								<TableCell key={col.key} className={col.cellClassName}>
+									{col.render ? col.render(row, idx) : String(getCellValue(row, col.key) ?? "")}
 								</TableCell>
 							))}
 						</TableRow>
 					))}
 				</TableBody>
 			</Table>
-			{total != null &&
-				offset != null &&
-				limit != null &&
-				onOffsetChange &&
-				total > 0 && (
-					<div className="border-t border-border px-4 py-3">
-						<Pagination
-							total={total}
-							offset={offset}
-							limit={limit}
-							onChange={onOffsetChange}
-						/>
-					</div>
-				)}
-		</div>
+			{total != null && offset != null && limit != null && onOffsetChange && total > 0 && (
+				<Box px="md" py="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+					<Pagination total={total} offset={offset} limit={limit} onChange={onOffsetChange} />
+				</Box>
+			)}
+		</>
+	);
+
+	if (loading && rows.length === 0) {
+		const body = <LoadingSkeleton variant="table" />;
+		return bare ? (
+			<Box className={className} p="md">
+				{body}
+			</Box>
+		) : (
+			<Paper withBorder radius="lg" shadow="sm" p="md" className={className}>
+				{body}
+			</Paper>
+		);
+	}
+
+	if (!loading && rows.length === 0) {
+		const body = <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />;
+		return bare ? (
+			<Box className={className}>{body}</Box>
+		) : (
+			<Paper withBorder radius="lg" shadow="sm" className={className}>
+				{body}
+			</Paper>
+		);
+	}
+
+	return bare ? (
+		<Box className={className}>{table}</Box>
+	) : (
+		<Paper withBorder radius="lg" shadow="sm" style={{ overflow: "hidden" }} className={className}>
+			{table}
+		</Paper>
 	);
 }

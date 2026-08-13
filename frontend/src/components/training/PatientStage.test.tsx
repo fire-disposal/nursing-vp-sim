@@ -21,8 +21,9 @@ describe("PatientStage", () => {
 			emotion4D: "irritated",
 		});
 		const { container, getAllByText } = render(<PatientStage />);
-		// 大脸铺满方框宽（aspect-square），不再渲染情绪换脸 SVG
-		expect(container.querySelector('img[class*="aspect-square"]')).not.toBeNull();
+		// 大脸铺满方框宽（fill 模式 width:100%），不再渲染情绪换脸 SVG
+		const faceImg = Array.from(container.querySelectorAll("img")).find((img) => (img as HTMLImageElement).style.width === "100%");
+		expect(faceImg).toBeDefined();
 		// 姓名作为身份标签存在（移动端条 + 桌面标签两处）
 		expect(getAllByText(/王建国/).length).toBeGreaterThan(0);
 	});
@@ -51,6 +52,7 @@ describe("PatientStage", () => {
 
 	it("renders without patient data (anonymized) without crash", () => {
 		const { container } = render(<PatientStage />);
-		expect(container.querySelector('img[class*="aspect-square"]')).not.toBeNull();
+		const faceImg = Array.from(container.querySelectorAll("img")).find((img) => (img as HTMLImageElement).style.width === "100%");
+		expect(faceImg).toBeDefined();
 	});
 });

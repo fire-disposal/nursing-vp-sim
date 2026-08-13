@@ -12,7 +12,7 @@
  * - overscroll-behavior 防止 iOS 橡皮筋
  * - will-change 预提升合成层
  */
-import { X } from "lucide-react";
+import { IconX } from "@tabler/icons-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 interface BottomsheetProps {
@@ -151,17 +151,24 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 	const backdropOpacity = snap === "half" ? 0.25 : 0.45;
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col justify-end">
+		<div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
 			<div
-				className="absolute inset-0 transition-opacity duration-300"
-				style={{ background: `rgba(0,0,0,${backdropOpacity})` }}
+				style={{ position: "absolute", inset: 0, transition: "opacity 300ms", background: `rgba(0,0,0,${backdropOpacity})` }}
 				onClick={handleBackdropClick}
 			/>
 
 			<div
 				ref={sheetRef}
-				className="relative z-10 flex flex-col rounded-t-2xl bg-card shadow-xl will-change-transform"
 				style={{
+					position: "relative",
+					zIndex: 10,
+					display: "flex",
+					flexDirection: "column",
+					borderTopLeftRadius: "1rem",
+					borderTopRightRadius: "1rem",
+					background: "var(--mantine-color-body)",
+					boxShadow: "var(--mantine-shadow-xl)",
+					willChange: "transform",
 					height: `calc(${currentVh}vh + env(safe-area-inset-bottom, 0px))`,
 					transition: isDragging ? "none" : "height 350ms cubic-bezier(0.32, 0.72, 0, 1)",
 					paddingBottom: "env(safe-area-inset-bottom, 0px)",
@@ -171,28 +178,27 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 				onPointerCancel={onPointerUp}
 				onLostPointerCapture={onPointerUp}
 			>
-			<div
-				className="flex items-center justify-center pt-2.5 pb-1.5 shrink-0 cursor-grab active:cursor-grabbing"
-				style={{ touchAction: "none" }}
-				onPointerDown={onPointerDown}
-			>
-				<div className="w-10 h-1.5 rounded-full bg-muted-foreground/30" />
-			</div>
+				<div
+					style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 10, paddingBottom: 6, flexShrink: 0, cursor: "grab", touchAction: "none" }}
+					onPointerDown={onPointerDown}
+				>
+					<div style={{ width: 40, height: 6, borderRadius: 999, background: "var(--mantine-color-dimmed)", opacity: 0.3 }} />
+				</div>
 
-				<div className="flex items-center justify-between px-4 pb-3 shrink-0 border-b border-border">
-					<h3 className="text-sm font-semibold select-none">{title}</h3>
+				<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+					<h3 style={{ fontSize: "0.875rem", fontWeight: 600, userSelect: "none" }}>{title}</h3>
 					<button
 						onClick={(e) => { e.stopPropagation(); onClose(); }}
-						className="size-10 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+						style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--mantine-radius-md)", color: "var(--mantine-color-dimmed)" }}
 						aria-label="关闭"
 					>
-						<X size={18} />
+						<IconX size={18} />
 					</button>
 				</div>
 
 				<div
 					ref={contentRef}
-					className="flex-1 overflow-y-auto px-4 py-3 overscroll-contain"
+					style={{ flex: 1, overflowY: "auto", paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12, overscrollBehavior: "contain" }}
 				>
 					{children}
 				</div>

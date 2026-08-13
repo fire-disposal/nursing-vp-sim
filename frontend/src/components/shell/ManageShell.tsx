@@ -158,7 +158,7 @@ export default function ManageShell({
 	const hasAdminPerm = useMemo(() => isAdminPermissions(permissions), [permissions]);
 
 	const content = children || (
-		<Suspense fallback={<LoadingState className="h-full" />}>
+		<Suspense fallback={<LoadingState />}>
 			<Outlet />
 		</Suspense>
 	);
