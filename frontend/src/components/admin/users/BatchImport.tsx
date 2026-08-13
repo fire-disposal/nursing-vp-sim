@@ -6,8 +6,8 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { Alert, Box, Group, ScrollArea, Stack, Text } from "@mantine/core";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Alert, Box, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
+
 import { RoleBadge } from "@/components/ui/role-badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -169,8 +169,14 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent title={<><IconUsers size={20} /> 批量导入学生</>} maxWidth={650}>
+    <Modal
+      opened={open}
+      onClose={handleClose}
+      title={<><IconUsers size={20} /> 批量导入学生</>}
+      size={650}
+      centered
+      withinPortal
+    >
         <Text size="xs" c="dimmed" mb="md">
           支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
           仅限创建<strong>学生</strong>角色账号，班级名称不存在时自动创建。
@@ -268,7 +274,6 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
             {isImporting ? "导入中..." : `导入 ${batchPreview.length} 名学生`}
           </Button>
         </Group>
-      </DialogContent>
-    </Dialog>
+    </Modal>
   );
 }

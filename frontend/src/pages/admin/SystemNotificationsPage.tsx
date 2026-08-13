@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { ActionIcon, Badge, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
@@ -14,7 +14,6 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog, useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -224,16 +223,20 @@ export default function SystemNotificationsPage() {
 					))}
 				</Stack>
 			)}
-			<Dialog open={modalOpen} onOpenChange={async (o) => {
-				if (!o) {
+			<Modal
+				opened={modalOpen}
+				onClose={async () => {
 					if (form.isDirty()) {
 						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
 						if (!ok) return;
 					}
 					setModalOpen(false);
-				}
-			}}>
-				<DialogContent title={editing ? "编辑通知" : "新建通知"} maxWidth={560}>
+				}}
+				title={editing ? "编辑通知" : "新建通知"}
+				size={560}
+				centered
+				withinPortal
+			>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md">
 							<TextInput
@@ -261,7 +264,7 @@ export default function SystemNotificationsPage() {
 								type="datetime-local"
 								{...form.getInputProps("published_at")}
 							/>
-							<DialogFooter>
+							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
 									variant="outline"
@@ -285,11 +288,10 @@ export default function SystemNotificationsPage() {
 											? "更新"
 											: "创建"}
 								</Button>
-							</DialogFooter>
+							</Group>
 						</Stack>
 					</form>
-				</DialogContent>
-			</Dialog>
+			</Modal>
 			<ConfirmDialog
 				open={deleteId !== null}
 				title="删除系统通知"

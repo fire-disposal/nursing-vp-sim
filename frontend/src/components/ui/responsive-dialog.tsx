@@ -1,7 +1,7 @@
-import { Box, Text } from "@mantine/core";
+import { Box, Modal, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useIsMobile } from "@/hooks/useLayoutMode";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Sheet } from "@/components/ui/sheet";
 
 interface ResponsiveDialogProps {
@@ -24,10 +24,6 @@ export function ResponsiveDialog({
 }: ResponsiveDialogProps) {
 	const isMobile = useIsMobile();
 
-	const handleOpenChange = (o: boolean) => {
-		if (!o) onClose();
-	};
-
 	if (isMobile) {
 		return (
 			<Sheet open={open} onClose={onClose} side="bottom" size="md">
@@ -44,10 +40,8 @@ export function ResponsiveDialog({
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent title={title} maxWidth={maxWidth}>
-				{children}
-			</DialogContent>
-		</Dialog>
+		<Modal opened={open} onClose={onClose} title={title} size={maxWidth} centered withinPortal>
+			{children}
+		</Modal>
 	);
 }

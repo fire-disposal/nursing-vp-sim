@@ -17,7 +17,7 @@ import {
 	IconTrendingUp,
 	IconX,
 } from "@tabler/icons-react";
-import { Box, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
+import { Box, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +30,6 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
@@ -260,8 +259,7 @@ export default function TrainingSelect() {
 	const nextAssignment = pendingAssignments[0];
 
 	if (conflict) return (
-		<Dialog open onOpenChange={() => setConflict(null)}>
-			<DialogContent title="有进行中的训练" maxWidth={360}>
+		<Modal opened onClose={() => setConflict(null)} title="有进行中的训练" size={360} centered withinPortal>
 				<Text size="sm" c="dimmed" mb="md">你有一个未完成的训练「{conflict.caseName}」。</Text>
 				<Stack gap="xs">
 					<Button color="green" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
@@ -276,8 +274,7 @@ export default function TrainingSelect() {
 					</Button>
 					<Button variant="outline" onClick={() => setConflict(null)}>取消</Button>
 				</Stack>
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 	return (
 		<Stack gap="md">

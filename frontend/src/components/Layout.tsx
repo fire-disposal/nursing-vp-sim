@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Box, Group, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconMessageCircle, IconStethoscope, IconX } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
@@ -6,7 +6,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import AdaptiveShell from "@/components/shell/AdaptiveShell";
 import { NAV_ITEMS } from "@/components/shell/navigation";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import useAuthStore from "@/stores/authStore";
 import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { isAdminPermissions } from "@/utils/permissions";
@@ -179,8 +179,7 @@ export default function Layout() {
 			</AdaptiveShell>
 
 			{/* About dialog */}
-			<Dialog open={aboutOpen} onOpenChange={(o) => !o && setAboutOpen(false)}>
-				<DialogContent title="关于系统" maxWidth={560}>
+			<Modal opened={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统" size={560} centered withinPortal>
 					<Stack gap="sm" py="xs" align="center">
 						<Box
 							style={{
@@ -218,8 +217,7 @@ export default function Layout() {
 							意见反馈
 						</Button>
 					</Stack>
-				</DialogContent>
-			</Dialog>
+				</Modal>
 		</>
 	);
 }

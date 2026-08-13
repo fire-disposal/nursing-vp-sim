@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Group, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Stack, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
@@ -145,21 +145,19 @@ export function ChatArea({
 			</AnimatePresence>
 			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
-			<Dialog open={inquiryModalOpen} onOpenChange={(o) => { if (!o) setInquiryModalOpen(false); }}>
-				<DialogContent title="问诊内容全部覆盖" maxWidth={360}>
-					<Text size="sm" c="dimmed">
-						你已成功采集了该病例的全部关键病史信息。是否结束本次训练并生成评分？
-					</Text>
-					<Group justify="flex-end" gap={8} mt="xl">
-						<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
-							继续交流
-						</Button>
-						<Button variant="default" size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
-							立即结算
-						</Button>
-					</Group>
-				</DialogContent>
-			</Dialog>
+			<Modal opened={inquiryModalOpen} onClose={() => setInquiryModalOpen(false)} title="问诊内容全部覆盖" size={360} centered withinPortal>
+				<Text size="sm" c="dimmed">
+					你已成功采集了该病例的全部关键病史信息。是否结束本次训练并生成评分？
+				</Text>
+				<Group justify="flex-end" gap={8} mt="xl">
+					<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
+						继续交流
+					</Button>
+					<Button variant="default" size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
+						立即结算
+					</Button>
+				</Group>
+			</Modal>
 		</Stack>
 	);
 }

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Center, Group, Loader, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { getClasses } from "@/api";
@@ -12,7 +12,7 @@ import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import EmptyState from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
@@ -418,11 +418,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			/>
 
 			{resetPasswordDialog && (
-				<Dialog
-					open
-					onOpenChange={() => setResetPasswordDialog(null)}
+				<Modal
+					opened
+					onClose={() => setResetPasswordDialog(null)}
+					title="密码已重置"
+					size={400}
+					centered
+					withinPortal
 				>
-					<DialogContent title="密码已重置" maxWidth={400}>
 						<Stack gap="md">
 							<Text size="sm" c="dimmed">
 								用户{" "}
@@ -459,16 +462,18 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								知道了
 							</Button>
 						</Group>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 			)}
 
 			{showBulkAssignDialog && (
-				<Dialog
-					open
-					onOpenChange={() => setShowBulkAssignDialog(false)}
+				<Modal
+					opened
+					onClose={() => setShowBulkAssignDialog(false)}
+					title="批量分配班级"
+					size={400}
+					centered
+					withinPortal
 				>
-					<DialogContent title="批量分配班级" maxWidth={400}>
 						<Stack gap="md">
 							<Text size="sm" c="dimmed">
 								为已选的 {selectedIds.size} 名用户分配班级：
@@ -497,16 +502,18 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								{assigning ? "分配中…" : "确认分配"}
 							</Button>
 						</Group>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 			)}
 
 			{showBulkResetDialog && (
-				<Dialog
-					open
-					onOpenChange={() => setShowBulkResetDialog(false)}
+				<Modal
+					opened
+					onClose={() => setShowBulkResetDialog(false)}
+					title="批量重置密码"
+					size={400}
+					centered
+					withinPortal
 				>
-					<DialogContent title="批量重置密码" maxWidth={400}>
 						<Stack gap="md">
 							<Text size="sm" c="dimmed">
 								为已选的 {selectedIds.size} 名用户设置新密码：
@@ -531,8 +538,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								确认重置
 							</Button>
 						</Group>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 			)}
 		</>
 	);

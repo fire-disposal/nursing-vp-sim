@@ -1,4 +1,4 @@
-import { Box, Group, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
 import type {
 	AssignForm as AssignFormType,
 	CaseBrief,
@@ -8,7 +8,7 @@ import {
 } from "@/components/admin/questionnaires/types";
 import Button from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Switch } from "@/components/ui/switch";
 
 interface QuestionnaireAssignProps {
@@ -56,11 +56,14 @@ export default function QuestionnaireAssign({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-			<DialogContent
-				title={`分配病例: ${templateTitle}`}
-				maxWidth={600}
-			>
+		<Modal
+			opened={open}
+			onClose={onClose}
+			title={`分配病例: ${templateTitle}`}
+			size={600}
+			centered
+			withinPortal
+		>
 			<form onSubmit={onSubmit}>
 				<Stack gap="md">
 					<div>
@@ -167,7 +170,6 @@ export default function QuestionnaireAssign({
 					</Group>
 				</Stack>
 			</form>
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 }

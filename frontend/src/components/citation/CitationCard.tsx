@@ -1,10 +1,10 @@
-import { Box, Group, Loader, Paper, Text, Typography, UnstyledButton } from "@mantine/core";
+import { Box, Group, Loader, Modal, Paper, Text, Typography, UnstyledButton } from "@mantine/core";
 import { IconBook2, IconChevronDown } from "@tabler/icons-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getSectionText } from "@/api";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 
 interface Citation {
 	source: string;
@@ -81,37 +81,35 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 			</Paper>
 
 			{modal && (
-				<Dialog open onOpenChange={(o) => !o && setModal(null)}>
-					<DialogContent maxWidth={768}>
-						<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }} wrap="nowrap">
-							<IconBook2 size={14} color="var(--mantine-color-teal-6)" />
-							<Box style={{ flex: 1, minWidth: 0 }}>
-								<Text size="sm" fw={500}>
-									{modal.source}
-								</Text>
-								<Text size="xs" c="dimmed">
-									› {modal.section}
-								</Text>
-							</Box>
-						</Group>
-						<Box p="md" style={{ overflowY: "auto" }}>
-							{loadingModal ? (
-								<Group gap={8} wrap="nowrap">
-									<Loader size={14} />
-									<Text size="sm" c="dimmed">
-										加载中...
-									</Text>
-								</Group>
-							) : (
-								<Typography>
-									<ReactMarkdown remarkPlugins={[remarkGfm]}>
-										{modalText}
-									</ReactMarkdown>
-								</Typography>
-							)}
+				<Modal opened onClose={() => setModal(null)} size={768} centered withinPortal>
+					<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }} wrap="nowrap">
+						<IconBook2 size={14} color="var(--mantine-color-teal-6)" />
+						<Box style={{ flex: 1, minWidth: 0 }}>
+							<Text size="sm" fw={500}>
+								{modal.source}
+							</Text>
+							<Text size="xs" c="dimmed">
+								› {modal.section}
+							</Text>
 						</Box>
-					</DialogContent>
-				</Dialog>
+					</Group>
+					<Box p="md" style={{ overflowY: "auto" }}>
+						{loadingModal ? (
+							<Group gap={8} wrap="nowrap">
+								<Loader size={14} />
+								<Text size="sm" c="dimmed">
+									加载中...
+								</Text>
+							</Group>
+						) : (
+							<Typography>
+								<ReactMarkdown remarkPlugins={[remarkGfm]}>
+									{modalText}
+								</ReactMarkdown>
+							</Typography>
+						)}
+					</Box>
+				</Modal>
 			)}
 		</>
 	);

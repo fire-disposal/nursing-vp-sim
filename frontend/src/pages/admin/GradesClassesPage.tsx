@@ -1,4 +1,4 @@
-import { Box, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Paper, Select, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
@@ -322,22 +321,20 @@ export default function GradesClassesPage() {
 				</Box>
 			)}
 
-			<Dialog
-				open={modalOpen}
-				onOpenChange={(o) => {
-					if (!o) {
-						void requestCloseModal();
-					}
+			<Modal
+				opened={modalOpen}
+				onClose={() => {
+					void requestCloseModal();
 				}}
+				title={
+					editId
+						? `编辑${tab === "grades" ? "年级" : "班级"}`
+						: `新建${tab === "grades" ? "年级" : "班级"}`
+				}
+				size={560}
+				centered
+				withinPortal
 			>
-				<DialogContent
-					title={
-						editId
-							? `编辑${tab === "grades" ? "年级" : "班级"}`
-							: `新建${tab === "grades" ? "年级" : "班级"}`
-					}
-					maxWidth={560}
-				>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="sm">
 							{tab === "classes" && (
@@ -360,7 +357,7 @@ export default function GradesClassesPage() {
 								placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
 								{...form.getInputProps("name")}
 							/>
-							<DialogFooter>
+							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
 									variant="outline"
@@ -373,11 +370,10 @@ export default function GradesClassesPage() {
 								<Button type="submit" disabled={form.submitting}>
 									{editId ? "保存" : "创建"}
 								</Button>
-							</DialogFooter>
+							</Group>
 						</Stack>
 					</form>
-				</DialogContent>
-			</Dialog>
+			</Modal>
 		</div>
 	);
 }

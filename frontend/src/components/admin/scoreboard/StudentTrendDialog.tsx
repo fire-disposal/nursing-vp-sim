@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import {
 	IconBolt,
 	IconClock,
@@ -21,7 +21,7 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { getStudentTrend } from "@/api/scoreboard";
 import { queryKeys } from "@/api/query-keys";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
 import EmptyState from "@/components/ui/empty-state";
 import Badge from "@/components/ui/badge";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -143,9 +143,14 @@ export default function StudentTrendDialog({
 		})) ?? [];
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent size="lg" title="成绩趋势" maxWidth={760}>
-				<DialogTitle className="sr-only">成绩趋势</DialogTitle>
+		<Modal
+			opened={open}
+			onClose={() => onOpenChange(false)}
+			title="成绩趋势"
+			size={760}
+			centered
+			withinPortal
+		>
 				{isLoading ? (
 					<Group h={192} justify="center" align="center">
 						<Text size="sm" c="dimmed">加载中...</Text>
@@ -285,7 +290,6 @@ export default function StudentTrendDialog({
 						</Stack>
 					</Stack>
 				)}
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 }

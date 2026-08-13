@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Group, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Stack, Text } from "@mantine/core";
 import Button from "@/components/ui/button";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
 
 // ── Circular Progress Ring ──
@@ -142,111 +142,109 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 	}, [score.detail_scores, score.total_score]);
 
 	return (
-		<Dialog open onOpenChange={(o) => !o && handleClose()}>
-			<DialogContent maxWidth={448}>
-				<CardHeader>
-					<CardTitle>训练评分报告</CardTitle>
-				</CardHeader>
+		<Modal opened onClose={handleClose} size={448} centered withinPortal>
+			<CardHeader>
+				<CardTitle>训练评分报告</CardTitle>
+			</CardHeader>
 
-				<CardContent>
-					<Stack gap="xl">
-						{/* Total Score — Ring */}
-						{score.total_score !== undefined && (
-							<Group justify="center">
-								<CircularProgress score={score.total_score} maxScore={totalMax} />
+			<CardContent>
+				<Stack gap="xl">
+					{/* Total Score — Ring */}
+					{score.total_score !== undefined && (
+						<Group justify="center">
+							<CircularProgress score={score.total_score} maxScore={totalMax} />
+						</Group>
+					)}
+
+					{/* Dimensions */}
+					{score.detail_scores && Object.keys(score.detail_scores).length > 0 && (
+						<Stack gap="md">
+							<Text size="xs" fw={500} c="dimmed" tt="uppercase" style={{ letterSpacing: "0.05em" }}>
+								评分维度
+							</Text>
+							{Object.entries(score.detail_scores).map(([dimName, dim]) => (
+								<DimensionSection key={dimName} name={dimName} dimension={dim} />
+							))}
+						</Stack>
+					)}
+
+					{/* Strengths */}
+					{score.strengths && score.strengths.length > 0 && (
+						<Box>
+							<Group gap={6} mb={6} wrap="nowrap">
+								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-6)" }} />
+								<Text size="sm" fw={500} c="green.6">优势</Text>
 							</Group>
-						)}
-
-						{/* Dimensions */}
-						{score.detail_scores && Object.keys(score.detail_scores).length > 0 && (
-							<Stack gap="md">
-								<Text size="xs" fw={500} c="dimmed" tt="uppercase" style={{ letterSpacing: "0.05em" }}>
-									评分维度
-								</Text>
-								{Object.entries(score.detail_scores).map(([dimName, dim]) => (
-									<DimensionSection key={dimName} name={dimName} dimension={dim} />
+							<Stack gap={4}>
+								{score.strengths.map((s, i) => (
+									<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+										<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-4)", flexShrink: 0 }} />
+										<Text size="sm" c="dimmed">{s}</Text>
+									</Group>
 								))}
 							</Stack>
-						)}
+						</Box>
+					)}
 
-						{/* Strengths */}
-						{score.strengths && score.strengths.length > 0 && (
-							<Box>
-								<Group gap={6} mb={6} wrap="nowrap">
-									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-6)" }} />
-									<Text size="sm" fw={500} c="green.6">优势</Text>
-								</Group>
-								<Stack gap={4}>
-									{score.strengths.map((s, i) => (
-										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
-											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-4)", flexShrink: 0 }} />
-											<Text size="sm" c="dimmed">{s}</Text>
-										</Group>
-									))}
-								</Stack>
-							</Box>
-						)}
+					{/* Weaknesses */}
+					{score.weaknesses && score.weaknesses.length > 0 && (
+						<Box>
+							<Group gap={6} mb={6} wrap="nowrap">
+								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />
+								<Text size="sm" fw={500} c="yellow.7">改进建议</Text>
+							</Group>
+							<Stack gap={4}>
+								{score.weaknesses.map((w, i) => (
+									<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+										<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-4)", flexShrink: 0 }} />
+										<Text size="sm" c="dimmed">{w}</Text>
+									</Group>
+								))}
+							</Stack>
+						</Box>
+					)}
 
-						{/* Weaknesses */}
-						{score.weaknesses && score.weaknesses.length > 0 && (
-							<Box>
-								<Group gap={6} mb={6} wrap="nowrap">
-									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />
-									<Text size="sm" fw={500} c="yellow.7">改进建议</Text>
-								</Group>
-								<Stack gap={4}>
-									{score.weaknesses.map((w, i) => (
-										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
-											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-4)", flexShrink: 0 }} />
-											<Text size="sm" c="dimmed">{w}</Text>
-										</Group>
-									))}
-								</Stack>
-							</Box>
-						)}
+					{/* Missed Content */}
+					{score.missed_content && score.missed_content.length > 0 && (
+						<Box>
+							<Group gap={6} mb={6} wrap="nowrap">
+								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-6)" }} />
+								<Text size="sm" fw={500} c="red.6">遗漏要点</Text>
+							</Group>
+							<Stack gap={4}>
+								{score.missed_content.map((m, i) => (
+									<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+										<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-4)", flexShrink: 0 }} />
+										<Text size="sm" c="dimmed">{m}</Text>
+									</Group>
+								))}
+							</Stack>
+						</Box>
+					)}
 
-						{/* Missed Content */}
-						{score.missed_content && score.missed_content.length > 0 && (
-							<Box>
-								<Group gap={6} mb={6} wrap="nowrap">
-									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-6)" }} />
-									<Text size="sm" fw={500} c="red.6">遗漏要点</Text>
-								</Group>
-								<Stack gap={4}>
-									{score.missed_content.map((m, i) => (
-										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
-											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-4)", flexShrink: 0 }} />
-											<Text size="sm" c="dimmed">{m}</Text>
-										</Group>
-									))}
-								</Stack>
-							</Box>
-						)}
+					{/* Suggestions */}
+					{score.suggestions && (
+						<Box p="sm" style={{ borderRadius: 8, background: "var(--mantine-color-gray-1)" }}>
+							<Text size="sm" fw={500} mb={4}>学习建议</Text>
+							<Text size="sm" c="dimmed" lh={1.6}>{score.suggestions}</Text>
+						</Box>
+					)}
+				</Stack>
+			</CardContent>
 
-						{/* Suggestions */}
-						{score.suggestions && (
-							<Box p="sm" style={{ borderRadius: 8, background: "var(--mantine-color-gray-1)" }}>
-								<Text size="sm" fw={500} mb={4}>学习建议</Text>
-								<Text size="sm" c="dimmed" lh={1.6}>{score.suggestions}</Text>
-							</Box>
-						)}
-					</Stack>
-				</CardContent>
-
-				<CardFooter>
-					<Group gap={8} grow>
-						<Button variant="default" onClick={handleClose}>
-							{onRestart ? "返回记录" : "关闭"}
+			<CardFooter>
+				<Group gap={8} grow>
+					<Button variant="default" onClick={handleClose}>
+						{onRestart ? "返回记录" : "关闭"}
+					</Button>
+					{onRestart && (
+						<Button variant="secondary" onClick={handleRestart}>
+							重新开始
 						</Button>
-						{onRestart && (
-							<Button variant="secondary" onClick={handleRestart}>
-								重新开始
-							</Button>
-						)}
-					</Group>
-				</CardFooter>
-			</DialogContent>
-		</Dialog>
+					)}
+				</Group>
+			</CardFooter>
+		</Modal>
 	);
 }
 

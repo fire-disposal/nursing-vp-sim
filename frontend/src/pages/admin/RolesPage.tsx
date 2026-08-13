@@ -1,4 +1,4 @@
-import { Badge, Box, Code, Group, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Box, Code, Group, Modal, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
@@ -8,7 +8,6 @@ import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -259,20 +258,21 @@ export default function RolesPage() {
 				)}
 			</Stack>
 
-			<Dialog
-				open={showCreate}
-				onOpenChange={async (o) => {
-					if (!o) {
-						if (form.isDirty()) {
-							const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-							if (!ok) return;
-						}
-						form.reset();
-						setShowCreate(false);
+			<Modal
+				opened={showCreate}
+				onClose={async () => {
+					if (form.isDirty()) {
+						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+						if (!ok) return;
 					}
+					form.reset();
+					setShowCreate(false);
 				}}
+				title="新建角色"
+				size={560}
+				centered
+				withinPortal
 			>
-				<DialogContent title="新建角色" maxWidth={560}>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md" py={8}>
 							<TextInput
@@ -285,7 +285,7 @@ export default function RolesPage() {
 								placeholder="如：见习教师"
 								{...form.getInputProps("displayName")}
 							/>
-							<DialogFooter>
+							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
 									variant="outline"
@@ -306,11 +306,10 @@ export default function RolesPage() {
 								>
 									{isSubmitting ? "创建中..." : "创建角色"}
 								</Button>
-							</DialogFooter>
+							</Group>
 						</Stack>
 					</form>
-				</DialogContent>
-			</Dialog>
+			</Modal>
 		</Stack>
 	);
 }

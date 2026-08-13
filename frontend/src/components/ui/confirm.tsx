@@ -1,7 +1,7 @@
 import { modals } from "@mantine/modals";
 import type { ReactNode } from "react";
 import Button from "./button";
-import { Dialog, DialogContent } from "./dialog";
+import { Modal } from "@mantine/core";
 
 export interface ConfirmOptions {
 	title: string;
@@ -64,18 +64,16 @@ export function ConfirmDialog({
 	danger?: boolean;
 }) {
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-			<DialogContent title={title} size="sm">
-				{message}
-				<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-					<Button variant="outline" onClick={onCancel}>
-						{cancelLabel}
-					</Button>
-					<Button variant={danger ? "destructive" : "default"} onClick={onConfirm}>
-						{confirmLabel}
-					</Button>
-				</div>
-			</DialogContent>
-		</Dialog>
+		<Modal opened={open} onClose={onCancel} title={title} size="sm" centered withinPortal>
+			{message}
+			<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+				<Button variant="outline" onClick={onCancel}>
+					{cancelLabel}
+				</Button>
+				<Button variant={danger ? "destructive" : "default"} onClick={onConfirm}>
+					{confirmLabel}
+				</Button>
+			</div>
+		</Modal>
 	);
 }

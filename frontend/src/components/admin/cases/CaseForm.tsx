@@ -5,8 +5,8 @@ import { generateCase, getCaseDetail } from "@/api";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Alert, Badge, Grid, Group, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
+
+import { Alert, Badge, Grid, Group, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, useCaseEditor } from "./CaseEditorState";
 import { FormView } from "./FormView";
 import JsonView from "./JsonView";
@@ -285,11 +285,14 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const aiBusy = aiGenerating;
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => { if (!o) void handleClose(); }}>
-			<DialogContent
-				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
-				maxWidth={state.mode === "json" ? 960 : 900}
-			>
+		<Modal
+			opened={open}
+			onClose={() => { void handleClose(); }}
+			title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
+			size={state.mode === "json" ? 960 : 900}
+			centered
+			withinPortal
+		>
 				{caseMsg && (
 					<Alert variant="light" color={caseMsg.includes("成功") ? "green" : "red"} mb="md">
 						{caseMsg}
@@ -486,7 +489,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 						</Group>
 					</Stack>
 				</form>
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 }

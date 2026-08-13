@@ -1,7 +1,7 @@
-import { Box, Center, Group, Loader, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Box, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Textarea } from "@/components/ui/textarea";
 
 export interface QuestionItem {
@@ -93,8 +93,7 @@ export function QuestionnaireModal({
 	if (!template) return null;
 
 	return (
-		<Dialog open={open} onOpenChange={() => {}}>
-			<DialogContent title={template.title} maxWidth={700}>
+		<Modal opened={open} onClose={() => {}} title={template.title} size={700} centered withinPortal>
 				<Stack gap="xl">
 					{template.description && (
 						<Text size="sm" c="dimmed">
@@ -264,7 +263,6 @@ export function QuestionnaireModal({
 						</Button>
 					</Group>
 				</Stack>
-			</DialogContent>
-		</Dialog>
+			</Modal>
 	);
 }

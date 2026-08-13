@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Badge as MantineBadge, Box, Container, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge as MantineBadge, Box, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
 import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
@@ -7,7 +7,6 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import AuthImage from "@/components/ui/auth-image";
 import Badge from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
@@ -286,15 +285,13 @@ export default function MyFeedbackPage() {
 				)}
 
 				{previewUrl && (
-					<Dialog open onOpenChange={() => setPreviewUrl(null)}>
-						<DialogContent title="截图预览" maxWidth={800}>
-							<AuthImage
-								src={previewUrl}
-								alt="截图预览"
-								style={{ maxHeight: "70vh", maxWidth: "100%", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }}
-							/>
-						</DialogContent>
-					</Dialog>
+					<Modal opened onClose={() => setPreviewUrl(null)} title="截图预览" size={800} centered withinPortal>
+						<AuthImage
+							src={previewUrl}
+							alt="截图预览"
+							style={{ maxHeight: "70vh", maxWidth: "100%", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }}
+						/>
+					</Modal>
 				)}
 			</Stack>
 		</Container>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, Group, Select, Stack, Text } from "@mantine/core";
+import { Box, Group, Modal, Select, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import {
@@ -190,10 +190,10 @@ export default function UserForm({
 
   if (isEdit) {
     return (
-      <Dialog
-        open={open}
-        onOpenChange={async (o) => {
-          if (!o && editForm.isDirty()) {
+      <Modal
+        opened={open}
+        onClose={async () => {
+          if (editForm.isDirty()) {
             const ok = await confirm({
               title: "未保存的更改",
               message: "内容未保存，确定关闭？",
@@ -201,10 +201,13 @@ export default function UserForm({
             });
             if (!ok) return;
           }
-          if (!o) onClose();
+          onClose();
         }}
+        title={`编辑用户: ${user?.display_name}`}
+        size={480}
+        centered
+        withinPortal
       >
-        <DialogContent title={`编辑用户: ${user?.display_name}`} maxWidth={480}>
           <FormMessageBanner type="error" message={editUserMsg} />
           <form onSubmit={editForm.onSubmit(onEditSubmit)}>
             <Stack gap="md">
@@ -293,16 +296,15 @@ export default function UserForm({
               </Group>
             </Stack>
           </form>
-        </DialogContent>
-      </Dialog>
+      </Modal>
     );
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={async (o) => {
-        if (!o && regForm.isDirty()) {
+    <Modal
+      opened={open}
+      onClose={async () => {
+        if (regForm.isDirty()) {
           const ok = await confirm({
             title: "未保存的更改",
             message: "内容未保存，确定关闭？",
@@ -310,10 +312,13 @@ export default function UserForm({
           });
           if (!ok) return;
         }
-        if (!o) onClose();
+        onClose();
       }}
+      title="添加用户"
+      size={780}
+      centered
+      withinPortal
     >
-      <DialogContent title="添加用户" maxWidth={780}>
         <FormMessageBanner
           type={registerMsg.includes("成功") ? "success" : "error"}
           message={registerMsg}
@@ -385,7 +390,6 @@ export default function UserForm({
             </Button>
           </Group>
         </form>
-      </DialogContent>
-    </Dialog>
+    </Modal>
   );
 }

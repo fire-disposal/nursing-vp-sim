@@ -1,4 +1,4 @@
-import { ActionIcon, Stack } from "@mantine/core";
+import { ActionIcon, Group, Modal, Stack } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -7,7 +7,7 @@ import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
 import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
 
@@ -101,15 +101,16 @@ export default function SecretModal({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => {
-			if (!o) {
+		<Modal
+			opened={open}
+			onClose={() => {
 				void requestClose();
-			}
-		}}>
-			<DialogContent
-				title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
-				maxWidth={560}
-			>
+			}}
+			title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
+			size={560}
+			centered
+			withinPortal
+		>
 				<form onSubmit={form.onSubmit(onSubmit)}>
 					<Stack gap="sm">
 						<Input
@@ -186,16 +187,15 @@ export default function SecretModal({
 							}
 						/>
 					</Stack>
-					<DialogFooter>
+				<Group justify="flex-end" mt="lg" gap="sm">
 						<Button variant="outline" type="button" onClick={() => { void requestClose(); }}>
 							取消
 						</Button>
 						<Button type="submit" disabled={form.submitting}>
 							{form.submitting ? "保存中..." : "保存"}
 						</Button>
-					</DialogFooter>
+				</Group>
 				</form>
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 }

@@ -21,6 +21,7 @@ import {
 	Container,
 	Divider,
 	Group,
+	Modal,
 	Stack,
 	Text,
 	ThemeIcon,
@@ -34,7 +35,6 @@ import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import { Input } from "@/components/ui/input";
 import ProfileTabs from "@/components/shell/ProfileTabs";
@@ -284,8 +284,7 @@ export default function Profile() {
 				</Card>
 
 				{/* ── Theme dialog ── */}
-				<Dialog open={themeOpen} onOpenChange={(o) => { if (!o) setThemeOpen(false); }}>
-					<DialogContent title="主题与外观" maxWidth={420}>
+				<Modal opened={themeOpen} onClose={() => setThemeOpen(false)} title="主题与外观" size={420} centered withinPortal>
 						<Stack gap="lg" mt="xs">
 							<Box>
 								<Text size="xs" c="dimmed" mb="sm">
@@ -296,12 +295,10 @@ export default function Profile() {
 							<Divider />
 							<ThemeToggleButton />
 						</Stack>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 
 				{/* ── Edit profile dialog ── */}
-				<Dialog open={editOpen} onOpenChange={(o) => { if (!o) setEditOpen(false); }}>
-					<DialogContent title="编辑资料" maxWidth={480}>
+				<Modal opened={editOpen} onClose={() => setEditOpen(false)} title="编辑资料" size={480} centered withinPortal>
 						<FormMessageBanner type={saveMsg.includes("成功") ? "success" : "error"} message={saveMsg} />
 						<form onSubmit={profileForm.onSubmit(handleSave)}>
 							<Stack gap="md" mt="xs">
@@ -325,12 +322,10 @@ export default function Profile() {
 								</Group>
 							</Stack>
 						</form>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 
 				{/* ── Password dialog ── */}
-				<Dialog open={pwdOpen} onOpenChange={(o) => { if (!o) setPwdOpen(false); }}>
-					<DialogContent title="修改密码" maxWidth={480}>
+				<Modal opened={pwdOpen} onClose={() => setPwdOpen(false)} title="修改密码" size={480} centered withinPortal>
 						<FormMessageBanner type={pwdMsg.includes("成功") ? "success" : "error"} message={pwdMsg} />
 						<form onSubmit={pwForm.onSubmit(handleChangePassword)}>
 							<Stack gap="sm" mt="xs">
@@ -344,12 +339,10 @@ export default function Profile() {
 								</Group>
 							</Stack>
 						</form>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 
 				{/* ── About dialog ── */}
-				<Dialog open={aboutOpen} onOpenChange={(o) => { if (!o) setAboutOpen(false); }}>
-					<DialogContent title="关于系统" maxWidth={420}>
+				<Modal opened={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统" size={420} centered withinPortal>
 						<Stack gap="md" py="xs" align="center" ta="center">
 							<ThemeIcon size={48} radius="xl" variant="filled">
 								<IconStethoscope size={24} />
@@ -377,8 +370,7 @@ export default function Profile() {
 								查看产品介绍 <IconExternalLink size={14} />
 							</Text>
 						</Stack>
-					</DialogContent>
-				</Dialog>
+				</Modal>
 			</Stack>
 		</Container>
 	);

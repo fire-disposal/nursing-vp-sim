@@ -4,7 +4,6 @@ export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 export { Checkbox } from "./checkbox";
 export { default as DataTable } from "./data-table";
 export type { DataTableColumn, DataTableProps } from "./data-table";
-export { Dialog, DialogAction, DialogCancel, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogMedia, DialogTitle, DialogTrigger } from "./dialog";
 export { default as EmptyState } from "./empty-state";
 export { default as ErrorDisplay } from "./error-display";
 export { Input } from "./input";

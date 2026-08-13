@@ -1,9 +1,9 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Box, Group, Modal, Text } from "@mantine/core";
 import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Textarea } from "@/components/ui/textarea";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import ReviewItem from "./ReviewItem";
@@ -76,71 +76,69 @@ export default function ReviewEditor({
 	};
 
 	return (
-		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent title="教师复核评分" maxWidth={640}>
-				<Text size="xs" c="dimmed">
-					逐项审核 AI 评分，可修改每项分值
-				</Text>
+		<Modal opened onClose={onClose} title="教师复核评分" size={640} centered withinPortal>
+			<Text size="xs" c="dimmed">
+				逐项审核 AI 评分，可修改每项分值
+			</Text>
+
+			<Box mt="md">
+				{isNewFormat ? (
+					categories.map(([catName, catData]) => (
+						<Box key={catName} mb="lg">
+							<Group gap="xs" mb={6} wrap="nowrap">
+								<Text size="xs" fw={600} c="dimmed" tt="uppercase">
+									{catName}
+								</Text>
+								<Badge variant="neutral">
+									{catData.score}/{catData.max}
+								</Badge>
+							</Group>
+							{(catData.items || []).map((item) => (
+								<ReviewItem
+									key={item.id!}
+									item={item}
+									editedScore={editedScores[item.id!]}
+									onChange={handleScoreChange}
+								/>
+							))}
+						</Box>
+					))
+				) : (
+					<Box
+						py="lg"
+						ta="center"
+						style={{
+							border: "1px dashed var(--mantine-color-gray-4)",
+							borderRadius: "var(--mantine-radius-md)",
+						}}
+					>
+						<Text size="sm" c="dimmed">
+							此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
+						</Text>
+					</Box>
+				)}
 
 				<Box mt="md">
-					{isNewFormat ? (
-						categories.map(([catName, catData]) => (
-							<Box key={catName} mb="lg">
-								<Group gap="xs" mb={6} wrap="nowrap">
-									<Text size="xs" fw={600} c="dimmed" tt="uppercase">
-										{catName}
-									</Text>
-									<Badge variant="neutral">
-										{catData.score}/{catData.max}
-									</Badge>
-								</Group>
-								{(catData.items || []).map((item) => (
-									<ReviewItem
-										key={item.id!}
-										item={item}
-										editedScore={editedScores[item.id!]}
-										onChange={handleScoreChange}
-									/>
-								))}
-							</Box>
-						))
-					) : (
-						<Box
-							py="lg"
-							ta="center"
-							style={{
-								border: "1px dashed var(--mantine-color-gray-4)",
-								borderRadius: "var(--mantine-radius-md)",
-							}}
-						>
-							<Text size="sm" c="dimmed">
-								此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
-							</Text>
-						</Box>
-					)}
-
-					<Box mt="md">
-						<Text component="label" size="sm" fw={600} mb={6} display="block">
-							复核备注
-						</Text>
-						<Textarea
-							value={comment}
-							onChange={(e) => setComment(e.target.value)}
-							placeholder="可选：对评分调整的说明..."
-							rows={3}
-						/>
-					</Box>
-
-					<Group justify="flex-end" gap="xs" mt="lg">
-						<Button variant="outline" onClick={onClose} disabled={submitting}>
-							取消
-						</Button>
-						<Button onClick={handleSubmit} disabled={submitting}>
-							{submitting ? "提交中..." : "提交复核"}
-						</Button>
-					</Group>
+					<Text component="label" size="sm" fw={600} mb={6} display="block">
+						复核备注
+					</Text>
+					<Textarea
+						value={comment}
+						onChange={(e) => setComment(e.target.value)}
+						placeholder="可选：对评分调整的说明..."
+						rows={3}
+					/>
 				</Box>
-			</DialogContent>
-		</Dialog>
+
+				<Group justify="flex-end" gap="xs" mt="lg">
+					<Button variant="outline" onClick={onClose} disabled={submitting}>
+						取消
+					</Button>
+					<Button onClick={handleSubmit} disabled={submitting}>
+						{submitting ? "提交中..." : "提交复核"}
+					</Button>
+				</Group>
+			</Box>
+		</Modal>
 	);
 }

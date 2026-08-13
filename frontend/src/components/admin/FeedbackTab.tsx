@@ -5,6 +5,7 @@ import {
 	Center,
 	Group,
 	Paper,
+	Modal,
 	Select,
 	Stack,
 	Text,
@@ -43,7 +44,7 @@ import AuthImage from "@/components/ui/auth-image";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
@@ -242,11 +243,9 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 				)}
 			</Paper>
 			{previewUrl && (
-				<Dialog open onOpenChange={() => setPreviewUrl(null)}>
-					<DialogContent title="截图预览" maxWidth={800}>
+				<Modal opened onClose={() => setPreviewUrl(null)} title="截图预览" size={800} centered withinPortal>
 						<AuthImage src={previewUrl} alt="截图预览" style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }} />
-					</DialogContent>
-				</Dialog>
+				</Modal>
 			)}
 		</>
 	);

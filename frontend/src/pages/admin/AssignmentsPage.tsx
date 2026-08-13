@@ -1,4 +1,4 @@
-import { Badge, Box, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Box, Group, Modal, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconCircleX, IconEdit, IconEye, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -22,7 +22,6 @@ import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Switch } from "@/components/ui/switch";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
@@ -411,19 +410,20 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				)}
 			/>
 
-			<Dialog open={modalOpen} onOpenChange={async (o) => {
-				if (!o) {
+			<Modal
+				opened={modalOpen}
+				onClose={async () => {
 					if (form.isDirty()) {
 						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
 						if (!ok) return;
 					}
 					setModalOpen(false);
-				}
-			}}>
-				<DialogContent
-					title={editingId ? "编辑作业" : "创建作业"}
-					maxWidth={560}
-				>
+				}}
+				title={editingId ? "编辑作业" : "创建作业"}
+				size={560}
+				centered
+				withinPortal
+			>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md">
 							<Input label="标题" placeholder="作业标题" {...form.getInputProps("title")} />
@@ -501,7 +501,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									<Switch {...form.getInputProps("hideCaseInfo", { type: "checkbox" })} />
 								</Group>
 							</Box>
-							<DialogFooter>
+							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
 									variant="outline"
@@ -518,11 +518,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								<Button type="submit" disabled={form.submitting}>
 									{form.submitting ? (editingId ? "保存中..." : "发布中...") : (editingId ? "保存" : "发布")}
 								</Button>
-							</DialogFooter>
+							</Group>
 						</Stack>
 					</form>
-				</DialogContent>
-			</Dialog>
+			</Modal>
 		</Stack>
 	);
 }

@@ -1,9 +1,9 @@
 import { IconArrowLeft, IconClipboardCheck, IconClock, IconEarOff, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Box, Group, Stack, Text } from "@mantine/core";
+import { ActionIcon, Box, Group, Modal, Stack, Text } from "@mantine/core";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
@@ -192,39 +192,36 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					</Button>
 				</Group>
 			</Box>
-			<Dialog open={endConfirmOpen} onOpenChange={(o) => !o && setEndConfirmOpen(false)}>
-				<DialogContent title="结束训练" maxWidth={360}>
-					<Text size="sm" c="dimmed" mb="xl">
-						已发送 {studentMsgCount} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
-					</Text>
-					<Group justify="flex-end" gap={8}>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setEndConfirmOpen(false)}
-						>
-							取消
-						</Button>
-						<Button variant="end" size="sm" onClick={executeEnd}>
-							确认结束
-						</Button>
-					</Group>
-				</DialogContent>
-			</Dialog>
+			<Modal opened={endConfirmOpen} onClose={() => setEndConfirmOpen(false)} title="结束训练" size={360} centered withinPortal>
+				<Text size="sm" c="dimmed" mb="xl">
+					已发送 {studentMsgCount} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
+				</Text>
+				<Group justify="flex-end" gap={8}>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setEndConfirmOpen(false)}
+					>
+						取消
+					</Button>
+					<Button variant="end" size="sm" onClick={executeEnd}>
+						确认结束
+					</Button>
+				</Group>
+			</Modal>
 
-			<Dialog open={leaveDialogOpen} onOpenChange={(o) => !o && setLeaveDialogOpen(false)}>
-				<DialogContent title="离开训练" maxWidth={300}>
-					<Text size="sm" c="dimmed" mb="xl">训练仍在进行中，进度已自动保存</Text>
-					<Stack gap={8}>
-						<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
-							暂离，保留进度
-						</Button>
-						<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
-							继续训练
-						</Button>
-					</Stack>
-				</DialogContent>
-			</Dialog>
+			<Modal opened={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)} title="离开训练" size={300} centered withinPortal>
+				<Text size="sm" c="dimmed" mb="xl">训练仍在进行中，进度已自动保存</Text>
+				<Stack gap={8}>
+					<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
+						暂离，保留进度
+					</Button>
+					<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
+						继续训练
+					</Button>
+				</Stack>
+			</Modal>
+
 		</>
 	);
 }

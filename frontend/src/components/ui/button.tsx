@@ -11,7 +11,6 @@ type Variant =
 	| "success"
 	| "warning"
 	| "info"
-	| "abandon"
 	| "end";
 type Size = "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
 
@@ -25,7 +24,6 @@ const VARIANTS: Record<Variant, { variant: ButtonProps["variant"]; color?: strin
 	success: { variant: "light", color: "green" },
 	warning: { variant: "light", color: "yellow" },
 	info: { variant: "light", color: "blue" },
-	abandon: { variant: "light", color: "orange" },
 	end: { variant: "light", color: "indigo" },
 };
 

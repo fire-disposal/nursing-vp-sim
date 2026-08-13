@@ -2,6 +2,7 @@ import {
 	ActionIcon,
 	Group,
 	Paper,
+	Modal,
 	Select,
 	Stack,
 	Text,
@@ -22,7 +23,7 @@ import {
 } from "@/components/admin/questionnaires/types";
 import Button from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import { Switch } from "@/components/ui/switch";
 import LoadingState from "@/components/ui/loading-state";
@@ -94,11 +95,14 @@ export default function QuestionnaireEditor({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-			<DialogContent
-				title={editingId ? "编辑问卷模板" : "新建问卷模板"}
-				maxWidth={700}
-			>
+		<Modal
+			opened={open}
+			onClose={onClose}
+			title={editingId ? "编辑问卷模板" : "新建问卷模板"}
+			size={700}
+			centered
+			withinPortal
+		>
 			<FormMessageBanner type="error" message={editMsg} />
 			{isLoadingDetail && editingId ? (
 				<LoadingState message="加载模板数据..." />
@@ -306,7 +310,6 @@ export default function QuestionnaireEditor({
 					</Stack>
 				</form>
 			)}
-			</DialogContent>
-		</Dialog>
+		</Modal>
 	);
 }
