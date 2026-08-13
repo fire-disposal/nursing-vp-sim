@@ -144,7 +144,7 @@ export default function UserList({
 										style={{
 											cursor: "pointer",
 											...(selectedIds.has(u.id) && {
-												backgroundColor: "var(--mantine-color-teal-0)",
+												backgroundColor: "var(--mantine-color-blue-0)",
 											}),
 										}}
 									>

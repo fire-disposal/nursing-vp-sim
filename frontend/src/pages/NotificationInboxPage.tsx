@@ -176,7 +176,7 @@ export default function NotificationInboxPage() {
 								style={{
 									cursor: "pointer",
 									textAlign: "left",
-									borderLeft: n.is_read ? undefined : "2px solid var(--mantine-color-teal-6)",
+									borderLeft: n.is_read ? undefined : "2px solid var(--mantine-color-blue-6)",
 								}}
 							>
 								<Group gap="sm" align="flex-start" wrap="nowrap">
@@ -184,7 +184,7 @@ export default function NotificationInboxPage() {
 										<Box
 											w={8}
 											h={8}
-											bg="teal"
+											bg="blue"
 											style={{ borderRadius: "50%", flexShrink: 0, marginTop: 6 }}
 										/>
 									)}

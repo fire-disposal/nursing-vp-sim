@@ -159,7 +159,7 @@ export default function Login() {
 						component={Link}
 						to="/simulation"
 						size="xs"
-						c="teal"
+						c="blue"
 						mt="sm"
 						ta={{ base: "center", lg: "left" }}
 					>

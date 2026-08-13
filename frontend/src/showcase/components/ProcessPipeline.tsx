@@ -24,7 +24,7 @@ const STAGES: Stage[] = [
 	{
 		label: "LLM",
 		detail: "角色扮演 / 信息逐步披露",
-		accent: "teal",
+		accent: "blue",
 		subDetails: ["模拟患者语气、用词与情绪反应", "按信任度逐步暴露隐藏病史信息", "根据等待时长与沟通质量主动追问"],
 	},
 	{

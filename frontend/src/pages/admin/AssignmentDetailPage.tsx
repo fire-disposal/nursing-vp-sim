@@ -162,7 +162,7 @@ export default function AssignmentDetailPage() {
 				</Paper>
 				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">已评分</Text>
-					<Text size="xl" fw={700} c="teal">{detail.scored_count}</Text>
+					<Text size="xl" fw={700} c="blue">{detail.scored_count}</Text>
 				</Paper>
 				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">完成率</Text>
@@ -248,7 +248,7 @@ export default function AssignmentDetailPage() {
 										{s.record_id != null ? (
 											<Anchor
 												onClick={() => navigate(`/record/${s.record_id}`)}
-												c="teal"
+												c="blue"
 												size="sm"
 											>
 												{s.display_name}

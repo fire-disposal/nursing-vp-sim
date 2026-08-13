@@ -67,7 +67,7 @@ export type NavGroupKey = "teaching" | "people" | "system";
 export type NavIcon = ComponentType<{
 	size?: number;
 	className?: string;
-	strokeWidth?: number;
+	stroke?: number;
 	color?: string;
 	style?: CSSProperties;
 }>;

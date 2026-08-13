@@ -96,7 +96,7 @@ export default function QuestionnaireList({
 			render: (t) => (
 				<Text
 					fw={500}
-					c={t.response_count > 0 ? "teal" : "dimmed"}
+					c={t.response_count > 0 ? "blue" : "dimmed"}
 					opacity={t.response_count > 0 ? 1 : 0.7}
 				>
 					{t.response_count}

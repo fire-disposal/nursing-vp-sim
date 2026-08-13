@@ -49,7 +49,7 @@ function LLMCostSummary() {
 				icon={IconTrendingUp}
 				value={`¥${totalCostMonth.toFixed(2)}`}
 				label="本月 LLM 费用"
-				color="teal"
+				color="blue"
 			/>
 			<StatCard
 				icon={IconCpu}

@@ -205,7 +205,7 @@ function StatsContent({
 								: "-"
 						}
 						label="平均每次训练时长"
-						color="teal"
+						color="blue"
 					/>
 				</SimpleGrid>
 			)}
@@ -441,7 +441,7 @@ function StatsContent({
 										<TableCell style={{ fontWeight: 500 }}>{s.display_name}</TableCell>
 										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_id || "-"}</TableCell>
 										<TableCell>{s.total_sessions}</TableCell>
-										<TableCell style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)" }}>
+										<TableCell style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
 											{s.avg_score != null ? `${s.avg_score}分` : "-"}
 										</TableCell>
 										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>

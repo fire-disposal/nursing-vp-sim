@@ -316,7 +316,7 @@ export default function VoiceTokenCard() {
 					{!cfg && (
 						<Text size="xs" c="dimmed" p={10} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, background: "var(--mantine-color-gray-0)" }}>
 							首次使用 →{" "}
-							<a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" style={{ color: "var(--mantine-color-teal-6)" }}>
+							<a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" style={{ color: "var(--mantine-color-blue-6)" }}>
 								火山引擎控制台
 							</a>{" "}
 							创建 v3 统一 API Key，填入保存。

@@ -16,7 +16,7 @@ const nodes = [
 	{
 		label: "透明评分",
 		detail: "SSE / 证据 / 可解释反馈",
-		accent: "teal",
+		accent: "blue",
 		transform: "translate(-50%, -50%) translateY(12%)",
 	},
 ];

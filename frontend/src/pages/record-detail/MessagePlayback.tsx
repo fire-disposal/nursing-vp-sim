@@ -31,7 +31,7 @@ export default function MessagePlayback({ messages }: Props) {
 								component="span"
 								fw={600}
 								mr={8}
-								c={msg.role === "student" ? "teal" : "blue"}
+								c={msg.role === "student" ? "blue" : "blue"}
 							>
 								{msg.role === "student" ? "学生：" : "患者："}
 							</Text>

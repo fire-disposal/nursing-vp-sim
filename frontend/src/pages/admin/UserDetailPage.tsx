@@ -120,7 +120,7 @@ export default function UserDetailPage() {
 					icon={IconMedal}
 					value={student.total_sessions > 0 ? `${Math.round(student.total_minutes / student.total_sessions)}分钟` : "-"}
 					label="平均每次训练时长"
-					color="teal"
+					color="blue"
 				/>
 			</SimpleGrid>
 
@@ -216,7 +216,7 @@ export default function UserDetailPage() {
 												{r.status === "completed" ? "已完成" : "进行中"}
 											</Badge>
 										</TableCell>
-										<TableCell style={{ fontWeight: 600, color: r.score_total != null ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)" }}>
+										<TableCell style={{ fontWeight: 600, color: r.score_total != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
 											{r.score_total != null ? `${r.score_total}分` : "未评分"}
 										</TableCell>
 										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>

@@ -26,8 +26,8 @@ export default function UserCard({
 				cursor: "pointer",
 				transition: "box-shadow 0.15s ease",
 				...(selected && {
-					borderColor: "var(--mantine-color-teal-6)",
-					boxShadow: "0 0 0 1px var(--mantine-color-teal-6)",
+					borderColor: "var(--mantine-color-blue-6)",
+					boxShadow: "0 0 0 1px var(--mantine-color-blue-6)",
 				}),
 			}}
 		>

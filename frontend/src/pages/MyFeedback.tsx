@@ -20,7 +20,7 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
-const RATING_COLORS = ["red", "orange", "yellow", "green", "teal"];
+const RATING_COLORS = ["red", "orange", "yellow", "green", "blue"];
 const TAG_LABELS: Record<string, string> = {
 	feature: "功能建议", bug: "BUG反馈", experience: "体验评价",
 	content: "内容质量", ui: "界面设计", other: "其他",
@@ -82,8 +82,8 @@ export default function MyFeedbackPage() {
 								累计反馈
 							</Text>
 						</Paper>
-						<Paper radius="md" bg="teal.1" px="sm" py="xs" ta="center">
-							<Text size="lg" fw={600} c="teal">
+						<Paper radius="md" bg="blue.1" px="sm" py="xs" ta="center">
+							<Text size="lg" fw={600} c="blue">
 								{repliedCount}
 							</Text>
 							<Text size="xs" c="dimmed">
@@ -242,18 +242,18 @@ export default function MyFeedbackPage() {
 									{fb.developer_reply && (
 										<Paper
 											radius="md"
-											bg="teal.1"
+											bg="blue.1"
 											px="sm"
 											py="xs"
 											mt="md"
-											style={{ border: "1px solid var(--mantine-color-teal-3)" }}
+											style={{ border: "1px solid var(--mantine-color-blue-3)" }}
 										>
 											<Group gap={6} mb={4}>
 												<IconMessageReply
 													size={13}
-													style={{ color: "var(--mantine-color-teal-7)" }}
+													style={{ color: "var(--mantine-color-blue-7)" }}
 												/>
-												<Text size="xs" fw={500} c="teal">
+												<Text size="xs" fw={500} c="blue">
 													开发者回复
 												</Text>
 												{fb.replied_at && (

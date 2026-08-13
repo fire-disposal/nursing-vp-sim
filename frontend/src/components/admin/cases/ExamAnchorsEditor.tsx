@@ -50,7 +50,7 @@ export function ExamAnchorsEditor({ value, onChange, disabled }: Props) {
 				<Group gap={8}>
 					<TextInput value={newKey} onChange={(e) => setNewKey(e.currentTarget.value)} placeholder="新 key" style={{ flex: 1 }} />
 					<TextInput value={newVal} onChange={(e) => setNewVal(e.currentTarget.value)} placeholder="value" style={{ flex: 2 }} />
-					<ActionIcon variant="light" color="teal" onClick={add} aria-label="添加查体锚点"><IconPlus size={14} /></ActionIcon>
+					<ActionIcon variant="light" color="blue" onClick={add} aria-label="添加查体锚点"><IconPlus size={14} /></ActionIcon>
 				</Group>
 			)}
 		</Paper>

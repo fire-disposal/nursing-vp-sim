@@ -456,7 +456,7 @@ export default function ScoreboardPage() {
 
 			<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
 				<StatCard icon={IconBolt} value={summary?.record_count ?? "-"} label="计入训练次数" color="blue" />
-				<StatCard icon={IconUsers} value={summary?.student_count ?? "-"} label="入榜学生" color="teal" />
+				<StatCard icon={IconUsers} value={summary?.student_count ?? "-"} label="入榜学生" color="blue" />
 				<StatCard
 					icon={IconMedal}
 					value={summary?.avg_score ?? "-"}

@@ -353,7 +353,7 @@ export default function Profile() {
 								target="_blank"
 								rel="noopener noreferrer"
 								size="sm"
-								c="teal"
+								c="blue"
 								style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
 							>
 								查看产品介绍 <IconExternalLink size={14} />

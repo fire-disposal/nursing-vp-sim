@@ -326,7 +326,7 @@ export default function QA() {
 					>
 						<IconMenu2 size={17} />
 					</Button>
-					<ThemeIcon size={40} radius="md" variant="light" color="teal">
+					<ThemeIcon size={40} radius="md" variant="light" color="blue">
 						<IconRobot size={20} />
 					</ThemeIcon>
 					<Box style={{ minWidth: 0, flex: 1 }}>
@@ -437,7 +437,7 @@ function QASidebar({
 								textAlign: "left",
 								padding: "12px",
 								borderRadius: "var(--mantine-radius-xl)",
-								background: activeSessionId === session.id ? "var(--mantine-color-teal-1)" : undefined,
+								background: activeSessionId === session.id ? "var(--mantine-color-blue-1)" : undefined,
 							}}
 						>
 							<Group gap="sm" align="flex-start" wrap="nowrap">
@@ -496,7 +496,7 @@ function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 				<Box>
 					<Group gap="xs" style={{ display: "inline-flex", width: "fit-content" }} px="sm" py={4} wrap="nowrap" mb="md">
 						<IconSparkles size={15} />
-						<Text size="sm" fw={500} c="teal">
+						<Text size="sm" fw={500} c="blue">
 							教材增强问答
 						</Text>
 					</Group>
@@ -532,7 +532,7 @@ function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 									}}
 								>
 									<Group gap="sm" align="center" wrap="nowrap">
-										<ThemeIcon size={36} radius="md" variant="light" color="teal">
+										<ThemeIcon size={36} radius="md" variant="light" color="blue">
 											<IconBook2 size={16} />
 										</ThemeIcon>
 										<Box style={{ minWidth: 0, flex: 1 }}>
@@ -597,7 +597,7 @@ function MessageBubble({
 					padding: "12px 16px",
 					borderRadius: "var(--mantine-radius-lg)",
 				}}
-				bg={isUser ? "teal" : "var(--mantine-color-body)"}
+				bg={isUser ? "blue" : "var(--mantine-color-body)"}
 				c={isUser ? "white" : undefined}
 				bd={isUser ? undefined : "1px solid var(--mantine-color-gray-3)"}
 			>
@@ -641,7 +641,7 @@ function AssistantDraft({ content }: { content: string }) {
 
 function AssistantAvatar() {
 	return (
-		<ThemeIcon size={36} radius="md" variant="light" color="teal">
+		<ThemeIcon size={36} radius="md" variant="light" color="blue">
 			<IconRobot size={18} />
 		</ThemeIcon>
 	);

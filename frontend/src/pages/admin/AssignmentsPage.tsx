@@ -466,7 +466,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								return (
 									<Group gap={4} wrap="wrap" mt={-8} mb={4}>
 										{enabled.map(([k]) => (
-											<Badge key={k} variant="light" color="teal" size="xs">
+											<Badge key={k} variant="light" color="blue" size="xs">
 												{ALL_CAPABILITIES[k]?.label ?? k}
 											</Badge>
 										))}

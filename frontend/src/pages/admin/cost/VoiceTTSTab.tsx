@@ -107,7 +107,7 @@ export default function VoiceTTSTab() {
 	return (
 		<Stack gap="xl" mt="md">
 			<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-				<StatCard icon={IconCurrencyDollar} value={`¥${(ttsToday?.cost_estimated ?? 0).toFixed(2)}`} label="今日费用" color="teal" />
+				<StatCard icon={IconCurrencyDollar} value={`¥${(ttsToday?.cost_estimated ?? 0).toFixed(2)}`} label="今日费用" color="blue" />
 				<StatCard icon={IconCurrencyDollar} value={`¥${(ttsMonth?.cost_estimated ?? 0).toFixed(2)}`} label="本月费用" color="blue" />
 				<StatCard icon={IconHash} value={ttsToday?.calls_total ?? 0} label="今日调用" color="amber" />
 				<StatCard icon={IconPercentage} value={todaySuccessRate} label="今日成功率" color="green" />

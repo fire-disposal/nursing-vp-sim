@@ -95,22 +95,22 @@ export function BottomTabBar() {
 									right: "25%",
 									height: 2,
 									borderRadius: "0 0 999px 999px",
-									background: "var(--mantine-color-teal-6)",
+									background: "var(--mantine-color-blue-6)",
 								}}
 							/>
 						)}
 						<Icon
 							size={isShort ? 20 : 22}
-							strokeWidth={isActive ? 2.5 : 2}
+							stroke={isActive ? 2.5 : 2}
 							style={{
-								color: isActive ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)",
+								color: isActive ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)",
 							}}
 						/>
 						{!isShort && (
 							<Text
 								fz={10}
 								fw={600}
-								c={isActive ? "teal.6" : "dimmed"}
+								c={isActive ? "blue.6" : "dimmed"}
 								style={{ lineHeight: 1.2 }}
 							>
 								{tab.label}

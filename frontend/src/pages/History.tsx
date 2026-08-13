@@ -350,7 +350,7 @@ export default function History() {
 											</TableCell>
 											<TableCell>
 												{r.score_total != null ? (
-													<Text component="span" fw={600} c="teal">
+													<Text component="span" fw={600} c="blue">
 														{r.score_total}分
 													</Text>
 												) : r.scoring_status === "pending" ||

@@ -76,7 +76,7 @@ export default function QuestionnaireStats({
 							radius="md"
 							ta="center"
 						>
-							<Text size="xl" fw={700} c="teal">
+							<Text size="xl" fw={700} c="blue">
 								{stats.total_assigned}
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>

@@ -144,14 +144,14 @@ export function QuestionnaireModal({
 															padding: "8px 12px",
 															borderRadius: "var(--mantine-radius-md)",
 															border: active
-																? "1px solid var(--mantine-color-teal-6)"
+																? "1px solid var(--mantine-color-blue-6)"
 																: "1px solid var(--mantine-color-gray-3)",
 															background: active
-																? "var(--mantine-color-teal-light)"
+																? "var(--mantine-color-blue-light)"
 																: "transparent",
 														}}
 													>
-														<Text size="lg" fw={600} c={active ? "teal.7" : undefined}>
+														<Text size="lg" fw={600} c={active ? "blue.7" : undefined}>
 															{val}
 														</Text>
 														<Text fz={10} c="dimmed">
@@ -178,10 +178,10 @@ export function QuestionnaireModal({
 															padding: "8px 12px",
 															borderRadius: "var(--mantine-radius-md)",
 															border: active
-																? "1px solid var(--mantine-color-teal-6)"
+																? "1px solid var(--mantine-color-blue-6)"
 																: "1px solid var(--mantine-color-gray-3)",
 															background: active
-																? "var(--mantine-color-teal-light)"
+																? "var(--mantine-color-blue-light)"
 																: "transparent",
 															textAlign: "left",
 														}}
@@ -204,7 +204,7 @@ export function QuestionnaireModal({
 																		width: 8,
 																		height: 8,
 																		borderRadius: "50%",
-																		background: "var(--mantine-color-teal-6)",
+																		background: "var(--mantine-color-blue-6)",
 																	}}
 																/>
 															)}

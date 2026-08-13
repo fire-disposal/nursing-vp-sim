@@ -338,7 +338,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					<Button
 						size="xs"
 						variant={showPreview ? "filled" : "outline"}
-						color={showPreview ? "teal" : "gray"}
+						color={showPreview ? "blue" : "gray"}
 						onClick={() => setShowPreview(!showPreview)}
 						title="病例预览"
 						leftSection={<IconEye size={13} />}

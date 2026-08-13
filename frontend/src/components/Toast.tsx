@@ -19,7 +19,7 @@ interface ToastApi {
 }
 
 const COLOR: Record<ToastType, string> = {
-	success: "teal",
+	success: "green",
 	error: "red",
 	warning: "yellow",
 	info: "blue",

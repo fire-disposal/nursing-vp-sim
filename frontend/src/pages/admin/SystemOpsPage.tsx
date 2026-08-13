@@ -51,7 +51,7 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 				icon={IconServer}
 				value={activeSessions}
 				label="活跃会话"
-				color="teal"
+				color="blue"
 			/>
 		</SimpleGrid>
 	);

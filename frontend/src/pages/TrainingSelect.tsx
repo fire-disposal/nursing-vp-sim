@@ -46,7 +46,7 @@ const LIMIT = 50;
 
 const CAP_COLORS: Record<string, string> = {
 	physical_exam: "violet",
-	nursing_record: "teal",
+	nursing_record: "blue",
 	quiz: "blue",
 };
 
@@ -296,10 +296,10 @@ export default function TrainingSelect() {
 								gap="sm"
 								px="md"
 								py="sm"
-								style={{ borderBottom: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-teal-1)" }}
+								style={{ borderBottom: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-blue-1)" }}
 							>
 								<Group gap="xs">
-									<ThemeIcon size={32} radius="md" variant="light" color="teal">
+									<ThemeIcon size={32} radius="md" variant="light" color="blue">
 										<IconSpeakerphone size={16} />
 									</ThemeIcon>
 									<Box>
@@ -355,7 +355,7 @@ export default function TrainingSelect() {
 							style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32 }}
 						>
 							<Box>
-								<Text size="sm" fw={500} c="teal">{greeting}，{user?.display_name || "同学"}</Text>
+								<Text size="sm" fw={500} c="blue">{greeting}，{user?.display_name || "同学"}</Text>
 								<Title order={2} size="xl" mt="sm" style={{ maxWidth: 672 }}>
 									{primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
 								</Title>
@@ -469,7 +469,7 @@ export default function TrainingSelect() {
 												</Box>
 												<Box style={{ flexShrink: 0, marginLeft: 12 }}>
 													{r.status === "completed" && r.score_total != null ? (
-														<Text size="sm" fw={600} c="teal" style={{ fontVariantNumeric: "tabular-nums" }}>{r.score_total} 分</Text>
+														<Text size="sm" fw={600} c="blue" style={{ fontVariantNumeric: "tabular-nums" }}>{r.score_total} 分</Text>
 													) : r.status === "in_progress" ? (
 														<Badge variant="light" color="blue">进行中</Badge>
 													) : null}
@@ -541,7 +541,7 @@ export default function TrainingSelect() {
 							</SimpleGrid>
 							{myStats && (
 								<SimpleGrid cols={{ base: 1, sm: 2, xl: 1 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
-									<StatCard icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="teal" />
+									<StatCard icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
 									<StatCard icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
 									<StatCard icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
 									<StatCard icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
@@ -591,11 +591,11 @@ export default function TrainingSelect() {
 							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
 						</Box>
 					</Group>
-					<Paper radius="md" withBorder px="md" py="sm" bg="teal.1" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-teal-4)" }}>
+					<Paper radius="md" withBorder px="md" py="sm" bg="blue.1" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-blue-4)" }}>
 						<Group justify="space-between" gap="sm" wrap="wrap">
 							<Box style={{ minWidth: 0 }}>
 								<Group gap={6} wrap="nowrap">
-									<IconGift size={15} style={{ color: "var(--mantine-color-teal-7)", flexShrink: 0 }} />
+									<IconGift size={15} style={{ color: "var(--mantine-color-blue-7)", flexShrink: 0 }} />
 									<Text size="sm" fw={600}>盲盒训练</Text>
 								</Group>
 								<Text size="xs" c="dimmed" mt={2} truncate>

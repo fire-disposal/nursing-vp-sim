@@ -84,7 +84,7 @@ export function TeachingDashboard() {
       </div>
 
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
-        <StatCard icon={IconUsers} value={activeStudentCount} label="今日活跃学生" color="teal" />
+        <StatCard icon={IconUsers} value={activeStudentCount} label="今日活跃学生" color="blue" />
         <StatCard icon={IconTrendingUp} value={stats?.today_records ?? 0} label="今日训练次数" color="blue" />
         <StatCard
           icon={IconTarget}

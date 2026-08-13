@@ -232,7 +232,7 @@ export default function MonitorTab() {
 										? "green"
 										: s.color === "amber"
 											? "yellow"
-											: "teal"
+											: "blue"
 								}
 							>
 								{s.value}
@@ -512,7 +512,7 @@ export default function MonitorTab() {
 														{item.record_id != null ? (
 															<Text
 																component="span"
-																c="teal"
+																c="blue"
 																ff="monospace"
 																td="underline"
 															>

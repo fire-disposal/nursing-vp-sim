@@ -68,7 +68,7 @@ function StatGrid({ data }: { data: CostDashboardResponse }) {
 				icon={IconVolume2}
 				value={`¥${data.tts_today.total_cost.toFixed(2)}`}
 				label="今日 TTS 费用"
-				color="teal"
+				color="blue"
 			/>
 			<StatCard
 				icon={IconTrendingUp}
@@ -286,7 +286,7 @@ function UserCostBreakdown() {
 							<Stack key={u.user_id} gap={4} p={10} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
 								<Group justify="space-between" align="center" wrap="wrap">
 									<Text size="sm" fw={600}>{u.user_name}</Text>
-									<Text size="sm" fw={700} c="teal" style={{ fontVariantNumeric: "tabular-nums" }}>
+									<Text size="sm" fw={700} c="blue" style={{ fontVariantNumeric: "tabular-nums" }}>
 										¥{u.total_cost.toFixed(2)}{" "}
 										<Text component="span" size="xs" c="dimmed" fw={400} inherit>
 											{u.total_calls}次

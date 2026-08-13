@@ -160,7 +160,7 @@ export function ScoringOverlay({
 						{showThought && (
 							<SimpleGrid cols={2} spacing={8} mt={4}>
 								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="10px" ff="monospace" c="teal.7" mb={4}>$ scoring_dims</Text>
+									<Text size="10px" ff="monospace" c="blue.7" mb={4}>$ scoring_dims</Text>
 									<Box
 										ref={scoreScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
@@ -169,7 +169,7 @@ export function ScoringOverlay({
 									</Box>
 								</Box>
 								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="10px" ff="monospace" c="teal.7" mb={4}>$ feedback_gen</Text>
+									<Text size="10px" ff="monospace" c="blue.7" mb={4}>$ feedback_gen</Text>
 									<Box
 										ref={feedbackScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
@@ -195,7 +195,7 @@ export function ScoringOverlay({
 							<Button
 								variant="subtle"
 								size="xs"
-								color="teal"
+								color="blue"
 								mt={8}
 								onClick={handleRetry}
 								disabled={retrying}

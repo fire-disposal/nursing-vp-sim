@@ -440,7 +440,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								<Button
 									variant="subtle"
 									size="xs"
-									color="teal"
+									color="blue"
 									onClick={() => {
 										navigator.clipboard.writeText(
 											resetPasswordDialog.password,

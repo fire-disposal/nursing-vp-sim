@@ -96,7 +96,7 @@ export default function ClassDetailPage() {
 										style={{ textAlign: "left", cursor: "pointer", width: "100%" }}
 									>
 										<Group gap={12} wrap="nowrap">
-											<ThemeIcon size={40} radius="md" variant="light" color="teal">
+											<ThemeIcon size={40} radius="md" variant="light" color="blue">
 												<IconUser size={18} />
 											</ThemeIcon>
 											<div style={{ minWidth: 0, flex: 1 }}>

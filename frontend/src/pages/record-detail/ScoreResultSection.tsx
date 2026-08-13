@@ -124,7 +124,7 @@ export default function ScoreResultSection({
 				</Group>
 
 				<Group align="baseline" gap={8}>
-					<Text size="40px" fw={800} c="teal" lh={1}>
+					<Text size="40px" fw={800} c="blue" lh={1}>
 						{displayTotal}
 					</Text>
 					<Text size="md" c="dimmed">

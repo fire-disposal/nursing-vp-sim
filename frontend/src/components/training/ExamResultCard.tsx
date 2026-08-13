@@ -19,7 +19,7 @@ const ICON_MAP: Record<string, ReactNode> = {
   temp: <IconThermometer size={16} color="var(--mantine-color-orange-5)" />,
   spo2: <IconWaveSine size={16} color="var(--mantine-color-cyan-5)" />,
   hr: <IconHeart size={16} color="var(--mantine-color-red-5)" />,
-  rr: <IconActivity size={16} color="var(--mantine-color-teal-5)" />,
+  rr: <IconActivity size={16} color="var(--mantine-color-blue-5)" />,
   skin: <IconDroplets size={16} color="var(--mantine-color-yellow-5)" />,
   pain: <IconActivity size={16} color="var(--mantine-color-violet-5)" />,
 };

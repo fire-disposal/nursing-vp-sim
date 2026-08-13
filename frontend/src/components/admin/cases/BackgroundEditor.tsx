@@ -50,7 +50,7 @@ export function BackgroundEditor({ value, onChange, disabled }: Props) {
 				<Group gap={8}>
 					<TextInput value={newKey} onChange={(e) => setNewKey(e.currentTarget.value)} placeholder="key" style={{ flex: 1 }} />
 					<TextInput value={newVal} onChange={(e) => setNewVal(e.currentTarget.value)} placeholder="value" style={{ flex: 3 }} />
-					<ActionIcon variant="light" color="teal" onClick={add} aria-label="添加背景项"><IconPlus size={14} /></ActionIcon>
+					<ActionIcon variant="light" color="blue" onClick={add} aria-label="添加背景项"><IconPlus size={14} /></ActionIcon>
 				</Group>
 			)}
 		</Paper>

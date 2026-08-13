@@ -2,14 +2,13 @@ import { Paper, Text, ThemeIcon } from "@mantine/core";
 import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type StatColor = "blue" | "green" | "amber" | "red" | "teal";
+type StatColor = "blue" | "green" | "amber" | "red";
 
 const COLOR_MAP: Record<StatColor, string> = {
 	blue: "blue",
 	green: "green",
 	amber: "yellow",
 	red: "red",
-	teal: "teal",
 };
 
 interface StatCardProps {

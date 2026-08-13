@@ -229,7 +229,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 											idx === activeIndex
 												? "var(--mantine-color-gray-1)"
 												: c.id === value
-													? "var(--mantine-color-teal-0)"
+													? "var(--mantine-color-blue-0)"
 													: undefined
 										}
 									>
@@ -239,7 +239,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 												style={{
 													flexShrink: 0,
 													opacity: c.id === value ? 1 : 0,
-													color: "var(--mantine-color-teal-6)",
+													color: "var(--mantine-color-blue-6)",
 												}}
 											/>
 											<Text size="sm" fw={500} truncate style={{ flex: 1 }}>

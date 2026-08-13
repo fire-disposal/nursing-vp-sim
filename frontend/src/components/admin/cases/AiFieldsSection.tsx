@@ -58,7 +58,7 @@ function TagEditor({ value, onChange, placeholder, disabled }: { value: string[]
 						placeholder={placeholder}
 						style={{ flex: 1 }}
 					/>
-					<ActionIcon variant="light" color="teal" onClick={add} aria-label="添加条目"><IconPlus size={14} /></ActionIcon>
+					<ActionIcon variant="light" color="blue" onClick={add} aria-label="添加条目"><IconPlus size={14} /></ActionIcon>
 				</Group>
 			)}
 		</Stack>

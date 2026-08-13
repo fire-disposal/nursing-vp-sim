@@ -83,7 +83,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 			{modal && (
 				<Modal opened onClose={() => setModal(null)} size={768} centered withinPortal>
 					<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }} wrap="nowrap">
-						<IconBook2 size={14} color="var(--mantine-color-teal-6)" />
+						<IconBook2 size={14} color="var(--mantine-color-blue-6)" />
 						<Box style={{ flex: 1, minWidth: 0 }}>
 							<Text size="sm" fw={500}>
 								{modal.source}

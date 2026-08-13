@@ -11,7 +11,6 @@ export { Label } from "./label";
 export { default as LoadingSkeleton } from "./loading-skeleton";
 export { default as LoadingState } from "./loading-state";
 export { ModeToggle } from "./mode-toggle";
-export { NavGroup } from "./nav-group";
 export { default as PageHeader } from "./page-header";
 export { default as Pagination } from "./pagination";
 export { default as ResponsiveTable } from "./responsive-table";

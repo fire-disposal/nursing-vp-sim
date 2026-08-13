@@ -1,147 +1,41 @@
-import { Box, Button, Group, Text } from "@mantine/core";
-import { IconMenu2 } from "@tabler/icons-react";
-import { Suspense, useMemo, useState, type ReactNode } from "react";
-import { Outlet } from "react-router-dom";
-import AdminSidebar from "./AdminSidebar";
-import { BottomTabBar } from "./BottomTabBar";
-import ShellTransition from "./ShellTransition";
-import { StudentTopNav } from "./StudentTopNav";
-import type { NavItem } from "./navigation";
-import { NAV_ITEMS } from "./navigation";
+import {
+	AppShell,
+	Box,
+	Burger,
+	Button,
+	Group,
+	Text,
+	ThemeIcon,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import {
+	IconMessageCirclePlus,
+	IconStethoscope,
+} from "@tabler/icons-react";
+import type { ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
-import LoadingState from "@/components/ui/loading-state";
-import { useShortViewport } from "@/hooks/useShortViewport";
+import NotificationBell from "@/components/NotificationBell";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { isAdminPermissions } from "@/utils/permissions";
+import AdminSidebarNav from "./AdminSidebar";
+import { BottomTabBar } from "./BottomTabBar";
+import ShellTransition from "./ShellTransition";
+import type { NavItem } from "./navigation";
 
-/**
- * TabBarLayout — 学生端 Tab 导航布局
- */
-function TabBarLayout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
-	const permissions = useAuthStore((s) => s.permissions);
-	const permKey = permissions.join(",");
-	const isOnline = useNetworkStatus();
-
-	const links = useMemo(
-		() =>
-			NAV_ITEMS.filter(
-				(l) => !l.permission || permissions.includes(l.permission),
-			),
-		[permKey],
-	);
-
-	return (
-		<Box style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
-			{!isOnline && <NetworkBanner />}
-			<StudentTopNav links={links} onLogout={onLogout} />
-			<Box style={{ flex: 1, overflowY: "auto" }} p={{ base: "sm", sm: "lg", lg: "xl" }}>
-				<ShellTransition>{children}</ShellTransition>
-			</Box>
-			<BottomTabBar />
-		</Box>
-	);
+function isLinkActive(pathname: string, link: NavItem): boolean {
+	if (link.end) return pathname === link.to;
+	return pathname === link.to || pathname.startsWith(`${link.to}/`);
 }
 
 /**
- * AdminLayout — 管理员侧边栏布局
- */
-function AdminLayout({
-	userLinks,
-	adminLinks,
-	onLogout,
-	onAbout,
-	children,
-}: {
-	userLinks: NavItem[];
-	adminLinks: NavItem[];
-	onLogout: () => void;
-	onAbout: () => void;
-	children: ReactNode;
-}) {
-	const [mobileOpen, setMobileOpen] = useState(false);
-	const isOnline = useNetworkStatus();
-	const isShort = useShortViewport();
-
-	return (
-		<Box style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
-			{mobileOpen && (
-				<Box
-					hiddenFrom="sm"
-					onClick={() => setMobileOpen(false)}
-					role="presentation"
-					style={{
-						position: "fixed",
-						inset: 0,
-						zIndex: 40,
-						background: "rgba(0, 0, 0, 0.4)",
-					}}
-				/>
-			)}
-
-			<AdminSidebar
-				userLinks={userLinks}
-				adminLinks={adminLinks}
-				mobileOpen={mobileOpen}
-				onClose={() => setMobileOpen(false)}
-				onLogout={onLogout}
-				onAbout={onAbout}
-			/>
-
-			<Box
-				style={{ display: "flex", flex: 1, flexDirection: "column", overflow: "hidden" }}
-				ml={{ base: 0, sm: 240 }}
-			>
-				{!isOnline && <NetworkBanner />}
-
-				{/* Mobile top bar */}
-				<Group
-					gap="sm"
-					px="md"
-					hiddenFrom="sm"
-					h={isShort ? 40 : 56}
-					wrap="nowrap"
-					style={{
-						flexShrink: 0,
-						borderBottom: "1px solid var(--mantine-color-gray-3)",
-						background: "var(--mantine-color-body)",
-					}}
-				>
-					<Button
-						variant="outline"
-						size="sm"
-						w={36}
-						h={36}
-						p={0}
-						onClick={() => setMobileOpen((v) => !v)}
-						aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
-					>
-						<IconMenu2 size={18} />
-					</Button>
-					<Box style={{ flex: 1, minWidth: 0 }}>
-						<Text size="sm" fw={600}>
-							虚拟患者系统
-						</Text>
-					</Box>
-				</Group>
-
-				<Box
-					style={{ flex: 1, overflowY: "auto" }}
-					p={isShort ? 8 : { base: 16, sm: 24, lg: 32 }}
-				>
-					<ShellTransition>{children}</ShellTransition>
-				</Box>
-			</Box>
-		</Box>
-	);
-}
-
-/**
- * ManageShell — 管理浏览壳
+ * ManageShell — 统一的 Mantine AppShell 布局
  *
- * 根据角色分叉：
- * - 学生：顶部导航 + 内容 + 底部 Tab
- * - 管理员：侧边栏 + 内容
+ * 学生端：Header 内水平导航 + 移动端底部 Tab。
+ * 管理端：可折叠侧边栏（NavLink 分组）+ 移动端 Drawer。
  */
 export default function ManageShell({
 	userLinks,
@@ -157,26 +51,98 @@ export default function ManageShell({
 	children: ReactNode;
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
-	const hasAdminPerm = useMemo(() => isAdminPermissions(permissions), [permissions]);
+	const isAdmin = isAdminPermissions(permissions);
+	const isOnline = useNetworkStatus();
+	const { pathname } = useLocation();
+	const { openFeedback } = useFeedback();
+	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+	const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
 
-	const content = children || (
-		<Suspense fallback={<LoadingState />}>
-			<Outlet />
-		</Suspense>
+
+	return (
+		<AppShell
+			header={{ height: 56 }}
+			navbar={
+				isAdmin
+					? {
+							width: 260,
+							breakpoint: "sm",
+							collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
+						}
+					: undefined
+			}
+			padding={0}
+		>
+			<AppShell.Header>
+				<Group h="100%" px="md" gap="sm" wrap="nowrap">
+					{isAdmin && (
+						<>
+							<Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="切换菜单" />
+							<Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" aria-label="折叠侧边栏" />
+						</>
+					)}
+
+					{/* Brand */}
+					<Group gap={8} wrap="nowrap" mr={isAdmin ? "xs" : "lg"}>
+						<ThemeIcon size={28} radius="sm" variant="filled">
+							<IconStethoscope size={16} />
+						</ThemeIcon>
+						<Text fw={700} size="sm" visibleFrom="xs">
+							虚拟患者系统
+						</Text>
+					</Group>
+
+					{/* Student horizontal nav (desktop) */}
+					{!isAdmin && (
+						<Group gap={4} visibleFrom="sm" wrap="nowrap">
+							{userLinks.map((link) => {
+								const active = isLinkActive(pathname, link);
+								return (
+									<Button
+										key={link.to}
+										component={Link}
+										to={link.to}
+										variant={active ? "light" : "subtle"}
+										size="sm"
+										px="sm"
+									>
+										{link.label}
+									</Button>
+								);
+							})}
+						</Group>
+					)}
+
+					{/* Utilities */}
+					<Group gap={4} ml="auto" wrap="nowrap">
+						<ModeToggle />
+						<NotificationBell />
+						<Button variant="default" size="sm" onClick={openFeedback} leftSection={<IconMessageCirclePlus size={16} />} visibleFrom="sm">
+							反馈
+						</Button>
+					</Group>
+				</Group>
+			</AppShell.Header>
+
+			{isAdmin && (
+				<AppShell.Navbar p="sm">
+					<AdminSidebarNav
+						userLinks={userLinks}
+						adminLinks={adminLinks}
+						onNavigate={() => mobileOpened && toggleMobile()}
+						onLogout={onLogout}
+						onAbout={onAbout}
+					/>
+				</AppShell.Navbar>
+			)}
+
+			<AppShell.Main>
+				{!isOnline && <NetworkBanner />}
+				<Box p={{ base: "sm", sm: "lg" }}>
+					<ShellTransition>{children}</ShellTransition>
+				</Box>
+				{!isAdmin && <BottomTabBar />}
+			</AppShell.Main>
+		</AppShell>
 	);
-
-	if (hasAdminPerm) {
-		return (
-			<AdminLayout
-				userLinks={userLinks}
-				adminLinks={adminLinks}
-				onLogout={onLogout}
-				onAbout={onAbout}
-			>
-				{content}
-			</AdminLayout>
-		);
-	}
-
-	return <TabBarLayout onLogout={onLogout}>{content}</TabBarLayout>;
 }

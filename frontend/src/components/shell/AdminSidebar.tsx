@@ -1,42 +1,91 @@
-import { Box, Button, Group, Text } from "@mantine/core";
-import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
-import { memo, useMemo, type CSSProperties } from "react";
-import { NavLink } from "react-router-dom";
+import {
+	Avatar,
+	Box,
+	Button,
+	Divider,
+	Group,
+	NavLink as MantineNavLink,
+	ScrollArea,
+	Tooltip,
+} from "@mantine/core";
+import { IconLogout, IconMessageCirclePlus } from "@tabler/icons-react";
+import { useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
-import { ModeToggle } from "@/components/ui/mode-toggle";
-import { NavGroup } from "@/components/ui/nav-group";
-import { Separator } from "@/components/ui/separator";
 import NotificationBell from "@/components/NotificationBell";
-import type { NavGroupKey, NavItem } from "./navigation";
-import { NAV_GROUPS } from "./navigation";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
-import { useIsMobile } from "@/hooks/useLayoutMode";
 import { APP_VERSION } from "@/version";
+import type { NavGroupKey, NavItem } from "./navigation";
+import { NAV_GROUPS } from "./navigation";
 
-const navLinkStyle = (isActive: boolean): CSSProperties => ({
-	display: "flex",
-	alignItems: "center",
-	gap: 10,
-	borderRadius: "var(--mantine-radius-md)",
-	padding: "8px 12px",
-	marginBottom: 2,
-	fontSize: 14,
-	fontWeight: 500,
-	textDecoration: "none",
-	color: isActive ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)",
-	background: isActive ? "var(--mantine-color-teal-light)" : undefined,
-});
+function isActive(pathname: string, to: string, end?: boolean): boolean {
+	if (end) return pathname === to;
+	return pathname === to || pathname.startsWith(`${to}/`);
+}
 
-const SidebarNav = memo(function SidebarNav({
+function SideNavLink({ link, onNavigate }: { link: NavItem; onNavigate: () => void }) {
+	const { pathname } = useLocation();
+	const Icon = link.icon;
+	return (
+		<MantineNavLink
+			component={Link}
+			to={link.to}
+			label={link.label}
+			leftSection={<Icon size={18} stroke={1.75} />}
+			active={isActive(pathname, link.to, link.end)}
+			onClick={onNavigate}
+		/>
+	);
+}
+
+function SideNavGroup({
+	group,
+	links,
+	onNavigate,
+}: {
+	group: (typeof NAV_GROUPS)[number];
+	links: NavItem[];
+	onNavigate: () => void;
+}) {
+	const { pathname } = useLocation();
+	const GroupIcon = group.icon;
+	const hasActive = links.some((l) => isActive(pathname, l.to, l.end));
+	return (
+		<MantineNavLink
+			label={group.label}
+			leftSection={<GroupIcon size={18} stroke={1.75} />}
+			defaultOpened={group.defaultOpen || hasActive}
+			childrenOffset={14}
+		>
+			{links.map((link) => (
+				<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
+			))}
+		</MantineNavLink>
+	);
+}
+
+/**
+ * AdminSidebarNav — 管理端侧边导航（Mantine NavLink 可折叠分组）
+ */
+export default function AdminSidebarNav({
 	userLinks,
 	adminLinks,
-	close,
+	onNavigate,
+	onLogout,
+	onAbout,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
-	close: () => void;
+	onNavigate: () => void;
+	onLogout: () => void;
+	onAbout: () => void;
 }) {
+	const user = useAuthStore((s) => s.user);
+	const avatar = getUserAvatar(user?.gender);
+	const { openFeedback } = useFeedback();
+
 	const { grouped, ungrouped } = useMemo(() => {
 		const g = new Map<NavGroupKey, NavItem[]>();
 		const u: NavItem[] = [];
@@ -52,173 +101,58 @@ const SidebarNav = memo(function SidebarNav({
 	}, [adminLinks]);
 
 	return (
-		<>
-			{userLinks.map((link) => {
-				const Icon = link.icon;
-				return (
-					<NavLink key={link.to} to={link.to} end={link.end} onClick={close} style={({ isActive }) => navLinkStyle(isActive)}>
-						<Icon size={17} />
-						{link.label}
-					</NavLink>
-				);
-			})}
-			{ungrouped.length > 0 && (
-				<>
-					<Separator my="xs" />
-					{ungrouped.map((link) => {
-						const Icon = link.icon;
-						return (
-							<NavLink key={link.to} to={link.to} end={link.end} onClick={close} style={({ isActive }) => navLinkStyle(isActive)}>
-								<Icon size={17} />
-								{link.label}
-							</NavLink>
-						);
-					})}
-				</>
-			)}
-			{grouped.size > 0 && (
-				<>
-					<Separator my="xs" />
+		<Box style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+			<ScrollArea style={{ flex: 1 }}>
+				<Box px="xs" py="xs">
+					{userLinks.map((link) => (
+						<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
+					))}
+
+					{ungrouped.length > 0 && (
+						<>
+							<Divider my="sm" />
+							{ungrouped.map((link) => (
+								<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
+							))}
+						</>
+					)}
+
 					{NAV_GROUPS.map((group) => {
 						const links = grouped.get(group.key);
 						if (!links || links.length === 0) return null;
-						return (
-							<NavGroup
-								key={group.key}
-								label={group.label}
-								icon={group.icon}
-								defaultOpen={group.defaultOpen}
-								storageKey={group.key}
-							>
-								{links.map((link) => {
-									const Icon = link.icon;
-									return (
-										<NavLink key={link.to} to={link.to} end={link.end} onClick={close} style={({ isActive }) => navLinkStyle(isActive)}>
-											<Icon size={17} />
-											{link.label}
-										</NavLink>
-									);
-								})}
-							</NavGroup>
-						);
+						return <SideNavGroup key={group.key} group={group} links={links} onNavigate={onNavigate} />;
 					})}
-				</>
-			)}
-		</>
-	);
-});
-
-/**
- * AdminSidebar — 管理员侧边导航栏
- *
- * 固定左侧 240px 宽，包含用户信息、导航分组、工具按钮。
- * 移动端通过 mobileOpen 控制滑入/滑出。
- */
-export default function AdminSidebar({
-	userLinks,
-	adminLinks,
-	mobileOpen,
-	onClose,
-	onLogout,
-	onAbout,
-}: {
-	userLinks: NavItem[];
-	adminLinks: NavItem[];
-	mobileOpen: boolean;
-	onClose: () => void;
-	onLogout: () => void;
-	onAbout: () => void;
-}) {
-	const user = useAuthStore((s) => s.user);
-	const avatar = getUserAvatar(user?.gender);
-	const { openFeedback } = useFeedback();
-	const isMobile = useIsMobile();
-
-	return (
-		<Box
-			component="aside"
-			aria-label="主导航"
-			style={{
-				position: "fixed",
-				top: 0,
-				bottom: 0,
-				left: 0,
-				zIndex: 50,
-				display: "flex",
-				flexDirection: "column",
-				width: 240,
-				borderRight: "1px solid var(--mantine-color-gray-3)",
-				background: "var(--mantine-color-body)",
-				transform: !isMobile || mobileOpen ? "translateX(0)" : "translateX(-100%)",
-				transition: "transform 300ms ease-out",
-			}}
-		>
-			<Group h={56} gap={10} px="md" wrap="nowrap">
-				<Box
-					style={{
-						width: 32,
-						height: 32,
-						borderRadius: "var(--mantine-radius-md)",
-						background: "var(--mantine-color-teal-6)",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-				>
-					<IconStethoscope size={16} style={{ color: "white" }} />
 				</Box>
-				<Box style={{ minWidth: 0 }}>
-					<Text size="sm" fw={600} truncate>
-						虚拟患者系统
-					</Text>
-					<Button variant="transparent" size="xs" p={0} onClick={onAbout}>
-						{APP_VERSION}
-					</Button>
-				</Box>
-			</Group>
+			</ScrollArea>
 
-			<Box component="nav" style={{ flex: 1, overflowY: "auto" }} px={8} py={8}>
-				<SidebarNav userLinks={userLinks} adminLinks={adminLinks} close={onClose} />
-			</Box>
-
-			<Separator />
+			<Divider />
 			<Box p="sm">
-				<NavLink to="/profile" onClick={onClose} style={({ isActive }) => ({
-					display: "flex",
-					alignItems: "center",
-					gap: 10,
-					borderRadius: "var(--mantine-radius-md)",
-					padding: "10px 12px",
-					marginBottom: 8,
-					textDecoration: "none",
-					background: isActive ? "var(--mantine-color-teal-light)" : "var(--mantine-color-gray-1)",
-				})}>
-					<img
-						src={avatar}
-						alt={user?.display_name ? `${user.display_name} 的头像` : "用户头像"}
-						style={{ width: 32, height: 32, flexShrink: 0, borderRadius: "50%", objectFit: "cover", background: "var(--mantine-color-gray-1)" }}
-					/>
-					<Box style={{ minWidth: 0, flex: 1 }}>
-						<Text size="sm" fw={500} truncate>
-							{user?.display_name}
-						</Text>
-						<Text size="xs" c="dimmed">
-							{user?.role_display_name || user?.role || "用户"}
-						</Text>
-					</Box>
-				</NavLink>
-				<Group justify="space-between" gap={4} wrap="nowrap">
+				<MantineNavLink
+					component={Link}
+					to="/profile"
+					label={user?.display_name ?? "用户"}
+					description={user?.role_display_name || user?.role || "用户"}
+					leftSection={<Avatar src={avatar} size={32} radius="xl" />}
+					onClick={onNavigate}
+					mb="sm"
+				/>
+				<Group gap={4} wrap="nowrap">
 					<ModeToggle />
 					<NotificationBell />
-					<Group gap={4}>
-						<Button variant="subtle" color="gray" size="sm" w={36} h={36} p={0} onClick={openFeedback} aria-label="意见反馈">
-							<IconMessageCirclePlus size={13} />
+					<Tooltip label="意见反馈">
+						<Button variant="default" size="sm" w={36} h={36} p={0} onClick={openFeedback} aria-label="意见反馈">
+							<IconMessageCirclePlus size={16} />
 						</Button>
-						<Button variant="subtle" color="gray" size="sm" w={36} h={36} p={0} onClick={onLogout} aria-label="退出登录">
-							<IconLogout size={13} />
+					</Tooltip>
+					<Tooltip label="退出登录">
+						<Button variant="default" size="sm" color="red" w={36} h={36} p={0} onClick={onLogout} aria-label="退出登录">
+							<IconLogout size={16} />
 						</Button>
-					</Group>
+					</Tooltip>
 				</Group>
+				<Button variant="transparent" size="xs" w="100%" mt="xs" onClick={onAbout}>
+					v{APP_VERSION}
+				</Button>
 			</Box>
 		</Box>
 	);

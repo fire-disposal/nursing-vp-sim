@@ -96,7 +96,7 @@ const RATING_BADGES: { color: string }[] = [
 	{ color: "orange" },
 	{ color: "yellow" },
 	{ color: "green" },
-	{ color: "teal" },
+	{ color: "blue" },
 ];
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
@@ -197,11 +197,11 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					<Paper
 						p="sm"
 						mt={8}
-						bg="var(--mantine-color-teal-0)"
-						style={{ border: "1px solid var(--mantine-color-teal-3)" }}
+						bg="var(--mantine-color-blue-0)"
+						style={{ border: "1px solid var(--mantine-color-blue-3)" }}
 					>
 						<Text size="sm" lh={1.6}>
-							<Text size="xs" fw={500} c="teal" component="span">
+							<Text size="xs" fw={500} c="blue" component="span">
 								开发者回复：
 							</Text>
 							{fb.developer_reply}

@@ -175,7 +175,7 @@ function RubricViewer({ rubric }: { rubric: RubricData }) {
 									<Stack gap={4} mt={8}>
 										{item.anchors.map((a, i) => (
 											<Group key={i} gap={12} align="flex-start" wrap="nowrap">
-												<Text ff="monospace" fw={700} c="teal" w={24} style={{ flexShrink: 0 }}>{a.score}分</Text>
+												<Text ff="monospace" fw={700} c="blue" w={24} style={{ flexShrink: 0 }}>{a.score}分</Text>
 												<Text size="sm" c="dimmed">{a.description}</Text>
 											</Group>
 										))}

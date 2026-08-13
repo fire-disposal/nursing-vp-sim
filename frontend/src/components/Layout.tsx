@@ -185,7 +185,7 @@ export default function Layout() {
 								width: 48,
 								height: 48,
 								borderRadius: "var(--mantine-radius-lg)",
-								background: "var(--mantine-color-teal-6)",
+								background: "var(--mantine-color-blue-6)",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",

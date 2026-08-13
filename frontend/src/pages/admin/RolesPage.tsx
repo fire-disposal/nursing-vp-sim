@@ -172,7 +172,7 @@ export default function RolesPage() {
 									<Text fw={600}>{role.display_name}</Text>
 									<Code fz="xs">{role.name}</Code>
 									{role.is_system && (
-										<Badge variant="light" color="teal" size="xs">系统</Badge>
+										<Badge variant="light" color="blue" size="xs">系统</Badge>
 									)}
 									<Text size="xs" c="dimmed">{role.user_count} 用户</Text>
 								</Group>

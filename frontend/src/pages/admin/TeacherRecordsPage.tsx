@@ -318,7 +318,7 @@ export default function TeacherRecordsPage() {
 				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
 					<StatCard value={total} label="筛选结果" color="blue" />
 					<StatCard value={stats.completed} label="已完成" color="green" />
-					<StatCard value={stats.avgScore != null ? stats.avgScore.toFixed(1) : "-"} label="平均分" color="teal" />
+					<StatCard value={stats.avgScore != null ? stats.avgScore.toFixed(1) : "-"} label="平均分" color="blue" />
 					<StatCard value={`${stats.scoringRate}%`} label="评分完成率" color="amber" />
 				</SimpleGrid>
 
@@ -376,7 +376,7 @@ export default function TeacherRecordsPage() {
 												</TableCell>
 												<TableCell>
 													{r.assignment_title ? (
-														<Badge variant="light" color="teal" size="xs">作业</Badge>
+														<Badge variant="light" color="blue" size="xs">作业</Badge>
 													) : (
 														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 													)}
@@ -400,7 +400,7 @@ export default function TeacherRecordsPage() {
 												</TableCell>
 												<TableCell>
 													{r.score_total != null ? (
-														<Text component="span" fw={600} c="teal">
+														<Text component="span" fw={600} c="blue">
 															{r.score_total}分
 														</Text>
 													) : r.scoring_status === "pending" ||
