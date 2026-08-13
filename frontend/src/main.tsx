@@ -1,15 +1,11 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/spotlight/styles.css";
-import {
-	MantineProvider,
-	useComputedColorScheme,
-} from "@mantine/core";
-import React, { useEffect, useMemo } from "react";
+import { MantineProvider } from "@mantine/core";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { createAppTheme } from "./theme";
-import { useBrandStore } from "./theme/brand-store";
+import { theme } from "./theme";
 import "./styles/global.css";
 
 // Chunk 加载失败恢复：新部署后浏览器缓存的 index.html 可能
@@ -27,24 +23,9 @@ window.addEventListener("unhandledrejection", (event) => {
 	}
 });
 
-/**
- * 过渡期：把 Mantine 的暗色解析结果同步到 `.dark` class，
- * 让尚未迁移的 Tailwind `dark:` 变体继续生效。Tailwind 移除后删除。
- */
-function ColorSchemeClassSync() {
-	const scheme = useComputedColorScheme("light");
-	useEffect(() => {
-		document.documentElement.classList.toggle("dark", scheme === "dark");
-	}, [scheme]);
-	return null;
-}
-
 function Root() {
-	const brand = useBrandStore((s) => s.brand);
-	const theme = useMemo(() => createAppTheme(brand), [brand]);
 	return (
-		<MantineProvider theme={theme} defaultColorScheme="auto">
-			<ColorSchemeClassSync />
+		<MantineProvider theme={theme} defaultColorScheme="light">
 			<App />
 		</MantineProvider>
 	);

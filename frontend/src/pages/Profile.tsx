@@ -1,12 +1,10 @@
 import {
-	IconCheck,
 	IconExternalLink,
 	IconInfoCircle,
 	IconLock,
 	IconLogout,
 	IconMessageCircle,
 	IconMoon,
-	IconPalette,
 	IconPencil,
 	IconStethoscope,
 	IconSun,
@@ -27,10 +25,7 @@ import {
 	Text,
 	ThemeIcon,
 	useMantineColorScheme,
-	useMantineTheme,
 } from "@mantine/core";
-import { BRAND_PALETTES } from "@/theme";
-import { useBrandStore } from "@/theme/brand-store";
 import { changePassword, updateMyProfile } from "@/api";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -216,7 +211,7 @@ export default function Profile() {
 							onClick={() => setThemeOpen(true)}
 							leftSection={
 								<ThemeIcon size={36} radius="md" variant="light" color="gray">
-									<IconPalette size={18} />
+									<IconSun size={18} />
 								</ThemeIcon>
 							}
 						>
@@ -286,12 +281,6 @@ export default function Profile() {
 				{/* ── Theme dialog ── */}
 				<Modal opened={themeOpen} onClose={() => setThemeOpen(false)} title="主题与外观" size={420} centered withinPortal>
 						<Stack gap="lg" mt="xs">
-							<Box>
-								<Text size="xs" c="dimmed" mb="sm">
-									配色方案
-								</Text>
-								<PalettePicker />
-							</Box>
 							<Divider />
 							<ThemeToggleButton />
 						</Stack>
@@ -406,55 +395,3 @@ function ThemeToggleButton() {
 	);
 }
 
-function PalettePicker() {
-	const theme = useMantineTheme();
-	const activeId = useBrandStore((s) => s.brand);
-	const setBrand = useBrandStore((s) => s.setBrand);
-	return (
-		<Group gap="xs" wrap="wrap">
-			{BRAND_PALETTES.map((t) => {
-				const primary = theme.colors[t.primaryColor][6];
-				const accent = theme.colors[t.primaryColor][1];
-				const active = activeId === t.id;
-				return (
-					<Box
-						component="button"
-						key={t.id}
-						type="button"
-						onClick={() => setBrand(t.id)}
-						title={t.description}
-						style={{
-							display: "flex",
-							flexDirection: "column",
-							alignItems: "center",
-							gap: 6,
-							padding: 8,
-							borderRadius: "var(--mantine-radius-lg)",
-							border: `1px solid ${active ? primary : "var(--mantine-color-gray-3)"}`,
-							background: active ? `${accent}80` : undefined,
-							cursor: "pointer",
-						}}
-					>
-						<Box
-							style={{
-								width: 32,
-								height: 32,
-								borderRadius: "50%",
-								background: primary,
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								boxShadow: "var(--mantine-shadow-md)",
-							}}
-						>
-							{active && <IconCheck size={14} color="white" stroke={3} />}
-						</Box>
-						<Text size="10px" fw={500} c="dimmed">
-							{t.label}
-						</Text>
-					</Box>
-				);
-			})}
-		</Group>
-	);
-}

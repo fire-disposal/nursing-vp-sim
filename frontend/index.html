@@ -10,13 +10,7 @@
       (() => {
         try {
           var v = localStorage.getItem("mantine-color-scheme-value");
-          var scheme = v === "light" || v === "dark" ? v : "auto";
-          var resolved =
-            scheme === "auto"
-              ? window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light"
-              : scheme;
+          var resolved = v === "dark" ? "dark" : "light";
           document.documentElement.setAttribute("data-mantine-color-scheme", resolved);
           document.documentElement.style.colorScheme = resolved;
         } catch (e) {
