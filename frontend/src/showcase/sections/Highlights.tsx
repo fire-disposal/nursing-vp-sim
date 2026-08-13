@@ -55,7 +55,7 @@ function visualFor(h: Highlight) {
 					}}
 				>
 					<Text
-						size="10px"
+						size="xs"
 						c="var(--mantine-primary-color-6)"
 						mb={8}
 						style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
@@ -78,7 +78,7 @@ function visualFor(h: Highlight) {
 									<Text size="xs" fw={500}>
 										{doc.name}
 									</Text>
-									<Text size="10px" c="dimmed" opacity={0.7}>
+									<Text size="xs" c="dimmed" opacity={0.7}>
 										{doc.ch}
 									</Text>
 								</Box>

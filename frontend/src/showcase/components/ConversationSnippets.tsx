@@ -102,7 +102,7 @@ export default function ConversationSnippets() {
 								{line.text}
 							</Text>
 							{line.emotion && (
-								<Text size="10px" fw={500} mt={4} opacity={0.6}>
+								<Text size="xs" fw={500} mt={4} opacity={0.6}>
 									{line.emotion}
 								</Text>
 							)}

@@ -48,6 +48,7 @@ export default function ManageShell({
 				breakpoint: "sm",
 				collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
 			}}
+			footer={!isAdmin ? { height: { base: "calc(56px + env(safe-area-inset-bottom, 0px))", sm: 0 } } : undefined}
 			padding={0}
 		>
 			<AppShell.Header>
@@ -91,8 +92,13 @@ export default function ManageShell({
 				<Box p={{ base: "sm", sm: "lg" }}>
 					<ShellTransition>{children}</ShellTransition>
 				</Box>
-				{!isAdmin && <BottomTabBar />}
 			</AppShell.Main>
+
+			{!isAdmin && (
+				<AppShell.Footer>
+					<BottomTabBar />
+				</AppShell.Footer>
+			)}
 		</AppShell>
 	);
 }

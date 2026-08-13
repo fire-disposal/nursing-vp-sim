@@ -106,7 +106,7 @@ export default function SystemOrbit() {
 						}}
 					/>
 					<Box ta="center">
-						<Text size="10px" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.35em" }}>
+						<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.35em" }}>
 							Virtual Patient
 						</Text>
 						<Text size="2rem" fw={900} mt={8}>
@@ -164,10 +164,10 @@ export default function SystemOrbit() {
 								{node.detail}
 							</Text>
 							<Box mt="md" style={{ display: "flex", justifyContent: "space-between" }}>
-								<Text size="10px" tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+								<Text size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
 									0{index + 1}
 								</Text>
-								<Text size="10px" tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+								<Text size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
 									live
 								</Text>
 							</Box>

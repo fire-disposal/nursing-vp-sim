@@ -205,17 +205,17 @@ export default function ScoreStream() {
 						overflow: "hidden",
 					}}
 				>
-					<Text size="10px" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+					<Text size="xs" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
 						$ scoring_dimensions
 					</Text>
 					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
 						{scoreLines.map((item, i) => (
-							<Text key={`${i}-${item.slice(0, 12)}`} size="10px" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+							<Text key={`${i}-${item.slice(0, 12)}`} size="xs" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
 								{item}
 							</Text>
 						))}
 						{scoreLines.length === 0 && (
-							<Text size="10px" c="dimmed" opacity={0.5}>
+							<Text size="xs" c="dimmed" opacity={0.5}>
 								▎ 初始化中...
 							</Text>
 						)}
@@ -234,17 +234,17 @@ export default function ScoreStream() {
 						overflow: "hidden",
 					}}
 				>
-					<Text size="10px" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+					<Text size="xs" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
 						$ feedback_generation
 					</Text>
 					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
 						{feedbackLines.map((item, i) => (
-							<Text key={`${i}-${item.slice(0, 12)}`} size="10px" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+							<Text key={`${i}-${item.slice(0, 12)}`} size="xs" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
 								{item}
 							</Text>
 						))}
 						{feedbackLines.length === 0 && (
-							<Text size="10px" c="dimmed" opacity={0.5}>
+							<Text size="xs" c="dimmed" opacity={0.5}>
 								等待评分完成...
 							</Text>
 						)}

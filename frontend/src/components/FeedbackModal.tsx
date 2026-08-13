@@ -298,7 +298,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 								}}
 							>
 								<IconPlus size={18} style={{ color: "var(--mantine-color-dimmed)" }} />
-								<Text fz={10} c="dimmed">
+								<Text fz="xs" c="dimmed">
 									添加
 								</Text>
 								<input

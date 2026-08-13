@@ -212,7 +212,7 @@ export default function NotificationBell() {
 														{n.body}
 													</Text>
 												)}
-												<Text fz={10} c="dimmed" mt={4} opacity={0.7}>
+												<Text fz="xs" c="dimmed" mt={4} opacity={0.7}>
 													{n.created_at.slice(0, 16).replace("T", " ")}
 												</Text>
 											</Box>

@@ -115,7 +115,7 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 			>
 				<Text size="xs" fw={600}>护理诊断</Text>
 				<Group gap={4} wrap="nowrap">
-					<Text size="10px" c="dimmed">{diagnoses.length} 条</Text>
+					<Text size="xs" c="dimmed">{diagnoses.length} 条</Text>
 					<ActionIcon variant="subtle" color="gray" size="sm" onClick={openNew} aria-label="添加护理诊断">
 						<IconPlus size={14} />
 					</ActionIcon>
@@ -144,7 +144,7 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 								<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => move(i, -1)} disabled={i === 0}>
 									<IconArrowUp size={12} />
 								</ActionIcon>
-								<Text size="10px" fw={700} c="dimmed" w={16} ta="center">{i + 1}</Text>
+								<Text size="xs" fw={700} c="dimmed" w={16} ta="center">{i + 1}</Text>
 								<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => move(i, 1)} disabled={i === diagnoses.length - 1}>
 									<IconArrowDown size={12} />
 								</ActionIcon>
@@ -206,7 +206,7 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 					<datalist id="diag-stems">{stems.map(s => <option key={s} value={s} />)}</datalist>
 
 					<Box>
-						<Text size="10px" c="dimmed" mb={6} fw={600}>相关因素</Text>
+						<Text size="xs" c="dimmed" mb={6} fw={600}>相关因素</Text>
 						<Group gap={4} wrap="wrap">
 							{factorOpts.map(f => (
 								<Box
@@ -233,7 +233,7 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 					</Box>
 
 					<Box>
-						<Text size="10px" c="dimmed" mb={6} fw={600}>定义特征</Text>
+						<Text size="xs" c="dimmed" mb={6} fw={600}>定义特征</Text>
 						<Group gap={4} wrap="wrap">
 							{charOpts.map(c => (
 								<Box

@@ -302,7 +302,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 				{/* Initiative timer */}
 				{showInitiative && initPercent > 0 && (
 					<Group gap={6} wrap="nowrap" style={{ flexShrink: 0, maxWidth: 120 }}>
-						<Text size="10px" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
+						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
 						<Box style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", minWidth: 40 }}>
 							<Box
 								h="100%"

@@ -105,7 +105,7 @@ export default function LiveChatSimulation() {
 					<Text size="xs" fw={600} c="dimmed">
 						模拟问诊训练
 					</Text>
-					<Text size="10px" c="dimmed">
+					<Text size="xs" c="dimmed">
 						病史采集 · 实时对话
 					</Text>
 				</Stack>
@@ -128,7 +128,7 @@ export default function LiveChatSimulation() {
 							background: "var(--mantine-color-green-6)",
 						}}
 					/>
-					<Text size="10px" fw={500} c="green">
+					<Text size="xs" fw={500} c="green">
 						进行中
 					</Text>
 				</Group>

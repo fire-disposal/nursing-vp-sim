@@ -222,14 +222,14 @@ export default function FaceLabPage() {
 									/>
 									<Group gap="xs">
 										<Badge variant="light" color="gray">{EMOTION_4D_LABELS[label]}</Badge>
-										<Text size="10px" c="dimmed" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+										<Text size="xs" c="dimmed" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
 											{label} · {duration}ms · {easing}
 										</Text>
 									</Group>
 									<Stack gap={4} w="100%">
 										{DIM_LABELS.map((d) => (
 											<Group key={d.key} gap="xs" wrap="nowrap">
-												<Text size="10px" c="dimmed" w={24}>
+												<Text size="xs" c="dimmed" w={24}>
 													{d.name}
 												</Text>
 												<Progress
@@ -275,7 +275,7 @@ export default function FaceLabPage() {
 												/>
 											</Box>
 										</Group>
-										<Text size="10px" c="dimmed">
+										<Text size="xs" c="dimmed">
 											外观与情绪正交：6 基础外观 × 9 情绪叠加，零笛卡尔积。切换外观后可用上方情绪控件叠加验证。
 										</Text>
 									</CardContent>
@@ -470,7 +470,7 @@ export default function FaceLabPage() {
 											appearance={appearanceFor(g, a)}
 											size={96}
 										/>
-										<Text size="10px" c="dimmed">
+										<Text size="xs" c="dimmed">
 											{name}
 										</Text>
 									</Stack>

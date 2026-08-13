@@ -42,7 +42,7 @@ export default function TopBar() {
 							{PRODUCT_NAME}
 						</Text>
 						<Text
-							size="10px"
+							size="xs"
 							fw={500}
 							tt="uppercase"
 							c="dimmed"

@@ -132,10 +132,10 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					{isHiddenCase ? (
 						<Group gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
 							<Box>
-								<Text size="xs" fw={600} truncate lh={1.2}>
+								<Text size="sm" fw={600} truncate lh={1.2}>
 									{mode === "blind_box" ? "盲盒训练" : "隐藏病例练习"}
 								</Text>
-								<Text size="10px" c="dimmed" truncate lh={1.2}>
+								<Text size="xs" c="dimmed" truncate lh={1.2}>
 									{mode === "blind_box" ? "随机病例 · 自主练习" : "病例固定 · 结束后揭示"}
 								</Text>
 							</Box>
@@ -143,10 +143,10 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					) : (
 						<Group gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
 							<Box style={{ minWidth: 0 }}>
-								<Text size="xs" fw={600} truncate lh={1.2}>
+								<Text size="sm" fw={600} truncate lh={1.2}>
 									{patient.name}
 								</Text>
-								<Text size="10px" c="dimmed" truncate lh={1.2}>
+								<Text size="xs" c="dimmed" truncate lh={1.2}>
 									{patient.caseTitle || patient.chiefComplaint}
 								</Text>
 							</Box>
@@ -160,7 +160,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						wrap="nowrap"
 						style={{
 							borderRadius: 6,
-							fontSize: 12,
+							fontSize: 13,
 							fontWeight: 700,
 							fontVariantNumeric: "tabular-nums",
 							flexShrink: 0,
@@ -169,7 +169,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					>
 						<WSStatusDot />
 						<IconClock size={12} style={{ flexShrink: 0 }} />
-						<Text span fw={700} size="xs" style={{ color: "inherit" }}>{formatTime(remaining)}</Text>
+						<Text span fw={700} size="sm" style={{ color: "inherit" }}>{formatTime(remaining)}</Text>
 					</Group>
 
 					<ActionIcon

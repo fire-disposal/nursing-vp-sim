@@ -60,7 +60,7 @@ export default function EmotionMatrix() {
 								<Text size="sm" fw={700}>
 									{s.display}
 								</Text>
-								<Text size="10px" tt="uppercase" c="dimmed">
+								<Text size="xs" tt="uppercase" c="dimmed">
 									{s.label}
 								</Text>
 							</Group>
@@ -77,7 +77,7 @@ export default function EmotionMatrix() {
 											background: DOT_COLOR[s.color],
 										}}
 									/>
-									<Text size="10px" c="dimmed">
+									<Text size="xs" c="dimmed">
 										信任 ≥ {s.trust}
 									</Text>
 								</Group>
@@ -90,7 +90,7 @@ export default function EmotionMatrix() {
 											background: DOT_COLOR[s.color],
 										}}
 									/>
-									<Text size="10px" c="dimmed">
+									<Text size="xs" c="dimmed">
 										舒适 ≥ {s.comfort}
 									</Text>
 								</Group>
@@ -116,10 +116,10 @@ export default function EmotionMatrix() {
 							<Text size="sm" fw={700} c="dimmed">
 								{FALLBACK.display}
 							</Text>
-							<Text size="10px" tt="uppercase" c="dimmed" opacity={0.6}>
+							<Text size="xs" tt="uppercase" c="dimmed" opacity={0.6}>
 								{FALLBACK.label}
 							</Text>
-							<Text size="10px" c="dimmed" opacity={0.5}>
+							<Text size="xs" c="dimmed" opacity={0.5}>
 								通配 fallback
 							</Text>
 						</Group>
@@ -135,7 +135,7 @@ export default function EmotionMatrix() {
 									background: DOT_COLOR[FALLBACK.color],
 								}}
 							/>
-							<Text size="10px" c="dimmed" opacity={0.5}>
+							<Text size="xs" c="dimmed" opacity={0.5}>
 								不满足以上任意条件时
 							</Text>
 						</Group>

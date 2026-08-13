@@ -154,7 +154,7 @@ export function QuestionnaireModal({
 														<Text size="lg" fw={600} c={active ? "blue.7" : undefined}>
 															{val}
 														</Text>
-														<Text fz={10} c="dimmed">
+														<Text fz="xs" c="dimmed">
 															{labels[val - 1]}
 														</Text>
 													</UnstyledButton>

@@ -231,7 +231,7 @@ export default function QuizTool(props: TrainingToolProps) {
 				<Text size="xs" fw={600}>
 					{quiz?.title ?? "引导题目"}
 				</Text>
-				<Text size="10px" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+				<Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
 					{answeredCount}/{questions.length}
 				</Text>
 			</Group>
@@ -266,7 +266,7 @@ export default function QuizTool(props: TrainingToolProps) {
 							}}
 						>
 							<Group align="flex-start" gap={8} wrap="nowrap">
-								<Text size="10px" fw={600} c="dimmed" mt={2} style={{ flexShrink: 0 }}>
+								<Text size="xs" fw={600} c="dimmed" mt={2} style={{ flexShrink: 0 }}>
 									Q{qi + 1}
 								</Text>
 								<Text size="sm" fw={500} lh={1.4} style={{ flex: 1 }}>
@@ -368,7 +368,7 @@ export default function QuizTool(props: TrainingToolProps) {
 												{opt.text}
 											</Text>
 											{isAnswer && isSelected && !isCorrect && (
-												<Text component="span" size="10px" fw={500} c="green.6">正确答案</Text>
+												<Text component="span" size="xs" fw={500} c="green.6">正确答案</Text>
 											)}
 										</Box>
 									);
@@ -418,7 +418,7 @@ export default function QuizTool(props: TrainingToolProps) {
 							{submitError[q.id] && (
 								<Group gap={6} mt={8} wrap="nowrap">
 									<IconAlertCircle size={11} style={{ color: "var(--mantine-color-red-6)" }} />
-									<Text size="10px" c="red.6">{submitError[q.id]}</Text>
+									<Text size="xs" c="red.6">{submitError[q.id]}</Text>
 								</Group>
 							)}
 						</Box>

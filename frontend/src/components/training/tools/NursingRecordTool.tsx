@@ -230,7 +230,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 			<Group justify="space-between" wrap="nowrap" pt={4}>
 				<Group gap={6} wrap="nowrap">
 					<IconFileText size={12} style={{ color: "var(--mantine-color-dimmed)" }} />
-					<Text size="10px" c="dimmed">
+					<Text size="xs" c="dimmed">
 						{saveStatus === "saving"
 							? "保存中…"
 							: saveStatus === "saved"

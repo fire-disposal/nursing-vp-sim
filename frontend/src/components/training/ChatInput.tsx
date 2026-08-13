@@ -127,7 +127,7 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				</ActionIcon>
 				{showCount && (
 					<Text
-						size="10px"
+						size="xs"
 						c="dimmed"
 						style={{
 							position: "absolute",

@@ -71,7 +71,7 @@ export function ExamResultCard({ result, className }: ExamResultCardProps) {
         </Box>
         <Box>
           <Text
-            size="10px"
+            size="xs"
             fw={500}
             tt="uppercase"
             c="dimmed"

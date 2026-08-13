@@ -298,7 +298,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
       <Box style={{ borderTop: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-body)", flexShrink: 0 }}>
         {abnormal.length > 0 && (
           <Group gap={6} px={8} pt={8} wrap="wrap">
-            <Text size="10px" fw={600} c="red.6" style={{ flexShrink: 0 }}>异常发现</Text>
+            <Text size="xs" fw={600} c="red.6" style={{ flexShrink: 0 }}>异常发现</Text>
             {abnormal.map(([id, r]) => {
               const def = NORMALS[id];
               if (!def) return null;
@@ -329,7 +329,7 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
         {isGuided && hints.length > 0 && (
           <Box px={8} pt={6}>
             {hints.map(([id, r]) => (
-              <Text key={`hint-${id}`} size="10px" c="dimmed" lh={1.4} mb={2}>
+              <Text key={`hint-${id}`} size="xs" c="dimmed" lh={1.4} mb={2}>
                 {r.interpretation}
               </Text>
             ))}

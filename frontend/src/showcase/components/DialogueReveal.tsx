@@ -69,7 +69,7 @@ export default function DialogueReveal() {
 										<Text size="sm" fw={700}>
 											{step.label}
 										</Text>
-										<Text size="10px" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.25em" }}>
+										<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.25em" }}>
 											step {index + 1}
 										</Text>
 									</Group>

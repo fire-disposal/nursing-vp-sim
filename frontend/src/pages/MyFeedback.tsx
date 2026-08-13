@@ -257,7 +257,7 @@ export default function MyFeedbackPage() {
 													开发者回复
 												</Text>
 												{fb.replied_at && (
-													<Text size="10px" c="dimmed">
+													<Text size="xs" c="dimmed">
 														{new Date(fb.replied_at).toLocaleString("zh-CN")}
 													</Text>
 												)}
