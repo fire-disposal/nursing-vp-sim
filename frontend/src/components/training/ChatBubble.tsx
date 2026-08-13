@@ -92,6 +92,7 @@ export const ChatBubble = memo(function ChatBubble({
 				)}
 				<Box
 					className={emotionBorder}
+					data-streaming={message.streaming || undefined}
 					style={{
 						maxWidth: "88%",
 						padding: "10px 14px",
