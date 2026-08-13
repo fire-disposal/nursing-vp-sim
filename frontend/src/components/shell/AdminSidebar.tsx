@@ -1,9 +1,8 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Box, Button, Group, Text } from "@mantine/core";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import { memo, useMemo, type CSSProperties } from "react";
 import { NavLink } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
-import Button from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { NavGroup } from "@/components/ui/nav-group";
 import { Separator } from "@/components/ui/separator";
@@ -172,7 +171,7 @@ export default function AdminSidebar({
 					<Text size="sm" fw={600} truncate>
 						虚拟患者系统
 					</Text>
-					<Button variant="link" size="xs" p={0} onClick={onAbout}>
+					<Button variant="transparent" size="xs" p={0} onClick={onAbout}>
 						{APP_VERSION}
 					</Button>
 				</Box>
@@ -212,10 +211,10 @@ export default function AdminSidebar({
 					<ModeToggle />
 					<NotificationBell />
 					<Group gap={4}>
-						<Button variant="ghost" size="icon-sm" onClick={openFeedback} aria-label="意见反馈">
+						<Button variant="subtle" color="gray" size="sm" w={36} h={36} p={0} onClick={openFeedback} aria-label="意见反馈">
 							<IconMessageCirclePlus size={13} />
 						</Button>
-						<Button variant="ghost" size="icon-sm" onClick={onLogout} aria-label="退出登录">
+						<Button variant="subtle" color="gray" size="sm" w={36} h={36} p={0} onClick={onLogout} aria-label="退出登录">
 							<IconLogout size={13} />
 						</Button>
 					</Group>

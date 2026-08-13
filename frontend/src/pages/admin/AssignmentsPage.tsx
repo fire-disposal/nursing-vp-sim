@@ -1,4 +1,4 @@
-import { Badge, Box, Group, Modal, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Modal, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconCircleX, IconEdit, IconEye, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -18,7 +18,6 @@ import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import CaseSelector from "@/components/admin/cases/CaseSelector";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Switch } from "@/components/ui/switch";
 import type { DataTableColumn } from "@/components/ui/data-table";
@@ -70,10 +69,10 @@ function formatWindow(iso: string) {
 function statusBadge(item: { start_time: string; end_time: string }) {
 	const now = Date.now();
 	if (now < new Date(item.start_time).getTime())
-		return <Badge variant="secondary">未开始</Badge>;
+		return <Badge variant="light" color="gray">未开始</Badge>;
 	if (now > new Date(item.end_time).getTime())
 		return <Badge variant="outline">已结束</Badge>;
-	return <Badge variant="success">进行中</Badge>;
+	return <Badge variant="light" color="green">进行中</Badge>;
 }
 
 const DEFAULT_VALUES: AssignmentValues = {
@@ -280,7 +279,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				<Group gap={6} wrap="nowrap">
 					{statusBadge(a)}
 					{a.is_closed && (
-						<Badge variant="secondary" size="xs">已关闭</Badge>
+						<Badge variant="light" color="gray" size="xs">已关闭</Badge>
 					)}
 				</Group>
 			),
@@ -291,32 +290,32 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			render: (a) => (
 				<Group gap={2} wrap="nowrap">
 					<Button
-						variant="ghost"
-						size="icon"
+						variant="subtle" color="gray"
+						w={44} h={44} p={0}
 						onClick={() => navigate(`/admin/assignments/${a.id}`)}
 						title="详情"
 					>
 						<IconEye size={15} />
 					</Button>
 					<Button
-						variant="ghost"
-						size="icon"
+						variant="subtle" color="gray"
+						w={44} h={44} p={0}
 						onClick={() => openEdit(a.id)}
 						title="编辑"
 					>
 						<IconEdit size={15} />
 					</Button>
 					<Button
-						variant="ghost"
-						size="icon"
+						variant="subtle" color="gray"
+						w={44} h={44} p={0}
 						onClick={() => handleToggleClose(a)}
 						title={a.is_closed ? "重新开放" : "关闭"}
 					>
 						<IconCircleX size={15} />
 					</Button>
 					<Button
-						variant="ghost"
-						size="icon"
+						variant="subtle"
+						w={44} h={44} p={0}
 						color="red"
 						onClick={() => handleDelete(a.id)}
 						title="删除"
@@ -467,7 +466,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								return (
 									<Group gap={4} wrap="wrap" mt={-8} mb={4}>
 										{enabled.map(([k]) => (
-											<Badge key={k} variant="secondary" color="teal" size="xs">
+											<Badge key={k} variant="light" color="teal" size="xs">
 												{ALL_CAPABILITIES[k]?.label ?? k}
 											</Badge>
 										))}

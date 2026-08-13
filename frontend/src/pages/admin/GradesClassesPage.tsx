@@ -1,9 +1,8 @@
-import { Box, Group, Modal, Paper, Select, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Modal, Paper, Select, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
@@ -169,10 +168,10 @@ export default function GradesClassesPage() {
 		onDelete: () => void,
 	) => (
 		<Group gap={8} wrap="nowrap">
-			<Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+			<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(item)}>
 				编辑
 			</Button>
-			<Button variant="ghost" size="sm" color="red" onClick={onDelete}>
+			<Button variant="subtle" size="sm" color="red" onClick={onDelete}>
 				删除
 			</Button>
 		</Group>

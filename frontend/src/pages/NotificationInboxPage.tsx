@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ActionIcon, Badge, Box, Container, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { ActionIcon, Badge, Box, Button, Container, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { IconBell, IconEyeOff } from "@tabler/icons-react";
 import EmptyState from "@/components/ui/empty-state";
 import { useCallback } from "react";
@@ -14,7 +14,6 @@ import {
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 
@@ -141,9 +140,9 @@ export default function NotificationInboxPage() {
 						<Button
 							key={t}
 							type="button"
-							variant={typeFilter === t ? "default" : "secondary"}
+							variant={typeFilter === t ? "filled" : "light"} color={typeFilter === t ? undefined : "gray"}
 							size="xs"
-							radius="xl"
+							radius="md"
 							onClick={() => setType(t)}
 							style={{ flexShrink: 0 }}
 						>
@@ -191,7 +190,7 @@ export default function NotificationInboxPage() {
 									)}
 									<Box style={{ minWidth: 0, flex: 1 }}>
 										<Group gap="xs" mb={4}>
-											<Badge variant="secondary" size="xs">
+											<Badge variant="light" color="gray" size="xs">
 												{TYPE_LABELS[n.type] ?? n.type}
 											</Badge>
 											<Text size="11px" c="dimmed" opacity={0.6}>

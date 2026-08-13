@@ -1,8 +1,7 @@
 import { IconArrowLeft, IconClipboardCheck, IconClock, IconEarOff, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Box, Group, Modal, Stack, Text } from "@mantine/core";
-import Button from "@/components/ui/button";
+import { ActionIcon, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
@@ -182,7 +181,8 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 						{ttsAutoPlay ? <IconVolume2 size={16} /> : <IconEarOff size={16} />}
 					</ActionIcon>
 					<Button
-						variant="destructive"
+						variant="light"
+						color="red"
 						size="sm"
 						onClick={handleEndClick}
 						title="完成训练并查看评分"
@@ -204,7 +204,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					>
 						取消
 					</Button>
-					<Button variant="end" size="sm" onClick={executeEnd}>
+					<Button variant="light" color="indigo" size="sm" onClick={executeEnd}>
 						确认结束
 					</Button>
 				</Group>
@@ -213,7 +213,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 			<Modal opened={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)} title="离开训练" size={300} centered withinPortal>
 				<Text size="sm" c="dimmed" mb="xl">训练仍在进行中，进度已自动保存</Text>
 				<Stack gap={8}>
-					<Button variant="default" onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
+					<Button onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
 						暂离，保留进度
 					</Button>
 					<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>

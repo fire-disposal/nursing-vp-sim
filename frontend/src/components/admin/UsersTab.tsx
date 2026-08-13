@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { getClasses } from "@/api";
@@ -11,7 +11,6 @@ import BatchActionBar from "@/components/admin/users/BatchActionBar";
 import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
-import Button from "@/components/ui/button";
 
 import EmptyState from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
@@ -301,7 +300,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				</Button>
 			</Group>
 
-			<Paper withBorder radius="lg" p="md" shadow="sm">
+			<Paper withBorder radius="md" p="md" shadow="sm">
 				<Group gap={8} mb="md">
 					<SearchInput
 						value={search}
@@ -439,7 +438,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									{resetPasswordDialog.password}
 								</Text>
 								<Button
-									variant="ghost"
+									variant="subtle"
 									size="xs"
 									color="teal"
 									onClick={() => {

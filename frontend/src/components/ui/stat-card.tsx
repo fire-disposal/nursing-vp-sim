@@ -34,7 +34,7 @@ export default function StatCard({
 	return (
 		<Paper
 			withBorder
-			radius="lg"
+			radius="md"
 			p="md"
 			onClick={onClick}
 			className={cn(onClick && "cursor-pointer", className)}

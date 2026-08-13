@@ -22,7 +22,7 @@ export default function EmptyState({
 	return (
 		<Stack align="center" justify="center" py={48} ta="center" className={cn(className)}>
 			{Icon && (
-				<ThemeIcon size={56} variant="light" color="gray" radius="xl">
+				<ThemeIcon size={56} variant="light" color="gray" radius="md">
 					<Icon size={28} strokeWidth={1.5} />
 				</ThemeIcon>
 			)}

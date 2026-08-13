@@ -74,7 +74,7 @@ export default function UserList({
 	const navigate = useNavigate();
 
 	return (
-		<Paper withBorder radius="lg" p="lg" shadow="sm">
+		<Paper withBorder radius="md" p="lg" shadow="sm">
 			<Group gap={8} mb="md" wrap="wrap">
 				<Box style={{ flex: "1 1 320px", maxWidth: 320 }}>
 					<SearchInput

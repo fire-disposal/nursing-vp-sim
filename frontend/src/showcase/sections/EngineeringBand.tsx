@@ -92,7 +92,7 @@ export default function EngineeringBand() {
 			<SectionHeading eyebrow="工程化底座" title="全自动交付流水线" mb={48} />
 
 			<Reveal>
-				<Paper withBorder radius="xl" p={{ base: "lg", md: "xl" }} pos="relative" style={{ overflow: "hidden" }}>
+				<Paper withBorder radius="md" p={{ base: "lg", md: "xl" }} pos="relative" style={{ overflow: "hidden" }}>
 					<Grid gap="lg" pos="relative" style={{ zIndex: 10 }}>
 						<Grid.Col span={{ base: 12, md: 3 }}>
 							<Stack gap={6}>

@@ -126,7 +126,7 @@ export default function VoiceTTSTab() {
 						<Progress
 							value={budgetUsed}
 							size="sm"
-							radius="xl"
+							radius="md"
 							color={budgetUsed > 90 ? "red" : budgetUsed > 70 ? "yellow" : "green"}
 						/>
 						<Text size="xs" c="dimmed" ta="right" mt={4}>{budgetUsed}%</Text>

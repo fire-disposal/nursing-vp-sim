@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Center, Group, Loader, Text, UnstyledButton } from "@mantine/core";
+import { Box, Button, Center, Group, Loader, Text, UnstyledButton } from "@mantine/core";
 import { IconBell, IconEyeOff } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,6 @@ import {
 } from "@/api/notifications";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
@@ -123,8 +122,12 @@ export default function NotificationBell() {
 		<>
 			<Button
 				type="button"
-				variant="ghost"
-				size="icon-xs"
+				variant="subtle"
+				color="gray"
+				size="xs"
+				w={32}
+				h={32}
+				p={0}
 				onClick={() => setOpen(true)}
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
 				style={{ position: "relative" }}
@@ -219,7 +222,7 @@ export default function NotificationBell() {
 										<Box px="md" pb="xs">
 											<Button
 												type="button"
-												variant="link"
+												variant="transparent"
 												size="xs"
 												p={0}
 												onClick={(e) => {
@@ -242,7 +245,8 @@ export default function NotificationBell() {
 							style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}
 						>
 							<Button
-								variant="ghost"
+								variant="subtle"
+								color="gray"
 								size="sm"
 								onClick={() => {
 									setOpen(false);
@@ -254,7 +258,8 @@ export default function NotificationBell() {
 							<Group gap={4}>
 								{unreadCount > 0 ? (
 									<Button
-										variant="ghost"
+										variant="subtle"
+										color="gray"
 										size="sm"
 										onClick={() => markAllReadMutation.mutate()}
 										disabled={mutationLockRef.current}
@@ -264,7 +269,8 @@ export default function NotificationBell() {
 								) : null}
 								{hasMore && (
 									<Button
-										variant="ghost"
+										variant="subtle"
+										color="gray"
 										size="sm"
 										onClick={() => setOffset((prev) => prev + LIMIT)}
 									>

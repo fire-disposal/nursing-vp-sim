@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
 	Alert,
+	Badge,
 	Box,
 	Divider,
 	Group,
@@ -22,7 +23,6 @@ import {
 import type { ComponentType, CSSProperties } from "react";
 import { getLogDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
-import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 
 interface CallLogDetailProps {
@@ -130,7 +130,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 							<Title order={2}>调用详情 #{log.id}</Title>
 						</Group>
 
-						<Paper withBorder radius="lg" p="md" mb="md">
+						<Paper withBorder radius="md" p="md" mb="md">
 							<Stack gap={0}>
 								<MetaRow
 									icon={IconClock}
@@ -183,12 +183,13 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 										状态
 									</Text>
 									<Badge
-										variant={log.status === "success" ? "success" : "danger"}
+										variant="light"
+										color={log.status === "success" ? "green" : "red"}
 									>
 										{log.status}
 									</Badge>
 									{log.error_type && (
-										<Badge variant="warning">{log.error_type}</Badge>
+										<Badge variant="light" color="yellow">{log.error_type}</Badge>
 									)}
 								</Group>
 								{log.error_message && (

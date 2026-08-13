@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Button,
 	Group,
 	Paper,
 	Modal,
@@ -21,7 +22,6 @@ import {
 	emptyQuestion,
 	QUESTION_TYPE_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import Button from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { FormMessageBanner } from "@/components/ui/form-message-banner";

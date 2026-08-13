@@ -6,10 +6,9 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { Alert, Box, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
 
 import { RoleBadge } from "@/components/ui/role-badge";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -200,7 +199,8 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
         </Box>
         <Group gap={12} mb="md" wrap="wrap">
           <Button
-            variant="secondary"
+            variant="light"
+            color="gray"
             size="sm"
             leftSection={<IconUpload size={14} />}
             onClick={() => fileInputRef.current?.click()}
@@ -217,7 +217,7 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
             disabled={isImporting}
           />
           <Button
-            variant="link"
+            variant="transparent"
             size="sm"
             leftSection={<IconDownload size={14} />}
             onClick={handleDownloadTemplate}

@@ -1,4 +1,4 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Box, Button, Group, Text } from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
 import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
@@ -9,7 +9,6 @@ import { StudentTopNav } from "./StudentTopNav";
 import type { NavItem } from "./navigation";
 import { NAV_ITEMS } from "./navigation";
 import { NetworkBanner } from "@/components/NetworkBanner";
-import Button from "@/components/ui/button";
 import LoadingState from "@/components/ui/loading-state";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -110,7 +109,10 @@ function AdminLayout({
 				>
 					<Button
 						variant="outline"
-						size="icon-sm"
+						size="sm"
+						w={36}
+						h={36}
+						p={0}
 						onClick={() => setMobileOpen((v) => !v)}
 						aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
 					>

@@ -141,7 +141,7 @@ export default function DataTable<T>({
 				{body}
 			</Box>
 		) : (
-			<Paper withBorder radius="lg" shadow="sm" p="md" className={className}>
+			<Paper withBorder radius="md" shadow="sm" p="md" className={className}>
 				{body}
 			</Paper>
 		);
@@ -152,7 +152,7 @@ export default function DataTable<T>({
 		return bare ? (
 			<Box className={className}>{body}</Box>
 		) : (
-			<Paper withBorder radius="lg" shadow="sm" className={className}>
+			<Paper withBorder radius="md" shadow="sm" className={className}>
 				{body}
 			</Paper>
 		);
@@ -161,7 +161,7 @@ export default function DataTable<T>({
 	return bare ? (
 		<Box className={className}>{table}</Box>
 	) : (
-		<Paper withBorder radius="lg" shadow="sm" style={{ overflow: "hidden" }} className={className}>
+		<Paper withBorder radius="md" shadow="sm" style={{ overflow: "hidden" }} className={className}>
 			{table}
 		</Paper>
 	);

@@ -1,4 +1,4 @@
-import { Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
 	IconActivity,
@@ -23,8 +23,6 @@ import {
 } from "recharts";
 import { getStudentDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
@@ -214,7 +212,7 @@ export default function UserDetailPage() {
 									<TableRow key={r.id}>
 										<TableCell>{r.case_name}</TableCell>
 										<TableCell>
-											<Badge variant={r.status === "completed" ? "success" : "info"}>
+											<Badge variant="light" color={r.status === "completed" ? "green" : "blue"}>
 												{r.status === "completed" ? "已完成" : "进行中"}
 											</Badge>
 										</TableCell>
@@ -226,7 +224,7 @@ export default function UserDetailPage() {
 										</TableCell>
 										<TableCell>
 											<Button
-												variant="ghost"
+												variant="subtle" color="gray"
 												size="sm"
 												onClick={() => navigate(`/record/${r.id}`)}
 											>

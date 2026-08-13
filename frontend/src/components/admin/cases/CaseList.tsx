@@ -1,6 +1,5 @@
 import { IconPencil, IconPlus, IconSearch, IconTrash, IconWand, IconX } from "@tabler/icons-react";
-import { ActionIcon, Badge, Box, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
-import Button from "@/components/ui/button";
+import { ActionIcon, Badge, Box, Button, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import Pagination from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
@@ -36,7 +35,7 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 	return (
 		<Group gap={4}>
 			{enabled.map(([key, def]) => (
-				<Badge key={key} variant="secondary" size="xs">{def.label}</Badge>
+				<Badge key={key} variant="light" color="gray" size="xs">{def.label}</Badge>
 			))}
 		</Group>
 	);
@@ -122,7 +121,7 @@ export default function CaseList({
 								<TableCell><Text size="xs" c="dimmed">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</Text></TableCell>
 								<TableCell><CapabilityBadges caps={c.capabilities} /></TableCell>
 								<TableCell style={{ textAlign: "center" }}>
-									<Button size="xs" variant={c.is_open ? "success" : "secondary"} onClick={() => onToggleOpen(c)}>
+									<Button size="xs" variant="light" color={c.is_open ? "green" : "gray"} onClick={() => onToggleOpen(c)}>
 										{c.is_open ? "开放" : "关闭"}
 									</Button>
 								</TableCell>

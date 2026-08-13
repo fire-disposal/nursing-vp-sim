@@ -1,11 +1,10 @@
-import { ActionIcon, Box, Divider, Group, Stack, Text } from "@mantine/core";
+import { ActionIcon, Box, Button, Divider, Group, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconBook2, IconDownload, IconEdit, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useState, useCallback, type ChangeEvent } from "react";
 import type { ApiPath } from "@/api/api-path";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
-import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -96,7 +95,7 @@ function ItemEditor({ item, onChange, onDelete }: { item: RubricItem; onChange: 
 						onDelete={() => onChange({ ...item, anchors: item.anchors.filter((_, i) => i !== ai) })} />
 				))}
 				<Button
-					variant="link"
+					variant="transparent"
 					size="xs"
 					onClick={() => {
 						const maxScore = item.anchors.length > 0 ? Math.max(...item.anchors.map((a) => a.score)) + 1 : 0;
@@ -142,7 +141,7 @@ function DimensionEditor({ dim, onChange, onDelete }: { dim: RubricDimension; on
 					))}
 				</Stack>
 				<Button
-					variant="link"
+					variant="transparent"
 					size="sm"
 					onClick={() => {
 						const newId = `item_${Date.now()}`;

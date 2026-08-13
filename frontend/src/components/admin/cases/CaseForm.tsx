@@ -3,10 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { safeParse, z } from "zod";
 import { generateCase, getCaseDetail } from "@/api";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 
-import { Alert, Badge, Grid, Group, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Grid, Group, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, useCaseEditor } from "./CaseEditorState";
 import { FormView } from "./FormView";
 import JsonView from "./JsonView";
@@ -305,7 +304,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Text size="sm">检测到未保存的草稿</Text>
 							<Group gap={8}>
 								<Button type="button" size="sm" variant="outline" onClick={handleRestoreDraft}>恢复草稿</Button>
-								<Button type="button" size="sm" variant="ghost" onClick={() => { localStorage.removeItem(draft); setShowDraftRestore(false); }}>丢弃</Button>
+								<Button type="button" size="sm" variant="subtle" color="gray" onClick={() => { localStorage.removeItem(draft); setShowDraftRestore(false); }}>丢弃</Button>
 							</Group>
 						</Group>
 					</Alert>
@@ -315,7 +314,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				<Group gap={8} mb="md">
 					<Button
 						size="xs"
-						variant={showAiPanel ? "default" : "outline"}
+						variant={showAiPanel ? "filled" : "outline"}
 						color="grape"
 						onClick={() => setShowAiPanel(!showAiPanel)}
 						leftSection={<IconWand size={13} />}
@@ -338,7 +337,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 					<Button
 						size="xs"
-						variant={showPreview ? "default" : "outline"}
+						variant={showPreview ? "filled" : "outline"}
 						color={showPreview ? "teal" : "gray"}
 						onClick={() => setShowPreview(!showPreview)}
 						title="病例预览"
@@ -371,9 +370,9 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					>
 						<Group gap={6} wrap="wrap" mb="sm">
 							<Text size="xs" fw={600} c="grape">生成向导</Text>
-							<Badge variant={state.json.name || state.json.chief_complaint ? "success" : "neutral"} size="xs">1 临床骨架</Badge>
+							<Badge variant="light" color={state.json.name || state.json.chief_complaint ? "green" : "gray"} size="xs">1 临床骨架</Badge>
 							<Text size="xs" c="dimmed" opacity={0.4}>→</Text>
-							<Badge variant={(state.json.required_inquiries as unknown[])?.length || state.json.exam_anchors ? "success" : "neutral"} size="xs">2 教学细节</Badge>
+							<Badge variant="light" color={(state.json.required_inquiries as unknown[])?.length || state.json.exam_anchors ? "green" : "gray"} size="xs">2 教学细节</Badge>
 						</Group>
 
 						<SegmentedControl
@@ -435,7 +434,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Group gap={6} wrap="wrap">
 								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
 								{AI_CLINICAL_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="secondary" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button key={f.key} size="xs" variant="light" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
 										{f.label}
 									</Button>
 								))}
@@ -443,7 +442,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Group gap={6} wrap="wrap">
 								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>教学字段</Text>
 								{AI_PEDAGOGY_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="secondary" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button key={f.key} size="xs" variant="light" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
 										{f.label}
 									</Button>
 								))}

@@ -1,18 +1,16 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Badge as MantineBadge, Box, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Badge as MantineBadge, Box, Button, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
 import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import AuthImage from "@/components/ui/auth-image";
-import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import Pagination from "@/components/ui/pagination";
 import PageHeader from "@/components/ui/page-header";
-import Button from "@/components/ui/button";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
@@ -74,7 +72,7 @@ export default function MyFeedbackPage() {
 					icon={IconMessageCircle}
 				/>
 
-				<Paper withBorder radius="lg" p="md">
+				<Paper withBorder radius="md" p="md">
 					<SimpleGrid cols={3} spacing="xs" mb="md">
 						<Paper radius="md" bg="gray.1" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
@@ -108,9 +106,9 @@ export default function MyFeedbackPage() {
 								<Button
 									key={opt.value}
 									type="button"
-									variant={tagFilter === opt.value ? "default" : "secondary"}
+									variant={tagFilter === opt.value ? "filled" : "light"} color={tagFilter === opt.value ? undefined : "gray"}
 									size="xs"
-									radius="xl"
+									radius="md"
 									style={{ flexShrink: 0 }}
 									onClick={() => {
 										setTagFilter(opt.value);
@@ -163,13 +161,13 @@ export default function MyFeedbackPage() {
 								Math.min(RATING_LABELS.length - 1, fb.rating - 1),
 							);
 							return (
-								<Paper key={fb.id} withBorder radius="lg" p="md">
+								<Paper key={fb.id} withBorder radius="md" p="md">
 									<Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
 										<Group gap="xs" wrap="wrap">
 											<MantineBadge
 												variant="light"
 												color={RATING_COLORS[ratingIndex]}
-												radius="xl"
+												radius="md"
 												size="sm"
 											>
 												{fb.rating}{" "}
@@ -183,7 +181,7 @@ export default function MyFeedbackPage() {
 												</Badge>
 											)}
 											<Badge
-												variant={fb.developer_reply ? "success" : "neutral"}
+												variant="light" color={fb.developer_reply ? "green" : "gray"}
 												size="xs"
 											>
 												{fb.developer_reply ? "已回复" : "待处理"}

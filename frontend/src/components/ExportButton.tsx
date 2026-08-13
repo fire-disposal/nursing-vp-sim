@@ -1,8 +1,7 @@
-import { ActionIcon, Group, Loader, Menu } from "@mantine/core";
+import { ActionIcon, Button, Group, Loader, Menu } from "@mantine/core";
 import { IconChevronDown, IconDownload } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 import { api } from "@/api/client";
-import Button from "@/components/ui/button";
 
 interface ExportButtonProps {
 	endpoint: string;

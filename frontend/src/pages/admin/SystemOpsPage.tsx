@@ -1,10 +1,9 @@
-import { Alert, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Alert, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconActivity, IconAlertTriangle, IconCircleCheck, IconClock, IconCpu, IconRefresh, IconServer } from "@tabler/icons-react";
 import { useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
-import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";

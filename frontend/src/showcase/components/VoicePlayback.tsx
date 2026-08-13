@@ -41,7 +41,7 @@ export default function VoicePlayback() {
 	return (
 		<Paper
 			withBorder
-			radius="xl"
+			radius="md"
 			p="lg"
 			pos="relative"
 			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
@@ -69,7 +69,7 @@ export default function VoicePlayback() {
 							component="button"
 							onClick={() => handlePlay(item.id, item.fileName)}
 							p="md"
-							radius="lg"
+							radius="md"
 							style={{
 								display: "flex",
 								width: "100%",

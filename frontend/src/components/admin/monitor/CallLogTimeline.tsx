@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Group, Paper, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Paper, Text } from "@mantine/core";
 import {
 	IconArrowRight,
 	IconBolt,
@@ -12,8 +12,6 @@ import { getRecordLogs } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogDetail from "./CallLogDetail";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 
@@ -69,12 +67,16 @@ export default function CallLogTimeline({
 	);
 
 	return (
-		<Paper withBorder radius="lg" p="md">
+		<Paper withBorder radius="md" p="md">
 			<Group justify="space-between" mb="md" wrap="wrap">
 				<Group gap={8}>
 					<Button
-						variant="ghost"
-						size="icon-sm"
+						variant="subtle"
+						color="gray"
+						size="sm"
+						w={36}
+						h={36}
+						p={0}
 						onClick={onBack}
 						aria-label="返回"
 					>
@@ -133,19 +135,20 @@ export default function CallLogTimeline({
 										<Text size="xs" c="dimmed" ff="monospace">
 											{safeTime(log.created_at)}
 										</Text>
-										<Badge variant="info" size="xs">
+										<Badge variant="light" color="blue" size="xs">
 											{log.purpose}
 										</Badge>
 										<Text size="xs" c="dimmed" opacity={0.7}>
 											{log.model || log.provider_name || "—"}
 										</Text>
 										<Badge
-											variant={
+											variant="light"
+											color={
 												log.status === "success"
-													? "success"
+													? "green"
 													: log.status === "timeout"
-														? "warning"
-														: "danger"
+														? "yellow"
+														: "red"
 											}
 											size="xs"
 										>
@@ -176,7 +179,7 @@ export default function CallLogTimeline({
 									</Group>
 								</Box>
 								<Button
-									variant="link"
+									variant="transparent"
 									size="xs"
 									onClick={() => setSelectedLogId(log.id)}
 								>

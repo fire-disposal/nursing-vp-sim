@@ -70,7 +70,7 @@ export default function ResponsiveTable<T>({
 		bare ? (
 			<Box className={className}>{inner}</Box>
 		) : (
-			<Paper withBorder radius="lg" shadow="sm" style={{ overflow: "hidden" }} className={className}>
+			<Paper withBorder radius="md" shadow="sm" style={{ overflow: "hidden" }} className={className}>
 				{inner}
 			</Paper>
 		);

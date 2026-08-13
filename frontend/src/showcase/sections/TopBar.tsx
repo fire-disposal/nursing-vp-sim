@@ -56,7 +56,7 @@ export default function TopBar() {
 					component={Link}
 					to={CTA_HREF}
 					size="sm"
-					radius="xl"
+					radius="md"
 					px="xl"
 					fw={600}
 				>

@@ -1,8 +1,7 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Box, Button, Group, Text } from "@mantine/core";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
-import Button from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import type { NavItem } from "./navigation";
 import { useShortViewport } from "@/hooks/useShortViewport";
@@ -92,7 +91,8 @@ export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout:
 				{/* Right side — utility icons */}
 				<Group gap={2} wrap="nowrap" style={{ marginLeft: "auto" }}>
 					<Button
-						variant="ghost"
+						variant="subtle"
+						color="gray"
 						size="sm"
 						leftSection={<IconMessageCirclePlus size={14} />}
 						onClick={openFeedback}
@@ -103,7 +103,7 @@ export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout:
 						</Text>
 					</Button>
 					<NotificationBell />
-					<Button variant="ghost" size="icon-sm" onClick={onLogout} aria-label="退出登录">
+					<Button variant="subtle" color="gray" size="sm" w={36} h={36} p={0} onClick={onLogout} aria-label="退出登录">
 						<IconLogout size={14} />
 					</Button>
 				</Group>

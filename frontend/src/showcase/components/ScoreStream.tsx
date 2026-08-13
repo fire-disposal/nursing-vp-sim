@@ -118,7 +118,7 @@ export default function ScoreStream() {
 	return (
 		<Paper
 			withBorder
-			radius="xl"
+			radius="md"
 			p="lg"
 			pos="relative"
 			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
@@ -140,7 +140,7 @@ export default function ScoreStream() {
 			<Group gap={12} mt="lg" pos="relative" style={{ zIndex: 10 }} wrap="nowrap">
 				<ThemeIcon
 					size={32}
-					radius="xl"
+					radius="md"
 					variant="light"
 					color={phase === "complete" ? "green" : undefined}
 					style={{ flexShrink: 0 }}

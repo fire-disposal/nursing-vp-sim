@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import {
 	Avatar,
 	Box,
+	Button,
 	Container,
 	Divider,
 	Group,
@@ -33,7 +34,6 @@ import { useBrandStore } from "@/theme/brand-store";
 import { changePassword, updateMyProfile } from "@/api";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
-import Button from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import { Input } from "@/components/ui/input";
@@ -159,7 +159,7 @@ export default function Profile() {
 				<Card>
 					<Stack gap={0}>
 						<Button
-							variant="ghost"
+							variant="subtle"
 							color="gray"
 							fullWidth
 							justify="flex-start"
@@ -183,7 +183,7 @@ export default function Profile() {
 						</Button>
 						<Divider />
 						<Button
-							variant="ghost"
+							variant="subtle"
 							color="gray"
 							fullWidth
 							justify="flex-start"
@@ -207,7 +207,7 @@ export default function Profile() {
 						</Button>
 						<Divider />
 						<Button
-							variant="ghost"
+							variant="subtle"
 							color="gray"
 							fullWidth
 							justify="flex-start"
@@ -231,7 +231,7 @@ export default function Profile() {
 						</Button>
 						<Divider />
 						<Button
-							variant="ghost"
+							variant="subtle"
 							color="gray"
 							fullWidth
 							justify="flex-start"
@@ -259,7 +259,7 @@ export default function Profile() {
 				{/* ── Logout ── */}
 				<Card>
 					<Button
-						variant="ghost"
+						variant="subtle"
 						color="red"
 						fullWidth
 						justify="flex-start"
@@ -307,9 +307,9 @@ export default function Profile() {
 								<Box>
 									<Text component="label" size="sm" fw={500} mb={4}>性别</Text>
 									<Group gap="xs">
-										<Button type="button" variant={profileForm.values.gender === "男" ? "default" : "outline"} size="sm"
+										<Button type="button" variant={profileForm.values.gender === "男" ? "filled" : "outline"} size="sm"
 											onClick={() => profileForm.setFieldValue("gender", "男")}>男</Button>
-										<Button type="button" variant={profileForm.values.gender === "女" ? "default" : "outline"} size="sm"
+										<Button type="button" variant={profileForm.values.gender === "女" ? "filled" : "outline"} size="sm"
 											onClick={() => profileForm.setFieldValue("gender", "女")}>女</Button>
 									</Group>
 									{profileForm.errors.gender && <Text c="red" size="xs" mt={4}>{profileForm.errors.gender}</Text>}
@@ -344,7 +344,7 @@ export default function Profile() {
 				{/* ── About dialog ── */}
 				<Modal opened={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统" size={420} centered withinPortal>
 						<Stack gap="md" py="xs" align="center" ta="center">
-							<ThemeIcon size={48} radius="xl" variant="filled">
+							<ThemeIcon size={48} radius="md" variant="filled">
 								<IconStethoscope size={24} />
 							</ThemeIcon>
 							<Box>
@@ -381,7 +381,7 @@ function ThemeToggleButton() {
 	const isDark = colorScheme === "dark";
 	return (
 		<Button
-			variant="ghost"
+			variant="subtle"
 			color="gray"
 			fullWidth
 			justify="flex-start"

@@ -136,7 +136,7 @@ function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
 	const fields = Object.entries(FIELD_LABELS).filter(([key]) => sheet[key]);
 	if (fields.length === 0) return null;
 	return (
-		<Paper withBorder radius="lg" p={{ base: "md", sm: "lg" }} mt="md">
+		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }} mt="md">
 			<Stack gap="sm">
 				<Title order={3} size="md">
 					护理记录

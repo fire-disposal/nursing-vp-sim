@@ -1,9 +1,8 @@
-import { Anchor, Box, Flex, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { Anchor, Box, Button, Flex, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
@@ -105,7 +104,7 @@ export default function Login() {
 				>
 					<Box mb={{ base: 16, sm: 32 }} ta={{ base: "center", lg: "left" }} w="100%">
 						<Group gap="sm" justify="center">
-							<ThemeIcon size={48} radius="xl" variant="filled" style={{ boxShadow: "var(--mantine-shadow-lg)" }}>
+							<ThemeIcon size={48} radius="md" variant="filled" style={{ boxShadow: "var(--mantine-shadow-lg)" }}>
 								<IconStethoscope size={24} />
 							</ThemeIcon>
 							<Stack gap={2}>
@@ -119,7 +118,7 @@ export default function Login() {
 						</Group>
 					</Box>
 
-					<Paper withBorder radius="xl" p={{ base: "md", sm: "lg" }} w="100%" maw={384} shadow="sm">
+					<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }} w="100%" maw={384} shadow="sm">
 						<FormMessageBanner type="error" message={error} />
 
 						<form onSubmit={form.onSubmit(onSubmit)}>

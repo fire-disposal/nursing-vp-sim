@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { ActionIcon, Badge, Button, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
@@ -12,7 +12,6 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { ConfirmDialog, useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -178,11 +177,11 @@ export default function SystemNotificationsPage() {
 			) : (
 				<Stack gap="sm">
 					{filtered.map((n) => (
-						<Paper key={n.id} withBorder radius="lg" p="md">
+						<Paper key={n.id} withBorder radius="md" p="md">
 							<Group align="flex-start" gap={16} wrap="nowrap">
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<Group gap={8} align="center" wrap="wrap">
-										<Badge variant="secondary" color={LEVEL_COLORS[n.level] ?? "blue"} size="sm">
+										<Badge variant="light" color={LEVEL_COLORS[n.level] ?? "blue"} size="sm">
 											{LEVEL_LABELS[n.level] ?? n.level}
 										</Badge>
 										<Text size="sm" fw={600}>{n.title}</Text>

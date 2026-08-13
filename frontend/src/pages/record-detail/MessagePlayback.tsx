@@ -13,7 +13,7 @@ interface Props {
 
 export default function MessagePlayback({ messages }: Props) {
 	return (
-		<Paper withBorder radius="lg" p={{ base: "md", sm: "lg" }}>
+		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }}>
 			<Title order={3} size="sm" mb="md" style={{ display: "flex", alignItems: "center", gap: 8 }}>
 				<IconMessageCircle size={18} />
 				对话回放 ({messages.length}条消息)

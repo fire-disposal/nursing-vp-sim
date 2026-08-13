@@ -13,7 +13,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { Avatar, Box, Divider, Drawer, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
+import { Avatar, Badge, Box, Button, Divider, Drawer, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -27,8 +27,6 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CitationCard from "@/components/citation/CitationCard";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -268,7 +266,7 @@ export default function QA() {
 		<Paper
 			component="main"
 			withBorder
-			radius="lg"
+			radius="md"
 			style={{ height: "calc(100dvh - 6.5rem)", minHeight: "32rem", overflow: "hidden", display: "flex", position: "relative" }}
 		>
 			<Box
@@ -322,15 +320,15 @@ export default function QA() {
 					style={{ minHeight: 64, borderBottom: "1px solid var(--mantine-color-gray-3)", flexShrink: 0 }}
 				>
 					<Button
-						variant="ghost"
-						size="icon-sm"
+						variant="subtle" color="gray"
+						size="sm" w={36} h={36} p={0}
 						hiddenFrom="md"
 						onClick={() => setShowSidebar(true)}
 						aria-label="打开对话记录"
 					>
 						<IconMenu2 size={17} />
 					</Button>
-					<ThemeIcon size={40} radius="lg" variant="light" color="teal">
+					<ThemeIcon size={40} radius="md" variant="light" color="teal">
 						<IconRobot size={20} />
 					</ThemeIcon>
 					<Box style={{ minWidth: 0, flex: 1 }}>
@@ -341,7 +339,7 @@ export default function QA() {
 							{activeSession?.title || "教材检索、护理推理和操作规范集中在一个对话里"}
 						</Text>
 					</Box>
-					<Badge variant={ragEnabled ? "default" : "outline"} visibleFrom="sm">
+					<Badge variant={ragEnabled ? "filled" : "outline"} visibleFrom="sm">
 						{ragEnabled ? "教材增强" : "基础模式"}
 					</Badge>
 					<Button variant="outline" size="sm" onClick={handleNewChat}>
@@ -414,8 +412,8 @@ function QASidebar({
 					</Title>
 				</Box>
 				<Button
-					variant="ghost"
-					size="icon-sm"
+					variant="subtle" color="gray"
+					size="sm" w={36} h={36} p={0}
 					hiddenFrom="md"
 					onClick={onClose}
 					aria-label="关闭对话记录"
@@ -445,7 +443,7 @@ function QASidebar({
 							}}
 						>
 							<Group gap="sm" align="flex-start" wrap="nowrap">
-								<ThemeIcon size={32} radius="lg" variant="default" color="gray">
+								<ThemeIcon size={32} radius="md" variant="default" color="gray">
 									<IconMessageCircle size={15} />
 								</ThemeIcon>
 								<Box style={{ minWidth: 0, flex: 1 }}>
@@ -457,8 +455,8 @@ function QASidebar({
 									</Text>
 								</Box>
 								<Button
-									variant="ghost"
-									size="icon-xs"
+									variant="subtle" color="gray"
+									size="xs" w={32} h={32} p={0}
 									style={{ flexShrink: 0, opacity: 0.6 }}
 									onClick={(event) => handleDeleteSession(event, session.id)}
 									aria-label="删除会话"
@@ -536,7 +534,7 @@ function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 									}}
 								>
 									<Group gap="sm" align="center" wrap="nowrap">
-										<ThemeIcon size={36} radius="lg" variant="light" color="teal">
+										<ThemeIcon size={36} radius="md" variant="light" color="teal">
 											<IconBook2 size={16} />
 										</ThemeIcon>
 										<Box style={{ minWidth: 0, flex: 1 }}>
@@ -569,8 +567,8 @@ function InfoTile({
 	title: string;
 }) {
 	return (
-		<Paper withBorder radius="xl" p="md" style={{ flex: 1 }}>
-			<ThemeIcon size={40} radius="lg" variant="light" color="gray" mb="sm">
+		<Paper withBorder radius="md" p="md" style={{ flex: 1 }}>
+			<ThemeIcon size={40} radius="md" variant="light" color="gray" mb="sm">
 				<Icon size={18} />
 			</ThemeIcon>
 			<Text size="sm" fw={600}>
@@ -611,7 +609,7 @@ function MessageBubble({
 				)}
 			</Box>
 			{isUser && (
-				<Avatar src={nurseAvatar} alt="护士头像" size={36} radius="lg" />
+				<Avatar src={nurseAvatar} alt="护士头像" size={36} radius="xl" />
 			)}
 		</Group>
 	);
@@ -645,7 +643,7 @@ function AssistantDraft({ content }: { content: string }) {
 
 function AssistantAvatar() {
 	return (
-		<ThemeIcon size={36} radius="lg" variant="light" color="teal">
+		<ThemeIcon size={36} radius="md" variant="light" color="teal">
 			<IconRobot size={18} />
 		</ThemeIcon>
 	);
@@ -710,7 +708,7 @@ function Composer({
 			>
 				<Button
 					type="button"
-					variant={ragEnabled ? "default" : "secondary"}
+					variant={ragEnabled ? "filled" : "light"} color={ragEnabled ? undefined : "gray"}
 					size="sm"
 					visibleFrom="sm"
 					onClick={onToggleRag}
@@ -735,7 +733,7 @@ function Composer({
 					autoCorrect="off"
 				/>
 				<Button
-					size="icon"
+					w={44} h={44} p={0}
 					onClick={onSend}
 					disabled={loading || !input.trim()}
 					aria-label="发送问题"

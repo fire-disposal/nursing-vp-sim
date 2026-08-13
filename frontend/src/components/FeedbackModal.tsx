@@ -1,10 +1,9 @@
-import { ActionIcon, Box, Center, Group, Loader, Stack, Text, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Box, Button, Center, Group, Loader, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconMessageCircle, IconPlus, IconSend, IconX } from "@tabler/icons-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFeedbackFormData } from "@/api";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
@@ -204,9 +203,9 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 						{tags.map((t) => (
 							<Button
 								key={t.value}
-								variant={tag === t.value ? "default" : "outline"}
+								variant={tag === t.value ? "filled" : "outline"}
 								size="sm"
-								radius="xl"
+								radius="md"
 								onClick={() => setTag(tag === t.value ? "" : t.value)}
 							>
 								{t.label}
@@ -320,7 +319,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 			<Group justify="space-between" mt="xs" wrap="nowrap">
 				<Button
 					type="button"
-					variant="link"
+					variant="transparent"
 					size="xs"
 					p={0}
 					onClick={() => {

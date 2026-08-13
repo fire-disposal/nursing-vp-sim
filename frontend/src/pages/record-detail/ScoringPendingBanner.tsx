@@ -1,6 +1,5 @@
-import { Box, Group, Loader, Paper, Progress, Text, Title } from "@mantine/core";
+import { Box, Button, Group, Loader, Paper, Progress, Text, Title } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
-import Button from "@/components/ui/button";
 
 interface ScoringPendingRecord {
 	status?: string;
@@ -39,7 +38,7 @@ export default function ScoringPendingBanner({
 	return (
 		<Paper
 			withBorder
-			radius="lg"
+			radius="md"
 			bg="yellow.0"
 			p={{ base: "md", sm: "lg" }}
 			style={{ borderColor: "var(--mantine-color-yellow-4)" }}
@@ -70,7 +69,7 @@ export default function ScoringPendingBanner({
 					</Button>
 				)}
 				{isGenerating && (
-					<Button variant="warning" onClick={onRetry} disabled={retrying}>
+					<Button variant="light" color="yellow" onClick={onRetry} disabled={retrying}>
 						{retrying ? <Loader size="sm" /> : <IconRefresh size={14} />}
 						{retrying ? "刷新中..." : "刷新状态"}
 					</Button>

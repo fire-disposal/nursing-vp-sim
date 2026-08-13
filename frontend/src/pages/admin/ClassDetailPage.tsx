@@ -90,13 +90,13 @@ export default function ClassDetailPage() {
 										key={s.id}
 										component="button"
 										withBorder
-										radius="lg"
+										radius="md"
 										p="sm"
 										onClick={() => navigate(`/admin/records?user_id=${s.id}`)}
 										style={{ textAlign: "left", cursor: "pointer", width: "100%" }}
 									>
 										<Group gap={12} wrap="nowrap">
-											<ThemeIcon size={40} radius="xl" variant="light" color="teal">
+											<ThemeIcon size={40} radius="md" variant="light" color="teal">
 												<IconUser size={18} />
 											</ThemeIcon>
 											<div style={{ minWidth: 0, flex: 1 }}>

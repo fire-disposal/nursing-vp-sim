@@ -6,7 +6,7 @@ export default function FutureOutlook() {
 	return (
 		<Box component="section" mx="auto" px="md" py={80} style={{ maxWidth: "64rem" }}>
 			<Reveal>
-				<Paper withBorder radius="xl" p="xl" pos="relative" style={{ overflow: "hidden" }}>
+				<Paper withBorder radius="md" p="xl" pos="relative" style={{ overflow: "hidden" }}>
 					<Stack align="center" gap="md" ta="center" pos="relative" style={{ zIndex: 10 }}>
 						<Text
 							size="xs"

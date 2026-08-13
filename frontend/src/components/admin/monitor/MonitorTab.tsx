@@ -10,7 +10,9 @@ import {
 } from "@tabler/icons-react";
 import {
 	Alert,
+	Badge,
 	Box,
+	Button,
 	Grid,
 	Group,
 	Paper,
@@ -27,8 +29,6 @@ import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogTimeline from "./CallLogTimeline";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import {
@@ -158,7 +158,7 @@ export default function MonitorTab() {
 
 	if (statsLoading) {
 		return (
-			<Paper withBorder radius="lg" p="xl" ta="center">
+			<Paper withBorder radius="md" p="xl" ta="center">
 				<Stack align="center" gap="xs">
 					<IconActivity size={36} style={{ color: "var(--mantine-color-dimmed)" }} />
 					<Text c="dimmed">正在加载监控数据...</Text>
@@ -220,7 +220,7 @@ export default function MonitorTab() {
 				</Text>
 				<SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
 					{statCards.map((s, i) => (
-						<Paper key={i} withBorder radius="lg" p="md" ta="center">
+						<Paper key={i} withBorder radius="md" p="md" ta="center">
 							<Text size="xs" c="dimmed" mb={6}>
 								{s.label}
 							</Text>
@@ -246,7 +246,7 @@ export default function MonitorTab() {
 			</Stack>
 
 			{stats.by_provider?.length > 0 && (
-				<Paper withBorder radius="lg" p="md" mb="md">
+				<Paper withBorder radius="md" p="md" mb="md">
 					<Group gap={6} mb="md">
 						<IconChartBar size={14} />
 						<Text size="sm" fw={600} c="dimmed">
@@ -278,7 +278,7 @@ export default function MonitorTab() {
 											</Text>
 										</TableCell>
 										<TableCell>
-											<Badge variant={p.error_count > 0 ? "danger" : "success"}>
+											<Badge variant="light" color={p.error_count > 0 ? "red" : "green"}>
 												{p.error_count}
 											</Badge>
 										</TableCell>
@@ -291,7 +291,7 @@ export default function MonitorTab() {
 			)}
 
 			{stats.daily.length > 0 && (
-				<Paper withBorder radius="lg" p="md" mb="md">
+				<Paper withBorder radius="md" p="md" mb="md">
 					<Group gap={6} mb="md">
 						<IconTrendingUp size={16} />
 						<Text fw={600} c="dimmed">
@@ -365,7 +365,7 @@ export default function MonitorTab() {
 
 			<Grid mb="md">
 				<Grid.Col span={{ base: 12, md: 4 }}>
-					<Paper withBorder radius="lg" p="md">
+					<Paper withBorder radius="md" p="md">
 						<Group gap={6} mb="md">
 							<IconActivity size={14} />
 							<Text size="sm" fw={600} c="dimmed">
@@ -386,7 +386,7 @@ export default function MonitorTab() {
 									{stats.by_purpose.map((p) => (
 										<TableRow key={p.purpose}>
 											<TableCell>
-												<Badge variant="info">
+												<Badge variant="light" color="blue">
 													{PURPOSE_LABELS[p.purpose] || p.purpose}
 												</Badge>
 											</TableCell>
@@ -401,7 +401,7 @@ export default function MonitorTab() {
 												</Text>
 											</TableCell>
 											<TableCell>
-												<Badge variant={p.error_count > 0 ? "danger" : "success"}>
+												<Badge variant="light" color={p.error_count > 0 ? "red" : "green"}>
 													{p.error_count}
 												</Badge>
 											</TableCell>
@@ -414,7 +414,7 @@ export default function MonitorTab() {
 				</Grid.Col>
 
 				<Grid.Col span={{ base: 12, md: 8 }}>
-					<Paper withBorder radius="lg" p="md">
+					<Paper withBorder radius="md" p="md">
 						<Group gap={6} mb="md">
 							<IconServer size={14} />
 							<Text size="sm" fw={600} c="dimmed">
@@ -525,7 +525,7 @@ export default function MonitorTab() {
 														)}
 													</TableCell>
 													<TableCell>
-														<Badge variant="info">{purposeLabel(item)}</Badge>
+														<Badge variant="light" color="blue">{purposeLabel(item)}</Badge>
 													</TableCell>
 													<TableCell>
 														<Text component="span" c="dimmed" opacity={0.7}>
@@ -534,10 +534,11 @@ export default function MonitorTab() {
 													</TableCell>
 													<TableCell>
 														<Badge
-															variant={
+															variant="light"
+															color={
 																item.status === "success"
-																	? "success"
-																	: "danger"
+																	? "green"
+																	: "red"
 															}
 														>
 															{item.status}

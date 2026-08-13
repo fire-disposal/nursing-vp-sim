@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Center, Stack, Text } from "@mantine/core";
+import { Box, Button, Center, Stack, Text } from "@mantine/core";
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import Button from "@/components/ui/button";
 import { getRecordDetail, pauseTraining, resumeTraining } from "../api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 import { TrainingDataProvider } from "@/engine/TrainingDataContext";

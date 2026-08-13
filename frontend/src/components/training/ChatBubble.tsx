@@ -176,7 +176,7 @@ export const ChatBubble = memo(function ChatBubble({
 							<ActionIcon
 								variant="subtle"
 								color="gray"
-								radius="xl"
+								radius="md"
 								onClick={() => {
 									setDraft(message.content);
 									setEditing(false);
@@ -187,7 +187,7 @@ export const ChatBubble = memo(function ChatBubble({
 							</ActionIcon>
 							<ActionIcon
 								variant="filled"
-								radius="xl"
+								radius="md"
 								disabled={!canSubmitCorrection}
 								onClick={() => {
 									if (!canSubmitCorrection) return;

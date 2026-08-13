@@ -7,7 +7,7 @@ function Card({ className, size = "default", ...props }: CardProps2) {
 	return (
 		<MantineCard
 			withBorder
-			radius="lg"
+			radius="md"
 			padding={size === "sm" ? "md" : "lg"}
 			className={className}
 			{...props}

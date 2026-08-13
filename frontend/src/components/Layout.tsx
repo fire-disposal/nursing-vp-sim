@@ -1,11 +1,10 @@
-import { ActionIcon, Box, Group, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconMessageCircle, IconStethoscope, IconX } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import AdaptiveShell from "@/components/shell/AdaptiveShell";
 import { NAV_ITEMS } from "@/components/shell/navigation";
-import Button from "@/components/ui/button";
 
 import useAuthStore from "@/stores/authStore";
 import { useUiPrefsStore } from "@/stores/uiPrefsStore";

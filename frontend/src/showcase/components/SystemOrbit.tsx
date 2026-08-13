@@ -25,7 +25,7 @@ export default function SystemOrbit() {
 	return (
 		<Paper
 			withBorder
-			radius="xl"
+			radius="md"
 			p="lg"
 			pos="relative"
 			style={{ aspectRatio: "4 / 3", overflow: "hidden" }}

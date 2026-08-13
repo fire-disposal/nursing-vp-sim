@@ -1,4 +1,4 @@
-import { Anchor, Box, Group, Paper, Progress, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Anchor, Badge, Box, Button, Group, Paper, Progress, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconArrowLeft, IconCopy, IconDownload } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
@@ -6,8 +6,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -24,15 +22,15 @@ import {
 function statusBadge(status: string) {
 	switch (status) {
 		case "not_started":
-			return <Badge variant="secondary">未开始</Badge>;
+			return <Badge variant="light" color="gray">未开始</Badge>;
 		case "in_progress":
-			return <Badge variant="info">进行中</Badge>;
+			return <Badge variant="light" color="blue">进行中</Badge>;
 		case "completed":
-			return <Badge variant="success">已完成</Badge>;
+			return <Badge variant="light" color="green">已完成</Badge>;
 		case "overdue":
-			return <Badge variant="destructive">已逾期</Badge>;
+			return <Badge variant="light" color="red">已逾期</Badge>;
 		default:
-			return <Badge variant="secondary">{status}</Badge>;
+			return <Badge variant="light" color="gray">{status}</Badge>;
 	}
 }
 
@@ -146,27 +144,27 @@ export default function AssignmentDetailPage() {
 			/>
 
 			<SimpleGrid cols={{ base: 2, md: 4, xl: 7 }} spacing="sm">
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">总人数</Text>
 					<Text size="xl" fw={700}>{detail.student_count}</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">已完成</Text>
 					<Text size="xl" fw={700} c="green">{detail.completed_count}</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">未开始</Text>
 					<Text size="xl" fw={700} c="dimmed">{notStartedCount}</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">已逾期</Text>
 					<Text size="xl" fw={700} c="red">{overdueCount}</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">已评分</Text>
 					<Text size="xl" fw={700} c="teal">{detail.scored_count}</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">完成率</Text>
 					<Text size="xl" fw={700}>
 						{detail.completion_rate != null
@@ -174,7 +172,7 @@ export default function AssignmentDetailPage() {
 							: "-"}
 					</Text>
 				</Paper>
-				<Paper withBorder radius="lg" p="sm">
+				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">均分/最高</Text>
 					<Text size="lg" fw={700}>{detail.avg_score != null ? detail.avg_score : "-"}</Text>
 					<Text size="xs" c="dimmed">最高 {detail.max_score ?? "-"} / 最低 {detail.min_score ?? "-"}</Text>

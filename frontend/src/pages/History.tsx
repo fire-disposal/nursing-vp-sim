@@ -1,6 +1,6 @@
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -8,8 +8,6 @@ import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import ErrorDisplay from "@/components/ui/error-display";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
@@ -139,7 +137,7 @@ export default function History() {
 
 	return (
 		<RecordSubPageLayout title="训练记录" icon={IconClipboardList}>
-			<Paper withBorder radius="lg" p="md">
+			<Paper withBorder radius="md" p="md">
 				<Group gap="xs" align="center" wrap="wrap">
 					<Text size="xs" c="dimmed">
 						共 {total} 条
@@ -190,11 +188,11 @@ export default function History() {
 					onRetry={() => refetch()}
 				/>
 			) : records.length === 0 ? (
-				<Paper withBorder radius="lg">
+				<Paper withBorder radius="md">
 					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
 				</Paper>
 			) : (
-				<Paper withBorder radius="lg" style={{ overflow: "hidden" }}>
+				<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
 					{/* Mobile: card list */}
 					<Box hiddenFrom="md" p="xs">
 						<Stack gap="xs">
@@ -214,7 +212,7 @@ export default function History() {
 															{r.case_name}
 														</Text>
 														{r.assignment_title && (
-															<Badge variant="default" size="xs">
+															<Badge size="xs">
 																作业
 															</Badge>
 														)}
@@ -238,7 +236,7 @@ export default function History() {
 															已放弃
 														</Text>
 													) : (
-														<Badge variant="info">进行中</Badge>
+														<Badge variant="light" color="blue">进行中</Badge>
 													)}
 												</Box>
 											</Group>
@@ -258,7 +256,7 @@ export default function History() {
 														<IconPlayerPlay size={12} /> 继续
 													</Button>
 													<Button
-														variant="ghost"
+														variant="subtle" color="gray"
 														size="xs"
 														onClick={(e) => {
 															e.stopPropagation();
@@ -271,7 +269,7 @@ export default function History() {
 											)}
 											{status === "abandoned" && (
 												<Button
-													variant="ghost"
+													variant="subtle" color="gray"
 													size="xs"
 													style={{ flex: 1 }}
 													onClick={(e) => {
@@ -283,7 +281,7 @@ export default function History() {
 												</Button>
 											)}
 											<Button
-												variant="ghost"
+												variant="subtle"
 												color="red"
 												size="xs"
 												style={{ marginLeft: "auto" }}
@@ -322,11 +320,11 @@ export default function History() {
 										<TableRow key={r.id}>
 											<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
 											<TableCell>
-												<Badge variant="secondary">问诊</Badge>
+												<Badge variant="light" color="gray">问诊</Badge>
 											</TableCell>
 											<TableCell style={{ fontSize: 12, ...DIM }}>
 												{r.assignment_title ? (
-													<Badge variant="default" size="xs">作业</Badge>
+													<Badge size="xs">作业</Badge>
 												) : (
 													<Text component="span" size="xs" c="dimmed" opacity={0.4}>
 														自由训练
@@ -341,11 +339,9 @@ export default function History() {
 											</TableCell>
 											<TableCell>
 												<Badge
-													variant={
-														r.status === "completed" ? "success" :
-														r.status === "abandoned" ? "secondary" :
-														"info"
-													}
+													variant="light" color={r.status === "completed" ? "green" :
+														r.status === "abandoned" ? "gray" :
+														"blue"}
 												>
 													{r.status === "completed" ? "已完成" :
 													 r.status === "abandoned" ? "已放弃" :
@@ -359,7 +355,7 @@ export default function History() {
 													</Text>
 												) : r.scoring_status === "pending" ||
 													r.scoring_status === "processing" ? (
-													<Badge variant="warning">评分中...</Badge>
+													<Badge variant="light" color="yellow">评分中...</Badge>
 												) : r.scoring_status === "failed" ? (
 													<Text
 														component="span"
@@ -380,14 +376,14 @@ export default function History() {
 													{r.status === "in_progress" && (
 														<>
 															<Button
-																variant="link"
+																variant="transparent"
 																size="xs"
 																onClick={() => navigate(`/training/${r.id}`)}
 															>
 																继续训练
 															</Button>
 															<Button
-																variant="link"
+																variant="transparent"
 																size="xs"
 																onClick={() => handleAbandonRecord(r)}
 															>
@@ -397,7 +393,7 @@ export default function History() {
 													)}
 													{(r.status === "completed" || r.status === "abandoned") && (
 														<Button
-															variant="link"
+															variant="transparent"
 															size="xs"
 															onClick={() => navigate(`/record/${r.id}`)}
 														>
@@ -405,9 +401,9 @@ export default function History() {
 														</Button>
 													)}
 													<Button
-														variant="ghost"
+														variant="subtle"
 														color="red"
-														size="icon-xs"
+														size="xs" w={32} h={32} p={0}
 														onClick={() => handleDeleteRecord(r)}
 														aria-label="删除记录"
 													>
@@ -424,7 +420,7 @@ export default function History() {
 				</Paper>
 			)}
 
-			<Paper withBorder radius="lg" px="md" py="sm">
+			<Paper withBorder radius="md" px="md" py="sm">
 				<Pagination
 					total={total}
 					offset={offset}

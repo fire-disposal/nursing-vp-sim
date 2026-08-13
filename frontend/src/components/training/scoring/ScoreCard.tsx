@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Group, Modal, Stack, Text } from "@mantine/core";
-import Button from "@/components/ui/button";
+import { Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
@@ -234,11 +233,11 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 
 			<CardFooter>
 				<Group gap={8} grow>
-					<Button variant="default" onClick={handleClose}>
+					<Button onClick={handleClose}>
 						{onRestart ? "返回记录" : "关闭"}
 					</Button>
 					{onRestart && (
-						<Button variant="secondary" onClick={handleRestart}>
+						<Button variant="light" color="gray" onClick={handleRestart}>
 							重新开始
 						</Button>
 					)}

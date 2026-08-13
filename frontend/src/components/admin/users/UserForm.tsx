@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Box, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Modal, Select, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import Button from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
@@ -264,7 +263,7 @@ export default function UserForm({
               <Box>
                 <Button
                   type="button"
-                  variant="link"
+                  variant="transparent"
                   size="sm"
                   onClick={handleResetPassword}
                   disabled={isResetting}

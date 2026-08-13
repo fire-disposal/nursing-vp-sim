@@ -1,10 +1,9 @@
-import { Group, Stack } from "@mantine/core";
+import { Button, Group, Stack } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { exportRecords, getRecords } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { TeachingDashboard } from "@/pages/admin/dashboard/TeachingDashboard";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import type { RecordExtended } from "@/types/record";
 
@@ -48,7 +47,7 @@ export default function Admin() {
 			<TeachingDashboard />
 
 			<Group justify="flex-end" mt="md">
-				<Button variant="link" size="xs" color="gray" onClick={handleExport}>
+				<Button variant="transparent" size="xs" color="gray" onClick={handleExport}>
 					导出训练记录 CSV
 				</Button>
 			</Group>

@@ -1,6 +1,5 @@
 import { IconX } from "@tabler/icons-react";
-import { Group, Paper, Text } from "@mantine/core";
-import { Button } from "@/components/ui/button";
+import { Button, Group, Paper, Text } from "@mantine/core";
 
 interface BatchActionBarProps {
 	selectedCount: number;
@@ -20,7 +19,7 @@ export default function BatchActionBar({
 	return (
 		<Paper
 			withBorder
-			radius="lg"
+			radius="md"
 			shadow="md"
 			p="md"
 			style={{
@@ -39,12 +38,16 @@ export default function BatchActionBar({
 				<Button size="sm" onClick={onBulkAssignClass}>
 					批量分配班级
 				</Button>
-				<Button size="sm" variant="secondary" onClick={onBulkResetPassword}>
+				<Button size="sm" variant="light" color="gray" onClick={onBulkResetPassword}>
 					批量重置密码
 				</Button>
 				<Button
-					size="icon-sm"
-					variant="ghost"
+					size="sm"
+					w={36}
+					h={36}
+					p={0}
+					variant="subtle"
+					color="gray"
 					onClick={onClearSelection}
 					title="取消选择"
 				>

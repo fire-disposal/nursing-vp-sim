@@ -1,8 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Group, Modal, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
-import Button from "@/components/ui/button";
 
 import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
@@ -153,7 +152,7 @@ export function ChatArea({
 					<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
 						继续交流
 					</Button>
-					<Button variant="default" size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
+					<Button size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
 						立即结算
 					</Button>
 				</Group>

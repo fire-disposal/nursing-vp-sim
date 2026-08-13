@@ -1,4 +1,4 @@
-import { Box, Group, Modal, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Modal, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
 import type {
 	AssignForm as AssignFormType,
 	CaseBrief,
@@ -6,7 +6,6 @@ import type {
 import {
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import Button from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { Switch } from "@/components/ui/switch";
@@ -72,7 +71,7 @@ export default function QuestionnaireAssign({
 							<Group gap={8}>
 								<Button
 									type="button"
-									variant="link"
+									variant="transparent"
 									size="xs"
 									onClick={selectAllCases}
 								>
@@ -80,7 +79,7 @@ export default function QuestionnaireAssign({
 								</Button>
 								<Button
 									type="button"
-									variant="link"
+									variant="transparent"
 									size="xs"
 									onClick={deselectAllCases}
 								>

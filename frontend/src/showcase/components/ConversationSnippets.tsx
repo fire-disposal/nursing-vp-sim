@@ -16,7 +16,7 @@ export default function ConversationSnippets() {
 	return (
 		<Paper
 			withBorder
-			radius="xl"
+			radius="md"
 			p="lg"
 			pos="relative"
 			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
@@ -42,7 +42,7 @@ export default function ConversationSnippets() {
 						component="button"
 						onClick={() => setActiveId(conv.id)}
 						variant={activeId === conv.id ? "light" : "default"}
-						radius="xl"
+						radius="md"
 						style={{ cursor: "pointer" }}
 					>
 						{conv.title}

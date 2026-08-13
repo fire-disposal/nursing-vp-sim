@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Box, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import {
 	IconBolt,
 	IconClock,
@@ -23,7 +23,6 @@ import { getStudentTrend } from "@/api/scoreboard";
 import { queryKeys } from "@/api/query-keys";
 
 import EmptyState from "@/components/ui/empty-state";
-import Badge from "@/components/ui/badge";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 
@@ -178,14 +177,14 @@ export default function StudentTrendDialog({
 								</Text>
 							</Stack>
 							{trend.progress_delta != null && (
-								<Badge variant="secondary" leftSection={<IconTrendingUp size={14} />}>
+								<Badge variant="light" color="gray" leftSection={<IconTrendingUp size={14} />}>
 									进步幅度：{trendBadge(trend.progress_trend, trend.progress_delta)}
 								</Badge>
 							)}
 						</Group>
 
 						<SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
-							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="md">
 								<Group gap={6} wrap="nowrap">
 									<IconBolt size={13} />
 									<Text size="xs" c="dimmed">训练次数</Text>
@@ -194,7 +193,7 @@ export default function StudentTrendDialog({
 									{trend.training_count}
 								</Text>
 							</Paper>
-							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="md">
 								<Group gap={6} wrap="nowrap">
 									<IconClock size={13} />
 									<Text size="xs" c="dimmed">总用时</Text>
@@ -203,7 +202,7 @@ export default function StudentTrendDialog({
 									{formatDuration(trend.total_duration_seconds)}
 								</Text>
 							</Paper>
-							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="md">
 								<Group gap={6} wrap="nowrap">
 									<IconMedal size={13} />
 									<Text size="xs" c="dimmed">平均分</Text>
@@ -217,7 +216,7 @@ export default function StudentTrendDialog({
 									{trend.avg_score ?? "-"}
 								</Text>
 							</Paper>
-							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="md">
 								<Group gap={6} wrap="nowrap">
 									<IconTrophy size={13} />
 									<Text size="xs" c="dimmed">最高分</Text>
@@ -226,7 +225,7 @@ export default function StudentTrendDialog({
 									{trend.best_score ?? "-"}
 								</Text>
 							</Paper>
-							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="md">
 								<Group gap={6} wrap="nowrap">
 									<IconTrendingUp size={13} />
 									<Text size="xs" c="dimmed">进步幅度</Text>

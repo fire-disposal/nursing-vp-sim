@@ -1,7 +1,6 @@
-import { Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { Button, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { IconAlertCircle, IconHome } from "@tabler/icons-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { reportError } from "@/utils/telemetry";
 
 interface Props {
@@ -52,7 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 					gap="md"
 					style={{ height: "100vh" }}
 				>
-					<ThemeIcon variant="light" color="red" size={48} radius="xl">
+					<ThemeIcon variant="light" color="red" size={48} radius="md">
 						<IconAlertCircle size={28} />
 					</ThemeIcon>
 					<Title order={2}>页面出错了</Title>
@@ -66,14 +65,14 @@ export default class ErrorBoundary extends Component<Props, State> {
 							重试
 						</Button>
 						<Button onClick={() => window.location.reload()}>刷新页面</Button>
-						<Button variant="ghost" onClick={() => (window.location.href = "/home")}>
+						<Button variant="subtle" color="gray" onClick={() => (window.location.href = "/home")}>
 							<IconHome size={14} style={{ marginRight: 4 }} />
 							返回首页
 						</Button>
 					</Stack>
 					{showDeveloperDetails && (
 						<>
-							<Button variant="link" size="xs" onClick={this.handleToggleDetails}>
+							<Button variant="transparent" size="xs" onClick={this.handleToggleDetails}>
 								{this.state.showDetails ? "收起错误详情" : "查看错误详情"}
 							</Button>
 							{this.state.showDetails && (

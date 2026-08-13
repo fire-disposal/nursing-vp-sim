@@ -366,7 +366,7 @@ function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
 	if (fields.length === 0) return null;
 
 	return (
-		<Paper withBorder radius="lg" p="md">
+		<Paper withBorder radius="md" p="md">
 			<Stack gap="sm">
 				<Text size="md" fw={600}>护理评估记录</Text>
 				<Stack gap="sm">

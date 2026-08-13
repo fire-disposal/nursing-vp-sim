@@ -52,7 +52,7 @@ export default function ProcessPipeline() {
 	const stage = useMemo(() => STAGES[active], [active]);
 
 	return (
-		<Paper withBorder radius="xl" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+		<Paper withBorder radius="md" p="lg" pos="relative" style={{ overflow: "hidden" }}>
 			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
 				<Stack gap={4}>
 					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
@@ -80,7 +80,7 @@ export default function ProcessPipeline() {
 							onClick={() => setActive(index)}
 							p="md"
 							px="sm"
-							radius="lg"
+							radius="md"
 							style={{
 								position: "relative",
 								textAlign: "left",
@@ -121,7 +121,7 @@ export default function ProcessPipeline() {
 
 			<Paper
 				withBorder
-				radius="lg"
+				radius="md"
 				p="lg"
 				mt="lg"
 				pos="relative"
@@ -150,7 +150,7 @@ export default function ProcessPipeline() {
 						<Paper
 							key={text}
 							withBorder
-							radius="lg"
+							radius="md"
 							p="md"
 							style={{ background: "var(--mantine-color-gray-0)" }}
 						>

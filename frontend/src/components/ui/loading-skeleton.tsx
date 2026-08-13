@@ -23,14 +23,14 @@ export default function LoadingSkeleton({
 	className,
 }: LoadingSkeletonProps) {
 	if (variant === "card") {
-		return <Skeleton height={160} radius="lg" className={className} />;
+		return <Skeleton height={160} radius="md" className={className} />;
 	}
 
 	if (variant === "stats") {
 		return (
 			<SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
 				{[0, 1, 2, 3].map((i) => (
-					<Skeleton key={i} height={96} radius="lg" />
+					<Skeleton key={i} height={96} radius="md" />
 				))}
 			</SimpleGrid>
 		);

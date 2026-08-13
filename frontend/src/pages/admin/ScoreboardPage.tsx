@@ -1,4 +1,4 @@
-import { Box, Group, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
+import { Badge, Box, Button, Group, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
 	IconAward,
@@ -23,8 +23,6 @@ import StudentTrendDialog, {
 	formatDuration,
 	type TrendScope,
 } from "@/components/admin/scoreboard/StudentTrendDialog";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
@@ -52,26 +50,26 @@ const TIER_OPTIONS: { value: string; label: string }[] = [
 	{ value: "poor", label: "差" },
 ];
 
-const TIER_BADGE: Record<string, { label: string; variant: "success" | "warning" | "danger" }> = {
-	good: { label: "好", variant: "success" },
-	medium: { label: "中", variant: "warning" },
-	poor: { label: "差", variant: "danger" },
+const TIER_BADGE: Record<string, { label: string; color: "green" | "yellow" | "red" }> = {
+	good: { label: "好", color: "green" },
+	medium: { label: "中", color: "yellow" },
+	poor: { label: "差", color: "red" },
 };
 
 function rankBadge(rank: number) {
 	if (rank === 1)
-		return <ThemeIcon size={24} radius="xl" variant="light" color="yellow" fw={700}>1</ThemeIcon>;
+		return <ThemeIcon size={24} radius="md" variant="light" color="yellow" fw={700}>1</ThemeIcon>;
 	if (rank === 2)
-		return <ThemeIcon size={24} radius="xl" variant="light" color="gray" fw={700}>2</ThemeIcon>;
+		return <ThemeIcon size={24} radius="md" variant="light" color="gray" fw={700}>2</ThemeIcon>;
 	if (rank === 3)
-		return <ThemeIcon size={24} radius="xl" variant="light" color="orange" fw={700}>3</ThemeIcon>;
+		return <ThemeIcon size={24} radius="md" variant="light" color="orange" fw={700}>3</ThemeIcon>;
 	return <Text size="sm" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>{rank}</Text>;
 }
 
 function tierCell(tier: string) {
 	const def = TIER_BADGE[tier];
 	if (!def) return <Text size="xs" c="dimmed">—</Text>;
-	return <Badge variant={def.variant}>{def.label}</Badge>;
+	return <Badge variant="light" color={def.color}>{def.label}</Badge>;
 }
 
 function progressCell(item: ScoreboardRankingItem) {
@@ -345,8 +343,8 @@ export default function ScoreboardPage() {
 			header: "操作",
 			render: (r) => (
 				<Button
-					variant="ghost"
-					size="icon"
+					variant="subtle" color="gray"
+					w={44} h={44} p={0}
 					title="查看趋势"
 					onClick={() => setTrendUserId(r.user_id)}
 				>
@@ -435,13 +433,13 @@ export default function ScoreboardPage() {
 								size="xs"
 								w={160}
 							/>
-							<Button variant="ghost" size="sm" onClick={applySearch}>
+							<Button variant="subtle" color="gray" size="sm" onClick={applySearch}>
 								检索
 							</Button>
 							{search && (
 								<Button
-									variant="ghost"
-									size="icon"
+									variant="subtle" color="gray"
+									w={44} h={44} p={0}
 									title="清除检索"
 									onClick={() => {
 										setSearchInput("");
@@ -511,8 +509,8 @@ export default function ScoreboardPage() {
 									{avgScoreCell(r)}
 									{tierCell(r.tier)}
 									<Button
-										variant="ghost"
-										size="icon"
+										variant="subtle" color="gray"
+										w={44} h={44} p={0}
 										title="查看趋势"
 										onClick={() => setTrendUserId(r.user_id)}
 									>

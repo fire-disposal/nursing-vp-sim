@@ -1,6 +1,5 @@
-import { Box, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Box, Button, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useCallback, useState } from "react";
-import Button from "@/components/ui/button";
 
 import { Textarea } from "@/components/ui/textarea";
 
@@ -248,7 +247,7 @@ export function QuestionnaireModal({
 
 					<Group justify="flex-end" gap={8} pt="xs">
 						{!checkResponse.is_required && (
-							<Button variant="ghost" onClick={onSkip} disabled={submitting}>
+							<Button variant="subtle" color="gray" onClick={onSkip} disabled={submitting}>
 								跳过
 							</Button>
 						)}

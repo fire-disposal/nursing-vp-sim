@@ -1,6 +1,5 @@
-import { Box, Group, Paper, SimpleGrid, Text, ThemeIcon } from "@mantine/core";
+import { Badge, Box, Group, Paper, SimpleGrid, Text, ThemeIcon } from "@mantine/core";
 import { IconChartBar, IconClock, IconFileText, IconUser } from "@tabler/icons-react";
-import Badge from "@/components/ui/badge";
 import type { ScoreData } from "@/types/score";
 
 interface RecordStatsBarRecord {
@@ -26,7 +25,7 @@ export default function RecordStatsBar({
 }: Props) {
 	return (
 		<SimpleGrid cols={{ base: 2, lg: 4 }} spacing={{ base: "sm", sm: "md" }}>
-			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="blue">
 						<IconUser size={18} />
@@ -42,7 +41,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="light" color="blue">
 						<IconFileText size={18} />
@@ -55,7 +54,7 @@ export default function RecordStatsBar({
 							<Text size="xs" c="dimmed">
 								病例
 							</Text>
-							<Badge variant="secondary" size="xs">
+							<Badge variant="light" color="gray" size="xs">
 								问诊
 							</Badge>
 						</Group>
@@ -63,7 +62,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="yellow">
 						<IconClock size={18} />
@@ -79,7 +78,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="green">
 						<IconChartBar size={18} />

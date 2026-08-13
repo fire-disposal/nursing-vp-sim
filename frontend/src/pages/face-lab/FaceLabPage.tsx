@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Container, Grid, Group, Progress, Select, SimpleGrid, Slider, Stack, Text, Title } from "@mantine/core";
+import { Badge, Box, Button, Container, Grid, Group, Progress, Select, SimpleGrid, Slider, Stack, Text, Title } from "@mantine/core";
 import PremiumFaceArtwork from "@/components/training/face/PremiumFaceArtwork";
 import { appearanceFor, type AgeGroup, type Gender } from "@/components/training/face/appearance";
 import {
@@ -11,11 +11,9 @@ import {
 	premiumExtrasFrom4D,
 	type PremiumExtras,
 } from "@/components/training/face/premiumExtras";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import Button from "@/components/ui/button";
 import { EMOTION_4D_LABELS, type Emotion4DLabel } from "@/stores/trainingStore";
 import { EASINGS, type EasingName } from "./animation";
 import { useAnimatedFace } from "./useAnimatedFace";
@@ -223,7 +221,7 @@ export default function FaceLabPage() {
 										blinkInterval={blinkInterval}
 									/>
 									<Group gap="xs">
-										<Badge variant="secondary">{EMOTION_4D_LABELS[label]}</Badge>
+										<Badge variant="light" color="gray">{EMOTION_4D_LABELS[label]}</Badge>
 										<Text size="10px" c="dimmed" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
 											{label} · {duration}ms · {easing}
 										</Text>
@@ -238,7 +236,7 @@ export default function FaceLabPage() {
 													value={Math.round(values[d.key] * 100)}
 													color={d.color}
 													size="xs"
-													radius="xl"
+													radius="md"
 													style={{ flex: 1 }}
 												/>
 											</Group>
@@ -293,9 +291,9 @@ export default function FaceLabPage() {
 											{LABELS.map((l) => (
 												<Button
 													key={l}
-													variant={l === label ? "default" : "outline"}
+													variant={l === label ? "filled" : "outline"}
 													size="xs"
-													radius="xl"
+													radius="md"
 													onClick={() => pickLabel(l)}
 												>
 													{EMOTION_4D_LABELS[l]}

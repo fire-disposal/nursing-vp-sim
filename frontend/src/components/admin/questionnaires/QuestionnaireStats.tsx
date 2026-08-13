@@ -1,4 +1,6 @@
 import {
+	Badge,
+	Button,
 	Group,
 	Paper,
 	Progress,
@@ -16,8 +18,6 @@ import type {
 } from "@/components/admin/questionnaires/types";
 import { QUESTION_TYPE_LABELS } from "@/components/admin/questionnaires/types";
 import { toast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 
@@ -50,10 +50,10 @@ export default function QuestionnaireStats({
 	};
 
 	return (
-		<Paper withBorder shadow="sm" p="md" radius="lg">
+		<Paper withBorder shadow="sm" p="md" radius="md">
 			<Group justify="space-between" mb="md">
 				<div>
-					<Button variant="ghost" size="sm" onClick={onBack} mb="xs">
+					<Button variant="subtle" color="gray" size="sm" onClick={onBack} mb="xs">
 						<IconArrowLeft size={14} />
 						返回列表
 					</Button>
@@ -73,7 +73,7 @@ export default function QuestionnaireStats({
 							withBorder
 							bg="var(--mantine-color-gray-1)"
 							p="md"
-							radius="lg"
+							radius="md"
 							ta="center"
 						>
 							<Text size="xl" fw={700} c="teal">
@@ -87,7 +87,7 @@ export default function QuestionnaireStats({
 							withBorder
 							bg="var(--mantine-color-gray-1)"
 							p="md"
-							radius="lg"
+							radius="md"
 							ta="center"
 						>
 							<Text size="xl" fw={700} c="green">
@@ -101,7 +101,7 @@ export default function QuestionnaireStats({
 							withBorder
 							bg="var(--mantine-color-gray-1)"
 							p="md"
-							radius="lg"
+							radius="md"
 							ta="center"
 						>
 							<Text size="xl" fw={700} c="yellow">
@@ -125,7 +125,7 @@ export default function QuestionnaireStats({
 								{stats.questions.map((q) => (
 									<Paper key={q.question_id} withBorder p="md" radius="md">
 										<Group gap={8} mb="sm">
-											<Badge variant="info">
+											<Badge variant="light" color="blue">
 												{QUESTION_TYPE_LABELS[q.question_type] ||
 													q.question_type}
 											</Badge>
@@ -142,7 +142,7 @@ export default function QuestionnaireStats({
 												<Progress
 													value={(q.avg_likert / 5) * 100}
 													size="sm"
-													radius="xl"
+													radius="md"
 												/>
 												<Group justify="space-between" mt={2}>
 													{["1", "2", "3", "4", "5"].map((n) => (
@@ -174,7 +174,7 @@ export default function QuestionnaireStats({
 																			: 0
 																	}
 																	size="xs"
-																	radius="xl"
+																	radius="md"
 																	color="blue"
 																	style={{ flex: 1 }}
 																/>

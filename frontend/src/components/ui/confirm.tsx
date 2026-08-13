@@ -1,7 +1,6 @@
 import { modals } from "@mantine/modals";
 import type { ReactNode } from "react";
-import Button from "./button";
-import { Modal } from "@mantine/core";
+import { Button, Modal } from "@mantine/core";
 
 export interface ConfirmOptions {
 	title: string;
@@ -70,7 +69,7 @@ export function ConfirmDialog({
 				<Button variant="outline" onClick={onCancel}>
 					{cancelLabel}
 				</Button>
-				<Button variant={danger ? "destructive" : "default"} onClick={onConfirm}>
+				<Button variant={danger ? "light" : "filled"} color={danger ? "red" : undefined} onClick={onConfirm}>
 					{confirmLabel}
 				</Button>
 			</div>

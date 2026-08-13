@@ -1,11 +1,10 @@
-import { Badge, Box, Code, Group, Modal, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Box, Button, Code, Group, Modal, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
@@ -167,13 +166,13 @@ export default function RolesPage() {
 					/>
 				) : (
 					roles.map((role) => (
-						<Paper key={role.id} withBorder radius="lg" p="md">
+						<Paper key={role.id} withBorder radius="md" p="md">
 							<Group justify="space-between" align="flex-start" wrap="wrap" mb={8}>
 								<Group gap={8} align="center" wrap="wrap">
 									<Text fw={600}>{role.display_name}</Text>
 									<Code fz="xs">{role.name}</Code>
 									{role.is_system && (
-										<Badge variant="secondary" color="teal" size="xs">系统</Badge>
+										<Badge variant="light" color="teal" size="xs">系统</Badge>
 									)}
 									<Text size="xs" c="dimmed">{role.user_count} 用户</Text>
 								</Group>
@@ -189,7 +188,7 @@ export default function RolesPage() {
 											</Button>
 											<Button
 												size="sm"
-												variant="ghost"
+												variant="subtle" color="gray"
 												onClick={() => setEditId(null)}
 											>
 												<IconX size={14} />
@@ -207,7 +206,7 @@ export default function RolesPage() {
 											{!role.is_system && (
 												<Button
 													size="sm"
-													variant="ghost"
+													variant="subtle"
 													color="red"
 													onClick={() => handleDelete(role.id, role.name)}
 												>
@@ -247,7 +246,7 @@ export default function RolesPage() {
 										<Text size="xs" c="dimmed">无权限</Text>
 									)}
 									{(role.permissions ?? []).map((p) => (
-										<Badge key={p} variant="secondary" size="xs">
+										<Badge key={p} variant="light" color="gray" size="xs">
 											{PERMISSION_DEFS.find((ap) => ap.key === p)?.label || p}
 										</Badge>
 									))}

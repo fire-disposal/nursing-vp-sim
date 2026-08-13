@@ -1,7 +1,5 @@
-import { Group, Paper, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Text } from "@mantine/core";
 import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
 	costColorClass,
@@ -46,7 +44,7 @@ export default function SecretList({
 										}}
 									/>
 									<Text fw={600}>环境变量</Text>
-									<Badge variant="success" size="xs">
+									<Badge variant="light" color="green" size="xs">
 										当前
 									</Badge>
 								</Group>
@@ -103,7 +101,7 @@ export default function SecretList({
 										</Group>
 									</TableCell>
 									<TableCell style={{ whiteSpace: "nowrap" }}>
-										<Badge variant="secondary" size="xs">
+										<Badge variant="light" color="gray" size="xs">
 											P{s.priority ?? 0}
 										</Badge>
 									</TableCell>
@@ -125,10 +123,10 @@ export default function SecretList({
 									</TableCell>
 									<TableCell style={{ whiteSpace: "nowrap" }}>
 										<Group gap="xs" wrap="nowrap">
-											<Button variant="link" size="xs" onClick={() => onEdit(s)}>
+											<Button variant="transparent" size="xs" onClick={() => onEdit(s)}>
 												编辑
 											</Button>
-											<Button variant="link" size="xs" color="red" onClick={() => onDelete(s)}>
+											<Button variant="transparent" size="xs" color="red" onClick={() => onDelete(s)}>
 												删除
 											</Button>
 										</Group>

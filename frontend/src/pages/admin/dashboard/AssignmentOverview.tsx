@@ -1,7 +1,6 @@
-import { Group, Paper, Progress, Stack, Text } from "@mantine/core";
+import { Button, Group, Paper, Progress, Stack, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
-import Button from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -77,7 +76,7 @@ export function AssignmentOverview({ assignments }: AssignmentOverviewProps) {
 										</Button>
 									</Group>
 									<Group gap={8} wrap="nowrap">
-										<Progress value={pct} size="xs" radius="xl" style={{ flex: 1 }} />
+										<Progress value={pct} size="xs" radius="md" style={{ flex: 1 }} />
 										<Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
 											{a.completed_count}/{a.student_count}
 										</Text>

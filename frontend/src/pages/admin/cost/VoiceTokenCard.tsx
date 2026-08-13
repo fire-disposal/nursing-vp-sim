@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Loader, NumberInput, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Loader, NumberInput, Stack, Text, TextInput } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconLock, IconLockOpen, IconPlayerPlay, IconPlayerStop, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -6,7 +6,6 @@ import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
@@ -194,7 +193,7 @@ export default function VoiceTokenCard() {
 								{checking ? "检查中…" : online ? "在线" : status ? "离线" : "未知"}
 							</Text>
 							<Button
-								variant="link"
+								variant="transparent"
 								size="xs"
 								onClick={doCheck}
 								disabled={checking}

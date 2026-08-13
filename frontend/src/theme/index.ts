@@ -67,8 +67,7 @@ export function createAppTheme(brand: string): MantineThemeOverride {
 		primaryColor: getBrandPalette(brand).primaryColor,
 		fontFamily: FONT_SANS,
 		fontFamilyMonospace: FONT_MONO,
-		defaultRadius: "md",
 		cursorType: "pointer",
-		headings: { fontFamily: FONT_SANS, fontWeight: "600" },
+		defaultRadius: "sm",
 	});
 }

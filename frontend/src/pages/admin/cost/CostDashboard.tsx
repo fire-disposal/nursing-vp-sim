@@ -50,7 +50,7 @@ function BudgetProgress({
 					{prefix}{used.toFixed(0)} / {prefix}{budget.toFixed(0)}
 				</Text>
 			</Group>
-			<Progress value={pct} size="sm" radius="xl" color={color} />
+			<Progress value={pct} size="sm" radius="md" color={color} />
 		</Stack>
 	);
 }
@@ -183,7 +183,7 @@ function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
 					<Progress
 						value={Math.max(pct, 2)}
 						size="sm"
-						radius="xl"
+						radius="md"
 						color={pct > 90 ? "red" : pct > 70 ? "yellow" : "green"}
 					/>
 

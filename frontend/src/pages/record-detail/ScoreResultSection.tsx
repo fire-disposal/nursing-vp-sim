@@ -1,5 +1,7 @@
 import {
+	Badge,
 	Box,
+	Button,
 	Group,
 	Paper,
 	Progress,
@@ -21,8 +23,6 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { CollapsibleSection, ScoreItem } from "@/components/record-review";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 
 interface ReviewData {
@@ -84,7 +84,7 @@ export default function ScoreResultSection({
 		scoreReview.total_score !== recordScore.total_score;
 
 	return (
-		<Paper withBorder radius="lg" p={{ base: "md", sm: "lg" }}>
+		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }}>
 			<Stack gap="md">
 				<Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
 					<Group gap={10} wrap="wrap">
@@ -92,11 +92,11 @@ export default function ScoreResultSection({
 							评分结果
 						</Title>
 						{isReviewed ? (
-							<Badge variant="success">
+							<Badge variant="light" color="green">
 								<IconShieldCheck size={12} /> 教师已复核
 							</Badge>
 						) : (
-							<Badge variant="info">AI 初评</Badge>
+							<Badge variant="light" color="blue">AI 初评</Badge>
 						)}
 						{isReviewed && review?.reviewed_by_name && (
 							<Text size="xs" c="dimmed">
@@ -168,7 +168,7 @@ export default function ScoreResultSection({
 												{catName}
 											</Text>
 											{isReviewedDim && (
-												<Badge variant="success" size="xs">
+												<Badge variant="light" color="green" size="xs">
 													已复核
 												</Badge>
 											)}
@@ -181,7 +181,7 @@ export default function ScoreResultSection({
 											{catData.score}/{catData.max}
 										</Text>
 									</Group>
-									<Progress value={pct} color={progressColor(pct)} size="sm" radius="xl" />
+									<Progress value={pct} color={progressColor(pct)} size="sm" radius="md" />
 									<Stack gap={2} mt={4}>
 										{catData.items.map((item, i) => (
 											<ScoreItem key={item.id || i} item={item} />
@@ -241,7 +241,7 @@ export default function ScoreResultSection({
 																value={aiPct}
 																color={progressColor(aiPct)}
 																size="xs"
-																radius="xl"
+																radius="md"
 																style={{ opacity: 0.6 }}
 															/>
 														</Stack>

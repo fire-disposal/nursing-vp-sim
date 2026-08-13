@@ -124,7 +124,7 @@ export default function Hero() {
 								component={Link}
 								to={CTA_HREF}
 								size="lg"
-								radius="xl"
+								radius="md"
 								px={40}
 								h={56}
 								fw={600}
@@ -140,7 +140,7 @@ export default function Hero() {
 					<Box ref={panel} pos="relative" pt={{ base: 0, lg: 32 }}>
 						<Paper
 							withBorder
-							radius="xl"
+							radius="md"
 							p={{ base: "lg", md: "xl" }}
 							pos="relative"
 							style={{ overflow: "hidden" }}

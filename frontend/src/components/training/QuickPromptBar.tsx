@@ -104,7 +104,7 @@ export function QuickPromptBar({ patient, disabled, onSelect }: QuickPromptBarPr
 				variant="subtle"
 				color="gray"
 				size="sm"
-				radius="xl"
+				radius="md"
 				onClick={toggle}
 				title="收起常用问句"
 				style={{ marginLeft: "auto", flexShrink: 0 }}

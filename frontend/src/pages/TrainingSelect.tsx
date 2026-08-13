@@ -17,7 +17,7 @@ import {
 	IconTrendingUp,
 	IconX,
 } from "@tabler/icons-react";
-import { Box, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
+import { Badge, Box, Button, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -27,8 +27,6 @@ import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
 import { getStudentRanking, getTrends } from "@/api/stats";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -77,7 +75,7 @@ function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 	return (
 		<Group gap={4} wrap="wrap">
 			{enabled.map(([key, def]) => (
-				<Badge key={key} variant="secondary" color={CAP_COLORS[key] ?? "gray"} size="xs">
+				<Badge key={key} variant="light" color={CAP_COLORS[key] ?? "gray"} size="xs">
 					{def.label}
 				</Badge>
 			))}
@@ -265,7 +263,7 @@ export default function TrainingSelect() {
 					<Button color="green" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
 						继续之前的训练
 					</Button>
-					<Button variant="destructive" onClick={async () => {
+					<Button variant="light" color="red" onClick={async () => {
 						await abandonRecord(String(conflict.recordId));
 						queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 						setConflict(null);
@@ -292,7 +290,7 @@ export default function TrainingSelect() {
 			{tab === "home" && (
 				<Stack gap="md">
 					{recentNotifs.length > 0 && (
-						<Paper withBorder radius="xl" style={{ overflow: "hidden" }}>
+						<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
 							<Group
 								justify="space-between"
 								gap="sm"
@@ -301,7 +299,7 @@ export default function TrainingSelect() {
 								style={{ borderBottom: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-teal-1)" }}
 							>
 								<Group gap="xs">
-									<ThemeIcon size={32} radius="lg" variant="light" color="teal">
+									<ThemeIcon size={32} radius="md" variant="light" color="teal">
 										<IconSpeakerphone size={16} />
 									</ThemeIcon>
 									<Box>
@@ -309,7 +307,7 @@ export default function TrainingSelect() {
 										<Text size="xs" c="dimmed">可关闭，关闭后会标记为已读</Text>
 									</Box>
 								</Group>
-								<Button variant="ghost" size="sm" onClick={() => navigate("/notifications")}>
+								<Button variant="subtle" color="gray" size="sm" onClick={() => navigate("/notifications")}>
 									查看全部
 								</Button>
 							</Group>
@@ -334,8 +332,8 @@ export default function TrainingSelect() {
 											)}
 										</UnstyledButton>
 										<Button
-											variant="ghost"
-											size="icon-sm"
+											variant="subtle" color="gray"
+											size="sm" w={36} h={36} p={0}
 											style={{ flexShrink: 0 }}
 											onClick={() => dismissNotificationMutation.mutate(n.id)}
 											disabled={dismissNotificationMutation.isPending}
@@ -352,7 +350,7 @@ export default function TrainingSelect() {
 					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
 						<Paper
 							withBorder
-							radius="xl"
+							radius="md"
 							p={{ base: "md", sm: "lg" }}
 							style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32 }}
 						>
@@ -392,10 +390,10 @@ export default function TrainingSelect() {
 							</Group>
 						</Paper>
 
-						<Paper withBorder radius="xl" p="md">
+						<Paper withBorder radius="md" p="md">
 							<Group justify="space-between" gap="sm">
 								<Text size="sm" fw={600}>待完成作业</Text>
-								<Button variant="ghost" size="xs" onClick={() => setTab("assignments")}>
+								<Button variant="subtle" color="gray" size="xs" onClick={() => setTab("assignments")}>
 									查看全部
 								</Button>
 							</Group>
@@ -428,7 +426,7 @@ export default function TrainingSelect() {
 					</SimpleGrid>
 
 					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
-						<Paper withBorder radius="xl" p="md">
+						<Paper withBorder radius="md" p="md">
 							<Group gap="xs" mb="sm">
 								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
 								<Text size="sm" fw={500}>最近训练</Text>
@@ -445,7 +443,7 @@ export default function TrainingSelect() {
 										</Box>
 										<Group gap={6} wrap="nowrap">
 											<Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
-											<Button size="sm" variant="ghost" color="red" onClick={async () => {
+											<Button size="sm" variant="subtle" color="red" onClick={async () => {
 												const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
 												if (!ok) return;
 												try { await abandonRecord(primaryInProgress.id); queryClient.invalidateQueries({ queryKey: queryKeys.training.all }); } catch { toast.apiError(null, "放弃失败"); }
@@ -473,7 +471,7 @@ export default function TrainingSelect() {
 													{r.status === "completed" && r.score_total != null ? (
 														<Text size="sm" fw={600} c="teal" style={{ fontVariantNumeric: "tabular-nums" }}>{r.score_total} 分</Text>
 													) : r.status === "in_progress" ? (
-														<Badge variant="info">进行中</Badge>
+														<Badge variant="light" color="blue">进行中</Badge>
 													) : null}
 												</Box>
 											</Group>
@@ -489,7 +487,7 @@ export default function TrainingSelect() {
 							)}
 						</Paper>
 
-						<Paper withBorder radius="xl" p="md">
+						<Paper withBorder radius="md" p="md">
 							<Group gap="xs" mb="sm">
 								<IconTarget size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
 								<Text size="sm" fw={500}>训练概览</Text>
@@ -497,7 +495,7 @@ export default function TrainingSelect() {
 							<SimpleGrid cols={3} spacing="xs">
 								<Button
 									type="button"
-									variant="secondary"
+									variant="light"
 									color="yellow"
 									h="auto"
 									py="sm"
@@ -512,7 +510,7 @@ export default function TrainingSelect() {
 								</Button>
 								<Button
 									type="button"
-									variant="secondary"
+									variant="light"
 									color="green"
 									h="auto"
 									py="sm"
@@ -527,7 +525,7 @@ export default function TrainingSelect() {
 								</Button>
 								<Button
 									type="button"
-									variant="secondary"
+									variant="light"
 									color="red"
 									h="auto"
 									py="sm"
@@ -585,7 +583,7 @@ export default function TrainingSelect() {
 				<>
 					<Group gap="xs" wrap="wrap">
 						{[0, 1, 2, 3].map((d) => (
-							<Button key={d} type="button" variant={difficultyFilter === d ? "default" : "ghost"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+							<Button key={d} type="button" variant={difficultyFilter === d ? "filled" : "subtle"} color={difficultyFilter === d ? undefined : "gray"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
 							>{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
 						))}
 						<Box style={{ flex: 1 }} />
@@ -703,9 +701,9 @@ export default function TrainingSelect() {
 									<Box>
 										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
 											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>
-											{isExpired && <Badge variant="danger">已过期</Badge>}
-											{isCompleted && <Badge variant="success">已完成</Badge>}
-											{!isExpired && !isCompleted && <Badge variant="secondary">待完成</Badge>}
+											{isExpired && <Badge variant="light" color="red">已过期</Badge>}
+											{isCompleted && <Badge variant="light" color="green">已完成</Badge>}
+											{!isExpired && !isCompleted && <Badge variant="light" color="gray">待完成</Badge>}
 										</Group>
 										<Text size="xs" c="dimmed" mt={4}>
 											{a.case_name}

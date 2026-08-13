@@ -1,8 +1,6 @@
-import { Box, Group, Modal, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Modal, Text } from "@mantine/core";
 import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 
 import { Textarea } from "@/components/ui/textarea";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
@@ -89,7 +87,7 @@ export default function ReviewEditor({
 								<Text size="xs" fw={600} c="dimmed" tt="uppercase">
 									{catName}
 								</Text>
-								<Badge variant="neutral">
+								<Badge variant="light" color="gray">
 									{catData.score}/{catData.max}
 								</Badge>
 							</Group>

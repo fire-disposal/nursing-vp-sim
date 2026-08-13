@@ -23,7 +23,7 @@ export default function FeatureFull({
 			<Stack gap="lg">
 				<Stack gap="md">
 					<Group gap="md">
-						<ThemeIcon size={44} radius="lg" variant="light">
+						<ThemeIcon size={44} radius="md" variant="light">
 							<Icon size={22} strokeWidth={1.5} />
 						</ThemeIcon>
 						<Title order={3} fw={700} size="1.65rem">
@@ -36,7 +36,7 @@ export default function FeatureFull({
 				</Stack>
 				<SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
 					{points.map((p) => (
-						<Paper key={p} withBorder radius="lg" p="md">
+						<Paper key={p} withBorder radius="md" p="md">
 							<Text size="sm" c="dimmed">
 								{p}
 							</Text>

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Box, Group, Text } from "@mantine/core";
+import { Alert, Box, Button, Group, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import {
@@ -11,7 +11,6 @@ import {
 import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import SecretList from "./SecretList";

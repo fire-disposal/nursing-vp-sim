@@ -11,7 +11,7 @@ export default function DialogueReveal() {
 	const [active, setActive] = useState(1);
 
 	return (
-		<Paper withBorder radius="xl" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+		<Paper withBorder radius="md" p="lg" pos="relative" style={{ overflow: "hidden" }}>
 			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
 				<Stack gap={4}>
 					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
@@ -38,7 +38,7 @@ export default function DialogueReveal() {
 							onFocus={() => setActive(index)}
 							onClick={() => setActive(index)}
 							p="md"
-							radius="lg"
+							radius="md"
 							style={{
 								textAlign: "left",
 								cursor: "pointer",

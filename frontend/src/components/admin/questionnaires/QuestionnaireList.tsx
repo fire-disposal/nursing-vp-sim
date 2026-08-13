@@ -1,4 +1,4 @@
-import { Group, Paper, Select, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Select, Text } from "@mantine/core";
 import {
 	IconChartBar,
 	IconClipboardCheck,
@@ -9,8 +9,6 @@ import {
 } from "@tabler/icons-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
 import { TYPE_LABEL, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { SearchInput } from "@/components/ui/search-input";
 
@@ -73,7 +71,7 @@ export default function QuestionnaireList({
 			key: "type",
 			header: "类型",
 			render: (t) => (
-				<Badge variant={t.type === "pre" ? "info" : "success"}>
+				<Badge variant="light" color={t.type === "pre" ? "blue" : "green"}>
 					{TYPE_LABEL[t.type] || t.type}
 				</Badge>
 			),
@@ -82,7 +80,7 @@ export default function QuestionnaireList({
 			key: "status",
 			header: "状态",
 			render: (t) => (
-				<Badge variant={t.is_active ? "success" : "neutral"}>
+				<Badge variant="light" color={t.is_active ? "green" : "gray"}>
 					{t.is_active ? "启用" : "禁用"}
 				</Badge>
 			),
@@ -112,7 +110,8 @@ export default function QuestionnaireList({
 				<Group gap={8} wrap="nowrap">
 					<Button
 						size="sm"
-						variant="ghost"
+						variant="subtle"
+						color="gray"
 						onClick={() => onEdit(t)}
 						title="编辑"
 					>
@@ -120,7 +119,8 @@ export default function QuestionnaireList({
 					</Button>
 					<Button
 						size="sm"
-						variant="ghost"
+						variant="subtle"
+						color="gray"
 						onClick={() => onAssign(t)}
 						title="分配病例"
 					>
@@ -128,7 +128,8 @@ export default function QuestionnaireList({
 					</Button>
 					<Button
 						size="sm"
-						variant="ghost"
+						variant="subtle"
+						color="gray"
 						onClick={() => onViewStats(t)}
 						title="查看数据"
 					>
@@ -136,7 +137,8 @@ export default function QuestionnaireList({
 					</Button>
 					<Button
 						size="sm"
-						variant="destructive"
+						variant="light"
+						color="red"
 						onClick={() => onDelete(t)}
 						title="删除"
 					>
@@ -155,12 +157,12 @@ export default function QuestionnaireList({
 				</Button>
 			</Group>
 
-			<Paper withBorder shadow="sm" p="md" radius="lg">
+			<Paper withBorder shadow="sm" p="md" radius="md">
 				<Paper
 					withBorder
 					bg="var(--mantine-color-gray-1)"
 					p="md"
-					radius="lg"
+					radius="md"
 					mb="md"
 				>
 					<Group align="flex-end" gap="md">

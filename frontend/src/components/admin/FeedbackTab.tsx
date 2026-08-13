@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import {
 	ActionIcon,
+	Badge,
 	Box,
+	Button,
 	Center,
 	Group,
 	Paper,
@@ -41,8 +43,6 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import AuthImage from "@/components/ui/auth-image";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 import EmptyState from "@/components/ui/empty-state";
@@ -72,16 +72,13 @@ const TAG_OPTIONS = [
 	{ label: "其他", value: "other" },
 ];
 
-const TAG_VARIANT: Record<
-	string,
-	"info" | "danger" | "success" | "warning" | "neutral"
-> = {
-	feature: "info",
-	bug: "danger",
-	experience: "success",
-	content: "warning",
-	ui: "info",
-	other: "neutral",
+const TAG_COLOR: Record<string, "blue" | "red" | "green" | "yellow" | "gray"> = {
+	feature: "blue",
+	bug: "red",
+	experience: "green",
+	content: "yellow",
+	ui: "blue",
+	other: "gray",
 };
 
 const TAG_LABEL: Record<string, string> = {
@@ -94,12 +91,12 @@ const TAG_LABEL: Record<string, string> = {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
-const RATING_BADGES: { variant: "danger" | "warning" | "success"; color?: string }[] = [
-	{ variant: "danger" },
-	{ variant: "warning", color: "orange" },
-	{ variant: "warning" },
-	{ variant: "success" },
-	{ variant: "success", color: "teal" },
+const RATING_BADGES: { color: string }[] = [
+	{ color: "red" },
+	{ color: "orange" },
+	{ color: "yellow" },
+	{ color: "green" },
+	{ color: "teal" },
 ];
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
@@ -133,8 +130,8 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 				<Group justify="space-between" mb={4}>
 					<Group gap={8}>
 						<Badge
-							variant={RATING_BADGES[fb.rating - 1]?.variant ?? "neutral"}
-							color={RATING_BADGES[fb.rating - 1]?.color}
+							variant="light"
+							color={RATING_BADGES[fb.rating - 1]?.color ?? "gray"}
 						>
 							{fb.rating} · {RATING_LABELS[fb.rating - 1]}
 						</Badge>
@@ -142,7 +139,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 							{fb.user_name}
 						</Text>
 					</Group>
-					<Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>
+					<Badge variant="light" color={TAG_COLOR[fb.tag] || "gray"}>
 						{TAG_LABEL[fb.tag] || fb.tag}
 					</Badge>
 				</Group>
@@ -187,7 +184,8 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					)}
 					{fb.auto_fix_attempted && (
 						<Badge
-							variant="success"
+							variant="light"
+							color="green"
 							size="xs"
 							title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN")}` : ""}
 						>
@@ -237,7 +235,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 							<Button size="sm" onClick={handleReply} disabled={sending || !replyText.trim()}>
 								{sending ? "发送中..." : "发送回复"}
 							</Button>
-							<Button size="sm" variant="ghost" onClick={() => setReplyOpen(false)}>取消</Button>
+							<Button size="sm" variant="subtle" color="gray" onClick={() => setReplyOpen(false)}>取消</Button>
 						</Group>
 					</Stack>
 				)}
@@ -558,10 +556,11 @@ export default function FeedbackTab() {
 	};
 
 	return (
-		<Paper withBorder radius="lg" p="md" shadow="sm">
+		<Paper withBorder radius="md" p="md" shadow="sm">
 			<Box mb="md">
 				<Button
-					variant="ghost"
+					variant="subtle"
+					color="gray"
 					size="sm"
 					leftSection={<IconChartBar size={15} />}
 					rightSection={chartsOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
@@ -641,8 +640,8 @@ export default function FeedbackTab() {
 							<Button
 								key={opt.value}
 								size="xs"
-								radius="xl"
-								variant={tag === opt.value ? "default" : "outline"}
+								radius="md"
+								variant={tag === opt.value ? "filled" : "outline"}
 								onClick={() => { setTag(opt.value); setOffset(0); }}
 							>
 								{opt.label}

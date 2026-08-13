@@ -1,11 +1,10 @@
-import { ActionIcon, Group, Modal, Stack } from "@mantine/core";
+import { ActionIcon, Button, Group, Modal, Stack } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { createSecret, updateSecret } from "@/api";
 import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 
 import { Input } from "@/components/ui/input";

@@ -1,4 +1,4 @@
-import { Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
@@ -11,8 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -231,7 +229,7 @@ export default function TeacherRecordsPage() {
 			/>
 
 			<Stack gap="md">
-				<Paper withBorder radius="lg" p="md">
+				<Paper withBorder radius="md" p="md">
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 						<Stack gap={6}>
 							<Text size="xs" fw={500} c="dimmed">班级</Text>
@@ -334,11 +332,11 @@ export default function TeacherRecordsPage() {
 						onRetry={() => refetch()}
 					/>
 				) : sortedRecords.length === 0 ? (
-					<Paper withBorder radius="lg">
+					<Paper withBorder radius="md">
 						<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
 					</Paper>
 				) : (
-					<Paper withBorder radius="lg" style={{ overflow: "hidden" }}>
+					<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
 						<div style={{ overflowX: "auto" }}>
 							<Table>
 								<TableHeader>
@@ -374,11 +372,11 @@ export default function TeacherRecordsPage() {
 												<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{r.user_student_id ?? ""}</TableCell>
 												<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
 												<TableCell>
-													<Badge variant="secondary">问诊</Badge>
+													<Badge variant="light" color="gray">问诊</Badge>
 												</TableCell>
 												<TableCell>
 													{r.assignment_title ? (
-														<Badge variant="secondary" color="teal" size="xs">作业</Badge>
+														<Badge variant="light" color="teal" size="xs">作业</Badge>
 													) : (
 														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 													)}
@@ -391,11 +389,9 @@ export default function TeacherRecordsPage() {
 												</TableCell>
 												<TableCell>
 													<Badge
-														variant={
-															r.status === "completed" ? "success" :
-															r.status === "abandoned" ? "secondary" :
-															"info"
-														}
+														variant="light" color={r.status === "completed" ? "green" :
+															r.status === "abandoned" ? "gray" :
+															"blue"}
 													>
 														{r.status === "completed" ? "已完成" :
 														 r.status === "abandoned" ? "已放弃" :
@@ -409,7 +405,7 @@ export default function TeacherRecordsPage() {
 														</Text>
 													) : r.scoring_status === "pending" ||
 														r.scoring_status === "processing" ? (
-														<Badge variant="warning">评分中...</Badge>
+														<Badge variant="light" color="yellow">评分中...</Badge>
 													) : r.scoring_status === "failed" ? (
 														<Text
 															component="span"
@@ -425,12 +421,12 @@ export default function TeacherRecordsPage() {
 												</TableCell>
 												<TableCell>
 													{r.scoring_status === "completed" ? (
-														<Badge variant="success">已完成</Badge>
+														<Badge variant="light" color="green">已完成</Badge>
 													) : r.scoring_status === "pending" ||
 														r.scoring_status === "processing" ? (
-														<Badge variant="warning">评分中</Badge>
+														<Badge variant="light" color="yellow">评分中</Badge>
 													) : r.scoring_status === "failed" ? (
-														<Badge variant="destructive">失败</Badge>
+														<Badge variant="light" color="red">失败</Badge>
 													) : (
 														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}
@@ -438,7 +434,7 @@ export default function TeacherRecordsPage() {
 												<TableCell>
 													<Group gap={8} wrap="nowrap">
 														<Button
-															variant="link"
+															variant="transparent"
 															size="xs"
 															onClick={() => navigate(`/record/${r.id}`)}
 														>
@@ -446,7 +442,7 @@ export default function TeacherRecordsPage() {
 														</Button>
 														{r.status === "in_progress" && (
 															<Button
-																variant="link"
+																variant="transparent"
 																size="xs"
 																color="gray"
 																onClick={() => handleAbandonRecord(r)}
@@ -455,8 +451,8 @@ export default function TeacherRecordsPage() {
 															</Button>
 														)}
 														<Button
-															variant="ghost"
-															size="icon-xs"
+															variant="subtle"
+															size="xs" w={32} h={32} p={0}
 															color="red"
 															onClick={() => handleDeleteRecord(r)}
 														>
@@ -473,7 +469,7 @@ export default function TeacherRecordsPage() {
 					</Paper>
 				)}
 
-				<Paper withBorder radius="lg" px="md" py="sm">
+				<Paper withBorder radius="md" px="md" py="sm">
 					<Pagination
 						total={total}
 						offset={offset}
