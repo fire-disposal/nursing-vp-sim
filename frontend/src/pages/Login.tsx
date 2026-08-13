@@ -102,8 +102,8 @@ export default function Login() {
 					w="100%"
 					style={{ minWidth: 0 }}
 				>
-					<Box mb={{ base: 16, sm: 32 }} ta={{ base: "center", lg: "left" }} w="100%">
-						<Group gap="sm" justify="center">
+					<Box mb={{ base: 16, sm: 32 }} ta={{ base: "center", lg: "left" }} w="100%" maw={384}>
+						<Group gap="sm" justify="flex-start">
 							<ThemeIcon size={48} radius="md" variant="filled" style={{ boxShadow: "var(--mantine-shadow-lg)" }}>
 								<IconStethoscope size={24} />
 							</ThemeIcon>
