@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
 import { Home, Settings } from "lucide-react";
 import { MemoryRouter } from "react-router-dom";
@@ -60,7 +60,7 @@ describe("NavGroup", () => {
 	});
 
 	it("renders nothing when children are empty", () => {
-		const { container } = render(
+		render(
 			<MemoryRouter>
 				<NavGroup
 					label="空组"
@@ -72,6 +72,6 @@ describe("NavGroup", () => {
 				</NavGroup>
 			</MemoryRouter>,
 		);
-		expect(container.firstChild).toBeNull();
+		expect(screen.queryByText("空组")).not.toBeInTheDocument();
 	});
 });

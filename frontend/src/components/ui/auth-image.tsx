@@ -1,3 +1,4 @@
+import { Skeleton } from "@mantine/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 
@@ -61,7 +62,7 @@ export default function AuthImage({ src, alt = "", className }: AuthImageProps) 
 	}, []);
 
 	if (error) return null;
-	if (loading && !blobUrl) return <div className={`bg-muted animate-pulse rounded ${className ?? ""}`} />;
+	if (loading && !blobUrl) return <Skeleton radius="md" className={className} />;
 	if (!blobUrl) return null;
 
 	return <img src={blobUrl} alt={alt} className={className} />;

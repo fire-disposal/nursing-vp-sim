@@ -1,17 +1,7 @@
-import { AlertTriangle } from "lucide-react";
+import { modals } from "@mantine/modals";
 import type { ReactNode } from "react";
-import { useConfirmStore } from "@/stores/confirmStore";
-import {
-	Dialog,
-	DialogAction,
-	DialogCancel,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogMedia,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import Button from "./button";
+import { Dialog, DialogContent } from "./dialog";
 
 export interface ConfirmOptions {
 	title: string;
@@ -25,85 +15,33 @@ interface ConfirmContextType {
 	confirm: (opts: ConfirmOptions) => Promise<boolean>;
 }
 
-interface ConfirmDialogProps extends ConfirmOptions {
-	open: boolean;
-	onConfirm: () => void;
-	onCancel: () => void;
-}
-
-function ConfirmDialogView({
-	open,
-	onConfirm,
-	onCancel,
-	title,
-	message,
-	confirmLabel = "确定",
-	cancelLabel = "取消",
-	danger = false,
-}: ConfirmDialogProps) {
-	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-			<DialogContent variant="confirm" size="md">
-				<DialogHeader>
-					<DialogMedia className={danger ? "bg-danger" : "bg-warning"}>
-						<AlertTriangle
-							size={20}
-							className={
-								danger ? "text-danger-foreground" : "text-warning-foreground"
-							}
-						/>
-					</DialogMedia>
-					<DialogTitle>{title}</DialogTitle>
-					<DialogDescription>{message}</DialogDescription>
-				</DialogHeader>
-				<DialogFooter>
-					<DialogCancel onClick={onCancel}>{cancelLabel}</DialogCancel>
-					<DialogAction
-						onClick={onConfirm}
-						className={
-							danger
-								? "bg-destructive text-white hover:bg-destructive/90"
-								: undefined
-						}
-					>
-						{confirmLabel}
-					</DialogAction>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
+function openConfirm(opts: ConfirmOptions): Promise<boolean> {
+	return new Promise((resolve) => {
+		modals.openConfirmModal({
+			title: opts.title,
+			children: opts.message,
+			labels: {
+				confirm: opts.confirmLabel ?? "确定",
+				cancel: opts.cancelLabel ?? "取消",
+			},
+			color: opts.danger ? "red" : undefined,
+			onConfirm: () => resolve(true),
+			onCancel: () => resolve(false),
+		});
+	});
 }
 
 export function useConfirm(): ConfirmContextType {
-	const confirm = useConfirmStore((s) => s.confirm);
-	return { confirm };
+	return { confirm: openConfirm };
 }
 
+/** 兼容旧 API：无状态宿主（modals 由 ModalsProvider 管理，见 App.tsx）。 */
 export function ConfirmHost() {
-	const current = useConfirmStore((s) => s.current);
-	const closeConfirm = useConfirmStore((s) => s.closeConfirm);
-
-	return (
-		<ConfirmDialogView
-			open={current != null}
-			title={current?.title ?? ""}
-			message={current?.message ?? ""}
-			confirmLabel={current?.confirmLabel}
-			cancelLabel={current?.cancelLabel}
-			danger={current?.danger}
-			onConfirm={() => closeConfirm(true)}
-			onCancel={() => closeConfirm(false)}
-		/>
-	);
+	return null;
 }
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
-	return (
-		<>
-			{children}
-			<ConfirmHost />
-		</>
-	);
+	return <>{children}</>;
 }
 
 export function ConfirmDialog({
@@ -126,15 +64,18 @@ export function ConfirmDialog({
 	danger?: boolean;
 }) {
 	return (
-		<ConfirmDialogView
-			open={open}
-			onConfirm={onConfirm}
-			onCancel={onCancel}
-			title={title}
-			message={message}
-			confirmLabel={confirmLabel}
-			cancelLabel={cancelLabel}
-			danger={danger}
-		/>
+		<Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
+			<DialogContent title={title} size="sm">
+				{message}
+				<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+					<Button variant="outline" onClick={onCancel}>
+						{cancelLabel}
+					</Button>
+					<Button variant={danger ? "destructive" : "default"} onClick={onConfirm}>
+						{confirmLabel}
+					</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

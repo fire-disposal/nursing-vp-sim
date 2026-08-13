@@ -11,7 +11,5 @@ export default function LoadingState({
 	message?: string;
 	className?: string;
 }) {
-	return (
-		<LoadingSkeleton variant="spinner" message={message} className={className} />
-	);
+	return <LoadingSkeleton variant="spinner" message={message} className={className} />;
 }

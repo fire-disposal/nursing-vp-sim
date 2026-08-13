@@ -1,8 +1,14 @@
+import { MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { useToast } from "@/components/Toast";
-import { Toaster } from "@/components/ui/sonner";
+
+function renderWithProvider(ui: ReactNode) {
+	return render(<MantineProvider>{ui}</MantineProvider>);
+}
 
 function ToastTrigger({
 	message = "test",
@@ -23,27 +29,27 @@ function ToastTrigger({
 
 describe("Toast", () => {
 	it("renders toast when triggered", async () => {
-		render(
+		renderWithProvider(
 			<>
-				<Toaster />
+				<Notifications />
 				<ToastTrigger message="Hello World" />
 			</>,
 		);
 
 		await userEvent.click(screen.getByText("Show"));
-		expect(screen.getByText("Hello World")).toBeInTheDocument();
+		expect(await screen.findByText("Hello World")).toBeInTheDocument();
 	});
 
 	it("renders success toast", async () => {
-		render(
+		renderWithProvider(
 			<>
-				<Toaster />
+				<Notifications />
 				<ToastTrigger message="Success!" type="success" />
 			</>,
 		);
 
 		await userEvent.click(screen.getByText("Show"));
-		expect(screen.getByText("Success!")).toBeInTheDocument();
+		expect(await screen.findByText("Success!")).toBeInTheDocument();
 	});
 
 	it("convenience methods work", async () => {
@@ -56,14 +62,14 @@ describe("Toast", () => {
 			);
 		}
 
-		render(
+		renderWithProvider(
 			<>
-				<Toaster />
+				<Notifications />
 				<QuickToast />
 			</>,
 		);
 
 		await userEvent.click(screen.getByText("Success"));
-		expect(screen.getByText("Done")).toBeInTheDocument();
+		expect(await screen.findByText("Done")).toBeInTheDocument();
 	});
 });

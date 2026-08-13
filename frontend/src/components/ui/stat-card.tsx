@@ -1,33 +1,19 @@
-import type { ElementType, ReactNode } from "react";
+import { Paper, Text, ThemeIcon } from "@mantine/core";
+import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type StatColor = "blue" | "green" | "amber" | "red" | "teal";
 
-const colorClasses: Record<StatColor, { bg: string; color: string }> = {
-	blue: {
-		bg: "bg-info text-info-foreground",
-		color: "",
-	},
-	green: {
-		bg: "bg-success text-success-foreground",
-		color: "",
-	},
-	amber: {
-		bg: "bg-warning text-warning-foreground",
-		color: "",
-	},
-	red: {
-		bg: "bg-danger text-danger-foreground",
-		color: "",
-	},
-	teal: {
-		bg: "bg-accent text-accent-foreground",
-		color: "",
-	},
+const COLOR_MAP: Record<StatColor, string> = {
+	blue: "blue",
+	green: "green",
+	amber: "yellow",
+	red: "red",
+	teal: "teal",
 };
 
 interface StatCardProps {
-	icon?: ElementType;
+	icon?: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 	value?: ReactNode;
 	label: string;
 	color?: StatColor;
@@ -45,43 +31,33 @@ export default function StatCard({
 	onClick,
 	className,
 }: StatCardProps) {
-	const c = colorClasses[color] || colorClasses.blue;
-
 	return (
-		<div
+		<Paper
+			withBorder
+			radius="lg"
+			p="md"
 			onClick={onClick}
-			className={cn(
-				"flex items-center gap-4 rounded-xl ring-1 ring-foreground/10 bg-card p-4 transition-all",
-				onClick && "cursor-pointer hover:border-primary hover:shadow-e1",
-				className,
-			)}
+			className={cn(onClick && "cursor-pointer", className)}
+			style={{ display: "flex", alignItems: "center", gap: "1rem" }}
 		>
 			{Icon && (
-				<div
-					className={cn(
-						"flex size-11 shrink-0 items-center justify-center rounded-lg",
-						c.bg,
-					)}
-				>
+				<ThemeIcon size={44} radius="md" variant="light" color={COLOR_MAP[color]}>
 					<Icon size={20} />
-				</div>
+				</ThemeIcon>
 			)}
-			<div className="min-w-0">
-				<div className="text-xl font-bold leading-tight text-foreground">
+			<div style={{ minWidth: 0 }}>
+				<Text size="xl" fw={700} lh={1.1}>
 					{value ?? "-"}
-				</div>
-				<div className="mt-0.5 text-sm text-muted-foreground">{label}</div>
+				</Text>
+				<Text size="sm" c="dimmed" mt={2}>
+					{label}
+				</Text>
 				{trend !== undefined && trend !== 0 && (
-					<div
-						className={cn(
-							"mt-0.5 text-xs font-medium",
-							trend > 0 ? "text-success-foreground" : "text-destructive",
-						)}
-					>
+					<Text size="xs" fw={500} mt={2} c={trend > 0 ? "green" : "red"}>
 						{trend > 0 ? "\u2191" : "\u2193"} {Math.abs(trend)}%
-					</div>
+					</Text>
 				)}
 			</div>
-		</div>
+		</Paper>
 	);
 }

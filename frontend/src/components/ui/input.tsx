@@ -1,19 +1,7 @@
-import type * as React from "react";
+import { TextInput, type TextInputProps } from "@mantine/core";
 
-import { cn } from "@/lib/utils";
-
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-	return (
-		<input
-			type={type}
-			data-slot="input"
-			className={cn(
-				"flex h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm",
-				className,
-			)}
-			{...props}
-		/>
-	);
+function Input({ className, ...props }: TextInputProps) {
+	return <TextInput className={className} {...props} />;
 }
 
 export { Input };

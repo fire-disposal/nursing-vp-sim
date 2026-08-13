@@ -1,11 +1,14 @@
-import type { LucideIcon } from "lucide-react";
+import { Stack, Text, ThemeIcon } from "@mantine/core";
+import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+
 interface EmptyStateProps {
-	icon?: LucideIcon;
+	icon?: IconType;
 	title: string;
 	description?: string;
-	action?: React.ReactNode;
+	action?: ReactNode;
 	className?: string;
 }
 
@@ -17,18 +20,21 @@ export default function EmptyState({
 	className,
 }: EmptyStateProps) {
 	return (
-		<div
-			className={cn(
-				"flex flex-col items-center justify-center py-12 text-center",
-				className,
+		<Stack align="center" justify="center" py={48} ta="center" className={cn(className)}>
+			{Icon && (
+				<ThemeIcon size={56} variant="light" color="gray" radius="xl">
+					<Icon size={28} strokeWidth={1.5} />
+				</ThemeIcon>
 			)}
-		>
-			{Icon && <Icon size={48} className="mb-4 text-muted-foreground/50" />}
-			<p className="text-sm font-medium text-muted-foreground">{title}</p>
+			<Text size="sm" fw={500} c="dimmed">
+				{title}
+			</Text>
 			{description && (
-				<p className="mt-1 text-xs text-muted-foreground/70">{description}</p>
+				<Text size="xs" c="dimmed" opacity={0.7}>
+					{description}
+				</Text>
 			)}
-			{action && <div className="mt-4">{action}</div>}
-		</div>
+			{action && <div style={{ marginTop: "0.5rem" }}>{action}</div>}
+		</Stack>
 	);
 }

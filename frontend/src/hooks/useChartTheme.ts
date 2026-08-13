@@ -1,4 +1,4 @@
-import { useTheme } from "next-themes";
+import { useComputedColorScheme } from "@mantine/core";
 import { useMemo } from "react";
 
 export interface ChartColors {
@@ -9,27 +9,29 @@ export interface ChartColors {
 }
 
 export function useChartTheme() {
-	const { resolvedTheme } = useTheme();
+	const scheme = useComputedColorScheme("light");
 
 	return useMemo((): ChartColors => {
-		const isDark = resolvedTheme === "dark";
+		const isDark = scheme === "dark";
 		return {
-			grid: isDark ? "var(--border)" : "#f0f0f0",
-			axisTick: isDark ? "var(--muted-foreground)" : "#9ca3af",
-			tooltipBg: isDark ? "var(--card)" : "var(--background)",
-			tooltipBorder: isDark ? "var(--border)" : "var(--border)",
+			grid: isDark ? "var(--mantine-color-dark-4)" : "#f0f0f0",
+			axisTick: isDark ? "var(--mantine-color-dark-2)" : "#9ca3af",
+			tooltipBg: isDark ? "var(--mantine-color-dark-6)" : "#ffffff",
+			tooltipBorder: isDark
+				? "var(--mantine-color-dark-4)"
+				: "var(--mantine-color-gray-3)",
 		};
-	}, [resolvedTheme]);
+	}, [scheme]);
 }
 
 export function useBarColors() {
-	const { resolvedTheme } = useTheme();
+	const scheme = useComputedColorScheme("light");
 	return useMemo(() => {
-		const isDark = resolvedTheme === "dark";
+		const isDark = scheme === "dark";
 		return {
 			sessions: isDark ? "#60a5fa" : "#2563eb",
 			minutes: isDark ? "#fbbf24" : "#f59e0b",
 			score: isDark ? "#4ade80" : "#22c55e",
 		};
-	}, [resolvedTheme]);
+	}, [scheme]);
 }

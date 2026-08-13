@@ -1,13 +1,15 @@
-import { ChevronLeft } from "lucide-react";
-import type { ElementType, ReactNode } from "react";
+import { ActionIcon, Box, Group, Text, Title } from "@mantine/core";
+import { IconChevronLeft } from "@tabler/icons-react";
+import type { ComponentType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
+type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
 interface PageHeaderProps {
 	title: string;
 	subtitle?: string;
-	icon?: ElementType;
+	icon?: IconType;
 	actions?: ReactNode;
 	backTo?: string;
 	className?: string;
@@ -24,35 +26,33 @@ export default function PageHeader({
 	const navigate = useNavigate();
 
 	return (
-		<div className={cn("mb-3 sm:mb-6", className)}>
+		<Box mb="lg" className={cn(className)}>
 			{backTo && (
-				<div className="mb-2">
-					<button
-						type="button"
-						onClick={() => navigate(backTo)}
-						className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 cursor-pointer"
-					>
-						<ChevronLeft size={14} />
-						返回
-					</button>
-				</div>
+				<ActionIcon
+					variant="subtle"
+					color="gray"
+					size="sm"
+					mb={4}
+					onClick={() => navigate(backTo)}
+					aria-label="返回"
+				>
+					<IconChevronLeft size={16} />
+				</ActionIcon>
 			)}
-			<div className="flex items-start justify-between gap-4">
-				<div className="min-w-0">
-					<h1 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
+			<Group justify="space-between" align="flex-start" wrap="nowrap">
+				<div style={{ minWidth: 0 }}>
+					<Title order={1} size="lg" fw={700} style={{ display: "flex", alignItems: "center", gap: 8 }}>
 						{Icon && <Icon size={22} />}
 						{title}
-					</h1>
+					</Title>
 					{subtitle && (
-						<p className="hidden sm:block mt-1 text-sm text-muted-foreground">
+						<Text size="sm" c="dimmed" mt={4} visibleFrom="sm">
 							{subtitle}
-						</p>
+						</Text>
 					)}
 				</div>
-				{actions && (
-					<div className="flex shrink-0 items-center gap-2">{actions}</div>
-				)}
-			</div>
-		</div>
+				{actions && <Group gap="xs">{actions}</Group>}
+			</Group>
+		</Box>
 	);
 }

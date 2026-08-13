@@ -1,42 +1,46 @@
-import { Monitor, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { ActionIcon, useMantineColorScheme } from "@mantine/core";
+import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { useState } from "react";
 
-const ORDER = ["light", "dark", "system"] as const;
+const ORDER = ["light", "dark", "auto"] as const;
+type Mode = (typeof ORDER)[number];
 
-function CurrentIcon(theme: string | undefined) {
-	if (theme === "dark") return Moon;
-	if (theme === "light") return Sun;
-	return Monitor;
-}
+const LABELS: Record<Mode, string> = {
+	light: "亮色模式",
+	dark: "深色模式",
+	auto: "跟随系统",
+};
 
-function Label(theme: string | undefined) {
-	if (theme === "dark") return "深色模式";
-	if (theme === "light") return "亮色模式";
-	return "跟随系统";
+function readInitial(): Mode {
+	try {
+		const v = localStorage.getItem("mantine-color-scheme-value");
+		if (v === "light" || v === "dark" || v === "auto") return v;
+	} catch {
+		/* noop */
+	}
+	return "auto";
 }
 
 export function ModeToggle() {
-	const { setTheme, theme } = useTheme();
+	const { setColorScheme } = useMantineColorScheme();
+	const [mode, setMode] = useState<Mode>(readInitial);
 
-	const toggle = useCallback(() => {
-		const idx = ORDER.indexOf((theme as (typeof ORDER)[number]) ?? "system");
-		setTheme(ORDER[(idx + 1) % ORDER.length]);
-	}, [setTheme, theme]);
+	const cycle = () => {
+		const next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+		setMode(next);
+		setColorScheme(next);
+	};
 
-	const Icon = CurrentIcon(theme);
-
+	const Icon = mode === "dark" ? IconMoon : mode === "light" ? IconSun : IconDeviceDesktop;
 	return (
-		<Button
-			type="button"
-			variant="outline"
-			size="icon-xs"
-			onClick={toggle}
-			aria-label={Label(theme)}
-			title={Label(theme)}
+		<ActionIcon
+			variant="default"
+			size={36}
+			onClick={cycle}
+			aria-label={LABELS[mode]}
+			title={LABELS[mode]}
 		>
-			<Icon size={14} />
-		</Button>
+			<Icon size={16} />
+		</ActionIcon>
 	);
 }

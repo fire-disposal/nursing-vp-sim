@@ -1,12 +1,13 @@
-import { ChevronRight, type LucideIcon } from "lucide-react";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { Group, Text } from "@mantine/core";
+import { IconChevronRight } from "@tabler/icons-react";
+import { type ComponentType, type ReactNode, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 
 interface NavGroupProps {
 	label: string;
-	icon: LucideIcon;
+	icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 	defaultOpen: boolean;
 	storageKey: string;
 	children: ReactNode;
@@ -20,19 +21,15 @@ export function NavGroup({
 	children,
 }: NavGroupProps) {
 	const location = useLocation();
-	const open = useUiPrefsStore((s) =>
-		s.getNavGroupOpen(storageKey, defaultOpen),
-	);
+	const open = useUiPrefsStore((s) => s.getNavGroupOpen(storageKey, defaultOpen));
 	const setNavGroupOpen = useUiPrefsStore((s) => s.setNavGroupOpen);
 
 	const currentPath = location.pathname;
 
 	useEffect(() => {
 		if (!open && currentPath) {
-			const container = document.querySelector(
-				`[data-navgroup="${storageKey}"]`,
-			);
-			if (container?.querySelector("[aria-current=\"page\"]")) {
+			const container = document.querySelector(`[data-navgroup="${storageKey}"]`);
+			if (container?.querySelector('[aria-current="page"]')) {
 				setNavGroupOpen(storageKey, true);
 			}
 		}
@@ -42,31 +39,33 @@ export function NavGroup({
 		setNavGroupOpen(storageKey, !open);
 	}, [open, setNavGroupOpen, storageKey]);
 
-	if (
-		!children ||
-		(Array.isArray(children) && children.filter(Boolean).length === 0)
-	) {
+	if (!children || (Array.isArray(children) && children.filter(Boolean).length === 0)) {
 		return null;
 	}
 
 	return (
 		<div data-navgroup={storageKey}>
-			<button
-				type="button"
+			<Group
+				gap={8}
+				px="sm"
+				py={6}
 				onClick={toggle}
-				className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors cursor-pointer"
+				className={cn("cursor-pointer")}
+				style={{ textTransform: "uppercase" }}
 			>
 				<Icon size={12} />
-				<span className="flex-1 text-left">{label}</span>
-				<ChevronRight
+				<Text size="xs" fw={600} c="dimmed" opacity={0.6} style={{ flex: 1 }}>
+					{label}
+				</Text>
+				<IconChevronRight
 					size={12}
-					className={cn(
-						"shrink-0 transition-transform duration-200",
-						open && "rotate-90",
-					)}
+					style={{
+						transform: open ? "rotate(90deg)" : undefined,
+						transition: "transform 200ms",
+					}}
 				/>
-			</button>
-			{open && <div className="mt-0.5">{children}</div>}
+			</Group>
+			{open && <div style={{ marginTop: 2 }}>{children}</div>}
 		</div>
 	);
 }

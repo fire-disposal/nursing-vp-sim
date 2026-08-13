@@ -1,32 +1,37 @@
-import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import Button from "./button";
+import { Alert, Button } from "@mantine/core";
+import { IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
+import type { ComponentType } from "react";
+
+type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
 interface ErrorDisplayProps {
-	icon?: LucideIcon;
+	icon?: IconType;
 	message: string;
 	onRetry?: () => void;
 }
 
 /**
  * Shared error state display — consistent icon + message + optional retry.
- * Replaces the inline error div pattern duplicated across multiple pages.
  */
 export default function ErrorDisplay({
-	icon: Icon = AlertTriangle,
+	icon: Icon = IconAlertTriangle,
 	message,
 	onRetry,
 }: ErrorDisplayProps) {
 	return (
-		<div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
-			<Icon size={40} className="text-muted-foreground/40" />
-			<p className="text-sm text-destructive max-w-sm text-center">{message}</p>
+		<Alert
+			variant="light"
+			color="red"
+			icon={<Icon size={20} />}
+			style={{ justifyContent: "center", textAlign: "center" }}
+			py="xl"
+		>
+			{message}
 			{onRetry && (
-				<Button variant="outline" size="sm" onClick={onRetry}>
-					<RefreshCw size={14} />
+				<Button variant="outline" size="sm" onClick={onRetry} leftSection={<IconRefresh size={14} />} mt="md">
 					重试
 				</Button>
 			)}
-		</div>
+		</Alert>
 	);
 }

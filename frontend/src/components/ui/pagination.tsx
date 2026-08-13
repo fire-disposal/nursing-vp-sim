@@ -1,3 +1,4 @@
+import { Group, Pagination as MantinePagination, Text } from "@mantine/core";
 import { cn } from "@/lib/utils";
 
 interface PaginationProps {
@@ -19,37 +20,20 @@ export default function Pagination({
 	const pageOffset = Math.min(Math.max(0, offset), lastPageOffset);
 	const currentStart = total === 0 ? 0 : pageOffset + 1;
 	const currentEnd = Math.min(pageOffset + limit, total);
-	const hasPrev = pageOffset > 0;
-	const hasNext = pageOffset + limit < total;
+	const page = Math.floor(pageOffset / limit) + 1;
+	const totalPages = Math.max(1, Math.ceil(total / limit));
 
 	return (
-		<div
-			className={cn(
-				"flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between",
-				className,
-			)}
-		>
-			<span>
+		<Group justify="space-between" gap="md" wrap="wrap" className={cn(className)}>
+			<Text size="sm" c="dimmed">
 				第 {currentStart}-{currentEnd} 条，共 {total} 条
-			</span>
-			<div className="flex gap-2">
-				<button
-					className="inline-flex items-center justify-center rounded-lg border border-input focus-ring bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-					disabled={!hasPrev}
-					aria-label="上一页"
-					onClick={() => onChange(Math.max(0, pageOffset - limit))}
-				>
-					上一页
-				</button>
-				<button
-					className="inline-flex items-center justify-center rounded-lg border border-input focus-ring bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-					disabled={!hasNext}
-					aria-label="下一页"
-					onClick={() => onChange(Math.min(lastPageOffset, pageOffset + limit))}
-				>
-					下一页
-				</button>
-			</div>
-		</div>
+			</Text>
+			<MantinePagination
+				total={totalPages}
+				value={page}
+				onChange={(p) => onChange((p - 1) * limit)}
+				size="sm"
+			/>
+		</Group>
 	);
 }

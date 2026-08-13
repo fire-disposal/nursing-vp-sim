@@ -3,8 +3,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "next-themes";
-import { usePalette } from "@/hooks/useTheme";
+import { useMantineColorScheme, useMantineTheme } from "@mantine/core";
+import { BRAND_PALETTES } from "@/theme";
+import { useBrandStore } from "@/theme/brand-store";
 import { changePassword, updateMyProfile } from "@/api";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -318,10 +319,10 @@ export default function Profile() {
 }
 
 function ThemeToggleButton() {
-  const { theme, setTheme } = useTheme();
-  const isDark = theme === "dark";
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === "dark";
   return (
-    <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")}
+    <button type="button" onClick={toggleColorScheme}
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted">
       <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         {isDark ? <Sun size={18} /> : <Moon size={18} />}
@@ -335,24 +336,31 @@ function ThemeToggleButton() {
 }
 
 function PalettePicker() {
-  const { id: activeId, themes, setPalette } = usePalette();
+  const theme = useMantineTheme();
+  const activeId = useBrandStore((s) => s.brand);
+  const setBrand = useBrandStore((s) => s.setBrand);
   return (
     <div className="flex gap-2 flex-wrap">
-      {themes.map((t) => (
-        <button key={t.id} type="button" onClick={() => setPalette(t.id)}
-          className="flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all hover:border-primary/50 active:scale-95"
-          style={{
-            borderColor: activeId === t.id ? t.colors.primary : undefined,
-            backgroundColor: activeId === t.id ? `${t.colors.accent}80` : undefined,
-          }}
-          title={t.description}>
-          <div className="size-8 rounded-full ring-2 ring-white shadow-e1 flex items-center justify-center transition-transform"
-            style={{ backgroundColor: t.colors.primary }}>
-            {activeId === t.id && <Check size={14} className="text-white" strokeWidth={3} />}
-          </div>
-          <span className="text-[10px] font-medium text-muted-foreground">{t.label}</span>
-        </button>
-      ))}
+      {BRAND_PALETTES.map((t) => {
+        const primary = theme.colors[t.primaryColor][6];
+        const accent = theme.colors[t.primaryColor][1];
+        const active = activeId === t.id;
+        return (
+          <button key={t.id} type="button" onClick={() => setBrand(t.id)}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all hover:border-primary/50 active:scale-95"
+            style={{
+              borderColor: active ? primary : undefined,
+              backgroundColor: active ? `${accent}80` : undefined,
+            }}
+            title={t.description}>
+            <div className="size-8 rounded-full ring-2 ring-white shadow-e1 flex items-center justify-center transition-transform"
+              style={{ backgroundColor: primary }}>
+              {active && <Check size={14} className="text-white" strokeWidth={3} />}
+            </div>
+            <span className="text-[10px] font-medium text-muted-foreground">{t.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

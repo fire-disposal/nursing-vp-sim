@@ -6,15 +6,27 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>虚拟患者训练系统</title>
     <script>
+      // Mantine 颜色模式初始化（避免首屏闪烁）
       (() => {
-        var t = localStorage.getItem("theme") || "system";
-        var d = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        if (d) document.documentElement.classList.add("dark");
+        try {
+          var v = localStorage.getItem("mantine-color-scheme-value");
+          var scheme = v === "light" || v === "dark" ? v : "auto";
+          var resolved =
+            scheme === "auto"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : scheme;
+          document.documentElement.setAttribute("data-mantine-color-scheme", resolved);
+          document.documentElement.style.colorScheme = resolved;
+        } catch (e) {
+          /* noop */
+        }
       })();
     </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

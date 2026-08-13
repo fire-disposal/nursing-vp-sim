@@ -1,3 +1,4 @@
+import { Alert } from "@mantine/core";
 import { cn } from "@/lib/utils";
 
 interface FormMessageBannerProps {
@@ -17,18 +18,15 @@ export function FormMessageBanner({
 }: FormMessageBannerProps) {
 	if (!message) return null;
 	return (
-		<div
+		<Alert
 			role="alert"
-			className={cn(
-				"mb-4 rounded-lg px-3.5 py-2.5 text-sm",
-				type === "success"
-					? "bg-success text-success-foreground"
-					: "bg-destructive/10 text-destructive",
-				className,
-			)}
+			variant="light"
+			color={type === "success" ? "green" : "red"}
+			mb="md"
+			className={cn(className)}
 		>
 			{message}
-		</div>
+		</Alert>
 	);
 }
 

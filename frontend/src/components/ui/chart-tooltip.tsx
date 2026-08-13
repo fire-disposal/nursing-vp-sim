@@ -1,3 +1,5 @@
+import { Paper, Text } from "@mantine/core";
+
 export interface ChartTooltipPayloadItem {
 	color?: string;
 	name?: string;
@@ -22,25 +24,23 @@ export function ChartTooltip({
 	if (!active || !payload?.length) return null;
 
 	return (
-		<div className="bg-background border border-border rounded-lg px-3.5 py-2.5 shadow-md">
+		<Paper shadow="sm" radius="md" px="md" py="sm" withBorder>
 			{label && (
-				<div className="text-xs text-muted-foreground mb-1">{label}</div>
+				<Text size="xs" c="dimmed" mb={4}>
+					{label}
+				</Text>
 			)}
 			{payload.map((p, i) => {
 				const u =
 					unitMap?.[p.name ?? ""] ??
 					unit ??
-					(p.name?.includes("分") ? "分" : p.name?.includes("得分") ? "分" : "");
+					(p.name?.includes("分") ? "分" : "");
 				return (
-					<div
-						key={i}
-						className="text-sm"
-						style={{ color: p.color ?? "var(--foreground)" }}
-					>
+					<Text key={i} size="sm" c={p.color ?? undefined}>
 						{p.name}: <strong>{p.value}{u}</strong>
-					</div>
+					</Text>
 				);
 			})}
-		</div>
+		</Paper>
 	);
 }

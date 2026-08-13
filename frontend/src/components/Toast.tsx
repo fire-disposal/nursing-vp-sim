@@ -1,4 +1,5 @@
-import { toast as sonnerToast } from "sonner";
+import { Button, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { getApiErrorMessage } from "@/utils/error";
 
 type ToastType = "success" | "error" | "warning" | "info";
@@ -17,33 +18,67 @@ interface ToastApi {
 	apiError: (e: unknown, fallback?: string) => number;
 }
 
+const COLOR: Record<ToastType, string> = {
+	success: "teal",
+	error: "red",
+	warning: "yellow",
+	info: "blue",
+};
+
 let _nextId = 0;
 
-function show(message: string, type: ToastType = "info", duration = 4000, options?: ToastOptions) {
-	const id = `t:${++_nextId}:${Date.now()}`;
+function show(
+	message: string,
+	type: ToastType = "info",
+	duration = 4000,
+	options?: ToastOptions,
+): number {
+	_nextId += 1;
+	const id = `toast-${_nextId}`;
 	const { description, action } = options ?? {};
-	sonnerToast[type](message, {
+
+	const body =
+		description || action ? (
+			<>
+				{description ? (
+					<Text size="sm" c="dimmed">
+						{description}
+					</Text>
+				) : null}
+				{action ? (
+					<Button
+						variant="light"
+						size="compact-xs"
+						mt={description ? 8 : 0}
+						onClick={() => {
+							action.onClick();
+							notifications.hide(id);
+						}}
+					>
+						{action.label}
+					</Button>
+				) : null}
+			</>
+		) : undefined;
+
+	notifications.show({
 		id,
-		duration,
-		description,
-		action: action ? { label: action.label, onClick: action.onClick } : undefined,
-		style: { "--toast-duration": `${duration}ms` } as React.CSSProperties,
+		title: message,
+		message: body,
+		color: COLOR[type],
+		autoClose: duration === 0 ? false : duration,
+		withCloseButton: true,
 	});
 	return _nextId;
 }
 
 export const toast: ToastApi = {
 	toast: show,
-	success: (msg: string, opts?: ToastOptions & { duration?: number }) =>
-		show(msg, "success", opts?.duration ?? 6000, opts),
-	error: (msg: string, opts?: ToastOptions & { duration?: number }) =>
-		show(msg, "error", opts?.duration ?? 6000, opts),
-	warning: (msg: string, opts?: ToastOptions & { duration?: number }) =>
-		show(msg, "warning", opts?.duration ?? 5000, opts),
-	info: (msg: string, opts?: ToastOptions & { duration?: number }) =>
-		show(msg, "info", opts?.duration ?? 4000, opts),
-	apiError: (e: unknown, fallback = "操作失败") =>
-		show(getApiErrorMessage(e, fallback), "error", 6000),
+	success: (msg, opts) => show(msg, "success", opts?.duration ?? 6000, opts),
+	error: (msg, opts) => show(msg, "error", opts?.duration ?? 6000, opts),
+	warning: (msg, opts) => show(msg, "warning", opts?.duration ?? 5000, opts),
+	info: (msg, opts) => show(msg, "info", opts?.duration ?? 4000, opts),
+	apiError: (e, fallback = "操作失败") => show(getApiErrorMessage(e, fallback), "error", 6000),
 };
 
 export function useToast(): ToastApi {
