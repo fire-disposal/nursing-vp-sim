@@ -263,11 +263,9 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<Paper
+		<Box
 			component="main"
-			withBorder
-			radius="md"
-			style={{ height: "calc(100dvh - 6.5rem)", minHeight: "32rem", overflow: "hidden", display: "flex", position: "relative" }}
+			style={{ height: "calc(100dvh - 6.5rem)", minHeight: "32rem", display: "flex", position: "relative" }}
 		>
 			<Box
 				visibleFrom="md"
@@ -377,7 +375,7 @@ export default function QA() {
 					onToggleRag={() => setRagEnabled((value) => !value)}
 				/>
 			</Box>
-		</Paper>
+		</Box>
 	);
 }
 
