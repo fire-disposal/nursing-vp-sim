@@ -1,19 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconBook2,
-	IconBooks,
 	IconChevronRight,
 	IconMenu2,
 	IconMessageCircle,
 	IconPlus,
 	IconRobot,
 	IconSend,
-	IconSparkles,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { Avatar, Badge, Box, Button, Divider, Drawer, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Avatar, Box, Button, Divider, Drawer, Group, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -27,13 +25,6 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CitationCard from "@/components/citation/CitationCard";
 import { useToast } from "@/components/Toast";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/textarea";
 import { getNurseAvatar } from "@/utils/avatar";
@@ -41,7 +32,6 @@ import { useConfirm } from "@/components/ui/confirm";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 type Citation = NonNullable<QAMessageItem["citations"]>[number];
-type IconType = ComponentType<{ size?: number; className?: string; stroke?: number; color?: string }>;
 
 const SUGGESTIONS = [
 	{
@@ -74,7 +64,6 @@ export default function QA() {
 	const [loading, setLoading] = useState(false);
 	const [streamingAnswer, setStreamingAnswer] = useState("");
 	const [showSidebar, setShowSidebar] = useState(false);
-	const [ragEnabled, setRagEnabled] = useState(true);
 	const abortRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -139,7 +128,7 @@ export default function QA() {
 				abortRef.current = abort;
 
 				try {
-					const res = await createQASession(q, ragEnabled, abort.signal);
+					const res = await createQASession(q, true, abort.signal);
 					const { session_id, answer: ans, citations: cit } = res.data;
 					setActiveSessionId(session_id);
 					setMessages([
@@ -182,7 +171,7 @@ export default function QA() {
 			askInQASessionStream(
 				activeSessionId,
 				q,
-				ragEnabled,
+				true,
 				(chunk) => {
 					setStreamingAnswer((prev) => prev + chunk);
 				},
@@ -218,7 +207,7 @@ export default function QA() {
 				abort.signal,
 			);
 		},
-		[input, loading, activeSessionId, ragEnabled, loadSessions],
+		[input, loading, activeSessionId, loadSessions],
 	);
 
 	const handleDeleteSession = useCallback(
@@ -337,9 +326,6 @@ export default function QA() {
 							{activeSession?.title || "教材检索、护理推理和操作规范集中在一个对话里"}
 						</Text>
 					</Box>
-					<Badge variant={ragEnabled ? "filled" : "outline"} visibleFrom="sm">
-						{ragEnabled ? "教材增强" : "基础模式"}
-					</Badge>
 					<Button variant="outline" size="sm" onClick={handleNewChat}>
 						<IconPlus size={15} />
 						新对话
@@ -368,11 +354,9 @@ export default function QA() {
 					input={input}
 					inputRef={inputRef}
 					loading={loading}
-					ragEnabled={ragEnabled}
 					onInput={setInput}
 					onKeyDown={handleKeyDown}
 					onSend={() => sendMessage()}
-					onToggleRag={() => setRagEnabled((value) => !value)}
 				/>
 			</Box>
 		</Box>
@@ -491,91 +475,46 @@ function QASidebar({
 
 function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 	return (
-		<Box maw={800} mx="auto">
-			<Stack gap="lg">
-				<Box>
-					<Group gap="xs" style={{ display: "inline-flex", width: "fit-content" }} px="sm" py={4} wrap="nowrap" mb="md">
-						<IconSparkles size={15} />
-						<Text size="sm" fw={500} c="blue">
-							教材增强问答
-						</Text>
-					</Group>
-					<Title order={2} size="3xl">
-						把护理学问题问到可以执行
-					</Title>
-					<Text mt="md" size="md" c="dimmed" lh={1.9} maw={544}>
-						围绕教材原文、临床判断和操作规范回答。适合课前预习、训练复盘和病例讨论。
-					</Text>
-					<Group gap="sm" mt="lg" align="stretch">
-						<InfoTile icon={IconBooks} title="引用可回看" description="有教材依据时，可直接打开原文片段。" />
-						<InfoTile icon={IconRobot} title="按护理语境回答" description="更关注评估、干预、风险和记录。" />
-					</Group>
-				</Box>
-
-				<Card>
-					<CardHeader>
-						<CardTitle size="md">从一个具体问题开始</CardTitle>
-						<CardDescription>点击示例后会直接发送，也可以在底部输入自己的问题。</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Stack gap="xs">
-							{SUGGESTIONS.map((suggestion) => (
-								<UnstyledButton
-									key={suggestion.title}
-									onClick={() => onAsk(suggestion.title)}
-									style={{
-										width: "100%",
-										textAlign: "left",
-										padding: "12px 16px",
-										borderRadius: "var(--mantine-radius-lg)",
-										border: "1px solid var(--mantine-color-gray-3)",
-									}}
-								>
-									<Group gap="sm" align="center" wrap="nowrap">
-										<ThemeIcon size={36} radius="md" variant="light" color="blue">
-											<IconBook2 size={16} />
-										</ThemeIcon>
-										<Box style={{ minWidth: 0, flex: 1 }}>
-											<Text size="sm" fw={500}>
-												{suggestion.title}
-											</Text>
-											<Text size="xs" c="dimmed" mt={2}>
-												{suggestion.description}
-											</Text>
-										</Box>
-										<IconChevronRight size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
-									</Group>
-								</UnstyledButton>
-							))}
-						</Stack>
-					</CardContent>
-				</Card>
+		<Stack gap="xl" maw={640} mx="auto" ta="center" py="lg">
+			<Box>
+				<Title order={2} size="xl">
+					问护理问题，得到可执行的回答
+				</Title>
+				<Text size="sm" c="dimmed" mt="xs">
+					结合教材原文、临床判断与操作规范，点击示例快速开始。
+				</Text>
+			</Box>
+			<Stack gap="xs" ta="left">
+				{SUGGESTIONS.map((suggestion) => (
+					<UnstyledButton
+						key={suggestion.title}
+						onClick={() => onAsk(suggestion.title)}
+						style={{
+							width: "100%",
+							textAlign: "left",
+							padding: "12px 16px",
+							borderRadius: "var(--mantine-radius-md)",
+							border: "1px solid var(--mantine-color-gray-3)",
+						}}
+					>
+						<Group gap="sm" align="center" wrap="nowrap">
+							<ThemeIcon size={36} radius="md" variant="light" color="blue">
+								<IconBook2 size={16} />
+							</ThemeIcon>
+							<Box style={{ minWidth: 0, flex: 1 }}>
+								<Text size="sm" fw={500}>
+									{suggestion.title}
+								</Text>
+								<Text size="xs" c="dimmed" mt={2}>
+									{suggestion.description}
+								</Text>
+							</Box>
+							<IconChevronRight size={16} color="var(--mantine-color-gray-5)" />
+						</Group>
+					</UnstyledButton>
+				))}
 			</Stack>
-		</Box>
-	);
-}
-
-function InfoTile({
-	description,
-	icon: Icon,
-	title,
-}: {
-	description: string;
-	icon: IconType;
-	title: string;
-}) {
-	return (
-		<Paper withBorder radius="md" p="md" style={{ flex: 1 }}>
-			<ThemeIcon size={40} radius="md" variant="light" color="gray" mb="sm">
-				<Icon size={18} />
-			</ThemeIcon>
-			<Text size="sm" fw={600}>
-				{title}
-			</Text>
-			<Text size="sm" c="dimmed" mt={4} lh={1.6}>
-				{description}
-			</Text>
-		</Paper>
+		</Stack>
 	);
 }
 
@@ -670,8 +609,6 @@ function Composer({
 	onInput,
 	onKeyDown,
 	onSend,
-	onToggleRag,
-	ragEnabled,
 }: {
 	input: string;
 	inputRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -679,8 +616,6 @@ function Composer({
 	onInput: (value: string) => void;
 	onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 	onSend: () => void;
-	onToggleRag: () => void;
-	ragEnabled: boolean;
 }) {
 	return (
 		<Box
@@ -704,17 +639,6 @@ function Composer({
 					padding: 8,
 				}}
 			>
-				<Button
-					type="button"
-					variant={ragEnabled ? "filled" : "light"} color={ragEnabled ? undefined : "gray"}
-					size="sm"
-					visibleFrom="sm"
-					onClick={onToggleRag}
-					title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
-				>
-					<IconBook2 size={14} />
-					{ragEnabled ? "教材" : "基础"}
-				</Button>
 				<Textarea
 					ref={inputRef}
 					variant="unstyled"
