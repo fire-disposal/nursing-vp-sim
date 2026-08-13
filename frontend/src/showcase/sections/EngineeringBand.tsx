@@ -1,12 +1,12 @@
+import { Box, Grid, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
 import Reveal from "../components/Reveal";
 import SectionHeading from "../components/SectionHeading";
 
 const STAGES = [
 	{
 		label: "代码提交",
-		accent: "bg-violet-500",
+		accent: "violet",
 		desc: "每次 git push 自动触发代码质量检查：类型校验（TypeScript/Python）、格式规范（Biome/Ruff）、提交信息格式校验。",
 		chips: [
 			{ k: "类型检查", v: "tsc + ty" },
@@ -17,7 +17,7 @@ const STAGES = [
 	},
 	{
 		label: "迁移验证",
-		accent: "bg-cyan-500",
+		accent: "cyan",
 		desc: "数据库结构变更由工具自动生成（Alembic），禁止手写 DDL。每次推送前在临时数据库完成双向升级/降级往返校验，杜绝迁移漂移。",
 		chips: [
 			{ k: "DDL 生成", v: "自动建表改表" },
@@ -28,7 +28,7 @@ const STAGES = [
 	},
 	{
 		label: "构建镜像",
-		accent: "bg-amber-500",
+		accent: "yellow",
 		desc: "前后端分别打包为 Docker 镜像，支持 x86 和 ARM 双架构，推送至 GitHub 容器仓库。利用缓存加速，构建通常在 2 分钟内完成。",
 		chips: [
 			{ k: "容器化", v: "Docker 镜像" },
@@ -39,7 +39,7 @@ const STAGES = [
 	},
 	{
 		label: "测试部署",
-		accent: "bg-pink-500",
+		accent: "pink",
 		desc: "打 Tag 自动部署到测试服务器 test.205716.xyz。部署后自动健康检查，不健康则秒级回滚。测试人员按核对单逐项验证，通过后放行。",
 		chips: [
 			{ k: "自动触发", v: "Tag push" },
@@ -50,7 +50,7 @@ const STAGES = [
 	},
 	{
 		label: "智能守护",
-		accent: "bg-rose-500",
+		accent: "red",
 		desc: "内置诊断面板，实时监控服务健康：LLM 调用成功率、评分任务积压、活跃会话数。异常指标自动告警，触发 Agent 诊断与修复建议。",
 		chips: [
 			{ k: "运维面板", v: "一键诊断" },
@@ -61,7 +61,7 @@ const STAGES = [
 	},
 	{
 		label: "AI 治理",
-		accent: "bg-purple-500",
+		accent: "grape",
 		desc: "项目结构针对 AI 编码友好设计：AGENTS.md 全局约束、TypeScript/Python 双类型检查、自动生成文件只读保护、API 变更自动检测，确保人与 AI 协作安全可控。",
 		chips: [
 			{ k: "AGENTS.md", v: "全局约束规范" },
@@ -72,7 +72,7 @@ const STAGES = [
 	},
 	{
 		label: "生产发布",
-		accent: "bg-emerald-500",
+		accent: "green",
 		desc: "测试服验证通过后，手动触发部署至 iomt.205716.xyz。部署前自动备份数据库，部署后健康检查失败秒级回滚，全程零停机。",
 		chips: [
 			{ k: "版本门禁", v: "测试服一致" },
@@ -88,56 +88,120 @@ export default function EngineeringBand() {
 	const stage = useMemo(() => STAGES[active], [active]);
 
 	return (
-		<section className="mx-auto max-w-7xl px-6 py-24">
-			<SectionHeading eyebrow="工程化底座" title="全自动交付流水线" className="mb-12" />
+		<Box component="section" mx="auto" px="md" py={96} style={{ maxWidth: "80rem" }}>
+			<SectionHeading eyebrow="工程化底座" title="全自动交付流水线" mb={48} />
 
 			<Reveal>
-				<div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card p-6 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)] md:p-8">
-					<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(13,148,136,0.05),transparent_50%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.04),transparent_50%)]" />
-
-					<div className="relative z-10 grid gap-6 md:grid-cols-[240px_1fr]">
-						<div className="space-y-1.5">
-							<div className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">CI/CD Pipeline</div>
-							{STAGES.map((s, i) => (
-								<button
-									key={s.label}
-									type="button"
-									onClick={() => setActive(i)}
-									className={cn(
-										"flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all",
-										active === i
-											? "border-primary/40 bg-primary/[0.06] text-primary"
-											: "border-transparent text-foreground/70 hover:border-border/60 hover:bg-background/50",
-									)}
-								>
-									<div className={cn("size-2 shrink-0 rounded-full", s.accent)} />
-									{s.label}
-								</button>
-							))}
-						</div>
-
-						<div className="rounded-2xl border border-border/50 bg-muted/20 p-5 md:p-6">
-							<div className="mb-4 flex items-center gap-3">
-								<div className={cn("size-2.5 rounded-full", stage.accent)} />
-								<div>
-									<div className="text-lg font-bold text-foreground">{stage.label}</div>
-									<div className="text-xs text-muted-foreground">Step {active + 1} / {STAGES.length}</div>
-								</div>
-							</div>
-							<p className="text-sm leading-relaxed text-muted-foreground">{stage.desc}</p>
-
-						<div className="mt-5 grid grid-cols-2 gap-3">
-								{stage.chips.map((chip) => (
-									<div key={chip.k} className="rounded-xl border border-border/50 bg-background/50 px-3 py-2.5 text-xs">
-										<span className="font-semibold text-foreground/80">{chip.k}</span>
-										<span className="text-muted-foreground"> {chip.v}</span>
-									</div>
+				<Paper withBorder radius="xl" p={{ base: "lg", md: "xl" }} pos="relative" style={{ overflow: "hidden" }}>
+					<Grid gap="lg" pos="relative" style={{ zIndex: 10 }}>
+						<Grid.Col span={{ base: 12, md: 3 }}>
+							<Stack gap={6}>
+								<Text size="xs" fw={600} tt="uppercase" c="dimmed" mb={8} style={{ letterSpacing: "0.25em" }}>
+									CI/CD Pipeline
+								</Text>
+								{STAGES.map((s, i) => (
+									<Group
+										key={s.label}
+										component="button"
+										onClick={() => setActive(i)}
+										gap={12}
+										px="md"
+										py={12}
+										wrap="nowrap"
+										style={{
+											width: "100%",
+											textAlign: "left",
+											cursor: "pointer",
+											borderRadius: "var(--mantine-radius-md)",
+											transition: "all 200ms",
+											border: active === i
+												? "1px solid var(--mantine-primary-color-4)"
+												: "1px solid transparent",
+											background: active === i
+												? "var(--mantine-primary-color-light)"
+												: "transparent",
+											color: active === i
+												? "var(--mantine-primary-color-light-color)"
+												: "var(--mantine-color-dimmed)",
+										}}
+									>
+										<Box
+											style={{
+												width: 8,
+												height: 8,
+												borderRadius: "50%",
+												background: `var(--mantine-color-${s.accent}-6)`,
+												flexShrink: 0,
+											}}
+										/>
+										<Text size="sm" fw={600}>
+											{s.label}
+										</Text>
+									</Group>
 								))}
-							</div>
-						</div>
-					</div>
-				</div>
+							</Stack>
+						</Grid.Col>
+
+						<Grid.Col span={{ base: 12, md: 9 }}>
+							<Box
+								p={{ base: "lg", md: "xl" }}
+								style={{
+									border: "1px solid var(--mantine-color-default-border)",
+									borderRadius: "var(--mantine-radius-md)",
+									background: "var(--mantine-color-gray-0)",
+								}}
+							>
+								<Group gap={12} mb="md">
+									<Box
+										style={{
+											width: 10,
+											height: 10,
+											borderRadius: "50%",
+											background: `var(--mantine-color-${stage.accent}-6)`,
+										}}
+									/>
+									<Box>
+										<Text size="lg" fw={700}>
+											{stage.label}
+										</Text>
+										<Text size="xs" c="dimmed">
+											Step {active + 1} / {STAGES.length}
+										</Text>
+									</Box>
+								</Group>
+								<Text size="sm" c="dimmed" lh={1.6}>
+									{stage.desc}
+								</Text>
+
+								<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" mt="lg">
+									{stage.chips.map((chip) => (
+										<Box
+											key={chip.k}
+											px="sm"
+											py={10}
+											style={{
+												border: "1px solid var(--mantine-color-default-border)",
+												borderRadius: "var(--mantine-radius-md)",
+												background: "var(--mantine-color-body)",
+											}}
+										>
+											<Text size="xs">
+												<Text span fw={600}>
+													{chip.k}
+												</Text>
+												<Text span c="dimmed">
+													{" "}
+													{chip.v}
+												</Text>
+											</Text>
+										</Box>
+									))}
+								</SimpleGrid>
+							</Box>
+						</Grid.Col>
+					</Grid>
+				</Paper>
 			</Reveal>
-		</section>
+		</Box>
 	);
 }

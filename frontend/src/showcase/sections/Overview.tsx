@@ -1,3 +1,4 @@
+import { Box, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { OVERVIEW_STATS, type OverviewStat } from "../data";
 import { prefersReducedMotion } from "../gsap";
@@ -36,28 +37,50 @@ function Stat({ stat }: { stat: OverviewStat }) {
 	}, [stat.value]);
 
 	return (
-		<div ref={ref} className="group relative z-10 flex flex-col items-center gap-3 text-center">
-			<div className="absolute -inset-4 -z-10 scale-90 rounded-3xl bg-primary/5 opacity-0 transition-all group-hover:scale-100 group-hover:opacity-100" />
-			<div className="text-4xl font-extrabold tracking-tighter md:text-[4.5rem] lg:text-7xl [font-family:'Geist_Variable',sans-serif]">
-				<span className="bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-transparent">{n}</span>
-				<span className="text-xl font-bold text-primary md:text-2xl">{stat.suffix}</span>
-			</div>
-			<div className="max-w-[12ch] text-[11px] font-semibold uppercase leading-relaxed tracking-[0.22em] text-muted-foreground/70">
-				{stat.label}
-			</div>
-		</div>
+		<Box ref={ref} pos="relative" style={{ zIndex: 10 }}>
+			<Stack align="center" gap={12} ta="center">
+				<Text fw={800} size="3rem" lh={1} style={{ letterSpacing: "-0.04em" }}>
+					<Text
+						span
+						inherit
+						style={{
+							backgroundImage: "linear-gradient(to bottom, currentColor, transparent)",
+							WebkitBackgroundClip: "text",
+							WebkitTextFillColor: "transparent",
+						}}
+					>
+						{n}
+					</Text>
+					<Text
+						span
+						inherit
+						c="var(--mantine-primary-color-6)"
+					>
+						{stat.suffix}
+					</Text>
+				</Text>
+				<Text
+					size="11px"
+					fw={600}
+					tt="uppercase"
+					c="dimmed"
+					style={{ maxWidth: "12ch", letterSpacing: "0.22em", lineHeight: 1.6 }}
+				>
+					{stat.label}
+				</Text>
+			</Stack>
+		</Box>
 	);
 }
 
 export default function Overview() {
 	return (
-		<section className="relative mx-auto max-w-5xl px-6 py-20 md:py-24">
-			<div className="absolute inset-0 -z-10 mx-auto h-[1px] max-w-4xl bg-gradient-to-r from-transparent via-border to-transparent" />
-			<div className="grid grid-cols-1 gap-12 sm:grid-cols-3">
+		<Box component="section" mx="auto" px="md" py={80} style={{ maxWidth: "64rem" }}>
+			<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xl">
 				{OVERVIEW_STATS.map((s) => (
 					<Stat key={s.label} stat={s} />
 				))}
-			</div>
-		</section>
+			</SimpleGrid>
+		</Box>
 	);
 }

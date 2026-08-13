@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Stack } from "@mantine/core";
 import { ChatBubble } from "@/components/training/ChatBubble";
 import { ExamResultCard } from "@/components/training/ExamResultCard";
 import {
@@ -119,12 +120,12 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	}, [messages]);
 
 	return (
-		<div
+		<Box
 			ref={scrollRef}
-			className="h-full overflow-y-auto scroll-smooth relative"
+			style={{ height: "100%", overflowY: "auto", position: "relative" }}
 			onScroll={handleScroll}
 		>
-			<div className="mx-auto w-full max-w-3xl px-4 py-4 space-y-4">
+			<Stack gap="md" mx="auto" w="100%" maw={768} px="md" py="md">
 				{grouped.map((group, gi) => {
 					const firstMsg = group.messages[0];
 					if (firstMsg.role === "system" && firstMsg.examResult) {
@@ -133,7 +134,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					return (
 						<motion.div
 							key={gi}
-							className="flex flex-col gap-1"
+							style={{ display: "flex", flexDirection: "column", gap: 4 }}
 							initial={{ opacity: 0, y: 8 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.2, ease: "easeOut" }}
@@ -177,9 +178,9 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					.map((msg, i) => (
 						<ExamResultCard key={msg.id ?? `exam-${i}`} result={msg.examResult!} />
 					))}
-				<div ref={bottomRef} className="h-1" />
-			</div>
-		</div>
+				<Box ref={bottomRef} h={4} />
+			</Stack>
+		</Box>
 	);
 });
 

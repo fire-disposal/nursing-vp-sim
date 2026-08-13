@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff } from "lucide-react";
+import { ActionIcon, Stack } from "@mantine/core";
+import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { createSecret, updateSecret } from "@/api";
@@ -16,8 +17,8 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
-
 
 interface SecretModalProps {
 	open: boolean;
@@ -25,9 +26,6 @@ interface SecretModalProps {
 	onClose: () => void;
 	onSaved: () => void;
 }
-
-const inputClass =
-	"w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring";
 
 export default function SecretModal({
 	open,
@@ -109,7 +107,6 @@ export default function SecretModal({
 		onClose();
 	};
 
-
 	return (
 		<Dialog open={open} onOpenChange={(o) => {
 			if (!o) {
@@ -122,19 +119,16 @@ export default function SecretModal({
 			>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)}>
-						<div className="flex flex-col gap-3">
+						<Stack gap="sm">
 							<FormField
 								control={form.control}
 								name="label"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel className="mb-1 font-semibold text-sm">
-											标签
-										</FormLabel>
+										<FormLabel>标签</FormLabel>
 										<FormControl>
-											<input
+											<Input
 												placeholder="如: DeepSeek 个人账号"
-												className={inputClass}
 												{...field}
 											/>
 										</FormControl>
@@ -147,13 +141,10 @@ export default function SecretModal({
 								name="baseUrl"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel className="mb-1 font-semibold text-sm">
-											API 端点 (Base URL)
-										</FormLabel>
+										<FormLabel>API 端点 (Base URL)</FormLabel>
 										<FormControl>
-											<input
+											<Input
 												placeholder="https://api.deepseek.com"
-												className={`${inputClass} font-mono`}
 												{...field}
 											/>
 										</FormControl>
@@ -167,26 +158,27 @@ export default function SecretModal({
 									name="rawKey"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel className="mb-1 font-semibold text-sm">
-												API Key
-											</FormLabel>
+											<FormLabel>API Key</FormLabel>
 											<FormControl>
-												<div className="relative">
-													<input
-														type={showKey ? "text" : "password"}
-														placeholder="sk-..."
-														className={`${inputClass} pr-9`}
-														{...field}
-													/>
-													<button
-														type="button"
-														onClick={() => setShowKey((v) => !v)}
-														className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
-														title={showKey ? "隐藏" : "显示"}
-													>
-														{showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-													</button>
-												</div>
+												<Input
+													type={showKey ? "text" : "password"}
+													placeholder="sk-..."
+													{...field}
+													rightSection={
+														<ActionIcon
+															variant="subtle"
+															color="gray"
+															onClick={() => setShowKey((v) => !v)}
+															aria-label={showKey ? "隐藏" : "显示"}
+														>
+															{showKey ? (
+																<IconEyeOff size={16} />
+															) : (
+																<IconEye size={16} />
+															)}
+														</ActionIcon>
+													}
+												/>
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -198,21 +190,20 @@ export default function SecretModal({
 								name="monthlyLimit"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel className="mb-1 font-semibold text-sm">
-											月度预算上限 (¥, 留空不限制)
-										</FormLabel>
+										<FormLabel>月度预算上限 (¥, 留空不限制)</FormLabel>
 										<FormControl>
-											<input
+											<Input
 												type="number"
 												step="0.01"
 												min="0"
 												placeholder="如: 100.00"
-												className={inputClass}
 												{...field}
 												value={field.value ?? ""}
 												onChange={(e) =>
 													field.onChange(
-														e.target.value === "" ? null : e.target.valueAsNumber,
+														e.currentTarget.value === ""
+															? null
+															: e.currentTarget.valueAsNumber,
 													)
 												}
 											/>
@@ -226,19 +217,18 @@ export default function SecretModal({
 								name="priority"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel className="mb-1 font-semibold text-sm">
-											优先级 (数字越大越优先)
-										</FormLabel>
+										<FormLabel>优先级 (数字越大越优先)</FormLabel>
 										<FormControl>
-											<input
+											<Input
 												type="number"
 												step="1"
 												min="0"
-												className={inputClass}
 												{...field}
 												onChange={(e) =>
 													field.onChange(
-														e.target.value === "" ? 0 : e.target.valueAsNumber,
+														e.currentTarget.value === ""
+															? 0
+															: e.currentTarget.valueAsNumber,
 													)
 												}
 											/>
@@ -252,17 +242,14 @@ export default function SecretModal({
 								name="modelOverride"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel className="mb-1 font-semibold text-sm">
-											模型覆盖 (可选)
-										</FormLabel>
+										<FormLabel>模型覆盖 (可选)</FormLabel>
 										<FormControl>
-											<input
+											<Input
 												placeholder="如: deepseek-v4-pro"
-												className={inputClass}
 												{...field}
 												value={field.value ?? ""}
 												onChange={(e) =>
-													field.onChange(e.target.value || null)
+													field.onChange(e.currentTarget.value || null)
 												}
 											/>
 										</FormControl>
@@ -270,8 +257,8 @@ export default function SecretModal({
 									</FormItem>
 								)}
 							/>
-						</div>
-						<DialogFooter className="mt-4">
+						</Stack>
+						<DialogFooter>
 							<Button variant="outline" type="button" onClick={() => { void requestClose(); }}>
 								取消
 							</Button>

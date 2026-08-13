@@ -1,13 +1,26 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-	Activity,
-	AlertCircle,
-	BarChart3,
-		Download,
-	Server,
-	TrendingUp,
-	Zap,
-} from "lucide-react";
+	IconActivity,
+	IconAlertCircle,
+	IconBolt,
+	IconChartBar,
+	IconDownload,
+	IconServer,
+	IconTrendingUp,
+} from "@tabler/icons-react";
+import {
+	Alert,
+	Box,
+	Grid,
+	Group,
+	Paper,
+	ScrollArea,
+	Select,
+	SimpleGrid,
+	Stack,
+	Text,
+	TextInput,
+} from "@mantine/core";
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api";
@@ -15,10 +28,18 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogTimeline from "./CallLogTimeline";
 import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
-import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type LLMCallLogItem = Schemas["LLMCallLogItem"];
@@ -26,7 +47,7 @@ type LLMCallLogItem = Schemas["LLMCallLogItem"];
 const PURPOSE_LABELS = LLM_PURPOSE_LABELS;
 
 function safeDate(iso: string | null | undefined): string {
-	if (!iso) return "\u2014";
+	if (!iso) return "—";
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return iso;
 	return d.toLocaleString("zh-CN");
@@ -137,26 +158,26 @@ export default function MonitorTab() {
 
 	if (statsLoading) {
 		return (
-			<div className="rounded-xl border border-border bg-card shadow-e1 p-10 text-center text-muted-foreground/70">
-				<Activity size={36} className="mx-auto mb-3" />
-				<div>正在加载监控数据...</div>
-			</div>
+			<Paper withBorder radius="lg" p="xl" ta="center">
+				<Stack align="center" gap="xs">
+					<IconActivity size={36} style={{ color: "var(--mantine-color-dimmed)" }} />
+					<Text c="dimmed">正在加载监控数据...</Text>
+				</Stack>
+			</Paper>
 		);
 	}
 
 	if (statsError) {
 		return (
-			<div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center">
-				<AlertCircle size={36} className="mx-auto mb-3 text-destructive" />
-				<div className="text-destructive mb-2">监控数据加载失败</div>
-				<button
-					type="button"
-					onClick={() => refetchStats()}
-					className="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
-				>
+			<Alert
+				color="red"
+				icon={<IconAlertCircle size={18} />}
+				title="监控数据加载失败"
+			>
+				<Button size="xs" onClick={() => refetchStats()}>
 					重试
-				</button>
-			</div>
+				</Button>
+			</Alert>
 		);
 	}
 
@@ -193,93 +214,98 @@ export default function MonitorTab() {
 
 	return (
 		<>
-			<div className="mb-5">
-				<h3 className="text-[0.95rem] font-semibold mb-3 text-muted-foreground">
+			<Stack gap="md" mb="md">
+				<Text size="md" fw={600} c="dimmed">
 					今日概览
-				</h3>
-				<div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
+				</Text>
+				<SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
 					{statCards.map((s, i) => (
-						<div
-							key={i}
-							className="rounded-xl border border-border bg-card shadow-e1 p-5 text-center"
-						>
-							<div className="text-muted-foreground text-xs mb-1.5">
+						<Paper key={i} withBorder radius="lg" p="md" ta="center">
+							<Text size="xs" c="dimmed" mb={6}>
 								{s.label}
-							</div>
-							<div
-								className={cn(
-									"text-[1.8rem] font-bold",
+							</Text>
+							<Text
+								fw={700}
+								size="xl"
+								c={
 									s.color === "green"
-										? "text-success-foreground"
+										? "green"
 										: s.color === "amber"
-											? "text-amber-500"
-											: "text-primary",
-								)}
+											? "yellow"
+											: "teal"
+								}
 							>
 								{s.value}
-							</div>
-							<div className="text-[0.7rem] text-muted-foreground/70 mt-0.5">
+							</Text>
+							<Text size="xs" c="dimmed" mt={2}>
 								{s.sub}
-							</div>
-						</div>
+							</Text>
+						</Paper>
 					))}
-				</div>
-			</div>
+				</SimpleGrid>
+			</Stack>
 
 			{stats.by_provider?.length > 0 && (
-				<div className="rounded-xl border border-border bg-card shadow-e1 p-4 mb-5">
-					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
-						<BarChart3 size={14} /> 按 Provider 统计 (7日)
-					</h3>
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-								<tr>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										Provider
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										次数
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										费用
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										错误
-									</th>
-								</tr>
-							</thead>
-							<tbody>
+				<Paper withBorder radius="lg" p="md" mb="md">
+					<Group gap={6} mb="md">
+						<IconChartBar size={14} />
+						<Text size="sm" fw={600} c="dimmed">
+							按 Provider 统计 (7日)
+						</Text>
+					</Group>
+					<ScrollArea>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Provider</TableHead>
+									<TableHead>次数</TableHead>
+									<TableHead>费用</TableHead>
+									<TableHead>错误</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 								{stats.by_provider.map((p) => (
-									<tr key={p.provider}>
-										<td className="px-4 py-3 border-b border-border font-semibold">
-											{p.provider}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											{p.count}
-										</td>
-										<td className="px-4 py-3 border-b border-border text-amber-500">
-											¥{p.total_cost.toFixed(4)}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
+									<TableRow key={p.provider}>
+										<TableCell>
+											<Text component="span" fw={600}>
+												{p.provider}
+											</Text>
+										</TableCell>
+										<TableCell>{p.count}</TableCell>
+										<TableCell>
+											<Text component="span" c="yellow">
+												¥{p.total_cost.toFixed(4)}
+											</Text>
+										</TableCell>
+										<TableCell>
 											<Badge variant={p.error_count > 0 ? "danger" : "success"}>
 												{p.error_count}
 											</Badge>
-										</td>
-									</tr>
+										</TableCell>
+									</TableRow>
 								))}
-							</tbody>
-						</table>
-					</div>
-				</div>
+							</TableBody>
+						</Table>
+					</ScrollArea>
+				</Paper>
 			)}
 
 			{stats.daily.length > 0 && (
-				<div className="rounded-xl border border-border bg-card shadow-e1 p-5 mb-5">
-					<h3 className="text-[0.95rem] font-semibold mb-4 text-muted-foreground flex items-center gap-1.5">
-						<TrendingUp size={16} /> 近30天每日调用趋势
-					</h3>
-					<div className="flex items-end gap-1 h-[120px] pt-2">
+				<Paper withBorder radius="lg" p="md" mb="md">
+					<Group gap={6} mb="md">
+						<IconTrendingUp size={16} />
+						<Text fw={600} c="dimmed">
+							近30天每日调用趋势
+						</Text>
+					</Group>
+					<Group
+						align="flex-end"
+						gap={4}
+						h={120}
+						pt="xs"
+						wrap="nowrap"
+						style={{ alignItems: "flex-end" }}
+					>
 						{stats.daily.map((d) => {
 							const maxCount = Math.max(...stats.daily.map((x) => x.count), 1);
 							const h = Math.max(4, (d.count / maxCount) * 100);
@@ -287,248 +313,282 @@ export default function MonitorTab() {
 							return (
 								<div
 									key={d.date}
-									className="flex-1 flex flex-col items-center min-w-0"
+									style={{
+										flex: 1,
+										minWidth: 0,
+										display: "flex",
+										flexDirection: "column",
+										alignItems: "center",
+									}}
 									title={`${d.date}: ${d.count}次 · ¥${(d.total_cost ?? 0).toFixed(4)}`}
 								>
-									<div className="text-[0.55rem] text-muted-foreground/70 mb-0.5">
+									<div
+										style={{
+											fontSize: "0.55rem",
+											color: "var(--mantine-color-dimmed)",
+											marginBottom: 2,
+										}}
+									>
 										{d.count || ""}
 									</div>
 									<div
-										className="w-full rounded-t-sm opacity-85 min-h-[2px]"
 										style={{
+											width: "100%",
 											height: `${h}%`,
+											borderRadius: "2px 2px 0 0",
+											opacity: 0.85,
+											minHeight: 2,
 											background:
-												failRatio > 0.2 ? "var(--red-400)" : "var(--blue-400)",
+												failRatio > 0.2
+													? "var(--mantine-color-red-4)"
+													: "var(--mantine-color-blue-4)",
 										}}
 									/>
-									<div className="text-[0.55rem] text-muted-foreground/70 mt-1 -rotate-45 origin-top-left whitespace-nowrap">
+									<div
+										style={{
+											fontSize: "0.55rem",
+											color: "var(--mantine-color-dimmed)",
+											marginTop: 4,
+											transform: "rotate(-45deg)",
+											transformOrigin: "top left",
+											whiteSpace: "nowrap",
+										}}
+									>
 										{d.date.slice(5)}
 									</div>
 								</div>
 							);
 						})}
-					</div>
-				</div>
+					</Group>
+				</Paper>
 			)}
 
-			<div className="grid grid-cols-[1fr_2fr] gap-4 mb-5 max-[1000px]:grid-cols-1">
-				<div className="rounded-xl border border-border bg-card shadow-e1 p-4">
-					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
-						<Activity size={14} /> 按用途统计 (7日)
-					</h3>
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-								<tr>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										用途
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										次数
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										延迟
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										错误
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{stats.by_purpose.map((p) => (
-									<tr key={p.purpose}>
-										<td className="px-4 py-3 border-b border-border">
-											<Badge variant="info">
-												{PURPOSE_LABELS[p.purpose] || p.purpose}
-											</Badge>
-										</td>
-										<td className="px-4 py-3 border-b border-border font-semibold">
-											{p.count}
-										</td>
-										<td className="px-4 py-3 border-b border-border text-muted-foreground">
-											{p.avg_latency_ms}ms
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<Badge variant={p.error_count > 0 ? "danger" : "success"}>
-												{p.error_count}
-											</Badge>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</div>
+			<Grid mb="md">
+				<Grid.Col span={{ base: 12, md: 4 }}>
+					<Paper withBorder radius="lg" p="md">
+						<Group gap={6} mb="md">
+							<IconActivity size={14} />
+							<Text size="sm" fw={600} c="dimmed">
+								按用途统计 (7日)
+							</Text>
+						</Group>
+						<ScrollArea>
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>用途</TableHead>
+										<TableHead>次数</TableHead>
+										<TableHead>延迟</TableHead>
+										<TableHead>错误</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{stats.by_purpose.map((p) => (
+										<TableRow key={p.purpose}>
+											<TableCell>
+												<Badge variant="info">
+													{PURPOSE_LABELS[p.purpose] || p.purpose}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												<Text component="span" fw={600}>
+													{p.count}
+												</Text>
+											</TableCell>
+											<TableCell>
+												<Text component="span" c="dimmed">
+													{p.avg_latency_ms}ms
+												</Text>
+											</TableCell>
+											<TableCell>
+												<Badge variant={p.error_count > 0 ? "danger" : "success"}>
+													{p.error_count}
+												</Badge>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</ScrollArea>
+					</Paper>
+				</Grid.Col>
 
-				<div className="rounded-xl border border-border bg-card shadow-e1 p-4">
-					<h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
-						<Server size={14} /> 最近训练调用日志
-					</h3>
-					<div className="flex gap-2 mb-3 flex-wrap justify-between">
-						<div className="flex gap-2 flex-wrap items-end">
-							<select
-								value={filters.purpose}
-								onChange={(e) => updateParam("purpose", e.target.value)}
-								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
+				<Grid.Col span={{ base: 12, md: 8 }}>
+					<Paper withBorder radius="lg" p="md">
+						<Group gap={6} mb="md">
+							<IconServer size={14} />
+							<Text size="sm" fw={600} c="dimmed">
+								最近训练调用日志
+							</Text>
+						</Group>
+						<Group justify="space-between" mb="md" wrap="wrap" gap="xs">
+							<Group gap="xs" wrap="wrap" align="flex-end">
+								<Select
+									size="xs"
+									placeholder="全部用途"
+									clearable
+									value={filters.purpose || null}
+									onChange={(v) => updateParam("purpose", v ?? "")}
+									data={Object.entries(PURPOSE_LABELS).map(([k, v]) => ({
+										value: k,
+										label: v,
+									}))}
+								/>
+								<Select
+									size="xs"
+									placeholder="全部状态"
+									clearable
+									value={filters.status || null}
+									onChange={(v) => updateParam("status", v ?? "")}
+									data={[
+										{ value: "success", label: "成功" },
+										{ value: "failed", label: "失败" },
+										{ value: "timeout", label: "超时" },
+									]}
+								/>
+								<TextInput
+									size="xs"
+									type="date"
+									value={filters.date_from}
+									onChange={(e) => updateParam("date_from", e.currentTarget.value)}
+								/>
+								<TextInput
+									size="xs"
+									type="date"
+									value={filters.date_to}
+									onChange={(e) => updateParam("date_to", e.currentTarget.value)}
+								/>
+							</Group>
+							<Button
+								variant="outline"
+								size="xs"
+								leftSection={<IconDownload size={13} />}
+								onClick={() => exportMutation.mutate()}
 							>
-								<option value="">全部用途</option>
-								{Object.entries(PURPOSE_LABELS).map(([k, v]) => (
-									<option key={k} value={k}>
-										{v}
-									</option>
-								))}
-							</select>
-							<select
-								value={filters.status}
-								onChange={(e) => updateParam("status", e.target.value)}
-								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
-							>
-								<option value="">全部状态</option>
-								<option value="success">成功</option>
-								<option value="failed">失败</option>
-								<option value="timeout">超时</option>
-							</select>
-							<input
-								type="date"
-								value={filters.date_from}
-								onChange={(e) => updateParam("date_from", e.target.value)}
-								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
-							/>
-							<input
-								type="date"
-								value={filters.date_to}
-								onChange={(e) => updateParam("date_to", e.target.value)}
-								className="text-xs py-1 px-2 border border-border rounded-md bg-card"
-							/>
-						</div>
-						<button
-							onClick={() => exportMutation.mutate()}
-							className="flex items-center gap-1 text-xs py-1 px-3 border border-border rounded-md bg-card text-muted-foreground cursor-pointer hover:bg-muted"
-						>
-							<Download size={13} /> 导出CSV
-						</button>
-					</div>
-					{isLoading ? (
-						<div className="text-center py-6 text-muted-foreground/70">
-							加载中...
-						</div>
-					) : logs.length === 0 ? (
-						<EmptyState icon={Zap} title="暂无日志记录" className="py-6" />
-					) : (
-						<>
-							<div className="overflow-x-auto">
-								<table className="w-full border-collapse text-sm">
-									<thead>
-										<tr>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												时间
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												记录
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												用途
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												Provider
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												状态
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												延迟
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												Token
-											</th>
-											<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-												费用
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										{logs.map((item) => (
-											<tr
-												key={item.id}
-												className={cn(
-													item.record_id != null &&
-														"cursor-pointer hover:bg-muted/50 transition-colors",
-												)}
-												onClick={() => {
-													if (item.record_id != null)
-														setSelectedRecordId(item.record_id);
-												}}
-											>
-												<td className="px-4 py-3 border-b border-border text-xs text-muted-foreground whitespace-nowrap">
-													{safeDate(item.created_at)}
-												</td>
-												<td className="px-4 py-3 border-b border-border text-xs">
-													{item.record_id != null ? (
-														<span className="text-primary hover:underline font-mono">
-															#{item.record_id}
-														</span>
-													) : (
-														<span className="text-muted-foreground/40">
-															\u2014
-														</span>
-													)}
-												</td>
-												<td className="px-4 py-3 border-b border-border">
-													<Badge variant="info">{purposeLabel(item)}</Badge>
-												</td>
-												<td className="px-4 py-3 border-b border-border text-xs text-muted-foreground/70">
-													{item.provider_name || "-"}
-												</td>
-												<td className="px-4 py-3 border-b border-border">
-													<Badge
-														variant={
-															item.status === "success" ? "success" : "danger"
-														}
-													>
-														{item.status}
-														{item.error_count > 0
-															? ` (${item.error_count}错)`
-															: ""}
-													</Badge>
-												</td>
-												<td className="px-4 py-3 border-b border-border text-muted-foreground">
-													{item.latency_ms != null
-														? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}`
-														: "-"}
-												</td>
-												<td className="px-4 py-3 border-b border-border text-sm">
-													{item.total_tokens != null
-														? `${item.total_tokens}${item.token_estimated ? "~" : ""}`
-														: "-"}
-												</td>
-												<td className="px-4 py-3 border-b border-border text-sm text-amber-500">
-													{item.estimated_cost != null
-														? `¥${Number(item.estimated_cost).toFixed(4)}`
-														: "-"}
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
-							</div>
-							<Pagination
-								total={logTotal}
-								offset={offset}
-								limit={LIMIT}
-								onChange={setOffset}
-							/>
-							{selectedRecordId != null && (
-								<div className="mt-4">
-									<CallLogTimeline
-										recordId={selectedRecordId}
-										onBack={() => setSelectedRecordId(null)}
-									/>
-								</div>
-							)}
-						</>
-					)}
-				</div>
-			</div>
+								导出CSV
+							</Button>
+						</Group>
+						{isLoading ? (
+							<Text c="dimmed" ta="center" py="lg">
+								加载中...
+							</Text>
+						) : logs.length === 0 ? (
+							<EmptyState icon={IconBolt} title="暂无日志记录" />
+						) : (
+							<>
+								<ScrollArea>
+									<Table>
+										<TableHeader>
+											<TableRow>
+												<TableHead>时间</TableHead>
+												<TableHead>记录</TableHead>
+												<TableHead>用途</TableHead>
+												<TableHead>Provider</TableHead>
+												<TableHead>状态</TableHead>
+												<TableHead>延迟</TableHead>
+												<TableHead>Token</TableHead>
+												<TableHead>费用</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{logs.map((item) => (
+												<TableRow
+													key={item.id}
+													style={{
+														cursor:
+															item.record_id != null ? "pointer" : undefined,
+													}}
+													onClick={() => {
+														if (item.record_id != null)
+															setSelectedRecordId(item.record_id);
+													}}
+												>
+													<TableCell style={{ whiteSpace: "nowrap" }}>
+														<Text component="span" c="dimmed">
+															{safeDate(item.created_at)}
+														</Text>
+													</TableCell>
+													<TableCell>
+														{item.record_id != null ? (
+															<Text
+																component="span"
+																c="teal"
+																ff="monospace"
+																td="underline"
+															>
+																#{item.record_id}
+															</Text>
+														) : (
+															<Text component="span" c="dimmed" opacity={0.4}>
+																—
+															</Text>
+														)}
+													</TableCell>
+													<TableCell>
+														<Badge variant="info">{purposeLabel(item)}</Badge>
+													</TableCell>
+													<TableCell>
+														<Text component="span" c="dimmed" opacity={0.7}>
+															{item.provider_name || "-"}
+														</Text>
+													</TableCell>
+													<TableCell>
+														<Badge
+															variant={
+																item.status === "success"
+																	? "success"
+																	: "danger"
+															}
+														>
+															{item.status}
+															{item.error_count > 0
+																? ` (${item.error_count}错)`
+																: ""}
+														</Badge>
+													</TableCell>
+													<TableCell>
+														<Text component="span" c="dimmed">
+															{item.latency_ms != null
+																? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}`
+																: "-"}
+														</Text>
+													</TableCell>
+													<TableCell>
+														{item.total_tokens != null
+															? `${item.total_tokens}${item.token_estimated ? "~" : ""}`
+															: "-"}
+													</TableCell>
+													<TableCell>
+														<Text component="span" c="yellow">
+															{item.estimated_cost != null
+																? `¥${Number(item.estimated_cost).toFixed(4)}`
+																: "-"}
+														</Text>
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</ScrollArea>
+								<Pagination
+									total={logTotal}
+									offset={offset}
+									limit={LIMIT}
+									onChange={setOffset}
+								/>
+								{selectedRecordId != null && (
+									<Box mt="md">
+										<CallLogTimeline
+											recordId={selectedRecordId}
+											onBack={() => setSelectedRecordId(null)}
+										/>
+									</Box>
+								)}
+							</>
+						)}
+					</Paper>
+				</Grid.Col>
+			</Grid>
 		</>
 	);
 }

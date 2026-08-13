@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Avatar, Box, Group, Stack, Text } from "@mantine/core";
 import { Card } from "@/components/ui/card";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { PatientData } from "@/engine/types";
@@ -34,55 +35,90 @@ export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: Wel
 	);
 
 	return (
-		<div className="px-3 py-4 mx-auto w-full max-w-3xl">
-			<Card className="p-5 space-y-4 bg-gradient-to-br from-primary/5 to-accent/10">
-				<div className="flex items-center gap-4">
-					<img className="size-14 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
-						src={avatarSrc} alt={patient.name} />
-					<div className="min-w-0">
-						<h2 className="text-base font-bold text-foreground truncate">{patient.name}</h2>
-						<p className="text-sm text-muted-foreground">{subInfo}</p>
-						{patient.chiefComplaint && (
-							<p className="text-xs text-muted-foreground mt-0.5 truncate">主诉：{patient.chiefComplaint}</p>
-						)}
-					</div>
-				</div>
+		<Box px="xs" py="md" mx="auto" w="100%" maw={768}>
+			<Card p="xl">
+				<Stack gap="md">
+					<Group gap="md" wrap="nowrap">
+						<Avatar src={avatarSrc} alt={patient.name} size={56} radius="xl" />
+						<Box style={{ minWidth: 0 }}>
+							<Text fw={700} truncate>{patient.name}</Text>
+							<Text size="sm" c="dimmed">{subInfo}</Text>
+							{patient.chiefComplaint && (
+								<Text size="xs" c="dimmed" mt={2} truncate>主诉：{patient.chiefComplaint}</Text>
+							)}
+						</Box>
+					</Group>
 
-				<div className="flex items-center gap-2 flex-wrap">
-					{flowSteps.map((label, i) => (
-						<span key={label} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-							<span className="inline-flex size-4 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary tabular-nums">
-								{i + 1}
-							</span>
-							{label}
-						</span>
-					))}
-				</div>
-
-				{onQuickPrompt && (
-					<div className="space-y-2 rounded-xl border border-border/70 bg-background/70 p-3">
-						<p className="text-xs font-medium text-muted-foreground">建议开场</p>
-						<div className="flex flex-wrap gap-2">
-							{quickPrompts.map((prompt) => (
-								<button
-									key={prompt}
-									type="button"
-									onClick={() => onQuickPrompt(prompt)}
-									className="rounded-full border border-border bg-card px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
+					<Group gap={8} wrap="wrap">
+						{flowSteps.map((label, i) => (
+							<Group key={label} gap={6} wrap="nowrap">
+								<Box
+									w={16}
+									h={16}
+									style={{
+										borderRadius: 999,
+										background: "var(--mantine-primary-color-light)",
+										color: "var(--mantine-primary-color-light-color)",
+										display: "inline-flex",
+										alignItems: "center",
+										justifyContent: "center",
+										fontSize: 10,
+										fontWeight: 600,
+										fontVariantNumeric: "tabular-nums",
+									}}
 								>
-									{prompt}
-								</button>
-							))}
-						</div>
-					</div>
-				)}
+									{i + 1}
+								</Box>
+								<Text size="xs" c="dimmed">{label}</Text>
+							</Group>
+						))}
+					</Group>
 
+					{onQuickPrompt && (
+						<Box
+							style={{
+								borderRadius: 12,
+								border: "1px solid var(--mantine-color-default-border)",
+								background: "var(--mantine-color-body)",
+								padding: 12,
+							}}
+						>
+							<Text size="xs" fw={500} c="dimmed" mb={8}>建议开场</Text>
+							<Group gap={8} wrap="wrap">
+								{quickPrompts.map((prompt) => (
+									<Box
+										key={prompt}
+										component="button"
+										type="button"
+										onClick={() => onQuickPrompt(prompt)}
+										style={{
+											borderRadius: 999,
+											border: "1px solid var(--mantine-color-default-border)",
+											background: "var(--mantine-color-body)",
+											padding: "6px 12px",
+											textAlign: "left",
+											fontSize: 12,
+											color: "var(--mantine-color-text)",
+											cursor: "pointer",
+										}}
+									>
+										{prompt}
+									</Box>
+								))}
+							</Group>
+						</Box>
+					)}
 
-				<p className="text-xs text-muted-foreground/70 pt-2 border-t border-border leading-relaxed">
-					在下方输入框中向患者提问，开始采集病史。完成问诊后点击右上角
-					<span className="font-medium text-foreground">"结束训练"</span>提交评分。
-				</p>
+					<Text
+						size="xs"
+						c="dimmed"
+						style={{ borderTop: "1px solid var(--mantine-color-default-border)", paddingTop: 8, lineHeight: 1.6 }}
+					>
+						在下方输入框中向患者提问，开始采集病史。完成问诊后点击右上角
+						<Text component="span" fw={500} c="var(--mantine-color-text)">"结束训练"</Text>提交评分。
+					</Text>
+				</Stack>
 			</Card>
-		</div>
+		</Box>
 	);
 }

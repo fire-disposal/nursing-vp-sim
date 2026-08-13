@@ -1,18 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-	AlertCircle,
-	Clock,
-	Cpu,
-	DollarSign,
-	FileText,
-	Hash,
-	Zap,
-} from "lucide-react";
+	Alert,
+	Box,
+	Divider,
+	Group,
+	Paper,
+	ScrollArea,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import {
+	IconAlertCircle,
+	IconBolt,
+	IconClock,
+	IconCpu,
+	IconCurrencyDollar,
+	IconFileText,
+	IconHash,
+} from "@tabler/icons-react";
+import type { ComponentType, CSSProperties } from "react";
 import { getLogDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 
 interface CallLogDetailProps {
 	logId: number | null;
@@ -20,36 +31,44 @@ interface CallLogDetailProps {
 }
 
 function safeDate(iso: string | null | undefined): string {
-	if (!iso) return "\u2014";
+	if (!iso) return "—";
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return iso;
 	return d.toLocaleString("zh-CN");
 }
 
+type IconType = ComponentType<{
+	size?: number;
+	className?: string;
+	strokeWidth?: number;
+	style?: CSSProperties;
+}>;
+
 function Block({
 	label,
 	content,
-	maxH = "max-h-96",
 }: {
 	label: string;
 	content: string | null | undefined;
-	maxH?: string;
 }) {
 	if (!content) return null;
 	return (
-		<div className="mb-4">
-			<div className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">
+		<Box mb="md">
+			<Text size="xs" fw={600} c="dimmed" mb={6} tt="uppercase">
 				{label}
-			</div>
-			<pre
-				className={cn(
-					"overflow-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed whitespace-pre-wrap break-all",
-					maxH,
-				)}
-			>
-				{content}
-			</pre>
-		</div>
+			</Text>
+			<Paper withBorder radius="md" p="sm" bg="var(--mantine-color-gray-1)">
+				<ScrollArea.Autosize mah={384}>
+					<Text
+						size="xs"
+						ff="monospace"
+						style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.6 }}
+					>
+						{content}
+					</Text>
+				</ScrollArea.Autosize>
+			</Paper>
+		</Box>
 	);
 }
 
@@ -58,16 +77,20 @@ function MetaRow({
 	label,
 	value,
 }: {
-	icon: React.ElementType;
+	icon: IconType;
 	label: string;
 	value: string;
 }) {
 	return (
-		<div className="flex items-center gap-2 text-sm py-1.5 border-b border-border/50 last:border-0">
-			<Icon size={14} className="text-muted-foreground shrink-0" />
-			<span className="text-muted-foreground w-20 shrink-0">{label}</span>
-			<span className="font-medium truncate">{value}</span>
-		</div>
+		<Group gap={8} py={6} wrap="nowrap">
+			<Icon size={14} style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />
+			<Text size="sm" c="dimmed" w={80} style={{ flexShrink: 0 }}>
+				{label}
+			</Text>
+			<Text size="sm" fw={500} style={{ minWidth: 0, flex: 1 }}>
+				{value}
+			</Text>
+		</Group>
 	);
 }
 
@@ -84,105 +107,109 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 
 	return (
 		<Sheet open={logId !== null} onClose={onClose} side="right" size="lg">
-			<div className="p-5 pt-14">
+			<Box p="md">
 				{isLoading && (
-					<div className="text-center py-10 text-muted-foreground">
+					<Text c="dimmed" ta="center" py="xl">
 						加载中...
-					</div>
+					</Text>
 				)}
 				{isError && (
-					<div className="text-center py-10 text-destructive">加载失败</div>
+					<Text c="red" ta="center" py="xl">
+						加载失败
+					</Text>
 				)}
 				{!isLoading && !isError && !log && (
-					<div className="text-center py-10 text-muted-foreground">
+					<Text c="dimmed" ta="center" py="xl">
 						暂无数据
-					</div>
+					</Text>
 				)}
 				{log && (
 					<>
-						<h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-							<FileText size={18} /> 调用详情 #{log.id}
-						</h2>
+						<Group gap={8} mb="md">
+							<IconFileText size={18} />
+							<Title order={2}>调用详情 #{log.id}</Title>
+						</Group>
 
-						<div className="rounded-xl border border-border bg-card p-4 mb-4">
-							<MetaRow
-								icon={Clock}
-								label="时间"
-								value={safeDate(log.created_at)}
-							/>
-							<MetaRow icon={Hash} label="用途" value={log.purpose} />
-							<MetaRow
-								icon={Cpu}
-								label="模型"
-								value={`${log.provider_name || "\u2014"} / ${log.model || "\u2014"}`}
-							/>
-							<MetaRow
-								icon={Zap}
-								label="延迟"
-								value={
-									log.latency_ms != null ? `${log.latency_ms}ms` : "\u2014"
-								}
-							/>
-							<MetaRow
-								icon={Hash}
-								label="Token"
-								value={
-									[
-										log.prompt_tokens != null ? `P:${log.prompt_tokens}` : "",
-										log.completion_tokens != null
-											? `C:${log.completion_tokens}`
-											: "",
-										log.total_tokens != null ? `T:${log.total_tokens}` : "",
-										log.token_estimated ? "(\u4f30)" : "",
-									]
-										.filter(Boolean)
-										.join(" ") || "\u2014"
-								}
-							/>
-							<MetaRow
-								icon={DollarSign}
-								label="\u8d39\u7528"
-								value={
-									log.estimated_cost != null
-										? `\xA5${Number(log.estimated_cost).toFixed(6)} ${log.cost_currency || ""}`.trim()
-										: "\u2014"
-								}
-							/>
-							<div className="flex items-center gap-2 text-sm py-1.5 border-b border-border/50 last:border-0">
-								<AlertCircle
-									size={14}
-									className="text-muted-foreground shrink-0"
+						<Paper withBorder radius="lg" p="md" mb="md">
+							<Stack gap={0}>
+								<MetaRow
+									icon={IconClock}
+									label="时间"
+									value={safeDate(log.created_at)}
 								/>
-								<span className="text-muted-foreground w-20 shrink-0">
-									状态
-								</span>
-								<Badge
-									variant={log.status === "success" ? "success" : "danger"}
-								>
-									{log.status}
-								</Badge>
-								{log.error_type && (
-									<Badge variant="warning">{log.error_type}</Badge>
+								<MetaRow icon={IconHash} label="用途" value={log.purpose} />
+								<MetaRow
+									icon={IconCpu}
+									label="模型"
+									value={`${log.provider_name || "—"} / ${log.model || "—"}`}
+								/>
+								<MetaRow
+									icon={IconBolt}
+									label="延迟"
+									value={log.latency_ms != null ? `${log.latency_ms}ms` : "—"}
+								/>
+								<MetaRow
+									icon={IconHash}
+									label="Token"
+									value={
+										[
+											log.prompt_tokens != null ? `P:${log.prompt_tokens}` : "",
+											log.completion_tokens != null
+												? `C:${log.completion_tokens}`
+												: "",
+											log.total_tokens != null ? `T:${log.total_tokens}` : "",
+											log.token_estimated ? "(估)" : "",
+										]
+											.filter(Boolean)
+											.join(" ") || "—"
+									}
+								/>
+								<MetaRow
+									icon={IconCurrencyDollar}
+									label="费用"
+									value={
+										log.estimated_cost != null
+											? `¥${Number(log.estimated_cost).toFixed(6)} ${log.cost_currency || ""}`.trim()
+											: "—"
+									}
+								/>
+								<Divider my="sm" />
+								<Group gap={8} wrap="nowrap">
+									<IconAlertCircle
+										size={14}
+										style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }}
+									/>
+									<Text size="sm" c="dimmed" w={80} style={{ flexShrink: 0 }}>
+										状态
+									</Text>
+									<Badge
+										variant={log.status === "success" ? "success" : "danger"}
+									>
+										{log.status}
+									</Badge>
+									{log.error_type && (
+										<Badge variant="warning">{log.error_type}</Badge>
+									)}
+								</Group>
+								{log.error_message && (
+									<Alert color="red" mt="sm">
+										{log.error_message}
+									</Alert>
 								)}
-							</div>
-							{log.error_message && (
-								<div className="mt-2 p-2 rounded bg-danger text-danger-foreground text-xs">
-									{log.error_message}
-								</div>
-							)}
-						</div>
+							</Stack>
+						</Paper>
 
 						<Block
-							label="System Prompt + Messages (\u8bf7\u6c42)"
+							label="System Prompt + Messages (请求)"
 							content={log.request_text}
 						/>
 						<Block
-							label="LLM Response (\u54cd\u5e94)"
+							label="LLM Response (响应)"
 							content={log.response_text}
 						/>
 					</>
 				)}
-			</div>
+			</Box>
 		</Sheet>
 	);
 }

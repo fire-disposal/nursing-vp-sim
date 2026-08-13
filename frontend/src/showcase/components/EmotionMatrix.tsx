@@ -1,83 +1,173 @@
+import { Badge, Box, Group, Paper, Stack, Text } from "@mantine/core";
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 
 const STATES = [
 	{ trust: 70, comfort: 70, label: "open",     emoji: "😄", display: "开放信任", desc: "愿意详细叙述，主动补充信息", color: "green" },
 	{ trust: 30, comfort: 60, label: "relaxed",  emoji: "😊", display: "放松友好", desc: "语气友好，配合回答", color: "blue" },
-	{ trust: 30, comfort: 35, label: "neutral",  emoji: "🙂", display: "正常配合", desc: "中性叙述，按常规节奏交流", color: "slate" },
-	{ trust: 30, comfort:  0, label: "anxious",  emoji: "😰", display: "焦虑不安", desc: "谨慎反复确认，语气急促", color: "purple" },
+	{ trust: 30, comfort: 35, label: "neutral",  emoji: "🙂", display: "正常配合", desc: "中性叙述，按常规节奏交流", color: "gray" },
+	{ trust: 30, comfort:  0, label: "anxious",  emoji: "😰", display: "焦虑不安", desc: "谨慎反复确认，语气急促", color: "grape" },
 	{ trust:  0, comfort: 30, label: "defensive",emoji: "😟", display: "防御抵触", desc: "回避关键问题，短句回复", color: "orange" },
 ];
 
 const FALLBACK = { label: "withdrawn", emoji: "😐", display: "沉默回避", desc: "不愿展开对话，回复极少", color: "red" };
 
+const DOT_COLOR: Record<string, string> = {
+	green: "var(--mantine-color-green-6)",
+	blue: "var(--mantine-color-blue-6)",
+	gray: "var(--mantine-color-gray-6)",
+	grape: "var(--mantine-color-grape-6)",
+	orange: "var(--mantine-color-orange-6)",
+	red: "var(--mantine-color-red-6)",
+};
+
 export default function EmotionMatrix() {
 	const active = useMemo(() => STATES[2], []); // neutral as demo
 
 	return (
-		<div className="group relative overflow-hidden rounded-3xl border border-border/60 bg-card p-6">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.10),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(13,148,136,0.08),transparent_36%)]" />
-			<div className="relative z-10 flex items-center justify-between gap-4">
-				<div>
-					<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">情绪状态机</div>
-					<div className="mt-1 text-lg font-bold text-foreground">信任 × 舒适 (6 态)</div>
-				</div>
-				<div className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+		<Paper withBorder radius="xl" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+						情绪状态机
+					</Text>
+					<Text size="lg" fw={700}>
+						信任 × 舒适 (6 态)
+					</Text>
+				</Stack>
+				<Badge variant="default" radius="xl">
 					首次匹配
-				</div>
-			</div>
+				</Badge>
+			</Group>
 
-			<div className="relative z-10 mt-5 space-y-2.5">
+			<Stack gap={10} mt="lg" pos="relative" style={{ zIndex: 10 }}>
 				{STATES.map((s) => (
-					<div key={s.label} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/70 p-4">
-						<span className="text-2xl shrink-0">{s.emoji}</span>
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2">
-								<span className="text-sm font-bold text-foreground">{s.display}</span>
-								<span className="text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</span>
-							</div>
-							<div className="mt-0.5 text-xs text-muted-foreground">{s.desc}</div>
-							<div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
-								<span className="inline-flex items-center gap-1">
-									<span className={cn("size-1.5 rounded-full", s.color === "green" && "bg-emerald-500", s.color === "blue" && "bg-blue-500", s.color === "slate" && "bg-slate-400", s.color === "purple" && "bg-purple-500", s.color === "orange" && "bg-orange-500")} />
-									信任 ≥ {s.trust}
-								</span>
-								<span className="inline-flex items-center gap-1">
-									<span className={cn("size-1.5 rounded-full", s.color === "green" && "bg-emerald-500", s.color === "blue" && "bg-blue-500", s.color === "slate" && "bg-slate-400", s.color === "purple" && "bg-purple-500", s.color === "orange" && "bg-orange-500")} />
-									舒适 ≥ {s.comfort}
-								</span>
-							</div>
-						</div>
-					</div>
+					<Group
+						key={s.label}
+						gap={12}
+						p="md"
+						wrap="nowrap"
+						style={{
+							border: "1px solid var(--mantine-color-default-border)",
+							borderRadius: "var(--mantine-radius-md)",
+							background: "var(--mantine-color-gray-0)",
+						}}
+					>
+						<Text size="2rem" style={{ flexShrink: 0 }}>
+							{s.emoji}
+						</Text>
+						<Box style={{ flex: 1, minWidth: 0 }}>
+							<Group gap={8}>
+								<Text size="sm" fw={700}>
+									{s.display}
+								</Text>
+								<Text size="10px" tt="uppercase" c="dimmed">
+									{s.label}
+								</Text>
+							</Group>
+							<Text size="xs" c="dimmed" mt={2}>
+								{s.desc}
+							</Text>
+							<Group gap={12} mt={6}>
+								<Group gap={4}>
+									<Box
+										style={{
+											width: 6,
+											height: 6,
+											borderRadius: "50%",
+											background: DOT_COLOR[s.color],
+										}}
+									/>
+									<Text size="10px" c="dimmed">
+										信任 ≥ {s.trust}
+									</Text>
+								</Group>
+								<Group gap={4}>
+									<Box
+										style={{
+											width: 6,
+											height: 6,
+											borderRadius: "50%",
+											background: DOT_COLOR[s.color],
+										}}
+									/>
+									<Text size="10px" c="dimmed">
+										舒适 ≥ {s.comfort}
+									</Text>
+								</Group>
+							</Group>
+						</Box>
+					</Group>
 				))}
-				<div className="flex items-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/30 p-4">
-					<span className="text-2xl shrink-0 opacity-50">{FALLBACK.emoji}</span>
-					<div className="flex-1 min-w-0">
-						<div className="flex items-center gap-2">
-							<span className="text-sm font-bold text-muted-foreground">{FALLBACK.display}</span>
-							<span className="text-[10px] uppercase tracking-wide text-muted-foreground/60">{FALLBACK.label}</span>
-							<span className="text-[10px] text-muted-foreground/50">通配 fallback</span>
-						</div>
-						<div className="mt-0.5 text-xs text-muted-foreground/60">{FALLBACK.desc}</div>
-						<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground/50">
-							<span className={cn("size-1.5 rounded-full bg-red-500")} />
-							不满足以上任意条件时
-						</div>
-					</div>
-				</div>
-			</div>
+				<Group
+					gap={12}
+					p="md"
+					wrap="nowrap"
+					style={{
+						border: "1px dashed var(--mantine-color-default-border)",
+						borderRadius: "var(--mantine-radius-md)",
+						background: "var(--mantine-color-gray-0)",
+					}}
+				>
+					<Text size="2rem" opacity={0.5} style={{ flexShrink: 0 }}>
+						{FALLBACK.emoji}
+					</Text>
+					<Box style={{ flex: 1, minWidth: 0 }}>
+						<Group gap={8}>
+							<Text size="sm" fw={700} c="dimmed">
+								{FALLBACK.display}
+							</Text>
+							<Text size="10px" tt="uppercase" c="dimmed" opacity={0.6}>
+								{FALLBACK.label}
+							</Text>
+							<Text size="10px" c="dimmed" opacity={0.5}>
+								通配 fallback
+							</Text>
+						</Group>
+						<Text size="xs" c="dimmed" opacity={0.6} mt={2}>
+							{FALLBACK.desc}
+						</Text>
+						<Group gap={4} mt={6}>
+							<Box
+								style={{
+									width: 6,
+									height: 6,
+									borderRadius: "50%",
+									background: DOT_COLOR[FALLBACK.color],
+								}}
+							/>
+							<Text size="10px" c="dimmed" opacity={0.5}>
+								不满足以上任意条件时
+							</Text>
+						</Group>
+					</Box>
+				</Group>
+			</Stack>
 
-			<div className="relative z-10 mt-5 rounded-2xl border border-border/60 bg-background/70 p-5 backdrop-blur-sm">
-				<div className="flex items-center justify-between gap-4">
-					<div>
-						<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">匹配规则</div>
-						<div className="mt-1 text-sm text-muted-foreground">从上到下首次匹配，无匹配则 withdrawn</div>
-					</div>
-					<div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-						{active.display} {active.emoji}
-					</div>
-				</div>
-			</div>
-		</div>
+			<Group
+				justify="space-between"
+				gap="md"
+				p="lg"
+				mt="lg"
+				pos="relative"
+				style={{
+					zIndex: 10,
+					border: "1px solid var(--mantine-color-default-border)",
+					borderRadius: "var(--mantine-radius-md)",
+					background: "var(--mantine-color-gray-0)",
+				}}
+			>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+						匹配规则
+					</Text>
+					<Text size="sm" c="dimmed">
+						从上到下首次匹配，无匹配则 withdrawn
+					</Text>
+				</Stack>
+				<Badge variant="light" radius="xl">
+					{active.display} {active.emoji}
+				</Badge>
+			</Group>
+		</Paper>
 	);
 }

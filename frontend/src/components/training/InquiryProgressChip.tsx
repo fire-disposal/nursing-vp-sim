@@ -1,5 +1,7 @@
-import { ListChecks } from "lucide-react";
+// ListChecks（lucide）在 tabler 无同名图标，语义上取 IconListCheck（清单勾选）。
+import { IconListCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
+import { Box, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { computeCovered } from "./tools/inquiryProgress";
 
@@ -29,15 +31,30 @@ export function InquiryProgressChip() {
 	const total = inquiries.length;
 
 	return (
-		<button
+		<Box
+			component="button"
 			type="button"
 			onClick={() => bus!.emit("tool:open", { id: "inquiry" })}
-			className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-border bg-card text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
 			title={`问诊目标 ${done}/${total}，点击查看指引`}
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: 4,
+				padding: "2px 6px",
+				borderRadius: 6,
+				border: "1px solid var(--mantine-color-default-border)",
+				background: "var(--mantine-color-body)",
+				fontSize: 11,
+				color: "var(--mantine-color-dimmed)",
+				cursor: "pointer",
+				flexShrink: 0,
+			}}
 		>
-			<ListChecks size={12} />
-			<span className="tabular-nums">{done}/{total}</span>
-			{done < total && <span className="size-1.5 rounded-full bg-warning" />}
-		</button>
+			<IconListCheck size={12} />
+			<Text component="span" size="11px" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+				{done}/{total}
+			</Text>
+			{done < total && <Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />}
+		</Box>
 	);
 }

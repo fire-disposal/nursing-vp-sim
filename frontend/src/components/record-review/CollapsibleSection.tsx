@@ -1,6 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import { Box, Group, Text, UnstyledButton } from "@mantine/core";
+import { IconChevronDown } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 
 interface CollapsibleSectionProps {
 	icon: ReactNode;
@@ -18,24 +18,25 @@ export default function CollapsibleSection({
 	children,
 }: CollapsibleSectionProps) {
 	return (
-		<div className="pt-2 border-t border-border">
-			<button
-				onClick={onToggle}
-				className="flex items-center justify-between w-full py-2"
-			>
-				<h4 className="flex items-center gap-2 text-sm font-semibold">
-					{icon}
-					{title}
-				</h4>
-				<ChevronDown
-					size={16}
-					className={cn(
-						"transition-transform",
-						expanded && "rotate-180",
-					)}
-				/>
-			</button>
+		<Box pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+			<UnstyledButton onClick={onToggle} w="100%" py="xs">
+				<Group justify="space-between" wrap="nowrap">
+					<Group gap="xs" wrap="nowrap">
+						{icon}
+						<Text component="h4" size="sm" fw={600}>
+							{title}
+						</Text>
+					</Group>
+					<IconChevronDown
+						size={16}
+						style={{
+							transform: expanded ? "rotate(180deg)" : undefined,
+							transition: "transform 200ms",
+						}}
+					/>
+				</Group>
+			</UnstyledButton>
 			{expanded && children}
-		</div>
+		</Box>
 	);
 }

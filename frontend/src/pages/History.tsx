@@ -1,6 +1,7 @@
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Play, Trash2, XCircle } from "lucide-react";
+import { Box, Group, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
@@ -15,6 +16,7 @@ import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import { Input } from "@/components/ui/input";
 import {
 	Table,
 	TableBody,
@@ -23,7 +25,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -44,6 +45,8 @@ function recordStatus(r: TrainingRecordBrief): RecordStatus {
 		return r.status;
 	return "in_progress"; // fallback
 }
+
+const DIM = { color: "var(--mantine-color-gray-6)" } as const;
 
 export default function History() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -136,127 +139,145 @@ export default function History() {
 	};
 
 	return (
-		<RecordSubPageLayout title="训练记录" icon={ClipboardList}>
-			<div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3">
-				<div className="flex items-center gap-2 flex-wrap">
-					<span className="text-xs text-muted-foreground shrink-0">共 {total} 条</span>
+		<RecordSubPageLayout title="训练记录" icon={IconClipboardList}>
+			<Paper withBorder radius="lg" p="md">
+				<Group gap="xs" align="center" wrap="wrap">
+					<Text size="xs" c="dimmed">
+						共 {total} 条
+					</Text>
 					{records.length > 0 && (
-						<span className="text-xs text-muted-foreground shrink-0">
-							· 已完成 {records.filter(r => r.status === "completed").length}
-						</span>
+						<Text size="xs" c="dimmed">
+							· 已完成 {records.filter((r) => r.status === "completed").length}
+						</Text>
 					)}
-					<div className="flex-1" />
-					<Select value={status ?? "all"} onValueChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}>
-						<SelectTrigger className="h-8 w-[110px] text-xs">
-							<SelectValue placeholder="全部状态" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">全部状态</SelectItem>
-							<SelectItem value="in_progress">进行中</SelectItem>
-							<SelectItem value="completed">已完成</SelectItem>
-							<SelectItem value="abandoned">已放弃</SelectItem>
-						</SelectContent>
-					</Select>
-					<input type="date" value={date_from} onChange={(e) => setParam("date_from", e.target.value)}
-						className="h-8 rounded-md border border-input bg-background px-2 text-xs" />
-					<input type="date" value={date_to} onChange={(e) => setParam("date_to", e.target.value)}
-						className="h-8 rounded-md border border-input bg-background px-2 text-xs" />
-					<Button variant="outline" size="xs" onClick={clearFilters}>清除</Button>
-				</div>
-			</div>
-
-				{isLoading ? (
-					<LoadingSkeleton variant="spinner" message="加载中..." />
-				) : isError ? (
-					<ErrorDisplay
-						icon={ClipboardList}
-						message={(error as { response?: { data?: { detail?: string } } })
-							?.response?.data?.detail || "加载记录失败"}
-						onRetry={() => refetch()}
+					<Box style={{ flex: 1 }} />
+					<Box w={120}>
+						<Select value={status ?? "all"} onValueChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}>
+							<SelectTrigger size="sm">
+								<SelectValue placeholder="全部状态" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">全部状态</SelectItem>
+								<SelectItem value="in_progress">进行中</SelectItem>
+								<SelectItem value="completed">已完成</SelectItem>
+								<SelectItem value="abandoned">已放弃</SelectItem>
+							</SelectContent>
+						</Select>
+					</Box>
+					<Input
+						type="date"
+						size="xs"
+						w={140}
+						value={date_from}
+						onChange={(e) => setParam("date_from", e.target.value)}
 					/>
-				) : records.length === 0 ? (
-					<div className="rounded-xl border bg-card">
-						<EmptyState icon={ClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
-					</div>
-				) : (
+					<Input
+						type="date"
+						size="xs"
+						w={140}
+						value={date_to}
+						onChange={(e) => setParam("date_to", e.target.value)}
+					/>
+					<Button variant="outline" size="xs" onClick={clearFilters}>
+						清除
+					</Button>
+				</Group>
+			</Paper>
 
-					<div className="rounded-xl border bg-card overflow-hidden">
-						{/* Mobile: card list */}
-						<div className="space-y-2 p-2 md:hidden">
+			{isLoading ? (
+				<LoadingSkeleton variant="spinner" message="加载中..." />
+			) : isError ? (
+				<ErrorDisplay
+					icon={IconClipboardList}
+					message={(error as { response?: { data?: { detail?: string } } })
+						?.response?.data?.detail || "加载记录失败"}
+					onRetry={() => refetch()}
+				/>
+			) : records.length === 0 ? (
+				<Paper withBorder radius="lg">
+					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
+				</Paper>
+			) : (
+				<Paper withBorder radius="lg" style={{ overflow: "hidden" }}>
+					{/* Mobile: card list */}
+					<Box hiddenFrom="md" p="xs">
+						<Stack gap="xs">
 							{records.map((r) => {
 								const durMins = recordDurMins(r);
 								const status = recordStatus(r);
 								return (
-									<div
-										key={r.id}
-										className="rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50 active:scale-[0.99]"
-									>
-										<button
+									<Paper key={r.id} withBorder radius="md" p="sm">
+										<UnstyledButton
 											onClick={() => navigate(`/record/${r.id}`)}
-											className="w-full text-left"
+											style={{ width: "100%", textAlign: "left" }}
 										>
-											<div className="flex items-start justify-between gap-2">
-												<div className="min-w-0 flex-1">
-													<div className="flex items-center gap-2">
-														<div className="text-sm font-semibold truncate">{r.case_name}</div>
+											<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+												<Box style={{ minWidth: 0, flex: 1 }}>
+													<Group gap="xs" wrap="nowrap">
+														<Text size="sm" fw={600} truncate>
+															{r.case_name}
+														</Text>
 														{r.assignment_title && (
-															<span className="shrink-0 inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[10px] text-primary">作业</span>
+															<Badge variant="default" size="xs">
+																作业
+															</Badge>
 														)}
-													</div>
-													<div className="text-xs text-muted-foreground mt-0.5">
+													</Group>
+													<Text size="xs" c="dimmed" mt={2}>
 														{new Date(r.start_time).toLocaleString("zh-CN", {
 															month: "numeric", day: "numeric",
 															hour: "2-digit", minute: "2-digit",
 														})}
-														 · 问诊
+														{" · 问诊"}
 														{durMins != null ? ` · ${durMins} 分钟` : ""}
-													</div>
-												</div>
-												<div className="flex items-center gap-2 shrink-0">
+													</Text>
+												</Box>
+												<Box style={{ flexShrink: 0 }}>
 													{status === "completed" ? (
-														<span className="text-xs tabular-nums font-semibold">
+														<Text size="xs" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
 															{r.score_total != null ? `${r.score_total} 分` : "评分中"}
-														</span>
+														</Text>
 													) : status === "abandoned" ? (
-														<span className="text-xs text-muted-foreground">已放弃</span>
+														<Text size="xs" c="dimmed">
+															已放弃
+														</Text>
 													) : (
 														<Badge variant="info">进行中</Badge>
 													)}
-												</div>
-											</div>
-										</button>
-										<div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+												</Box>
+											</Group>
+										</UnstyledButton>
+										<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
 											{status === "in_progress" && (
 												<>
 													<Button
 														variant="outline"
-														size="sm"
-														className="h-7 text-xs flex-1"
+														size="xs"
+														style={{ flex: 1 }}
 														onClick={(e) => {
 															e.stopPropagation();
 															navigate(`/training/${r.id}`);
 														}}
 													>
-														<Play size={12} /> 继续
+														<IconPlayerPlay size={12} /> 继续
 													</Button>
 													<Button
 														variant="ghost"
-														size="sm"
-														className="h-7 text-xs text-muted-foreground"
+														size="xs"
 														onClick={(e) => {
 															e.stopPropagation();
 															handleAbandonRecord(r);
 														}}
 													>
-														<XCircle size={12} /> 放弃
+														<IconCircleX size={12} /> 放弃
 													</Button>
 												</>
 											)}
 											{status === "abandoned" && (
 												<Button
 													variant="ghost"
-													size="sm"
-													className="h-7 text-xs flex-1"
+													size="xs"
+													style={{ flex: 1 }}
 													onClick={(e) => {
 														e.stopPropagation();
 														navigate(`/record/${r.id}`);
@@ -267,176 +288,154 @@ export default function History() {
 											)}
 											<Button
 												variant="ghost"
-												size="sm"
-												className="h-7 text-xs text-destructive hover:text-destructive ml-auto"
+												color="red"
+												size="xs"
+												style={{ marginLeft: "auto" }}
 												onClick={(e) => {
 													e.stopPropagation();
 													handleDeleteRecord(r);
 												}}
 											>
-												<Trash2 size={12} /> 删除
+												<IconTrash size={12} /> 删除
 											</Button>
-										</div>
-									</div>
+										</Group>
+									</Paper>
 								);
 							})}
-						</div>
+						</Stack>
+					</Box>
 
-						<div className="overflow-x-auto hidden md:block">
-							<Table>
-								<TableHeader>
-									<TableRow className="bg-muted/50">
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											病例
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											类型
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											来源
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
-											开始时间
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
-											时长
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											状态
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											得分
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											操作
-										</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{records.map((r) => {
-										const durMins = recordDurMins(r);
-										return (
-											<TableRow key={r.id}>
-												<TableCell className="font-medium">
-													{r.case_name}
-												</TableCell>
-												<TableCell>
-													<Badge variant="secondary">问诊</Badge>
-												</TableCell>
-												<TableCell className="text-xs text-muted-foreground">
-													{r.assignment_title ? (
-														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
-													) : (
-														<span className="text-muted-foreground/40">自由训练</span>
-													)}
-												</TableCell>
-												<TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
-													{new Date(r.start_time).toLocaleString(
-														"zh-CN",
-													)}
-												</TableCell>
-												<TableCell
-													className={cn(
-														"hidden sm:table-cell",
-														durMins != null
-															? "text-muted-foreground"
-															: "text-muted-foreground/50",
-													)}
+					<Box visibleFrom="md" style={{ overflowX: "auto" }}>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>病例</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>类型</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>来源</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>开始时间</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>时长</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>状态</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>得分</TableHead>
+									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>操作</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{records.map((r) => {
+									const durMins = recordDurMins(r);
+									return (
+										<TableRow key={r.id}>
+											<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
+											<TableCell>
+												<Badge variant="secondary">问诊</Badge>
+											</TableCell>
+											<TableCell style={{ fontSize: 12, ...DIM }}>
+												{r.assignment_title ? (
+													<Badge variant="default" size="xs">作业</Badge>
+												) : (
+													<Text component="span" size="xs" c="dimmed" opacity={0.4}>
+														自由训练
+													</Text>
+												)}
+											</TableCell>
+											<TableCell style={{ fontSize: 12, ...DIM }}>
+												{new Date(r.start_time).toLocaleString("zh-CN")}
+											</TableCell>
+											<TableCell style={{ fontSize: 12, ...DIM }}>
+												{durMins != null ? `${durMins} 分钟` : "进行中"}
+											</TableCell>
+											<TableCell>
+												<Badge
+													variant={
+														r.status === "completed" ? "success" :
+														r.status === "abandoned" ? "secondary" :
+														"info"
+													}
 												>
-													{durMins != null ? `${durMins} 分钟` : "进行中"}
-												</TableCell>
-												<TableCell>
-													<Badge
-														variant={
-															r.status === "completed" ? "success" :
-															r.status === "abandoned" ? "secondary" :
-															"info"
-														}
+													{r.status === "completed" ? "已完成" :
+													 r.status === "abandoned" ? "已放弃" :
+													 "进行中"}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												{r.score_total != null ? (
+													<Text component="span" fw={600} c="teal">
+														{r.score_total}分
+													</Text>
+												) : r.scoring_status === "pending" ||
+													r.scoring_status === "processing" ? (
+													<Badge variant="warning">评分中...</Badge>
+												) : r.scoring_status === "failed" ? (
+													<Text
+														component="span"
+														size="xs"
+														c="red"
+														title={r.scoring_error ?? undefined}
 													>
-														{r.status === "completed" ? "已完成" :
-														 r.status === "abandoned" ? "已放弃" :
-														 "进行中"}
-													</Badge>
-												</TableCell>
-												<TableCell>
-													{r.score_total != null ? (
-														<span className="font-semibold text-primary">
-															{r.score_total}分
-														</span>
-													) : r.scoring_status === "pending" ||
-														r.scoring_status === "processing" ? (
-														<Badge variant="warning">评分中...</Badge>
-													) : r.scoring_status === "failed" ? (
-														<span
-															className="text-xs text-destructive"
-															title={r.scoring_error ?? undefined}
-														>
-															评分失败
-														</span>
-													) : (
-														<span className="text-muted-foreground/40">-</span>
-													)}
-												</TableCell>
-												<TableCell>
-													<div className="flex items-center gap-2">
-														{r.status === "in_progress" && (
-															<>
-																<Button
-																	variant="link"
-																	size="xs"
-																	onClick={() =>
-																		navigate(`/training/${r.id}`)
-																	}
-																>
-																	继续训练
-																</Button>
-																<Button
-																	variant="link"
-																	size="xs"
-																	className="text-muted-foreground"
-																	onClick={() => handleAbandonRecord(r)}
-																>
-																	放弃
-																</Button>
-															</>
-														)}
-														{(r.status === "completed" || r.status === "abandoned") && (
+														评分失败
+													</Text>
+												) : (
+													<Text component="span" c="dimmed" opacity={0.4}>
+														-
+													</Text>
+												)}
+											</TableCell>
+											<TableCell>
+												<Group gap="xs" wrap="nowrap">
+													{r.status === "in_progress" && (
+														<>
 															<Button
 																variant="link"
 																size="xs"
-																onClick={() =>
-																	navigate(`/record/${r.id}`)
-																}
+																onClick={() => navigate(`/training/${r.id}`)}
 															>
-																{r.status === "abandoned" ? "查看" : "查看详情"}
+																继续训练
 															</Button>
-														)}
+															<Button
+																variant="link"
+																size="xs"
+																onClick={() => handleAbandonRecord(r)}
+															>
+																放弃
+															</Button>
+														</>
+													)}
+													{(r.status === "completed" || r.status === "abandoned") && (
 														<Button
-															variant="ghost"
-															size="icon-xs"
-															onClick={() => handleDeleteRecord(r)}
-															className="text-destructive hover:text-destructive"
+															variant="link"
+															size="xs"
+															onClick={() => navigate(`/record/${r.id}`)}
 														>
-															<Trash2 size={14} />
+															{r.status === "abandoned" ? "查看" : "查看详情"}
 														</Button>
-													</div>
-												</TableCell>
-											</TableRow>
-										);
-									})}
-								</TableBody>
-							</Table>
-						</div>
-					</div>
-				)}
-				<div className="rounded-xl border bg-card px-4 py-3">
-					<Pagination
-						total={total}
-						offset={offset}
-						limit={LIMIT}
-						onChange={(newOffset) => setParam("offset", String(newOffset))}
-					/>
-				</div>
+													)}
+													<Button
+														variant="ghost"
+														color="red"
+														size="icon-xs"
+														onClick={() => handleDeleteRecord(r)}
+														aria-label="删除记录"
+													>
+														<IconTrash size={14} />
+													</Button>
+												</Group>
+											</TableCell>
+										</TableRow>
+									);
+								})}
+							</TableBody>
+						</Table>
+					</Box>
+				</Paper>
+			)}
+
+			<Paper withBorder radius="lg" px="md" py="sm">
+				<Pagination
+					total={total}
+					offset={offset}
+					limit={LIMIT}
+					onChange={(newOffset) => setParam("offset", String(newOffset))}
+				/>
+			</Paper>
 		</RecordSubPageLayout>
 	);
 }

@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Badge, Box, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Eye, Plus, Search, Trash2, XCircle } from "lucide-react";
+import { IconCircleX, IconEdit, IconEye, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -18,7 +19,6 @@ import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import CaseSelector from "@/components/admin/cases/CaseSelector";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Switch } from "@/components/ui/switch";
@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
+import { SearchInput } from "@/components/ui/search-input";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
@@ -82,11 +83,7 @@ function statusBadge(item: { start_time: string; end_time: string }) {
 		return <Badge variant="secondary">未开始</Badge>;
 	if (now > new Date(item.end_time).getTime())
 		return <Badge variant="outline">已结束</Badge>;
-	return (
-		<span className="inline-flex items-center rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
-			进行中
-		</span>
-	);
+	return <Badge variant="success">进行中</Badge>;
 }
 
 const DEFAULT_VALUES: AssignmentValues = {
@@ -252,25 +249,33 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		{
 			key: "title",
 			header: "标题",
-			cellClassName: "font-medium max-w-[160px] truncate",
+			render: (a) => <Text fw={500} truncate maw={160}>{a.title}</Text>,
 		},
 		{
 			key: "case_name",
 			header: "病例",
-			cellClassName: "text-sm text-muted-foreground",
+			render: (a) => <Text size="sm" c="dimmed">{a.case_name}</Text>,
 		},
-		{ key: "class_name", header: "班级", cellClassName: "text-sm" },
-		{ key: "teacher_name", header: "教师", cellClassName: "text-sm text-muted-foreground" },
+		{
+			key: "class_name",
+			header: "班级",
+			render: (a) => <Text size="sm">{a.class_name}</Text>,
+		},
+		{
+			key: "teacher_name",
+			header: "教师",
+			render: (a) => <Text size="sm" c="dimmed">{a.teacher_name}</Text>,
+		},
 		{
 			key: "window",
 			header: "时间窗口",
-			cellClassName: "text-xs text-muted-foreground",
-			render: (a) => `${formatWindow(a.start_time)} ~ ${formatWindow(a.end_time)}`,
+			render: (a) => (
+				<Text size="xs" c="dimmed">{formatWindow(a.start_time)} ~ {formatWindow(a.end_time)}</Text>
+			),
 		},
 		{
 			key: "completed",
 			header: "完成",
-			cellClassName: "text-sm",
 			render: (a) =>
 				(a.student_count ?? 0) > 0
 					? `${a.completed_count}/${a.student_count}`
@@ -280,26 +285,26 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			key: "status",
 			header: "状态",
 			render: (a) => (
-				<div className="flex items-center gap-1.5">
+				<Group gap={6} wrap="nowrap">
 					{statusBadge(a)}
 					{a.is_closed && (
-						<span className="inline-flex items-center rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">已关闭</span>
+						<Badge variant="secondary" size="xs">已关闭</Badge>
 					)}
-				</div>
+				</Group>
 			),
 		},
 		{
 			key: "actions",
 			header: "操作",
 			render: (a) => (
-				<div className="flex gap-0.5">
+				<Group gap={2} wrap="nowrap">
 					<Button
 						variant="ghost"
 						size="icon"
 						onClick={() => navigate(`/admin/assignments/${a.id}`)}
 						title="详情"
 					>
-						<Eye size={15} />
+						<IconEye size={15} />
 					</Button>
 					<Button
 						variant="ghost"
@@ -307,7 +312,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						onClick={() => openEdit(a.id)}
 						title="编辑"
 					>
-						<Edit size={15} />
+						<IconEdit size={15} />
 					</Button>
 					<Button
 						variant="ghost"
@@ -315,103 +320,103 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						onClick={() => handleToggleClose(a)}
 						title={a.is_closed ? "重新开放" : "关闭"}
 					>
-						<XCircle size={15} />
+						<IconCircleX size={15} />
 					</Button>
 					<Button
 						variant="ghost"
 						size="icon"
+						color="red"
 						onClick={() => handleDelete(a.id)}
 						title="删除"
 					>
-						<Trash2 size={15} className="text-destructive" />
+						<IconTrash size={15} />
 					</Button>
-				</div>
+				</Group>
 			),
 		},
 	];
 
 	return (
-		<div className={embedded ? "" : "space-y-6"}>
+		<Stack gap={embedded ? 0 : "xl"}>
 			{embedded ? (
-				<div className="flex justify-end gap-2 mb-4">
-					<Button onClick={openCreate}>
-						<Plus size={16} className="mr-1" />
+				<Group justify="flex-end" gap={8} mb="md">
+					<Button onClick={openCreate} leftSection={<IconPlus size={16} />}>
 						创建作业
 					</Button>
-				</div>
+				</Group>
 			) : (
-			<PageHeader
-				title="作业管理"
-				subtitle="按班级布置练习，选择病例和功能配置"
-				actions={
-					<Button onClick={openCreate}>
-						<Plus size={16} className="mr-1" />
-						创建作业
-					</Button>
-				}
-			/>
+				<PageHeader
+					title="作业管理"
+					subtitle="按班级布置练习，选择病例和功能配置"
+					actions={
+						<Button onClick={openCreate} leftSection={<IconPlus size={16} />}>
+							创建作业
+						</Button>
+					}
+				/>
 			)}
-			<div className="flex flex-wrap items-center gap-3 mb-4">
-				<div className="relative flex-1 max-w-xs">
-					<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<input
-						type="text"
-						placeholder="搜索标题..."
-						aria-label="搜索作业标题"
+			<Group gap={12} align="center" wrap="wrap" mb="md">
+				<Box maw={320} style={{ flex: 1 }}>
+					<SearchInput
 						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card"
+						onChange={setSearch}
+						placeholder="搜索标题..."
 					/>
-				</div>
+				</Box>
 				<ClassFilter
 					classId={classId ? Number(classId) : undefined}
 					onChange={(params) => {
 						updateParam("class_id", params.class_id ? String(params.class_id) : "");
 					}}
 				/>
-				<select
-					value={statusFilter}
-					onChange={(e) => updateParam("status", e.target.value)}
-					className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-				>
-					<option value="">全部状态</option>
-					<option value="active">进行中</option>
-					<option value="ended">已结束</option>
-				</select>
-			</div>
+				<Select
+					value={statusFilter || null}
+					onChange={(v) => updateParam("status", v ?? "")}
+					data={[
+						{ value: "", label: "全部状态" },
+						{ value: "active", label: "进行中" },
+						{ value: "ended", label: "已结束" },
+					]}
+					w={140}
+				/>
+			</Group>
 
-		<ResponsiveTable<AssignmentRow>
-			columns={columns}
-			rows={filteredAssignments}
-			rowKey={(a) => a.id}
-			loading={isLoading}
-			emptyIcon={Plus}
-			emptyTitle="暂无作业"
-			emptyDescription="点击上方按钮创建第一次作业"
-			renderCard={(a) => (
-				<div className="rounded-lg border bg-card p-3 space-y-2">
-					<div className="flex items-start justify-between gap-2">
-						<div className="text-sm font-medium truncate flex-1">{a.title}</div>
-						{statusBadge(a)}
-					</div>
-					<div className="text-xs text-muted-foreground">{a.case_name} · {a.class_name}</div>
-					<div className="text-xs text-muted-foreground">
-						{formatWindow(a.start_time)} ~ {formatWindow(a.end_time)}
-					</div>
-					<div className="flex items-center justify-between gap-2">
-						<span className="text-xs text-muted-foreground">
-							{a.completed_count ?? 0}/{a.student_count ?? 0} 完成
-						</span>
-						<div className="grid grid-cols-2 gap-1">
-							<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
-							<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
-							<Button variant="outline" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
-							<Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(a.id)}>删除</Button>
-						</div>
-					</div>
-				</div>
-			)}
-		/>
+			<ResponsiveTable<AssignmentRow>
+				columns={columns}
+				rows={filteredAssignments}
+				rowKey={(a) => a.id}
+				loading={isLoading}
+				emptyIcon={IconPlus}
+				emptyTitle="暂无作业"
+				emptyDescription="点击上方按钮创建第一次作业"
+				renderCard={(a) => (
+					<Box
+						style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, padding: 12 }}
+					>
+						<Stack gap={8}>
+							<Group justify="space-between" align="flex-start" gap={8} wrap="nowrap">
+								<Text size="sm" fw={500} truncate style={{ flex: 1 }}>{a.title}</Text>
+								{statusBadge(a)}
+							</Group>
+							<Text size="xs" c="dimmed">{a.case_name} · {a.class_name}</Text>
+							<Text size="xs" c="dimmed">
+								{formatWindow(a.start_time)} ~ {formatWindow(a.end_time)}
+							</Text>
+							<Group justify="space-between" align="center" gap={8} wrap="wrap">
+								<Text size="xs" c="dimmed">
+									{a.completed_count ?? 0}/{a.student_count ?? 0} 完成
+								</Text>
+								<SimpleGrid cols={2} spacing={4}>
+									<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
+									<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
+									<Button variant="outline" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
+									<Button variant="outline" size="sm" color="red" onClick={() => handleDelete(a.id)}>删除</Button>
+								</SimpleGrid>
+							</Group>
+						</Stack>
+					</Box>
+				)}
+			/>
 
 			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
@@ -427,89 +432,16 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					maxWidth={560}
 				>
 					<Form {...form}>
-						<form
-							onSubmit={form.handleSubmit(onSubmit)}
-							className="flex flex-col gap-4"
-						>
-							<FormField
-								control={form.control}
-								name="title"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>标题</FormLabel>
-										<FormControl>
-											<Input placeholder="作业标题" {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="desc"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>说明（可选）</FormLabel>
-										<FormControl>
-											<Input placeholder="补充说明" {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="caseId"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>病例</FormLabel>
-										<FormControl>
-											<CaseSelector
-												cases={cases}
-												value={field.value || 0}
-												onChange={(id) => field.onChange(id)}
-												loading={casesLoading}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="classId"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>班级</FormLabel>
-										<FormControl>
-											<select
-												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-												name={field.name}
-												onBlur={field.onBlur}
-												value={field.value || ""}
-												onChange={(e) => field.onChange(Number(e.target.value))}
-											>
-												<option value="">选择班级...</option>
-												{classes.map((c) => (
-													<option key={c.id} value={c.id}>
-														{c.name}
-													</option>
-												))}
-											</select>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<div className="grid grid-cols-2 gap-3">
+						<form onSubmit={form.handleSubmit(onSubmit)}>
+							<Stack gap="md">
 								<FormField
 									control={form.control}
-									name="startTime"
+									name="title"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>开始时间</FormLabel>
+											<FormLabel>标题</FormLabel>
 											<FormControl>
-												<Input type="datetime-local" {...field} />
+												<Input placeholder="作业标题" {...field} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -517,98 +449,173 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								/>
 								<FormField
 									control={form.control}
-									name="endTime"
+									name="desc"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>截止时间</FormLabel>
+											<FormLabel>说明（可选）</FormLabel>
 											<FormControl>
-												<Input type="datetime-local" {...field} />
+												<Input placeholder="补充说明" {...field} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
 									)}
 								/>
-							</div>
-							{(() => {
-								const selectedId = form.watch("caseId");
-								const selected = cases.find((c) => c.id === selectedId);
-								const caps = selected?.capabilities;
-								if (!caps) return null;
-								const enabled = Object.entries(caps).filter(([, v]) => v);
-								if (enabled.length === 0) return null;
-								return (
-									<div className="flex flex-wrap gap-1 -mt-2 mb-1">
-										{enabled.map(([k]) => (
-											<span
-												key={k}
-												className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary"
+								<FormField
+									control={form.control}
+									name="caseId"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>病例</FormLabel>
+											<FormControl>
+												<CaseSelector
+													cases={cases}
+													value={field.value || 0}
+													onChange={(id) => field.onChange(id)}
+													loading={casesLoading}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="classId"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>班级</FormLabel>
+											<FormControl>
+												<Select
+													value={field.value ? String(field.value) : null}
+													onChange={(v) => field.onChange(v ? Number(v) : 0)}
+													data={[
+														{ value: "", label: "选择班级..." },
+														...classes.map((c) => ({
+															value: String(c.id),
+															label: c.name,
+														})),
+													]}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<SimpleGrid cols={2} spacing="sm">
+									<FormField
+										control={form.control}
+										name="startTime"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>开始时间</FormLabel>
+												<FormControl>
+													<Input type="datetime-local" {...field} />
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={form.control}
+										name="endTime"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>截止时间</FormLabel>
+												<FormControl>
+													<Input type="datetime-local" {...field} />
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								</SimpleGrid>
+								{(() => {
+									const selectedId = form.watch("caseId");
+									const selected = cases.find((c) => c.id === selectedId);
+									const caps = selected?.capabilities;
+									if (!caps) return null;
+									const enabled = Object.entries(caps).filter(([, v]) => v);
+									if (enabled.length === 0) return null;
+									return (
+										<Group gap={4} wrap="wrap" mt={-8} mb={4}>
+											{enabled.map(([k]) => (
+												<Badge key={k} variant="secondary" color="teal" size="xs">
+													{ALL_CAPABILITIES[k]?.label ?? k}
+												</Badge>
+											))}
+										</Group>
+									);
+								})()}
+								<FormField
+									control={form.control}
+									name="maxAttempts"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>最大尝试次数</FormLabel>
+											<FormControl>
+												<Input
+													type="number"
+													min={0}
+													placeholder="留空为1次，0为不限制"
+													{...field}
+													value={field.value ?? ""}
+													onChange={(e) => {
+														const v = e.target.value;
+														field.onChange(v === "" ? null : Math.max(0, Number(v)));
+													}}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="hideCaseInfo"
+									render={({ field }) => (
+										<FormItem>
+											<Group
+												justify="space-between"
+												align="center"
+												wrap="nowrap"
+												p="sm"
+												style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
 											>
-												{ALL_CAPABILITIES[k]?.label ?? k}
-											</span>
-										))}
-									</div>
-								);
-							})()}
-							<FormField
-								control={form.control}
-								name="maxAttempts"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>最大尝试次数</FormLabel>
-										<FormControl>
-											<Input
-												type="number"
-												min={0}
-												placeholder="留空为1次，0为不限制"
-												{...field}
-												value={field.value ?? ""}
-												onChange={(e) => {
-													const v = e.target.value;
-													field.onChange(v === "" ? null : Math.max(0, Number(v)));
-												}}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="hideCaseInfo"
-								render={({ field }) => (
-									<FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
-										<div className="space-y-0.5">
-											<FormLabel>隐藏病例信息</FormLabel>
-											<p className="text-xs text-muted-foreground">训练中不显示病例标题/患者信息，结束后揭示（病例固定，不做随机抽取）</p>
-										</div>
-										<FormControl>
-											<Switch checked={field.value} onCheckedChange={field.onChange} />
-										</FormControl>
-									</FormItem>
-								)}
-							/>
-							<DialogFooter>
-								<Button
-									type="button"
-									variant="outline"
-									onClick={async () => { 
-										if (form.formState.isDirty) {
-											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-											if (!ok) return;
-										}
-										setModalOpen(false);
-									}}
-								>
-									取消
-								</Button>
-								<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-									{form.formState.isSubmitting ? (editingId ? "保存中..." : "发布中...") : (editingId ? "保存" : "发布")}
-								</Button>
-							</DialogFooter>
+												<div>
+													<FormLabel>隐藏病例信息</FormLabel>
+													<Text size="xs" c="dimmed">训练中不显示病例标题/患者信息，结束后揭示（病例固定，不做随机抽取）</Text>
+												</div>
+												<FormControl>
+													<Switch checked={field.value} onCheckedChange={field.onChange} />
+												</FormControl>
+											</Group>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={async () => {
+											if (form.formState.isDirty) {
+												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+												if (!ok) return;
+											}
+											setModalOpen(false);
+										}}
+									>
+										取消
+									</Button>
+									<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
+										{form.formState.isSubmitting ? (editingId ? "保存中..." : "发布中...") : (editingId ? "保存" : "发布")}
+									</Button>
+								</DialogFooter>
+							</Stack>
 						</form>
 					</Form>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</Stack>
 	);
 }

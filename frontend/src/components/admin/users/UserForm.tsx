@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { Box, Group, Select, Stack, Text } from "@mantine/core";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -12,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import {
   type EditUserValues,
   editUserSchema,
@@ -19,7 +21,6 @@ import {
   registerUserSchema,
 } from "@/schemas/user";
 import type { ClassItem, Grade } from "@/types/store";
-import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm";
 import type {
   EditUserFormValues,
@@ -27,9 +28,6 @@ import type {
   UserBrief,
   UserFormValues,
 } from "./types";
-
-const selectClass =
-  "w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus-ring focus-visible:bg-card";
 
 interface UserFormProps {
   open: boolean;
@@ -47,6 +45,9 @@ interface UserFormProps {
   isSaving: boolean;
   dirtyRef?: React.MutableRefObject<boolean>;
 }
+
+const roleData = (roles: RoleOption[]) =>
+  roles.map((r) => ({ value: r.name, label: r.display_name }));
 
 export default function UserForm({
   open,
@@ -214,157 +215,142 @@ export default function UserForm({
         }}
       >
         <DialogContent title={`编辑用户: ${user?.display_name}`} maxWidth={480}>
-          {editUserMsg && (
-            <div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">
-              {editUserMsg}
-            </div>
-          )}
+          <FormMessageBanner type="error" message={editUserMsg} />
           <Form {...editForm}>
-            <form
-              onSubmit={editForm.handleSubmit(onEditSubmit)}
-              className="space-y-4"
-            >
-              <FormField
-                control={editForm.control}
-                name="display_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>姓名</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="student_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>学号</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>角色</FormLabel>
-                    <FormControl>
-                      <select className={selectClass} {...field}>
-                        {roles.length === 0 && (
-                          <option value="" disabled>
-                            加载中...
-                          </option>
-                        )}
-                        {roles.map((r) => (
-                          <option key={r.name} value={r.name}>
-                            {r.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div>
-                <label className="block text-xs text-muted-foreground font-semibold mb-1">
-                  年级
-                </label>
-                <select
-                  className={selectClass}
-                  value={editGrade}
-                  onChange={(e) => handleEditGradeChange(e.target.value)}
-                >
-                  <option value="">不指定</option>
-                  {grades.map((g) => (
-                    <option key={g.id} value={String(g.id)}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground font-semibold mb-1">
-                  班级
-                </label>
-                <select
-                  className={selectClass}
-                  value={editForm.watch("class_id")}
-                  onChange={(e) =>
-                    editForm.setValue("class_id", e.target.value)
-                  }
-                  disabled={!editGrade}
-                >
-                  <option value="">不指定</option>
-                  {editClasses.map((c) => (
-                    <option key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <FormField
-                control={editForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>新密码（留空不修改）</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="至少6位"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {resetError && (
-                <div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm">
-                  {resetError}
-                </div>
-              )}
-              <div>
-                <button
-                  type="button"
-                  className="text-sm text-primary underline hover:no-underline disabled:opacity-50 disabled:no-underline"
-                  onClick={handleResetPassword}
-                  disabled={isResetting}
-                >
-                  {isResetting ? "重置中..." : "重置密码"}
-                </button>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    if (editForm.formState.isDirty) {
-                      const ok = await confirm({
-                        title: "未保存的更改",
-                        message: "内容未保存，确定关闭？",
-                        danger: true,
-                      });
-                      if (!ok) return;
-                    }
-                    onClose();
-                  }}
-                >
-                  取消
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "保存中..." : "保存"}
-                </Button>
-              </div>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)}>
+              <Stack gap="md">
+                <FormField
+                  control={editForm.control}
+                  name="display_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>姓名</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="student_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>学号</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>角色</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onChange={(v) => field.onChange(v ?? "")}
+                          data={roleData(roles)}
+                          placeholder={roles.length === 0 ? "加载中..." : undefined}
+                          allowDeselect={false}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Box>
+                  <Text size="xs" c="dimmed" fw={600} mb={4}>
+                    年级
+                  </Text>
+                  <Select
+                    value={editGrade}
+                    onChange={(v) => handleEditGradeChange(v ?? "")}
+                    data={[
+                      { value: "", label: "不指定" },
+                      ...grades.map((g) => ({
+                        value: String(g.id),
+                        label: g.name,
+                      })),
+                    ]}
+                    allowDeselect={false}
+                  />
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed" fw={600} mb={4}>
+                    班级
+                  </Text>
+                  <Select
+                    value={editForm.watch("class_id")}
+                    onChange={(v) => editForm.setValue("class_id", v ?? "")}
+                    data={[
+                      { value: "", label: "不指定" },
+                      ...editClasses.map((c) => ({
+                        value: String(c.id),
+                        label: c.name,
+                      })),
+                    ]}
+                    disabled={!editGrade}
+                    allowDeselect={false}
+                  />
+                </Box>
+                <FormField
+                  control={editForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>新密码（留空不修改）</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="至少6位"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormMessageBanner type="error" message={resetError} />
+                <Box>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    onClick={handleResetPassword}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "重置中..." : "重置密码"}
+                  </Button>
+                </Box>
+                <Group justify="flex-end" gap={8} pt="xs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      if (editForm.formState.isDirty) {
+                        const ok = await confirm({
+                          title: "未保存的更改",
+                          message: "内容未保存，确定关闭？",
+                          danger: true,
+                        });
+                        if (!ok) return;
+                      }
+                      onClose();
+                    }}
+                  >
+                    取消
+                  </Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? "保存中..." : "保存"}
+                  </Button>
+                </Group>
+              </Stack>
             </form>
           </Form>
         </DialogContent>
@@ -388,157 +374,137 @@ export default function UserForm({
       }}
     >
       <DialogContent title="添加用户" maxWidth={780}>
-        {registerMsg && (
-          <div
-            className={cn(
-              "px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left",
-              registerMsg.includes("成功")
-                ? "bg-success text-success-foreground"
-                : "bg-destructive/10 text-destructive",
-            )}
-          >
-            {registerMsg}
-          </div>
-        )}
+        <FormMessageBanner
+          type={registerMsg.includes("成功") ? "success" : "error"}
+          message={registerMsg}
+        />
         <Form {...regForm}>
-          <form
-            onSubmit={regForm.handleSubmit(onRegisterSubmit)}
-            className="flex gap-3 flex-wrap items-end"
-          >
-            <div className="flex-[1_1_120px]">
-              <FormField
-                control={regForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>用户名</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex-[1_1_120px]">
-              <FormField
-                control={regForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>密码</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="至少6位"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex-[1_1_100px]">
-              <FormField
-                control={regForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>角色</FormLabel>
-                    <FormControl>
-                      <select className={selectClass} {...field}>
-                        {roles.length === 0 && (
-                          <option value="" disabled>
-                            加载中...
-                          </option>
-                        )}
-                        {roles.map((r) => (
-                          <option key={r.name} value={r.name}>
-                            {r.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex-[1_1_120px]">
-              <FormField
-                control={regForm.control}
-                name="display_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>姓名</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex-[1_1_100px]">
-              <FormField
-                control={regForm.control}
-                name="student_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>学号</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-muted-foreground font-semibold mb-1">
-                年级
-              </label>
-              <select
-                className={selectClass}
-                value={regGrade}
-                onChange={(e) => handleRegGradeChange(e.target.value)}
-              >
-                <option value="">不指定</option>
-                {grades.map((g) => (
-                  <option key={g.id} value={String(g.id)}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-muted-foreground font-semibold mb-1">
-                班级
-              </label>
-              <select
-                className={selectClass}
-                value={regForm.watch("class_id")}
-                onChange={(e) =>
-                  regForm.setValue("class_id", e.target.value)
-                }
-                disabled={!regGrade}
-              >
-                <option value="">不指定</option>
-                {regClasses.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="h-10"
-            >
-              {isSaving ? "注册中..." : "注册"}
-            </Button>
+          <form onSubmit={regForm.handleSubmit(onRegisterSubmit)}>
+            <Group gap="xs" align="flex-end" wrap="wrap">
+              <Box flex={1} miw={120}>
+                <FormField
+                  control={regForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>用户名</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Box>
+              <Box flex={1} miw={120}>
+                <FormField
+                  control={regForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>密码</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="至少6位"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Box>
+              <Box flex={1} miw={100}>
+                <FormField
+                  control={regForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>角色</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onChange={(v) => field.onChange(v ?? "")}
+                          data={roleData(roles)}
+                          placeholder={roles.length === 0 ? "加载中..." : undefined}
+                          allowDeselect={false}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Box>
+              <Box flex={1} miw={120}>
+                <FormField
+                  control={regForm.control}
+                  name="display_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>姓名</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Box>
+              <Box flex={1} miw={100}>
+                <FormField
+                  control={regForm.control}
+                  name="student_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>学号</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Box>
+              <Box flex={1} miw={120}>
+                <Text size="xs" c="dimmed" fw={600} mb={4}>
+                  年级
+                </Text>
+                <Select
+                  value={regGrade}
+                  onChange={(v) => handleRegGradeChange(v ?? "")}
+                  data={[
+                    { value: "", label: "不指定" },
+                    ...grades.map((g) => ({
+                      value: String(g.id),
+                      label: g.name,
+                    })),
+                  ]}
+                  allowDeselect={false}
+                />
+              </Box>
+              <Box flex={1} miw={120}>
+                <Text size="xs" c="dimmed" fw={600} mb={4}>
+                  班级
+                </Text>
+                <Select
+                  value={regForm.watch("class_id")}
+                  onChange={(v) => regForm.setValue("class_id", v ?? "")}
+                  data={[
+                    { value: "", label: "不指定" },
+                    ...regClasses.map((c) => ({
+                      value: String(c.id),
+                      label: c.name,
+                    })),
+                  ]}
+                  disabled={!regGrade}
+                  allowDeselect={false}
+                />
+              </Box>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "注册中..." : "注册"}
+              </Button>
+            </Group>
           </form>
         </Form>
       </DialogContent>

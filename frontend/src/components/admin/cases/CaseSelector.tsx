@@ -1,6 +1,6 @@
-import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react";
+import { IconCheck, IconSearch, IconSelector } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { Badge, Box, Divider, Group, Loader, Mark, Paper, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
 
 export interface CaseOption {
 	id: number;
@@ -26,10 +26,10 @@ const DIFFICULTY_LABELS: Record<number, string> = {
 	3: "高级",
 };
 
-const DIFFICULTY_COLORS: Record<number, string> = {
-	1: "bg-emerald-100 text-emerald-700",
-	2: "bg-amber-100 text-amber-700",
-	3: "bg-rose-100 text-rose-700",
+const DIFFICULTY_COLORS: Record<number, "success" | "warning" | "danger"> = {
+	1: "success",
+	2: "warning",
+	3: "danger",
 };
 
 function highlightMatch(text: string, query: string) {
@@ -43,7 +43,7 @@ function highlightMatch(text: string, query: string) {
 	return (
 		<>
 			{before}
-			<span className="bg-amber-200 text-amber-900 rounded-sm px-px">{match}</span>
+			<Mark color="yellow">{match}</Mark>
 			{after}
 		</>
 	);
@@ -152,101 +152,117 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 	};
 
 	return (
-		<div ref={containerRef} className="relative">
-			<button
-				type="button"
+		<Box ref={containerRef} style={{ position: "relative" }}>
+			<UnstyledButton
 				onClick={toggle}
-				className={cn(
-					"w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-left",
-					"hover:bg-muted/50 transition-colors",
-					!selected && "text-muted-foreground",
-				)}
+				w="100%"
+				px="sm"
+				py={6}
+				style={{
+					border: "1px solid var(--mantine-color-gray-4)",
+					borderRadius: "var(--mantine-radius-sm)",
+					background: "var(--mantine-color-body)",
+				}}
 			>
-				<span className="truncate pr-2">
-					{selected ? (
-						<span className="flex items-center gap-2">
-							<span className="font-medium truncate max-w-[200px]">{selected.name}</span>
-							{selected.difficulty && (
-								<span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", DIFFICULTY_COLORS[selected.difficulty] || "bg-muted text-muted-foreground")}>
-									{DIFFICULTY_LABELS[selected.difficulty] || selected.difficulty}
-								</span>
-							)}
-							{selected.training_type && TRAINING_TYPE_LABELS[selected.training_type] && (
-								<span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-									{TRAINING_TYPE_LABELS[selected.training_type]}
-								</span>
-							)}
-						</span>
-					) : (
-						"选择病例..."
-					)}
-				</span>
-				<ChevronsUpDown size={14} className="shrink-0 text-muted-foreground" />
-			</button>
+				<Group justify="space-between" gap={8} wrap="nowrap">
+					<Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+						{selected ? (
+							<>
+								<Text size="sm" fw={500} truncate style={{ maxWidth: 220 }}>
+									{selected.name}
+								</Text>
+								{selected.difficulty != null && (
+									<Badge variant={DIFFICULTY_COLORS[selected.difficulty] ?? "neutral"} size="xs">
+										{DIFFICULTY_LABELS[selected.difficulty] ?? selected.difficulty}
+									</Badge>
+								)}
+								{selected.training_type && TRAINING_TYPE_LABELS[selected.training_type] && (
+									<Badge variant="neutral" size="xs">
+										{TRAINING_TYPE_LABELS[selected.training_type]}
+									</Badge>
+								)}
+							</>
+						) : (
+							<Text size="sm" c="dimmed">选择病例...</Text>
+						)}
+					</Group>
+					<IconSelector size={14} style={{ flexShrink: 0, color: "var(--mantine-color-dimmed)" }} />
+				</Group>
+			</UnstyledButton>
 
 			{open && (
-				<div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg">
-					<div className="flex items-center border-b border-border px-3 py-2">
-						<Search size={14} className="mr-2 shrink-0 text-muted-foreground" />
-						<input
-							ref={inputRef}
-							type="text"
-							placeholder="输入关键词搜索病例..."
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							onKeyDown={handleKeyDown}
-							className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-						/>
-					</div>
-					<div ref={listRef} className="max-h-[280px] overflow-y-auto py-1">
+				<Paper withBorder shadow="md" radius="md" style={{ position: "absolute", zIndex: 50, marginTop: 4, width: "100%" }}>
+					<TextInput
+						ref={inputRef}
+						variant="unstyled"
+						placeholder="输入关键词搜索病例..."
+						value={search}
+						onChange={(e) => setSearch(e.currentTarget.value)}
+						onKeyDown={handleKeyDown}
+						leftSection={<IconSearch size={14} />}
+						px="sm"
+						py="xs"
+					/>
+					<Divider />
+					<ScrollArea.Autosize mah={280}>
 						{loading ? (
-							<div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
-								<Loader2 size={14} className="animate-spin" />
-								加载中...
-							</div>
+							<Group justify="center" gap={8} px="md" py="lg">
+								<Loader size={14} />
+								<Text size="sm" c="dimmed">加载中...</Text>
+							</Group>
 						) : filtered.length === 0 ? (
-							<div className="px-3 py-6 text-center text-sm text-muted-foreground">
+							<Text size="sm" c="dimmed" ta="center" px="md" py="lg">
 								{search ? "无匹配病例" : "暂无可选病例"}
-							</div>
+							</Text>
 						) : (
-							filtered.map((c, idx) => (
-								<button
-									type="button"
-									key={c.id}
-									onClick={() => selectItem(c.id)}
-									onMouseEnter={() => setActiveIndex(idx)}
-									className={cn(
-										"w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors",
-										idx === activeIndex ? "bg-accent" : "hover:bg-muted",
-										c.id === value && "bg-primary/10",
-									)}
-								>
-									<Check
-										size={14}
-										className={cn(
-											"shrink-0",
-											c.id === value ? "text-primary opacity-100" : "opacity-0",
-										)}
-									/>
-									<span className="font-medium truncate flex-1">
-										{highlightMatch(c.name, search)}
-									</span>
-									{c.difficulty && (
-										<span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", DIFFICULTY_COLORS[c.difficulty] || "bg-muted text-muted-foreground")}>
-											{DIFFICULTY_LABELS[c.difficulty] || c.difficulty}
-										</span>
-									)}
-									{c.training_type && TRAINING_TYPE_LABELS[c.training_type] && (
-										<span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-											{TRAINING_TYPE_LABELS[c.training_type]}
-										</span>
-									)}
-								</button>
-							))
+							<Stack ref={listRef} gap={0} py={4}>
+								{filtered.map((c, idx) => (
+									<UnstyledButton
+										key={c.id}
+										onClick={() => selectItem(c.id)}
+										onMouseEnter={() => setActiveIndex(idx)}
+										display="block"
+										w="100%"
+										px="sm"
+										py="xs"
+										bg={
+											idx === activeIndex
+												? "var(--mantine-color-gray-1)"
+												: c.id === value
+													? "var(--mantine-color-teal-0)"
+													: undefined
+										}
+									>
+										<Group gap={8} wrap="nowrap">
+											<IconCheck
+												size={14}
+												style={{
+													flexShrink: 0,
+													opacity: c.id === value ? 1 : 0,
+													color: "var(--mantine-color-teal-6)",
+												}}
+											/>
+											<Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+												{highlightMatch(c.name, search)}
+											</Text>
+											{c.difficulty != null && (
+												<Badge variant={DIFFICULTY_COLORS[c.difficulty] ?? "neutral"} size="xs">
+													{DIFFICULTY_LABELS[c.difficulty] ?? c.difficulty}
+												</Badge>
+											)}
+											{c.training_type && TRAINING_TYPE_LABELS[c.training_type] && (
+												<Badge variant="neutral" size="xs">
+													{TRAINING_TYPE_LABELS[c.training_type]}
+												</Badge>
+											)}
+										</Group>
+									</UnstyledButton>
+								))}
+							</Stack>
 						)}
-					</div>
-				</div>
+					</ScrollArea.Autosize>
+				</Paper>
 			)}
-		</div>
+		</Box>
 	);
 }

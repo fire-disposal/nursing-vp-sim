@@ -1,11 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Save, Shield, Trash2, X } from "lucide-react";
+import { Badge, Box, Code, Group, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
@@ -130,174 +132,155 @@ export default function RolesPage() {
 	};
 
 	return (
-		<div className="space-y-6">
-				<PageHeader
-					title="角色管理"
-					subtitle="管理用户角色与权限"
-					actions={
-						<>
-							<ExportButton endpoint="/admin/roles/export" filename="角色列表" />
-							<Button
-								onClick={() => {
-									form.reset();
-									setShowCreate(true);
-								}}
-							>
-								<Plus size={16} /> 新建角色
-							</Button>
-						</>
-					}
-				/>
+		<Stack gap="xl">
+			<PageHeader
+				title="角色管理"
+				subtitle="管理用户角色与权限"
+				actions={
+					<Group gap="xs">
+						<ExportButton endpoint="/admin/roles/export" filename="角色列表" />
+						<Button
+							onClick={() => {
+								form.reset();
+								setShowCreate(true);
+							}}
+						>
+							<IconPlus size={16} /> 新建角色
+						</Button>
+					</Group>
+				}
+			/>
 
-				<div className="flex items-center gap-3 mb-4">
-					<div className="flex-1 max-w-xs">
-						<SearchInput
-							value={searchInput}
-							onChange={handleSearchChange}
-							placeholder="搜索角色..."
-							aria-label="搜索角色"
-						/>
-					</div>
-				</div>
+			<Group gap={12} mb="md">
+				<Box maw={320} style={{ flex: 1 }}>
+					<SearchInput
+						value={searchInput}
+						onChange={handleSearchChange}
+						placeholder="搜索角色..."
+						aria-label="搜索角色"
+					/>
+				</Box>
+			</Group>
 
-				<div className="space-y-3">
-					{loading && roles.length === 0 ? (
-						<LoadingSkeleton variant="table" />
-					) : roles.length === 0 ? (
-						<EmptyState
-							icon={Shield}
-							title="暂无角色"
-							description="创建第一个角色后这里会显示"
-						/>
-					) : (
-						roles.map((role) => (
-							<div key={role.id} className="rounded-xl border bg-card p-4">
-								<div className="flex items-center justify-between mb-2">
-									<div>
-										<span className="font-semibold">{role.display_name}</span>
-										<code className="ml-2 text-xs text-muted-foreground">
-											{role.name}
-										</code>
-										{role.is_system && (
-											<span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-												系统
-											</span>
-										)}
-										<span className="ml-2 text-xs text-muted-foreground">
-											{role.user_count} 用户
-										</span>
-									</div>
-									<div className="flex gap-2">
-										{editId === role.id ? (
-											<>
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => saveEdit(role.id)}
-												>
-													<Save size={14} /> 保存
-												</Button>
+			<Stack gap="sm">
+				{loading && roles.length === 0 ? (
+					<LoadingSkeleton variant="table" />
+				) : roles.length === 0 ? (
+					<EmptyState
+						icon={IconShield}
+						title="暂无角色"
+						description="创建第一个角色后这里会显示"
+					/>
+				) : (
+					roles.map((role) => (
+						<Paper key={role.id} withBorder radius="lg" p="md">
+							<Group justify="space-between" align="flex-start" wrap="wrap" mb={8}>
+								<Group gap={8} align="center" wrap="wrap">
+									<Text fw={600}>{role.display_name}</Text>
+									<Code fz="xs">{role.name}</Code>
+									{role.is_system && (
+										<Badge variant="secondary" color="teal" size="xs">系统</Badge>
+									)}
+									<Text size="xs" c="dimmed">{role.user_count} 用户</Text>
+								</Group>
+								<Group gap={8}>
+									{editId === role.id ? (
+										<>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => saveEdit(role.id)}
+											>
+												<IconDeviceFloppy size={14} /> 保存
+											</Button>
+											<Button
+												size="sm"
+												variant="ghost"
+												onClick={() => setEditId(null)}
+											>
+												<IconX size={14} />
+											</Button>
+										</>
+									) : (
+										<>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => startEdit(role)}
+											>
+												编辑权限
+											</Button>
+											{!role.is_system && (
 												<Button
 													size="sm"
 													variant="ghost"
-													onClick={() => setEditId(null)}
+													color="red"
+													onClick={() => handleDelete(role.id, role.name)}
 												>
-													<X size={14} />
+													<IconTrash size={14} />
 												</Button>
-											</>
-										) : (
-											<>
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => startEdit(role)}
-												>
-													编辑权限
-												</Button>
-												{!role.is_system && (
-													<Button
-														size="sm"
-														variant="ghost"
-														className="text-destructive"
-														onClick={() => handleDelete(role.id, role.name)}
-													>
-														<Trash2 size={14} />
-													</Button>
-												)}
-											</>
-										)}
-									</div>
-								</div>
-								{editId === role.id ? (
-									<div className="mt-3 space-y-3">
-										<div className="flex items-center gap-2">
-											<span className="text-xs text-muted-foreground shrink-0">显示名称</span>
-											<input
-												type="text"
-												value={editDisplayName}
-												onChange={(e) => setEditDisplayName(e.target.value)}
-												className="h-8 rounded-md border border-border bg-background px-2 text-sm max-w-48"
-												placeholder={role.display_name}
-											/>
-										</div>
-										<div className="grid grid-cols-3 gap-2">
+											)}
+										</>
+									)}
+								</Group>
+							</Group>
+							{editId === role.id ? (
+								<Stack gap="sm" mt="sm">
+									<Group gap={8} align="center">
+										<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>显示名称</Text>
+										<TextInput
+											value={editDisplayName}
+											onChange={(e) => setEditDisplayName(e.target.value)}
+											placeholder={role.display_name}
+											maw={192}
+											size="xs"
+										/>
+									</Group>
+									<SimpleGrid cols={3} spacing={8}>
 										{PERMISSION_DEFS.map((p) => (
-											<label
+											<Checkbox
 												key={p.key}
-												className="flex items-center gap-1.5 text-sm cursor-pointer"
-											>
-												<input
-													type="checkbox"
-													checked={editPerms.includes(p.key)}
-													onChange={() => togglePerm(p.key)}
-													className="size-4"
-												/>
-												{p.label}
-											</label>
+												label={p.label}
+												checked={editPerms.includes(p.key)}
+												onCheckedChange={() => togglePerm(p.key)}
+											/>
 										))}
-									</div>
-									</div>
-								) : (
-									<div className="flex flex-wrap gap-1">
-										{role.permissions.length === 0 && (
-											<span className="text-xs text-muted-foreground">
-												无权限
-											</span>
-										)}
-										{(role.permissions ?? []).map((p) => (
-											<span
-												key={p}
-												className="text-xs bg-muted px-1.5 py-0.5 rounded"
-											>
-												{PERMISSION_DEFS.find((ap) => ap.key === p)?.label || p}
-											</span>
-										))}
-									</div>
-								)}
-							</div>
-						))
-					)}
-				</div>
+									</SimpleGrid>
+								</Stack>
+							) : (
+								<Group gap={4} wrap="wrap">
+									{role.permissions.length === 0 && (
+										<Text size="xs" c="dimmed">无权限</Text>
+									)}
+									{(role.permissions ?? []).map((p) => (
+										<Badge key={p} variant="secondary" size="xs">
+											{PERMISSION_DEFS.find((ap) => ap.key === p)?.label || p}
+										</Badge>
+									))}
+								</Group>
+							)}
+						</Paper>
+					))
+				)}
+			</Stack>
 
 			<Dialog
 				open={showCreate}
-			onOpenChange={async (o) => {
-				if (!o) {
-					if (form.formState.isDirty) {
-						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-						if (!ok) return;
+				onOpenChange={async (o) => {
+					if (!o) {
+						if (form.formState.isDirty) {
+							const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+							if (!ok) return;
+						}
+						form.reset();
+						setShowCreate(false);
 					}
-					form.reset();
-					setShowCreate(false);
-				}
-			}}
+				}}
 			>
-					<DialogContent title="新建角色" maxWidth={560}>
-						<Form {...form}>
-							<form
-								onSubmit={form.handleSubmit(onSubmit)}
-								className="space-y-4 py-2"
-							>
+				<DialogContent title="新建角色" maxWidth={560}>
+					<Form {...form}>
+						<form onSubmit={form.handleSubmit(onSubmit)}>
+							<Stack gap="md" py={8}>
 								<FormField
 									control={form.control}
 									name="name"
@@ -331,7 +314,14 @@ export default function RolesPage() {
 									<Button
 										type="button"
 										variant="outline"
-									onClick={async () => { if (form.formState.isDirty) { const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true }); if (!ok) return; } form.reset(); setShowCreate(false); }}
+										onClick={async () => {
+											if (form.formState.isDirty) {
+												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+												if (!ok) return;
+											}
+											form.reset();
+											setShowCreate(false);
+										}}
 									>
 										取消
 									</Button>
@@ -342,10 +332,11 @@ export default function RolesPage() {
 										{form.formState.isSubmitting ? "创建中..." : "创建角色"}
 									</Button>
 								</DialogFooter>
-							</form>
-						</Form>
-					</DialogContent>
-				</Dialog>
-			</div>
+							</Stack>
+						</form>
+					</Form>
+				</DialogContent>
+			</Dialog>
+		</Stack>
 	);
 }

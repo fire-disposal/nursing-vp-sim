@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Users } from "lucide-react";
+import { Center, Group, Loader, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { getClasses } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
@@ -10,13 +11,13 @@ import BatchActionBar from "@/components/admin/users/BatchActionBar";
 import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
+import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
 import type { ClassItem } from "@/types/store";
-import { btnPrimary, btnSecondary, selectClass } from "@/utils/styles";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -287,63 +288,66 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	return (
 		<>
-			<div className="mb-4 flex gap-3 flex-wrap items-center">
-				<button type="button" className={btnPrimary} onClick={openCreateUser}>
-					<Plus size={16} /> 注册新用户
-				</button>
-				<button
-					className={btnSecondary}
+			<Group gap={12} wrap="wrap" mb="md">
+				<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
+					注册新用户
+				</Button>
+				<Button
+					variant="outline"
+					leftSection={<IconUsers size={16} />}
 					onClick={() => setShowBatchImport(true)}
 				>
-					<Users size={16} /> 批量导入
-				</button>
-			</div>
+					批量导入
+				</Button>
+			</Group>
 
-			<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
-				<div className="mb-3 flex gap-2 items-center">
+			<Paper withBorder radius="lg" p="md" shadow="sm">
+				<Group gap={8} mb="md">
 					<SearchInput
 						value={search}
 						onChange={(v) => { setSearch(v); resetToFirstPage(); }}
 						placeholder="搜索用户名、姓名或学号..."
 					/>
-					<select
-						value={roleFilter}
-						onChange={(e) => {
-							setRoleFilter(e.target.value);
+					<Select
+						value={roleFilter || null}
+						onChange={(v) => {
+							setRoleFilter(v ?? "");
 							resetToFirstPage();
 						}}
-						className={selectClass}
-					>
-						<option value="">全部角色</option>
-						{roles.map((r) => (
-							<option key={r.name} value={r.name}>
-								{r.display_name}
-							</option>
-						))}
-					</select>
+						data={[
+							{ value: "", label: "全部角色" },
+							...roles.map((r) => ({
+								value: r.name,
+								label: r.display_name,
+							})),
+						]}
+						placeholder="全部角色"
+						size="sm"
+						clearable
+					/>
 					<ClassFilter
 						onChange={(params) => {
 							setClassParam(params);
 							resetToFirstPage();
 						}}
 					/>
-					<span className="text-sm text-muted-foreground whitespace-nowrap">
+					<Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
 						共 {total} 人
-					</span>
-				</div>
+					</Text>
+				</Group>
 				{isLoading && users.length === 0 ? (
-					<div className="flex justify-center py-12">
-						<Loader2 size={24} className="animate-spin text-muted-foreground" />
-					</div>
+					<Center py="xl">
+						<Loader size="sm" />
+					</Center>
 				) : users.length === 0 ? (
 					<EmptyState
-						icon={Users}
+						icon={IconUsers}
 						title="暂无用户"
 						description="注册第一个用户后这里会显示"
 					/>
 				) : (
 					<>
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
 							{users.map((u) => (
 								<UserCard
 									key={u.id}
@@ -353,7 +357,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									onClick={openEditUser}
 								/>
 							))}
-						</div>
+						</SimpleGrid>
 						<Pagination
 							total={total}
 							offset={offset}
@@ -362,7 +366,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						/>
 					</>
 				)}
-			</div>
+			</Paper>
 
 			<BatchActionBar
 				selectedCount={selectedIds.size}
@@ -419,19 +423,22 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					onOpenChange={() => setResetPasswordDialog(null)}
 				>
 					<DialogContent title="密码已重置" maxWidth={400}>
-						<div className="space-y-4">
-							<p className="text-sm text-muted-foreground">
+						<Stack gap="md">
+							<Text size="sm" c="dimmed">
 								用户{" "}
-								<strong>{resetPasswordDialog.user.display_name}</strong>{" "}
+								<Text component="span" fw={700} c="inherit">
+									{resetPasswordDialog.user.display_name}
+								</Text>{" "}
 								的密码已重置，请妥善保存：
-							</p>
-							<div className="flex items-center gap-2 rounded-lg border bg-muted p-3">
-								<code className="flex-1 text-lg font-mono font-bold select-all">
+							</Text>
+							<Group gap={8} p="md" bg="var(--mantine-color-gray-1)" wrap="nowrap" style={{ borderRadius: "var(--mantine-radius-md)" }}>
+								<Text ff="monospace" fw={700} size="lg" style={{ flex: 1, userSelect: "all" }}>
 									{resetPasswordDialog.password}
-								</code>
-								<button
-									type="button"
-									className="text-xs text-primary underline hover:no-underline shrink-0"
+								</Text>
+								<Button
+									variant="ghost"
+									size="xs"
+									color="teal"
 									onClick={() => {
 										navigator.clipboard.writeText(
 											resetPasswordDialog.password,
@@ -439,21 +446,19 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									}}
 								>
 									复制
-								</button>
-							</div>
-							<p className="text-xs text-destructive">
+								</Button>
+							</Group>
+							<Text size="xs" c="red">
 								此密码仅展示一次，请立即告知用户并建议其登录后修改
-							</p>
-						</div>
-						<div className="flex justify-end mt-4">
-							<button
-								type="button"
-								className={btnPrimary}
+							</Text>
+						</Stack>
+						<Group justify="flex-end" mt="md">
+							<Button
 								onClick={() => setResetPasswordDialog(null)}
 							>
 								知道了
-							</button>
-						</div>
+							</Button>
+						</Group>
 					</DialogContent>
 				</Dialog>
 			)}
@@ -464,40 +469,34 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					onOpenChange={() => setShowBulkAssignDialog(false)}
 				>
 					<DialogContent title="批量分配班级" maxWidth={400}>
-						<div className="space-y-4">
-							<p className="text-sm text-muted-foreground">
+						<Stack gap="md">
+							<Text size="sm" c="dimmed">
 								为已选的 {selectedIds.size} 名用户分配班级：
-							</p>
-							<select
-								value={bulkAssignClassId}
-								onChange={(e) => setBulkAssignClassId(e.target.value)}
-								className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card"
-							>
-								<option value="">选择班级…</option>
-								{classes.map((c) => (
-									<option key={c.id} value={c.id}>
-										{c.grade_name} {c.name}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex justify-end gap-2 mt-4">
-							<button
-								type="button"
-								className={btnSecondary}
+							</Text>
+							<Select
+								value={bulkAssignClassId || null}
+								onChange={(v) => setBulkAssignClassId(v ?? "")}
+								data={classes.map((c) => ({
+									value: String(c.id),
+									label: `${c.grade_name} ${c.name}`,
+								}))}
+								placeholder="选择班级…"
+							/>
+						</Stack>
+						<Group justify="flex-end" gap={8} mt="md">
+							<Button
+								variant="outline"
 								onClick={() => setShowBulkAssignDialog(false)}
 							>
 								取消
-							</button>
-							<button
-								type="button"
-								className={btnPrimary}
+							</Button>
+							<Button
 								disabled={!bulkAssignClassId || assigning}
 								onClick={handleBulkAssignConfirm}
 							>
 								{assigning ? "分配中…" : "确认分配"}
-							</button>
-						</div>
+							</Button>
+						</Group>
 					</DialogContent>
 				</Dialog>
 			)}
@@ -508,35 +507,30 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					onOpenChange={() => setShowBulkResetDialog(false)}
 				>
 					<DialogContent title="批量重置密码" maxWidth={400}>
-						<div className="space-y-4">
-							<p className="text-sm text-muted-foreground">
+						<Stack gap="md">
+							<Text size="sm" c="dimmed">
 								为已选的 {selectedIds.size} 名用户设置新密码：
-							</p>
-							<input
-								type="text"
+							</Text>
+							<TextInput
 								placeholder="输入新密码"
 								value={bulkPassword}
-								onChange={(e) => setBulkPassword(e.target.value)}
-								className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card"
+								onChange={(e) => setBulkPassword(e.currentTarget.value)}
 							/>
-						</div>
-						<div className="flex justify-end gap-2 mt-4">
-							<button
-								type="button"
-								className={btnSecondary}
+						</Stack>
+						<Group justify="flex-end" gap={8} mt="md">
+							<Button
+								variant="outline"
 								onClick={() => setShowBulkResetDialog(false)}
 							>
 								取消
-							</button>
-							<button
-								type="button"
-								className={btnPrimary}
+							</Button>
+							<Button
 								disabled={!bulkPassword.trim()}
 								onClick={handleBulkResetConfirm}
 							>
 								确认重置
-							</button>
-						</div>
+							</Button>
+						</Group>
 					</DialogContent>
 				</Dialog>
 			)}

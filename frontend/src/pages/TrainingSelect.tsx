@@ -1,5 +1,23 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Award, BarChart3, BookOpen, ClipboardCheck, ClipboardList, Clock, Gift, Home, Megaphone, Play, RotateCcw, Star, Target, TrendingUp, X } from "lucide-react";
+import {
+	IconAlertTriangle,
+	IconAward,
+	IconBook2,
+	IconChartBar,
+	IconClipboardCheck,
+	IconClipboardList,
+	IconClock,
+	IconGift,
+	IconHome,
+	IconPlayerPlay,
+	IconRotate,
+	IconSpeakerphone,
+	IconStar,
+	IconTarget,
+	IconTrendingUp,
+	IconX,
+} from "@tabler/icons-react";
+import { Box, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +38,6 @@ import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
@@ -31,606 +48,696 @@ const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3:
 const LIMIT = 50;
 
 const CAP_COLORS: Record<string, string> = {
-  physical_exam: "bg-purple-50 text-purple-700",
-  nursing_record: "bg-teal-50 text-teal-700",
-  quiz: "bg-blue-50 text-blue-700",
+	physical_exam: "violet",
+	nursing_record: "teal",
+	quiz: "blue",
 };
 
 function getPatientSummary(ps: CaseBrief["patient_summary"]): { gender?: string; age?: number; chief_complaint?: string } {
-  if (ps && typeof ps === "object") return ps as { gender?: string; age?: number; chief_complaint?: string };
-  return {};
+	if (ps && typeof ps === "object") return ps as { gender?: string; age?: number; chief_complaint?: string };
+	return {};
 }
 
 function Stars({ level }: { level?: number | null }) {
-  const lvl = level && DIFFICULTY_LABELS[level] ? level : 1;
-  return (
-    <span className="flex gap-0.5">
-      {[1, 2, 3].map((i) => (
-        <Star key={i} size={11} fill={i <= lvl ? "#f59e0b" : "none"} color={i <= lvl ? "#f59e0b" : "#d1d5db"} />
-      ))}
-    </span>
-  );
+	const lvl = level && DIFFICULTY_LABELS[level] ? level : 1;
+	return (
+		<Group gap={2} wrap="nowrap">
+			{[1, 2, 3].map((i) => (
+				<IconStar key={i} size={11} fill={i <= lvl ? "#f59e0b" : "none"} color={i <= lvl ? "#f59e0b" : "#d1d5db"} />
+			))}
+		</Group>
+	);
 }
 
 function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
-  if (!caps) return null;
-  const enabled = Object.entries(ALL_CAPABILITIES)
-    .filter(([, d]) => d.tier === "toggleable")
-    .filter(([k]) => caps[k]);
-  if (enabled.length === 0) return null;
-  return (
-    <div className="flex gap-1 flex-wrap">
-      {enabled.map(([key, def]) => (
-        <span key={key} className={cn("text-xs px-1.5 py-0.5 rounded font-medium", CAP_COLORS[key] ?? "bg-muted text-muted-foreground")}>
-          {def.label}
-        </span>
-      ))}
-    </div>
-  );
+	if (!caps) return null;
+	const enabled = Object.entries(ALL_CAPABILITIES)
+		.filter(([, d]) => d.tier === "toggleable")
+		.filter(([k]) => caps[k]);
+	if (enabled.length === 0) return null;
+	return (
+		<Group gap={4} wrap="wrap">
+			{enabled.map(([key, def]) => (
+				<Badge key={key} variant="secondary" color={CAP_COLORS[key] ?? "gray"} size="xs">
+					{def.label}
+				</Badge>
+			))}
+		</Group>
+	);
 }
 
 export default function TrainingSelect() {
-  const [tab, setTab] = useState<"home" | "self" | "assignments">("home");
-  const [difficultyFilter, setDifficultyFilter] = useState(0);
-  const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
-  const [offset, setOffset] = useState(0);
-  const navigate = useNavigate();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const { confirm } = useConfirm();
-  const user = useAuthStore((s) => s.user);
-  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
-  const [conflict, setConflict] = useState<{ recordId: number; caseName: string } | null>(null);
+	const [tab, setTab] = useState<"home" | "self" | "assignments">("home");
+	const [difficultyFilter, setDifficultyFilter] = useState(0);
+	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
+	const [offset, setOffset] = useState(0);
+	const navigate = useNavigate();
+	const toast = useToast();
+	const queryClient = useQueryClient();
+	const { confirm } = useConfirm();
+	const user = useAuthStore((s) => s.user);
+	const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
+	const [conflict, setConflict] = useState<{ recordId: number; caseName: string } | null>(null);
 
-  const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
-    queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
-    queryFn: () => getCases({ offset, limit: LIMIT, ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}), ...(search ? { name: search } : {}) }).then((r) => r.data),
-    staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
-  });
+	const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
+		queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
+		queryFn: () => getCases({ offset, limit: LIMIT, ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}), ...(search ? { name: search } : {}) }).then((r) => r.data),
+		staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
+	});
 
-  const { data: assignmentsData } = useQuery({
-    queryKey: queryKeys.assignments.student,
-    queryFn: () => getStudentAssignments().then((r) => r.data),
-    staleTime: 30_000,
-  });
+	const { data: assignmentsData } = useQuery({
+		queryKey: queryKeys.assignments.student,
+		queryFn: () => getStudentAssignments().then((r) => r.data),
+		staleTime: 30_000,
+	});
 
-  const { data: recordsData } = useQuery({
-    queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
-    queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
-    staleTime: 0,  // always refetch on mount — in_progress records change frequently
-  });
+	const { data: recordsData } = useQuery({
+		queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
+		queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		staleTime: 0,  // always refetch on mount — in_progress records change frequently
+	});
 
-  const records = recordsData?.items ?? [];
-  const assignments = (assignmentsData ?? []) as Array<{
-    id: string; title: string; case_name: string; status: string;
-    end_time: string; record_id?: number | null; score_total?: number | null;
-    is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
-  }>;
+	const records = recordsData?.items ?? [];
+	const assignments = (assignmentsData ?? []) as Array<{
+		id: string; title: string; case_name: string; status: string;
+		end_time: string; record_id?: number | null; score_total?: number | null;
+		is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
+	}>;
 
-  const inProgressCount = useMemo(() => records.filter((r) => r.status === "in_progress").length, [records]);
-  const completedCount = useMemo(() => records.filter((r) => r.status === "completed").length, [records]);
-  const pendingAssignments = useMemo(
-    () => assignments.filter((a) => a.status === "in_progress" && (!a.end_time || new Date(a.end_time) >= new Date())),
-    [assignments],
-  );
+	const inProgressCount = useMemo(() => records.filter((r) => r.status === "in_progress").length, [records]);
+	const completedCount = useMemo(() => records.filter((r) => r.status === "completed").length, [records]);
+	const pendingAssignments = useMemo(
+		() => assignments.filter((a) => a.status === "in_progress" && (!a.end_time || new Date(a.end_time) >= new Date())),
+		[assignments],
+	);
 
-  // ── Notifications (home tab) ──
-  const { data: notifData } = useQuery({
-    queryKey: queryKeys.notifications.recent(),
-    queryFn: () => getNotifications({ limit: 3 }).then((r) => r.data),
-    staleTime: 30_000,
-  });
-  const recentNotifs = useMemo(
-    () => (notifData?.items ?? [])
-      .filter((n) => !n.is_read && !dismissedNotificationIds.has(n.id))
-      .slice(0, 2),
-    [notifData?.items, dismissedNotificationIds],
-  );
-  const dismissNotificationMutation = useMutation({
-    mutationFn: (id: number) => markNotificationRead(id),
-    onMutate: (id) => {
-      setDismissedNotificationIds((prev) => {
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-    },
-    onError: (_error, id) => {
-      setDismissedNotificationIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      toast.error("关闭通知失败，请重试");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-    },
-  });
+	// ── Notifications (home tab) ──
+	const { data: notifData } = useQuery({
+		queryKey: queryKeys.notifications.recent(),
+		queryFn: () => getNotifications({ limit: 3 }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const recentNotifs = useMemo(
+		() => (notifData?.items ?? [])
+			.filter((n) => !n.is_read && !dismissedNotificationIds.has(n.id))
+			.slice(0, 2),
+		[notifData?.items, dismissedNotificationIds],
+	);
+	const dismissNotificationMutation = useMutation({
+		mutationFn: (id: number) => markNotificationRead(id),
+		onMutate: (id) => {
+			setDismissedNotificationIds((prev) => {
+				const next = new Set(prev);
+				next.add(id);
+				return next;
+			});
+		},
+		onError: (_error, id) => {
+			setDismissedNotificationIds((prev) => {
+				const next = new Set(prev);
+				next.delete(id);
+				return next;
+			});
+			toast.error("关闭通知失败，请重试");
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+		},
+	});
 
-  // ── Training stats (home tab) ──
-  const { data: ranking } = useQuery({
-    queryKey: queryKeys.stats.ranking({}),
-    queryFn: () => getStudentRanking().then((r) => r.data),
-    staleTime: 60_000,
-  });
-  const myStats = ranking?.items?.[0];
-  const { data: trends } = useQuery({
-    queryKey: queryKeys.stats.trends("month"),
-    queryFn: () => getTrends().then((r) => r.data),
-    staleTime: 60_000,
-  });
-  const trendItems = trends?.daily ?? [];
+	// ── Training stats (home tab) ──
+	const { data: ranking } = useQuery({
+		queryKey: queryKeys.stats.ranking({}),
+		queryFn: () => getStudentRanking().then((r) => r.data),
+		staleTime: 60_000,
+	});
+	const myStats = ranking?.items?.[0];
+	const { data: trends } = useQuery({
+		queryKey: queryKeys.stats.trends("month"),
+		queryFn: () => getTrends().then((r) => r.data),
+		staleTime: 60_000,
+	});
+	const trendItems = trends?.daily ?? [];
 
-  const inProgressByCase = useMemo(() => {
-    const map = new Map<number, TrainingRecordBrief>();
-    for (const r of records) {
-      if (r.status === "in_progress" && !map.has(r.case_id)) map.set(r.case_id, r);
-    }
-    return map;
-  }, [records]);
+	const inProgressByCase = useMemo(() => {
+		const map = new Map<number, TrainingRecordBrief>();
+		for (const r of records) {
+			if (r.status === "in_progress" && !map.has(r.case_id)) map.set(r.case_id, r);
+		}
+		return map;
+	}, [records]);
 
-  type StartResponse = components["schemas"]["TrainingStartResponse"];
-  const startMutation = useMutation({
-    mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
-    onSuccess: (res) => {
-      const data: StartResponse = res.data;
-      if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
-      navigate(`/training/${data.record_id}`);
-    },
-    onError: (err: unknown) => {
-      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
-      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
-        const d = axiosErr.response.data.detail;
-        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
-        return;
-      }
-      toast.error("开始训练失败，请重试");
-    },
-  });
-  const blindBoxMutation = useMutation({
-    mutationFn: () => startBlindBox(),
-    onSuccess: (res) => {
-      const data: StartResponse = res.data;
-      if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
-      navigate(`/training/${data.record_id}`);
-    },
-    onError: (err: unknown) => {
-      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
-      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
-        const d = axiosErr.response.data.detail;
-        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
-        return;
-      }
-      toast.error("盲盒训练开始失败，请重试");
-    },
-  });
-  const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
-    const ok = await confirm({
-      title: "重新开始训练", message: `放弃「${c.name}」当前未完成的训练并重新开始？`, confirmLabel: "放弃并重开", danger: true,
-    });
-    if (!ok) return;
-    try { await abandonRecord(rec.id); } catch { toast.apiError(null, "放弃记录失败"); return; }
-    queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-    startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 });
-  };
-  const handleStartAssignment = async (assignmentId: string) => {
-    try {
-      const res = await startAssignment(assignmentId);
-      const data = res.data as Record<string, unknown>;
-      if (typeof (data as { record_id?: number }).record_id === "number") {
-        if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
-        navigate(`/training/${(data as { record_id: number }).record_id}`);
-      }
-    } catch (err: unknown) {
-      const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
-      if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
-        const d = axiosErr.response.data.detail;
-        setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
-        return;
-      }
-      toast.apiError(err, "开始作业失败，请刷新后重试");
-    }
-  };
+	type StartResponse = components["schemas"]["TrainingStartResponse"];
+	const startMutation = useMutation({
+		mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
+		onSuccess: (res) => {
+			const data: StartResponse = res.data;
+			if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
+			navigate(`/training/${data.record_id}`);
+		},
+		onError: (err: unknown) => {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			toast.error("开始训练失败，请重试");
+		},
+	});
+	const blindBoxMutation = useMutation({
+		mutationFn: () => startBlindBox(),
+		onSuccess: (res) => {
+			const data: StartResponse = res.data;
+			if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
+			navigate(`/training/${data.record_id}`);
+		},
+		onError: (err: unknown) => {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			toast.error("盲盒训练开始失败，请重试");
+		},
+	});
+	const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
+		const ok = await confirm({
+			title: "重新开始训练", message: `放弃「${c.name}」当前未完成的训练并重新开始？`, confirmLabel: "放弃并重开", danger: true,
+		});
+		if (!ok) return;
+		try { await abandonRecord(rec.id); } catch { toast.apiError(null, "放弃记录失败"); return; }
+		queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+		startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 });
+	};
+	const handleStartAssignment = async (assignmentId: string) => {
+		try {
+			const res = await startAssignment(assignmentId);
+			const data = res.data as Record<string, unknown>;
+			if (typeof (data as { record_id?: number }).record_id === "number") {
+				if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
+				navigate(`/training/${(data as { record_id: number }).record_id}`);
+			}
+		} catch (err: unknown) {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			toast.apiError(err, "开始作业失败，请刷新后重试");
+		}
+	};
 
-  const cases = casesData?.items ?? [];
-  const total = casesData?.total ?? 0;
+	const cases = casesData?.items ?? [];
+	const total = casesData?.total ?? 0;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
-  const recentRecords = records.slice(0, 5);
-  const primaryInProgress = records.find((r) => r.status === "in_progress");
-  const nextAssignment = pendingAssignments[0];
+	const hour = new Date().getHours();
+	const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
+	const recentRecords = records.slice(0, 5);
+	const primaryInProgress = records.find((r) => r.status === "in_progress");
+	const nextAssignment = pendingAssignments[0];
 
+	if (conflict) return (
+		<Dialog open onOpenChange={() => setConflict(null)}>
+			<DialogContent title="有进行中的训练" maxWidth={360}>
+				<Text size="sm" c="dimmed" mb="md">你有一个未完成的训练「{conflict.caseName}」。</Text>
+				<Stack gap="xs">
+					<Button color="green" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
+						继续之前的训练
+					</Button>
+					<Button variant="destructive" onClick={async () => {
+						await abandonRecord(String(conflict.recordId));
+						queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+						setConflict(null);
+					}}>
+						放弃并开始新训练
+					</Button>
+					<Button variant="outline" onClick={() => setConflict(null)}>取消</Button>
+				</Stack>
+			</DialogContent>
+		</Dialog>
+	);
+	return (
+		<Stack gap="md">
+			<SegmentedControl
+				value={tab}
+				onChange={(v) => setTab(v as "home" | "self" | "assignments")}
+				style={{ width: "fit-content" }}
+				data={[
+					{ value: "home", label: <Group gap={6} wrap="nowrap"><IconHome size={14} />首页</Group> },
+					{ value: "self", label: <Group gap={6} wrap="nowrap"><IconBook2 size={14} />自主训练</Group> },
+					{ value: "assignments", label: <Group gap={6} wrap="nowrap"><IconClipboardList size={14} />我的作业</Group> },
+				]}
+			/>
 
-  if (conflict) return (
-    <Dialog open onOpenChange={() => setConflict(null)}>
-      <DialogContent title="有进行中的训练" maxWidth={360}>
-        <p className="text-sm text-muted-foreground mb-4">你有一个未完成的训练「{conflict.caseName}」。</p>
-        <div className="flex flex-col gap-2">
-          <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
-            继续之前的训练
-          </Button>
-          <Button variant="destructive" onClick={async () => {
-            await abandonRecord(String(conflict.recordId));
-            queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-            setConflict(null);
-          }}>
-            放弃并开始新训练
-          </Button>
-          <Button variant="outline" onClick={() => setConflict(null)}>取消</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between">
-        <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
-          <button onClick={() => setTab("home")}
-            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "home" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
-          ><Home size={14} />首页</button>
-          <button onClick={() => setTab("self")}
-            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "self" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
-          ><BookOpen size={14} />自主训练</button>
-          <button onClick={() => setTab("assignments")}
-            className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95", tab === "assignments" ? "bg-background text-foreground shadow-e1" : "text-muted-foreground hover:text-foreground")}
-          ><ClipboardList size={14} />我的作业</button>
-        </div>
-      </div>
+			{tab === "home" && (
+				<Stack gap="md">
+					{recentNotifs.length > 0 && (
+						<Paper withBorder radius="xl" style={{ overflow: "hidden" }}>
+							<Group
+								justify="space-between"
+								gap="sm"
+								px="md"
+								py="sm"
+								style={{ borderBottom: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-teal-1)" }}
+							>
+								<Group gap="xs">
+									<ThemeIcon size={32} radius="lg" variant="light" color="teal">
+										<IconSpeakerphone size={16} />
+									</ThemeIcon>
+									<Box>
+										<Text size="sm" fw={600}>新的训练通知</Text>
+										<Text size="xs" c="dimmed">可关闭，关闭后会标记为已读</Text>
+									</Box>
+								</Group>
+								<Button variant="ghost" size="sm" onClick={() => navigate("/notifications")}>
+									查看全部
+								</Button>
+							</Group>
+							<Stack gap={0}>
+								{recentNotifs.map((n: TrainingNotificationItem) => (
+									<Group
+										key={n.id}
+										gap="sm"
+										align="flex-start"
+										px="md"
+										py="sm"
+										wrap="nowrap"
+										style={{ borderBottom: "1px solid var(--mantine-color-gray-2)" }}
+									>
+										<UnstyledButton
+											onClick={() => navigate(n.record_id ? `/training/${n.record_id}` : "/notifications")}
+											style={{ flex: 1, minWidth: 0, textAlign: "left" }}
+										>
+											<Text size="sm" fw={500} truncate>{n.title}</Text>
+											{n.body && (
+												<Text size="xs" c="dimmed" mt={4} lineClamp={2} lh={1.5}>{n.body}</Text>
+											)}
+										</UnstyledButton>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											style={{ flexShrink: 0 }}
+											onClick={() => dismissNotificationMutation.mutate(n.id)}
+											disabled={dismissNotificationMutation.isPending}
+											aria-label={`关闭通知：${n.title}`}
+										>
+											<IconX size={15} />
+										</Button>
+									</Group>
+								))}
+							</Stack>
+						</Paper>
+					)}
 
-      {tab === "home" && (
-        <div className="space-y-4">
-          {recentNotifs.length > 0 && (
-            <section className="overflow-hidden rounded-2xl border border-primary/15 bg-card shadow-e2">
-              <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-primary/5 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Megaphone size={16} />
-                  </span>
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">新的训练通知</h2>
-                    <p className="text-xs text-muted-foreground">可关闭，关闭后会标记为已读</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => navigate("/notifications")}>
-                  查看全部
-                </Button>
-              </div>
-              <div className="divide-y divide-border/70">
-                {recentNotifs.map((n: TrainingNotificationItem) => (
-                  <div key={n.id} className="flex items-start gap-3 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate(n.record_id ? `/training/${n.record_id}` : "/notifications")}
-                      className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
-                    >
-                      <p className="truncate text-sm font-medium text-foreground">{n.title}</p>
-                      {n.body && (
-                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{n.body}</p>
-                      )}
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => dismissNotificationMutation.mutate(n.id)}
-                      disabled={dismissNotificationMutation.isPending}
-                      aria-label={`关闭通知：${n.title}`}
-                    >
-                      <X size={15} />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+						<Paper
+							withBorder
+							radius="xl"
+							p={{ base: "md", sm: "lg" }}
+							style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32 }}
+						>
+							<Box>
+								<Text size="sm" fw={500} c="teal">{greeting}，{user?.display_name || "同学"}</Text>
+								<Title order={2} size="xl" mt="sm" style={{ maxWidth: 672 }}>
+									{primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
+								</Title>
+								<Text size="sm" c="dimmed" mt="sm" lh={1.6} style={{ maxWidth: 560 }}>
+									{primaryInProgress
+										? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
+										: nextAssignment
+											? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
+											: "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
+								</Text>
+							</Box>
 
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
-            <div className="relative overflow-hidden rounded-2xl ring-1 ring-foreground/10 bg-card p-5 shadow-e2 sm:p-6">
-              <div className="absolute inset-0 bg-grid-medical opacity-80" />
-              <div className="absolute -right-12 -top-16 size-48 rounded-full bg-primary/10 blur-3xl" />
-              <div className="relative flex min-h-[220px] flex-col justify-between gap-8">
-                <div>
-                  <p className="text-sm font-medium text-primary">{greeting}，{user?.display_name || "同学"}</p>
-                  <h1 className="mt-3 max-w-2xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-                    {primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
-                  </h1>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                    {primaryInProgress
-                      ? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
-                      : nextAssignment
-                        ? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
-                        : "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
-                  </p>
-                </div>
+							<Group gap="sm" wrap="wrap">
+								{primaryInProgress ? (
+									<Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
+										<IconPlayerPlay size={16} />继续训练
+									</Button>
+								) : nextAssignment ? (
+									<Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)}>
+										<IconPlayerPlay size={16} />开始作业
+									</Button>
+								) : (
+									<Button size="lg" onClick={() => setTab("self")}>
+										<IconBook2 size={16} />选择病例
+									</Button>
+								)}
+								{(primaryInProgress || nextAssignment) && (
+									<Button variant="outline" size="lg" onClick={() => setTab("self")}>
+										{primaryInProgress ? "选择其他病例" : "自主训练"}
+									</Button>
+								)}
+							</Group>
+						</Paper>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {primaryInProgress ? (
-                    <Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)} className="sm:w-fit">
-                      <Play size={16} />继续训练
-                    </Button>
-                  ) : nextAssignment ? (
-                    <Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)} className="sm:w-fit">
-                      <Play size={16} />开始作业
-                    </Button>
-                  ) : (
-                    <Button size="lg" onClick={() => setTab("self")} className="sm:w-fit">
-                      <BookOpen size={16} />选择病例
-                    </Button>
-                  )}
-                  {(primaryInProgress || nextAssignment) && (
-                    <Button variant="outline" size="lg" onClick={() => setTab("self")} className="sm:w-fit">
-                      {primaryInProgress ? "选择其他病例" : "自主训练"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
+						<Paper withBorder radius="xl" p="md">
+							<Group justify="space-between" gap="sm">
+								<Text size="sm" fw={600}>待完成作业</Text>
+								<Button variant="ghost" size="xs" onClick={() => setTab("assignments")}>
+									查看全部
+								</Button>
+							</Group>
+							{pendingAssignments.length > 0 ? (
+								<Stack gap="xs" mt="sm">
+									{pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
+										<Paper key={a.id} withBorder radius="md" p="sm">
+											<Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
+												<Box style={{ minWidth: 0 }}>
+													<Text size="sm" fw={500} truncate>{a.title}</Text>
+													<Text size="xs" c="dimmed" mt={4}>
+														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}
+													</Text>
+												</Box>
+												<Button size="sm" onClick={() => handleStartAssignment(a.id)}>
+													<IconPlayerPlay size={14} />开始
+												</Button>
+											</Group>
+										</Paper>
+									))}
+								</Stack>
+							) : (
+								<Paper radius="md" mt="md" p="md" withBorder style={{ borderStyle: "dashed" }}>
+									<Text size="sm" c="dimmed">
+										暂无待完成作业，可以自主选择病例训练。
+									</Text>
+								</Paper>
+							)}
+						</Paper>
+					</SimpleGrid>
 
-            <aside className="rounded-2xl ring-1 ring-foreground/10 bg-card p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">待完成作业</h2>
-                <button type="button" onClick={() => setTab("assignments")} className="text-xs font-medium text-primary hover:text-primary/80">
-                  查看全部
-                </button>
-              </div>
-              {pendingAssignments.length > 0 ? (
-                <div className="mt-3 space-y-2">
-                  {pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
-                    <div key={a.id} className="rounded-xl border border-border p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{a.title}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}
-                          </div>
-                        </div>
-                        <Button size="sm" onClick={() => handleStartAssignment(a.id)}>
-                          <Play size={14} />开始
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  暂无待完成作业，可以自主选择病例训练。
-                </div>
-              )}
-            </aside>
-          </section>
+					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
+						<Paper withBorder radius="xl" p="md">
+							<Group gap="xs" mb="sm">
+								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+								<Text size="sm" fw={500}>最近训练</Text>
+							</Group>
+							{primaryInProgress && (
+								<Paper radius="md" mb="sm" px="sm" py="xs" bg="yellow.0" style={{ border: "1px solid var(--mantine-color-yellow-3)" }}>
+									<Group justify="space-between" gap="sm" wrap="nowrap">
+										<Box style={{ minWidth: 0 }}>
+											<Group gap={6} wrap="nowrap">
+												<IconPlayerPlay size={12} style={{ color: "var(--mantine-color-yellow-8)" }} />
+												<Text size="xs" fw={600} c="yellow.8">进行中的训练</Text>
+											</Group>
+											<Text size="xs" c="dimmed" mt={2} truncate>{primaryInProgress.case_name}</Text>
+										</Box>
+										<Group gap={6} wrap="nowrap">
+											<Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
+											<Button size="sm" variant="ghost" color="red" onClick={async () => {
+												const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
+												if (!ok) return;
+												try { await abandonRecord(primaryInProgress.id); queryClient.invalidateQueries({ queryKey: queryKeys.training.all }); } catch { toast.apiError(null, "放弃失败"); }
+											}}>放弃</Button>
+										</Group>
+									</Group>
+								</Paper>
+							)}
+							{recentRecords.length > 0 ? (
+								<Stack gap={4}>
+									{recentRecords.map((r) => (
+										<UnstyledButton
+											key={r.id}
+											onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
+											style={{ width: "100%", padding: "8px 12px", borderRadius: "var(--mantine-radius-md)" }}
+										>
+											<Group justify="space-between" gap="sm" wrap="nowrap">
+												<Box style={{ minWidth: 0, flex: 1 }}>
+													<Text size="sm" fw={500} truncate>{r.case_name}</Text>
+													<Text size="xs" c="dimmed" mt={2}>
+														{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊
+													</Text>
+												</Box>
+												<Box style={{ flexShrink: 0, marginLeft: 12 }}>
+													{r.status === "completed" && r.score_total != null ? (
+														<Text size="sm" fw={600} c="teal" style={{ fontVariantNumeric: "tabular-nums" }}>{r.score_total} 分</Text>
+													) : r.status === "in_progress" ? (
+														<Badge variant="info">进行中</Badge>
+													) : null}
+												</Box>
+											</Group>
+										</UnstyledButton>
+									))}
+								</Stack>
+							) : (
+								<Paper radius="md" px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+									<Text size="sm" c="dimmed">
+										还没有训练记录。先从一个病例开始。
+									</Text>
+								</Paper>
+							)}
+						</Paper>
 
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><TrendingUp size={16} className="text-muted-foreground" />最近训练</h3>
-              {primaryInProgress && (
-                <div className="mb-3 -mx-1 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-warning-foreground">
-                        <Play size={12} />进行中的训练
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground truncate">{primaryInProgress.case_name}</div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
-                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={async () => {
-                        const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
-                        if (!ok) return;
-                        try { await abandonRecord(primaryInProgress.id); queryClient.invalidateQueries({ queryKey: queryKeys.training.all }); } catch { toast.apiError(null, "放弃失败"); }
-                      }}>放弃</Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {recentRecords.length > 0 ? (
-                <div className="space-y-1">
-                  {recentRecords.map((r) => (
-                    <button key={r.id} type="button" onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted">
-                      <div className="min-w-0 flex-1"><div className="text-sm font-medium truncate">{r.case_name}</div><div className="text-xs text-muted-foreground mt-0.5">{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊</div></div>
-                      <div className="shrink-0 ml-3">{r.status === "completed" && r.score_total != null ? <span className="text-sm font-semibold text-primary tabular-nums">{r.score_total} 分</span> : r.status === "in_progress" ? <Badge variant="info">进行中</Badge> : null}</div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-                  还没有训练记录。先从一个病例开始。
-                </div>
-              )}
-            </div>
+						<Paper withBorder radius="xl" p="md">
+							<Group gap="xs" mb="sm">
+								<IconTarget size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+								<Text size="sm" fw={500}>训练概览</Text>
+							</Group>
+							<SimpleGrid cols={3} spacing="xs">
+								<Button
+									type="button"
+									variant="secondary"
+									color="yellow"
+									h="auto"
+									py="sm"
+									onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
+									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
+								>
+									<IconPlayerPlay size={16} style={{ color: "var(--mantine-color-yellow-8)" }} />
+									<Box style={{ textAlign: "left" }}>
+										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{inProgressCount}</Text>
+										<Text size="xs" c="dimmed">进行中</Text>
+									</Box>
+								</Button>
+								<Button
+									type="button"
+									variant="secondary"
+									color="green"
+									h="auto"
+									py="sm"
+									onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
+									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
+								>
+									<IconClipboardCheck size={16} style={{ color: "var(--mantine-color-green-8)" }} />
+									<Box style={{ textAlign: "left" }}>
+										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{completedCount}</Text>
+										<Text size="xs" c="dimmed">已完成</Text>
+									</Box>
+								</Button>
+								<Button
+									type="button"
+									variant="secondary"
+									color="red"
+									h="auto"
+									py="sm"
+									onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
+									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
+								>
+									<IconBook2 size={16} style={{ color: "var(--mantine-color-red-8)" }} />
+									<Box style={{ textAlign: "left" }}>
+										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{pendingAssignments.length}</Text>
+										<Text size="xs" c="dimmed">作业</Text>
+									</Box>
+								</Button>
+							</SimpleGrid>
+							{myStats && (
+								<SimpleGrid cols={{ base: 1, sm: 2, xl: 1 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+									<StatCard icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="teal" />
+									<StatCard icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
+									<StatCard icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
+									<StatCard icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
+								</SimpleGrid>
+							)}
+							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+								<Group gap="xs" mb="sm">
+									<IconChartBar size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+									<Text size="sm" fw={500}>进步趋势</Text>
+								</Group>
+								{trendItems.length > 0 ? (
+									<SimpleGrid cols={4} spacing="xs">
+										{trendItems.slice(0, 8).map((item, index) => (
+											<Paper key={`${String(item.period_label ?? "period")}-${index}`} radius="md" bg="gray.1" p={8} ta="center">
+												<Text size="sm" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
+													{item.average_score != null ? String(item.average_score) : "--"}
+												</Text>
+												<Text size="11px" c="dimmed" mt={2} truncate>
+													{item.period_label != null ? String(item.period_label) : `第${index + 1}周`}
+												</Text>
+											</Paper>
+										))}
+									</SimpleGrid>
+								) : (
+									<Paper radius="md" px="sm" py="md" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+										<Text size="xs" c="dimmed">
+											完成更多训练后显示趋势
+										</Text>
+									</Paper>
+								)}
+							</Box>
+						</Paper>
+					</SimpleGrid>
+				</Stack>
+			)}
 
-            <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-medium"><Target size={16} className="text-muted-foreground" />训练概览</h3>
-              <div className="grid grid-cols-3 gap-2">
-                <Button type="button" variant="ghost" onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
-                  className={cn("h-auto flex-col items-start rounded-lg bg-warning/60 p-3 text-left transition-colors", inProgressCount > 0 && "hover:bg-warning")}>
-                  <Play size={16} className="mb-2 text-warning-foreground" />
-                  <div><div className="text-lg font-bold tabular-nums">{inProgressCount}</div><div className="text-xs text-muted-foreground">进行中</div></div>
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
-                  className={cn("h-auto flex-col items-start rounded-lg bg-success/60 p-3 text-left transition-colors", completedCount > 0 && "hover:bg-success")}>
-                  <ClipboardCheck size={16} className="mb-2 text-success-foreground" />
-                  <div><div className="text-lg font-bold tabular-nums">{completedCount}</div><div className="text-xs text-muted-foreground">已完成</div></div>
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
-                  className={cn("h-auto flex-col items-start rounded-lg bg-danger/60 p-3 text-left transition-colors", pendingAssignments.length > 0 && "hover:bg-danger")}>
-                  <BookOpen size={16} className="mb-2 text-danger-foreground" />
-                  <div><div className="text-lg font-bold tabular-nums">{pendingAssignments.length}</div><div className="text-xs text-muted-foreground">作业</div></div>
-                </Button>
-              </div>
-              {myStats && (
-                <div className="mt-4 grid grid-cols-1 gap-3 border-t border-border pt-4 sm:grid-cols-2 xl:grid-cols-1">
-                  <StatCard icon={Target} label="完成训练" value={myStats.total_sessions ?? 0} color="teal" className="p-3" />
-                  <StatCard icon={Award} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" className="p-3" />
-                  <StatCard icon={TrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" className="p-3" />
-                  <StatCard icon={Clock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" className="p-3" />
-                </div>
-              )}
-              <div className="mt-4 border-t border-border pt-4">
-                <h4 className="mb-3 flex items-center gap-2 text-sm font-medium"><BarChart3 size={16} className="text-muted-foreground" />进步趋势</h4>
-                {trendItems.length > 0 ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {trendItems.slice(0, 8).map((item, index) => (
-                      <div key={`${String(item.period_label ?? "period")}-${index}`} className="rounded-lg bg-muted/70 p-2 text-center">
-                        <div className="text-sm font-semibold tabular-nums">{item.average_score != null ? String(item.average_score) : "--"}</div>
-                        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{item.period_label != null ? String(item.period_label) : `第${index + 1}周`}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                    完成更多训练后显示趋势
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
+			{/* ═══ Tab: 自主训练 ═══ */}
+			{tab === "self" && (
+				<>
+					<Group gap="xs" wrap="wrap">
+						{[0, 1, 2, 3].map((d) => (
+							<Button key={d} type="button" variant={difficultyFilter === d ? "default" : "ghost"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+							>{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
+						))}
+						<Box style={{ flex: 1 }} />
+						<Box w={176}>
+							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
+						</Box>
+					</Group>
+					<Paper radius="md" withBorder px="md" py="sm" bg="teal.1" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-teal-4)" }}>
+						<Group justify="space-between" gap="sm" wrap="wrap">
+							<Box style={{ minWidth: 0 }}>
+								<Group gap={6} wrap="nowrap">
+									<IconGift size={15} style={{ color: "var(--mantine-color-teal-7)", flexShrink: 0 }} />
+									<Text size="sm" fw={600}>盲盒训练</Text>
+								</Group>
+								<Text size="xs" c="dimmed" mt={2} truncate>
+									随机抽取一个开放病例，隐藏标题与引导，考验临场问诊
+								</Text>
+							</Box>
+							<Button
+								size="sm"
+								style={{ flexShrink: 0 }}
+								onClick={() => blindBoxMutation.mutate()}
+								disabled={blindBoxMutation.isPending}
+							>
+								{blindBoxMutation.isPending ? "抽取中…" : "开始盲盒"}
+							</Button>
+						</Group>
+					</Paper>
+					{casesLoading ? (
+						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+							{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
+						</SimpleGrid>
+					) : casesError ? (
+						<EmptyState icon={IconAlertTriangle} title="加载失败" description="请检查网络后重试" action={<Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>} />
+					) : cases.length === 0 ? (
+						<EmptyState icon={IconAlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
+					) : (
+						<>
+							<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+								{cases.map((c, idx) => {
+									const summary = getPatientSummary(c.patient_summary);
+									const inProgress = inProgressByCase.get(c.id);
+									return (
+										<motion.div key={c.id}
+											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+											transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
+											<Paper withBorder radius="md" p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+													<Box style={{ minWidth: 0, flex: 1 }}>
+														<Text size="sm" fw={600} truncate>{c.name}</Text>
+														<Text size="xs" c="dimmed" mt={2}>
+															{[summary.gender, summary.age != null ? `${summary.age}岁` : null].filter(Boolean).join(" · ")}
+															{summary.chief_complaint && <> · {summary.chief_complaint.slice(0, 30)}</>}
+														</Text>
+													</Box>
+													<Stars level={c.difficulty} />
+												</Group>
+												<CapBadges caps={c.capabilities} />
+												{inProgress ? (
+													<Group gap="xs" style={{ marginTop: "auto" }}>
+														<Button style={{ flex: 1 }} size="sm" onClick={() => navigate(`/training/${inProgress.id}`)}><IconPlayerPlay size={14} />继续训练</Button>
+														<Button variant="outline" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
+													</Group>
+												) : (
+													<Button style={{ marginTop: "auto", width: "100%" }} size="sm" onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })} disabled={startMutation.isPending}>开始训练</Button>
+												)}
+											</Paper>
+										</motion.div>
+									);
+								})}
+							</SimpleGrid>
+							{total > LIMIT && <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />}
+						</>
+					)}
+				</>
+			)}
 
-      {/* ═══ Tab: 自主训练 ═══ */}
-      {tab === "self" && (
-        <>
-          <div className="flex items-center gap-2 flex-wrap">
-            {[0, 1, 2, 3].map((d) => (
-              <Button key={d} type="button" variant={difficultyFilter === d ? "default" : "ghost"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
-              >{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
-            ))}
-            <div className="flex-1" />
-            <div className="w-44">
-              <SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
-            </div>
-          </div>
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <Gift size={15} className="text-primary shrink-0" />盲盒训练
-              </div>
-              <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                随机抽取一个开放病例，隐藏标题与引导，考验临场问诊
-              </p>
-            </div>
-            <Button
-              size="sm"
-              className="shrink-0"
-              onClick={() => blindBoxMutation.mutate()}
-              disabled={blindBoxMutation.isPending}
-            >
-              {blindBoxMutation.isPending ? "抽取中…" : "开始盲盒"}
-            </Button>
-          </div>
-          {casesLoading ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
-          ) : casesError ? (
-            <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" action={<Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>} />
-          ) : cases.length === 0 ? (
-            <EmptyState icon={AlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {cases.map((c, idx) => {
-                  const summary = getPatientSummary(c.patient_summary);
-                  const inProgress = inProgressByCase.get(c.id);
-                  return (
-                    <motion.div key={c.id}
-                      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
-                      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold truncate">{c.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {[summary.gender, summary.age != null ? `${summary.age}岁` : null].filter(Boolean).join(" · ")}
-                            {summary.chief_complaint && <> · {summary.chief_complaint.slice(0, 30)}</>}
-                          </p>
-                        </div>
-                        <Stars level={c.difficulty} />
-                      </div>
-                      <CapBadges caps={c.capabilities} />
-                      {inProgress ? (
-                        <div className="mt-auto flex gap-2">
-                          <Button className="flex-1" size="sm" onClick={() => navigate(`/training/${inProgress.id}`)}><Play size={14} />继续训练</Button>
-                          <Button variant="outline" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><RotateCcw size={14} /></Button>
-                        </div>
-                      ) : (
-                        <Button className="mt-auto w-full" size="sm" onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })} disabled={startMutation.isPending}>开始训练</Button>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-              {total > LIMIT && <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />}
-            </>
-          )}
-        </>
-      )}
+			{/* ═══ Tab: 我的作业 ═══ */}
+			{tab === "assignments" && (
+				!assignmentsData ? (
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+						{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
+					</SimpleGrid>
+				) : assignments.length === 0 ? (
+					<EmptyState icon={IconClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
+				) : (
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+						{assignments.map((a) => {
+							const isExpired = a.end_time && new Date(a.end_time) < new Date();
+							const isCompleted = a.status === "completed";
+							const isInProgress = a.status === "in_progress";
+							const attemptsLeft =
+								a.max_attempts != null && a.max_attempts > 0
+									? a.max_attempts - (a.attempt_count ?? 0)
+									: null;
 
-      {/* ═══ Tab: 我的作业 ═══ */}
-      {tab === "assignments" && (
-        !assignmentsData ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}</div>
-        ) : assignments.length === 0 ? (
-          <EmptyState icon={ClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {assignments.map((a) => {
-              const isExpired = a.end_time && new Date(a.end_time) < new Date();
-              const isCompleted = a.status === "completed";
-              const isInProgress = a.status === "in_progress";
-              const attemptsLeft =
-                a.max_attempts != null && a.max_attempts > 0
-                  ? a.max_attempts - (a.attempt_count ?? 0)
-                  : null;
+							const handleReattempt = () => {
+								if (isCompleted && a.score_total != null) {
+									const ok = window.confirm(
+										`你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`
+									);
+									if (!ok) return;
+								}
+								handleStartAssignment(a.id);
+							};
 
-              const handleReattempt = () => {
-                if (isCompleted && a.score_total != null) {
-                  const ok = window.confirm(
-                    `你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`
-                  );
-                  if (!ok) return;
-                }
-                handleStartAssignment(a.id);
-              };
-
-              return (
-                <div key={a.id} className={cn("flex flex-col gap-3 rounded-lg border p-4 transition-colors", isExpired ? "border-danger bg-danger/30" : isCompleted ? "border-success bg-success/30" : "border-border bg-card hover:border-primary/30")}>
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-semibold truncate flex-1">{a.title}</h3>
-                      {isExpired && <Badge variant="danger">已过期</Badge>}
-                      {isCompleted && <Badge variant="success">已完成</Badge>}
-                      {!isExpired && !isCompleted && <Badge variant="secondary">待完成</Badge>}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {a.case_name}
-                      {a.score_total != null && <> · 得分 {a.score_total}</>}
-                    </p>
-                    {(a.attempt_count ?? 0) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        已尝试 {a.attempt_count} 次
-                        {attemptsLeft != null && <> · 剩余 {attemptsLeft} 次</>}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-auto">
-                    {isExpired ? (
-                      // 过期作业不提供进入/继续（后端会拒绝继续，前端直接拦截避免交卷倒计时糊脸）
-                      <Button size="sm" variant="outline" disabled className="w-full">已过期</Button>
-                    ) : isInProgress && a.record_id ? (
-                      <Button size="sm" className="w-full" onClick={() => navigate(`/training/${a.record_id}`)}><Play size={14} />继续训练</Button>
-                    ) : isCompleted ? (
-                      <Button size="sm" variant="outline" className="w-full" onClick={handleReattempt}><RotateCcw size={14} />重新训练</Button>
-                    ) : (
-                      <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}><Play size={14} />开始作业</Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
-    </div>
-  );
+							return (
+								<Paper
+									key={a.id}
+									withBorder
+									radius="md"
+									p="md"
+									style={{ display: "flex", flexDirection: "column", gap: 12 }}
+								>
+									<Box>
+										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>
+											{isExpired && <Badge variant="danger">已过期</Badge>}
+											{isCompleted && <Badge variant="success">已完成</Badge>}
+											{!isExpired && !isCompleted && <Badge variant="secondary">待完成</Badge>}
+										</Group>
+										<Text size="xs" c="dimmed" mt={4}>
+											{a.case_name}
+											{a.score_total != null && <> · 得分 {a.score_total}</>}
+										</Text>
+										{(a.attempt_count ?? 0) > 0 && (
+											<Text size="xs" c="dimmed" mt={2}>
+												已尝试 {a.attempt_count} 次
+												{attemptsLeft != null && <> · 剩余 {attemptsLeft} 次</>}
+											</Text>
+										)}
+									</Box>
+									<Box style={{ marginTop: "auto" }}>
+										{isExpired ? (
+											<Button size="sm" variant="outline" disabled style={{ width: "100%" }}>已过期</Button>
+										) : isInProgress && a.record_id ? (
+											<Button size="sm" style={{ width: "100%" }} onClick={() => navigate(`/training/${a.record_id}`)}><IconPlayerPlay size={14} />继续训练</Button>
+										) : isCompleted ? (
+											<Button size="sm" variant="outline" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
+										) : (
+											<Button size="sm" style={{ width: "100%" }} onClick={() => handleStartAssignment(a.id)}><IconPlayerPlay size={14} />开始作业</Button>
+										)}
+									</Box>
+								</Paper>
+							);
+						})}
+					</SimpleGrid>
+				)
+			)}
+		</Stack>
+	);
 }

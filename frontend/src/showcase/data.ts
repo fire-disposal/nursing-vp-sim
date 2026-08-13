@@ -1,12 +1,16 @@
+// 图标：lucide-react → @tabler/icons-react。
+// tabler 无同名词的语义等价映射：
+//   Boxes→IconBox, MessagesSquare→IconMessages, HeartPulse→IconHeartbeat,
+//   AudioLines→IconVolume, BookOpenCheck→IconBook2
 import {
-	Activity,
-	AudioLines,
-	BookOpenCheck,
-	Boxes,
-	HeartPulse,
-	type LucideIcon,
-	MessagesSquare,
-} from "lucide-react";
+	IconActivity,
+	IconBook2,
+	IconBox,
+	IconHeartbeat,
+	IconMessages,
+	IconVolume,
+	type TablerIcon,
+} from "@tabler/icons-react";
 
 export const PRODUCT_NAME = "虚拟患者训练系统";
 export const HERO_TITLE = "把 LLM 做成可教学、可评估的虚拟患者";
@@ -30,7 +34,7 @@ export type HighlightLayout = "full" | "split" | "split-reverse" | "bento" | "st
 
 export interface Highlight {
 	id: string;
-	icon: LucideIcon;
+	icon: TablerIcon;
 	title: string;
 	body: string;
 	points: string[];
@@ -41,7 +45,7 @@ export interface Highlight {
 export const HIGHLIGHTS: Highlight[] = [
 	{
 		id: "engine",
-		icon: Boxes,
+		icon: IconBox,
 		title: "训练引擎架构",
 		body: "六阶段流式处理管道，按特性开关装配训练面板，组合出不同的训练场景。",
 		points: [],
@@ -50,7 +54,7 @@ export const HIGHLIGHTS: Highlight[] = [
 	},
 	{
 		id: "patient",
-		icon: MessagesSquare,
+		icon: IconMessages,
 		title: "LLM 虚拟患者对话",
 		body: "角色扮演 + 隐藏信息逐步披露，患者会主动追问，逼近真实问诊节奏。",
 		points: [
@@ -63,7 +67,7 @@ export const HIGHLIGHTS: Highlight[] = [
 	},
 	{
 		id: "emotion",
-		icon: HeartPulse,
+		icon: IconHeartbeat,
 		title: "患者情绪系统",
 		body: "基于信任-舒适二维模型，LLM 逐轮分析驱动 6 种情绪状态，立绘实时联动。",
 		points: [
@@ -76,7 +80,7 @@ export const HIGHLIGHTS: Highlight[] = [
 	},
 	{
 		id: "voice",
-		icon: AudioLines,
+		icon: IconVolume,
 		title: "语音交互",
 		body: "火山引擎 TTS 流式，情绪联动音色，双路提供方与优雅降级。",
 		points: [
@@ -88,7 +92,7 @@ export const HIGHLIGHTS: Highlight[] = [
 	},
 	{
 		id: "scoring",
-		icon: Activity,
+		icon: IconActivity,
 		title: "流式评分 + 透明化",
 		body: "SSE 逐项推送评分结果，配合证据回链与理由展开，便于快速查看与复核。",
 		points: [
@@ -101,7 +105,7 @@ export const HIGHLIGHTS: Highlight[] = [
 	},
 	{
 		id: "rag",
-		icon: BookOpenCheck,
+		icon: IconBook2,
 		title: "教材知识库 RAG",
 		body: "关键词 / IDF 加权检索 + 层级章节浏览，引用出处可溯源回教材原文。",
 		points: [
@@ -229,7 +233,7 @@ export const EXAMPLE_CONVERSATIONS: ExampleConversation[] = [
 export interface TtsDemoItem {
 	id: string;
 	label: string;
-	emotionClass: string;
+	emotionColor: string;
 	patientText: string;
 	fileName: string;
 }
@@ -238,28 +242,28 @@ export const TTS_DEMO_ITEMS: TtsDemoItem[] = [
 	{
 		id: "neutral",
 		label: "正常配合",
-		emotionClass: "bg-emerald-500",
+		emotionColor: "green",
 		patientText: "你好。最近胸口闷得厉害，一走路就喘不上气，晚上躺下更严重，得垫两个枕头才能睡着。",
 		fileName: "tts-patient-neutral.wav",
 	},
 	{
 		id: "defensive",
 		label: "防御抵触",
-		emotionClass: "bg-rose-500",
+		emotionColor: "red",
 		patientText: "……反正也查不出什么。就是累，浑身没劲，家里人非要我来。",
 		fileName: "tts-patient-defensive.wav",
 	},
 	{
 		id: "trusting",
 		label: "开放信任",
-		emotionClass: "bg-sky-500",
+		emotionColor: "blue",
 		patientText: "你问得这么仔细，我再想想……对了，我母亲也有心脏病，这个会遗传吗？我平时该注意什么？",
 		fileName: "tts-patient-trusting.wav",
 	},
 	{
 		id: "anxious",
 		label: "焦虑不安",
-		emotionClass: "bg-amber-500",
+		emotionColor: "yellow",
 		patientText: "护士，我咳出的痰里怎么有血丝？是不是很严重？你得跟我说实话。",
 		fileName: "tts-patient-anxious.wav",
 	},

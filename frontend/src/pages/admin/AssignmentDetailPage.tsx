@@ -1,5 +1,6 @@
+import { Anchor, Box, Group, Paper, Progress, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Download, Search } from "lucide-react";
+import { IconArrowLeft, IconCopy, IconDownload } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
@@ -10,6 +11,7 @@ import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/search-input";
 import {
 	Table,
 	TableBody,
@@ -24,17 +26,9 @@ function statusBadge(status: string) {
 		case "not_started":
 			return <Badge variant="secondary">未开始</Badge>;
 		case "in_progress":
-			return (
-				<span className="inline-flex items-center rounded-full bg-info px-2 py-0.5 text-xs font-medium text-info-foreground">
-					进行中
-				</span>
-			);
+			return <Badge variant="info">进行中</Badge>;
 		case "completed":
-			return (
-				<span className="inline-flex items-center rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
-					已完成
-				</span>
-			);
+			return <Badge variant="success">已完成</Badge>;
 		case "overdue":
 			return <Badge variant="destructive">已逾期</Badge>;
 		default:
@@ -111,13 +105,13 @@ export default function AssignmentDetailPage() {
 	if (isLoading) return <LoadingSkeleton />;
 	if (error || !data)
 		return (
-			<div className="p-8 text-center text-muted-foreground">加载失败</div>
+			<Text ta="center" py={32} c="dimmed">加载失败</Text>
 		);
 
 	const detail = data;
 
 	return (
-		<div className="space-y-6">
+		<Stack gap="xl">
 			<PageHeader
 				title={detail.title}
 				subtitle={
@@ -136,116 +130,61 @@ export default function AssignmentDetailPage() {
 					})()
 				}
 				actions={
-					<div className="flex gap-2">
-					<Button
-						variant="outline"
-						onClick={() => navigate("/admin/assignments")}
-					>
-							<ArrowLeft size={16} className="mr-1" />
+					<Group gap={8}>
+						<Button
+							variant="outline"
+							onClick={() => navigate("/admin/assignments")}
+							leftSection={<IconArrowLeft size={16} />}
+						>
 							返回
 						</Button>
-						<Button onClick={handleExport}>
-							<Download size={16} className="mr-1" />
+						<Button onClick={handleExport} leftSection={<IconDownload size={16} />}>
 							导出成绩
 						</Button>
-					</div>
+					</Group>
 				}
 			/>
 
-			<div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							总人数
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">{detail.student_count}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							已完成
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-success-foreground">
-							{detail.completed_count}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							未开始
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-muted-foreground">
-							{notStartedCount}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							已逾期
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-destructive">
-							{overdueCount}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							已评分
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-primary">
-							{detail.scored_count}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							完成率
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{`${detail.completion_rate != null
-								? (detail.completion_rate * 100).toFixed(0)
-								: "-"}%`}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-xs font-medium text-muted-foreground">
-							均分/最高
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-lg font-bold">
-							{detail.avg_score != null ? detail.avg_score : "-"}
-						</div>
-						<div className="text-xs text-muted-foreground">
-							最高 {detail.max_score ?? "-"} / 最低 {detail.min_score ?? "-"}
-						</div>
-					</CardContent>
-				</Card>
-			</div>
+			<SimpleGrid cols={{ base: 2, md: 4, xl: 7 }} spacing="sm">
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">总人数</Text>
+					<Text size="xl" fw={700}>{detail.student_count}</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">已完成</Text>
+					<Text size="xl" fw={700} c="green">{detail.completed_count}</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">未开始</Text>
+					<Text size="xl" fw={700} c="dimmed">{notStartedCount}</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">已逾期</Text>
+					<Text size="xl" fw={700} c="red">{overdueCount}</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">已评分</Text>
+					<Text size="xl" fw={700} c="teal">{detail.scored_count}</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">完成率</Text>
+					<Text size="xl" fw={700}>
+						{detail.completion_rate != null
+							? `${(detail.completion_rate * 100).toFixed(0)}%`
+							: "-"}
+					</Text>
+				</Paper>
+				<Paper withBorder radius="lg" p="sm">
+					<Text size="xs" c="dimmed">均分/最高</Text>
+					<Text size="lg" fw={700}>{detail.avg_score != null ? detail.avg_score : "-"}</Text>
+					<Text size="xs" c="dimmed">最高 {detail.max_score ?? "-"} / 最低 {detail.min_score ?? "-"}</Text>
+				</Paper>
+			</SimpleGrid>
 
 			{detail.avg_score != null && (
-				<Card className="mt-4">
-					<CardHeader className="pb-2">
-						<CardTitle className="text-sm">分数分布</CardTitle>
+				<Card mt="md">
+					<CardHeader style={{ paddingBottom: 8 }}>
+						<CardTitle>分数分布</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<ScoreDistributionBar students={detail.students ?? []} />
@@ -253,120 +192,114 @@ export default function AssignmentDetailPage() {
 				</Card>
 			)}
 
-			<Card className="overflow-hidden">
-				<CardHeader className="pb-3">
+			<Card style={{ overflow: "hidden" }}>
+				<CardHeader style={{ paddingBottom: 12 }}>
 					<CardTitle>学生完成情况</CardTitle>
 				</CardHeader>
-				<div className="px-4 pb-3 flex flex-wrap items-center gap-2">
-					<div className="relative flex-1 max-w-xs">
-						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-						<input
-							type="text"
-							placeholder="搜索姓名/学号..."
-							aria-label="搜索学生姓名或学号"
+				<Group gap={8} px="md" pb="sm" wrap="wrap">
+					<Box maw={320} style={{ flex: 1 }}>
+						<SearchInput
 							value={studentSearch}
-							onChange={(e) => setStudentSearch(e.target.value)}
-							className="w-full pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-muted focus-ring"
+							onChange={setStudentSearch}
+							placeholder="搜索姓名/学号..."
 						/>
-					</div>
-					<select
-						value={statusFilter}
-						onChange={(e) => setStatusFilter(e.target.value)}
-						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-					>
-						<option value="">全部状态</option>
-						<option value="completed">已完成</option>
-						<option value="in_progress">进行中</option>
-						<option value="not_started">未开始</option>
-						<option value="overdue">已逾期</option>
-					</select>
+					</Box>
+					<Select
+						value={statusFilter || null}
+						onChange={(v) => setStatusFilter(v ?? "")}
+						data={[
+							{ value: "", label: "全部状态" },
+							{ value: "completed", label: "已完成" },
+							{ value: "in_progress", label: "进行中" },
+							{ value: "not_started", label: "未开始" },
+							{ value: "overdue", label: "已逾期" },
+						]}
+						w={140}
+					/>
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={handleCopyUnfinished}
 						disabled={unfinishedStudents.length === 0}
 						title="复制未完成学生名单"
+						leftSection={<IconCopy size={14} />}
 					>
-						<Copy size={14} className="mr-1" />
 						复制未完成名单{unfinishedStudents.length > 0 ? ` (${unfinishedStudents.length})` : ""}
 					</Button>
-				</div>
-				<div className="overflow-x-auto">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>学号</TableHead>
-							<TableHead>姓名</TableHead>
-							<TableHead>状态</TableHead>
-							<TableHead>尝试次数</TableHead>
-							<TableHead>得分</TableHead>
-							<TableHead>评分状态</TableHead>
-							<TableHead>完成时间</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{filteredStudents.map((s) => (
-							<TableRow key={s.user_id}>
-								<TableCell className="text-xs font-mono">
-									{s.student_id || "-"}
-								</TableCell>
-								<TableCell className="font-medium">
-									{s.record_id != null ? (
-										<button
-											type="button"
-											className="text-primary hover:underline cursor-pointer"
-											onClick={() => navigate(`/record/${s.record_id}`)}
-										>
-											{s.display_name}
-										</button>
-									) : (
-										s.display_name
-									)}
-								</TableCell>
-								<TableCell>{statusBadge(s.status)}</TableCell>
-								<TableCell className="text-xs text-muted-foreground">{s.attempt_count > 0 ? s.attempt_count : "-"}</TableCell>
-								<TableCell>
-									{s.score_total != null ? (
-										<span className="font-bold">{s.score_total}</span>
-									) : (
-										"-"
-									)}
-									{s.attempt_count > 1 && (
-										<span className="ml-1 text-[10px] text-muted-foreground">
-											共{s.attempt_count}次
-										</span>
-									)}
-								</TableCell>
-								<TableCell className="text-xs text-muted-foreground">
-									{s.scoring_status === "completed"
-										? "已评分"
-										: s.scoring_status || "-"}
-								</TableCell>
-								<TableCell className="text-xs text-muted-foreground">
-									{s.end_time
-										? new Date(s.end_time).toLocaleString("zh-CN")
-										: "-"}
-									{s.status === "completed" && s.is_overdue && (
-										<span className="ml-1 text-[10px] text-destructive">逾期提交</span>
-									)}
-								</TableCell>
-							</TableRow>
-						))}
-						{filteredStudents.length === 0 && (
+				</Group>
+				<div style={{ overflowX: "auto" }}>
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell
-									colSpan={7}
-									className="text-center text-muted-foreground py-8"
-								>
-									{studentSearch || statusFilter ? "无匹配结果" : "该班级暂无学生"}
-								</TableCell>
+								<TableHead>学号</TableHead>
+								<TableHead>姓名</TableHead>
+								<TableHead>状态</TableHead>
+								<TableHead>尝试次数</TableHead>
+								<TableHead>得分</TableHead>
+								<TableHead>评分状态</TableHead>
+								<TableHead>完成时间</TableHead>
 							</TableRow>
-						)}
-			</TableBody>
-		</Table>
-		</div>
-	</Card>
-		</div>
+						</TableHeader>
+						<TableBody>
+							{filteredStudents.map((s) => (
+								<TableRow key={s.user_id}>
+									<TableCell style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
+										{s.student_id || "-"}
+									</TableCell>
+									<TableCell style={{ fontWeight: 500 }}>
+										{s.record_id != null ? (
+											<Anchor
+												onClick={() => navigate(`/record/${s.record_id}`)}
+												c="teal"
+												size="sm"
+											>
+												{s.display_name}
+											</Anchor>
+										) : (
+											s.display_name
+										)}
+									</TableCell>
+									<TableCell>{statusBadge(s.status)}</TableCell>
+									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>{s.attempt_count > 0 ? s.attempt_count : "-"}</TableCell>
+									<TableCell>
+										{s.score_total != null ? (
+											<Text component="span" fw={700} inherit>{s.score_total}</Text>
+										) : (
+											"-"
+										)}
+										{s.attempt_count > 1 && (
+											<Text component="span" size="xs" c="dimmed" ml={4} inherit>
+												共{s.attempt_count}次
+											</Text>
+										)}
+									</TableCell>
+									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+										{s.scoring_status === "completed"
+											? "已评分"
+											: s.scoring_status || "-"}
+									</TableCell>
+									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+										{s.end_time
+											? new Date(s.end_time).toLocaleString("zh-CN")
+											: "-"}
+										{s.status === "completed" && s.is_overdue && (
+											<Text component="span" size="xs" c="red" ml={4} inherit>逾期提交</Text>
+										)}
+									</TableCell>
+								</TableRow>
+							))}
+							{filteredStudents.length === 0 && (
+								<TableRow>
+									<TableCell colSpan={7} style={{ textAlign: "center", color: "var(--mantine-color-dimmed)", paddingTop: 32, paddingBottom: 32 }}>
+										{studentSearch || statusFilter ? "无匹配结果" : "该班级暂无学生"}
+									</TableCell>
+								</TableRow>
+							)}
+						</TableBody>
+					</Table>
+				</div>
+			</Card>
+		</Stack>
 	);
 }
 
@@ -374,7 +307,7 @@ function ScoreDistributionBar({ students }: { students: { score_total?: number |
 	const scored = students
 		.filter((s) => s.scoring_status === "completed" && s.score_total != null)
 		.map((s) => s.score_total!);
-	if (scored.length === 0) return <p className="text-xs text-muted-foreground">暂无评分数据</p>;
+	if (scored.length === 0) return <Text size="xs" c="dimmed">暂无评分数据</Text>;
 	const buckets = [
 		{ label: "0-59", lo: 0, hi: 59 },
 		{ label: "60-69", lo: 60, hi: 69 },
@@ -385,16 +318,16 @@ function ScoreDistributionBar({ students }: { students: { score_total?: number |
 	const counts = buckets.map((b) => scored.filter((s) => s >= b.lo && s <= b.hi).length);
 	const max = Math.max(...counts, 1);
 	return (
-		<div className="space-y-1.5">
+		<Stack gap={6}>
 			{buckets.map((b, i) => (
-				<div key={b.label} className="flex items-center gap-2 text-xs">
-					<span className="w-10 text-right text-muted-foreground">{b.label}</span>
-					<div className="flex-1 h-5 bg-muted rounded">
-						<div className="h-full bg-primary rounded transition-all" style={{ width: `${(counts[i] / max) * 100}%` }} />
-					</div>
-					<span className="w-6 text-right">{counts[i]}</span>
-				</div>
+				<Group key={b.label} gap={8} align="center" wrap="nowrap">
+					<Text size="xs" c="dimmed" w={40} ta="right">{b.label}</Text>
+					<Box style={{ flex: 1 }}>
+						<Progress value={(counts[i] / max) * 100} size="lg" radius="sm" />
+					</Box>
+					<Text size="xs" w={24} ta="right">{counts[i]}</Text>
+				</Group>
 			))}
-		</div>
+		</Stack>
 	);
 }

@@ -1,6 +1,6 @@
-import { Loader2, Mic, Send } from "lucide-react";
+import { IconLoader2, IconMicrophone, IconSend } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { ActionIcon, Box, Group, Text } from "@mantine/core";
 
 
 interface ChatInputProps {
@@ -51,60 +51,97 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 	);
 
 	return (
-		<div
-			className="border-t border-border bg-muted/30 shrink-0"
-			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+		<Box
+			style={{
+				borderTop: "1px solid var(--mantine-color-default-border)",
+				background: "var(--mantine-color-gray-0)",
+				flexShrink: 0,
+				paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
+			}}
 		>
-			<div className="relative mx-auto flex w-full max-w-3xl items-end gap-2.5 px-3 sm:px-4 py-2.5">
-			<button
-				type="button"
-				onClick={() => {}}
-				aria-label="语音输入"
-				title="语音输入"
-				className="flex shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors size-11 active:scale-95"
+			<Group
+				align="flex-end"
+				gap={10}
+				wrap="nowrap"
+				mx="auto"
+				w="100%"
+				maw={768}
+				px="xs"
+				py={10}
+				style={{ position: "relative" }}
 			>
-				<Mic size={18} />
-			</button>
-			<textarea
-				ref={inputRef}
-				value={text}
-				onChange={(e) => setText(e.target.value)}
-				onKeyDown={handleKeyDown}
-				maxLength={2000}
-				placeholder={placeholder}
-				rows={1}
-				onInput={handleInput}
-				inputMode="text"
-				enterKeyHint="send"
-				autoCapitalize="off"
-				autoCorrect="off"
-				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-				aria-label="输入消息与患者对话"
-			/>
-			<button
-				type="button"
-				onClick={handleSend}
-				disabled={disabled || loading || !text.trim()}
-				aria-label={loading ? "患者正在回复，暂不能发送" : "发送消息"}
-				title={loading ? "患者正在回复，暂不能发送" : "发送消息"}
-				className={cn(
-					"flex shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors disabled:opacity-40",
-					"size-11",
-					!disabled && !loading && "hover:bg-primary/90 active:scale-95",
+				<ActionIcon
+					variant="filled"
+					size="xl"
+					radius="md"
+					type="button"
+					onClick={() => {}}
+					aria-label="语音输入"
+					title="语音输入"
+				>
+					<IconMicrophone size={18} />
+				</ActionIcon>
+				<textarea
+					ref={inputRef}
+					value={text}
+					onChange={(e) => setText(e.target.value)}
+					onKeyDown={handleKeyDown}
+					maxLength={2000}
+					placeholder={placeholder}
+					rows={1}
+					onInput={handleInput}
+					inputMode="text"
+					enterKeyHint="send"
+					autoCapitalize="off"
+					autoCorrect="off"
+					style={{
+						flex: 1,
+						resize: "none",
+						borderRadius: 12,
+						border: "1px solid var(--mantine-color-default-border)",
+						background: "var(--mantine-color-body)",
+						padding: "10px 14px",
+						fontSize: 14,
+						outline: "none",
+						minHeight: 44,
+						color: "var(--mantine-color-text)",
+						fontFamily: "inherit",
+					}}
+					aria-label="输入消息与患者对话"
+				/>
+				<ActionIcon
+					variant="filled"
+					size="xl"
+					radius="md"
+					type="button"
+					onClick={handleSend}
+					disabled={disabled || loading || !text.trim()}
+					aria-label={loading ? "患者正在回复，暂不能发送" : "发送消息"}
+					title={loading ? "患者正在回复，暂不能发送" : "发送消息"}
+				>
+					{loading ? (
+						<IconLoader2 size={18} className="animate-spin" />
+					) : (
+						<IconSend size={18} />
+					)}
+				</ActionIcon>
+				{showCount && (
+					<Text
+						size="10px"
+						c="dimmed"
+						style={{
+							position: "absolute",
+							bottom: 0,
+							right: 64,
+							transform: "translateY(100%)",
+							paddingTop: 4,
+							fontVariantNumeric: "tabular-nums",
+						}}
+					>
+						{text.length}/2000
+					</Text>
 				)}
-			>
-				{loading ? (
-					<Loader2 size={18} className="animate-spin" />
-				) : (
-					<Send size={18} />
-				)}
-			</button>
-			{showCount && (
-				<span className="absolute bottom-0 right-16 translate-y-full pt-1 text-[10px] text-muted-foreground tabular-nums">
-					{text.length}/2000
-				</span>
-			)}
-			</div>
-		</div>
+			</Group>
+		</Box>
 	);
 }

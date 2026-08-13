@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ActionIcon, Badge, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -27,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	type NotificationValues,
@@ -42,10 +44,10 @@ const LEVEL_LABELS: Record<string, string> = {
 	success: "成功",
 };
 
-const LEVEL_CLASSES: Record<string, string> = {
-	info: "bg-info text-info-foreground",
-	warning: "bg-warning text-warning-foreground",
-	success: "bg-success text-success-foreground",
+const LEVEL_COLORS: Record<string, string> = {
+	info: "blue",
+	warning: "yellow",
+	success: "green",
 };
 
 function toLocalDateTime(s: string | null | undefined): string {
@@ -151,86 +153,82 @@ export default function SystemNotificationsPage() {
 	};
 
 	return (
-		<div className="space-y-6">
+		<Stack gap="xl">
 			<PageHeader title="系统通知" subtitle="创建定时或即时全站通知" />
-			<div className="flex justify-between items-center gap-3 flex-wrap">
-				<div className="flex gap-2 flex-wrap items-center">
-					<div className="relative">
-						<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-						<input
-							type="text"
-							placeholder="搜索标题..."
-							aria-label="搜索通知标题"
-							value={searchText}
-							onChange={(e) => setSearchText(e.target.value)}
-							className="pl-8 pr-3 py-1.5 border border-border rounded-lg text-sm bg-card w-48"
-						/>
-					</div>
-					<select
-						value={levelFilter}
-						onChange={(e) => setLevelFilter(e.target.value)}
-						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-					>
-						<option value="">全部级别</option>
-						<option value="info">通知</option>
-						<option value="warning">警告</option>
-						<option value="success">成功</option>
-					</select>
-				</div>
-				<Button onClick={openCreate}>
-					<Plus className="size-4 mr-1.5" />
+			<Group justify="space-between" align="center" gap="sm" wrap="wrap">
+				<Group gap={8} wrap="wrap" align="center">
+					<SearchInput
+						value={searchText}
+						onChange={setSearchText}
+						placeholder="搜索标题..."
+					/>
+					<Select
+						value={levelFilter || null}
+						onChange={(v) => setLevelFilter(v ?? "")}
+						data={[
+							{ value: "", label: "全部级别" },
+							{ value: "info", label: "通知" },
+							{ value: "warning", label: "警告" },
+							{ value: "success", label: "成功" },
+						]}
+						w={140}
+					/>
+				</Group>
+				<Button onClick={openCreate} leftSection={<IconPlus size={16} />}>
 					新建通知
 				</Button>
-			</div>
+			</Group>
 			{isLoading ? (
 				<LoadingSkeleton variant="card" />
 			) : filtered.length === 0 ? (
-				<EmptyState icon={Megaphone} title="暂无通知" description="点击上方按钮创建第一条全站通知" />
+				<EmptyState icon={IconSpeakerphone} title="暂无通知" description="点击上方按钮创建第一条全站通知" />
 			) : (
-				<div className="space-y-3">
+				<Stack gap="sm">
 					{filtered.map((n) => (
-						<div key={n.id} className="flex items-start gap-4 p-4 rounded-xl border bg-card">
-							<div className="flex-1 min-w-0">
-								<div className="flex items-center gap-2">
-									<span className={`text-xs px-2 py-0.5 rounded-full font-medium ${LEVEL_CLASSES[n.level] ?? LEVEL_CLASSES.info}`}>
-										{LEVEL_LABELS[n.level] ?? n.level}
-									</span>
-									<span className="text-sm font-semibold">{n.title}</span>
+						<Paper key={n.id} withBorder radius="lg" p="md">
+							<Group align="flex-start" gap={16} wrap="nowrap">
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<Group gap={8} align="center" wrap="wrap">
+										<Badge variant="secondary" color={LEVEL_COLORS[n.level] ?? "blue"} size="sm">
+											{LEVEL_LABELS[n.level] ?? n.level}
+										</Badge>
+										<Text size="sm" fw={600}>{n.title}</Text>
+									</Group>
+									<Text size="sm" c="dimmed" mt={4} lineClamp={2}>{n.content}</Text>
+									<Group gap={12} mt={8} wrap="wrap">
+										{n.published_at ? (
+											<Text size="xs" c="dimmed">📅 {toLocalDateTime(n.published_at)} 发布</Text>
+										) : (
+											<Text size="xs" c="dimmed">即时发布</Text>
+										)}
+										<Text size="xs" c="dimmed">创建于 {n.created_at.slice(0, 10)}</Text>
+									</Group>
 								</div>
-								<p className="text-sm text-muted-foreground mt-1 line-clamp-2">{n.content}</p>
-								<div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-									{n.published_at ? (
-										<span>📅 {toLocalDateTime(n.published_at)} 发布</span>
-									) : (
-										<span>即时发布</span>
-									)}
-									<span>创建于 {n.created_at.slice(0, 10)}</span>
-								</div>
-							</div>
-							<div className="flex items-center gap-1 shrink-0">
-								<button
-									type="button"
-									onClick={() => {
-										setEditing(n);
-										setModalOpen(true);
-									}}
-									className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-									title="编辑"
-								>
-									<Pencil className="size-4" />
-								</button>
-								<button
-									type="button"
-									onClick={() => setDeleteId(n.id)}
-									className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-									title="删除"
-								>
-									<Trash2 className="size-4" />
-								</button>
-							</div>
-						</div>
+								<Group gap={4} style={{ flexShrink: 0 }}>
+									<ActionIcon
+										variant="subtle"
+										color="gray"
+										onClick={() => {
+											setEditing(n);
+											setModalOpen(true);
+										}}
+										title="编辑"
+									>
+										<IconPencil size={16} />
+									</ActionIcon>
+									<ActionIcon
+										variant="subtle"
+										color="red"
+										onClick={() => setDeleteId(n.id)}
+										title="删除"
+									>
+										<IconTrash size={16} />
+									</ActionIcon>
+								</Group>
+							</Group>
+						</Paper>
 					))}
-				</div>
+				</Stack>
 			)}
 			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
@@ -243,98 +241,98 @@ export default function SystemNotificationsPage() {
 			}}>
 				<DialogContent title={editing ? "编辑通知" : "新建通知"} maxWidth={560}>
 					<Form {...form}>
-						<form
-							onSubmit={form.handleSubmit(onSubmit)}
-							className="space-y-4"
-						>
-							<FormField
-								control={form.control}
-								name="title"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>标题</FormLabel>
-										<FormControl>
-											<Input placeholder="通知标题" {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="content"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>内容</FormLabel>
-										<FormControl>
-											<Textarea
-												placeholder="通知正文，支持多行"
-												rows={4}
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="level"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>级别</FormLabel>
-										<FormControl>
-											<select
-												className="w-full px-3 py-2 border rounded-lg text-sm"
-												{...field}
-											>
-												<option value="info">通知</option>
-												<option value="warning">警告</option>
-												<option value="success">成功</option>
-											</select>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="published_at"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>定时发布（留空即立即发布）</FormLabel>
-										<FormControl>
-											<Input type="datetime-local" {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<DialogFooter>
-								<Button
-									type="button"
-									variant="outline"
-									onClick={async () => {
-										if (form.formState.isDirty) {
-											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-											if (!ok) return;
-										}
-										setModalOpen(false);
-									}}
-								>
-									取消
-								</Button>
-								<Button
-									onClick={form.handleSubmit(onSubmit)}
-									disabled={form.formState.isSubmitting}
-								>
-									{form.formState.isSubmitting
-										? "保存中..."
-										: editing
-											? "更新"
-											: "创建"}
-								</Button>
-							</DialogFooter>
+						<form onSubmit={form.handleSubmit(onSubmit)}>
+							<Stack gap="md">
+								<FormField
+									control={form.control}
+									name="title"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>标题</FormLabel>
+											<FormControl>
+												<Input placeholder="通知标题" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="content"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>内容</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder="通知正文，支持多行"
+													rows={4}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="level"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>级别</FormLabel>
+											<FormControl>
+												<Select
+													value={field.value}
+													onChange={(v) => field.onChange(v ?? "info")}
+													data={[
+														{ value: "info", label: "通知" },
+														{ value: "warning", label: "警告" },
+														{ value: "success", label: "成功" },
+													]}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="published_at"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>定时发布（留空即立即发布）</FormLabel>
+											<FormControl>
+												<Input type="datetime-local" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={async () => {
+											if (form.formState.isDirty) {
+												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+												if (!ok) return;
+											}
+											setModalOpen(false);
+										}}
+									>
+										取消
+									</Button>
+									<Button
+										onClick={form.handleSubmit(onSubmit)}
+										disabled={form.formState.isSubmitting}
+									>
+										{form.formState.isSubmitting
+											? "保存中..."
+											: editing
+												? "更新"
+												: "创建"}
+									</Button>
+								</DialogFooter>
+							</Stack>
 						</form>
 					</Form>
 				</DialogContent>
@@ -351,6 +349,6 @@ export default function SystemNotificationsPage() {
 					setDeleteId(null);
 				}}
 			/>
-		</div>
+		</Stack>
 	);
 }

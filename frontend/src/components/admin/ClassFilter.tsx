@@ -1,7 +1,6 @@
+import { Group, Select } from "@mantine/core";
 import { useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
-import { cn } from "@/lib/utils";
 
 interface ClassFilterParams {
   grade_id: number | null;
@@ -19,7 +18,7 @@ export default function ClassFilter({
   gradeId,
   classId,
   onChange,
-  className = "",
+  className,
 }: ClassFilterProps) {
   const [selGrade, setSelGrade] = useState<string>(
     gradeId != null ? String(gradeId) : "",
@@ -32,47 +31,56 @@ export default function ClassFilter({
     selGrade ? Number(selGrade) : undefined,
   );
 
-  const handleGradeChange = (value: string) => {
-    setSelGrade(value);
+  const handleGradeChange = (value: string | null) => {
+    const v = value === "all" ? "" : (value ?? "");
+    setSelGrade(v);
     setSelClass("");
     onChange?.({
-      grade_id: value ? Number(value) : null,
+      grade_id: v ? Number(v) : null,
       class_id: null,
     });
   };
 
-  const handleClassChange = (value: string) => {
-    setSelClass(value);
+  const handleClassChange = (value: string | null) => {
+    const v = value === "all" ? "" : (value ?? "");
+    setSelClass(v);
     onChange?.({
       grade_id: selGrade ? Number(selGrade) : null,
-      class_id: value ? Number(value) : null,
+      class_id: v ? Number(v) : null,
     });
   };
 
   return (
-    <div className={cn("flex gap-2 items-center", className)}>
-      <Select value={selGrade || "all"} onValueChange={(v) => handleGradeChange(v === "all" ? "" : v ?? "")}>
-        <SelectTrigger className="h-9 w-[130px] text-sm">
-          <SelectValue placeholder="全部年级" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部年级</SelectItem>
-          {grades.map((g: { id: number; name: string }) => (
-            <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={selClass || "all"} onValueChange={(v) => handleClassChange(v === "all" ? "" : v ?? "")} disabled={!selGrade}>
-        <SelectTrigger className="h-9 w-[130px] text-sm">
-          <SelectValue placeholder="全部班级" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部班级</SelectItem>
-          {classes.map((c: { id: number; name: string }) => (
-            <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Group gap={8} className={className}>
+      <Select
+        value={selGrade || "all"}
+        onChange={handleGradeChange}
+        data={[
+          { value: "all", label: "全部年级" },
+          ...grades.map((g: { id: number; name: string }) => ({
+            value: String(g.id),
+            label: g.name,
+          })),
+        ]}
+        placeholder="全部年级"
+        size="sm"
+        style={{ width: 130 }}
+      />
+      <Select
+        value={selClass || "all"}
+        onChange={handleClassChange}
+        data={[
+          { value: "all", label: "全部班级" },
+          ...classes.map((c: { id: number; name: string }) => ({
+            value: String(c.id),
+            label: c.name,
+          })),
+        ]}
+        placeholder="全部班级"
+        size="sm"
+        disabled={!selGrade}
+        style={{ width: 130 }}
+      />
+    </Group>
   );
 }

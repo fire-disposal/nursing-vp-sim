@@ -1,6 +1,12 @@
+import { Badge, Box, Group, Paper, Stack, Text } from "@mantine/core";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { EXAMPLE_CONVERSATIONS } from "../data";
+
+const AVATAR_COLOR: Record<string, string> = {
+	defensive: "var(--mantine-color-red-6)",
+	trusting: "var(--mantine-color-blue-6)",
+	normal: "var(--mantine-color-green-6)",
+};
 
 export default function ConversationSnippets() {
 	const [activeId, setActiveId] = useState(EXAMPLE_CONVERSATIONS[0].id);
@@ -8,77 +14,123 @@ export default function ConversationSnippets() {
 	const active = EXAMPLE_CONVERSATIONS.find((c) => c.id === activeId) ?? EXAMPLE_CONVERSATIONS[0];
 
 	return (
-		<div className="relative flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-6">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(13,148,136,0.10),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.06),transparent_42%)]" />
-
-			<div className="relative z-10 flex items-center justify-between gap-4">
-				<div>
-					<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">对话示例</div>
-					<div className="mt-1 text-lg font-bold text-foreground">虚拟患者交流风格</div>
-				</div>
-				<div className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+		<Paper
+			withBorder
+			radius="xl"
+			p="lg"
+			pos="relative"
+			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
+		>
+			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+						对话示例
+					</Text>
+					<Text size="lg" fw={700}>
+						虚拟患者交流风格
+					</Text>
+				</Stack>
+				<Badge variant="default" radius="xl">
 					{active.emotionLabel}
-				</div>
-			</div>
+				</Badge>
+			</Group>
 
-			<div className="relative z-10 mt-5 flex gap-2">
+			<Group gap={8} mt="lg" pos="relative" style={{ zIndex: 10 }}>
 				{EXAMPLE_CONVERSATIONS.map((conv) => (
-					<button
+					<Badge
 						key={conv.id}
-						type="button"
+						component="button"
 						onClick={() => setActiveId(conv.id)}
-						className={cn(
-							"rounded-full border px-3 py-1 text-xs font-medium transition-all",
-							activeId === conv.id
-								? "border-primary/40 bg-primary/10 text-primary"
-								: "border-border/60 bg-background/70 text-muted-foreground hover:border-primary/20 hover:text-foreground",
-						)}
+						variant={activeId === conv.id ? "light" : "default"}
+						radius="xl"
+						style={{ cursor: "pointer" }}
 					>
 						{conv.title}
-					</button>
+					</Badge>
 				))}
-			</div>
+			</Group>
 
-			<div className="relative z-10 mt-5 min-h-[340px] space-y-4">
+			<Stack gap="md" mt="lg" pos="relative" style={{ zIndex: 10, minHeight: 340 }}>
 				{active.lines.map((line, index) => (
-					<div
+					<Group
 						key={`${active.id}-${index}`}
-						className={cn(
-							"flex gap-3",
-							line.speaker === "patient" ? "justify-start" : "justify-end",
-						)}
+						gap={12}
+						justify={line.speaker === "patient" ? "flex-start" : "flex-end"}
+						wrap="nowrap"
 					>
 						{line.speaker === "patient" && (
-							<div className={cn(
-								"mt-1 size-8 shrink-0 rounded-full border border-border/60 bg-background flex items-center justify-center text-xs font-bold",
-								active.id === "defensive" && "border-rose-500/30 text-rose-500",
-								active.id === "trusting" && "border-sky-500/30 text-sky-500",
-								active.id === "normal" && "border-emerald-500/30 text-emerald-500",
-							)}>
-							患
-							</div>
+							<Box
+								style={{
+									marginTop: 4,
+									width: 32,
+									height: 32,
+									borderRadius: "50%",
+									border: "1px solid var(--mantine-color-default-border)",
+									background: "var(--mantine-color-body)",
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									fontSize: "xs",
+									fontWeight: 700,
+									color: AVATAR_COLOR[active.id],
+									flexShrink: 0,
+								}}
+							>
+								患
+							</Box>
 						)}
-						<div
-							className={cn(
-								"max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-								line.speaker === "patient"
-									? "rounded-tl-md border border-border/60 bg-background/80 text-foreground/90"
-									: "rounded-tr-md bg-primary text-primary-foreground",
-							)}
+						<Box
+							px="md"
+							py={12}
+							style={{
+								maxWidth: "75%",
+								borderRadius: "var(--mantine-radius-md)",
+								...(line.speaker === "patient"
+									? {
+											borderTopLeftRadius: "var(--mantine-radius-xs)",
+											border: "1px solid var(--mantine-color-default-border)",
+											background: "var(--mantine-color-body)",
+										}
+									: {
+											borderTopRightRadius: "var(--mantine-radius-xs)",
+											background: "var(--mantine-primary-color-filled)",
+											color: "var(--mantine-primary-color-contrast)",
+										}),
+							}}
 						>
-							{line.text}
+							<Text size="sm" lh={1.6}>
+								{line.text}
+							</Text>
 							{line.emotion && (
-								<div className="mt-1 text-[10px] font-medium opacity-60">{line.emotion}</div>
+								<Text size="10px" fw={500} mt={4} opacity={0.6}>
+									{line.emotion}
+								</Text>
 							)}
-						</div>
+						</Box>
 						{line.speaker === "nurse" && (
-							<div className="mt-1 size-8 shrink-0 rounded-full border border-border/60 bg-background flex items-center justify-center text-xs font-bold text-foreground/60">
+							<Box
+								style={{
+									marginTop: 4,
+									width: 32,
+									height: 32,
+									borderRadius: "50%",
+									border: "1px solid var(--mantine-color-default-border)",
+									background: "var(--mantine-color-body)",
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									fontSize: "xs",
+									fontWeight: 700,
+									color: "var(--mantine-color-dimmed)",
+									flexShrink: 0,
+								}}
+							>
 								护
-							</div>
+							</Box>
 						)}
-					</div>
+					</Group>
 				))}
-			</div>
-		</div>
+			</Stack>
+		</Paper>
 	);
 }

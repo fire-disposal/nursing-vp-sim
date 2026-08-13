@@ -1,23 +1,30 @@
+import { Box, Button, Stack, Text, Title } from "@mantine/core";
 import { Link } from "react-router-dom";
-import { buttonVariants } from "@/components/ui/button";
 import { CTA_HREF, CTA_LABEL, PRODUCT_NAME } from "../data";
 
 export default function FinalCta() {
 	return (
 		<>
-			<section className="px-6 py-20 text-center md:py-24">
-				<div className="mx-auto flex max-w-2xl flex-col items-center gap-6">
-					<h2 className="text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl [font-family:'Geist_Variable',sans-serif]">
+			<Box component="section" px="md" py={80} ta="center">
+				<Stack align="center" gap="md" mx="auto" style={{ maxWidth: "42rem" }}>
+					<Title order={2} fw={700}>
 						开始一次虚拟患者训练
-					</h2>
-					<Link to={CTA_HREF} className={buttonVariants({ size: "lg" })}>
+					</Title>
+					<Button component={Link} to={CTA_HREF} size="lg">
 						{CTA_LABEL}
-					</Link>
-				</div>
-			</section>
-			<footer className="border-t border-border/60 py-8 text-center text-sm text-muted-foreground">
-				{PRODUCT_NAME} · 2026
-			</footer>
+					</Button>
+				</Stack>
+			</Box>
+			<Box
+				component="footer"
+				py="lg"
+				ta="center"
+				style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+			>
+				<Text size="sm" c="dimmed">
+					{PRODUCT_NAME} · 2026
+				</Text>
+			</Box>
 		</>
 	);
 }

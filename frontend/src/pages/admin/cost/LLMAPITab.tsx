@@ -1,5 +1,6 @@
+import { SimpleGrid, Stack } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { CircleDollarSign, Cpu, TrendingUp } from "lucide-react";
+import { IconCoin, IconCpu, IconTrendingUp } from "@tabler/icons-react";
 import { fetchSecrets } from "@/api/admin/api-management";
 import { queryKeys } from "@/api/query-keys";
 import ApiManagementTab from "@/components/admin/monitor/ApiManagementTab";
@@ -37,40 +38,40 @@ function LLMCostSummary() {
 			: "0";
 
 	return (
-		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+		<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 			<StatCard
-				icon={CircleDollarSign}
+				icon={IconCoin}
 				value={`¥${totalCostToday.toFixed(2)}`}
 				label="今日 LLM 费用"
 				color="blue"
 			/>
 			<StatCard
-				icon={TrendingUp}
+				icon={IconTrendingUp}
 				value={`¥${totalCostMonth.toFixed(2)}`}
 				label="本月 LLM 费用"
 				color="teal"
 			/>
 			<StatCard
-				icon={Cpu}
+				icon={IconCpu}
 				value={totalCallsToday}
 				label="今日调用次数"
 				color="amber"
 			/>
 			<StatCard
-				icon={CircleDollarSign}
+				icon={IconCoin}
 				value={`${budgetPct}%`}
 				label={`月度预算 (¥${totalMonthlyLimit.toFixed(0)})`}
 				color={Number(budgetPct) > 90 ? "red" : "green"}
 			/>
-		</div>
+		</SimpleGrid>
 	);
 }
 
 export default function LLMAPITab() {
 	return (
-		<div className="space-y-6 mt-4">
+		<Stack gap="xl" mt="md">
 			<LLMCostSummary />
 			<ApiManagementTab />
-		</div>
+		</Stack>
 	);
 }

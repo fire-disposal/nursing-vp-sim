@@ -1,6 +1,6 @@
-import { Plus, X } from "lucide-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { useState } from "react";
-import { inputClass } from "@/utils/styles";
+import { ActionIcon, Badge, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
 
 interface Props {
 	hiddenInfo: string[];
@@ -29,42 +29,59 @@ function TagEditor({ value, onChange, placeholder, disabled }: { value: string[]
 	};
 
 	return (
-		<div>
-			<div className="flex flex-wrap gap-1 mb-2">
-				{value.map((t, i) => (
-					<span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground">
-						{t}
-						{!disabled && <button type="button" onClick={() => remove(i)} className="hover:text-destructive"><X size={10} /></button>}
-					</span>
-				))}
-			</div>
-			{!disabled && (
-				<div className="flex gap-2">
-					<input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} className={`${inputClass} flex-1`} />
-					<button type="button" onClick={add} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" aria-label="添加条目"><Plus size={14} /></button>
-				</div>
+		<Stack gap={8}>
+			{value.length > 0 && (
+				<Group gap={4} wrap="wrap">
+					{value.map((t, i) => (
+						<Badge
+							key={i}
+							variant="secondary"
+							rightSection={
+								!disabled ? (
+									<ActionIcon size="xs" variant="transparent" color="gray" onClick={() => remove(i)} aria-label="移除条目">
+										<IconX size={10} />
+									</ActionIcon>
+								) : undefined
+							}
+						>
+							{t}
+						</Badge>
+					))}
+				</Group>
 			)}
-		</div>
+			{!disabled && (
+				<Group gap={8}>
+					<TextInput
+						value={input}
+						onChange={(e) => setInput(e.currentTarget.value)}
+						onKeyDown={onKeyDown}
+						placeholder={placeholder}
+						style={{ flex: 1 }}
+					/>
+					<ActionIcon variant="light" color="teal" onClick={add} aria-label="添加条目"><IconPlus size={14} /></ActionIcon>
+				</Group>
+			)}
+		</Stack>
 	);
 }
 
 export function AiFieldsSection({ hiddenInfo, requiredInquiries, onHiddenInfoChange, onRequiredInquiriesChange, disabled }: Props) {
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">AI 辅助字段</legend>
-			<p className="text-xs text-muted-foreground mb-3">这些字段可由 AI 生成，也可手动编辑</p>
-			<div className="space-y-4">
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">AI 辅助字段</Text>
+			<Text size="xs" c="dimmed" mb="md">这些字段可由 AI 生成，也可手动编辑</Text>
+			<Stack gap="md">
 				<div>
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">隐藏信息</label>
-					<p className="text-[10px] text-muted-foreground/60 mb-1">患者不会主动透露的信息（吸烟史、职业等）</p>
+					<Text size="xs" fw={600} c="dimmed" mb={4}>隐藏信息</Text>
+					<Text size="xs" c="dimmed" opacity={0.6} mb={4}>患者不会主动透露的信息（吸烟史、职业等）</Text>
 					<TagEditor value={hiddenInfo} onChange={onHiddenInfoChange} placeholder="输入后回车添加" disabled={disabled} />
 				</div>
 				<div>
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">必询要点</label>
-					<p className="text-[10px] text-muted-foreground/60 mb-1">学生必须覆盖的问诊条目</p>
+					<Text size="xs" fw={600} c="dimmed" mb={4}>必询要点</Text>
+					<Text size="xs" c="dimmed" opacity={0.6} mb={4}>学生必须覆盖的问诊条目</Text>
 					<TagEditor value={requiredInquiries} onChange={onRequiredInquiriesChange} placeholder="输入后回车添加" disabled={disabled} />
 				</div>
-			</div>
-		</fieldset>
+			</Stack>
+		</Paper>
 	);
 }

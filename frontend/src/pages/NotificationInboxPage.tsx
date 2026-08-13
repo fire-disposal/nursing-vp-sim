@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, EyeOff } from "lucide-react";
+import { ActionIcon, Badge, Box, Container, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { IconBell, IconEyeOff } from "@tabler/icons-react";
 import EmptyState from "@/components/ui/empty-state";
 import { useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -16,7 +17,6 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
@@ -116,117 +116,128 @@ export default function NotificationInboxPage() {
 	const TYPES = ["", "assignment_new", "scoring_complete", "feedback_replied", "reminder", "system"];
 
 	return (
-		<div className="space-y-6 max-w-3xl mx-auto">
-			<ProfileTabs />
-			<PageHeader
-				title="通知中心"
-				subtitle={total > 0 ? `共 ${total} 条通知` : "暂无通知"}
-				actions={
-					items.some((n) => !n.is_read) ? (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => markAllReadMutation.mutate()}
-							disabled={markAllReadMutation.isPending}
-						>
-							全部已读
-						</Button>
-					) : null
-				}
-			/>
-
-			<div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-				{TYPES.map((t) => (
-					<button
-						key={t}
-						type="button"
-						onClick={() => setType(t)}
-						className={cn(
-							"shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
-							typeFilter === t
-								? "bg-primary text-primary-foreground"
-								: "bg-muted text-muted-foreground hover:bg-muted/80",
-						)}
-					>
-						{t ? (TYPE_LABELS[t] ?? t) : "全部"}
-					</button>
-				))}
-			</div>
-
-			{isError ? (
-				<div className="py-16 text-center text-sm text-destructive">加载失败</div>
-			) : isLoading ? (
-				<div className="space-y-2">
-					{[...Array(5)].map((_, i) => (
-						<div key={i} className="rounded-lg border bg-card p-4 animate-pulse">
-							<div className="h-4 bg-muted rounded w-3/4 mb-2" />
-							<div className="h-3 bg-muted rounded w-1/2" />
-						</div>
-					))}
-				</div>
-			) : items.length > 0 ? (
-				<div className="space-y-1">
-					{items.map((n) => (
-						<button
-							key={n.id}
-							type="button"
-							className={cn(
-								"w-full text-left rounded-lg border bg-card p-4 hover:bg-muted/40 transition-colors",
-								!n.is_read && "border-l-2 border-l-primary",
-							)}
-							onClick={() => handleClick(n)}
-						>
-							<div className="flex items-start gap-3">
-								{!n.is_read && (
-									<span className="mt-1.5 size-2 rounded-full bg-primary shrink-0" />
-								)}
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center gap-2 mb-1">
-										<span className="text-[10px] px-1.5 py-px rounded bg-muted text-muted-foreground font-medium">
-											{TYPE_LABELS[n.type] ?? n.type}
-										</span>
-										<span className="text-[11px] text-muted-foreground/60">
-											{n.created_at.slice(0, 16).replace("T", " ")}
-										</span>
-									</div>
-									<div className="text-sm font-medium leading-snug">{n.title}</div>
-									{n.body && (
-										<div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-											{n.body}
-										</div>
-									)}
-								</div>
-								{n.is_read && (
-									<button
-										type="button"
-										className="shrink-0 p-1 rounded hover:bg-muted transition-colors"
-										onClick={(e) => {
-											e.stopPropagation();
-											markOneUnreadMutation.mutate(n.id);
-										}}
-										title="标记未读"
-									>
-										<EyeOff size={13} className="text-muted-foreground" />
-									</button>
-								)}
-							</div>
-						</button>
-					))}
-				</div>
-			) : (
-				<EmptyState
-					icon={Bell}
-					title={typeFilter ? "该类型暂无通知" : "暂无通知"}
+		<Container size="md" py="md">
+			<Stack gap="lg">
+				<ProfileTabs />
+				<PageHeader
+					title="通知中心"
+					subtitle={total > 0 ? `共 ${total} 条通知` : "暂无通知"}
+					actions={
+						items.some((n) => !n.is_read) ? (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => markAllReadMutation.mutate()}
+								disabled={markAllReadMutation.isPending}
+							>
+								全部已读
+							</Button>
+						) : null
+					}
 				/>
-			)}
 
-			<Pagination
-				total={total}
-				offset={offset}
-				limit={LIMIT}
-				onChange={setOffset}
-				className="mt-6"
-			/>
-		</div>
+				<Group gap={6} wrap="nowrap" style={{ overflowX: "auto" }}>
+					{TYPES.map((t) => (
+						<Button
+							key={t}
+							type="button"
+							variant={typeFilter === t ? "default" : "secondary"}
+							size="xs"
+							radius="xl"
+							onClick={() => setType(t)}
+							style={{ flexShrink: 0 }}
+						>
+							{t ? (TYPE_LABELS[t] ?? t) : "全部"}
+						</Button>
+					))}
+				</Group>
+
+				{isError ? (
+					<Text ta="center" c="red" py={64} size="sm">
+						加载失败
+					</Text>
+				) : isLoading ? (
+					<Stack gap="xs">
+						{[...Array(5)].map((_, i) => (
+							<Paper key={i} withBorder radius="md" p="md">
+								<Skeleton height={16} width="75%" mb="xs" />
+								<Skeleton height={12} width="50%" />
+							</Paper>
+						))}
+					</Stack>
+				) : items.length > 0 ? (
+					<Stack gap={4}>
+						{items.map((n) => (
+							<Paper
+								key={n.id}
+								withBorder
+								radius="md"
+								p="md"
+								onClick={() => handleClick(n)}
+								style={{
+									cursor: "pointer",
+									textAlign: "left",
+									borderLeft: n.is_read ? undefined : "2px solid var(--mantine-color-teal-6)",
+								}}
+							>
+								<Group gap="sm" align="flex-start" wrap="nowrap">
+									{!n.is_read && (
+										<Box
+											w={8}
+											h={8}
+											bg="teal"
+											style={{ borderRadius: "50%", flexShrink: 0, marginTop: 6 }}
+										/>
+									)}
+									<Box style={{ minWidth: 0, flex: 1 }}>
+										<Group gap="xs" mb={4}>
+											<Badge variant="secondary" size="xs">
+												{TYPE_LABELS[n.type] ?? n.type}
+											</Badge>
+											<Text size="11px" c="dimmed" opacity={0.6}>
+												{n.created_at.slice(0, 16).replace("T", " ")}
+											</Text>
+										</Group>
+										<Text size="sm" fw={500} lh={1.35}>
+											{n.title}
+										</Text>
+										{n.body && (
+											<Text size="xs" c="dimmed" mt={4} lineClamp={2}>
+												{n.body}
+											</Text>
+										)}
+									</Box>
+									{n.is_read && (
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											title="标记未读"
+											onClick={(e) => {
+												e.stopPropagation();
+												markOneUnreadMutation.mutate(n.id);
+											}}
+										>
+											<IconEyeOff size={13} />
+										</ActionIcon>
+									)}
+								</Group>
+							</Paper>
+						))}
+					</Stack>
+				) : (
+					<EmptyState
+						icon={IconBell}
+						title={typeFilter ? "该类型暂无通知" : "暂无通知"}
+					/>
+				)}
+
+				<Pagination
+					total={total}
+					offset={offset}
+					limit={LIMIT}
+					onChange={setOffset}
+				/>
+			</Stack>
+		</Container>
 	);
 }

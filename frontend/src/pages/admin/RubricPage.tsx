@@ -1,5 +1,6 @@
+import { ActionIcon, Box, Divider, Group, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Download, Edit3, Plus, Trash2, X } from "lucide-react";
+import { IconBook2, IconDownload, IconEdit, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useState, useCallback, type ChangeEvent } from "react";
 import type { ApiPath } from "@/api/api-path";
 import { api } from "@/api/client";
@@ -67,35 +68,47 @@ function downloadJson(data: unknown, filename: string) {
 // ── Anchor Row ──
 function AnchorRow({ anchor, onChange, onDelete }: { anchor: RubricAnchor; onChange: (a: RubricAnchor) => void; onDelete: () => void }) {
 	return (
-		<div className="flex items-center gap-2 text-sm">
-			<Input type="number" value={anchor.score} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, score: Number(e.target.value) })} className="w-16 h-8 text-xs" min={0} />
-			<span className="text-xs text-muted-foreground shrink-0">分 -</span>
-			<Input value={anchor.description} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, description: e.target.value })} className="flex-1 h-8 text-xs" placeholder="锚点描述…" />
-			<button onClick={onDelete} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="删除锚点"><Trash2 size={14} /></button>
-		</div>
+		<Group gap={8} align="center" wrap="nowrap">
+			<Input type="number" value={anchor.score} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, score: Number(e.target.value) })} size="xs" w={64} min={0} />
+			<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>分 -</Text>
+			<Input value={anchor.description} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, description: e.target.value })} size="xs" style={{ flex: 1 }} placeholder="锚点描述…" />
+			<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除锚点">
+				<IconTrash size={14} />
+			</ActionIcon>
+		</Group>
 	);
 }
 
 // ── Item Editor ──
 function ItemEditor({ item, onChange, onDelete }: { item: RubricItem; onChange: (i: RubricItem) => void; onDelete: () => void }) {
 	return (
-		<div className="py-3 first:pt-0 last:pb-0 border-b last:border-0">
-			<div className="flex items-center gap-2 mb-2">
-				<Input value={item.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...item, name: e.target.value })} className="flex-1 h-8 text-sm font-medium" placeholder="子项名称" />
-				<button onClick={onDelete} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="删除子项"><Trash2 size={14} /></button>
-			</div>
-			<div className="space-y-1.5 ml-1">
+		<Box py="sm">
+			<Group gap={8} align="center" mb={8} wrap="nowrap">
+				<Input value={item.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...item, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="子项名称" />
+				<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除子项">
+					<IconTrash size={14} />
+				</ActionIcon>
+			</Group>
+			<Stack gap={6} ml={4}>
 				{item.anchors.map((anchor, ai) => (
 					<AnchorRow key={ai} anchor={anchor}
 						onChange={(updated) => { const anchors = [...item.anchors]; anchors[ai] = updated; onChange({ ...item, anchors }); }}
 						onDelete={() => onChange({ ...item, anchors: item.anchors.filter((_, i) => i !== ai) })} />
 				))}
-				<button onClick={() => {
-					const maxScore = item.anchors.length > 0 ? Math.max(...item.anchors.map((a) => a.score)) + 1 : 0;
-					onChange({ ...item, anchors: [...item.anchors, { score: maxScore, description: "" }] });
-				}} className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"><Plus size={12} /> 添加锚点</button>
-			</div>
-		</div>
+				<Button
+					variant="link"
+					size="xs"
+					onClick={() => {
+						const maxScore = item.anchors.length > 0 ? Math.max(...item.anchors.map((a) => a.score)) + 1 : 0;
+						onChange({ ...item, anchors: [...item.anchors, { score: maxScore, description: "" }] });
+					}}
+					leftSection={<IconPlus size={12} />}
+					style={{ alignSelf: "flex-start" }}
+				>
+					添加锚点
+				</Button>
+			</Stack>
+		</Box>
 	);
 }
 
@@ -103,26 +116,43 @@ function ItemEditor({ item, onChange, onDelete }: { item: RubricItem; onChange: 
 function DimensionEditor({ dim, onChange, onDelete }: { dim: RubricDimension; onChange: (d: RubricDimension) => void; onDelete: () => void }) {
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-center gap-2 pb-2">
-				<div className="flex-1 flex items-center gap-2">
-					<Input value={dim.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, name: e.target.value })} className="flex-1 h-8 text-base font-semibold" placeholder="维度名称" />
-					<span className="text-xs text-muted-foreground shrink-0">满分 <Input type="number" value={dim.max} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, max: Number(e.target.value) })} className="inline w-16 h-7 text-xs mx-1" min={0} /> 分</span>
-				</div>
-				<button onClick={onDelete} className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="删除维度"><Trash2 size={16} /></button>
+			<CardHeader>
+				<Group gap={8} align="center" wrap="nowrap">
+					<Input value={dim.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="维度名称" />
+					<Group gap={4} align="center" wrap="nowrap">
+						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>满分</Text>
+						<Input type="number" value={dim.max} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, max: Number(e.target.value) })} size="xs" w={64} min={0} />
+						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>分</Text>
+					</Group>
+					<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除维度">
+						<IconTrash size={16} />
+					</ActionIcon>
+				</Group>
 			</CardHeader>
 			<CardContent>
-				<Input value={dim.description || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, description: e.target.value || undefined })} className="h-8 text-xs mb-3" placeholder="维度描述（可选）" />
-				<div className="divide-y">
+				<Input value={dim.description || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, description: e.target.value || undefined })} size="xs" mb="sm" placeholder="维度描述（可选）" />
+				<Stack gap={0}>
 					{dim.items.map((item, ii) => (
-						<ItemEditor key={item.id} item={item}
-							onChange={(updated) => { const items = [...dim.items]; items[ii] = updated; onChange({ ...dim, items }); }}
-							onDelete={() => onChange({ ...dim, items: dim.items.filter((_, i) => i !== ii) })} />
+						<Box key={item.id}>
+							{ii > 0 && <Divider />}
+							<ItemEditor key={item.id} item={item}
+								onChange={(updated) => { const items = [...dim.items]; items[ii] = updated; onChange({ ...dim, items }); }}
+								onDelete={() => onChange({ ...dim, items: dim.items.filter((_, i) => i !== ii) })} />
+						</Box>
 					))}
-				</div>
-				<button onClick={() => {
-					const newId = `item_${Date.now()}`;
-					onChange({ ...dim, items: [...dim.items, { id: newId, name: "", anchors: [{ score: 0, description: "" }] }] });
-				}} className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-3"><Plus size={14} /> 添加子项</button>
+				</Stack>
+				<Button
+					variant="link"
+					size="sm"
+					onClick={() => {
+						const newId = `item_${Date.now()}`;
+						onChange({ ...dim, items: [...dim.items, { id: newId, name: "", anchors: [{ score: 0, description: "" }] }] });
+					}}
+					leftSection={<IconPlus size={14} />}
+					mt="sm"
+				>
+					添加子项
+				</Button>
 			</CardContent>
 		</Card>
 	);
@@ -134,24 +164,27 @@ function RubricViewer({ rubric }: { rubric: RubricData }) {
 		<>
 			{rubric.dimensions.map((dim) => (
 				<Card key={dim.id}>
-					<CardHeader className="border-b"><CardTitle>{dim.name}</CardTitle>
-						<p className="text-xs text-muted-foreground mt-0.5">满分 {dim.max} 分{dim.description ? ` · ${dim.description}` : ""}</p>
+					<CardHeader style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+						<CardTitle>{dim.name}</CardTitle>
+						<Text size="xs" c="dimmed" mt={2}>满分 {dim.max} 分{dim.description ? ` · ${dim.description}` : ""}</Text>
 					</CardHeader>
-					<CardContent className="pt-4"><div className="divide-y">
-						{dim.items.map((item) => (
-							<div key={item.id} className="py-4 first:pt-0 last:pb-0">
-								<p className="text-sm font-medium">{item.name}</p>
-								<div className="mt-2 space-y-1">
-									{item.anchors.map((a, i) => (
-										<div key={i} className="flex items-start gap-3 text-sm">
-											<span className="font-mono font-bold text-primary shrink-0 w-6">{a.score}分</span>
-											<span className="text-muted-foreground">{a.description}</span>
-										</div>
-									))}
-								</div>
-							</div>
-						))}
-					</div></CardContent>
+					<CardContent>
+						<Stack gap={0}>
+							{dim.items.map((item) => (
+								<Box key={item.id} py="md">
+									<Text size="sm" fw={500}>{item.name}</Text>
+									<Stack gap={4} mt={8}>
+										{item.anchors.map((a, i) => (
+											<Group key={i} gap={12} align="flex-start" wrap="nowrap">
+												<Text ff="monospace" fw={700} c="teal" w={24} style={{ flexShrink: 0 }}>{a.score}分</Text>
+												<Text size="sm" c="dimmed">{a.description}</Text>
+											</Group>
+										))}
+									</Stack>
+								</Box>
+							))}
+						</Stack>
+					</CardContent>
 				</Card>
 			))}
 		</>
@@ -179,34 +212,34 @@ export default function RubricPage() {
 	const displayData: RubricData | undefined = editing && draft ? draft : raw ? rawToDraft(raw) : undefined;
 
 	if (isLoading) return <LoadingSkeleton variant="card" />;
-	if (!displayData) return <div className="p-8 text-center text-muted-foreground">加载失败</div>;
+	if (!displayData) return <Text ta="center" py={32} c="dimmed">加载失败</Text>;
 
 	return (
-		<div className="space-y-6">
+		<Stack gap="xl">
 			<PageHeader
 				title="评分标准"
 				subtitle={editing ? "编辑模式 - 完成后导出 JSON 部署到服务器" : `${displayData.name} · v${displayData.version} · 满分 ${displayData.total_max} 分`}
-				icon={BookOpen}
+				icon={IconBook2}
 				actions={
-					<div className="flex items-center gap-2">
+					<Group gap={8}>
 						{editing ? (
 							<>
-								<Button variant="outline" size="sm" onClick={cancelEditing}><X size={14} /> 取消</Button>
-								<Button size="sm" onClick={() => draft && downloadJson(draftToExport(draft), `rubric_${draft.version}.json`)}><Download size={14} /> 导出 JSON</Button>
+								<Button variant="outline" size="sm" onClick={cancelEditing} leftSection={<IconX size={14} />}>取消</Button>
+								<Button size="sm" onClick={() => draft && downloadJson(draftToExport(draft), `rubric_${draft.version}.json`)} leftSection={<IconDownload size={14} />}>导出 JSON</Button>
 							</>
 						) : (
-							<Button variant="outline" size="sm" onClick={startEditing}><Edit3 size={14} /> 编辑</Button>
+							<Button variant="outline" size="sm" onClick={startEditing} leftSection={<IconEdit size={14} />}>编辑</Button>
 						)}
-					</div>
+					</Group>
 				}
 			/>
 
 			{editing ? (
 				<>
-					<div className="flex items-center gap-2">
-						<Input value={draft?.name ?? ""} onChange={(e: ChangeEvent<HTMLInputElement>) => draft && setDraft({ ...draft, name: e.target.value })} className="h-9 text-lg font-semibold w-64" placeholder="评分标准名称" />
-						<span className="text-xs text-muted-foreground">v{draft?.version ?? ""}</span>
-					</div>
+					<Group gap={8} align="center" wrap="nowrap">
+						<Input value={draft?.name ?? ""} onChange={(e: ChangeEvent<HTMLInputElement>) => draft && setDraft({ ...draft, name: e.target.value })} size="md" w={256} placeholder="评分标准名称" />
+						<Text size="xs" c="dimmed">v{draft?.version ?? ""}</Text>
+					</Group>
 					{draft?.dimensions.map((dim, di) => (
 						<DimensionEditor key={dim.id} dim={dim}
 							onChange={(updated) => { if (!draft) return; const dims = [...draft.dimensions]; dims[di] = updated; setDraft({ ...draft, dimensions: dims }); }}
@@ -216,11 +249,11 @@ export default function RubricPage() {
 						if (!draft) return;
 						const newId = `dim_${Date.now()}`;
 						setDraft({ ...draft, dimensions: [...draft.dimensions, { id: newId, name: "", max: 10, items: [] }] });
-					}} className="w-full"><Plus size={14} /> 添加评分维度</Button>
+					}} leftSection={<IconPlus size={14} />}>添加评分维度</Button>
 				</>
 			) : (
 				<RubricViewer rubric={displayData} />
 			)}
-		</div>
+		</Stack>
 	);
 }

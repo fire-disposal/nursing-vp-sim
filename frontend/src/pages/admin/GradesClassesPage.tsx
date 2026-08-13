@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { GraduationCap } from "lucide-react";
+import { Box, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -15,9 +16,11 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
+import Tabs from "@/components/ui/tabs";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
 	useClassesQuery,
@@ -31,9 +34,7 @@ import {
 } from "@/hooks/useGradesClasses";
 import { type GradeClassValues, gradeClassSchema } from "@/schemas/grade-class";
 import type { ClassItem, Grade } from "@/types/store";
-import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/date";
-import { selectClass } from "@/utils/styles";
 
 export default function GradesClassesPage() {
 	const navigate = useNavigate();
@@ -175,19 +176,14 @@ export default function GradesClassesPage() {
 		item: Grade | ClassItem,
 		onDelete: () => void,
 	) => (
-		<div className="flex gap-2">
+		<Group gap={8} wrap="nowrap">
 			<Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
 				编辑
 			</Button>
-			<Button
-				variant="ghost"
-				size="sm"
-				className="text-destructive hover:bg-destructive/10"
-				onClick={onDelete}
-			>
+			<Button variant="ghost" size="sm" color="red" onClick={onDelete}>
 				删除
 			</Button>
-		</div>
+		</Group>
 	);
 
 	const gradeColumns: DataTableColumn<Grade>[] = [
@@ -197,8 +193,7 @@ export default function GradesClassesPage() {
 		{
 			key: "created_at",
 			header: "创建时间",
-			cellClassName: "text-xs text-muted-foreground",
-			render: (g) => formatDate(g.created_at),
+			render: (g) => <Text size="xs" c="dimmed">{formatDate(g.created_at)}</Text>,
 		},
 		{
 			key: "actions",
@@ -214,8 +209,7 @@ export default function GradesClassesPage() {
 		{
 			key: "created_at",
 			header: "创建时间",
-			cellClassName: "text-xs text-muted-foreground",
-			render: (c) => formatDate(c.created_at),
+			render: (c) => <Text size="xs" c="dimmed">{formatDate(c.created_at)}</Text>,
 		},
 		{
 			key: "actions",
@@ -236,107 +230,103 @@ export default function GradesClassesPage() {
 				}
 			/>
 
-			<div className="flex gap-0 mb-4 border-b-2 border-border">
-				{tabs.map((t) => (
-					<button
-						key={t.key}
-						type="button"
-						onClick={() => setTab(t.key as "grades" | "classes")}
-						className={cn(
-							"px-6 py-2 border-none bg-transparent cursor-pointer border-b-2 mb-[-2px]",
-							tab === t.key
-								? "font-semibold text-primary border-primary"
-								: "font-normal text-muted-foreground border-transparent",
-						)}
-					>
-						{t.label}
-					</button>
-				))}
-			</div>
+			<Tabs
+				tabs={tabs}
+				activeTab={tab}
+				onChange={(k) => setTab(k as "grades" | "classes")}
+			/>
 
-			{tab === "classes" && (
-				<div className="mb-4 flex items-center gap-3">
-					<div className="flex-1 max-w-xs">
-						<SearchInput
-							value={classSearchInput}
-							onChange={handleClassSearchChange}
-							placeholder="搜索班级..."
-							aria-label="搜索班级"
+			<Stack gap="md" mt="md">
+				{tab === "classes" && (
+					<Group gap={12} align="center" wrap="wrap">
+						<Box maw={320} style={{ flex: 1 }}>
+							<SearchInput
+								value={classSearchInput}
+								onChange={handleClassSearchChange}
+								placeholder="搜索班级..."
+								aria-label="搜索班级"
+							/>
+						</Box>
+						<Select
+							value={gradeFilter || null}
+							onChange={(v) => setGradeFilter(v ?? "")}
+							data={[
+								{ value: "", label: `全部年级（${grades.length}）` },
+								...grades.map((g) => ({
+									value: String(g.id),
+									label: `${g.name}（${g.class_count ?? 0}个班）`,
+								})),
+							]}
+							w={220}
 						/>
-					</div>
-					<select
-						value={gradeFilter}
-						onChange={(e) => setGradeFilter(e.target.value)}
-						className={selectClass}
-					>
-						<option value="">全部年级（{grades.length}）</option>
-						{grades.map((g) => (
-							<option key={g.id} value={g.id}>
-								{g.name}（{g.class_count ?? 0}个班）
-							</option>
-						))}
-					</select>
-				</div>
-			)}
+					</Group>
+				)}
 
-			{tab === "grades" && (
-				<div className="mb-4">
-					<div className="flex-1 max-w-xs">
+				{tab === "grades" && (
+					<Box maw={320}>
 						<SearchInput
 							value={gradeSearchInput}
 							onChange={handleGradeSearchChange}
 							placeholder="搜索年级..."
 							aria-label="搜索年级"
 						/>
-					</div>
-				</div>
-			)}
+					</Box>
+				)}
+			</Stack>
 
 			{tab === "grades" ? (
-				<ResponsiveTable<Grade>
-					columns={gradeColumns}
-					rows={filteredGrades}
-					rowKey={(g) => g.id}
-					loading={isLoading}
-					emptyIcon={GraduationCap}
-					emptyTitle="暂无年级"
-					emptyDescription="创建第一个年级后这里会显示"
-					renderCard={(g) => (
-						<div className="rounded-lg border bg-card p-3 space-y-2">
-							<div className="text-sm font-medium">{g.name}</div>
-							<div className="text-xs text-muted-foreground">
-								{g.class_count ?? 0} 个班级 · {g.student_count ?? 0} 名学生
-							</div>
-							<div className="flex gap-1">
-								<Button variant="outline" size="sm" onClick={() => openEdit(g)}>编辑</Button>
-								<Button variant="outline" size="sm" onClick={() => handleDeleteGrade(g)}>删除</Button>
-							</div>
-						</div>
-					)}
-				/>
+				<Box mt="md">
+					<ResponsiveTable<Grade>
+						columns={gradeColumns}
+						rows={filteredGrades}
+						rowKey={(g) => g.id}
+						loading={isLoading}
+						emptyIcon={IconSchool}
+						emptyTitle="暂无年级"
+						emptyDescription="创建第一个年级后这里会显示"
+						renderCard={(g) => (
+							<Paper withBorder radius="md" p="sm">
+								<Stack gap={8}>
+									<Text size="sm" fw={500}>{g.name}</Text>
+									<Text size="xs" c="dimmed">
+										{g.class_count ?? 0} 个班级 · {g.student_count ?? 0} 名学生
+									</Text>
+									<Group gap={8}>
+										<Button variant="outline" size="sm" onClick={() => openEdit(g)}>编辑</Button>
+										<Button variant="outline" size="sm" onClick={() => handleDeleteGrade(g)}>删除</Button>
+									</Group>
+								</Stack>
+							</Paper>
+						)}
+					/>
+				</Box>
 			) : (
-				<ResponsiveTable<ClassItem>
-					columns={classColumns}
-					rows={filteredClasses}
-					rowKey={(c) => c.id}
-					loading={classesLoading}
-					emptyIcon={GraduationCap}
-					emptyTitle="暂无班级"
-					emptyDescription="创建第一个班级后这里会显示"
-					renderCard={(c) => (
-						<div className="rounded-lg border bg-card p-3 space-y-2">
-							<div className="text-sm font-medium">{c.name}</div>
-							<div className="text-xs text-muted-foreground">
-								{c.grade_name} · {c.student_count ?? 0} 名学生
-							</div>
-							<div className="flex gap-1">
-								<Button variant="outline" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
-								<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
-								<Button variant="outline" size="sm" onClick={() => handleDeleteClass(c)}>删除</Button>
-							</div>
-						</div>
-					)}
-				/>
+				<Box mt="md">
+					<ResponsiveTable<ClassItem>
+						columns={classColumns}
+						rows={filteredClasses}
+						rowKey={(c) => c.id}
+						loading={classesLoading}
+						emptyIcon={IconSchool}
+						emptyTitle="暂无班级"
+						emptyDescription="创建第一个班级后这里会显示"
+						renderCard={(c) => (
+							<Paper withBorder radius="md" p="sm">
+								<Stack gap={8}>
+									<Text size="sm" fw={500}>{c.name}</Text>
+									<Text size="xs" c="dimmed">
+										{c.grade_name} · {c.student_count ?? 0} 名学生
+									</Text>
+									<Group gap={8}>
+										<Button variant="outline" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
+										<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
+										<Button variant="outline" size="sm" onClick={() => handleDeleteClass(c)}>删除</Button>
+									</Group>
+								</Stack>
+							</Paper>
+						)}
+					/>
+				</Box>
 			)}
 
 			<Dialog
@@ -356,66 +346,64 @@ export default function GradesClassesPage() {
 					maxWidth={560}
 				>
 					<Form {...form}>
-						<form
-							onSubmit={form.handleSubmit(onSubmit)}
-							className="flex flex-col gap-3"
-						>
-							{tab === "classes" && (
+						<form onSubmit={form.handleSubmit(onSubmit)}>
+							<Stack gap="sm">
+								{tab === "classes" && (
+									<FormField
+										control={form.control}
+										name="gradeId"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>所属年级</FormLabel>
+												<FormControl>
+													<Select
+														value={field.value || null}
+														onChange={(v) => field.onChange(v ?? "")}
+														data={[
+															{ value: "", label: "请选择年级" },
+															...grades.map((g) => ({
+																value: String(g.id),
+																label: g.name,
+															})),
+														]}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								)}
 								<FormField
 									control={form.control}
-									name="gradeId"
+									name="name"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>所属年级</FormLabel>
+											<FormLabel>名称</FormLabel>
 											<FormControl>
-												<select
-													className="w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring"
+												<Input
+													placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
 													{...field}
-												>
-													<option value="">请选择年级</option>
-													{grades.map((g) => (
-														<option key={g.id} value={g.id}>
-															{g.name}
-														</option>
-													))}
-												</select>
+												/>
 											</FormControl>
 											<FormMessage />
 										</FormItem>
 									)}
 								/>
-							)}
-							<FormField
-								control={form.control}
-								name="name"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>名称</FormLabel>
-										<FormControl>
-											<input
-												className="w-full px-3 py-2 border border-border rounded-md text-sm focus-ring"
-												placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<DialogFooter>
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => {
-										void requestCloseModal();
-									}}
-								>
-									取消
-								</Button>
-								<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-									{editId ? "保存" : "创建"}
-								</Button>
-							</DialogFooter>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={() => {
+											void requestCloseModal();
+										}}
+									>
+										取消
+									</Button>
+									<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
+										{editId ? "保存" : "创建"}
+									</Button>
+								</DialogFooter>
+							</Stack>
 						</form>
 					</Form>
 				</DialogContent>

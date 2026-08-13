@@ -1,4 +1,5 @@
 import lottie from "lottie-web";
+import { Flex } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import placeholderAnimation from "@/assets/lottie/animation.json";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -29,11 +30,11 @@ export default function LoginIllustration() {
 	if (!visible) return null;
 
 	return (
-		<div className="hidden lg:flex lg:w-1/2 items-center justify-center">
+		<Flex w="50%" justify="center" align="center">
 			<div
 				ref={containerRef}
-				className="w-full max-w-md [transform:translateZ(0)]"
+				style={{ width: "100%", maxWidth: 448, transform: "translateZ(0)" }}
 			/>
-		</div>
+		</Flex>
 	);
 }

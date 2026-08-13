@@ -104,11 +104,6 @@ export const TRIGGER_EVENT_OPTIONS = [
 	{ value: "before_training", label: "训练开始前" },
 ];
 
-
-
-export const textareaClass =
-	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring resize-y";
-
 export function emptyForm(): TemplateForm {
 	return {
 		title: "",

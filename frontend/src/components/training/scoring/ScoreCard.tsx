@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Box, Group, Stack, Text } from "@mantine/core";
+import Button from "@/components/ui/button";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
-import { cn } from "@/lib/utils";
 
 // ── Circular Progress Ring ──
 
@@ -20,16 +21,20 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 		return () => cancelAnimationFrame(raf);
 	}, [percentage, circumference]);
 
-	const ringClass =
-		percentage >= 80 ? "text-success-foreground" : percentage >= 60 ? "text-neutral-foreground" : "text-destructive";
+	const ringColor =
+		percentage >= 80
+			? "var(--mantine-color-green-6)"
+			: percentage >= 60
+				? "var(--mantine-color-gray-6)"
+				: "var(--mantine-color-red-6)";
 
 	return (
-		<div className="relative inline-flex items-center justify-center">
+		<Box style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
 			<svg
 				width="140"
 				height="140"
 				viewBox="0 0 120 120"
-				className="-rotate-90"
+				style={{ transform: "rotate(-90deg)" }}
 				role="img"
 				aria-label={`得分 ${score}/${maxScore}`}
 			>
@@ -38,30 +43,29 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 					cy="60"
 					r={radius}
 					fill="none"
-					stroke="currentColor"
+					stroke="var(--mantine-color-gray-3)"
 					strokeWidth="8"
-					className="text-muted"
 				/>
 				<circle
 					cx="60"
 					cy="60"
 					r={radius}
 					fill="none"
-					stroke="currentColor"
+					stroke={ringColor}
 					strokeWidth="8"
 					strokeLinecap="round"
 					strokeDasharray={circumference}
 					strokeDashoffset={offset}
-					className={cn("transition-all duration-1000 ease-out", ringClass)}
+					style={{ transition: "all 1000ms ease-out" }}
 				/>
 			</svg>
-			<div className="absolute inset-0 flex flex-col items-center justify-center">
-				<span className={cn("text-3xl font-bold", ringClass)}>
+			<Box style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+				<Text fw={700} style={{ fontSize: 30, color: ringColor }}>
 					{score}
-				</span>
-				<span className="text-xs text-muted-foreground">/ {maxScore}</span>
-			</div>
-		</div>
+				</Text>
+				<Text size="xs" c="dimmed">/ {maxScore}</Text>
+			</Box>
+		</Box>
 	);
 }
 
@@ -72,7 +76,11 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (Number.isFinite(i.max) && i.max > 0 ? i.max : 3), 0) ?? 100;
 	const percentage = dimMax > 0 ? (dimension.score / dimMax) * 100 : 0;
 	const barColor =
-		percentage >= 80 ? "bg-success" : percentage >= 60 ? "bg-neutral" : "bg-destructive";
+		percentage >= 80
+			? "var(--mantine-color-green-6)"
+			: percentage >= 60
+				? "var(--mantine-color-gray-6)"
+				: "var(--mantine-color-red-6)";
 
 	useEffect(() => {
 		const raf = requestAnimationFrame(() => setBarWidth(`${percentage}%`));
@@ -80,35 +88,35 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 	}, [percentage]);
 
 	return (
-		<div className="rounded-lg border p-3">
-			<div className="mb-1.5 flex items-center justify-between">
-				<span className="text-sm font-medium">{name}</span>
-				<span className="text-xs tabular-nums text-muted-foreground">
-					<span className="font-semibold text-foreground">{dimension.score}</span>/{dimMax}
-				</span>
-			</div>
-			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn("h-full rounded-full transition-all duration-700 ease-out", barColor)}
-					style={{ width: barWidth }}
+		<Box p="sm" style={{ borderRadius: 8, border: "1px solid var(--mantine-color-default-border)" }}>
+			<Group justify="space-between" mb={6} wrap="nowrap">
+				<Text size="sm" fw={500}>{name}</Text>
+				<Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+					<Text component="span" fw={600} c="var(--mantine-color-text)">{dimension.score}</Text>/{dimMax}
+				</Text>
+			</Group>
+			<Box h={8} w="100%" style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+				<Box
+					h="100%"
+					style={{ width: barWidth, borderRadius: 999, transition: "all 700ms ease-out", background: barColor }}
 				/>
-			</div>
+			</Box>
 			{dimension.items && dimension.items.length > 0 && (
-				<div className="mt-2 space-y-1">
+				<Box mt={8}>
 					{dimension.items.map((item, i) => {
 						const itemMax = Number.isFinite(item.max) && item.max > 0 ? item.max : 3;
 						return (
-							<div key={i} className="flex justify-between text-xs text-muted-foreground ml-1">
-								<span>{item.name || `项目 ${i + 1}`}</span>
-								<span className="tabular-nums">
+							<Group key={i} justify="space-between" wrap="nowrap" ml={4}>
+								<Text size="xs" c="dimmed">{item.name || `项目 ${i + 1}`}</Text>
+								<Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
 									{item.score}/{itemMax}
-								</span>
-							</div>
+								</Text>
+							</Group>
 						);
 					})}
-				</div>
+				</Box>
 			)}
-		</div>
+		</Box>
 	);
 }
 
@@ -140,109 +148,102 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					<CardTitle>训练评分报告</CardTitle>
 				</CardHeader>
 
-				<CardContent className="space-y-5">
-					{/* Total Score — Ring */}
-					{score.total_score !== undefined && (
-						<div className="flex justify-center">
-							<CircularProgress score={score.total_score} maxScore={totalMax} />
-						</div>
-					)}
+				<CardContent>
+					<Stack gap="xl">
+						{/* Total Score — Ring */}
+						{score.total_score !== undefined && (
+							<Group justify="center">
+								<CircularProgress score={score.total_score} maxScore={totalMax} />
+							</Group>
+						)}
 
-					{/* Dimensions */}
-					{score.detail_scores && Object.keys(score.detail_scores).length > 0 && (
-						<div className="space-y-3">
-							<h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-								评分维度
-							</h3>
-							{Object.entries(score.detail_scores).map(([dimName, dim]) => (
-								<DimensionSection key={dimName} name={dimName} dimension={dim} />
-							))}
-						</div>
-					)}
-
-					{/* Strengths */}
-					{score.strengths && score.strengths.length > 0 && (
-						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-success-foreground flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-success" />
-								优势
-							</h3>
-							<ul className="space-y-1">
-								{score.strengths.map((s, i) => (
-									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-success/60" />
-										{s}
-									</li>
+						{/* Dimensions */}
+						{score.detail_scores && Object.keys(score.detail_scores).length > 0 && (
+							<Stack gap="md">
+								<Text size="xs" fw={500} c="dimmed" tt="uppercase" style={{ letterSpacing: "0.05em" }}>
+									评分维度
+								</Text>
+								{Object.entries(score.detail_scores).map(([dimName, dim]) => (
+									<DimensionSection key={dimName} name={dimName} dimension={dim} />
 								))}
-							</ul>
-						</div>
-					)}
+							</Stack>
+						)}
 
-					{/* Weaknesses */}
-					{score.weaknesses && score.weaknesses.length > 0 && (
-						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-warning-foreground flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-warning" />
-								改进建议
-							</h3>
-							<ul className="space-y-1">
-								{score.weaknesses.map((w, i) => (
-									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-warning/60" />
-										{w}
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
+						{/* Strengths */}
+						{score.strengths && score.strengths.length > 0 && (
+							<Box>
+								<Group gap={6} mb={6} wrap="nowrap">
+									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-6)" }} />
+									<Text size="sm" fw={500} c="green.6">优势</Text>
+								</Group>
+								<Stack gap={4}>
+									{score.strengths.map((s, i) => (
+										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-4)", flexShrink: 0 }} />
+											<Text size="sm" c="dimmed">{s}</Text>
+										</Group>
+									))}
+								</Stack>
+							</Box>
+						)}
 
-					{/* Missed Content */}
-					{score.missed_content && score.missed_content.length > 0 && (
-						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-destructive flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-destructive" />
-								遗漏要点
-							</h3>
-							<ul className="space-y-1">
-								{score.missed_content.map((m, i) => (
-									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-destructive/60" />
-										{m}
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
+						{/* Weaknesses */}
+						{score.weaknesses && score.weaknesses.length > 0 && (
+							<Box>
+								<Group gap={6} mb={6} wrap="nowrap">
+									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />
+									<Text size="sm" fw={500} c="yellow.7">改进建议</Text>
+								</Group>
+								<Stack gap={4}>
+									{score.weaknesses.map((w, i) => (
+										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-4)", flexShrink: 0 }} />
+											<Text size="sm" c="dimmed">{w}</Text>
+										</Group>
+									))}
+								</Stack>
+							</Box>
+						)}
 
-					{/* Suggestions */}
-					{score.suggestions && (
-						<div className="rounded-lg bg-muted p-3">
-							<h3 className="mb-1 text-sm font-medium">学习建议</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">{score.suggestions}</p>
-						</div>
-					)}
+						{/* Missed Content */}
+						{score.missed_content && score.missed_content.length > 0 && (
+							<Box>
+								<Group gap={6} mb={6} wrap="nowrap">
+									<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-6)" }} />
+									<Text size="sm" fw={500} c="red.6">遗漏要点</Text>
+								</Group>
+								<Stack gap={4}>
+									{score.missed_content.map((m, i) => (
+										<Group key={i} gap={8} align="flex-start" wrap="nowrap">
+											<Box w={4} h={4} mt={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-4)", flexShrink: 0 }} />
+											<Text size="sm" c="dimmed">{m}</Text>
+										</Group>
+									))}
+								</Stack>
+							</Box>
+						)}
+
+						{/* Suggestions */}
+						{score.suggestions && (
+							<Box p="sm" style={{ borderRadius: 8, background: "var(--mantine-color-gray-1)" }}>
+								<Text size="sm" fw={500} mb={4}>学习建议</Text>
+								<Text size="sm" c="dimmed" lh={1.6}>{score.suggestions}</Text>
+							</Box>
+						)}
+					</Stack>
 				</CardContent>
 
-				<CardFooter className="gap-2">
-					<button
-						type="button"
-						onClick={handleClose}
-						className={cn(
-							"rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity",
-							onRestart ? "flex-1" : "w-full",
+				<CardFooter>
+					<Group gap={8} grow>
+						<Button variant="default" onClick={handleClose}>
+							{onRestart ? "返回记录" : "关闭"}
+						</Button>
+						{onRestart && (
+							<Button variant="secondary" onClick={handleRestart}>
+								重新开始
+							</Button>
 						)}
-					>
-						{onRestart ? "返回记录" : "关闭"}
-					</button>
-					{onRestart && (
-						<button
-							type="button"
-							onClick={handleRestart}
-							className="flex-1 rounded-lg bg-secondary py-2 text-sm font-medium text-secondary-foreground hover:opacity-90 transition-opacity"
-						>
-							重新开始
-						</button>
-					)}
+					</Group>
 				</CardFooter>
 			</DialogContent>
 		</Dialog>

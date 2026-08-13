@@ -1,9 +1,30 @@
-import { Edit3, Loader2, Search, Trash2, Users } from "lucide-react";
+import { IconEdit, IconTrash, IconUsers } from "@tabler/icons-react";
+import {
+	ActionIcon,
+	Box,
+	Center,
+	Group,
+	Loader,
+	Paper,
+	ScrollArea,
+	Select,
+	Text,
+} from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import ClassFilter from "@/components/admin/ClassFilter";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RoleBadge } from "@/components/ui/role-badge";
+import { SearchInput } from "@/components/ui/search-input";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import type { RoleOption, UserBrief } from "./types";
 
 interface UserListProps {
@@ -30,12 +51,6 @@ interface UserListProps {
 	onDeselectAll: () => void;
 }
 
-const filterSelectClass =
-	"py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card";
-
-const btnDanger =
-	"inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors border-none cursor-pointer";
-
 export default function UserList({
 	users,
 	loading,
@@ -59,167 +74,150 @@ export default function UserList({
 	const navigate = useNavigate();
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
-			<div className="mb-3 flex gap-2 items-center">
-				<div className="relative flex-1 max-w-[320px]">
-					<Search
-						size={14}
-						className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70"
-					/>
-					<input
-						type="text"
-						placeholder="搜索用户名、姓名或学号..."
-						aria-label="搜索用户名、姓名或学号"
+		<Paper withBorder radius="lg" p="lg" shadow="sm">
+			<Group gap={8} mb="md" wrap="wrap">
+				<Box style={{ flex: "1 1 320px", maxWidth: 320 }}>
+					<SearchInput
 						value={search}
-						onChange={(e) => onSearchChange(e.target.value)}
-						className="w-full py-1.5 pl-[30px] pr-2.5 border border-border rounded-lg text-sm"
+						onChange={onSearchChange}
+						placeholder="搜索用户名、姓名或学号..."
 					/>
-				</div>
-				<select
+				</Box>
+				<Select
 					value={roleFilter}
-					onChange={(e) => onRoleFilterChange(e.target.value)}
-					className={filterSelectClass}
-				>
-					<option value="">全部角色</option>
-					{roles.map((r) => (
-						<option key={r.name} value={r.name}>
-							{r.display_name}
-						</option>
-					))}
-				</select>
+					onChange={(v) => onRoleFilterChange(v ?? "")}
+					data={[
+						{ value: "", label: "全部角色" },
+						...roles.map((r) => ({ value: r.name, label: r.display_name })),
+					]}
+					allowDeselect={false}
+					size="sm"
+					w={140}
+				/>
 				<ClassFilter onChange={onClassFilterChange} />
-				<span className="text-sm text-muted-foreground whitespace-nowrap">
+				<Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
 					共 {total} 人
-				</span>
-			</div>
+				</Text>
+			</Group>
 			{loading && users.length === 0 ? (
-				<div className="flex justify-center py-12">
-					<Loader2 size={24} className="animate-spin text-muted-foreground" />
-				</div>
+				<Center py={48}>
+					<Loader size={24} color="gray" />
+				</Center>
 			) : users.length === 0 ? (
 				<EmptyState
-					icon={Users}
+					icon={IconUsers}
 					title="暂无用户"
 					description="注册第一个用户后这里会显示"
 				/>
 			) : (
 				<>
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-				<tr>
-					<th className="sticky top-0 z-10 w-10 px-2 py-2.5 bg-muted border-b border-border">
-						<input
-							type="checkbox"
-							className="size-4 cursor-pointer accent-primary"
-							checked={users.length > 0 && users.every((u) => selectedIds.has(u.id))}
-							onChange={(e) =>
-								e.target.checked ? onSelectAll() : onDeselectAll()
-							}
-						/>
-					</th>
-					<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-						用户名
-					</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										姓名
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										角色
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										班级
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										学号
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										注册时间
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										操作
-									</th>
-								</tr>
-							</thead>
-							<tbody>
+					<ScrollArea>
+						<Table stickyHeader highlightOnHover>
+							<TableHeader>
+								<TableRow>
+									<TableHead style={{ width: 40, textAlign: "center" }}>
+										<Checkbox
+											checked={
+												users.length > 0 &&
+												users.every((u) => selectedIds.has(u.id))
+											}
+											onCheckedChange={(checked) =>
+												checked ? onSelectAll() : onDeselectAll()
+											}
+											aria-label="全选"
+										/>
+									</TableHead>
+									<TableHead>用户名</TableHead>
+									<TableHead>姓名</TableHead>
+									<TableHead>角色</TableHead>
+									<TableHead>班级</TableHead>
+									<TableHead>学号</TableHead>
+									<TableHead>注册时间</TableHead>
+									<TableHead>操作</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 								{users.map((u) => (
-									<tr
+									<TableRow
 										key={u.id}
-										className={cn(
-											"cursor-pointer hover:bg-muted",
-											selectedIds.has(u.id) && "bg-primary/5",
-										)}
 										onClick={() => navigate(`/admin/users/${u.id}`)}
+										style={{
+											cursor: "pointer",
+											...(selectedIds.has(u.id) && {
+												backgroundColor: "var(--mantine-color-teal-0)",
+											}),
+										}}
 									>
-										<td className="px-2 py-3 border-b border-border" onClick={(e) => e.stopPropagation()}>
-											<input
-												type="checkbox"
-												className="size-4 cursor-pointer accent-primary"
+										<TableCell
+											style={{ textAlign: "center" }}
+											onClick={(e) => e.stopPropagation()}
+										>
+											<Checkbox
 												checked={selectedIds.has(u.id)}
-												onChange={() => onToggleSelect(u.id)}
+												onCheckedChange={() => onToggleSelect(u.id)}
+												aria-label={`选择 ${u.display_name}`}
 											/>
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											{u.username}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											{u.display_name}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<span
-												className={cn(
-													"inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
-													u.role === "super_admin" || u.role === "school_admin" || u.role === "admin"
-														? "bg-danger text-danger-foreground"
-														: u.role === "teacher"
-															? "bg-info text-info-foreground"
-															: "bg-success text-success-foreground",
-												)}
-											>
-												{roles.find((r) => r.name === u.role)?.display_name ||
-													u.role}
-											</span>
-										</td>
-										<td className="px-4 py-3 border-b border-border text-muted-foreground text-sm">
-											{u.grade_name && u.class_name
-												? `${u.grade_name} ${u.class_name}`
-												: u.class_name || "-"}
-										</td>
-										<td className="px-4 py-3 border-b border-border text-muted-foreground">
-											{u.student_id || "-"}
-										</td>
-										<td className="px-4 py-3 border-b border-border text-sm text-muted-foreground">
-											{new Date(u.created_at).toLocaleString("zh-CN")}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<div className="flex gap-2">
-												<button
-													className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer"
+										</TableCell>
+										<TableCell>{u.username}</TableCell>
+										<TableCell>{u.display_name}</TableCell>
+										<TableCell>
+											<RoleBadge
+												role={u.role}
+												label={
+													roles.find((r) => r.name === u.role)
+														?.display_name || u.role
+												}
+											/>
+										</TableCell>
+										<TableCell>
+											<Text size="sm" c="dimmed">
+												{u.grade_name && u.class_name
+													? `${u.grade_name} ${u.class_name}`
+													: u.class_name || "-"}
+											</Text>
+										</TableCell>
+										<TableCell>
+											<Text size="sm" c="dimmed">{u.student_id || "-"}</Text>
+										</TableCell>
+										<TableCell>
+											<Text size="sm" c="dimmed">
+												{new Date(u.created_at).toLocaleString("zh-CN")}
+											</Text>
+										</TableCell>
+										<TableCell>
+											<Group gap={4} wrap="nowrap">
+												<ActionIcon
+													variant="subtle"
+													size="md"
 													onClick={(e) => {
 														e.stopPropagation();
 														onEditUser(u);
 													}}
 													title="编辑"
+													aria-label="编辑"
 												>
-													<Edit3 size={14} />
-												</button>
-												<button
-													className={btnDanger}
+													<IconEdit size={16} />
+												</ActionIcon>
+												<ActionIcon
+													variant="subtle"
+													color="red"
+													size="md"
 													onClick={(e) => {
 														e.stopPropagation();
 														onDeleteUser(u);
 													}}
 													title="删除"
+													aria-label="删除"
 												>
-													<Trash2 size={14} />
-												</button>
-											</div>
-										</td>
-									</tr>
+													<IconTrash size={16} />
+												</ActionIcon>
+											</Group>
+										</TableCell>
+									</TableRow>
 								))}
-							</tbody>
-						</table>
-					</div>
+							</TableBody>
+						</Table>
+					</ScrollArea>
 					<Pagination
 						total={total}
 						offset={offset}
@@ -228,6 +226,6 @@ export default function UserList({
 					/>
 				</>
 			)}
-		</div>
+		</Paper>
 	);
 }

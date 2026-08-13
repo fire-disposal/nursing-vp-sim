@@ -1,7 +1,7 @@
+import { Box, Group } from "@mantine/core";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/lib/utils";
 
 const PROFILE_TABS = [
 	{ key: "profile", to: "/profile", label: "个人资料", permission: null },
@@ -33,25 +33,44 @@ export default function ProfileTabs() {
 	if (visibleTabs.length <= 1) return null;
 
 	return (
-		<nav className="flex gap-1 rounded-lg bg-muted p-1 w-fit overflow-x-auto mb-3">
-			{visibleTabs.map((tab) => {
-				const active =
-					pathname === tab.to || pathname.startsWith(`${tab.to}/`);
-				return (
-					<Link
-						key={tab.key}
-						to={tab.to}
-						className={cn(
-							"inline-flex items-center shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-							active
-								? "bg-background text-foreground shadow-e1"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						{tab.label}
-					</Link>
-				);
-			})}
-		</nav>
+		<Box
+			component="nav"
+			p={4}
+			mb="sm"
+			style={{
+				background: "var(--mantine-color-gray-1)",
+				borderRadius: "var(--mantine-radius-md)",
+				width: "fit-content",
+				overflowX: "auto",
+			}}
+		>
+			<Group gap={4} wrap="nowrap">
+				{visibleTabs.map((tab) => {
+					const active =
+						pathname === tab.to || pathname.startsWith(`${tab.to}/`);
+					return (
+						<Link key={tab.key} to={tab.to} style={{ textDecoration: "none" }}>
+							<Box
+								px="sm"
+								py={6}
+								style={{
+									borderRadius: "var(--mantine-radius-sm)",
+									background: active ? "var(--mantine-color-body)" : undefined,
+									color: active
+										? "var(--mantine-color-text)"
+										: "var(--mantine-color-dimmed)",
+									fontSize: 14,
+									fontWeight: 500,
+									whiteSpace: "nowrap",
+									boxShadow: active ? "var(--mantine-shadow-xs)" : undefined,
+								}}
+							>
+								{tab.label}
+							</Box>
+						</Link>
+					);
+				})}
+			</Group>
+		</Box>
 	);
 }

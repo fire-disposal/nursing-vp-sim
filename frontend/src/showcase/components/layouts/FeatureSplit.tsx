@@ -1,9 +1,10 @@
-import type { LucideIcon } from "lucide-react";
+import { Box, Grid, Group, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import type { TablerIcon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import Reveal from "../Reveal";
 
 interface FeatureSplitProps {
-	icon: LucideIcon;
+	icon: TablerIcon;
 	title: string;
 	body: string;
 	points: string[];
@@ -20,33 +21,50 @@ export default function FeatureSplit({
 	visual,
 }: FeatureSplitProps) {
 	return (
-		<div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
-			<Reveal className={reverse ? "md:order-2" : ""}>
-				<div className="flex flex-col gap-4">
-					<div className="flex items-center gap-4">
-						<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-							<Icon size={22} strokeWidth={1.5} className="text-primary" />
-						</div>
-						<h3 className="text-[1.65rem] font-bold tracking-tight md:text-[2rem] [font-family:'Geist_Variable',sans-serif]">
-							{title}
-						</h3>
-					</div>
-					<p className="max-w-[65ch] leading-relaxed text-muted-foreground">
-						{body}
-					</p>
-					<ul className="flex flex-col gap-2">
-						{points.map((p) => (
-							<li key={p} className="flex gap-2 text-sm text-foreground/80">
-								<span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
-								<span>{p}</span>
-							</li>
-						))}
-					</ul>
-				</div>
-			</Reveal>
-			<Reveal delay={120} className={reverse ? "md:order-1" : ""}>
-				{visual}
-			</Reveal>
-		</div>
+		<Grid align="center" gap="xl">
+			<Grid.Col span={{ base: 12, md: 6 }} order={{ base: 1, md: reverse ? 2 : 1 }}>
+				<Reveal>
+					<Stack gap="md">
+						<Group gap="md">
+							<ThemeIcon size={44} radius="lg" variant="light">
+								<Icon size={22} strokeWidth={1.5} />
+							</ThemeIcon>
+							<Title order={3} fw={700} size="1.65rem">
+								{title}
+							</Title>
+						</Group>
+						<Text c="dimmed" style={{ maxWidth: "65ch" }}>
+							{body}
+						</Text>
+						<Stack
+							component="ul"
+							gap={8}
+							style={{ listStyle: "none", margin: 0, padding: 0 }}
+						>
+							{points.map((p) => (
+								<Group component="li" key={p} gap={8} align="flex-start" wrap="nowrap">
+									<Box
+										style={{
+											marginTop: 8,
+											width: 6,
+											height: 6,
+											borderRadius: "50%",
+											background: "var(--mantine-primary-color-6)",
+											flexShrink: 0,
+										}}
+									/>
+									<Text size="sm" c="dimmed">
+										{p}
+									</Text>
+								</Group>
+							))}
+						</Stack>
+					</Stack>
+				</Reveal>
+			</Grid.Col>
+			<Grid.Col span={{ base: 12, md: 6 }} order={{ base: 2, md: reverse ? 1 : 2 }}>
+				<Reveal delay={120}>{visual}</Reveal>
+			</Grid.Col>
+		</Grid>
 	);
 }

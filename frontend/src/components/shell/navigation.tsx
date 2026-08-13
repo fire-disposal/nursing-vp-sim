@@ -1,23 +1,22 @@
 import {
-	Activity as ActivityIcon,
-	BarChart3,
-	BookOpen,
-	Bot,
-	ClipboardList,
-	Coins,
-	FileText,
-	GraduationCap,
-	type LucideIcon,
-	Megaphone,
-	MessageSquare,
-	Shield,
-	Stethoscope,
-	Trophy,
-	User,
-	UserSearch,
-	Users,
-} from "lucide-react";
-import { lazy, type ReactNode } from "react";
+	IconActivity,
+	IconBook2,
+	IconChartBar,
+	IconClipboardList,
+	IconCoins,
+	IconFileText,
+	IconMessageCircle,
+	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
+	IconSchool,
+	IconShield,
+	IconSpeakerphone,
+	IconStethoscope,
+	IconTrophy,
+	IconUser,
+	IconUserSearch,
+	IconUsers,
+} from "@tabler/icons-react";
+import { lazy, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import type { Permission } from "@/utils/permissions";
 
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
@@ -65,27 +64,36 @@ export type NavSection = "user" | "admin";
 
 export type NavGroupKey = "teaching" | "people" | "system";
 
+export type NavIcon = ComponentType<{
+	size?: number;
+	className?: string;
+	strokeWidth?: number;
+	color?: string;
+	style?: CSSProperties;
+}>;
+
 export interface NavGroupDef {
 	key: NavGroupKey;
 	label: string;
-	icon: LucideIcon;
+	icon: NavIcon;
 	defaultOpen: boolean;
 }
 
 export const NAV_GROUPS: NavGroupDef[] = [
-	{ key: "teaching", label: "教学", icon: GraduationCap, defaultOpen: true },
-	{ key: "people", label: "人员", icon: Users, defaultOpen: false },
-	{ key: "system", label: "系统", icon: ActivityIcon, defaultOpen: false },
+	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true },
+	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false },
+	{ key: "system", label: "系统", icon: IconActivity, defaultOpen: false },
 ];
 
 export interface NavMeta {
 	label: string;
 	shortLabel?: string;
-	icon: LucideIcon;
+	icon: NavIcon;
 	section: NavSection;
 	group?: NavGroupKey;
 	end?: boolean;
 }
+
 
 export interface AppRoute {
 	path: string;
@@ -106,7 +114,7 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 		nav: {
 			label: "训练",
-			icon: Stethoscope,
+			icon: IconStethoscope,
 			section: "user",
 		},
 	},
@@ -122,7 +130,7 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 		nav: {
 			label: "记录",
-			icon: ClipboardList,
+			icon: IconClipboardList,
 			section: "user",
 		},
 	},
@@ -133,14 +141,14 @@ export const APP_ROUTES: AppRoute[] = [
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
 	// QA — AI 护理导师，学生端独立 Tab。
-	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: Bot, section: "user", shortLabel: "问答" } },
+	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", shortLabel: "问答" } },
 	{
 		path: "/profile",
 		element: <Profile />,
 		activity: "manage",
 		nav: {
 			label: "我的",
-			icon: User,
+			icon: IconUser,
 			section: "user",
 		},
 	},
@@ -151,7 +159,7 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <AdminUsers />,
 		permission: "user_manage",
 		activity: "manage",
-		nav: { label: "用户管理", icon: Users, section: "admin", group: "people" },
+		nav: { label: "用户管理", icon: IconUsers, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/users/:userId",
@@ -164,28 +172,28 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <AdminRoles />,
 		permission: "role_manage",
 		activity: "manage",
-		nav: { label: "角色管理", icon: Shield, section: "admin", group: "people" },
+		nav: { label: "角色管理", icon: IconShield, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/grades-classes",
 		element: <AdminGradesClasses />,
 		permission: "grade_class_manage",
 		activity: "manage",
-		nav: { label: "班级管理", icon: GraduationCap, section: "admin", group: "people" },
+		nav: { label: "班级管理", icon: IconSchool, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/cases",
 		element: <AdminCases />,
 		permission: "case_manage",
 		activity: "manage",
-		nav: { label: "病例库", icon: UserSearch, section: "admin", group: "teaching" },
+		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments",
 		element: <AssignmentsPage />,
 		permission: "assignment_manage",
 		activity: "manage",
-		nav: { label: "作业管理", icon: ClipboardList, section: "admin", group: "teaching" },
+		nav: { label: "作业管理", icon: IconClipboardList, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/assignments/:id",
@@ -200,7 +208,7 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 		nav: {
 			label: "成绩管理",
-			icon: Trophy,
+			icon: IconTrophy,
 			section: "admin",
 			group: "teaching",
 		},
@@ -216,14 +224,14 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <Admin />,
 		permission: "score_review",
 		activity: "manage",
-		nav: { label: "教学看板", icon: BarChart3, section: "admin", group: "teaching", end: true },
+		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true },
 	},
 	{
 		path: "/admin/records",
 		element: <TeacherRecordsPage />,
 		permission: "score_review",
 		activity: "manage",
-		nav: { label: "训练记录", icon: FileText, section: "admin", group: "teaching" },
+		nav: { label: "训练记录", icon: IconFileText, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/records/:id",
@@ -236,35 +244,35 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <RubricPage />,
 		permission: "score_review",
 		activity: "manage",
-		nav: { label: "评分标准", icon: BookOpen, section: "admin", group: "teaching" },
+		nav: { label: "评分标准", icon: IconBook2, section: "admin", group: "teaching" },
 	},
 	{
 		path: "/admin/costs",
 		element: <CostManagement />,
 		permission: "llm_monitor",
 		activity: "manage",
-		nav: { label: "成本管理", icon: Coins, section: "admin", group: "system" },
+		nav: { label: "成本管理", icon: IconCoins, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/system-ops",
 		element: <SystemOpsPage />,
 		permission: "api_manage",
 		activity: "manage",
-		nav: { label: "运维仪表盘", icon: ActivityIcon, section: "admin", group: "system" },
+		nav: { label: "运维仪表盘", icon: IconActivity, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/system-notifications",
 		element: <SystemNotificationsPage />,
 		permission: "api_manage",
 		activity: "manage",
-		nav: { label: "系统通知", icon: Megaphone, section: "admin", group: "system" },
+		nav: { label: "系统通知", icon: IconSpeakerphone, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/feedback",
 		element: <AdminFeedback />,
 		permission: "feedback_review",
 		activity: "manage",
-		nav: { label: "用户反馈", icon: MessageSquare, section: "admin", group: "system" },
+		nav: { label: "用户反馈", icon: IconMessageCircle, section: "admin", group: "system" },
 	},
 ];
 

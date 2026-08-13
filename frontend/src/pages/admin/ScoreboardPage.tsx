@@ -1,16 +1,17 @@
+import { Box, Group, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
-	Award,
-	ChartLine,
-	Clock,
-	Medal,
-	Search,
-	TrendingUp,
-	Users,
-	X,
-	Zap,
-} from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+	IconAward,
+	IconBolt,
+	IconChartLine,
+	IconClock,
+	IconMedal,
+	IconSearch,
+	IconTrendingUp,
+	IconUsers,
+	IconX,
+} from "@tabler/icons-react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getAssignments } from "@/api/assignments";
 import { getManageCases } from "@/api/cases";
@@ -28,16 +29,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import StatCard from "@/components/ui/stat-card";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import { cn } from "@/lib/utils";
 
 type ScoreboardRankingItem = components["schemas"]["ScoreboardRankingItem"];
 type ScoreboardSummary = components["schemas"]["ScoreboardSummary"];
@@ -67,73 +60,50 @@ const TIER_BADGE: Record<string, { label: string; variant: "success" | "warning"
 
 function rankBadge(rank: number) {
 	if (rank === 1)
-		return (
-			<span className="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
-				1
-			</span>
-		);
+		return <ThemeIcon size={24} radius="xl" variant="light" color="yellow" fw={700}>1</ThemeIcon>;
 	if (rank === 2)
-		return (
-			<span className="inline-flex size-6 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 dark:bg-slate-500/25 dark:text-slate-300">
-				2
-			</span>
-		);
+		return <ThemeIcon size={24} radius="xl" variant="light" color="gray" fw={700}>2</ThemeIcon>;
 	if (rank === 3)
-		return (
-			<span className="inline-flex size-6 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700 dark:bg-orange-500/20 dark:text-orange-400">
-				3
-			</span>
-		);
-	return <span className="text-sm tabular-nums text-muted-foreground">{rank}</span>;
+		return <ThemeIcon size={24} radius="xl" variant="light" color="orange" fw={700}>3</ThemeIcon>;
+	return <Text size="sm" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>{rank}</Text>;
 }
 
 function tierCell(tier: string) {
 	const def = TIER_BADGE[tier];
-	if (!def) return <span className="text-xs text-muted-foreground">—</span>;
+	if (!def) return <Text size="xs" c="dimmed">—</Text>;
 	return <Badge variant={def.variant}>{def.label}</Badge>;
 }
 
 function progressCell(item: ScoreboardRankingItem) {
 	if (item.progress_delta == null) {
-		return <span className="text-xs text-muted-foreground">—</span>;
+		return <Text size="xs" c="dimmed">—</Text>;
 	}
 	const delta = item.progress_delta;
 	const up = item.progress_trend === "up";
 	const down = item.progress_trend === "down";
+	const color = up ? "green" : down ? "red" : "dimmed";
 	return (
-		<span
-			className={cn(
-				"text-xs font-medium tabular-nums",
-				up
-					? "text-success-foreground"
-					: down
-						? "text-destructive"
-						: "text-muted-foreground",
-			)}
-		>
+		<Text component="span" size="xs" fw={500} c={color} style={{ fontVariantNumeric: "tabular-nums" }}>
 			{up ? "▲" : down ? "▼" : "•"} {delta >= 0 ? "+" : ""}
 			{delta.toFixed(1)}
-		</span>
+		</Text>
 	);
 }
 
 function avgScoreCell(item: ScoreboardRankingItem) {
 	const tier = item.tier;
+	const color =
+		tier === "good"
+			? "green"
+			: tier === "medium"
+				? "yellow"
+				: tier === "poor"
+					? "red"
+					: undefined;
 	return (
-		<span
-			className={cn(
-				"font-semibold tabular-nums",
-				tier === "good"
-					? "text-success-foreground"
-					: tier === "medium"
-						? "text-warning-foreground"
-						: tier === "poor"
-							? "text-destructive"
-							: "text-foreground",
-			)}
-		>
+		<Text component="span" fw={600} c={color} style={{ fontVariantNumeric: "tabular-nums" }}>
 			{item.avg_score ?? "-"}
-		</span>
+		</Text>
 	);
 }
 
@@ -146,37 +116,65 @@ function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined 
 
 	return (
 		<Card>
-			<CardContent className="p-4">
-				<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-					<p className="text-sm font-medium text-foreground">好中差分层</p>
-					<div className="flex items-center gap-3 text-xs text-muted-foreground">
-						<span className="inline-flex items-center gap-1">
-							<span className="size-2 rounded-full bg-success" /> 好 {counts.good ?? 0}
-						</span>
-						<span className="inline-flex items-center gap-1">
-							<span className="size-2 rounded-full bg-warning" /> 中 {counts.medium ?? 0}
-						</span>
-						<span className="inline-flex items-center gap-1">
-							<span className="size-2 rounded-full bg-danger" /> 差 {counts.poor ?? 0}
-						</span>
-					</div>
-				</div>
-				<div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-					<div
-						className="h-full bg-success transition-all"
-						style={{ width: `${good}%` }}
-					/>
-					<div
-						className="h-full bg-warning transition-all"
-						style={{ width: `${medium}%` }}
-					/>
-					<div className="h-full flex-1 bg-danger transition-all" />
-				</div>
-				<p className="mt-2 text-xs text-muted-foreground">
+			<CardContent>
+				<Group justify="space-between" align="center" wrap="wrap" gap={8} mb={8}>
+					<Text size="sm" fw={500}>好中差分层</Text>
+					<Group gap={12} wrap="wrap">
+						<Group gap={4} align="center" wrap="nowrap">
+							<Box bg="green.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
+							<Text size="xs" c="dimmed">好 {counts.good ?? 0}</Text>
+						</Group>
+						<Group gap={4} align="center" wrap="nowrap">
+							<Box bg="yellow.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
+							<Text size="xs" c="dimmed">中 {counts.medium ?? 0}</Text>
+						</Group>
+						<Group gap={4} align="center" wrap="nowrap">
+							<Box bg="red.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
+							<Text size="xs" c="dimmed">差 {counts.poor ?? 0}</Text>
+						</Group>
+					</Group>
+				</Group>
+				<Box
+					style={{
+						display: "flex",
+						height: 12,
+						width: "100%",
+						overflow: "hidden",
+						borderRadius: 999,
+						background: "var(--mantine-color-gray-2)",
+					}}
+				>
+					<Box style={{ height: "100%", width: `${good}%`, background: "var(--mantine-color-green-6)" }} />
+					<Box style={{ height: "100%", width: `${medium}%`, background: "var(--mantine-color-yellow-6)" }} />
+					<Box style={{ height: "100%", flex: 1, background: "var(--mantine-color-red-6)" }} />
+				</Box>
+				<Text size="xs" c="dimmed" mt={8}>
 					分层阈值：平均分 ≥ 85 为好，60 ≤ 平均分 &lt; 85 为中，平均分 &lt; 60 为差
-				</p>
+				</Text>
 			</CardContent>
 		</Card>
+	);
+}
+
+interface FilterSelectProps {
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	data: { value: string; label: string }[];
+}
+
+function FilterSelect({ label, value, onChange, data }: FilterSelectProps) {
+	return (
+		<Group gap={8} align="center" wrap="nowrap">
+			<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{label}</Text>
+			<Select
+				value={value || "all"}
+				onChange={(v) => onChange(v === "all" ? "" : (v ?? ""))}
+				data={data}
+				w={130}
+				size="xs"
+			/>
+		</Group>
 	);
 }
 
@@ -284,68 +282,67 @@ export default function ScoreboardPage() {
 		updateParam("search", searchInput.trim());
 	};
 
+	const rightText = (node: ReactNode) => (
+		<Text ta="right" size="sm" style={{ fontVariantNumeric: "tabular-nums" }}>{node}</Text>
+	);
+
 	const columns: DataTableColumn<ScoreboardRankingItem>[] = [
 		{
 			key: "rank",
 			header: "排名",
-			cellClassName: "w-14",
 			render: (r) => rankBadge(r.rank),
 		},
 		{
 			key: "student",
 			header: "学生",
-			cellClassName: "min-w-[120px]",
 			render: (r) => (
 				<div>
-					<p className="font-medium text-foreground">{r.display_name}</p>
+					<Text fw={500}>{r.display_name}</Text>
 					{r.student_id && (
-						<p className="text-xs text-muted-foreground">{r.student_id}</p>
+						<Text size="xs" c="dimmed">{r.student_id}</Text>
 					)}
 				</div>
 			),
 		},
-		{ key: "class_name", header: "班级", cellClassName: "text-sm text-muted-foreground" },
+		{
+			key: "class_name",
+			header: "班级",
+			render: (r) => <Text size="sm" c="dimmed">{r.class_name}</Text>,
+		},
 		{
 			key: "avg_score",
 			header: "平均分",
-			cellClassName: "text-right",
-			render: (r) => avgScoreCell(r),
+			render: (r) => rightText(avgScoreCell(r)),
 		},
 		{
 			key: "best_score",
 			header: "最高分",
-			cellClassName: "text-right tabular-nums text-sm",
-			render: (r) => r.best_score ?? "-",
+			render: (r) => rightText(r.best_score ?? "-"),
 		},
 		{
 			key: "avg_duration",
 			header: "平均用时",
-			cellClassName: "text-right tabular-nums text-sm",
-			render: (r) => formatDuration(r.avg_duration_seconds),
+			render: (r) => rightText(formatDuration(r.avg_duration_seconds)),
 		},
 		{
 			key: "training_count",
 			header: "次数",
-			cellClassName: "text-right tabular-nums text-sm",
-			render: (r) => r.training_count,
+			render: (r) => rightText(r.training_count),
 		},
 		{
 			key: "case_count",
 			header: "病例数",
-			cellClassName: "text-right tabular-nums text-sm",
-			render: (r) => r.case_count,
+			render: (r) => rightText(r.case_count),
 		},
-		{ key: "tier", header: "层次", cellClassName: "w-16", render: (r) => tierCell(r.tier) },
+		{ key: "tier", header: "层次", render: (r) => tierCell(r.tier) },
 		{
 			key: "progress",
 			header: "进步幅度",
-			cellClassName: "text-right",
-			render: (r) => progressCell(r),
+			render: (r) => rightText(progressCell(r)),
 		},
 		{
 			key: "actions",
 			header: "操作",
-			cellClassName: "w-16",
 			render: (r) => (
 				<Button
 					variant="ghost"
@@ -353,132 +350,91 @@ export default function ScoreboardPage() {
 					title="查看趋势"
 					onClick={() => setTrendUserId(r.user_id)}
 				>
-					<ChartLine size={16} />
+					<IconChartLine size={16} />
 				</Button>
 			),
 		},
 	];
 
-	const filterSelect = (
-		label: string,
-		value: string,
-		onValueChange: (v: string) => void,
-		children: React.ReactNode,
-	) => (
-		<label className="flex items-center gap-2">
-			<span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-			<Select value={value || "all"} onValueChange={(v) => onValueChange(v === "all" ? "" : (v ?? ""))}>
-				<SelectTrigger size="sm" className="w-[130px] text-sm">
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>{children}</SelectContent>
-			</Select>
-		</label>
-	);
-
 	return (
-		<div className="space-y-4">
+		<Stack gap="md">
 			<PageHeader
 				title="成绩管理"
 				subtitle="学生平均成绩排名 · 好中差分档 · 进步幅度"
-				icon={Award}
+				icon={IconAward}
 			/>
 
 			<Card>
-				<CardContent className="p-3 sm:p-4">
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-						{filterSelect(
-							"病例范围",
-							caseId,
-							(v) => updateParam("case_id", v),
-							<>
-								<SelectItem value="all">全部病例</SelectItem>
-								{cases.map((c) => (
-									<SelectItem key={c.id} value={String(c.id)}>
-										{c.name}
-									</SelectItem>
-								))}
-							</>,
-						)}
-						{filterSelect(
-							"班级",
-							classId,
-							(v) => updateParam("class_id", v),
-							<>
-								<SelectItem value="all">全部班级</SelectItem>
-								{classes.map((c) => (
-									<SelectItem key={c.id} value={String(c.id)}>
-										{c.name}
-									</SelectItem>
-								))}
-							</>,
-						)}
-						{filterSelect(
-							"作业",
-							assignmentId,
-							(v) => updateParam("assignment_id", v),
-							<>
-								<SelectItem value="all">全部作业</SelectItem>
-								{assignments.map((a) => (
-									<SelectItem key={a.id} value={a.id}>
-										{a.title}
-									</SelectItem>
-								))}
-							</>,
-						)}
-						{filterSelect(
-							"作业状态",
-							assignmentStatus,
-							(v) => updateParam("assignment_status", v),
-							<>
-								<SelectItem value="all">全部状态</SelectItem>
-								<SelectItem value="active">进行中</SelectItem>
-								<SelectItem value="ended">已结束</SelectItem>
-							</>,
-						)}
-						{filterSelect(
-							"统计范围",
-							includeFree ? "1" : "",
-							(v) => updateParam("include_free", v),
-							<>
-								<SelectItem value="all">仅作业</SelectItem>
-								<SelectItem value="1">含自主训练</SelectItem>
-							</>,
-						)}
-						{filterSelect(
-							"排序",
-							sortBy,
-							(v) => updateParam("sort_by", v),
-							SORT_OPTIONS.map((o) => (
-								<SelectItem key={o.value} value={o.value}>
-									{o.label}
-								</SelectItem>
-							)),
-						)}
-						{filterSelect(
-							"层次",
-							tier,
-							(v) => updateParam("tier", v),
-							TIER_OPTIONS.map((o) => (
-								<SelectItem key={o.value} value={o.value}>
-									{o.label}
-								</SelectItem>
-							)),
-						)}
-						<div className="flex items-center gap-2">
-							<div className="relative">
-								<Search
-									size={14}
-									className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-								/>
-								<Input
-									value={searchInput}
-									onChange={(e) => setSearchInput(e.target.value)}
-									onKeyDown={(e) => e.key === "Enter" && applySearch()}
-									placeholder="姓名/学号检索"
-									className="h-7 w-40 pl-7 text-sm"
-								/>
-							</div>
+				<CardContent>
+					<Group gap={16} wrap="wrap">
+						<FilterSelect
+							label="病例范围"
+							value={caseId}
+							onChange={(v) => updateParam("case_id", v)}
+							data={[
+								{ value: "all", label: "全部病例" },
+								...cases.map((c) => ({ value: String(c.id), label: c.name })),
+							]}
+						/>
+						<FilterSelect
+							label="班级"
+							value={classId}
+							onChange={(v) => updateParam("class_id", v)}
+							data={[
+								{ value: "all", label: "全部班级" },
+								...classes.map((c) => ({ value: String(c.id), label: c.name })),
+							]}
+						/>
+						<FilterSelect
+							label="作业"
+							value={assignmentId}
+							onChange={(v) => updateParam("assignment_id", v)}
+							data={[
+								{ value: "all", label: "全部作业" },
+								...assignments.map((a) => ({ value: a.id, label: a.title })),
+							]}
+						/>
+						<FilterSelect
+							label="作业状态"
+							value={assignmentStatus}
+							onChange={(v) => updateParam("assignment_status", v)}
+							data={[
+								{ value: "all", label: "全部状态" },
+								{ value: "active", label: "进行中" },
+								{ value: "ended", label: "已结束" },
+							]}
+						/>
+						<FilterSelect
+							label="统计范围"
+							value={includeFree ? "1" : ""}
+							onChange={(v) => updateParam("include_free", v)}
+							data={[
+								{ value: "all", label: "仅作业" },
+								{ value: "1", label: "含自主训练" },
+							]}
+						/>
+						<FilterSelect
+							label="排序"
+							value={sortBy}
+							onChange={(v) => updateParam("sort_by", v)}
+							data={SORT_OPTIONS}
+						/>
+						<FilterSelect
+							label="层次"
+							value={tier}
+							onChange={(v) => updateParam("tier", v)}
+							data={TIER_OPTIONS}
+						/>
+						<Group gap={8} align="center" wrap="nowrap">
+							<Input
+								value={searchInput}
+								onChange={(e) => setSearchInput(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && applySearch()}
+								placeholder="姓名/学号检索"
+								leftSection={<IconSearch size={14} />}
+								size="xs"
+								w={160}
+							/>
 							<Button variant="ghost" size="sm" onClick={applySearch}>
 								检索
 							</Button>
@@ -492,35 +448,35 @@ export default function ScoreboardPage() {
 										updateParam("search", "");
 									}}
 								>
-									<X size={14} />
+									<IconX size={14} />
 								</Button>
 							)}
-						</div>
-					</div>
+						</Group>
+					</Group>
 				</CardContent>
 			</Card>
 
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				<StatCard icon={Zap} value={summary?.record_count ?? "-"} label="计入训练次数" color="blue" />
-				<StatCard icon={Users} value={summary?.student_count ?? "-"} label="入榜学生" color="teal" />
+			<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+				<StatCard icon={IconBolt} value={summary?.record_count ?? "-"} label="计入训练次数" color="blue" />
+				<StatCard icon={IconUsers} value={summary?.student_count ?? "-"} label="入榜学生" color="teal" />
 				<StatCard
-					icon={Medal}
+					icon={IconMedal}
 					value={summary?.avg_score ?? "-"}
 					label="学生平均分"
 					color="green"
 				/>
 				<StatCard
-					icon={Clock}
+					icon={IconClock}
 					value={formatDuration(summary?.avg_duration_seconds)}
 					label="平均用时"
 					color="amber"
 				/>
-			</div>
+			</SimpleGrid>
 
 			<TierDistribution summary={summary} />
 
 			<Card>
-				<CardContent className="p-0">
+				<CardContent style={{ padding: 0 }}>
 					<ResponsiveTable
 						columns={columns}
 						rows={items}
@@ -531,24 +487,27 @@ export default function ScoreboardPage() {
 						offset={offset}
 						limit={LIMIT}
 						onOffsetChange={setOffset}
-						emptyIcon={TrendingUp}
+						emptyIcon={IconTrendingUp}
 						emptyTitle="暂无成绩数据"
 						emptyDescription="调整筛选范围，或等待学生完成训练并评分后重试"
 						renderCard={(r) => (
-							<div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
-								<div className="flex min-w-0 items-center gap-3">
+							<Group
+								justify="space-between"
+								align="center"
+								gap={12}
+								wrap="nowrap"
+								style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 12, padding: 12 }}
+							>
+								<Group gap={12} align="center" wrap="nowrap" style={{ minWidth: 0 }}>
 									{rankBadge(r.rank)}
-									<div className="min-w-0">
-										<p className="truncate font-medium text-foreground">
-											{r.display_name}
-										</p>
-										<p className="text-xs text-muted-foreground">
-											{r.class_name || "—"} · {r.training_count} 次 ·{" "}
-											{formatDuration(r.avg_duration_seconds)}
-										</p>
+									<div style={{ minWidth: 0 }}>
+										<Text fw={500} truncate>{r.display_name}</Text>
+										<Text size="xs" c="dimmed">
+											{r.class_name || "—"} · {r.training_count} 次 · {formatDuration(r.avg_duration_seconds)}
+										</Text>
 									</div>
-								</div>
-								<div className="flex shrink-0 items-center gap-2">
+								</Group>
+								<Group gap={8} align="center" wrap="nowrap" style={{ flexShrink: 0 }}>
 									{avgScoreCell(r)}
 									{tierCell(r.tier)}
 									<Button
@@ -557,10 +516,10 @@ export default function ScoreboardPage() {
 										title="查看趋势"
 										onClick={() => setTrendUserId(r.user_id)}
 									>
-										<ChartLine size={16} />
+										<IconChartLine size={16} />
 									</Button>
-								</div>
-							</div>
+								</Group>
+							</Group>
 						)}
 					/>
 				</CardContent>
@@ -574,6 +533,6 @@ export default function ScoreboardPage() {
 					if (!o) setTrendUserId(null);
 				}}
 			/>
-		</div>
+		</Stack>
 	);
 }

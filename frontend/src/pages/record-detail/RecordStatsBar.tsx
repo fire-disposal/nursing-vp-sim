@@ -1,4 +1,5 @@
-import { BarChart3, Clock, FileText, User } from "lucide-react";
+import { Box, Group, Paper, SimpleGrid, Text, ThemeIcon } from "@mantine/core";
+import { IconChartBar, IconClock, IconFileText, IconUser } from "@tabler/icons-react";
 import Badge from "@/components/ui/badge";
 import type { ScoreData } from "@/types/score";
 
@@ -24,59 +25,75 @@ export default function RecordStatsBar({
 	scoreMax,
 }: Props) {
 	return (
-		<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-			<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info text-info-foreground">
-					<User size={18} />
-				</div>
-				<div className="min-w-0">
-					<div className="text-base font-bold truncate">
-						{record.user_display_name || "-"}
-					</div>
-					<div className="text-xs text-muted-foreground">学生</div>
-				</div>
-			</div>
+		<SimpleGrid cols={{ base: 2, lg: 4 }} spacing={{ base: "sm", sm: "md" }}>
+			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+				<Group gap="sm" wrap="nowrap">
+					<ThemeIcon size={40} radius="md" variant="filled" color="blue">
+						<IconUser size={18} />
+					</ThemeIcon>
+					<Box style={{ minWidth: 0 }}>
+						<Text size="md" fw={700} truncate>
+							{record.user_display_name || "-"}
+						</Text>
+						<Text size="xs" c="dimmed">
+							学生
+						</Text>
+					</Box>
+				</Group>
+			</Paper>
 
-			<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info-foreground">
-					<FileText size={18} />
-				</div>
-				<div className="min-w-0 flex-1">
-					<div className="text-base font-bold truncate">
-						{record.case_name || "-"}
-					</div>
-					<div className="flex items-center gap-1.5 mt-0.5">
-						<span className="text-xs text-muted-foreground">病例</span>
-						<Badge variant="secondary" className="text-[10px] px-1 py-0">问诊</Badge>
-					</div>
-				</div>
-			</div>
+			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+				<Group gap="sm" wrap="nowrap">
+					<ThemeIcon size={40} radius="md" variant="light" color="blue">
+						<IconFileText size={18} />
+					</ThemeIcon>
+					<Box style={{ minWidth: 0, flex: 1 }}>
+						<Text size="md" fw={700} truncate>
+							{record.case_name || "-"}
+						</Text>
+						<Group gap={6} mt={2}>
+							<Text size="xs" c="dimmed">
+								病例
+							</Text>
+							<Badge variant="secondary" size="xs">
+								问诊
+							</Badge>
+						</Group>
+					</Box>
+				</Group>
+			</Paper>
 
-			<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-warning text-warning-foreground">
-					<Clock size={18} />
-				</div>
-				<div className="min-w-0">
-					<div className="text-xl font-bold">
-						{duration != null ? `${duration}分钟` : "-"}
-					</div>
-					<div className="text-xs text-muted-foreground">训练时长</div>
-				</div>
-			</div>
+			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+				<Group gap="sm" wrap="nowrap">
+					<ThemeIcon size={40} radius="md" variant="filled" color="yellow">
+						<IconClock size={18} />
+					</ThemeIcon>
+					<Box style={{ minWidth: 0 }}>
+						<Text size="xl" fw={700}>
+							{duration != null ? `${duration}分钟` : "-"}
+						</Text>
+						<Text size="xs" c="dimmed">
+							训练时长
+						</Text>
+					</Box>
+				</Group>
+			</Paper>
 
-			<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground">
-					<BarChart3 size={18} />
-				</div>
-				<div className="min-w-0">
-					<div className="text-xl font-bold">
-						{recordScore?.total_score ?? "-"}
-					</div>
-					<div className="text-xs text-muted-foreground">
-						{hasScore ? `得分 / ${scoreMax}` : "得分"}
-					</div>
-				</div>
-			</div>
-		</div>
+			<Paper withBorder radius="lg" p={{ base: "sm", sm: "md" }}>
+				<Group gap="sm" wrap="nowrap">
+					<ThemeIcon size={40} radius="md" variant="filled" color="green">
+						<IconChartBar size={18} />
+					</ThemeIcon>
+					<Box style={{ minWidth: 0 }}>
+						<Text size="xl" fw={700}>
+							{recordScore?.total_score ?? "-"}
+						</Text>
+						<Text size="xs" c="dimmed">
+							{hasScore ? `得分 / ${scoreMax}` : "得分"}
+						</Text>
+					</Box>
+				</Group>
+			</Paper>
+		</SimpleGrid>
 	);
 }

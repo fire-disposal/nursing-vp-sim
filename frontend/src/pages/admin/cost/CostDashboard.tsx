@@ -1,10 +1,6 @@
+import { Grid, Group, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import {
-	CircleDollarSign,
-	TrendingUp,
-	Volume2,
-	Users,
-} from "lucide-react";
+import { IconCoin, IconTrendingUp, IconUsers, IconVolume2 } from "@tabler/icons-react";
 import {
 	Area,
 	AreaChart,
@@ -31,7 +27,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/lib/utils";
 
 function BudgetProgress({
 	label,
@@ -45,51 +40,43 @@ function BudgetProgress({
 	prefix?: string;
 }) {
 	const pct = budget > 0 ? Math.min((used / budget) * 100, 100) : 0;
-	const color =
-		pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500";
-	const textColor =
-		pct > 90 ? "text-red-600" : pct > 70 ? "text-amber-600" : "text-emerald-600";
+	const color = pct > 90 ? "red" : pct > 70 ? "yellow" : "green";
 
 	return (
-		<div className="space-y-1">
-			<div className="flex items-center justify-between text-xs">
-				<span className="text-muted-foreground">{label}</span>
-				<span className={cn("font-medium tabular-nums", textColor)}>
+		<Stack gap={4}>
+			<Group justify="space-between" gap={8}>
+				<Text size="xs" c="dimmed">{label}</Text>
+				<Text size="xs" fw={500} c={color} style={{ fontVariantNumeric: "tabular-nums" }}>
 					{prefix}{used.toFixed(0)} / {prefix}{budget.toFixed(0)}
-				</span>
-			</div>
-			<div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-				<div
-					className={cn("h-full rounded-full transition-all duration-500", color)}
-					style={{ width: `${pct}%` }}
-				/>
-			</div>
-		</div>
+				</Text>
+			</Group>
+			<Progress value={pct} size="sm" radius="xl" color={color} />
+		</Stack>
 	);
 }
 
 function StatGrid({ data }: { data: CostDashboardResponse }) {
 	return (
-		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+		<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 			<StatCard
-				icon={CircleDollarSign}
+				icon={IconCoin}
 				value={`¥${data.llm_today.total_cost.toFixed(2)}`}
 				label="今日 LLM 费用"
 				color="blue"
 			/>
 			<StatCard
-				icon={Volume2}
+				icon={IconVolume2}
 				value={`¥${data.tts_today.total_cost.toFixed(2)}`}
 				label="今日 TTS 费用"
 				color="teal"
 			/>
 			<StatCard
-				icon={TrendingUp}
+				icon={IconTrendingUp}
 				value={`${data.monthly_budget > 0 ? ((data.monthly_used / data.monthly_budget) * 100).toFixed(1) : 0}%`}
 				label="月度预算使用率"
 				color={data.monthly_budget > 0 && data.monthly_used / data.monthly_budget > 0.9 ? "red" : "green"}
 			/>
-		</div>
+		</SimpleGrid>
 	);
 }
 
@@ -104,14 +91,14 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 					<CardTitle>30 天费用趋势</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<EmptyState icon={TrendingUp} title="暂无数据" />
+					<EmptyState icon={IconTrendingUp} title="暂无数据" />
 				</CardContent>
 			</Card>
 		);
 	}
 
 	return (
-		<Card className="h-full">
+		<Card style={{ height: "100%" }}>
 			<CardHeader>
 				<CardTitle>30 天费用趋势</CardTitle>
 			</CardHeader>
@@ -177,47 +164,46 @@ function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
 		: 0;
 
 	return (
-		<Card className="h-full">
+		<Card style={{ height: "100%" }}>
 			<CardHeader>
 				<CardTitle>月度预算</CardTitle>
 			</CardHeader>
-			<CardContent className="flex flex-col justify-center gap-4">
-				<div className="flex items-baseline gap-1">
-					<span className="text-3xl font-bold tabular-nums">
-						{pct.toFixed(1)}
-					</span>
-					<span className="text-base text-muted-foreground">%</span>
-					<span className="ml-auto text-sm text-muted-foreground">
-						已用 ¥{data.monthly_used.toFixed(0)} / ¥{data.monthly_budget.toFixed(0)}
-					</span>
-				</div>
+			<CardContent>
+				<Stack gap="md" justify="center" style={{ height: "100%" }}>
+					<Group align="flex-end" gap={4} wrap="nowrap">
+						<Text size="2xl" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+							{pct.toFixed(1)}
+						</Text>
+						<Text size="md" c="dimmed">%</Text>
+						<Text size="sm" c="dimmed" style={{ marginLeft: "auto" }}>
+							已用 ¥{data.monthly_used.toFixed(0)} / ¥{data.monthly_budget.toFixed(0)}
+						</Text>
+					</Group>
 
-				<div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-					<div
-						className={cn(
-							"h-full rounded-full transition-all duration-700",
-							pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500",
-						)}
-						style={{ width: `${Math.max(pct, 2)}%` }}
+					<Progress
+						value={Math.max(pct, 2)}
+						size="sm"
+						radius="xl"
+						color={pct > 90 ? "red" : pct > 70 ? "yellow" : "green"}
 					/>
-				</div>
 
-				<div className="space-y-2.5 pt-1">
-					{data.llm_monthly_budget > 0 && (
-						<BudgetProgress
-							label="LLM 预算"
-							used={data.llm_today.total_cost * 30}
-							budget={data.llm_monthly_budget}
-						/>
-					)}
-					{data.voice_monthly_budget > 0 && (
-						<BudgetProgress
-							label="语音服务预算"
-			used={data.tts_today.total_cost * 30}
-							budget={data.voice_monthly_budget}
-						/>
-					)}
-				</div>
+					<Stack gap={10} pt={4}>
+						{data.llm_monthly_budget > 0 && (
+							<BudgetProgress
+								label="LLM 预算"
+								used={data.llm_today.total_cost * 30}
+								budget={data.llm_monthly_budget}
+							/>
+						)}
+						{data.voice_monthly_budget > 0 && (
+							<BudgetProgress
+								label="语音服务预算"
+								used={data.tts_today.total_cost * 30}
+								budget={data.voice_monthly_budget}
+							/>
+						)}
+					</Stack>
+				</Stack>
 			</CardContent>
 		</Card>
 	);
@@ -228,40 +214,40 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-center justify-between">
-				<CardTitle>费用排行 Top 10</CardTitle>
-				{users.length > 0 && (
-					<span className="text-xs text-muted-foreground">
-						{users.length} 位用户
-					</span>
-				)}
+			<CardHeader>
+				<Group justify="space-between" align="center" wrap="wrap">
+					<CardTitle>费用排行 Top 10</CardTitle>
+					{users.length > 0 && (
+						<Text size="xs" c="dimmed">{users.length} 位用户</Text>
+					)}
+				</Group>
 			</CardHeader>
 			<CardContent>
 				{users.length === 0 ? (
-					<EmptyState icon={Users} title="暂无数据" />
+					<EmptyState icon={IconUsers} title="暂无数据" />
 				) : (
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-12">#</TableHead>
+								<TableHead style={{ width: 48 }}>#</TableHead>
 								<TableHead>用户</TableHead>
-								<TableHead className="text-right">调用次数</TableHead>
-								<TableHead className="text-right">总费用</TableHead>
+								<TableHead style={{ textAlign: "right" }}>调用次数</TableHead>
+								<TableHead style={{ textAlign: "right" }}>总费用</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{users.map((u, i) => (
 								<TableRow key={i}>
-									<TableCell className="text-muted-foreground text-xs">
+									<TableCell style={{ color: "var(--mantine-color-dimmed)", fontSize: 12 }}>
 										{i + 1}
 									</TableCell>
-									<TableCell className="font-medium">
+									<TableCell style={{ fontWeight: 500 }}>
 										{u.user_name}
 									</TableCell>
-									<TableCell className="text-right tabular-nums">
+									<TableCell style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
 										{u.calls}
 									</TableCell>
-									<TableCell className="text-right tabular-nums font-medium">
+									<TableCell style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
 										¥{u.total_cost.toFixed(2)}
 									</TableCell>
 								</TableRow>
@@ -285,27 +271,38 @@ function UserCostBreakdown() {
 	if (items.length === 0 && !isLoading) return null;
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-center justify-between">
-				<CardTitle>用户 LLM 消费明细（本月）</CardTitle>
-				<span className="text-xs text-muted-foreground">{items.length} 位用户</span>
+			<CardHeader>
+				<Group justify="space-between" align="center" wrap="wrap">
+					<CardTitle>用户 LLM 消费明细（本月）</CardTitle>
+					<Text size="xs" c="dimmed">{items.length} 位用户</Text>
+				</Group>
 			</CardHeader>
 			<CardContent>
-				{isLoading ? <div className="text-sm text-muted-foreground text-center py-4">加载中…</div> : (
-					<div className="space-y-2">
+				{isLoading ? (
+					<Text size="sm" c="dimmed" ta="center" py="md">加载中…</Text>
+				) : (
+					<Stack gap={8}>
 						{items.map((u) => (
-							<div key={u.user_id} className="rounded-lg border border-border p-2.5">
-								<div className="flex items-center justify-between mb-1">
-									<span className="text-sm font-semibold">{u.user_name}</span>
-									<span className="text-sm font-bold tabular-nums text-primary">¥{u.total_cost.toFixed(2)} <span className="text-xs text-muted-foreground font-normal">{u.total_calls}次</span></span>
-								</div>
-								<div className="flex flex-wrap gap-1.5">
+							<Stack key={u.user_id} gap={4} p={10} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
+								<Group justify="space-between" align="center" wrap="wrap">
+									<Text size="sm" fw={600}>{u.user_name}</Text>
+									<Text size="sm" fw={700} c="teal" style={{ fontVariantNumeric: "tabular-nums" }}>
+										¥{u.total_cost.toFixed(2)}{" "}
+										<Text component="span" size="xs" c="dimmed" fw={400} inherit>
+											{u.total_calls}次
+										</Text>
+									</Text>
+								</Group>
+								<Group gap={6} wrap="wrap">
 									{Object.entries(u.purposes).map(([p, d]) => (
-										<span key={p} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{purposeLabels[p] || p}: {d.calls}次 ¥{d.cost.toFixed(2)}</span>
+										<Text key={p} size="xs" c="dimmed" bg="var(--mantine-color-gray-1)" px={6} py={2} style={{ borderRadius: 4 }}>
+											{purposeLabels[p] || p}: {d.calls}次 ¥{d.cost.toFixed(2)}
+										</Text>
 									))}
-								</div>
-							</div>
+								</Group>
+							</Stack>
 						))}
-					</div>
+					</Stack>
 				)}
 			</CardContent>
 		</Card>
@@ -342,18 +339,20 @@ export default function CostDashboard() {
 	const d = data || empty;
 
 	return (
-		<div className="space-y-6 mt-4">
+		<Stack gap="xl" mt="md">
 			<StatGrid data={d} />
 
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-				<div className="lg:col-span-2">
+			<Grid gap="md">
+				<Grid.Col span={{ base: 12, lg: 8 }}>
 					<CostTrendChart data={d} />
-				</div>
-				<MonthlyBudgetCard data={d} />
-			</div>
+				</Grid.Col>
+				<Grid.Col span={{ base: 12, lg: 4 }}>
+					<MonthlyBudgetCard data={d} />
+				</Grid.Col>
+			</Grid>
 
 			<TopUsersTable data={d} />
 			<UserCostBreakdown />
-		</div>
+		</Stack>
 	);
 }

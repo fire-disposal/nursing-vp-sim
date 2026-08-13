@@ -1,6 +1,6 @@
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { numField, stringField } from "./CaseEditorState";
-import { inputClass } from "@/utils/styles";
+import { Group, NumberInput, Paper, Select, Text, TextInput } from "@mantine/core";
 
 interface Props {
 	state: CaseEditorState;
@@ -18,25 +18,27 @@ export function PatientSection({ state, dispatch, disabled }: Props) {
 	}
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">患者信息</legend>
-			<div className="flex gap-3 flex-wrap">
-				<div className="flex-[2] min-w-[200px]">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">姓名<span className="text-destructive ml-0.5">*</span></label>
-					<input value={name} onChange={(e) => set("patient_info.name", e.target.value)} className={inputClass} disabled={disabled} />
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="md">患者信息</Text>
+			<Group gap="sm" grow wrap="wrap">
+				<div style={{ flexGrow: 2 }}>
+					<Text size="xs" fw={600} c="dimmed" mb={4}>姓名<Text component="span" c="red">*</Text></Text>
+					<TextInput value={name} onChange={(e) => set("patient_info.name", e.currentTarget.value)} disabled={disabled} />
 				</div>
-				<div className="flex-1 min-w-[120px]">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">年龄<span className="text-destructive ml-0.5">*</span></label>
-					<input type="number" min={0} max={120} value={age} onChange={(e) => set("patient_info.age", Number(e.target.value))} className={inputClass} disabled={disabled} />
+				<div>
+					<Text size="xs" fw={600} c="dimmed" mb={4}>年龄<Text component="span" c="red">*</Text></Text>
+					<NumberInput min={0} max={120} value={age} onChange={(v) => set("patient_info.age", Number(v))} disabled={disabled} />
 				</div>
-				<div className="flex-1 min-w-[120px]">
-					<label className="block text-xs font-semibold text-muted-foreground mb-1">性别<span className="text-destructive ml-0.5">*</span></label>
-					<select value={gender} onChange={(e) => set("patient_info.gender", e.target.value)} className={inputClass} disabled={disabled}>
-						<option value="男">男</option>
-						<option value="女">女</option>
-					</select>
+				<div>
+					<Text size="xs" fw={600} c="dimmed" mb={4}>性别<Text component="span" c="red">*</Text></Text>
+					<Select
+						data={[{ value: "男", label: "男" }, { value: "女", label: "女" }]}
+						value={gender}
+						onChange={(v) => set("patient_info.gender", v ?? "男")}
+						disabled={disabled}
+					/>
 				</div>
-			</div>
-		</fieldset>
+			</Group>
+		</Paper>
 	);
 }

@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, EyeOff } from "lucide-react";
+import { Box, Center, Group, Loader, Text, UnstyledButton } from "@mantine/core";
+import { IconBell, IconEyeOff } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
@@ -126,105 +127,170 @@ export default function NotificationBell() {
 				size="icon-xs"
 				onClick={() => setOpen(true)}
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
-				className="relative"
+				style={{ position: "relative" }}
 			>
 				<motion.div
 					animate={unreadCount > 0 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
 					transition={unreadCount > 0 ? { repeat: Infinity, repeatDelay: 3, duration: 0.4 } : {}}
 				>
-					<Bell size={16} />
+					<IconBell size={16} />
 				</motion.div>
 				{unreadCount > 0 && (
 					<motion.span
 						initial={{ scale: 0 }}
 						animate={{ scale: 1 }}
-						className="absolute -top-0.5 -right-0.5 flex items-center justify-center size-4 text-[10px] font-bold text-white bg-destructive rounded-full"
+						style={{
+							position: "absolute",
+							top: -2,
+							right: -2,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: 16,
+							height: 16,
+							fontSize: 10,
+							fontWeight: 700,
+							color: "white",
+							background: "var(--mantine-color-red-6)",
+							borderRadius: "50%",
+						}}
 					>
 						{unreadCount > 99 ? "99+" : unreadCount}
 					</motion.span>
 				)}
 			</Button>
 
-		<ResponsiveDialog open={open} onClose={() => setOpen(false)} title="通知" maxWidth={400}>
-			{isError ? (
-						<div className="py-10 text-center text-sm text-destructive">加载失败</div>
-					) : isLoading && items.length === 0 ? (
-						<div className="py-10 text-center">
-							<div className="mx-auto size-6 animate-spin rounded-full border-[3px] border-primary/30 border-t-primary" />
-						</div>
-					) : items.length > 0 ? (
-						<div className="-mx-4 -mb-4">
-							<div className="max-h-72 overflow-y-auto">
-								{items.map((n, i) => (
-									<div
-										key={n.id}
-										className={`${i > 0 ? "border-t" : ""} ${n.is_read ? "opacity-50" : ""}`}
+			<ResponsiveDialog open={open} onClose={() => setOpen(false)} title="通知" maxWidth={400}>
+				{isError ? (
+					<Text size="sm" c="red" ta="center" py="lg">
+						加载失败
+					</Text>
+				) : isLoading && items.length === 0 ? (
+					<Center py="lg">
+						<Loader size="sm" />
+					</Center>
+				) : items.length > 0 ? (
+					<Box style={{ marginLeft: -16, marginRight: -16, marginBottom: -16 }}>
+						<Box style={{ maxHeight: 288, overflowY: "auto" }}>
+							{items.map((n, i) => (
+								<Box
+									key={n.id}
+									style={{
+										borderTop: i > 0 ? "1px solid var(--mantine-color-gray-3)" : undefined,
+										opacity: n.is_read ? 0.5 : 1,
+									}}
+								>
+									<UnstyledButton
+										w="100%"
+										ta="left"
+										px="md"
+										py="sm"
+										onClick={() => handleClick(n)}
 									>
-										<button
-											type="button"
-											className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors"
-											onClick={() => handleClick(n)}
-										>
-											<div className="flex items-start gap-2.5">
-												{!n.is_read && (
-													<span className="mt-1.5 size-2 rounded-full bg-destructive shrink-0" />
+										<Group gap={10} align="flex-start" wrap="nowrap">
+											{!n.is_read && (
+												<span
+													style={{
+														marginTop: 6,
+														width: 8,
+														height: 8,
+														borderRadius: "50%",
+														background: "var(--mantine-color-red-6)",
+														flexShrink: 0,
+													}}
+												/>
+											)}
+											<Box style={{ minWidth: 0, flex: 1 }}>
+												<Text size="sm" fw={500} style={{ lineHeight: 1.4 }}>
+													{n.title}
+												</Text>
+												{n.body && (
+													<Text size="xs" c="dimmed" mt={2} lineClamp={2}>
+														{n.body}
+													</Text>
 												)}
-												<div className="min-w-0 flex-1">
-													<div className="text-sm font-medium leading-snug">{n.title}</div>
-													{n.body && (
-														<div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</div>
-													)}
-													<div className="text-[10px] text-muted-foreground/70 mt-1">
-														{n.created_at.slice(0, 16).replace("T", " ")}
-													</div>
-												</div>
-											</div>
-										</button>
-										{n.is_read && (
-											<div className="px-4 pb-2">
-												<Button
-													type="button"
-													variant="link"
-													size="xs"
-													className="h-auto px-0 text-[10px] text-muted-foreground/70"
-													onClick={(e) => { e.stopPropagation(); markOneUnreadMutation.mutate(n.id); }}
-												>
-													<EyeOff size={10} /> 标记未读
-												</Button>
-											</div>
-										)}
-									</div>
-								))}
-							</div>
-							<div className="flex items-center justify-between border-t px-4 py-2">
-								<Button variant="ghost" size="sm" className="text-xs h-7"
-									onClick={() => { setOpen(false); navigate("/notifications"); }}>
-									查看全部
-								</Button>
-								<div className="flex items-center gap-1">
+												<Text fz={10} c="dimmed" mt={4} opacity={0.7}>
+													{n.created_at.slice(0, 16).replace("T", " ")}
+												</Text>
+											</Box>
+										</Group>
+									</UnstyledButton>
+									{n.is_read && (
+										<Box px="md" pb="xs">
+											<Button
+												type="button"
+												variant="link"
+												size="xs"
+												p={0}
+												onClick={(e) => {
+													e.stopPropagation();
+													markOneUnreadMutation.mutate(n.id);
+												}}
+											>
+												<IconEyeOff size={10} /> 标记未读
+											</Button>
+										</Box>
+									)}
+								</Box>
+							))}
+						</Box>
+						<Group
+							justify="space-between"
+							px="md"
+							py="xs"
+							wrap="nowrap"
+							style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}
+						>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									setOpen(false);
+									navigate("/notifications");
+								}}
+							>
+								查看全部
+							</Button>
+							<Group gap={4}>
 								{unreadCount > 0 ? (
-									<Button variant="ghost" size="sm" className="text-xs h-7"
+									<Button
+										variant="ghost"
+										size="sm"
 										onClick={() => markAllReadMutation.mutate()}
-										disabled={mutationLockRef.current}>
+										disabled={mutationLockRef.current}
+									>
 										全部已读
 									</Button>
 								) : null}
 								{hasMore && (
-									<Button variant="ghost" size="sm" className="text-xs h-7"
-										onClick={() => setOffset((prev) => prev + LIMIT)}>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => setOffset((prev) => prev + LIMIT)}
+									>
 										加载更多
 									</Button>
 								)}
-								</div>
-							</div>
-						</div>
-					) : (
-						<div className="py-10 text-center">
-							<Bell size={32} className="text-muted-foreground/30 mx-auto mb-2" />
-							<span className="text-sm text-muted-foreground">暂无通知</span>
-				</div>
-			)}
-		</ResponsiveDialog>
+							</Group>
+						</Group>
+					</Box>
+				) : (
+					<Box py="lg" ta="center">
+						<IconBell
+							size={32}
+							style={{
+								color: "var(--mantine-color-dimmed)",
+								opacity: 0.3,
+								display: "block",
+								margin: "0 auto 8px",
+							}}
+						/>
+						<Text size="sm" c="dimmed">
+							暂无通知
+						</Text>
+					</Box>
+				)}
+			</ResponsiveDialog>
 		</>
 	);
 }

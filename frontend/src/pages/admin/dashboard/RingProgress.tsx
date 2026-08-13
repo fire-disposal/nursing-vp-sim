@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { RingProgress as MantineRingProgress, Stack, Text } from "@mantine/core";
 
 interface RingProgressProps {
 	value: number;
@@ -11,9 +11,9 @@ interface RingProgressProps {
 }
 
 function ringColor(pct: number): string {
-	if (pct >= 80) return "text-success-foreground";
-	if (pct >= 60) return "text-neutral-foreground";
-	return "text-danger-foreground";
+	if (pct >= 80) return "green";
+	if (pct >= 60) return "gray";
+	return "red";
 }
 
 export function RingProgress({
@@ -26,54 +26,28 @@ export function RingProgress({
 	className,
 }: RingProgressProps) {
 	const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-	const radius = (size - strokeWidth) / 2;
-	const circumference = 2 * Math.PI * radius;
-	const offset = circumference - (pct / 100) * circumference;
 
 	return (
-		<div className={cn("flex flex-col items-center gap-2", className)}>
-			<svg
-				width={size}
-				height={size}
-				className="-rotate-90"
-				role="img"
-				aria-label={`${label}: ${pct}%`}
-			>
-				<title>{`${label}: ${pct}%`}</title>
-				<circle
-					cx={size / 2}
-					cy={size / 2}
-					r={radius}
-					fill="none"
-					stroke="currentColor"
-					strokeWidth={strokeWidth}
-					className="text-muted/30"
-				/>
-				<circle
-					cx={size / 2}
-					cy={size / 2}
-					r={radius}
-					fill="none"
-					stroke="currentColor"
-					strokeWidth={strokeWidth}
-					strokeLinecap="round"
-					strokeDasharray={circumference}
-					strokeDashoffset={offset}
-					className={ringColor(pct)}
-					style={{ transition: "stroke-dashoffset 0.6s ease-out" }}
-				/>
-			</svg>
-			<div className="text-center">
-				<div className={cn("text-2xl font-bold", ringColor(pct))}>
-					{pct}%
-				</div>
-				<div className="text-[11px] text-muted-foreground">{label}</div>
-				{subtitle && (
-					<div className="text-xs text-muted-foreground mt-0.5">
-						{subtitle}
-					</div>
-				)}
-			</div>
-		</div>
+		<Stack align="center" gap={8} className={className}>
+			<MantineRingProgress
+				size={size}
+				thickness={strokeWidth}
+				roundCaps
+				sections={[{ value: pct, color: ringColor(pct) }]}
+				label={
+					<Text size="xl" fw={700} ta="center" c={ringColor(pct)}>
+						{pct}%
+					</Text>
+				}
+			/>
+			<Text size="xs" c="dimmed" ta="center" lh={1.3}>
+				{label}
+			</Text>
+			{subtitle && (
+				<Text size="xs" c="dimmed" ta="center" mt={2}>
+					{subtitle}
+				</Text>
+			)}
+		</Stack>
 	);
 }

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Alert, Box, Group, Text } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import {
 	deleteSecret,
@@ -10,6 +11,7 @@ import {
 import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import SecretList from "./SecretList";
@@ -77,26 +79,25 @@ export default function ApiManagementTab() {
 
 	return (
 		<>
-			<div className="mb-6">
-				<div className="flex justify-between items-center mb-2">
-					<h3 className="text-sm font-semibold text-foreground">API 密钥</h3>
-					<div className="flex gap-2">
-						<button
-							onClick={() => {
-								setEditingSecret(null);
-								setShowSecretModal(true);
-							}}
-							className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-primary-foreground cursor-pointer text-sm"
-						>
-							<Plus size={14} /> 添加密钥
-						</button>
-					</div>
-				</div>
+			<Box mb="lg">
+				<Group justify="space-between" mb="xs">
+					<Text size="sm" fw={600}>API 密钥</Text>
+					<Button
+						size="sm"
+						leftSection={<IconPlus size={14} />}
+						onClick={() => {
+							setEditingSecret(null);
+							setShowSecretModal(true);
+						}}
+					>
+						添加密钥
+					</Button>
+				</Group>
 				{envFallback?.available && (
-					<div className="mb-3 px-3 py-2 text-xs rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+					<Alert color="green" variant="light" mb="sm">
 						当前 LLM 来源：环境变量 (sk-...{envFallback.key_suffix})。
 						数据库密钥已全部停用，添加新密钥后将自动切换。
-					</div>
+					</Alert>
 				)}
 				{secrets.length === 0 && !envFallback?.available ? (
 					<EmptyState
@@ -114,7 +115,7 @@ export default function ApiManagementTab() {
 						onDelete={handleDeleteSecret}
 					/>
 				)}
-			</div>
+			</Box>
 
 			<SecretModal
 				open={showSecretModal}

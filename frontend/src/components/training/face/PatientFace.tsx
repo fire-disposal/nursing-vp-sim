@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { Box } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { faceConfigFrom4D, type FaceConfig } from "./expressionMap";
 
@@ -100,8 +100,8 @@ export default function PatientFace({ size = 40, className }: PatientFaceProps) 
 	);
 
 	return (
-		<div className={cn("shrink-0", className)} title="患者表情">
+		<Box title="患者表情" className={className} style={{ flexShrink: 0 }}>
 			<FaceArtwork cfg={cfg} size={size} />
-		</div>
+		</Box>
 	);
 }

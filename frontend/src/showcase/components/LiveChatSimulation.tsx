@@ -1,6 +1,6 @@
-import { Send } from "lucide-react";
+import { Box, Group, Loader, Stack, Text } from "@mantine/core";
+import { IconSend } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 
 const SCENE = [
 	{ role: "nurse" as const, text: "您好，我是您的责任护士。请问您今天哪里不舒服？", delay: 1200 },
@@ -19,20 +19,6 @@ const SCENE = [
 ];
 
 type Message = { role: "nurse" | "patient"; text: string };
-
-function TypingDots() {
-	return (
-		<div className="flex gap-1">
-			{Array.from({ length: 3 }).map((_, i) => (
-				<div
-					key={i}
-					className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce"
-					style={{ animationDelay: `${i * 0.15}s` }}
-				/>
-			))}
-		</div>
-	);
-}
 
 export default function LiveChatSimulation() {
 	const [messages, setMessages] = useState<Message[]>([]);
@@ -98,85 +84,224 @@ export default function LiveChatSimulation() {
 	}, []);
 
 	return (
-		<div className="relative flex h-[380px] flex-col overflow-hidden mt-0.5">
-			<div className="mb-2 flex shrink-0 items-center gap-3 px-2">
-				<div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-					训
-				</div>
-				<div>
-					<div className="text-xs font-semibold text-foreground/80">模拟问诊训练</div>
-					<div className="text-[10px] text-muted-foreground">病史采集 · 实时对话</div>
-				</div>
-				<div className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5">
-					<div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-					<span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">进行中</span>
-				</div>
-			</div>
+		<Box h={380} pos="relative" style={{ display: "flex", flexDirection: "column", overflow: "hidden", marginTop: 2 }}>
+			<Group mb={8} px={4} gap={12} style={{ flexShrink: 0 }}>
+				<Group
+					justify="center"
+					align="center"
+					style={{
+						width: 32,
+						height: 32,
+						borderRadius: "50%",
+						background: "var(--mantine-primary-color-light)",
+						color: "var(--mantine-primary-color-light-color)",
+					}}
+				>
+					<Text size="xs" fw={700}>
+						训
+					</Text>
+				</Group>
+				<Stack gap={0}>
+					<Text size="xs" fw={600} c="dimmed">
+						模拟问诊训练
+					</Text>
+					<Text size="10px" c="dimmed">
+						病史采集 · 实时对话
+					</Text>
+				</Stack>
+				<Group
+					ml="auto"
+					gap={6}
+					px={8}
+					py={2}
+					style={{
+						border: "1px solid var(--mantine-color-green-2)",
+						borderRadius: "9999px",
+						background: "var(--mantine-color-green-0)",
+					}}
+				>
+					<Box
+						style={{
+							width: 6,
+							height: 6,
+							borderRadius: "50%",
+							background: "var(--mantine-color-green-6)",
+						}}
+					/>
+					<Text size="10px" fw={500} c="green">
+						进行中
+					</Text>
+				</Group>
+			</Group>
 
-			<div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-				{messages.map((msg, i) => {
-					const isPatient = msg.role === "patient";
-					return (
-						<div
-							key={i}
-							className={cn(
-								"flex items-start gap-3 animate-[fadeIn_0.4s_ease-out]",
-								isPatient ? "justify-start" : "justify-end",
-							)}
-						>
-							{isPatient && (
-								<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
-									患
-								</div>
-							)}
-							<div
-								className={cn(
-									"max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-									isPatient
-										? "rounded-tl-md border border-border/60 bg-muted/30 text-foreground/85"
-										: "rounded-tr-md bg-primary text-primary-foreground",
-								)}
+			<Box
+				ref={scrollRef}
+				style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}
+			>
+				<Stack gap={8}>
+					{messages.map((msg, i) => {
+						const isPatient = msg.role === "patient";
+						return (
+							<Group
+								key={i}
+								gap={12}
+								align="flex-start"
+								justify={isPatient ? "flex-start" : "flex-end"}
+								wrap="nowrap"
+								style={{ animation: "fadeIn 0.4s ease-out" }}
 							>
-								{msg.text}
-							</div>
-							{!isPatient && (
-								<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-									护
-								</div>
-							)}
-						</div>
-					);
-				})}
+								{isPatient && (
+									<Box
+										style={{
+											width: 32,
+											height: 32,
+											borderRadius: "50%",
+											background: "var(--mantine-color-red-0)",
+											color: "var(--mantine-color-red-6)",
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											fontSize: "xs",
+											fontWeight: 700,
+											flexShrink: 0,
+										}}
+									>
+										患
+									</Box>
+								)}
+								<Box
+									px="md"
+									py={10}
+									style={{
+										maxWidth: "78%",
+										borderRadius: "var(--mantine-radius-md)",
+										...(isPatient
+											? {
+													borderTopLeftRadius: "var(--mantine-radius-xs)",
+													border: "1px solid var(--mantine-color-default-border)",
+													background: "var(--mantine-color-gray-1)",
+												}
+											: {
+													borderTopRightRadius: "var(--mantine-radius-xs)",
+													background: "var(--mantine-primary-color-filled)",
+													color: "var(--mantine-primary-color-contrast)",
+												}),
+									}}
+								>
+									<Text size="sm" lh={1.6}>
+										{msg.text}
+									</Text>
+								</Box>
+								{!isPatient && (
+									<Box
+										style={{
+											width: 32,
+											height: 32,
+											borderRadius: "50%",
+											background: "var(--mantine-primary-color-light)",
+											color: "var(--mantine-primary-color-light-color)",
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											fontSize: "xs",
+											fontWeight: 700,
+											flexShrink: 0,
+										}}
+									>
+										护
+									</Box>
+								)}
+							</Group>
+						);
+					})}
 
-				{typing && (
-					<div className="flex items-start gap-3">
-						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
-							患
-						</div>
-						<div className="rounded-2xl rounded-tl-md border border-border/60 bg-muted/30 px-4 py-3">
-							<TypingDots />
-						</div>
-					</div>
-				)}
-			</div>
+					{typing && (
+						<Group gap={12} align="flex-start" wrap="nowrap">
+							<Box
+								style={{
+									width: 32,
+									height: 32,
+									borderRadius: "50%",
+									background: "var(--mantine-color-red-0)",
+									color: "var(--mantine-color-red-6)",
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									fontSize: "xs",
+									fontWeight: 700,
+									flexShrink: 0,
+								}}
+							>
+								患
+							</Box>
+							<Box
+								px="md"
+								py="sm"
+								style={{
+									borderRadius: "var(--mantine-radius-md)",
+									borderTopLeftRadius: "var(--mantine-radius-xs)",
+									border: "1px solid var(--mantine-color-default-border)",
+									background: "var(--mantine-color-gray-1)",
+								}}
+							>
+								<Loader type="dots" size="sm" color="gray" />
+							</Box>
+						</Group>
+					)}
+				</Stack>
+			</Box>
 
-			<div className="mt-3 shrink-0 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
-				<div className="flex items-center gap-3">
-					<div className="flex-1 text-[13px] text-muted-foreground/70">
+			<Box
+				mt={12}
+				px="sm"
+				py={8}
+				style={{
+					border: "1px solid var(--mantine-color-default-border)",
+					borderRadius: "var(--mantine-radius-md)",
+					background: "var(--mantine-color-gray-0)",
+					flexShrink: 0,
+				}}
+			>
+				<Group gap={12}>
+					<Box style={{ flex: 1 }}>
 						{inputVisible ? (
-							<span>
+							<Text size="13px" c="dimmed" span>
 								{inputText}
-								<span className="ml-0.5 inline-block h-3.5 w-px animate-pulse bg-foreground/50 align-middle" />
-							</span>
+								<Box
+									component="span"
+									style={{
+										display: "inline-block",
+										height: 14,
+										width: 1,
+										background: "var(--mantine-color-dimmed)",
+										marginLeft: 2,
+										verticalAlign: "middle",
+									}}
+								/>
+							</Text>
 						) : (
-							<span className="text-muted-foreground/30">输入您的问题...</span>
+							<Text size="13px" c="dimmed" span opacity={0.4}>
+								输入您的问题...
+							</Text>
 						)}
-					</div>
-					<div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary/40">
-						<Send size={12} strokeWidth={2} />
-					</div>
-				</div>
-			</div>
-		</div>
+					</Box>
+					<Box
+						style={{
+							width: 24,
+							height: 24,
+							borderRadius: "var(--mantine-radius-sm)",
+							background: "var(--mantine-primary-color-light)",
+							color: "var(--mantine-primary-color-light-color)",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							flexShrink: 0,
+						}}
+					>
+						<IconSend size={12} strokeWidth={2} />
+					</Box>
+				</Group>
+			</Box>
+		</Box>
 	);
 }

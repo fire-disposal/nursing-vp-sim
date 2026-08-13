@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen } from "@/__tests__/render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PhysicalExamTool from "@/components/training/tools/PhysicalExamTool";
 

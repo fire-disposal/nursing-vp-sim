@@ -1,8 +1,9 @@
-import { AlertCircle, FileText, Loader2, Save } from "lucide-react";
+// Save（lucide）在 tabler 无同名图标，语义上取 IconDeviceFloppy（软盘保存）。
+import { IconAlertCircle, IconDeviceFloppy, IconFileText, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Box, Button, Group, Text } from "@mantine/core";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-import { cn } from "@/lib/utils";
 
 interface SheetData {
 	subjective?: string;
@@ -161,64 +162,75 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-32 text-muted-foreground">
-				<Loader2 size={18} className="animate-spin mr-2" />
-				<span className="text-xs">加载评估记录…</span>
-			</div>
+			<Group h={128} justify="center" align="center" wrap="nowrap" c="dimmed" gap={8}>
+				<IconLoader2 size={18} className="animate-spin" />
+				<Text size="xs">加载评估记录…</Text>
+			</Group>
 		);
 	}
 
 	if (loadError) {
 		return (
-			<div className="flex flex-col items-center justify-center gap-2 h-32 text-muted-foreground p-3">
-				<AlertCircle size={18} className="text-danger" />
-				<span className="text-xs text-center">{loadError}</span>
-				<button
-					type="button"
+			<Box style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, height: 128, padding: 12 }}>
+				<IconAlertCircle size={18} style={{ color: "var(--mantine-color-red-6)" }} />
+				<Text size="xs" ta="center" c="dimmed">{loadError}</Text>
+				<Button
+					variant="outline"
+					size="xs"
 					onClick={requestLoad}
-					className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted"
 				>
 					重试
-				</button>
-			</div>
+				</Button>
+			</Box>
 		);
 	}
 
 	const hints = template.hints || {};
 
 	return (
-		<form
-			className="space-y-3 p-3"
+		<Box
+			component="form"
+			p="sm"
 			onSubmit={(e) => {
 				e.preventDefault();
 				doSave(sheet);
 			}}
+			style={{ display: "flex", flexDirection: "column", gap: 12 }}
 		>
 			{FIELD_KEYS.map((key) => {
 				const label = template.fields?.[key] || FALLBACK_LABELS[key] || key;
 				const placeholder = hints[key] || FALLBACK_PLACEHOLDERS[key] || "";
 				return (
-					<div key={key}>
-						<label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+					<Box key={key}>
+						<Text component="label" size="11px" fw={500} c="dimmed" mb={4} style={{ display: "block" }}>
 							{label}
-						</label>
+						</Text>
 						<textarea
 							value={sheet[key] || ""}
 							onChange={(e) => update(key, e.target.value)}
 							placeholder={placeholder}
-							className={cn(
-								"w-full rounded-lg border border-border bg-background p-2 text-xs leading-relaxed resize-y",
-								"h-14 sm:h-20",
-							)}
+							style={{
+								width: "100%",
+								borderRadius: 8,
+								border: "1px solid var(--mantine-color-default-border)",
+								background: "var(--mantine-color-body)",
+								padding: 8,
+								fontSize: 12,
+								lineHeight: 1.6,
+								resize: "vertical",
+								minHeight: 56,
+								color: "var(--mantine-color-text)",
+								fontFamily: "inherit",
+							}}
 						/>
-					</div>
+					</Box>
 				);
 			})}
 
-			<div className="flex items-center justify-between pt-1">
-				<div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-					<FileText size={12} />
-					<span>
+			<Group justify="space-between" wrap="nowrap" pt={4}>
+				<Group gap={6} wrap="nowrap">
+					<IconFileText size={12} style={{ color: "var(--mantine-color-dimmed)" }} />
+					<Text size="10px" c="dimmed">
 						{saveStatus === "saving"
 							? "保存中…"
 							: saveStatus === "saved"
@@ -226,16 +238,12 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 								: saveStatus === "error"
 									? "保存失败"
 									: "护理评估记录"}
-					</span>
-				</div>
-				<button
-					type="submit"
-					className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-				>
-					<Save size={12} />
+					</Text>
+				</Group>
+				<Button type="submit" size="xs" leftSection={<IconDeviceFloppy size={12} />}>
 					保存
-				</button>
-			</div>
-		</form>
+				</Button>
+			</Group>
+		</Box>
 	);
 }

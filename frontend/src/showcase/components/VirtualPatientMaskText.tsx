@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { CSSProperties } from "react";
 
 type MaskWordProps = {
 	text: string;
@@ -14,7 +15,7 @@ type MaskWordProps = {
 	lineFontSize: number;
 	shiftY: number;
 	duration: string;
-	className?: string;
+	style?: CSSProperties;
 };
 
 function MaskWord({
@@ -31,21 +32,27 @@ function MaskWord({
 	lineFontSize,
 	shiftY,
 	duration,
-	className,
+	style,
 }: MaskWordProps) {
 	return (
 		<svg
 			viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
 			aria-hidden="true"
-			className={`block align-middle translate-y-[0.08em] ${className ?? ""}`}
-			style={{ width: textWidth, height: "1.3em" }}
+			style={{
+				display: "block",
+				verticalAlign: "middle",
+				transform: "translateY(0.08em)",
+				width: textWidth,
+				height: "1.3em",
+				...style,
+			}}
 		>
 			<defs>
 				<mask id={maskId}>
 					<rect width="100%" height="100%" fill="black" />
 					<text
 						x="0"
-							y={Math.round(viewBoxHeight * 0.88)}
+						y={Math.round(viewBoxHeight * 0.88)}
 						fill="white"
 						fontSize={fontSize}
 						fontWeight="900"
@@ -58,33 +65,33 @@ function MaskWord({
 			</defs>
 
 			<g mask={`url(#${maskId})`}>
-				<rect width="100%" height="100%" fill="var(--primary)" fillOpacity="0.10" />
+				<rect width="100%" height="100%" fill="var(--mantine-primary-color-6)" fillOpacity="0.10" />
 				<g>
 					<g>
-						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
 					<g transform={`translate(0 ${shiftY})`}>
-						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
@@ -103,12 +110,12 @@ function MaskWord({
 				x="0"
 				y={Math.round(viewBoxHeight * 0.88)}
 				fill="transparent"
-				stroke="var(--primary)"
+				stroke="var(--mantine-primary-color-6)"
 				strokeWidth="1.45"
 				fontSize={fontSize}
 				fontWeight="900"
 				fontFamily="Geist Variable, Inter, system-ui, sans-serif"
-					letterSpacing={letterSpacing}
+				letterSpacing={letterSpacing}
 			>
 				{text}
 			</text>
@@ -121,7 +128,15 @@ export default function VirtualPatientMaskText() {
 	const patientMaskId = useId();
 
 	return (
-		<span className="inline-flex items-center gap-0 align-middle leading-none whitespace-nowrap">
+		<span
+			style={{
+				display: "inline-flex",
+				alignItems: "center",
+				verticalAlign: "middle",
+				lineHeight: 1,
+				whiteSpace: "nowrap",
+			}}
+		>
 			<MaskWord
 				text="虚拟"
 				maskId={virtualMaskId}
@@ -129,7 +144,7 @@ export default function VirtualPatientMaskText() {
 				viewBoxHeight={200}
 				fontSize={180}
 				textWidth="2.72em"
- 				letterSpacing="-4"
+				letterSpacing="-4"
 				lineFontSize={13}
 				lineY={[30, 56, 82, 108]}
 				lineTexts={[
@@ -151,7 +166,7 @@ export default function VirtualPatientMaskText() {
 				textWidth="2.72em"
 				letterSpacing="-6"
 				lineFontSize={13}
-				className="-ml-[0.36em]"
+				style={{ marginLeft: "-0.36em" }}
 				lineY={[30, 56, 82, 108]}
 				lineTexts={[
 					"Evidence · Explainable · Review",

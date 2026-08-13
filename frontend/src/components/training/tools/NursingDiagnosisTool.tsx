@@ -1,7 +1,8 @@
-import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
+// Save（lucide）在 tabler 无同名图标，语义上取 IconDeviceFloppy（软盘保存）。
+import { IconArrowDown, IconArrowUp, IconDeviceFloppy, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ActionIcon, Box, Button, Group, Text } from "@mantine/core";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-import { cn } from "@/lib/utils";
 
 interface Diagnosis {
 	id: string;
@@ -101,125 +102,181 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 
 	// ── Render ──
 	if (loading) {
-		return <div className="flex items-center justify-center h-20 text-xs text-muted-foreground">加载中…</div>;
+		return <Box style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 80 }}><Text size="xs" c="dimmed">加载中…</Text></Box>;
 	}
 	return (
-		<div className="flex flex-col h-full bg-background">
-			<div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center justify-between">
-				<span className="text-xs font-semibold text-foreground">护理诊断</span>
-				<div className="flex items-center gap-1">
-					<span className="text-[10px] text-muted-foreground">{diagnoses.length} 条</span>
-					<button onClick={openNew} className="size-6 rounded flex items-center justify-center hover:bg-muted text-muted-foreground">
-						<Plus size={14} />
-					</button>
-				</div>
-			</div>
+		<Box style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--mantine-color-body)" }}>
+			<Group
+				justify="space-between"
+				wrap="nowrap"
+				px="sm"
+				py={10}
+				style={{ borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}
+			>
+				<Text size="xs" fw={600}>护理诊断</Text>
+				<Group gap={4} wrap="nowrap">
+					<Text size="10px" c="dimmed">{diagnoses.length} 条</Text>
+					<ActionIcon variant="subtle" color="gray" size="sm" onClick={openNew} aria-label="添加护理诊断">
+						<IconPlus size={14} />
+					</ActionIcon>
+				</Group>
+			</Group>
 
-			<div className="flex-1 overflow-y-auto p-3 space-y-3">
+			<Box style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
 				{diagnoses.length === 0 && !editId && (
-					<div className="text-xs text-muted-foreground/60 text-center py-8">
+					<Text size="xs" c="dimmed" ta="center" py={32}>
 						点击 + 添加护理诊断，按优先级排序
-					</div>
+					</Text>
 				)}
 
 				{diagnoses.map((d, i) => (
-					<div key={d.id} className={cn(
-						"rounded-xl border p-3 transition-colors",
-						"border-border bg-card hover:border-primary/30",
-					)}>
-						<div className="flex items-start gap-2">
-							<div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-								<button onClick={() => move(i, -1)} disabled={i === 0}
-									className="text-muted-foreground hover:text-foreground disabled:opacity-20">
-									<ArrowUp size={12} />
-								</button>
-								<span className="text-[10px] font-bold text-muted-foreground w-4 text-center">{i + 1}</span>
-								<button onClick={() => move(i, 1)} disabled={i === diagnoses.length - 1}
-									className="text-muted-foreground hover:text-foreground disabled:opacity-20">
-									<ArrowDown size={12} />
-								</button>
-							</div>
-							<div className="flex-1 min-w-0">
-								<button onClick={() => openEdit(d)} className="text-left w-full">
-									<p className="text-sm font-medium text-foreground truncate">{d.problem}</p>
-									<div className="flex flex-wrap gap-1 mt-1.5">
+					<Box
+						key={d.id}
+						p="sm"
+						style={{
+							borderRadius: 12,
+							border: "1px solid var(--mantine-color-default-border)",
+							background: "var(--mantine-color-body)",
+						}}
+					>
+						<Group align="flex-start" gap={8} wrap="nowrap">
+							<Box style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0, marginTop: 2 }}>
+								<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => move(i, -1)} disabled={i === 0}>
+									<IconArrowUp size={12} />
+								</ActionIcon>
+								<Text size="10px" fw={700} c="dimmed" w={16} ta="center">{i + 1}</Text>
+								<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => move(i, 1)} disabled={i === diagnoses.length - 1}>
+									<IconArrowDown size={12} />
+								</ActionIcon>
+							</Box>
+							<Box style={{ flex: 1, minWidth: 0 }}>
+								<Box component="button" type="button" onClick={() => openEdit(d)} style={{ textAlign: "left", width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+									<Text size="sm" fw={500} truncate>{d.problem}</Text>
+									<Group gap={4} mt={6} wrap="wrap">
 										{d.related_factors.map(f => (
-											<span key={f} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400">{f}</span>
+											<Box key={f} px={6} py={2} style={{ fontSize: 10, borderRadius: 4, background: "var(--mantine-color-blue-0)", color: "var(--mantine-color-blue-9)" }}>
+												{f}
+											</Box>
 										))}
 										{d.defining_characteristics.map(c => (
-											<span key={c} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">{c}</span>
+											<Box key={c} px={6} py={2} style={{ fontSize: 10, borderRadius: 4, background: "var(--mantine-color-yellow-0)", color: "var(--mantine-color-yellow-9)" }}>
+												{c}
+											</Box>
 										))}
-									</div>
-								</button>
-							</div>
-							<button onClick={() => deleteDiag(d.id)}
-								className="text-muted-foreground/40 hover:text-red-500 shrink-0">
-								<Trash2 size={12} />
-							</button>
-						</div>
-					</div>
+									</Group>
+								</Box>
+							</Box>
+							<ActionIcon variant="subtle" color="gray" size="sm" onClick={() => deleteDiag(d.id)} aria-label="删除护理诊断" style={{ color: "var(--mantine-color-gray-5)" }}>
+								<IconTrash size={12} />
+							</ActionIcon>
+						</Group>
+					</Box>
 				))}
-			</div>
+			</Box>
 
 			{/* Edit panel */}
 			{editId && (
-				<div className="border-t border-border bg-card p-3 space-y-3 shrink-0">
+				<Box
+					p="sm"
+					style={{
+						borderTop: "1px solid var(--mantine-color-default-border)",
+						background: "var(--mantine-color-body)",
+						display: "flex",
+						flexDirection: "column",
+						gap: 12,
+						flexShrink: 0,
+					}}
+				>
 					<input
 						value={form.problem}
 						onChange={e => setForm(p => ({ ...p, problem: e.target.value }))}
 						placeholder="护理问题（如：清理呼吸道无效）"
-						className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background focus:outline-none focus:border-primary"
 						list="diag-stems"
+						style={{
+							width: "100%",
+							fontSize: 14,
+							padding: "8px 12px",
+							borderRadius: 8,
+							border: "1px solid var(--mantine-color-default-border)",
+							background: "var(--mantine-color-body)",
+							color: "var(--mantine-color-text)",
+							fontFamily: "inherit",
+						}}
 					/>
 					<datalist id="diag-stems">{stems.map(s => <option key={s} value={s} />)}</datalist>
 
-					<div>
-						<p className="text-[10px] text-muted-foreground mb-1.5 font-semibold">相关因素</p>
-						<div className="flex flex-wrap gap-1">
+					<Box>
+						<Text size="10px" c="dimmed" mb={6} fw={600}>相关因素</Text>
+						<Group gap={4} wrap="wrap">
 							{factorOpts.map(f => (
-								<button key={f} onClick={() => setForm(p => ({ ...p, related_factors: toggleItem(p.related_factors, f) }))}
-									className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-										form.related_factors.includes(f) ? "border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" : "border-border text-muted-foreground hover:border-blue-500/30")}>
+								<Box
+									key={f}
+									component="button"
+									type="button"
+									onClick={() => setForm(p => ({ ...p, related_factors: toggleItem(p.related_factors, f) }))}
+									px={8}
+									py={2}
+									style={{
+										fontSize: 10,
+										borderRadius: 999,
+										border: "1px solid var(--mantine-color-default-border)",
+										cursor: "pointer",
+										background: form.related_factors.includes(f) ? "var(--mantine-color-blue-0)" : "transparent",
+										color: form.related_factors.includes(f) ? "var(--mantine-color-blue-9)" : "var(--mantine-color-dimmed)",
+										borderColor: form.related_factors.includes(f) ? "var(--mantine-color-blue-3)" : undefined,
+									}}
+								>
 									{f}
-								</button>
+								</Box>
 							))}
-						</div>
-					</div>
+						</Group>
+					</Box>
 
-					<div>
-						<p className="text-[10px] text-muted-foreground mb-1.5 font-semibold">定义特征</p>
-						<div className="flex flex-wrap gap-1">
+					<Box>
+						<Text size="10px" c="dimmed" mb={6} fw={600}>定义特征</Text>
+						<Group gap={4} wrap="wrap">
 							{charOpts.map(c => (
-								<button key={c} onClick={() => setForm(p => ({ ...p, defining_characteristics: toggleItem(p.defining_characteristics, c) }))}
-									className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-										form.defining_characteristics.includes(c) ? "border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "border-border text-muted-foreground hover:border-amber-500/30")}>
+								<Box
+									key={c}
+									component="button"
+									type="button"
+									onClick={() => setForm(p => ({ ...p, defining_characteristics: toggleItem(p.defining_characteristics, c) }))}
+									px={8}
+									py={2}
+									style={{
+										fontSize: 10,
+										borderRadius: 999,
+										border: "1px solid var(--mantine-color-default-border)",
+										cursor: "pointer",
+										background: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-0)" : "transparent",
+										color: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-9)" : "var(--mantine-color-dimmed)",
+										borderColor: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-4)" : undefined,
+									}}
+								>
 									{c}
-								</button>
+								</Box>
 							))}
-						</div>
-					</div>
+						</Group>
+					</Box>
 
-					<div className="flex gap-2">
-						<button onClick={() => setEditId(null)}
-							className="flex-1 text-xs py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted">
+					<Group gap={8} wrap="nowrap">
+						<Button variant="outline" size="xs" fullWidth onClick={() => setEditId(null)}>
 							取消
-						</button>
-						<button onClick={saveForm}
-							className="flex-1 text-xs py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+						</Button>
+						<Button variant="default" size="xs" fullWidth onClick={saveForm}>
 							保存
-						</button>
-					</div>
-				</div>
+						</Button>
+					</Group>
+				</Box>
 			)}
 
 			{diagnoses.length > 0 && !editId && (
-				<div className="border-t border-border px-3 py-2 shrink-0">
-					<button onClick={doSave} disabled={saving}
-						className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground transition-colors">
-						<Save size={12} /> {saving ? "已保存" : "保存到服务器"}
-					</button>
-				</div>
+				<Box style={{ borderTop: "1px solid var(--mantine-color-default-border)", padding: "8px 12px", flexShrink: 0 }}>
+					<Button variant="light" color="gray" size="xs" fullWidth onClick={doSave} disabled={saving} leftSection={<IconDeviceFloppy size={12} />}>
+						{saving ? "已保存" : "保存到服务器"}
+					</Button>
+				</Box>
 			)}
-		</div>
+		</Box>
 	);
 }

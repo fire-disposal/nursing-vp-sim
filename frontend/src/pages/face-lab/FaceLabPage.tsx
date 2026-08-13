@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Box, Container, Grid, Group, Progress, SimpleGrid, Slider, Stack, Text, Title } from "@mantine/core";
 import PremiumFaceArtwork from "@/components/training/face/PremiumFaceArtwork";
 import { appearanceFor, type AgeGroup, type Gender } from "@/components/training/face/appearance";
 import {
@@ -21,16 +22,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import Button from "@/components/ui/button";
 import { EMOTION_4D_LABELS, type Emotion4DLabel } from "@/stores/trainingStore";
-import { cn } from "@/lib/utils";
 import { EASINGS, type EasingName } from "./animation";
 import { useAnimatedFace } from "./useAnimatedFace";
 
 /**
  * FaceLabPage — 临时面部系统调整控制台（路由 /face-demo）。
- *
- * 实验目的：过渡动画（数值插值 + 离散切换）+ 参数化控制（4D 数值、
- * 标签预设、高级参数手动覆盖）。非生产页面，不接 store。
+ * 实验性过渡动画与参数化控制，不接生产 store。
  */
 
 const LABELS: Emotion4DLabel[] = [
@@ -79,22 +78,24 @@ function RangeRow({
 	onChange: (v: number) => void;
 }) {
 	return (
-		<div className="space-y-1">
-			<div className="flex items-center justify-between text-xs">
-				<span className="text-muted-foreground">{label}</span>
-				<span className="font-mono">{display ?? value}</span>
-			</div>
-			<input
-				type="range"
+		<Stack gap={4}>
+			<Group justify="space-between" wrap="nowrap">
+				<Text size="xs" c="dimmed">
+					{label}
+				</Text>
+				<Text size="xs" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+					{display ?? value}
+				</Text>
+			</Group>
+			<Slider
+				value={value}
 				min={min}
 				max={max}
 				step={step}
-				value={value}
 				disabled={disabled}
-				onChange={(e) => onChange(Number(e.target.value))}
-				className="w-full accent-primary disabled:opacity-40"
+				onChange={onChange}
 			/>
-		</div>
+		</Stack>
 	);
 }
 
@@ -110,21 +111,23 @@ function ToggleRow({
 	onChange: (v: boolean) => void;
 }) {
 	return (
-		<div className="flex items-center justify-between py-1">
-			<span className="text-xs text-muted-foreground">{label}</span>
+		<Group justify="space-between" wrap="nowrap" py={4}>
+			<Text size="xs" c="dimmed">
+				{label}
+			</Text>
 			<Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-		</div>
+		</Group>
 	);
 }
 
-const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; cls: string }> = [
-	{ key: "trust", name: "信任", cls: "bg-success-foreground" },
-	{ key: "anxiety", name: "焦虑", cls: "bg-purple-500" },
-	{ key: "irritation", name: "烦躁", cls: "bg-orange-500" },
-	{ key: "cooperation", name: "配合", cls: "bg-blue-500" },
+const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; color: string }> = [
+	{ key: "trust", name: "信任", color: "green" },
+	{ key: "anxiety", name: "焦虑", color: "violet" },
+	{ key: "irritation", name: "烦躁", color: "orange" },
+	{ key: "cooperation", name: "配合", color: "blue" },
 ];
 
-	export default function FaceLabPage() {
+export default function FaceLabPage() {
 	const [gender, setGender] = useState<Gender>("female");
 	const [ageGroup, setAgeGroup] = useState<AgeGroup>("young");
 	const [label, setLabel] = useState<Emotion4DLabel>("neutral");
@@ -185,7 +188,7 @@ const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; cls: string }>
 			value={targetCfg.mouth}
 			onValueChange={(v) => setOverride("mouth", v as FaceConfig["mouth"])}
 		>
-			<SelectTrigger className="h-8 text-xs">
+			<SelectTrigger size="sm">
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
@@ -203,7 +206,7 @@ const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; cls: string }>
 			value={targetExtras.irisShift}
 			onValueChange={(v) => setOverride("irisShift", v as PremiumExtras["irisShift"])}
 		>
-			<SelectTrigger className="h-8 text-xs">
+			<SelectTrigger size="sm">
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
@@ -217,287 +220,302 @@ const DIM_LABELS: Array<{ key: keyof EmotionValues; name: string; cls: string }>
 	);
 
 	return (
-		<div className="min-h-screen bg-background p-6">
-			<div className="mx-auto max-w-6xl space-y-6">
-				<header>
-					<h1 className="text-2xl font-bold">面部系统调整控制台</h1>
-					<p className="text-sm text-muted-foreground">
-						临时路由 /face-demo — 实验性过渡动画与参数化控制，不接生产 store
-					</p>
-				</header>
+		<Box mih="100vh" p="md">
+			<Container size="xl">
+				<Stack gap="lg">
+					<Box>
+						<Title order={1} size="xl">
+							面部系统调整控制台
+						</Title>
+						<Text size="sm" c="dimmed" mt={4}>
+							临时路由 /face-demo — 实验性过渡动画与参数化控制，不接生产 store
+						</Text>
+					</Box>
 
-				<div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
-					{/* ── 预览 ── */}
-					<Card>
-						<CardContent className="flex flex-col items-center gap-3 pt-6">
-							<PremiumFaceArtwork
-								cfg={display.cfg}
-								extras={display.extras}
-								appearance={appearance}
-								size={220}
-								blink={blink}
-								blinkInterval={blinkInterval}
-							/>
-							<div className="flex items-center gap-2">
-								<Badge variant="secondary">{EMOTION_4D_LABELS[label]}</Badge>
-								<span className="font-mono text-[10px] text-muted-foreground">
-									{label} · {duration}ms · {easing}
-								</span>
-							</div>
-							<div className="w-full space-y-1">
-								{DIM_LABELS.map((d) => (
-									<div key={d.key} className="flex items-center gap-2 text-[10px]">
-										<span className="w-6 text-muted-foreground">{d.name}</span>
-										<div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-											<div
-												className={cn("h-full rounded-full transition-all", d.cls)}
-												style={{ width: `${Math.round(values[d.key] * 100)}%` }}
+					<Grid>
+						{/* ── 预览 ── */}
+						<Grid.Col span={{ base: 12, lg: 5 }}>
+							<Card>
+								<CardContent style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 24 }}>
+									<PremiumFaceArtwork
+										cfg={display.cfg}
+										extras={display.extras}
+										appearance={appearance}
+										size={220}
+										blink={blink}
+										blinkInterval={blinkInterval}
+									/>
+									<Group gap="xs">
+										<Badge variant="secondary">{EMOTION_4D_LABELS[label]}</Badge>
+										<Text size="10px" c="dimmed" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+											{label} · {duration}ms · {easing}
+										</Text>
+									</Group>
+									<Stack gap={4} w="100%">
+										{DIM_LABELS.map((d) => (
+											<Group key={d.key} gap="xs" wrap="nowrap">
+												<Text size="10px" c="dimmed" w={24}>
+													{d.name}
+												</Text>
+												<Progress
+													value={Math.round(values[d.key] * 100)}
+													color={d.color}
+													size="xs"
+													radius="xl"
+													style={{ flex: 1 }}
+												/>
+											</Group>
+										))}
+									</Stack>
+								</CardContent>
+							</Card>
+						</Grid.Col>
+
+						<Grid.Col span={{ base: 12, lg: 7 }}>
+							<Stack gap="lg">
+								<Card>
+									<CardHeader style={{ paddingBottom: 8 }}>
+										<CardTitle>外观（男女老少）</CardTitle>
+									</CardHeader>
+									<CardContent style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+										<Group gap="sm" align="flex-end">
+											<Box style={{ flex: 1 }}>
+												<Label>性别</Label>
+												<Select value={gender} onValueChange={(v) => setGender(v as Gender)}>
+													<SelectTrigger size="sm">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="female">女</SelectItem>
+														<SelectItem value="male">男</SelectItem>
+													</SelectContent>
+												</Select>
+											</Box>
+											<Box style={{ flex: 1 }}>
+												<Label>年龄段</Label>
+												<Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
+													<SelectTrigger size="sm">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="child">儿童（≤12）</SelectItem>
+														<SelectItem value="young">青年（13-25）</SelectItem>
+														<SelectItem value="middle">中年（26-59）</SelectItem>
+														<SelectItem value="elderly">老年（≥60）</SelectItem>
+													</SelectContent>
+												</Select>
+											</Box>
+										</Group>
+										<Text size="10px" c="dimmed">
+											外观与情绪正交：6 基础外观 × 9 情绪叠加，零笛卡尔积。切换外观后可用上方情绪控件叠加验证。
+										</Text>
+									</CardContent>
+								</Card>
+
+								{/* ── 情绪标签 + 4D ── */}
+								<Card>
+									<CardHeader style={{ paddingBottom: 8 }}>
+										<CardTitle>情绪状态</CardTitle>
+									</CardHeader>
+									<CardContent style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+										<Group gap={6} wrap="wrap">
+											{LABELS.map((l) => (
+												<Button
+													key={l}
+													variant={l === label ? "default" : "outline"}
+													size="xs"
+													radius="xl"
+													onClick={() => pickLabel(l)}
+												>
+													{EMOTION_4D_LABELS[l]}
+												</Button>
+											))}
+										</Group>
+										{DIM_LABELS.map((d) => (
+											<RangeRow
+												key={d.key}
+												label={d.name}
+												value={Math.round(values[d.key] * 100)}
+												min={0}
+												max={100}
+												step={1}
+												display={`${Math.round(values[d.key] * 100)}`}
+												onChange={(v) => set4D(d.key, v)}
 											/>
-										</div>
-									</div>
+										))}
+									</CardContent>
+								</Card>
+
+								{/* ── 过渡动画实验 ── */}
+								<Card>
+									<CardHeader style={{ paddingBottom: 8 }}>
+										<CardTitle>过渡动画实验</CardTitle>
+									</CardHeader>
+									<CardContent style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+										<RangeRow
+											label="过渡时长"
+											value={duration}
+											min={0}
+											max={1500}
+											step={50}
+											display={`${duration}ms`}
+											onChange={setDuration}
+										/>
+										<Box>
+											<Label>缓动曲线</Label>
+											<Select value={easing} onValueChange={(v) => setEasing(v as EasingName)}>
+												<SelectTrigger size="sm">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{(Object.keys(EASINGS) as EasingName[]).map((e) => (
+														<SelectItem key={e} value={e}>
+															{e}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</Box>
+										<ToggleRow
+											label="自动轮播 9 态（4s/态）"
+											checked={autoCycle}
+											onChange={setAutoCycle}
+										/>
+										<ToggleRow label="眨眼（CSS 动画）" checked={blink} onChange={setBlink} />
+										<RangeRow
+											label="眨眼周期"
+											value={blinkInterval}
+											min={2000}
+											max={8000}
+											step={250}
+											disabled={!blink}
+											display={`${blinkInterval}ms`}
+											onChange={setBlinkInterval}
+										/>
+									</CardContent>
+								</Card>
+
+								{/* ── 高级参数 ── */}
+								<Card>
+									<CardHeader style={{ paddingBottom: 8 }}>
+										<CardTitle>
+											<Group justify="space-between" wrap="nowrap">
+												<Text size="sm" fw={600}>
+													高级参数（手动覆盖）
+												</Text>
+												<Switch checked={manual} onCheckedChange={toggleManual} />
+											</Group>
+										</CardTitle>
+									</CardHeader>
+									<CardContent style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+										<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+											<RangeRow
+												label="browAngle（眉）"
+												value={targetCfg.browAngle}
+												min={-1}
+												max={1}
+												step={0.05}
+												disabled={!manual}
+												display={targetCfg.browAngle.toFixed(2)}
+												onChange={(v) => setOverride("browAngle", v)}
+											/>
+											<RangeRow
+												label="eyeOpenness（眼开合 %）"
+												value={targetCfg.eyeOpenness}
+												min={0}
+												max={1}
+												step={0.01}
+												disabled={!manual}
+												display={`${Math.round(targetCfg.eyeOpenness * 100)}`}
+												onChange={(v) => setOverride("eyeOpenness", v)}
+											/>
+											<RangeRow
+												label="headTilt（头倾角）"
+												value={targetExtras.headTilt}
+												min={-6}
+												max={6}
+												step={0.5}
+												disabled={!manual}
+												display={targetExtras.headTilt.toFixed(1)}
+												onChange={(v) => setOverride("headTilt", v)}
+											/>
+											<RangeRow
+												label="eyeLid（上睑压力）"
+												value={targetExtras.eyeLid}
+												min={0}
+												max={1}
+												step={0.05}
+												disabled={!manual}
+												display={targetExtras.eyeLid.toFixed(2)}
+												onChange={(v) => setOverride("eyeLid", v)}
+											/>
+										</SimpleGrid>
+										<Group gap="md" align="flex-end">
+											<Box style={{ flex: 1 }}>
+												<Text size="xs" c="dimmed" mb={4}>
+													嘴型
+												</Text>
+												<Box style={{ pointerEvents: manual ? undefined : "none", opacity: manual ? undefined : 0.4 }}>
+													{mouthSelect}
+												</Box>
+											</Box>
+											<Box style={{ flex: 1 }}>
+												<Text size="xs" c="dimmed" mb={4}>
+													虹膜朝向
+												</Text>
+												<Box style={{ pointerEvents: manual ? undefined : "none", opacity: manual ? undefined : 0.4 }}>
+													{irisSelect}
+												</Box>
+											</Box>
+										</Group>
+										<SimpleGrid cols={2} spacing="sm">
+											<ToggleRow label="颊红" checked={targetCfg.blush} disabled={!manual} onChange={(v) => setOverride("blush", v)} />
+											<ToggleRow label="泪痕" checked={targetCfg.tears} disabled={!manual} onChange={(v) => setOverride("tears", v)} />
+											<ToggleRow label="汗滴" checked={targetExtras.sweat} disabled={!manual} onChange={(v) => setOverride("sweat", v)} />
+											<ToggleRow label="皱眉纹" checked={targetExtras.furrow} disabled={!manual} onChange={(v) => setOverride("furrow", v)} />
+										</SimpleGrid>
+									</CardContent>
+								</Card>
+							</Stack>
+						</Grid.Col>
+					</Grid>
+
+					{/* ── 静态参考网格：8 外观组合 ── */}
+					<Card>
+						<CardHeader style={{ paddingBottom: 8 }}>
+							<CardTitle>8 外观组合参考（中性情绪，四阶段×性别）</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="sm">
+								{(
+									[
+										["female", "child", "女 · 儿童"],
+										["female", "young", "女 · 青年"],
+										["female", "middle", "女 · 中年"],
+										["female", "elderly", "女 · 老年"],
+										["male", "child", "男 · 儿童"],
+										["male", "young", "男 · 青年"],
+										["male", "middle", "男 · 中年"],
+										["male", "elderly", "男 · 老年"],
+									] as Array<[Gender, AgeGroup, string]>
+								).map(([g, a, name]) => (
+									<Stack key={name} align="center" gap={4}>
+										<PremiumFaceArtwork
+											cfg={faceConfigFrom4D("neutral", PRESETS.neutral)}
+											extras={premiumExtrasFrom4D("neutral", PRESETS.neutral)}
+											appearance={appearanceFor(g, a)}
+											size={96}
+										/>
+										<Text size="10px" c="dimmed">
+											{name}
+										</Text>
+									</Stack>
 								))}
-							</div>
+							</SimpleGrid>
 						</CardContent>
 					</Card>
-
-					<div className="space-y-6">
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-sm">外观（男女老少）</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="flex items-center gap-3">
-									<div className="flex-1 space-y-1">
-										<Label className="text-xs text-muted-foreground">性别</Label>
-										<Select value={gender} onValueChange={(v) => setGender(v as Gender)}>
-											<SelectTrigger className="h-8 text-xs">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="female">女</SelectItem>
-												<SelectItem value="male">男</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="flex-1 space-y-1">
-										<Label className="text-xs text-muted-foreground">年龄段</Label>
-										<Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
-											<SelectTrigger className="h-8 text-xs">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="child">儿童（≤12）</SelectItem>
-												<SelectItem value="young">青年（13-25）</SelectItem>
-												<SelectItem value="middle">中年（26-59）</SelectItem>
-												<SelectItem value="elderly">老年（≥60）</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-								<p className="text-[10px] text-muted-foreground">
-									外观与情绪正交：6 基础外观 × 9 情绪叠加，零笛卡尔积。切换外观后可用上方情绪控件叠加验证。
-								</p>
-							</CardContent>
-						</Card>
-
-						{/* ── 情绪标签 + 4D ── */}
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-sm">情绪状态</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="flex flex-wrap gap-1.5">
-									{LABELS.map((l) => (
-										<button
-											key={l}
-											onClick={() => pickLabel(l)}
-											className={cn(
-												"rounded-full border px-2.5 py-1 text-xs transition-colors",
-												l === label
-													? "border-primary bg-primary/10 text-primary"
-													: "border-border text-muted-foreground hover:bg-muted",
-											)}
-										>
-											{EMOTION_4D_LABELS[l]}
-										</button>
-									))}
-								</div>
-								{DIM_LABELS.map((d) => (
-									<RangeRow
-										key={d.key}
-										label={d.name}
-										value={Math.round(values[d.key] * 100)}
-										min={0}
-										max={100}
-										step={1}
-										display={`${Math.round(values[d.key] * 100)}`}
-										onChange={(v) => set4D(d.key, v)}
-									/>
-								))}
-							</CardContent>
-						</Card>
-
-						{/* ── 过渡动画实验 ── */}
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-sm">过渡动画实验</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<RangeRow
-									label="过渡时长"
-									value={duration}
-									min={0}
-									max={1500}
-									step={50}
-									display={`${duration}ms`}
-									onChange={setDuration}
-								/>
-								<div className="space-y-1">
-									<Label className="text-xs text-muted-foreground">缓动曲线</Label>
-									<Select value={easing} onValueChange={(v) => setEasing(v as EasingName)}>
-										<SelectTrigger className="h-8 text-xs">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{(Object.keys(EASINGS) as EasingName[]).map((e) => (
-												<SelectItem key={e} value={e}>
-													{e}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<ToggleRow
-									label="自动轮播 9 态（4s/态）"
-									checked={autoCycle}
-									onChange={setAutoCycle}
-								/>
-								<div className="flex items-center justify-between py-1">
-									<span className="text-xs text-muted-foreground">眨眼（CSS 动画）</span>
-									<Switch checked={blink} onCheckedChange={setBlink} />
-								</div>
-								<RangeRow
-									label="眨眼周期"
-									value={blinkInterval}
-									min={2000}
-									max={8000}
-									step={250}
-									disabled={!blink}
-									display={`${blinkInterval}ms`}
-									onChange={setBlinkInterval}
-								/>
-							</CardContent>
-						</Card>
-
-						{/* ── 高级参数 ── */}
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-sm flex items-center justify-between">
-									<span>高级参数（手动覆盖）</span>
-									<Switch checked={manual} onCheckedChange={toggleManual} />
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-3">
-								<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-									<RangeRow
-										label="browAngle（眉）"
-										value={targetCfg.browAngle}
-										min={-1}
-										max={1}
-										step={0.05}
-										disabled={!manual}
-										display={targetCfg.browAngle.toFixed(2)}
-										onChange={(v) => setOverride("browAngle", v)}
-									/>
-									<RangeRow
-										label="eyeOpenness（眼开合 %）"
-										value={targetCfg.eyeOpenness}
-										min={0}
-										max={1}
-										step={0.01}
-										disabled={!manual}
-										display={`${Math.round(targetCfg.eyeOpenness * 100)}`}
-										onChange={(v) => setOverride("eyeOpenness", v)}
-									/>
-									<RangeRow
-										label="headTilt（头倾角）"
-										value={targetExtras.headTilt}
-										min={-6}
-										max={6}
-										step={0.5}
-										disabled={!manual}
-										display={targetExtras.headTilt.toFixed(1)}
-										onChange={(v) => setOverride("headTilt", v)}
-									/>
-									<RangeRow
-										label="eyeLid（上睑压力）"
-										value={targetExtras.eyeLid}
-										min={0}
-										max={1}
-										step={0.05}
-										disabled={!manual}
-										display={targetExtras.eyeLid.toFixed(2)}
-										onChange={(v) => setOverride("eyeLid", v)}
-									/>
-								</div>
-								<div className="flex items-end gap-4">
-									<div className="flex-1 space-y-1">
-										<span className="text-xs text-muted-foreground">嘴型</span>
-										<div className={cn(!manual && "pointer-events-none opacity-40")}>
-											{mouthSelect}
-										</div>
-									</div>
-									<div className="flex-1 space-y-1">
-										<span className="text-xs text-muted-foreground">虹膜朝向</span>
-										<div className={cn(!manual && "pointer-events-none opacity-40")}>
-											{irisSelect}
-										</div>
-									</div>
-								</div>
-								<div className="grid grid-cols-2 gap-x-6">
-									<ToggleRow label="颊红" checked={targetCfg.blush} disabled={!manual} onChange={(v) => setOverride("blush", v)} />
-									<ToggleRow label="泪痕" checked={targetCfg.tears} disabled={!manual} onChange={(v) => setOverride("tears", v)} />
-									<ToggleRow label="汗滴" checked={targetExtras.sweat} disabled={!manual} onChange={(v) => setOverride("sweat", v)} />
-									<ToggleRow label="皱眉纹" checked={targetExtras.furrow} disabled={!manual} onChange={(v) => setOverride("furrow", v)} />
-								</div>
-							</CardContent>
-						</Card>
-					</div>
-				</div>
-
-				{/* ── 静态参考网格：6 外观组合 ── */}
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="text-sm">8 外观组合参考（中性情绪，四阶段×性别）</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-							{(
-								[
-									["female", "child", "女 · 儿童"],
-									["female", "young", "女 · 青年"],
-									["female", "middle", "女 · 中年"],
-									["female", "elderly", "女 · 老年"],
-									["male", "child", "男 · 儿童"],
-									["male", "young", "男 · 青年"],
-									["male", "middle", "男 · 中年"],
-									["male", "elderly", "男 · 老年"],
-								] as Array<[Gender, AgeGroup, string]>
-							).map(([g, a, name]) => (
-								<div key={name} className="flex flex-col items-center gap-1">
-									<PremiumFaceArtwork
-										cfg={faceConfigFrom4D("neutral", PRESETS.neutral)}
-										extras={premiumExtrasFrom4D("neutral", PRESETS.neutral)}
-										appearance={appearanceFor(g, a)}
-										size={96}
-									/>
-									<span className="text-[10px] text-muted-foreground">{name}</span>
-								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-		</div>
+				</Stack>
+			</Container>
+		</Box>
 	);
 }

@@ -1,13 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-	BarChart3,
-	Camera,
-	ChevronDown,
-	ChevronLeft,
-	ChevronRight,
-	ChevronUp,
-	MessageSquare,
-} from "lucide-react";
+	ActionIcon,
+	Box,
+	Center,
+	Group,
+	Paper,
+	Select,
+	Stack,
+	Text,
+	TextInput,
+	UnstyledButton,
+} from "@mantine/core";
+import {
+	IconCamera,
+	IconChartBar,
+	IconChevronDown,
+	IconChevronLeft,
+	IconChevronRight,
+	IconChevronUp,
+	IconMessageCircle,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import {
 	Bar,
@@ -36,8 +48,8 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
+import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
@@ -81,12 +93,12 @@ const TAG_LABEL: Record<string, string> = {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
-const RATING_COLORS = [
-	"text-red-600 bg-red-50 border-red-200",
-	"text-orange-600 bg-orange-50 border-orange-200",
-	"text-amber-600 bg-amber-50 border-amber-200",
-	"text-emerald-600 bg-emerald-50 border-emerald-200",
-	"text-green-600 bg-green-50 border-green-200",
+const RATING_BADGES: { variant: "danger" | "warning" | "success"; color?: string }[] = [
+	{ variant: "danger" },
+	{ variant: "warning", color: "orange" },
+	{ variant: "warning" },
+	{ variant: "success" },
+	{ variant: "success", color: "teal" },
 ];
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
@@ -116,105 +128,130 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 
 	return (
 		<>
-		<div className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
-			<div className="flex items-center justify-between mb-1">
-				<div className="flex items-center gap-2">
-					<span className={cn(
-						"inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border",
-						RATING_COLORS[fb.rating - 1] || "",
-					)}>
-						<span className="text-sm leading-none">{fb.rating}</span>
-						<span className="hidden sm:inline text-[10px] opacity-70">{RATING_LABELS[fb.rating - 1]}</span>
-					</span>
-					<span className="font-semibold text-sm">{fb.user_name}</span>
-				</div>
-				<Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>
-					{TAG_LABEL[fb.tag] || fb.tag}
-				</Badge>
-			</div>
-			{fb.content && (
-				<div className="text-sm text-foreground mb-1 leading-relaxed">{fb.content}</div>
-			)}
-			{fb.image_ids && fb.image_ids.length > 0 && (
-				<div className="flex items-center gap-1.5 mb-1.5">
-					<Camera size={13} className="text-muted-foreground shrink-0" />
-					<div className="flex gap-1.5 overflow-x-auto pb-1">
-						{fb.image_ids.map((imgId) => (
-							<button
-								type="button"
-								key={imgId}
-								onClick={() => setPreviewUrl(feedbackImageUrl(fb.id, imgId))}
-								className="shrink-0 rounded-md border border-border overflow-hidden hover:border-primary transition-colors cursor-pointer"
-							>
-								<AuthImage
-									src={feedbackImageUrl(fb.id, imgId)}
-									alt={`截图 ${imgId}`}
-									className="h-16 w-auto object-cover"
-								/>
-							</button>
-						))}
-					</div>
-				</div>
-			)}
-			<div className="text-xs text-muted-foreground/70 mb-1 flex items-center gap-2">
-				{new Date(fb.created_at).toLocaleString("zh-CN")}
-				{fb.version && <span className="opacity-50">v{fb.version}</span>}
-				{fb.auto_fix_attempted && (
-					<span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]" title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN")}` : ""}>
-						已尝试自动修复
-					</span>
+			<Paper withBorder radius="md" p="sm">
+				<Group justify="space-between" mb={4}>
+					<Group gap={8}>
+						<Badge
+							variant={RATING_BADGES[fb.rating - 1]?.variant ?? "neutral"}
+							color={RATING_BADGES[fb.rating - 1]?.color}
+						>
+							{fb.rating} · {RATING_LABELS[fb.rating - 1]}
+						</Badge>
+						<Text size="sm" fw={600}>
+							{fb.user_name}
+						</Text>
+					</Group>
+					<Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>
+						{TAG_LABEL[fb.tag] || fb.tag}
+					</Badge>
+				</Group>
+				{fb.content && (
+					<Text size="sm" mb={4} lh={1.6}>
+						{fb.content}
+					</Text>
 				)}
-			</div>
-			{fb.developer_reply ? (
-				<div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-sm leading-relaxed">
-					<span className="text-xs font-medium text-primary">开发者回复：</span>
-					{fb.developer_reply}
-				</div>
-			) : (
-				!replyOpen && (
-					<button
-						type="button"
-						onClick={() => setReplyOpen(true)}
-						className="text-xs text-muted-foreground hover:text-primary underline mt-1"
+				{fb.image_ids && fb.image_ids.length > 0 && (
+					<Group gap={6} mb={6} align="center" wrap="nowrap">
+						<IconCamera size={13} style={{ flexShrink: 0 }} />
+						<Group gap={6} wrap="nowrap">
+							{fb.image_ids.map((imgId) => (
+								<UnstyledButton
+									key={imgId}
+									onClick={() => setPreviewUrl(feedbackImageUrl(fb.id, imgId))}
+									style={{
+										flexShrink: 0,
+										borderRadius: "var(--mantine-radius-md)",
+										border: "1px solid var(--mantine-color-gray-3)",
+										overflow: "hidden",
+									}}
+								>
+									<AuthImage
+										src={feedbackImageUrl(fb.id, imgId)}
+										alt={`截图 ${imgId}`}
+										className="h-16 w-auto object-cover"
+									/>
+								</UnstyledButton>
+							))}
+						</Group>
+					</Group>
+				)}
+				<Group gap={8} mb={4}>
+					<Text size="xs" c="dimmed">
+						{new Date(fb.created_at).toLocaleString("zh-CN")}
+					</Text>
+					{fb.version && (
+						<Text size="xs" c="dimmed" opacity={0.5}>
+							v{fb.version}
+						</Text>
+					)}
+					{fb.auto_fix_attempted && (
+						<Badge
+							variant="success"
+							size="xs"
+							title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN")}` : ""}
+						>
+							已尝试自动修复
+						</Badge>
+					)}
+				</Group>
+				{fb.developer_reply ? (
+					<Paper
+						p="sm"
+						mt={8}
+						bg="var(--mantine-color-teal-0)"
+						style={{ border: "1px solid var(--mantine-color-teal-3)" }}
 					>
-						添加回复
-					</button>
-				)
+						<Text size="sm" lh={1.6}>
+							<Text size="xs" fw={500} c="teal" component="span">
+								开发者回复：
+							</Text>
+							{fb.developer_reply}
+						</Text>
+					</Paper>
+				) : (
+					!replyOpen && (
+						<UnstyledButton onClick={() => setReplyOpen(true)} mt={4}>
+							<Text size="xs" c="dimmed" td="underline">
+								添加回复
+							</Text>
+						</UnstyledButton>
+					)
+				)}
+				{replyOpen && (
+					<Stack gap={8} mt={8}>
+						<Textarea
+							autosize
+							minRows={2}
+							value={replyText}
+							onChange={(e) => setReplyText(e.currentTarget.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+									e.preventDefault();
+									handleReply();
+								}
+							}}
+							placeholder="输入开发者回复..."
+						/>
+						<Group gap={8}>
+							<Button size="sm" onClick={handleReply} disabled={sending || !replyText.trim()}>
+								{sending ? "发送中..." : "发送回复"}
+							</Button>
+							<Button size="sm" variant="ghost" onClick={() => setReplyOpen(false)}>取消</Button>
+						</Group>
+					</Stack>
+				)}
+			</Paper>
+			{previewUrl && (
+				<Dialog open onOpenChange={() => setPreviewUrl(null)}>
+					<DialogContent title="截图预览" maxWidth={800}>
+						<AuthImage src={previewUrl} alt="截图预览" className="max-w-full max-h-[70vh] object-contain rounded-md" />
+					</DialogContent>
+				</Dialog>
 			)}
-			{replyOpen && (
-				<div className="mt-2 space-y-2">
-					<textarea
-						value={replyText}
-						onChange={(e) => setReplyText(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-								e.preventDefault();
-								handleReply();
-							}
-						}}
-						placeholder="输入开发者回复..."
-						rows={2}
-						className="w-full p-2 rounded-md border border-border text-sm resize-none outline-none bg-card focus:border-primary"
-					/>
-					<div className="flex gap-2">
-						<Button size="sm" onClick={handleReply} disabled={sending || !replyText.trim()}>
-							{sending ? "发送中..." : "发送回复"}
-						</Button>
-						<Button size="sm" variant="ghost" onClick={() => setReplyOpen(false)}>取消</Button>
-					</div>
-				</div>
-			)}
-		</div>
-		{previewUrl && (
-			<Dialog open onOpenChange={() => setPreviewUrl(null)}>
-				<DialogContent title="截图预览" maxWidth={800}>
-					<AuthImage src={previewUrl} alt="截图预览" className="max-w-full max-h-[70vh] object-contain rounded-md" />
-				</DialogContent>
-			</Dialog>
-		)}
 		</>
 	);
 }
+
 const PIE_LABELS = [
 	"\u{1F61E} 很差",
 	"\u{1F610} 较差",
@@ -279,9 +316,11 @@ function FeedbackChart() {
 
 	if (isLoading)
 		return (
-			<div className="h-[200px] flex items-center justify-center text-muted-foreground/70">
-				加载图表...
-			</div>
+			<Center h={200}>
+				<Text size="sm" c="dimmed">
+					加载图表...
+				</Text>
+			</Center>
 		);
 	if (data.length === 0) return null;
 
@@ -302,42 +341,43 @@ function FeedbackChart() {
 
 	return (
 		<div>
-			<div className="flex items-center justify-between mb-2">
-				<h3 className="text-sm font-normal flex items-center gap-1.5">
-					<BarChart3 size={14} />
-					{weekLabel}反馈分布
-				</h3>
-				<div className="flex gap-0.5">
-					<button
+			<Group justify="space-between" mb={8}>
+				<Group gap={6}>
+					<IconChartBar size={14} />
+					<Text size="sm">{weekLabel}反馈分布</Text>
+				</Group>
+				<Group gap={4}>
+					<ActionIcon
+						variant="default"
+						size="sm"
 						onClick={() => setWeekOffset((v) => v - 1)}
-						className="flex items-center px-1.5 py-0.5 border border-border rounded-sm bg-card cursor-pointer"
+						aria-label="上一周"
 					>
-						<ChevronLeft size={12} />
-					</button>
-					<button
+						<IconChevronLeft size={12} />
+					</ActionIcon>
+					<ActionIcon
+						variant="default"
+						size="sm"
 						onClick={() => setWeekOffset((v) => v + 1)}
 						disabled={weekOffset >= 0}
-						className={cn(
-							"flex items-center px-1.5 py-0.5 border border-border rounded-sm bg-card",
-							weekOffset >= 0 ? "cursor-default opacity-40" : "cursor-pointer",
-						)}
+						aria-label="下一周"
 					>
-						<ChevronRight size={12} />
-					</button>
-				</div>
-			</div>
+						<IconChevronRight size={12} />
+					</ActionIcon>
+				</Group>
+			</Group>
 			<ResponsiveContainer width="100%" height={160}>
 				<BarChart data={data}>
-					<CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+					<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
 					<XAxis
 						dataKey="name"
 						tick={{ fontSize: 10 }}
-						stroke="var(--muted-foreground)"
+						stroke="var(--mantine-color-dimmed)"
 					/>
 					<YAxis
 						allowDecimals={false}
 						tick={{ fontSize: 10 }}
-						stroke="var(--muted-foreground)"
+						stroke="var(--mantine-color-dimmed)"
 						width={24}
 					/>
 					<Tooltip
@@ -433,11 +473,11 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 	if (total === 0) return null;
 
 	return (
-		<div className="flex-[1_1_300px] min-w-[280px]">
-			<h3 className="text-sm font-normal mb-2 flex items-center gap-1.5">
-				<MessageSquare size={14} />
-				评价分布
-			</h3>
+		<Box style={{ flex: "1 1 300px", minWidth: 280 }}>
+			<Group gap={6} mb={8}>
+				<IconMessageCircle size={14} />
+				<Text size="sm">评价分布</Text>
+			</Group>
 			<ResponsiveContainer width="100%" height={200}>
 				<PieChart>
 					<Pie
@@ -471,7 +511,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 					/>
 				</PieChart>
 			</ResponsiveContainer>
-		</div>
+		</Box>
 	);
 }
 
@@ -519,119 +559,114 @@ export default function FeedbackTab() {
 	};
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
-			<div className="mb-4">
-				<button
-					type="button"
+		<Paper withBorder radius="lg" p="md" shadow="sm">
+			<Box mb="md">
+				<Button
+					variant="ghost"
+					size="sm"
+					leftSection={<IconChartBar size={15} />}
+					rightSection={chartsOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
 					onClick={toggleCharts}
-					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
 					aria-expanded={chartsOpen}
 				>
-					<BarChart3 size={15} />
 					统计概览
-					{chartsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-				</button>
+				</Button>
 				{chartsOpen && (
-					<div className="mt-3 flex gap-6 flex-wrap">
-						<div className="flex-[1_1_300px] min-w-0">
+					<Group gap="xl" align="flex-start" wrap="wrap" mt="sm">
+						<Box style={{ flex: "1 1 300px", minWidth: 0 }}>
 							<FeedbackChart />
-						</div>
+						</Box>
 						<RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
-					</div>
+					</Group>
 				)}
-			</div>
+			</Box>
 
-			<div className="flex gap-2 flex-wrap items-center justify-between rounded-lg border border-border bg-muted p-3.5 mb-4">
-				<div className="flex gap-2 items-end flex-wrap">
-					<div>
-						<label className="block text-xs text-muted-foreground mb-1">
-							开始日期
-						</label>
-						<input
-							type="date"
-							value={dateFrom}
-							onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-							className="py-1.5 px-2.5 rounded-lg border border-border text-sm"
+			<Paper withBorder radius="md" p="md" bg="var(--mantine-color-gray-1)" mb="md">
+				<Group gap="lg" align="flex-end" wrap="wrap" justify="space-between">
+					<Group gap={8} align="flex-end" wrap="wrap">
+						<Stack gap={4}>
+							<Text size="xs" c="dimmed">开始日期</Text>
+							<TextInput
+								type="date"
+								size="sm"
+								value={dateFrom}
+								onChange={(e) => handleFilterChange("dateFrom", e.currentTarget.value)}
+							/>
+						</Stack>
+						<Text size="sm" c="dimmed" mb={6}>-</Text>
+						<Stack gap={4}>
+							<Text size="xs" c="dimmed">结束日期</Text>
+							<TextInput
+								type="date"
+								size="sm"
+								value={dateTo}
+								onChange={(e) => handleFilterChange("dateTo", e.currentTarget.value)}
+							/>
+						</Stack>
+						{(dateFrom || dateTo) && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									setDateFrom("");
+									setDateTo("");
+									setOffset(0);
+								}}
+							>
+								清除
+							</Button>
+						)}
+					</Group>
+
+					<Group gap={8} wrap="wrap">
+						<SearchInput
+							value={searchInput}
+							onChange={(v) => { handleSearchChange(v); setOffset(0); }}
+							placeholder="搜索反馈内容..."
 						/>
-					</div>
-					<span className="text-muted-foreground/70 text-sm self-end pb-1.5">
-						-
-					</span>
-					<div>
-						<label className="block text-xs text-muted-foreground mb-1">
-							结束日期
-						</label>
-						<input
-							type="date"
-							value={dateTo}
-							onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-							className="py-1.5 px-2.5 rounded-lg border border-border text-sm"
-						/>
-					</div>
-					{(dateFrom || dateTo) && (
-						<Button
-							variant="outline"
+						<Select
+							value={replyStatus || null}
+							onChange={(v) => { setReplyStatus(v ?? ""); setOffset(0); }}
+							data={[
+								{ value: "", label: "全部回复" },
+								{ value: "replied", label: "已回复" },
+								{ value: "unreplied", label: "未回复" },
+							]}
 							size="sm"
-							onClick={() => {
-								setDateFrom("");
-								setDateTo("");
-								setOffset(0);
-							}}
-						>
-							清除
-						</Button>
-					)}
-				</div>
+							clearable
+						/>
+					</Group>
 
-				<div className="flex gap-2 flex-wrap items-center">
-					<SearchInput
-						value={searchInput}
-						onChange={(v) => { handleSearchChange(v); setOffset(0); }}
-						placeholder="搜索反馈内容..."
-					/>
-					<select
-						value={replyStatus}
-						onChange={(e) => { setReplyStatus(e.target.value); setOffset(0); }}
-						className="py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card"
-					>
-						<option value="">全部回复</option>
-						<option value="replied">已回复</option>
-						<option value="unreplied">未回复</option>
-					</select>
-				</div>
+					<Group gap={8} wrap="wrap">
+						{TAG_OPTIONS.map((opt) => (
+							<Button
+								key={opt.value}
+								size="xs"
+								radius="xl"
+								variant={tag === opt.value ? "default" : "outline"}
+								onClick={() => { setTag(opt.value); setOffset(0); }}
+							>
+								{opt.label}
+							</Button>
+						))}
+					</Group>
+				</Group>
+			</Paper>
 
-				<div className="flex gap-2 flex-wrap">
-					{TAG_OPTIONS.map((opt) => (
-						<button
-							key={opt.value}
-							className={cn(
-								"px-4 py-1.5 rounded-full border text-sm cursor-pointer transition-colors",
-								tag === opt.value
-									? "bg-primary text-primary-foreground border-primary"
-									: "border-border bg-card text-muted-foreground hover:border-blue-400 hover:text-primary",
-							)}
-							onClick={() => { setTag(opt.value); setOffset(0); }}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
-			</div>
-
-			<div className="mb-4 text-sm text-muted-foreground">
+			<Text size="sm" c="dimmed" mb="md">
 				共 {total} 条反馈
-			</div>
+			</Text>
 
 			{isLoading ? (
 				<LoadingState />
 			) : feedbacks.length === 0 ? (
-				<EmptyState icon={MessageSquare} title="暂无反馈" />
+				<EmptyState icon={IconMessageCircle} title="暂无反馈" />
 			) : (
-				<div className="flex flex-col gap-2">
+				<Stack gap={8}>
 					{feedbacks.map((fb: FeedbackItem) => (
 						<FeedbackRow key={fb.id} fb={fb} onReplied={refetchFeedbacks} />
 					))}
-				</div>
+				</Stack>
 			)}
 			<Pagination
 				total={total}
@@ -639,6 +674,6 @@ export default function FeedbackTab() {
 				limit={LIMIT}
 				onChange={setOffset}
 			/>
-		</div>
+		</Paper>
 	);
 }

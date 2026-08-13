@@ -1,7 +1,9 @@
-import { Pencil, Plus, Search, Trash2, Wand2, X } from "lucide-react";
+import { IconPencil, IconPlus, IconSearch, IconTrash, IconWand, IconX } from "@tabler/icons-react";
+import { ActionIcon, Badge, Box, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
 import Button from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Pagination from "@/components/ui/pagination";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { components } from "@/api/api-types.gen";
 
@@ -31,16 +33,15 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 	if (!caps) return null;
 	const defs = Object.entries(ALL_CAPABILITIES).filter(([, def]) => def.tier === "toggleable");
 	const enabled = defs.filter(([key]) => caps[key]);
-	if (enabled.length === 0) return <span className="text-muted-foreground/40 text-xs">—</span>;
+	if (enabled.length === 0) return <Text size="xs" c="dimmed" opacity={0.4}>—</Text>;
 	return (
-		<div className="flex gap-1">
+		<Group gap={4}>
 			{enabled.map(([key, def]) => (
-				<span key={key} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{def.label}</span>
+				<Badge key={key} variant="secondary" size="xs">{def.label}</Badge>
 			))}
-		</div>
+		</Group>
 	);
 }
-
 
 export default function CaseList({
 	cases, total, offset, limit,
@@ -50,84 +51,96 @@ export default function CaseList({
 }: CaseListProps) {
 
 	return (
-		<div className="space-y-4">
+		<Stack gap="md">
 			{/* Toolbar */}
-			<div className="flex items-center gap-2 flex-wrap">
-				<Button size="sm" onClick={onAdd}><Plus size={14} />新建病例</Button>
-				<Button size="sm" variant="outline" onClick={onAIAdd}><Wand2 size={14} />AI 生成</Button>
-				<div className="flex-1" />
-				<div className="relative">
-					<Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<input type="text" value={searchInput} onChange={(e) => onSearchChange(e.target.value)}
-						placeholder="搜索病例…" className="h-8 w-40 pl-8 pr-6 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50" />
-					{searchInput && <button onClick={() => onSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={12} /></button>}
-				</div>
-			</div>
+			<Group gap={8}>
+				<Button size="sm" onClick={onAdd} leftSection={<IconPlus size={14} />}>新建病例</Button>
+				<Button size="sm" variant="outline" onClick={onAIAdd} leftSection={<IconWand size={14} />}>AI 生成</Button>
+				<div style={{ flex: 1 }} />
+				<TextInput
+					size="xs"
+					w={180}
+					value={searchInput}
+					onChange={(e) => onSearchChange(e.currentTarget.value)}
+					placeholder="搜索病例…"
+					leftSection={<IconSearch size={14} />}
+					rightSection={
+						searchInput ? (
+							<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => onSearchChange("")} aria-label="清除搜索">
+								<IconX size={12} />
+							</ActionIcon>
+						) : undefined
+					}
+				/>
+			</Group>
 
-			<div className="flex gap-2 flex-wrap">
-				<Select value={filters.difficulty || "all"} onValueChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}>
-					<SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue placeholder="全部难度" /></SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">全部难度</SelectItem>
-						<SelectItem value="1">初级</SelectItem>
-						<SelectItem value="2">中级</SelectItem>
-						<SelectItem value="3">高级</SelectItem>
-					</SelectContent>
-				</Select>
-				<Select value={filters.is_open ?? "all"} onValueChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}>
-					<SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue placeholder="全部状态" /></SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">全部状态</SelectItem>
-						<SelectItem value="true">已开放</SelectItem>
-						<SelectItem value="false">已关闭</SelectItem>
-					</SelectContent>
-				</Select>
-			</div>
+			<Group gap={8}>
+				<Box w={110}>
+					<Select value={filters.difficulty || "all"} onValueChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}>
+						<SelectTrigger size="sm"><SelectValue placeholder="全部难度" /></SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">全部难度</SelectItem>
+							<SelectItem value="1">初级</SelectItem>
+							<SelectItem value="2">中级</SelectItem>
+							<SelectItem value="3">高级</SelectItem>
+						</SelectContent>
+					</Select>
+				</Box>
+				<Box w={110}>
+					<Select value={filters.is_open ?? "all"} onValueChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}>
+						<SelectTrigger size="sm"><SelectValue placeholder="全部状态" /></SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">全部状态</SelectItem>
+							<SelectItem value="true">已开放</SelectItem>
+							<SelectItem value="false">已关闭</SelectItem>
+						</SelectContent>
+					</Select>
+				</Box>
+			</Group>
 
 			{/* Table */}
-			<div className="rounded-lg border border-border bg-card overflow-x-auto">
-				<table className="w-full text-sm table-fixed min-w-[640px]">
-					<thead>
-						<tr className="border-b border-border bg-muted/50">
-							<th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-[26%]">病例名称</th>
-							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[10%]">难度</th>
-							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[12%]">类型</th>
-							<th className="text-left px-2 py-2 text-xs font-medium text-muted-foreground w-[22%]">能力</th>
-							<th className="text-center px-2 py-2 text-xs font-medium text-muted-foreground w-[16%]">状态</th>
-							<th className="text-center px-2 py-2 text-xs font-medium text-muted-foreground w-[14%]">操作</th>
-						</tr>
-					</thead>
-					<tbody>
+			<Paper withBorder radius="md" style={{ overflow: "auto" }}>
+				<Table highlightOnHover miw={640} horizontalSpacing="sm" verticalSpacing="xs">
+					<TableHeader>
+						<TableRow>
+							<TableHead><Text size="xs" c="dimmed" fw={600}>病例名称</Text></TableHead>
+							<TableHead><Text size="xs" c="dimmed" fw={600}>难度</Text></TableHead>
+							<TableHead><Text size="xs" c="dimmed" fw={600}>类型</Text></TableHead>
+							<TableHead><Text size="xs" c="dimmed" fw={600}>能力</Text></TableHead>
+							<TableHead style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></TableHead>
+							<TableHead style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
 						{cases.map((c) => (
-							<tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-								<td className="px-3 py-2">
-									<div className="font-medium text-xs truncate">{c.name}</div>
-									<div className="text-[10px] text-muted-foreground truncate mt-0.5">
+							<TableRow key={c.id}>
+								<TableCell>
+									<Text size="xs" fw={500} truncate>{c.name}</Text>
+									<Text size="xs" c="dimmed" truncate mt={2}>
 										{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
-									</div>
-								</td>
-								<td className="px-2 py-2"><span className="text-xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</span></td>
-								<td className="px-2 py-2"><span className="text-xs text-muted-foreground">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</span></td>
-								<td className="px-2 py-2"><CapabilityBadges caps={c.capabilities} /></td>
-								<td className="px-2 py-2 text-center">
-									<button type="button" onClick={() => onToggleOpen(c)}
-										className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${c.is_open ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+									</Text>
+								</TableCell>
+								<TableCell><Text size="xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</Text></TableCell>
+								<TableCell><Text size="xs" c="dimmed">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</Text></TableCell>
+								<TableCell><CapabilityBadges caps={c.capabilities} /></TableCell>
+								<TableCell style={{ textAlign: "center" }}>
+									<Button size="xs" variant={c.is_open ? "success" : "secondary"} onClick={() => onToggleOpen(c)}>
 										{c.is_open ? "开放" : "关闭"}
-									</button>
-								</td>
-								<td className="px-2 py-2">
-									<div className="flex items-center justify-center gap-0.5">
-										<button type="button" onClick={() => onEdit(c)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="编辑"><Pencil size={13} /></button>
-										<button type="button" onClick={() => onDelete(c)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 dark:hover:bg-red-950/30" title="删除"><Trash2 size={13} /></button>
-									</div>
-								</td>
-							</tr>
+									</Button>
+								</TableCell>
+								<TableCell>
+									<Group gap={4} justify="center">
+										<ActionIcon variant="subtle" color="gray" size="sm" onClick={() => onEdit(c)} aria-label="编辑"><IconPencil size={14} /></ActionIcon>
+										<ActionIcon variant="subtle" color="red" size="sm" onClick={() => onDelete(c)} aria-label="删除"><IconTrash size={14} /></ActionIcon>
+									</Group>
+								</TableCell>
+							</TableRow>
 						))}
-					</tbody>
-				</table>
-			</div>
+					</TableBody>
+				</Table>
+			</Paper>
 
 			{total > limit && <Pagination total={total} offset={offset} limit={limit} onChange={onOffsetChange} />}
-		</div>
+		</Stack>
 	);
 }

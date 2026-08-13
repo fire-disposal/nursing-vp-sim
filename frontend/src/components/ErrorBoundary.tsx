@@ -1,4 +1,5 @@
-import { CircleAlert, Home } from "lucide-react";
+import { Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { IconAlertCircle, IconHome } from "@tabler/icons-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { reportError } from "@/utils/telemetry";
@@ -45,47 +46,60 @@ export default class ErrorBoundary extends Component<Props, State> {
 			const showDeveloperDetails = import.meta.env.DEV;
 
 			return (
-				<div className="flex h-screen flex-col items-center justify-center gap-4 font-sans text-foreground">
-					<CircleAlert className="size-12 text-destructive" />
-					<h2 className="text-lg font-semibold">页面出错了</h2>
-					<p className="max-w-[400px] text-center text-muted-foreground">
-						{showDeveloperDetails && this.state.error.message ? this.state.error.message : "请刷新页面重试，或联系管理员并提供当前页面路径。"}
-					</p>
-					<div className="flex gap-2">
+				<Stack
+					align="center"
+					justify="center"
+					gap="md"
+					style={{ height: "100vh" }}
+				>
+					<ThemeIcon variant="light" color="red" size={48} radius="xl">
+						<IconAlertCircle size={28} />
+					</ThemeIcon>
+					<Title order={2}>页面出错了</Title>
+					<Text size="sm" c="dimmed" ta="center" maw={400}>
+						{showDeveloperDetails && this.state.error.message
+							? this.state.error.message
+							: "请刷新页面重试，或联系管理员并提供当前页面路径。"}
+					</Text>
+					<Stack gap={8}>
 						<Button variant="outline" onClick={this.handleReset}>
 							重试
 						</Button>
 						<Button onClick={() => window.location.reload()}>刷新页面</Button>
 						<Button variant="ghost" onClick={() => (window.location.href = "/home")}>
-							<Home className="mr-1 size-4" />
+							<IconHome size={14} style={{ marginRight: 4 }} />
 							返回首页
 						</Button>
-					</div>
+					</Stack>
 					{showDeveloperDetails && (
 						<>
-							<button
-								type="button"
-								onClick={this.handleToggleDetails}
-								className="cursor-pointer text-sm text-muted-foreground underline hover:text-foreground"
-							>
+							<Button variant="link" size="xs" onClick={this.handleToggleDetails}>
 								{this.state.showDetails ? "收起错误详情" : "查看错误详情"}
-							</button>
+							</Button>
 							{this.state.showDetails && (
-								<pre className="max-h-64 max-w-[600px] overflow-auto rounded-lg border border-border bg-muted p-4 text-left text-xs text-muted-foreground">
-									{this.state.error.message}
-									{"\n\n"}
-									{this.state.error.stack}
-									{this.state.errorInfo && (
-										<>
-											{"\n\n--- Component Stack ---\n"}
-											{this.state.errorInfo.componentStack}
-										</>
-									)}
-								</pre>
+								<Paper
+									withBorder
+									p="md"
+									radius="md"
+									component="pre"
+									style={{ maxHeight: 256, maxWidth: 600, overflow: "auto", textAlign: "left" }}
+								>
+									<Text size="xs" c="dimmed" component="code">
+										{this.state.error.message}
+										{"\n\n"}
+										{this.state.error.stack}
+										{this.state.errorInfo && (
+											<>
+												{"\n\n--- Component Stack ---\n"}
+												{this.state.errorInfo.componentStack}
+											</>
+										)}
+									</Text>
+								</Paper>
 							)}
 						</>
 					)}
-				</div>
+				</Stack>
 			);
 		}
 

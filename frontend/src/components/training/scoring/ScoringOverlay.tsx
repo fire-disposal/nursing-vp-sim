@@ -1,8 +1,8 @@
-import { Brain, Loader2, RotateCcw } from "lucide-react";
+import { IconBrain, IconLoader2, IconRotate } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Box, Button, Group, SimpleGrid, Text } from "@mantine/core";
 import type { MessageBus, ScorePhase } from "@/engine/types";
-import { cn } from "@/lib/utils";
 
 const phaseLabels: Record<string, string> = {
 	loading: "正在加载对话记录...",
@@ -81,77 +81,149 @@ export function ScoringOverlay({
 		finally { setTimeout(() => setRetrying(false), 3000); }
 	};
 
+	const accentBg = isFailed ? "var(--mantine-color-red-1)" : "var(--mantine-primary-color-light)";
+	const accentFg = isFailed ? "var(--mantine-color-red-6)" : "var(--mantine-primary-color-light-color)";
+
 	return (
-		<div className={cn("fixed inset-0 z-40 flex items-center justify-center bg-background/80", !closing && "animate-in fade-in-0", closing && "animate-out fade-out-0", "duration-300")}>
-			<div className={cn("w-full max-w-sm mx-4 rounded-xl border border-border bg-card p-5 shadow-lg", !closing && "animate-in zoom-in-95 fade-in-0", closing && "animate-out zoom-out-95 fade-out-0", "duration-300")}>
+		<Box
+			style={{
+				position: "fixed",
+				inset: 0,
+				zIndex: 40,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				background: "rgba(0, 0, 0, 0.5)",
+				opacity: closing ? 0 : 1,
+				transition: "opacity 300ms",
+			}}
+		>
+			<Box
+				style={{
+					width: "100%",
+					maxWidth: 384,
+					margin: "0 16px",
+					borderRadius: 12,
+					border: "1px solid var(--mantine-color-default-border)",
+					background: "var(--mantine-color-body)",
+					padding: 20,
+					boxShadow: "var(--mantine-shadow-lg)",
+				}}
+			>
 				{/* Header */}
-				<div className="flex items-center gap-3 mb-4">
-					<div className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", isFailed ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
-						{isActive ? <Loader2 className="size-4 animate-spin" /> : <Brain className="size-4" />}
-					</div>
-					<div className="min-w-0">
-						<p className="text-sm font-semibold truncate">{isActive ? "正在评估训练表现" : isFailed ? "评估失败" : "评估完成"}</p>
-						<p className="text-xs text-muted-foreground">{phaseText} · {progress.percentage}%</p>
-					</div>
-				</div>
+				<Group gap={12} mb="md" wrap="nowrap">
+					<Box
+						w={36}
+						h={36}
+						style={{
+							borderRadius: 999,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							flexShrink: 0,
+							background: accentBg,
+							color: accentFg,
+						}}
+					>
+						{isActive ? <IconLoader2 size={16} className="animate-spin" /> : <IconBrain size={16} />}
+					</Box>
+					<Box style={{ minWidth: 0 }}>
+						<Text size="sm" fw={600} truncate>{isActive ? "正在评估训练表现" : isFailed ? "评估失败" : "评估完成"}</Text>
+						<Text size="xs" c="dimmed">{phaseText} · {progress.percentage}%</Text>
+					</Box>
+				</Group>
 
 				{/* Progress bar */}
-				<div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-					<div className={cn("h-full rounded-full transition-all duration-500 ease-out", isFailed ? "bg-destructive" : "bg-primary")}
-						style={{ width: `${Math.max(4, progress.percentage)}%` }} />
-				</div>
+				<Box h={6} w="100%" mb="md" style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+					<Box
+						h="100%"
+						style={{
+							width: `${Math.max(4, progress.percentage)}%`,
+							borderRadius: 999,
+							transition: "all 500ms ease-out",
+							background: isFailed ? "var(--mantine-color-red-6)" : "var(--mantine-primary-color-filled)",
+						}}
+					/>
+				</Box>
 
 				{/* AI thought — expanded by default for entertainment while waiting */}
 				{isActive && (progress.score_thought || progress.feedback_thought) && (
-					<div className="mb-3">
-						<button type="button" onClick={() => setShowThought((v) => !v)}
-							className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+					<Box mb="md">
+						<Box
+							component="button"
+							type="button"
+							onClick={() => setShowThought((v) => !v)}
+							style={{ fontSize: 10, color: "var(--mantine-color-dimmed)", background: "transparent", border: "none", cursor: "pointer" }}
+						>
 							{showThought ? "▲ 收起" : "▼ 展开"} AI 实时分析
-						</button>
+						</Box>
 						{showThought && (
-							<div className="grid grid-cols-2 gap-2 mt-1">
-								<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
-									<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring_dims</div>
-									<div ref={scoreScrollRef} className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-										{progress.score_thought ? <p className="text-foreground/70 whitespace-pre-wrap break-all">{progress.score_thought}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 等待评分维度分析...</p>}
-									</div>
-								</div>
-								<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5">
-									<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback_gen</div>
-									<div ref={feedbackScrollRef} className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-										{progress.feedback_thought ? <p className="text-foreground/70 whitespace-pre-wrap break-all">{progress.feedback_thought}</p> : <p className="text-muted-foreground/50 animate-pulse">▎ 等待反馈生成...</p>}
-									</div>
-								</div>
-							</div>
+							<SimpleGrid cols={2} spacing={8} mt={4}>
+								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
+									<Text size="10px" ff="monospace" c="teal.7" mb={4}>$ scoring_dims</Text>
+									<Box
+										ref={scoreScrollRef}
+										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
+									>
+										{progress.score_thought ? <Text component="span" size="10px" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.score_thought}</Text> : <Text component="span" size="10px" c="dimmed" style={{ animation: "pulse 2s infinite", opacity: 0.5 }}>▎ 等待评分维度分析...</Text>}
+									</Box>
+								</Box>
+								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
+									<Text size="10px" ff="monospace" c="teal.7" mb={4}>$ feedback_gen</Text>
+									<Box
+										ref={feedbackScrollRef}
+										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
+									>
+										{progress.feedback_thought ? <Text component="span" size="10px" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.feedback_thought}</Text> : <Text component="span" size="10px" c="dimmed" style={{ animation: "pulse 2s infinite", opacity: 0.5 }}>▎ 等待反馈生成...</Text>}
+									</Box>
+								</Box>
+							</SimpleGrid>
 						)}
-					</div>
+					</Box>
 				)}
 
 				{/* Error */}
 				{isFailed && progress.message && (
-					<div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
-						<p className="text-xs text-destructive whitespace-pre-wrap">{progress.message}</p>
+					<Box
+						mb="md"
+						px="sm"
+						py={8}
+						style={{ borderRadius: 6, border: "1px solid var(--mantine-color-red-3)", background: "var(--mantine-color-red-0)" }}
+					>
+						<Text size="xs" c="red.6" style={{ whiteSpace: "pre-wrap" }}>{progress.message}</Text>
 						{onRetry && (
-							<button type="button" onClick={handleRetry} disabled={retrying}
-								className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline">
-								{retrying ? <Loader2 className="size-3 animate-spin" /> : <RotateCcw size={12} />}
+							<Button
+								variant="subtle"
+								size="xs"
+								color="teal"
+								mt={8}
+								onClick={handleRetry}
+								disabled={retrying}
+								leftSection={retrying ? <IconLoader2 size={12} className="animate-spin" /> : <IconRotate size={12} />}
+							>
 								重试评分
-							</button>
+							</Button>
 						)}
-					</div>
+					</Box>
 				)}
 
 				{/* Footer */}
 				{isActive && (
-					<div className="mt-3 flex items-center justify-between gap-3">
-						<p className="text-[11px] text-muted-foreground leading-tight">评分完成后自动跳转结果页，<br />也可提前返回训练选择</p>
-						<button type="button" onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate(-1); }, 200); }}
-							className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted transition-colors">
+					<Group justify="space-between" gap={12} mt="md" wrap="nowrap">
+						<Text size="11px" c="dimmed" lh={1.4}>
+							评分完成后自动跳转结果页，<br />也可提前返回训练选择
+						</Text>
+						<Button
+							variant="outline"
+							size="xs"
+							onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate(-1); }, 200); }}
+							style={{ flexShrink: 0 }}
+						>
 							返回训练选择
-						</button>
-					</div>
+						</Button>
+					</Group>
 				)}
-			</div>
-		</div>
+			</Box>
+		</Box>
 	);
 }

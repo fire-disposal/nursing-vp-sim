@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Medal, TrendingUp, Trophy, Zap } from "lucide-react";
+import { Box, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import {
+	IconBolt,
+	IconClock,
+	IconMedal,
+	IconTrendingUp,
+	IconTrophy,
+} from "@tabler/icons-react";
 import {
 	Bar,
 	BarChart,
@@ -16,9 +23,9 @@ import { getStudentTrend } from "@/api/scoreboard";
 import { queryKeys } from "@/api/query-keys";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
+import Badge from "@/components/ui/badge";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/lib/utils";
 
 type StudentTrendResponse = components["schemas"]["StudentTrendResponse"];
 
@@ -56,32 +63,34 @@ const TREND_LABELS: Record<string, string> = {
 };
 
 const TREND_COLORS: Record<string, string> = {
-	up: "text-success-foreground",
-	flat: "text-muted-foreground",
-	down: "text-destructive",
+	up: "green",
+	flat: "dimmed",
+	down: "red",
 };
 
 function trendBadge(trend: string, delta: number | null | undefined) {
 	const label = TREND_LABELS[trend] ?? "暂无";
 	if (delta == null) {
-		return <span className="text-sm text-muted-foreground">—</span>;
+		return <Text inherit c="dimmed">—</Text>;
 	}
 	const arrow = trend === "up" ? "▲" : trend === "down" ? "▼" : "•";
 	return (
-		<span className={cn("font-medium", TREND_COLORS[trend] ?? "")}>
+		<Text inherit fw={500} c={TREND_COLORS[trend] ?? "dimmed"}>
 			{arrow} {delta >= 0 ? "+" : ""}
 			{delta.toFixed(1)} 分
-			<span className="ml-1 text-xs opacity-80">({label})</span>
-		</span>
+			<Text component="span" inherit opacity={0.8} ml={4}>
+				({label})
+			</Text>
+		</Text>
 	);
 }
 
 /** 分层与后端一致：good ≥ 85，medium ≥ 60，poor < 60（0-100 分制）。 */
 const TIER_TEXT_COLOR: Record<string, string> = {
-	good: "text-success-foreground",
-	medium: "text-warning-foreground",
-	poor: "text-destructive",
-	none: "text-muted-foreground",
+	good: "green",
+	medium: "yellow",
+	poor: "red",
+	none: "dimmed",
 };
 
 function tierOf(score: number | null | undefined): string {
@@ -138,90 +147,94 @@ export default function StudentTrendDialog({
 			<DialogContent size="lg" title="成绩趋势" maxWidth={760}>
 				<DialogTitle className="sr-only">成绩趋势</DialogTitle>
 				{isLoading ? (
-					<div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-						加载中...
-					</div>
+					<Group h={192} justify="center" align="center">
+						<Text size="sm" c="dimmed">加载中...</Text>
+					</Group>
 				) : !trend || trendRecords.length === 0 ? (
 					<EmptyState
 						title="暂无成绩记录"
 						description="该学生在当前筛选范围内没有已评分的训练记录"
 					/>
 				) : (
-					<div className="space-y-5">
-						<div className="flex flex-wrap items-center justify-between gap-2">
-							<div>
-								<p className="text-lg font-bold text-foreground">
+					<Stack gap="lg">
+						<Group justify="space-between" wrap="wrap" gap={8}>
+							<Stack gap={0}>
+								<Text size="lg" fw={700}>
 									{trend.display_name}
 									{trend.class_name && (
-										<span className="ml-2 text-sm font-normal text-muted-foreground">
+										<Text component="span" size="sm" fw={400} c="dimmed" ml={8}>
 											{trend.class_name}
-										</span>
+										</Text>
 									)}
-								</p>
-								<p className="text-xs text-muted-foreground">
+								</Text>
+								<Text size="xs" c="dimmed">
 									{trend.student_id ?? ""} · 共 {trend.training_count} 次训练 · 覆盖{" "}
 									{new Set(trendRecords.map((r) => r.case_id)).size} 个病例
-								</p>
-							</div>
+								</Text>
+							</Stack>
 							{trend.progress_delta != null && (
-								<span className="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-									<TrendingUp size={14} />
+								<Badge variant="secondary" leftSection={<IconTrendingUp size={14} />}>
 									进步幅度：{trendBadge(trend.progress_trend, trend.progress_delta)}
-								</span>
+								</Badge>
 							)}
-						</div>
+						</Group>
 
-						<div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-							<div className="rounded-xl bg-muted/50 p-3">
-								<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<Zap size={13} /> 训练次数
-								</div>
-								<p className="mt-1 text-lg font-bold text-foreground">
+						<SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+								<Group gap={6} wrap="nowrap">
+									<IconBolt size={13} />
+									<Text size="xs" c="dimmed">训练次数</Text>
+								</Group>
+								<Text mt={4} size="lg" fw={700}>
 									{trend.training_count}
-								</p>
-							</div>
-							<div className="rounded-xl bg-muted/50 p-3">
-								<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<Clock size={13} /> 总用时
-								</div>
-								<p className="mt-1 text-lg font-bold text-foreground">
+								</Text>
+							</Paper>
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+								<Group gap={6} wrap="nowrap">
+									<IconClock size={13} />
+									<Text size="xs" c="dimmed">总用时</Text>
+								</Group>
+								<Text mt={4} size="lg" fw={700}>
 									{formatDuration(trend.total_duration_seconds)}
-								</p>
-							</div>
-							<div className="rounded-xl bg-muted/50 p-3">
-								<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<Medal size={13} /> 平均分
-								</div>
-								<p
-									className={cn(
-										"mt-1 text-lg font-bold",
-										TIER_TEXT_COLOR[tierOf(trend.avg_score)],
-									)}
+								</Text>
+							</Paper>
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+								<Group gap={6} wrap="nowrap">
+									<IconMedal size={13} />
+									<Text size="xs" c="dimmed">平均分</Text>
+								</Group>
+								<Text
+									mt={4}
+									size="lg"
+									fw={700}
+									c={TIER_TEXT_COLOR[tierOf(trend.avg_score)]}
 								>
 									{trend.avg_score ?? "-"}
-								</p>
-							</div>
-							<div className="rounded-xl bg-muted/50 p-3">
-								<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<Trophy size={13} /> 最高分
-								</div>
-								<p className="mt-1 text-lg font-bold text-foreground">
+								</Text>
+							</Paper>
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+								<Group gap={6} wrap="nowrap">
+									<IconTrophy size={13} />
+									<Text size="xs" c="dimmed">最高分</Text>
+								</Group>
+								<Text mt={4} size="lg" fw={700}>
 									{trend.best_score ?? "-"}
-								</p>
-							</div>
-							<div className="rounded-xl bg-muted/50 p-3">
-								<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<TrendingUp size={13} /> 进步幅度
-								</div>
-								<p className="mt-1 text-lg font-bold">
+								</Text>
+							</Paper>
+							<Paper bg="var(--mantine-color-gray-1)" p="sm" radius="lg">
+								<Group gap={6} wrap="nowrap">
+									<IconTrendingUp size={13} />
+									<Text size="xs" c="dimmed">进步幅度</Text>
+								</Group>
+								<Box mt={4} style={{ fontSize: "var(--mantine-font-size-lg)", fontWeight: 700 }}>
 									{trendBadge(trend.progress_trend, trend.progress_delta)}
-								</p>
-							</div>
-						</div>
+								</Box>
+							</Paper>
+						</SimpleGrid>
 
-						<div className="space-y-1">
-							<p className="text-sm font-medium text-foreground">分数趋势</p>
-							<div className="h-52 w-full">
+						<Stack gap={4}>
+							<Text size="sm" fw={500}>分数趋势</Text>
+							<Box h={208} w="100%">
 								<ResponsiveContainer width="100%" height="100%">
 									<LineChart data={chartData}>
 										<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
@@ -245,12 +258,12 @@ export default function StudentTrendDialog({
 										/>
 									</LineChart>
 								</ResponsiveContainer>
-							</div>
-						</div>
+							</Box>
+						</Stack>
 
-						<div className="space-y-1">
-							<p className="text-sm font-medium text-foreground">单次训练用时（分钟）</p>
-							<div className="h-40 w-full">
+						<Stack gap={4}>
+							<Text size="sm" fw={500}>单次训练用时（分钟）</Text>
+							<Box h={160} w="100%">
 								<ResponsiveContainer width="100%" height="100%">
 									<BarChart data={chartData}>
 										<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
@@ -268,9 +281,9 @@ export default function StudentTrendDialog({
 										<Bar dataKey="minutes" name="用时" fill={barColors.minutes} radius={[4, 4, 0, 0]} />
 									</BarChart>
 								</ResponsiveContainer>
-							</div>
-						</div>
-					</div>
+							</Box>
+						</Stack>
+					</Stack>
 				)}
 			</DialogContent>
 		</Dialog>

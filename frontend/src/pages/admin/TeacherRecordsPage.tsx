@@ -1,17 +1,13 @@
+import { Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	ArrowDown,
-	ArrowUp,
-	ArrowUpDown,
-	ClipboardList,
-	Trash2,
-} from "lucide-react";
+import { IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
+import { Checkbox } from "@/components/ui/checkbox";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
@@ -19,8 +15,10 @@ import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,
@@ -30,7 +28,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { cn } from "@/lib/utils";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -143,11 +140,11 @@ export default function TeacherRecordsPage() {
 
 	const sortIcon = (field: SortField) => {
 		if (sortField !== field)
-			return <ArrowUpDown size={12} className="ml-1 inline text-muted-foreground/50" />;
+			return <IconArrowsUpDown size={12} style={{ color: "var(--mantine-color-dimmed)", opacity: 0.5, marginLeft: 4 }} />;
 		return sortDir === "asc" ? (
-			<ArrowUp size={12} className="ml-1 inline" />
+			<IconArrowUp size={12} style={{ marginLeft: 4 }} />
 		) : (
-			<ArrowDown size={12} className="ml-1 inline" />
+			<IconArrowDown size={12} style={{ marginLeft: 4 }} />
 		);
 	};
 
@@ -230,205 +227,142 @@ export default function TeacherRecordsPage() {
 			<PageHeader
 				title="训练记录管理"
 				subtitle="查看和管理所有学生的训练记录"
-				icon={ClipboardList}
+				icon={IconClipboardList}
 			/>
 
-			<div className="space-y-4">
-				<div className="rounded-xl border bg-card p-4 sm:p-5">
-					<div className="flex flex-col gap-3">
-						<div className="flex flex-row flex-wrap items-end gap-3">
-							<div className="min-w-[200px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									班级
-								</label>
-								<ClassFilter
-									classId={class_id ? Number(class_id) : undefined}
-									onChange={handleClassFilterChange}
-								/>
-							</div>
-							<div className="flex-1 min-w-[160px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									学生搜索
-								</label>
-								<input
-									type="text"
-									placeholder="搜索学生姓名或学号..."
-									aria-label="搜索学生姓名或学号"
-									value={searchInput}
-									onChange={(e) => handleSearchChange(e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								/>
-							</div>
-							<div className="min-w-[140px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									病例
-								</label>
-								<select
-									value={case_id}
-									onChange={(e) => setParam("case_id", e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								>
-									<option value="">全部病例</option>
-									{caseOptions.map((c) => (
-										<option key={c.id} value={c.id}>
-											{c.name}
-										</option>
-									))}
-								</select>
-							</div>
-							<div className="min-w-[120px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									状态
-								</label>
-								<select
-									value={status}
-									onChange={(e) => setParam("status", e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								>
-									<option value="">全部</option>
-									<option value="in_progress">进行中</option>
-									<option value="completed">已完成</option>
-									<option value="abandoned">已放弃</option>
-								</select>
-							</div>
-							<div className="min-w-[120px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									类型
-								</label>
-								<select
-									value={training_type}
-									onChange={(e) => setParam("training_type", e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								>
-									<option value="">全部</option>
-									<option value="history_taking">问诊</option>
-								</select>
-							</div>
-							<div className="min-w-[140px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									开始日期(起)
-								</label>
-								<input
-									type="date"
-									value={date_from}
-									onChange={(e) => setParam("date_from", e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								/>
-							</div>
-							<div className="min-w-[140px]">
-								<label className="block text-xs font-medium text-muted-foreground mb-1.5">
-									开始日期(止)
-								</label>
-								<input
-									type="date"
-									value={date_to}
-									onChange={(e) => setParam("date_to", e.target.value)}
-									className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
-								/>
-							</div>
-							<div className="flex items-end gap-2">
-								<label className="flex items-center gap-1.5 text-sm h-9">
-									<input
-										type="checkbox"
-										checked={exclude_is_test}
-										onChange={(e) =>
-											setParam("exclude_is_test", e.target.checked ? "true" : "false")
-										}
-										className="size-4 rounded border-input accent-primary"
-									/>
-									<span className="text-xs text-muted-foreground">排除试跑</span>
-								</label>
-								<Button variant="outline" size="default" onClick={handleClearFilters}>
-									清除过滤
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
+			<Stack gap="md">
+				<Paper withBorder radius="lg" p="md">
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">班级</Text>
+							<ClassFilter
+								classId={class_id ? Number(class_id) : undefined}
+								onChange={handleClassFilterChange}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">学生搜索</Text>
+							<Input
+								placeholder="搜索学生姓名或学号..."
+								aria-label="搜索学生姓名或学号"
+								value={searchInput}
+								onChange={(e) => handleSearchChange(e.target.value)}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">病例</Text>
+							<Select
+								value={case_id || null}
+								onChange={(v) => setParam("case_id", v ?? "")}
+								data={[
+									{ value: "", label: "全部病例" },
+									...caseOptions.map((c) => ({
+										value: String(c.id),
+										label: c.name,
+									})),
+								]}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">状态</Text>
+							<Select
+								value={status || null}
+								onChange={(v) => setParam("status", v ?? "")}
+								data={[
+									{ value: "", label: "全部" },
+									{ value: "in_progress", label: "进行中" },
+									{ value: "completed", label: "已完成" },
+									{ value: "abandoned", label: "已放弃" },
+								]}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">类型</Text>
+							<Select
+								value={training_type || null}
+								onChange={(v) => setParam("training_type", v ?? "")}
+								data={[
+									{ value: "", label: "全部" },
+									{ value: "history_taking", label: "问诊" },
+								]}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">开始日期(起)</Text>
+							<Input
+								type="date"
+								value={date_from}
+								onChange={(e) => setParam("date_from", e.target.value)}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">开始日期(止)</Text>
+							<Input
+								type="date"
+								value={date_to}
+								onChange={(e) => setParam("date_to", e.target.value)}
+							/>
+						</Stack>
+						<Group gap={8} align="center" wrap="wrap" style={{ alignSelf: "end" }}>
+							<Checkbox
+								label="排除试跑"
+								checked={exclude_is_test}
+								onCheckedChange={(c) => setParam("exclude_is_test", c ? "true" : "false")}
+							/>
+							<Button variant="outline" onClick={handleClearFilters}>
+								清除过滤
+							</Button>
+						</Group>
+					</SimpleGrid>
+				</Paper>
 
 				{/* Stats bar */}
-				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-					<div className="rounded-xl border bg-card p-4 text-center">
-						<div className="text-2xl font-bold tabular-nums">{total}</div>
-						<div className="text-xs text-muted-foreground mt-1">筛选结果</div>
-					</div>
-					<div className="rounded-xl border bg-card p-4 text-center">
-						<div className="text-2xl font-bold tabular-nums">{stats.completed}</div>
-						<div className="text-xs text-muted-foreground mt-1">已完成</div>
-					</div>
-					<div className="rounded-xl border bg-card p-4 text-center">
-						<div className="text-2xl font-bold tabular-nums">
-							{stats.avgScore != null ? `${stats.avgScore.toFixed(1)}` : "-"}
-						</div>
-						<div className="text-xs text-muted-foreground mt-1">平均分</div>
-					</div>
-					<div className="rounded-xl border bg-card p-4 text-center">
-						<div className="text-2xl font-bold tabular-nums">{stats.scoringRate}%</div>
-						<div className="text-xs text-muted-foreground mt-1">评分完成率</div>
-					</div>
-				</div>
+				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+					<StatCard value={total} label="筛选结果" color="blue" />
+					<StatCard value={stats.completed} label="已完成" color="green" />
+					<StatCard value={stats.avgScore != null ? stats.avgScore.toFixed(1) : "-"} label="平均分" color="teal" />
+					<StatCard value={`${stats.scoringRate}%`} label="评分完成率" color="amber" />
+				</SimpleGrid>
 
 				{isLoading ? (
 					<LoadingSkeleton variant="spinner" message="加载中..." />
 				) : isError ? (
 					<ErrorDisplay
-						icon={ClipboardList}
+						icon={IconClipboardList}
 						message={(error as { response?: { data?: { detail?: string } } })
 							?.response?.data?.detail || "加载记录失败"}
 						onRetry={() => refetch()}
 					/>
 				) : sortedRecords.length === 0 ? (
-					<div className="rounded-xl border bg-card">
-						<EmptyState icon={ClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
-					</div>
+					<Paper withBorder radius="lg">
+						<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
+					</Paper>
 				) : (
-					<div className="rounded-xl border bg-card overflow-hidden">
-						<div className="overflow-x-auto">
+					<Paper withBorder radius="lg" style={{ overflow: "hidden" }}>
+						<div style={{ overflowX: "auto" }}>
 							<Table>
 								<TableHeader>
-									<TableRow className="bg-muted/50">
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											学生
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											学号
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											病例
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											类型
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											来源
-										</TableHead>
-										<TableHead
-											className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none"
-											onClick={() => handleSort("start_time")}
-										>
+									<TableRow>
+										<TableHead>学生</TableHead>
+										<TableHead>学号</TableHead>
+										<TableHead>病例</TableHead>
+										<TableHead>类型</TableHead>
+										<TableHead>来源</TableHead>
+										<TableHead style={{ cursor: "pointer" }} onClick={() => handleSort("start_time")}>
 											开始时间{sortIcon("start_time")}
 										</TableHead>
 										<TableHead
-											className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hidden sm:table-cell"
+											style={{ cursor: "pointer" }}
 											onClick={() => handleSort("duration")}
 										>
 											时长{sortIcon("duration")}
 										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											状态
-										</TableHead>
-										<TableHead
-											className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none"
-											onClick={() => handleSort("score_total")}
-										>
+										<TableHead>状态</TableHead>
+										<TableHead style={{ cursor: "pointer" }} onClick={() => handleSort("score_total")}>
 											得分{sortIcon("score_total")}
 										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											评分状态
-										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
-											操作
-										</TableHead>
+										<TableHead>评分状态</TableHead>
+										<TableHead>操作</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -436,36 +370,23 @@ export default function TeacherRecordsPage() {
 										const durMins = durationMinutes(r);
 										return (
 											<TableRow key={r.id}>
-												<TableCell>
-													{r.user_display_name}
-												</TableCell>
-												<TableCell className="text-muted-foreground">
-													{r.user_student_id ?? ""}
-												</TableCell>
-												<TableCell className="font-medium">
-													{r.case_name}
-												</TableCell>
+												<TableCell>{r.user_display_name}</TableCell>
+												<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{r.user_student_id ?? ""}</TableCell>
+												<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
 												<TableCell>
 													<Badge variant="secondary">问诊</Badge>
 												</TableCell>
-												<TableCell className="text-xs text-muted-foreground">
+												<TableCell>
 													{r.assignment_title ? (
-														<span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-px text-[11px] text-primary">作业</span>
+														<Badge variant="secondary" color="teal" size="xs">作业</Badge>
 													) : (
-														<span className="text-muted-foreground/40">自由训练</span>
+														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 													)}
 												</TableCell>
-												<TableCell className="text-xs text-muted-foreground">
+												<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 													{new Date(r.start_time).toLocaleString("zh-CN")}
 												</TableCell>
-												<TableCell
-													className={cn(
-														"hidden sm:table-cell",
-														durMins != null
-															? "text-muted-foreground"
-															: "text-muted-foreground/50",
-													)}
-												>
+												<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", opacity: durMins != null ? 1 : 0.5 }}>
 													{durMins != null ? `${durMins} 分钟` : "进行中"}
 												</TableCell>
 												<TableCell>
@@ -483,21 +404,23 @@ export default function TeacherRecordsPage() {
 												</TableCell>
 												<TableCell>
 													{r.score_total != null ? (
-														<span className="font-semibold text-primary">
+														<Text component="span" fw={600} c="teal">
 															{r.score_total}分
-														</span>
+														</Text>
 													) : r.scoring_status === "pending" ||
 														r.scoring_status === "processing" ? (
 														<Badge variant="warning">评分中...</Badge>
 													) : r.scoring_status === "failed" ? (
-														<span
-															className="text-xs text-destructive"
+														<Text
+															component="span"
+															size="xs"
+															c="red"
 															title={r.scoring_error ?? undefined}
 														>
 															评分失败
-														</span>
+														</Text>
 													) : (
-														<span className="text-muted-foreground/40">-</span>
+														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}
 												</TableCell>
 												<TableCell>
@@ -509,17 +432,15 @@ export default function TeacherRecordsPage() {
 													) : r.scoring_status === "failed" ? (
 														<Badge variant="destructive">失败</Badge>
 													) : (
-														<span className="text-muted-foreground/40">-</span>
+														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}
 												</TableCell>
 												<TableCell>
-													<div className="flex items-center gap-2">
+													<Group gap={8} wrap="nowrap">
 														<Button
 															variant="link"
 															size="xs"
-															onClick={() =>
-																navigate(`/record/${r.id}`)
-															}
+															onClick={() => navigate(`/record/${r.id}`)}
 														>
 															查看详情
 														</Button>
@@ -527,7 +448,7 @@ export default function TeacherRecordsPage() {
 															<Button
 																variant="link"
 																size="xs"
-																className="text-muted-foreground"
+																color="gray"
 																onClick={() => handleAbandonRecord(r)}
 															>
 																放弃
@@ -536,12 +457,12 @@ export default function TeacherRecordsPage() {
 														<Button
 															variant="ghost"
 															size="icon-xs"
+															color="red"
 															onClick={() => handleDeleteRecord(r)}
-															className="text-destructive hover:text-destructive"
 														>
-															<Trash2 size={14} />
+															<IconTrash size={14} />
 														</Button>
-													</div>
+													</Group>
 												</TableCell>
 											</TableRow>
 										);
@@ -549,18 +470,18 @@ export default function TeacherRecordsPage() {
 								</TableBody>
 							</Table>
 						</div>
-					</div>
+					</Paper>
 				)}
 
-				<div className="rounded-xl border bg-card px-4 py-3">
+				<Paper withBorder radius="lg" px="md" py="sm">
 					<Pagination
 						total={total}
 						offset={offset}
 						limit={LIMIT}
 						onChange={(newOffset) => setParam("offset", String(newOffset))}
 					/>
-				</div>
-			</div>
+				</Paper>
+			</Stack>
 		</>
 	);
 }

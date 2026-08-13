@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ActionIcon, Box, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
@@ -67,13 +68,21 @@ export default function RecordDetail() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto pt-2 pb-8">
-			<div className="flex items-center gap-2 mb-3">
-				<button onClick={() => navigate(-1)} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
-					<ArrowLeft size={16} />
-				</button>
-				<h1 className="text-sm font-semibold truncate">{(record as { user_display_name?: string }).user_display_name || ""} · {(record as { case_name?: string }).case_name || ""}</h1>
-			</div>
+		<Container size="xl" py="md">
+			<Group gap="xs" mb="md">
+				<ActionIcon
+					variant="default"
+					size="lg"
+					onClick={() => navigate(-1)}
+					aria-label="返回"
+				>
+					<IconArrowLeft size={16} />
+				</ActionIcon>
+				<Title order={2} size="sm" lineClamp={1}>
+					{(record as { user_display_name?: string }).user_display_name || ""} ·{" "}
+					{(record as { case_name?: string }).case_name || ""}
+				</Title>
+			</Group>
 
 			<RecordStatsBar
 				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; training_type?: string; user_display_name?: string; case_name?: string }}
@@ -90,7 +99,7 @@ export default function RecordDetail() {
 			/>
 
 			{recordScore && (
-				<div className="mt-4">
+				<Box mt="md">
 					<ScoreResultSection
 						recordScore={recordScore}
 						isReviewed={false}
@@ -106,15 +115,15 @@ export default function RecordDetail() {
 						categories={categories as [string, DetailScoreCategory][]}
 						hasDetailItems={hasDetailItems}
 					/>
-				</div>
+				</Box>
 			)}
 
 			{sheet && <NursingRecordSection sheet={sheet} />}
 
-			<div className="mt-4">
+			<Box mt="md">
 				<MessagePlayback messages={messages} />
-			</div>
-		</div>
+			</Box>
+		</Container>
 	);
 }
 
@@ -127,14 +136,22 @@ function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
 	const fields = Object.entries(FIELD_LABELS).filter(([key]) => sheet[key]);
 	if (fields.length === 0) return null;
 	return (
-		<div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-3 mt-4">
-			<h3 className="text-base font-semibold">护理记录</h3>
-			{fields.map(([key, label]) => (
-				<div key={key}>
-					<div className="text-xs text-muted-foreground mb-1">{label}</div>
-					<div className="text-sm whitespace-pre-wrap">{sheet[key]}</div>
-				</div>
-			))}
-		</div>
+		<Paper withBorder radius="lg" p={{ base: "md", sm: "lg" }} mt="md">
+			<Stack gap="sm">
+				<Title order={3} size="md">
+					护理记录
+				</Title>
+				{fields.map(([key, label]) => (
+					<Box key={key}>
+						<Text size="xs" c="dimmed" mb={4}>
+							{label}
+						</Text>
+						<Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+							{sheet[key]}
+						</Text>
+					</Box>
+				))}
+			</Stack>
+		</Paper>
 	);
 }

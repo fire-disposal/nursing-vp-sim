@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Box, Group, Stack, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -7,7 +8,6 @@ import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import SceneToolbar from "./SceneToolbar";
-import { cn } from "@/lib/utils";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -85,7 +85,7 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		<div className={cn("flex flex-col flex-1 min-h-0", isShort ? "pt-9" : "pt-11 sm:pt-12")}>
+		<Stack gap={0} flex={1} mih={0} style={{ paddingTop: isShort ? 36 : 44 }}>
 			<AnimatePresence mode="wait">
 				{!hasStudentMessages ? (
 					<motion.div
@@ -94,7 +94,7 @@ export function ChatArea({
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0, y: -16 }}
 						transition={{ duration: 0.2 }}
-						className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+						style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}
 					>
 						<WelcomeScreen
 							patient={patient}
@@ -102,13 +102,23 @@ export function ChatArea({
 							capabilities={capabilities}
 						/>
 						{greeting && (
-							<div className="px-3 mt-3 mx-auto w-full max-w-3xl">
-								<div className="flex justify-start">
-									<div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-muted text-sm text-foreground leading-relaxed">
-										{greeting}
-									</div>
-								</div>
-							</div>
+							<Box px="xs" mt="xs" mx="auto" w="100%" maw={768}>
+								<Group justify="flex-start">
+									<Box
+										maw="80%"
+										px="md"
+										py={10}
+										style={{
+											borderRadius: 16,
+											borderBottomLeftRadius: 4,
+											background: "var(--mantine-color-gray-1)",
+											lineHeight: 1.6,
+										}}
+									>
+										<Text size="sm">{greeting}</Text>
+									</Box>
+								</Group>
+							</Box>
 						)}
 					</motion.div>
 				) : (
@@ -117,9 +127,9 @@ export function ChatArea({
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
 						transition={{ duration: 0.2 }}
-						className="flex-1 flex flex-col min-h-0"
+						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
-						<div className="flex-1 overflow-y-auto overscroll-contain">
+						<Box style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
 							<ChatDisplay
 								messages={messages}
 								patient={patient}
@@ -128,7 +138,7 @@ export function ChatArea({
 								hasStreaming={sending}
 								onCorrectLast={onCorrectLast}
 							/>
-						</div>
+						</Box>
 						<SceneToolbar />
 					</motion.div>
 				)}
@@ -137,19 +147,19 @@ export function ChatArea({
 
 			<Dialog open={inquiryModalOpen} onOpenChange={(o) => { if (!o) setInquiryModalOpen(false); }}>
 				<DialogContent title="问诊内容全部覆盖" maxWidth={360}>
-					<p className="text-sm text-muted-foreground">
+					<Text size="sm" c="dimmed">
 						你已成功采集了该病例的全部关键病史信息。是否结束本次训练并生成评分？
-					</p>
-					<div className="flex justify-end gap-2 mt-5">
+					</Text>
+					<Group justify="flex-end" gap={8} mt="xl">
 						<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
 							继续交流
 						</Button>
 						<Button variant="default" size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
 							立即结算
 						</Button>
-					</div>
+					</Group>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</Stack>
 	);
 }

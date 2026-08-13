@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { IconX } from "@tabler/icons-react";
 import { useEffect, useRef } from "react";
 
 interface VideoModalProps {
@@ -30,24 +30,56 @@ export default function VideoModal({ open, onClose, src }: VideoModalProps) {
 	return (
 		<dialog
 			ref={dialogRef}
-			className="fixed inset-0 z-50 m-auto max-h-[90vh] max-w-[90vw] rounded-2xl border border-border/60 bg-card p-0 shadow-2xl backdrop:bg-background/70"
+			style={{
+				position: "fixed",
+				inset: 0,
+				zIndex: 50,
+				margin: "auto",
+				maxHeight: "90vh",
+				maxWidth: "90vw",
+				borderRadius: "var(--mantine-radius-md)",
+				border: "1px solid var(--mantine-color-default-border)",
+				background: "var(--mantine-color-body)",
+				padding: 0,
+				boxShadow: "var(--mantine-shadow-xl)",
+			}}
 			onClick={(e) => {
 				if (e.target === dialogRef.current) onClose();
 			}}
 		>
-			<div className="relative">
+			<div style={{ position: "relative" }}>
 				<button
 					type="button"
 					onClick={onClose}
-					className="absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground/60 backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+					style={{
+						position: "absolute",
+						right: 12,
+						top: 12,
+						zIndex: 10,
+						display: "flex",
+						width: 32,
+						height: 32,
+						alignItems: "center",
+						justifyContent: "center",
+						borderRadius: "50%",
+						border: "none",
+						background: "var(--mantine-color-body)",
+						color: "var(--mantine-color-dimmed)",
+						cursor: "pointer",
+						backdropFilter: "blur(4px)",
+					}}
 				>
-					<X size={16} strokeWidth={2} />
+					<IconX size={16} strokeWidth={2} />
 				</button>
 				<video
 					src={src}
 					controls
 					autoPlay
-					className="max-h-[85vh] w-full rounded-2xl"
+					style={{
+						maxHeight: "85vh",
+						width: "100%",
+						borderRadius: "var(--mantine-radius-md)",
+					}}
 				>
 					<track kind="captions" src="" default />
 				</video>

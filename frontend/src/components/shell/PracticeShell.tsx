@@ -1,3 +1,4 @@
+import { Box } from "@mantine/core";
 import type { ReactNode } from "react";
 import ShellTransition from "./ShellTransition";
 
@@ -6,8 +7,8 @@ import ShellTransition from "./ShellTransition";
  */
 export default function PracticeShell({ children }: { children: ReactNode }) {
 	return (
-		<div className="relative">
+		<Box pos="relative">
 			<ShellTransition>{children}</ShellTransition>
-		</div>
+		</Box>
 	);
 }

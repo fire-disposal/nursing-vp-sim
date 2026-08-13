@@ -1,4 +1,4 @@
-﻿import { MessageSquare } from "lucide-react";
+import { IconMessageCircle } from "@tabler/icons-react";
 import FeedbackTab from "@/components/admin/FeedbackTab";
 import ExportButton from "@/components/ExportButton";
 import PageHeader from "@/components/ui/page-header";
@@ -9,7 +9,7 @@ export default function FeedbackPage() {
 			<PageHeader
 				title="用户反馈"
 				subtitle="查看用户满意度评分与反馈详情"
-				icon={MessageSquare}
+				icon={IconMessageCircle}
 				actions={<ExportButton endpoint="/admin/feedback/export" filename="用户反馈" />}
 			/>
 			<FeedbackTab />

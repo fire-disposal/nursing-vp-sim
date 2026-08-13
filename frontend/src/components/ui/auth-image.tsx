@@ -1,18 +1,19 @@
 import { Skeleton } from "@mantine/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "@/api/client";
 
 interface AuthImageProps {
 	src: string;
 	alt?: string;
 	className?: string;
+	style?: CSSProperties;
 }
 
 /**
  * Loads an image from an API endpoint that requires auth (Bearer token).
  * Fetches via axios (which injects Authorization header), then renders via blob URL.
  */
-export default function AuthImage({ src, alt = "", className }: AuthImageProps) {
+export default function AuthImage({ src, alt = "", className, style }: AuthImageProps) {
 	const [blobUrl, setBlobUrl] = useState<string | null>(null);
 	const [error, setError] = useState(false);
 	const [loading, setLoading] = useState(true);
@@ -62,8 +63,8 @@ export default function AuthImage({ src, alt = "", className }: AuthImageProps) 
 	}, []);
 
 	if (error) return null;
-	if (loading && !blobUrl) return <Skeleton radius="md" className={className} />;
+	if (loading && !blobUrl) return <Skeleton radius="md" className={className} style={style} />;
 	if (!blobUrl) return null;
 
-	return <img src={blobUrl} alt={alt} className={className} />;
+	return <img src={blobUrl} alt={alt} className={className} style={style} />;
 }

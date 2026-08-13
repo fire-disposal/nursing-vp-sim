@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Stethoscope } from "lucide-react";
+import { Anchor, Box, Flex, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, Link, useNavigate } from "react-router-dom";
@@ -92,99 +93,117 @@ export default function Login() {
 	};
 
 	return (
-		<div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
-
-			<div className="relative z-10 flex w-full max-w-5xl items-center gap-8 px-6 py-10">
+		<Box mih="100vh" style={{ display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+			<Group
+				justify="center"
+				align="center"
+				gap="lg"
+				wrap="nowrap"
+				w="100%"
+				maw={1024}
+				px="md"
+				py="lg"
+			>
 				<LoginIllustration />
 
-				<div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start">
-					<div className="mb-4 sm:mb-8 text-center lg:text-left">
-						<div className="flex items-center justify-center gap-3 lg:justify-start">
-							<div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
-								<Stethoscope size={24} className="text-primary-foreground" />
-							</div>
-							<div className="flex flex-col gap-0.5">
-								<h1 className="text-2xl font-bold tracking-tight">
+				<Flex
+					direction="column"
+					align={{ base: "center", lg: "flex-start" }}
+					flex={1}
+					w="100%"
+					style={{ minWidth: 0 }}
+				>
+					<Box mb={{ base: 16, sm: 32 }} ta={{ base: "center", lg: "left" }} w="100%">
+						<Group gap="sm" justify="center">
+							<ThemeIcon size={48} radius="xl" variant="filled" style={{ boxShadow: "var(--mantine-shadow-lg)" }}>
+								<IconStethoscope size={24} />
+							</ThemeIcon>
+							<Stack gap={2}>
+								<Title order={1} size="xl">
 									虚拟患者系统
-								</h1>
-								<p className="text-sm text-muted-foreground">
+								</Title>
+								<Text size="sm" c="dimmed">
 									护理病史采集技能训练平台
-								</p>
-							</div>
-						</div>
-					</div>
+								</Text>
+							</Stack>
+						</Group>
+					</Box>
 
-					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-e1 sm:p-8">
+					<Paper withBorder radius="xl" p={{ base: "md", sm: "lg" }} w="100%" maw={384} shadow="sm">
 						<FormMessageBanner type="error" message={error} />
 
 						<Form {...form}>
-							<form
-								onSubmit={form.handleSubmit(onSubmit)}
-								className="space-y-4"
-							>
-								<FormField
-									control={form.control}
-									name="username"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="sr-only">用户名</FormLabel>
-											<FormControl>
-												<Input
-													type="text"
-													placeholder="用户名"
-													autoComplete="username"
-													autoFocus
-													className="h-11"
-													disabled={isSubmitting}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="password"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="sr-only">密码</FormLabel>
-											<FormControl>
-												<Input
-													type="password"
-													placeholder="密码"
-													autoComplete="current-password"
-													className="h-11"
-													disabled={isSubmitting}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<Button
-									onClick={form.handleSubmit(onSubmit)}
-									disabled={isSubmitting}
-									className="h-11 w-full"
-								>
-									{isSubmitting ? "登录中..." : "登 录"}
-								</Button>
+							<form onSubmit={form.handleSubmit(onSubmit)}>
+								<Stack gap="md">
+									<FormField
+										control={form.control}
+										name="username"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", borderWidth: 0 }}>用户名</FormLabel>
+												<FormControl>
+													<Input
+														type="text"
+														placeholder="用户名"
+														autoComplete="username"
+														autoFocus
+														size="lg"
+														disabled={isSubmitting}
+														{...field}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={form.control}
+										name="password"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", borderWidth: 0 }}>密码</FormLabel>
+												<FormControl>
+													<Input
+														type="password"
+														placeholder="密码"
+														autoComplete="current-password"
+														size="lg"
+														disabled={isSubmitting}
+														{...field}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<Button
+										onClick={form.handleSubmit(onSubmit)}
+										disabled={isSubmitting}
+										size="lg"
+										fullWidth
+									>
+										{isSubmitting ? "登录中..." : "登 录"}
+									</Button>
+								</Stack>
 							</form>
 						</Form>
-					</div>
+					</Paper>
 
-					<p className="mt-6 text-center text-xs text-muted-foreground lg:text-left lg:pl-0">
+					<Text size="xs" c="dimmed" mt="lg" ta={{ base: "center", lg: "left" }}>
 						忘记密码？请联系教师或管理员重置
-					</p>
-					<Link
+					</Text>
+					<Anchor
+						component={Link}
 						to="/simulation"
-						className="mt-3 block text-center text-xs text-primary/70 transition-colors hover:text-primary lg:text-left lg:pl-0"
+						size="xs"
+						c="teal"
+						mt="sm"
+						ta={{ base: "center", lg: "left" }}
 					>
 						临床推理模拟实验（直接体验）→
-					</Link>
-				</div>
-			</div>
-		</div>
+					</Anchor>
+				</Flex>
+			</Group>
+		</Box>
 	);
 }

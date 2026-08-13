@@ -1,8 +1,7 @@
-import { Loader2 } from "lucide-react";
+import { Box, Center, Group, Loader, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export interface QuestionItem {
@@ -91,149 +90,180 @@ export function QuestionnaireModal({
 			setSubmitting(false);
 		}
 	};
-
 	if (!template) return null;
 
 	return (
 		<Dialog open={open} onOpenChange={() => {}}>
 			<DialogContent title={template.title} maxWidth={700}>
-			<div className="space-y-6">
-				{template.description && (
-					<p className="text-sm text-muted-foreground">
-						{template.description}
-					</p>
-				)}
-
-				{loading ? (
-					<div className="flex items-center justify-center py-12">
-						<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-					</div>
-				) : (
-					<div className="space-y-6">
-						{questions.map((q, idx) => (
-							<div
-								key={q.id}
-								className="space-y-2 rounded-lg border border-border p-4"
-							>
-								<Label className="text-sm font-medium">
-									{idx + 1}. {q.content}
-									{q.required && (
-										<span className="ml-1 text-destructive">*</span>
-									)}
-								</Label>
-
-								{q.question_type === "likert_5" && (
-									<div className="flex flex-wrap gap-2">
-										{[1, 2, 3, 4, 5].map((val) => (
-											<button
-												key={val}
-												type="button"
-												onClick={() => handleAnswer(q.id, String(val))}
-												className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-muted ${
-													answers[q.id] === String(val)
-														? "border-primary bg-primary/10 text-primary"
-														: "border-border"
-												}`}
-											>
-												<span className="text-lg font-semibold">{val}</span>
-												<span className="text-[10px] text-muted-foreground">
-													{LIKERT_LABELS[val - 1]}
-												</span>
-											</button>
-										))}
-									</div>
-								)}
-
-								{q.question_type === "satisfaction_5" && (
-									<div className="flex flex-wrap gap-2">
-										{[1, 2, 3, 4, 5].map((val) => (
-											<button
-												key={val}
-												type="button"
-												onClick={() => handleAnswer(q.id, String(val))}
-												className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-muted ${
-													answers[q.id] === String(val)
-														? "border-primary bg-primary/10 text-primary"
-														: "border-border"
-												}`}
-											>
-												<span className="text-lg font-semibold">{val}</span>
-												<span className="text-[10px] text-muted-foreground">
-													{SATISFACTION_LABELS[val - 1]}
-												</span>
-											</button>
-										))}
-									</div>
-								)}
-
-								{q.question_type === "multiple_choice" && q.options && (
-									<div className="space-y-1.5">
-										{q.options.map((opt) => (
-											<label
-												key={opt}
-												className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-muted ${
-													answers[q.id] === opt
-														? "border-primary bg-primary/10"
-														: "border-border"
-												}`}
-											>
-												<input
-													type="radio"
-													name={`q-${q.id}`}
-													value={opt}
-													checked={answers[q.id] === opt}
-													onChange={(e) => handleAnswer(q.id, e.target.value)}
-													className="sr-only"
-												/>
-												<span className="flex h-4 w-4 items-center justify-center rounded-full border border-border">
-													{answers[q.id] === opt && (
-														<span className="h-2 w-2 rounded-full bg-primary" />
-													)}
-												</span>
-												{opt}
-											</label>
-										))}
-									</div>
-								)}
-
-								{q.question_type === "short_text" && (
-									<Textarea
-										value={answers[q.id] || ""}
-										onChange={(e) => handleAnswer(q.id, e.target.value || null)}
-										placeholder="请输入您的回答..."
-										rows={3}
-										className="resize-none"
-									/>
-								)}
-							</div>
-						))}
-					</div>
-				)}
-
-				{error && (
-					<p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-						{error}
-					</p>
-				)}
-
-				<div className="flex items-center justify-end gap-2 pt-2">
-					{!checkResponse.is_required && (
-						<Button variant="ghost" onClick={onSkip} disabled={submitting}>
-							跳过
-						</Button>
+				<Stack gap="xl">
+					{template.description && (
+						<Text size="sm" c="dimmed">
+							{template.description}
+						</Text>
 					)}
-					<Button onClick={handleSubmit} disabled={submitting || loading}>
-						{submitting ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								提交中...
-							</>
-						) : (
-							"提交"
+
+					{loading ? (
+						<Center py="lg">
+							<Loader size="md" />
+						</Center>
+					) : (
+						<Stack gap="xl">
+							{questions.map((q, idx) => (
+								<Box
+									key={q.id}
+									p="md"
+									style={{
+										border: "1px solid var(--mantine-color-gray-3)",
+										borderRadius: "var(--mantine-radius-md)",
+									}}
+								>
+									<Text component="label" size="sm" fw={500}>
+										{idx + 1}. {q.content}
+										{q.required && (
+											<Text component="span" c="red" ml={4}>
+												*
+											</Text>
+										)}
+									</Text>
+
+									{(q.question_type === "likert_5" || q.question_type === "satisfaction_5") && (
+										<Group gap={8} mt="sm">
+											{[1, 2, 3, 4, 5].map((val) => {
+												const active = answers[q.id] === String(val);
+												const labels =
+													q.question_type === "likert_5"
+														? LIKERT_LABELS
+														: SATISFACTION_LABELS;
+												return (
+													<UnstyledButton
+														key={val}
+														onClick={() => handleAnswer(q.id, String(val))}
+														style={{
+															display: "flex",
+															flexDirection: "column",
+															alignItems: "center",
+															gap: 4,
+															padding: "8px 12px",
+															borderRadius: "var(--mantine-radius-md)",
+															border: active
+																? "1px solid var(--mantine-color-teal-6)"
+																: "1px solid var(--mantine-color-gray-3)",
+															background: active
+																? "var(--mantine-color-teal-light)"
+																: "transparent",
+														}}
+													>
+														<Text size="lg" fw={600} c={active ? "teal.7" : undefined}>
+															{val}
+														</Text>
+														<Text fz={10} c="dimmed">
+															{labels[val - 1]}
+														</Text>
+													</UnstyledButton>
+												);
+											})}
+										</Group>
+									)}
+
+									{q.question_type === "multiple_choice" && q.options && (
+										<Stack gap={6} mt="sm">
+											{q.options.map((opt) => {
+												const active = answers[q.id] === opt;
+												return (
+													<UnstyledButton
+														key={opt}
+														onClick={() => handleAnswer(q.id, opt)}
+														style={{
+															display: "flex",
+															alignItems: "center",
+															gap: 8,
+															padding: "8px 12px",
+															borderRadius: "var(--mantine-radius-md)",
+															border: active
+																? "1px solid var(--mantine-color-teal-6)"
+																: "1px solid var(--mantine-color-gray-3)",
+															background: active
+																? "var(--mantine-color-teal-light)"
+																: "transparent",
+															textAlign: "left",
+														}}
+													>
+														<Box
+															style={{
+																width: 16,
+																height: 16,
+																borderRadius: "50%",
+																border: "1px solid var(--mantine-color-gray-4)",
+																display: "flex",
+																alignItems: "center",
+																justifyContent: "center",
+																flexShrink: 0,
+															}}
+														>
+															{active && (
+																<Box
+																	style={{
+																		width: 8,
+																		height: 8,
+																		borderRadius: "50%",
+																		background: "var(--mantine-color-teal-6)",
+																	}}
+																/>
+															)}
+														</Box>
+														<Text size="sm">{opt}</Text>
+													</UnstyledButton>
+												);
+											})}
+										</Stack>
+									)}
+
+									{q.question_type === "short_text" && (
+										<Textarea
+											value={answers[q.id] || ""}
+											onChange={(e) => handleAnswer(q.id, e.target.value || null)}
+											placeholder="请输入您的回答..."
+											rows={3}
+											mt="sm"
+										/>
+									)}
+								</Box>
+							))}
+						</Stack>
+					)}
+
+					{error && (
+						<Text
+							size="sm"
+							c="red"
+							px="sm"
+							py="xs"
+							style={{
+								background: "var(--mantine-color-red-0)",
+								borderRadius: "var(--mantine-radius-md)",
+							}}
+						>
+							{error}
+						</Text>
+					)}
+
+					<Group justify="flex-end" gap={8} pt="xs">
+						{!checkResponse.is_required && (
+							<Button variant="ghost" onClick={onSkip} disabled={submitting}>
+								跳过
+							</Button>
 						)}
-					</Button>
-				</div>
-			</div>
+						<Button onClick={handleSubmit} disabled={submitting || loading}>
+							{submitting ? (
+								<>
+									<Loader size={14} /> 提交中...
+								</>
+							) : (
+								"提交"
+							)}
+						</Button>
+					</Group>
+				</Stack>
 			</DialogContent>
 		</Dialog>
 	);

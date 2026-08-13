@@ -1,4 +1,5 @@
-import { ClipboardCheck } from "lucide-react";
+import { Stack } from "@mantine/core";
+import { IconClipboardCheck } from "@tabler/icons-react";
 import QuestionnairesTab from "@/components/admin/QuestionnairesTab";
 import PageHeader from "@/components/ui/page-header";
 
@@ -8,11 +9,11 @@ export default function AdminQuestionnaires() {
 			<PageHeader
 				title="问卷管理"
 				subtitle="管理前后测问卷模板、分配病例、查看数据"
-				icon={ClipboardCheck}
+				icon={IconClipboardCheck}
 			/>
-			<div className="space-y-4 mt-4">
+			<Stack gap="md" mt="md">
 				<QuestionnairesTab />
-			</div>
+			</Stack>
 		</>
 	);
 }

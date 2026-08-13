@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { ActionIcon, Box, Group, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
@@ -9,7 +10,7 @@ const WIDE_PANEL_CAPS = new Set(["physical_exam", "nursing_record"]);
 const PANEL_WIDTH_WIDE = 400;
 const PANEL_WIDTH_DEFAULT = 300;
 
-const ANIM_DURATION = 200; // ms — matches Tailwind duration-200
+const ANIM_DURATION = 200; // ms
 
 export function SceneRenderer() {
   const bus = useTrainingStore(s => s.bus)!;
@@ -66,67 +67,108 @@ export function SceneRenderer() {
   const displayTool = tools.find((c) => c.id === (closingId || activeId));
 
   return (
-    <div className="shrink-0 hidden lg:flex h-full">
+    <Box display={{ base: "none", lg: "flex" }} style={{ flexShrink: 0, height: "100%" }}>
       {/* Panel — always mounted during animation, width: 0 when closed */}
-      <div
-        style={{ width: showPanel && displayTool ? panelWidth(displayTool) : 0, transition: `width ${ANIM_DURATION}ms ease-out` }}
-        className={cn(
-          "h-full flex flex-col border-l border-border bg-card overflow-hidden pt-11 sm:pt-12",
-          showPanel ? "opacity-100" : "opacity-0 border-l-0",
-        )}
+      <Box
+        style={{
+          width: showPanel && displayTool ? panelWidth(displayTool) : 0,
+          transition: `width ${ANIM_DURATION}ms ease-out`,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          borderLeft: "1px solid var(--mantine-color-default-border)",
+          background: "var(--mantine-color-body)",
+          overflow: "hidden",
+          paddingTop: 44,
+          opacity: showPanel ? 1 : 0,
+        }}
       >
         {showPanel && displayTool && (
           <>
-            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 shrink-0">
-              <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground truncate min-w-0">
+            <Group
+              justify="space-between"
+              wrap="nowrap"
+              px="sm"
+              py={8}
+              style={{
+                borderBottom: "1px solid var(--mantine-color-default-border)",
+                background: "var(--mantine-color-gray-0)",
+                flexShrink: 0,
+              }}
+            >
+              <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
                 {(() => {
                   const Icon = TOOL_META[displayTool.id]?.icon;
-                  return Icon ? <Icon className="size-3.5 shrink-0" /> : null;
+                  return Icon ? <Icon size={14} style={{ flexShrink: 0 }} /> : null;
                 })()}
-                {TOOL_META[displayTool.id]?.title ?? displayTool.id}
-              </span>
-              <button onClick={handleClose} className="text-muted-foreground hover:text-foreground text-xs leading-none px-1 shrink-0" title="收起面板" aria-label="收起面板">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              <Suspense fallback={<div className="h-20" />}>
+                <Text size="xs" fw={500} c="dimmed" truncate>
+                  {TOOL_META[displayTool.id]?.title ?? displayTool.id}
+                </Text>
+              </Group>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={handleClose}
+                title="收起面板"
+                aria-label="收起面板"
+              >
+                ✕
+              </ActionIcon>
+            </Group>
+            <Box style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
+              <Suspense fallback={<Box h={80} />}>
                 <SceneStateProvider bus={bus}>
-                  <ErrorBoundary fallback={<div className="flex flex-col items-center gap-2 p-4 text-sm text-muted-foreground"><span>卡片加载失败</span></div>}>
+                  <ErrorBoundary fallback={
+                    <Stack align="center" gap={8} p="md">
+                      <Text size="sm" c="dimmed">卡片加载失败</Text>
+                    </Stack>
+                  }>
                     <displayTool.component {...toolProps} />
                   </ErrorBoundary>
                 </SceneStateProvider>
               </Suspense>
-            </div>
+            </Box>
           </>
         )}
-      </div>
+      </Box>
 
       {/* Icon rail */}
-      <div className="flex flex-col items-center gap-1 border-l border-border bg-card py-2 px-1 h-full overflow-y-auto">
+      <Box
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 4,
+          borderLeft: "1px solid var(--mantine-color-default-border)",
+          background: "var(--mantine-color-body)",
+          padding: "8px 4px",
+          height: "100%",
+          overflowY: "auto",
+        }}
+      >
         {tools.map((tool) => {
           const isActive = tool.id === activeId;
           const Icon = TOOL_META[tool.id]?.icon;
           return (
-            <button key={tool.id} onClick={() => isActive ? handleClose() : setActiveId(tool.id)}
-              className={cn(
-                "relative flex items-center justify-center size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
-                isActive && "border-primary bg-primary/10 text-primary",
-              )}
+            <ActionIcon
+              key={tool.id}
+              variant={isActive ? "light" : "default"}
+              color={isActive ? undefined : "gray"}
+              size={36}
+              radius="md"
+              onClick={() => isActive ? handleClose() : setActiveId(tool.id)}
               title={TOOL_META[tool.id]?.title ?? tool.id}
             >
-              {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />}
-              {Icon ? <Icon className="size-4" /> : null}
-            </button>
+              {Icon ? <Icon size={16} /> : null}
+            </ActionIcon>
           );
         })}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
 function panelWidth(tool: { capability?: string }) {
   return tool.capability && WIDE_PANEL_CAPS.has(tool.capability) ? PANEL_WIDTH_WIDE : PANEL_WIDTH_DEFAULT;
-}
-
-function cn(...classes: (string | false | undefined | null)[]) {
-  return classes.filter(Boolean).join(" ");
 }

@@ -1,3 +1,5 @@
+import { Box, Group, Text } from "@mantine/core";
+import { IconMenu2 } from "@tabler/icons-react";
 import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
@@ -7,11 +9,11 @@ import { StudentTopNav } from "./StudentTopNav";
 import type { NavItem } from "./navigation";
 import { NAV_ITEMS } from "./navigation";
 import { NetworkBanner } from "@/components/NetworkBanner";
+import Button from "@/components/ui/button";
 import LoadingState from "@/components/ui/loading-state";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/lib/utils";
 import { isAdminPermissions } from "@/utils/permissions";
 
 /**
@@ -31,17 +33,16 @@ function TabBarLayout({ children, onLogout }: { children: ReactNode; onLogout: (
 	);
 
 	return (
-		<div className="flex flex-col h-screen overflow-hidden" style={{ height: "100dvh" }}>
+		<Box style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
 			{!isOnline && <NetworkBanner />}
 			<StudentTopNav links={links} onLogout={onLogout} />
-			<div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
+			<Box style={{ flex: 1, overflowY: "auto" }} p={{ base: "sm", sm: "lg", lg: "xl" }}>
 				<ShellTransition>{children}</ShellTransition>
-			</div>
+			</Box>
 			<BottomTabBar />
-		</div>
+		</Box>
 	);
 }
-
 
 /**
  * AdminLayout — 管理员侧边栏布局
@@ -64,12 +65,18 @@ function AdminLayout({
 	const isShort = useShortViewport();
 
 	return (
-		<div className="flex h-screen overflow-hidden" style={{ height: "100dvh" }}>
+		<Box style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
 			{mobileOpen && (
-				<div
-					className="fixed inset-0 z-40 bg-black/40 md:hidden"
+				<Box
+					hiddenFrom="sm"
 					onClick={() => setMobileOpen(false)}
 					role="presentation"
+					style={{
+						position: "fixed",
+						inset: 0,
+						zIndex: 40,
+						background: "rgba(0, 0, 0, 0.4)",
+					}}
 				/>
 			)}
 
@@ -82,33 +89,48 @@ function AdminLayout({
 				onAbout={onAbout}
 			/>
 
-			<div
-				className="flex flex-1 flex-col md:ml-60 overflow-hidden"
-				style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
+			<Box
+				style={{ display: "flex", flex: 1, flexDirection: "column", overflow: "hidden" }}
+				ml={{ base: 0, sm: 240 }}
 			>
 				{!isOnline && <NetworkBanner />}
 
 				{/* Mobile top bar */}
-				<div className={cn("flex items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0", isShort ? "h-10" : "h-14")}>
-					<button
-						type="button"
-						className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
+				<Group
+					gap="sm"
+					px="md"
+					hiddenFrom="sm"
+					h={isShort ? 40 : 56}
+					wrap="nowrap"
+					style={{
+						flexShrink: 0,
+						borderBottom: "1px solid var(--mantine-color-gray-3)",
+						background: "var(--mantine-color-body)",
+					}}
+				>
+					<Button
+						variant="outline"
+						size="icon-sm"
 						onClick={() => setMobileOpen((v) => !v)}
 						aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
 					>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" role="img" aria-hidden="true"><title>菜单</title><path d="M3 12h18M3 6h18M3 18h18" /></svg>
-					</button>
-					<div className="flex-1 min-w-0">
-						<span className="text-sm font-semibold">虚拟患者系统</span>
-					</div>
-				</div>
+						<IconMenu2 size={18} />
+					</Button>
+					<Box style={{ flex: 1, minWidth: 0 }}>
+						<Text size="sm" fw={600}>
+							虚拟患者系统
+						</Text>
+					</Box>
+				</Group>
 
-
-				<div className={cn("flex-1 overflow-y-auto", isShort ? "p-2" : "p-4 sm:p-6 lg:p-8")}>
+				<Box
+					style={{ flex: 1, overflowY: "auto" }}
+					p={isShort ? 8 : { base: 16, sm: 24, lg: 32 }}
+				>
 					<ShellTransition>{children}</ShellTransition>
-				</div>
-			</div>
-		</div>
+				</Box>
+			</Box>
+		</Box>
 	);
 }
 

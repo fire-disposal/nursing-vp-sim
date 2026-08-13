@@ -1,6 +1,6 @@
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { inputClass } from "@/utils/styles";
+import { ActionIcon, Group, Paper, Stack, Text, TextInput, Textarea } from "@mantine/core";
 
 interface Props {
 	value: Record<string, string>;
@@ -32,27 +32,27 @@ export function BackgroundEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">隐藏背景</legend>
-			<p className="text-xs text-muted-foreground mb-3">LLM 内部上下文，患者不会主动透露的数据。如吸烟史、职业暴露等</p>
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">隐藏背景</Text>
+			<Text size="xs" c="dimmed" mb="md">LLM 内部上下文，患者不会主动透露的数据。如吸烟史、职业暴露等</Text>
 			{entries.length > 0 && (
-				<div className="space-y-2 mb-3">
+				<Stack gap={8} mb="md">
 					{entries.map(([k, v]) => (
-						<div key={k} className="flex items-center gap-2">
-							<input value={k} className={`${inputClass} flex-1`} disabled placeholder="key" />
-							<textarea value={v} onChange={(e) => setVal(k, e.target.value)} className={`${inputClass} flex-[3] h-16 resize-y`} disabled={disabled} placeholder="value" />
-							<button type="button" onClick={() => remove(k)} disabled={disabled} className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0 self-start"><Trash2 size={14} /></button>
-						</div>
+						<Group key={k} gap={8} align="flex-start">
+							<TextInput value={k} disabled placeholder="key" style={{ flex: 1 }} />
+							<Textarea value={v} onChange={(e) => setVal(k, e.currentTarget.value)} disabled={disabled} placeholder="value" autosize minRows={2} style={{ flex: 3 }} />
+							<ActionIcon variant="subtle" color="gray" onClick={() => remove(k)} disabled={disabled} aria-label="删除背景项"><IconTrash size={14} /></ActionIcon>
+						</Group>
 					))}
-				</div>
+				</Stack>
 			)}
 			{!disabled && (
-				<div className="flex items-center gap-2">
-					<input value={newKey} onChange={(e) => setNewKey(e.target.value)} className={`${inputClass} flex-1`} placeholder="key" />
-					<input value={newVal} onChange={(e) => setNewVal(e.target.value)} className={`${inputClass} flex-[3]`} placeholder="value" />
-					<button type="button" onClick={add} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors shrink-0" aria-label="添加背景项"><Plus size={14} /></button>
-				</div>
+				<Group gap={8}>
+					<TextInput value={newKey} onChange={(e) => setNewKey(e.currentTarget.value)} placeholder="key" style={{ flex: 1 }} />
+					<TextInput value={newVal} onChange={(e) => setNewVal(e.currentTarget.value)} placeholder="value" style={{ flex: 3 }} />
+					<ActionIcon variant="light" color="teal" onClick={add} aria-label="添加背景项"><IconPlus size={14} /></ActionIcon>
+				</Group>
 			)}
-		</fieldset>
+		</Paper>
 	);
 }

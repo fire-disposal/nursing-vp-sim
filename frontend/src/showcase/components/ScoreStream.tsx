@@ -1,6 +1,6 @@
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Badge, Box, Group, Loader, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
+import { IconCircleCheck } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 
 const SCORE_ITEMS = [
 	"→ 加载评分标准 v3.2 ...",
@@ -113,74 +113,144 @@ export default function ScoreStream() {
 	const scoreLines = useLoopingQueue(SCORE_ITEMS, phase === "scoring", 900);
 	const feedbackLines = useLoopingQueue(FEEDBACK_ITEMS, phase !== "scoring", 1400);
 
-	const _phaseText = phase === "scoring" ? "正在评分维度分析" : phase === "feedback" ? "正在生成反馈建议" : "评分完成";
 	const scoreProgress = phase === "complete" ? 100 : Math.round(percentage);
 
-		return (
-		<div className="group relative flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-6 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)]">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(13,148,136,0.10),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_34%)]" />
-
-			<div className="relative z-10 flex items-center justify-between gap-4">
-				<div>
-					<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">流式评分</div>
-					<div className="mt-1 text-lg font-bold text-foreground">AI 思考 · 逐项证据回传</div>
-				</div>
-				<div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
-					<span className={cn("size-1.5 rounded-full", phase === "complete" ? "bg-emerald-500" : "bg-primary animate-pulse")} />
+	return (
+		<Paper
+			withBorder
+			radius="xl"
+			p="lg"
+			pos="relative"
+			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
+		>
+			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+						流式评分
+					</Text>
+					<Text size="lg" fw={700}>
+						AI 思考 · 逐项证据回传
+					</Text>
+				</Stack>
+				<Badge variant="default" radius="xl" leftSection={<Box w={6} h={6} style={{ borderRadius: "50%", background: phase === "complete" ? "var(--mantine-color-green-6)" : "var(--mantine-primary-color-6)" }} />}>
 					SSE live
-				</div>
-			</div>
+				</Badge>
+			</Group>
 
-			<div className="relative z-10 mt-5 flex items-center gap-3">
-				<div className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", phase === "complete" ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary")}>
+			<Group gap={12} mt="lg" pos="relative" style={{ zIndex: 10 }} wrap="nowrap">
+				<ThemeIcon
+					size={32}
+					radius="xl"
+					variant="light"
+					color={phase === "complete" ? "green" : undefined}
+					style={{ flexShrink: 0 }}
+				>
 					{phase !== "complete" ? (
-						<Loader2 className="size-3.5 animate-spin" />
+						<Loader size={14} type="dots" />
 					) : (
-						<CheckCircle2 className="size-3.5" />
+						<IconCircleCheck size={14} />
 					)}
-				</div>
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center justify-between gap-2">
-						<p className="text-sm font-semibold">{phase !== "complete" ? "正在评估训练表现" : "评估完成"}</p>
-						<span className="text-xs tabular-nums text-muted-foreground">{scoreProgress}%</span>
-					</div>
-					<div className="mt-1.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-						<div
-							className={cn(
-								"h-full rounded-full transition-all duration-500 ease-out",
-								phase === "complete" ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]" : "bg-primary",
-							)}
-							style={{ width: `${Math.max(4, scoreProgress)}%` }}
+				</ThemeIcon>
+				<Box style={{ minWidth: 0, flex: 1 }}>
+					<Group justify="space-between" gap={8}>
+						<Text size="sm" fw={600}>
+							{phase !== "complete" ? "正在评估训练表现" : "评估完成"}
+						</Text>
+						<Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+							{scoreProgress}%
+						</Text>
+					</Group>
+					<Box
+						mt={6}
+						h={6}
+						style={{
+							width: "100%",
+							borderRadius: "9999px",
+							background: "var(--mantine-color-gray-2)",
+							overflow: "hidden",
+						}}
+					>
+						<Box
+							h="100%"
+							style={{
+								width: `${Math.max(4, scoreProgress)}%`,
+								borderRadius: "9999px",
+								transition: "all 500ms ease-out",
+								background:
+									phase === "complete"
+										? "var(--mantine-color-green-6)"
+										: "var(--mantine-primary-color-6)",
+							}}
 						/>
-					</div>
-				</div>
-			</div>
+					</Box>
+				</Box>
+			</Group>
 
-			<div className="relative z-10 mt-4 flex-1 grid grid-cols-2 gap-2 min-h-0">
-				<div className="flex flex-col rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
-					<div className="text-[10px] font-mono text-primary/70 mb-1 shrink-0">$ scoring_dimensions</div>
-					<div className="flex-1 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+			<Group
+				gap={8}
+				mt="md"
+				align="stretch"
+				pos="relative"
+				style={{ zIndex: 10, flex: 1, minHeight: 0 }}
+			>
+				<Box
+					style={{
+						flex: 1,
+						display: "flex",
+						flexDirection: "column",
+						border: "1px solid var(--mantine-color-default-border)",
+						borderRadius: "var(--mantine-radius-sm)",
+						background: "var(--mantine-color-gray-0)",
+						padding: "6px 8px",
+						overflow: "hidden",
+					}}
+				>
+					<Text size="10px" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+						$ scoring_dimensions
+					</Text>
+					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
 						{scoreLines.map((item, i) => (
-							<div key={`${i}-${item.slice(0, 12)}`} className="text-foreground/70 py-0.5">{item}</div>
+							<Text key={`${i}-${item.slice(0, 12)}`} size="10px" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+								{item}
+							</Text>
 						))}
 						{scoreLines.length === 0 && (
-							<p className="text-muted-foreground/50 animate-pulse">▎ 初始化中...</p>
+							<Text size="10px" c="dimmed" opacity={0.5}>
+								▎ 初始化中...
+							</Text>
 						)}
-					</div>
-				</div>
+					</Box>
+				</Box>
 
-				<div className="flex flex-col rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
-					<div className="text-[10px] font-mono text-primary/70 mb-1 shrink-0">$ feedback_generation</div>
-					<div className="flex-1 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+				<Box
+					style={{
+						flex: 1,
+						display: "flex",
+						flexDirection: "column",
+						border: "1px solid var(--mantine-color-default-border)",
+						borderRadius: "var(--mantine-radius-sm)",
+						background: "var(--mantine-color-gray-0)",
+						padding: "6px 8px",
+						overflow: "hidden",
+					}}
+				>
+					<Text size="10px" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+						$ feedback_generation
+					</Text>
+					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
 						{feedbackLines.map((item, i) => (
-							<div key={`${i}-${item.slice(0, 12)}`} className="text-foreground/70 py-0.5">{item}</div>
+							<Text key={`${i}-${item.slice(0, 12)}`} size="10px" c="dimmed" lh={1.6} py={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+								{item}
+							</Text>
 						))}
 						{feedbackLines.length === 0 && (
-							<p className="text-muted-foreground/50">等待评分完成...</p>
+							<Text size="10px" c="dimmed" opacity={0.5}>
+								等待评分完成...
+							</Text>
 						)}
-					</div>
-				</div>
-			</div>
-		</div>
+					</Box>
+				</Box>
+			</Group>
+		</Paper>
 	);
 }

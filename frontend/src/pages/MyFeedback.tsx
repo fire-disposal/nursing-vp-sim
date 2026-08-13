@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Camera, MessageSquare, MessageSquareReply } from "lucide-react";
+import { Badge as MantineBadge, Box, Container, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
 import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
@@ -12,7 +13,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import Pagination from "@/components/ui/pagination";
 import PageHeader from "@/components/ui/page-header";
-import { cn } from "@/lib/utils";
+import Button from "@/components/ui/button";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
@@ -22,13 +23,7 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
-const RATING_COLORS = [
-	"text-red-600 bg-red-50",
-	"text-orange-600 bg-orange-50",
-	"text-amber-600 bg-amber-50",
-	"text-emerald-600 bg-emerald-50",
-	"text-green-600 bg-green-50",
-];
+const RATING_COLORS = ["red", "orange", "yellow", "green", "teal"];
 const TAG_LABELS: Record<string, string> = {
 	feature: "功能建议", bug: "BUG反馈", experience: "体验评价",
 	content: "内容质量", ui: "界面设计", other: "其他",
@@ -68,204 +63,240 @@ export default function MyFeedbackPage() {
 	const repliedCount = items.filter((item) => item.developer_reply).length;
 	const pendingCount = Math.max(items.length - repliedCount, 0);
 
-
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
 	return (
-		<div className="mx-auto max-w-3xl space-y-5">
-			<ProfileTabs />
-			<PageHeader
-				title="我的反馈"
-				subtitle="查看已提交的问题、建议、截图与开发者回复"
-				icon={MessageSquare}
-			/>
+		<Container size="md" py="md">
+			<Stack gap="lg">
+				<ProfileTabs />
+				<PageHeader
+					title="我的反馈"
+					subtitle="查看已提交的问题、建议、截图与开发者回复"
+					icon={IconMessageCircle}
+				/>
 
-			<section className="rounded-xl border border-border bg-card p-4">
-				<div className="mb-4 grid grid-cols-3 gap-2 text-center">
-					<div className="rounded-lg bg-muted/60 px-3 py-2">
-						<div className="text-lg font-semibold text-foreground">{total}</div>
-						<div className="text-xs text-muted-foreground">累计反馈</div>
-					</div>
-					<div className="rounded-lg bg-primary/10 px-3 py-2">
-						<div className="text-lg font-semibold text-primary">{repliedCount}</div>
-						<div className="text-xs text-muted-foreground">本页已回复</div>
-					</div>
-					<div className="rounded-lg bg-muted/60 px-3 py-2">
-						<div className="text-lg font-semibold text-foreground">{pendingCount}</div>
-						<div className="text-xs text-muted-foreground">本页待处理</div>
-					</div>
-				</div>
+				<Paper withBorder radius="lg" p="md">
+					<SimpleGrid cols={3} spacing="xs" mb="md">
+						<Paper radius="md" bg="gray.1" px="sm" py="xs" ta="center">
+							<Text size="lg" fw={600}>
+								{total}
+							</Text>
+							<Text size="xs" c="dimmed">
+								累计反馈
+							</Text>
+						</Paper>
+						<Paper radius="md" bg="teal.1" px="sm" py="xs" ta="center">
+							<Text size="lg" fw={600} c="teal">
+								{repliedCount}
+							</Text>
+							<Text size="xs" c="dimmed">
+								本页已回复
+							</Text>
+						</Paper>
+						<Paper radius="md" bg="gray.1" px="sm" py="xs" ta="center">
+							<Text size="lg" fw={600}>
+								{pendingCount}
+							</Text>
+							<Text size="xs" c="dimmed">
+								本页待处理
+							</Text>
+						</Paper>
+					</SimpleGrid>
 
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-						{TAG_OPTIONS.map((opt) => (
-							<button
-								key={opt.value}
-								type="button"
-								aria-pressed={tagFilter === opt.value}
-								onClick={() => {
-									setTagFilter(opt.value);
+					<Group justify="space-between" align="center" wrap="wrap" gap="sm">
+						<Group gap={6} wrap="nowrap" style={{ overflowX: "auto", flex: 1 }}>
+							{TAG_OPTIONS.map((opt) => (
+								<Button
+									key={opt.value}
+									type="button"
+									variant={tagFilter === opt.value ? "default" : "secondary"}
+									size="xs"
+									radius="xl"
+									style={{ flexShrink: 0 }}
+									onClick={() => {
+										setTagFilter(opt.value);
+										setOffset(0);
+									}}
+								>
+									{opt.label}
+								</Button>
+							))}
+						</Group>
+						<Group gap="xs">
+							<Text size="xs" c="dimmed">
+								回复状态
+							</Text>
+							<Select
+								size="xs"
+								w={110}
+								data={[
+									{ value: "", label: "全部" },
+									{ value: "replied", label: "已回复" },
+									{ value: "unreplied", label: "未回复" },
+								]}
+								value={replyFilter}
+								onChange={(v) => {
+									setReplyFilter(v ?? "");
 									setOffset(0);
 								}}
-								className={cn(
-									"shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-									tagFilter === opt.value
-										? "bg-primary text-primary-foreground"
-										: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-								)}
-							>
-								{opt.label}
-							</button>
+							/>
+						</Group>
+					</Group>
+				</Paper>
+
+				{isLoading ? (
+					<Stack gap="sm">
+						{Array.from({ length: 3 }).map((_, i) => (
+							<LoadingSkeleton key={i} variant="card" />
 						))}
-					</div>
-					<label className="flex items-center gap-2 text-xs text-muted-foreground">
-						回复状态
-						<select
-							value={replyFilter}
-							onChange={(e) => {
-								setReplyFilter(e.target.value);
-								setOffset(0);
-							}}
-							className="h-8 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-						>
-							<option value="">全部</option>
-							<option value="replied">已回复</option>
-							<option value="unreplied">未回复</option>
-						</select>
-					</label>
-				</div>
-			</section>
-
-			{isLoading ? (
-				<div className="space-y-3">
-					{Array.from({ length: 3 }).map((_, i) => (
-						<LoadingSkeleton key={i} variant="card" />
-					))}
-				</div>
-			) : items.length === 0 ? (
-				<EmptyState
-					icon={MessageSquare}
-					title="暂无反馈"
-					description="你提交过的反馈、处理状态和开发者回复会显示在这里。"
-				/>
-			) : (
-				<div className="space-y-3">
-					{items.map((fb) => {
-						const ratingIndex = Math.max(
-							0,
-							Math.min(RATING_LABELS.length - 1, fb.rating - 1),
-						);
-						return (
-							<article
-								key={fb.id}
-								className="rounded-xl border border-border bg-card p-4"
-							>
-								<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-									<div className="flex flex-wrap items-center gap-2">
-										<span
-											className={cn(
-												"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-												RATING_COLORS[ratingIndex],
+					</Stack>
+				) : items.length === 0 ? (
+					<EmptyState
+						icon={IconMessageCircle}
+						title="暂无反馈"
+						description="你提交过的反馈、处理状态和开发者回复会显示在这里。"
+					/>
+				) : (
+					<Stack gap="sm">
+						{items.map((fb) => {
+							const ratingIndex = Math.max(
+								0,
+								Math.min(RATING_LABELS.length - 1, fb.rating - 1),
+							);
+							return (
+								<Paper key={fb.id} withBorder radius="lg" p="md">
+									<Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
+										<Group gap="xs" wrap="wrap">
+											<MantineBadge
+												variant="light"
+												color={RATING_COLORS[ratingIndex]}
+												radius="xl"
+												size="sm"
+											>
+												{fb.rating}{" "}
+												<Text component="span" inherit opacity={0.75}>
+													{RATING_LABELS[ratingIndex]}
+												</Text>
+											</MantineBadge>
+											{fb.tag && (
+												<Badge variant="outline" size="xs">
+													{TAG_LABELS[fb.tag] || fb.tag}
+												</Badge>
 											)}
-										>
-											<span>{fb.rating}</span>
-											<span className="opacity-75">{RATING_LABELS[ratingIndex]}</span>
-										</span>
-										{fb.tag && (
-											<Badge variant="outline" className="text-[10px]">
-												{TAG_LABELS[fb.tag] || fb.tag}
+											<Badge
+												variant={fb.developer_reply ? "success" : "neutral"}
+												size="xs"
+											>
+												{fb.developer_reply ? "已回复" : "待处理"}
 											</Badge>
-										)}
-										<Badge
-											variant={fb.developer_reply ? "success" : "neutral"}
-											className="text-[10px]"
-										>
-											{fb.developer_reply ? "已回复" : "待处理"}
-										</Badge>
-									</div>
-									<div className="shrink-0 text-xs text-muted-foreground">
-										{new Date(fb.created_at).toLocaleString("zh-CN")}
-										{fb.version && <span className="ml-2 opacity-60">v{fb.version}</span>}
-									</div>
-								</div>
-
-								{fb.content && (
-									<p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-										{fb.content}
-									</p>
-								)}
-
-								{fb.image_ids && fb.image_ids.length > 0 && (
-									<div className="mt-3 flex items-start gap-2">
-										<Camera
-											size={14}
-											className="mt-1 shrink-0 text-muted-foreground"
-										/>
-										<div className="flex gap-2 overflow-x-auto pb-1">
-											{fb.image_ids.map((imgId) => (
-												<button
-													type="button"
-													key={imgId}
-													onClick={() =>
-														setPreviewUrl(feedbackImageUrl(fb.id, imgId))
-													}
-													className="shrink-0 overflow-hidden rounded-lg border border-border bg-muted transition-colors hover:border-primary"
-												>
-													<AuthImage
-														src={feedbackImageUrl(fb.id, imgId)}
-														alt={`反馈截图 ${imgId}`}
-														className="h-16 w-24 object-cover"
-													/>
-												</button>
-											))}
-										</div>
-									</div>
-								)}
-
-								{fb.developer_reply && (
-									<div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
-										<div className="mb-1 flex items-center gap-1.5">
-											<MessageSquareReply size={13} className="text-primary" />
-											<span className="text-xs font-medium text-primary">
-												开发者回复
-											</span>
-											{fb.replied_at && (
-												<span className="text-[10px] text-muted-foreground">
-													{new Date(fb.replied_at).toLocaleString("zh-CN")}
-												</span>
+										</Group>
+										<Text size="xs" c="dimmed">
+											{new Date(fb.created_at).toLocaleString("zh-CN")}
+											{fb.version && (
+												<Text component="span" ml={8} opacity={0.6}>
+													v{fb.version}
+												</Text>
 											)}
-										</div>
-										<p className="whitespace-pre-wrap text-sm leading-relaxed">
-											{fb.developer_reply}
-										</p>
-									</div>
-								)}
-							</article>
-						);
-					})}
-				</div>
-			)}
+										</Text>
+									</Group>
 
-			{total > LIMIT && (
-				<Pagination
-					total={total}
-					offset={offset}
-					limit={LIMIT}
-					onChange={setOffset}
-				/>
-			)}
+									{fb.content && (
+										<Text size="sm" lh={1.6} mt="sm" style={{ whiteSpace: "pre-wrap" }}>
+											{fb.content}
+										</Text>
+									)}
 
-			{previewUrl && (
-				<Dialog open onOpenChange={() => setPreviewUrl(null)}>
-					<DialogContent title="截图预览" maxWidth={800}>
-						<AuthImage
-							src={previewUrl}
-							alt="截图预览"
-							className="max-h-[70vh] max-w-full rounded-md object-contain"
-						/>
-					</DialogContent>
-				</Dialog>
-			)}
-		</div>
+									{fb.image_ids && fb.image_ids.length > 0 && (
+										<Group gap="xs" align="flex-start" mt="sm" wrap="nowrap">
+											<IconCamera
+												size={14}
+												style={{ color: "var(--mantine-color-gray-6)", flexShrink: 0, marginTop: 4 }}
+											/>
+											<Group gap="xs" wrap="nowrap" style={{ overflowX: "auto" }}>
+												{fb.image_ids.map((imgId) => (
+													<Box
+														component="button"
+														type="button"
+														key={imgId}
+														onClick={() =>
+															setPreviewUrl(feedbackImageUrl(fb.id, imgId))
+														}
+														style={{
+															flexShrink: 0,
+															overflow: "hidden",
+															borderRadius: "var(--mantine-radius-md)",
+															border: "1px solid var(--mantine-color-gray-3)",
+															background: "var(--mantine-color-gray-1)",
+															padding: 0,
+															cursor: "pointer",
+														}}
+													>
+														<AuthImage
+															src={feedbackImageUrl(fb.id, imgId)}
+															alt={`反馈截图 ${imgId}`}
+															style={{ height: 64, width: 96, objectFit: "cover", display: "block" }}
+														/>
+													</Box>
+												))}
+											</Group>
+										</Group>
+									)}
+
+									{fb.developer_reply && (
+										<Paper
+											radius="md"
+											bg="teal.1"
+											px="sm"
+											py="xs"
+											mt="md"
+											style={{ border: "1px solid var(--mantine-color-teal-3)" }}
+										>
+											<Group gap={6} mb={4}>
+												<IconMessageReply
+													size={13}
+													style={{ color: "var(--mantine-color-teal-7)" }}
+												/>
+												<Text size="xs" fw={500} c="teal">
+													开发者回复
+												</Text>
+												{fb.replied_at && (
+													<Text size="10px" c="dimmed">
+														{new Date(fb.replied_at).toLocaleString("zh-CN")}
+													</Text>
+												)}
+											</Group>
+											<Text size="sm" lh={1.6} style={{ whiteSpace: "pre-wrap" }}>
+												{fb.developer_reply}
+											</Text>
+										</Paper>
+									)}
+								</Paper>
+							);
+						})}
+					</Stack>
+				)}
+
+				{total > LIMIT && (
+					<Pagination
+						total={total}
+						offset={offset}
+						limit={LIMIT}
+						onChange={setOffset}
+					/>
+				)}
+
+				{previewUrl && (
+					<Dialog open onOpenChange={() => setPreviewUrl(null)}>
+						<DialogContent title="截图预览" maxWidth={800}>
+							<AuthImage
+								src={previewUrl}
+								alt="截图预览"
+								style={{ maxHeight: "70vh", maxWidth: "100%", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }}
+							/>
+						</DialogContent>
+					</Dialog>
+				)}
+			</Stack>
+		</Container>
 	);
 }

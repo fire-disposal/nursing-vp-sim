@@ -1,8 +1,6 @@
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { stringField } from "./CaseEditorState";
-import { inputClass } from "@/utils/styles";
-
-const SELECT_CLASS = `${inputClass} h-9`;
+import { Paper, Select, SimpleGrid, Text, Textarea } from "@mantine/core";
 
 const PERSONALITY_OPTIONS = {
 	health_literacy: [
@@ -63,40 +61,30 @@ export function PersonalitySection({ state, dispatch, disabled }: Props) {
 	}
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">人格配置</legend>
-			<p className="text-xs text-muted-foreground mb-3">影响患者的情绪反应基线、对话风格和信任建立速度</p>
-			<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">人格配置</Text>
+			<Text size="xs" c="dimmed" mb="md">影响患者的情绪反应基线、对话风格和信任建立速度</Text>
+			<SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
 				{FIELDS.map(({ key, label }) => {
 					const value = stringField(state, `personality.${key}`, "normal");
 					const opts = PERSONALITY_OPTIONS[key];
 					return (
 						<div key={key}>
-							<label className="block text-xs font-semibold text-muted-foreground mb-1">{label}</label>
-							<select
+							<Text size="xs" fw={600} c="dimmed" mb={4}>{label}</Text>
+							<Select
+								data={opts.map(([val, txt]) => ({ value: val, label: txt }))}
 								value={value}
-								onChange={(e) => set(`personality.${key}`, e.target.value)}
-								className={SELECT_CLASS}
+								onChange={(v) => set(`personality.${key}`, v ?? "normal")}
 								disabled={disabled}
-							>
-								{opts.map(([val, txt]) => (
-									<option key={val} value={val}>{txt}</option>
-								))}
-							</select>
+							/>
 						</div>
 					);
 				})}
+			</SimpleGrid>
+			<div style={{ marginTop: 12 }}>
+				<Text size="xs" fw={600} c="dimmed" mb={4}>沟通风格描述</Text>
+				<Textarea value={communicationStyle} onChange={(e) => set("communication_style", e.currentTarget.value)} placeholder="用口语化、真实患者的口吻交流。" autosize minRows={3} disabled={disabled} />
 			</div>
-			<div className="mt-3">
-				<label className="block text-xs font-semibold text-muted-foreground mb-1">沟通风格描述</label>
-				<textarea
-					value={communicationStyle}
-					onChange={(e) => set("communication_style", e.target.value)}
-					placeholder="用口语化、真实患者的口吻交流。"
-					className={`${inputClass} h-20 resize-y`}
-					disabled={disabled}
-				/>
-			</div>
-		</fieldset>
+		</Paper>
 	);
 }

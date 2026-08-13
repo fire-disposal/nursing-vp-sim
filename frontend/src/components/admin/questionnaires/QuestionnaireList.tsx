@@ -1,19 +1,18 @@
+import { Group, Paper, Select, Text } from "@mantine/core";
 import {
-	BarChart3,
-	ClipboardCheck,
-	Edit3,
-	FileText,
-	Plus,
-	Trash2,
-} from "lucide-react";
+	IconChartBar,
+	IconClipboardCheck,
+	IconEdit,
+	IconFileText,
+	IconPlus,
+	IconTrash,
+} from "@tabler/icons-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
 import { TYPE_LABEL, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
-import { inputClass } from "@/utils/styles";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { SearchInput } from "@/components/ui/search-input";
-import { cn } from "@/lib/utils";
 
 interface QuestionnaireListProps {
 	templates: TemplateListItem[];
@@ -63,9 +62,9 @@ export default function QuestionnaireList({
 				<>
 					{t.title}
 					{t.description && (
-						<div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">
+						<Text size="xs" c="dimmed" mt={2} truncate style={{ maxWidth: 300 }}>
 							{t.description}
-						</div>
+						</Text>
 					)}
 				</>
 			),
@@ -98,30 +97,27 @@ export default function QuestionnaireList({
 			key: "response_count",
 			header: "回收数",
 			render: (t) => (
-				<span
-					className={cn(
-						"font-medium",
-						t.response_count > 0
-							? "text-primary"
-							: "text-muted-foreground/70",
-					)}
+				<Text
+					fw={500}
+					c={t.response_count > 0 ? "teal" : "dimmed"}
+					opacity={t.response_count > 0 ? 1 : 0.7}
 				>
 					{t.response_count}
-				</span>
+				</Text>
 			),
 		},
 		{
 			key: "actions",
 			header: "操作",
 			render: (t) => (
-				<div className="flex gap-2">
+				<Group gap={8} wrap="nowrap">
 					<Button
 						size="sm"
 						variant="ghost"
 						onClick={() => onEdit(t)}
 						title="编辑"
 					>
-						<Edit3 size={14} />
+						<IconEdit size={14} />
 					</Button>
 					<Button
 						size="sm"
@@ -129,7 +125,7 @@ export default function QuestionnaireList({
 						onClick={() => onAssign(t)}
 						title="分配病例"
 					>
-						<FileText size={14} />
+						<IconFileText size={14} />
 					</Button>
 					<Button
 						size="sm"
@@ -137,7 +133,7 @@ export default function QuestionnaireList({
 						onClick={() => onViewStats(t)}
 						title="查看数据"
 					>
-						<BarChart3 size={14} />
+						<IconChartBar size={14} />
 					</Button>
 					<Button
 						size="sm"
@@ -145,83 +141,78 @@ export default function QuestionnaireList({
 						onClick={() => onDelete(t)}
 						title="删除"
 					>
-						<Trash2 size={14} />
+						<IconTrash size={14} />
 					</Button>
-				</div>
+				</Group>
 			),
 		},
 	];
 
 	return (
 		<>
-			<div className="mb-4 flex gap-3">
+			<Group mb="md">
 				<Button onClick={onCreate}>
-					<Plus size={16} /> 新建问卷
+					<IconPlus size={16} /> 新建问卷
 				</Button>
-			</div>
+			</Group>
 
-			<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
-				<div className="mb-4 rounded-xl border border-border bg-muted p-4">
-					<div className="flex gap-3 flex-wrap items-end">
-						<label>
-							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-								问卷类型
-							</span>
-							<select
-								value={typeFilter}
-								onChange={(e) => {
-									onTypeFilterChange(e.target.value);
-									onOffsetChange(0);
-								}}
-								className={inputClass}
-							>
-								{TYPE_OPTIONS.map((opt) => (
-									<option key={opt.value} value={opt.value}>
-										{opt.label}
-									</option>
-								))}
-							</select>
-						</label>
-						<label>
-							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-								状态
-							</span>
-							<select
-								value={statusFilter}
-								onChange={(e) => {
-									onStatusFilterChange(e.target.value);
-									onOffsetChange(0);
-								}}
-								className={inputClass}
-							>
-								<option value="">全部</option>
-								<option value="active">启用</option>
-								<option value="inactive">禁用</option>
-							</select>
-						</label>
-						<label>
-							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+			<Paper withBorder shadow="sm" p="md" radius="lg">
+				<Paper
+					withBorder
+					bg="var(--mantine-color-gray-1)"
+					p="md"
+					radius="lg"
+					mb="md"
+				>
+					<Group align="flex-end" gap="md">
+						<Select
+							label="问卷类型"
+							data={TYPE_OPTIONS}
+							value={typeFilter || null}
+							onChange={(v) => {
+								onTypeFilterChange(v ?? "");
+								onOffsetChange(0);
+							}}
+						/>
+						<Select
+							label="状态"
+							data={[
+								{ value: "", label: "全部" },
+								{ value: "active", label: "启用" },
+								{ value: "inactive", label: "禁用" },
+							]}
+							value={statusFilter || null}
+							onChange={(v) => {
+								onStatusFilterChange(v ?? "");
+								onOffsetChange(0);
+							}}
+						/>
+						<div>
+							<Text size="xs" fw={600} c="dimmed" mb={4}>
 								搜索
-							</span>
+							</Text>
 							<SearchInput
 								value={searchText}
-								onChange={(v) => { onSearchChange(v); onOffsetChange(0); }}
+								onChange={(v) => {
+									onSearchChange(v);
+									onOffsetChange(0);
+								}}
 								placeholder="搜索标题..."
 							/>
-						</label>
-					</div>
-				</div>
+						</div>
+					</Group>
+				</Paper>
 
-				<div className="mb-4 flex items-center justify-between">
-					<span className="text-sm text-muted-foreground">共 {total} 条</span>
-				</div>
+				<Group justify="space-between" mb="md">
+					<Text size="sm" c="dimmed">共 {total} 条</Text>
+				</Group>
 
 				<DataTable
 					columns={columns}
 					rows={templates}
 					rowKey={(t) => t.id}
 					loading={isLoading}
-					emptyIcon={ClipboardCheck}
+					emptyIcon={IconClipboardCheck as never}
 					emptyTitle="暂无问卷模板"
 					emptyDescription="点击上方按钮创建第一个问卷模板"
 					total={total}
@@ -230,7 +221,7 @@ export default function QuestionnaireList({
 					onOffsetChange={onOffsetChange}
 					bare
 				/>
-			</div>
+			</Paper>
 		</>
 	);
 }

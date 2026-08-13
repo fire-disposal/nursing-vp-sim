@@ -1,4 +1,5 @@
-import { ClipboardList, FileText, HeartPulse, HelpCircle, Stethoscope, type LucideIcon } from "lucide-react";
+// HeartPulse（lucide）在 tabler 无同名图标，语义上取 IconHeartbeat（心跳脉冲线）。
+import { IconClipboardList, IconFileText, IconHeartbeat, IconHelpCircle, IconStethoscope, type TablerIcon } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 import type { TrainingTool, TrainingToolProps } from "@/engine/TrainingTool";
 import NursingDiagnosisTool from "./NursingDiagnosisTool";
@@ -7,12 +8,12 @@ import NursingRecordTool from "./NursingRecordTool";
 import PhysicalExamTool from "./PhysicalExamTool";
 import QuizTool from "./QuizTool";
 
-export const TOOL_META: Record<string, { icon: LucideIcon; title: string }> = {
-  "inquiry": { icon: ClipboardList, title: "问诊指引" },
-  "physical-exam": { icon: HeartPulse, title: "护理查体" },
-  "nursing-record": { icon: FileText, title: "护理记录" },
-  "nursing-diagnosis": { icon: Stethoscope, title: "护理诊断" },
-  "quiz": { icon: HelpCircle, title: "引导题目" },
+export const TOOL_META: Record<string, { icon: TablerIcon; title: string }> = {
+  "inquiry": { icon: IconClipboardList, title: "问诊指引" },
+  "physical-exam": { icon: IconHeartbeat, title: "护理查体" },
+  "nursing-record": { icon: IconFileText, title: "护理记录" },
+  "nursing-diagnosis": { icon: IconStethoscope, title: "护理诊断" },
+  "quiz": { icon: IconHelpCircle, title: "引导题目" },
 };
 interface ToolDef {
   id: string;

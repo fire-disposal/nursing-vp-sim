@@ -1,7 +1,7 @@
-import { Plus, Trash2 } from "lucide-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import type { DialogPair } from "./caseFormTypes";
 import { emptyDialogPair } from "./caseFormTypes";
-import { inputClass } from "@/utils/styles";
+import { ActionIcon, Button, Group, Paper, Stack, Text, Textarea } from "@mantine/core";
 
 interface Props {
 	value: DialogPair[];
@@ -23,45 +23,33 @@ export function DialoguesEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">示例对话</legend>
-			<p className="text-xs text-muted-foreground mb-3">供 LLM 参考的 QA 对，帮助模型理解患者回答风格</p>
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">示例对话</Text>
+			<Text size="xs" c="dimmed" mb="md">供 LLM 参考的 QA 对，帮助模型理解患者回答风格</Text>
 			{value.length > 0 && (
-				<div className="space-y-3 mb-3">
+				<Stack gap="sm" mb="md">
 					{value.map((d, i) => (
-						<div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-border">
-							<div className="flex-1 space-y-2">
-								<div>
-									<label className="text-[10px] text-muted-foreground">护士问</label>
-									<textarea
-										value={d.question}
-										onChange={(e) => update(i, "question", e.target.value)}
-										className={`${inputClass} h-14 resize-y`}
-										disabled={disabled}
-									/>
-								</div>
-								<div>
-									<label className="text-[10px] text-muted-foreground">患者答</label>
-									<textarea
-										value={d.answer}
-										onChange={(e) => update(i, "answer", e.target.value)}
-										className={`${inputClass} h-14 resize-y`}
-										disabled={disabled}
-									/>
-								</div>
-							</div>
-							<button type="button" onClick={() => remove(i)} disabled={disabled} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0">
-								<Trash2 size={14} />
-							</button>
-						</div>
+						<Paper key={i} withBorder p="sm" radius="md">
+							<Group gap="sm" align="flex-start">
+								<Stack gap={8} style={{ flex: 1 }}>
+									<div>
+										<Text size="xs" c="dimmed" mb={4}>护士问</Text>
+										<Textarea value={d.question} onChange={(e) => update(i, "question", e.currentTarget.value)} autosize minRows={2} disabled={disabled} />
+									</div>
+									<div>
+										<Text size="xs" c="dimmed" mb={4}>患者答</Text>
+										<Textarea value={d.answer} onChange={(e) => update(i, "answer", e.currentTarget.value)} autosize minRows={2} disabled={disabled} />
+									</div>
+								</Stack>
+								<ActionIcon variant="subtle" color="gray" onClick={() => remove(i)} disabled={disabled} aria-label="删除对话"><IconTrash size={14} /></ActionIcon>
+							</Group>
+						</Paper>
 					))}
-				</div>
+				</Stack>
 			)}
 			{!disabled && (
-				<button type="button" onClick={add} className="flex items-center gap-1 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors">
-					<Plus size={12} /> 添加对话
-				</button>
+				<Button variant="link" size="xs" onClick={add} leftSection={<IconPlus size={12} />}>添加对话</Button>
 			)}
-		</fieldset>
+		</Paper>
 	);
 }

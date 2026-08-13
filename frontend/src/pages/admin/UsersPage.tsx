@@ -1,4 +1,4 @@
-﻿import { Users } from "lucide-react";
+import { IconUsers } from "@tabler/icons-react";
 import UsersTab from "@/components/admin/UsersTab";
 import ExportButton from "@/components/ExportButton";
 import PageHeader from "@/components/ui/page-header";
@@ -11,7 +11,7 @@ export default function UsersPage() {
 			<PageHeader
 				title="用户管理"
 				subtitle="搜索、注册、编辑和管理所有用户账号"
-				icon={Users}
+				icon={IconUsers}
 				actions={<ExportButton endpoint="/admin/export" filename="用户列表" />}
 			/>
 			{userId != null && <UsersTab currentUserId={userId} />}

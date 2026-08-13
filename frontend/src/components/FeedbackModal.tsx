@@ -1,4 +1,5 @@
-import { Loader2, MessageSquare, Plus, Send, X } from "lucide-react";
+import { ActionIcon, Box, Center, Group, Loader, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconMessageCircle, IconPlus, IconSend, IconX } from "@tabler/icons-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFeedbackFormData } from "@/api";
@@ -7,16 +8,14 @@ import Button from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
-import { cn } from "@/lib/utils";
 
-const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
-const RATING_COLORS = [
-	"hover:border-red-400 data-[active=true]:border-red-500 data-[active=true]:bg-red-50 data-[active=true]:text-red-600",
-	"hover:border-orange-400 data-[active=true]:border-orange-500 data-[active=true]:bg-orange-50 data-[active=true]:text-orange-600",
-	"hover:border-amber-400 data-[active=true]:border-amber-500 data-[active=true]:bg-amber-50 data-[active=true]:text-amber-600",
-	"hover:border-emerald-400 data-[active=true]:border-emerald-500 data-[active=true]:bg-emerald-50 data-[active=true]:text-emerald-600",
-	"hover:border-green-400 data-[active=true]:border-green-500 data-[active=true]:bg-green-50 data-[active=true]:text-green-600",
-];
+const RATING_META = [
+	{ label: "很不满意", color: "red" },
+	{ label: "不满意", color: "orange" },
+	{ label: "一般", color: "yellow" },
+	{ label: "满意", color: "teal" },
+	{ label: "很满意", color: "green" },
+] as const;
 
 interface Tag {
 	value: string;
@@ -143,131 +142,195 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 
 	return (
 		<ResponsiveDialog open={open} onClose={handleClose} title="意见反馈" maxWidth={480}>
-			<div className="flex flex-col gap-5">
-				<div>
-					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						整体评价 <span className="text-muted-foreground/60 font-normal">(选填)</span>
-					</div>
-					<div className="flex justify-between gap-1 flex-nowrap">
-						{[1, 2, 3, 4, 5].map((val) => (
-							<button
-								type="button"
-								key={val}
-								onClick={() => setRating(val)}
-								data-active={rating === val}
-								className={cn(
-									"flex flex-col items-center gap-1 py-2 px-1 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0 flex-1",
-									RATING_COLORS[val - 1],
-									rating === val
-										? "scale-105"
-										: "border-transparent bg-transparent text-muted-foreground/60",
-								)}
-							>
-								<span className={cn(
-									"text-xl font-bold transition-all",
-									rating === val ? "" : "",
-								)}>
-									{val}
-								</span>
-								<span className={cn(
-									"text-[10px] sm:text-xs whitespace-nowrap",
-									rating === val ? "font-semibold" : "",
-								)}>
-									{RATING_LABELS[val - 1]}
-								</span>
-							</button>
-						))}
-					</div>
-				</div>
+			<Stack gap="lg">
+				<Box>
+					<Text size="sm" fw={500} c="dimmed" mb="xs">
+						整体评价{" "}
+						<Text component="span" size="sm" fw={400} c="dimmed" opacity={0.6}>
+							(选填)
+						</Text>
+					</Text>
+					<Group gap={4} wrap="nowrap" justify="space-between">
+						{RATING_META.map((meta, i) => {
+							const val = i + 1;
+							const active = rating === val;
+							return (
+								<UnstyledButton
+									key={val}
+									onClick={() => setRating(val)}
+									style={{
+										flex: 1,
+										minWidth: 0,
+										display: "flex",
+										flexDirection: "column",
+										alignItems: "center",
+										gap: 4,
+										padding: "8px 4px",
+										borderRadius: "var(--mantine-radius-md)",
+										border: active
+											? `1px solid var(--mantine-color-${meta.color}-6)`
+											: "1px solid transparent",
+										background: active
+											? `var(--mantine-color-${meta.color}-1)`
+											: "transparent",
+										cursor: "pointer",
+									}}
+								>
+									<Text size="lg" fw={700} c={active ? `${meta.color}.7` : "dimmed"}>
+										{val}
+									</Text>
+									<Text
+										size="xs"
+										fw={active ? 600 : 400}
+										c={active ? `${meta.color}.7` : "dimmed"}
+										style={{ whiteSpace: "nowrap" }}
+									>
+										{meta.label}
+									</Text>
+								</UnstyledButton>
+							);
+						})}
+					</Group>
+				</Box>
 
-				<div>
-					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						反馈类型 <span className="text-muted-foreground/60 font-normal">(选填)</span>
-					</div>
-					<div className="flex flex-wrap gap-2">
+				<Box>
+					<Text size="sm" fw={500} c="dimmed" mb="xs">
+						反馈类型{" "}
+						<Text component="span" size="sm" fw={400} c="dimmed" opacity={0.6}>
+							(选填)
+						</Text>
+					</Text>
+					<Group gap={8}>
 						{tags.map((t) => (
-							<button
-								type="button"
+							<Button
 								key={t.value}
+								variant={tag === t.value ? "default" : "outline"}
+								size="sm"
+								radius="xl"
 								onClick={() => setTag(tag === t.value ? "" : t.value)}
-								className={cn(
-									"py-1 px-2.5 sm:px-3 rounded-full border text-sm cursor-pointer transition-all duration-150",
-									tag === t.value
-										? "border-primary bg-primary text-primary-foreground"
-										: "border-border bg-card text-muted-foreground",
-								)}
 							>
 								{t.label}
-							</button>
+							</Button>
 						))}
-					</div>
-				</div>
+					</Group>
+				</Box>
 
-				<div>
-					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						详细描述 <span className="text-muted-foreground/60 font-normal">(选填)</span>
-					</div>
+				<Box>
+					<Text size="sm" fw={500} c="dimmed" mb="xs">
+						详细描述{" "}
+						<Text component="span" size="sm" fw={400} c="dimmed" opacity={0.6}>
+							(选填)
+						</Text>
+					</Text>
 					<Textarea
 						placeholder="请详细描述你的想法..."
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
 						rows={4}
-						className="min-h-28 resize-y"
 					/>
-				</div>
+				</Box>
 
-				<div>
-					<div className="text-sm text-muted-foreground mb-3 font-medium">
-						添加截图 <span className="text-muted-foreground/60 font-normal">(选填, 最多3张)</span>
-					</div>
-					<div className="flex flex-wrap gap-2">
+				<Box>
+					<Text size="sm" fw={500} c="dimmed" mb="xs">
+						添加截图{" "}
+						<Text component="span" size="sm" fw={400} c="dimmed" opacity={0.6}>
+							(选填, 最多3张)
+						</Text>
+					</Text>
+					<Group gap={8} wrap="wrap">
 						{images.map((entry, i) => (
-							<div key={`${entry.file.name}-${i}`} className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border overflow-hidden group shrink-0">
+							<Box
+								key={`${entry.file.name}-${i}`}
+								style={{
+									position: "relative",
+									width: 64,
+									height: 64,
+									borderRadius: "var(--mantine-radius-md)",
+									border: "1px solid var(--mantine-color-gray-3)",
+									overflow: "hidden",
+									flexShrink: 0,
+								}}
+							>
 								<img
 									src={entry.url}
 									alt={`截图 ${i + 1}`}
-									className="w-full h-full object-cover"
+									style={{ width: "100%", height: "100%", objectFit: "cover" }}
 								/>
-								<button
-									type="button"
+								<ActionIcon
+									variant="filled"
+									color="red"
+									size="xs"
 									onClick={() => handleRemoveImage(i)}
-									className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
 									aria-label={`删除截图 ${i + 1}`}
+									style={{ position: "absolute", top: -4, right: -4, borderRadius: "50%" }}
 								>
-									<X size={12} />
-								</button>
-							</div>
+									<IconX size={12} />
+								</ActionIcon>
+							</Box>
 						))}
 						{compressing && (
-							<div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
-								<Loader2 size={18} className="animate-spin text-muted-foreground" />
-							</div>
+							<Center
+								style={{
+									width: 64,
+									height: 64,
+									borderRadius: "var(--mantine-radius-md)",
+									border: "1px solid var(--mantine-color-gray-3)",
+									background: "var(--mantine-color-gray-1)",
+								}}
+							>
+								<Loader size="sm" />
+							</Center>
 						)}
 						{images.length < 3 && !compressing && (
-							<label className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-dashed border-border bg-card flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:border-primary transition-colors shrink-0">
-								<Plus size={18} className="text-muted-foreground" />
-								<span className="text-[10px] text-muted-foreground">添加</span>
+							<Box
+								component="label"
+								style={{
+									width: 64,
+									height: 64,
+									borderRadius: "var(--mantine-radius-md)",
+									border: "1px dashed var(--mantine-color-gray-4)",
+									display: "flex",
+									flexDirection: "column",
+									alignItems: "center",
+									justifyContent: "center",
+									gap: 2,
+									cursor: "pointer",
+									flexShrink: 0,
+								}}
+							>
+								<IconPlus size={18} style={{ color: "var(--mantine-color-dimmed)" }} />
+								<Text fz={10} c="dimmed">
+									添加
+								</Text>
 								<input
 									ref={fileInputRef}
 									type="file"
 									accept="image/*"
 									capture="environment"
 									multiple
-									className="hidden"
+									style={{ display: "none" }}
 									onChange={handleAddImages}
 								/>
-							</label>
+							</Box>
 						)}
-					</div>
-				</div>
-			</div>
+					</Group>
+				</Box>
+			</Stack>
 
-			<div className="flex justify-between items-center mt-2">
-				<Button type="button" variant="link" size="xs" onClick={() => { onClose(); navigate("/my-feedback"); }}
-					className="h-auto px-0 text-xs text-muted-foreground">
-					<MessageSquare size={13} /> 查看我的反馈
+			<Group justify="space-between" mt="xs" wrap="nowrap">
+				<Button
+					type="button"
+					variant="link"
+					size="xs"
+					p={0}
+					onClick={() => {
+						onClose();
+						navigate("/my-feedback");
+					}}
+				>
+					<IconMessageCircle size={13} /> 查看我的反馈
 				</Button>
-				<div className="flex gap-2">
+				<Group gap={8}>
 					<Button
 						type="button"
 						variant="outline"
@@ -281,10 +344,18 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 						onClick={handleSubmit}
 						disabled={submitting || compressing}
 					>
-						{submitting ? (<><Loader2 size={14} className="animate-spin" /> 提交中...</>) : (<><Send size={14} /> 提交</>)}
+						{submitting ? (
+							<>
+								<Loader size={14} /> 提交中...
+							</>
+						) : (
+							<>
+								<IconSend size={14} /> 提交
+							</>
+						)}
 					</Button>
-			</div>
-			</div>
+				</Group>
+			</Group>
 		</ResponsiveDialog>
 	);
 }

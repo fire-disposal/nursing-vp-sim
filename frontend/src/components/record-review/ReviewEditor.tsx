@@ -1,7 +1,10 @@
-import { X } from "lucide-react";
+import { Box, Group, Text } from "@mantine/core";
 import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import ReviewItem from "./ReviewItem";
 
@@ -73,82 +76,71 @@ export default function ReviewEditor({
 	};
 
 	return (
-		<div
-			className="fixed inset-0 bg-background/95 flex items-center justify-center z-[200]"
-			onClick={onClose}
-		>
-			<div
-				className="bg-card rounded-2xl p-6 sm:p-8 max-w-[640px] w-[94vw] max-h-[90vh] overflow-auto shadow-xl border border-border"
-				onClick={(e) => e.stopPropagation()}
-			>
-				<div className="flex justify-between items-center mb-5">
-					<div>
-						<h2 className="text-lg font-semibold">教师复核评分</h2>
-						<span className="text-xs text-muted-foreground">
-							逐项审核 AI 评分，可修改每项分值
-						</span>
-					</div>
-					<button
-						onClick={onClose}
-						className="size-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-					>
-						<X size={16} />
-					</button>
-				</div>
+		<Dialog open onOpenChange={(o) => !o && onClose()}>
+			<DialogContent title="教师复核评分" maxWidth={640}>
+				<Text size="xs" c="dimmed">
+					逐项审核 AI 评分，可修改每项分值
+				</Text>
 
-				{isNewFormat ? (
-					categories.map(([catName, catData]) => (
-						<div key={catName} className="mb-5">
-							<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
-								<span>{catName}</span>
-								<Badge variant="neutral">
-									{catData.score}/{catData.max}
-								</Badge>
-							</div>
-							{(catData.items || []).map((item) => (
-								<ReviewItem
-									key={item.id!}
-									item={item}
-									editedScore={editedScores[item.id!]}
-									onChange={handleScoreChange}
-								/>
-							))}
-						</div>
-					))
-				) : (
-					<div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-border rounded-xl">
-						此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
-					</div>
-				)}
+				<Box mt="md">
+					{isNewFormat ? (
+						categories.map(([catName, catData]) => (
+							<Box key={catName} mb="lg">
+								<Group gap="xs" mb={6} wrap="nowrap">
+									<Text size="xs" fw={600} c="dimmed" tt="uppercase">
+										{catName}
+									</Text>
+									<Badge variant="neutral">
+										{catData.score}/{catData.max}
+									</Badge>
+								</Group>
+								{(catData.items || []).map((item) => (
+									<ReviewItem
+										key={item.id!}
+										item={item}
+										editedScore={editedScores[item.id!]}
+										onChange={handleScoreChange}
+									/>
+								))}
+							</Box>
+						))
+					) : (
+						<Box
+							py="lg"
+							ta="center"
+							style={{
+								border: "1px dashed var(--mantine-color-gray-4)",
+								borderRadius: "var(--mantine-radius-md)",
+							}}
+						>
+							<Text size="sm" c="dimmed">
+								此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
+							</Text>
+						</Box>
+					)}
 
-				<div className="mt-4">
-					<label className="text-sm font-semibold block mb-1.5">复核备注</label>
-					<textarea
-						value={comment}
-						onChange={(e) => setComment(e.target.value)}
-						placeholder="可选：对评分调整的说明..."
-						rows={3}
-						className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-y placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
-					/>
-				</div>
+					<Box mt="md">
+						<Text component="label" size="sm" fw={600} mb={6} display="block">
+							复核备注
+						</Text>
+						<Textarea
+							value={comment}
+							onChange={(e) => setComment(e.target.value)}
+							placeholder="可选：对评分调整的说明..."
+							rows={3}
+						/>
+					</Box>
 
-				<div className="flex justify-end gap-2 mt-5">
-					<button
-						className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						onClick={onClose}
-						disabled={submitting}
-					>
-						取消
-					</button>
-					<button
-						className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						onClick={handleSubmit}
-						disabled={submitting}
-					>
-						{submitting ? "提交中..." : "提交复核"}
-					</button>
-				</div>
-			</div>
-		</div>
+					<Group justify="flex-end" gap="xs" mt="lg">
+						<Button variant="outline" onClick={onClose} disabled={submitting}>
+							取消
+						</Button>
+						<Button onClick={handleSubmit} disabled={submitting}>
+							{submitting ? "提交中..." : "提交复核"}
+						</Button>
+					</Group>
+				</Box>
+			</DialogContent>
+		</Dialog>
 	);
 }

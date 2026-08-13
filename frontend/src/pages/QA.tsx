@@ -1,18 +1,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	BookOpen,
-	Bot,
-	ChevronRight,
-	Library,
-	Menu,
-	MessageCircle,
-	Plus,
-	Send,
-	Sparkles,
-	Trash2,
-	X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+	IconBook2,
+	IconBooks,
+	IconChevronRight,
+	IconMenu2,
+	IconMessageCircle,
+	IconPlus,
+	IconRobot,
+	IconSend,
+	IconSparkles,
+	IconTrash,
+	IconX,
+} from "@tabler/icons-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { Avatar, Box, Divider, Drawer, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -36,14 +37,13 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { getNurseAvatar } from "@/utils/avatar";
 import { useConfirm } from "@/components/ui/confirm";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 type Citation = NonNullable<QAMessageItem["citations"]>[number];
+type IconType = ComponentType<{ size?: number; className?: string; stroke?: number; color?: string }>;
 
 const SUGGESTIONS = [
 	{
@@ -67,28 +67,6 @@ const SUGGESTIONS = [
 		description: "体温、脉搏、呼吸、血压的记录边界",
 	},
 ];
-
-const BUBBLE_CONTENT_CLASSES = [
-	"break-words text-[15px] leading-7",
-	"[&_p]:mb-2 [&_p:last-child]:mb-0",
-	"[&_code]:rounded-md [&_code]:bg-foreground/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.92em]",
-	"[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-foreground/[0.06] [&_pre]:p-3",
-	"[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-sm",
-	"[&_ul]:my-2 [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:pl-6",
-	"[&_li]:mb-1",
-	"[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-xl",
-	"[&_th]:border [&_th]:border-border [&_th]:bg-muted/70 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-sm [&_th]:font-semibold",
-	"[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-left [&_td]:text-sm",
-	"[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:px-4 [&_blockquote]:py-2",
-].join(" ");
-
-const BUBBLE_CONTENT_USER = [
-	"[&_code]:bg-white/15 [&_code]:text-white",
-	"[&_pre]:bg-white/10",
-	"[&_blockquote]:border-l-white/30 [&_blockquote]:bg-white/10",
-	"[&_th]:border-white/20 [&_th]:bg-white/[0.08]",
-	"[&_td]:border-white/20",
-].join(" ");
 
 export default function QA() {
 	const queryClient = useQueryClient();
@@ -287,64 +265,96 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<main className="relative flex h-[calc(100dvh-6.5rem)] min-h-[32rem] overflow-hidden rounded-xl border border-border bg-card">
-			{showSidebar && (
-				<button
-					type="button"
-					className="fixed inset-0 z-40 bg-foreground/35 backdrop-blur-sm md:hidden"
-					aria-label="关闭对话记录"
-					onClick={() => setShowSidebar(false)}
+		<Paper
+			component="main"
+			withBorder
+			radius="lg"
+			style={{ height: "calc(100dvh - 6.5rem)", minHeight: "32rem", overflow: "hidden", display: "flex", position: "relative" }}
+		>
+			<Box
+				visibleFrom="md"
+				style={{
+					width: 304,
+					flexShrink: 0,
+					borderRight: "1px solid var(--mantine-color-gray-3)",
+					background: "var(--mantine-color-gray-1)",
+					display: "flex",
+					flexDirection: "column",
+				}}
+			>
+				<QASidebar
+					activeSessionId={activeSessionId}
+					handleDeleteSession={handleDeleteSession}
+					handleNewChat={handleNewChat}
+					isError={isError}
+					loadSessions={loadSessions}
+					sessions={sessions}
+					switchSession={switchSession}
+					onClose={() => setShowSidebar(false)}
 				/>
-			)}
+			</Box>
 
-			<QASidebar
-				activeSessionId={activeSessionId}
-				handleDeleteSession={handleDeleteSession}
-				handleNewChat={handleNewChat}
-				isError={isError}
-				loadSessions={loadSessions}
-				sessions={sessions}
-				showSidebar={showSidebar}
-				switchSession={switchSession}
+			<Drawer
+				opened={showSidebar}
 				onClose={() => setShowSidebar(false)}
-			/>
+				position="left"
+				size="19rem"
+				padding={0}
+				withCloseButton={false}
+			>
+				<QASidebar
+					activeSessionId={activeSessionId}
+					handleDeleteSession={handleDeleteSession}
+					handleNewChat={handleNewChat}
+					isError={isError}
+					loadSessions={loadSessions}
+					sessions={sessions}
+					switchSession={switchSession}
+					onClose={() => setShowSidebar(false)}
+				/>
+			</Drawer>
 
-			<section className="flex min-w-0 flex-1 flex-col bg-card">
-				<header className="flex min-h-16 items-center gap-3 border-b border-border px-4 sm:px-5">
+			<Box component="section" style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column" }}>
+				<Group
+					gap="sm"
+					wrap="nowrap"
+					px="md"
+					style={{ minHeight: 64, borderBottom: "1px solid var(--mantine-color-gray-3)", flexShrink: 0 }}
+				>
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						className="md:hidden"
+						hiddenFrom="md"
 						onClick={() => setShowSidebar(true)}
 						aria-label="打开对话记录"
 					>
-						<Menu size={17} />
+						<IconMenu2 size={17} />
 					</Button>
-					<div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-						<Bot size={20} />
-					</div>
-					<div className="min-w-0 flex-1">
-						<h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
+					<ThemeIcon size={40} radius="lg" variant="light" color="teal">
+						<IconRobot size={20} />
+					</ThemeIcon>
+					<Box style={{ minWidth: 0, flex: 1 }}>
+						<Title order={1} size="md" lineClamp={1}>
 							护理问答工作台
-						</h1>
-						<p className="hidden truncate text-xs text-muted-foreground sm:block">
+						</Title>
+						<Text size="xs" c="dimmed" truncate hiddenFrom="sm">
 							{activeSession?.title || "教材检索、护理推理和操作规范集中在一个对话里"}
-						</p>
-					</div>
-					<Badge variant={ragEnabled ? "default" : "outline"} className="hidden sm:inline-flex">
+						</Text>
+					</Box>
+					<Badge variant={ragEnabled ? "default" : "outline"} visibleFrom="sm">
 						{ragEnabled ? "教材增强" : "基础模式"}
 					</Badge>
 					<Button variant="outline" size="sm" onClick={handleNewChat}>
-						<Plus size={15} />
+						<IconPlus size={15} />
 						新对话
 					</Button>
-				</header>
+				</Group>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+				<Box px="md" py="lg" style={{ minHeight: 0, flex: 1, overflowY: "auto" }}>
 					{messages.length === 0 ? (
 						<QAWelcome onAsk={sendMessage} />
 					) : (
-						<div className="mx-auto flex max-w-4xl flex-col gap-5">
+						<Stack gap="lg" mx="auto" maw={896}>
 							{messages.map((message, index) => (
 								<MessageBubble
 									key={`${message.id}-${index}`}
@@ -354,9 +364,9 @@ export default function QA() {
 							))}
 							{loading && <AssistantDraft content={streamingAnswer} />}
 							<div ref={messagesEndRef} />
-						</div>
+						</Stack>
 					)}
-				</div>
+				</Box>
 
 				<Composer
 					input={input}
@@ -368,8 +378,8 @@ export default function QA() {
 					onSend={() => sendMessage()}
 					onToggleRag={() => setRagEnabled((value) => !value)}
 				/>
-			</section>
-		</main>
+			</Box>
+		</Paper>
 	);
 }
 
@@ -381,7 +391,6 @@ function QASidebar({
 	loadSessions,
 	onClose,
 	sessions,
-	showSidebar,
 	switchSession,
 }: {
 	activeSessionId: number | null;
@@ -391,147 +400,162 @@ function QASidebar({
 	loadSessions: () => Promise<void>;
 	onClose: () => void;
 	sessions: components["schemas"]["QASessionItem"][];
-	showSidebar: boolean;
 	switchSession: (sessionId: number) => Promise<void>;
 }) {
 	return (
-		<aside
-			className={cn(
-				"absolute inset-y-0 left-0 z-50 flex w-[19rem] flex-col border-r border-border bg-card transition-transform duration-300 md:static md:z-auto md:translate-x-0 md:bg-muted/30",
-				showSidebar ? "translate-x-0" : "-translate-x-full",
-			)}
-		>
-			<div className="flex items-center justify-between px-4 py-4">
-				<div>
-					<p className="text-xs font-medium text-muted-foreground">QA history</p>
-					<h2 className="text-lg font-semibold tracking-tight">对话记录</h2>
-				</div>
+		<Box style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+			<Group justify="space-between" wrap="nowrap" px="md" py="md">
+				<Box>
+					<Text size="xs" c="dimmed" fw={500}>
+						QA history
+					</Text>
+					<Title order={2} size="lg">
+						对话记录
+					</Title>
+				</Box>
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					className="md:hidden"
+					hiddenFrom="md"
 					onClick={onClose}
 					aria-label="关闭对话记录"
 				>
-					<X size={16} />
+					<IconX size={16} />
 				</Button>
-			</div>
-			<div className="px-4 pb-4">
-				<Button className="w-full justify-start" onClick={handleNewChat}>
-					<Plus size={16} />
+			</Group>
+			<Box px="md" pb="md">
+				<Button fullWidth justify="flex-start" onClick={handleNewChat}>
+					<IconPlus size={16} />
 					新对话
 				</Button>
-			</div>
-			<Separator />
-			<div className="flex-1 space-y-1 overflow-y-auto p-3">
-				{sessions.map((session) => (
-					<button
-						key={session.id}
-						type="button"
-						className={cn(
-							"group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
-							activeSessionId === session.id && "bg-primary/10 text-primary ring-1 ring-primary/20",
-						)}
-						onClick={() => switchSession(session.id)}
-					>
-						<div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-background text-muted-foreground ring-1 ring-border group-hover:text-primary">
-							<MessageCircle size={15} />
-						</div>
-						<div className="min-w-0 flex-1">
-							<p className="truncate text-sm font-medium text-foreground">{session.title}</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								{formatSessionDate(session.updated_at)}
-							</p>
-						</div>
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus:opacity-100"
-							onClick={(event) => handleDeleteSession(event, session.id)}
-							aria-label="删除会话"
+			</Box>
+			<Divider />
+			<ScrollArea style={{ flex: 1, minHeight: 0 }}>
+				<Stack gap={4} p="sm">
+					{sessions.map((session) => (
+						<UnstyledButton
+							key={session.id}
+							onClick={() => switchSession(session.id)}
+							style={{
+								width: "100%",
+								textAlign: "left",
+								padding: "12px",
+								borderRadius: "var(--mantine-radius-xl)",
+								background: activeSessionId === session.id ? "var(--mantine-color-teal-1)" : undefined,
+							}}
 						>
-							<Trash2 size={13} />
-						</Button>
-					</button>
-				))}
-				{isError && (
-					<EmptyState
-						title="加载失败"
-						description="无法获取对话记录"
-						className="py-10"
-						action={
-							<Button variant="outline" size="sm" onClick={loadSessions}>
-								重试
-							</Button>
-						}
-					/>
-				)}
-				{sessions.length === 0 && !isError && (
-					<EmptyState
-						title="暂无历史对话"
-						description="提问后将自动保存记录"
-						className="py-10"
-					/>
-				)}
-			</div>
-		</aside>
+							<Group gap="sm" align="flex-start" wrap="nowrap">
+								<ThemeIcon size={32} radius="lg" variant="default" color="gray">
+									<IconMessageCircle size={15} />
+								</ThemeIcon>
+								<Box style={{ minWidth: 0, flex: 1 }}>
+									<Text size="sm" fw={500} truncate>
+										{session.title}
+									</Text>
+									<Text size="xs" c="dimmed" mt={4}>
+										{formatSessionDate(session.updated_at)}
+									</Text>
+								</Box>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									style={{ flexShrink: 0, opacity: 0.6 }}
+									onClick={(event) => handleDeleteSession(event, session.id)}
+									aria-label="删除会话"
+								>
+									<IconTrash size={13} />
+								</Button>
+							</Group>
+						</UnstyledButton>
+					))}
+					{isError && (
+						<EmptyState
+							title="加载失败"
+							description="无法获取对话记录"
+							className="py-10"
+							action={
+								<Button variant="outline" size="sm" onClick={loadSessions}>
+									重试
+								</Button>
+							}
+						/>
+					)}
+					{sessions.length === 0 && !isError && (
+						<EmptyState
+							title="暂无历史对话"
+							description="提问后将自动保存记录"
+							className="py-10"
+						/>
+					)}
+				</Stack>
+			</ScrollArea>
+		</Box>
 	);
 }
 
 function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 	return (
-		<div className="mx-auto grid min-h-full w-full max-w-5xl content-center gap-6 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:py-12">
-			<section className="flex flex-col justify-center">
-				<div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-					<Sparkles size={15} />
-					教材增强问答
-				</div>
-				<h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
-					把护理学问题问到可以执行
-				</h2>
-				<p className="mt-4 max-w-[34rem] text-pretty text-base leading-8 text-muted-foreground">
-					围绕教材原文、临床判断和操作规范回答。适合课前预习、训练复盘和病例讨论。
-				</p>
-				<div className="mt-8 grid gap-3 sm:grid-cols-2">
-					<InfoTile
-						icon={Library}
-						title="引用可回看"
-						description="有教材依据时，可直接打开原文片段。"
-					/>
-					<InfoTile
-						icon={Bot}
-						title="按护理语境回答"
-						description="更关注评估、干预、风险和记录。"
-					/>
-				</div>
-			</section>
+		<Box mx="auto" w="100%" maw={1024}>
+			<Stack gap="md" py="lg">
+				<Box>
+					<Group gap="xs" style={{ display: "inline-flex", width: "fit-content" }} px="sm" py={4} wrap="nowrap" mb="md">
+						<IconSparkles size={15} />
+						<Text size="sm" fw={500} c="teal">
+							教材增强问答
+						</Text>
+					</Group>
+					<Title order={2} size="3xl">
+						把护理学问题问到可以执行
+					</Title>
+					<Text mt="md" size="md" c="dimmed" lh={1.9} maw={544}>
+						围绕教材原文、临床判断和操作规范回答。适合课前预习、训练复盘和病例讨论。
+					</Text>
+					<Group gap="sm" mt="lg" align="stretch">
+						<InfoTile icon={IconBooks} title="引用可回看" description="有教材依据时，可直接打开原文片段。" />
+						<InfoTile icon={IconRobot} title="按护理语境回答" description="更关注评估、干预、风险和记录。" />
+					</Group>
+				</Box>
 
-			<Card className="rounded-2xl border-border bg-background/80 py-0">
-				<CardHeader className="p-5 pb-3">
-					<CardTitle className="text-lg">从一个具体问题开始</CardTitle>
-					<CardDescription>点击示例后会直接发送，也可以在底部输入自己的问题。</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-2 p-5 pt-0">
-					{SUGGESTIONS.map((suggestion) => (
-						<button
-							key={suggestion.title}
-							type="button"
-							className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:border-primary/35 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 active:translate-y-px"
-							onClick={() => onAsk(suggestion.title)}
-						>
-							<div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-								<BookOpen size={16} />
-							</div>
-							<div className="min-w-0 flex-1">
-								<p className="text-sm font-medium text-foreground">{suggestion.title}</p>
-								<p className="mt-0.5 text-xs text-muted-foreground">{suggestion.description}</p>
-							</div>
-							<ChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-						</button>
-					))}
-				</CardContent>
-			</Card>
-		</div>
+				<Card>
+					<CardHeader>
+						<CardTitle size="md">从一个具体问题开始</CardTitle>
+						<CardDescription>点击示例后会直接发送，也可以在底部输入自己的问题。</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<Stack gap="xs">
+							{SUGGESTIONS.map((suggestion) => (
+								<UnstyledButton
+									key={suggestion.title}
+									onClick={() => onAsk(suggestion.title)}
+									style={{
+										width: "100%",
+										textAlign: "left",
+										padding: "12px 16px",
+										borderRadius: "var(--mantine-radius-lg)",
+										border: "1px solid var(--mantine-color-gray-3)",
+									}}
+								>
+									<Group gap="sm" align="center" wrap="nowrap">
+										<ThemeIcon size={36} radius="lg" variant="light" color="teal">
+											<IconBook2 size={16} />
+										</ThemeIcon>
+										<Box style={{ minWidth: 0, flex: 1 }}>
+											<Text size="sm" fw={500}>
+												{suggestion.title}
+											</Text>
+											<Text size="xs" c="dimmed" mt={2}>
+												{suggestion.description}
+											</Text>
+										</Box>
+										<IconChevronRight size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+									</Group>
+								</UnstyledButton>
+							))}
+						</Stack>
+					</CardContent>
+				</Card>
+			</Stack>
+		</Box>
 	);
 }
 
@@ -541,17 +565,21 @@ function InfoTile({
 	title,
 }: {
 	description: string;
-	icon: typeof Library;
+	icon: IconType;
 	title: string;
 }) {
 	return (
-		<div className="rounded-2xl border border-border bg-card/70 p-4">
-			<div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-muted text-primary">
+		<Paper withBorder radius="xl" p="md" style={{ flex: 1 }}>
+			<ThemeIcon size={40} radius="lg" variant="light" color="gray" mb="sm">
 				<Icon size={18} />
-			</div>
-			<p className="text-sm font-semibold text-foreground">{title}</p>
-			<p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
-		</div>
+			</ThemeIcon>
+			<Text size="sm" fw={600}>
+				{title}
+			</Text>
+			<Text size="sm" c="dimmed" mt={4} lh={1.6}>
+				{description}
+			</Text>
+		</Paper>
 	);
 }
 
@@ -565,37 +593,42 @@ function MessageBubble({
 	const isUser = message.role === "user";
 
 	return (
-		<article className={cn("flex items-end gap-3", isUser ? "justify-end" : "justify-start")}>
+		<Group gap="sm" align="flex-end" wrap="nowrap" justify={isUser ? "flex-end" : "flex-start"}>
 			{!isUser && <AssistantAvatar />}
-			<div
-				className={cn(
-					"max-w-[92%] rounded-2xl px-4 py-3 text-sm sm:max-w-[76%] sm:px-5 sm:py-4",
-					isUser
-						? "rounded-br-lg bg-primary text-primary-foreground"
-						: "rounded-bl-lg border border-border/80 bg-background/90 text-foreground",
-				)}
+			<Box
+				style={{
+					maxWidth: "92%",
+					padding: "12px 16px",
+					borderRadius: "var(--mantine-radius-lg)",
+				}}
+				bg={isUser ? "teal" : "var(--mantine-color-body)"}
+				c={isUser ? "white" : undefined}
+				bd={isUser ? undefined : "1px solid var(--mantine-color-gray-3)"}
 			>
 				<MarkdownContent isUser={isUser}>{message.content}</MarkdownContent>
 				{!isUser && hasCitations(message.citations) && (
 					<CitationCard citations={message.citations} />
 				)}
-			</div>
+			</Box>
 			{isUser && (
-				<img
-					className="size-9 shrink-0 rounded-2xl bg-muted object-cover ring-1 ring-border"
-					src={nurseAvatar}
-					alt="护士头像"
-				/>
+				<Avatar src={nurseAvatar} alt="护士头像" size={36} radius="lg" />
 			)}
-		</article>
+		</Group>
 	);
 }
 
 function AssistantDraft({ content }: { content: string }) {
 	return (
-		<article className="flex items-end gap-3 justify-start" aria-busy="true">
+		<Group gap="sm" align="flex-end" wrap="nowrap" justify="flex-start" aria-busy="true">
 			<AssistantAvatar />
-			<div className="max-w-[92%] rounded-2xl rounded-bl-lg border border-border bg-background px-4 py-3 text-sm sm:max-w-[76%] sm:px-5 sm:py-4">
+			<Box
+				style={{
+					maxWidth: "92%",
+					padding: "12px 16px",
+					borderRadius: "var(--mantine-radius-lg)",
+					border: "1px solid var(--mantine-color-gray-3)",
+				}}
+			>
 				{content ? (
 					<MarkdownContent>{content}</MarkdownContent>
 				) : (
@@ -605,16 +638,16 @@ function AssistantDraft({ content }: { content: string }) {
 						<span />
 					</div>
 				)}
-			</div>
-		</article>
+			</Box>
+		</Group>
 	);
 }
 
 function AssistantAvatar() {
 	return (
-		<div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-			<Bot size={18} />
-		</div>
+		<ThemeIcon size={36} radius="lg" variant="light" color="teal">
+			<IconRobot size={18} />
+		</ThemeIcon>
 	);
 }
 
@@ -626,9 +659,11 @@ function MarkdownContent({
 	isUser?: boolean;
 }) {
 	return (
-		<div className={cn(BUBBLE_CONTENT_CLASSES, isUser && BUBBLE_CONTENT_USER)}>
+		<Typography
+			style={{ fontSize: "15px", lineHeight: 1.75, ...(isUser ? { color: "white" } : undefined) }}
+		>
 			<ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
-		</div>
+		</Typography>
 	);
 }
 
@@ -652,28 +687,45 @@ function Composer({
 	ragEnabled: boolean;
 }) {
 	return (
-		<footer
-			className="border-t border-border bg-card p-3 sm:p-4"
-			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+		<Box
+			component="footer"
+			style={{
+				borderTop: "1px solid var(--mantine-color-gray-3)",
+				padding: "0.75rem 1rem",
+				paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
+				flexShrink: 0,
+			}}
 		>
-			<div className="mx-auto flex max-w-4xl items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
-				<button
+			<Group
+				align="flex-end"
+				gap="xs"
+				wrap="nowrap"
+				style={{
+					maxWidth: 896,
+					margin: "0 auto",
+					borderRadius: "var(--mantine-radius-lg)",
+					border: "1px solid var(--mantine-color-gray-3)",
+					padding: 8,
+				}}
+			>
+				<Button
 					type="button"
+					variant={ragEnabled ? "default" : "secondary"}
+					size="sm"
+					visibleFrom="sm"
 					onClick={onToggleRag}
-					className={cn(
-						"hidden h-10 shrink-0 items-center gap-1.5 rounded-2xl border px-3 text-sm font-medium transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 active:translate-y-px sm:inline-flex",
-						ragEnabled
-							? "border-primary/30 bg-primary/10 text-primary"
-							: "border-border bg-muted text-muted-foreground hover:border-primary/30 hover:text-primary",
-					)}
 					title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
 				>
-					<BookOpen size={14} />
+					<IconBook2 size={14} />
 					{ragEnabled ? "教材" : "基础"}
-				</button>
+				</Button>
 				<Textarea
 					ref={inputRef}
-					className="max-h-36 min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-sm shadow-none focus-visible:ring-0 disabled:bg-transparent"
+					variant="unstyled"
+					autosize
+					minRows={1}
+					maxRows={6}
+					style={{ flex: 1 }}
 					value={input}
 					onChange={(event) => onInput(event.target.value)}
 					onKeyDown={onKeyDown}
@@ -687,12 +739,11 @@ function Composer({
 					onClick={onSend}
 					disabled={loading || !input.trim()}
 					aria-label="发送问题"
-					className="rounded-2xl"
 				>
-					<Send size={17} />
+					<IconSend size={17} />
 				</Button>
-			</div>
-		</footer>
+			</Group>
+		</Box>
 	);
 }
 

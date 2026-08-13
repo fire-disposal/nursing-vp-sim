@@ -1,8 +1,8 @@
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { IconChevronDown, IconChevronUp, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import type { QuizFormData, QuizQuestion } from "./caseFormTypes";
 import { emptyQuizOption, emptyQuizQuestion } from "./caseFormTypes";
-import { inputClass } from "@/utils/styles";
+import { ActionIcon, Button, Group, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 
 interface Props {
 	value: QuizFormData;
@@ -46,65 +46,72 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">引导题目</legend>
-			<p className="text-xs text-muted-foreground mb-3">训练中穿插的选择题，帮助学生聚焦关键知识点。不参与评分</p>
-			<div className="mb-3">
-				<label className="block text-xs font-semibold text-muted-foreground mb-1">标题</label>
-				<input value={value.title} onChange={(e) => setTitle(e.target.value)} placeholder="如：课前自测" className={inputClass} disabled={disabled} />
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">引导题目</Text>
+			<Text size="xs" c="dimmed" mb="md">训练中穿插的选择题，帮助学生聚焦关键知识点。不参与评分</Text>
+			<div style={{ marginBottom: 12 }}>
+				<Text size="xs" fw={600} c="dimmed" mb={4}>标题</Text>
+				<TextInput value={value.title} onChange={(e) => setTitle(e.currentTarget.value)} placeholder="如：课前自测" disabled={disabled} />
 			</div>
 
 			{questions.length > 0 && (
-				<div className="space-y-2 mb-3">
+				<Stack gap={8} mb="md">
 					{questions.map((q, qi) => {
 						const isOpen = expanded.has(q.id);
 						return (
-							<div key={q.id} className="border border-border rounded-lg overflow-hidden">
-								<button type="button" onClick={() => toggle(q.id)} className="flex items-center justify-between w-full px-3 py-2 bg-muted/30 hover:bg-muted transition-colors text-left">
-									<span className="text-xs font-medium truncate flex-1 mr-2">
-										Q{qi + 1}{q.stem ? ` — ${q.stem.slice(0, 40)}${q.stem.length > 40 ? "…" : ""}` : " (待编辑)"}
-									</span>
-									<div className="flex items-center gap-1 shrink-0">
-										<span className="text-[10px] text-muted-foreground">{q.options.length} 选项 · 答案 {q.answer || "?"}</span>
-										{isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-									</div>
-								</button>
+							<Paper key={q.id} withBorder radius="md">
+								<Button
+									variant="ghost"
+									fullWidth
+									justify="space-between"
+									onClick={() => toggle(q.id)}
+									rightSection={isOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+								>
+									<Group gap={8} wrap="nowrap">
+										<Text size="xs" fw={500} truncate style={{ maxWidth: 320 }}>
+											Q{qi + 1}{q.stem ? ` — ${q.stem.slice(0, 40)}${q.stem.length > 40 ? "…" : ""}` : " (待编辑)"}
+										</Text>
+										<Text size="xs" c="dimmed">{q.options.length} 选项 · 答案 {q.answer || "?"}</Text>
+									</Group>
+								</Button>
 								{isOpen && (
-									<div className="p-3 space-y-2">
-										<textarea value={q.stem} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, stem: e.target.value }))} placeholder="题目标题" className={`${inputClass} h-16 resize-y`} disabled={disabled} />
-										<div className="space-y-1">
+									<Stack gap={8} p="sm">
+										<Textarea value={q.stem} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, stem: e.currentTarget.value }))} placeholder="题目标题" autosize minRows={2} disabled={disabled} />
+										<Stack gap={4}>
 											{q.options.map((opt, oi) => (
-												<div key={oi} className="flex items-center gap-2">
-													<input value={opt.key} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, options: q.options.map((o, j) => (j === oi ? { ...o, key: e.target.value } : o)) }))} className={`${inputClass} w-16 text-center`} disabled={disabled} placeholder="A" />
-													<input value={opt.text} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, options: q.options.map((o, j) => (j === oi ? { ...o, text: e.target.value } : o)) }))} className={`${inputClass} flex-1`} disabled={disabled} placeholder="选项文本" />
-													<button type="button" onClick={() => removeOption(qi, oi)} disabled={disabled} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 size={12} /></button>
-												</div>
+												<Group key={oi} gap={8}>
+													<TextInput value={opt.key} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, options: q.options.map((o, j) => (j === oi ? { ...o, key: e.currentTarget.value } : o)) }))} disabled={disabled} placeholder="A" w={64} />
+													<TextInput value={opt.text} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, options: q.options.map((o, j) => (j === oi ? { ...o, text: e.currentTarget.value } : o)) }))} disabled={disabled} placeholder="选项文本" style={{ flex: 1 }} />
+													<ActionIcon variant="subtle" color="gray" onClick={() => removeOption(qi, oi)} disabled={disabled} aria-label="删除选项"><IconTrash size={12} /></ActionIcon>
+												</Group>
 											))}
-											{!disabled && <button type="button" onClick={() => addOption(qi)} className="text-[10px] text-primary hover:underline"><Plus size={10} className="inline" /> 添加选项</button>}
-										</div>
-										<div className="flex items-center gap-3">
-											<div className="flex-1">
-												<label className="text-[10px] text-muted-foreground">正确答案</label>
-												<select value={q.answer} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, answer: e.target.value }))} className={`${inputClass} h-8 text-xs`} disabled={disabled}>
-													<option value="">--</option>
-													{q.options.map((o) => <option key={o.key} value={o.key}>{o.key}{o.text ? ` — ${o.text}` : ""}</option>)}
-												</select>
+											{!disabled && <Button variant="link" size="xs" onClick={() => addOption(qi)} leftSection={<IconPlus size={10} />}>添加选项</Button>}
+										</Stack>
+										<Group gap="sm" align="flex-end">
+											<div style={{ flex: 1 }}>
+												<Text size="xs" c="dimmed" mb={4}>正确答案</Text>
+												<Select
+													data={q.options.map((o) => ({ value: o.key, label: o.key + (o.text ? ` — ${o.text}` : "") }))}
+													value={q.answer}
+													onChange={(v) => updateQuestion(qi, (q) => ({ ...q, answer: v ?? "" }))}
+													placeholder="--"
+													disabled={disabled}
+													size="xs"
+												/>
 											</div>
-											<button type="button" onClick={() => removeQuestion(qi)} disabled={disabled} className="p-1.5 text-muted-foreground hover:text-destructive shrink-0 self-end mb-0.5"><Trash2 size={14} /></button>
-										</div>
-										<textarea value={q.explanation} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, explanation: e.target.value }))} placeholder="答案解析（选填）" className={`${inputClass} h-14 resize-y`} disabled={disabled} />
-									</div>
+											<ActionIcon variant="subtle" color="gray" onClick={() => removeQuestion(qi)} disabled={disabled} aria-label="删除题目"><IconTrash size={14} /></ActionIcon>
+										</Group>
+										<Textarea value={q.explanation} onChange={(e) => updateQuestion(qi, (q) => ({ ...q, explanation: e.currentTarget.value }))} placeholder="答案解析（选填）" autosize minRows={2} disabled={disabled} />
+									</Stack>
 								)}
-							</div>
+							</Paper>
 						);
 					})}
-				</div>
+				</Stack>
 			)}
 			{!disabled && (
-				<button type="button" onClick={addQuestion} className="flex items-center gap-1 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors">
-					<Plus size={12} /> 添加题目
-				</button>
+				<Button variant="link" size="xs" onClick={addQuestion} leftSection={<IconPlus size={12} />}>添加题目</Button>
 			)}
-		</fieldset>
+		</Paper>
 	);
 }

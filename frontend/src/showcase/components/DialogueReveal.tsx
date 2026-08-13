@@ -1,56 +1,87 @@
+import { Badge, Box, Group, Paper, Stack, Text } from "@mantine/core";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 
 const STEPS = [
-	{ label: "初始", text: "轻度回避，仅给出零散信息。", tone: "bg-slate-500" },
-	{ label: "追问", text: "随提问逐步披露隐藏病史。", tone: "bg-cyan-500" },
-	{ label: "信任", text: "当沟通合适，主动补充细节。", tone: "bg-emerald-500" },
+	{ label: "初始", text: "轻度回避，仅给出零散信息。", tone: "var(--mantine-color-gray-6)" },
+	{ label: "追问", text: "随提问逐步披露隐藏病史。", tone: "var(--mantine-color-cyan-6)" },
+	{ label: "信任", text: "当沟通合适，主动补充细节。", tone: "var(--mantine-color-green-6)" },
 ];
 
 export default function DialogueReveal() {
 	const [active, setActive] = useState(1);
 
 	return (
-		<div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card p-6">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(13,148,136,0.10),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.06),transparent_42%)]" />
-			<div className="relative z-10 flex items-center justify-between gap-4">
-				<div>
-					<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">对话解锁</div>
-					<div className="mt-1 text-lg font-bold text-foreground">信息按互动逐层展开</div>
-				</div>
-				<div className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">tap / hover</div>
-			</div>
+		<Paper withBorder radius="xl" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
+						对话解锁
+					</Text>
+					<Text size="lg" fw={700}>
+						信息按互动逐层展开
+					</Text>
+				</Stack>
+				<Badge variant="default" radius="xl">
+					tap / hover
+				</Badge>
+			</Group>
 
-			<div className="relative z-10 mt-6 grid gap-3">
+			<Stack gap={12} mt="lg" pos="relative" style={{ zIndex: 10 }}>
 				{STEPS.map((step, index) => {
 					const isActive = active === index;
 					const shown = index <= active;
 					return (
-						<button
+						<Paper
 							key={step.label}
-							type="button"
+							component="button"
 							onMouseEnter={() => setActive(index)}
 							onFocus={() => setActive(index)}
 							onClick={() => setActive(index)}
-							className={cn(
-								"rounded-2xl border p-4 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-								isActive ? "border-primary/35 bg-background shadow-lg shadow-primary/10" : "border-border/60 bg-background/70 hover:-translate-y-1",
-							)}
+							p="md"
+							radius="lg"
+							style={{
+								textAlign: "left",
+								cursor: "pointer",
+								transition: "all 300ms",
+								background: isActive
+									? "var(--mantine-color-body)"
+									: "var(--mantine-color-gray-0)",
+								border: isActive
+									? "1px solid var(--mantine-primary-color-3)"
+									: "1px solid var(--mantine-color-default-border)",
+								boxShadow: isActive ? "var(--mantine-shadow-md)" : undefined,
+							}}
 						>
-							<div className="flex items-start gap-4">
-								<div className={cn("mt-1 size-2.5 shrink-0 rounded-full", step.tone, shown ? "opacity-100" : "opacity-30")} />
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center justify-between gap-4">
-										<div className="text-sm font-bold text-foreground">{step.label}</div>
-										<div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">step {index + 1}</div>
-									</div>
-									<div className="mt-1 text-xs leading-relaxed text-muted-foreground">{step.text}</div>
-								</div>
-							</div>
-						</button>
+							<Group gap="md" align="flex-start" wrap="nowrap">
+								<Box
+									style={{
+										marginTop: 4,
+										width: 10,
+										height: 10,
+										borderRadius: "50%",
+										background: step.tone,
+										opacity: shown ? 1 : 0.3,
+										flexShrink: 0,
+									}}
+								/>
+								<Box style={{ minWidth: 0, flex: 1 }}>
+									<Group justify="space-between" gap="md">
+										<Text size="sm" fw={700}>
+											{step.label}
+										</Text>
+										<Text size="10px" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.25em" }}>
+											step {index + 1}
+										</Text>
+									</Group>
+									<Text size="xs" c="dimmed" mt={4} lh={1.6}>
+										{step.text}
+									</Text>
+								</Box>
+							</Group>
+						</Paper>
 					);
 				})}
-			</div>
-		</div>
+			</Stack>
+		</Paper>
 	);
 }

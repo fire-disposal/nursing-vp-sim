@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@/__tests__/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PatientStage from "./PatientStage";
 import { useTrainingStore } from "@/stores/trainingStore";

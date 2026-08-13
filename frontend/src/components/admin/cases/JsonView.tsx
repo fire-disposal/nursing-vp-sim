@@ -1,4 +1,5 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
+import { Paper } from "@mantine/core";
 import { useCallback, useRef } from "react";
 import type { CaseDispatch, CaseJsonValue } from "./CaseEditorState";
 
@@ -33,7 +34,7 @@ export default function JsonView({ json, dispatch }: JsonViewProps) {
 	);
 
 	return (
-		<div className="border border-border rounded-lg overflow-hidden" style={{ height: "calc(100vh - 280px)", minHeight: 360 }}>
+		<Paper withBorder radius="md" style={{ height: "calc(100vh - 280px)", minHeight: 360, overflow: "hidden" }}>
 			<Editor
 				height="100%"
 				defaultLanguage="json"
@@ -51,6 +52,6 @@ export default function JsonView({ json, dispatch }: JsonViewProps) {
 					automaticLayout: true,
 				}}
 			/>
-		</div>
+		</Paper>
 	);
 }

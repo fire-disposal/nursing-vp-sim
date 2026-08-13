@@ -1,3 +1,4 @@
+import { Box, Group, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
 import type {
 	AssignForm as AssignFormType,
 	CaseBrief,
@@ -5,11 +6,10 @@ import type {
 import {
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import { inputClass } from "@/utils/styles";
 import Button from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 
 interface QuestionnaireAssignProps {
 	open: boolean;
@@ -61,118 +61,111 @@ export default function QuestionnaireAssign({
 				title={`分配病例: ${templateTitle}`}
 				maxWidth={600}
 			>
-			<form onSubmit={onSubmit} className="flex flex-col gap-4">
-				<div>
-					<div className="flex items-center justify-between mb-2">
-						<label className="text-xs font-semibold text-muted-foreground">
-							选择病例
-						</label>
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={selectAllCases}
-								className="text-xs text-primary hover:underline cursor-pointer bg-transparent border-none"
-							>
-								全选
-							</button>
-							<button
-								type="button"
-								onClick={deselectAllCases}
-								className="text-xs text-muted-foreground hover:underline cursor-pointer bg-transparent border-none"
-							>
-								取消全选
-							</button>
-						</div>
-					</div>
-					<div className="max-h-[300px] overflow-y-auto border border-border rounded-lg p-3 space-y-1">
-						{allCases.length === 0 ? (
-							<div className="text-sm text-muted-foreground text-center py-4">
-								暂无病例数据
-							</div>
-						) : (
-							allCases.map((c) => (
-								<label
-									key={c.id}
-									className={cn(
-										"flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm cursor-pointer transition-colors",
-										assignForm.case_ids.includes(c.id)
-											? "bg-primary/5"
-											: "hover:bg-muted",
-									)}
+			<form onSubmit={onSubmit}>
+				<Stack gap="md">
+					<div>
+						<Group justify="space-between" mb="xs">
+							<Text size="xs" fw={600} c="dimmed">选择病例</Text>
+							<Group gap={8}>
+								<Button
+									type="button"
+									variant="link"
+									size="xs"
+									onClick={selectAllCases}
 								>
-									<input
-										type="checkbox"
-										checked={assignForm.case_ids.includes(c.id)}
-										onChange={() => toggleCaseId(c.id)}
-										className="rounded"
-									/>
-									<span className="font-medium">{c.name}</span>
-									{c.chief_complaint && (
-										<span className="text-xs text-muted-foreground truncate max-w-[200px]">
-											— {c.chief_complaint}
-										</span>
+									全选
+								</Button>
+								<Button
+									type="button"
+									variant="link"
+									size="xs"
+									onClick={deselectAllCases}
+								>
+									取消全选
+								</Button>
+							</Group>
+						</Group>
+						<Paper withBorder p="sm" radius="md">
+							<ScrollArea h={300}>
+								<Stack gap="xs">
+									{allCases.length === 0 ? (
+										<Text size="sm" c="dimmed" ta="center" py="lg">
+											暂无病例数据
+										</Text>
+									) : (
+										allCases.map((c) => (
+											<Checkbox
+												key={c.id}
+												checked={assignForm.case_ids.includes(c.id)}
+												onCheckedChange={() => toggleCaseId(c.id)}
+												label={
+													<Group gap={8} wrap="nowrap" align="center">
+														<Text size="sm" fw={500}>{c.name}</Text>
+														{c.chief_complaint && (
+															<Text
+																size="xs"
+																c="dimmed"
+																truncate
+																style={{ maxWidth: 200 }}
+															>
+																— {c.chief_complaint}
+															</Text>
+														)}
+													</Group>
+												}
+											/>
+										))
 									)}
-								</label>
-							))
-						)}
+								</Stack>
+							</ScrollArea>
+						</Paper>
+						<Text size="xs" c="dimmed" mt={4}>
+							已选 {assignForm.case_ids.length} 个病例
+						</Text>
 					</div>
-					<div className="text-xs text-muted-foreground mt-1">
-						已选 {assignForm.case_ids.length} 个病例
-					</div>
-				</div>
 
-				<div className="flex gap-3">
-					<div className="flex-1">
-						<label className="block text-xs font-semibold text-muted-foreground mb-1">
-							触发时机
-						</label>
-						<select
+					<Group align="flex-start" gap="md">
+						<Select
+							label="触发时机"
+							data={TRIGGER_EVENT_OPTIONS}
 							value={assignForm.trigger_event}
-							onChange={(e) =>
+							onChange={(v) =>
 								onAssignFormChange((f) => ({
 									...f,
-									trigger_event: e.target.value,
+									trigger_event: v ?? "",
 								}))
 							}
-							className={inputClass}
-						>
-							{TRIGGER_EVENT_OPTIONS.map((opt) => (
-								<option key={opt.value} value={opt.value}>
-									{opt.label}
-								</option>
-							))}
-						</select>
-					</div>
-					<div className="flex-1">
-						<label className="block text-xs font-semibold text-muted-foreground mb-1">
-							是否必填
-						</label>
-						<div className="flex items-center gap-2 pt-2">
-							<Switch
-								checked={assignForm.is_required}
-								onCheckedChange={(checked) =>
-									onAssignFormChange((f) => ({
-										...f,
-										is_required: checked,
-									}))
-								}
-								aria-label="是否必填"
-							/>
-							<span className="text-sm text-muted-foreground">
-								{assignForm.is_required ? "必填" : "选填"}
-							</span>
-						</div>
-					</div>
-				</div>
+							style={{ flex: 1 }}
+						/>
+						<Box style={{ flex: 1 }}>
+							<Text size="xs" fw={600} c="dimmed" mb={4}>是否必填</Text>
+							<Group gap={8}>
+								<Switch
+									checked={assignForm.is_required}
+									onCheckedChange={(checked) =>
+										onAssignFormChange((f) => ({
+											...f,
+											is_required: checked,
+										}))
+									}
+									aria-label="是否必填"
+								/>
+								<Text size="sm" c="dimmed">
+									{assignForm.is_required ? "必填" : "选填"}
+								</Text>
+							</Group>
+						</Box>
+					</Group>
 
-				<div className="flex gap-3 justify-end">
-					<Button type="button" variant="outline" onClick={onClose}>
-						取消
-					</Button>
-					<Button onClick={onSubmit} disabled={isSaving}>
-						{isSaving ? "保存中..." : "保存分配"}
-					</Button>
-				</div>
+					<Group justify="flex-end" gap="md">
+						<Button type="button" variant="outline" onClick={onClose}>
+							取消
+						</Button>
+						<Button onClick={onSubmit} disabled={isSaving}>
+							{isSaving ? "保存中..." : "保存分配"}
+						</Button>
+					</Group>
+				</Stack>
 			</form>
 			</DialogContent>
 		</Dialog>

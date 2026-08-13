@@ -1,5 +1,6 @@
+import { Group, Paper, Progress, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, ClipboardList, Target, TrendingUp, Users } from "lucide-react";
+import { IconChartBar, IconClipboardList, IconTarget, IconTrendingUp, IconUsers } from "@tabler/icons-react";
 import type { components } from "@/api/api-types.gen";
 import { getAssignments } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
@@ -72,61 +73,68 @@ export function TeachingDashboard() {
   }));
 
   return (
-    <div className="space-y-6">
+    <Stack gap="xl">
       <div>
-        <h1 className="text-xl font-bold">{greeting}，{user?.display_name || "老师"}</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <Title order={1} size="xl" fw={700}>
+          {greeting}，{user?.display_name || "老师"}
+        </Title>
+        <Text size="sm" c="dimmed" mt={4}>
           本周截至 {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}
-        </p>
+        </Text>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Users} value={activeStudentCount} label="今日活跃学生" color="teal" />
-        <StatCard icon={TrendingUp} value={stats?.today_records ?? 0} label="今日训练次数" color="blue" />
+      <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+        <StatCard icon={IconUsers} value={activeStudentCount} label="今日活跃学生" color="teal" />
+        <StatCard icon={IconTrendingUp} value={stats?.today_records ?? 0} label="今日训练次数" color="blue" />
         <StatCard
-          icon={Target}
+          icon={IconTarget}
           value={avgScore != null ? `${avgScore}分` : "--"}
           label="平均得分"
           color={avgScore != null && avgScore >= 80 ? "green" : avgScore != null && avgScore >= 60 ? "amber" : "red"}
         />
-        <StatCard icon={ClipboardList} value={pendingReview} label="待批阅训练" color={pendingReview > 5 ? "red" : "green"} />
-      </div>
+        <StatCard icon={IconClipboardList} value={pendingReview} label="待批阅训练" color={pendingReview > 5 ? "red" : "green"} />
+      </SimpleGrid>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 flex flex-col justify-center">
-          <div className="text-xs text-muted-foreground mb-1">本周训练完成率</div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold">{completionRate}%</span>
-            <span className="text-xs text-muted-foreground">{completedWeek.length}/{totalStudents} 人</span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${completionRate}%` }} />
-          </div>
-        </div>
-        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 flex flex-col justify-center">
-          <div className="text-xs text-muted-foreground mb-1">平均训练时长</div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold">{avgDuration != null ? avgDuration : "--"}</span>
-            {avgDuration != null && <span className="text-xs text-muted-foreground">分钟</span>}
-          </div>
-        </div>
-        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 flex flex-col justify-center">
-          <div className="text-xs text-muted-foreground mb-1">总学生 / 总训练</div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold">{totalStudents}</span>
-            <span className="text-xs text-muted-foreground">/ {stats?.total_records ?? 0}</span>
-          </div>
-        </div>
-      </div>
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
+        <Paper withBorder radius="lg" p="md">
+          <Stack gap={4} justify="center" style={{ height: "100%" }}>
+            <Text size="xs" c="dimmed" mb={4}>本周训练完成率</Text>
+            <Group align="flex-end" gap={6}>
+              <Text size="xl" fw={700}>{completionRate}%</Text>
+              <Text size="xs" c="dimmed">{completedWeek.length}/{totalStudents} 人</Text>
+            </Group>
+            <Progress value={completionRate} size="sm" radius="xl" mt={8} />
+          </Stack>
+        </Paper>
+        <Paper withBorder radius="lg" p="md">
+          <Stack gap={4} justify="center" style={{ height: "100%" }}>
+            <Text size="xs" c="dimmed" mb={4}>平均训练时长</Text>
+            <Group align="flex-end" gap={6}>
+              <Text size="xl" fw={700}>{avgDuration != null ? avgDuration : "--"}</Text>
+              {avgDuration != null && <Text size="xs" c="dimmed">分钟</Text>}
+            </Group>
+          </Stack>
+        </Paper>
+        <Paper withBorder radius="lg" p="md">
+          <Stack gap={4} justify="center" style={{ height: "100%" }}>
+            <Text size="xs" c="dimmed" mb={4}>总学生 / 总训练</Text>
+            <Group align="flex-end" gap={6}>
+              <Text size="xl" fw={700}>{totalStudents}</Text>
+              <Text size="xs" c="dimmed">/ {stats?.total_records ?? 0}</Text>
+            </Group>
+          </Stack>
+        </Paper>
+      </SimpleGrid>
 
       <AssignmentOverview assignments={assignments} />
 
-      <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
-        <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-          <BarChart3 size={16} className="text-muted-foreground" />最近训练动态
-        </h3>
+      <Paper withBorder radius="lg" p="md">
+        <Group gap={8} mb={8}>
+          <IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
+          <Text size="sm" fw={500}>最近训练动态</Text>
+        </Group>
         <ActivityTimeline events={recentEvents} />
-      </div>
-    </div>
+      </Paper>
+    </Stack>
   );
 }

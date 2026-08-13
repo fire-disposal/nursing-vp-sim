@@ -1,12 +1,13 @@
+import { ActionIcon, Box, Group, Loader, NumberInput, Stack, Text, TextInput } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Lock, LockOpen, Play, Square, Volume2 } from "lucide-react";
+import { IconLock, IconLockOpen, IconPlayerPlay, IconPlayerStop, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import useAuthStore from "@/stores/authStore";
@@ -33,9 +34,8 @@ async function streamFromPool(text: string, speaker: string, signal: AbortSignal
 		signal,
 	});
 	if (!r.ok) {
-		let msg = `HTTP ${r.status}`;
-		try { const b = await r.json(); if (b?.detail) msg = String(b.detail); } catch { /* */ }
-		throw new Error(msg);
+		const msg = await r.text().catch(() => "");
+		throw new Error(msg || `HTTP ${r.status}`);
 	}
 	if (!r.body) throw new Error("空响应体");
 	return r.body;
@@ -51,7 +51,16 @@ function errorHint(msg: string | null): string | null {
 	return msg.length > 100 ? `${msg.slice(0, 100)}…` : msg;
 }
 
-const dot = (c: string) => `inline-block w-2 h-2 rounded-full ${c}`;
+function StatusDot({ color }: { color: string }) {
+	return <Box bg={color} mr={4} style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0 }} />;
+}
+
+const SPEAKER_SLOTS: [string, string][] = [
+	["child_male", "男童"], ["child_female", "女童"],
+	["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
+	["female_young", "青年女"], ["female_middle", "中年女"], ["female_elder", "老年女"],
+	["fallback", "默认"],
+];
 
 // ── Component ──
 
@@ -152,161 +161,205 @@ export default function VoiceTokenCard() {
 	const online = status?.tts_online;
 	const err = errorHint(status?.last_error ?? null);
 
-	const row = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5";
-	const labelCls = "sm:w-[80px] shrink-0 text-xs text-muted-foreground font-medium";
-	const inputCls = "h-8 w-full rounded-md border border-border bg-background px-2.5 text-sm shadow-e1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+	const dotColor = checking
+		? "yellow.4"
+		: online
+			? "green.5"
+			: status
+				? "red.5"
+				: "gray.3";
 
 	return (
 		<Card>
-			<CardHeader className="pb-2">
-				<CardTitle className="text-base">TTS 语音服务</CardTitle>
+			<CardHeader style={{ paddingBottom: 8 }}>
+				<Text fw={600} size="md" lh={1.35}>TTS 语音服务</Text>
 			</CardHeader>
 
-			<CardContent className="space-y-4">
-				{/* ══ Status ══ */}
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-muted/15 px-3 py-1.5 text-xs">
-					{checking ? (
-						<span className={`${dot("bg-amber-400")} mr-1`} />
-					) : online ? (
-						<span className={`${dot("bg-green-500")} mr-1`} />
-					) : status ? (
-						<span className={`${dot("bg-red-500")} mr-1`} />
-					) : (
-						<span className={`${dot("bg-gray-300")} mr-1`} />
-					)}
-					<span className="font-medium">
-						{checking ? "检查中…" : online ? "在线" : status ? "离线" : "未知"}
-					</span>
-					<button type="button" onClick={doCheck} disabled={checking} className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1">
-						刷新
-					</button>
+			<CardContent>
+				<Stack gap="md">
+					{/* ══ Status ══ */}
+					<Group
+						gap={16}
+						wrap="wrap"
+						align="center"
+						style={{
+							border: "1px solid var(--mantine-color-default-border)",
+							borderRadius: 8,
+							padding: "6px 12px",
+						}}
+					>
+						<Group gap={4} align="center" wrap="nowrap">
+							<StatusDot color={`var(--mantine-color-${dotColor})`} />
+							<Text size="xs" fw={500}>
+								{checking ? "检查中…" : online ? "在线" : status ? "离线" : "未知"}
+							</Text>
+							<Button
+								variant="link"
+								size="xs"
+								onClick={doCheck}
+								disabled={checking}
+								style={{ fontSize: 10, textDecoration: "underline", color: "var(--mantine-color-dimmed)" }}
+							>
+								刷新
+							</Button>
+						</Group>
 
-					{status?.tts_pool_total != null && (
-						<span className="text-muted-foreground/80">
-							连接池 {status.tts_pool_in_use ?? 0}/{status.tts_pool_total}（上限 {status.tts_pool_size ?? "-"}）
-						</span>
-					)}
-					{err && <span className="w-full text-[11px] text-danger/90">{err}</span>}
-				</div>
+						{status?.tts_pool_total != null && (
+							<Text size="xs" c="dimmed">
+								连接池 {status.tts_pool_in_use ?? 0}/{status.tts_pool_total}（上限 {status.tts_pool_size ?? "-"}）
+							</Text>
+						)}
+						{err && <Text size="xs" c="red" style={{ width: "100%" }}>{err}</Text>}
+					</Group>
 
-				{/* ══ Config ══ */}
-				<div className="border border-border rounded-lg overflow-hidden text-sm">
-					{/* API Key — dummy inputs to prevent browser password autofill */}
-					<input type="text" name="dummy-username" autoComplete="username" className="hidden" tabIndex={-1} />
-					<input type="password" name="dummy-password" autoComplete="current-password" className="hidden" tabIndex={-1} />
-					<div className={row}>
-						<span className={labelCls}>API Key</span>
-						<div className="flex-1 relative min-w-0 flex items-center gap-2">
-							<input
+					{/* ══ Config ══ */}
+					<Stack gap={0} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, overflow: "hidden" }}>
+						{/* API Key — dummy inputs to prevent browser password autofill */}
+						<input type="text" name="dummy-username" autoComplete="username" style={{ display: "none" }} tabIndex={-1} />
+						<input type="password" name="dummy-password" autoComplete="current-password" style={{ display: "none" }} tabIndex={-1} />
+						<Group gap={12} align="center" wrap="wrap" px="sm" py={10}>
+							<Text size="xs" c="dimmed" fw={500} w={80} style={{ flexShrink: 0 }}>API Key</Text>
+							<TextInput
 								ref={apiKeyRef}
 								type="password"
 								value={apiKey}
 								onChange={(e) => setApiKey(e.target.value)}
 								placeholder={cfg?.api_key_masked || "火山引擎控制台 → API Key"}
-								className={`${inputCls} font-mono flex-1`}
-								autoComplete="off"
 								disabled={apiKeyLocked}
-							/>
-							<button
-								type="button"
-								onClick={() => {
-									const next = !apiKeyLocked;
-									setApiKeyLocked(next);
-									if (!next) setTimeout(() => apiKeyRef.current?.focus(), 0);
-								}}
-								className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-								title={apiKeyLocked ? "解除锁定" : "锁定"}
-							>
-								{apiKeyLocked ? <Lock size={14} /> : <LockOpen size={14} />}
-							</button>
-						</div>
-					</div>
-
-					{/* Timeout */}
-					<div className={`${row} border-t border-border/50`}>
-						<span className={labelCls}>超时</span>
-						<div className="flex items-center gap-2">
-							<input
-								type="number" min={3} max={30} value={timeoutS}
-								onChange={(e) => setTimeoutS(Number(e.target.value))}
-								className={`${inputCls} w-14`}
-							/>
-							<span className="text-[11px] text-muted-foreground">秒</span>
-						</div>
-					</div>
-
-					{/* Save footer */}
-					<div className="border-t border-border/50 px-3 py-2 flex justify-end">
-						<Button onClick={handleSave} disabled={saveMut.isPending} size="sm">
-							{saveMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
-							保存配置
-						</Button>
-					</div>
-				</div>
-
-				{/* ══ Speaker library ══ */}
-				<div className="border border-border rounded-lg overflow-hidden text-sm">
-					<div className="px-3 py-2 bg-muted/30 border-b border-border/50 flex items-center justify-between">
-						<span className="text-xs font-medium">音色映射（按患者人口自动选择发音人）</span>
-						<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground underline">音色库 →</a>
-					</div>
-					<div className="divide-y divide-border/30">
-						{[
-							["child_male", "男童"], ["child_female", "女童"],
-							["male_young", "青年男"], ["male_middle", "中年男"], ["male_elder", "老年男"],
-							["female_young", "青年女"], ["female_middle", "中年女"], ["female_elder", "老年女"],
-							["fallback", "默认"],
-						].map(([key, label]) => {
-							const slotSpeaker = speakerLib[key] || "zh_female_vv_uranus_bigtts";
-							const isPlaying = playingSlot === key;
-							return (
-								<div key={key} className="flex items-center gap-2 px-3 py-2">
-									<span className="text-xs text-muted-foreground w-12 shrink-0 text-right">{label}</span>
-									<input
-										value={speakerLib[key] ?? ""}
-										onChange={(e) => setSpeakerLib((prev) => ({ ...prev, [key]: e.target.value }))}
-										placeholder="zh_female_vv_uranus_bigtts"
-										className="h-7 flex-1 min-w-0 rounded border border-border bg-background px-2 text-[11px] font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-									/>
-									<button
-										type="button"
-										onClick={() => isPlaying ? stopPlay() : playSlot(slotSpeaker)}
-										disabled={playingSlot !== null && !isPlaying}
-										className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-										title={isPlaying ? "停止" : "试听"}
+								autoComplete="off"
+								styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+								style={{ flex: "1 1 220px", minWidth: 0 }}
+								rightSection={
+									<ActionIcon
+										variant="subtle"
+										color="gray"
+										onClick={() => {
+											const next = !apiKeyLocked;
+											setApiKeyLocked(next);
+											if (!next) setTimeout(() => apiKeyRef.current?.focus(), 0);
+										}}
+										title={apiKeyLocked ? "解除锁定" : "锁定"}
 									>
-										{isPlaying ? <Square size={14} /> : <Play size={14} />}
-									</button>
-								</div>
-							);
-						})}
-					</div>
-					<div className="border-t border-border/50 px-3 py-2 flex justify-end">
-						<Button onClick={handleSave} disabled={saveMut.isPending} size="sm">
-							{saveMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
-							保存配置
-						</Button>
-					</div>
-				</div>
+										{apiKeyLocked ? <IconLock size={14} /> : <IconLockOpen size={14} />}
+									</ActionIcon>
+								}
+							/>
+						</Group>
 
-				{!cfg && (
-					<div className="rounded-md border border-border bg-muted/15 p-2.5 text-[11px] text-muted-foreground">
-						首次使用 → <a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" className="text-primary underline">火山引擎控制台</a> 创建 v3 统一 API Key，填入保存。
-					</div>
-				)}
+						{/* Timeout */}
+						<Group gap={12} align="center" wrap="nowrap" px="sm" py={10} style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+							<Text size="xs" c="dimmed" fw={500} w={80} style={{ flexShrink: 0 }}>超时</Text>
+							<Group gap={8} align="center">
+								<NumberInput
+									value={timeoutS}
+									onChange={(v) => setTimeoutS(Number(v))}
+									min={3}
+									max={30}
+									w={60}
+								/>
+								<Text size="xs" c="dimmed">秒</Text>
+							</Group>
+						</Group>
 
-				<Separator />
+						{/* Save footer */}
+						<Group justify="flex-end" px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+							<Button onClick={handleSave} disabled={saveMut.isPending} size="sm">
+								{saveMut.isPending ? <Loader size={14} /> : null}
+								保存配置
+							</Button>
+						</Group>
+					</Stack>
 
-				{/* ══ Stream test ══ */}
-				<div className="space-y-2">
-					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<Volume2 size={13} />
-						试听文本（点击各槽位 ▶ 按钮播放）
-						{chunkMs !== null && <span className="text-[11px]">首块 <span className="text-foreground font-medium">{chunkMs}ms</span></span>}
-						{playError && <span className="text-[11px] text-danger/90 truncate max-w-[160px]">{errorHint(playError) ?? playError}</span>}
-					</div>
-					<textarea value={testText} onChange={(e) => setTestText(e.target.value)} maxLength={200} rows={2} className="w-full p-2 rounded-md border border-border text-sm resize-y outline-none bg-card focus:border-primary" />
-				</div>
+					{/* ══ Speaker library ══ */}
+					<Stack gap={0} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, overflow: "hidden" }}>
+						<Group justify="space-between" align="center" wrap="wrap" px="sm" py={8} bg="var(--mantine-color-gray-1)" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+							<Text size="xs" fw={500}>音色映射（按患者人口自动选择发音人）</Text>
+							<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--mantine-color-dimmed)" }}>音色库 →</a>
+						</Group>
+						<Stack gap={0}>
+							{SPEAKER_SLOTS.map(([key, label]) => {
+								const slotSpeaker = speakerLib[key] || "zh_female_vv_uranus_bigtts";
+								const isPlaying = playingSlot === key;
+								return (
+									<Group key={key} gap={8} align="center" wrap="nowrap" px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-gray-2)" }}>
+										<Text size="xs" c="dimmed" w={48} ta="right" style={{ flexShrink: 0 }}>{label}</Text>
+										<TextInput
+											value={speakerLib[key] ?? ""}
+											onChange={(e) => setSpeakerLib((prev) => ({ ...prev, [key]: e.target.value }))}
+											placeholder="zh_female_vv_uranus_bigtts"
+											size="xs"
+											style={{ flex: 1, minWidth: 0 }}
+											styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 11 } }}
+											rightSection={
+												<ActionIcon
+													variant="subtle"
+													color="gray"
+													onClick={() => (isPlaying ? stopPlay() : playSlot(slotSpeaker))}
+													disabled={playingSlot !== null && !isPlaying}
+													title={isPlaying ? "停止" : "试听"}
+												>
+													{isPlaying ? <IconPlayerStop size={14} /> : <IconPlayerPlay size={14} />}
+												</ActionIcon>
+											}
+										/>
+									</Group>
+								);
+							})}
+						</Stack>
+						<Group justify="flex-end" px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+							<Button onClick={handleSave} disabled={saveMut.isPending} size="sm">
+								{saveMut.isPending ? <Loader size={14} /> : null}
+								保存配置
+							</Button>
+						</Group>
+					</Stack>
+
+					{!cfg && (
+						<Text size="xs" c="dimmed" p={10} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, background: "var(--mantine-color-gray-0)" }}>
+							首次使用 →{" "}
+							<a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" style={{ color: "var(--mantine-color-teal-6)" }}>
+								火山引擎控制台
+							</a>{" "}
+							创建 v3 统一 API Key，填入保存。
+						</Text>
+					)}
+
+					<Separator />
+
+					{/* ══ Stream test ══ */}
+					<Stack gap={8}>
+						<Group gap={8} align="center" wrap="wrap">
+							<IconVolume2 size={13} style={{ color: "var(--mantine-color-dimmed)" }} />
+							<Text size="xs" c="dimmed">试听文本（点击各槽位 ▶ 按钮播放）</Text>
+							{chunkMs !== null && (
+								<Text size="xs" c="dimmed">
+									首块 <Text component="span" fw={500} c="default" inherit>{chunkMs}ms</Text>
+								</Text>
+							)}
+							{playError && (
+								<Text size="xs" c="red" truncate style={{ maxWidth: 160 }}>
+									{errorHint(playError) ?? playError}
+								</Text>
+							)}
+						</Group>
+						<textarea
+							value={testText}
+							onChange={(e) => setTestText(e.target.value)}
+							maxLength={200}
+							rows={2}
+							style={{
+								width: "100%",
+								padding: 8,
+								borderRadius: 8,
+								border: "1px solid var(--mantine-color-default-border)",
+								fontSize: 14,
+								resize: "vertical",
+								background: "transparent",
+								color: "inherit",
+							}}
+						/>
+					</Stack>
+				</Stack>
 			</CardContent>
 		</Card>
 	);

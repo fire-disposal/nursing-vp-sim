@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render } from "@/__tests__/render";
 import { afterEach, describe, expect, it } from "vitest";
 import { useTrainingStore } from "@/stores/trainingStore";
 import PatientFace from "./PatientFace";

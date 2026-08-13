@@ -1,6 +1,6 @@
-import { Pause, Play } from "lucide-react";
+import { Badge, Box, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
+import { IconPlayerPause, IconPlayerPlay } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 import { TTS_DEMO_ITEMS } from "../data";
 
 export default function VoicePlayback() {
@@ -39,90 +39,129 @@ export default function VoicePlayback() {
 	};
 
 	return (
-		<div className="group relative flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-6 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)]">
-			<div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,70,239,0.08),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(13,148,136,0.08),transparent_34%)]" />
-
-			<div className="relative z-10 flex items-center justify-between gap-4">
-				<div>
-					<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+		<Paper
+			withBorder
+			radius="xl"
+			p="lg"
+			pos="relative"
+			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
+		>
+			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
+				<Stack gap={4}>
+					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
 						语音合成演示
-					</div>
-					<div className="mt-1 text-lg font-bold text-foreground">
+					</Text>
+					<Text size="lg" fw={700}>
 						豆包 TTS · 情绪联动音色
-					</div>
-				</div>
-				<div className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+					</Text>
+				</Stack>
+				<Badge variant="default" radius="xl">
 					SeedTTS 2.0
-				</div>
-			</div>
+				</Badge>
+			</Group>
 
-			<div className="relative z-10 mt-5 space-y-3">
+			<Stack gap={12} mt="lg" pos="relative" style={{ zIndex: 10 }}>
 				{TTS_DEMO_ITEMS.map((item) => {
 					const isPlaying = playingId === item.id;
 					return (
-						<button
+						<Paper
 							key={item.id}
-							type="button"
+							component="button"
 							onClick={() => handlePlay(item.id, item.fileName)}
-							className={cn(
-								"flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all duration-300",
-								isPlaying
-									? "border-primary/40 bg-background shadow-lg shadow-primary/10"
-									: "border-border/60 bg-background/70 hover:-translate-y-0.5 hover:border-primary/20",
-							)}
+							p="md"
+							radius="lg"
+							style={{
+								display: "flex",
+								width: "100%",
+								alignItems: "center",
+								gap: 16,
+								textAlign: "left",
+								cursor: "pointer",
+								transition: "all 300ms",
+								border: isPlaying
+									? "1px solid var(--mantine-primary-color-4)"
+									: "1px solid var(--mantine-color-default-border)",
+								background: isPlaying
+									? "var(--mantine-color-body)"
+									: "var(--mantine-color-gray-0)",
+								boxShadow: isPlaying ? "var(--mantine-shadow-md)" : undefined,
+							}}
 						>
-							<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all">
+							<ThemeIcon size={40} radius="md" variant="light" style={{ flexShrink: 0 }}>
 								{isPlaying ? (
-									<Pause size={18} strokeWidth={2} />
+									<IconPlayerPause size={18} strokeWidth={2} />
 								) : (
-									<Play size={18} strokeWidth={2} className="ml-0.5" />
+									<IconPlayerPlay size={18} strokeWidth={2} />
 								)}
-							</div>
+							</ThemeIcon>
 
-							<div className="min-w-0 flex-1">
-								<div className="flex items-center gap-2">
-									<div className={cn("size-1.5 rounded-full", item.emotionClass)} />
-									<span className="text-xs font-semibold text-muted-foreground">
+							<Box style={{ minWidth: 0, flex: 1 }}>
+								<Group gap={8}>
+									<Box
+										style={{
+											width: 6,
+											height: 6,
+											borderRadius: "50%",
+											background: `var(--mantine-color-${item.emotionColor}-6)`,
+										}}
+									/>
+									<Text size="xs" fw={600} c="dimmed">
 										{item.label}
-									</span>
-								</div>
-								<div
-									className={cn(
-										"mt-1 text-sm leading-relaxed transition-colors",
-										isPlaying ? "text-primary" : "text-foreground/80",
-									)}
+									</Text>
+								</Group>
+								<Text
+									size="sm"
+									mt={4}
+									lh={1.6}
+									c={isPlaying ? "var(--mantine-primary-color-6)" : "dimmed"}
 								>
 									"{item.patientText}"
-								</div>
-							</div>
+								</Text>
+							</Box>
 
 							{isPlaying && (
-								<div className="flex shrink-0 items-center gap-1">
+								<Group gap={4} style={{ flexShrink: 0 }}>
 									{[0, 1, 2].map((i) => (
-										<div
+										<Box
 											key={i}
-											className="w-0.5 rounded-full bg-primary animate-[audio-wave_0.6s_ease-in-out_infinite]"
+											w={2}
 											style={{
 												height: `${10 + i * 6}px`,
+												borderRadius: "9999px",
+												background: "var(--mantine-primary-color-6)",
+												animation: "audio-wave 0.6s ease-in-out infinite",
 												animationDelay: `${i * 0.15}s`,
 											}}
 										/>
 									))}
-								</div>
+								</Group>
 							)}
-						</button>
+						</Paper>
 					);
 				})}
-			</div>
+			</Stack>
 
-			<div className="relative z-10 mt-4 flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-2.5">
-				<div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+			<Group
+				justify="space-between"
+				gap={12}
+				px="md"
+				py={10}
+				mt="md"
+				pos="relative"
+				style={{
+					zIndex: 10,
+					border: "1px solid var(--mantine-color-default-border)",
+					borderRadius: "var(--mantine-radius-md)",
+					background: "var(--mantine-color-gray-0)",
+				}}
+			>
+				<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
 					提供方
-				</div>
-				<div className="flex gap-2 text-xs text-muted-foreground">
-					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">火山引擎</span>
-				</div>
-			</div>
-		</div>
+				</Text>
+				<Badge variant="light" radius="xl">
+					火山引擎
+				</Badge>
+			</Group>
+		</Paper>
 	);
 }

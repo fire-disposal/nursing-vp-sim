@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { Badge, Box, Group, Stack, Text } from "@mantine/core";
 
 export interface ActivityEvent {
 	id: string | number;
@@ -9,10 +9,10 @@ export interface ActivityEvent {
 	metaColor?: "green" | "amber" | "red";
 }
 
-const metaColorClasses: Record<string, string> = {
-	green: "bg-success text-success-foreground",
-	amber: "bg-warning text-warning-foreground",
-	red: "bg-danger text-danger-foreground",
+const metaColorMap: Record<string, string> = {
+	green: "green",
+	amber: "yellow",
+	red: "red",
 };
 
 interface ActivityTimelineProps {
@@ -26,55 +26,54 @@ export function ActivityTimeline({
 }: ActivityTimelineProps) {
 	if (events.length === 0) {
 		return (
-			<div
-				className={cn(
-					"py-8 text-center text-sm text-muted-foreground",
-					className,
-				)}
-			>
+			<Text size="sm" c="dimmed" ta="center" py={32} className={className}>
 				暂无最近动态
-			</div>
+			</Text>
 		);
 	}
 
 	return (
-		<div className={cn("flex flex-col", className)}>
+		<Stack gap={0} className={className}>
 			{events.map((event) => (
-				<div
-					key={event.id}
-					className="flex items-start gap-3 py-2.5"
-				>
-					<span className="shrink-0 text-xs text-muted-foreground tabular-nums w-10 text-right pt-0.5">
+				<Group key={event.id} align="flex-start" gap={12} py={10} wrap="nowrap">
+					<Text
+						size="xs"
+						c="dimmed"
+						w={40}
+						ta="right"
+						pt={2}
+						style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}
+					>
 						{event.time}
-					</span>
-					<div className="relative flex items-center pt-0.5">
-						<div className="size-2 rounded-full bg-muted-foreground/30 ring-2 ring-background" />
-					</div>
-					<div className="flex-1 min-w-0">
-						<span className="text-sm">
-							<span className="font-medium">
-								{event.studentName}
-							</span>
-							<span className="text-muted-foreground">
-								{" "}
-								{event.action}
-							</span>
-						</span>
-						{event.meta && (
-							<span
-								className={cn(
-									"ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
-									event.metaColor
-										? metaColorClasses[event.metaColor]
-										: "bg-secondary text-secondary-foreground",
-								)}
-							>
-								{event.meta}
-							</span>
-						)}
-					</div>
-				</div>
+					</Text>
+					<Box
+						bg="gray.4"
+						style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }}
+					/>
+					<Box style={{ flex: 1, minWidth: 0 }}>
+						<Group gap={8} align="center" wrap="wrap">
+							<Text size="sm">
+								<Text component="span" fw={500} inherit>
+									{event.studentName}
+								</Text>
+								<Text component="span" c="dimmed" inherit>
+									{" "}
+									{event.action}
+								</Text>
+							</Text>
+							{event.meta && (
+								<Badge
+									variant="light"
+									size="xs"
+									color={event.metaColor ? metaColorMap[event.metaColor] : "gray"}
+								>
+									{event.meta}
+								</Badge>
+							)}
+						</Group>
+					</Box>
+				</Group>
 			))}
-		</div>
+		</Stack>
 	);
 }

@@ -1,5 +1,5 @@
-import { MessageCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Paper, Stack, Text, Title } from "@mantine/core";
+import { IconMessageCircle } from "@tabler/icons-react";
 
 export interface MessageData {
 	id: number;
@@ -13,28 +13,35 @@ interface Props {
 
 export default function MessagePlayback({ messages }: Props) {
 	return (
-		<div className="rounded-xl border border-border bg-card p-5 sm:p-6">
-			<h3 className="flex items-center gap-2 text-sm font-semibold mb-4">
-				<MessageCircle size={18} />
+		<Paper withBorder radius="lg" p={{ base: "md", sm: "lg" }}>
+			<Title order={3} size="sm" mb="md" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+				<IconMessageCircle size={18} />
 				对话回放 ({messages.length}条消息)
-			</h3>
-			<div className="rounded-lg bg-muted/50 p-4 sm:p-6 max-h-[400px] overflow-y-auto space-y-2">
-				{messages.map((msg) => (
-					<div key={msg.id} className="text-sm leading-relaxed">
-						<span
-							className={cn(
-								"font-semibold mr-2",
-								msg.role === "student"
-									? "text-primary"
-									: "text-info-foreground",
-							)}
-						>
-							{msg.role === "student" ? "学生：" : "患者："}
-						</span>
-						<span className="text-foreground/80">{msg.content}</span>
-					</div>
-				))}
-			</div>
-		</div>
+			</Title>
+			<Paper
+				withBorder={false}
+				bg="gray.1"
+				p={{ base: "md", sm: "lg" }}
+				style={{ maxHeight: 400, overflowY: "auto" }}
+			>
+				<Stack gap="xs">
+					{messages.map((msg) => (
+						<Text key={msg.id} size="sm" lh={1.6}>
+							<Text
+								component="span"
+								fw={600}
+								mr={8}
+								c={msg.role === "student" ? "teal" : "blue"}
+							>
+								{msg.role === "student" ? "学生：" : "患者："}
+							</Text>
+							<Text component="span" c="gray.7">
+								{msg.content}
+							</Text>
+						</Text>
+					))}
+				</Stack>
+			</Paper>
+		</Paper>
 	);
 }

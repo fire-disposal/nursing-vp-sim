@@ -1,8 +1,9 @@
-import { AlertCircle, CheckCircle2, ChevronDown, HelpCircle, Loader2, XCircle } from "lucide-react";
+import { IconAlertCircle, IconChevronDown, IconCircleCheck, IconCircleX, IconHelpCircle, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { Box, Group, Text } from "@mantine/core";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { cn } from "@/lib/utils";
 
 interface QuizQuestion {
 	id: string;
@@ -23,11 +24,31 @@ function optionStyle(
 	selected: string | undefined,
 	optKey: string,
 	isCorrectAnswer: boolean,
-): string {
-	if (!selected) return "border-border bg-muted/30 hover:bg-muted cursor-pointer dark:bg-muted/20 dark:hover:bg-muted/40";
-	if (isCorrectAnswer) return "border-emerald-500/40 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-950/50";
-	if (selected === optKey && !isCorrectAnswer) return "border-red-500/40 bg-red-50/70 dark:border-red-500/30 dark:bg-red-950/50";
-	return "border-border bg-muted/30 opacity-50 dark:bg-muted/20";
+): CSSProperties {
+	if (!selected) {
+		return {
+			background: "var(--mantine-color-gray-0)",
+			borderColor: "var(--mantine-color-default-border)",
+			cursor: "pointer",
+		};
+	}
+	if (isCorrectAnswer) {
+		return {
+			background: "var(--mantine-color-green-0)",
+			borderColor: "var(--mantine-color-green-4)",
+		};
+	}
+	if (selected === optKey && !isCorrectAnswer) {
+		return {
+			background: "var(--mantine-color-red-0)",
+			borderColor: "var(--mantine-color-red-4)",
+		};
+	}
+	return {
+		background: "var(--mantine-color-gray-0)",
+		borderColor: "var(--mantine-color-default-border)",
+		opacity: 0.5,
+	};
 }
 
 export default function QuizTool(props: TrainingToolProps) {
@@ -167,20 +188,20 @@ export default function QuizTool(props: TrainingToolProps) {
 	// ── Loading state ──
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-32 text-muted-foreground">
-				<Loader2 size={18} className="animate-spin mr-2" />
-				<span className="text-xs">加载题目…</span>
-			</div>
+			<Group h={128} justify="center" align="center" wrap="nowrap" c="dimmed" gap={8}>
+				<IconLoader2 size={18} className="animate-spin" />
+				<Text size="xs">加载题目…</Text>
+			</Group>
 		);
 	}
 
 	// ── Error state ──
 	if (loadError) {
 		return (
-			<div className="flex flex-col items-center gap-2 p-6 text-muted-foreground text-center">
-				<AlertCircle size={24} className="opacity-40" />
-				<span className="text-xs">{loadError}</span>
-			</div>
+			<Box style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 24, textAlign: "center" }}>
+				<IconAlertCircle size={24} style={{ opacity: 0.4, color: "var(--mantine-color-dimmed)" }} />
+				<Text size="xs" c="dimmed">{loadError}</Text>
+			</Box>
 		);
 	}
 
@@ -189,27 +210,33 @@ export default function QuizTool(props: TrainingToolProps) {
 	// ── Empty state ──
 	if (questions.length === 0) {
 		return (
-			<div className="flex flex-col items-center gap-2 p-6 text-muted-foreground text-center">
-				<HelpCircle size={24} className="opacity-40" />
-				<span className="text-xs">该病例未配置引导题目</span>
-			</div>
+			<Box style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 24, textAlign: "center" }}>
+				<IconHelpCircle size={24} style={{ opacity: 0.4, color: "var(--mantine-color-dimmed)" }} />
+				<Text size="xs" c="dimmed">该病例未配置引导题目</Text>
+			</Box>
 		);
 	}
 
 	const answeredCount = Object.keys(answers).length;
 
 	return (
-		<div className="flex flex-col h-full bg-background">
-			<div className="px-3 py-2.5 border-b border-border shrink-0 flex items-center justify-between">
-				<span className="text-xs font-semibold text-foreground">
+		<Box style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--mantine-color-body)" }}>
+			<Group
+				justify="space-between"
+				wrap="nowrap"
+				px="sm"
+				py={10}
+				style={{ borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}
+			>
+				<Text size="xs" fw={600}>
 					{quiz?.title ?? "引导题目"}
-				</span>
-				<span className="text-[10px] text-muted-foreground tabular-nums">
+				</Text>
+				<Text size="10px" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
 					{answeredCount}/{questions.length}
-				</span>
-			</div>
+				</Text>
+			</Group>
 
-			<div className="flex-1 overflow-y-auto p-3 space-y-4">
+			<Box style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 16 }}>
 				{questions.map((q, qi) => {
 					const selected = answers[q.id];
 					const isCorrect = correctFlags[q.id] ?? false;
@@ -219,42 +246,48 @@ export default function QuizTool(props: TrainingToolProps) {
 					const correctKey = correctAnswers[q.id];
 
 					return (
-						<div
+						<Box
 							key={q.id}
-							className={cn(
-								"rounded-xl border p-3 transition-colors",
-								hasResult
+							p="sm"
+							style={{
+								borderRadius: 12,
+								border: "1px solid var(--mantine-color-default-border)",
+								background:
+									hasResult
+										? isCorrect
+											? "var(--mantine-color-green-0)"
+											: "var(--mantine-color-red-0)"
+										: "var(--mantine-color-body)",
+								borderColor: hasResult
 									? isCorrect
-										? "border-emerald-500/30 bg-emerald-50/50 dark:border-emerald-500/20 dark:bg-emerald-950/30"
-										: "border-red-500/30 bg-red-50/50 dark:border-red-500/20 dark:bg-red-950/30"
-									: "border-border bg-card",
-							)}
+										? "var(--mantine-color-green-4)"
+										: "var(--mantine-color-red-4)"
+									: undefined,
+							}}
 						>
-							<div className="flex items-start gap-2">
-								<span className="text-[10px] font-semibold text-muted-foreground mt-0.5 shrink-0">
+							<Group align="flex-start" gap={8} wrap="nowrap">
+								<Text size="10px" fw={600} c="dimmed" mt={2} style={{ flexShrink: 0 }}>
 									Q{qi + 1}
-								</span>
-								<p className="text-sm font-medium leading-snug flex-1">
+								</Text>
+								<Text size="sm" fw={500} lh={1.4} style={{ flex: 1 }}>
 									{q.stem}
-								</p>
+								</Text>
 								{submittingId === q.id ? (
-									<Loader2
-										size={14}
-										className="animate-spin text-muted-foreground shrink-0"
-									/>
+									<IconLoader2 size={14} className="animate-spin" style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />
 								) : (
 									hasResult && (
-										<span className="shrink-0">
+										<Box style={{ flexShrink: 0 }}>
 											{isCorrect ? (
-												<CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+												<IconCircleCheck size={14} style={{ color: "var(--mantine-color-green-6)" }} />
 											) : (
-												<XCircle size={14} className="text-red-500 dark:text-red-400" />
+												<IconCircleX size={14} style={{ color: "var(--mantine-color-red-5)" }} />
 											)}
-										</span>
-							))}
-							</div>
+										</Box>
+									)
+								)}
+							</Group>
 
-							<div className="mt-2.5 space-y-1">
+							<Box mt={10} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
 								{q.options.map((opt) => {
 									const isSelected = selected === opt.key;
 									const isAnswer = hasResult && correctKey === opt.key;
@@ -265,93 +298,142 @@ export default function QuizTool(props: TrainingToolProps) {
 									);
 
 									return (
-										<button
+										<Box
 											key={opt.key}
+											component="button"
 											type="button"
 											disabled={!!selected}
 											onClick={() => selectOption(q.id, opt.key)}
-											className={cn(
-												"w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-left transition-colors",
-												style,
-											)}
+											style={{
+												width: "100%",
+												display: "flex",
+												alignItems: "center",
+												gap: 8,
+												padding: "8px 12px",
+												borderRadius: 8,
+												border: "1px solid var(--mantine-color-default-border)",
+												fontSize: 12,
+												textAlign: "left",
+												cursor: selected ? "default" : "pointer",
+												...style,
+											}}
 										>
-											<span
-												className={cn(
-													"shrink-0 size-4 rounded-full border flex items-center justify-center text-[10px] font-semibold",
-													isAnswer
-														? "border-emerald-500 bg-emerald-500 text-white"
+											<Box
+												w={16}
+												h={16}
+												style={{
+													flexShrink: 0,
+													borderRadius: 999,
+													border: "1px solid var(--mantine-color-gray-4)",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+													fontSize: 10,
+													fontWeight: 600,
+													background: isAnswer
+														? "var(--mantine-color-green-5)"
 														: isSelected && hasResult && !isCorrect
-															? "border-red-500 bg-red-500 text-white"
-															: "border-muted-foreground/30 text-muted-foreground",
-												)}
+															? "var(--mantine-color-red-5)"
+															: "transparent",
+													borderColor: isAnswer
+														? "var(--mantine-color-green-5)"
+														: isSelected && hasResult && !isCorrect
+															? "var(--mantine-color-red-5)"
+															: undefined,
+													color: isAnswer || (isSelected && hasResult && !isCorrect) ? "white" : "var(--mantine-color-dimmed)",
+												}}
 											>
 												{isAnswer ? (
-													<CheckCircle2 size={10} />
+													<IconCircleCheck size={10} />
 												) : isSelected && hasResult && !isCorrect ? (
-													<XCircle size={10} />
+													<IconCircleX size={10} />
 												) : (
 													opt.key
 												)}
-											</span>
-											<span
-												className={cn(
-													"flex-1",
-													isAnswer && "text-emerald-700 font-medium",
-													isSelected && hasResult && !isCorrect && "text-red-700 line-through",
-												)}
+											</Box>
+											<Text
+												component="span"
+												size="xs"
+												style={{
+													flex: 1,
+													fontWeight: isAnswer ? 500 : undefined,
+													color: isAnswer
+														? "var(--mantine-color-green-7)"
+														: isSelected && hasResult && !isCorrect
+															? "var(--mantine-color-red-7)"
+															: "var(--mantine-color-text)",
+													textDecoration: isSelected && hasResult && !isCorrect ? "line-through" : undefined,
+												}}
 											>
 												{opt.text}
-											</span>
+											</Text>
 											{isAnswer && isSelected && !isCorrect && (
-												<span className="text-[10px] text-emerald-600 font-medium">正确答案</span>
+												<Text component="span" size="10px" fw={500} c="green.6">正确答案</Text>
 											)}
-										</button>
+										</Box>
 									);
 								})}
-							</div>
+							</Box>
 
 							{selected && explanations[q.id] && (
 								<>
-									<button
+									<Box
+										component="button"
+										type="button"
 										onClick={() => toggleExplanation(q.id)}
-										className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+										style={{
+											display: "flex",
+											alignItems: "center",
+											gap: 4,
+											marginTop: 8,
+											fontSize: 10,
+											color: "var(--mantine-color-dimmed)",
+											background: "transparent",
+											border: "none",
+											cursor: "pointer",
+										}}
 									>
-										<ChevronDown
+										<IconChevronDown
 											size={12}
-											className={cn(
-												"transition-transform",
-												showExplanation && "rotate-180",
-											)}
+											style={{ transition: "transform 150ms", transform: showExplanation ? "rotate(180deg)" : undefined }}
 										/>
 										解析
-									</button>
+									</Box>
 									{showExplanation && (
-										<p className="mt-1.5 text-xs text-muted-foreground leading-relaxed bg-muted/30 rounded-lg px-3 py-2">
+										<Text
+											size="xs"
+											c="dimmed"
+											lh={1.6}
+											mt={6}
+											px={12}
+											py={8}
+											style={{ background: "var(--mantine-color-gray-1)", borderRadius: 8 }}
+										>
 											{explanations[q.id]}
-										</p>
+										</Text>
 									)}
 								</>
 							)}
 
 							{submitError[q.id] && (
-								<div className="mt-2 flex items-center gap-1.5 text-[10px] text-danger">
-									<AlertCircle size={11} />
-									{submitError[q.id]}
-								</div>
+								<Group gap={6} mt={8} wrap="nowrap">
+									<IconAlertCircle size={11} style={{ color: "var(--mantine-color-red-6)" }} />
+									<Text size="10px" c="red.6">{submitError[q.id]}</Text>
+								</Group>
 							)}
-						</div>
+						</Box>
 					);
 				})}
-			</div>
+			</Box>
 
 			{answeredCount === questions.length && questions.length > 0 && (
-				<div className="px-3 py-2 border-t border-border bg-emerald-50/50 shrink-0">
-					<p className="text-xs text-emerald-700 text-center">
-						<CheckCircle2 size={12} className="inline mr-1" />
+				<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-green-0)", flexShrink: 0 }}>
+					<Text size="xs" c="green.7" ta="center">
+						<IconCircleCheck size={12} style={{ display: "inline", marginRight: 4 }} />
 						全部完成 — 共 {answeredCount} 题
-					</p>
-				</div>
+					</Text>
+				</Box>
 			)}
-		</div>
+		</Box>
 	);
 }

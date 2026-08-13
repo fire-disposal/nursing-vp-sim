@@ -1,7 +1,8 @@
-import { Bot, ClipboardList, Stethoscope, User } from "lucide-react";
+import { Group, Text, UnstyledButton } from "@mantine/core";
+import { IconClipboardList, IconRobot, IconStethoscope, IconUser } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { cn } from "@/lib/utils";
+import type { NavIcon } from "./navigation";
 
 /**
  * 判断当前路径是否属于某个 Tab 的活动范围。
@@ -14,31 +15,31 @@ function isTabActive(pathname: string, root: string, subPrefixes: string[]): boo
 
 const BOTTOM_TABS: Array<{
 	to: string;
-	icon: typeof Stethoscope;
+	icon: NavIcon;
 	label: string;
 	activeOn: string[];
 }> = [
 	{
 		to: "/training",
-		icon: Stethoscope,
+		icon: IconStethoscope,
 		label: "训练",
 		activeOn: ["/training"],
 	},
 	{
 		to: "/history",
-		icon: ClipboardList,
+		icon: IconClipboardList,
 		label: "记录",
 		activeOn: ["/record"],
 	},
 	{
 		to: "/qa",
-		icon: Bot,
+		icon: IconRobot,
 		label: "问答",
 		activeOn: ["/qa"],
 	},
 	{
 		to: "/profile",
-		icon: User,
+		icon: IconUser,
 		label: "我的",
 		activeOn: ["/notifications", "/my-feedback"],
 	},
@@ -47,7 +48,7 @@ const BOTTOM_TABS: Array<{
 /**
  * BottomTabBar — 移动端底部 4 Tab 导航栏
  * 训练 | 记录 | 问答 | 我的
- * 仅在 md 断点以下显示（md:hidden）。短视口压缩为仅图标。
+ * 仅在 sm 断点（768px）以下显示（hiddenFrom="sm"）。短视口压缩为仅图标。
  */
 export function BottomTabBar() {
 	const location = useLocation();
@@ -55,50 +56,69 @@ export function BottomTabBar() {
 	const isShort = useShortViewport();
 
 	return (
-		<nav
-			className={cn(
-				"flex items-center justify-around border-t border-border bg-card shrink-0 md:hidden",
-				isShort ? "h-10" : "",
-			)}
+		<Group
+			component="nav"
+			justify="space-around"
+			gap={0}
+			hiddenFrom="sm"
 			style={{
-				paddingBottom: isShort ? "0" : "env(safe-area-inset-bottom, 0px)",
-				height: isShort ? "40px" : `calc(56px + env(safe-area-inset-bottom, 0px))`,
+				flexShrink: 0,
+				borderTop: "1px solid var(--mantine-color-gray-3)",
+				background: "var(--mantine-color-body)",
+				paddingBottom: isShort ? 0 : "env(safe-area-inset-bottom, 0px)",
+				height: isShort ? 40 : "calc(56px + env(safe-area-inset-bottom, 0px))",
 			}}
 		>
 			{BOTTOM_TABS.map((tab) => {
 				const Icon = tab.icon;
 				const isActive = isTabActive(location.pathname, tab.to, tab.activeOn);
 				return (
-					<button
+					<UnstyledButton
 						key={tab.to}
-						type="button"
 						onClick={() => navigate(tab.to)}
-						className="relative flex flex-1 flex-col items-center justify-center h-full transition-all active:scale-95"
+						style={{
+							position: "relative",
+							flex: 1,
+							display: "flex",
+							flexDirection: "column",
+							alignItems: "center",
+							justifyContent: "center",
+							height: "100%",
+						}}
 					>
 						{isActive && (
-							<span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-primary" />
+							<span
+								style={{
+									position: "absolute",
+									top: 0,
+									left: "25%",
+									right: "25%",
+									height: 2,
+									borderRadius: "0 0 999px 999px",
+									background: "var(--mantine-color-teal-6)",
+								}}
+							/>
 						)}
 						<Icon
 							size={isShort ? 20 : 22}
 							strokeWidth={isActive ? 2.5 : 2}
-							className={cn(
-								"transition-all duration-200",
-								isActive ? "text-primary" : "text-muted-foreground",
-							)}
+							style={{
+								color: isActive ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)",
+							}}
 						/>
 						{!isShort && (
-							<span
-								className={cn(
-									"text-[10px] font-semibold leading-tight transition-colors",
-									isActive ? "text-primary" : "text-muted-foreground",
-								)}
+							<Text
+								fz={10}
+								fw={600}
+								c={isActive ? "teal.6" : "dimmed"}
+								style={{ lineHeight: 1.2 }}
 							>
 								{tab.label}
-							</span>
+							</Text>
 						)}
-					</button>
+					</UnstyledButton>
 				);
 			})}
-		</nav>
+		</Group>
 	);
 }

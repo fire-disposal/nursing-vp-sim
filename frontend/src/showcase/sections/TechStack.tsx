@@ -1,24 +1,55 @@
+import { Box, Group, Text } from "@mantine/core";
 import { TECH_STACK } from "../data";
 
 export default function TechStack() {
 	return (
-		<section className="border-y border-border/60 py-10">
-				<div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-				<div className="flex w-max animate-[marquee-third_42s_linear_infinite] motion-reduce:animate-none">
+		<Box
+			component="section"
+			py={40}
+			style={{
+				borderTop: "1px solid var(--mantine-color-default-border)",
+				borderBottom: "1px solid var(--mantine-color-default-border)",
+			}}
+		>
+			<Box
+				pos="relative"
+				style={{
+					overflow: "hidden",
+					maskImage:
+						"linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+				}}
+			>
+				<Group
+					wrap="nowrap"
+					gap={0}
+					style={{
+						width: "max-content",
+						animation: "marquee-third 42s linear infinite",
+					}}
+				>
 					{[0, 1, 2].map((groupIndex) => (
-						<div key={groupIndex} className="flex shrink-0 gap-10 pr-10 md:gap-12 md:pr-12">
+						<Group
+							key={groupIndex}
+							wrap="nowrap"
+							gap={40}
+							pr={40}
+							style={{ flexShrink: 0 }}
+						>
 							{TECH_STACK.map((t) => (
-								<span
+								<Text
 									key={`${groupIndex}-${t}`}
-									className="whitespace-nowrap text-sm font-medium text-muted-foreground md:text-base [font-family:'Geist_Variable',sans-serif]"
+									style={{ whiteSpace: "nowrap" }}
+									size="sm"
+									fw={500}
+									c="dimmed"
 								>
 									{t}
-								</span>
+								</Text>
 							))}
-						</div>
+						</Group>
 					))}
-				</div>
-			</div>
-		</section>
+				</Group>
+			</Box>
+		</Box>
 	);
 }

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getBasePatientAvatar, getRealisticPatientAvatar } from "@/utils/avatar";
 import type { EmotionState } from "@/stores/trainingStore";
@@ -62,7 +61,7 @@ export const videoSchedulerPresenter: PatientPresenter = {
 	kind: "video",
 	build(patient, emotion) {
 		const sources = patient?.name ? VIDEO_SOURCES[patient.name] : undefined;
-		if (!sources || !sources[emotion.emotion]) return null;
+		if (!sources?.[emotion.emotion]) return null;
 		return {
 			kind: "video",
 			alt: patient?.name ?? "患者",

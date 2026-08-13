@@ -1,5 +1,6 @@
-﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BarChart3 } from "lucide-react";
+import { ActionIcon, Anchor, Box, Container, Flex, Group, Paper, Stack, Text } from "@mantine/core";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconArrowLeft, IconChartBar } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -201,14 +202,10 @@ export default function TeacherRecordDetail() {
 
 	if (!record) {
 		return (
-			<div className="space-y-6 p-4">
-				<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-					{Array.from({ length: 4 }).map((_, i) => (
-						<LoadingSkeleton key={i} variant="stats" />
-					))}
-				</div>
+			<Stack gap="xl" p="md">
+				<LoadingSkeleton variant="stats" />
 				<LoadingSkeleton variant="card" />
-			</div>
+			</Stack>
 		);
 	}
 
@@ -254,15 +251,20 @@ export default function TeacherRecordDetail() {
 
 	return (
 		<>
-			<div className="max-w-6xl mx-auto pt-2 pb-8">
-				<div className="flex items-center gap-2 mb-3">
-					<button onClick={() => navigate("/admin/records")} className="size-11 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors">
-						<ArrowLeft size={16} />
-					</button>
-					<h1 className="text-sm font-semibold truncate">
+			<Container size="lg" pt="xs" pb="xl">
+				<Group gap={8} mb="sm" align="center" wrap="nowrap">
+					<ActionIcon
+						variant="default"
+						size="lg"
+						onClick={() => navigate("/admin/records")}
+						aria-label="返回"
+					>
+						<IconArrowLeft size={16} />
+					</ActionIcon>
+					<Text size="sm" fw={600} truncate>
 						{record ? `${record.user_display_name || ""} · ${record.case_name || ""}` : "训练详情"}
-					</h1>
-				</div>
+					</Text>
+				</Group>
 				<RecordStatsBar
 					record={record as { user_display_name?: string; case_name?: string; training_type?: string }}
 					duration={duration}
@@ -279,28 +281,34 @@ export default function TeacherRecordDetail() {
 				/>
 
 				{/* Split pane on large screens */}
-				<div className="flex flex-col lg:flex-row gap-4 mt-4 lg:h-[calc(100vh-220px)]">
+				<Flex direction={{ base: "column", lg: "row" }} gap="md" mt="md" align="flex-start">
 					{/* Left: conversation + extras */}
-					<div className="flex-1 lg:overflow-y-auto min-h-0 space-y-4">
-						<MessagePlayback messages={messages} />
+					<Box style={{ flex: 1, minWidth: 0 }}>
+						<Stack gap="md">
+							<MessagePlayback messages={messages} />
 
+							{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
+								<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
+							)}
 
-						{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
-							<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
-						)}
-
-						{/* Mobile-only score preview: show "查看评分" link before the full section */}
-						{hasScore && recordScore && (
-							<a href="#score-section" className="lg:hidden flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-primary/30 bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
-								<BarChart3 size={16} />
-								查看评分详情 ({recordScore.total_score}/{scoreMax}分)
-							</a>
-						)}
-					</div>
+							{/* Mobile-only score preview: show "查看评分" link before the full section */}
+							{hasScore && recordScore && (
+								<Anchor
+									href="#score-section"
+									hiddenFrom="lg"
+									style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+									fw={500}
+								>
+									<IconChartBar size={16} />
+									查看评分详情 ({recordScore.total_score}/{scoreMax}分)
+								</Anchor>
+							)}
+						</Stack>
+					</Box>
 
 					{/* Right: score panel */}
 					{hasScore && recordScore && (
-						<div id="score-section" className="lg:w-[420px] lg:overflow-y-auto lg:shrink-0 scroll-mt-4">
+						<Box id="score-section" w={{ base: "100%", lg: 420 }} style={{ flexShrink: 0, scrollMarginTop: 16 }}>
 							<ScoreResultSection
 								recordScore={recordScore}
 								isReviewed={isReviewed}
@@ -316,10 +324,10 @@ export default function TeacherRecordDetail() {
 								categories={categories}
 								hasDetailItems={hasDetailItems}
 							/>
-						</div>
+						</Box>
 					)}
-				</div>
-			</div>
+				</Flex>
+			</Container>
 
 			{postQShouldShow && postCheckResponse && (
 				<QuestionnaireModal
@@ -358,16 +366,18 @@ function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
 	if (fields.length === 0) return null;
 
 	return (
-		<div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-3">
-			<h3 className="text-base font-semibold">护理评估记录</h3>
-			<div className="space-y-3">
-				{fields.map(([key, label]) => (
-					<div key={key}>
-						<h4 className="text-xs font-medium text-muted-foreground mb-1">{label}</h4>
-						<p className="text-sm whitespace-pre-wrap leading-relaxed">{sheet[key]}</p>
-					</div>
-				))}
-			</div>
-		</div>
+		<Paper withBorder radius="lg" p="md">
+			<Stack gap="sm">
+				<Text size="md" fw={600}>护理评估记录</Text>
+				<Stack gap="sm">
+					{fields.map(([key, label]) => (
+						<div key={key}>
+							<Text size="xs" fw={500} c="dimmed" mb={4}>{label}</Text>
+							<Text size="sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{sheet[key]}</Text>
+						</div>
+					))}
+				</Stack>
+			</Stack>
+		</Paper>
 	);
 }

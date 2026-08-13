@@ -1,4 +1,4 @@
-import { Coins } from "lucide-react";
+import { IconCoins } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 import MonitorTab from "@/components/admin/monitor/MonitorTab";
 import PageHeader from "@/components/ui/page-header";
@@ -30,7 +30,7 @@ export default function CostManagementPage() {
 			<PageHeader
 				title="成本管理"
 				subtitle="LLM API · TTS · 费用总览 · 数据导出"
-				icon={Coins}
+				icon={IconCoins}
 			/>
 			<Tabs tabs={COST_TABS} activeTab={tab} onChange={setTab} />
 			{tab === "dashboard" && <CostDashboard />}

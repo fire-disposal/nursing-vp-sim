@@ -1,10 +1,22 @@
-import { CheckCircle2, Circle } from "lucide-react";
+import { IconCircle, IconCircleCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
+import { Box, Group, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import type { ChatMessage } from "@/engine/types";
-import { cn } from "@/lib/utils";
 import { computeCovered, getInquiryLabel, progressColor } from "./inquiryProgress";
+
+/** progressColor 结果 → Mantine 语义色。 */
+const PROGRESS_TEXT: Record<string, string> = {
+	success: "green",
+	warning: "yellow",
+	danger: "red",
+};
+const PROGRESS_BG: Record<string, string> = {
+	success: "var(--mantine-color-green-6)",
+	warning: "var(--mantine-color-yellow-6)",
+	danger: "var(--mantine-color-red-6)",
+};
 
 export default function InquiryTool(props: TrainingToolProps) {
 	const messages = useTrainingStore((s) => s.messages);
@@ -25,7 +37,7 @@ export default function InquiryTool(props: TrainingToolProps) {
 	const covered = useMemo(() => computeCovered(inquiries, studentText), [inquiries, studentText]);
 
 	if (inquiries.length === 0) {
-		return <div className="text-sm text-muted-foreground text-center py-8 p-3">该病例未配置问诊清单</div>;
+		return <Text size="sm" c="dimmed" ta="center" py={32} px="sm">该病例未配置问诊清单</Text>;
 	}
 
 	const doneCount = covered.size;
@@ -34,61 +46,61 @@ export default function InquiryTool(props: TrainingToolProps) {
 	const color = progressColor(pct);
 
 	return (
-		<div className="p-3">
-			<div className="mb-3">
-				<div className="flex items-center justify-between mb-1">
-					<span className="text-xs text-muted-foreground">关键问诊内容覆盖</span>
-					<span
-						className={cn(
-							"text-xs font-bold tabular-nums",
-							color === "success" && "text-success-foreground",
-							color === "warning" && "text-warning",
-							color === "danger" && "text-danger",
-						)}
-					>
+		<Box p="sm">
+			<Box mb="md">
+				<Group justify="space-between" mb={4} wrap="nowrap">
+					<Text size="xs" c="dimmed">关键问诊内容覆盖</Text>
+					<Text size="xs" fw={700} c={PROGRESS_TEXT[color]} style={{ fontVariantNumeric: "tabular-nums" }}>
 						{doneCount}/{total}
-					</span>
-				</div>
-				<div className="h-1.5 rounded-full bg-muted overflow-hidden">
-					<div
-						className={cn(
-							"h-full rounded-full transition-all duration-500",
-							color === "success" && "bg-success",
-							color === "warning" && "bg-warning",
-							color === "danger" && "bg-danger",
-						)}
-						style={{ width: `${pct}%` }}
+					</Text>
+				</Group>
+				<Box h={6} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+					<Box
+						h="100%"
+						style={{
+							width: `${pct}%`,
+							borderRadius: 999,
+							transition: "all 500ms",
+							background: PROGRESS_BG[color],
+						}}
 					/>
-				</div>
-			</div>
+				</Box>
+			</Box>
 
-			<div className="space-y-1">
+			<Box>
 				{inquiries.map((inq, i) => {
 					const done = covered.has(i);
 					return (
-						<div key={i} className="flex items-start gap-2 py-1.5">
+						<Group key={i} align="flex-start" gap={8} py={6} wrap="nowrap">
 							{done ? (
-								<CheckCircle2 size={14} className="text-success-foreground mt-0.5 shrink-0" />
+								<IconCircleCheck size={14} style={{ color: "var(--mantine-color-green-6)", marginTop: 2, flexShrink: 0 }} />
 							) : (
-								<Circle size={14} className="text-muted-foreground/30 mt-0.5 shrink-0" />
+								<IconCircle size={14} style={{ color: "var(--mantine-color-gray-4)", marginTop: 2, flexShrink: 0 }} />
 							)}
-							<span
-								className={cn(
-									"text-sm leading-snug",
-									done ? "line-through text-muted-foreground" : "text-foreground",
-								)}
+							<Text
+								size="sm"
+								lh={1.4}
 								title={inq}
+								style={{ textDecoration: done ? "line-through" : undefined }}
+								c={done ? "dimmed" : undefined}
 							>
 								{getInquiryLabel(inq)}
-							</span>
-						</div>
+							</Text>
+						</Group>
 					);
 				})}
-			</div>
+			</Box>
 
-			<p className="mt-3 pt-2 border-t border-border text-[11px] text-muted-foreground/70 leading-relaxed">
+			<Text
+				size="11px"
+				c="dimmed"
+				mt="md"
+				pt={8}
+				lh={1.6}
+				style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+			>
 				提示：系统根据对话关键词自动匹配，仅供参考。建议按护理评估框架全面采集病史。
-			</p>
-		</div>
+			</Text>
+		</Box>
 	);
 }

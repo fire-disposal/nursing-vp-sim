@@ -1,8 +1,8 @@
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { IconChevronDown, IconChevronUp, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import type { PhaseFormData } from "./caseFormTypes";
 import { emptyPhase } from "./caseFormTypes";
-import { inputClass } from "@/utils/styles";
+import { Button, Checkbox, Group, NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 
 interface Props {
 	value: PhaseFormData[];
@@ -34,52 +34,70 @@ export function PhasesEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<fieldset className="border border-border rounded-lg p-4">
-			<legend className="text-sm font-semibold text-foreground px-1">训练阶段</legend>
-			<p className="text-xs text-muted-foreground mb-3">定义多阶段训练流程。每阶段可配置过渡条件和操作集</p>
+		<Paper withBorder p="md" radius="md">
+			<Text size="sm" fw={600} mb="xs">训练阶段</Text>
+			<Text size="xs" c="dimmed" mb="md">定义多阶段训练流程。每阶段可配置过渡条件和操作集</Text>
 			{value.length > 0 && (
-				<div className="space-y-2 mb-3">
+				<Stack gap={8} mb="md">
 					{value.map((p, i) => {
 						const isOpen = expanded.has(i);
 						return (
-							<div key={p.id} className="border border-border rounded-lg overflow-hidden">
-								<button type="button" onClick={() => toggle(i)} className="flex items-center justify-between w-full px-3 py-2 bg-muted/30 hover:bg-muted transition-colors text-left">
-									<span className="text-xs font-medium">{p.name || `Phase ${i + 1}`}</span>
-									{isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-								</button>
+							<Paper key={p.id} withBorder radius="md">
+								<Button
+									variant="ghost"
+									fullWidth
+									justify="space-between"
+									onClick={() => toggle(i)}
+									rightSection={isOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+								>
+									<Text size="xs" fw={500}>{p.name || `Phase ${i + 1}`}</Text>
+								</Button>
 								{isOpen && (
-									<div className="p-3 space-y-2">
-										<div className="flex gap-2">
-											<input value={p.id} onChange={(e) => update(i, (p) => ({ ...p, id: e.target.value }))} className={`${inputClass} flex-1`} disabled={disabled} placeholder="ID" />
-											<input value={p.name} onChange={(e) => update(i, (p) => ({ ...p, name: e.target.value }))} className={`${inputClass} flex-[2]`} disabled={disabled} placeholder="名称" />
-											<input type="number" value={p.order} onChange={(e) => update(i, (p) => ({ ...p, order: Number(e.target.value) }))} className={`${inputClass} w-20`} disabled={disabled} />
-										</div>
+									<Stack gap={8} p="sm">
+										<Group gap={8}>
+											<TextInput value={p.id} onChange={(e) => update(i, (p) => ({ ...p, id: e.currentTarget.value }))} disabled={disabled} placeholder="ID" style={{ flex: 1 }} />
+											<TextInput value={p.name} onChange={(e) => update(i, (p) => ({ ...p, name: e.currentTarget.value }))} disabled={disabled} placeholder="名称" style={{ flex: 2 }} />
+											<NumberInput value={p.order} onChange={(v) => update(i, (p) => ({ ...p, order: Number(v) }))} disabled={disabled} w={80} />
+										</Group>
 										<div>
-											<label className="text-[10px] text-muted-foreground">Prompt 配置</label>
-											<select value={p.prompt_profile} onChange={(e) => update(i, (p) => ({ ...p, prompt_profile: e.target.value }))} className={`${inputClass} h-8 text-xs`} disabled={disabled}>
-												<option value="patient_chat">patient_chat</option>
-											</select>
+											<Text size="xs" c="dimmed" mb={4}>Prompt 配置</Text>
+											<Select
+												data={[{ value: "patient_chat", label: "patient_chat" }]}
+												value={p.prompt_profile}
+												onChange={(v) => update(i, (p) => ({ ...p, prompt_profile: v ?? "patient_chat" }))}
+												disabled={disabled}
+												size="xs"
+											/>
 										</div>
-										<div className="border-t border-border pt-2">
-											<label className="text-[10px] text-muted-foreground block mb-1">过渡条件</label>
-											<div className="grid grid-cols-2 gap-2">
-												<label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={p.transition.auto} onChange={(e) => update(i, (p) => ({ ...p, transition: { ...p.transition, auto: e.target.checked } }))} disabled={disabled} /> 自动过渡</label>
-												<div><span className="text-[10px] text-muted-foreground">最小消息数</span><input type="number" value={p.transition.min_messages} onChange={(e) => update(i, (p) => ({ ...p, transition: { ...p.transition, min_messages: Number(e.target.value) } }))} className={`${inputClass} h-8 text-xs`} disabled={disabled} /></div>
-												<div><span className="text-[10px] text-muted-foreground">最小操作数</span><input type="number" value={p.transition.min_operations} onChange={(e) => update(i, (p) => ({ ...p, transition: { ...p.transition, min_operations: Number(e.target.value) } }))} className={`${inputClass} h-8 text-xs`} disabled={disabled} /></div>
-												<div><span className="text-[10px] text-muted-foreground">消息后自动</span><input type="number" value={p.transition.auto_after_messages} onChange={(e) => update(i, (p) => ({ ...p, transition: { ...p.transition, auto_after_messages: Number(e.target.value) } }))} className={`${inputClass} h-8 text-xs`} disabled={disabled} /></div>
-											</div>
-										</div>
-										<button type="button" onClick={() => remove(i)} disabled={disabled} className="flex items-center gap-1 text-xs text-destructive hover:underline"><Trash2 size={12} /> 删除阶段</button>
-									</div>
+										<Stack gap={8} pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+											<Text size="xs" c="dimmed">过渡条件</Text>
+											<SimpleGrid cols={2} spacing={8}>
+												<Checkbox checked={p.transition.auto} onChange={(e) => update(i, (p) => ({ ...p, transition: { ...p.transition, auto: e.currentTarget.checked } }))} disabled={disabled} label="自动过渡" />
+												<div>
+													<Text size="xs" c="dimmed" mb={4}>最小消息数</Text>
+													<NumberInput value={p.transition.min_messages} onChange={(v) => update(i, (p) => ({ ...p, transition: { ...p.transition, min_messages: Number(v) } }))} disabled={disabled} size="xs" />
+												</div>
+												<div>
+													<Text size="xs" c="dimmed" mb={4}>最小操作数</Text>
+													<NumberInput value={p.transition.min_operations} onChange={(v) => update(i, (p) => ({ ...p, transition: { ...p.transition, min_operations: Number(v) } }))} disabled={disabled} size="xs" />
+												</div>
+												<div>
+													<Text size="xs" c="dimmed" mb={4}>消息后自动</Text>
+													<NumberInput value={p.transition.auto_after_messages} onChange={(v) => update(i, (p) => ({ ...p, transition: { ...p.transition, auto_after_messages: Number(v) } }))} disabled={disabled} size="xs" />
+												</div>
+											</SimpleGrid>
+										</Stack>
+										<Button variant="link" color="red" size="xs" onClick={() => remove(i)} disabled={disabled} leftSection={<IconTrash size={12} />}>删除阶段</Button>
+									</Stack>
 								)}
-							</div>
+							</Paper>
 						);
 					})}
-				</div>
+				</Stack>
 			)}
 			{!disabled && (
-				<button type="button" onClick={add} className="flex items-center gap-1 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors"><Plus size={12} /> 添加阶段</button>
+				<Button variant="link" size="xs" onClick={add} leftSection={<IconPlus size={12} />}>添加阶段</Button>
 			)}
-		</fieldset>
+		</Paper>
 	);
 }

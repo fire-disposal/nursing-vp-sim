@@ -1,4 +1,4 @@
-import { Code2, Eye, FormInput, RotateCcw, Sparkles, Wand2 } from "lucide-react";
+import { IconCode, IconEye, IconForms, IconRotate, IconSparkles, IconWand } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { safeParse, z } from "zod";
 import { generateCase, getCaseDetail } from "@/api";
@@ -6,8 +6,7 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { inputClass } from "@/utils/styles";
+import { Alert, Badge, Grid, Group, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, useCaseEditor } from "./CaseEditorState";
 import { FormView } from "./FormView";
 import JsonView from "./JsonView";
@@ -290,156 +289,202 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			<DialogContent
 				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
 				maxWidth={state.mode === "json" ? 960 : 900}
-				className={cn("max-h-[85vh] overflow-y-auto", state.mode === "json" && "!max-w-[960px]")}
 			>
 				{caseMsg && (
-					<div className={cn("px-3.5 py-2.5 rounded-lg text-sm mb-4", caseMsg.includes("成功") ? "bg-success text-success-foreground" : "bg-destructive/10 text-destructive")}>
+					<Alert variant="light" color={caseMsg.includes("成功") ? "green" : "red"} mb="md">
 						{caseMsg}
-					</div>
+					</Alert>
 				)}
 
 				{showDraftRestore && (
-					<div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-sm mb-4 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-						<span>检测到未保存的草稿</span>
-						<div className="flex gap-2 shrink-0">
-							<Button type="button" size="sm" variant="outline" onClick={handleRestoreDraft}>恢复草稿</Button>
-							<Button type="button" size="sm" variant="ghost" onClick={() => { localStorage.removeItem(draft); setShowDraftRestore(false); }}>丢弃</Button>
-						</div>
-					</div>
+					<Alert variant="light" color="yellow" mb="md">
+						<Group justify="space-between" gap={8} wrap="wrap">
+							<Text size="sm">检测到未保存的草稿</Text>
+							<Group gap={8}>
+								<Button type="button" size="sm" variant="outline" onClick={handleRestoreDraft}>恢复草稿</Button>
+								<Button type="button" size="sm" variant="ghost" onClick={() => { localStorage.removeItem(draft); setShowDraftRestore(false); }}>丢弃</Button>
+							</Group>
+						</Group>
+					</Alert>
 				)}
 
 				{/* ── Toolbar ── */}
-				<div className="flex items-center gap-2 mb-4">
-					<button type="button" onClick={() => setShowAiPanel(!showAiPanel)}
-						className={cn("inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors",
-							showAiPanel ? "bg-purple-50 text-purple-700 border-purple-300" : "bg-transparent text-purple-600 border-purple-200 hover:bg-purple-50")}>
-						<Wand2 size={13} /> AI
-					</button>
+				<Group gap={8} mb="md">
+					<Button
+						size="xs"
+						variant={showAiPanel ? "default" : "outline"}
+						color="grape"
+						onClick={() => setShowAiPanel(!showAiPanel)}
+						leftSection={<IconWand size={13} />}
+					>
+						AI
+					</Button>
 
 					{state.undoStack.length > 0 && (
-						<button type="button" onClick={handleUndo} title="撤销上一次 AI 填充"
-							className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors">
-							<RotateCcw size={13} /> 撤销
-						</button>
+						<Button
+							size="xs"
+							variant="outline"
+							color="gray"
+							onClick={handleUndo}
+							title="撤销上一次 AI 填充"
+							leftSection={<IconRotate size={13} />}
+						>
+							撤销
+						</Button>
 					)}
 
-					<button type="button" onClick={() => setShowPreview(!showPreview)} title="病例预览"
-						className={cn("inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors",
-							showPreview ? "bg-primary/10 text-primary border-primary/30" : "border-border text-muted-foreground hover:bg-muted")}>
-						<Eye size={13} /> 预览
-					</button>
+					<Button
+						size="xs"
+						variant={showPreview ? "default" : "outline"}
+						color={showPreview ? "teal" : "gray"}
+						onClick={() => setShowPreview(!showPreview)}
+						title="病例预览"
+						leftSection={<IconEye size={13} />}
+					>
+						预览
+					</Button>
 
-					<div className="flex items-center rounded-md border border-border overflow-hidden ml-auto">
-						<button
-							type="button"
-							onClick={() => dispatch({ type: "SWITCH_MODE", mode: "form" })}
-							className={cn("inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors", state.mode === "form" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50")}
-						>
-							<FormInput size={13} /> 表单
-						</button>
-						<button
-							type="button"
-							onClick={() => dispatch({ type: "SWITCH_MODE", mode: "json" })}
-							className={cn("inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors", state.mode === "json" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50")}
-						>
-							<Code2 size={13} /> JSON
-						</button>
-					</div>
-				</div>
+					<SegmentedControl
+						size="xs"
+						ml="auto"
+						value={state.mode}
+						onChange={(v) => dispatch({ type: "SWITCH_MODE", mode: v as "form" | "json" })}
+						data={[
+							{ value: "form", label: <Group gap={4} wrap="nowrap"><IconForms size={13} />表单</Group> },
+							{ value: "json", label: <Group gap={4} wrap="nowrap"><IconCode size={13} />JSON</Group> },
+						]}
+					/>
+				</Group>
 
 				{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 				{showAiPanel && (
-					<div className="mb-4 p-4 rounded-lg bg-purple-50/50 border border-purple-100 dark:bg-purple-950/20 dark:border-purple-900">
-						<div className="flex items-center gap-2 mb-3 flex-wrap">
-							<span className="text-xs font-semibold text-purple-700 dark:text-purple-300">生成向导</span>
-							<span className={cn("text-[10px] px-2 py-0.5 rounded-full border", state.json.name || state.json.chief_complaint ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-white text-muted-foreground border-border")}>1 临床骨架</span>
-							<span className="text-muted-foreground/40">→</span>
-							<span className={cn("text-[10px] px-2 py-0.5 rounded-full border", (state.json.required_inquiries as unknown[])?.length || state.json.exam_anchors ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-white text-muted-foreground border-border")}>2 教学细节</span>
-						</div>
+					<Paper
+						withBorder
+						p="md"
+						radius="md"
+						mb="md"
+						bg="var(--mantine-color-grape-0)"
+						style={{ borderColor: "var(--mantine-color-grape-2)" }}
+					>
+						<Group gap={6} wrap="wrap" mb="sm">
+							<Text size="xs" fw={600} c="grape">生成向导</Text>
+							<Badge variant={state.json.name || state.json.chief_complaint ? "success" : "neutral"} size="xs">1 临床骨架</Badge>
+							<Text size="xs" c="dimmed" opacity={0.4}>→</Text>
+							<Badge variant={(state.json.required_inquiries as unknown[])?.length || state.json.exam_anchors ? "success" : "neutral"} size="xs">2 教学细节</Badge>
+						</Group>
 
-						<div className="flex gap-2 mb-3">
-							<button type="button" onClick={() => setAiMode("quick")} className={cn("px-3 py-1 text-xs rounded", aiMode === "quick" ? "bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-100" : "bg-white dark:bg-card")}>快速生成</button>
-							<button type="button" onClick={() => setAiMode("reference")} className={cn("px-3 py-1 text-xs rounded", aiMode === "reference" ? "bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-100" : "bg-white dark:bg-card")}>参考模板</button>
-						</div>
-						<textarea value={aiDescription} onChange={(e) => setAiDescription(e.target.value)} placeholder="描述你想生成的病例场景（年龄、主诉、病情特点…）" className={`${inputClass} h-20 resize-y mb-2`} />
+						<SegmentedControl
+							size="xs"
+							color="grape"
+							mb="sm"
+							value={aiMode}
+							onChange={(v) => setAiMode(v as "quick" | "reference")}
+							data={[
+								{ value: "quick", label: "快速生成" },
+								{ value: "reference", label: "参考模板" },
+							]}
+						/>
+
+						<Textarea
+							value={aiDescription}
+							onChange={(e) => setAiDescription(e.currentTarget.value)}
+							placeholder="描述你想生成的病例场景（年龄、主诉、病情特点…）"
+							autosize
+							minRows={3}
+							mb="xs"
+						/>
+
 						{aiMode === "reference" && (
-							<div className="mb-2">
-								<label className="text-xs text-muted-foreground">参考病例</label>
-								<select multiple value={aiReferenceCaseIds.map(String)} onChange={(e) => setAiReferenceCaseIds(Array.from(e.target.selectedOptions, (o) => Number(o.value)))}
-									className={`${inputClass} h-24`}>
-									{availableCases.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.training_type})</option>)}
-								</select>
-								<textarea value={aiReferenceText} onChange={(e) => setAiReferenceText(e.target.value)} placeholder="或直接粘贴参考文本..." className={`${inputClass} h-16 resize-y mt-1`} />
-							</div>
+							<Stack gap={8} mb="xs">
+								<Text size="xs" c="dimmed">参考病例</Text>
+								<MultiSelect
+									data={availableCases.map((c) => ({ value: String(c.id), label: `${c.name} (${c.training_type})` }))}
+									value={aiReferenceCaseIds.map(String)}
+									onChange={(v) => setAiReferenceCaseIds(v.map(Number))}
+									searchable
+									placeholder="选择参考病例"
+								/>
+								<Textarea
+									value={aiReferenceText}
+									onChange={(e) => setAiReferenceText(e.currentTarget.value)}
+									placeholder="或直接粘贴参考文本..."
+									autosize
+									minRows={2}
+								/>
+							</Stack>
 						)}
-						{aiError && <p className="text-xs text-destructive mb-2">{aiError}</p>}
+
+						{aiError && <Text size="xs" c="red" mb="xs">{aiError}</Text>}
 
 						{/* 两步按钮 */}
-						<div className="flex gap-2 flex-wrap">
-							<Button size="sm" onClick={() => generateStage("core", "生成临床骨架")} disabled={aiBusy} className="gap-1">
-								<Sparkles size={14} /> {aiBusy && aiWorking === "生成临床骨架" ? "生成中…" : "生成临床骨架"}
+						<Group gap={8} wrap="wrap">
+							<Button size="sm" onClick={() => generateStage("core", "生成临床骨架")} disabled={aiBusy} leftSection={<IconSparkles size={14} />}>
+								{aiBusy && aiWorking === "生成临床骨架" ? "生成中…" : "生成临床骨架"}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() => generateStage("derivative", "生成教学细节")} disabled={aiBusy} className="gap-1">
-								<Sparkles size={14} /> {aiBusy && aiWorking === "生成教学细节" ? "生成中…" : "生成教学细节"}
+							<Button size="sm" variant="outline" onClick={() => generateStage("derivative", "生成教学细节")} disabled={aiBusy} leftSection={<IconSparkles size={14} />}>
+								{aiBusy && aiWorking === "生成教学细节" ? "生成中…" : "生成教学细节"}
 							</Button>
-						</div>
+						</Group>
 
 						{/* 逐字段生成（分组） */}
-						<div className="mt-3 pt-3 border-t border-purple-200/60 dark:border-purple-900">
-							<p className="text-[10px] text-muted-foreground mb-1.5">逐字段完善（以当前编辑内容为上下文，可反复生成）</p>
-							<div className="flex flex-col gap-2">
-								<div className="flex items-start gap-1.5 flex-wrap">
-									<span className="text-[10px] text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 w-14">临床字段</span>
-									{AI_CLINICAL_FIELDS.map((f) => (
-										<button key={f.key} type="button" onClick={() => generateField(f.key)} disabled={aiBusy}
-											className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 dark:bg-purple-900/60 dark:text-purple-300 dark:hover:bg-purple-800">
-											{f.label}
-										</button>
-									))}
-								</div>
-								<div className="flex items-start gap-1.5 flex-wrap">
-									<span className="text-[10px] text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 w-14">教学字段</span>
-									{AI_PEDAGOGY_FIELDS.map((f) => (
-										<button key={f.key} type="button" onClick={() => generateField(f.key)} disabled={aiBusy}
-											className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 dark:bg-purple-900/60 dark:text-purple-300 dark:hover:bg-purple-800">
-											{f.label}
-										</button>
-									))}
-								</div>
-							</div>
-						</div>
-					</div>
+						<Stack gap={8} mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-grape-2)" }}>
+							<Text size="xs" c="dimmed">逐字段完善（以当前编辑内容为上下文，可反复生成）</Text>
+							<Group gap={6} wrap="wrap">
+								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
+								{AI_CLINICAL_FIELDS.map((f) => (
+									<Button key={f.key} size="xs" variant="secondary" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+										{f.label}
+									</Button>
+								))}
+							</Group>
+							<Group gap={6} wrap="wrap">
+								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>教学字段</Text>
+								{AI_PEDAGOGY_FIELDS.map((f) => (
+									<Button key={f.key} size="xs" variant="secondary" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+										{f.label}
+									</Button>
+								))}
+							</Group>
+						</Stack>
+					</Paper>
 				)}
 
 				{/* ── 病例预览（只读学生视角） ── */}
 				{showPreview && (
-					<div className="mb-4 p-4 rounded-lg border border-border bg-card">
-						<p className="text-xs font-semibold mb-2">病例预览</p>
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-							<div><span className="text-muted-foreground">名称：</span>{String(state.json.name ?? "") || "—"}</div>
-							<div><span className="text-muted-foreground">患者：</span>{preview.patient || "—"}</div>
-							<div className="sm:col-span-2"><span className="text-muted-foreground">主诉：</span>{preview.chief || "—"}</div>
-							<div className="sm:col-span-2"><span className="text-muted-foreground">开场白：</span>{preview.opening || "—"}</div>
-							<div><span className="text-muted-foreground">必询要点：</span>{preview.inquiries} 条</div>
-							<div><span className="text-muted-foreground">隐藏信息：</span>{preview.hidden} 条</div>
-						</div>
-					</div>
+					<Paper withBorder p="md" radius="md" mb="md">
+						<Text size="xs" fw={600} mb="xs">病例预览</Text>
+						<Grid gap="xs">
+							<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">名称：</Text>{String(state.json.name ?? "") || "—"}</Text></Grid.Col>
+							<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">患者：</Text>{preview.patient || "—"}</Text></Grid.Col>
+							<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">主诉：</Text>{preview.chief || "—"}</Text></Grid.Col>
+							<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">开场白：</Text>{preview.opening || "—"}</Text></Grid.Col>
+							<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">必询要点：</Text>{preview.inquiries} 条</Text></Grid.Col>
+							<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">隐藏信息：</Text>{preview.hidden} 条</Text></Grid.Col>
+						</Grid>
+					</Paper>
 				)}
 
 				{/* ── Editor area ── */}
-				<form onSubmit={handleSave} className="space-y-4">
-					{state.mode === "json" ? (
-						<JsonView json={state.json} dispatch={dispatch} />
-					) : (
-						<FormView state={state} dispatch={dispatch} />
-					)}
+				<form onSubmit={handleSave}>
+					<Stack gap="md">
+						{state.mode === "json" ? (
+							<JsonView json={state.json} dispatch={dispatch} />
+						) : (
+							<FormView state={state} dispatch={dispatch} />
+						)}
 
-					<div className="flex gap-2 justify-end pt-2 sticky bottom-0 bg-background py-2 border-t border-border mt-4">
-						<Button type="button" variant="outline" size="sm" onClick={handleClose}>取消</Button>
-						<Button type="submit" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
-							{editingCase ? (updateMutation.isPending ? "保存中…" : "保存") : (createMutation.isPending ? "创建中…" : "创建")}
-						</Button>
-					</div>
+						<Group
+							justify="flex-end"
+							gap={8}
+							pt="sm"
+							style={{ position: "sticky", bottom: 0, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-gray-3)" }}
+						>
+							<Button type="button" variant="outline" size="sm" onClick={handleClose}>取消</Button>
+							<Button type="submit" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
+								{editingCase ? (updateMutation.isPending ? "保存中…" : "保存") : (createMutation.isPending ? "创建中…" : "创建")}
+							</Button>
+						</Group>
+					</Stack>
 				</form>
 			</DialogContent>
 		</Dialog>

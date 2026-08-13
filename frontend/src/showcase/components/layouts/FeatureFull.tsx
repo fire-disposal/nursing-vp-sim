@@ -1,9 +1,10 @@
-import type { LucideIcon } from "lucide-react";
+import { Group, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import type { TablerIcon } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import Reveal from "../Reveal";
 
 interface FeatureFullProps {
-	icon: LucideIcon;
+	icon: TablerIcon;
 	title: string;
 	body: string;
 	points: string[];
@@ -19,32 +20,31 @@ export default function FeatureFull({
 }: FeatureFullProps) {
 	return (
 		<Reveal>
-			<div className="flex flex-col gap-8">
-				<div className="flex flex-col gap-4">
-					<div className="flex items-center gap-4">
-						<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-							<Icon size={22} strokeWidth={1.5} className="text-primary" />
-						</div>
-						<h3 className="text-[1.65rem] font-bold tracking-tight md:text-[2rem] [font-family:'Geist_Variable',sans-serif]">
+			<Stack gap="lg">
+				<Stack gap="md">
+					<Group gap="md">
+						<ThemeIcon size={44} radius="lg" variant="light">
+							<Icon size={22} strokeWidth={1.5} />
+						</ThemeIcon>
+						<Title order={3} fw={700} size="1.65rem">
 							{title}
-						</h3>
-					</div>
-					<p className="max-w-[65ch] leading-relaxed text-muted-foreground">
+						</Title>
+					</Group>
+					<Text c="dimmed" style={{ maxWidth: "65ch" }}>
 						{body}
-					</p>
-				</div>
-				<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+					</Text>
+				</Stack>
+				<SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
 					{points.map((p) => (
-						<div
-							key={p}
-							className="rounded-2xl border border-border bg-card p-4 text-sm text-foreground/80"
-						>
-							{p}
-						</div>
+						<Paper key={p} withBorder radius="lg" p="md">
+							<Text size="sm" c="dimmed">
+								{p}
+							</Text>
+						</Paper>
 					))}
-				</div>
+				</SimpleGrid>
 				{visual}
-			</div>
+			</Stack>
 		</Reveal>
 	);
 }

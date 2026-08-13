@@ -1,11 +1,11 @@
-import { AlertCircle, Loader2, WifiOff } from "lucide-react";
+import { IconAlertCircle, IconLoader2, IconWifiOff } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Box, Group, Text } from "@mantine/core";
 import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
 import type { SceneState } from "@/engine/scene-state";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
-import { cn } from "@/lib/utils";
 
 const MEASURE_TIMEOUT_MS = 10000;
 
@@ -151,119 +151,193 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
   const errorCount = Object.keys(opErrors).length;
 
   // ── 对照着色 + 异常汇总 + 解读（引导模式） ──
-  // 模式来自作业 behavior.mode（session/detail 下发，默认 guided）
   const mode = recordDetail?.mode ?? "guided";
-  // 仅 guided 显示解读；考核（assessment）与盲盒（blind_box）都隐藏引导内容
   const isGuided = mode === "guided";
   const abnormal = Object.entries(results).filter(([, r]) => r.status === "high" || r.status === "low");
   const hints = abnormal.filter(([, r]) => r.interpretation && isGuided);
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="px-2 pt-2 shrink-0">
+    <Box style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--mantine-color-body)" }}>
+      <Box px={8} pt={8} style={{ flexShrink: 0 }}>
         {!wsConnected && (
-          <div className="flex items-center gap-1.5 text-amber-600 text-[11px] mb-1 px-1">
-            <WifiOff size={12} /> 实时连接中断，检查结果可能延迟
-          </div>
+          <Group gap={6} mb={4} px={4} wrap="nowrap">
+            <IconWifiOff size={12} style={{ color: "var(--mantine-color-yellow-7)" }} />
+            <Text size="11px" c="yellow.7">实时连接中断，检查结果可能延迟</Text>
+          </Group>
         )}
         <PatientMonitor status={status} vitals={sceneState.vitals} />
-      </div>
+      </Box>
 
-      <div className="flex-1 relative flex items-center justify-center min-h-[280px]">
-        <div className="relative w-[50%] max-w-[280px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border">
+      <Box style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 280 }}>
+        <Box
+          style={{
+            position: "relative",
+            width: "50%",
+            maxWidth: 280,
+            aspectRatio: "0.48",
+            background: "var(--mantine-color-gray-1)",
+            borderRadius: "60px 60px 30px 30px",
+            border: "2px solid var(--mantine-color-default-border)",
+          }}
+        >
           {PARTS.map((part) => {
             const sel = selected === part.id;
             const measured = part.ops.some((op) => results[op]);
             return (
-              <div key={part.id}>
-                <div
+              <Box key={part.id}>
+                <Box
                   onClick={() => setSelected(sel ? null : part.id)}
-                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.background = "var(--color-accent)"; }}}
+                  onMouseEnter={(e) => { if (!sel) { e.currentTarget.style.borderColor = "var(--mantine-color-default-border)"; e.currentTarget.style.background = "var(--mantine-primary-color-light)"; }}}
                   onMouseLeave={(e) => { if (!sel) { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; }}}
-                  className={cn(
-                    "absolute flex items-center justify-center rounded-lg cursor-pointer transition-all text-[10px] font-medium border",
-                    sel ? "border-primary bg-primary/10 text-primary dark:bg-primary/20" : measured ? "border-emerald-500/30 bg-emerald-50/50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-400" : "border-transparent text-muted-foreground/60 hover:border-border hover:bg-accent dark:hover:bg-accent/30",
-                  )}
-                  style={{ left: `${part.x}%`, top: `${part.y}%`, width: `${part.w}%`, height: `${part.h}%` }}
+                  style={{
+                    position: "absolute",
+                    left: `${part.x}%`,
+                    top: `${part.y}%`,
+                    width: `${part.w}%`,
+                    height: `${part.h}%`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontSize: 10,
+                    fontWeight: 500,
+                    border: "1px solid transparent",
+                    transition: "all 150ms",
+                    background: sel
+                      ? "var(--mantine-primary-color-light)"
+                      : measured
+                        ? "var(--mantine-color-green-0)"
+                        : "transparent",
+                    borderColor: sel
+                      ? "var(--mantine-primary-color-4)"
+                      : measured
+                        ? "var(--mantine-color-green-4)"
+                        : "transparent",
+                    color: sel
+                      ? "var(--mantine-primary-color-light-color)"
+                      : measured
+                        ? "var(--mantine-color-green-9)"
+                        : "var(--mantine-color-dimmed)",
+                  }}
                 >
                   {part.label}
-                  {measured && <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-500" />}
-                </div>
+                  {measured && (
+                    <Box w={6} h={6} style={{ position: "absolute", top: -2, right: -2, borderRadius: 999, background: "var(--mantine-color-green-5)" }} />
+                  )}
+                </Box>
 
                 {sel && (
-                  <div className="absolute z-10 bg-popover border border-border rounded-xl shadow-xl p-2 dark:bg-card"
-                    style={{ left: `${part.x + part.w / 2}%`, top: `${part.y + part.h / 2}%`, transform: "translate(-50%, -50%)", minWidth: 160 }}
+                  <Box
+                    style={{
+                      position: "absolute",
+                      left: `${part.x + part.w / 2}%`,
+                      top: `${part.y + part.h / 2}%`,
+                      transform: "translate(-50%, -50%)",
+                      minWidth: 160,
+                      zIndex: 10,
+                      background: "var(--mantine-color-body)",
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 12,
+                      boxShadow: "var(--mantine-shadow-lg)",
+                      padding: 8,
+                    }}
                   >
                     {groupByCat(part.ops).map(([cat, ids]) => (
-                      <div key={cat} className="mb-1.5 last:mb-0">
-                        <div className="text-[9px] text-muted-foreground mb-1 font-semibold uppercase tracking-wider">{cat}</div>
-                        <div className="flex gap-1 flex-wrap">
+                      <Box key={cat} mb={6} style={{ marginBottom: 6 }}>
+                        <Text size="9px" c="dimmed" mb={4} fw={600} tt="uppercase" style={{ letterSpacing: "0.05em" }}>{cat}</Text>
+                        <Group gap={4} wrap="wrap">
                           {ids.map((id) => {
                             const def = NORMALS[id];
                             if (!def) return null;
                             const done = results[id];
                             const pending = pendingOps.has(id);
                             return (
-                              <button
+                              <Box
                                 key={id}
+                                component="button"
+                                type="button"
                                 onClick={() => interact(id)}
                                 disabled={pending}
-                                className={cn(
-                                  "px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border",
-                                  pending && "opacity-50 cursor-wait",
-                                  done && "bg-emerald-50/70 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
-                                  !done && !pending && "bg-muted text-muted-foreground",
-                                )}
-                                style={{ background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : undefined, borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44` }}
+                                px={8}
+                                py={2}
+                                style={{
+                                  fontSize: 10,
+                                  whiteSpace: "nowrap",
+                                  cursor: pending ? "wait" : "pointer",
+                                  borderRadius: 4,
+                                  border: "1px solid var(--mantine-color-default-border)",
+                                  background: flash === id
+                                    ? (CAT_COLOR[def.cat] ?? "#888")
+                                    : done
+                                      ? "var(--mantine-color-green-0)"
+                                      : "var(--mantine-color-gray-1)",
+                                  color: done ? "var(--mantine-color-green-9)" : "var(--mantine-color-dimmed)",
+                                  opacity: pending ? 0.5 : 1,
+                                }}
                               >
-                                {pending ? <Loader2 size={10} className="animate-spin inline mr-0.5" /> : null}
+                                {pending ? <IconLoader2 size={10} className="animate-spin" style={{ display: "inline", marginRight: 2 }} /> : null}
                                 {def.label}
-                                {done && <span className="ml-0.5 text-emerald-600 dark:text-emerald-400 font-bold">{done.value}{def.unit}</span>}
-                              </button>
+                                {done && (
+                                  <Text component="span" fw={700} ml={2} c="green.7">{done.value}{def.unit}</Text>
+                                )}
+                              </Box>
                             );
                           })}
-                        </div>
-                      </div>
+                        </Group>
+                      </Box>
                     ))}
-                  </div>
+                  </Box>
                 )}
-              </div>
+              </Box>
             );
           })}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <div className="border-t border-border bg-card shrink-0">
+      <Box style={{ borderTop: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-body)", flexShrink: 0 }}>
         {abnormal.length > 0 && (
-          <div className="flex items-center gap-1.5 px-2 pt-2 flex-wrap">
-            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 shrink-0">异常发现</span>
+          <Group gap={6} px={8} pt={8} wrap="wrap">
+            <Text size="10px" fw={600} c="red.6" style={{ flexShrink: 0 }}>异常发现</Text>
             {abnormal.map(([id, r]) => {
               const def = NORMALS[id];
               if (!def) return null;
               return (
-                <span
+                <Box
                   key={`ab-${id}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 whitespace-nowrap shrink-0"
+                  px={8}
+                  py={2}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 10,
+                    borderRadius: 4,
+                    background: "var(--mantine-color-red-0)",
+                    color: "var(--mantine-color-red-9)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
                 >
                   {def.label} {r.value}{def.unit}
-                  <span className="opacity-80">{STATUS_LABEL[r.status ?? ""] ?? ""}</span>
-                </span>
+                  <Text component="span" opacity={0.8}>{STATUS_LABEL[r.status ?? ""] ?? ""}</Text>
+                </Box>
               );
             })}
-          </div>
+          </Group>
         )}
         {isGuided && hints.length > 0 && (
-          <div className="px-2 pt-1.5 space-y-0.5">
+          <Box px={8} pt={6}>
             {hints.map(([id, r]) => (
-              <p key={`hint-${id}`} className="text-[10px] text-muted-foreground leading-snug">
+              <Text key={`hint-${id}`} size="10px" c="dimmed" lh={1.4} mb={2}>
                 {r.interpretation}
-              </p>
+              </Text>
             ))}
-          </div>
+          </Box>
         )}
-        <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto">
+        <Group gap={6} px={8} py={8} wrap="nowrap" style={{ overflowX: "auto" }}>
         {Object.keys(results).length === 0 && errorCount === 0 ? (
-          <span className="text-xs text-muted-foreground/60 px-1 py-1">点击人体部位选择检查项目</span>
+          <Text size="xs" c="dimmed" px={4} py={4}>点击人体部位选择检查项目</Text>
         ) : (
           <>
             {Object.entries(results).map(([id, r]) => {
@@ -271,29 +345,56 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
               if (!def) return null;
               const isPending = pendingOps.has(id);
               const isError = opErrors[id];
+              const chipBg = isError
+                ? "var(--mantine-color-red-0)"
+                : isPending
+                  ? "var(--mantine-color-blue-0)"
+                  : r.status === "high" || r.status === "low"
+                    ? "var(--mantine-color-red-0)"
+                    : "var(--mantine-color-gray-1)";
+              const chipFg = isError
+                ? "var(--mantine-color-red-9)"
+                : isPending
+                  ? "var(--mantine-color-blue-7)"
+                  : r.status === "high" || r.status === "low"
+                    ? "var(--mantine-color-red-9)"
+                    : "var(--mantine-color-dimmed)";
               return (
-                <span key={id} className={cn(
-                  "inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] whitespace-nowrap shrink-0",
-                  isError ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : isPending ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" : r.status === "high" || r.status === "low" ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400" : "bg-muted text-muted-foreground",
-                )} title={r.interpretation ?? undefined}>
-                  <span className="size-1.5 rounded-full shrink-0" style={{ background: isError ? "#ef4444" : isPending ? "#3b82f6" : (CAT_COLOR[def.cat] ?? "#888") }} />
+                <Box
+                  key={id}
+                  title={r.interpretation ?? undefined}
+                  px={8}
+                  py={4}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 10,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                    borderRadius: 4,
+                    background: chipBg,
+                    color: chipFg,
+                  }}
+                >
+                  <Box w={6} h={6} style={{ borderRadius: 999, flexShrink: 0, background: isError ? "#ef4444" : isPending ? "#3b82f6" : (CAT_COLOR[def.cat] ?? "#888") }} />
                   {def.label}{" "}
-                  {isPending ? <Loader2 size={10} className="animate-spin" /> : <span className="font-semibold max-w-[120px] truncate">{r.value}</span>}
-                  {def.unit && !isPending && <span className="opacity-70">{def.unit}</span>}
-                  {isError && <AlertCircle size={10} />}
-                </span>
+                  {isPending ? <IconLoader2 size={10} className="animate-spin" /> : <Text component="span" fw={600} style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>{r.value}</Text>}
+                  {def.unit && !isPending && <Text component="span" opacity={0.7}>{def.unit}</Text>}
+                  {isError && <IconAlertCircle size={10} />}
+                </Box>
               );
             })}
             {Object.entries(opErrors).filter(([id]) => !results[id]).map(([id, err]) => (
-              <span key={`err-${id}`} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 shrink-0">
-                <AlertCircle size={10} />
+              <Box key={`err-${id}`} px={8} py={4} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, borderRadius: 4, background: "var(--mantine-color-red-0)", color: "var(--mantine-color-red-9)", flexShrink: 0 }}>
+                <IconAlertCircle size={10} />
                 {NORMALS[id]?.label ?? id}: {err}
-              </span>
+              </Box>
             ))}
           </>
         )}
-        </div>
-      </div>
-    </div>
+        </Group>
+      </Box>
+    </Box>
   );
 }

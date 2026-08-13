@@ -1,5 +1,6 @@
-import { RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Box, Group, Loader, Paper, Progress, Text, Title } from "@mantine/core";
+import { IconRefresh } from "@tabler/icons-react";
+import Button from "@/components/ui/button";
 
 interface ScoringPendingRecord {
 	status?: string;
@@ -24,75 +25,57 @@ export default function ScoringPendingBanner({
 		return null;
 	}
 
+	const isGenerating =
+		record.scoring_status === "pending" || record.scoring_status === "processing";
+	const isFailed = record.scoring_status === "failed";
+
+	const title = isGenerating ? "评分正在生成中..." : "暂无评分";
+	const description = isGenerating
+		? "AI 正在分析对话内容，预计几秒到一分钟内完成。"
+		: isFailed
+			? `评分失败: ${record.scoring_error || "未知错误"}`
+			: "评分尚未生成";
+
 	return (
-		<div className="rounded-xl border border-warning bg-warning p-5 sm:p-6">
-			<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-				<div className="flex-1">
-					<h3 className="font-semibold text-warning-foreground">
-						{record.scoring_status === "pending" ||
-						record.scoring_status === "processing"
-							? "评分正在生成中..."
-							: "暂无评分"}
-					</h3>
-					<p className="text-sm text-warning-foreground/80 mt-1">
-						{record.scoring_status === "pending" ||
-						record.scoring_status === "processing"
-							? "AI 正在分析对话内容，预计几秒到一分钟内完成。"
-							: record.scoring_status === "failed"
-								? `评分失败: ${record.scoring_error || "未知错误"}`
-								: "评分尚未生成"}
-					</p>
+		<Paper
+			withBorder
+			radius="lg"
+			bg="yellow.0"
+			p={{ base: "md", sm: "lg" }}
+			style={{ borderColor: "var(--mantine-color-yellow-4)" }}
+		>
+			<Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
+				<Box style={{ flex: 1, minWidth: 240 }}>
+					<Title order={3} size="sm" c="yellow.9">
+						{title}
+					</Title>
+					<Text size="sm" c="yellow.7" mt={4}>
+						{description}
+					</Text>
 					{retrying && retryProgress != null && (
-						<div className="mt-3">
-							<div className="flex items-center gap-2">
-								<div className="flex-1 h-2 rounded-full bg-amber-200 overflow-hidden">
-									<div
-										className="h-full rounded-full bg-amber-600 transition-all duration-500"
-										style={{ width: `${(retryProgress / 30) * 100}%` }}
-									/>
-								</div>
-								<span className="text-xs text-warning-foreground/70 font-medium tabular-nums shrink-0">
-									{retryProgress}/30
-								</span>
-							</div>
-						</div>
+						<Group mt="sm" gap="xs">
+							<Box style={{ flex: 1 }}>
+								<Progress value={(retryProgress / 30) * 100} color="yellow" size="sm" />
+							</Box>
+							<Text size="xs" c="yellow.7" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
+								{retryProgress}/30
+							</Text>
+						</Group>
 					)}
-				</div>
-				{(record.scoring_status === "failed" ||
-					record.scoring_status == null) && (
-					<button
-						className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-						onClick={onRetry}
-						disabled={retrying}
-					>
-						<RefreshCw
-							size={14}
-							className={cn(retrying && "animate-spin")}
-						/>
-						<span>
-							{retrying
-								? "请求中..."
-								: record.scoring_status === "failed"
-									? "重新评分"
-									: "请求评分"}
-						</span>
-					</button>
+				</Box>
+				{(isFailed || record.scoring_status == null) && (
+					<Button color="yellow" onClick={onRetry} disabled={retrying}>
+						{retrying ? <Loader size="sm" color="white" /> : <IconRefresh size={14} />}
+						{retrying ? "请求中..." : isFailed ? "重新评分" : "请求评分"}
+					</Button>
 				)}
-				{(record.scoring_status === "pending" ||
-					record.scoring_status === "processing") && (
-					<button
-						className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-200 text-amber-800 text-sm font-medium hover:bg-amber-300 transition-colors disabled:opacity-50 shrink-0"
-						onClick={onRetry}
-						disabled={retrying}
-					>
-						<RefreshCw
-							size={14}
-							className={cn(retrying && "animate-spin")}
-						/>
-						<span>{retrying ? "刷新中..." : "刷新状态"}</span>
-					</button>
+				{isGenerating && (
+					<Button variant="warning" onClick={onRetry} disabled={retrying}>
+						{retrying ? <Loader size="sm" /> : <IconRefresh size={14} />}
+						{retrying ? "刷新中..." : "刷新状态"}
+					</Button>
 				)}
-			</div>
-		</div>
+			</Group>
+		</Paper>
 	);
 }

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Center, Flex, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
+import { LoadingSkeleton } from "@/components/ui";
 import { ChatArea } from "@/components/training/ChatArea";
 import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
@@ -10,7 +12,7 @@ import { getPatientAvatar } from "@/utils/avatar";
 // 暂停使用基于情绪切换的人像变体，保留实现以便后续恢复。
 // import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useToolBridge, waitForPendingToolRequests } from "@/hooks/useToolBridge";
 import { createMessageBus } from "./MessageBus";
 import {
@@ -40,15 +42,9 @@ interface TrainingEngineProps {
 
 function TrainingBootSkeleton() {
 	return (
-		<div
-			className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground"
-			style={{ height: "100dvh" }}
-		>
-			<div className="space-y-3 text-center">
-				<div className="mx-auto size-8 animate-pulse rounded-full bg-primary/20" />
-				<div>正在准备训练场景…</div>
-			</div>
-		</div>
+		<Center h="100dvh">
+			<LoadingSkeleton variant="spinner" message="正在准备训练场景…" />
+		</Center>
 	);
 }
 
@@ -322,14 +318,15 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	}, [messages, ttsAutoPlay]);
 
 	const isShort = useShortViewport();
+	const isMobile = useIsMobile();
 
 	if (!patient || readyRecordId !== recordId) {
 		return <TrainingBootSkeleton />;
 	}
 
 	return (
-		<div className="relative flex flex-1 min-h-0">
-			<div className="flex flex-col flex-1 min-w-0">
+		<Flex flex={1} mih={0} pos="relative">
+			<Flex direction="column" flex={1} miw={0}>
 				<TrainingHeader
 					toggleTts={toggleTts}
 					endTraining={endTraining}
@@ -337,21 +334,40 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				{/* 三区布局：患者区 | 对话区（工具区 = children）
 				    顶栏为 absolute 全宽 chrome——内容行按顶栏高度退避（isShort 同步 h-9/11/12）
 				    移动端纵向堆叠（患者区在上可折叠，对话区在下）；桌面横向三列 */}
-				<div
-					className={cn(
-						"relative flex flex-1 overflow-hidden min-h-0",
-						isShort ? "pt-9" : "pt-11 sm:pt-12",
-						"flex-col md:flex-row",
-					)}
+				<Flex
+					flex={1}
+					mih={0}
+					pos="relative"
+					pt={isShort ? 36 : { base: 44, xs: 48 }}
+					direction={{ base: "column", sm: "row" }}
+					style={{ overflow: "hidden" }}
 				>
 					<PatientStage />
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border md:border-t-0">
+					<Flex
+						direction="column"
+						flex={1}
+						mih={0}
+						miw={0}
+						style={{
+							borderTop: isMobile
+								? "1px solid var(--mantine-color-gray-3)"
+								: undefined,
+						}}
+					>
 						<ErrorBoundary
 							fallback={
-								<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-									<div className="text-sm font-medium">对话区渲染出错</div>
-									<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
-								</div>
+								<Stack
+									align="center"
+									justify="center"
+									gap={8}
+									p="xl"
+									h="100%"
+									c="dimmed"
+									ta="center"
+								>
+									<Text size="sm" fw={500}>对话区渲染出错</Text>
+									<Text size="xs">请刷新页面继续训练（其余功能不受影响）</Text>
+								</Stack>
 							}
 						>
 							<ChatArea
@@ -360,9 +376,9 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 								onCorrectLast={correctLastMessage}
 							/>
 						</ErrorBoundary>
-					</div>
-				</div>
-			</div>
+					</Flex>
+				</Flex>
+			</Flex>
 			{children}
 			<ScoringOverlay
 				bus={busRef.current}
@@ -371,6 +387,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				onRetry={retryScoring}
 			/>
 			<ScoreCard bus={busRef.current} recordId={recordId} />
-		</div>
+		</Flex>
 	);
 }

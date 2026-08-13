@@ -1,24 +1,32 @@
+import { Stack, Text, Title } from "@mantine/core";
+
 interface SectionHeadingProps {
 	eyebrow?: string;
 	title: string;
-	className?: string;
+	mb?: number | string;
 }
 
 export default function SectionHeading({
 	eyebrow,
 	title,
-	className,
+	mb,
 }: SectionHeadingProps) {
 	return (
-		<div className={`flex flex-col gap-2 ${className ?? ""}`}>
+		<Stack gap={8} mb={mb}>
 			{eyebrow ? (
-				<span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90">
+				<Text
+					size="11px"
+					fw={600}
+					tt="uppercase"
+					c="var(--mantine-primary-color-6)"
+					style={{ letterSpacing: "0.22em" }}
+				>
 					{eyebrow}
-				</span>
+				</Text>
 			) : null}
-			<h2 className="text-3xl font-bold tracking-tight md:text-[2.6rem] lg:text-5xl [font-family:'Geist_Variable',sans-serif]">
+			<Title order={2} fw={700}>
 				{title}
-			</h2>
-		</div>
+			</Title>
+		</Stack>
 	);
 }

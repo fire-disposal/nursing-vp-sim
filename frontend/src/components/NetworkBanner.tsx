@@ -1,10 +1,20 @@
-import { WifiOff } from "lucide-react";
+import { Center, Group, Text } from "@mantine/core";
+import { IconWifiOff } from "@tabler/icons-react";
 
 export function NetworkBanner() {
 	return (
-		<div className="flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-white shrink-0">
-			<WifiOff size={14} />
-			网络已断开，部分功能不可用
-		</div>
+		<Center
+			bg="yellow.5"
+			px="md"
+			py={6}
+			style={{ flexShrink: 0 }}
+		>
+			<Group gap={8}>
+				<IconWifiOff size={14} />
+				<Text size="sm" fw={500} c="white">
+					网络已断开，部分功能不可用
+				</Text>
+			</Group>
+		</Center>
 	);
 }

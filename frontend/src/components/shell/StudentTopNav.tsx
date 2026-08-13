@@ -1,10 +1,11 @@
-import { LogOut, MessageSquarePlus, Stethoscope } from "lucide-react";
+import { Box, Group, Text } from "@mantine/core";
+import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
+import Button from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import type { NavItem } from "./navigation";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { cn } from "@/lib/utils";
 
 /** 子页面路径前缀映射 — 确保进入子页面时父级 Tab 保持高亮 */
 const TAB_SUB_PATHS: Record<string, string[]> = {
@@ -30,18 +31,37 @@ export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout:
 	const isShort = useShortViewport();
 
 	return (
-		<header className="shrink-0 border-b border-border bg-card">
-			<div className={cn("flex items-center gap-2 px-3", isShort ? "h-8" : "h-10 md:h-14")}>
+		<Box
+			component="header"
+			style={{
+				flexShrink: 0,
+				borderBottom: "1px solid var(--mantine-color-gray-3)",
+				background: "var(--mantine-color-body)",
+			}}
+		>
+			<Group gap={8} px="xs" wrap="nowrap" h={isShort ? 32 : { base: 40, sm: 56 }}>
 				{/* Brand */}
-				<div className="flex items-center gap-2">
-					<div className="flex size-7 md:size-8 items-center justify-center rounded-lg bg-primary">
-						<Stethoscope size={14} className="md:size-[16px] text-primary-foreground" />
-					</div>
-					<span className="text-xs md:text-sm font-semibold">虚拟患者系统</span>
-				</div>
+				<Group gap={8} wrap="nowrap">
+					<Box
+						style={{
+							width: 28,
+							height: 28,
+							borderRadius: "var(--mantine-radius-md)",
+							background: "var(--mantine-color-teal-6)",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+						}}
+					>
+						<IconStethoscope size={14} style={{ color: "white" }} />
+					</Box>
+					<Text size="sm" fw={600}>
+						虚拟患者系统
+					</Text>
+				</Group>
 
 				{/* Nav links (desktop only) */}
-				<nav className="hidden md:flex items-center gap-0.5 flex-1 ml-2">
+				<Group gap={2} visibleFrom="sm" wrap="nowrap" style={{ flex: 1 }} ml={8}>
 					{links.map((link) => {
 						const Icon = link.icon;
 						const active = isLinkActive(pathname, link);
@@ -49,34 +69,45 @@ export function StudentTopNav({ links, onLogout }: { links: NavItem[]; onLogout:
 							<NavLink
 								key={link.to}
 								to={link.to}
-								className={cn(
-									"flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
-									active && "bg-primary/10 text-primary",
-								)}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
+									padding: "6px 12px",
+									borderRadius: "var(--mantine-radius-md)",
+									fontSize: 14,
+									fontWeight: 500,
+									textDecoration: "none",
+									color: active ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)",
+									background: active ? "var(--mantine-color-teal-light)" : undefined,
+								}}
 							>
 								<Icon size={16} />
 								{link.shortLabel ?? link.label}
 							</NavLink>
 						);
 					})}
-				</nav>
+				</Group>
 
 				{/* Right side — utility icons */}
-				<div className="flex items-center gap-0.5 ml-auto">
-					<button onClick={openFeedback}
-						className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-accent transition-colors"
-						title="意见反馈" aria-label="意见反馈">
-						<MessageSquarePlus size={14} />
-						<span className="hidden sm:inline">反馈</span>
-					</button>
+				<Group gap={2} wrap="nowrap" style={{ marginLeft: "auto" }}>
+					<Button
+						variant="ghost"
+						size="sm"
+						leftSection={<IconMessageCirclePlus size={14} />}
+						onClick={openFeedback}
+						aria-label="意见反馈"
+					>
+						<Text component="span" visibleFrom="sm">
+							反馈
+						</Text>
+					</Button>
 					<NotificationBell />
-					<button onClick={onLogout}
-						className="flex items-center gap-1 h-8 px-2 rounded-lg text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-						title="退出登录" aria-label="退出登录">
-						<LogOut size={14} />
-					</button>
-				</div>
-			</div>
-		</header>
+					<Button variant="ghost" size="icon-sm" onClick={onLogout} aria-label="退出登录">
+						<IconLogout size={14} />
+					</Button>
+				</Group>
+			</Group>
+		</Box>
 	);
 }

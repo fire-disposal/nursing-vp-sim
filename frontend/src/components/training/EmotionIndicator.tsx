@@ -3,11 +3,10 @@ import { triggerInitiative } from "@/api/training";
 import type { EmotionState } from "@/stores/trainingStore";
 import {
 	EMOTION_LABELS,
-	getEmotionColor,
 	useTrainingStore,
 } from "@/stores/trainingStore";
 import type { MessageBus } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { Box, Group, Text } from "@mantine/core";
 
 interface EmotionIndicatorProps {
 	bus: MessageBus;
@@ -27,14 +26,25 @@ const EMOTION_ICONS: Record<EmotionState, string> = {
 	open: "😄",
 };
 
-const EMOTION_DOT: Record<EmotionState, string> = {
-	withdrawn: "bg-danger-foreground",
-	defensive: "bg-abandon-foreground",
-	anxious: "bg-end-foreground",
-	neutral: "bg-muted-foreground",
-	relaxed: "bg-info-foreground",
-	open: "bg-success-foreground",
+/** 情绪标签 + 状态点的 Mantine 色名映射（原 shadcn 语义色 → Mantine 内置色）。 */
+const EMOTION_COLOR: Record<EmotionState, string> = {
+	withdrawn: "red",
+	defensive: "orange",
+	anxious: "violet",
+	neutral: "dimmed",
+	relaxed: "blue",
+	open: "green",
 };
+
+const EMOTION_DOT: Record<EmotionState, string> = {
+	withdrawn: "var(--mantine-color-red-6)",
+	defensive: "var(--mantine-color-orange-6)",
+	anxious: "var(--mantine-color-violet-6)",
+	neutral: "var(--mantine-color-gray-6)",
+	relaxed: "var(--mantine-color-blue-6)",
+	open: "var(--mantine-color-green-6)",
+};
+
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const emotion = useTrainingStore((s) => s.emotion);
 	const trust = useTrainingStore((s) => s.trust);
@@ -176,118 +186,143 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 
 	if (compact) {
 		return (
-			<div
-				className={cn(
-					"shrink-0 border-b border-border px-2 py-1.5 transition-colors duration-300",
-					pulse && "bg-primary/5",
-				)}
+			<Box
+				style={{
+					flexShrink: 0,
+					borderBottom: "1px solid var(--mantine-color-default-border)",
+					padding: "6px 8px",
+					transition: "background-color 300ms",
+					background: pulse ? "var(--mantine-primary-color-light)" : undefined,
+				}}
 			>
-				<div className="flex items-center gap-1.5">
-					<span
-						className={cn(
-							"text-sm leading-none transition-transform duration-300",
-							emojiPop && "scale-125",
-						)}
+				<Group gap={6}>
+					<Text
+						size="sm"
+						style={{
+							lineHeight: 1,
+							transition: "transform 300ms",
+							transform: emojiPop ? "scale(1.25)" : undefined,
+						}}
 					>
 						{EMOTION_ICONS[emotion]}
-					</span>
-					<span className="text-[11px] text-muted-foreground truncate">{label}</span>
+					</Text>
+					<Text size="11px" c="dimmed" truncate>{label}</Text>
 					{/* Trust micro-bar */}
-					<div className="h-1 w-10 rounded-full bg-muted overflow-hidden shrink-0">
-						<div className={cn("h-full rounded-full transition-all duration-700", trustPct >= 60 ? "bg-success-foreground" : trustPct >= 40 ? "bg-warning-foreground" : "bg-danger-foreground")}
-							style={{ width: `${trustPct}%` }} />
-					</div>
-					<div className="ml-auto flex items-center gap-2">
+					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", flexShrink: 0 }}>
+						<Box
+							h="100%"
+							style={{
+								width: `${trustPct}%`,
+								borderRadius: 999,
+								transition: "all 700ms",
+								background:
+									trustPct >= 60
+										? "var(--mantine-color-green-6)"
+										: trustPct >= 40
+											? "var(--mantine-color-yellow-6)"
+											: "var(--mantine-color-red-6)",
+							}}
+						/>
+					</Box>
+					<Group gap={8} style={{ marginLeft: "auto" }}>
 						{showInitiative && initPercent > 0 && (
-							<div className="h-1 w-12 rounded-full bg-muted overflow-hidden shrink-0">
-								<div
-									className={cn(
-										"h-full rounded-full transition-all duration-1000",
-										initPercent > 80 ? "bg-danger" : initPercent > 50 ? "bg-warning" : "bg-success",
-									)}
-									style={{ width: `${Math.min(100, initPercent)}%` }}
+							<Box w={48} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", flexShrink: 0 }}>
+								<Box
+									h="100%"
+									style={{
+										width: `${Math.min(100, initPercent)}%`,
+										borderRadius: 999,
+										transition: "all 1000ms",
+										background:
+											initPercent > 80
+												? "var(--mantine-color-red-6)"
+												: initPercent > 50
+													? "var(--mantine-color-yellow-6)"
+													: "var(--mantine-color-green-6)",
+									}}
 								/>
-							</div>
+							</Box>
 						)}
 						{trailing}
-					</div>
-				</div>
-			</div>
+					</Group>
+				</Group>
+			</Box>
 		);
 	}
 
 	return (
-		<div
-			className={cn(
-				"overflow-hidden transition-all duration-300 shrink-0 group",
-				pulse && "bg-primary/5",
-			)}
+		<Box
+			style={{
+				overflow: "hidden",
+				transition: "all 300ms",
+				flexShrink: 0,
+				background: pulse ? "var(--mantine-primary-color-light)" : undefined,
+			}}
 		>
-			<div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-border">
+			<Group
+				gap="sm"
+				px="md"
+				py={8}
+				wrap="nowrap"
+				style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+			>
 				{/* Emoji + label */}
-				<div className="flex items-center gap-1.5 shrink-0">
-					<span
-						className={cn(
-							"text-sm sm:text-base transition-transform duration-300",
-							emojiPop && "scale-125",
-						)}
+				<Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+					<Text
+						size="sm"
+						style={{
+							transition: "transform 300ms",
+							transform: emojiPop ? "scale(1.25)" : undefined,
+						}}
 					>
 						{EMOTION_ICONS[emotion]}
-					</span>
-					<span className={cn("text-xs sm:text-sm font-semibold", getEmotionColor(emotion))}>
+					</Text>
+					<Text size="xs" fw={600} c={EMOTION_COLOR[emotion]}>
 						{label}
-					</span>
-					<span className={cn("size-1.5 sm:size-2 rounded-full", EMOTION_DOT[emotion])} />
-				</div>
+					</Text>
+					<Box w={8} h={8} style={{ borderRadius: 999, background: EMOTION_DOT[emotion] }} />
+				</Group>
 
-			{/* 4D bars: trust, anxiety, irritation, cooperation */}
-			<div className="flex-1 flex items-center gap-0.5 min-w-0">
-				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
-					<div
-						className="h-full rounded-full transition-all duration-700 ease-out bg-success-foreground"
-						style={{ width: `${trust}%` }}
-						title={`信任: ${trust}`}
-					/>
-				</div>
-				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
-					<div
-						className="h-full rounded-full transition-all duration-700 ease-out bg-purple-500"
-						style={{ width: `${anxiety}%` }}
-						title={`焦虑: ${anxiety}`}
-					/>
-				</div>
-				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
-					<div
-						className="h-full rounded-full transition-all duration-700 ease-out bg-orange-500"
-						style={{ width: `${irritation}%` }}
-						title={`烦躁: ${irritation}`}
-					/>
-				</div>
-				<div className="flex-1 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
-					<div
-						className="h-full rounded-full transition-all duration-700 ease-out bg-blue-500"
-						style={{ width: `${cooperation}%` }}
-						title={`配合: ${cooperation}`}
-					/>
-				</div>
-			</div>
+				{/* 4D bars: trust, anxiety, irritation, cooperation */}
+				<Group gap={2} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+					{[trust, anxiety, irritation, cooperation].map((v, i) => {
+						const color = ["var(--mantine-color-green-6)", "var(--mantine-color-violet-5)", "var(--mantine-color-orange-5)", "var(--mantine-color-blue-5)"][i];
+						const titles = ["信任", "焦虑", "烦躁", "配合"];
+						return (
+							<Box key={titles[i]} style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+								<Box
+									h="100%"
+									title={`${titles[i]}: ${v}`}
+									style={{ width: `${v}%`, borderRadius: 999, transition: "all 700ms ease-out", background: color }}
+								/>
+							</Box>
+						);
+					})}
+				</Group>
 				{/* Initiative timer */}
 				{showInitiative && initPercent > 0 && (
-					<div className="flex items-center gap-1.5 shrink-0" style={{ maxWidth: "120px" }}>
-						<span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">追问</span>
-						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden min-w-[40px]">
-							<div
-								className={cn(
-									"h-full rounded-full transition-all duration-1000 ease-linear",
-									initPercent > 80 ? "bg-danger" : initPercent > 50 ? "bg-warning" : "bg-success",
-								)}
-								style={{ width: `${Math.min(100, initPercent)}%` }}
+					<Group gap={6} wrap="nowrap" style={{ flexShrink: 0, maxWidth: 120 }}>
+						<Text size="10px" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
+						<Box style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", minWidth: 40 }}>
+							<Box
+								h="100%"
+								style={{
+									width: `${Math.min(100, initPercent)}%`,
+									borderRadius: 999,
+									transition: "all 1000ms ease-linear",
+									background:
+										initPercent > 80
+											? "var(--mantine-color-red-6)"
+											: initPercent > 50
+												? "var(--mantine-color-yellow-6)"
+												: "var(--mantine-color-green-6)",
+								}}
 							/>
-						</div>
-					</div>
+						</Box>
+					</Group>
 				)}
 				{trailing}
-			</div>
-		</div>
+			</Group>
+		</Box>
 	);
 }

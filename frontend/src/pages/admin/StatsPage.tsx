@@ -1,14 +1,15 @@
+import { Group, SimpleGrid, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
-	Activity,
-	BarChart3,
-	ClipboardList,
-	Clock,
-	Medal,
-	Target,
-	TrendingUp,
-	Trophy,
-} from "lucide-react";
+	IconActivity,
+	IconChartBar,
+	IconClipboardList,
+	IconClock,
+	IconMedal,
+	IconTarget,
+	IconTrendingUp,
+	IconTrophy,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import {
 	Bar,
@@ -45,7 +46,6 @@ import {
 import { LegacyTabs } from "@/components/ui/tabs";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import useAuthStore from "@/stores/authStore";
-import { cn } from "@/lib/utils";
 import { isAdminPermissions } from "@/utils/permissions";
 
 type TrendStats = components["schemas"]["TrendStats"];
@@ -175,31 +175,30 @@ function StatsContent({
 		<RecordSubPageLayout
 			title="训练统计"
 			subtitle={hasTeacherView ? "查看所有学生的训练趋势、时长和得分统计" : "查看你的训练投入与效果趋势"}
-			icon={BarChart3}
+			icon={IconChartBar}
 		>
-
 			{trends && (
-				<div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
+				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" mb="xl">
 					<StatCard
-						icon={Activity}
+						icon={IconActivity}
 						value={trends.total_sessions}
 						label="总训练次数"
 						color="blue"
 					/>
 					<StatCard
-						icon={Clock}
+						icon={IconClock}
 						value={trends.total_minutes}
 						label="总训练时长（分钟）"
 						color="amber"
 					/>
 					<StatCard
-						icon={Target}
+						icon={IconTarget}
 						value={trends.avg_score != null ? `${trends.avg_score}分` : "-"}
 						label="平均得分"
 						color="green"
 					/>
 					<StatCard
-						icon={TrendingUp}
+						icon={IconTrendingUp}
 						value={
 							trends.total_sessions > 0
 								? `${Math.round(trends.total_minutes / trends.total_sessions)}分钟`
@@ -208,10 +207,10 @@ function StatsContent({
 						label="平均每次训练时长"
 						color="teal"
 					/>
-				</div>
+				</SimpleGrid>
 			)}
 
-			<div className="flex flex-col sm:flex-row sm:justify-end gap-4 mb-6 items-start sm:items-center">
+			<Group justify="flex-end" mb="xl">
 				<LegacyTabs
 					tabs={[
 						{ key: "week", label: "近7天" },
@@ -221,13 +220,11 @@ function StatsContent({
 					activeTab={period}
 					onChange={setPeriod}
 				/>
-			</div>
+			</Group>
 
-			<Card className="mb-6">
-				<CardHeader className="pb-2">
-					<CardTitle className="text-sm font-semibold">
-						训练投入：次数与时长
-					</CardTitle>
+			<Card mb="xl">
+				<CardHeader style={{ paddingBottom: 8 }}>
+					<CardTitle>训练投入：次数与时长</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{hasData ? (
@@ -284,16 +281,14 @@ function StatsContent({
 							</ComposedChart>
 						</ResponsiveContainer>
 					) : (
-						<EmptyChart />
+						<EmptyState icon={IconChartBar} title="暂无该时间段的数据" />
 					)}
 				</CardContent>
 			</Card>
 
-			<Card className="mb-6">
-				<CardHeader className="pb-2">
-					<CardTitle className="text-sm font-semibold">
-						训练效果：次数与得分
-					</CardTitle>
+			<Card mb="xl">
+				<CardHeader style={{ paddingBottom: 8 }}>
+					<CardTitle>训练效果：次数与得分</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{hasData ? (
@@ -353,20 +348,20 @@ function StatsContent({
 							</ComposedChart>
 						</ResponsiveContainer>
 					) : (
-						<EmptyChart />
+						<EmptyState icon={IconChartBar} title="暂无该时间段的数据" />
 					)}
 				</CardContent>
 			</Card>
 
 			{hasTeacherView && summary && summary.length > 0 && (
-				<Card className="mb-6">
-					<CardHeader className="flex-row items-center justify-between pb-2">
-						<CardTitle className="flex items-center gap-2 text-sm font-semibold">
-							<ClipboardList size={18} />
-							学生训练统计
-						</CardTitle>
+				<Card mb="xl">
+					<CardHeader style={{ paddingBottom: 8 }}>
+						<Group gap={8} align="center">
+							<IconClipboardList size={18} />
+							<CardTitle>学生训练统计</CardTitle>
+						</Group>
 					</CardHeader>
-					<div className="max-h-96 overflow-auto">
+					<div style={{ maxHeight: 384, overflow: "auto" }}>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -381,14 +376,10 @@ function StatsContent({
 								{summary.map((s) => (
 									<TableRow key={s.user_id}>
 										<TableCell>{s.display_name}</TableCell>
-										<TableCell className="text-muted-foreground">
-											{s.student_code}
-										</TableCell>
+										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_code}</TableCell>
 										<TableCell>{s.total_sessions}</TableCell>
-										<TableCell className="font-semibold">
-											{s.total_minutes}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
+										<TableCell style={{ fontWeight: 600 }}>{s.total_minutes}</TableCell>
+										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>
 											{s.total_sessions > 0
 												? `${Math.round(s.total_minutes / s.total_sessions)}分钟`
 												: "-"}
@@ -411,18 +402,20 @@ function StatsContent({
 
 			{hasTeacherView && ranking && ranking.length > 0 && (
 				<Card>
-					<CardHeader className="flex-row items-center justify-between pb-2">
-						<CardTitle className="flex items-center gap-2 text-sm font-semibold">
-							<Trophy size={18} className="text-amber-500" />
-							学生成绩排名
-						</CardTitle>
-						<span className="text-xs text-muted-foreground">按平均分降序</span>
+					<CardHeader style={{ paddingBottom: 8 }}>
+						<Group justify="space-between" align="center" wrap="wrap">
+							<Group gap={8} align="center">
+								<IconTrophy size={18} color="var(--mantine-color-yellow-6)" />
+								<CardTitle>学生成绩排名</CardTitle>
+							</Group>
+							<Text size="xs" c="dimmed">按平均分降序</Text>
+						</Group>
 					</CardHeader>
-					<div className="max-h-96 overflow-auto">
+					<div style={{ maxHeight: 384, overflow: "auto" }}>
 						<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead className="w-[60px]">排名</TableHead>
+									<TableHead style={{ width: 60 }}>排名</TableHead>
 									<TableHead>学生</TableHead>
 									<TableHead>学号</TableHead>
 									<TableHead>训练次数</TableHead>
@@ -433,44 +426,28 @@ function StatsContent({
 							</TableHeader>
 							<TableBody>
 								{ranking.map((s) => (
-									<TableRow
-										key={s.user_id}
-										className={cn(s.rank <= 3 && "bg-amber-50")}
-									>
+									<TableRow key={s.user_id} style={s.rank <= 3 ? { background: "var(--mantine-color-yellow-0)" } : undefined}>
 										<TableCell>
 											{s.rank === 1 ? (
-												<Medal size={20} className="text-amber-500" />
+												<IconMedal size={20} color="var(--mantine-color-yellow-6)" />
 											) : s.rank === 2 ? (
-												<Medal size={20} className="text-gray-400" />
+												<IconMedal size={20} color="var(--mantine-color-gray-5)" />
 											) : s.rank === 3 ? (
-												<Medal size={20} className="text-amber-700" />
+												<IconMedal size={20} color="var(--mantine-color-orange-7)" />
 											) : (
-												<span className="text-muted-foreground font-semibold">
-													{s.rank}
-												</span>
+												<Text component="span" c="dimmed" fw={600}>{s.rank}</Text>
 											)}
 										</TableCell>
-										<TableCell className="font-medium">
-											{s.display_name}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{s.student_id || "-"}
-										</TableCell>
+										<TableCell style={{ fontWeight: 500 }}>{s.display_name}</TableCell>
+										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_id || "-"}</TableCell>
 										<TableCell>{s.total_sessions}</TableCell>
-										<TableCell
-											className={cn(
-												"font-bold",
-												s.avg_score != null ? "text-primary" : "text-muted-foreground",
-											)}
-										>
+										<TableCell style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-teal-6)" : "var(--mantine-color-dimmed)" }}>
 											{s.avg_score != null ? `${s.avg_score}分` : "-"}
 										</TableCell>
-										<TableCell className="text-muted-foreground">
+										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>
 											{s.total_score > 0 ? `${s.total_score}分` : "-"}
 										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{s.total_minutes}分钟
-										</TableCell>
+										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.total_minutes}分钟</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
@@ -487,15 +464,5 @@ function StatsContent({
 				</Card>
 			)}
 		</RecordSubPageLayout>
-	);
-}
-
-function EmptyChart() {
-	return (
-		<EmptyState
-			icon={BarChart3}
-			title="暂无该时间段的数据"
-			className="min-h-[200px]"
-		/>
 	);
 }

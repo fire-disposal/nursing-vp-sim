@@ -1,11 +1,13 @@
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { Stack } from "@mantine/core";
+import type { ComponentType, ReactNode } from "react";
 import PageHeader from "@/components/ui/page-header";
+
+type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
 interface RecordSubPageLayoutProps {
 	title: string;
 	subtitle?: string;
-	icon: LucideIcon;
+	icon: IconType;
 	children: ReactNode;
 }
 
@@ -21,9 +23,9 @@ export default function RecordSubPageLayout({
 	children,
 }: RecordSubPageLayoutProps) {
 	return (
-		<div className="space-y-4">
+		<Stack gap="md">
 			<PageHeader title={title} subtitle={subtitle} icon={icon} />
 			{children}
-		</div>
+		</Stack>
 	);
 }

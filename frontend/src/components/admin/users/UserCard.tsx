@@ -1,6 +1,7 @@
 import { getUserAvatar } from "@/utils/avatar";
-import { cn } from "@/lib/utils";
+import { Group, Stack, Text } from "@mantine/core";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RoleBadge } from "@/components/ui/role-badge";
 import type { UserBrief } from "./types";
 
@@ -20,58 +21,64 @@ export default function UserCard({
 	return (
 		<Card
 			size="sm"
-			className={cn(
-				"cursor-pointer transition-shadow hover:shadow-md",
-				selected && "ring-2 ring-primary",
-			)}
 			onClick={() => onClick(user)}
+			style={{
+				cursor: "pointer",
+				transition: "box-shadow 0.15s ease",
+				...(selected && {
+					borderColor: "var(--mantine-color-teal-6)",
+					boxShadow: "0 0 0 1px var(--mantine-color-teal-6)",
+				}),
+			}}
 		>
 			<CardContent>
-				<div className="flex items-start gap-3">
-					<label
-						className="shrink-0 pt-0.5 cursor-pointer"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<input
-							type="checkbox"
-							className="size-4 cursor-pointer accent-primary"
+				<Group align="flex-start" gap={12} wrap="nowrap">
+					<div onClick={(e) => e.stopPropagation()}>
+						<Checkbox
 							checked={selected}
-							onChange={(e) => onSelect(user.id, e.target.checked)}
+							onCheckedChange={(checked) => onSelect(user.id, checked)}
+							aria-label={`选择 ${user.display_name}`}
 						/>
-					</label>
+					</div>
 					<img
 						src={getUserAvatar(user.gender)}
 						alt=""
-						className="size-10 rounded-full object-cover shrink-0"
+						style={{
+							width: 40,
+							height: 40,
+							borderRadius: "50%",
+							objectFit: "cover",
+							flexShrink: 0,
+						}}
 					/>
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-1.5">
-							<span className="font-medium text-sm truncate">
+					<Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+						<Group gap={6} wrap="nowrap">
+							<Text size="sm" fw={500} truncate>
 								{user.display_name}
-							</span>
+							</Text>
 							<RoleBadge
 								role={user.role}
 								label={user.role_display_name || user.role}
 							/>
-						</div>
-						<div className="text-xs text-muted-foreground mt-0.5 truncate">
+						</Group>
+						<Text size="xs" c="dimmed" truncate>
 							{user.username}
-						</div>
+						</Text>
 						{(user.grade_name || user.class_name) && (
-							<div className="text-xs text-muted-foreground mt-0.5">
+							<Text size="xs" c="dimmed">
 								{user.grade_name && user.class_name
 									? `${user.grade_name} ${user.class_name}`
 									: user.class_name || user.grade_name}
 								{user.student_id && (
-									<span className="ml-2">学号: {user.student_id}</span>
+									<span style={{ marginLeft: 8 }}>学号: {user.student_id}</span>
 								)}
-							</div>
+							</Text>
 						)}
-						<div className="text-xs text-muted-foreground mt-1">
+						<Text size="xs" c="dimmed">
 							{new Date(user.created_at).toLocaleDateString("zh-CN")}
-						</div>
-					</div>
-				</div>
+						</Text>
+					</Stack>
+				</Group>
 			</CardContent>
 		</Card>
 	);

@@ -1,4 +1,5 @@
-import { AlertTriangle, MessageSquare, Stethoscope, X } from "lucide-react";
+import { ActionIcon, Box, Group, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { IconAlertTriangle, IconMessageCircle, IconStethoscope, IconX } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -11,7 +12,6 @@ import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
-
 /**
  * Layout — 应用层编排
  *
@@ -20,16 +20,16 @@ import { APP_VERSION } from "@/version";
  */
 function RouteContentLoader() {
 	return (
-		<div className="min-h-[50vh] rounded-xl border border-border bg-card p-4">
-			<div className="space-y-4">
-				<div className="h-6 w-40 animate-pulse rounded bg-muted" />
-				<div className="grid gap-3 sm:grid-cols-2">
-					<div className="h-28 animate-pulse rounded-lg bg-muted/70" />
-					<div className="h-28 animate-pulse rounded-lg bg-muted/50" />
-				</div>
-				<div className="h-40 animate-pulse rounded-lg bg-muted/60" />
-			</div>
-		</div>
+		<Box p="md" style={{ minHeight: "50vh", borderRadius: "var(--mantine-radius-lg)", border: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-body)" }}>
+			<Stack gap="md">
+				<Skeleton height={24} width={160} />
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+					<Skeleton height={112} />
+					<Skeleton height={112} />
+				</SimpleGrid>
+				<Skeleton height={160} />
+			</Stack>
+		</Box>
 	);
 }
 
@@ -51,15 +51,58 @@ function DeployBanner() {
 	if (!warning) return null;
 	const msg = warning.message || "系统即将更新，可能短暂中断";
 	return (
-		<div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-2.5">
-			<div className="pointer-events-auto w-80 select-none overflow-hidden rounded-full bg-amber-500/90 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm transition-opacity hover:opacity-40">
-				<div className="flex w-max animate-[marquee_18s_linear_infinite] whitespace-nowrap">
-					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
-					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
-					<span className="inline-flex items-center gap-1.5 px-6"><AlertTriangle size={13} />{msg}</span>
-				</div>
-			</div>
-		</div>
+		<Box
+			style={{
+				position: "fixed",
+				insetInline: 0,
+				top: 0,
+				zIndex: 50,
+				display: "flex",
+				justifyContent: "center",
+				paddingTop: 10,
+				pointerEvents: "none",
+			}}
+		>
+			<Box
+				style={{
+					pointerEvents: "auto",
+					width: 320,
+					overflow: "hidden",
+					borderRadius: 999,
+					background: "rgba(245, 158, 11, 0.9)",
+					paddingTop: 4,
+					paddingBottom: 4,
+					color: "white",
+					boxShadow: "var(--mantine-shadow-lg)",
+				}}
+			>
+				<Box
+					style={{
+						display: "flex",
+						width: "max-content",
+						whiteSpace: "nowrap",
+						animation: "marquee 18s linear infinite",
+					}}
+				>
+					{[0, 1, 2].map((i) => (
+						<span
+							key={i}
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 6,
+								padding: "0 24px",
+								fontSize: 14,
+								fontWeight: 500,
+							}}
+						>
+							<IconAlertTriangle size={13} />
+							{msg}
+						</span>
+					))}
+				</Box>
+			</Box>
+		</Box>
 	);
 }
 
@@ -96,17 +139,31 @@ export default function Layout() {
 		<>
 			{/* Mobile hint — admin only */}
 			{hasAdminPerm && !mobileHintDismissed && (
-				<div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-800 md:hidden shrink-0">
-					<span className="flex-1">管理后台建议使用桌面端访问以获得完整体验</span>
-					<button
-						type="button"
-						aria-label="关闭提示"
-						className="shrink-0 text-amber-700 hover:text-amber-900"
+				<Group
+					gap={8}
+					px="md"
+					py={4}
+					hiddenFrom="sm"
+					wrap="nowrap"
+					style={{
+						flexShrink: 0,
+						borderBottom: "1px solid var(--mantine-color-yellow-2)",
+						background: "var(--mantine-color-yellow-0)",
+					}}
+				>
+					<Text size="xs" c="yellow.9" style={{ flex: 1 }}>
+						管理后台建议使用桌面端访问以获得完整体验
+					</Text>
+					<ActionIcon
+						variant="transparent"
+						color="yellow.9"
+						size="xs"
 						onClick={() => setMobileHintDismissed(true)}
+						aria-label="关闭提示"
 					>
-						<X size={13} />
-					</button>
-				</div>
+						<IconX size={13} />
+					</ActionIcon>
+				</Group>
 			)}
 
 			<DeployBanner />
@@ -124,21 +181,43 @@ export default function Layout() {
 			{/* About dialog */}
 			<Dialog open={aboutOpen} onOpenChange={(o) => !o && setAboutOpen(false)}>
 				<DialogContent title="关于系统" maxWidth={560}>
-					<div className="space-y-3 py-2 text-center">
-						<div className="flex justify-center">
-							<div className="flex size-12 items-center justify-center rounded-xl bg-primary shadow">
-								<Stethoscope size={24} className="text-primary-foreground" />
-							</div>
-						</div>
-						<div>
-							<h3 className="text-lg font-semibold">虚拟患者系统</h3>
-							<p className="text-sm text-muted-foreground">护理病史采集技能训练平台</p>
-							<p className="mt-2 text-xs text-muted-foreground">版本 {APP_VERSION}</p>
-						</div>
-						<Button variant="outline" size="sm" className="w-full" onClick={() => { setAboutOpen(false); openFeedback(); }}>
-							<MessageSquare size={14} />意见反馈
+					<Stack gap="sm" py="xs" align="center">
+						<Box
+							style={{
+								width: 48,
+								height: 48,
+								borderRadius: "var(--mantine-radius-lg)",
+								background: "var(--mantine-color-teal-6)",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								boxShadow: "var(--mantine-shadow-sm)",
+							}}
+						>
+							<IconStethoscope size={24} style={{ color: "white" }} />
+						</Box>
+						<Box ta="center">
+							<Title order={3}>虚拟患者系统</Title>
+							<Text size="sm" c="dimmed">
+								护理病史采集技能训练平台
+							</Text>
+							<Text size="xs" c="dimmed" mt="xs">
+								版本 {APP_VERSION}
+							</Text>
+						</Box>
+						<Button
+							variant="outline"
+							size="sm"
+							fullWidth
+							onClick={() => {
+								setAboutOpen(false);
+								openFeedback();
+							}}
+						>
+							<IconMessageCircle size={14} />
+							意见反馈
 						</Button>
-					</div>
+					</Stack>
 				</DialogContent>
 			</Dialog>
 		</>

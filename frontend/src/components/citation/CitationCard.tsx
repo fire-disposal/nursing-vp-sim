@@ -1,4 +1,5 @@
-import { BookOpen, ChevronDown, Loader2 } from "lucide-react";
+import { Box, Group, Loader, Paper, Text, Typography, UnstyledButton } from "@mantine/core";
+import { IconBook2, IconChevronDown } from "@tabler/icons-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,60 +35,81 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 
 	return (
 		<>
-			<div className="mt-3 border border-border rounded-lg overflow-hidden bg-card/50">
-				<button
-					type="button"
-					className="flex items-center gap-2 w-full px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+			<Paper mt="sm" withBorder radius="md" style={{ overflow: "hidden" }}>
+				<UnstyledButton
+					w="100%"
+					px="sm"
+					py={8}
 					onClick={() => setOpen(!open)}
 				>
-					<BookOpen size={12} />
-					<span>参考教材 ({citations.length})</span>
-					<ChevronDown
-						size={12}
-						className={`ml-auto transition-transform ${open ? "rotate-180" : ""}`}
-					/>
-				</button>
+					<Group gap={8} wrap="nowrap">
+						<IconBook2 size={12} />
+						<Text size="xs" c="dimmed">
+							参考教材 ({citations.length})
+						</Text>
+						<IconChevronDown
+							size={12}
+							style={{
+								marginLeft: "auto",
+								transform: open ? "rotate(180deg)" : undefined,
+								transition: "transform 200ms",
+							}}
+						/>
+					</Group>
+				</UnstyledButton>
 				{open && (
-					<div className="border-t border-border px-3 py-2 space-y-1.5">
+					<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
 						{citations.map((c, i) => (
-							<button
-								type="button"
+							<UnstyledButton
 								key={i}
-								className="block w-full text-left text-xs hover:bg-primary/5 rounded px-1.5 py-1 -mx-1.5 transition-colors cursor-pointer"
+								w="100%"
+								ta="left"
+								py={4}
+								px={6}
 								onClick={() => openModal(c)}
 							>
-								<span className="font-medium text-foreground">{c.source}</span>
-								<span className="text-muted-foreground"> › {c.section}</span>
-							</button>
+								<Text size="xs">
+									<span style={{ fontWeight: 500 }}>{c.source}</span>
+									<Text component="span" size="xs" c="dimmed">
+										{" "}› {c.section}
+									</Text>
+								</Text>
+							</UnstyledButton>
 						))}
-					</div>
+					</Box>
 				)}
-			</div>
+			</Paper>
 
 			{modal && (
 				<Dialog open onOpenChange={(o) => !o && setModal(null)}>
 					<DialogContent maxWidth={768}>
-						<div className="flex items-center gap-2 px-5 py-3 border-b border-border">
-							<BookOpen size={14} className="text-primary" />
-							<div className="flex-1 min-w-0">
-								<span className="text-sm font-medium">{modal.source}</span>
-								<span className="text-xs text-muted-foreground"> › {modal.section}</span>
-							</div>
-						</div>
-						<div className="overflow-y-auto p-5 text-sm leading-relaxed">
+						<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }} wrap="nowrap">
+							<IconBook2 size={14} color="var(--mantine-color-teal-6)" />
+							<Box style={{ flex: 1, minWidth: 0 }}>
+								<Text size="sm" fw={500}>
+									{modal.source}
+								</Text>
+								<Text size="xs" c="dimmed">
+									› {modal.section}
+								</Text>
+							</Box>
+						</Group>
+						<Box p="md" style={{ overflowY: "auto" }}>
 							{loadingModal ? (
-								<div className="flex items-center gap-2 text-muted-foreground">
-									<Loader2 size={14} className="animate-spin" />
-									加载中...
-								</div>
+								<Group gap={8} wrap="nowrap">
+									<Loader size={14} />
+									<Text size="sm" c="dimmed">
+										加载中...
+									</Text>
+								</Group>
 							) : (
-								<div className="[&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-3 [&_h3]:mb-1.5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:pl-5 [&_li]:mb-1">
+								<Typography>
 									<ReactMarkdown remarkPlugins={[remarkGfm]}>
 										{modalText}
 									</ReactMarkdown>
-								</div>
+								</Typography>
 							)}
-						</div>
+						</Box>
 					</DialogContent>
 				</Dialog>
 			)}

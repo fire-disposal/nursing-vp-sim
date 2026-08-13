@@ -1,4 +1,14 @@
-import { ArrowLeft, BarChart3, Download } from "lucide-react";
+import {
+	Group,
+	Paper,
+	Progress,
+	ScrollArea,
+	SimpleGrid,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import { IconArrowLeft, IconChartBar, IconDownload } from "@tabler/icons-react";
 import { exportQuestionnaireCSV } from "@/api/questionnaires";
 import type {
 	ResponseStats,
@@ -40,150 +50,174 @@ export default function QuestionnaireStats({
 	};
 
 	return (
-		<div className="rounded-xl border border-border bg-card shadow-e1 p-6">
-			<div className="flex items-center justify-between mb-6">
+		<Paper withBorder shadow="sm" p="md" radius="lg">
+			<Group justify="space-between" mb="md">
 				<div>
-					<button
-						type="button"
-						onClick={onBack}
-						className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 cursor-pointer"
-					>
-						<ArrowLeft size={14} />
+					<Button variant="ghost" size="sm" onClick={onBack} mb="xs">
+						<IconArrowLeft size={14} />
 						返回列表
-					</button>
-					<h2 className="text-lg font-semibold">{template.title} - 数据统计</h2>
+					</Button>
+					<Title order={3}>{template.title} - 数据统计</Title>
 				</div>
 				<Button variant="outline" onClick={exportCSV}>
-					<Download size={14} /> 导出CSV
+					<IconDownload size={14} /> 导出CSV
 				</Button>
-			</div>
+			</Group>
 
 			{isLoading ? (
 				<LoadingState message="加载统计数据..." />
 			) : stats ? (
-				<div className="space-y-6">
-					<div className="grid grid-cols-3 gap-4">
-						<div className="rounded-xl border border-border bg-muted p-4 text-center">
-							<div className="text-2xl font-bold text-primary">
+				<Stack gap="xl">
+					<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+						<Paper
+							withBorder
+							bg="var(--mantine-color-gray-1)"
+							p="md"
+							radius="lg"
+							ta="center"
+						>
+							<Text size="xl" fw={700} c="teal">
 								{stats.total_assigned}
-							</div>
-							<div className="text-xs text-muted-foreground mt-1">总分配数</div>
-						</div>
-						<div className="rounded-xl border border-border bg-muted p-4 text-center">
-							<div className="text-2xl font-bold text-success-foreground">
+							</Text>
+							<Text size="xs" c="dimmed" mt={4}>
+								总分配数
+							</Text>
+						</Paper>
+						<Paper
+							withBorder
+							bg="var(--mantine-color-gray-1)"
+							p="md"
+							radius="lg"
+							ta="center"
+						>
+							<Text size="xl" fw={700} c="green">
 								{stats.total_completed}
-							</div>
-							<div className="text-xs text-muted-foreground mt-1">已完成</div>
-						</div>
-						<div className="rounded-xl border border-border bg-muted p-4 text-center">
-							<div className="text-2xl font-bold text-warning-foreground">
+							</Text>
+							<Text size="xs" c="dimmed" mt={4}>
+								已完成
+							</Text>
+						</Paper>
+						<Paper
+							withBorder
+							bg="var(--mantine-color-gray-1)"
+							p="md"
+							radius="lg"
+							ta="center"
+						>
+							<Text size="xl" fw={700} c="yellow">
 								{(stats.completion_rate * 100).toFixed(1)}%
-							</div>
-							<div className="text-xs text-muted-foreground mt-1">完成率</div>
-						</div>
-					</div>
+							</Text>
+							<Text size="xs" c="dimmed" mt={4}>
+								完成率
+							</Text>
+						</Paper>
+					</SimpleGrid>
 
 					<div>
-						<h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-							<BarChart3 size={14} />
-							各题分析
-						</h3>
+						<Group gap={6} mb="sm">
+							<IconChartBar size={14} />
+							<Text size="sm" fw={600}>各题分析</Text>
+						</Group>
 						{stats.questions.length === 0 ? (
 							<EmptyState title="暂无题目数据" />
 						) : (
-							<div className="space-y-4">
+							<Stack gap="md">
 								{stats.questions.map((q) => (
-									<div
-										key={q.question_id}
-										className="border border-border rounded-lg p-4"
-									>
-										<div className="flex items-center gap-2 mb-3">
+									<Paper key={q.question_id} withBorder p="md" radius="md">
+										<Group gap={8} mb="sm">
 											<Badge variant="info">
 												{QUESTION_TYPE_LABELS[q.question_type] ||
 													q.question_type}
 											</Badge>
-											<span className="text-sm font-medium">{q.content}</span>
-										</div>
+											<Text size="sm" fw={500}>{q.content}</Text>
+										</Group>
 										{q.question_type === "likert_5" && q.avg_likert != null && (
 											<div>
-												<div className="flex items-center gap-2 mb-1">
-													<span className="text-xs text-muted-foreground">
-														平均分:
-													</span>
-													<span className="text-sm font-semibold">
+												<Group gap={8} mb={4}>
+													<Text size="xs" c="dimmed">平均分:</Text>
+													<Text size="sm" fw={600}>
 														{q.avg_likert.toFixed(2)}
-													</span>
-												</div>
-												<div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-													<div
-														className="bg-primary h-3 rounded-full transition-all"
-														style={{ width: `${(q.avg_likert / 5) * 100}%` }}
-													/>
-												</div>
-												<div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-													<span>1</span>
-													<span>2</span>
-													<span>3</span>
-													<span>4</span>
-													<span>5</span>
-												</div>
+													</Text>
+												</Group>
+												<Progress
+													value={(q.avg_likert / 5) * 100}
+													size="sm"
+													radius="xl"
+												/>
+												<Group justify="space-between" mt={2}>
+													{["1", "2", "3", "4", "5"].map((n) => (
+														<Text key={n} size="xs" c="dimmed">
+															{n}
+														</Text>
+													))}
+												</Group>
 											</div>
 										)}
 										{q.question_type === "multiple_choice" &&
 											q.choice_distribution && (
-												<div className="space-y-1.5">
+												<Stack gap={6}>
 													{Object.entries(q.choice_distribution).map(
 														([option, count]) => (
-															<div
-																key={option}
-																className="flex items-center gap-2"
-															>
-																<span className="text-xs text-muted-foreground w-24 truncate">
+															<Group key={option} gap={8} wrap="nowrap">
+																<Text
+																	size="xs"
+																	c="dimmed"
+																	truncate
+																	style={{ width: 96 }}
+																>
 																	{option}
-																</span>
-																<div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
-																	<div
-																		className="bg-blue-500 h-2.5 rounded-full transition-all"
-																		style={{
-																			width: `${stats.total_completed > 0 ? (count / stats.total_completed) * 100 : 0}%`,
-																		}}
-																	/>
-																</div>
-																<span className="text-xs font-medium w-8 text-right">
+																</Text>
+																<Progress
+																	value={
+																		stats.total_completed > 0
+																			? (count / stats.total_completed) * 100
+																			: 0
+																	}
+																	size="xs"
+																	radius="xl"
+																	color="blue"
+																	style={{ flex: 1 }}
+																/>
+																<Text size="xs" fw={500} w={32} ta="right">
 																	{count}
-																</span>
-															</div>
+																</Text>
+															</Group>
 														),
 													)}
-												</div>
+												</Stack>
 											)}
 										{q.question_type === "short_text" && q.text_answers && (
-											<div className="max-h-40 overflow-y-auto space-y-1">
-												{q.text_answers.length === 0 ? (
-													<span className="text-xs text-muted-foreground">
-														暂无回复
-													</span>
-												) : (
-													q.text_answers.map((r, i) => (
-														<div
-															key={i}
-															className="text-sm bg-muted rounded px-2.5 py-1 text-muted-foreground"
-														>
-															{r}
-														</div>
-													))
-												)}
-											</div>
+											<ScrollArea h={160}>
+												<Stack gap={4}>
+													{q.text_answers.length === 0 ? (
+														<Text size="xs" c="dimmed">
+															暂无回复
+														</Text>
+													) : (
+														q.text_answers.map((r, i) => (
+															<Paper
+																key={i}
+																bg="var(--mantine-color-gray-1)"
+																radius="sm"
+																px="xs"
+																py={4}
+															>
+																<Text size="sm" c="dimmed">{r}</Text>
+															</Paper>
+														))
+													)}
+												</Stack>
+											</ScrollArea>
 										)}
-									</div>
+									</Paper>
 								))}
-							</div>
+							</Stack>
 						)}
 					</div>
-				</div>
+				</Stack>
 			) : (
 				<EmptyState title="暂无统计数据" />
 			)}
-		</div>
+		</Paper>
 	);
 }
