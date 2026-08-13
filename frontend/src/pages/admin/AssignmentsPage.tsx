@@ -1,9 +1,8 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge, Box, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconCircleX, IconEdit, IconEye, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
-import { useForm } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
 	createAssignment,
@@ -24,14 +23,6 @@ import { useConfirm } from "@/components/ui/confirm";
 import { Switch } from "@/components/ui/switch";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
@@ -124,8 +115,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const { confirm } = useConfirm();
 
 	const form = useForm<AssignmentValues>({
-		resolver: zodResolver(assignmentSchema),
-		defaultValues: DEFAULT_VALUES,
+		initialValues: DEFAULT_VALUES,
+		validate: schemaResolver(assignmentSchema),
 	});
 
 	const { data: listData, isLoading } = useQuery({
@@ -159,7 +150,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 
 	const openCreate = () => {
 		setEditingId(null);
-		form.reset(DEFAULT_VALUES);
+		form.setValues(DEFAULT_VALUES);
+		form.resetDirty();
 		setModalOpen(true);
 	};
 
@@ -168,7 +160,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			const res = await fetchAssignment(id);
 			const d = res.data;
 			setEditingId(id);
-			form.reset({
+			form.setValues({
 				title: d.title,
 				desc: d.description || "",
 				caseId: d.case_id,
@@ -178,6 +170,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				maxAttempts: d.max_attempts ?? null,
 				hideCaseInfo: d.behavior?.hide_case_info === true,
 			});
+			form.resetDirty();
 			setModalOpen(true);
 		} catch (e: unknown) {
 			toast.apiError(e, "加载失败");
@@ -420,7 +413,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 
 			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
-					if (form.formState.isDirty) {
+					if (form.isDirty()) {
 						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
 						if (!ok) return;
 					}
@@ -431,189 +424,103 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					title={editingId ? "编辑作业" : "创建作业"}
 					maxWidth={560}
 				>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(onSubmit)}>
-							<Stack gap="md">
-								<FormField
-									control={form.control}
-									name="title"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>标题</FormLabel>
-											<FormControl>
-												<Input placeholder="作业标题" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
+					<form onSubmit={form.onSubmit(onSubmit)}>
+						<Stack gap="md">
+							<Input label="标题" placeholder="作业标题" {...form.getInputProps("title")} />
+							<Input label="说明（可选）" placeholder="补充说明" {...form.getInputProps("desc")} />
+							<Box>
+								<Text size="sm" fw={500} mb={4}>病例</Text>
+								<CaseSelector
+									cases={cases}
+									value={form.values.caseId || 0}
+									onChange={(id) => form.setFieldValue("caseId", id)}
+									loading={casesLoading}
 								/>
-								<FormField
-									control={form.control}
-									name="desc"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>说明（可选）</FormLabel>
-											<FormControl>
-												<Input placeholder="补充说明" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="caseId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>病例</FormLabel>
-											<FormControl>
-												<CaseSelector
-													cases={cases}
-													value={field.value || 0}
-													onChange={(id) => field.onChange(id)}
-													loading={casesLoading}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="classId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>班级</FormLabel>
-											<FormControl>
-												<Select
-													value={field.value ? String(field.value) : null}
-													onChange={(v) => field.onChange(v ? Number(v) : 0)}
-													data={[
-														{ value: "", label: "选择班级..." },
-														...classes.map((c) => ({
-															value: String(c.id),
-															label: c.name,
-														})),
-													]}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<SimpleGrid cols={2} spacing="sm">
-									<FormField
-										control={form.control}
-										name="startTime"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>开始时间</FormLabel>
-												<FormControl>
-													<Input type="datetime-local" {...field} />
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name="endTime"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>截止时间</FormLabel>
-												<FormControl>
-													<Input type="datetime-local" {...field} />
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-								</SimpleGrid>
-								{(() => {
-									const selectedId = form.watch("caseId");
-									const selected = cases.find((c) => c.id === selectedId);
-									const caps = selected?.capabilities;
-									if (!caps) return null;
-									const enabled = Object.entries(caps).filter(([, v]) => v);
-									if (enabled.length === 0) return null;
-									return (
-										<Group gap={4} wrap="wrap" mt={-8} mb={4}>
-											{enabled.map(([k]) => (
-												<Badge key={k} variant="secondary" color="teal" size="xs">
-													{ALL_CAPABILITIES[k]?.label ?? k}
-												</Badge>
-											))}
-										</Group>
-									);
-								})()}
-								<FormField
-									control={form.control}
-									name="maxAttempts"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>最大尝试次数</FormLabel>
-											<FormControl>
-												<Input
-													type="number"
-													min={0}
-													placeholder="留空为1次，0为不限制"
-													{...field}
-													value={field.value ?? ""}
-													onChange={(e) => {
-														const v = e.target.value;
-														field.onChange(v === "" ? null : Math.max(0, Number(v)));
-													}}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="hideCaseInfo"
-									render={({ field }) => (
-										<FormItem>
-											<Group
-												justify="space-between"
-												align="center"
-												wrap="nowrap"
-												p="sm"
-												style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
-											>
-												<div>
-													<FormLabel>隐藏病例信息</FormLabel>
-													<Text size="xs" c="dimmed">训练中不显示病例标题/患者信息，结束后揭示（病例固定，不做随机抽取）</Text>
-												</div>
-												<FormControl>
-													<Switch checked={field.value} onCheckedChange={field.onChange} />
-												</FormControl>
-											</Group>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<DialogFooter>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={async () => {
-											if (form.formState.isDirty) {
-												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-												if (!ok) return;
-											}
-											setModalOpen(false);
-										}}
-									>
-										取消
-									</Button>
-									<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-										{form.formState.isSubmitting ? (editingId ? "保存中..." : "发布中...") : (editingId ? "保存" : "发布")}
-									</Button>
-								</DialogFooter>
-							</Stack>
-						</form>
-					</Form>
+								{form.errors.caseId ? (
+									<Text size="sm" fw={500} c="red" mt={4}>{form.errors.caseId}</Text>
+								) : null}
+							</Box>
+							<Select
+								label="班级"
+								value={form.values.classId ? String(form.values.classId) : null}
+								onChange={(v) => form.setFieldValue("classId", v ? Number(v) : 0)}
+								error={form.errors.classId}
+								data={[
+									{ value: "", label: "选择班级..." },
+									...classes.map((c) => ({
+										value: String(c.id),
+										label: c.name,
+									})),
+								]}
+							/>
+							<SimpleGrid cols={2} spacing="sm">
+								<Input label="开始时间" type="datetime-local" {...form.getInputProps("startTime")} />
+								<Input label="截止时间" type="datetime-local" {...form.getInputProps("endTime")} />
+							</SimpleGrid>
+							{(() => {
+								const selectedId = form.values.caseId;
+								const selected = cases.find((c) => c.id === selectedId);
+								const caps = selected?.capabilities;
+								if (!caps) return null;
+								const enabled = Object.entries(caps).filter(([, v]) => v);
+								if (enabled.length === 0) return null;
+								return (
+									<Group gap={4} wrap="wrap" mt={-8} mb={4}>
+										{enabled.map(([k]) => (
+											<Badge key={k} variant="secondary" color="teal" size="xs">
+												{ALL_CAPABILITIES[k]?.label ?? k}
+											</Badge>
+										))}
+									</Group>
+								);
+							})()}
+							<Input
+								label="最大尝试次数"
+								type="number"
+								min={0}
+								placeholder="留空为1次，0为不限制"
+								value={form.values.maxAttempts != null ? String(form.values.maxAttempts) : ""}
+								onChange={(e) => {
+									const v = e.currentTarget.value;
+									form.setFieldValue("maxAttempts", v === "" ? null : Math.max(0, Number(v)));
+								}}
+								error={form.errors.maxAttempts}
+							/>
+							<Box>
+								<Group
+									justify="space-between"
+									align="center"
+									wrap="nowrap"
+									p="sm"
+									style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
+								>
+									<div>
+										<Text size="sm" fw={500}>隐藏病例信息</Text>
+										<Text size="xs" c="dimmed">训练中不显示病例标题/患者信息，结束后揭示（病例固定，不做随机抽取）</Text>
+									</div>
+									<Switch {...form.getInputProps("hideCaseInfo", { type: "checkbox" })} />
+								</Group>
+							</Box>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={async () => {
+										if (form.isDirty()) {
+											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+											if (!ok) return;
+										}
+										setModalOpen(false);
+									}}
+								>
+									取消
+								</Button>
+								<Button type="submit" disabled={form.submitting}>
+									{form.submitting ? (editingId ? "保存中..." : "发布中...") : (editingId ? "保存" : "发布")}
+								</Button>
+							</DialogFooter>
+						</Stack>
+					</form>
 				</DialogContent>
 			</Dialog>
 		</Stack>

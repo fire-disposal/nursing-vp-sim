@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Container, Grid, Group, Progress, SimpleGrid, Slider, Stack, Text, Title } from "@mantine/core";
+import { Box, Container, Grid, Group, Progress, Select, SimpleGrid, Slider, Stack, Text, Title } from "@mantine/core";
 import PremiumFaceArtwork from "@/components/training/face/PremiumFaceArtwork";
 import { appearanceFor, type AgeGroup, type Gender } from "@/components/training/face/appearance";
 import {
@@ -14,13 +14,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import Button from "@/components/ui/button";
 import { EMOTION_4D_LABELS, type Emotion4DLabel } from "@/stores/trainingStore";
@@ -185,38 +178,22 @@ export default function FaceLabPage() {
 
 	const mouthSelect = (
 		<Select
+			data={(["smile", "flat", "frown", "tight", "open"] as const).map((m) => ({ value: m, label: m }))}
 			value={targetCfg.mouth}
-			onValueChange={(v) => setOverride("mouth", v as FaceConfig["mouth"])}
-		>
-			<SelectTrigger size="sm">
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent>
-				{(["smile", "flat", "frown", "tight", "open"] as const).map((m) => (
-					<SelectItem key={m} value={m}>
-						{m}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+			onChange={(v) => setOverride("mouth", v as FaceConfig["mouth"])}
+			size="xs"
+			allowDeselect={false}
+		/>
 	);
 
 	const irisSelect = (
 		<Select
+			data={(["center", "down", "away"] as const).map((s) => ({ value: s, label: s }))}
 			value={targetExtras.irisShift}
-			onValueChange={(v) => setOverride("irisShift", v as PremiumExtras["irisShift"])}
-		>
-			<SelectTrigger size="sm">
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent>
-				{(["center", "down", "away"] as const).map((s) => (
-					<SelectItem key={s} value={s}>
-						{s}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+			onChange={(v) => setOverride("irisShift", v as PremiumExtras["irisShift"])}
+			size="xs"
+			allowDeselect={false}
+		/>
 	);
 
 	return (
@@ -281,29 +258,23 @@ export default function FaceLabPage() {
 										<Group gap="sm" align="flex-end">
 											<Box style={{ flex: 1 }}>
 												<Label>性别</Label>
-												<Select value={gender} onValueChange={(v) => setGender(v as Gender)}>
-													<SelectTrigger size="sm">
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="female">女</SelectItem>
-														<SelectItem value="male">男</SelectItem>
-													</SelectContent>
-												</Select>
+												<Select
+													data={[{ value: "female", label: "女" }, { value: "male", label: "男" }]}
+													value={gender}
+													onChange={(v) => setGender(v as Gender)}
+													size="xs"
+													allowDeselect={false}
+												/>
 											</Box>
 											<Box style={{ flex: 1 }}>
 												<Label>年龄段</Label>
-												<Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
-													<SelectTrigger size="sm">
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="child">儿童（≤12）</SelectItem>
-														<SelectItem value="young">青年（13-25）</SelectItem>
-														<SelectItem value="middle">中年（26-59）</SelectItem>
-														<SelectItem value="elderly">老年（≥60）</SelectItem>
-													</SelectContent>
-												</Select>
+												<Select
+													data={[{ value: "child", label: "儿童（≤12）" }, { value: "young", label: "青年（13-25）" }, { value: "middle", label: "中年（26-59）" }, { value: "elderly", label: "老年（≥60）" }]}
+													value={ageGroup}
+													onChange={(v) => setAgeGroup(v as AgeGroup)}
+													size="xs"
+													allowDeselect={false}
+												/>
 											</Box>
 										</Group>
 										<Text size="10px" c="dimmed">
@@ -363,18 +334,13 @@ export default function FaceLabPage() {
 										/>
 										<Box>
 											<Label>缓动曲线</Label>
-											<Select value={easing} onValueChange={(v) => setEasing(v as EasingName)}>
-												<SelectTrigger size="sm">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													{(Object.keys(EASINGS) as EasingName[]).map((e) => (
-														<SelectItem key={e} value={e}>
-															{e}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+											<Select
+												data={(Object.keys(EASINGS) as EasingName[]).map((e) => ({ value: e, label: e }))}
+												value={easing}
+												onChange={(v) => setEasing(v as EasingName)}
+												size="xs"
+												allowDeselect={false}
+											/>
 										</Box>
 										<ToggleRow
 											label="自动轮播 9 态（4s/态）"

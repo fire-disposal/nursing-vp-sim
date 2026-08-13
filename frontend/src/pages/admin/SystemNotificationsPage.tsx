@@ -1,9 +1,8 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ActionIcon, Badge, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { ActionIcon, Badge, Group, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
 import {
 	createSystemNotification,
 	deleteSystemNotification,
@@ -17,19 +16,9 @@ import Button from "@/components/ui/button";
 import { ConfirmDialog, useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
-import { Textarea } from "@/components/ui/textarea";
 import {
 	type NotificationValues,
 	notificationSchema,
@@ -72,10 +61,11 @@ export default function SystemNotificationsPage() {
 	const [deleteId, setDeleteId] = useState<number | null>(null);
 	const [levelFilter, setLevelFilter] = useState("");
 	const [searchText, setSearchText] = useState("");
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const form = useForm<NotificationValues>({
-		resolver: zodResolver(notificationSchema),
-		defaultValues: DEFAULT_VALUES,
+		initialValues: DEFAULT_VALUES,
+		validate: schemaResolver(notificationSchema),
 	});
 
 	const { data, isLoading } = useQuery({
@@ -99,7 +89,7 @@ export default function SystemNotificationsPage() {
 
 	useEffect(() => {
 		if (!modalOpen) return;
-		form.reset(
+		form.setValues(
 			editing
 				? {
 						title: editing.title,
@@ -117,6 +107,8 @@ export default function SystemNotificationsPage() {
 	};
 
 	const onSubmit = async (values: NotificationValues) => {
+		if (isSubmitting) return;
+		setIsSubmitting(true);
 		try {
 			const publishedAt = fromDatetimeLocal(values.published_at);
 			const body: components["schemas"]["SystemNotificationCreateRequest"] = {
@@ -139,6 +131,8 @@ export default function SystemNotificationsPage() {
 			setModalOpen(false);
 		} catch (e) {
 			toast.apiError(e);
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
@@ -232,7 +226,7 @@ export default function SystemNotificationsPage() {
 			)}
 			<Dialog open={modalOpen} onOpenChange={async (o) => {
 				if (!o) {
-					if (form.formState.isDirty) {
+					if (form.isDirty()) {
 						const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
 						if (!ok) return;
 					}
@@ -240,101 +234,60 @@ export default function SystemNotificationsPage() {
 				}
 			}}>
 				<DialogContent title={editing ? "编辑通知" : "新建通知"} maxWidth={560}>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(onSubmit)}>
-							<Stack gap="md">
-								<FormField
-									control={form.control}
-									name="title"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>标题</FormLabel>
-											<FormControl>
-												<Input placeholder="通知标题" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="content"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>内容</FormLabel>
-											<FormControl>
-												<Textarea
-													placeholder="通知正文，支持多行"
-													rows={4}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="level"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>级别</FormLabel>
-											<FormControl>
-												<Select
-													value={field.value}
-													onChange={(v) => field.onChange(v ?? "info")}
-													data={[
-														{ value: "info", label: "通知" },
-														{ value: "warning", label: "警告" },
-														{ value: "success", label: "成功" },
-													]}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="published_at"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>定时发布（留空即立即发布）</FormLabel>
-											<FormControl>
-												<Input type="datetime-local" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<DialogFooter>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={async () => {
-											if (form.formState.isDirty) {
-												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-												if (!ok) return;
-											}
-											setModalOpen(false);
-										}}
-									>
-										取消
-									</Button>
-									<Button
-										onClick={form.handleSubmit(onSubmit)}
-										disabled={form.formState.isSubmitting}
-									>
-										{form.formState.isSubmitting
-											? "保存中..."
-											: editing
-												? "更新"
-												: "创建"}
-									</Button>
-								</DialogFooter>
-							</Stack>
-						</form>
-					</Form>
+					<form onSubmit={form.onSubmit(onSubmit)}>
+						<Stack gap="md">
+							<TextInput
+								label="标题"
+								placeholder="通知标题"
+								{...form.getInputProps("title")}
+							/>
+							<Textarea
+								label="内容"
+								placeholder="通知正文，支持多行"
+								rows={4}
+								{...form.getInputProps("content")}
+							/>
+							<Select
+								label="级别"
+								data={[
+									{ value: "info", label: "通知" },
+									{ value: "warning", label: "警告" },
+									{ value: "success", label: "成功" },
+								]}
+								{...form.getInputProps("level")}
+							/>
+							<TextInput
+								label="定时发布（留空即立即发布）"
+								type="datetime-local"
+								{...form.getInputProps("published_at")}
+							/>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={async () => {
+										if (form.isDirty()) {
+											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+											if (!ok) return;
+										}
+										setModalOpen(false);
+									}}
+								>
+									取消
+								</Button>
+								<Button
+									type="submit"
+									disabled={isSubmitting}
+								>
+									{isSubmitting
+										? "保存中..."
+										: editing
+											? "更新"
+											: "创建"}
+								</Button>
+							</DialogFooter>
+						</Stack>
+					</form>
 				</DialogContent>
 			</Dialog>
 			<ConfirmDialog

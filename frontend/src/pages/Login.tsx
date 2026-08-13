@@ -1,18 +1,9 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Anchor, Box, Flex, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
 import { IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
@@ -59,9 +50,8 @@ export default function Login() {
 	}, []);
 
 	const form = useForm<LoginFormValues>({
-		resolver: zodResolver(loginSchema),
-		defaultValues: { username: "", password: "" },
-		mode: "onSubmit",
+		initialValues: { username: "", password: "" },
+		validate: schemaResolver(loginSchema),
 	});
 
 	// Token exists but expired → silent refresh inline
@@ -132,61 +122,35 @@ export default function Login() {
 					<Paper withBorder radius="xl" p={{ base: "md", sm: "lg" }} w="100%" maw={384} shadow="sm">
 						<FormMessageBanner type="error" message={error} />
 
-						<Form {...form}>
-							<form onSubmit={form.handleSubmit(onSubmit)}>
-								<Stack gap="md">
-									<FormField
-										control={form.control}
-										name="username"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", borderWidth: 0 }}>用户名</FormLabel>
-												<FormControl>
-													<Input
-														type="text"
-														placeholder="用户名"
-														autoComplete="username"
-														autoFocus
-														size="lg"
-														disabled={isSubmitting}
-														{...field}
-													/>
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name="password"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", borderWidth: 0 }}>密码</FormLabel>
-												<FormControl>
-													<Input
-														type="password"
-														placeholder="密码"
-														autoComplete="current-password"
-														size="lg"
-														disabled={isSubmitting}
-														{...field}
-													/>
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<Button
-										onClick={form.handleSubmit(onSubmit)}
-										disabled={isSubmitting}
-										size="lg"
-										fullWidth
-									>
-										{isSubmitting ? "登录中..." : "登 录"}
-									</Button>
-								</Stack>
-							</form>
-						</Form>
+						<form onSubmit={form.onSubmit(onSubmit)}>
+							<Stack gap="md">
+								<Input
+									type="text"
+									placeholder="用户名"
+									autoComplete="username"
+									autoFocus
+									size="lg"
+									disabled={isSubmitting}
+									{...form.getInputProps("username")}
+								/>
+								<Input
+									type="password"
+									placeholder="密码"
+									autoComplete="current-password"
+									size="lg"
+									disabled={isSubmitting}
+									{...form.getInputProps("password")}
+								/>
+								<Button
+									type="submit"
+									disabled={isSubmitting}
+									size="lg"
+									fullWidth
+								>
+									{isSubmitting ? "登录中..." : "登 录"}
+								</Button>
+							</Stack>
+						</form>
 					</Paper>
 
 					<Text size="xs" c="dimmed" mt="lg" ta={{ base: "center", lg: "left" }}>

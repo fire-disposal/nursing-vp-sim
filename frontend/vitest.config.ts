@@ -14,6 +14,8 @@ export default defineConfig({
 		environment: "jsdom",
 		setupFiles: ["./src/__tests__/setup.ts"],
 		globals: true,
+		// Mantine 组件（如 autosize Textarea）在 jsdom 中渲染/输入较慢，放宽超时
+		testTimeout: 20000,
 		css: { modules: { classNameStrategy: "non-scoped" } },
 	},
 });

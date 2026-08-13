@@ -1,21 +1,12 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Box, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
 import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
@@ -55,10 +46,9 @@ export default function GradesClassesPage() {
 	const { confirm } = useConfirm();
 
 	const form = useForm<GradeClassValues>({
-		resolver: zodResolver(gradeClassSchema),
-		defaultValues: { name: "", gradeId: "" },
+		initialValues: { name: "", gradeId: "" },
+		validate: schemaResolver(gradeClassSchema),
 	});
-	const { formState: { isDirty } } = form;
 
 	const { data: grades = [], isLoading } = useGradesQuery();
 	const { data: classes = [], isLoading: classesLoading } = useClassesQuery(
@@ -73,26 +63,29 @@ export default function GradesClassesPage() {
 
 	const openCreate = () => {
 		setEditId(null);
-		form.reset({ name: "", gradeId: "" });
+		form.setValues({ name: "", gradeId: "" });
+		form.resetDirty();
 		setModalOpen(true);
 	};
 
 	const requestCloseModal = async () => {
-		if (isDirty) {
+		if (form.isDirty()) {
 			const ok = await confirm({ title: `关闭${tab === "grades" ? "年级" : "班级"}编辑`, message: "内容未保存，确定关闭？" });
 			if (!ok) return;
 		}
-		form.reset({ name: "", gradeId: "" });
+		form.setValues({ name: "", gradeId: "" });
+		form.resetDirty();
 		setEditId(null);
 		setModalOpen(false);
 	};
 	const openEdit = (item: Grade | ClassItem) => {
 		setEditId(item.id);
-		form.reset({
+		form.setValues({
 			name: item.name,
 			gradeId:
 				tab === "classes" ? String((item as ClassItem).grade_id) : "",
 		});
+		form.resetDirty();
 		setModalOpen(true);
 	};
 
@@ -106,7 +99,7 @@ export default function GradesClassesPage() {
 				}
 			} else {
 				if (!values.gradeId) {
-					form.setError("gradeId", { message: "请选择所属年级" });
+					form.setFieldError("gradeId", "请选择所属年级");
 					return;
 				}
 				if (editId) {
@@ -345,67 +338,44 @@ export default function GradesClassesPage() {
 					}
 					maxWidth={560}
 				>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(onSubmit)}>
-							<Stack gap="sm">
-								{tab === "classes" && (
-									<FormField
-										control={form.control}
-										name="gradeId"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>所属年级</FormLabel>
-												<FormControl>
-													<Select
-														value={field.value || null}
-														onChange={(v) => field.onChange(v ?? "")}
-														data={[
-															{ value: "", label: "请选择年级" },
-															...grades.map((g) => ({
-																value: String(g.id),
-																label: g.name,
-															})),
-														]}
-													/>
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-								)}
-								<FormField
-									control={form.control}
-									name="name"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>名称</FormLabel>
-											<FormControl>
-												<Input
-													placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
+					<form onSubmit={form.onSubmit(onSubmit)}>
+						<Stack gap="sm">
+							{tab === "classes" && (
+								<Select
+									label="所属年级"
+									value={form.values.gradeId || null}
+									onChange={(v) => form.setFieldValue("gradeId", v ?? "")}
+									error={form.errors.gradeId}
+									data={[
+										{ value: "", label: "请选择年级" },
+										...grades.map((g) => ({
+											value: String(g.id),
+											label: g.name,
+										})),
+									]}
 								/>
-								<DialogFooter>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => {
-											void requestCloseModal();
-										}}
-									>
-										取消
-									</Button>
-									<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-										{editId ? "保存" : "创建"}
-									</Button>
-								</DialogFooter>
-							</Stack>
-						</form>
-					</Form>
+							)}
+							<Input
+								label="名称"
+								placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
+								{...form.getInputProps("name")}
+							/>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										void requestCloseModal();
+									}}
+								>
+									取消
+								</Button>
+								<Button type="submit" disabled={form.submitting}>
+									{editId ? "保存" : "创建"}
+								</Button>
+							</DialogFooter>
+						</Stack>
+					</form>
 				</DialogContent>
 			</Dialog>
 		</div>

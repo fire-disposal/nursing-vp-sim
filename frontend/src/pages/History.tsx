@@ -1,6 +1,6 @@
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Group, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Box, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -14,7 +14,6 @@ import ErrorDisplay from "@/components/ui/error-display";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -152,17 +151,14 @@ export default function History() {
 					)}
 					<Box style={{ flex: 1 }} />
 					<Box w={120}>
-						<Select value={status ?? "all"} onValueChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}>
-							<SelectTrigger size="sm">
-								<SelectValue placeholder="全部状态" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="all">全部状态</SelectItem>
-								<SelectItem value="in_progress">进行中</SelectItem>
-								<SelectItem value="completed">已完成</SelectItem>
-								<SelectItem value="abandoned">已放弃</SelectItem>
-							</SelectContent>
-						</Select>
+						<Select
+							data={[{ value: "all", label: "全部状态" }, { value: "in_progress", label: "进行中" }, { value: "completed", label: "已完成" }, { value: "abandoned", label: "已放弃" }]}
+							value={status || "all"}
+							onChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}
+							placeholder="全部状态"
+							size="xs"
+							allowDeselect={false}
+						/>
 					</Box>
 					<Input
 						type="date"

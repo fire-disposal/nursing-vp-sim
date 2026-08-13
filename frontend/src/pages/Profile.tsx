@@ -12,8 +12,7 @@ import {
 	IconSun,
 	IconUser,
 } from "@tabler/icons-react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { schemaResolver, useForm } from "@mantine/form";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -36,9 +35,6 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-	Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import { Input } from "@/components/ui/input";
 import ProfileTabs from "@/components/shell/ProfileTabs";
@@ -67,21 +63,21 @@ export default function Profile() {
 	const [aboutOpen, setAboutOpen] = useState(false);
 
 	const profileForm = useForm<ProfileFormValues>({
-		resolver: zodResolver(profileSchema),
-		defaultValues: {
+		initialValues: {
 			displayName: storeUser?.display_name || "",
 			studentId: storeUser?.student_id || "",
 			gender: storeUser?.gender || "",
 		},
+		validate: schemaResolver(profileSchema),
 	});
 
 	const pwForm = useForm<PasswordChangeFormValues>({
-		resolver: zodResolver(passwordChangeSchema),
-		defaultValues: { oldPassword: "", newPassword: "" },
+		initialValues: { oldPassword: "", newPassword: "" },
+		validate: schemaResolver(passwordChangeSchema),
 	});
 
 	const openEditDialog = () => {
-		profileForm.reset({
+		profileForm.setValues({
 			displayName: storeUser?.display_name || "",
 			studentId: storeUser?.student_id || "",
 			gender: storeUser?.gender || "",
@@ -307,47 +303,28 @@ export default function Profile() {
 				<Dialog open={editOpen} onOpenChange={(o) => { if (!o) setEditOpen(false); }}>
 					<DialogContent title="编辑资料" maxWidth={480}>
 						<FormMessageBanner type={saveMsg.includes("成功") ? "success" : "error"} message={saveMsg} />
-						<Form {...profileForm}>
-							<form onSubmit={profileForm.handleSubmit(handleSave)}>
-								<Stack gap="md" mt="xs">
-									<FormField control={profileForm.control} name="displayName"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>显示名称</FormLabel>
-												<FormControl><Input {...field} /></FormControl>
-												<FormMessage />
-											</FormItem>
-										)} />
-									<FormField control={profileForm.control} name="studentId"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>学号</FormLabel>
-												<FormControl><Input {...field} placeholder="选填" /></FormControl>
-												<FormMessage />
-											</FormItem>
-										)} />
-									<FormField control={profileForm.control} name="gender"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>性别</FormLabel>
-												<Group gap="xs">
-													<Button type="button" variant={field.value === "男" ? "default" : "outline"} size="sm"
-														onClick={() => field.onChange("男")}>男</Button>
-													<Button type="button" variant={field.value === "女" ? "default" : "outline"} size="sm"
-														onClick={() => field.onChange("女")}>女</Button>
-												</Group>
-												<FormMessage />
-											</FormItem>
-										)} />
-									<Group justify="flex-end" gap="xs" pt="xs">
-										<Button type="button" variant="outline" onClick={() => setEditOpen(false)}>取消</Button>
-										<Button type="submit" loading={profileForm.formState.isSubmitting}>
-											保存
-										</Button>
+						<form onSubmit={profileForm.onSubmit(handleSave)}>
+							<Stack gap="md" mt="xs">
+								<Input label="显示名称" {...profileForm.getInputProps("displayName")} />
+								<Input label="学号" placeholder="选填" {...profileForm.getInputProps("studentId")} />
+								<Box>
+									<Text component="label" size="sm" fw={500} mb={4}>性别</Text>
+									<Group gap="xs">
+										<Button type="button" variant={profileForm.values.gender === "男" ? "default" : "outline"} size="sm"
+											onClick={() => profileForm.setFieldValue("gender", "男")}>男</Button>
+										<Button type="button" variant={profileForm.values.gender === "女" ? "default" : "outline"} size="sm"
+											onClick={() => profileForm.setFieldValue("gender", "女")}>女</Button>
 									</Group>
-								</Stack>
-							</form>
-						</Form>
+									{profileForm.errors.gender && <Text c="red" size="xs" mt={4}>{profileForm.errors.gender}</Text>}
+								</Box>
+								<Group justify="flex-end" gap="xs" pt="xs">
+									<Button type="button" variant="outline" onClick={() => setEditOpen(false)}>取消</Button>
+									<Button type="submit" loading={profileForm.submitting}>
+										保存
+									</Button>
+								</Group>
+							</Stack>
+						</form>
 					</DialogContent>
 				</Dialog>
 
@@ -355,34 +332,18 @@ export default function Profile() {
 				<Dialog open={pwdOpen} onOpenChange={(o) => { if (!o) setPwdOpen(false); }}>
 					<DialogContent title="修改密码" maxWidth={480}>
 						<FormMessageBanner type={pwdMsg.includes("成功") ? "success" : "error"} message={pwdMsg} />
-						<Form {...pwForm}>
-							<form onSubmit={pwForm.handleSubmit(handleChangePassword)}>
-								<Stack gap="sm" mt="xs">
-									<FormField control={pwForm.control} name="oldPassword"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>当前密码</FormLabel>
-												<FormControl><Input type="password" {...field} /></FormControl>
-												<FormMessage />
-											</FormItem>
-										)} />
-									<FormField control={pwForm.control} name="newPassword"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>新密码</FormLabel>
-												<FormControl><Input type="password" {...field} /></FormControl>
-												<FormMessage />
-											</FormItem>
-										)} />
-									<Group justify="flex-end" gap="xs" pt="xs">
-										<Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>取消</Button>
-										<Button type="submit" loading={pwForm.formState.isSubmitting}>
-											确认修改
-										</Button>
-									</Group>
-								</Stack>
-							</form>
-						</Form>
+						<form onSubmit={pwForm.onSubmit(handleChangePassword)}>
+							<Stack gap="sm" mt="xs">
+								<Input type="password" label="当前密码" {...pwForm.getInputProps("oldPassword")} />
+								<Input type="password" label="新密码" {...pwForm.getInputProps("newPassword")} />
+								<Group justify="flex-end" gap="xs" pt="xs">
+									<Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>取消</Button>
+									<Button type="submit" loading={pwForm.submitting}>
+										确认修改
+									</Button>
+								</Group>
+							</Stack>
+						</form>
 					</DialogContent>
 				</Dialog>
 

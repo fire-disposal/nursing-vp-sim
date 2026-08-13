@@ -1,7 +1,6 @@
 import { IconPencil, IconPlus, IconSearch, IconTrash, IconWand, IconX } from "@tabler/icons-react";
-import { ActionIcon, Badge, Box, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Badge, Box, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import Button from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Pagination from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
@@ -76,25 +75,24 @@ export default function CaseList({
 
 			<Group gap={8}>
 				<Box w={110}>
-					<Select value={filters.difficulty || "all"} onValueChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}>
-						<SelectTrigger size="sm"><SelectValue placeholder="全部难度" /></SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">全部难度</SelectItem>
-							<SelectItem value="1">初级</SelectItem>
-							<SelectItem value="2">中级</SelectItem>
-							<SelectItem value="3">高级</SelectItem>
-						</SelectContent>
-					</Select>
+					<Select
+						data={[{ value: "all", label: "全部难度" }, { value: "1", label: "初级" }, { value: "2", label: "中级" }, { value: "3", label: "高级" }]}
+						value={filters.difficulty || "all"}
+						onChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}
+						placeholder="全部难度"
+						size="xs"
+						allowDeselect={false}
+					/>
 				</Box>
 				<Box w={110}>
-					<Select value={filters.is_open ?? "all"} onValueChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}>
-						<SelectTrigger size="sm"><SelectValue placeholder="全部状态" /></SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">全部状态</SelectItem>
-							<SelectItem value="true">已开放</SelectItem>
-							<SelectItem value="false">已关闭</SelectItem>
-						</SelectContent>
-					</Select>
+					<Select
+						data={[{ value: "all", label: "全部状态" }, { value: "true", label: "已开放" }, { value: "false", label: "已关闭" }]}
+						value={filters.is_open || "all"}
+						onChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}
+						placeholder="全部状态"
+						size="xs"
+						allowDeselect={false}
+					/>
 				</Box>
 			</Group>
 

@@ -1,8 +1,7 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge, Box, Code, Group, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
 import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
@@ -11,15 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
@@ -40,6 +30,7 @@ export default function RolesPage() {
 	const toast = useToast();
 	const [roles, setRoles] = useState<RoleItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
 	const [editPerms, setEditPerms] = useState<string[]>([]);
 	const [editDisplayName, setEditDisplayName] = useState("");
@@ -48,8 +39,8 @@ export default function RolesPage() {
 	const { confirm } = useConfirm();
 
 	const form = useForm<RoleCreateValues>({
-		resolver: zodResolver(roleCreateSchema),
-		defaultValues: { name: "", displayName: "" },
+		initialValues: { name: "", displayName: "" },
+		validate: schemaResolver(roleCreateSchema),
 	});
 
 	const loadRoles = useCallback(async () => {
@@ -101,6 +92,8 @@ export default function RolesPage() {
 	};
 
 	const onSubmit = async (values: RoleCreateValues) => {
+		if (isSubmitting) return;
+		setIsSubmitting(true);
 		try {
 			await createRole({
 				name: values.name,
@@ -113,6 +106,8 @@ export default function RolesPage() {
 			loadRoles();
 		} catch (e: unknown) {
 			toast.apiError(e, "创建失败");
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
@@ -268,7 +263,7 @@ export default function RolesPage() {
 				open={showCreate}
 				onOpenChange={async (o) => {
 					if (!o) {
-						if (form.formState.isDirty) {
+						if (form.isDirty()) {
 							const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
 							if (!ok) return;
 						}
@@ -278,63 +273,42 @@ export default function RolesPage() {
 				}}
 			>
 				<DialogContent title="新建角色" maxWidth={560}>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(onSubmit)}>
-							<Stack gap="md" py={8}>
-								<FormField
-									control={form.control}
-									name="name"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>角色标识</FormLabel>
-											<FormControl>
-												<Input
-													placeholder="英文标识，如：intern_teacher"
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="displayName"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>显示名称</FormLabel>
-											<FormControl>
-												<Input placeholder="如：见习教师" {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<DialogFooter>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={async () => {
-											if (form.formState.isDirty) {
-												const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
-												if (!ok) return;
-											}
-											form.reset();
-											setShowCreate(false);
-										}}
-									>
-										取消
-									</Button>
-									<Button
-										onClick={form.handleSubmit(onSubmit)}
-										disabled={form.formState.isSubmitting}
-									>
-										{form.formState.isSubmitting ? "创建中..." : "创建角色"}
-									</Button>
-								</DialogFooter>
-							</Stack>
-						</form>
-					</Form>
+					<form onSubmit={form.onSubmit(onSubmit)}>
+						<Stack gap="md" py={8}>
+							<TextInput
+								label="角色标识"
+								placeholder="英文标识，如：intern_teacher"
+								{...form.getInputProps("name")}
+							/>
+							<TextInput
+								label="显示名称"
+								placeholder="如：见习教师"
+								{...form.getInputProps("displayName")}
+							/>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={async () => {
+										if (form.isDirty()) {
+											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });
+											if (!ok) return;
+										}
+										form.reset();
+										setShowCreate(false);
+									}}
+								>
+									取消
+								</Button>
+								<Button
+									type="submit"
+									disabled={isSubmitting}
+								>
+									{isSubmitting ? "创建中..." : "创建角色"}
+								</Button>
+							</DialogFooter>
+						</Stack>
+					</form>
 				</DialogContent>
 			</Dialog>
 		</Stack>
