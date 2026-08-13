@@ -69,7 +69,7 @@ function SideNavGroup({
 /**
  * AdminSidebarNav — 管理端侧边导航（Mantine NavLink 可折叠分组）
  */
-export default function AdminSidebarNav({
+export default function SidebarNav({
 	userLinks,
 	adminLinks,
 	onNavigate,

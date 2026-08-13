@@ -346,7 +346,7 @@ export default function QA() {
 					</Button>
 				</Group>
 
-				<Box px="md" py="lg" style={{ minHeight: 0, flex: 1, overflowY: "auto" }}>
+				<Box px="md" py="md" style={{ minHeight: 0, flex: 1, overflowY: "auto" }}>
 					{messages.length === 0 ? (
 						<QAWelcome onAsk={sendMessage} />
 					) : (
@@ -491,8 +491,8 @@ function QASidebar({
 
 function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 	return (
-		<Box mx="auto" w="100%" maw={1024}>
-			<Stack gap="md" py="lg">
+		<Box maw={800} mx="auto">
+			<Stack gap="lg">
 				<Box>
 					<Group gap="xs" style={{ display: "inline-flex", width: "fit-content" }} px="sm" py={4} wrap="nowrap" mb="md">
 						<IconSparkles size={15} />
