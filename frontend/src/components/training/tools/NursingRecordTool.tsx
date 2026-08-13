@@ -1,7 +1,7 @@
 // Save（lucide）在 tabler 无同名图标，语义上取 IconDeviceFloppy（软盘保存）。
-import { IconAlertCircle, IconDeviceFloppy, IconFileText, IconLoader2 } from "@tabler/icons-react";
+import { IconAlertCircle, IconDeviceFloppy, IconFileText } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Group, Text } from "@mantine/core";
+import { Alert, Box, Button, Group, Loader, Stack, Text, Textarea } from "@mantine/core";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 
@@ -162,26 +162,23 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 
 	if (loading) {
 		return (
-			<Group h={128} justify="center" align="center" wrap="nowrap" c="dimmed" gap={8}>
-				<IconLoader2 size={18} className="animate-spin" />
-				<Text size="xs">加载评估记录…</Text>
+			<Group h={128} justify="center" align="center" c="dimmed" gap="xs">
+				<Loader size="sm" />
+				<Text size="sm">加载评估记录…</Text>
 			</Group>
 		);
 	}
 
 	if (loadError) {
 		return (
-			<Box style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, height: 128, padding: 12 }}>
-				<IconAlertCircle size={18} style={{ color: "var(--mantine-color-red-6)" }} />
-				<Text size="xs" ta="center" c="dimmed">{loadError}</Text>
-				<Button
-					variant="outline"
-					size="xs"
-					onClick={requestLoad}
-				>
+			<Alert variant="light" color="red" icon={<IconAlertCircle size={16} />} title="加载失败">
+				<Text size="sm" c="red">
+					{loadError}
+				</Text>
+				<Button variant="outline" size="sm" mt="sm" onClick={requestLoad}>
 					重试
 				</Button>
-			</Box>
+			</Alert>
 		);
 	}
 
@@ -195,55 +192,43 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 				e.preventDefault();
 				doSave(sheet);
 			}}
-			style={{ display: "flex", flexDirection: "column", gap: 12 }}
 		>
-			{FIELD_KEYS.map((key) => {
-				const label = template.fields?.[key] || FALLBACK_LABELS[key] || key;
-				const placeholder = hints[key] || FALLBACK_PLACEHOLDERS[key] || "";
-				return (
-					<Box key={key}>
-						<Text component="label" size="11px" fw={500} c="dimmed" mb={4} style={{ display: "block" }}>
-							{label}
-						</Text>
-						<textarea
+			<Stack gap="md">
+				{FIELD_KEYS.map((key) => {
+					const label = template.fields?.[key] || FALLBACK_LABELS[key] || key;
+					const placeholder = hints[key] || FALLBACK_PLACEHOLDERS[key] || "";
+					return (
+						<Textarea
+							key={key}
+							label={label}
 							value={sheet[key] || ""}
-							onChange={(e) => update(key, e.target.value)}
+							onChange={(e) => update(key, e.currentTarget.value)}
 							placeholder={placeholder}
-							style={{
-								width: "100%",
-								borderRadius: 8,
-								border: "1px solid var(--mantine-color-default-border)",
-								background: "var(--mantine-color-body)",
-								padding: 8,
-								fontSize: 12,
-								lineHeight: 1.6,
-								resize: "vertical",
-								minHeight: 56,
-								color: "var(--mantine-color-text)",
-								fontFamily: "inherit",
-							}}
+							autosize
+							minRows={2}
+							maxRows={10}
 						/>
-					</Box>
-				);
-			})}
+					);
+				})}
 
-			<Group justify="space-between" wrap="nowrap" pt={4}>
-				<Group gap={6} wrap="nowrap">
-					<IconFileText size={12} style={{ color: "var(--mantine-color-dimmed)" }} />
-					<Text size="xs" c="dimmed">
-						{saveStatus === "saving"
-							? "保存中…"
-							: saveStatus === "saved"
-								? `已自动保存 ${lastSavedAt || ""}`
-								: saveStatus === "error"
-									? "保存失败"
-									: "护理评估记录"}
-					</Text>
+				<Group justify="space-between" wrap="nowrap" pt="xs">
+					<Group gap={6} wrap="nowrap">
+						<IconFileText size={14} style={{ color: "var(--mantine-color-dimmed)" }} />
+						<Text size="sm" c="dimmed">
+							{saveStatus === "saving"
+								? "保存中…"
+								: saveStatus === "saved"
+									? `已自动保存 ${lastSavedAt || ""}`
+									: saveStatus === "error"
+										? "保存失败"
+										: "护理评估记录"}
+						</Text>
+					</Group>
+					<Button type="submit" size="sm" leftSection={<IconDeviceFloppy size={14} />}>
+						保存
+					</Button>
 				</Group>
-				<Button type="submit" size="xs" leftSection={<IconDeviceFloppy size={12} />}>
-					保存
-				</Button>
-			</Group>
+			</Stack>
 		</Box>
 	);
 }

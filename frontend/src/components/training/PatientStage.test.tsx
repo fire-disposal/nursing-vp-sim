@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from "@/__tests__/render";
+import { cleanup, fireEvent, render, waitFor } from "@/__tests__/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PatientStage from "./PatientStage";
 import { useTrainingStore } from "@/stores/trainingStore";
@@ -21,33 +21,33 @@ describe("PatientStage", () => {
 			emotion4D: "irritated",
 		});
 		const { container, getAllByText } = render(<PatientStage />);
-		// 大脸铺满方框宽（fill 模式 width:100%），不再渲染情绪换脸 SVG
 		const faceImg = Array.from(container.querySelectorAll("img")).find((img) => (img as HTMLImageElement).style.width === "100%");
 		expect(faceImg).toBeDefined();
-		// 姓名作为身份标签存在（移动端条 + 桌面标签两处）
 		expect(getAllByText(/王建国/).length).toBeGreaterThan(0);
 	});
 
 	it("collapses and expands the content on mobile toggle", () => {
 		const { container, getByLabelText } = render(<PatientStage />);
-		const content = container.querySelector("[data-patient-stage-content]");
-		expect(content?.className).toContain("flex");
+		const content = container.querySelector("[data-patient-stage-content]") as HTMLElement;
+		expect(content.style.display).toBe("flex");
 		fireEvent.click(getByLabelText("折叠患者区"));
-		expect(content?.className).toContain("hidden");
+		expect(content.style.display).toBe("none");
 		fireEvent.click(getByLabelText("展开患者区"));
-		expect(content?.className).toContain("flex");
+		expect(content.style.display).toBe("flex");
 	});
 
-	it("collapses to a slim rail and expands on desktop", () => {
+	it("collapses to a slim rail and expands on desktop", async () => {
 		const { container, getByLabelText, queryByLabelText } = render(<PatientStage />);
-		// 展开态：方框内容 + 收起控件
 		expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull();
 		fireEvent.click(getByLabelText("收起患者区"));
-		// 收起态：方框内容消失，出现展开把手
-		expect(container.querySelector("[data-patient-stage-content]")).toBeNull();
+		await waitFor(() => {
+			expect(container.querySelector("[data-patient-stage-content]")).toBeNull();
+		});
 		expect(queryByLabelText("展开患者区")).not.toBeNull();
 		fireEvent.click(getByLabelText("展开患者区"));
-		expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull();
+		await waitFor(() => {
+			expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull();
+		});
 	});
 
 	it("renders without patient data (anonymized) without crash", () => {
