@@ -25,7 +25,6 @@ function makeInit(overrides: Record<string, unknown> = {}) {
 		timeLimitMinutes: 20,
 		recordDetail: null,
 		initialMessages: [],
-		startTime: "2026-08-01T10:00:00Z",
 		...overrides,
 	};
 }

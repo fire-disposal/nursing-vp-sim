@@ -87,7 +87,8 @@ export default function PhysicalExamTool(props: TrainingToolProps) {
     const prior = recordDetail.exam_results;
     if (Array.isArray(prior) && prior.length > 0) {
       const seeded: Record<string, ExamResultState> = {};
-      for (const e of prior) {
+      for (const raw of prior) {
+        const e = raw as { type?: string; value?: unknown; status?: unknown } | null | undefined;
         if (e?.type) seeded[e.type] = { value: String(e.value ?? ""), status: typeof e.status === "string" ? e.status : undefined };
       }
       setResults(seeded);

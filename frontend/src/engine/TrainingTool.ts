@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { TrainingRecordDetail } from "./training-record-types";
+import type { SessionRecordDetail } from "./training-record-types";
 import type { MessageBus } from "./types";
 
 /** A training tool = a protocolised frontend component.
@@ -19,5 +19,5 @@ export interface TrainingTool {
 export interface TrainingToolProps {
   bus: MessageBus;
   recordId: string;
-  recordDetail: TrainingRecordDetail | null;
+  recordDetail: SessionRecordDetail | null;
 }

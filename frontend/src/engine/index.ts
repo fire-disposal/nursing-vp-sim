@@ -3,7 +3,7 @@ export { notifyProgress, ScoreManager } from "./ScoreManager";
 export { TrainingDataProvider, useTrainingData, usePatientData, useInitialMessages, useRecordCapabilities, useTrainingType, useTimeLimit, useStartTime, useEmotionSeed, useSceneSeed, useRecordStatus, useRecordAsDetail } from "./TrainingDataContext";
 export { TrainingEngine } from "./TrainingEngine";
 export type { TrainingTool, TrainingToolProps } from "./TrainingTool";
-export type { TrainingRecordDetail } from "./training-record-types";
+export type { SessionRecordDetail, TrainingRecordDetail } from "./training-record-types";
 export type {
 	BadgeInfo,
 	ChatMessage,

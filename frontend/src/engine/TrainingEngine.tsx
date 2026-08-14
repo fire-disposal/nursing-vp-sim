@@ -27,7 +27,6 @@ import {
 	useRecordCapabilities,
 	useInitialMessages,
 	useTimeLimit,
-	useStartTime,
 	useEmotionSeed,
 	useSceneSeed,
 	useRecordStatus,
@@ -60,7 +59,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const capabilities = useRecordCapabilities();
 	const initialMessages = useInitialMessages();
 	const timeLimit = useTimeLimit();
-	const startTime = useStartTime();
 	const emotionSeed = useEmotionSeed();
 	const sceneSeed = useSceneSeed();
 	const recordStatus = useRecordStatus();
@@ -92,13 +90,12 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			timeLimitMinutes: timeLimit,
 			recordDetail,
 			initialMessages,
-			startTime,
 			emotionSeed,
 		});
 		setReadyRecordId(recordId);
 	}, [
 		recordId, patient, trainingType, capabilities, timeLimit,
-		recordDetail, initialMessages, startTime, emotionSeed,
+		recordDetail, initialMessages, emotionSeed,
 	]);
 
 	// ── TTS attach ──
@@ -271,13 +268,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		unsubs.push(busRef.current.on("stream:error", (err: string) => {
 			toastError(err || "发送消息失败，请重试");
 		}));
-
-		unsubs.push(busRef.current.on(
-			"tts:provider-status",
-			(data: { provider: string; latencyMs: number }) => {
-				getTrainingState().setVoiceStatus(data);
-			},
-		));
 
 		return () => { for (const u of unsubs) u(); };
 	}, [toastError, patient]);

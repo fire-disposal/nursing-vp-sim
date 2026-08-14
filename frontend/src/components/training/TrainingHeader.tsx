@@ -56,8 +56,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
 	const toast = useToast();
-	// 自定义 detail 类型带索引签名，remaining_seconds 需显式窄化
-	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds) as number | null | undefined;
+	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds);
 
 	const {
 		remaining,

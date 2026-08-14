@@ -37,7 +37,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const emotionBorder = useMemo(() => getEmotionBorder(emotion4D), [emotion4D]);
   const sending = useTrainingStore((s) => s.sending);
   const trainingEnded = useTrainingStore((s) => s.trainingEnded);
-  const correction = useTrainingStore((s) => s.recordDetail?.message_correction as { remaining?: number; eligible_last_message_id?: number | null } | undefined);
+  const correction = useTrainingStore((s) => s.recordDetail?.message_correction);
   const eligibleLastMessageId = correction?.eligible_last_message_id;
   const correctionsRemaining = correction?.remaining ?? 0;
   const [examResults, setExamResults] = useState<ChatMessage[]>([]);

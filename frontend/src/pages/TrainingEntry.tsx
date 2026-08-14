@@ -20,14 +20,19 @@ export default function TrainingEntry() {
 		enabled: !!recordId,
 		retry: 3,
 		staleTime: 5 * 60_000,  // 5min — 信任 startTraining 返回的 session 缓存数据
+		// 训练进行中每 15s 轻量轮询：感知服务端状态变更（他端结束、remaining 校准）。
+		// 安全前提：trainingStore.init 幂等守卫保证轮询 refetch 不会冲掉会话内消息。
+		refetchInterval: (query) =>
+			query.state.data?.status === "in_progress" ? 15_000 : false,
 	});
 
-	// 进入训练页：恢复倒计时（离开期间服务端暂停，重进后 remaining 顺延）
+	// 进入训练页：恢复倒计时（离开期间服务端暂停，重进后 remaining 顺延）；
+	// 无论恢复成功与否都重取一次完整详情，避免 startTraining 预写 session 缺字段
 	useEffect(() => {
 		if (!recordId) return;
 		resumeTraining(Number(recordId))
 			.catch(() => {})
-			.then(() => refetch());
+			.finally(() => refetch());
 	}, [recordId, refetch]);
 
 	// 离开训练页：暂停倒计时（fire-and-forget）

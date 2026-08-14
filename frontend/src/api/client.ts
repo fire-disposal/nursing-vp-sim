@@ -105,6 +105,12 @@ api.interceptors.response.use(
 		if (!shouldRetry) {
 			return Promise.reject(err);
 		}
+		// 离线时不盲目等待退避：直接失败，交由上层（网络横幅/重试按钮）处理
+		if (typeof navigator !== "undefined" && !navigator.onLine) {
+			return Promise.reject(
+				new Error("网络已断开，请检查网络连接后重试"),
+			);
+		}
 		const delay = Math.min(1000 * 2 ** retryCount, 8000);
 		console.warn(
 			"[axios] 后端未就绪，%ds 后重试 (%d/%d): %s %s",
