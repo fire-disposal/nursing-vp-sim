@@ -9,6 +9,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import ErrorDisplay from "@/components/ui/error-display";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
@@ -130,46 +131,40 @@ export default function History() {
 
 	return (
 		<RecordSubPageLayout title="训练记录" icon={IconClipboardList}>
-			<Paper withBorder radius="md" p="md">
-				<Group gap="xs" align="center" wrap="wrap">
-					<Text size="xs" c="dimmed">
-						共 {total} 条
-					</Text>
-					{records.length > 0 && (
-						<Text size="xs" c="dimmed">
-							· 已完成 {records.filter((r) => r.status === "completed").length}
-						</Text>
-					)}
-					<Box style={{ flex: 1 }} />
-					<Box w={120}>
-						<Select
-							data={[{ value: "all", label: "全部状态" }, { value: "in_progress", label: "进行中" }, { value: "completed", label: "已完成" }, { value: "abandoned", label: "已放弃" }]}
-							value={status || "all"}
-							onChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}
-							placeholder="全部状态"
-							size="xs"
-							allowDeselect={false}
+			<FilterToolbar
+				summary={total > 0 ? `共 ${total} 条` : undefined}
+				filters={
+					<>
+						<Box w={120}>
+							<Select
+								data={[{ value: "all", label: "全部状态" }, { value: "in_progress", label: "进行中" }, { value: "completed", label: "已完成" }, { value: "abandoned", label: "已放弃" }]}
+								value={status || "all"}
+								onChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}
+								size="sm"
+								allowDeselect={false}
+							/>
+						</Box>
+						<TextInput
+							type="date"
+							size="sm"
+							w={140}
+							label="从"
+							value={date_from}
+							onChange={(e) => setParam("date_from", e.target.value)}
 						/>
-					</Box>
-					<TextInput
-						type="date"
-						size="xs"
-						w={140}
-						value={date_from}
-						onChange={(e) => setParam("date_from", e.target.value)}
-					/>
-					<TextInput
-						type="date"
-						size="xs"
-						w={140}
-						value={date_to}
-						onChange={(e) => setParam("date_to", e.target.value)}
-					/>
-					<Button variant="outline" size="xs" onClick={clearFilters}>
-						清除
-					</Button>
-				</Group>
-			</Paper>
+						<TextInput
+							type="date"
+							size="sm"
+							w={140}
+							label="至"
+							value={date_to}
+							onChange={(e) => setParam("date_to", e.target.value)}
+						/>
+					</>
+				}
+				hasActiveFilters={!!(status || date_from || date_to)}
+				onClear={clearFilters}
+			/>
 
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" message="加载中..." />

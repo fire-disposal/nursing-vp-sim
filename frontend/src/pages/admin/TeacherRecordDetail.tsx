@@ -1,6 +1,6 @@
-import { ActionIcon, Anchor, Box, Container, Flex, Group, Paper, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Container, Flex, Paper, Stack, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconArrowLeft, IconChartBar } from "@tabler/icons-react";
+import { IconChartBar } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -16,6 +16,7 @@ import { useToast } from "@/components/Toast";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import type { MessageData } from "../record-detail/MessagePlayback";
@@ -260,19 +261,10 @@ export default function TeacherRecordDetail() {
 	return (
 		<>
 			<Container size="lg" pt="xs" pb="xl">
-				<Group gap={8} mb="sm" align="center" wrap="nowrap">
-					<ActionIcon
-						variant="default"
-						size="lg"
-						onClick={() => navigate("/admin/records")}
-						aria-label="返回"
-					>
-						<IconArrowLeft size={16} />
-					</ActionIcon>
-					<Text size="sm" fw={600} truncate>
-						{record ? `${record.user_display_name || ""} · ${record.case_name || ""}` : "训练详情"}
-					</Text>
-				</Group>
+				<PageHeader
+					title={record ? [record.user_display_name, record.case_name].filter(Boolean).join(" · ") : "训练详情"}
+					backTo="/admin/records"
+				/>
 				<RecordStatsBar
 					record={record as { user_display_name?: string; case_name?: string; training_type?: string }}
 					duration={duration}

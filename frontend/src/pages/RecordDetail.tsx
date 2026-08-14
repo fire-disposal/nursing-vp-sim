@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { ActionIcon, Box, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { Box, Container, Paper, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
 import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
@@ -69,20 +69,10 @@ export default function RecordDetail() {
 
 	return (
 		<Container size="xl" py="md">
-			<Group gap="xs" mb="md">
-				<ActionIcon
-					variant="default"
-					size="lg"
-					onClick={() => navigate(-1)}
-					aria-label="返回"
-				>
-					<IconArrowLeft size={16} />
-				</ActionIcon>
-				<Title order={2} size="sm" lineClamp={1}>
-					{(record as { user_display_name?: string }).user_display_name || ""} ·{" "}
-					{(record as { case_name?: string }).case_name || ""}
-				</Title>
-			</Group>
+			<PageHeader
+				title={[record.user_display_name, record.case_name].filter(Boolean).join(" · ")}
+				backTo="/history"
+			/>
 
 			<RecordStatsBar
 				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; training_type?: string; user_display_name?: string; case_name?: string }}

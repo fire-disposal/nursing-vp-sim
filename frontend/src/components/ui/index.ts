@@ -2,6 +2,7 @@ export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 export { default as DataTable } from "./data-table";
 export type { DataTableColumn, DataTableProps } from "./data-table";
 export { default as EmptyState } from "./empty-state";
+export { FilterToolbar } from "./filter-toolbar";
 export { default as ErrorDisplay } from "./error-display";
 export { default as LoadingSkeleton } from "./loading-skeleton";
 export { ModeToggle } from "./mode-toggle";
