@@ -8519,6 +8519,164 @@
   },
   "components": {
     "schemas": {
+      "ActionCatalogOut": {
+        "properties": {
+          "assess": {
+            "items": {
+              "$ref": "#/components/schemas/ActionEntry"
+            },
+            "type": "array",
+            "title": "Assess",
+            "default": []
+          },
+          "order": {
+            "items": {
+              "$ref": "#/components/schemas/ActionEntry"
+            },
+            "type": "array",
+            "title": "Order",
+            "default": []
+          },
+          "give": {
+            "items": {
+              "$ref": "#/components/schemas/ActionEntry"
+            },
+            "type": "array",
+            "title": "Give",
+            "default": []
+          },
+          "talk": {
+            "items": {
+              "$ref": "#/components/schemas/ActionEntry"
+            },
+            "type": "array",
+            "title": "Talk",
+            "default": []
+          },
+          "manage": {
+            "items": {
+              "$ref": "#/components/schemas/ActionEntry"
+            },
+            "type": "array",
+            "title": "Manage",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ActionCatalogOut"
+      },
+      "ActionEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          },
+          "cost_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Label"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "turnaround": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnaround"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "default_dose": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Dose"
+          },
+          "max_dose": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Dose"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ActionEntry",
+        "description": "One actionable item — the server-driven button contract.\n\nThe frontend renders every action from this; ``enabled`` /\n``disabled_reason`` are computed by the engine, so a disabled button\nalways explains itself and the UI never re-implements a rule."
+      },
       "ActionResultResponse": {
         "properties": {
           "session_id": {
@@ -9769,6 +9927,75 @@
           "name"
         ],
         "title": "CaseBrief"
+      },
+      "CaseBriefOut": {
+        "properties": {
+          "patient": {
+            "type": "string",
+            "title": "Patient"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal"
+          },
+          "resources": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Resources",
+            "default": {}
+          },
+          "assessments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assessments",
+            "default": []
+          },
+          "drugs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Drugs",
+            "default": []
+          },
+          "labs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labs",
+            "default": []
+          },
+          "talk_roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Talk Roles",
+            "default": []
+          },
+          "opening_hint": {
+            "type": "string",
+            "title": "Opening Hint",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "patient",
+          "task",
+          "goal"
+        ],
+        "title": "CaseBriefOut",
+        "description": "开局简报 — CaseSpec 派生的结构化开局信息，前端渲染简报卡。"
       },
       "CaseCreateRequest": {
         "properties": {
@@ -11028,6 +11255,24 @@
         ],
         "title": "HealthResponse"
       },
+      "HintOut": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "text"
+        ],
+        "title": "HintOut"
+      },
       "InitiativeTriggerResponse": {
         "properties": {
           "triggered": {
@@ -11526,6 +11771,54 @@
         ],
         "title": "MessageItem"
       },
+      "ObjectivesOut": {
+        "properties": {
+          "assessed": {
+            "type": "boolean",
+            "title": "Assessed",
+            "default": false
+          },
+          "evidence": {
+            "type": "boolean",
+            "title": "Evidence",
+            "default": false
+          },
+          "monitoring": {
+            "type": "boolean",
+            "title": "Monitoring",
+            "default": false
+          },
+          "treated": {
+            "type": "boolean",
+            "title": "Treated",
+            "default": false
+          },
+          "reported": {
+            "type": "boolean",
+            "title": "Reported",
+            "default": false
+          },
+          "diagnosis": {
+            "type": "boolean",
+            "title": "Diagnosis",
+            "default": false
+          },
+          "timely": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timely"
+          }
+        },
+        "type": "object",
+        "title": "ObjectivesOut",
+        "description": "目标清单 — 病例目标的实时达成情况（纯函数计算，不泄露 hidden）。"
+      },
       "OkResponse": {
         "properties": {
           "ok": {
@@ -11994,6 +12287,40 @@
         },
         "type": "object",
         "title": "PatientPublicInfo"
+      },
+      "PatientStateOut": {
+        "properties": {
+          "consciousness": {
+            "type": "string",
+            "title": "Consciousness",
+            "default": "alert"
+          },
+          "consciousness_label": {
+            "type": "string",
+            "title": "Consciousness Label",
+            "default": "清醒"
+          },
+          "monitoring": {
+            "type": "boolean",
+            "title": "Monitoring",
+            "default": false
+          },
+          "latest_vitals": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Vitals"
+          }
+        },
+        "type": "object",
+        "title": "PatientStateOut",
+        "description": "床旁患者状态 — 只含玩家已知信息（意识档位/监护/最近生命体征）。"
       },
       "PendingLabSummary": {
         "properties": {
@@ -14282,6 +14609,28 @@
               }
             ],
             "title": "Case Ended At"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/ActionCatalogOut"
+          },
+          "brief": {
+            "$ref": "#/components/schemas/CaseBriefOut"
+          },
+          "objectives": {
+            "$ref": "#/components/schemas/ObjectivesOut"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HintOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientStateOut"
           }
         },
         "type": "object",

@@ -2300,6 +2300,69 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActionCatalogOut */
+        ActionCatalogOut: {
+            /**
+             * Assess
+             * @default []
+             */
+            assess: components["schemas"]["ActionEntry"][];
+            /**
+             * Order
+             * @default []
+             */
+            order: components["schemas"]["ActionEntry"][];
+            /**
+             * Give
+             * @default []
+             */
+            give: components["schemas"]["ActionEntry"][];
+            /**
+             * Talk
+             * @default []
+             */
+            talk: components["schemas"]["ActionEntry"][];
+            /**
+             * Manage
+             * @default []
+             */
+            manage: components["schemas"]["ActionEntry"][];
+        };
+        /**
+         * ActionEntry
+         * @description One actionable item — the server-driven button contract.
+         *
+         *     The frontend renders every action from this; ``enabled`` /
+         *     ``disabled_reason`` are computed by the engine, so a disabled button
+         *     always explains itself and the UI never re-implements a rule.
+         */
+        ActionEntry: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Cost */
+            cost?: number | null;
+            /** Cost Label */
+            cost_label?: string | null;
+            /** Duration */
+            duration?: number | null;
+            /** Turnaround */
+            turnaround?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Default Dose */
+            default_dose?: number | null;
+            /** Max Dose */
+            max_dose?: number | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Disabled Reason */
+            disabled_reason?: string | null;
+        };
         /** ActionResultResponse */
         ActionResultResponse: {
             /** Session Id */
@@ -2808,6 +2871,50 @@ export interface components {
             capabilities?: {
                 [key: string]: boolean;
             };
+        };
+        /**
+         * CaseBriefOut
+         * @description 开局简报 — CaseSpec 派生的结构化开局信息，前端渲染简报卡。
+         */
+        CaseBriefOut: {
+            /** Patient */
+            patient: string;
+            /** Task */
+            task: string;
+            /** Goal */
+            goal: string;
+            /**
+             * Resources
+             * @default {}
+             */
+            resources: {
+                [key: string]: number;
+            };
+            /**
+             * Assessments
+             * @default []
+             */
+            assessments: string[];
+            /**
+             * Drugs
+             * @default []
+             */
+            drugs: string[];
+            /**
+             * Labs
+             * @default []
+             */
+            labs: string[];
+            /**
+             * Talk Roles
+             * @default []
+             */
+            talk_roles: string[];
+            /**
+             * Opening Hint
+             * @default
+             */
+            opening_hint: string;
         };
         /** CaseCreateRequest */
         CaseCreateRequest: {
@@ -3427,6 +3534,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** HintOut */
+        HintOut: {
+            /** Level */
+            level: number;
+            /** Text */
+            text: string;
+        };
         /** InitiativeTriggerResponse */
         InitiativeTriggerResponse: {
             /** Triggered */
@@ -3603,6 +3717,44 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * ObjectivesOut
+         * @description 目标清单 — 病例目标的实时达成情况（纯函数计算，不泄露 hidden）。
+         */
+        ObjectivesOut: {
+            /**
+             * Assessed
+             * @default false
+             */
+            assessed: boolean;
+            /**
+             * Evidence
+             * @default false
+             */
+            evidence: boolean;
+            /**
+             * Monitoring
+             * @default false
+             */
+            monitoring: boolean;
+            /**
+             * Treated
+             * @default false
+             */
+            treated: boolean;
+            /**
+             * Reported
+             * @default false
+             */
+            reported: boolean;
+            /**
+             * Diagnosis
+             * @default false
+             */
+            diagnosis: boolean;
+            /** Timely */
+            timely?: string | null;
         };
         /** OkResponse */
         OkResponse: {
@@ -3783,6 +3935,31 @@ export interface components {
              * @default
              */
             gender: string;
+        };
+        /**
+         * PatientStateOut
+         * @description 床旁患者状态 — 只含玩家已知信息（意识档位/监护/最近生命体征）。
+         */
+        PatientStateOut: {
+            /**
+             * Consciousness
+             * @default alert
+             */
+            consciousness: string;
+            /**
+             * Consciousness Label
+             * @default 清醒
+             */
+            consciousness_label: string;
+            /**
+             * Monitoring
+             * @default false
+             */
+            monitoring: boolean;
+            /** Latest Vitals */
+            latest_vitals?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** PendingLabSummary */
         PendingLabSummary: {
@@ -4690,6 +4867,11 @@ export interface components {
             treat_budget: number;
             /** Case Ended At */
             case_ended_at?: number | null;
+            actions?: components["schemas"]["ActionCatalogOut"];
+            brief?: components["schemas"]["CaseBriefOut"];
+            objectives?: components["schemas"]["ObjectivesOut"];
+            hint?: components["schemas"]["HintOut"] | null;
+            patient?: components["schemas"]["PatientStateOut"];
         };
         /** StorageStatsResponse */
         StorageStatsResponse: {

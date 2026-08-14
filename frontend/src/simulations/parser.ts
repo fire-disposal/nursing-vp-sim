@@ -25,6 +25,7 @@ export type SimActionType =
 	| "STATUS"
 	| "HISTORY"
 	| "HELP"
+	| "HINT"
 	| "PENDING"
 	| "CASE";
 
@@ -87,6 +88,8 @@ export function parseCommand(raw: string): ParseResult {
 		}
 		case "history":
 			return { action: { type: "HISTORY" } };
+		case "hint":
+			return { action: { type: "HINT" } };
 		case "help":
 			return { action: { type: "HELP", target: target ? translateTarget(target).toLowerCase() : undefined } };
 		case "pending":

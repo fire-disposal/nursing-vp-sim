@@ -479,3 +479,390 @@
 		font-size: 12px;
 	}
 }
+
+/* ── 新一代交互：临床工作台（床旁区 + 行动面板 + 引导） ── */
+
+.msg-patient .msg-kind {
+	color: #ffa657;
+}
+.msg-hint .msg-kind {
+	color: #7ee787;
+}
+.msg-hint .msg-text {
+	color: #7ee787;
+}
+
+.sim-objrow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 10px;
+	font-size: 11px;
+	color: #8b949e;
+}
+
+.sim-obj {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	color: #6e7681;
+}
+
+.sim-obj-done {
+	color: #3fb950;
+}
+
+.sim-workbench {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 340px;
+	flex: 1;
+	min-height: 0;
+}
+
+.sim-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+.sim-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+	padding: 8px;
+	border-left: 1px solid #21262d;
+	background: #0b0f14;
+	min-height: 0;
+}
+
+.sim-panel {
+	background: #161b22;
+	border: 1px solid #21262d;
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.sim-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 10px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #e6edf3;
+	border-bottom: 1px solid #21262d;
+}
+
+.sim-panel-note {
+	font-size: 10px;
+	font-weight: 400;
+	color: #6e7681;
+}
+
+.sim-panel-fold {
+	background: none;
+	border: none;
+	color: #8b949e;
+	font-family: inherit;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 0 4px;
+}
+
+/* 开局简报 */
+.sim-brief-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px 10px;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.sim-brief-patient {
+	color: #79c0ff;
+}
+
+.sim-brief-row {
+	display: flex;
+	gap: 8px;
+}
+
+.sim-brief-k {
+	flex: none;
+	color: #8b949e;
+}
+
+.sim-brief-hint {
+	background: #052e12;
+	border: 1px solid #1f6feb;
+	border-radius: 4px;
+	padding: 5px 8px;
+	color: #7ee787;
+	font-size: 11px;
+}
+
+/* 床旁状态 */
+.sim-conscious {
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.sim-conscious-alert {
+	color: #3fb950;
+	background: #052e12;
+}
+
+.sim-conscious-lethargic {
+	color: #d29922;
+	background: #3d2e00;
+}
+
+.sim-conscious-comatose {
+	color: #ffa198;
+	background: #2d0a0a;
+}
+
+.sim-vitals {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 6px;
+	padding: 8px 10px 10px;
+}
+
+.sim-vital {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1px;
+	padding: 5px 2px;
+	background: #0d1117;
+	border: 1px solid #21262d;
+	border-radius: 5px;
+}
+
+.sim-vital-v {
+	font-size: 15px;
+	font-weight: 700;
+	color: #e6edf3;
+}
+
+.sim-vital-u {
+	font-size: 10px;
+	color: #8b949e;
+}
+
+.sim-vital-bad .sim-vital-v {
+	color: #f85149;
+}
+
+.sim-patient-none {
+	padding: 8px 10px;
+	font-size: 11px;
+	color: #6e7681;
+}
+
+/* 行动面板 */
+.sim-action-group {
+	padding: 6px 10px 8px;
+	border-bottom: 1px solid #1c2128;
+}
+
+.sim-action-group-title {
+	font-size: 11px;
+	font-weight: 600;
+	color: #58a6ff;
+	margin-bottom: 5px;
+}
+
+.sim-action-wrap {
+	margin-bottom: 5px;
+}
+
+.sim-action-btn {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	width: 100%;
+	text-align: left;
+	padding: 5px 8px;
+	background: #0d1117;
+	border: 1px solid #30363d;
+	border-radius: 4px;
+	color: #e6edf3;
+	font-family: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.sim-action-btn:hover:not(:disabled) {
+	background: #1c2128;
+	border-color: #58a6ff;
+}
+
+.sim-action-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.sim-action-btn.sim-action-open {
+	border-color: #58a6ff;
+}
+
+.sim-action-label {
+	flex: 1;
+	min-width: 0;
+}
+
+.sim-action-badge {
+	flex: none;
+	font-size: 10px;
+	color: #8b949e;
+}
+
+.sim-action-reason {
+	display: block;
+	font-size: 10px;
+	color: #d29922;
+	padding: 1px 8px 3px;
+	line-height: 1.35;
+}
+
+.sim-dose {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 8px;
+	background: #010409;
+	border: 1px solid #30363d;
+	border-top: none;
+	border-radius: 0 0 4px 4px;
+}
+
+.sim-dose-btn {
+	width: 22px;
+	height: 22px;
+	background: #21262d;
+	border: 1px solid #30363d;
+	border-radius: 4px;
+	color: #e6edf3;
+	font-family: inherit;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.sim-dose-btn:hover {
+	background: #30363d;
+}
+
+.sim-dose-value {
+	flex: 1;
+	text-align: center;
+	font-size: 12px;
+	color: #e6edf3;
+}
+
+.sim-dose-confirm {
+	background: #1f6feb;
+	border: 1px solid #1f6feb;
+	border-radius: 4px;
+	color: #fff;
+	font-family: inherit;
+	font-size: 11px;
+	padding: 2px 10px;
+	cursor: pointer;
+}
+
+.sim-dose-cancel {
+	background: transparent;
+	border: none;
+	color: #8b949e;
+	font-family: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+/* 教练提示条 */
+.sim-hintbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 16px;
+	background: #0c2d18;
+	border-top: 1px solid #1f6feb;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.sim-hint-tag {
+	flex: none;
+	color: #3fb950;
+	font-weight: 700;
+	font-size: 11px;
+}
+
+.sim-hint-text {
+	flex: 1;
+	color: #7ee787;
+}
+
+.sim-hint-close {
+	flex: none;
+	background: none;
+	border: none;
+	color: #6e7681;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px 4px;
+}
+
+.sim-hint-close:hover {
+	color: #e6edf3;
+}
+
+/* 结局横幅（目标清单明细） */
+.sim-endbanner {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.sim-end-title {
+	font-weight: 700;
+	font-size: 13px;
+}
+
+.sim-end-obj {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+	font-size: 11px;
+}
+
+.sim-end-sub {
+	color: inherit;
+	opacity: 0.85;
+	font-size: 11px;
+}
+
+/* 工作台移动端：行动面板堆叠到记录流下方 */
+@media (max-width: 900px) {
+	.sim-workbench {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr) auto;
+		overflow-y: auto;
+	}
+	.sim-sidebar {
+		border-left: none;
+		border-top: 1px solid #21262d;
+		overflow: visible;
+	}
+	.sim-main {
+		min-height: 55vh;
+	}
+}

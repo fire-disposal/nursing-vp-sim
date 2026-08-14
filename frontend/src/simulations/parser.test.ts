@@ -24,6 +24,7 @@ describe("parseCommand", () => {
 		expect(parseCommand("/wait cbc")).toEqual({ action: { type: "WAIT", target: "CBC" } });
 		expect(parseCommand("/wait abg")).toEqual({ action: { type: "WAIT", target: "ABG" } });
 		expect(parseCommand("/history")).toEqual({ action: { type: "HISTORY" } });
+		expect(parseCommand("/hint")).toEqual({ action: { type: "HINT" } });
 		expect(parseCommand("/help")).toEqual({ action: { type: "HELP" } });
 		expect(parseCommand("/help order")).toEqual({ action: { type: "HELP", target: "order" } });
 		expect(parseCommand("/pending")).toEqual({ action: { type: "PENDING" } });
@@ -51,6 +52,8 @@ describe("parseCommand", () => {
 		expect(parseCommand("/状态")).toEqual({ action: { type: "STATUS" } });
 		expect(parseCommand("/评估 生命体征")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
 		expect(parseCommand("/评估 血糖")).toEqual({ action: { type: "ASSESS", target: "glucose" } });
+		expect(parseCommand("/评估 意识")).toEqual({ action: { type: "ASSESS", target: "consciousness" } });
+		expect(parseCommand("/给药 甲泼尼龙")).toEqual({ action: { type: "GIVE", target: "STEROID" } });
 		expect(parseCommand("/检查 血常规")).toEqual({ action: { type: "ORDER", target: "CBC" } });
 		expect(parseCommand("/给药 吗啡 10")).toEqual({ action: { type: "GIVE", target: "MORPHINE", text: "10" } });
 		expect(parseCommand("/给药 补液")).toEqual({ action: { type: "GIVE", target: "FLUIDS" } });

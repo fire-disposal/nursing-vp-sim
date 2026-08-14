@@ -32,7 +32,7 @@ describe("computeCompletionGroups", () => {
 		const groups = computeCompletionGroups("/assess");
 		expect(groups).toHaveLength(1);
 		const labels = groups[0].items.map((c) => c.label);
-		for (const target of ["生命体征", "引流", "疼痛", "尿量", "血糖", "肺部听诊"]) {
+		for (const target of ["生命体征", "引流", "疼痛", "尿量", "血糖", "肺部听诊", "意识"]) {
 			expect(labels).toContain(`/评估 ${target}`);
 		}
 		expect(groups[0].items.find((c) => c.label === "/评估 生命体征")?.desc).toContain("生命体征");

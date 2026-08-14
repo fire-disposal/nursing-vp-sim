@@ -140,8 +140,8 @@ describe("SimulationConsole", () => {
 		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
 		const input = await screen.findByPlaceholderText(/输入命令/);
 		await userEvent.type(input, "/评估 ");
-		const options = await screen.findAllByRole("button", { name: /\/评估 (生命体征|引流|疼痛|尿量)/ });
-		expect(options).toHaveLength(4);
+		const options = await screen.findAllByRole("button", { name: /\/评估 (生命体征|引流|疼痛|尿量|血糖|肺部听诊|意识)/ });
+		expect(options).toHaveLength(7);
 		await userEvent.click(screen.getByRole("button", { name: /\/评估 生命体征/ }));
 		expect(input).toHaveValue("/评估 生命体征");
 		expect(mocks.post).not.toHaveBeenCalled(); // click only fills, does not run
@@ -172,5 +172,86 @@ describe("SimulationConsole", () => {
 				target: "疑诊糖尿病酮症酸中毒",
 			}),
 		);
+	});
+
+	it("renders the server-driven action panel and executes buttons", async () => {
+		const panelActions = {
+			assess: [{ id: "vitals", label: "生命体征", duration: 2, enabled: true }],
+			order: [{ id: "CBC", label: "血常规(CBC)", cost: 35, cost_label: "35检查点", turnaround: 15, enabled: true }],
+			give: [{ id: "FLUIDS", label: "快速补液", cost: 30, cost_label: "30治疗点", unit: "ml", default_dose: 500, max_dose: 1500, enabled: true }],
+			talk: [{ id: "patient", label: "患者", enabled: true }],
+			manage: [{ id: "hint", label: "教练提示", enabled: true }],
+		};
+		mocks.post.mockResolvedValue({
+			session_id: 1,
+			revision: 1,
+			accepted: true,
+			case_ended: false,
+			messages: [{ kind: "ASSESSMENT", at_minute: 2, text: "生命体征（08:32）：HR 84 bpm。未见明显异常。" }],
+			snapshot: { ...baseSnapshot, revision: 1, current_time: 2, clock: "08:32", actions: panelActions },
+		});
+		mocks.create.mockResolvedValue({ session_id: 1, snapshot: { ...baseSnapshot, actions: panelActions } });
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+		// 评估按钮点击 → 结构化动作
+		await userEvent.click(await screen.findByRole("button", { name: /生命体征/ }));
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(1, { type: "ASSESS", target: "vitals" }));
+		// 检查按钮点击
+		await userEvent.click(screen.getByRole("button", { name: /血常规/ }));
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(1, { type: "ORDER", target: "CBC" }));
+	});
+
+	it("renders the brief card and the coach hint bar", async () => {
+		const withGuidance = {
+			...baseSnapshot,
+			brief: {
+				patient: "王秀兰，58 岁女性，昨日胃癌根治术后",
+				task: "识别并有效报告隐匿性出血",
+				goal: "评估→检查→报告",
+				resources: { diag: 400, treat: 100, consult: 120 },
+				assessments: ["vitals"],
+				drugs: ["FLUIDS"],
+				labs: ["CBC"],
+				talk_roles: ["patient", "family"],
+				opening_hint: "先评估建立基线：/assess vitals（2min）看生命体征。",
+			},
+			objectives: { assessed: false, evidence: false, monitoring: false, treated: false, reported: false, diagnosis: false, timely: null },
+			hint: { level: 1, text: "先评估建立基线：/assess vitals（2min）看生命体征。" },
+			patient: { consciousness: "alert", consciousness_label: "清醒", monitoring: false, latest_vitals: null },
+			actions: { assess: [], order: [], give: [], talk: [], manage: [] },
+		};
+		mocks.create.mockResolvedValue({ session_id: 1, snapshot: withGuidance });
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+		// 开局简报卡
+		expect(screen.getByText("开局简报")).toBeInTheDocument();
+		expect(screen.getByText(/王秀兰，58 岁女性/)).toBeInTheDocument();
+		// 床旁状态卡
+		expect(screen.getByText("床旁状态")).toBeInTheDocument();
+		expect(screen.getByText("清醒")).toBeInTheDocument();
+		// 教练提示条 + 目标清单
+		expect(screen.getByText(/教练 L1/)).toBeInTheDocument();
+		expect(screen.getByText(/异常证据/)).toBeInTheDocument();
+		// 关闭提示条
+		await userEvent.click(screen.getByRole("button", { name: "知道了" }));
+		expect(screen.queryByText(/教练 L1/)).not.toBeInTheDocument();
+	});
+
+	it("renders latest vitals on the bedside panel", async () => {
+		const withVitals = {
+			...baseSnapshot,
+			patient: {
+				consciousness: "alert",
+				consciousness_label: "清醒",
+				monitoring: true,
+				latest_vitals: { minute: 2, hr: 101, sbp: 108, dbp: 70, rr: 20, spo2: 96, temp: 37.0, abnormal: true },
+			},
+		};
+		mocks.create.mockResolvedValue({ session_id: 1, snapshot: withVitals });
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+		expect(screen.getByText("101")).toBeInTheDocument();
+		expect(screen.getByText("HR 次/分")).toBeInTheDocument();
+		expect(screen.getByText("108/70")).toBeInTheDocument();
 	});
 });

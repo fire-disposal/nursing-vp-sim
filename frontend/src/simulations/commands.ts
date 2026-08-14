@@ -43,6 +43,7 @@ const DEFAULT_SURFACE: CommandSurface = {
 		urine: "尿量",
 		glucose: "血糖",
 		breath: "肺部听诊",
+		consciousness: "意识",
 	},
 	drugs: {
 		FLUIDS: "快速补液",
@@ -56,6 +57,7 @@ const DEFAULT_SURFACE: CommandSurface = {
 		INSULIN: "胰岛素",
 		GLUCOSE: "静脉葡萄糖",
 		SALBUTAMOL: "沙丁胺醇",
+		STEROID: "甲泼尼龙",
 	},
 	labs: { CBC: "血常规(CBC)", ABG: "动脉血气(ABG)", COAG: "凝血功能", US: "腹部超声" },
 	talk_roles: ["patient", "family"],
@@ -113,11 +115,12 @@ export function buildCommandGroups(surface: CommandSurface = DEFAULT_SURFACE): C
 	return [
 		{
 			name: "信息",
-			desc: "状态 / 历史 / 进行中 / 帮助",
+			desc: "状态 / 历史 / 进行中 / 提示 / 帮助",
 			commands: [
 				{ cmd: "status", zh: "状态", desc: "查看已知状态、目标清单与预算" },
 				{ cmd: "history", zh: "历史", desc: "查看已发生动作" },
 				{ cmd: "pending", zh: "待办", desc: "查看进行中检查" },
+				{ cmd: "hint", zh: "提示", desc: "教练提示：下一步建议（不耗时）" },
 				{ cmd: "case", zh: "病例", desc: "查看 / 切换病例（切换将开启新局）" },
 				HELP,
 			],
