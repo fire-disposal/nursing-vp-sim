@@ -6,6 +6,8 @@
  * - input not starting with "/" → no suggestions.
  * - a command with sub-targets (assess/order/view/…) fully typed → drill into
  *   its parameters, prefix-matched on what follows.
+ * - 无需空格：`/评估生命` = `/评估 生命`，`/assessv` = `/assess v`——
+ *   命令已合法时，粘连在命令头后面的文本按参数前缀过滤。
  * - otherwise → group the prefix-matching commands by the backend help group;
  *   an exact full-command match hides the panel (ArrowUp/Down then walk
  *   history like a real shell).
@@ -20,6 +22,34 @@ export interface CompletionGroup {
 	items: Completion[];
 }
 
+/** 命中「带参数的命令」：glued=null 表示空格分隔参数；否则为无空格粘连参数。 */
+interface DrillMatch {
+	cmd: CommandDef;
+	glued: string | null;
+}
+
+function findDrill(commands: CommandDef[], headRaw: string, head: string): DrillMatch | null {
+	// 1) 命令精确命中 → 展开其参数（参数来自空格分隔部分）。
+	const exact = commands.find((c) => c.cmd === head && c.params && c.params.length > 0);
+	if (exact) return { cmd: exact, glued: null };
+	// 2) 命令名/中文别名是命令头的严格前缀 → 剩余部分视为粘连参数。
+	let best: (DrillMatch & { len: number }) | null = null;
+	for (const c of commands) {
+		if (!c.params || c.params.length === 0) continue;
+		if (head.length > c.cmd.length && head.startsWith(c.cmd)) {
+			if (!best || c.cmd.length > best.len) {
+				best = { cmd: c, glued: head.slice(c.cmd.length), len: c.cmd.length };
+			}
+		}
+		if (headRaw.length > c.zh.length && headRaw.startsWith(c.zh)) {
+			if (!best || c.zh.length > best.len) {
+				best = { cmd: c, glued: headRaw.slice(c.zh.length), len: c.zh.length };
+			}
+		}
+	}
+	return best ? { cmd: best.cmd, glued: best.glued } : null;
+}
+
 export function computeCompletionGroups(raw: string, surface?: CommandSurface): CompletionGroup[] {
 	const input = raw.trimStart();
 	if (!input.startsWith("/")) return [];
@@ -30,18 +60,19 @@ export function computeCompletionGroups(raw: string, surface?: CommandSurface): 
 	const rest = input.slice(1);
 	const [headRaw, ...tailRaw] = rest.split(/\s+/);
 	const head = translateCommand(headRaw);
-	const param = tailRaw.join(" ").toLowerCase();
 
-	const drill = commands.find((c) => c.cmd === head && c.params);
+	const drill = findDrill(commands, headRaw, head);
 	if (drill) {
-		const items = (drill.params ?? [])
+		// 参数前缀：粘连参数（无空格）优先，否则用空格分隔部分。
+		const param = (drill.glued ?? tailRaw.join(" ")).toLowerCase();
+		const items = (drill.cmd.params ?? [])
 			.filter((p) => {
 				const pz = EN_TO_ZH[p] ?? EN_TO_ZH[p.toUpperCase()] ?? p;
 				const match = p.toLowerCase().startsWith(param) || pz.startsWith(param);
 				return match && p.toLowerCase() !== param && pz !== param;
 			})
-			.map((p) => toCompletion(drill, p));
-		return items.length ? [{ name: drill.cmd, desc: drill.desc, items }] : [];
+			.map((p) => toCompletion(drill.cmd, p));
+		return items.length ? [{ name: drill.cmd.cmd, desc: drill.cmd.desc, items }] : [];
 	}
 
 	return groups

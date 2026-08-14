@@ -53,9 +53,31 @@ describe("computeCompletionGroups", () => {
 		expect(computeCompletionGroups("/给药 吗")[0].items.map((c) => c.label)).toEqual(["/给药 吗啡"]);
 	});
 
+	it("drills into parameters without a space (中文无空格粘连)", () => {
+		expect(computeCompletionGroups("/评估生")[0].items.map((c) => c.label)).toEqual(["/评估 生命体征"]);
+		expect(computeCompletionGroups("/评估生命")[0].items.map((c) => c.label)).toEqual(["/评估 生命体征"]);
+		expect(computeCompletionGroups("/检查血")[0].items.map((c) => c.label)).toEqual([
+			"/检查 血常规",
+			"/检查 血气",
+		]);
+		expect(computeCompletionGroups("/给药吗")[0].items.map((c) => c.label)).toEqual(["/给药 吗啡"]);
+	});
+
+	it("drills into parameters without a space (English glued)", () => {
+		expect(computeCompletionGroups("/assessv")[0].items.map((c) => c.label)).toEqual(["/评估 生命体征"]);
+		expect(computeCompletionGroups("/orderc")[0].items.map((c) => c.label)).toEqual([
+			"/检查 血常规",
+			"/检查 凝血",
+			"/检查 C反应蛋白",
+		]);
+		expect(computeCompletionGroups("/givef")[0].items.map((c) => c.label)).toEqual(["/给药 补液"]);
+	});
+
 	it("hides a fully-typed parameter (nothing left to complete)", () => {
 		expect(computeCompletionGroups("/assess vitals")).toEqual([]);
 		expect(computeCompletionGroups("/评估 生命体征")).toEqual([]);
+		// 无空格粘连输入完整参数同样隐藏面板
+		expect(computeCompletionGroups("/评估生命体征")).toEqual([]);
 	});
 
 	it("matches multi-word commands and hides the exact full command", () => {

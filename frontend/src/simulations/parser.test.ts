@@ -82,6 +82,35 @@ describe("parseCommand", () => {
 		expect("error" in r).toBe(true);
 	});
 
+	it("parses glued command+parameter without a space (中文无空格)", () => {
+		expect(parseCommand("/评估生命体征")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
+		expect(parseCommand("/评估血糖")).toEqual({ action: { type: "ASSESS", target: "glucose" } });
+		expect(parseCommand("/检查血常规")).toEqual({ action: { type: "ORDER", target: "CBC" } });
+		expect(parseCommand("/查看cbc")).toEqual({ action: { type: "VIEW", target: "cbc" } });
+		expect(parseCommand("/等待血常规")).toEqual({ action: { type: "WAIT", target: "CBC" } });
+		expect(parseCommand("/给药吗啡")).toEqual({ action: { type: "GIVE", target: "MORPHINE" } });
+		expect(parseCommand("/对话患者你现在感觉怎么样")).toEqual({
+			action: { type: "TALK", target: "patient", text: "你现在感觉怎么样" },
+		});
+		expect(parseCommand("/诊断疑诊隐匿性出血")).toEqual({ action: { type: "DIAG", target: "疑诊隐匿性出血" } });
+		expect(parseCommand("/病例mvpb-1")).toEqual({ action: { type: "CASE", target: "mvpb-1" } });
+		expect(parseCommand("/帮助评估")).toEqual({ action: { type: "HELP", target: "评估" } });
+	});
+
+	it("parses glued command+parameter without a space (English)", () => {
+		expect(parseCommand("/assessvitals")).toEqual({ action: { type: "ASSESS", target: "vitals" } });
+		expect(parseCommand("/ordercbc")).toEqual({ action: { type: "ORDER", target: "cbc" } });
+		expect(parseCommand("/viewabg")).toEqual({ action: { type: "VIEW", target: "abg" } });
+		expect(parseCommand("/waitcbc")).toEqual({ action: { type: "WAIT", target: "CBC" } });
+		expect(parseCommand("/givemorphine")).toEqual({ action: { type: "GIVE", target: "MORPHINE" } });
+	});
+
+	it("prefers the longest alias when splitting glued heads", () => {
+		// "查" 也是 /assess 别名，但 "查看" 更长 → view 胜出
+		expect(parseCommand("/查看cbc")).toEqual({ action: { type: "VIEW", target: "cbc" } });
+		expect(parseCommand("/等待cbc")).toEqual({ action: { type: "WAIT", target: "CBC" } });
+	});
+
 	it("rejects unknown commands and give without a drug", () => {
 		expect("error" in parseCommand("/xyz")).toBe(true);
 		expect("error" in parseCommand("/give")).toBe(true);
