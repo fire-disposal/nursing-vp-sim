@@ -14,6 +14,16 @@ export default defineConfig({
 	},
 	server: {
 		port: 3000,
+		watch: {
+			// 忽略编辑器/工具原子写产生的临时文件：Windows 上 Vite 监听它们
+			// 会在 rename/删除瞬间触发 EBUSY 文件锁崩溃（见 .tmpdir 残留路径）
+			ignored: [
+				"**/.*.tmpdir/**",
+				"**/*.tmp",
+				"**/.*.swp",
+				"**/*~",
+			],
+		},
 		proxy: {
 			"/api": {
 				target: "http://127.0.0.1:8000",
