@@ -3,7 +3,7 @@ import { schemaResolver, useForm } from "@mantine/form";
 import { IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
 import FormMessageBanner from "@/components/ui/form-message-banner";
@@ -123,7 +123,7 @@ export default function Login() {
 
 						<form onSubmit={form.onSubmit(onSubmit)}>
 							<Stack gap="md">
-								<Input
+								<TextInput
 									type="text"
 									placeholder="用户名"
 									autoComplete="username"
@@ -132,7 +132,7 @@ export default function Login() {
 									disabled={isSubmitting}
 									{...form.getInputProps("username")}
 								/>
-								<Input
+								<TextInput
 									type="password"
 									placeholder="密码"
 									autoComplete="current-password"

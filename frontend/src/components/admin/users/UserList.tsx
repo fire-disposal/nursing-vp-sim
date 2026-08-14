@@ -14,17 +14,10 @@ import { useNavigate } from "react-router-dom";
 import ClassFilter from "@/components/admin/ClassFilter";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { SearchInput } from "@/components/ui/search-input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import type { RoleOption, UserBrief } from "./types";
 
 interface UserListProps {
@@ -113,32 +106,32 @@ export default function UserList({
 				<>
 					<ScrollArea>
 						<Table stickyHeader highlightOnHover>
-							<TableHeader>
-								<TableRow>
-									<TableHead style={{ width: 40, textAlign: "center" }}>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ width: 40, textAlign: "center" }}>
 										<Checkbox
 											checked={
 												users.length > 0 &&
 												users.every((u) => selectedIds.has(u.id))
 											}
-											onCheckedChange={(checked) =>
-												checked ? onSelectAll() : onDeselectAll()
+											onChange={(e) =>
+												e.currentTarget.checked ? onSelectAll() : onDeselectAll()
 											}
 											aria-label="全选"
 										/>
-									</TableHead>
-									<TableHead>用户名</TableHead>
-									<TableHead>姓名</TableHead>
-									<TableHead>角色</TableHead>
-									<TableHead>班级</TableHead>
-									<TableHead>学号</TableHead>
-									<TableHead>注册时间</TableHead>
-									<TableHead>操作</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+									</Table.Th>
+									<Table.Th>用户名</Table.Th>
+									<Table.Th>姓名</Table.Th>
+									<Table.Th>角色</Table.Th>
+									<Table.Th>班级</Table.Th>
+									<Table.Th>学号</Table.Th>
+									<Table.Th>注册时间</Table.Th>
+									<Table.Th>操作</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{users.map((u) => (
-									<TableRow
+									<Table.Tr
 										key={u.id}
 										onClick={() => navigate(`/admin/users/${u.id}`)}
 										style={{
@@ -148,19 +141,19 @@ export default function UserList({
 											}),
 										}}
 									>
-										<TableCell
+										<Table.Td
 											style={{ textAlign: "center" }}
 											onClick={(e) => e.stopPropagation()}
 										>
 											<Checkbox
 												checked={selectedIds.has(u.id)}
-												onCheckedChange={() => onToggleSelect(u.id)}
+												onChange={() => onToggleSelect(u.id)}
 												aria-label={`选择 ${u.display_name}`}
 											/>
-										</TableCell>
-										<TableCell>{u.username}</TableCell>
-										<TableCell>{u.display_name}</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>{u.username}</Table.Td>
+										<Table.Td>{u.display_name}</Table.Td>
+										<Table.Td>
 											<RoleBadge
 												role={u.role}
 												label={
@@ -168,23 +161,23 @@ export default function UserList({
 														?.display_name || u.role
 												}
 											/>
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Text size="sm" c="dimmed">
 												{u.grade_name && u.class_name
 													? `${u.grade_name} ${u.class_name}`
 													: u.class_name || "-"}
 											</Text>
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Text size="sm" c="dimmed">{u.student_id || "-"}</Text>
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Text size="sm" c="dimmed">
 												{new Date(u.created_at).toLocaleString("zh-CN")}
 											</Text>
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Group gap={4} wrap="nowrap">
 												<ActionIcon
 													variant="subtle"
@@ -212,10 +205,10 @@ export default function UserList({
 													<IconTrash size={16} />
 												</ActionIcon>
 											</Group>
-										</TableCell>
-									</TableRow>
+										</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</ScrollArea>
 					<Pagination

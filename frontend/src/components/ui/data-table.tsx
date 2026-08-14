@@ -3,14 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 
 type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
@@ -79,10 +72,10 @@ export default function DataTable<T>({
 	const table = (
 		<>
 			<Table>
-				<TableHeader>
-					<TableRow>
+				<Table.Thead>
+					<Table.Tr>
 						{columns.map((col) => (
-							<TableHead
+							<Table.Th
 								key={col.key}
 								className={col.headerClassName}
 								style={{
@@ -95,13 +88,13 @@ export default function DataTable<T>({
 								}}
 							>
 								{col.header}
-							</TableHead>
+							</Table.Th>
 						))}
-					</TableRow>
-				</TableHeader>
-				<TableBody>
+					</Table.Tr>
+				</Table.Thead>
+				<Table.Tbody>
 					{rows.map((row, idx) => (
-						<TableRow
+						<Table.Tr
 							key={getKey(row, idx)}
 							onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
 							onKeyDown={
@@ -118,13 +111,13 @@ export default function DataTable<T>({
 							style={onRowClick ? { cursor: "pointer" } : undefined}
 						>
 							{columns.map((col) => (
-								<TableCell key={col.key} className={col.cellClassName}>
+								<Table.Td key={col.key} className={col.cellClassName}>
 									{col.render ? col.render(row, idx) : String(getCellValue(row, col.key) ?? "")}
-								</TableCell>
+								</Table.Td>
 							))}
-						</TableRow>
+						</Table.Tr>
 					))}
-				</TableBody>
+				</Table.Tbody>
 			</Table>
 			{total != null && offset != null && limit != null && onOffsetChange && total > 0 && (
 				<Box px="md" py="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>

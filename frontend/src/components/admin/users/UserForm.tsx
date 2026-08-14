@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Group, Modal, Select, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
 import {
   type EditUserValues,
@@ -210,8 +210,8 @@ export default function UserForm({
           <FormMessageBanner type="error" message={editUserMsg} />
           <form onSubmit={editForm.onSubmit(onEditSubmit)}>
             <Stack gap="md">
-              <Input label="姓名" {...editForm.getInputProps("display_name")} />
-              <Input label="学号" {...editForm.getInputProps("student_id")} />
+              <TextInput label="姓名" {...editForm.getInputProps("display_name")} />
+              <TextInput label="学号" {...editForm.getInputProps("student_id")} />
               <Select
                 label="角色"
                 {...editForm.getInputProps("role")}
@@ -253,7 +253,7 @@ export default function UserForm({
                   allowDeselect={false}
                 />
               </Box>
-              <Input
+              <TextInput
                 type="password"
                 label="新密码（留空不修改）"
                 placeholder="至少6位"
@@ -325,10 +325,10 @@ export default function UserForm({
         <form onSubmit={regForm.onSubmit(onRegisterSubmit)}>
           <Group gap="xs" align="flex-end" wrap="wrap">
             <Box flex={1} miw={120}>
-              <Input label="用户名" {...regForm.getInputProps("username")} />
+              <TextInput label="用户名" {...regForm.getInputProps("username")} />
             </Box>
             <Box flex={1} miw={120}>
-              <Input
+              <TextInput
                 type="password"
                 label="密码"
                 placeholder="至少6位"
@@ -345,10 +345,10 @@ export default function UserForm({
               />
             </Box>
             <Box flex={1} miw={120}>
-              <Input label="姓名" {...regForm.getInputProps("display_name")} />
+              <TextInput label="姓名" {...regForm.getInputProps("display_name")} />
             </Box>
             <Box flex={1} miw={100}>
-              <Input label="学号" {...regForm.getInputProps("student_id")} />
+              <TextInput label="学号" {...regForm.getInputProps("student_id")} />
             </Box>
             <Box flex={1} miw={120}>
               <Text size="xs" c="dimmed" fw={600} mb={4}>

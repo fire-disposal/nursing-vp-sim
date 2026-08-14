@@ -1,15 +1,15 @@
-import { Box, Button, Group, Modal, Paper, Select, Stack, Text } from "@mantine/core";
+import { Box, Button, Group, Modal, Paper, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
+
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
-import Tabs from "@/components/ui/tabs";
+
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
 	useClassesQuery,
@@ -221,10 +221,10 @@ export default function GradesClassesPage() {
 				}
 			/>
 
-			<Tabs
-				tabs={tabs}
-				activeTab={tab}
-				onChange={(k) => setTab(k as "grades" | "classes")}
+			<SegmentedControl
+				data={tabs.map((t) => ({ value: t.key, label: t.label }))}
+				value={tab}
+				onChange={(v) => setTab(v as "grades" | "classes")}
 			/>
 
 			<Stack gap="md" mt="md">
@@ -351,7 +351,7 @@ export default function GradesClassesPage() {
 									]}
 								/>
 							)}
-							<Input
+							<TextInput
 								label="名称"
 								placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
 								{...form.getInputProps("name")}

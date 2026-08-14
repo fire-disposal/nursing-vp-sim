@@ -26,7 +26,7 @@ import { queryKeys } from "@/api/query-keys";
 import CitationCard from "@/components/citation/CitationCard";
 import { useToast } from "@/components/Toast";
 import EmptyState from "@/components/ui/empty-state";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 import { getNurseAvatar } from "@/utils/avatar";
 import { useConfirm } from "@/components/ui/confirm";
 
@@ -452,7 +452,6 @@ function QASidebar({
 						<EmptyState
 							title="加载失败"
 							description="无法获取对话记录"
-							className="py-10"
 							action={
 								<Button variant="outline" size="sm" onClick={loadSessions}>
 									重试
@@ -464,7 +463,6 @@ function QASidebar({
 						<EmptyState
 							title="暂无历史对话"
 							description="提问后将自动保存记录"
-							className="py-10"
 						/>
 					)}
 				</Stack>

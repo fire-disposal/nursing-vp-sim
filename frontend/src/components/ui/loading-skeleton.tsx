@@ -1,5 +1,4 @@
 import { Loader, SimpleGrid, Skeleton, Stack, Text } from "@mantine/core";
-import { cn } from "@/lib/utils";
 
 type SkeletonVariant = "card" | "stats" | "table" | "text" | "spinner";
 
@@ -55,16 +54,11 @@ export default function LoadingSkeleton({
 	}
 
 	return (
-		<div
-			className={cn(
-				"flex flex-col items-center justify-center py-12 text-center",
-				className,
-			)}
-		>
-			<Loader size="sm" mb="md" />
+		<Stack align="center" justify="center" py={48} ta="center" gap="sm" className={className}>
+			<Loader size="sm" />
 			<Text size="sm" c="dimmed">
 				{message}
 			</Text>
-		</div>
+		</Stack>
 	);
 }

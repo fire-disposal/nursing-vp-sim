@@ -24,7 +24,7 @@ import StudentTrendDialog, {
 	type TrendScope,
 } from "@/components/admin/scoreboard/StudentTrendDialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import StatCard from "@/components/ui/stat-card";
@@ -424,7 +424,7 @@ export default function ScoreboardPage() {
 							data={TIER_OPTIONS}
 						/>
 						<Group gap={8} align="center" wrap="nowrap">
-							<Input
+							<TextInput
 								value={searchInput}
 								onChange={(e) => setSearchInput(e.target.value)}
 								onKeyDown={(e) => e.key === "Enter" && applySearch()}

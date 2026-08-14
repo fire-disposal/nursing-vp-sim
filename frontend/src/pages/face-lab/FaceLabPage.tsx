@@ -12,8 +12,8 @@ import {
 	type PremiumExtras,
 } from "@/components/training/face/premiumExtras";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+
+import { Switch } from "@mantine/core";
 import { EMOTION_4D_LABELS, type Emotion4DLabel } from "@/stores/trainingStore";
 import { EASINGS, type EasingName } from "./animation";
 import { useAnimatedFace } from "./useAnimatedFace";
@@ -106,7 +106,7 @@ function ToggleRow({
 			<Text size="xs" c="dimmed">
 				{label}
 			</Text>
-			<Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+			<Switch checked={checked} disabled={disabled} onChange={(e) => onChange(e.currentTarget.checked)} />
 		</Group>
 	);
 }
@@ -255,7 +255,7 @@ export default function FaceLabPage() {
 									<CardContent style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 										<Group gap="sm" align="flex-end">
 											<Box style={{ flex: 1 }}>
-												<Label>性别</Label>
+												<label>性别</label>
 												<Select
 													data={[{ value: "female", label: "女" }, { value: "male", label: "男" }]}
 													value={gender}
@@ -265,7 +265,7 @@ export default function FaceLabPage() {
 												/>
 											</Box>
 											<Box style={{ flex: 1 }}>
-												<Label>年龄段</Label>
+												<label>年龄段</label>
 												<Select
 													data={[{ value: "child", label: "儿童（≤12）" }, { value: "young", label: "青年（13-25）" }, { value: "middle", label: "中年（26-59）" }, { value: "elderly", label: "老年（≥60）" }]}
 													value={ageGroup}
@@ -331,7 +331,7 @@ export default function FaceLabPage() {
 											onChange={setDuration}
 										/>
 										<Box>
-											<Label>缓动曲线</Label>
+											<label>缓动曲线</label>
 											<Select
 												data={(Object.keys(EASINGS) as EasingName[]).map((e) => ({ value: e, label: e }))}
 												value={easing}
@@ -367,7 +367,7 @@ export default function FaceLabPage() {
 												<Text size="sm" fw={600}>
 													高级参数（手动覆盖）
 												</Text>
-												<Switch checked={manual} onCheckedChange={toggleManual} />
+												<Switch checked={manual} onChange={(e) => toggleManual(e.currentTarget.checked)} />
 											</Group>
 										</CardTitle>
 									</CardHeader>

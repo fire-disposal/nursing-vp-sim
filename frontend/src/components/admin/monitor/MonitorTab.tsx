@@ -31,14 +31,7 @@ import { queryKeys } from "@/api/query-keys";
 import CallLogTimeline from "./CallLogTimeline";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
 
 type Schemas = components["schemas"];
@@ -255,36 +248,36 @@ export default function MonitorTab() {
 					</Group>
 					<ScrollArea>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Provider</TableHead>
-									<TableHead>次数</TableHead>
-									<TableHead>费用</TableHead>
-									<TableHead>错误</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th>Provider</Table.Th>
+									<Table.Th>次数</Table.Th>
+									<Table.Th>费用</Table.Th>
+									<Table.Th>错误</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{stats.by_provider.map((p) => (
-									<TableRow key={p.provider}>
-										<TableCell>
+									<Table.Tr key={p.provider}>
+										<Table.Td>
 											<Text component="span" fw={600}>
 												{p.provider}
 											</Text>
-										</TableCell>
-										<TableCell>{p.count}</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>{p.count}</Table.Td>
+										<Table.Td>
 											<Text component="span" c="yellow">
 												¥{p.total_cost.toFixed(4)}
 											</Text>
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Badge variant="light" color={p.error_count > 0 ? "red" : "green"}>
 												{p.error_count}
 											</Badge>
-										</TableCell>
-									</TableRow>
+										</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</ScrollArea>
 				</Paper>
@@ -374,40 +367,40 @@ export default function MonitorTab() {
 						</Group>
 						<ScrollArea>
 							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>用途</TableHead>
-										<TableHead>次数</TableHead>
-										<TableHead>延迟</TableHead>
-										<TableHead>错误</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
+								<Table.Thead>
+									<Table.Tr>
+										<Table.Th>用途</Table.Th>
+										<Table.Th>次数</Table.Th>
+										<Table.Th>延迟</Table.Th>
+										<Table.Th>错误</Table.Th>
+									</Table.Tr>
+								</Table.Thead>
+								<Table.Tbody>
 									{stats.by_purpose.map((p) => (
-										<TableRow key={p.purpose}>
-											<TableCell>
+										<Table.Tr key={p.purpose}>
+											<Table.Td>
 												<Badge variant="light" color="blue">
 													{PURPOSE_LABELS[p.purpose] || p.purpose}
 												</Badge>
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												<Text component="span" fw={600}>
 													{p.count}
 												</Text>
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												<Text component="span" c="dimmed">
 													{p.avg_latency_ms}ms
 												</Text>
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												<Badge variant="light" color={p.error_count > 0 ? "red" : "green"}>
 													{p.error_count}
 												</Badge>
-											</TableCell>
-										</TableRow>
+											</Table.Td>
+										</Table.Tr>
 									))}
-								</TableBody>
+								</Table.Tbody>
 							</Table>
 						</ScrollArea>
 					</Paper>
@@ -478,21 +471,21 @@ export default function MonitorTab() {
 							<>
 								<ScrollArea>
 									<Table>
-										<TableHeader>
-											<TableRow>
-												<TableHead>时间</TableHead>
-												<TableHead>记录</TableHead>
-												<TableHead>用途</TableHead>
-												<TableHead>Provider</TableHead>
-												<TableHead>状态</TableHead>
-												<TableHead>延迟</TableHead>
-												<TableHead>Token</TableHead>
-												<TableHead>费用</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
+										<Table.Thead>
+											<Table.Tr>
+												<Table.Th>时间</Table.Th>
+												<Table.Th>记录</Table.Th>
+												<Table.Th>用途</Table.Th>
+												<Table.Th>Provider</Table.Th>
+												<Table.Th>状态</Table.Th>
+												<Table.Th>延迟</Table.Th>
+												<Table.Th>Token</Table.Th>
+												<Table.Th>费用</Table.Th>
+											</Table.Tr>
+										</Table.Thead>
+										<Table.Tbody>
 											{logs.map((item) => (
-												<TableRow
+												<Table.Tr
 													key={item.id}
 													style={{
 														cursor:
@@ -503,12 +496,12 @@ export default function MonitorTab() {
 															setSelectedRecordId(item.record_id);
 													}}
 												>
-													<TableCell style={{ whiteSpace: "nowrap" }}>
+													<Table.Td style={{ whiteSpace: "nowrap" }}>
 														<Text component="span" c="dimmed">
 															{safeDate(item.created_at)}
 														</Text>
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														{item.record_id != null ? (
 															<Text
 																component="span"
@@ -523,16 +516,16 @@ export default function MonitorTab() {
 																—
 															</Text>
 														)}
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														<Badge variant="light" color="blue">{purposeLabel(item)}</Badge>
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														<Text component="span" c="dimmed" opacity={0.7}>
 															{item.provider_name || "-"}
 														</Text>
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														<Badge
 															variant="light"
 															color={
@@ -546,29 +539,29 @@ export default function MonitorTab() {
 																? ` (${item.error_count}错)`
 																: ""}
 														</Badge>
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														<Text component="span" c="dimmed">
 															{item.latency_ms != null
 																? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}`
 																: "-"}
 														</Text>
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														{item.total_tokens != null
 															? `${item.total_tokens}${item.token_estimated ? "~" : ""}`
 															: "-"}
-													</TableCell>
-													<TableCell>
+													</Table.Td>
+													<Table.Td>
 														<Text component="span" c="yellow">
 															{item.estimated_cost != null
 																? `¥${Number(item.estimated_cost).toFixed(4)}`
 																: "-"}
 														</Text>
-													</TableCell>
-												</TableRow>
+													</Table.Td>
+												</Table.Tr>
 											))}
-										</TableBody>
+										</Table.Tbody>
 									</Table>
 								</ScrollArea>
 								<Pagination

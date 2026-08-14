@@ -1,7 +1,7 @@
 import { render, screen } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmHost, ConfirmProvider, useConfirm } from "@/components/ui/confirm";
+import { useConfirm } from "@/components/ui/confirm";
 
 function ConfirmTrigger({ onResult }: { onResult: (v: boolean) => void }) {
 	const { confirm } = useConfirm();
@@ -18,11 +18,7 @@ function ConfirmTrigger({ onResult }: { onResult: (v: boolean) => void }) {
 
 describe("ConfirmDialog", () => {
 	it("renders confirm dialog when triggered", async () => {
-		render(
-			<ConfirmProvider>
-				<ConfirmTrigger onResult={() => {}} />
-			</ConfirmProvider>,
-		);
+		render(<ConfirmTrigger onResult={() => {}} />);
 
 		await userEvent.click(screen.getByText("Delete"));
 		expect(screen.getByText("Delete?")).toBeInTheDocument();
@@ -31,11 +27,7 @@ describe("ConfirmDialog", () => {
 
 	it("resolves true when confirm button clicked", async () => {
 		const onResult = vi.fn();
-		render(
-			<ConfirmProvider>
-				<ConfirmTrigger onResult={onResult} />
-			</ConfirmProvider>,
-		);
+		render(<ConfirmTrigger onResult={onResult} />);
 
 		await userEvent.click(screen.getByText("Delete"));
 		await userEvent.click(screen.getByText("确定"));
@@ -45,11 +37,7 @@ describe("ConfirmDialog", () => {
 
 	it("resolves false when cancel button clicked", async () => {
 		const onResult = vi.fn();
-		render(
-			<ConfirmProvider>
-				<ConfirmTrigger onResult={onResult} />
-			</ConfirmProvider>,
-		);
+		render(<ConfirmTrigger onResult={onResult} />);
 
 		await userEvent.click(screen.getByText("Delete"));
 		await userEvent.click(screen.getByText("取消"));
@@ -72,29 +60,10 @@ describe("ConfirmDialog", () => {
 			);
 		}
 
-		render(
-			<ConfirmProvider>
-				<DangerTrigger />
-			</ConfirmProvider>,
-		);
+		render(<DangerTrigger />);
 
 		await userEvent.click(screen.getByText("Danger"));
 		const titles = screen.getAllByText("Danger");
 		expect(titles.length).toBeGreaterThanOrEqual(1);
-	});
-
-	it("works with a standalone ConfirmHost", async () => {
-		const onResult = vi.fn();
-		render(
-			<>
-				<ConfirmHost />
-				<ConfirmTrigger onResult={onResult} />
-			</>,
-		);
-
-		await userEvent.click(screen.getByText("Delete"));
-		await userEvent.click(screen.getByText("确定"));
-
-		expect(onResult).toHaveBeenCalledWith(true);
 	});
 });

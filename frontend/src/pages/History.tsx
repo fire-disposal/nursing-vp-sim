@@ -13,15 +13,8 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { Input } from "@/components/ui/input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { TextInput } from "@mantine/core";
+import { Table } from "@mantine/core";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -158,14 +151,14 @@ export default function History() {
 							allowDeselect={false}
 						/>
 					</Box>
-					<Input
+					<TextInput
 						type="date"
 						size="xs"
 						w={140}
 						value={date_from}
 						onChange={(e) => setParam("date_from", e.target.value)}
 					/>
-					<Input
+					<TextInput
 						type="date"
 						size="xs"
 						w={140}
@@ -301,28 +294,28 @@ export default function History() {
 
 					<Box visibleFrom="md" style={{ overflowX: "auto" }}>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>病例</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>类型</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>来源</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>开始时间</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>时长</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>状态</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>得分</TableHead>
-									<TableHead style={{ fontWeight: 600, fontSize: 12 }}>操作</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>病例</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>类型</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>来源</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>开始时间</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>时长</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>状态</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>得分</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>操作</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{records.map((r) => {
 									const durMins = recordDurMins(r);
 									return (
-										<TableRow key={r.id}>
-											<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
-											<TableCell>
+										<Table.Tr key={r.id}>
+											<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
+											<Table.Td>
 												<Badge variant="light" color="gray">问诊</Badge>
-											</TableCell>
-											<TableCell style={{ fontSize: 12, ...DIM }}>
+											</Table.Td>
+											<Table.Td style={{ fontSize: 12, ...DIM }}>
 												{r.assignment_title ? (
 													<Badge size="xs">作业</Badge>
 												) : (
@@ -330,14 +323,14 @@ export default function History() {
 														自由训练
 													</Text>
 												)}
-											</TableCell>
-											<TableCell style={{ fontSize: 12, ...DIM }}>
+											</Table.Td>
+											<Table.Td style={{ fontSize: 12, ...DIM }}>
 												{new Date(r.start_time).toLocaleString("zh-CN")}
-											</TableCell>
-											<TableCell style={{ fontSize: 12, ...DIM }}>
+											</Table.Td>
+											<Table.Td style={{ fontSize: 12, ...DIM }}>
 												{durMins != null ? `${durMins} 分钟` : "进行中"}
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												<Badge
 													variant="light" color={r.status === "completed" ? "green" :
 														r.status === "abandoned" ? "gray" :
@@ -347,8 +340,8 @@ export default function History() {
 													 r.status === "abandoned" ? "已放弃" :
 													 "进行中"}
 												</Badge>
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												{r.score_total != null ? (
 													<Text component="span" fw={600} c="blue">
 														{r.score_total}分
@@ -370,8 +363,8 @@ export default function History() {
 														-
 													</Text>
 												)}
-											</TableCell>
-											<TableCell>
+											</Table.Td>
+											<Table.Td>
 												<Group gap="xs" wrap="nowrap">
 													{r.status === "in_progress" && (
 														<>
@@ -410,11 +403,11 @@ export default function History() {
 														<IconTrash size={14} />
 													</Button>
 												</Group>
-											</TableCell>
-										</TableRow>
+											</Table.Td>
+										</Table.Tr>
 									);
 								})}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</Box>
 				</Paper>

@@ -1,6 +1,6 @@
 import { Badge, Button, Group, Paper, Text } from "@mantine/core";
 import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import {
 	costColorClass,
 	recoveryText,
@@ -29,10 +29,10 @@ export default function SecretList({
 	return (
 		<Paper withBorder radius="md" p={0} style={{ overflow: "hidden" }}>
 			<Table>
-				<TableBody>
+				<Table.Tbody>
 					{envFallback?.available !== undefined && (
-						<TableRow>
-							<TableCell style={{ whiteSpace: "nowrap" }}>
+						<Table.Tr>
+							<Table.Td style={{ whiteSpace: "nowrap" }}>
 								<Group gap="xs" wrap="nowrap">
 									<span
 										style={{
@@ -48,26 +48,26 @@ export default function SecretList({
 										当前
 									</Badge>
 								</Group>
-							</TableCell>
-							<TableCell style={{ whiteSpace: "nowrap" }}>
+							</Table.Td>
+							<Table.Td style={{ whiteSpace: "nowrap" }}>
 								<Text component="span" c="dimmed" ff="monospace" size="xs">
 									sk-...{envFallback?.key_suffix || "****"}
 								</Text>
-							</TableCell>
-							<TableCell style={{ whiteSpace: "nowrap" }}>
+							</Table.Td>
+							<Table.Td style={{ whiteSpace: "nowrap" }}>
 								<Text component="span" size="xs" c="green">
 									{envFallback?.available ? "可用" : "不可用"}
 								</Text>
-							</TableCell>
-							<TableCell style={{ whiteSpace: "nowrap" }}>
+							</Table.Td>
+							<Table.Td style={{ whiteSpace: "nowrap" }}>
 								<Text component="span" size="xs" c="dimmed" opacity={0.6}>
 									{(envFallback?.call_count ?? 0) > 0
 										? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
 										: ""}
 								</Text>
-							</TableCell>
-							<TableCell />
-						</TableRow>
+							</Table.Td>
+							<Table.Td />
+						</Table.Tr>
 					)}
 					{[...secrets]
 						.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
@@ -80,8 +80,8 @@ export default function SecretList({
 									? recoveryText(s.degraded_until, s.degraded_reason)
 									: "";
 							return (
-								<TableRow key={s.id} style={{ opacity: isDisabled ? 0.5 : undefined }}>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+								<Table.Tr key={s.id} style={{ opacity: isDisabled ? 0.5 : undefined }}>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Group gap="xs" wrap="nowrap">
 											<span
 												style={{
@@ -99,29 +99,29 @@ export default function SecretList({
 												</Text>
 											)}
 										</Group>
-									</TableCell>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+									</Table.Td>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Badge variant="light" color="gray" size="xs">
 											P{s.priority ?? 0}
 										</Badge>
-									</TableCell>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+									</Table.Td>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Text component="span" c="dimmed" ff="monospace" size="xs">
 											sk-...{s.key_suffix}
 										</Text>
-									</TableCell>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+									</Table.Td>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Text component="span" size="xs" c="dimmed">
 											{isDisabled ? "已停用" : statusText(s.status)}
 										</Text>
-									</TableCell>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+									</Table.Td>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Text component="span" size="xs" className={costColorClass(cost, limit)}>
 											¥{cost.toFixed(2)} /{" "}
 											{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
 										</Text>
-									</TableCell>
-									<TableCell style={{ whiteSpace: "nowrap" }}>
+									</Table.Td>
+									<Table.Td style={{ whiteSpace: "nowrap" }}>
 										<Group gap="xs" wrap="nowrap">
 											<Button variant="transparent" size="xs" onClick={() => onEdit(s)}>
 												编辑
@@ -130,11 +130,11 @@ export default function SecretList({
 												删除
 											</Button>
 										</Group>
-									</TableCell>
-								</TableRow>
+									</Table.Td>
+								</Table.Tr>
 							);
 						})}
-				</TableBody>
+				</Table.Tbody>
 			</Table>
 		</Paper>
 	);

@@ -1,5 +1,5 @@
 import { modals } from "@mantine/modals";
-import type { ReactNode } from "react";
+
 import { Button, Modal } from "@mantine/core";
 
 export interface ConfirmOptions {
@@ -34,14 +34,7 @@ export function useConfirm(): ConfirmContextType {
 	return { confirm: openConfirm };
 }
 
-/** 兼容旧 API：无状态宿主（modals 由 ModalsProvider 管理，见 App.tsx）。 */
-export function ConfirmHost() {
-	return null;
-}
 
-export function ConfirmProvider({ children }: { children: ReactNode }) {
-	return <>{children}</>;
-}
 
 export function ConfirmDialog({
 	open,

@@ -13,7 +13,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogDetail from "./CallLogDetail";
 import EmptyState from "@/components/ui/empty-state";
-import LoadingState from "@/components/ui/loading-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 type LLMCallLogItem = components["schemas"]["LLMCallLogItem"];
 
@@ -99,7 +99,7 @@ export default function CallLogTimeline({
 				</Group>
 			</Group>
 
-			{isLoading && <LoadingState message="加载时间线..." />}
+			{isLoading && <LoadingSkeleton variant="spinner" message="加载时间线..." />}
 			{!isLoading && logs.length === 0 && (
 				<EmptyState icon={IconClock} title="暂无调用记录" />
 			)}

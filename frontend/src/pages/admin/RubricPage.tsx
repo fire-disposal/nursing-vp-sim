@@ -6,7 +6,7 @@ import type { ApiPath } from "@/api/api-path";
 import { api } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 
@@ -68,9 +68,9 @@ function downloadJson(data: unknown, filename: string) {
 function AnchorRow({ anchor, onChange, onDelete }: { anchor: RubricAnchor; onChange: (a: RubricAnchor) => void; onDelete: () => void }) {
 	return (
 		<Group gap={8} align="center" wrap="nowrap">
-			<Input type="number" value={anchor.score} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, score: Number(e.target.value) })} size="xs" w={64} min={0} />
+			<TextInput type="number" value={anchor.score} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, score: Number(e.target.value) })} size="xs" w={64} min={0} />
 			<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>分 -</Text>
-			<Input value={anchor.description} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, description: e.target.value })} size="xs" style={{ flex: 1 }} placeholder="锚点描述…" />
+			<TextInput value={anchor.description} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...anchor, description: e.target.value })} size="xs" style={{ flex: 1 }} placeholder="锚点描述…" />
 			<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除锚点">
 				<IconTrash size={14} />
 			</ActionIcon>
@@ -83,7 +83,7 @@ function ItemEditor({ item, onChange, onDelete }: { item: RubricItem; onChange: 
 	return (
 		<Box py="sm">
 			<Group gap={8} align="center" mb={8} wrap="nowrap">
-				<Input value={item.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...item, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="子项名称" />
+				<TextInput value={item.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...item, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="子项名称" />
 				<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除子项">
 					<IconTrash size={14} />
 				</ActionIcon>
@@ -117,10 +117,10 @@ function DimensionEditor({ dim, onChange, onDelete }: { dim: RubricDimension; on
 		<Card>
 			<CardHeader>
 				<Group gap={8} align="center" wrap="nowrap">
-					<Input value={dim.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="维度名称" />
+					<TextInput value={dim.name} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, name: e.target.value })} size="sm" style={{ flex: 1 }} placeholder="维度名称" />
 					<Group gap={4} align="center" wrap="nowrap">
 						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>满分</Text>
-						<Input type="number" value={dim.max} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, max: Number(e.target.value) })} size="xs" w={64} min={0} />
+						<TextInput type="number" value={dim.max} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, max: Number(e.target.value) })} size="xs" w={64} min={0} />
 						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>分</Text>
 					</Group>
 					<ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="删除维度">
@@ -129,7 +129,7 @@ function DimensionEditor({ dim, onChange, onDelete }: { dim: RubricDimension; on
 				</Group>
 			</CardHeader>
 			<CardContent>
-				<Input value={dim.description || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, description: e.target.value || undefined })} size="xs" mb="sm" placeholder="维度描述（可选）" />
+				<TextInput value={dim.description || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...dim, description: e.target.value || undefined })} size="xs" mb="sm" placeholder="维度描述（可选）" />
 				<Stack gap={0}>
 					{dim.items.map((item, ii) => (
 						<Box key={item.id}>
@@ -236,7 +236,7 @@ export default function RubricPage() {
 			{editing ? (
 				<>
 					<Group gap={8} align="center" wrap="nowrap">
-						<Input value={draft?.name ?? ""} onChange={(e: ChangeEvent<HTMLInputElement>) => draft && setDraft({ ...draft, name: e.target.value })} size="md" w={256} placeholder="评分标准名称" />
+						<TextInput value={draft?.name ?? ""} onChange={(e: ChangeEvent<HTMLInputElement>) => draft && setDraft({ ...draft, name: e.target.value })} size="md" w={256} placeholder="评分标准名称" />
 						<Text size="xs" c="dimmed">v{draft?.version ?? ""}</Text>
 					</Group>
 					{draft?.dimensions.map((dim, di) => (

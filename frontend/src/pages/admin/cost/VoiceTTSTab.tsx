@@ -6,14 +6,7 @@ import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import VoiceTokenCard from "./VoiceTokenCard";
 
 function TTSUsageTable() {
@@ -42,28 +35,28 @@ function TTSUsageTable() {
 					<>
 						<Box visibleFrom="sm">
 							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>周期</TableHead>
-										<TableHead style={{ textAlign: "right" }}>调用</TableHead>
-										<TableHead style={{ textAlign: "right" }}>成功</TableHead>
-										<TableHead style={{ textAlign: "right" }}>失败</TableHead>
-										<TableHead style={{ textAlign: "right" }}>字符</TableHead>
-										<TableHead style={{ textAlign: "right" }}>费用</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
+								<Table.Thead>
+									<Table.Tr>
+										<Table.Th>周期</Table.Th>
+										<Table.Th style={{ textAlign: "right" }}>调用</Table.Th>
+										<Table.Th style={{ textAlign: "right" }}>成功</Table.Th>
+										<Table.Th style={{ textAlign: "right" }}>失败</Table.Th>
+										<Table.Th style={{ textAlign: "right" }}>字符</Table.Th>
+										<Table.Th style={{ textAlign: "right" }}>费用</Table.Th>
+									</Table.Tr>
+								</Table.Thead>
+								<Table.Tbody>
 									{ttsData.map((row) => (
-										<TableRow key={row.label}>
-											<TableCell style={{ fontWeight: 500 }}>{row.label}</TableCell>
-											<TableCell style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.calls_total}</TableCell>
-											<TableCell style={{ textAlign: "right", color: "var(--mantine-color-green-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_success}</TableCell>
-											<TableCell style={{ textAlign: "right", color: "var(--mantine-color-red-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_error}</TableCell>
-											<TableCell style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.total_chars.toLocaleString()}</TableCell>
-											<TableCell style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>¥{row.cost_estimated.toFixed(4)}</TableCell>
-										</TableRow>
+										<Table.Tr key={row.label}>
+											<Table.Td style={{ fontWeight: 500 }}>{row.label}</Table.Td>
+											<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.calls_total}</Table.Td>
+											<Table.Td style={{ textAlign: "right", color: "var(--mantine-color-green-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_success}</Table.Td>
+											<Table.Td style={{ textAlign: "right", color: "var(--mantine-color-red-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_error}</Table.Td>
+											<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.total_chars.toLocaleString()}</Table.Td>
+											<Table.Td style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>¥{row.cost_estimated.toFixed(4)}</Table.Td>
+										</Table.Tr>
 									))}
-								</TableBody>
+								</Table.Tbody>
 							</Table>
 						</Box>
 						<Stack gap={8} hiddenFrom="sm">

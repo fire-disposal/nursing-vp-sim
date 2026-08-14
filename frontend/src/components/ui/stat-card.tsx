@@ -1,6 +1,5 @@
 import { Paper, Text, ThemeIcon } from "@mantine/core";
 import type { ComponentType, ReactNode } from "react";
-import { cn } from "@/lib/utils";
 
 type StatColor = "blue" | "green" | "amber" | "red";
 
@@ -35,9 +34,8 @@ export default function StatCard({
 			withBorder
 			radius="md"
 			p="md"
-			onClick={onClick}
-			className={cn(onClick && "cursor-pointer", className)}
-			style={{ display: "flex", alignItems: "center", gap: "1rem" }}
+			className={className}
+			style={{ display: "flex", alignItems: "center", gap: "1rem", cursor: onClick ? "pointer" : undefined }}
 		>
 			{Icon && (
 				<ThemeIcon size={44} radius="md" variant="light" color={COLOR_MAP[color]}>

@@ -6,9 +6,9 @@ import type {
 import {
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@mantine/core";
 
 interface QuestionnaireAssignProps {
 	open: boolean;
@@ -99,7 +99,7 @@ export default function QuestionnaireAssign({
 											<Checkbox
 												key={c.id}
 												checked={assignForm.case_ids.includes(c.id)}
-												onCheckedChange={() => toggleCaseId(c.id)}
+												onChange={() => toggleCaseId(c.id)}
 												label={
 													<Group gap={8} wrap="nowrap" align="center">
 														<Text size="sm" fw={500}>{c.name}</Text>
@@ -144,10 +144,10 @@ export default function QuestionnaireAssign({
 							<Group gap={8}>
 								<Switch
 									checked={assignForm.is_required}
-									onCheckedChange={(checked) =>
+									onChange={(e) =>
 										onAssignFormChange((f) => ({
 											...f,
-											is_required: checked,
+											is_required: e.currentTarget.checked,
 										}))
 									}
 									aria-label="是否必填"

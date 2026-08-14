@@ -2,7 +2,7 @@ import { Badge, Box, Button, Group, Modal, Text } from "@mantine/core";
 import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import ReviewItem from "./ReviewItem";
 

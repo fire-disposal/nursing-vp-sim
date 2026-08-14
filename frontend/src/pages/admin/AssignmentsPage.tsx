@@ -19,9 +19,9 @@ import ClassFilter from "@/components/admin/ClassFilter";
 import CaseSelector from "@/components/admin/cases/CaseSelector";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@mantine/core";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
@@ -425,8 +425,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md">
-							<Input label="标题" placeholder="作业标题" {...form.getInputProps("title")} />
-							<Input label="说明（可选）" placeholder="补充说明" {...form.getInputProps("desc")} />
+							<TextInput label="标题" placeholder="作业标题" {...form.getInputProps("title")} />
+							<TextInput label="说明（可选）" placeholder="补充说明" {...form.getInputProps("desc")} />
 							<Box>
 								<Text size="sm" fw={500} mb={4}>病例</Text>
 								<CaseSelector
@@ -453,8 +453,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								]}
 							/>
 							<SimpleGrid cols={2} spacing="sm">
-								<Input label="开始时间" type="datetime-local" {...form.getInputProps("startTime")} />
-								<Input label="截止时间" type="datetime-local" {...form.getInputProps("endTime")} />
+								<TextInput label="开始时间" type="datetime-local" {...form.getInputProps("startTime")} />
+								<TextInput label="截止时间" type="datetime-local" {...form.getInputProps("endTime")} />
 							</SimpleGrid>
 							{(() => {
 								const selectedId = form.values.caseId;
@@ -473,7 +473,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									</Group>
 								);
 							})()}
-							<Input
+							<TextInput
 								label="最大尝试次数"
 								type="number"
 								min={0}

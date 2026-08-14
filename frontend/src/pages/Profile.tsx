@@ -31,7 +31,7 @@ import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { Card } from "@/components/ui/card";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import PageHeader from "@/components/ui/page-header";
 import {
@@ -291,8 +291,8 @@ export default function Profile() {
 						<FormMessageBanner type={saveMsg.includes("成功") ? "success" : "error"} message={saveMsg} />
 						<form onSubmit={profileForm.onSubmit(handleSave)}>
 							<Stack gap="md" mt="xs">
-								<Input label="显示名称" {...profileForm.getInputProps("displayName")} />
-								<Input label="学号" placeholder="选填" {...profileForm.getInputProps("studentId")} />
+								<TextInput label="显示名称" {...profileForm.getInputProps("displayName")} />
+								<TextInput label="学号" placeholder="选填" {...profileForm.getInputProps("studentId")} />
 								<Box>
 									<Text component="label" size="sm" fw={500} mb={4}>性别</Text>
 									<Group gap="xs">
@@ -318,8 +318,8 @@ export default function Profile() {
 						<FormMessageBanner type={pwdMsg.includes("成功") ? "success" : "error"} message={pwdMsg} />
 						<form onSubmit={pwForm.onSubmit(handleChangePassword)}>
 							<Stack gap="sm" mt="xs">
-								<Input type="password" label="当前密码" {...pwForm.getInputProps("oldPassword")} />
-								<Input type="password" label="新密码" {...pwForm.getInputProps("newPassword")} />
+								<TextInput type="password" label="当前密码" {...pwForm.getInputProps("oldPassword")} />
+								<TextInput type="password" label="新密码" {...pwForm.getInputProps("newPassword")} />
 								<Group justify="flex-end" gap="xs" pt="xs">
 									<Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>取消</Button>
 									<Button type="submit" loading={pwForm.submitting}>

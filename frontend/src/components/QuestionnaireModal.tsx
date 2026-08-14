@@ -1,7 +1,7 @@
 import { Box, Button, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useCallback, useState } from "react";
 
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 
 export interface QuestionItem {
 	id: number;

@@ -1,7 +1,7 @@
 import { IconPencil, IconPlus, IconSearch, IconTrash, IconWand, IconX } from "@tabler/icons-react";
 import { ActionIcon, Badge, Box, Button, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import Pagination from "@/components/ui/pagination";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { components } from "@/api/api-types.gen";
 
@@ -98,42 +98,42 @@ export default function CaseList({
 			{/* Table */}
 			<Paper withBorder radius="md" style={{ overflow: "auto" }}>
 				<Table highlightOnHover miw={640} horizontalSpacing="sm" verticalSpacing="xs">
-					<TableHeader>
-						<TableRow>
-							<TableHead><Text size="xs" c="dimmed" fw={600}>病例名称</Text></TableHead>
-							<TableHead><Text size="xs" c="dimmed" fw={600}>难度</Text></TableHead>
-							<TableHead><Text size="xs" c="dimmed" fw={600}>类型</Text></TableHead>
-							<TableHead><Text size="xs" c="dimmed" fw={600}>能力</Text></TableHead>
-							<TableHead style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></TableHead>
-							<TableHead style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
+					<Table.Thead>
+						<Table.Tr>
+							<Table.Th><Text size="xs" c="dimmed" fw={600}>病例名称</Text></Table.Th>
+							<Table.Th><Text size="xs" c="dimmed" fw={600}>难度</Text></Table.Th>
+							<Table.Th><Text size="xs" c="dimmed" fw={600}>类型</Text></Table.Th>
+							<Table.Th><Text size="xs" c="dimmed" fw={600}>能力</Text></Table.Th>
+							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></Table.Th>
+							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></Table.Th>
+						</Table.Tr>
+					</Table.Thead>
+					<Table.Tbody>
 						{cases.map((c) => (
-							<TableRow key={c.id}>
-								<TableCell>
+							<Table.Tr key={c.id}>
+								<Table.Td>
 									<Text size="xs" fw={500} truncate>{c.name}</Text>
 									<Text size="xs" c="dimmed" truncate mt={2}>
 										{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
 									</Text>
-								</TableCell>
-								<TableCell><Text size="xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</Text></TableCell>
-								<TableCell><Text size="xs" c="dimmed">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</Text></TableCell>
-								<TableCell><CapabilityBadges caps={c.capabilities} /></TableCell>
-								<TableCell style={{ textAlign: "center" }}>
+								</Table.Td>
+								<Table.Td><Text size="xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</Text></Table.Td>
+								<Table.Td><Text size="xs" c="dimmed">{STATUS_LABELS[c.training_type ?? "history_taking"] ?? c.training_type}</Text></Table.Td>
+								<Table.Td><CapabilityBadges caps={c.capabilities} /></Table.Td>
+								<Table.Td style={{ textAlign: "center" }}>
 									<Button size="xs" variant="light" color={c.is_open ? "green" : "gray"} onClick={() => onToggleOpen(c)}>
 										{c.is_open ? "开放" : "关闭"}
 									</Button>
-								</TableCell>
-								<TableCell>
+								</Table.Td>
+								<Table.Td>
 									<Group gap={4} justify="center">
 										<ActionIcon variant="subtle" color="gray" size="sm" onClick={() => onEdit(c)} aria-label="编辑"><IconPencil size={14} /></ActionIcon>
 										<ActionIcon variant="subtle" color="red" size="sm" onClick={() => onDelete(c)} aria-label="删除"><IconTrash size={14} /></ActionIcon>
 									</Group>
-								</TableCell>
-							</TableRow>
+								</Table.Td>
+							</Table.Tr>
 						))}
-					</TableBody>
+					</Table.Tbody>
 				</Table>
 			</Paper>
 

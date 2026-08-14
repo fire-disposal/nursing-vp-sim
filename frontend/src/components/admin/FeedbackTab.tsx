@@ -46,10 +46,10 @@ import AuthImage from "@/components/ui/auth-image";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 import EmptyState from "@/components/ui/empty-state";
-import LoadingState from "@/components/ui/loading-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 type Schemas = components["schemas"];
@@ -656,7 +656,7 @@ export default function FeedbackTab() {
 			</Text>
 
 			{isLoading ? (
-				<LoadingState />
+				<LoadingSkeleton variant="spinner" />
 			) : feedbacks.length === 0 ? (
 				<EmptyState icon={IconMessageCircle} title="暂无反馈" />
 			) : (

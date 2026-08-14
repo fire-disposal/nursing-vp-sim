@@ -10,14 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 
 function statusBadge(status: string) {
 	switch (status) {
@@ -227,24 +220,24 @@ export default function AssignmentDetailPage() {
 				</Group>
 				<div style={{ overflowX: "auto" }}>
 					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>学号</TableHead>
-								<TableHead>姓名</TableHead>
-								<TableHead>状态</TableHead>
-								<TableHead>尝试次数</TableHead>
-								<TableHead>得分</TableHead>
-								<TableHead>评分状态</TableHead>
-								<TableHead>完成时间</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th>学号</Table.Th>
+								<Table.Th>姓名</Table.Th>
+								<Table.Th>状态</Table.Th>
+								<Table.Th>尝试次数</Table.Th>
+								<Table.Th>得分</Table.Th>
+								<Table.Th>评分状态</Table.Th>
+								<Table.Th>完成时间</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
 							{filteredStudents.map((s) => (
-								<TableRow key={s.user_id}>
-									<TableCell style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
+								<Table.Tr key={s.user_id}>
+									<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
 										{s.student_id || "-"}
-									</TableCell>
-									<TableCell style={{ fontWeight: 500 }}>
+									</Table.Td>
+									<Table.Td style={{ fontWeight: 500 }}>
 										{s.record_id != null ? (
 											<Anchor
 												onClick={() => navigate(`/record/${s.record_id}`)}
@@ -256,10 +249,10 @@ export default function AssignmentDetailPage() {
 										) : (
 											s.display_name
 										)}
-									</TableCell>
-									<TableCell>{statusBadge(s.status)}</TableCell>
-									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>{s.attempt_count > 0 ? s.attempt_count : "-"}</TableCell>
-									<TableCell>
+									</Table.Td>
+									<Table.Td>{statusBadge(s.status)}</Table.Td>
+									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>{s.attempt_count > 0 ? s.attempt_count : "-"}</Table.Td>
+									<Table.Td>
 										{s.score_total != null ? (
 											<Text component="span" fw={700} inherit>{s.score_total}</Text>
 										) : (
@@ -270,30 +263,30 @@ export default function AssignmentDetailPage() {
 												共{s.attempt_count}次
 											</Text>
 										)}
-									</TableCell>
-									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 										{s.scoring_status === "completed"
 											? "已评分"
 											: s.scoring_status || "-"}
-									</TableCell>
-									<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 										{s.end_time
 											? new Date(s.end_time).toLocaleString("zh-CN")
 											: "-"}
 										{s.status === "completed" && s.is_overdue && (
 											<Text component="span" size="xs" c="red" ml={4} inherit>逾期提交</Text>
 										)}
-									</TableCell>
-								</TableRow>
+									</Table.Td>
+								</Table.Tr>
 							))}
 							{filteredStudents.length === 0 && (
-								<TableRow>
-									<TableCell colSpan={7} style={{ textAlign: "center", color: "var(--mantine-color-dimmed)", paddingTop: 32, paddingBottom: 32 }}>
+								<Table.Tr>
+									<Table.Td colSpan={7} style={{ textAlign: "center", color: "var(--mantine-color-dimmed)", paddingTop: 32, paddingBottom: 32 }}>
 										{studentSearch || statusFilter ? "无匹配结果" : "该班级暂无学生"}
-									</TableCell>
-								</TableRow>
+									</Table.Td>
+								</Table.Tr>
 							)}
-						</TableBody>
+						</Table.Tbody>
 					</Table>
 				</div>
 			</Card>

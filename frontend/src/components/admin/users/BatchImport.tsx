@@ -9,15 +9,8 @@ import { useRef, useState } from "react";
 import { Alert, Box, Button, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
 
 import { RoleBadge } from "@/components/ui/role-badge";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Textarea } from "@mantine/core";
+import { Table } from "@mantine/core";
 import type { BatchUser, RoleOption } from "./types";
 
 const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "班级名称"];
@@ -242,25 +235,25 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
             <Text fw={600} size="sm" mb="xs">预览（{batchPreview.length} 名学生）</Text>
             <ScrollArea h={200}>
               <Table stickyHeader>
-                <TableHeader>
-                  <TableRow>
+                <Table.Thead>
+                  <Table.Tr>
                     {CSV_HEADERS.map((h) => (
-                      <TableHead key={h}>{h}</TableHead>
+                      <Table.Th key={h}>{h}</Table.Th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
                   {batchPreview.map((u, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{u.username}</TableCell>
-                      <TableCell>{"*".repeat(Math.min(u.password.length, 8))}</TableCell>
-                      <TableCell>{u.display_name}</TableCell>
-                      <TableCell><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></TableCell>
-                      <TableCell><Text size="sm" c="dimmed">{u.student_id || "-"}</Text></TableCell>
-                      <TableCell><Text size="sm" c="dimmed">{u.class_name || u.class_id || "-"}</Text></TableCell>
-                    </TableRow>
+                    <Table.Tr key={i}>
+                      <Table.Td>{u.username}</Table.Td>
+                      <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
+                      <Table.Td>{u.display_name}</Table.Td>
+                      <Table.Td><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed">{u.student_id || "-"}</Text></Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed">{u.class_name || u.class_id || "-"}</Text></Table.Td>
+                    </Table.Tr>
                   ))}
-                </TableBody>
+                </Table.Tbody>
               </Table>
             </ScrollArea>
           </Box>

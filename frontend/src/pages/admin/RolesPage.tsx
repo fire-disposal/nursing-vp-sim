@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -235,7 +235,7 @@ export default function RolesPage() {
 												key={p.key}
 												label={p.label}
 												checked={editPerms.includes(p.key)}
-												onCheckedChange={() => togglePerm(p.key)}
+												onChange={() => togglePerm(p.key)}
 											/>
 										))}
 									</SimpleGrid>

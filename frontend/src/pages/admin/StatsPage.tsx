@@ -1,4 +1,4 @@
-import { Group, SimpleGrid, Text } from "@mantine/core";
+import { Group, SegmentedControl, SimpleGrid, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
 	IconActivity,
@@ -35,15 +35,6 @@ import EmptyState from "@/components/ui/empty-state";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
-import { LegacyTabs } from "@/components/ui/tabs";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import useAuthStore from "@/stores/authStore";
 import { isAdminPermissions } from "@/utils/permissions";
@@ -211,13 +202,13 @@ function StatsContent({
 			)}
 
 			<Group justify="flex-end" mb="xl">
-				<LegacyTabs
-					tabs={[
-						{ key: "week", label: "近7天" },
-						{ key: "month", label: "近30天" },
-						{ key: "all", label: "全部" },
+				<SegmentedControl
+					data={[
+						{ value: "week", label: "近7天" },
+						{ value: "month", label: "近30天" },
+						{ value: "all", label: "全部" },
 					]}
-					activeTab={period}
+					value={period}
 					onChange={setPeriod}
 				/>
 			</Group>
@@ -363,30 +354,30 @@ function StatsContent({
 					</CardHeader>
 					<div style={{ maxHeight: 384, overflow: "auto" }}>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>学生</TableHead>
-									<TableHead>学号</TableHead>
-									<TableHead>训练次数</TableHead>
-									<TableHead>总时长（分钟）</TableHead>
-									<TableHead>平均时长</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th>学生</Table.Th>
+									<Table.Th>学号</Table.Th>
+									<Table.Th>训练次数</Table.Th>
+									<Table.Th>总时长（分钟）</Table.Th>
+									<Table.Th>平均时长</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{summary.map((s) => (
-									<TableRow key={s.user_id}>
-										<TableCell>{s.display_name}</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_code}</TableCell>
-										<TableCell>{s.total_sessions}</TableCell>
-										<TableCell style={{ fontWeight: 600 }}>{s.total_minutes}</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>
+									<Table.Tr key={s.user_id}>
+										<Table.Td>{s.display_name}</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_code}</Table.Td>
+										<Table.Td>{s.total_sessions}</Table.Td>
+										<Table.Td style={{ fontWeight: 600 }}>{s.total_minutes}</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>
 											{s.total_sessions > 0
 												? `${Math.round(s.total_minutes / s.total_sessions)}分钟`
 												: "-"}
-										</TableCell>
-									</TableRow>
+										</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</div>
 					<CardContent>
@@ -413,21 +404,21 @@ function StatsContent({
 					</CardHeader>
 					<div style={{ maxHeight: 384, overflow: "auto" }}>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead style={{ width: 60 }}>排名</TableHead>
-									<TableHead>学生</TableHead>
-									<TableHead>学号</TableHead>
-									<TableHead>训练次数</TableHead>
-									<TableHead>平均分</TableHead>
-									<TableHead>总分</TableHead>
-									<TableHead>总时长</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ width: 60 }}>排名</Table.Th>
+									<Table.Th>学生</Table.Th>
+									<Table.Th>学号</Table.Th>
+									<Table.Th>训练次数</Table.Th>
+									<Table.Th>平均分</Table.Th>
+									<Table.Th>总分</Table.Th>
+									<Table.Th>总时长</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{ranking.map((s) => (
-									<TableRow key={s.user_id} style={s.rank <= 3 ? { background: "var(--mantine-color-yellow-0)" } : undefined}>
-										<TableCell>
+									<Table.Tr key={s.user_id} style={s.rank <= 3 ? { background: "var(--mantine-color-yellow-0)" } : undefined}>
+										<Table.Td>
 											{s.rank === 1 ? (
 												<IconMedal size={20} color="var(--mantine-color-yellow-6)" />
 											) : s.rank === 2 ? (
@@ -437,20 +428,20 @@ function StatsContent({
 											) : (
 												<Text component="span" c="dimmed" fw={600}>{s.rank}</Text>
 											)}
-										</TableCell>
-										<TableCell style={{ fontWeight: 500 }}>{s.display_name}</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_id || "-"}</TableCell>
-										<TableCell>{s.total_sessions}</TableCell>
-										<TableCell style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
+										</Table.Td>
+										<Table.Td style={{ fontWeight: 500 }}>{s.display_name}</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_id || "-"}</Table.Td>
+										<Table.Td>{s.total_sessions}</Table.Td>
+										<Table.Td style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
 											{s.avg_score != null ? `${s.avg_score}分` : "-"}
-										</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>
+										</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>
 											{s.total_score > 0 ? `${s.total_score}分` : "-"}
-										</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{s.total_minutes}分钟</TableCell>
-									</TableRow>
+										</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.total_minutes}分钟</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</div>
 					<CardContent>

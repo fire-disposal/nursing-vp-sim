@@ -6,18 +6,11 @@ import { fetchCostExport } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { TextInput } from "@mantine/core";
+
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { Separator } from "@/components/ui/separator";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Divider } from "@mantine/core";
+import { Table } from "@mantine/core";
 
 export default function CostExportTab() {
 	const [startDate, setStartDate] = useState("");
@@ -77,8 +70,8 @@ export default function CostExportTab() {
 					<Stack gap="md">
 						<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 							<Stack gap={6}>
-								<Label htmlFor="startDate">开始日期</Label>
-								<Input
+								<label htmlFor="startDate">开始日期</label>
+								<TextInput
 									id="startDate"
 									type="date"
 									value={startDate}
@@ -86,8 +79,8 @@ export default function CostExportTab() {
 								/>
 							</Stack>
 							<Stack gap={6}>
-								<Label htmlFor="endDate">结束日期</Label>
-								<Input
+								<label htmlFor="endDate">结束日期</label>
+								<TextInput
 									id="endDate"
 									type="date"
 									value={endDate}
@@ -95,7 +88,7 @@ export default function CostExportTab() {
 								/>
 							</Stack>
 							<Stack gap={6}>
-								<Label htmlFor="service">服务类型</Label>
+								<label htmlFor="service">服务类型</label>
 								<Select
 									id="service"
 									value={service ?? ""}
@@ -108,7 +101,7 @@ export default function CostExportTab() {
 								/>
 							</Stack>
 							<Stack gap={6}>
-								<Label htmlFor="granularity">粒度</Label>
+								<label htmlFor="granularity">粒度</label>
 								<Select
 									id="granularity"
 									value={granularity}
@@ -121,7 +114,7 @@ export default function CostExportTab() {
 							</Stack>
 						</SimpleGrid>
 
-						<Separator />
+						<Divider />
 
 						<Group justify="space-between" wrap="wrap" gap="sm">
 							<SegmentedControl
@@ -192,26 +185,26 @@ export default function CostExportTab() {
 								)}
 								<div style={{ maxHeight: 384, overflow: "auto", border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
 									<Table>
-										<TableHeader>
-											<TableRow>
+										<Table.Thead>
+											<Table.Tr>
 												{Object.keys(items[0]).map((k) => (
-													<TableHead key={k} style={{ whiteSpace: "nowrap" }}>
+													<Table.Th key={k} style={{ whiteSpace: "nowrap" }}>
 														{k}
-													</TableHead>
+													</Table.Th>
 												))}
-											</TableRow>
-										</TableHeader>
-										<TableBody>
+											</Table.Tr>
+										</Table.Thead>
+										<Table.Tbody>
 											{items.map((item, i) => (
-												<TableRow key={i}>
+												<Table.Tr key={i}>
 													{Object.keys(items[0]).map((k) => (
-														<TableCell key={k} style={{ whiteSpace: "nowrap" }}>
+														<Table.Td key={k} style={{ whiteSpace: "nowrap" }}>
 															{String(item[k] ?? "")}
-														</TableCell>
+														</Table.Td>
 													))}
-												</TableRow>
+												</Table.Tr>
 											))}
-										</TableBody>
+										</Table.Tbody>
 									</Table>
 								</div>
 							</>

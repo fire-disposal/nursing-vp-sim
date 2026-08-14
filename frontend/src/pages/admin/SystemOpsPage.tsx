@@ -5,18 +5,11 @@ import { useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm?.success_rate ?? 100;
@@ -234,32 +227,32 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 				) : (
 					<div style={{ maxHeight: 320, overflow: "auto", border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead style={{ width: 144 }}>时间</TableHead>
-									<TableHead>来源</TableHead>
-									<TableHead>消息</TableHead>
-									<TableHead style={{ width: 96 }}>级别</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ width: 144 }}>时间</Table.Th>
+									<Table.Th>来源</Table.Th>
+									<Table.Th>消息</Table.Th>
+									<Table.Th style={{ width: 96 }}>级别</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{entries.map((e, i) => (
-									<TableRow key={i}>
-										<TableCell style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", whiteSpace: "nowrap" }}>
+									<Table.Tr key={i}>
+										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", whiteSpace: "nowrap" }}>
 											{e.time?.slice(0, 19) ?? "-"}
-										</TableCell>
-										<TableCell style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
 											{e.logger ?? "-"}
-										</TableCell>
-										<TableCell style={{ fontSize: 12, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
 											{e.message ?? "-"}
-										</TableCell>
-										<TableCell style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", color: "var(--mantine-color-dimmed)" }}>
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", color: "var(--mantine-color-dimmed)" }}>
 											{e.level ?? "-"}
-										</TableCell>
-									</TableRow>
+										</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</div>
 				)}
@@ -295,7 +288,7 @@ export default function SystemOpsPage() {
 						<Checkbox
 							label="自动刷新"
 							checked={autoRefresh}
-							onCheckedChange={setAutoRefresh}
+							onChange={(e) => setAutoRefresh(e.currentTarget.checked)}
 						/>
 						<Button variant="outline" size="sm" onClick={handleRefresh} leftSection={<IconRefresh size={14} />}>
 							刷新

@@ -22,11 +22,11 @@ import {
 	emptyQuestion,
 	QUESTION_TYPE_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
-import { Switch } from "@/components/ui/switch";
-import LoadingState from "@/components/ui/loading-state";
+import { Switch } from "@mantine/core";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 interface QuestionnaireEditorProps {
 	open: boolean;
@@ -105,7 +105,7 @@ export default function QuestionnaireEditor({
 		>
 			<FormMessageBanner type="error" message={editMsg} />
 			{isLoadingDetail && editingId ? (
-				<LoadingState message="加载模板数据..." />
+				<LoadingSkeleton variant="spinner" message="加载模板数据..." />
 			) : (
 				<form onSubmit={onSave}>
 					<Stack gap="md">
@@ -137,8 +137,8 @@ export default function QuestionnaireEditor({
 								<Group gap={8}>
 									<Switch
 										checked={form.is_active}
-										onCheckedChange={(checked) =>
-											setForm((f) => ({ ...f, is_active: checked }))
+										onChange={(e) =>
+											setForm((f) => ({ ...f, is_active: e.currentTarget.checked }))
 										}
 										aria-label="状态"
 									/>
@@ -263,8 +263,8 @@ export default function QuestionnaireEditor({
 											<Group gap="md">
 												<Checkbox
 													checked={q.required}
-													onCheckedChange={(checked) =>
-														updateQuestion(i, { required: checked })
+													onChange={(e) =>
+														updateQuestion(i, { required: e.currentTarget.checked })
 													}
 													label="必答"
 												/>

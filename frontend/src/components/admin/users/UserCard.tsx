@@ -1,7 +1,7 @@
 import { getUserAvatar } from "@/utils/avatar";
 import { Group, Stack, Text } from "@mantine/core";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 import { RoleBadge } from "@/components/ui/role-badge";
 import type { UserBrief } from "./types";
 
@@ -36,7 +36,7 @@ export default function UserCard({
 					<div onClick={(e) => e.stopPropagation()}>
 						<Checkbox
 							checked={selected}
-							onCheckedChange={(checked) => onSelect(user.id, checked)}
+							onChange={(e) => onSelect(user.id, e.currentTarget.checked)}
 							aria-label={`选择 ${user.display_name}`}
 						/>
 					</div>

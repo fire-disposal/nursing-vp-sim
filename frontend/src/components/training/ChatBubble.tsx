@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
 import { ActionIcon, Avatar, Badge, Box, Group, Loader, Stack, Text, Typography } from "@mantine/core";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 
 interface ChatBubbleProps {
 	message: ChatMessage;

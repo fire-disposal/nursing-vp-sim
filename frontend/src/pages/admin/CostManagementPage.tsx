@@ -2,7 +2,7 @@ import { IconCoins } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 import MonitorTab from "@/components/admin/monitor/MonitorTab";
 import PageHeader from "@/components/ui/page-header";
-import Tabs from "@/components/ui/tabs";
+import { SegmentedControl } from "@mantine/core";
 import CostDashboard from "@/pages/admin/cost/CostDashboard";
 import CostExportTab from "@/pages/admin/cost/CostExportTab";
 import LLMAPITab from "@/pages/admin/cost/LLMAPITab";
@@ -32,7 +32,7 @@ export default function CostManagementPage() {
 				subtitle="LLM API · TTS · 费用总览 · 数据导出"
 				icon={IconCoins}
 			/>
-			<Tabs tabs={COST_TABS} activeTab={tab} onChange={setTab} />
+			<SegmentedControl data={COST_TABS.map((t) => ({ value: t.key, label: t.label }))} value={tab} onChange={setTab} />
 			{tab === "dashboard" && <CostDashboard />}
 			{tab === "llm" && <LLMAPITab />}
 			{tab === "monitor" && <MonitorTab />}

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { submitFeedbackFormData } from "@/api";
 import { useToast } from "@/components/Toast";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@mantine/core";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
 
 const RATING_META = [

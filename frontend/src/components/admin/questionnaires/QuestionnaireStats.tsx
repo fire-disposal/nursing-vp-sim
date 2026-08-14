@@ -19,7 +19,7 @@ import type {
 import { QUESTION_TYPE_LABELS } from "@/components/admin/questionnaires/types";
 import { toast } from "@/components/Toast";
 import EmptyState from "@/components/ui/empty-state";
-import LoadingState from "@/components/ui/loading-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 interface QuestionnaireStatsProps {
 	template: TemplateListItem;
@@ -65,7 +65,7 @@ export default function QuestionnaireStats({
 			</Group>
 
 			{isLoading ? (
-				<LoadingState message="加载统计数据..." />
+				<LoadingSkeleton variant="spinner" message="加载统计数据..." />
 			) : stats ? (
 				<Stack gap="xl">
 					<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">

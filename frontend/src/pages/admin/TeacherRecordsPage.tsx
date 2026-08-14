@@ -7,24 +7,17 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@mantine/core";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -240,7 +233,7 @@ export default function TeacherRecordsPage() {
 						</Stack>
 						<Stack gap={6}>
 							<Text size="xs" fw={500} c="dimmed">学生搜索</Text>
-							<Input
+							<TextInput
 								placeholder="搜索学生姓名或学号..."
 								aria-label="搜索学生姓名或学号"
 								value={searchInput}
@@ -287,7 +280,7 @@ export default function TeacherRecordsPage() {
 						</Stack>
 						<Stack gap={6}>
 							<Text size="xs" fw={500} c="dimmed">开始日期(起)</Text>
-							<Input
+							<TextInput
 								type="date"
 								value={date_from}
 								onChange={(e) => setParam("date_from", e.target.value)}
@@ -295,7 +288,7 @@ export default function TeacherRecordsPage() {
 						</Stack>
 						<Stack gap={6}>
 							<Text size="xs" fw={500} c="dimmed">开始日期(止)</Text>
-							<Input
+							<TextInput
 								type="date"
 								value={date_to}
 								onChange={(e) => setParam("date_to", e.target.value)}
@@ -305,7 +298,7 @@ export default function TeacherRecordsPage() {
 							<Checkbox
 								label="排除试跑"
 								checked={exclude_is_test}
-								onCheckedChange={(c) => setParam("exclude_is_test", c ? "true" : "false")}
+								onChange={(e) => setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")}
 							/>
 							<Button variant="outline" onClick={handleClearFilters}>
 								清除过滤
@@ -339,55 +332,55 @@ export default function TeacherRecordsPage() {
 					<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
 						<div style={{ overflowX: "auto" }}>
 							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>学生</TableHead>
-										<TableHead>学号</TableHead>
-										<TableHead>病例</TableHead>
-										<TableHead>类型</TableHead>
-										<TableHead>来源</TableHead>
-										<TableHead style={{ cursor: "pointer" }} onClick={() => handleSort("start_time")}>
+								<Table.Thead>
+									<Table.Tr>
+										<Table.Th>学生</Table.Th>
+										<Table.Th>学号</Table.Th>
+										<Table.Th>病例</Table.Th>
+										<Table.Th>类型</Table.Th>
+										<Table.Th>来源</Table.Th>
+										<Table.Th style={{ cursor: "pointer" }} onClick={() => handleSort("start_time")}>
 											开始时间{sortIcon("start_time")}
-										</TableHead>
-										<TableHead
+										</Table.Th>
+										<Table.Th
 											style={{ cursor: "pointer" }}
 											onClick={() => handleSort("duration")}
 										>
 											时长{sortIcon("duration")}
-										</TableHead>
-										<TableHead>状态</TableHead>
-										<TableHead style={{ cursor: "pointer" }} onClick={() => handleSort("score_total")}>
+										</Table.Th>
+										<Table.Th>状态</Table.Th>
+										<Table.Th style={{ cursor: "pointer" }} onClick={() => handleSort("score_total")}>
 											得分{sortIcon("score_total")}
-										</TableHead>
-										<TableHead>评分状态</TableHead>
-										<TableHead>操作</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
+										</Table.Th>
+										<Table.Th>评分状态</Table.Th>
+										<Table.Th>操作</Table.Th>
+									</Table.Tr>
+								</Table.Thead>
+								<Table.Tbody>
 									{sortedRecords.map((r) => {
 										const durMins = durationMinutes(r);
 										return (
-											<TableRow key={r.id}>
-												<TableCell>{r.user_display_name}</TableCell>
-												<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>{r.user_student_id ?? ""}</TableCell>
-												<TableCell style={{ fontWeight: 500 }}>{r.case_name}</TableCell>
-												<TableCell>
+											<Table.Tr key={r.id}>
+												<Table.Td>{r.user_display_name}</Table.Td>
+												<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{r.user_student_id ?? ""}</Table.Td>
+												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
+												<Table.Td>
 													<Badge variant="light" color="gray">问诊</Badge>
-												</TableCell>
-												<TableCell>
+												</Table.Td>
+												<Table.Td>
 													{r.assignment_title ? (
 														<Badge variant="light" color="blue" size="xs">作业</Badge>
 													) : (
 														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 													)}
-												</TableCell>
-												<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+												</Table.Td>
+												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 													{new Date(r.start_time).toLocaleString("zh-CN")}
-												</TableCell>
-												<TableCell style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", opacity: durMins != null ? 1 : 0.5 }}>
+												</Table.Td>
+												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", opacity: durMins != null ? 1 : 0.5 }}>
 													{durMins != null ? `${durMins} 分钟` : "进行中"}
-												</TableCell>
-												<TableCell>
+												</Table.Td>
+												<Table.Td>
 													<Badge
 														variant="light" color={r.status === "completed" ? "green" :
 															r.status === "abandoned" ? "gray" :
@@ -397,8 +390,8 @@ export default function TeacherRecordsPage() {
 														 r.status === "abandoned" ? "已放弃" :
 														 "进行中"}
 													</Badge>
-												</TableCell>
-												<TableCell>
+												</Table.Td>
+												<Table.Td>
 													{r.score_total != null ? (
 														<Text component="span" fw={600} c="blue">
 															{r.score_total}分
@@ -418,8 +411,8 @@ export default function TeacherRecordsPage() {
 													) : (
 														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}
-												</TableCell>
-												<TableCell>
+												</Table.Td>
+												<Table.Td>
 													{r.scoring_status === "completed" ? (
 														<Badge variant="light" color="green">已完成</Badge>
 													) : r.scoring_status === "pending" ||
@@ -430,8 +423,8 @@ export default function TeacherRecordsPage() {
 													) : (
 														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}
-												</TableCell>
-												<TableCell>
+												</Table.Td>
+												<Table.Td>
 													<Group gap={8} wrap="nowrap">
 														<Button
 															variant="transparent"
@@ -459,11 +452,11 @@ export default function TeacherRecordsPage() {
 															<IconTrash size={14} />
 														</Button>
 													</Group>
-												</TableCell>
-											</TableRow>
+												</Table.Td>
+											</Table.Tr>
 										);
 									})}
-								</TableBody>
+								</Table.Tbody>
 							</Table>
 						</div>
 					</Paper>

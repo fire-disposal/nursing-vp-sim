@@ -27,14 +27,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 
 
@@ -198,31 +191,31 @@ export default function UserDetailPage() {
 				<CardContent>
 					<div style={{ overflowX: "auto" }}>
 						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>病例</TableHead>
-									<TableHead>状态</TableHead>
-									<TableHead>得分</TableHead>
-									<TableHead>开始时间</TableHead>
-									<TableHead>操作</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th>病例</Table.Th>
+									<Table.Th>状态</Table.Th>
+									<Table.Th>得分</Table.Th>
+									<Table.Th>开始时间</Table.Th>
+									<Table.Th>操作</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
 								{recentRecords.map((r) => (
-									<TableRow key={r.id}>
-										<TableCell>{r.case_name}</TableCell>
-										<TableCell>
+									<Table.Tr key={r.id}>
+										<Table.Td>{r.case_name}</Table.Td>
+										<Table.Td>
 											<Badge variant="light" color={r.status === "completed" ? "green" : "blue"}>
 												{r.status === "completed" ? "已完成" : "进行中"}
 											</Badge>
-										</TableCell>
-										<TableCell style={{ fontWeight: 600, color: r.score_total != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
+										</Table.Td>
+										<Table.Td style={{ fontWeight: 600, color: r.score_total != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
 											{r.score_total != null ? `${r.score_total}分` : "未评分"}
-										</TableCell>
-										<TableCell style={{ color: "var(--mantine-color-dimmed)" }}>
+										</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>
 											{new Date(r.start_time).toLocaleString("zh-CN")}
-										</TableCell>
-										<TableCell>
+										</Table.Td>
+										<Table.Td>
 											<Button
 												variant="subtle" color="gray"
 												size="sm"
@@ -230,10 +223,10 @@ export default function UserDetailPage() {
 											>
 												查看详情
 											</Button>
-										</TableCell>
-									</TableRow>
+										</Table.Td>
+									</Table.Tr>
 								))}
-							</TableBody>
+							</Table.Tbody>
 						</Table>
 					</div>
 				</CardContent>

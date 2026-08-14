@@ -18,14 +18,7 @@ import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table } from "@mantine/core";
 import { useChartTheme } from "@/hooks/useChartTheme";
 
 function BudgetProgress({
@@ -227,32 +220,32 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 					<EmptyState icon={IconUsers} title="暂无数据" />
 				) : (
 					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead style={{ width: 48 }}>#</TableHead>
-								<TableHead>用户</TableHead>
-								<TableHead style={{ textAlign: "right" }}>调用次数</TableHead>
-								<TableHead style={{ textAlign: "right" }}>总费用</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th style={{ width: 48 }}>#</Table.Th>
+								<Table.Th>用户</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>调用次数</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>总费用</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
 							{users.map((u, i) => (
-								<TableRow key={i}>
-									<TableCell style={{ color: "var(--mantine-color-dimmed)", fontSize: 12 }}>
+								<Table.Tr key={i}>
+									<Table.Td style={{ color: "var(--mantine-color-dimmed)", fontSize: 12 }}>
 										{i + 1}
-									</TableCell>
-									<TableCell style={{ fontWeight: 500 }}>
+									</Table.Td>
+									<Table.Td style={{ fontWeight: 500 }}>
 										{u.user_name}
-									</TableCell>
-									<TableCell style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+									</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
 										{u.calls}
-									</TableCell>
-									<TableCell style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
+									</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
 										¥{u.total_cost.toFixed(2)}
-									</TableCell>
-								</TableRow>
+									</Table.Td>
+								</Table.Tr>
 							))}
-						</TableBody>
+						</Table.Tbody>
 					</Table>
 				)}
 			</CardContent>

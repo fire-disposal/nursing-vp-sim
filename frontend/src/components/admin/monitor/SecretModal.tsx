@@ -7,7 +7,7 @@ import type { ApiSecretResponse } from "@/api/admin/api-management-types";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 
-import { Input } from "@/components/ui/input";
+import { TextInput } from "@mantine/core";
 import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
 
 interface SecretModalProps {
@@ -112,18 +112,18 @@ export default function SecretModal({
 		>
 				<form onSubmit={form.onSubmit(onSubmit)}>
 					<Stack gap="sm">
-						<Input
+						<TextInput
 							label="标签"
 							placeholder="如: DeepSeek 个人账号"
 							{...form.getInputProps("label")}
 						/>
-						<Input
+						<TextInput
 							label="API 端点 (Base URL)"
 							placeholder="https://api.deepseek.com"
 							{...form.getInputProps("baseUrl")}
 						/>
 						{!isEdit && (
-							<Input
+							<TextInput
 								label="API Key"
 								type={showKey ? "text" : "password"}
 								placeholder="sk-..."
@@ -144,7 +144,7 @@ export default function SecretModal({
 								}
 							/>
 						)}
-						<Input
+						<TextInput
 							label="月度预算上限 (¥, 留空不限制)"
 							type="number"
 							step="0.01"
@@ -161,7 +161,7 @@ export default function SecretModal({
 								)
 							}
 						/>
-						<Input
+						<TextInput
 							label="优先级 (数字越大越优先)"
 							type="number"
 							step="1"
@@ -176,7 +176,7 @@ export default function SecretModal({
 								)
 							}
 						/>
-						<Input
+						<TextInput
 							label="模型覆盖 (可选)"
 							placeholder="如: deepseek-v4-pro"
 							{...form.getInputProps("modelOverride")}

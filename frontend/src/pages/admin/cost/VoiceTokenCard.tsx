@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Divider } from "@mantine/core";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import useAuthStore from "@/stores/authStore";
 
@@ -323,7 +323,7 @@ export default function VoiceTokenCard() {
 						</Text>
 					)}
 
-					<Separator />
+					<Divider />
 
 					{/* ══ Stream test ══ */}
 					<Stack gap={8}>
