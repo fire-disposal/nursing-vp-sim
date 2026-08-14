@@ -589,6 +589,7 @@ def _detail(v: StudentDetailView) -> StudentDetail:
                 id=r.id,
                 case_id=r.case_id,
                 case_name=r.case_name,
+                user_id=v.id,
                 user_display_name=r.user_display_name,
                 user_student_id=r.user_student_id,
                 status=r.status,
