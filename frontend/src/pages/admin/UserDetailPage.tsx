@@ -22,6 +22,7 @@ import {
 	YAxis,
 } from "recharts";
 import { getStudentDetail } from "@/api";
+import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -31,43 +32,8 @@ import { Table } from "@mantine/core";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 
 
-interface RecentRecord {
-	id: number;
-	case_name: string;
-	status: string;
-	score_total: number | null;
-	start_time: string;
-}
-
-interface DailyItem {
-	created_at: string;
-	date: string;
-	sessions: number;
-	avg_score: number | null;
-}
-
-/** Safely coerce unknown array to typed array, discarding entries that don't match the shape. */
-function asRecentRecords(arr: unknown): RecentRecord[] {
-	if (!Array.isArray(arr)) return [];
-	return arr.filter(
-		(item): item is RecentRecord =>
-			typeof item === "object" &&
-			item !== null &&
-			typeof (item as RecentRecord).id === "number" &&
-			typeof (item as RecentRecord).case_name === "string",
-	);
-}
-
-function asDailyItems(arr: unknown): DailyItem[] {
-	if (!Array.isArray(arr)) return [];
-	return arr.filter(
-		(item): item is DailyItem =>
-			typeof item === "object" &&
-			item !== null &&
-			typeof (item as DailyItem).date === "string" &&
-			typeof (item as DailyItem).sessions === "number",
-	);
-}
+type StudentRecentRecord = components["schemas"]["StudentRecentRecord"];
+type StudentDailyStat = components["schemas"]["StudentDailyStat"];
 
 export default function UserDetailPage() {
 	const { userId } = useParams<{ userId: string }>();
@@ -92,9 +58,10 @@ export default function UserDetailPage() {
 		return <Text ta="center" py={48} c="dimmed">未找到用户</Text>;
 	}
 
-	const daily = asDailyItems(student.daily);
+	// 类型已由 OpenAPI 生成（StudentDetail.recent_records / daily），无需手写守卫
+	const daily = (student.daily ?? []) as StudentDailyStat[];
 	const hasChartData = daily.length > 0;
-	const recentRecords = asRecentRecords(student.recent_records);
+	const recentRecords = (student.recent_records ?? []) as StudentRecentRecord[];
 
 	return (
 		<Stack gap="lg">

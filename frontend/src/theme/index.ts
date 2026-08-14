@@ -18,6 +18,8 @@ export const theme = createTheme({
 		'"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
 	cursorType: "pointer",
 	focusRing: "auto",
+	// Mantine 内置过渡尊重系统减弱动态偏好
+	respectReducedMotion: true,
 	defaultRadius: "sm",
 	primaryColor: "brand",
 	primaryShade: { light: 6, dark: 7 },

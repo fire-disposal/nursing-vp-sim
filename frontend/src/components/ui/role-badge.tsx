@@ -4,7 +4,7 @@ const ROLE_COLORS: Record<string, string> = {
 	super_admin: "red",
 	school_admin: "red",
 	admin: "red",
-	teacher: "blue",
+	teacher: "brand",
 };
 
 /** Role pill — unifies the duplicated role color logic onto Mantine Badge. */

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -53,3 +54,13 @@ class ClassSummaryItemSchema(BaseModel):
     completion_rate: float = 0
     total_sessions: int = 0
     total_minutes: int = 0
+
+
+class ClassStudentItem(BaseModel):
+    """班级学生训练聚合（只读）"""
+    user_id: int
+    display_name: str
+    student_id: str | None = None
+    total_sessions: int = 0
+    avg_score: float | None = None
+    last_start_time: datetime | None = None

@@ -1933,6 +1933,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stats/class-students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Class Students */
+        get: operations["class_students_api_stats_class_students_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/telemetry": {
         parameters: {
             query?: never;
@@ -3032,6 +3049,27 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * ClassStudentItem
+         * @description 班级学生训练聚合（只读）
+         */
+        ClassStudentItem: {
+            /** User Id */
+            user_id: number;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /**
+             * Total Sessions
+             * @default 0
+             */
+            total_sessions: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Last Start Time */
+            last_start_time?: string | null;
         };
         /** ClassSummaryItemSchema */
         ClassSummaryItemSchema: {
@@ -4740,6 +4778,26 @@ export interface components {
              */
             attempt_count: number;
         };
+        /**
+         * StudentDailyStat
+         * @description 学生详情页每日训练统计项
+         */
+        StudentDailyStat: {
+            /** Date */
+            date: string;
+            /**
+             * Sessions
+             * @default 0
+             */
+            sessions: number;
+            /**
+             * Minutes
+             * @default 0
+             */
+            minutes: number;
+            /** Avg Score */
+            avg_score?: number | null;
+        };
         /** StudentDetail */
         StudentDetail: {
             /** Id */
@@ -4773,12 +4831,49 @@ export interface components {
              * Recent Records
              * @default []
              */
-            recent_records: unknown[];
+            recent_records: components["schemas"]["StudentRecentRecord"][];
             /**
              * Daily
              * @default []
              */
-            daily: unknown[];
+            daily: components["schemas"]["StudentDailyStat"][];
+        };
+        /**
+         * StudentRecentRecord
+         * @description 学生详情页最近训练记录项（TrainingRecordBrief 子集）
+         */
+        StudentRecentRecord: {
+            /** Id */
+            id: number;
+            /** Case Id */
+            case_id: number;
+            /** Case Name */
+            case_name: string;
+            /** User Id */
+            user_id: number;
+            /** User Display Name */
+            user_display_name: string;
+            /** User Student Id */
+            user_student_id: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /** End Time */
+            end_time: string | null;
+            /** Score Total */
+            score_total?: number | null;
+            /** Scoring Status */
+            scoring_status?: string | null;
+            /** Scoring Error */
+            scoring_error?: string | null;
+            /** Assignment Id */
+            assignment_id?: string | null;
+            /** Assignment Title */
+            assignment_title?: string | null;
         };
         /**
          * StudentTrendRecord
@@ -9756,6 +9851,38 @@ export interface operations {
             };
         };
     };
+    class_students_api_stats_class_students_get: {
+        parameters: {
+            query: {
+                /** @description 班级ID */
+                class_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassStudentItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ingest_telemetry_api_telemetry_post: {
         parameters: {
             query?: never;
@@ -10048,6 +10175,10 @@ export interface operations {
                 user_id?: number | null;
                 /** @description 排除试跑记录 */
                 exclude_is_test?: boolean;
+                /** @description 排序字段：start_time/score_total/duration */
+                sort_by?: string;
+                /** @description 排序方向：asc/desc */
+                order?: string;
             };
             header?: never;
             path?: never;

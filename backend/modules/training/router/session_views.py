@@ -77,6 +77,10 @@ def get_records(
     training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
     user_id: Annotated[int | None, Query(description="按用户ID筛选（仅 score_review 权限生效）")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
+    sort_by: Annotated[
+        str, Query(description="排序字段：start_time/score_total/duration")
+    ] = "start_time",
+    order: Annotated[str, Query(description="排序方向：asc/desc")] = "desc",
 ):
 
     base = db.query(TrainingRecord)
@@ -119,7 +123,18 @@ def get_records(
         joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id),
         joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score),
         joinedload(TrainingRecord.assignment).load_only(Assignment.id, Assignment.title),
-    ).order_by(TrainingRecord.start_time.desc())
+    )
+
+    # 服务端排序（教师页按分数/时长排序需全局正确，不能只排当前页）
+    desc = order != "asc"
+    if sort_by == "score_total":
+        sort_col = Score.total_score
+    elif sort_by == "duration":
+        sort_col = (TrainingRecord.end_time - TrainingRecord.start_time)
+    else:
+        sort_col = TrainingRecord.start_time
+    # 空值（未评分/未结束）排最后
+    query = query.order_by(sort_col.is_(None), sort_col.desc() if desc else sort_col.asc())
 
     records, total = paginate(query, offset, limit)
 

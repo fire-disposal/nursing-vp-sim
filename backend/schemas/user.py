@@ -42,6 +42,34 @@ class UserUpdateRequest(BaseModel):
     avatar: str | None = Field(default=None, max_length=255)
 
 
+class StudentRecentRecord(BaseModel):
+    """学生详情页最近训练记录项（TrainingRecordBrief 子集）"""
+    model_config = _RESP_CFG
+    id: int
+    case_id: int
+    case_name: str
+    user_id: int
+    user_display_name: str
+    user_student_id: str | None
+    status: str
+    start_time: datetime
+    end_time: datetime | None
+    score_total: float | None = None
+    scoring_status: str | None = None
+    scoring_error: str | None = None
+    assignment_id: str | None = None
+    assignment_title: str | None = None
+
+
+class StudentDailyStat(BaseModel):
+    """学生详情页每日训练统计项"""
+    model_config = _RESP_CFG
+    date: str
+    sessions: int = 0
+    minutes: float = 0
+    avg_score: float | None = None
+
+
 class StudentDetail(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -53,8 +81,8 @@ class StudentDetail(BaseModel):
     total_sessions: int = 0
     total_minutes: int = 0
     avg_score: float | None = None
-    recent_records: list = []
-    daily: list = []
+    recent_records: list[StudentRecentRecord] = []
+    daily: list[StudentDailyStat] = []
 
 
 class BatchUserItem(BaseModel):

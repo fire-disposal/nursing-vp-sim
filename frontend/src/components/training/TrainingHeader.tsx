@@ -204,7 +204,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					>
 						取消
 					</Button>
-					<Button variant="light" color="indigo" size="sm" onClick={executeEnd}>
+					<Button variant="filled" size="sm" onClick={executeEnd}>
 						确认结束
 					</Button>
 				</Group>

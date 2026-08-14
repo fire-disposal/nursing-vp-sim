@@ -71,6 +71,8 @@ export const queryKeys = {
 			[...queryKeys.stats.all, "ranking", params] as const,
 		classSummary: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "classSummary", params] as const,
+		classStudents: (classId: number | string) =>
+			[...queryKeys.stats.all, "classStudents", classId] as const,
 		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {

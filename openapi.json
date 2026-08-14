@@ -7317,6 +7317,59 @@
         }
       }
     },
+    "/api/stats/class-students": {
+      "get": {
+        "tags": [
+          "统计"
+        ],
+        "summary": "Class Students",
+        "operationId": "class_students_api_stats_class_students_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "班级ID",
+              "title": "Class Id"
+            },
+            "description": "班级ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassStudentItem"
+                  },
+                  "title": "Response Class Students Api Stats Class Students Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/telemetry": {
       "post": {
         "tags": [
@@ -7896,6 +7949,30 @@
               "title": "Exclude Is Test"
             },
             "description": "排除试跑记录"
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序字段：start_time/score_total/duration",
+              "default": "start_time",
+              "title": "Sort By"
+            },
+            "description": "排序字段：start_time/score_total/duration"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序方向：asc/desc",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "排序方向：asc/desc"
           }
         ],
         "responses": {
@@ -10267,6 +10344,64 @@
           "created_at"
         ],
         "title": "ClassResponse"
+      },
+      "ClassStudentItem": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "total_sessions": {
+            "type": "integer",
+            "title": "Total Sessions",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "last_start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Start Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "title": "ClassStudentItem",
+        "description": "班级学生训练聚合（只读）"
       },
       "ClassSummaryItemSchema": {
         "properties": {
@@ -14420,6 +14555,41 @@
         ],
         "title": "StudentAssignmentItem"
       },
+      "StudentDailyStat": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions",
+            "default": 0
+          },
+          "minutes": {
+            "type": "number",
+            "title": "Minutes",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date"
+        ],
+        "title": "StudentDailyStat",
+        "description": "学生详情页每日训练统计项"
+      },
       "StudentDetail": {
         "properties": {
           "id": {
@@ -14476,13 +14646,17 @@
             "title": "Avg Score"
           },
           "recent_records": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/StudentRecentRecord"
+            },
             "type": "array",
             "title": "Recent Records",
             "default": []
           },
           "daily": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/StudentDailyStat"
+            },
             "type": "array",
             "title": "Daily",
             "default": []
@@ -14498,6 +14672,131 @@
           "created_at"
         ],
         "title": "StudentDetail"
+      },
+      "StudentRecentRecord": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "user_display_name": {
+            "type": "string",
+            "title": "User Display Name"
+          },
+          "user_student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Student Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "scoring_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Error"
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          },
+          "assignment_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "case_id",
+          "case_name",
+          "user_id",
+          "user_display_name",
+          "user_student_id",
+          "status",
+          "start_time",
+          "end_time"
+        ],
+        "title": "StudentRecentRecord",
+        "description": "学生详情页最近训练记录项（TrainingRecordBrief 子集）"
       },
       "StudentTrendRecord": {
         "properties": {

@@ -26,8 +26,9 @@ from schemas import (
     BulkAssignClassResult,
     DeleteResponse,
     PaginatedResponse,
+    StudentDailyStat,
     StudentDetail,
-    TrainingRecordBrief,
+    StudentRecentRecord,
     UserBrief,
     UserUpdateRequest,
 )
@@ -67,6 +68,7 @@ class RecordBriefView:
     id: int
     case_id: int
     case_name: str
+    user_id: int
     user_display_name: str
     user_student_id: str | None
     status: str
@@ -228,6 +230,7 @@ class UserService:
                 id=r.id,
                 case_id=r.case_id,
                 case_name=r.case.name if r.case else "",
+                user_id=user.id,
                 user_display_name=user.display_name,
                 user_student_id=user.student_id,
                 status=r.status,
@@ -585,7 +588,7 @@ def _detail(v: StudentDetailView) -> StudentDetail:
         total_minutes=v.total_minutes,
         avg_score=v.avg_score,
         recent_records=[
-            TrainingRecordBrief(
+            StudentRecentRecord(
                 id=r.id,
                 case_id=r.case_id,
                 case_name=r.case_name,
@@ -603,7 +606,7 @@ def _detail(v: StudentDetailView) -> StudentDetail:
             )
             for r in v.recent_records
         ],
-        daily=v.daily,
+        daily=[StudentDailyStat(**d) for d in v.daily],
     )
 
 

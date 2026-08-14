@@ -20,3 +20,8 @@ export const getStudentRanking = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_RankingItem_"]>("/stats/ranking" as ApiPath, {
 		params,
 	});
+
+export const getClassStudents = (classId: number) =>
+	api.get<Schemas["ClassStudentItem"][]>("/stats/class-students" as ApiPath, {
+		params: { class_id: classId },
+	});

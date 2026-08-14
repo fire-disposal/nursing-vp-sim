@@ -12,6 +12,7 @@ from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
+    ClassStudentItem,
     ClassSummaryItemSchema,
     DurationStats,
     PaginatedResponse,
@@ -211,6 +212,45 @@ class StatsService:
         ]
         return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
+    def class_students(
+        self,
+        class_id: int,
+    ) -> list[ClassStudentItem]:
+        """班级学生维度聚合 — 取代前端拉 200 条原始记录做客户端聚合。"""
+        rows = (
+            self.db.query(
+                User.id.label("user_id"),
+                User.display_name,
+                User.student_id,
+                func.count(TrainingRecord.id).label("total_sessions"),
+                func.avg(Score.total_score).label("avg_score"),
+                func.max(TrainingRecord.start_time).label("last_start_time"),
+            )
+            .join(UserClass, UserClass.user_id == User.id)
+            .outerjoin(
+                TrainingRecord,
+                (TrainingRecord.user_id == User.id)
+                & (TrainingRecord.status == "completed")
+                & (TrainingRecord.is_test == False),
+            )
+            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            .filter(UserClass.class_id == class_id)
+            .group_by(User.id)
+            .order_by(User.display_name, User.id)
+            .all()
+        )
+        return [
+            ClassStudentItem(
+                user_id=r.user_id,
+                display_name=r.display_name,
+                student_id=r.student_id,
+                total_sessions=int(r.total_sessions or 0),
+                avg_score=round(float(r.avg_score), 1) if r.avg_score is not None else None,
+                last_start_time=r.last_start_time,
+            )
+            for r in rows
+        ]
+
     def class_summary(
         self,
         grade_id: int | None = None,
@@ -335,3 +375,13 @@ def class_summary(
 ):
     svc = StatsService(db)
     return svc.class_summary(grade_id=grade_id, class_id=class_id)
+
+
+@router.get("/class-students", response_model=list[ClassStudentItem])
+def class_students(
+    db: DbSession,
+    class_id: Annotated[int, Query(description="班级ID")],
+    _current_user: User = Depends(require_permission("stats_view")),
+):
+    svc = StatsService(db)
+    return svc.class_students(class_id=class_id)

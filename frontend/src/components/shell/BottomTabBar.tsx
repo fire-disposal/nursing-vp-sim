@@ -1,4 +1,4 @@
-import { Group, Text, UnstyledButton } from "@mantine/core";
+import { Group, Text, Transition, UnstyledButton } from "@mantine/core";
 import { IconClipboardList, IconRobot, IconStethoscope, IconUser } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { NavIcon } from "./navigation";
@@ -26,6 +26,7 @@ const BOTTOM_TABS: Array<{
 /**
  * BottomTabBar — 移动端底部 4 Tab 导航栏。
  * 由 AppShell.Footer 固定定位，此处只负责内容渲染。
+ * 活动态使用品牌青绿 + Mantine Transition 平滑指示条（尊重减弱动态偏好）。
  */
 export function BottomTabBar() {
 	const location = useLocation();
@@ -39,7 +40,7 @@ export function BottomTabBar() {
 			hiddenFrom="sm"
 			h="100%"
 			style={{
-				borderTop: "1px solid var(--mantine-color-gray-3)",
+				borderTop: "1px solid var(--mantine-color-default-border)",
 				background: "var(--mantine-color-body)",
 				paddingBottom: "env(safe-area-inset-bottom, 0px)",
 			}}
@@ -51,6 +52,7 @@ export function BottomTabBar() {
 					<UnstyledButton
 						key={tab.to}
 						onClick={() => navigate(tab.to)}
+						aria-current={isActive ? "page" : undefined}
 						style={{
 							position: "relative",
 							flex: 1,
@@ -62,25 +64,36 @@ export function BottomTabBar() {
 							height: "100%",
 						}}
 					>
-						{isActive && (
-							<span
-								style={{
-									position: "absolute",
-									top: 0,
-									left: "25%",
-									right: "25%",
-									height: 2,
-									borderRadius: "0 0 999px 999px",
-									background: "var(--mantine-color-blue-6)",
-								}}
-							/>
-						)}
+						<Transition mounted={isActive} transition="fade" duration={180}>
+							{(styles) => (
+								<span
+									style={{
+										...styles,
+										position: "absolute",
+										top: 0,
+										left: "25%",
+										right: "25%",
+										height: 3,
+										borderRadius: "0 0 999px 999px",
+										background: "var(--mantine-color-brand-6)",
+									}}
+								/>
+							)}
+						</Transition>
 						<Icon
 							size={22}
-							stroke={isActive ? 2.5 : 2}
-							style={{ color: isActive ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}
+							stroke={isActive ? 2.5 : 1.9}
+							style={{
+								color: isActive ? "var(--mantine-color-brand-6)" : "var(--mantine-color-dimmed)",
+								transition: "color 150ms ease",
+							}}
 						/>
-						<Text fz={11} fw={600} c={isActive ? "blue.6" : "dimmed"} style={{ lineHeight: 1 }}>
+						<Text
+							fz={11}
+							fw={isActive ? 700 : 500}
+							c={isActive ? "brand.6" : "dimmed"}
+							style={{ lineHeight: 1, transition: "color 150ms ease" }}
+						>
 							{tab.label}
 						</Text>
 					</UnstyledButton>

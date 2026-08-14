@@ -1,7 +1,7 @@
 import { IconBrain, IconLoader2, IconRotate } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Group, SimpleGrid, Text } from "@mantine/core";
+import { Box, Button, Group, Loader, SimpleGrid, Text } from "@mantine/core";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 
 const phaseLabels: Record<string, string> = {
@@ -160,21 +160,21 @@ export function ScoringOverlay({
 						{showThought && (
 							<SimpleGrid cols={2} spacing={8} mt={4}>
 								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="xs" ff="monospace" c="blue.7" mb={4}>$ scoring_dims</Text>
+									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ scoring_dims</Text>
 									<Box
 										ref={scoreScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
 									>
-										{progress.score_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.score_thought}</Text> : <Text component="span" size="xs" c="dimmed" style={{ animation: "pulse 2s infinite", opacity: 0.5 }}>▎ 等待评分维度分析...</Text>}
+										{progress.score_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.score_thought}</Text> : <Group gap={6} wrap="nowrap"><Loader size={10} type="dots" color="gray" /><Text component="span" size="xs" c="dimmed">等待评分维度分析...</Text></Group>}
 									</Box>
 								</Box>
 								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="xs" ff="monospace" c="blue.7" mb={4}>$ feedback_gen</Text>
+									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ feedback_gen</Text>
 									<Box
 										ref={feedbackScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
 									>
-										{progress.feedback_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.feedback_thought}</Text> : <Text component="span" size="xs" c="dimmed" style={{ animation: "pulse 2s infinite", opacity: 0.5 }}>▎ 等待反馈生成...</Text>}
+										{progress.feedback_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.feedback_thought}</Text> : <Group gap={6} wrap="nowrap"><Loader size={10} type="dots" color="gray" /><Text component="span" size="xs" c="dimmed">等待反馈生成...</Text></Group>}
 									</Box>
 								</Box>
 							</SimpleGrid>

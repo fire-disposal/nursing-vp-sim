@@ -60,11 +60,12 @@ function DeployBanner() {
 			style={{
 				position: "fixed",
 				insetInline: 0,
-				top: 0,
+				// AppShell.Header 默认 z-index 100：横幅置于其下（top 让出头部高度）
+				top: 60,
 				zIndex: 50,
 				display: "flex",
 				justifyContent: "center",
-				paddingTop: 10,
+				paddingTop: 0,
 				pointerEvents: "none",
 			}}
 		>

@@ -88,8 +88,13 @@ export default function TeacherRecordsPage() {
 		if (date_to) p.date_to = date_to;
 		if (class_id) p.class_id = Number(class_id);
 		if (exclude_is_test) p.exclude_is_test = true;
+		// 排序交由服务端执行：按分数/时长排序需全局正确，不能只排当前页
+		if (sortField) {
+			p.sort_by = sortField;
+			p.order = sortDir;
+		}
 		return p;
-	}, [offset, debouncedStudent, case_id, status, training_type, date_from, date_to, class_id, exclude_is_test]);
+	}, [offset, debouncedStudent, case_id, status, training_type, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.training.records(params),
@@ -100,25 +105,8 @@ export default function TeacherRecordsPage() {
 	const records = data?.items ?? [];
 	const total = data?.total ?? 0;
 
-	const sortedRecords = useMemo(() => {
-		if (!sortField) return records;
-		const sorted = [...records].sort((a, b) => {
-			let va: number = 0;
-			let vb: number = 0;
-			if (sortField === "start_time") {
-				va = new Date(a.start_time).getTime();
-				vb = new Date(b.start_time).getTime();
-			} else if (sortField === "score_total") {
-				va = a.score_total ?? -Infinity;
-				vb = b.score_total ?? -Infinity;
-			} else if (sortField === "duration") {
-				va = durationMinutes(a) ?? -Infinity;
-				vb = durationMinutes(b) ?? -Infinity;
-			}
-			return sortDir === "asc" ? va - vb : vb - va;
-		});
-		return sorted;
-	}, [records, sortField, sortDir]);
+	// 排序由服务端执行（sort_by/order 参数），本地不再排序
+	const sortedRecords = records;
 
 	const handleSort = (field: SortField) => {
 		if (sortField === field) {
