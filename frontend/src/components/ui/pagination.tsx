@@ -24,7 +24,7 @@ export default function Pagination({
 
 	return (
 		<Group justify="space-between" gap="md" wrap="wrap" className={className}>
-			<Text size="sm" c="dimmed">
+			<Text size="xs" c="dimmed" className="tabular-nums">
 				第 {currentStart}-{currentEnd} 条，共 {total} 条
 			</Text>
 			<MantinePagination
@@ -32,6 +32,7 @@ export default function Pagination({
 				value={page}
 				onChange={(p) => onChange((p - 1) * limit)}
 				size="sm"
+				withEdges={totalPages > 7}
 			/>
 		</Group>
 	);

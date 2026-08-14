@@ -3,10 +3,69 @@
 /* 品牌字体由 MantineProvider 的 theme.fontFamily 应用；
    这里确保 Geist 字体资源被加载。 */
 
+/* ── 临床质感基底 ──────────────────────────────
+   背景/文字跟随 Mantine color scheme；
+   选择色、焦点环、滚动条统一收敛到品牌青绿。 */
+
+html {
+	scroll-behavior: smooth;
+}
+
 body {
 	min-height: 100vh;
 	line-height: 1.6;
 	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	background: var(--mantine-color-body);
+	color: var(--mantine-color-text);
+}
+
+/* 数据数字对齐（分数/时长/排名） */
+.tabular-nums {
+	font-variant-numeric: tabular-nums;
+}
+
+/* 键盘导航焦点环：仅键盘可见，品牌色 */
+:focus-visible {
+	outline: 2px solid var(--mantine-color-brand-6);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+::selection {
+	background: var(--mantine-color-brand-2);
+	color: var(--mantine-color-brand-9);
+}
+
+/* 细滚动条，弱化干扰 */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--mantine-color-gray-3) transparent;
+}
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--mantine-color-gray-3);
+	border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--mantine-color-gray-4);
+}
+
+/* 中文长标题换行更均衡 */
+h1, h2, h3 {
+	text-wrap: balance;
+}
+
+/* 数据表格行 hover 高亮（DataTable / ResponsiveTable 共用） */
+.data-table-row:hover,
+.data-table-row[aria-selected="true"] {
+	background: var(--mantine-color-brand-0);
 }
 
 @keyframes marquee {
@@ -65,4 +124,20 @@ body {
 @keyframes typing-bounce {
 	0%, 80%, 100% { transform: scale(0.3); opacity: 0.3; }
 	40% { transform: scale(1); opacity: 1; }
+}
+
+/* 无障碍：尊重系统减弱动态偏好（此块需要 !important 覆盖组件动画） */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		/* biome-ignore lint/complexity/noImportantStyles: 系统级减弱动态需要最高优先级 */
+		animation-duration: 0.01ms !important;
+		/* biome-ignore lint/complexity/noImportantStyles: 同上 */
+		animation-iteration-count: 1 !important;
+		/* biome-ignore lint/complexity/noImportantStyles: 同上 */
+		transition-duration: 0.01ms !important;
+		/* biome-ignore lint/complexity/noImportantStyles: 同上 */
+		scroll-behavior: auto !important;
+	}
 }

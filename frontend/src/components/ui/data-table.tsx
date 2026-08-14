@@ -35,7 +35,8 @@ export interface DataTableProps<T> {
 }
 
 /**
- * Column-defined table built on the shared `ui/table` primitives.
+ * DataTable — 列驱动数据表格（管理端高频组件）。
+ * 表头：品牌浅底 + 大写小号标签；行：hover 高亮；数据密度紧凑可扫读。
  */
 export default function DataTable<T>({
 	columns,
@@ -82,9 +83,14 @@ export default function DataTable<T>({
 									position: stickyHeader ? "sticky" : undefined,
 									top: 0,
 									zIndex: 10,
+									background: "var(--mantine-color-gray-0)",
+									color: "var(--mantine-color-dimmed)",
 									textTransform: "uppercase",
-									fontSize: "0.75rem",
-									fontWeight: 600,
+									fontSize: "0.6875rem",
+									fontWeight: 700,
+									letterSpacing: "0.06em",
+									borderBottom: "1px solid var(--mantine-color-default-border)",
+									whiteSpace: "nowrap",
 								}}
 							>
 								{col.header}
@@ -108,7 +114,12 @@ export default function DataTable<T>({
 							}
 							tabIndex={onRowClick ? 0 : undefined}
 							role={onRowClick ? "button" : undefined}
-							style={onRowClick ? { cursor: "pointer" } : undefined}
+							style={
+								onRowClick
+									? { cursor: "pointer" }
+									: undefined
+							}
+							className="data-table-row"
 						>
 							{columns.map((col) => (
 								<Table.Td key={col.key} className={col.cellClassName}>
