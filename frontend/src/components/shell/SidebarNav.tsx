@@ -16,7 +16,6 @@ import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
-import { APP_VERSION } from "@/version";
 import type { NavGroupKey, NavItem } from "./navigation";
 import { NAV_GROUPS } from "./navigation";
 
@@ -74,13 +73,11 @@ export default function SidebarNav({
 	adminLinks,
 	onNavigate,
 	onLogout,
-	onAbout,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	onNavigate: () => void;
 	onLogout: () => void;
-	onAbout: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
@@ -150,9 +147,6 @@ export default function SidebarNav({
 						</Button>
 					</Tooltip>
 				</Group>
-				<Button variant="transparent" size="xs" w="100%" mt="xs" onClick={onAbout}>
-					v{APP_VERSION}
-				</Button>
 			</Box>
 		</Box>
 	);

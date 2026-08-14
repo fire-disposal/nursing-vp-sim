@@ -1,8 +1,9 @@
-import { AppShell, Box, Burger, Button, Group, Text } from "@mantine/core";
+import { AppShell, Box, Burger, Button, Group, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
@@ -84,6 +85,30 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
+						<UnstyledButton
+							onClick={onAbout}
+							title="关于系统"
+							aria-label="关于系统"
+							visibleFrom="sm"
+							style={{
+								fontSize: 11,
+								color: "var(--mantine-color-dimmed)",
+								fontVariantNumeric: "tabular-nums",
+								padding: "2px 6px",
+								borderRadius: "var(--mantine-radius-sm)",
+								transition: "color 120ms ease, background 120ms ease",
+							}}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.color = "var(--mantine-color-brand-7)";
+								e.currentTarget.style.background = "var(--mantine-color-brand-0)";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.color = "var(--mantine-color-dimmed)";
+								e.currentTarget.style.background = "transparent";
+							}}
+						>
+							v{APP_VERSION}
+						</UnstyledButton>
 					</Group>
 
 					<Group gap={4} ml="auto" wrap="nowrap">
@@ -102,7 +127,6 @@ export default function ManageShell({
 					adminLinks={adminLinks}
 					onNavigate={() => mobileOpened && toggleMobile()}
 					onLogout={onLogout}
-					onAbout={onAbout}
 				/>
 			</AppShell.Navbar>
 
