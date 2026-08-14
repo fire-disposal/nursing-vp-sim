@@ -1,4 +1,4 @@
-import { AppShell, Box, Burger, Button, Group, Text, ThemeIcon } from "@mantine/core";
+import { AppShell, Box, Burger, Button, Group, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -59,9 +59,22 @@ export default function ManageShell({
 					<Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" aria-label="折叠侧边栏" />
 
 					<Group gap={8} wrap="nowrap">
-						<ThemeIcon size={28} radius="sm" variant="filled">
-							<IconStethoscope size={16} />
-						</ThemeIcon>
+						<Box
+							w={30}
+							h={30}
+							style={{
+								borderRadius: "var(--mantine-radius-md)",
+								background:
+									"linear-gradient(135deg, var(--mantine-color-brand-6) 0%, var(--mantine-color-brand-8) 100%)",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								boxShadow: "var(--mantine-shadow-sm)",
+								flexShrink: 0,
+							}}
+						>
+							<IconStethoscope size={17} style={{ color: "white" }} />
+						</Box>
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
@@ -89,7 +102,8 @@ export default function ManageShell({
 
 			<AppShell.Main>
 				{!isOnline && <NetworkBanner />}
-				<Box p={{ base: "sm", sm: "lg" }}>
+				{/* 内容容器：超宽屏不贴边，管理页可读性（表格仍可横向滚动） */}
+				<Box p={{ base: "sm", sm: "lg" }} maw={1600} mx="auto" style={{ width: "100%" }}>
 					<ShellTransition>{children}</ShellTransition>
 				</Box>
 			</AppShell.Main>
