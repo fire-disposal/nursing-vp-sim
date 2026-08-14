@@ -11,7 +11,8 @@ import type { CommandSurface } from "./commands";
 import type { Completion } from "./commands";
 import type { ParsedAction } from "./parser";
 import { parseCommand } from "./parser";
-import { TIMELINE_LEGEND, buildTimeline, horizonLabels } from "./timeline";
+import SimTimeline from "./SimTimeline";
+import { buildTimelineModel } from "./timeline";
 import "./console.css";
 
 type SimulationSnapshot = components["schemas"]["SimulationSnapshot"];
@@ -520,8 +521,9 @@ export default function SimulationConsole() {
 			: "输入命令（如 /assess vitals），或点击右侧行动面板";
 
 	const startClock = snapshot?.case_meta?.start_clock ?? "08:30";
-	const tl = snapshot ? buildTimeline(transcript, snapshot.current_time, startClock) : null;
-	const horizon = horizonLabels(startClock);
+	const tlModel = snapshot
+		? buildTimelineModel(transcript, snapshot.pending ?? [], snapshot.current_time, startClock)
+		: null;
 
 	const catalog: ActionCatalog = snapshot?.actions ?? EMPTY_CATALOG;
 	const brief = snapshot?.brief;
@@ -621,14 +623,12 @@ export default function SimulationConsole() {
 				) : null}
 			</header>
 
-			{snapshot && tl ? (
-				<div className="sim-timeline">
-					<div className="tl-rows">
-						<div className="tl-bar">{horizon.start} {tl.bar} {horizon.end}</div>
-						<div className="tl-cursor">{tl.cursor}</div>
-						<div className="tl-legend">{TIMELINE_LEGEND}</div>
-					</div>
-				</div>
+			{snapshot && tlModel ? (
+				<SimTimeline
+					model={tlModel}
+					busy={busy}
+					onWaitLab={(kind) => void runParsed({ type: "WAIT", target: kind.toUpperCase() })}
+				/>
 			) : null}
 
 			<div className="sim-workbench">

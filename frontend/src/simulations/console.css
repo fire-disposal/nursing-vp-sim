@@ -376,34 +376,195 @@
 	background: #0d1117;
 }
 
-.sim-timeline {
-	overflow-x: auto;
-	padding: 6px 16px;
+.tl-wrap {
+	padding: 6px 16px 8px;
+	border: none;
 	border-bottom: 1px solid #21262d;
+	margin: 0;
+	min-inline-size: 0;
 	background: #0b0f14;
 	font-size: 12px;
 	color: #8b949e;
 }
 
-.tl-rows {
-	display: flex;
-	flex-direction: column;
-	line-height: 1.45;
-	white-space: pre;
-	font-family: inherit;
-	width: max-content;
-}
-
-.tl-bar {
-	color: #c9d1d9;
-}
-
-.tl-cursor {
-	color: #3fb950;
-}
-
-.tl-legend {
+.tl-wrap > legend.tl-legend {
+	float: none;
+	width: auto;
+	margin: 0 0 5px;
+	padding: 0;
+	font-size: 10px;
 	color: #6e7681;
+}
+
+.tl-band {
+	position: relative;
+	margin: 0 10px;
+}
+
+.tl-track {
+	position: relative;
+	height: 10px;
+	background: #161b22;
+	border: 1px solid #21262d;
+	border-radius: 5px;
+}
+
+.tl-elapsed {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: #1f6feb55;
+	border-radius: 4px 0 0 4px;
+	transition: width 0.7s ease-out;
+}
+
+.tl-m {
+	position: absolute;
+	top: -3px;
+	transform: translateX(-50%);
+	font-size: 11px;
+	line-height: 1;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.tl-past {
+	color: #6e7681;
+	opacity: 0.85;
+}
+
+.tl-past-assess {
+	color: #79c0ff;
+}
+
+.tl-past-lab {
+	color: #58a6ff;
+}
+
+.tl-past-alert {
+	color: #d29922;
+}
+
+.tl-past-critical {
+	color: #f85149;
+}
+
+.tl-lab {
+	top: -5px;
+	color: #d29922;
+	background: none;
+	border: none;
+	padding: 0 2px;
+	font-size: 13px;
+	cursor: pointer;
+	pointer-events: auto;
+	text-shadow: 0 0 4px #000;
+	animation: tl-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tl-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+.tl-lab:hover:not(:disabled) {
+	color: #e3b341;
+}
+
+.tl-lab:disabled {
+	opacity: 0.4;
+	cursor: default;
+	animation: none;
+}
+
+.tl-now {
+	position: absolute;
+	top: -4px;
+	bottom: -4px;
+	width: 2px;
+	background: #3fb950;
+	transform: translateX(-50%);
+	z-index: 3;
+	transition: left 0.7s ease-out;
+}
+
+.tl-now::after {
+	content: "";
+	position: absolute;
+	top: -3px;
+	left: -3px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #3fb950;
+	box-shadow: 0 0 4px #3fb950;
+}
+
+.tl-ticks {
+	position: relative;
+	height: 14px;
+	margin-top: 4px;
+}
+
+.tl-tick {
+	position: absolute;
+	transform: translateX(-50%);
+	font-size: 10px;
+	color: #6e7681;
+	white-space: nowrap;
+}
+
+.tl-tick-first {
+	transform: none;
+}
+
+.tl-tick-last {
+	transform: translateX(-100%);
+}
+
+.tl-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.tl-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: #161b22;
+	border: 1px solid #30363d;
+	border-radius: 4px;
+	padding: 2px 8px;
+	font-family: inherit;
+	font-size: 11px;
+	color: #c9d1d9;
+	cursor: pointer;
+}
+
+.tl-chip:hover:not(:disabled) {
+	border-color: #d29922;
+	background: #1c2128;
+}
+
+.tl-chip:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.tl-chip-name {
+	color: #d29922;
+}
+
+.tl-chip-act {
+	color: #8b949e;
 }
 
 .sim-prompt {
@@ -459,9 +620,14 @@
 	.msg-text {
 		display: inline;
 	}
-	.sim-timeline {
-		padding: 3px 10px;
-		font-size: 10px;
+	.tl-wrap {
+		padding: 4px 10px 6px;
+	}
+	.tl-band {
+		margin: 0 6px;
+	}
+	.tl-tick {
+		font-size: 9px;
 	}
 	.sim-inputbar {
 		padding: 6px 10px;

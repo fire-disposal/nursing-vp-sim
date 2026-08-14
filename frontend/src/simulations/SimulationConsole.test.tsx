@@ -254,4 +254,29 @@ describe("SimulationConsole", () => {
 		expect(screen.getByText("HR 次/分")).toBeInTheDocument();
 		expect(screen.getByText("108/70")).toBeInTheDocument();
 	});
+
+	it("renders the shift timeline with pending labs and waits on click", async () => {
+		const withPending = {
+			...baseSnapshot,
+			pending: [
+				{ id: "cbc-1", kind: "CBC", label: "血常规(CBC)", sampled_at: 3, due_at: 18, due_clock: "08:48" },
+			],
+		};
+		mocks.create.mockResolvedValue({ session_id: 1, snapshot: withPending });
+		mocks.post.mockResolvedValue({
+			session_id: 1,
+			revision: 1,
+			accepted: true,
+			case_ended: false,
+			messages: [],
+			snapshot: { ...withPending, revision: 1 },
+		});
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+		// 图例包含「待返回检查」，chips 行给出可等待入口
+		expect(screen.getByText(/待返回检查/)).toBeInTheDocument();
+		const chip = await screen.findByRole("button", { name: /等待/ });
+		await userEvent.click(chip);
+		await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(1, { type: "WAIT", target: "CBC" }));
+	});
 });
