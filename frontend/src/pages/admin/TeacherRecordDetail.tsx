@@ -6,7 +6,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
 	exportRecordDetail,
 	getRecordDetail,
-	getScoreReview,
 	retryScoring,
 	submitScoreReview,
 } from "@/api";
@@ -52,13 +51,23 @@ export default function TeacherRecordDetail() {
 		enabled: !!id,
 	});
 
-	const { data: review } = useQuery({
-		queryKey: queryKeys.training.review(id!),
-		queryFn: () => getScoreReview(id!).then((r) => r.data),
-		enabled: !!id && !!record?.score,
-		placeholderData: (prev) => prev,
-		staleTime: 2 * 60_000,
-	});
+	// 复核信息随详情响应一次携带（后端已并入 score.review_status/reviewed_by_name 等），
+	// 不再串行发 GET /review —— 消除详情页瀑布等待。
+	const review = useMemo(() => {
+		const s = record?.score as (ScoreData & {
+			review_status?: string | null;
+			reviewed_by_name?: string | null;
+			reviewed_at?: string | null;
+			review_comment?: string | null;
+		}) | null | undefined;
+		if (!s?.review_status) return null;
+		return {
+			review_status: s.review_status,
+			reviewed_by_name: s.reviewed_by_name ?? null,
+			reviewed_at: s.reviewed_at ?? null,
+			review_comment: s.review_comment ?? null,
+		};
+	}, [record?.score]);
 
 	useEffect(() => {
 		if (recordError) {
@@ -175,7 +184,6 @@ export default function TeacherRecordDetail() {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.training.detail(id!),
 			});
-			queryClient.invalidateQueries({ queryKey: queryKeys.training.review(id!) });
 		} catch (err: unknown) {
 			toast.apiError(err, "提交复核失败");
 		} finally {

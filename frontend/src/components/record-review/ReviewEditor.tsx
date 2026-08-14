@@ -1,16 +1,16 @@
-import { Badge, Box, Button, Group, Modal, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Modal, Text, Textarea } from "@mantine/core";
 import { useState } from "react";
-import type { components } from "@/api/api-types.gen";
-
-import { Textarea } from "@mantine/core";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import ReviewItem from "./ReviewItem";
 
-type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];
+/** 复核信息仅需展示备注；完整复核数据已随详情响应携带，无需单独拉取 */
+interface ReviewEditorReview {
+	review_comment?: string | null;
+}
 
 interface ReviewEditorProps {
 	score: ScoreData;
-	review: ScoreReviewResponse | null;
+	review: ReviewEditorReview | null;
 	onSubmit: (
 		modifiedScores: Record<string, DetailScoreCategory>,
 		comment: string,

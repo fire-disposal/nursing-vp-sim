@@ -21,8 +21,6 @@ export const queryKeys = {
 			[...queryKeys.training.all, "records", params] as const,
 		detail: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
-		review: (id: number | string | null | undefined) =>
-			[...queryKeys.training.all, "review", id] as const,
 		classRecords: (classId: number | string) =>
 			[...queryKeys.training.all, "class", classId] as const,
 	},

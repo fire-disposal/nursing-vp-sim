@@ -54,11 +54,6 @@ export const pauseTraining = (id: number | string) =>
 export const resumeTraining = (id: number | string) =>
 	api.post<Schemas["OkResponse"]>(`/training/records/${id}/resume` as ApiPath, {});
 
-export const getScoreReview = (recordId: number | string) =>
-	api.get<Schemas["ScoreReviewResponse"]>(
-		`/training/records/${recordId}/review` as ApiPath,
-	);
-
 export const submitScoreReview = (
 	recordId: number | string,
 	data: Schemas["ScoreReviewRequest"],

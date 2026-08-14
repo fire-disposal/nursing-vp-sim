@@ -196,6 +196,17 @@ def get_record_detail(
                 comment=latest_review.comment,
                 reviewed_at=latest_review.created_at,
             )
+            # 顶层复核信息：让详情响应一次携带全部复核数据，
+            # 前端无需再发 GET /review 消除串行瀑布。
+            reviewer = (
+                db.query(User).filter(User.id == latest_review.reviewed_by).first()
+                if latest_review.reviewed_by
+                else None
+            )
+            score_obj.review_status = "reviewed"
+            score_obj.reviewed_by_name = reviewer.display_name if reviewer else None
+            score_obj.reviewed_at = latest_review.created_at
+            score_obj.review_comment = latest_review.comment
     pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
 
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
