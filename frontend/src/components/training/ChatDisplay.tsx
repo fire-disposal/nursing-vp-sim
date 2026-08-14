@@ -90,12 +90,24 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		prevCountRef.current = count;
 	}, [messages, scrollToBottom]);
 
+	// 流式滚动：rAF 合并，避免每 chunk 同步 scrollIntoView 造成布局抖动
+	const chunkScrollRafRef = useRef(0);
 	useEffect(() => {
 		const unsub = bus.on("stream:chunk", () => {
-			if (isNearBottomRef.current)
+			if (!isNearBottomRef.current) return;
+			if (chunkScrollRafRef.current) return;
+			chunkScrollRafRef.current = requestAnimationFrame(() => {
+				chunkScrollRafRef.current = 0;
 				bottomRef.current?.scrollIntoView({ behavior: "auto" });
+			});
 		});
-		return unsub;
+		return () => {
+			unsub();
+			if (chunkScrollRafRef.current) {
+				cancelAnimationFrame(chunkScrollRafRef.current);
+				chunkScrollRafRef.current = 0;
+			}
+		};
 	}, [bus]);
 
 	const fallbackPatientAvatar = getPatientAvatar({

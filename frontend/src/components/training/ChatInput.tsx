@@ -1,7 +1,6 @@
-import { IconLoader2, IconMicrophone, IconSend } from "@tabler/icons-react";
+import { IconLoader2, IconSend } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { ActionIcon, Box, Group, Text } from "@mantine/core";
-
 
 interface ChatInputProps {
 	onSend: (text: string) => void;
@@ -10,16 +9,20 @@ interface ChatInputProps {
 	trainingEnded?: boolean;
 }
 
+/**
+ * ChatInput — 问诊输入栏。
+ * 极简：输入框 + 发送。语音输入未上线，不放无效按钮。
+ */
 export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const [focused, setFocused] = useState(false);
 	const showCount = text.length >= 1600;
 	const placeholder = trainingEnded
 		? "训练已结束，评分结果已生成"
 		: loading
 			? "患者正在回复中…"
 			: "输入消息与患者对话...";
-
 
 	const handleSend = useCallback(() => {
 		const trimmed = text.trim();
@@ -70,22 +73,13 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 				py={10}
 				style={{ position: "relative" }}
 			>
-				<ActionIcon
-					variant="filled"
-					size="xl"
-					radius="md"
-					type="button"
-					onClick={() => {}}
-					aria-label="语音输入"
-					title="语音输入"
-				>
-					<IconMicrophone size={18} />
-				</ActionIcon>
 				<textarea
 					ref={inputRef}
 					value={text}
 					onChange={(e) => setText(e.target.value)}
 					onKeyDown={handleKeyDown}
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
 					maxLength={2000}
 					placeholder={placeholder}
 					rows={1}
@@ -94,6 +88,7 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 					enterKeyHint="send"
 					autoCapitalize="off"
 					autoCorrect="off"
+					aria-label="输入消息与患者对话"
 					style={{
 						flex: 1,
 						resize: "none",
@@ -106,11 +101,14 @@ export function ChatInput({ onSend, disabled, loading, trainingEnded }: ChatInpu
 						minHeight: 44,
 						color: "var(--mantine-color-text)",
 						fontFamily: "inherit",
+						boxShadow: focused ? "0 0 0 2px var(--mantine-color-brand-2)" : undefined,
+						borderColor: focused ? "var(--mantine-color-brand-5)" : undefined,
+						transition: "border-color 150ms ease, box-shadow 150ms ease",
 					}}
-					aria-label="输入消息与患者对话"
 				/>
 				<ActionIcon
 					variant="filled"
+					color="brand"
 					size="xl"
 					radius="md"
 					type="button"

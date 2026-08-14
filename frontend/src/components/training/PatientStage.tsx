@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Box, Text, Transition } from "@mantine/core";
+import { Box, Stack, Text, Transition } from "@mantine/core";
 import { IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp } from "@tabler/icons-react";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
@@ -38,6 +38,7 @@ export default function PatientStage() {
 		[patient, emotion, emotion4D, values],
 	);
 	const name = patient?.name ?? "患者";
+	const chiefComplaint = (patient as { chiefComplaint?: string } | null)?.chiefComplaint;
 
 	return (
 		<Box
@@ -78,6 +79,11 @@ export default function PatientStage() {
 					<Text size="sm" fw={600} truncate>
 						{name}
 					</Text>
+					{chiefComplaint && (
+						<Text size="11px" c="dimmed" truncate mt={1}>
+							主诉：{chiefComplaint}
+						</Text>
+					)}
 				</Box>
 				{mobileOpen ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
 			</Box>
@@ -95,17 +101,34 @@ export default function PatientStage() {
 							padding: 16,
 						}}
 					>
-						{/* 桌面大脸 — 铺满方框宽；移动端适中定尺寸 */}
-						<Box display={{ base: "none", sm: "flex" }} style={{ justifyContent: "center" }}>
+						{/* 桌面大脸 — 诊室背板：柔和临床青绿径向渐变，像床头观察区 */}
+						<Box
+							display={{ base: "none", sm: "flex" }}
+							style={{
+								justifyContent: "center",
+								borderRadius: "var(--mantine-radius-lg)",
+								background:
+									"radial-gradient(120% 100% at 50% 0%, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 72%)",
+								border: "1px solid var(--mantine-color-brand-1)",
+								padding: "18px 10px 10px",
+							}}
+						>
 							<PatientPresenter presentation={presentation} fill />
 						</Box>
 						<Box display={{ base: "flex", sm: "none" }} style={{ justifyContent: "center" }}>
 							<PatientPresenter presentation={presentation} size={160} />
 						</Box>
 
-						<Text display={{ base: "none", sm: "block" }} ta="center" size="sm" fw={600}>
-							{name}
-						</Text>
+						<Stack display={{ base: "none", sm: "flex" }} gap={2} ta="center">
+							<Text size="sm" fw={700}>
+								{name}
+							</Text>
+							{chiefComplaint && (
+								<Text size="xs" c="dimmed" lineClamp={2} lh={1.5}>
+									主诉：{chiefComplaint}
+								</Text>
+							)}
+						</Stack>
 
 						<EmotionIndicator
 							bus={bus}

@@ -97,6 +97,15 @@ h1, h2, h3 {
 	to { opacity: 1; transform: translateY(0); }
 }
 
+/* 加载/等待旋转（Tailwind animate-spin 残留类名，统一补回） */
+.animate-spin {
+	animation: spin 1s linear infinite;
+}
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
 /* 打字指示点（QA 页 AI 思考态） */
 .typing-dots {
 	display: flex;
