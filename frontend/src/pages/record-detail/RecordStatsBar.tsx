@@ -27,7 +27,7 @@ export default function RecordStatsBar({
 		<SimpleGrid cols={{ base: 2, lg: 4 }} spacing={{ base: "sm", sm: "md" }}>
 			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
-					<ThemeIcon size={40} radius="md" variant="filled" color="blue">
+					<ThemeIcon size={40} radius="md" variant="filled" color="brand">
 						<IconUser size={18} />
 					</ThemeIcon>
 					<Box style={{ minWidth: 0 }}>
@@ -43,7 +43,7 @@ export default function RecordStatsBar({
 
 			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
-					<ThemeIcon size={40} radius="md" variant="light" color="blue">
+					<ThemeIcon size={40} radius="md" variant="light" color="brand">
 						<IconFileText size={18} />
 					</ThemeIcon>
 					<Box style={{ minWidth: 0, flex: 1 }}>
