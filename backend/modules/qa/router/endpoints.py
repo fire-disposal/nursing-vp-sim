@@ -254,7 +254,11 @@ async def ask_stream(
                 _db.close()
             yield f"data: {_json.dumps({'done': True, 'id': record_id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
 
-        return StreamingResponse(generate(), media_type="text/event-stream")
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+        )
 
 
 @router.get("/section-text", response_model=SectionTextResponse)

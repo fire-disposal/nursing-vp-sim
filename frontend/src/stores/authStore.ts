@@ -122,9 +122,20 @@ const useAuthStore = create<ExtendedAuthState>()(
 						className: data.class_name ?? current?.className ?? "",
 					};
 					set({ user });
-				} catch {
-					console.warn("[authStore] refreshUser 失败");
-					get().logout();
+				} catch (err: unknown) {
+					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）
+					const is401 = (
+						err != null &&
+						typeof err === "object" &&
+						"response" in err &&
+						(err as { response?: { status?: number } }).response?.status === 401
+					);
+					if (is401) {
+						console.warn("[authStore] refreshUser 401 — 清除会话");
+						get().logout();
+					} else {
+						console.warn("[authStore] refreshUser 网络/服务端错误 — 保持现有会话", err);
+					}
 				}
 			},
 

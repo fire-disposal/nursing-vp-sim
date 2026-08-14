@@ -203,7 +203,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			// 结束训练后统一失效缓存：历史页/作业列表/通知即时反映最新状态，
 			// 避免 staleTime 窗口内显示过期"进行中"。
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student });
+			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student() });
 			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		} catch {
 			toastError("训练内容尚未保存，未开始结算，请重试");

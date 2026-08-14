@@ -34,6 +34,8 @@ export class ScoreManager {
 	private _abortController: AbortController | null = null;
 	private _retryBackoffMs = 2000;
 	private _lastRetryTime = 0;
+	/** WS 最近一次评分进度推送时间戳：WS 活跃期间跳过 HTTP 轮询 */
+	private _lastWsProgressAt = 0;
 
 	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
 
@@ -96,6 +98,10 @@ export class ScoreManager {
 		const poll = async () => {
 			if (!this._polling) return;
 			if (document.hidden) {
+				return;
+			}
+			// WS 最近 10s 内有评分进度推送 → 跳过 HTTP 轮询（冗余流量/后端查询）
+			if (Date.now() - this._lastWsProgressAt < 10_000) {
 				return;
 			}
 			if (retries >= maxRetries) {
@@ -309,6 +315,7 @@ export class ScoreManager {
 	/** Receive real-time SSE scoring progress (from useScoringNotifications hook) */
 	onProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }): void {
 		if (data.record_id !== this.recordId) return;
+		this._lastWsProgressAt = Date.now();
 		if (data.thought) {
 			this._sseThought = data.thought;
 		}

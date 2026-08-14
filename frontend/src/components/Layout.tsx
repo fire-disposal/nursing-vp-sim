@@ -35,17 +35,23 @@ function RouteContentLoader() {
 function DeployBanner() {
 	const [warning, setWarning] = useState<{ active: boolean; message?: string } | null>(null);
 	useEffect(() => {
-		const es = new EventSource("/api/deploy-status/stream");
-		es.onmessage = (ev) => {
+		// 30s HTTP 轮询替代常驻 SSE：整班学生在场时避免每标签页一条长连接
+		let cancelled = false;
+		let timer: ReturnType<typeof setInterval> | null = null;
+		const poll = async () => {
 			try {
-				const data = JSON.parse(ev.data) as { active: boolean; message?: string };
-				setWarning(data.active ? data : null);
-			} catch { /* ignore */ }
+				const res = await fetch("/api/deploy-status", { cache: "no-store" });
+				if (!res.ok) return;
+				const data = (await res.json()) as { active: boolean; message?: string };
+				if (!cancelled) setWarning(data.active ? data : null);
+			} catch { /* 后端重启窗口内保持现状 */ }
 		};
-		// 不人工 close：让 EventSource 自动重连。后端容器随部署重启时
-		// SSE 会断开，自动重连后新后端推送 {"active": false} 即可清除横幅。
-		es.onerror = () => { /* auto-reconnect, don't close */ };
-		return () => { es.close(); };
+		poll();
+		timer = setInterval(poll, 30_000);
+		return () => {
+			cancelled = true;
+			if (timer) clearInterval(timer);
+		};
 	}, []);
 	if (!warning) return null;
 	const msg = warning.message || "系统即将更新，可能短暂中断";

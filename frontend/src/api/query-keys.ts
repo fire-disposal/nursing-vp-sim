@@ -1,7 +1,4 @@
 export const queryKeys = {
-	auth: {
-		me: ["auth", "me"] as const,
-	},
 	cases: {
 		all: ["cases"] as const,
 		lists: () => [...queryKeys.cases.all, "list"] as const,
@@ -22,14 +19,10 @@ export const queryKeys = {
 		all: ["training"] as const,
 		records: (params: Record<string, unknown>) =>
 			[...queryKeys.training.all, "records", params] as const,
-		recentStudent: () => [...queryKeys.training.all, "recent", "student"] as const,
-		recentAdmin: () => [...queryKeys.training.all, "recent", "admin"] as const,
 		detail: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
 		review: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "review", id] as const,
-		state: (recordId: number | string | null | undefined) =>
-			[...queryKeys.training.all, "state", recordId] as const,
 		classRecords: (classId: number | string) =>
 			[...queryKeys.training.all, "class", classId] as const,
 	},
@@ -158,18 +151,15 @@ export const queryKeys = {
 		}) => [...queryKeys.questionnaires.all, "check", params] as const,
 		myResponses: (params?: Record<string, unknown>) =>
 			[...queryKeys.questionnaires.all, "myResponses", params] as const,
-		training: (recordId: number | string, type: "pre" | "post") =>
-			[...queryKeys.questionnaires.all, recordId, type] as const,
 	},
 	sessionConfigs: ["sessionConfigs"] as const,
-	nursingRecord: (recordId: number | null | undefined) => ["nursing-record", recordId] as const,
 	assignments: {
 		all: ["assignments"] as const,
 		list: (params?: Record<string, unknown>) =>
 			[...queryKeys.assignments.all, params] as const,
 		admin: () => [...queryKeys.assignments.all, "admin"] as const,
 		detail: (id: string | null | undefined) => [...queryKeys.assignments.all, "detail", id] as const,
-		student: ["student-assignments"] as const,
+		student: () => [...queryKeys.assignments.all, "student"] as const,
 	},
 	scoreboard: {
 		all: ["scoreboard"] as const,

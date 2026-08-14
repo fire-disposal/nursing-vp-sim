@@ -242,6 +242,7 @@ async def send_message_stream(
     return StreamingResponse(
         _stream_with_db(),
         media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
 
 
@@ -279,4 +280,5 @@ async def correct_last_message_stream(
     return StreamingResponse(
         _stream_with_db(),
         media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

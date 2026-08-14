@@ -96,7 +96,7 @@ export default function ScoreResultSection({
 								<IconShieldCheck size={12} /> 教师已复核
 							</Badge>
 						) : (
-							<Badge variant="light" color="blue">AI 初评</Badge>
+							<Badge variant="light" color="brand">AI 初评</Badge>
 						)}
 						{isReviewed && review?.reviewed_by_name && (
 							<Text size="xs" c="dimmed">
@@ -124,7 +124,7 @@ export default function ScoreResultSection({
 				</Group>
 
 				<Group align="baseline" gap={8}>
-					<Text size="40px" fw={800} c="blue" lh={1}>
+					<Text size="40px" fw={800} c="brand" lh={1} className="tabular-nums">
 						{displayTotal}
 					</Text>
 					<Text size="md" c="dimmed">

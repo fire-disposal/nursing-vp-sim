@@ -109,7 +109,7 @@ export default function TrainingSelect() {
 	});
 
 	const { data: assignmentsData } = useQuery({
-		queryKey: queryKeys.assignments.student,
+		queryKey: queryKeys.assignments.student(),
 		queryFn: () => getStudentAssignments().then((r) => r.data),
 		staleTime: 30_000,
 	});

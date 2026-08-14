@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { checkQuestionnaire, submitQuestionnaire } from "@/api/questionnaires";
 import type { CheckResponse } from "@/components/QuestionnaireModal";
 
@@ -12,6 +12,7 @@ interface UseQuestionnaireOptions {
 interface UseQuestionnaireReturn {
 	checkResponse: CheckResponse | null;
 	isLoading: boolean;
+	isSubmitting: boolean;
 	shouldShow: boolean;
 	check: () => Promise<CheckResponse | null>;
 	submit: (
@@ -28,7 +29,9 @@ export function useQuestionnaire(
 		null,
 	);
 	const [isLoading, setIsLoading] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [dismissed, setDismissed] = useState(false);
+	const submittingRef = useRef(false);
 
 	const check = useCallback(async (): Promise<CheckResponse | null> => {
 		if (!caseId && !recordId) return null;
@@ -52,13 +55,22 @@ export function useQuestionnaire(
 	const submit = useCallback(
 		async (answers: { question_id: number; answer_value: string | null }[]) => {
 			if (!checkResponse?.template_id) return;
-			await submitQuestionnaire({
-				template_id: checkResponse.template_id,
-				case_id: caseId ?? undefined,
-				record_id: recordId ?? undefined,
-				answers,
-			});
-			onComplete?.();
+			// 防双击重复提交
+			if (submittingRef.current) return;
+			submittingRef.current = true;
+			setIsSubmitting(true);
+			try {
+				await submitQuestionnaire({
+					template_id: checkResponse.template_id,
+					case_id: caseId ?? undefined,
+					record_id: recordId ?? undefined,
+					answers,
+				});
+				onComplete?.();
+			} finally {
+				submittingRef.current = false;
+				setIsSubmitting(false);
+			}
 		},
 		[checkResponse?.template_id, caseId, recordId, onComplete],
 	);
@@ -69,5 +81,5 @@ export function useQuestionnaire(
 
 	const shouldShow = !!(checkResponse?.has_pending && !dismissed);
 
-	return { checkResponse, isLoading, shouldShow, check, submit, dismiss };
+	return { checkResponse, isLoading, isSubmitting, shouldShow, check, submit, dismiss };
 }
