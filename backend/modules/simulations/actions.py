@@ -31,6 +31,7 @@ def _clock(state, minute: int) -> str:
 
 
 from .state import (
+    AbdomenReading,
     BreathReading,
     ClinicalRecord,
     ConsciousReading,
@@ -96,6 +97,13 @@ def _do_status(state, _target, text, messages) -> bool:
 def _do_assess(state, target, text, messages) -> bool:
     case = case_of(state)
     available = case.surface.assessments
+    if not (target or "").strip():
+        # 无参数 → 列出本病例全部评估目标（含耗时），与 /give 裸命令同款引导。
+        lines = ["评估目标（耗时）："]
+        lines += [f"  /assess {k}  {DURATION_MIN.get(f'ASSESS_{k.upper()}', 1)}min  {v}" for k, v in available.items()]
+        lines.append("评估建立读数与趋势，不泄露隐藏病程。")
+        messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
+        return True
     if (target or "") not in available:
         messages.append(
             DomainMessage("SYSTEM", state.current_time, f"评估目标无效（{' / '.join(sorted(available))}）。")
@@ -163,30 +171,33 @@ def _build_urine(state) -> UrineReading:
 
 
 def _describe_vitals(state, r) -> str:
-    note = "存在异常" if r.abnormal else "未见明显异常"
-    text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr}，SpO2 {r.spo2}%，T {r.temp}℃。{note}。"
+    notes = []
     if r.rr <= 10:
-        text += "呼吸浅慢。"
+        notes.append("呼吸浅慢")
     if r.spo2 <= 92:
-        text += "血氧饱和度低。"
+        notes.append("血氧饱和度低")
     if state.fluid_support > 0:
-        text += "（补液支持中）"
+        notes.append("补液支持中")
+    flag = "异常" if r.abnormal else "正常"
+    text = f"生命体征：HR {r.hr} bpm，BP {r.sbp}/{r.dbp} mmHg，RR {r.rr} 次/分，SpO2 {r.spo2}%，T {r.temp}℃（{flag}）。"
+    if notes:
+        text += "（" + "；".join(notes) + "）。"
     return text
 
 
 def _describe_drain(state, r) -> str:
-    note = "量超出正常范围" if r.abnormal else "量在正常范围"
-    return f"引流评估：{r.output_ml} ml。{note}。"
+    flag = "异常" if r.abnormal else "正常"
+    return f"引流评估：{r.output_ml} ml（{flag}）。"
 
 
 def _describe_pain(state, r) -> str:
-    note = "评分偏高" if r.abnormal else "评分在正常范围"
-    return f"疼痛评估：VAS {r.score}/10 分。{note}。"
+    flag = "异常：评分偏高" if r.abnormal else "正常"
+    return f"疼痛评估：VAS {r.score}/10 分（{flag}）。"
 
 
 def _describe_urine(state, r) -> str:
-    note = "低于正常范围" if r.abnormal else "在正常范围"
-    return f"尿量（近4h）：{r.output_ml} ml。{note}。"
+    flag = "异常：低于正常范围" if r.abnormal else "正常"
+    return f"尿量（近4h）：{r.output_ml} ml（{flag}）。"
 
 
 def _trend_vitals(r, prev) -> str:
@@ -231,8 +242,8 @@ def _build_glucose(state) -> GlucoseReading:
 
 
 def _describe_glucose(state, r) -> str:
-    note = "超出正常范围" if r.abnormal else "在正常范围"
-    return f"指尖血糖：{r.mmol} mmol/L。{note}。"
+    flag = "异常：超出正常范围" if r.abnormal else "正常"
+    return f"指尖血糖：{r.mmol} mmol/L（{flag}）。"
 
 
 def _trend_glucose(r, prev) -> str:
@@ -257,8 +268,8 @@ _SOUND_TEXT = {
 
 
 def _describe_breath(state, r) -> str:
-    text = f"肺部听诊：{_SOUND_TEXT.get(r.sound, r.sound)}。"
-    return text + ("（异常）" if r.abnormal else "（正常）")
+    flag = "异常" if r.abnormal else "正常"
+    return f"肺部听诊：{_SOUND_TEXT.get(r.sound, r.sound)}（{flag}）。"
 
 
 def _trend_breath(r, prev) -> str:
@@ -285,14 +296,38 @@ _CONSCIOUS_TEXT = {
 
 
 def _describe_consciousness(state, r) -> str:
-    note = "（异常）" if r.abnormal else "（正常）"
-    return f"意识评估：{_CONSCIOUS_TEXT.get(r.state, r.state)}。{note}"
+    flag = "异常" if r.abnormal else "正常"
+    return f"意识评估：{_CONSCIOUS_TEXT.get(r.state, r.state)}（{flag}）。"
 
 
 def _trend_consciousness(r, prev) -> str:
     if prev is None or r.state == prev.state:
         return ""
     return f" 较上次 {_CONSCIOUS_TEXT.get(prev.state, prev.state)}→{_CONSCIOUS_TEXT.get(r.state, r.state)}。"
+
+
+_ABDOMEN_TEXT = {
+    "soft": "腹部平软，无压痛",
+    "distended": "腹部膨隆，轻压痛",
+    "guarded": "腹肌紧张，反跳痛明显",
+}
+
+
+def _build_abdomen(state) -> AbdomenReading:
+    case = case_of(state)
+    sign = case.physiology.abdomen(state.hidden.values, state.hidden.physio)
+    return AbdomenReading(minute=state.current_time, abnormal=case.physiology.abdomen_abnormal(sign), sign=sign)
+
+
+def _describe_abdomen(state, r) -> str:
+    flag = "异常" if r.abnormal else "正常"
+    return f"腹部查体：{_ABDOMEN_TEXT.get(r.sign, r.sign)}（{flag}）。"
+
+
+def _trend_abdomen(r, prev) -> str:
+    if prev is None or r.sign == prev.sign:
+        return ""
+    return f" 较上次 {_ABDOMEN_TEXT.get(prev.sign, prev.sign)}→{_ABDOMEN_TEXT.get(r.sign, r.sign)}。"
 
 
 _ASSESS_SPECS: dict[str, AssessSpec] = {
@@ -309,13 +344,23 @@ _ASSESS_SPECS: dict[str, AssessSpec] = {
         _describe_consciousness,
         _trend_consciousness,
     ),
+    "abdomen": AssessSpec(
+        "腹部查体", DURATION_MIN["ASSESS_ABDOMEN"], _build_abdomen, _describe_abdomen, _trend_abdomen
+    ),
 }
 
 
 def _do_order_lab(state, target, text, messages) -> bool:
     case = case_of(state)
     labs = case.resources.lab_kinds
-    kind = (target or "").upper()
+    kind = (target or "").upper().strip()
+    if not kind:
+        # 无参数 → 列出本病例可申请检查（含费用/周转），与 /give 裸命令同款引导。
+        lines = ["可申请检查（检查点/周转）："]
+        lines += [f"  /order {k}  {s.cost}检查点/{s.turnaround}min  {s.label}" for k, s in sorted(labs.items())]
+        lines.append("同项目 pending 不可重复；/wait <项目> 可等待并自动展示结果。")
+        messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
+        return True
     if kind not in labs:
         messages.append(
             DomainMessage(
@@ -384,7 +429,13 @@ def _do_order_lab(state, target, text, messages) -> bool:
 
 def _do_view_lab(state, target, text, messages) -> bool:
     labs = case_of(state).resources.lab_kinds
-    kind = (target or "").upper()
+    kind = (target or "").upper().strip()
+    if not kind:
+        # 无参数 → 列出可查看的检查（等待锚点会自动展示，此处为手动路径）。
+        lines = ["可查看已返回检查（等待到锚点会自动展示结果）："]
+        lines += [f"  /view {k}  {s.label}" for k, s in sorted(labs.items())]
+        messages.append(DomainMessage("SYSTEM", state.current_time, "\n".join(lines)))
+        return True
     if kind not in labs:
         messages.append(
             DomainMessage(
@@ -452,11 +503,18 @@ def _fmt_us(state, rec: ClinicalRecord) -> str:
     return f"腹部超声（order #{rec.order_id}）：{finding}（{flag}）。"
 
 
+def _fmt_crp(state, rec: ClinicalRecord) -> str:
+    r = rec.result
+    flag = "异常" if r["abnormal"] else "正常"
+    return f"C反应蛋白（order #{rec.order_id}，采血 {_clock(state, rec.sampled_at)}）：CRP {r['crp']} mg/L（{flag}）。"
+
+
 _LAB_FORMATTERS = {
     "CBC": _fmt_cbc,
     "ABG": _fmt_abg,
     "COAG": _fmt_coag,
     "US": _fmt_us,
+    "CRP": _fmt_crp,
 }
 
 
@@ -765,10 +823,24 @@ def _do_report(state, _target, text, messages) -> bool:
     return True
 
 
+def _auto_reveal(state, task_id: str, messages, prefix: str = "自动查看") -> bool:
+    """直出检查结果：把指定 order 的结果标记为已查看并追加结果文本。
+
+    玩家既然在等待该检查，结果一到就应直接可见——省去手动 /view 的无效操作。
+    """
+    rec = next((r for r in state.records if r.order_id == task_id), None)
+    if rec is None or rec.revealed:
+        return False
+    rec.revealed = True
+    messages.append(DomainMessage("LAB", state.current_time, f"{prefix}：{_lab_result_text(state, rec)}"))
+    return True
+
+
 def _do_wait(state, target, text, messages) -> bool:
     """等待至下一可见中断事件；带目标（lab kind）时只等到该检查返回。
 
     Generic: any pending lab kind is a valid target, not just CBC.
+    检查就绪锚点会直出结果（_auto_reveal），无需再手动 /view。
     """
     kind = (target or "").upper().strip()
     if kind:
@@ -784,6 +856,12 @@ def _do_wait(state, target, text, messages) -> bool:
             return False
         pending = engine._pending_task(state, kind)
         if pending is None:
+            # 无进行中任务但已有未查看的返回结果 → 直接展示（减少无效操作）。
+            recs = [r for r in state.records if r.kind == kind and not r.revealed]
+            if recs:
+                rec = max(recs, key=lambda r: r.ready_at)
+                if _auto_reveal(state, rec.order_id, messages):
+                    return True
             messages.append(DomainMessage("SYSTEM", state.current_time, f"没有进行中的 {kind}，无需等待。"))
             return True
         until = pending.due_at
@@ -791,6 +869,8 @@ def _do_wait(state, target, text, messages) -> bool:
         until = state.current_time + engine._WAIT_HORIZON
     stopping = engine._advance(state, messages, until, stop_on_interrupt=True)
     if stopping is not None:
+        if stopping.type == "LAB_READY":
+            _auto_reveal(state, stopping.payload.get("pending_id", ""), messages)
         messages.append(
             DomainMessage(
                 "SYSTEM",
@@ -847,6 +927,7 @@ def _help_overview(state) -> list[str]:
         "",
         f"目标：{case.narrative.goal}",
         "提示：/hint 随时获取下一步建议；行动面板（右侧）可点击执行。",
+        "提示：/assess、/order、/view（不带参数）可查看各自可用项；等待检查会直出结果。",
     ]
 
 

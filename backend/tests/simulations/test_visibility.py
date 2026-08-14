@@ -32,18 +32,29 @@ def test_no_monitor_alert_without_monitoring():
     assert not any(m.kind == "MONITOR" for m in s.public_log)
 
 
-def test_cbc_value_hidden_until_view():
+def test_cbc_value_auto_revealed_when_waited_to_anchor():
+    """等待落在检查就绪锚点 → 结果直出（免去手动 /view 的无效操作）。"""
     s = new_session()
     e.apply_action(s, "ORDER", "cbc")  # 0->3 ready 18
     e.apply_action(s, "WAIT", "cbc")
-    # Result materialized but not revealed.
+    assert len(s.records) == 1
+    assert s.records[0].revealed is True
+    assert any("Hb" in m.text for m in s.public_log)
+
+
+def test_lab_value_stays_hidden_until_view_when_not_waited():
+    """未等待到锚点时，就绪结果仍保密——只有 /view（或等待锚点）才公开。"""
+    s = new_session()
+    e.apply_action(s, "ORDER", "abg")  # 0->3 ready 13
+    for _ in range(5):
+        e.apply_action(s, "ASSESS", "vitals")  # 3->13，ABG 在最后一次评估中到期
     assert len(s.records) == 1
     assert s.records[0].revealed is False
-    assert not any("Hb" in m.text for m in s.public_log)
+    assert not any("乳酸" in m.text for m in s.public_log)
     # View reveals exactly once.
-    e.apply_action(s, "VIEW", "cbc")
+    e.apply_action(s, "VIEW", "abg")
     assert s.records[0].revealed is True
-    assert any("Hb" in m.text for m in s.public_log[-2:])
+    assert any("乳酸" in m.text for m in s.public_log[-2:])
 
 
 def test_status_does_not_reveal_future_events():
@@ -52,20 +63,21 @@ def test_status_does_not_reveal_future_events():
     assert not any("恶化" in m.text or "报警" in m.text or "失败" in m.text for m in s.public_log)
 
 
-def test_snapshot_excludes_hidden_state_and_unrevealed_cbc():
+def test_snapshot_excludes_hidden_state_and_unrevealed_lab():
     from modules.simulations.service import build_snapshot
 
     s = new_session()
-    e.apply_action(s, "ORDER", "cbc")  # hidden severity 0.12, cost 35
-    e.apply_action(s, "WAIT", "cbc")  # CBC materialized but not revealed
+    e.apply_action(s, "ORDER", "abg")  # 0->3 ready 13
+    for _ in range(5):
+        e.apply_action(s, "ASSESS", "vitals")  # ->13，ABG 就绪但未等待/查看
     snap = build_snapshot(1, s)
     # No hidden severity anywhere in the public snapshot.
     assert "hidden" not in snap
     assert not any("severity" in str(v) for v in snap["vitals"])
-    # Unrevealed CBC exposes no values, only a count.
+    # Unrevealed lab exposes no values, only a count.
     assert snap["unrevealed_lab_count"] == 1
     assert snap["lab_records"] == []
-    assert snap["diag_spent"] == 35
+    assert snap["diag_spent"] == 60
 
 
 def test_state_roundtrip_preserves_determinism():

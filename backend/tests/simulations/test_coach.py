@@ -5,7 +5,8 @@ L1 开篇评估 → L2 监护/检查方向 → L3 已有证据准备报告 → L
 """
 
 from modules.simulations import engine as e
-from modules.simulations.coach import OPENING_HINT, coach_hint
+from modules.simulations.case import get_case
+from modules.simulations.coach import coach_hint, opening_hint
 from modules.simulations.engine import new_session
 
 
@@ -17,9 +18,17 @@ def test_opening_hint_seeded_at_session_start():
     assert "基线" in hints[0].text
 
 
-def test_opening_hint_constant_matches_l1():
-    assert "基线" in OPENING_HINT
+def test_opening_hint_matches_l1_and_is_case_aware():
     assert coach_hint(new_session())[0] == 1
+    # 出血病例：提示引流/疼痛/尿量等外科评估
+    bleeding = opening_hint(get_case("mvpb-1"))
+    assert "基线" in bleeding
+    assert "引流" in bleeding
+    # 哮喘病例：不提示病例没有的「引流」
+    asthma = opening_hint(get_case("mvpa-1"))
+    assert "基线" in asthma
+    assert "引流" not in asthma
+    assert "肺部听诊" in asthma
 
 
 def test_hint_escalates_after_first_assessment():

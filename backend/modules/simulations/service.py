@@ -22,9 +22,10 @@ from .case import (
     TREAT_BUDGET_START,
     clock_text,
     consciousness_label,
+    consciousness_zh,
 )
 from .catalog import build_action_catalog
-from .coach import OPENING_HINT, coach_hint
+from .coach import coach_hint, opening_hint
 from .engine import apply_action, build_consult_summary, new_session
 from .prompts import family_talk_system, patient_talk_system
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
@@ -33,14 +34,12 @@ ConsultProvider = Callable[[str], str]
 TalkProvider = Callable[[str, str, str], str]  # (system, known_summary, player_line) -> persona reply
 DiagnoseProvider = Callable[[str], str]  # (review_prompt) -> scoring verdict
 
-_CONSCIOUS_ZH = {"alert": "清醒", "lethargic": "嗜睡", "comatose": "昏迷"}
-
 
 def _build_objectives(state: SessionState) -> dict:
     """目标清单：病例目标的实时达成情况（纯函数，不泄露 hidden）。"""
     from .engine import _has_abnormal_evidence
 
-    assessed = any(a.action_type == "ASSESS" for a in state.action_log)
+    assessed = any(a.action_type == "ASSESS" and a.action_target for a in state.action_log)
     timely = "delayed" if state.delayed_success else ("timely" if state.case_status == "SUCCESS" else None)
     return {
         "assessed": assessed,
@@ -56,12 +55,11 @@ def _build_objectives(state: SessionState) -> dict:
 def _build_patient(state: SessionState, case) -> dict:
     """床旁患者状态 — 只含玩家已知信息。"""
     value = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
-    label = consciousness_label(value)
     vitals = state.readings.get("vitals") or []
     latest = vitals[-1].__dict__ if vitals else None
     return {
-        "consciousness": label,
-        "consciousness_label": _CONSCIOUS_ZH.get(label, label),
+        "consciousness": consciousness_label(value),
+        "consciousness_label": consciousness_zh(value),
         "monitoring": state.hidden.monitoring_enabled,
         "latest_vitals": latest,
     }
@@ -82,7 +80,7 @@ def _build_brief(state: SessionState, case) -> dict:
         "drugs": list(case.surface.drugs),
         "labs": list(case.resources.lab_kinds),
         "talk_roles": list(case.surface.talk_roles),
-        "opening_hint": OPENING_HINT,
+        "opening_hint": opening_hint(case),
     }
 
 
@@ -159,6 +157,7 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "objectives": _build_objectives(state),
         "hint": {"level": state.hint_level, "text": coach_hint(state)[1]},
         "patient": _build_patient(state, case),
+        "teaching_points": case.narrative.teaching_points,
     }
 
 

@@ -85,6 +85,17 @@ class ConsciousReading(Reading):
 
 
 @dataclass
+class AbdomenReading(Reading):
+    """腹部查体 — 外科病例的腹征（soft / distended / guarded）。
+
+    由轴严重度 + 病例耦合（abdomen_gain）派生：出血 → 腹胀/压痛，
+    感染 → 腹膜刺激征（肌紧张/反跳痛）更早出现。
+    """
+
+    sign: str  # soft / distended / guarded
+
+
+@dataclass
 class ClinicalRecord:
     order_id: str
     kind: str
@@ -249,6 +260,7 @@ def state_from_dict(raw: dict) -> SessionState:
         "glucose": GlucoseReading,
         "breath": BreathReading,
         "consciousness": ConsciousReading,
+        "abdomen": AbdomenReading,
     }
     readings: dict[str, list[Reading]] = {}
     for key, raw_list in (raw.get("readings") or {}).items():

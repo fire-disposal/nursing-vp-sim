@@ -256,6 +256,8 @@ class PhysiologySpec:
     breath: Callable[[dict, dict], str]
     breath_abnormal: Callable[[str], bool]
     consciousness: Callable[[dict, dict], float]
+    abdomen: Callable[[dict, dict], str]
+    abdomen_abnormal: Callable[[str], bool]
 
 
 @dataclass(frozen=True)
@@ -306,6 +308,8 @@ class NarrativeSpec:
     # 患者台词里程碑：严重度阈值 → 患者/家属台词（阈值单调触发一次）。
     # 台词只表达症状感受，不泄露任何隐藏数值，增强互动感与线索感。
     milestones: dict[float, str] = field(default_factory=dict)
+    # 教学要点：病例复盘时展示的一句话学习目标（结局摘要 + 结局横幅）。
+    teaching_points: str = ""
 
 
 @dataclass(frozen=True)
@@ -401,11 +405,22 @@ def _make_lab_kinds(axis: str, coupling: dict, k: dict) -> dict[str, LabSpec]:
             "abnormal": positive,
         }
 
+    def mat_crp(sample_snapshot: dict, previous: dict | None) -> dict:
+        """C 反应蛋白（mg/L）— 感染病例经 crp_axis_gain 快速升高，其余病例近静息。"""
+        sev = sev_of(sample_snapshot["values"])
+        crp = k["crp_base"] + coupling.get("crp_axis_gain", 0.0) * sev
+        return {
+            "crp": round(crp, 1),
+            "sampled_severity": round(sev, 4),
+            "abnormal": crp >= k["crp_abn"],
+        }
+
     return {
         "CBC": LabSpec("血常规(CBC)", k["cbc_cost"], k["cbc_turnaround"], mat_cbc),
         "ABG": LabSpec("动脉血气(ABG)", 60, 10, mat_abg),
         "COAG": LabSpec("凝血功能", 50, 20, mat_coag),
         "US": LabSpec("腹部超声", 120, 20, mat_us),
+        "CRP": LabSpec("C反应蛋白(CRP)", 45, 25, mat_crp),
     }
 
 
@@ -459,6 +474,8 @@ _KERNEL = {
     "rr_vol_gain": 10,  # RR points per unit volume deficit (×3 for full effect)
     "wbc_base": 8.5,
     "wbc_abn": 12.0,
+    "crp_base": 5.0,  # mg/L 静息水平
+    "crp_abn": 10.0,  # 超过即异常（感染病例经 crp_axis_gain 快速越过）
     "inr_gain": 0.8,
     "us_threshold": 0.30,
     "cbc_cost": 35,
@@ -717,6 +734,25 @@ class InternalMedicineKernel:
     def consciousness(self, values: dict, physio: dict) -> float:
         return physio.get("conscious", 1.0)
 
+    def abdomen(self, values: dict, physio: dict) -> str:
+        """腹部查体 — soft / distended / guarded。
+
+        由轴严重度 + 病例耦合（abdomen_gain）派生：出血 → 腹胀/轻压痛，
+        感染 → 腹膜刺激征（肌紧张/反跳痛）出现更早。外科病例声明该评估目标，
+        其余病例 surface 不含它，引擎零负担。
+        """
+        c = self._c
+        sev = self.bleeding(values)
+        level = c.get("abdomen_gain", 0.0) * sev
+        if level >= 0.8:
+            return "guarded"
+        if level >= 0.4:
+            return "distended"
+        return "soft"
+
+    def abdomen_abnormal(self, sign: str) -> bool:
+        return sign != "soft"
+
     def spec(self) -> PhysiologySpec:
         return PhysiologySpec(
             bleeding=self.bleeding,
@@ -738,6 +774,8 @@ class InternalMedicineKernel:
             breath=self.breath,
             breath_abnormal=self.breath_abnormal,
             consciousness=self.consciousness,
+            abdomen=self.abdomen,
+            abdomen_abnormal=self.abdomen_abnormal,
         )
 
 
@@ -751,13 +789,21 @@ def consciousness_label(value: float) -> str:
     return "comatose"
 
 
+CONSCIOUS_ZH = {"alert": "清醒", "lethargic": "嗜睡", "comatose": "昏迷"}
+
+
+def consciousness_zh(value: float) -> str:
+    """0..1 → 中文意识档位（用于基线/床旁状态等展示文本）。"""
+    return CONSCIOUS_ZH.get(consciousness_label(value), "清醒")
+
+
 def _n_monitor_alert(alert_text: str):
-    return lambda v: f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。{alert_text}"
+    return lambda v: f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']} 次/分。{alert_text}"
 
 
 def _n_deterioration(deterioration_text: str):
     return lambda v: (
-        f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。{deterioration_text}"
+        f"患者病情明显恶化：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']} 次/分。{deterioration_text}"
     )
 
 
@@ -769,6 +815,7 @@ _DURATIONS_BASE = {
     "ASSESS_GLUCOSE": 1,
     "ASSESS_BREATH": 2,
     "ASSESS_CONSCIOUSNESS": 1,
+    "ASSESS_ABDOMEN": 2,
     "ORDER_LAB": 3,
     "MONITOR": 2,
     "CONSULT": 2,
@@ -808,6 +855,7 @@ def _build_case(
     assess_targets: dict[str, str] | None = None,
     start_clock: str = "08:30",  # 分片化：病例起始时间片（早班/夜班/ICU）
     milestones: dict[float, str] | None = None,  # 患者台词里程碑：严重度阈值 → 台词
+    teaching_points: str = "",  # 结局复盘的一句话学习要点
 ) -> CaseSpec:
     """One playable case = initial condition + axis coupling on the SHARED kernel."""
     durations = {**_DURATIONS_BASE, **(extra_durations or {})}
@@ -860,6 +908,7 @@ def _build_case(
             verdict_delayed=verdict_delayed,
             verdict_timely=verdict_timely,
             milestones=dict(milestones or {}),
+            teaching_points=teaching_points,
         ),
         physiology=InternalMedicineKernel(axis, coupling).spec(),
         surface=surface,
@@ -882,6 +931,7 @@ _BLEEDING_COUPLING = {
     "wbc_axis_gain": 2.0,
     "drain_axis_gain": 180,
     "pain_axis_gain": 8,
+    "abdomen_gain": 1.0,  # 腹腔积血 → 腹胀/压痛（0.4 腹胀、0.8 肌紧张）
 }
 
 CASE = _build_case(
@@ -899,19 +949,30 @@ CASE = _build_case(
     diag_hint="疑诊隐匿性出血",
     handover_task="识别并有效报告隐匿性出血",
     goal="评估→检查→报告，识别并报告隐匿性出血，患者顺利出院。",
-    monitor_alert="生命体征异常，请处理。",
-    deterioration="引流增多，需立即处理。",
+    monitor_alert="心率增快、血压下降，警惕隐匿性出血加重。",
+    deterioration="面色苍白、心率持续增快、血压下降，引流增多——出血加重。需立即处理。",
     failure="患者病情急剧恶化，隐匿性出血未被及时发现与控制——病例失败。",
     discharge="患者病情稳定，恢复良好，予以出院。较好结局达成。",
     verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，隐匿性出血持续加重。",
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={
+        "vitals": "生命体征",
+        "drain": "引流",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "consciousness": "意识",
+        "abdomen": "腹部查体",
+    },
     drug_keys=("FLUIDS", "TRANSFUSE", "MORPHINE", "NSAID", "OXYGEN", "DIURETIC", "VASOPRESSOR"),
     milestones={
-        0.30: "（患者虚弱地）护士，我头晕，心里慌得很…",
+        0.30: "（患者扶着床沿，声音发虚）护士，我头晕，心里慌得很…",
         0.50: "（患者面色苍白，声音低弱）肚子胀，伤口那儿闷闷地疼…",
-        0.75: "（患者精神萎靡）我冷…浑身没力气…（家属在旁焦急）",
+        0.75: "（患者精神萎靡，声音渐弱）我冷…浑身没力气…（家属在旁焦急）",
     },
+    teaching_points=(
+        "隐匿性出血的线索：心率↑/血压↓、引流增多、Hb 持续下降；早期开启监护并复查 CBC、及时报告可控制进展。"
+    ),
 )
 
 # MVP-I: 腹部术后腹腔感染 —— infection axis: fever + vasodilation + leukocytosis.
@@ -924,8 +985,10 @@ _INFECTION_COUPLING = {
     "temp_axis_gain": 2.0,  # fever: T = 37 + 2*sev
     "wbc_axis_gain": 12.0,  # leukocytosis
     "wbc_abn": 11.0,  # infection: WBC crosses the abnormal bar sooner
+    "crp_axis_gain": 40.0,  # CRP 快速升高（sev 0.2 → 13 mg/L）
     "drain_axis_gain": 40,  # 引流液浑浊增多
     "pain_axis_gain": 5,
+    "abdomen_gain": 1.2,  # 腹膜刺激征出现更早（0.33 腹胀、0.67 肌紧张）
 }
 
 CASE_INFECTION = _build_case(
@@ -950,6 +1013,14 @@ CASE_INFECTION = _build_case(
     verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，感染持续加重至休克。",
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={
+        "vitals": "生命体征",
+        "drain": "引流",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "consciousness": "意识",
+        "abdomen": "腹部查体",
+    },
     # Infection specialty stocks antibiotics instead of transfusion.
     drug_keys=("FLUIDS", "MORPHINE", "OXYGEN", "ANTIBIOTIC"),
     milestones={
@@ -957,6 +1028,7 @@ CASE_INFECTION = _build_case(
         0.60: "（患者声音发哑）越来越疼了，肚子胀得厉害…",
         0.80: "（患者精神萎靡，呼吸急促）我是不是…烧糊涂了…",
     },
+    teaching_points=("腹腔感染的线索：发热 + 腹痛 + 白细胞/CRP↑ + 乳酸↑；尽早抗感染并监测血压与尿量，警惕感染性休克。"),
 )
 
 # MVP-D: 糖尿病酮症酸中毒 —— glucose axis: hyperglycemia + dehydration + acidosis.
@@ -1007,10 +1079,14 @@ CASE_DKA = _build_case(
     drug_keys=("FLUIDS", "INSULIN", "GLUCOSE", "MORPHINE", "OXYGEN"),
     start_clock="22:00",  # 急诊夜班
     milestones={
-        0.45: "（患者干渴地说）水…我想喝水…恶心得厉害…",
-        0.60: "（患者昏沉）头昏得很，看东西有点花…",
+        0.45: "（患者干渴难忍）水…我想喝水…恶心得厉害…",
+        0.60: "（患者头昏乏力）头昏得很，看东西有点花…",
         0.80: "（患者呼吸深快，神志恍惚）我…我在哪…",
     },
+    teaching_points=(
+        "DKA 的关键是「高血糖 + 脱水 + 酸中毒」：补液扩容、胰岛素降糖、"
+        "警惕意识下降与深大呼吸（Kussmaul），纠正后血糖回落。"
+    ),
 )
 
 # MVP-H: 急性失代偿性心力衰竭 —— volume axis: congestion + pulmonary edema.
@@ -1061,10 +1137,13 @@ CASE_CHF = _build_case(
     drug_keys=("DIURETIC", "OXYGEN", "MORPHINE", "FLUIDS", "VASOPRESSOR"),
     start_clock="02:00",  # ICU 凌晨
     milestones={
-        0.45: "（患者喘促）一躺下就喘…坐起来好点…",
+        0.45: "（患者喘促，坐立不安）一躺下就喘…坐起来好点…",
         0.60: "（患者费力呼吸）胸口像压了块石头…",
         0.80: "（患者大汗淋漓，端坐喘息）快…我喘不上气了…",
     },
+    teaching_points=(
+        "急性心衰以「容量超负荷」为核心：端坐呼吸、双肺湿啰音、尿量下降；利尿减容是主线，同时给氧，警惕肺水肿与低氧。"
+    ),
 )
 
 
@@ -1080,6 +1159,7 @@ _PNEUMONIA_COUPLING = {
     "wbc_abn": 11.0,
     "breath_crackle_axis": 1.2,  # 实变 → 湿啰音（轴驱动，非容量型）
     "breath_axis_gain": 0.3,
+    "crp_axis_gain": 45.0,  # CRP 显著升高（sev 0.2 → 14 mg/L）
     "pain_axis_gain": 4,  # 胸膜性胸痛
 }
 
@@ -1116,10 +1196,11 @@ CASE_PNEUMONIA = _build_case(
     drug_keys=("ANTIBIOTIC", "OXYGEN", "FLUIDS", "NSAID", "SALBUTAMOL"),
     start_clock="14:30",  # 下午班
     milestones={
-        0.45: "（患者咳嗽加重，费力地说）咳咳…胸口闷，喘不上气…",
-        0.60: "（患者发热难受）浑身烫，头也疼，嗓子干得厉害…",
+        0.45: "（患者咳嗽不止，费力地说）咳咳…胸口闷，喘不上气…",
+        0.60: "（患者发热难受，面色潮红）浑身烫，头也疼，嗓子干得厉害…",
         0.80: "（患者呼吸急促，说话断续）我…我是不是快不行了…（家属在旁落泪）",
     },
+    teaching_points=("肺炎线索：发热 + 咳嗽 + 肺部湿啰音 + 白细胞/CRP↑；抗感染 + 给氧是主线，动态关注血氧与呼吸频率。"),
 )
 
 
@@ -1174,10 +1255,13 @@ CASE_ASTHMA = _build_case(
     drug_keys=("SALBUTAMOL", "OXYGEN", "STEROID", "FLUIDS"),
     start_clock="01:30",  # 夜间急诊
     milestones={
-        0.45: "（患者喘着说）呼…呼…嗓子紧，喘不上来…",
-        0.60: "（患者费力喘息，额头冒汗）我躺不下…一躺下更喘…",
-        0.85: "（患者面色发白，说话断断续续）快…快叫医生…（家属急得抹眼泪）",
+        0.45: "（患者喘着气）呼…呼…嗓子紧，喘不上来…",
+        0.60: "（患者额头冒汗，费力喘息）我躺不下…一躺下更喘…",
+        0.85: "（患者面色发白，说话断续）快…快叫医生…（家属急得抹眼泪）",
     },
+    teaching_points=(
+        "哮喘发作是「气道痉挛」：喘息、呼吸急促、低氧；沙丁胺醇解痉 + 给氧纠正低氧，激素抗炎防复发，警惕静默胸。"
+    ),
 )
 
 

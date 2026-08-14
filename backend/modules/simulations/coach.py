@@ -10,8 +10,20 @@ same hint, so tests can assert the guidance contract exactly.
 
 from .case import case_of
 
-# 开局提示（L1 档）— 也作为简报卡的 opening_hint。
-OPENING_HINT = "先评估建立基线：/assess vitals（2min）看生命体征，再针对性评估引流/疼痛/尿量。"
+
+def opening_hint(case) -> str:
+    """开局提示（L1 档）— 按病例评估面生成，不硬编码「引流/疼痛/尿量」。
+
+    例如出血病例提示「再针对性评估引流、疼痛、尿量…」，哮喘病例则提示
+    「肺部听诊、疼痛、尿量…」——避免给出病例并不存在的评估建议。
+    """
+    others = [label for k, label in case.surface.assessments.items() if k != "vitals"]
+    tail = "、".join(others[:3])
+    if len(others) > 3:
+        tail += "等"
+    if not tail:
+        tail = "其他项目"
+    return f"先评估建立基线：/assess vitals（2min）看生命体征，再针对性评估{tail}。"
 
 
 def _known_evidence(state) -> bool:
@@ -42,7 +54,8 @@ def coach_hint(state) -> tuple[int, str]:
 
     evidence = _known_evidence(state)
     reported = state.hidden.reported_to_doctor
-    assessed = any(a.action_type == "ASSESS" for a in state.action_log)
+    # 只有「带目标的评估」才算已评估——裸 /assess（列目录）不算。
+    assessed = any(a.action_type == "ASSESS" and a.action_target for a in state.action_log)
     ordered = any(a.action_type == "ORDER" for a in state.action_log)
 
     if reported:
@@ -55,4 +68,4 @@ def coach_hint(state) -> tuple[int, str]:
         if any(t.status == "PROCESSING" for t in state.pending_tasks):
             return 2, "有检查进行中：可用 /wait 或 /wait <项目> 推进时间，留意监护报警/病情恶化打断。"
         return 2, "基线已建立。可继续评估其他项目（/assess 查看），或开启监护、申请检查，观察趋势变化。"
-    return 1, OPENING_HINT
+    return 1, opening_hint(case)

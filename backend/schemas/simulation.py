@@ -201,6 +201,7 @@ class SimulationSnapshot(BaseModel):
     objectives: ObjectivesOut = Field(default_factory=ObjectivesOut)
     hint: HintOut | None = None
     patient: PatientStateOut = Field(default_factory=PatientStateOut)
+    teaching_points: str = ""
 
 
 class SessionCreateResponse(BaseModel):

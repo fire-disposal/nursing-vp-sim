@@ -11,8 +11,17 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
-from .case import active_meds, case_of, clock_text, consciousness_label, get_case, materialize_lab
+from .case import (
+    active_meds,
+    case_of,
+    clock_text,
+    consciousness_label,
+    consciousness_zh,
+    get_case,
+    materialize_lab,
+)
 from .state import (
+    AbdomenReading,
     ActionRecord,
     ClinicalRecord,
     ConsciousReading,
@@ -111,6 +120,11 @@ def _seed_handover(state: SessionState) -> None:
             state=consciousness_label(conscious),
         )
     )
+    if "abdomen" in case.surface.assessments:
+        sign = case.physiology.abdomen(state.hidden.values, state.hidden.physio)
+        state.readings.setdefault("abdomen", []).append(
+            AbdomenReading(minute=0, abnormal=case.physiology.abdomen_abnormal(sign), sign=sign)
+        )
     state.public_log = [
         DomainMessage(
             "SYSTEM",
@@ -120,8 +134,8 @@ def _seed_handover(state: SessionState) -> None:
         DomainMessage(
             "ASSESSMENT",
             0,
-            f"基线：HR {v['hr']} | BP {v['sbp']}/{v['dbp']} | RR {v['rr']} | SpO2 {v['spo2']}% | T {v['temp']}℃ | "
-            f"引流 {drain}ml | VAS {pain} | 尿量 {urine}ml。",
+            f"基线：HR {v['hr']} | BP {v['sbp']}/{v['dbp']} | RR {v['rr']} 次/分 | SpO2 {v['spo2']}% | "
+            f"T {v['temp']}℃ | 引流 {drain} ml | VAS {pain} | 尿量 {urine} ml | 意识 {consciousness_zh(conscious)}。",
         ),
     ]
     _seed_opening_hint(state)
@@ -239,7 +253,7 @@ def _on_lab_ready(state: SessionState, ev: ScheduledEvent, messages: list[Domain
         DomainMessage(
             "LAB",
             ev.at_minute,
-            f"{label} 结果已返回（order #{task.id}）。使用 /view {task.kind.lower()} 查看具体数值。",
+            f"{label} 结果已返回（order #{task.id}）。",
         )
     )
 
@@ -287,7 +301,7 @@ def _on_drug_adverse(state: SessionState, ev: ScheduledEvent, messages: list[Dom
         DomainMessage(
             "CRITICAL",
             ev.at_minute,
-            f"{label}累计剂量过高——{toxicity}。当前 RR {v['rr']}，SpO2 {v['spo2']}%，"
+            f"{label}累计剂量过高——{toxicity}。当前 RR {v['rr']} 次/分，SpO2 {v['spo2']}%，"
             f"意识 {case_of(state).physiology.consciousness(state.hidden.values, state.hidden.physio):.2f}。需立即处理。",
         )
     )
@@ -329,6 +343,7 @@ def _settlement_verdict(state: SessionState) -> str:
 
 
 def _audit_summary(state: SessionState, minute: int) -> str:
+    case = case_of(state)
     parts = [f"结局摘要：检查 {len(state.records)} 次，耗检查点 {state.diag_spent}，耗治疗点 {state.treat_spent}。"]
     if state.diagnosis:
         parts.append(f"你的诊断：{state.diagnosis}；")
@@ -344,8 +359,10 @@ def _audit_summary(state: SessionState, minute: int) -> str:
         interval = latest_two[1].sampled_at - latest_two[0].sampled_at
         hb_delta = round(latest_two[1].result["hb"] - latest_two[0].result["hb"], 1)
         parts.append(f"两次 CBC 采样间隔 {interval} 分钟，Hb 变化 {hb_delta:+g} g/L。")
-    parts.append(f"病例时长 {minute} 分钟（{clock_text(minute, case_of(state).start_clock)}）。")
+    parts.append(f"病例时长 {minute} 分钟（{clock_text(minute, case.start_clock)}）。")
     parts.append(_settlement_verdict(state))
+    if case.narrative.teaching_points:
+        parts.append(f"教学要点：{case.narrative.teaching_points}")
     return " ".join(parts)
 
 

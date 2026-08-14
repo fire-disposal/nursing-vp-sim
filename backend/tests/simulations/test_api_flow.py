@@ -101,15 +101,28 @@ def test_good_path_via_api():
     assert any(m["kind"] == "AUDIT" for m in r["snapshot"]["messages"])
 
 
-def test_unrevealed_cbc_not_exposed_by_api():
+def test_wait_auto_reveals_lab_result_via_api():
+    """等待锚点 → 结果直出：API 快照中 lab_records 出现、无「待查看」。"""
     created = _create()
     sid = created["session_id"]
     _act(sid, "ORDER", "cbc")
-    _act(sid, "WAIT", "cbc")
+    snap = _act(sid, "WAIT", "cbc")["snapshot"]
+    assert snap["unrevealed_lab_count"] == 0
+    assert len(snap["lab_records"]) == 1
+    assert any("Hb" in m["text"] for m in snap["messages"])
+
+
+def test_unrevealed_cbc_not_exposed_without_wait():
+    """未等待到锚点时，就绪结果对 API 保密（unrevealed_lab_count 计数、无数值）。"""
+    created = _create()
+    sid = created["session_id"]
+    _act(sid, "ORDER", "abg")  # 0->3 ready 13
+    for _ in range(5):
+        _act(sid, "ASSESS", "vitals")  # 3->13，ABG 在最后一次评估中到期
     snap = _act(sid, "STATUS", None)["snapshot"]
     assert snap["unrevealed_lab_count"] == 1
     assert snap["lab_records"] == []
-    assert not any("Hb" in m["text"] for m in snap["messages"])
+    assert not any("乳酸" in m["text"] for m in snap["messages"])
 
 
 def test_repeat_pending_rejected_without_extra_charge():
