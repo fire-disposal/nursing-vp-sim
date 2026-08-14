@@ -1,19 +1,12 @@
 import {
 	Avatar,
 	Box,
-	Button,
 	Divider,
-	Group,
 	NavLink as MantineNavLink,
 	ScrollArea,
-	Tooltip,
 } from "@mantine/core";
-import { IconLogout, IconMessageCirclePlus } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useFeedback } from "@/components/FeedbackProvider";
-import NotificationBell from "@/components/NotificationBell";
-import { ModeToggle } from "@/components/ui/mode-toggle";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import type { NavGroupKey, NavItem } from "./navigation";
@@ -72,16 +65,13 @@ export default function SidebarNav({
 	userLinks,
 	adminLinks,
 	onNavigate,
-	onLogout,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	onNavigate: () => void;
-	onLogout: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
-	const { openFeedback } = useFeedback();
 
 	const { grouped, ungrouped } = useMemo(() => {
 		const g = new Map<NavGroupKey, NavItem[]>();
@@ -123,6 +113,7 @@ export default function SidebarNav({
 			</ScrollArea>
 
 			<Divider />
+			{/* 底部仅用户卡（点击进个人中心）；全局操作（模式/通知/反馈/退出）统一在顶栏 */}
 			<Box p="sm">
 				<MantineNavLink
 					component={Link}
@@ -131,22 +122,7 @@ export default function SidebarNav({
 					description={user?.role_display_name || user?.role || "用户"}
 					leftSection={<Avatar src={avatar} size={32} radius="xl" />}
 					onClick={onNavigate}
-					mb="sm"
 				/>
-				<Group gap={4} wrap="nowrap">
-					<ModeToggle />
-					<NotificationBell />
-					<Tooltip label="意见反馈">
-						<Button variant="default" size="sm" w={36} h={36} p={0} onClick={openFeedback} aria-label="意见反馈">
-							<IconMessageCirclePlus size={16} />
-						</Button>
-					</Tooltip>
-					<Tooltip label="退出登录">
-						<Button variant="default" size="sm" color="red" w={36} h={36} p={0} onClick={onLogout} aria-label="退出登录">
-							<IconLogout size={16} />
-						</Button>
-					</Tooltip>
-				</Group>
 			</Box>
 		</Box>
 	);

@@ -1,6 +1,7 @@
 import { Group, Text, Transition, UnstyledButton } from "@mantine/core";
 import { IconClipboardList, IconRobot, IconStethoscope, IconUser } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import type { NavIcon } from "./navigation";
 
 /**
@@ -31,13 +32,15 @@ const BOTTOM_TABS: Array<{
 export function BottomTabBar() {
 	const location = useLocation();
 	const navigate = useNavigate();
+	// 横屏/短视口也显示底部 Tab（垂直空间宝贵，侧栏已折叠，Tab 承担导航）
+	const isShort = useShortViewport();
 
 	return (
 		<Group
 			component="nav"
 			justify="space-around"
 			gap={0}
-			hiddenFrom="sm"
+			hiddenFrom={isShort ? undefined : "sm"}
 			h="100%"
 			style={{
 				borderTop: "1px solid var(--mantine-color-default-border)",

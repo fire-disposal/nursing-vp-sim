@@ -1,7 +1,7 @@
-import { AppShell, Box, Burger, Button, Group, Text, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -9,6 +9,7 @@ import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useShortViewport } from "@/hooks/useShortViewport";
 import useAuthStore from "@/stores/authStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import SidebarNav from "./SidebarNav";
@@ -39,18 +40,25 @@ export default function ManageShell({
 	const isAdmin = isAdminPermissions(permissions);
 	const isOnline = useNetworkStatus();
 	const { openFeedback } = useFeedback();
+	// 横屏/短视口（高度 <500px）：垂直空间宝贵 → 压缩顶栏、折叠侧栏、保留底部 Tab
+	const isShort = useShortViewport();
 	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-	const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+	const [desktopOpened, { toggle: toggleDesktop, close: closeDesktop }] = useDisclosure(!isShort);
+	useEffect(() => {
+		if (isShort) closeDesktop();
+	}, [isShort, closeDesktop]);
 
 	return (
 		<AppShell
-			header={{ height: 56 }}
+			header={{ height: { base: 56, sm: isShort ? 48 : 56 } }}
 			navbar={{
 				width: 260,
 				breakpoint: "sm",
 				collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
 			}}
-			footer={!isAdmin ? { height: { base: "calc(56px + env(safe-area-inset-bottom, 0px))", sm: 0 } } : undefined}
+			footer={!isAdmin
+				? { height: { base: "calc(56px + env(safe-area-inset-bottom, 0px))", sm: isShort ? "calc(56px + env(safe-area-inset-bottom, 0px))" : 0 } }
+				: undefined}
 			padding={0}
 		>
 			<AppShell.Header>
@@ -117,6 +125,17 @@ export default function ManageShell({
 						<Button variant="default" size="sm" onClick={openFeedback} leftSection={<IconMessageCirclePlus size={16} />} visibleFrom="sm">
 							反馈
 						</Button>
+						<Tooltip label="退出登录">
+							<ActionIcon
+								variant="default"
+								size={36}
+								onClick={onLogout}
+								aria-label="退出登录"
+								title="退出登录"
+							>
+								<IconLogout size={16} />
+							</ActionIcon>
+						</Tooltip>
 					</Group>
 				</Group>
 			</AppShell.Header>
@@ -126,7 +145,6 @@ export default function ManageShell({
 					userLinks={userLinks}
 					adminLinks={adminLinks}
 					onNavigate={() => mobileOpened && toggleMobile()}
-					onLogout={onLogout}
 				/>
 			</AppShell.Navbar>
 
