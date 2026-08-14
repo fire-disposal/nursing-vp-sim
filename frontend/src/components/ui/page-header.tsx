@@ -2,7 +2,6 @@ import { ActionIcon, Box, Group, Text, Title } from "@mantine/core";
 import { IconChevronLeft } from "@tabler/icons-react";
 import type { ComponentType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
 
 type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
@@ -26,7 +25,7 @@ export default function PageHeader({
 	const navigate = useNavigate();
 
 	return (
-		<Box mb="lg" className={cn(className)}>
+		<Box mb="lg" className={className}>
 			{backTo && (
 				<ActionIcon
 					variant="subtle"

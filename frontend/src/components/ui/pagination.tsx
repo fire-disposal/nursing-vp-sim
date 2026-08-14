@@ -1,5 +1,4 @@
 import { Group, Pagination as MantinePagination, Text } from "@mantine/core";
-import { cn } from "@/lib/utils";
 
 interface PaginationProps {
 	total: number;
@@ -24,7 +23,7 @@ export default function Pagination({
 	const totalPages = Math.max(1, Math.ceil(total / limit));
 
 	return (
-		<Group justify="space-between" gap="md" wrap="wrap" className={cn(className)}>
+		<Group justify="space-between" gap="md" wrap="wrap" className={className}>
 			<Text size="sm" c="dimmed">
 				第 {currentStart}-{currentEnd} 条，共 {total} 条
 			</Text>

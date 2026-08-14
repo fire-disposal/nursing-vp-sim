@@ -1,5 +1,4 @@
 import { Alert } from "@mantine/core";
-import { cn } from "@/lib/utils";
 
 interface FormMessageBannerProps {
 	type?: "success" | "error";
@@ -23,7 +22,7 @@ export function FormMessageBanner({
 			variant="light"
 			color={type === "success" ? "green" : "red"}
 			mb="md"
-			className={cn(className)}
+			className={className}
 		>
 			{message}
 		</Alert>

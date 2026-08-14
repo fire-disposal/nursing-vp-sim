@@ -1,6 +1,6 @@
 import { modals } from "@mantine/modals";
 
-import { Button, Modal } from "@mantine/core";
+import { Button, Group, Modal } from "@mantine/core";
 
 export interface ConfirmOptions {
 	title: string;
@@ -34,8 +34,6 @@ export function useConfirm(): ConfirmContextType {
 	return { confirm: openConfirm };
 }
 
-
-
 export function ConfirmDialog({
 	open,
 	onConfirm,
@@ -58,14 +56,14 @@ export function ConfirmDialog({
 	return (
 		<Modal opened={open} onClose={onCancel} title={title} size="sm" centered withinPortal>
 			{message}
-			<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+			<Group justify="flex-end" gap={8} mt="md">
 				<Button variant="outline" onClick={onCancel}>
 					{cancelLabel}
 				</Button>
 				<Button variant={danger ? "light" : "filled"} color={danger ? "red" : undefined} onClick={onConfirm}>
 					{confirmLabel}
 				</Button>
-			</div>
+			</Group>
 		</Modal>
 	);
 }

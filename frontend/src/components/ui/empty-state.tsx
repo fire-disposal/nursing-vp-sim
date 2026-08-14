@@ -1,6 +1,5 @@
 import { Stack, Text, ThemeIcon } from "@mantine/core";
 import type { ComponentType, ReactNode } from "react";
-import { cn } from "@/lib/utils";
 
 type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 
@@ -20,7 +19,7 @@ export default function EmptyState({
 	className,
 }: EmptyStateProps) {
 	return (
-		<Stack align="center" justify="center" py={48} ta="center" className={cn(className)}>
+		<Stack align="center" justify="center" py={48} ta="center" className={className}>
 			{Icon && (
 				<ThemeIcon size={56} variant="light" color="gray" radius="md">
 					<Icon size={28} strokeWidth={1.5} />
