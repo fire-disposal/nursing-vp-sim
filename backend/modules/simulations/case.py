@@ -10,7 +10,7 @@ can be added as one more ``CaseSpec`` in a registry.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -207,6 +207,19 @@ DRUGS: dict[str, DrugSpec] = {
         toxicity_threshold=200,
         toxicity_label="高血糖（补糖过量）",
     ),
+    "STEROID": DrugSpec(
+        label="甲泼尼龙",
+        category="抗炎",
+        unit="mg",
+        default_dose=40,
+        max_dose=80,
+        half_life_min=240,
+        cost=35,
+        duration_min=3,
+        progression_mult=0.55,  # 抑制气道/炎症轴进展，起效慢但持续
+        toxicity_threshold=160,
+        toxicity_label="高血糖/应激反应（激素过量）",
+    ),
 }
 
 
@@ -290,6 +303,9 @@ class NarrativeSpec:
     verdict_failure: str
     verdict_delayed: str
     verdict_timely: str
+    # 患者台词里程碑：严重度阈值 → 患者/家属台词（阈值单调触发一次）。
+    # 台词只表达症状感受，不泄露任何隐藏数值，增强互动感与线索感。
+    milestones: dict[float, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -440,6 +456,7 @@ _KERNEL = {
     "sbp_svr_gain": 0.15,  # BP defense per unit SVR above baseline
     "urine_base": 178,
     "urine_exp": 3.35,  # renal perfusion falls faster than volume
+    "rr_vol_gain": 10,  # RR points per unit volume deficit (×3 for full effect)
     "wbc_base": 8.5,
     "wbc_abn": 12.0,
     "inr_gain": 0.8,
@@ -583,6 +600,7 @@ class InternalMedicineKernel:
 
     def vitals(self, values: dict, physio: dict) -> dict:
         c, k = self._c, self._k
+        sev = self.bleeding(values)
         vol = physio["vol"]
         svr = physio["svr"]
         meds = physio.get("meds", {})
@@ -591,18 +609,20 @@ class InternalMedicineKernel:
         # Respiratory drive: opioids suppress it; oxygen supports SpO2.
         resp_dep = sum(meds[k_]["plasma"] * DRUGS[k_].resp_depression for k_ in meds if k_ in DRUGS)
         spo2_boost = sum(meds[k_]["plasma"] * DRUGS[k_].spo2_boost for k_ in meds if k_ in DRUGS)
-        base_rr = 16 + round(10 * (1.0 - vol) * 3)
+        # Airway coupling (asthma-mode): the axis drives tachypnea + hypoxia;
+        # salbutamol relieves both (per-unit plasma relief). Zero elsewhere.
+        salbutamol = meds.get("SALBUTAMOL", {}).get("plasma", 0.0)
+        relief = max(0.0, 1.0 - c.get("salbutamol_relief", 0.0) * salbutamol)
+        base_rr = 16 + round(k["rr_vol_gain"] * (1.0 - vol) * 3) + round(c.get("rr_axis_gain", 0.0) * sev * relief)
         rr = max(8, base_rr - round(resp_dep * 6))
-        spo2 = max(60, min(100, round(98 - resp_dep * 8 + spo2_boost)))
+        spo2 = max(60, min(100, round(98 - resp_dep * 8 + spo2_boost - c.get("spo2_axis_gain", 0.0) * sev * relief)))
         return {
-            "hr": k["hr_base"]
-            + round(k["hr_vol_gain"] * (1.0 - vol))
-            + round(c.get("hr_axis_gain", 0.0) * self.bleeding(values)),
+            "hr": k["hr_base"] + round(k["hr_vol_gain"] * (1.0 - vol)) + round(c.get("hr_axis_gain", 0.0) * sev),
             "sbp": round(k["sbp_base"] * vol * svr_defense),
             "dbp": round((k["sbp_base"] - 42) * vol * svr_defense),
             "rr": rr,
             "spo2": spo2,
-            "temp": k["temp_base"] + c.get("temp_axis_gain", 0.0) * self.bleeding(values),
+            "temp": k["temp_base"] + c.get("temp_axis_gain", 0.0) * sev,
         }
 
     def vitals_abnormal(self, v: dict) -> bool:
@@ -661,16 +681,31 @@ class InternalMedicineKernel:
     def breath(self, values: dict, physio: dict) -> str:
         """Lung auscultation: clear / crackles / wheeze / diminished.
 
-        Crackles (pulmonary edema) scale with volume overload; wheeze with an
-        airway axis; diminished with the disease axis. Salbutamol opens the
-        airways.
+        Crackles come from volume overload (``breath_crackle_vol``, CHF) or
+        from an infection/consolidation axis (``breath_crackle_axis``,
+        pneumonia). Wheeze is the DISEASE in asthma-mode (``airway_wheeze_gain``
+        > 0): it is present at baseline severity and salbutamol relieves it —
+        unlike the legacy path where wheeze only appears after the drug.
+        Diminished rides the generic ``breath_axis_gain`` axis.
         """
         c = self._c
         sev = self.bleeding(values)
         vol = physio.get("vol", 1.0)
+        salbutamol = active_meds(physio).get("SALBUTAMOL", {}).get("plasma", 0.0)
+        # Asthma-mode: bronchospasm from severity, relieved by salbutamol.
+        airway = c.get("airway_wheeze_gain", 0.0) * sev
+        if airway > 0:
+            wheeze = max(0.0, airway - c.get("salbutamol_relief", 0.0) * salbutamol)
+            if wheeze >= 0.45:
+                return "wheeze"
+            if wheeze >= 0.15:
+                return "diminished"
+            return "clear"
         if c.get("breath_crackle_vol", 0.0) and vol >= c["breath_crackle_vol"]:
             return "crackles"
-        if active_meds(physio).get("SALBUTAMOL", {}).get("plasma", 0.0) > 0.05:
+        if c.get("breath_crackle_axis", 0.0) and c["breath_crackle_axis"] * sev >= 0.45:
+            return "crackles"
+        if salbutamol > 0.05:
             return "wheeze" if c.get("breath_axis_gain", 0.0) * sev > 0.3 else "clear"
         if c.get("breath_axis_gain", 0.0) * sev > 0.5:
             return "diminished"
@@ -707,6 +742,15 @@ class InternalMedicineKernel:
 
 
 # ── Narrative builders (embed derived vitals; per-case prose) ──
+def consciousness_label(value: float) -> str:
+    """0..1 → 三档描述（alert/lethargic/comatose），与对话可用性判定共用。"""
+    if value >= 0.6:
+        return "alert"
+    if value >= 0.3:
+        return "lethargic"
+    return "comatose"
+
+
 def _n_monitor_alert(alert_text: str):
     return lambda v: f"监护报警：HR {v['hr']} bpm，BP {v['sbp']}/{v['dbp']} mmHg，RR {v['rr']}。{alert_text}"
 
@@ -724,6 +768,7 @@ _DURATIONS_BASE = {
     "ASSESS_URINE": 2,
     "ASSESS_GLUCOSE": 1,
     "ASSESS_BREATH": 2,
+    "ASSESS_CONSCIOUSNESS": 1,
     "ORDER_LAB": 3,
     "MONITOR": 2,
     "CONSULT": 2,
@@ -762,10 +807,17 @@ def _build_case(
     drug_keys: tuple[str, ...] = ("FLUIDS", "TRANSFUSE", "MORPHINE", "OXYGEN"),
     assess_targets: dict[str, str] | None = None,
     start_clock: str = "08:30",  # 分片化：病例起始时间片（早班/夜班/ICU）
+    milestones: dict[float, str] | None = None,  # 患者台词里程碑：严重度阈值 → 台词
 ) -> CaseSpec:
     """One playable case = initial condition + axis coupling on the SHARED kernel."""
     durations = {**_DURATIONS_BASE, **(extra_durations or {})}
-    assessments = assess_targets or {"vitals": "生命体征", "drain": "引流", "pain": "疼痛", "urine": "尿量"}
+    assessments = assess_targets or {
+        "vitals": "生命体征",
+        "drain": "引流",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "consciousness": "意识",
+    }
     surface = SurfaceSpec(
         assessments=assessments,
         drugs={k: DRUGS[k].label for k in drug_keys},
@@ -807,6 +859,7 @@ def _build_case(
             verdict_failure=verdict_failure,
             verdict_delayed=verdict_delayed,
             verdict_timely=verdict_timely,
+            milestones=dict(milestones or {}),
         ),
         physiology=InternalMedicineKernel(axis, coupling).spec(),
         surface=surface,
@@ -854,6 +907,11 @@ CASE = _build_case(
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
     drug_keys=("FLUIDS", "TRANSFUSE", "MORPHINE", "NSAID", "OXYGEN", "DIURETIC", "VASOPRESSOR"),
+    milestones={
+        0.30: "（患者虚弱地）护士，我头晕，心里慌得很…",
+        0.50: "（患者面色苍白，声音低弱）肚子胀，伤口那儿闷闷地疼…",
+        0.75: "（患者精神萎靡）我冷…浑身没力气…（家属在旁焦急）",
+    },
 )
 
 # MVP-I: 腹部术后腹腔感染 —— infection axis: fever + vasodilation + leukocytosis.
@@ -894,6 +952,11 @@ CASE_INFECTION = _build_case(
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
     # Infection specialty stocks antibiotics instead of transfusion.
     drug_keys=("FLUIDS", "MORPHINE", "OXYGEN", "ANTIBIOTIC"),
+    milestones={
+        0.40: "（患者发热，难受地翻动）烧得难受，肚子疼得一阵一阵的…",
+        0.60: "（患者声音发哑）越来越疼了，肚子胀得厉害…",
+        0.80: "（患者精神萎靡，呼吸急促）我是不是…烧糊涂了…",
+    },
 )
 
 # MVP-D: 糖尿病酮症酸中毒 —— glucose axis: hyperglycemia + dehydration + acidosis.
@@ -933,9 +996,21 @@ CASE_DKA = _build_case(
     verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，DKA 进展至昏迷。",
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
-    assess_targets={"vitals": "生命体征", "pain": "疼痛", "urine": "尿量", "glucose": "血糖", "breath": "肺部听诊"},
+    assess_targets={
+        "vitals": "生命体征",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "glucose": "血糖",
+        "breath": "肺部听诊",
+        "consciousness": "意识",
+    },
     drug_keys=("FLUIDS", "INSULIN", "GLUCOSE", "MORPHINE", "OXYGEN"),
     start_clock="22:00",  # 急诊夜班
+    milestones={
+        0.45: "（患者干渴地说）水…我想喝水…恶心得厉害…",
+        0.60: "（患者昏沉）头昏得很，看东西有点花…",
+        0.80: "（患者呼吸深快，神志恍惚）我…我在哪…",
+    },
 )
 
 # MVP-H: 急性失代偿性心力衰竭 —— volume axis: congestion + pulmonary edema.
@@ -975,9 +1050,134 @@ CASE_CHF = _build_case(
     verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，心衰进展至呼吸衰竭。",
     verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
     verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
-    assess_targets={"vitals": "生命体征", "pain": "疼痛", "urine": "尿量", "breath": "肺部听诊", "glucose": "血糖"},
+    assess_targets={
+        "vitals": "生命体征",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "breath": "肺部听诊",
+        "glucose": "血糖",
+        "consciousness": "意识",
+    },
     drug_keys=("DIURETIC", "OXYGEN", "MORPHINE", "FLUIDS", "VASOPRESSOR"),
     start_clock="02:00",  # ICU 凌晨
+    milestones={
+        0.45: "（患者喘促）一躺下就喘…坐起来好点…",
+        0.60: "（患者费力呼吸）胸口像压了块石头…",
+        0.80: "（患者大汗淋漓，端坐喘息）快…我喘不上气了…",
+    },
+)
+
+
+# MVP-P: 社区获得性肺炎 —— infection axis reuse: fever + cough + crackles + hypoxia.
+_PNEUMONIA_COUPLING = {
+    "vol_axis_rate": 0.18,  # 发热/纳差 → 轻度相对低容量
+    "hb_axis_rate": 0.0,
+    "svr_axis_dilate": 0.45,  # 中度血管扩张
+    "lac_axis_gain": 0.5,  # 感染驱动乳酸
+    "hr_axis_gain": 30,  # 发热心动过速
+    "temp_axis_gain": 2.2,  # 高热
+    "wbc_axis_gain": 14.0,  # 明显白细胞升高
+    "wbc_abn": 11.0,
+    "breath_crackle_axis": 1.2,  # 实变 → 湿啰音（轴驱动，非容量型）
+    "breath_axis_gain": 0.3,
+    "pain_axis_gain": 4,  # 胸膜性胸痛
+}
+
+CASE_PNEUMONIA = _build_case(
+    case_id="mvpp-1",
+    name="社区获得性肺炎（MVP-P）",
+    patient="孙桂芳，71 岁女性，受凉后发热咳嗽 3 天，痰多气促，既往慢阻肺史",
+    family_persona="你是患者的女儿，陪护送她来急诊，记得她这两天烧得厉害、一直咳、说胸口闷。",
+    axis="infection",
+    coupling=_PNEUMONIA_COUPLING,
+    start_severity=0.20,
+    step=0.05,
+    mid_severity=0.55,  # 啰音明显 + 白细胞升高 + 心率增快
+    deterioration_severity=0.75,
+    failure_severity=1.0,
+    diag_hint="疑诊社区获得性肺炎",
+    handover_task="识别并有效报告社区获得性肺炎（发热 + 咳嗽 + 肺部啰音 + 白细胞升高）",
+    goal="评估→检查→报告，识别并报告肺炎，抗感染治疗，患者出院。",
+    monitor_alert="发热伴呼吸急促、心率增快，警惕肺炎加重与低氧。",
+    deterioration="高热不退、呼吸急促、血氧下降，感染性休克风险。需立即处理。",
+    failure="肺炎合并呼吸衰竭/感染性休克未被及时识别与控制——病例失败。",
+    discharge="体温正常、呼吸平稳，感染控制良好，予以出院。较好结局达成。",
+    verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，肺炎进展至呼吸衰竭。",
+    verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
+    verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={
+        "vitals": "生命体征",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "breath": "肺部听诊",
+        "glucose": "血糖",
+        "consciousness": "意识",
+    },
+    drug_keys=("ANTIBIOTIC", "OXYGEN", "FLUIDS", "NSAID", "SALBUTAMOL"),
+    start_clock="14:30",  # 下午班
+    milestones={
+        0.45: "（患者咳嗽加重，费力地说）咳咳…胸口闷，喘不上气…",
+        0.60: "（患者发热难受）浑身烫，头也疼，嗓子干得厉害…",
+        0.80: "（患者呼吸急促，说话断续）我…我是不是快不行了…（家属在旁落泪）",
+    },
+)
+
+
+# MVP-A: 支气管哮喘急性发作 —— airway axis: wheeze + tachypnea + hypoxia.
+# 新轴演示：airway_wheeze_gain > 0 进入哮喘模式——喘息是「疾病本身」，
+# 沙丁胺醇缓解喘息与 RR/SpO2（salbutamol_relief），激素抑制轴进展。
+_ASTHMA_COUPLING = {
+    "airway_wheeze_gain": 2.5,  # 喘息随严重度出现（起始即闻及）
+    "salbutamol_relief": 0.8,  # 每单位血浆浓度缓解喘息/RR/SpO2
+    "rr_axis_gain": 18,  # 呼吸急促随严重度
+    "spo2_axis_gain": 12,  # 低氧随严重度（可被沙丁胺醇缓解）
+    "vol_axis_rate": 0.05,  # 大汗/纳差 → 轻度脱水
+    "hb_axis_rate": 0.0,
+    "svr_axis_dilate": 0.0,
+    "lac_axis_gain": 0.0,
+    "hr_axis_gain": 22,  # 窘迫心动过速
+    "temp_axis_gain": 0.0,
+    "wbc_axis_gain": 0.0,
+    "pain_axis_gain": 2,  # 胸闷
+    "conscious_axis_gain": 0.25,  # 重度低氧影响意识
+}
+
+CASE_ASTHMA = _build_case(
+    case_id="mvpa-1",
+    name="支气管哮喘急性发作（MVP-A）",
+    patient="李明轩，24 岁男性，哮喘病史，夜间受凉后突发喘息、憋闷、不能平卧",
+    family_persona="你是患者的母亲，凌晨陪他来急诊，记得他晚饭后就开始喘，越喘越厉害。",
+    axis="airway",
+    coupling=_ASTHMA_COUPLING,
+    start_severity=0.20,
+    step=0.05,
+    mid_severity=0.55,  # RR ~+10、SpO2 ~93，喘息明显
+    deterioration_severity=0.75,
+    failure_severity=1.0,
+    diag_hint="疑诊哮喘急性发作",
+    handover_task="识别并有效报告哮喘急性发作（喘息 + 呼吸急促 + 低氧），及时解痉给氧",
+    goal="评估→检查→报告，识别并报告哮喘急性发作，解痉平喘、纠正低氧，患者出院。",
+    monitor_alert="喘息加重、呼吸急促、血氧下降，警惕哮喘危重发作。",
+    deterioration="端坐呼吸、说话不成句、大汗，重度低氧。需立即处理。",
+    failure="哮喘危重发作（静默胸/呼吸衰竭）未被及时识别与控制——病例失败。",
+    discharge="喘息缓解、呼吸平稳、血氧恢复，予以出院。较好结局达成。",
+    verdict_failure="判定：延误/漏诊——未及时获得异常证据并有效报告，哮喘进展至呼吸衰竭。",
+    verdict_delayed="判定：迟报成功——在病情明显恶化后才报告，处置及时但发现偏晚。",
+    verdict_timely="判定：及时——在病情明显恶化前获得异常证据并有效报告，患者顺利出院。",
+    assess_targets={
+        "vitals": "生命体征",
+        "breath": "肺部听诊",
+        "pain": "疼痛",
+        "urine": "尿量",
+        "consciousness": "意识",
+    },
+    drug_keys=("SALBUTAMOL", "OXYGEN", "STEROID", "FLUIDS"),
+    start_clock="01:30",  # 夜间急诊
+    milestones={
+        0.45: "（患者喘着说）呼…呼…嗓子紧，喘不上来…",
+        0.60: "（患者费力喘息，额头冒汗）我躺不下…一躺下更喘…",
+        0.85: "（患者面色发白，说话断断续续）快…快叫医生…（家属急得抹眼泪）",
+    },
 )
 
 
@@ -993,6 +1193,8 @@ CASES: dict[str, CaseSpec] = {
     "mvpi-1": CASE_INFECTION,
     "mvpd-1": CASE_DKA,
     "mvph-1": CASE_CHF,
+    "mvpp-1": CASE_PNEUMONIA,
+    "mvpa-1": CASE_ASTHMA,
 }
 
 

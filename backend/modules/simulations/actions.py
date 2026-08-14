@@ -20,6 +20,7 @@ from .case import (
     case_of,
     case_options_text,
     clock_text,
+    consciousness_label,
     lab_options_text,
 )
 
@@ -32,6 +33,7 @@ def _clock(state, minute: int) -> str:
 from .state import (
     BreathReading,
     ClinicalRecord,
+    ConsciousReading,
     DomainMessage,
     DrainReading,
     GlucoseReading,
@@ -265,6 +267,34 @@ def _trend_breath(r, prev) -> str:
     return f" 较上次 {_SOUND_TEXT.get(prev.sound, prev.sound)}→{_SOUND_TEXT.get(r.sound, r.sound)}。"
 
 
+def _build_consciousness(state) -> ConsciousReading:
+    case = case_of(state)
+    value = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
+    return ConsciousReading(
+        minute=state.current_time,
+        abnormal=value < 0.6,
+        state=consciousness_label(value),
+    )
+
+
+_CONSCIOUS_TEXT = {
+    "alert": "意识清醒，应答切题",
+    "lethargic": "嗜睡，呼唤可应，应答迟缓",
+    "comatose": "昏迷，呼之不应",
+}
+
+
+def _describe_consciousness(state, r) -> str:
+    note = "（异常）" if r.abnormal else "（正常）"
+    return f"意识评估：{_CONSCIOUS_TEXT.get(r.state, r.state)}。{note}"
+
+
+def _trend_consciousness(r, prev) -> str:
+    if prev is None or r.state == prev.state:
+        return ""
+    return f" 较上次 {_CONSCIOUS_TEXT.get(prev.state, prev.state)}→{_CONSCIOUS_TEXT.get(r.state, r.state)}。"
+
+
 _ASSESS_SPECS: dict[str, AssessSpec] = {
     "vitals": AssessSpec("生命体征", DURATION_MIN["ASSESS_VITALS"], _build_vitals, _describe_vitals, _trend_vitals),
     "drain": AssessSpec("引流", DURATION_MIN["ASSESS_DRAIN"], _build_drain, _describe_drain, _trend_ml),
@@ -272,6 +302,13 @@ _ASSESS_SPECS: dict[str, AssessSpec] = {
     "urine": AssessSpec("尿量", DURATION_MIN["ASSESS_URINE"], _build_urine, _describe_urine, _trend_ml),
     "glucose": AssessSpec("血糖", DURATION_MIN["ASSESS_GLUCOSE"], _build_glucose, _describe_glucose, _trend_glucose),
     "breath": AssessSpec("肺部听诊", DURATION_MIN["ASSESS_BREATH"], _build_breath, _describe_breath, _trend_breath),
+    "consciousness": AssessSpec(
+        "意识",
+        DURATION_MIN["ASSESS_CONSCIOUSNESS"],
+        _build_consciousness,
+        _describe_consciousness,
+        _trend_consciousness,
+    ),
 }
 
 
@@ -787,12 +824,21 @@ def _do_help(state, _target, text, messages) -> bool:
     return True
 
 
+def _do_hint(state, _target, text, messages) -> bool:
+    """教练提示：/hint 主动请求当前档位建议（不耗时间）。"""
+    from .coach import coach_hint
+
+    level, hint_text = coach_hint(state)
+    messages.append(DomainMessage("HINT", state.current_time, f"[教练 L{level}] {hint_text}"))
+    return True
+
+
 def _help_overview(state) -> list[str]:
     case = case_of(state)
     return [
         "可用命令（中英文皆可，输入 /帮助 <命令> 查看子命令）：",
         "",
-        "  信息   /状态 /历史 /待办 /帮助",
+        "  信息   /状态 /历史 /待办 /帮助 /提示",
         f"  评估   /评估 <{'|'.join(case.surface.assessments)}>   （/帮助 评估）",
         "  检查   /检查 <项目> /查看 <项目>   （/帮助 检查）",
         f"  给药   /给药 <{'|'.join(case.surface.drugs)}> [剂量]   （/帮助 给药）",
@@ -800,6 +846,7 @@ def _help_overview(state) -> list[str]:
         "  处理   /监护 /报告 /等待 [检查] /诊断",
         "",
         f"目标：{case.narrative.goal}",
+        "提示：/hint 随时获取下一步建议；行动面板（右侧）可点击执行。",
     ]
 
 
@@ -899,6 +946,7 @@ _HANDLERS = {
     "WAIT": _do_wait,
     "HISTORY": _do_history,
     "HELP": _do_help,
+    "HINT": _do_hint,
     "PENDING": _do_pending,
     "CASE": _do_case,
 }

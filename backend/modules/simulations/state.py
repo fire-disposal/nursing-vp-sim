@@ -74,6 +74,17 @@ class BreathReading(Reading):
 
 
 @dataclass
+class ConsciousReading(Reading):
+    """意识状态评估 — 三档描述性结果（不暴露底层 0..1 数值）。
+
+    state ∈ alert / lethargic / comatose，由 physiology.consciousness 阈值映射，
+    与 /status 展示、对话可用性判定共用同一来源。
+    """
+
+    state: str  # alert / lethargic / comatose
+
+
+@dataclass
 class ClinicalRecord:
     order_id: str
     kind: str
@@ -169,6 +180,9 @@ class SessionState:
     insufficient_funds: bool = False
     delayed_success: bool = False
     drug_overdose: bool = False
+    # 引导状态：教练提示单调升级档位 + 已触发过的患者台词严重度阈值。
+    hint_level: int = 0
+    fired_milestones: list[float] = field(default_factory=list)
     case_ended_at: int | None = None
     revision: int = 0
 
@@ -216,6 +230,8 @@ def state_from_dict(raw: dict) -> SessionState:
         insufficient_funds=raw.get("insufficient_funds", False),
         delayed_success=raw.get("delayed_success", False),
         drug_overdose=raw.get("drug_overdose", False),
+        hint_level=raw.get("hint_level", 0),
+        fired_milestones=list(raw.get("fired_milestones", [])),
         case_ended_at=raw.get("case_ended_at"),
         revision=raw.get("revision", 0),
     )
@@ -232,6 +248,7 @@ def state_from_dict(raw: dict) -> SessionState:
         "urine": UrineReading,
         "glucose": GlucoseReading,
         "breath": BreathReading,
+        "consciousness": ConsciousReading,
     }
     readings: dict[str, list[Reading]] = {}
     for key, raw_list in (raw.get("readings") or {}).items():

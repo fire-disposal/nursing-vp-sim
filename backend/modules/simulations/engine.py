@@ -11,10 +11,11 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
-from .case import active_meds, case_of, clock_text, get_case, materialize_lab
+from .case import active_meds, case_of, clock_text, consciousness_label, get_case, materialize_lab
 from .state import (
     ActionRecord,
     ClinicalRecord,
+    ConsciousReading,
     DomainMessage,
     DrainReading,
     HiddenClinicalState,
@@ -43,7 +44,7 @@ _INTERRUPT_TYPES = frozenset(
 )
 
 # Non-clinical commands allowed after the case has ended.
-_NON_CLINICAL = frozenset({"STATUS", "VIEW", "HISTORY", "HELP", "PENDING", "CASE"})
+_NON_CLINICAL = frozenset({"STATUS", "VIEW", "HISTORY", "HELP", "PENDING", "CASE", "HINT"})
 
 # Waiting horizon — large enough to always reach the failure outcome.
 _WAIT_HORIZON = 100000
@@ -81,6 +82,7 @@ def _seed_handover(state: SessionState) -> None:
     drain = case.physiology.drain(state.hidden.values)
     pain = case.physiology.pain(state.hidden.values, state.hidden.physio)
     urine = case.physiology.urine(state.hidden.values, state.hidden.physio)
+    conscious = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
     state.readings.setdefault("vitals", []).append(
         VitalsReading(
             minute=0,
@@ -102,6 +104,13 @@ def _seed_handover(state: SessionState) -> None:
     state.readings.setdefault("urine", []).append(
         UrineReading(minute=0, abnormal=case.physiology.urine_abnormal(urine), output_ml=urine)
     )
+    state.readings.setdefault("consciousness", []).append(
+        ConsciousReading(
+            minute=0,
+            abnormal=conscious < 0.6,
+            state=consciousness_label(conscious),
+        )
+    )
     state.public_log = [
         DomainMessage(
             "SYSTEM",
@@ -115,6 +124,16 @@ def _seed_handover(state: SessionState) -> None:
             f"引流 {drain}ml | VAS {pain} | 尿量 {urine}ml。",
         ),
     ]
+    _seed_opening_hint(state)
+
+
+def _seed_opening_hint(state: SessionState) -> None:
+    """开局教练提示：告诉玩家第一步做什么（L1 开篇档）。"""
+    from .coach import coach_hint
+
+    level, text = coach_hint(state)
+    state.hint_level = max(state.hint_level, level)
+    state.public_log.append(DomainMessage("HINT", 0, text))
 
 
 def _schedule(state: SessionState, at_minute: int, priority: int, etype: str, payload: dict) -> None:
@@ -188,6 +207,11 @@ def _on_bleeding_progress(state: SessionState, ev: ScheduledEvent, messages: lis
     if state.hidden.monitoring_enabled and not state.monitor_alert_fired and sev >= case.course.mid_severity:
         state.monitor_alert_fired = True
         _schedule(state, ev.at_minute, 1, "MONITOR_ALERT", {})
+    # 患者台词里程碑：严重度跨过病例声明的阈值时，患者发出症状台词（各触发一次）。
+    for thr, line in sorted(case.narrative.milestones.items()):
+        if thr not in state.fired_milestones and sev >= thr:
+            state.fired_milestones.append(thr)
+            _schedule(state, ev.at_minute, 1, "PATIENT_LINE", {"text": line})
     if sev >= case.course.failure_severity:
         _schedule(state, ev.at_minute, 3, "CASE_FAILURE", {})
 
@@ -232,6 +256,18 @@ def _on_deterioration(state: SessionState, ev: ScheduledEvent, messages: list[Do
     messages.append(DomainMessage("CRITICAL", ev.at_minute, case.narrative.deterioration(v)))
 
 
+def _on_patient_line(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
+    """患者台词里程碑：症状级线索，非打断事件，仅增加在场感。
+
+    若患者已昏迷则替换为家属/护士的观察，保持「昏迷者无法说话」的一致性。
+    """
+    conscious = case_of(state).physiology.consciousness(state.hidden.values, state.hidden.physio)
+    text = ev.payload.get("text", "")
+    if conscious < 0.3:
+        text = "（患者意识模糊，呼之不应；家属在旁焦急呼唤）"
+    messages.append(DomainMessage("PATIENT", ev.at_minute, text))
+
+
 def _on_drug_adverse(state: SessionState, ev: ScheduledEvent, messages: list[DomainMessage]) -> None:
     """Drug toxicity surfaced: respiratory failure / transfusion reaction.
 
@@ -262,6 +298,7 @@ _EVENT_HANDLERS = {
     "LAB_READY": _on_lab_ready,
     "MONITOR_ALERT": _on_monitor_alert,
     "SPONTANEOUS_DETERIORATION": _on_deterioration,
+    "PATIENT_LINE": _on_patient_line,
     "DRUG_ADVERSE": _on_drug_adverse,
     "CASE_SUCCESS": lambda state, ev, messages: _end_case(state, SUCCESS, ev.at_minute, messages),
     "CASE_FAILURE": lambda state, ev, messages: _end_case(state, FAILURE, ev.at_minute, messages),
@@ -337,8 +374,19 @@ def apply_action(
     if ok:
         state.revision += 1
         state.action_log.append(ActionRecord(started_at, state.current_time, action_type, target, _outcome(messages)))
+        _advance_hint(state, messages)
     state.public_log.extend(messages)
     return ok, messages
+
+
+def _advance_hint(state: SessionState, messages: list[DomainMessage]) -> None:
+    """教练提示自动升级：跨入更高档位时追加一条 HINT 消息（单调，不刷屏）。"""
+    from .coach import coach_hint
+
+    level, text = coach_hint(state)
+    if level > state.hint_level:
+        state.hint_level = level
+        messages.append(DomainMessage("HINT", state.current_time, text))
 
 
 def _outcome(messages: list[DomainMessage]) -> str:

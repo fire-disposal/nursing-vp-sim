@@ -21,7 +21,10 @@ from .case import (
     DIAG_BUDGET_START,
     TREAT_BUDGET_START,
     clock_text,
+    consciousness_label,
 )
+from .catalog import build_action_catalog
+from .coach import OPENING_HINT, coach_hint
 from .engine import apply_action, build_consult_summary, new_session
 from .prompts import family_talk_system, patient_talk_system
 from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
@@ -29,6 +32,58 @@ from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
 ConsultProvider = Callable[[str], str]
 TalkProvider = Callable[[str, str, str], str]  # (system, known_summary, player_line) -> persona reply
 DiagnoseProvider = Callable[[str], str]  # (review_prompt) -> scoring verdict
+
+_CONSCIOUS_ZH = {"alert": "清醒", "lethargic": "嗜睡", "comatose": "昏迷"}
+
+
+def _build_objectives(state: SessionState) -> dict:
+    """目标清单：病例目标的实时达成情况（纯函数，不泄露 hidden）。"""
+    from .engine import _has_abnormal_evidence
+
+    assessed = any(a.action_type == "ASSESS" for a in state.action_log)
+    timely = "delayed" if state.delayed_success else ("timely" if state.case_status == "SUCCESS" else None)
+    return {
+        "assessed": assessed,
+        "evidence": _has_abnormal_evidence(state),
+        "monitoring": state.hidden.monitoring_enabled,
+        "treated": state.treat_spent > 0 or state.fluid_support > 0,
+        "reported": state.hidden.reported_to_doctor,
+        "diagnosis": state.diagnosis is not None,
+        "timely": timely,
+    }
+
+
+def _build_patient(state: SessionState, case) -> dict:
+    """床旁患者状态 — 只含玩家已知信息。"""
+    value = case.physiology.consciousness(state.hidden.values, state.hidden.physio)
+    label = consciousness_label(value)
+    vitals = state.readings.get("vitals") or []
+    latest = vitals[-1].__dict__ if vitals else None
+    return {
+        "consciousness": label,
+        "consciousness_label": _CONSCIOUS_ZH.get(label, label),
+        "monitoring": state.hidden.monitoring_enabled,
+        "latest_vitals": latest,
+    }
+
+
+def _build_brief(state: SessionState, case) -> dict:
+    """开局简报 — CaseSpec 派生的结构化开局信息。"""
+    return {
+        "patient": case.patient,
+        "task": case.narrative.handover_task,
+        "goal": case.narrative.goal,
+        "resources": {
+            "diag": DIAG_BUDGET_START,
+            "treat": TREAT_BUDGET_START,
+            "consult": CONSULT_COST,
+        },
+        "assessments": list(case.surface.assessments),
+        "drugs": list(case.surface.drugs),
+        "labs": list(case.resources.lab_kinds),
+        "talk_roles": list(case.surface.talk_roles),
+        "opening_hint": OPENING_HINT,
+    }
 
 
 def build_snapshot(session_id: int, state: SessionState) -> dict:
@@ -98,6 +153,12 @@ def build_snapshot(session_id: int, state: SessionState) -> dict:
         "treat_spent": state.treat_spent,
         "treat_budget": max(0, TREAT_BUDGET_START - state.treat_spent),
         "case_ended_at": state.case_ended_at,
+        # 新一代交互契约：行动目录 / 开局简报 / 目标清单 / 教练提示 / 床旁状态。
+        "actions": build_action_catalog(state),
+        "brief": _build_brief(state, case),
+        "objectives": _build_objectives(state),
+        "hint": {"level": state.hint_level, "text": coach_hint(state)[1]},
+        "patient": _build_patient(state, case),
     }
 
 

@@ -38,6 +38,13 @@ main system — it does not touch the training/cases/qa domains or the main UI.
  ├─ 会诊 Consult（120 检查点，调 AI 基础设施层 infra/llm，仅基于已知信息）
  ├─ 对话 Talk（/talk patient|family <你的话>，2min/次；昏迷时不可用）
  │    └─ LLM 扮演患者/家属角色，仅基于已知观察作答，不泄露隐藏病程
+ ├─ 引导 Guidance（新一代交互契约，全部纯函数/数据、不泄露 hidden）
+ │    ├─ 行动目录 build_action_catalog：服务器驱动按钮（enabled/disabled_reason）
+ │    ├─ 教练提示 coach_hint：L1 开篇→L2 方向→L3 证据→L4 结局，单调升级、自动弹出
+ │    ├─ 开局简报 brief：患者/任务/目标/资源/第一步建议
+ │    ├─ 目标清单 objectives：评估/证据/监护/治疗/报告/诊断 实时达成
+ │    ├─ 床旁状态 patient：意识档位/监护/最近生命体征
+ │    └─ 患者台词 PATIENT_LINE：严重度跨过病例阈值时症状台词（每档一次，昏迷替换）
  ├─ 诊断 Diagnosis（/diag 自由文本，报告时带出）
  │
  └─ 报告 Report → 结局 Outcome
@@ -68,10 +75,11 @@ main system — it does not touch the training/cases/qa domains or the main UI.
 - **病例工厂**：`_build_case(...)` 一行定义新病例（现有 mvpb-1 出血 / mvpi-1 感染）。
 
 扩展基座（新增业务对象的最小改动）：
-- 新病例 → `_build_case(...)` 一行 + `CASES` 注册（含轴参数表、叙事文案、drug_keys）。
+- 新病例 → `_build_case(...)` 一行 + `CASES` 注册（含轴参数表、叙事文案、drug_keys、milestones）。
 - 新药物 → `DRUGS` 加一项 DrugSpec（药代/副作用/过量阈值）+ 病例 `drug_keys` 声明。
 - 新观察 → `_ASSESS_SPECS` 加一项（build/describe/trend 三个小函数）+ surface.assessments。
 - 新检查 → 病例参数表 + `_make_lab_kinds` 内加一项 LabSpec（materialize 函数）。
+- 行动目录/简报/目标清单按 surface 自动长出——新病例/新药/新检查无需前端改动。
 - 引擎保持纯函数：`engine.apply_action(state, action)` 无 DB/HTTP；
   LLM 边界（会诊/对话）在 `service` provider 编排 + `router`；持久化与白名单在 `service`。
 

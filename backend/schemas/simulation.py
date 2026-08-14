@@ -98,6 +98,75 @@ class LabRecordSummary(BaseModel):
     abnormal: bool
 
 
+class ActionEntry(BaseModel):
+    """One actionable item — the server-driven button contract.
+
+    The frontend renders every action from this; ``enabled`` /
+    ``disabled_reason`` are computed by the engine, so a disabled button
+    always explains itself and the UI never re-implements a rule.
+    """
+
+    id: str
+    label: str
+    cost: int | None = None
+    cost_label: str | None = None
+    duration: int | None = None
+    turnaround: int | None = None
+    unit: str | None = None
+    default_dose: float | None = None
+    max_dose: float | None = None
+    enabled: bool = True
+    disabled_reason: str | None = None
+
+
+class ActionCatalogOut(BaseModel):
+    assess: list[ActionEntry] = []
+    order: list[ActionEntry] = []
+    give: list[ActionEntry] = []
+    talk: list[ActionEntry] = []
+    manage: list[ActionEntry] = []
+
+
+class CaseBriefOut(BaseModel):
+    """开局简报 — CaseSpec 派生的结构化开局信息，前端渲染简报卡。"""
+
+    patient: str
+    task: str
+    goal: str
+    resources: dict[str, int] = {}
+    assessments: list[str] = []
+    drugs: list[str] = []
+    labs: list[str] = []
+    talk_roles: list[str] = []
+    opening_hint: str = ""
+
+
+class ObjectivesOut(BaseModel):
+    """目标清单 — 病例目标的实时达成情况（纯函数计算，不泄露 hidden）。"""
+
+    assessed: bool = False
+    evidence: bool = False
+    monitoring: bool = False
+    treated: bool = False
+    reported: bool = False
+    diagnosis: bool = False
+    timely: str | None = None  # "timely" | "delayed" | None
+
+
+class HintOut(BaseModel):
+    level: int
+    text: str
+
+
+class PatientStateOut(BaseModel):
+    """床旁患者状态 — 只含玩家已知信息（意识档位/监护/最近生命体征）。"""
+
+    consciousness: str = "alert"  # alert / lethargic / comatose
+    consciousness_label: str = "清醒"
+    monitoring: bool = False
+    latest_vitals: dict | None = None
+
+
 class SimulationSnapshot(BaseModel):
     model_config = _RESP_CFG
     session_id: int
@@ -126,6 +195,12 @@ class SimulationSnapshot(BaseModel):
     treat_spent: int = 0
     treat_budget: int = 0
     case_ended_at: int | None = None
+    # 新一代交互契约：行动目录（服务器驱动按钮）/ 开局简报 / 目标清单 / 教练提示 / 床旁状态。
+    actions: ActionCatalogOut = Field(default_factory=ActionCatalogOut)
+    brief: CaseBriefOut = Field(default_factory=CaseBriefOut)
+    objectives: ObjectivesOut = Field(default_factory=ObjectivesOut)
+    hint: HintOut | None = None
+    patient: PatientStateOut = Field(default_factory=PatientStateOut)
 
 
 class SessionCreateResponse(BaseModel):
