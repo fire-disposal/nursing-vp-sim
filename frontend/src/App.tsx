@@ -88,11 +88,12 @@ export default function App() {
 									<Route path="/login" element={<Login />} />
 									<Route path="/showcase" element={<Showcase />} />
 									<Route path="/face-demo" element={<FaceLab />} />
+									{/* 临床推理模拟：免登录演示（后端 /api/simulations 无鉴权） */}
+									<Route
+										path="/simulation"
+										element={<SimulationConsole />}
+									/>
 									<Route element={<ProtectedRoute />}>
-										<Route
-											path="/simulation"
-											element={<SimulationConsole />}
-										/>
 										<Route element={<Layout />}>
 											<Route index element={<Navigate to="/training" replace />} />
 											{APP_ROUTES.map((r) => (
