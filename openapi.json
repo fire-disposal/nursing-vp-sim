@@ -14631,6 +14631,11 @@
           },
           "patient": {
             "$ref": "#/components/schemas/PatientStateOut"
+          },
+          "teaching_points": {
+            "type": "string",
+            "title": "Teaching Points",
+            "default": ""
           }
         },
         "type": "object",

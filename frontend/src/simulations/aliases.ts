@@ -49,6 +49,8 @@ export const TARGET_ALIASES: Record<string, string> = {
 	肺部听诊: "breath",
 	呼吸音: "breath",
 	意识: "consciousness",
+	腹部查体: "abdomen",
+	腹部: "abdomen",
 	// 药物
 	快速补液: "FLUIDS",
 	补液: "FLUIDS",
@@ -74,6 +76,7 @@ export const TARGET_ALIASES: Record<string, string> = {
 	血气: "ABG",
 	凝血: "COAG",
 	超声: "US",
+	反应蛋白: "CRP",
 	// 对话对象
 	患者: "patient",
 	家属: "family",
@@ -88,6 +91,7 @@ export const EN_TO_ZH: Record<string, string> = {
 	glucose: "血糖",
 	breath: "肺部听诊",
 	consciousness: "意识",
+	abdomen: "腹部查体",
 	FLUIDS: "补液",
 	TRANSFUSE: "输血",
 	MORPHINE: "吗啡",
@@ -104,6 +108,7 @@ export const EN_TO_ZH: Record<string, string> = {
 	ABG: "血气",
 	COAG: "凝血",
 	US: "超声",
+	CRP: "C反应蛋白",
 	patient: "患者",
 	family: "家属",
 };

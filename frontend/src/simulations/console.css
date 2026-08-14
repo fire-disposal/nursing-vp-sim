@@ -1010,6 +1010,12 @@
 	font-size: 11px;
 }
 
+.sim-end-teach {
+	font-size: 11px;
+	line-height: 1.5;
+	opacity: 0.95;
+}
+
 .sim-end-sub {
 	color: inherit;
 	opacity: 0.85;

@@ -40,7 +40,11 @@ describe("computeCompletionGroups", () => {
 
 	it("prefix-matches sub-targets", () => {
 		expect(computeCompletionGroups("/assess v")[0].items.map((c) => c.label)).toEqual(["/评估 生命体征"]);
-		expect(computeCompletionGroups("/order c")[0].items.map((c) => c.label)).toEqual(["/检查 血常规", "/检查 凝血"]);
+		expect(computeCompletionGroups("/order c")[0].items.map((c) => c.label)).toEqual([
+			"/检查 血常规",
+			"/检查 凝血",
+			"/检查 C反应蛋白",
+		]);
 		expect(computeCompletionGroups("/give F")[0].items.map((c) => c.label)).toEqual(["/给药 补液"]);
 	});
 

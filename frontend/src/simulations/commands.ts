@@ -59,7 +59,7 @@ const DEFAULT_SURFACE: CommandSurface = {
 		SALBUTAMOL: "沙丁胺醇",
 		STEROID: "甲泼尼龙",
 	},
-	labs: { CBC: "血常规(CBC)", ABG: "动脉血气(ABG)", COAG: "凝血功能", US: "腹部超声" },
+	labs: { CBC: "血常规(CBC)", ABG: "动脉血气(ABG)", COAG: "凝血功能", US: "腹部超声", CRP: "C反应蛋白(CRP)" },
 	talk_roles: ["patient", "family"],
 	wait_labs: true,
 	monitor: true,

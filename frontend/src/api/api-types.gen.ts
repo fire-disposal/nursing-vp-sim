@@ -4872,6 +4872,11 @@ export interface components {
             objectives?: components["schemas"]["ObjectivesOut"];
             hint?: components["schemas"]["HintOut"] | null;
             patient?: components["schemas"]["PatientStateOut"];
+            /**
+             * Teaching Points
+             * @default
+             */
+            teaching_points: string;
         };
         /** StorageStatsResponse */
         StorageStatsResponse: {

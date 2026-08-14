@@ -279,4 +279,27 @@ describe("SimulationConsole", () => {
 		await userEvent.click(chip);
 		await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(1, { type: "WAIT", target: "CBC" }));
 	});
+
+	it("renders teaching points on the end banner", async () => {
+		const ended = {
+			...baseSnapshot,
+			case_status: "SUCCESS",
+			teaching_points: "隐匿性出血的线索：心率↑/血压↓、引流增多、Hb 持续下降；早期开启监护并复查 CBC。",
+			objectives: {
+				assessed: true,
+				evidence: true,
+				monitoring: true,
+				treated: false,
+				reported: true,
+				diagnosis: true,
+				timely: "timely",
+			},
+		};
+		mocks.create.mockResolvedValue({ session_id: 1, snapshot: ended });
+		render(<MemoryRouter><SimulationConsole /></MemoryRouter>);
+		await waitFor(() => expect(mocks.create).toHaveBeenCalled());
+		expect(screen.getByText(/教学要点/)).toBeInTheDocument();
+		expect(screen.getByText(/隐匿性出血的线索/)).toBeInTheDocument();
+		expect(screen.getByText(/✓ 及时/)).toBeInTheDocument();
+	});
 });

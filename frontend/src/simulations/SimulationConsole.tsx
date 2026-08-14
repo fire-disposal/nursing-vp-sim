@@ -690,6 +690,9 @@ export default function SimulationConsole() {
 									) : null}
 								</div>
 							) : null}
+							{snapshot?.teaching_points ? (
+								<div className="sim-end-teach">📖 教学要点：{snapshot.teaching_points}</div>
+							) : null}
 							<div className="sim-end-sub">输入 /status 查看结算，或点「重新开始」再试一局。</div>
 						</div>
 					) : null}
