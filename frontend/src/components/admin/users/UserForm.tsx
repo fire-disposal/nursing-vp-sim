@@ -210,10 +210,10 @@ export default function UserForm({
           <FormMessageBanner type="error" message={editUserMsg} />
           <form onSubmit={editForm.onSubmit(onEditSubmit)}>
             <Stack gap="md">
-              <TextInput label="姓名" {...editForm.getInputProps("display_name")} />
+              <TextInput label="姓名" withAsterisk {...editForm.getInputProps("display_name")} />
               <TextInput label="学号" {...editForm.getInputProps("student_id")} />
               <Select
-                label="角色"
+                label="角色" withAsterisk
                 {...editForm.getInputProps("role")}
                 data={roleData(roles)}
                 placeholder={roles.length === 0 ? "加载中..." : undefined}
@@ -325,19 +325,19 @@ export default function UserForm({
         <form onSubmit={regForm.onSubmit(onRegisterSubmit)}>
           <Group gap="xs" align="flex-end" wrap="wrap">
             <Box flex={1} miw={120}>
-              <TextInput label="用户名" {...regForm.getInputProps("username")} />
+              <TextInput label="用户名" withAsterisk {...regForm.getInputProps("username")} />
             </Box>
             <Box flex={1} miw={120}>
               <TextInput
                 type="password"
-                label="密码"
+                label="密码" withAsterisk
                 placeholder="至少6位"
                 {...regForm.getInputProps("password")}
               />
             </Box>
             <Box flex={1} miw={100}>
               <Select
-                label="角色"
+                label="角色" withAsterisk
                 {...regForm.getInputProps("role")}
                 data={roleData(roles)}
                 placeholder={roles.length === 0 ? "加载中..." : undefined}
@@ -345,7 +345,7 @@ export default function UserForm({
               />
             </Box>
             <Box flex={1} miw={120}>
-              <TextInput label="姓名" {...regForm.getInputProps("display_name")} />
+              <TextInput label="姓名" withAsterisk {...regForm.getInputProps("display_name")} />
             </Box>
             <Box flex={1} miw={100}>
               <TextInput label="学号" {...regForm.getInputProps("student_id")} />

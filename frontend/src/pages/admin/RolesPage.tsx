@@ -275,12 +275,12 @@ export default function RolesPage() {
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md" py={8}>
 							<TextInput
-								label="角色标识"
+								label="角色标识" withAsterisk
 								placeholder="英文标识，如：intern_teacher"
 								{...form.getInputProps("name")}
 							/>
 							<TextInput
-								label="显示名称"
+								label="显示名称" withAsterisk
 								placeholder="如：见习教师"
 								{...form.getInputProps("displayName")}
 							/>

@@ -113,7 +113,7 @@ export default function SecretModal({
 				<form onSubmit={form.onSubmit(onSubmit)}>
 					<Stack gap="sm">
 						<TextInput
-							label="标签"
+							label="标签" withAsterisk
 							placeholder="如: DeepSeek 个人账号"
 							{...form.getInputProps("label")}
 						/>
@@ -162,7 +162,7 @@ export default function SecretModal({
 							}
 						/>
 						<TextInput
-							label="优先级 (数字越大越优先)"
+							label="优先级 (数字越大越优先)" withAsterisk
 							type="number"
 							step="1"
 							min="0"

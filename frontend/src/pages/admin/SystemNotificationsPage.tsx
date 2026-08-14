@@ -239,18 +239,18 @@ export default function SystemNotificationsPage() {
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md">
 							<TextInput
-								label="标题"
+								label="标题" withAsterisk
 								placeholder="通知标题"
 								{...form.getInputProps("title")}
 							/>
 							<Textarea
-								label="内容"
+								label="内容" withAsterisk
 								placeholder="通知正文，支持多行"
 								rows={4}
 								{...form.getInputProps("content")}
 							/>
 							<Select
-								label="级别"
+								label="级别" withAsterisk
 								data={[
 									{ value: "info", label: "通知" },
 									{ value: "warning", label: "警告" },

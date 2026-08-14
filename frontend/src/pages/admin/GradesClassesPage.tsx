@@ -338,7 +338,7 @@ export default function GradesClassesPage() {
 						<Stack gap="sm">
 							{tab === "classes" && (
 								<Select
-									label="所属年级"
+									label="所属年级" withAsterisk
 									value={form.values.gradeId || null}
 									onChange={(v) => form.setFieldValue("gradeId", v ?? "")}
 									error={form.errors.gradeId}
@@ -352,7 +352,7 @@ export default function GradesClassesPage() {
 								/>
 							)}
 							<TextInput
-								label="名称"
+								label="名称" withAsterisk
 								placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
 								{...form.getInputProps("name")}
 							/>

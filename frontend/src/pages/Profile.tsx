@@ -291,7 +291,7 @@ export default function Profile() {
 						<FormMessageBanner type={saveMsg.includes("成功") ? "success" : "error"} message={saveMsg} />
 						<form onSubmit={profileForm.onSubmit(handleSave)}>
 							<Stack gap="md" mt="xs">
-								<TextInput label="显示名称" {...profileForm.getInputProps("displayName")} />
+								<TextInput label="显示名称" withAsterisk {...profileForm.getInputProps("displayName")} />
 								<TextInput label="学号" placeholder="选填" {...profileForm.getInputProps("studentId")} />
 								<Box>
 									<Text component="label" size="sm" fw={500} mb={4}>性别</Text>
@@ -318,8 +318,8 @@ export default function Profile() {
 						<FormMessageBanner type={pwdMsg.includes("成功") ? "success" : "error"} message={pwdMsg} />
 						<form onSubmit={pwForm.onSubmit(handleChangePassword)}>
 							<Stack gap="sm" mt="xs">
-								<TextInput type="password" label="当前密码" {...pwForm.getInputProps("oldPassword")} />
-								<TextInput type="password" label="新密码" {...pwForm.getInputProps("newPassword")} />
+								<TextInput type="password" label="当前密码" withAsterisk {...pwForm.getInputProps("oldPassword")} />
+								<TextInput type="password" label="新密码" withAsterisk {...pwForm.getInputProps("newPassword")} />
 								<Group justify="flex-end" gap="xs" pt="xs">
 									<Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>取消</Button>
 									<Button type="submit" loading={pwForm.submitting}>

@@ -425,7 +425,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="md">
-							<TextInput label="标题" placeholder="作业标题" {...form.getInputProps("title")} />
+							<TextInput label="标题" withAsterisk placeholder="作业标题" {...form.getInputProps("title")} />
 							<TextInput label="说明（可选）" placeholder="补充说明" {...form.getInputProps("desc")} />
 							<Box>
 								<Text size="sm" fw={500} mb={4}>病例</Text>
@@ -440,7 +440,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								) : null}
 							</Box>
 							<Select
-								label="班级"
+								label="班级" withAsterisk
 								value={form.values.classId ? String(form.values.classId) : null}
 								onChange={(v) => form.setFieldValue("classId", v ? Number(v) : 0)}
 								error={form.errors.classId}
@@ -453,8 +453,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								]}
 							/>
 							<SimpleGrid cols={2} spacing="sm">
-								<TextInput label="开始时间" type="datetime-local" {...form.getInputProps("startTime")} />
-								<TextInput label="截止时间" type="datetime-local" {...form.getInputProps("endTime")} />
+								<TextInput label="开始时间" withAsterisk type="datetime-local" {...form.getInputProps("startTime")} />
+								<TextInput label="截止时间" withAsterisk type="datetime-local" {...form.getInputProps("endTime")} />
 							</SimpleGrid>
 							{(() => {
 								const selectedId = form.values.caseId;
