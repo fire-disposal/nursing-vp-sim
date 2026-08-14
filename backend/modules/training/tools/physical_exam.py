@@ -68,6 +68,28 @@ class PhysicalExamHandler(ToolHandler):
         exam_results = rs.get("exam_results", [])
         if not isinstance(exam_results, list):
             exam_results = []
+
+        # 幂等去重：断线重试场景下，若最近一条测量与本次完全相同
+        # （同 op_type + 同值，连续重复），视为客户端重试，直接返回缓存结果，
+        # 避免 exam_results 重复条目、情绪事件与审计副作用重复执行。
+        last_entry = exam_results[-1] if exam_results else None
+        if (
+            last_entry
+            and isinstance(last_entry, dict)
+            and str(last_entry.get("type")) == op_type
+            and str(last_entry.get("value")) == str(result.get("value", ""))
+        ):
+            return ToolResult(
+                ok=True,
+                data={
+                    "op_type": op_type,
+                    "result": result,
+                    "all_results": exam_results,
+                    "duplicated": True,
+                },
+                scene=None,
+            )
+
         entry = {
             "type": op_type,
             "label": result.get("label", ""),

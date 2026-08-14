@@ -182,6 +182,8 @@ function _send(msg: TrainingWSMessage) {
 	if (_ws && _ws.readyState === WebSocket.OPEN) {
 		_ws.send(JSON.stringify(msg));
 	} else {
+		// 离线期命令累积上限：防无限增长（丢弃最旧）
+		if (_pending.length >= 50) _pending.shift();
 		_pending.push(msg);
 	}
 }

@@ -12,22 +12,55 @@ export interface StreamCallbacks {
 	onPatientChunk?: (chunk: string) => void;
 	onPatientDone?: (replyId?: number) => void;
 	onError?: (err: string) => void;
-	onSystem?: (text: string) => void;
 	onEmotionChange?: (change: {
 		state: string;
 		trust: number;
 		comfort: number;
 	}) => void;
-	onInitiative?: (data: { content: string }) => void;
 	onInitiativeState?: (data: InitiativeStateData) => void;
 }
 
 export class StreamManager {
 	private recordId: number | null;
 	private abortController: AbortController | null = null;
+	// 流式批量写入：rAF 合并 store 更新（避免每 token 一次全量重渲染），
+	// TTS/滚动仍逐 chunk 消费 bus 事件，合成延迟不受影响。
+	private chunkBuffer = new Map<string, string>();
+	private chunkRaf: number | null = null;
 
 	constructor(recordId: number | null) {
 		this.recordId = recordId;
+	}
+
+	private enqueueChunk(placeholderId: string, chunk: string): void {
+		this.chunkBuffer.set(
+			placeholderId,
+			(this.chunkBuffer.get(placeholderId) ?? "") + chunk,
+		);
+		if (typeof requestAnimationFrame === "undefined") {
+			this.flushChunks();
+			return;
+		}
+		if (this.chunkRaf != null) return;
+		this.chunkRaf = requestAnimationFrame(() => {
+			this.chunkRaf = null;
+			this.flushChunks();
+		});
+	}
+
+	/** 同步落盘缓冲的 chunk（结束/出错/中止时必须先调用，保证内容完整） */
+	private flushChunks(): void {
+		if (this.chunkRaf != null) {
+			cancelAnimationFrame(this.chunkRaf);
+			this.chunkRaf = null;
+		}
+		if (this.chunkBuffer.size === 0) return;
+		const buffer = this.chunkBuffer;
+		this.chunkBuffer = new Map();
+		const store = getTrainingState();
+		for (const [pid, text] of buffer) {
+			store.appendChunk(pid, text);
+		}
 	}
 
 	setRecordId(id: number | null): void {
@@ -35,6 +68,7 @@ export class StreamManager {
 	}
 
 	abort(): void {
+		this.flushChunks();
 		this.abortController?.abort();
 		this.abortController = null;
 		getTrainingState().setSending(false);
@@ -68,14 +102,16 @@ export class StreamManager {
 				this.recordId,
 				content,
 				(chunk) => {
-					store.appendChunk(placeholderId, chunk);
+					this.enqueueChunk(placeholderId, chunk);
 					callbacks.onPatientChunk?.(chunk);
 				},
 				(doneId) => {
+					this.flushChunks();
 					store.finalizeMessage(placeholderId, doneId);
 					callbacks.onPatientDone?.(doneId);
 				},
 				(err) => {
+					this.flushChunks();
 					// zustand set() 每次生成新 state 对象 —— 必须实时取，否则读到的永远是发送前的空数组
 					const msgs = getTrainingState().messages;
 					const partial = msgs.find((m) => m.id === placeholderId);
@@ -83,14 +119,8 @@ export class StreamManager {
 					store.handleStreamError(studentId, placeholderId, err, hasContent);
 					callbacks.onError?.(err);
 				},
-				(sysMsg) => {
-					callbacks.onSystem?.(sysMsg);
-				},
 				controller.signal,
 				(emotionChange) => callbacks.onEmotionChange?.(emotionChange),
-				(initiative) => {
-					callbacks.onInitiative?.(initiative);
-				},
 				(initiativeState) => callbacks.onInitiativeState?.(initiativeState),
 			);
 		} catch (err: unknown) {
@@ -105,6 +135,7 @@ export class StreamManager {
 			);
 			callbacks.onError?.((err as Error)?.message || "发送失败");
 		} finally {
+			this.flushChunks();
 			if (this.abortController === controller) {
 				this.abortController = null;
 				getTrainingState().setSending(false);
@@ -138,27 +169,28 @@ export class StreamManager {
 				this.recordId,
 				content,
 				(chunk) => {
-					store.appendChunk(snapshot.placeholderId, chunk);
+					this.enqueueChunk(snapshot.placeholderId, chunk);
 					callbacks.onPatientChunk?.(chunk);
 				},
 				(done) => {
+					this.flushChunks();
 					store.finalizeCorrection(snapshot, done);
 					callbacks.onPatientDone?.(done.patient_id ?? done.id);
 				},
 				(err) => {
+					this.flushChunks();
 					store.rollbackCorrection(snapshot);
 					callbacks.onError?.(err);
 				},
-				(sysMsg) => callbacks.onSystem?.(sysMsg),
 				controller.signal,
 				(emotionChange) => callbacks.onEmotionChange?.(emotionChange),
-				(initiative) => callbacks.onInitiative?.(initiative),
 				(initiativeState) => callbacks.onInitiativeState?.(initiativeState),
 			);
 		} catch (err: unknown) {
 			store.rollbackCorrection(snapshot);
 			callbacks.onError?.((err as Error)?.message || "修正失败");
 		} finally {
+			this.flushChunks();
 			if (this.abortController === controller) {
 				this.abortController = null;
 				getTrainingState().setSending(false);

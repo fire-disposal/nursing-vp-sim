@@ -15,9 +15,7 @@ type StreamCallbacks = {
 	onChunk: (chunk: string) => void;
 	onDone: (id?: number) => void;
 	onError: (err: string) => void;
-	onSystem: (msg: string) => void;
 	onEmotion: (c: { state: string; trust: number; comfort: number }) => void;
-	onInitiative: (d: { content: string }) => void;
 	onInitiativeState: (d: Record<string, unknown>) => void;
 };
 
@@ -30,13 +28,11 @@ function captureCallbacks(): { signal: AbortSignal } & StreamCallbacks {
 			onChunk,
 			onDone,
 			onError,
-			onSystem,
 			signal,
 			onEmotion,
-			onInitiative,
 			onInitiativeState,
 		) => {
-			Object.assign(captured, { onChunk, onDone, onError, onSystem, signal, onEmotion, onInitiative, onInitiativeState });
+			Object.assign(captured, { onChunk, onDone, onError, signal, onEmotion, onInitiativeState });
 		},
 	);
 	return captured;
@@ -118,26 +114,20 @@ describe("StreamManager.send 主流程", () => {
 		expect(useTrainingStore.getState().sending).toBe(false);
 	});
 
-	it("propagates emotion/initiative/system callbacks", async () => {
+	it("propagates emotion/initiative-state callbacks", async () => {
 		const cb = captureCallbacks();
 		const manager = new StreamManager(1);
 		const onEmotionChange = vi.fn();
-		const onInitiative = vi.fn();
 		const onInitiativeState = vi.fn();
-		const onSystem = vi.fn();
 
-		const promise = manager.send("提问", { onEmotionChange, onInitiative, onInitiativeState, onSystem });
+		const promise = manager.send("提问", { onEmotionChange, onInitiativeState });
 		cb.onEmotion({ state: "anxious", trust: 40, comfort: 30 });
-		cb.onInitiative({ content: "我有点担心" });
 		cb.onInitiativeState({ percent: 50 });
-		cb.onSystem("系统提示");
 		cb.onDone();
 		await promise;
 
 		expect(onEmotionChange).toHaveBeenCalledWith({ state: "anxious", trust: 40, comfort: 30 });
-		expect(onInitiative).toHaveBeenCalledWith({ content: "我有点担心" });
 		expect(onInitiativeState).toHaveBeenCalledWith({ percent: 50 });
-		expect(onSystem).toHaveBeenCalledWith("系统提示");
 	});
 
 	it("abort() aborts the in-flight request and clears sending", async () => {

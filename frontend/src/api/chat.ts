@@ -8,14 +8,12 @@ export async function sendMessageStream(
 	onChunk: (text: string) => void,
 	onDone: (id?: number) => void,
 	onError: (msg: string) => void,
-	onSystem?: (text: string) => void,
 	signal?: AbortSignal,
 	onEmotionChange?: (change: {
 		state: string;
 		trust: number;
 		comfort: number;
 	}) => void,
-	onInitiative?: (data: { content: string }) => void,
 	onInitiativeState?: (data: InitiativeStateData) => void,
 ) {
 	return postStream({
@@ -27,9 +25,7 @@ export async function sendMessageStream(
 			onChunk,
 			onDone: (id) => onDone(id),
 			onError,
-			onSystem,
 			onEmotionChange,
-			onInitiative,
 			onInitiativeState,
 		},
 	});
@@ -41,14 +37,12 @@ export async function correctLastMessageStream(
 	onChunk: (text: string) => void,
 	onDone: (payload: StreamDonePayload) => void,
 	onError: (msg: string) => void,
-	onSystem?: (text: string) => void,
 	signal?: AbortSignal,
 	onEmotionChange?: (change: {
 		state: string;
 		trust: number;
 		comfort: number;
 	}) => void,
-	onInitiative?: (data: { content: string }) => void,
 	onInitiativeState?: (data: InitiativeStateData) => void,
 ) {
 	return postStream({
@@ -60,9 +54,7 @@ export async function correctLastMessageStream(
 			onChunk,
 			onDone: (_id, _citations, payload) => onDone(payload ?? {}),
 			onError,
-			onSystem,
 			onEmotionChange,
-			onInitiative,
 			onInitiativeState,
 		},
 	});

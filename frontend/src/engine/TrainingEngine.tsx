@@ -144,8 +144,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				},
 				onError: (err) => bus.emit("stream:error", err),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
-				onInitiative: (initiative) =>
-					bus.emit("initiative:triggered", { content: initiative }),
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
@@ -169,8 +167,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				},
 				onError: (err) => bus.emit("stream:error", err),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
-				onInitiative: (initiative) =>
-					bus.emit("initiative:triggered", { content: initiative }),
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
