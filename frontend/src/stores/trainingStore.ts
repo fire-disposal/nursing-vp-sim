@@ -187,6 +187,11 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 	...initialTrainingState,
 
 	init(data) {
+		const cur = get();
+		// 幂等守卫：同一记录且已有会话消息时不重播种。
+		// 避免 RQ refetch（窗口聚焦/staleTime 到期）触发 init 时
+		// 冲掉流式占位消息与修正乐观消息、误清 sending 状态。
+		if (cur.recordId === data.recordId && cur.messages.length > 0) return;
 		set({
 			bus: data.bus,
 			recordId: data.recordId,

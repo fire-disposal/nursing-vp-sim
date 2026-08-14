@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Center, Flex, Stack, Text } from "@mantine/core";
+import { queryKeys } from "@/api/query-keys";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { LoadingSkeleton } from "@/components/ui";
@@ -188,6 +190,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		[],
 	);
 
+	const queryClient = useQueryClient();
 	const endTraining = useCallback(async () => {
 		if (endingRef.current) return;
 		endingRef.current = true;
@@ -197,12 +200,17 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			await scoreRef.current.end();
 			getTrainingState().setTrainingEnded(true);
 			busRef.current.emit("training:ended");
+			// 结束训练后统一失效缓存：历史页/作业列表/通知即时反映最新状态，
+			// 避免 staleTime 窗口内显示过期"进行中"。
+			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student });
+			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		} catch {
 			toastError("训练内容尚未保存，未开始结算，请重试");
 		} finally {
 			endingRef.current = false;
 		}
-	}, [toastError]);
+	}, [toastError, queryClient]);
 
 	const retryScoring = useCallback(async () => {
 		try {

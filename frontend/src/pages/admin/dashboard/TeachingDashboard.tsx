@@ -54,7 +54,7 @@ export function TeachingDashboard() {
   const totalStudents = stats?.total_students ?? 0;
   const activeStudentCount = new Set(todayRecords.map((r: RecordExtended) => r.user_display_name)).size;
   const pendingReview = completedRecords.filter(
-    (r: RecordExtended) => !(r as RecordExtended & { score_reviewed?: boolean }).score_reviewed,
+    (r: RecordExtended) => !r.score_reviewed,
   ).length;
   const avgScore = stats?.average_score;
   const avgDuration = stats?.avg_duration_min;

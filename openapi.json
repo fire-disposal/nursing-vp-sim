@@ -7271,6 +7271,22 @@
               ],
               "title": "Grade Id"
             }
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
+            }
           }
         ],
         "responses": {
@@ -15140,6 +15156,10 @@
             "title": "Training Type",
             "default": "history_taking"
           },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
           "user_display_name": {
             "type": "string",
             "title": "User Display Name"
@@ -15154,6 +15174,11 @@
               }
             ],
             "title": "User Student Id"
+          },
+          "score_reviewed": {
+            "type": "boolean",
+            "title": "Score Reviewed",
+            "default": false
           },
           "status": {
             "type": "string",
@@ -15242,6 +15267,7 @@
           "id",
           "case_id",
           "case_name",
+          "user_id",
           "user_display_name",
           "user_student_id",
           "status",

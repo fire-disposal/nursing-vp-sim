@@ -11,6 +11,9 @@ from core.pagination import paginate
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
 from models import (
+    Assignment,
+    Case,
+    Score,
     ScoreReview,
     TrainingRecord,
     TrainingSessionState,
@@ -110,14 +113,23 @@ def get_records(
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
 
+    # 查询裁剪：列表只需少量字段，避免整行 case_data/Score JSONB 灌入内存
     query = base.options(
-        joinedload(TrainingRecord.case),
-        joinedload(TrainingRecord.user),
-        joinedload(TrainingRecord.score),
-        joinedload(TrainingRecord.assignment),
+        joinedload(TrainingRecord.case).load_only(Case.id, Case.name),
+        joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id),
+        joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score),
+        joinedload(TrainingRecord.assignment).load_only(Assignment.id, Assignment.title),
     ).order_by(TrainingRecord.start_time.desc())
 
     records, total = paginate(query, offset, limit)
+
+    # 复核存在性：单次查询，避免对每行 reviews 集合的 N+1 / joinedload 分页陷阱
+    score_ids = [r.score.id for r in records if r.score]
+    reviewed_map: set[int] = set()
+    if score_ids:
+        reviewed_map = {
+            row[0] for row in db.query(ScoreReview.score_id).filter(ScoreReview.score_id.in_(score_ids)).all()
+        }
 
     items = [
         TrainingRecordBrief(
@@ -125,8 +137,10 @@ def get_records(
             case_id=r.case_id,
             case_name=_hidden_case(r) or (r.case.name if r.case else ""),
             training_type=r.training_type or "history_taking",
+            user_id=r.user_id,
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
+            score_reviewed=bool(r.score and r.score.id in reviewed_map),
             status=r.status,
             start_time=r.start_time,
             end_time=r.end_time,

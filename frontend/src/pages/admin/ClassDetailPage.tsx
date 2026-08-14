@@ -42,15 +42,15 @@ export default function ClassDetailPage() {
 
 	const studentMap = new Map<number, { name: string; id: number; total: number; avgScore: number | null; lastDate: string | null }>();
 	for (const r of items) {
-		const uid = (r as unknown as { user_id: number }).user_id;
-		const name = (r as unknown as { user_display_name?: string }).user_display_name || `用户${uid}`;
-		const score = (r as { score?: { total_score?: number } | null }).score?.total_score;
+		const uid = r.user_id;
+		const name = r.user_display_name || `用户${uid}`;
+		const score = r.score_total;
 		const existing = studentMap.get(uid);
 		if (existing) {
 			existing.total++;
 			if (score != null) existing.avgScore = ((existing.avgScore ?? 0) * (existing.total - 1) + score) / existing.total;
 		} else {
-			studentMap.set(uid, { name, id: uid, total: 1, avgScore: score ?? null, lastDate: (r as unknown as { start_time?: string }).start_time ?? null });
+			studentMap.set(uid, { name, id: uid, total: 1, avgScore: score ?? null, lastDate: r.start_time ?? null });
 		}
 	}
 	const students = [...studentMap.values()].sort((a, b) => b.total - a.total);

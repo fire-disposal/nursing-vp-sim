@@ -5028,10 +5028,17 @@ export interface components {
              * @default history_taking
              */
             training_type: string;
+            /** User Id */
+            user_id: number;
             /** User Display Name */
             user_display_name: string;
             /** User Student Id */
             user_student_id: string | null;
+            /**
+             * Score Reviewed
+             * @default false
+             */
+            score_reviewed: boolean;
             /** Status */
             status: string;
             /** Scoring Status */
@@ -9721,6 +9728,7 @@ export interface operations {
         parameters: {
             query?: {
                 grade_id?: number | null;
+                class_id?: number | null;
             };
             header?: never;
             path?: never;

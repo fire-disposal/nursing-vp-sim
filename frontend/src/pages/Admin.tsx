@@ -1,22 +1,11 @@
 import { Button, Group, Stack } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
-import { exportRecords, getRecords } from "@/api";
-import { queryKeys } from "@/api/query-keys";
+import { exportRecords } from "@/api";
 import { TeachingDashboard } from "@/pages/admin/dashboard/TeachingDashboard";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import type { RecordExtended } from "@/types/record";
 
 export default function Admin() {
 	const toast = useToast();
-
-	const { data: recordsData, isLoading: recordsLoading } = useQuery({
-		queryKey: queryKeys.training.recentAdmin(),
-		queryFn: () => getRecords({ limit: 20, offset: 0 }).then((r) => r.data),
-		staleTime: 2 * 60_000,
-	});
-
-	const _records = (recordsData?.items ?? []) as RecordExtended[];
 
 	const handleExport = async () => {
 		try {
@@ -33,24 +22,14 @@ export default function Admin() {
 		}
 	};
 
-	if (recordsLoading) {
-		return (
-			<Stack gap="xl">
-				<LoadingSkeleton variant="stats" />
-				<LoadingSkeleton variant="card" />
-			</Stack>
-		);
-	}
-
 	return (
-		<>
+		<Stack gap="xl">
 			<TeachingDashboard />
-
-			<Group justify="flex-end" mt="md">
+			<Group justify="flex-end">
 				<Button variant="transparent" size="xs" color="gray" onClick={handleExport}>
 					导出训练记录 CSV
 				</Button>
 			</Group>
-		</>
+		</Stack>
 	);
 }

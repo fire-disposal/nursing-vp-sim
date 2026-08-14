@@ -114,21 +114,34 @@ export default function TrainingSelect() {
 		staleTime: 30_000,
 	});
 
-	const { data: recordsData } = useQuery({
-		queryKey: queryKeys.training.records({ limit: 50, offset: 0 }),
-		queryFn: () => getRecords({ limit: 50, offset: 0, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
-		staleTime: 0,  // always refetch on mount — in_progress records change frequently
+	// 拆分三个轻量查询：进行中（主行动卡/续练态）、已完成计数（limit=1 取 total）、最近 5 条。
+	// 相比原来一次拉 50 条做客户端过滤，payload 更小且计数不再被 50 封顶截断。
+	const { data: inProgressData } = useQuery({
+		queryKey: queryKeys.training.records({ status: "in_progress", limit: 50 }),
+		queryFn: () => getRecords({ status: "in_progress", limit: 50, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const { data: completedData } = useQuery({
+		queryKey: queryKeys.training.records({ status: "completed", limit: 1 }),
+		queryFn: () => getRecords({ status: "completed", limit: 1, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const { data: recentData } = useQuery({
+		queryKey: queryKeys.training.records({ limit: 5 }),
+		queryFn: () => getRecords({ limit: 5, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		staleTime: 30_000,
 	});
 
-	const records = recordsData?.items ?? [];
+	const inProgressRecords = inProgressData?.items ?? [];
+	const records = recentData?.items ?? [];
 	const assignments = (assignmentsData ?? []) as Array<{
 		id: string; title: string; case_name: string; status: string;
 		end_time: string; record_id?: number | null; score_total?: number | null;
 		is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
 	}>;
 
-	const inProgressCount = useMemo(() => records.filter((r) => r.status === "in_progress").length, [records]);
-	const completedCount = useMemo(() => records.filter((r) => r.status === "completed").length, [records]);
+	const inProgressCount = inProgressRecords.length;
+	const completedCount = completedData?.total ?? 0;
 	const pendingAssignments = useMemo(
 		() => assignments.filter((a) => a.status === "in_progress" && (!a.end_time || new Date(a.end_time) >= new Date())),
 		[assignments],
@@ -184,11 +197,11 @@ export default function TrainingSelect() {
 
 	const inProgressByCase = useMemo(() => {
 		const map = new Map<number, TrainingRecordBrief>();
-		for (const r of records) {
-			if (r.status === "in_progress" && !map.has(r.case_id)) map.set(r.case_id, r);
+		for (const r of inProgressRecords) {
+			if (!map.has(r.case_id)) map.set(r.case_id, r);
 		}
 		return map;
-	}, [records]);
+	}, [inProgressRecords]);
 
 	type StartResponse = components["schemas"]["TrainingStartResponse"];
 	const startMutation = useMutation({
@@ -258,8 +271,8 @@ export default function TrainingSelect() {
 
 	const hour = new Date().getHours();
 	const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
-	const recentRecords = records.slice(0, 5);
-	const primaryInProgress = records.find((r) => r.status === "in_progress");
+	const recentRecords = records;
+	const primaryInProgress = inProgressRecords[0];
 	const nextAssignment = pendingAssignments[0];
 
 	if (conflict) return (

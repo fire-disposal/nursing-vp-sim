@@ -12,8 +12,10 @@ class TrainingRecordBrief(BaseModel):
     case_id: int
     case_name: str
     training_type: str = "history_taking"
+    user_id: int
     user_display_name: str
     user_student_id: str | None
+    score_reviewed: bool = False
     status: str
     scoring_status: str | None = None
     scoring_error: str | None = None

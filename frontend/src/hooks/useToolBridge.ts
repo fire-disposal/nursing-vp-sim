@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { MessageBus } from "@/engine/types";
 import type { TrainingWSMessage } from "./useTrainingWS";
-import { useTrainingWS } from "./useTrainingWS";
+import { subscribeWSConnection, useTrainingWS } from "./useTrainingWS";
 
 interface PendingWaiter {
   remaining: Set<string>;
@@ -42,6 +42,20 @@ function settleRequest(bus: MessageBus, requestId: string, ok: boolean, error?: 
   }
 }
 
+/**
+ * 断线/超时兜底：清空 active 并拒绝所有等待者。
+ * 解除"WS 断开后 pending 永不 settle → endTraining 反复超时失败"的死锁。
+ */
+function settleAllPending(bus: MessageBus, error: string) {
+  const state = getPendingState(bus);
+  state.active.clear();
+  for (const waiter of [...state.waiters]) {
+    window.clearTimeout(waiter.timer);
+    state.waiters.delete(waiter);
+    waiter.reject(new Error(error));
+  }
+}
+
 export function waitForPendingToolRequests(bus: MessageBus, timeoutMs = 10_000): Promise<void> {
   const state = getPendingState(bus);
   const remaining = new Set(state.active);
@@ -54,8 +68,8 @@ export function waitForPendingToolRequests(bus: MessageBus, timeoutMs = 10_000):
       resolve,
       reject,
       timer: window.setTimeout(() => {
-        state.waiters.delete(waiter);
-        reject(new Error("训练内容保存超时"));
+        // 超时即视为这批工具结果已不可得：清空 active，后续结束尝试不再被卡住
+        settleAllPending(bus, "训练内容保存超时");
       }, timeoutMs),
     };
     state.waiters.add(waiter);
@@ -77,6 +91,16 @@ export function useToolBridge(bus: MessageBus) {
     };
     return bus.on("tool:invoke", onToolInvoke);
   }, [bus, sendTool]);
+
+  // WS 断线时立即失败 settle：不等 10s 超时，让结束训练/重试尽快得到明确反馈
+  useEffect(() => {
+    return subscribeWSConnection((connected) => {
+      if (connected) return;
+      const state = getPendingState(bus);
+      if (state.active.size === 0) return;
+      settleAllPending(bus, "网络连接已断开，工具操作结果可能未保存");
+    });
+  }, [bus]);
 
   useTrainingWS((msg: TrainingWSMessage) => {
     if (msg.type !== "tool:error" && msg.type !== "tool:result") return;

@@ -15,6 +15,7 @@ vi.mock("@/hooks/useTrainingWS", () => ({
     if (handler) wsMock.handler = handler;
     return { send: vi.fn(), sendTool: wsMock.sendTool };
   },
+  subscribeWSConnection: () => () => {},
 }));
 
 function Bridge({ bus }: { bus: MessageBus }) {

@@ -214,11 +214,14 @@ class StatsService:
     def class_summary(
         self,
         grade_id: int | None = None,
+        class_id: int | None = None,
     ) -> list[ClassSummaryItemSchema]:
         q = self.db.query(Class, Grade.name.label("grade_name"))
         q = q.join(Grade, Grade.id == Class.grade_id)
         if grade_id is not None:
             q = q.filter(Class.grade_id == grade_id)
+        if class_id is not None:
+            q = q.filter(Class.id == class_id)
         classes = q.order_by(Grade.name, Class.name).all()
 
         class_ids = [c.id for c, _ in classes]
@@ -327,7 +330,8 @@ def student_ranking(
 def class_summary(
     db: DbSession,
     grade_id: Annotated[int | None, Query()] = None,
+    class_id: Annotated[int | None, Query()] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
     svc = StatsService(db)
-    return svc.class_summary(grade_id=grade_id)
+    return svc.class_summary(grade_id=grade_id, class_id=class_id)
