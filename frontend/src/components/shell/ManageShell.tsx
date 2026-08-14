@@ -2,6 +2,7 @@ import { AppShell, Box, Burger, Button, Group, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
@@ -60,8 +61,12 @@ export default function ManageShell({
 
 					<Group gap={8} wrap="nowrap">
 						<Box
+							component={Link}
+							to="/home"
 							w={30}
 							h={30}
+							title="返回首页"
+							aria-label="返回首页"
 							style={{
 								borderRadius: "var(--mantine-radius-md)",
 								background:
@@ -71,6 +76,7 @@ export default function ManageShell({
 								justifyContent: "center",
 								boxShadow: "var(--mantine-shadow-sm)",
 								flexShrink: 0,
+								cursor: "pointer",
 							}}
 						>
 							<IconStethoscope size={17} style={{ color: "white" }} />

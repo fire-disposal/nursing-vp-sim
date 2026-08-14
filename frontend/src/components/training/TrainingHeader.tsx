@@ -120,12 +120,12 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 				<Group gap={8} h="100%" wrap="nowrap">
 					<ActionIcon
 						variant="default"
-						size="lg"
+						size={isShort ? "md" : "lg"}
 						onClick={() => setLeaveDialogOpen(true)}
 						title="返回训练选择"
 						aria-label="返回训练选择"
 					>
-						<IconArrowLeft size={16} />
+						<IconArrowLeft size={isShort ? 14 : 16} />
 					</ActionIcon>
 
 					{isHiddenCase ? (
@@ -173,21 +173,25 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 
 					<ActionIcon
 						variant={ttsAutoPlay ? "light" : "default"}
-						size="lg"
+						size={isShort ? "md" : "lg"}
 						onClick={onTtsToggle}
 						title={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
+						aria-label={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
 					>
-						{ttsAutoPlay ? <IconVolume2 size={16} /> : <IconEarOff size={16} />}
+						{ttsAutoPlay ? <IconVolume2 size={isShort ? 14 : 16} /> : <IconEarOff size={isShort ? 14 : 16} />}
 					</ActionIcon>
 					<Button
 						variant="light"
 						color="red"
-						size="sm"
+						size={isShort ? "xs" : "sm"}
+						px={isShort ? 8 : undefined}
 						onClick={handleEndClick}
 						title="完成训练并查看评分"
 					>
 						<IconClipboardCheck size={14} />
-						完成训练
+						<Text component="span" hiddenFrom="xs" fw={600}>
+							完成训练
+						</Text>
 					</Button>
 				</Group>
 			</Box>
