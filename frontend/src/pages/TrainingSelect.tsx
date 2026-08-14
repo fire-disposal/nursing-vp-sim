@@ -13,13 +13,14 @@ import {
 	IconRotate,
 	IconSpeakerphone,
 	IconStar,
+	IconStethoscope,
 	IconTarget,
 	IconTrendingUp,
 	IconX,
 } from "@tabler/icons-react";
 import { Badge, Box, Button, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -60,7 +61,12 @@ function Stars({ level }: { level?: number | null }) {
 	return (
 		<Group gap={2} wrap="nowrap">
 			{[1, 2, 3].map((i) => (
-				<IconStar key={i} size={11} fill={i <= lvl ? "#f59e0b" : "none"} color={i <= lvl ? "#f59e0b" : "#d1d5db"} />
+				<IconStar
+					key={i}
+					size={12}
+					fill={i <= lvl ? "var(--mantine-color-yellow-6)" : "none"}
+					color={i <= lvl ? "var(--mantine-color-yellow-6)" : "var(--mantine-color-gray-3)"}
+				/>
 			))}
 		</Group>
 	);
@@ -274,8 +280,9 @@ export default function TrainingSelect() {
 				</Stack>
 		</Modal>
 	);
+
 	return (
-		<Stack gap="md">
+		<Stack gap="lg">
 			<SegmentedControl
 				value={tab}
 				onChange={(v) => setTab(v as "home" | "self" | "assignments")}
@@ -288,7 +295,7 @@ export default function TrainingSelect() {
 			/>
 
 			{tab === "home" && (
-				<Stack gap="md">
+				<Stack gap="lg">
 					{recentNotifs.length > 0 && (
 						<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
 							<Group
@@ -296,10 +303,10 @@ export default function TrainingSelect() {
 								gap="sm"
 								px="md"
 								py="sm"
-								style={{ borderBottom: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-blue-1)" }}
+								style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-brand-0)" }}
 							>
 								<Group gap="xs">
-									<ThemeIcon size={32} radius="md" variant="light" color="blue">
+									<ThemeIcon size={32} radius="md" variant="light" color="brand">
 										<IconSpeakerphone size={16} />
 									</ThemeIcon>
 									<Box>
@@ -347,49 +354,86 @@ export default function TrainingSelect() {
 						</Paper>
 					)}
 
-					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-						<Paper
-							withBorder
-							radius="md"
-							p={{ base: "md", sm: "lg" }}
-							style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32 }}
+					{/* 训练主卡：问候 + 主行动 */}
+					<Paper
+						withBorder
+						radius="md"
+						p={{ base: "lg", sm: "xl" }}
+						style={{
+							position: "relative",
+							overflow: "hidden",
+							minHeight: 220,
+							display: "flex",
+							flexDirection: "column",
+							justifyContent: "space-between",
+							gap: 32,
+							background:
+								"linear-gradient(135deg, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 55%)",
+						}}
+					>
+						{/* 装饰性听诊器水印 */}
+						<Box
+							style={{
+								position: "absolute",
+								right: -28,
+								top: -28,
+								width: 180,
+								height: 180,
+								borderRadius: "50%",
+								background: "var(--mantine-color-brand-1)",
+								opacity: 0.55,
+								pointerEvents: "none",
+							}}
+						/>
+						<ThemeIcon
+							size={72}
+							radius="xl"
+							variant="light"
+							color="brand"
+							style={{ position: "absolute", right: 28, bottom: 28, pointerEvents: "none" }}
 						>
-							<Box>
-								<Text size="sm" fw={500} c="blue">{greeting}，{user?.display_name || "同学"}</Text>
-								<Title order={2} size="xl" mt="sm" style={{ maxWidth: 672 }}>
-									{primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
-								</Title>
-								<Text size="sm" c="dimmed" mt="sm" lh={1.6} style={{ maxWidth: 560 }}>
-									{primaryInProgress
-										? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
-										: nextAssignment
-											? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
-											: "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
-								</Text>
-							</Box>
+							<IconStethoscope size={34} strokeWidth={1.5} />
+						</ThemeIcon>
 
-							<Group gap="sm" wrap="wrap">
-								{primaryInProgress ? (
-									<Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
-										<IconPlayerPlay size={16} />继续训练
-									</Button>
-								) : nextAssignment ? (
-									<Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)}>
-										<IconPlayerPlay size={16} />开始作业
-									</Button>
-								) : (
-									<Button size="lg" onClick={() => setTab("self")}>
-										<IconBook2 size={16} />选择病例
-									</Button>
-								)}
-								{(primaryInProgress || nextAssignment) && (
-									<Button variant="outline" size="lg" onClick={() => setTab("self")}>
-										{primaryInProgress ? "选择其他病例" : "自主训练"}
-									</Button>
-								)}
-							</Group>
-						</Paper>
+						<Box style={{ position: "relative", maxWidth: 640 }}>
+							<Text size="sm" fw={600} c="brand">
+								{greeting}，{user?.display_name || "同学"}
+							</Text>
+							<Title order={2} size="xl" mt="sm" lh={1.35}>
+								{primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
+							</Title>
+							<Text size="sm" c="dimmed" mt="sm" lh={1.7} style={{ maxWidth: 560 }}>
+								{primaryInProgress
+									? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
+									: nextAssignment
+										? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
+										: "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
+							</Text>
+						</Box>
 
+						<Group gap="sm" wrap="wrap" style={{ position: "relative" }}>
+							{primaryInProgress ? (
+								<Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
+									<IconPlayerPlay size={16} />继续训练
+								</Button>
+							) : nextAssignment ? (
+								<Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)}>
+									<IconPlayerPlay size={16} />开始作业
+								</Button>
+							) : (
+								<Button size="lg" onClick={() => setTab("self")}>
+									<IconBook2 size={16} />选择病例
+								</Button>
+							)}
+							{(primaryInProgress || nextAssignment) && (
+								<Button variant="outline" size="lg" onClick={() => setTab("self")}>
+									{primaryInProgress ? "选择其他病例" : "自主训练"}
+								</Button>
+							)}
+						</Group>
+					</Paper>
+
+					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
 						<Paper withBorder radius="md" p="md">
 							<Group justify="space-between" gap="sm">
 								<Text size="sm" fw={600}>待完成作业</Text>
@@ -423,9 +467,7 @@ export default function TrainingSelect() {
 								</Paper>
 							)}
 						</Paper>
-					</SimpleGrid>
 
-					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
 						<Paper withBorder radius="md" p="md">
 							<Group gap="xs" mb="sm">
 								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
@@ -458,7 +500,8 @@ export default function TrainingSelect() {
 										<UnstyledButton
 											key={r.id}
 											onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
-											style={{ width: "100%", padding: "8px 12px", borderRadius: "var(--mantine-radius-md)" }}
+											style={{ width: "100%", padding: "8px 12px", borderRadius: "var(--mantine-radius-md)", transition: "background 120ms ease" }}
+											className="hover-row"
 										>
 											<Group justify="space-between" gap="sm" wrap="nowrap">
 												<Box style={{ minWidth: 0, flex: 1 }}>
@@ -469,9 +512,9 @@ export default function TrainingSelect() {
 												</Box>
 												<Box style={{ flexShrink: 0, marginLeft: 12 }}>
 													{r.status === "completed" && r.score_total != null ? (
-														<Text size="sm" fw={600} c="blue" style={{ fontVariantNumeric: "tabular-nums" }}>{r.score_total} 分</Text>
+														<Text size="sm" fw={600} c="brand" className="tabular-nums">{r.score_total} 分</Text>
 													) : r.status === "in_progress" ? (
-														<Badge variant="light" color="blue">进行中</Badge>
+														<Badge variant="light" color="brand">进行中</Badge>
 													) : null}
 												</Box>
 											</Group>
@@ -486,58 +529,37 @@ export default function TrainingSelect() {
 								</Paper>
 							)}
 						</Paper>
+					</SimpleGrid>
 
+					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
+						{/* 训练概览 — 状态磁贴 + 统计 */}
 						<Paper withBorder radius="md" p="md">
 							<Group gap="xs" mb="sm">
 								<IconTarget size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
 								<Text size="sm" fw={500}>训练概览</Text>
 							</Group>
 							<SimpleGrid cols={3} spacing="xs">
-								<Button
-									type="button"
-									variant="light"
+								<TrainingTile
+									icon={<IconPlayerPlay size={18} style={{ color: "var(--mantine-color-yellow-7)" }} />}
+									value={inProgressCount}
+									label="进行中"
 									color="yellow"
-									h="auto"
-									py="sm"
 									onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
-									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
-								>
-									<IconPlayerPlay size={16} style={{ color: "var(--mantine-color-yellow-8)" }} />
-									<Box style={{ textAlign: "left" }}>
-										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{inProgressCount}</Text>
-										<Text size="xs" c="dimmed">进行中</Text>
-									</Box>
-								</Button>
-								<Button
-									type="button"
-									variant="light"
+								/>
+								<TrainingTile
+									icon={<IconClipboardCheck size={18} style={{ color: "var(--mantine-color-green-7)" }} />}
+									value={completedCount}
+									label="已完成"
 									color="green"
-									h="auto"
-									py="sm"
 									onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
-									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
-								>
-									<IconClipboardCheck size={16} style={{ color: "var(--mantine-color-green-8)" }} />
-									<Box style={{ textAlign: "left" }}>
-										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{completedCount}</Text>
-										<Text size="xs" c="dimmed">已完成</Text>
-									</Box>
-								</Button>
-								<Button
-									type="button"
-									variant="light"
+								/>
+								<TrainingTile
+									icon={<IconBook2 size={18} style={{ color: "var(--mantine-color-red-7)" }} />}
+									value={pendingAssignments.length}
+									label="待做作业"
 									color="red"
-									h="auto"
-									py="sm"
 									onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
-									style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}
-								>
-									<IconBook2 size={16} style={{ color: "var(--mantine-color-red-8)" }} />
-									<Box style={{ textAlign: "left" }}>
-										<Text size="lg" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>{pendingAssignments.length}</Text>
-										<Text size="xs" c="dimmed">作业</Text>
-									</Box>
-								</Button>
+								/>
 							</SimpleGrid>
 							{myStats && (
 								<SimpleGrid cols={{ base: 1, sm: 2, xl: 1 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
@@ -556,7 +578,7 @@ export default function TrainingSelect() {
 									<SimpleGrid cols={4} spacing="xs">
 										{trendItems.slice(0, 8).map((item, index) => (
 											<Paper key={`${String(item.period_label ?? "period")}-${index}`} radius="md" bg="gray.1" p={8} ta="center">
-												<Text size="sm" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
+												<Text size="sm" fw={600} className="tabular-nums">
 													{item.average_score != null ? String(item.average_score) : "--"}
 												</Text>
 												<Text size="11px" c="dimmed" mt={2} truncate>
@@ -580,7 +602,7 @@ export default function TrainingSelect() {
 
 			{/* ═══ Tab: 自主训练 ═══ */}
 			{tab === "self" && (
-				<>
+				<Stack gap="md">
 					<Group gap="xs" wrap="wrap">
 						{[0, 1, 2, 3].map((d) => (
 							<Button key={d} type="button" variant={difficultyFilter === d ? "filled" : "subtle"} color={difficultyFilter === d ? undefined : "gray"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
@@ -591,11 +613,11 @@ export default function TrainingSelect() {
 							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
 						</Box>
 					</Group>
-					<Paper radius="md" withBorder px="md" py="sm" bg="blue.1" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-blue-4)" }}>
+					<Paper radius="md" withBorder px="md" py="sm" bg="brand.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-3)" }}>
 						<Group justify="space-between" gap="sm" wrap="wrap">
 							<Box style={{ minWidth: 0 }}>
 								<Group gap={6} wrap="nowrap">
-									<IconGift size={15} style={{ color: "var(--mantine-color-blue-7)", flexShrink: 0 }} />
+									<IconGift size={15} style={{ color: "var(--mantine-color-brand-7)", flexShrink: 0 }} />
 									<Text size="sm" fw={600}>盲盒训练</Text>
 								</Group>
 								<Text size="xs" c="dimmed" mt={2} truncate>
@@ -613,7 +635,7 @@ export default function TrainingSelect() {
 						</Group>
 					</Paper>
 					{casesLoading ? (
-						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 							{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
 						</SimpleGrid>
 					) : casesError ? (
@@ -622,7 +644,7 @@ export default function TrainingSelect() {
 						<EmptyState icon={IconAlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
 					) : (
 						<>
-							<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+							<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 								{cases.map((c, idx) => {
 									const summary = getPatientSummary(c.patient_summary);
 									const inProgress = inProgressByCase.get(c.id);
@@ -630,11 +652,11 @@ export default function TrainingSelect() {
 										<motion.div key={c.id}
 											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
 											transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
-											<Paper withBorder radius="md" p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+											<Paper withBorder radius="md" p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", transition: "box-shadow 150ms ease, transform 150ms ease" }} className="case-card">
 												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
 													<Box style={{ minWidth: 0, flex: 1 }}>
 														<Text size="sm" fw={600} truncate>{c.name}</Text>
-														<Text size="xs" c="dimmed" mt={2}>
+														<Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.6 }}>
 															{[summary.gender, summary.age != null ? `${summary.age}岁` : null].filter(Boolean).join(" · ")}
 															{summary.chief_complaint && <> · {summary.chief_complaint.slice(0, 30)}</>}
 														</Text>
@@ -658,19 +680,19 @@ export default function TrainingSelect() {
 							{total > LIMIT && <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />}
 						</>
 					)}
-				</>
+				</Stack>
 			)}
 
 			{/* ═══ Tab: 我的作业 ═══ */}
 			{tab === "assignments" && (
 				!assignmentsData ? (
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 						{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
 					</SimpleGrid>
 				) : assignments.length === 0 ? (
 					<EmptyState icon={IconClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
 				) : (
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 						{assignments.map((a) => {
 							const isExpired = a.end_time && new Date(a.end_time) < new Date();
 							const isCompleted = a.status === "completed";
@@ -680,11 +702,13 @@ export default function TrainingSelect() {
 									? a.max_attempts - (a.attempt_count ?? 0)
 									: null;
 
-							const handleReattempt = () => {
+							const handleReattempt = async () => {
 								if (isCompleted && a.score_total != null) {
-									const ok = window.confirm(
-										`你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`
-									);
+									const ok = await confirm({
+										title: "重新训练作业",
+										message: `你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`,
+										confirmLabel: "重新训练",
+									});
 									if (!ok) return;
 								}
 								handleStartAssignment(a.id);
@@ -696,7 +720,7 @@ export default function TrainingSelect() {
 									withBorder
 									radius="md"
 									p="md"
-									style={{ display: "flex", flexDirection: "column", gap: 12 }}
+									style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}
 								>
 									<Box>
 										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
@@ -734,5 +758,38 @@ export default function TrainingSelect() {
 				)
 			)}
 		</Stack>
+	);
+}
+
+/** 训练状态磁贴 — 数字 + 标签 + 轻提示色 */
+function TrainingTile({
+	icon,
+	value,
+	label,
+	color,
+	onClick,
+}: {
+	icon: ReactNode;
+	value: number;
+	label: string;
+	color: "yellow" | "green" | "red";
+	onClick: () => void;
+}) {
+	return (
+		<UnstyledButton
+			type="button"
+			onClick={onClick}
+			style={{ width: "100%", borderRadius: "var(--mantine-radius-md)", background: `var(--mantine-color-${color}-0)`, border: "1px solid var(--mantine-color-gray-2)", transition: "box-shadow 120ms ease" }}
+		>
+			<Stack gap={6} p="sm" align="flex-start" style={{ width: "100%" }}>
+				{icon}
+				<Text size="xl" fw={700} lh={1} className="tabular-nums">
+					{value}
+				</Text>
+				<Text size="xs" c="dimmed">
+					{label}
+				</Text>
+			</Stack>
+		</UnstyledButton>
 	);
 }

@@ -229,7 +229,7 @@ export default function History() {
 															已放弃
 														</Text>
 													) : (
-														<Badge variant="light" color="blue">进行中</Badge>
+														<Badge variant="light" color="brand">进行中</Badge>
 													)}
 												</Box>
 											</Group>
@@ -310,7 +310,7 @@ export default function History() {
 								{records.map((r) => {
 									const durMins = recordDurMins(r);
 									return (
-										<Table.Tr key={r.id}>
+										<Table.Tr key={r.id} className="data-table-row">
 											<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
 											<Table.Td>
 												<Badge variant="light" color="gray">问诊</Badge>
@@ -334,7 +334,7 @@ export default function History() {
 												<Badge
 													variant="light" color={r.status === "completed" ? "green" :
 														r.status === "abandoned" ? "gray" :
-														"blue"}
+														"brand"}
 												>
 													{r.status === "completed" ? "已完成" :
 													 r.status === "abandoned" ? "已放弃" :
@@ -343,7 +343,7 @@ export default function History() {
 											</Table.Td>
 											<Table.Td>
 												{r.score_total != null ? (
-													<Text component="span" fw={600} c="blue">
+													<Text component="span" fw={600} c="brand" className="tabular-nums">
 														{r.score_total}分
 													</Text>
 												) : r.scoring_status === "pending" ||

@@ -68,6 +68,15 @@ h1, h2, h3 {
 	background: var(--mantine-color-brand-0);
 }
 
+/* 列表行与病例卡 hover 抬升 */
+.hover-row:hover {
+	background: var(--mantine-color-gray-0);
+}
+.case-card:hover {
+	box-shadow: var(--mantine-shadow-sm);
+	transform: translateY(-1px);
+}
+
 @keyframes marquee {
 	from { transform: translateX(0); }
 	to { transform: translateX(-50%); }

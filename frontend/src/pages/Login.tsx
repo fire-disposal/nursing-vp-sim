@@ -1,6 +1,6 @@
-import { Anchor, Box, Button, Flex, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { Box, Button, Divider, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconStethoscope } from "@tabler/icons-react";
+import { IconBook2, IconChartBar, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { TextInput } from "@mantine/core";
@@ -31,6 +31,12 @@ function extractError(err: unknown): string {
 	}
 	return "登录失败，请检查网络连接";
 }
+
+const FEATURES = [
+	{ icon: IconMessageCircle, title: "沉浸式问诊", desc: "与 AI 虚拟患者面对面采集病史" },
+	{ icon: IconChartBar, title: "多维评分", desc: "问诊覆盖、沟通技巧、护理诊断逐项评估" },
+	{ icon: IconBook2, title: "随时回放", desc: "完整对话回放与改进建议沉淀学习" },
+];
 
 export default function Login() {
 	const [error, setError] = useState("");
@@ -82,90 +88,127 @@ export default function Login() {
 	};
 
 	return (
-		<Box mih="100vh" style={{ display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+		<Box
+			mih="100dvh"
+			style={{
+				position: "relative",
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				overflow: "hidden",
+				background:
+					"radial-gradient(1200px 600px at 85% -10%, var(--mantine-color-brand-1) 0%, transparent 55%), radial-gradient(900px 500px at -10% 110%, var(--mantine-color-brand-0) 0%, transparent 50%), var(--mantine-color-gray-0)",
+			}}
+		>
 			<Group
 				justify="center"
 				align="center"
-				gap="lg"
+				gap={56}
 				wrap="nowrap"
 				w="100%"
-				maw={1024}
+				maw={1080}
 				px="md"
 				py="lg"
 			>
-				<LoginIllustration />
-
-				<Flex
-					direction="column"
-					align={{ base: "center", lg: "flex-start" }}
-					flex={1}
-					w="100%"
-					style={{ minWidth: 0 }}
-				>
-					<Box mb={{ base: 16, sm: 32 }} ta={{ base: "center", lg: "left" }} w="100%" maw={384}>
-						<Group gap="sm" justify="flex-start">
-							<ThemeIcon size={48} radius="md" variant="filled" style={{ boxShadow: "var(--mantine-shadow-lg)" }}>
-								<IconStethoscope size={24} />
+				{/* 品牌展示区（大屏） */}
+				<Box visibleFrom="lg" style={{ flex: 1, minWidth: 0, maxWidth: 480 }}>
+					<Stack gap="md" align="flex-start">
+						<Group gap={14} wrap="nowrap">
+							<ThemeIcon
+								size={52}
+								radius="lg"
+								variant="filled"
+								style={{ boxShadow: "var(--mantine-shadow-lg)" }}
+							>
+								<IconStethoscope size={26} />
 							</ThemeIcon>
-							<Stack gap={2}>
-								<Title order={1} size="xl">
+							<Stack gap={0}>
+								<Title order={1} size={28} lh={1.2}>
 									虚拟患者系统
 								</Title>
-								<Text size="sm" c="dimmed">
+								<Text size="sm" c="dimmed" mt={2}>
 									护理病史采集技能训练平台
 								</Text>
 							</Stack>
 						</Group>
-					</Box>
 
-					<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }} w="100%" maw={384} shadow="sm">
-						<FormMessageBanner type="error" message={error} />
+						<LoginIllustration />
 
-						<form onSubmit={form.onSubmit(onSubmit)}>
-							<Stack gap="md">
-								<TextInput
-									type="text"
-									placeholder="用户名"
-									autoComplete="username"
-									autoFocus
-									size="lg"
-									disabled={isSubmitting}
-									{...form.getInputProps("username")}
-								/>
-								<TextInput
-									type="password"
-									placeholder="密码"
-									autoComplete="current-password"
-									size="lg"
-									disabled={isSubmitting}
-									{...form.getInputProps("password")}
-								/>
-								<Button
-									type="submit"
-									disabled={isSubmitting}
-									size="lg"
-									fullWidth
-								>
-									{isSubmitting ? "登录中..." : "登 录"}
-								</Button>
-							</Stack>
-						</form>
-					</Paper>
+						<Stack gap="xs" w="100%">
+							{FEATURES.map((f) => (
+								<Group key={f.title} gap={12} wrap="nowrap" align="flex-start">
+									<ThemeIcon size={34} radius="md" variant="light" color="brand" style={{ flexShrink: 0 }}>
+										<f.icon size={17} strokeWidth={1.8} />
+									</ThemeIcon>
+									<Box>
+										<Text size="sm" fw={600}>
+											{f.title}
+										</Text>
+										<Text size="xs" c="dimmed">
+											{f.desc}
+										</Text>
+									</Box>
+								</Group>
+							))}
+						</Stack>
+					</Stack>
+				</Box>
 
-					<Text size="xs" c="dimmed" mt="lg" ta={{ base: "center", lg: "left" }}>
-						忘记密码？请联系教师或管理员重置
-					</Text>
-					<Anchor
-						component={Link}
-						to="/simulation"
-						size="xs"
-						c="blue"
-						mt="sm"
-						ta={{ base: "center", lg: "left" }}
-					>
-						临床推理模拟实验（直接体验）→
-					</Anchor>
-				</Flex>
+				{/* 登录卡 */}
+				<Paper
+					withBorder
+					radius="lg"
+					p={{ base: "lg", sm: "xl" }}
+					w="100%"
+					maw={400}
+					shadow="md"
+					style={{ background: "var(--mantine-color-body)" }}
+				>
+					<FormMessageBanner type="error" message={error} />
+
+					<form onSubmit={form.onSubmit(onSubmit)}>
+						<Stack gap="md">
+							<TextInput
+								type="text"
+								placeholder="用户名"
+								autoComplete="username"
+								autoFocus
+								size="lg"
+								disabled={isSubmitting}
+								{...form.getInputProps("username")}
+							/>
+							<TextInput
+								type="password"
+								placeholder="密码"
+								autoComplete="current-password"
+								size="lg"
+								disabled={isSubmitting}
+								{...form.getInputProps("password")}
+							/>
+							<Button type="submit" disabled={isSubmitting} size="lg" fullWidth mt="xs">
+								{isSubmitting ? "登录中..." : "登 录"}
+							</Button>
+						</Stack>
+					</form>
+
+					<Divider my="md" label="体验入口" labelPosition="center" />
+
+					<Stack gap="sm">
+						<Button
+							component={Link}
+							to="/simulation"
+							variant="light"
+							color="brand"
+							fullWidth
+							leftSection={<IconStethoscope size={16} />}
+						>
+							临床推理模拟实验（免登录体验）
+						</Button>
+						<Text size="xs" c="dimmed" ta="center">
+							忘记密码？请联系教师或管理员重置
+						</Text>
+					</Stack>
+				</Paper>
 			</Group>
 		</Box>
 	);
