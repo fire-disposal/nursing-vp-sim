@@ -46,9 +46,8 @@ body {
 .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
 .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
 
-/* 流式气泡：在最后一段末尾追加闪烁光标，体现「正在输入」 */
-[data-streaming] p:last-child::after {
-	content: "";
+/* 流式气泡闪烁光标 */
+.stream-cursor {
 	display: inline-block;
 	width: 2px;
 	height: 1em;

@@ -213,14 +213,14 @@ describe("emotion labels and styling", () => {
 	});
 
 	it("getEmotionBorder falls back to neutral", () => {
-		expect(getEmotionBorder("withdrawn")).toBe("border-red-400");
-		expect(getEmotionBorder("open_trusting")).toBe("border-green-400");
-		expect(getEmotionBorder("unknown")).toBe("border-border");
+		expect(getEmotionBorder("withdrawn")).toBe("var(--mantine-color-red-4)");
+		expect(getEmotionBorder("open_trusting")).toBe("var(--mantine-color-green-4)");
+		expect(getEmotionBorder("unknown")).toBe("var(--mantine-color-gray-4)");
 	});
 
 	it("getEmotionColor falls back to neutral", () => {
-		expect(getEmotionColor("neutral")).toBe("text-muted-foreground");
-		expect(getEmotionColor("weird")).toBe("text-muted-foreground");
+		expect(getEmotionColor("neutral")).toBe("var(--mantine-color-dimmed)");
+		expect(getEmotionColor("weird")).toBe("var(--mantine-color-dimmed)");
 	});
 
 	it("setEmotion4D updates all four dimensions", () => {

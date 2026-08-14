@@ -14,13 +14,13 @@ describe("EmotionState", () => {
 		expect(EMOTION_LABELS.anxious).toBe("焦虑不安");
 	});
 
-	it("getEmotionBorder returns class for valid state", () => {
-		expect(getEmotionBorder("anxious")).toContain("border-purple");
-		expect(getEmotionBorder("neutral")).toContain("border-border");
+	it("getEmotionBorder returns CSS var for valid state", () => {
+		expect(getEmotionBorder("anxious")).toContain("--mantine-color-violet-4");
+		expect(getEmotionBorder("neutral")).toContain("--mantine-color-gray-4");
 	});
 
-	it("getEmotionColor returns class for valid state", () => {
-		expect(getEmotionColor("anxious")).toContain("text-purple");
-		expect(getEmotionColor("neutral")).toContain("text-muted");
+	it("getEmotionColor returns CSS var for valid state", () => {
+		expect(getEmotionColor("anxious")).toContain("--mantine-color-violet-6");
+		expect(getEmotionColor("neutral")).toContain("--mantine-color-dimmed");
 	});
 });

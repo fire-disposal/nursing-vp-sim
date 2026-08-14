@@ -51,32 +51,32 @@ export const EMOTION_4D_LABELS: Record<Emotion4DLabel, string> = {
 };
 
 const EMOTION_BORDER: Record<EmotionState, string> = {
-	withdrawn: "border-red-400",
-	defensive: "border-orange-400",
-	anxious: "border-purple-400",
-	neutral: "border-border",
-	relaxed: "border-blue-400",
-	open: "border-green-400",
+	withdrawn: "var(--mantine-color-red-4)",
+	defensive: "var(--mantine-color-orange-4)",
+	anxious: "var(--mantine-color-violet-4)",
+	neutral: "var(--mantine-color-gray-4)",
+	relaxed: "var(--mantine-color-blue-4)",
+	open: "var(--mantine-color-green-4)",
 };
 const EMOTION_COLOR: Record<EmotionState, string> = {
-	withdrawn: "text-red-600",
-	defensive: "text-orange-600",
-	anxious: "text-purple-600",
-	neutral: "text-muted-foreground",
-	relaxed: "text-blue-600",
-	open: "text-green-600",
+	withdrawn: "var(--mantine-color-red-6)",
+	defensive: "var(--mantine-color-orange-6)",
+	anxious: "var(--mantine-color-violet-6)",
+	neutral: "var(--mantine-color-dimmed)",
+	relaxed: "var(--mantine-color-blue-6)",
+	open: "var(--mantine-color-green-6)",
 };
 
 const EMOTION_4D_BORDER: Record<string, string> = {
-	open_trusting: "border-green-400",
-	trusting_anxious: "border-blue-400",
-	irritated: "border-orange-400",
-	anxious_cooperative: "border-purple-400",
-	anxious_guarded: "border-purple-400",
-	withdrawn: "border-red-400",
-	defensive: "border-orange-400",
-	relaxed: "border-blue-400",
-	neutral: "border-border",
+	open_trusting: "var(--mantine-color-green-4)",
+	trusting_anxious: "var(--mantine-color-blue-4)",
+	irritated: "var(--mantine-color-orange-4)",
+	anxious_cooperative: "var(--mantine-color-violet-4)",
+	anxious_guarded: "var(--mantine-color-violet-4)",
+	withdrawn: "var(--mantine-color-red-4)",
+	defensive: "var(--mantine-color-orange-4)",
+	relaxed: "var(--mantine-color-blue-4)",
+	neutral: "var(--mantine-color-gray-4)",
 };
 
 export function getEmotionBorder(emotion: string): string {

@@ -3,7 +3,7 @@ import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
-import { ActionIcon, Avatar, Badge, Box, Group, Loader, Stack, Text } from "@mantine/core";
+import { ActionIcon, Avatar, Badge, Box, Group, Loader, Stack, Text, Typography } from "@mantine/core";
 import { Textarea } from "@/components/ui/textarea";
 
 interface ChatBubbleProps {
@@ -91,7 +91,6 @@ export const ChatBubble = memo(function ChatBubble({
 					<Box w={32} h={32} style={{ flexShrink: 0 }} />
 				)}
 				<Box
-					className={emotionBorder}
 					data-streaming={message.streaming || undefined}
 					style={{
 						maxWidth: "88%",
@@ -100,11 +99,13 @@ export const ChatBubble = memo(function ChatBubble({
 						borderTopLeftRadius: 4,
 						borderStyle: "solid",
 						borderWidth: 2,
+						borderColor: emotionBorder,
 						lineHeight: 1.6,
 						wordBreak: "break-word",
 						fontSize: 14,
 						background: "var(--mantine-color-body)",
 						color: "var(--mantine-color-text)",
+						transition: "border-color 200ms ease",
 					}}
 				>
 					{initiative && (
@@ -117,12 +118,17 @@ export const ChatBubble = memo(function ChatBubble({
 							<Text size="sm" c="dimmed">患者正在回复</Text>
 							<Loader size="sm" type="dots" color="gray" />
 						</Group>
+					) : message.streaming ? (
+						<Text style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.6 }}>
+							{message.content}
+							<span className="stream-cursor" aria-hidden="true" />
+						</Text>
 					) : (
-						<Box style={{ fontSize: 14 }}>
+						<Typography>
 							<ReactMarkdown remarkPlugins={[remarkGfm]}>
 								{message.content}
 							</ReactMarkdown>
-						</Box>
+						</Typography>
 					)}
 					{!isStreamingEmpty && message.streamError && (
 						<Text
