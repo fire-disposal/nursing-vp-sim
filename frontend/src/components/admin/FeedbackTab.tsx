@@ -99,7 +99,13 @@ const RATING_BADGES: { color: string }[] = [
 	{ color: "blue" },
 ];
 
-const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+const PIE_COLORS = [
+	"var(--mantine-color-red-6)",
+	"var(--mantine-color-orange-6)",
+	"var(--mantine-color-yellow-6)",
+	"var(--mantine-color-green-6)",
+	"var(--mantine-color-blue-6)",
+];
 
 function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => void }) {
 	const [replyOpen, setReplyOpen] = useState(false);
@@ -322,11 +328,11 @@ function FeedbackChart() {
 	if (data.length === 0) return null;
 
 	const colorMap: Record<string, string> = {
-		rating_1: "#ef4444",
-		rating_2: "#f97316",
-		rating_3: "#eab308",
-		rating_4: "#22c55e",
-		rating_5: "#3b82f6",
+		rating_1: "var(--mantine-color-red-6)",
+		rating_2: "var(--mantine-color-orange-6)",
+		rating_3: "var(--mantine-color-yellow-6)",
+		rating_4: "var(--mantine-color-green-6)",
+		rating_5: "var(--mantine-color-blue-6)",
 	};
 	const labelMap: Record<string, string> = {
 		rating_1: "\u{1F61E} 很差",

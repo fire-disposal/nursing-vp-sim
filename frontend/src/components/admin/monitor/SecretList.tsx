@@ -15,9 +15,9 @@ interface SecretListProps {
 }
 
 const STATUS_DOT: Record<string, string> = {
-	active: "#22c55e",
-	degraded: "#f59e0b",
-	disabled: "#f87171",
+	active: "var(--mantine-color-green-6)",
+	degraded: "var(--mantine-color-yellow-6)",
+	disabled: "var(--mantine-color-red-6)",
 };
 
 export default function SecretList({
@@ -40,7 +40,7 @@ export default function SecretList({
 											height: 8,
 											borderRadius: "50%",
 											flexShrink: 0,
-											background: "#22c55e",
+											background: "var(--mantine-color-green-6)",
 										}}
 									/>
 									<Text fw={600}>环境变量</Text>
@@ -89,7 +89,7 @@ export default function SecretList({
 													height: 8,
 													borderRadius: "50%",
 													flexShrink: 0,
-													background: STATUS_DOT[s.status] || "#9ca3af",
+													background: STATUS_DOT[s.status] || "var(--mantine-color-gray-5)",
 												}}
 											/>
 											<Text fw={600}>{s.label}</Text>

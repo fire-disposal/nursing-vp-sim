@@ -12,6 +12,7 @@
  * - overscroll-behavior 防止 iOS 橡皮筋
  * - will-change 预提升合成层
  */
+import { ActionIcon, Text } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
@@ -186,14 +187,19 @@ export default function Bottomsheet({ open, onClose, title, children }: Bottomsh
 				</div>
 
 				<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-					<h3 style={{ fontSize: "0.875rem", fontWeight: 600, userSelect: "none" }}>{title}</h3>
-					<button
+					<Text size="sm" fw={600} style={{ userSelect: "none" }}>
+						{title}
+					</Text>
+					<ActionIcon
+						variant="subtle"
+						color="gray"
+						size="md"
+						radius="md"
 						onClick={(e) => { e.stopPropagation(); onClose(); }}
-						style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--mantine-radius-md)", color: "var(--mantine-color-dimmed)" }}
 						aria-label="关闭"
 					>
 						<IconX size={18} />
-					</button>
+					</ActionIcon>
 				</div>
 
 				<div

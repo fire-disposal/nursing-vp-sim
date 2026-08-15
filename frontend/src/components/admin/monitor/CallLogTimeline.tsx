@@ -34,9 +34,9 @@ function safeTime(iso: string | null | undefined): string {
 }
 
 function statusColor(status: string): string {
-	if (status === "success") return "#22c55e";
-	if (status === "timeout") return "#eab308";
-	return "#ef4444";
+	if (status === "success") return "var(--mantine-color-green-6)";
+	if (status === "timeout") return "var(--mantine-color-yellow-6)";
+	return "var(--mantine-color-red-6)";
 }
 
 function costStr(cost: number | null | undefined): string {

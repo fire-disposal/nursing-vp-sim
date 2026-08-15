@@ -100,12 +100,12 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 					<AreaChart data={series}>
 						<defs>
 							<linearGradient id="llmFill" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-								<stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+								<stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.15} />
+								<stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0} />
 							</linearGradient>
 							<linearGradient id="ttsFill" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="5%" stopColor="#14b8a6" stopOpacity={0.15} />
-								<stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+								<stop offset="5%" stopColor="var(--mantine-color-brand-6)" stopOpacity={0.15} />
+								<stop offset="95%" stopColor="var(--mantine-color-brand-6)" stopOpacity={0} />
 							</linearGradient>
 						</defs>
 						<CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
@@ -128,7 +128,7 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 							type="monotone"
 							dataKey="llm_cost"
 							name="LLM"
-							stroke="#3b82f6"
+							stroke="var(--mantine-color-blue-6)"
 							strokeWidth={2}
 							fill="url(#llmFill)"
 							dot={false}
@@ -138,7 +138,7 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 							type="monotone"
 							dataKey="tts_cost"
 							name="TTS"
-							stroke="#14b8a6"
+							stroke="var(--mantine-color-brand-6)"
 							strokeWidth={2}
 							fill="url(#ttsFill)"
 							dot={false}
