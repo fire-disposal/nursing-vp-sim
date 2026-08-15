@@ -5,7 +5,7 @@ import { useTrainingStore } from "@/stores/trainingStore";
 
 import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
-import { ChatInput } from "./ChatInput";
+import { ConversationComposer } from "./ConversationComposer";
 import SceneToolbar from "./SceneToolbar";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -142,7 +142,7 @@ export function ChatArea({
 					</motion.div>
 				)}
 			</AnimatePresence>
-			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
+			<ConversationComposer onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
 			<Modal opened={inquiryModalOpen} onClose={() => setInquiryModalOpen(false)} title="问诊内容全部覆盖" size={360} centered withinPortal>
 				<Text size="sm" c="dimmed">
