@@ -14,20 +14,20 @@ from modules.training.scoring.mapping import apply_score_mapping
 from modules.training.scoring.validation import review_total_from_detail
 
 RUBRIC: dict[str, Any] = {
-    "raw_max": 72,
-    "raw_scale": 3,
+    "raw_max": 38,
+    "raw_scale": 2,
     "dimensions": [
         {
             "id": "communication",
             "name": "沟通技能",
-            "max": 42,
-            "items": [{"id": f"c{i}", "name": f"沟通条目{i}", "max": 3} for i in range(14)],
+            "max": 28,
+            "items": [{"id": f"c{i}", "name": f"沟通条目{i}", "max": 2} for i in range(14)],
         },
         {
             "id": "history_taking",
             "name": "病史采集",
-            "max": 15,
-            "items": [{"id": f"h{i}", "name": f"病史条目{i}", "max": 3} for i in range(5)],
+            "max": 10,
+            "items": [{"id": f"h{i}", "name": f"病史条目{i}", "max": 2} for i in range(5)],
         },
     ],
 }
@@ -39,9 +39,9 @@ def _raw_detail(item_scores: list[list[int]]) -> dict:
     for dim, scores in zip(RUBRIC["dimensions"], item_scores, strict=False):
         dims[dim["name"]] = {
             "score": sum(scores),
-            "max": len(scores) * 3,
+            "max": len(scores) * 2,
             "items": [
-                {"id": it["id"], "name": it["name"], "score": s, "max": 3, "evidence": "x" * 12, "reason": "y" * 6}
+                {"id": it["id"], "name": it["name"], "score": s, "max": 2, "evidence": "x" * 12, "reason": "y" * 6}
                 for it, s in zip(dim["items"], scores, strict=False)
             ],
         }
@@ -57,7 +57,7 @@ def _display_detail(raw: dict, raw_max: int) -> dict:
             "score": round(d["score"] * factor),
             "max": round(d["max"] * factor),
             "items": [
-                {"id": it["id"], "name": it["name"], "score": round(it["score"] * factor), "max": 5}
+                {"id": it["id"], "name": it["name"], "score": round(it["score"] * factor), "max": round(2 * factor)}
                 for it in d["items"]
             ],
         }
@@ -68,33 +68,33 @@ def _display_detail(raw: dict, raw_max: int) -> dict:
 
 
 def test_review_unchanged_submission_keeps_total():
-    raw = _raw_detail([[3] * 14, [3] * 5])  # 全满分 raw=57
-    expected = apply_score_mapping(57, 72)
-    display = _display_detail(raw, 72)
-    assert review_total_from_detail(display, 72) == expected
-    assert 0 <= review_total_from_detail(display, 72) <= 100
+    raw = _raw_detail([[2] * 14, [2] * 5])  # 全满分 raw=38
+    expected = apply_score_mapping(38, 38)
+    display = _display_detail(raw, 38)
+    assert review_total_from_detail(display, 38) == expected
+    assert 0 <= review_total_from_detail(display, 38) <= 100
 
 
 def test_review_never_exceeds_max_with_arbitrary_input():
     # 教师把展示刻度全部拉满（item 5/5）→ 复核总分仍 ≤100
-    display = _display_detail(_raw_detail([[3] * 14, [3] * 5]), 72)
+    display = _display_detail(_raw_detail([[2] * 14, [2] * 5]), 38)
     for dim in display.values():
         dim["score"] = 999
         for it in dim["items"]:
             it["score"] = 5
-    assert 0 <= review_total_from_detail(display, 72) <= 100
+    assert 0 <= review_total_from_detail(display, 38) <= 100
 
 
 # ── INV-2 总分 == Σ条目分 ──────────────────────────────────────────────────
 
 
 def test_postprocess_raw_total_equals_item_sum():
-    first = [3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2]
-    second = [3, 2, 1, 2, 1]
+    first = [2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1]
+    second = [2, 1, 2, 1, 2]
     raw = _raw_detail([first, second])
     result = _postprocess_scoring_result({"total_score": 99, "detail_scores": raw}, {}, RUBRIC)
     assert result["raw_total"] == sum(first + second)
-    assert result["total_score"] == apply_score_mapping(result["raw_total"], 72)
+    assert result["total_score"] == apply_score_mapping(result["raw_total"], 38)
 
 
 # ── INV-3 兜底 0 分带 fallback 标记 ────────────────────────────────────────
@@ -110,7 +110,7 @@ def test_llm_empty_fallback_marked():
 
 
 def test_missing_dimension_fallback_marked():
-    raw = _raw_detail([[3] * 14, [3] * 5])
+    raw = _raw_detail([[2] * 14, [2] * 5])
     raw.pop("病史采集")  # LLM 漏掉一个维度
     result = _postprocess_scoring_result({"total_score": 40, "detail_scores": raw}, {}, RUBRIC)
     assert result["fallback"]["kind"] == "dims_injected"

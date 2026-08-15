@@ -113,14 +113,11 @@ class TestScoringPromptSanity:
         end = system.rfind("}")
         if start != -1 and end != -1 and end > start:
             json_block = system[start : end + 1]
-            # 新格式: "N(0~57)" 引号占位符 → 替换为数字
-            json_block = json_block.replace('"N(0~57)"', "0")
-            json_block = json_block.replace('"N(0~42)"', "0")
-            json_block = json_block.replace('"N(0~15)"', "0")
-            # item score: "1~3" → 1
+            # 刻度无关：任何 "N(0~N)" 引号占位符 → 0；item score "0~2" → 0
             import re
 
-            json_block = re.sub(r'"score":\s*"1~3"', '"score": 1', json_block)
+            json_block = re.sub(r'"N\(0~\d+\)"', "0", json_block)
+            json_block = re.sub(r'"score":\s*"0~2"', '"score": 0', json_block)
             try:
                 parsed = json.loads(json_block)
             except json.JSONDecodeError as e:

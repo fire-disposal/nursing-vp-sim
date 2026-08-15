@@ -247,7 +247,7 @@ def _clamp_scores(detail_scores: dict, raw_scale: int) -> None:
                 item["score"] = max(0.0, min(float(item.get("score", 0)), float(raw_scale)))
 
 
-def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 3) -> float:
+def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 2) -> float:
     """Phase 1 (S2)：总分 = Σ条目分。维度分仅自评展示，不参与总分。
 
     旧实现用 dim.score（LLM 维度自评）归一化——条目分成为装饰且与总分无
@@ -271,7 +271,7 @@ def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 3) -> fl
 
 
 def display_to_raw(detail_scores: dict, factor: float) -> dict:
-    """把展示刻度（item max = round(raw_scale*factor)）还原为 raw 刻度（0-3）。
+    """把展示刻度（item max = round(raw_scale*factor)）还原为 raw 刻度（0-2）。
 
     教师复核在前端编辑的是展示刻度（0-5/项），提交后必须先还原为 raw
     再聚合——否则复核总分会按展示刻度放大（S1 根因）。
@@ -298,13 +298,13 @@ def display_to_raw(detail_scores: dict, factor: float) -> dict:
     return out
 
 
-def review_total_from_detail(detail_scores: dict, raw_max: int) -> int:
+def review_total_from_detail(detail_scores: dict, raw_max: int, raw_scale: int = 2) -> int:
     """复核总分：展示刻度 → raw → Σ条目 → 展示分。恒 ∈ [0, 100]。"""
     from .mapping import apply_score_mapping
 
     factor = 100.0 / raw_max if raw_max > 0 else 1.0
     raw = display_to_raw(detail_scores, factor)
-    total = _recalc_total_from_dimensions(raw, 3)
+    total = _recalc_total_from_dimensions(raw, raw_scale)
     return apply_score_mapping(total, raw_max)
 
 

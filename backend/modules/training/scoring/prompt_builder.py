@@ -89,7 +89,7 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
         items = []
         for item in dim["items"]:
             items.append(
-                {"id": item["id"], "name": item["name"], "score": "1~3", "evidence": "≥10字", "reason": "≥5字"}
+                {"id": item["id"], "name": item["name"], "score": "0~2", "evidence": "≥10字", "reason": "≥5字"}
             )
         item_objs.append({dim_name: {"score": f"N(0~{dim_max})", "items": items}})
 
@@ -104,7 +104,7 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
     lines.append("## 输出格式")
     lines.append("")
     lines.append("严格 JSON，无 markdown 代码块。每项必须有 id/name/score/evidence/reason。")
-    lines.append('未涉及的条目: score=1, evidence="未涉及", reason="未涉及"。')
+    lines.append('未涉及的条目: score=0, evidence="未涉及", reason="未涉及"。')
     lines.append("")
     lines.append(json_template)
 

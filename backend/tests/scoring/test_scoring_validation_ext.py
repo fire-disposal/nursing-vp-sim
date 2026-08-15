@@ -10,17 +10,17 @@ from modules.training.scoring.validation import (
 )
 
 RUBRIC_SAMPLE: dict[str, Any] = {
-    "raw_scale": 3,
-    "raw_max": 57,
+    "raw_scale": 2,
+    "raw_max": 38,
     "dimensions": [
         {
             "id": "dim_a",
             "name": "问诊完整性",
-            "max": 30,
+            "max": 4,
             "items": [{"id": "a1", "name": "现病史"}, {"id": "a2", "name": "既往史"}],
         },
-        {"id": "dim_b", "name": "沟通技巧", "max": 15, "items": [{"id": "b1", "name": "共情表达"}]},
-        {"id": "dim_c", "name": "临床推理", "max": 12, "items": [{"id": "c1", "name": "鉴别诊断"}]},
+        {"id": "dim_b", "name": "沟通技巧", "max": 2, "items": [{"id": "b1", "name": "共情表达"}]},
+        {"id": "dim_c", "name": "临床推理", "max": 2, "items": [{"id": "c1", "name": "鉴别诊断"}]},
     ],
 }
 
@@ -48,7 +48,7 @@ class TestFilterHallucinatedDimensions:
 
 class TestClampScores:
     def test_clamps_item_score_to_0_raw_scale(self):
-        detail = {"问诊完整性": {"score": 25, "max": 30, "items": [{"score": 5, "max": 3}, {"score": -1, "max": 3}]}}
+        detail = {"问诊完整性": {"score": 25, "max": 4, "items": [{"score": 5, "max": 3}, {"score": -1, "max": 3}]}}
         _clamp_scores(detail, raw_scale=3)
         assert detail["问诊完整性"]["items"][0]["score"] == 3
         assert detail["问诊完整性"]["items"][1]["score"] == 0
@@ -68,27 +68,27 @@ class TestRecalcTotalFromDimensions:
     def test_recalc_total_sums_item_scores(self):
         """Phase 1 (S2)：总分 = Σ条目分（维度分不参与）。"""
         detail = {
-            "问诊完整性": {"score": 25, "max": 30, "items": [{"score": 3}, {"score": 2}]},
-            "沟通技巧": {"score": 10, "max": 15, "items": [{"score": 1}]},
-            "临床推理": {"score": 8, "max": 12, "items": [{"score": 3}]},
+            "问诊完整性": {"score": 25, "max": 4, "items": [{"score": 2}, {"score": 1}]},
+            "沟通技巧": {"score": 10, "max": 2, "items": [{"score": 1}]},
+            "临床推理": {"score": 8, "max": 2, "items": [{"score": 2}]},
         }
-        total = _recalc_total_from_dimensions(detail, raw_scale=3)
-        assert total == 3 + 2 + 1 + 3  # 9，与维度分 25/10/8 无关
+        total = _recalc_total_from_dimensions(detail, raw_scale=2)
+        assert total == 2 + 1 + 1 + 2  # 6，与维度分无关
 
     def test_item_scores_clamped_to_raw_scale(self):
         detail = {"d": {"max": 9, "items": [{"score": 5}, {"score": -2}]}}
-        total = _recalc_total_from_dimensions(detail, raw_scale=3)
-        assert total == 3 + 0  # 超上限钳到 3，负分钳到 0
+        total = _recalc_total_from_dimensions(detail, raw_scale=2)
+        assert total == 2 + 0  # 超上限钳到 2，负分钳到 0
 
     def test_skips_dim_without_items(self):
         detail = {"问诊完整性": {"score": 10, "max": 10}}
-        total = _recalc_total_from_dimensions(detail, raw_scale=3)
+        total = _recalc_total_from_dimensions(detail, raw_scale=2)
         assert total == 0  # 无条目 → 贡献 0（维度分不再直接计入）
 
 
 class TestInjectMissingDimensions:
     def test_adds_missing_dimension_with_zero_score(self):
-        detail = {"问诊完整性": {"score": 25, "max": 30, "items": [{}, {}]}}
+        detail = {"问诊完整性": {"score": 25, "max": 4, "items": [{}, {}]}}
         rubric = RUBRIC_SAMPLE
         _inject_missing_dimensions(detail, rubric)
         assert "沟通技巧" in detail
@@ -96,7 +96,7 @@ class TestInjectMissingDimensions:
         assert detail["沟通技巧"].get("_injected") is True
 
     def test_does_not_override_existing_dimension(self):
-        detail = {"问诊完整性": {"score": 25, "max": 30, "items": [{}, {}]}}
+        detail = {"问诊完整性": {"score": 25, "max": 4, "items": [{}, {}]}}
         rubric = RUBRIC_SAMPLE
         _inject_missing_dimensions(detail, rubric)
         assert detail["问诊完整性"]["score"] == 25
