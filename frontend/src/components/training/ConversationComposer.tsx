@@ -146,7 +146,7 @@ export function ConversationComposer({
 				px="md"
 				py="sm"
 				wrap="nowrap"
-				style={{ maxWidth: 720, margin: "0 auto" }}
+				style={{ maxWidth: 768, margin: "0 auto" }}
 			>
 				<Tooltip label={listening ? "结束语音输入" : "语音输入（Web Speech）"}>
 					<ActionIcon
