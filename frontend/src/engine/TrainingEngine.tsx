@@ -15,7 +15,7 @@ import { getPatientAvatar } from "@/utils/avatar";
 // import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useIsMobile } from "@/hooks/useLayoutMode";
-import { useToolBridge, waitForPendingToolRequests } from "@/hooks/useToolBridge";
+import { useToolBridge } from "@/hooks/useToolBridge";
 import { createMessageBus } from "./MessageBus";
 import {
 	useTrainingStore,
@@ -189,7 +189,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		endingRef.current = true;
 		try {
 			busRef.current.emit("training:beforeEnd");
-			await waitForPendingToolRequests(busRef.current);
+			// Phase 2.5：工具已走 HTTP 请求/响应，结束训练无需等待在途 WS 工具结果
 			await scoreRef.current.end();
 			getTrainingState().setTrainingEnded(true);
 			busRef.current.emit("training:ended");

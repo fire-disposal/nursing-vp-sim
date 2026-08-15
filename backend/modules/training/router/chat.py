@@ -13,7 +13,7 @@ from core.database import db_session, get_db
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingStatus
-from models import Case, Message, TrainingRecord, TrainingToolRequest, User
+from models import Case, Message, TrainingAction, TrainingRecord, User
 from modules.training.capabilities import detect_capabilities
 from modules.training.timing import is_training_overdue
 from schemas import ChatCorrectionRequest, ChatMessageRequest, ChatMessageResponse
@@ -133,11 +133,11 @@ def _ensure_correction_allowed(db: Session, record: TrainingRecord, student: Mes
     if state["remaining"] <= 0:
         raise HTTPException(status_code=400, detail="本次训练的修正次数已用完")
     mutation = (
-        db.query(TrainingToolRequest)
+        db.query(TrainingAction)
         .filter(
-            TrainingToolRequest.record_id == record.id,
-            TrainingToolRequest.action != "load",
-            TrainingToolRequest.created_at > student.created_at,
+            TrainingAction.record_id == record.id,
+            TrainingAction.kind != "load",
+            TrainingAction.created_at > student.created_at,
         )
         .first()
     )

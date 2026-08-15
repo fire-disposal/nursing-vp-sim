@@ -72,7 +72,7 @@ def submit_score_review(
         if record is not None:
             rubric = _resolve_rubric(db, record)
             raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
-        review_total = review_total_from_detail(req.detail_scores, raw_max)
+        review_total = review_total_from_detail(req.detail_scores, raw_max, raw_scale=rubric.get("raw_scale", 2))
         if not 0 <= review_total <= 100:
             raise HTTPException(status_code=400, detail=f"复核总分越界: {review_total}")
     else:

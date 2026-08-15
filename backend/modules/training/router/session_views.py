@@ -15,9 +15,9 @@ from models import (
     Case,
     Score,
     ScoreReview,
+    TrainingAction,
     TrainingRecord,
     TrainingSessionState,
-    TrainingToolRequest,
     User,
     UserClass,
 )
@@ -77,9 +77,7 @@ def get_records(
     training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
     user_id: Annotated[int | None, Query(description="按用户ID筛选（仅 score_review 权限生效）")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
-    sort_by: Annotated[
-        str, Query(description="排序字段：start_time/score_total/duration")
-    ] = "start_time",
+    sort_by: Annotated[str, Query(description="排序字段：start_time/score_total/duration")] = "start_time",
     order: Annotated[str, Query(description="排序方向：asc/desc")] = "desc",
 ):
 
@@ -130,7 +128,7 @@ def get_records(
     if sort_by == "score_total":
         sort_col = Score.total_score
     elif sort_by == "duration":
-        sort_col = (TrainingRecord.end_time - TrainingRecord.start_time)
+        sort_col = TrainingRecord.end_time - TrainingRecord.start_time
     else:
         sort_col = TrainingRecord.start_time
     # 空值（未评分/未结束）排最后
@@ -267,11 +265,11 @@ def get_record_detail(
         if student_idx >= 0 and ordered_messages[student_idx].role == "student":
             student = ordered_messages[student_idx]
             mutation = (
-                db.query(TrainingToolRequest.id)
+                db.query(TrainingAction.id)
                 .filter(
-                    TrainingToolRequest.record_id == record.id,
-                    TrainingToolRequest.action != "load",
-                    TrainingToolRequest.created_at > student.created_at,
+                    TrainingAction.record_id == record.id,
+                    TrainingAction.kind != "load",
+                    TrainingAction.created_at > student.created_at,
                 )
                 .first()
             )

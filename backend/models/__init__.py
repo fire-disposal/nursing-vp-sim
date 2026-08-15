@@ -27,7 +27,6 @@ from models.training import (
     TrainingSessionEmotionEvent,
     TrainingSessionEmotionState,
     TrainingSessionState,
-    TrainingToolRequest,
 )
 from models.voice import VoiceCallLog, VoiceConfig
 
@@ -63,7 +62,6 @@ __all__ = [
     "TrainingSessionEmotionEvent",
     "TrainingSessionEmotionState",
     "TrainingSessionState",
-    "TrainingToolRequest",
     "User",
     "UserClass",
     "VoiceCallLog",

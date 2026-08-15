@@ -1,155 +1,88 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { postToolCommand } from "@/api/training";
 import type { MessageBus } from "@/engine/types";
-import type { TrainingWSMessage } from "./useTrainingWS";
-import { subscribeWSConnection, useTrainingWS } from "./useTrainingWS";
-
-interface PendingWaiter {
-  remaining: Set<string>;
-  failure: string | null;
-  timer: number;
-  resolve: () => void;
-  reject: (error: Error) => void;
-}
-
-interface PendingState {
-  active: Set<string>;
-  waiters: Set<PendingWaiter>;
-}
-
-const pendingByBus = new WeakMap<MessageBus, PendingState>();
-
-function getPendingState(bus: MessageBus): PendingState {
-  let state = pendingByBus.get(bus);
-  if (!state) {
-    state = { active: new Set(), waiters: new Set() };
-    pendingByBus.set(bus, state);
-  }
-  return state;
-}
-
-function settleRequest(bus: MessageBus, requestId: string, ok: boolean, error?: string) {
-  const state = getPendingState(bus);
-  state.active.delete(requestId);
-  for (const waiter of [...state.waiters]) {
-    if (!waiter.remaining.delete(requestId)) continue;
-    if (!ok && !waiter.failure) waiter.failure = error || "训练内容保存失败";
-    if (waiter.remaining.size > 0) continue;
-
-    window.clearTimeout(waiter.timer);
-    state.waiters.delete(waiter);
-    if (waiter.failure) waiter.reject(new Error(waiter.failure));
-    else waiter.resolve();
-  }
-}
+import { subscribeWSConnection } from "./useTrainingWS";
 
 /**
- * 断线/超时兜底：清空 active 并拒绝所有等待者。
- * 解除"WS 断开后 pending 永不 settle → endTraining 反复超时失败"的死锁。
+ * 工具指令面桥（Phase 2.5）— HTTP 请求/响应替代 WS tool 通道。
+ *
+ * 组件契约不变：监听 bus "tool:invoke"，完成后面向 bus 发出
+ * "tool:result" / "scene:state" / "emotion:changed"（与旧 WS 桥同形，
+ * 组件零改动）。结构性收益：
+ * - 删除 pending 追踪/结束等待/断线 settle 整套机制（请求/响应天然同步）；
+ * - revision 乐观并发：409 时以服务端 current_revision 续发。
  */
-function settleAllPending(bus: MessageBus, error: string) {
-  const state = getPendingState(bus);
-  state.active.clear();
-  for (const waiter of [...state.waiters]) {
-    window.clearTimeout(waiter.timer);
-    state.waiters.delete(waiter);
-    waiter.reject(new Error(error));
-  }
-}
-
-export function waitForPendingToolRequests(bus: MessageBus, timeoutMs = 10_000): Promise<void> {
-  const state = getPendingState(bus);
-  const remaining = new Set(state.active);
-  if (remaining.size === 0) return Promise.resolve();
-
-  return new Promise<void>((resolve, reject) => {
-    const waiter: PendingWaiter = {
-      remaining,
-      failure: null,
-      resolve,
-      reject,
-      timer: window.setTimeout(() => {
-        // 超时即视为这批工具结果已不可得：清空 active，后续结束尝试不再被卡住
-        settleAllPending(bus, "训练内容保存超时");
-      }, timeoutMs),
-    };
-    state.waiters.add(waiter);
-  });
-}
-
 export function useToolBridge(bus: MessageBus) {
-  const { sendTool } = useTrainingWS();
+	const revisionRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const onToolInvoke = (payload: {
-      tool: string;
-      action: string;
-      params?: Record<string, unknown>;
-      recordId: number;
-    }) => {
-      const requestId = sendTool(payload.recordId, payload.tool, payload.action, payload.params);
-      getPendingState(bus).active.add(requestId);
-    };
-    return bus.on("tool:invoke", onToolInvoke);
-  }, [bus, sendTool]);
+	useEffect(() => {
+		const onToolInvoke = (payload: {
+			tool: string;
+			action: string;
+			params?: Record<string, unknown>;
+			recordId: number;
+		}) => {
+			const cmd = `${payload.tool}.${payload.action}`;
+			const idemKey = crypto.randomUUID();
+			const revision = revisionRef.current;
 
-  // WS 断线时立即失败 settle：不等 10s 超时，让结束训练/重试尽快得到明确反馈
-  useEffect(() => {
-    return subscribeWSConnection((connected) => {
-      if (connected) return;
-      const state = getPendingState(bus);
-      if (state.active.size === 0) return;
-      settleAllPending(bus, "网络连接已断开，工具操作结果可能未保存");
-    });
-  }, [bus]);
+			postToolCommand(payload.recordId, {
+				cmd,
+				params: payload.params ?? {},
+				idem_key: idemKey,
+				revision,
+			})
+				.then((res) => {
+					revisionRef.current = res.revision;
+					bus.emit("tool:result", {
+						requestId: idemKey,
+						tool: payload.tool,
+						action: payload.action,
+						ok: res.ok,
+						data: res.data ?? {},
+						error: res.error || undefined,
+					});
+					if (res.scene && typeof res.scene === "object") {
+						bus.emit("scene:state", res.scene as Record<string, unknown>);
+					}
+					const emotion =
+						res.data && typeof res.data === "object"
+							? (res.data as Record<string, unknown>).emotion
+							: undefined;
+					if (emotion && typeof emotion === "object") {
+						bus.emit("emotion:changed", emotion as Record<string, unknown>);
+					}
+				})
+				.catch((err) => {
+					const detail =
+						(err as { response?: { status?: number; data?: { detail?: { current_revision?: number; message?: string } } } })
+							?.response?.data?.detail;
+					if (typeof detail?.current_revision === "number") {
+						// 并发冲突：以服务端最新 revision 续发一次
+						revisionRef.current = detail.current_revision;
+					}
+					const message =
+						detail?.message ??
+						(err as { message?: string })?.message ??
+						"工具操作失败，请重试";
+					bus.emit("tool:result", {
+						requestId: idemKey,
+						tool: payload.tool,
+						action: payload.action,
+						ok: false,
+						data: {},
+						error: message,
+					});
+				});
+		};
+		return bus.on("tool:invoke", onToolInvoke);
+	}, [bus]);
 
-  useTrainingWS((msg: TrainingWSMessage) => {
-    if (msg.type !== "tool:error" && msg.type !== "tool:result") return;
+	// 记录切换/刷新时 revision 由服务端响应重建（首次调用 revision=null 不做校验）
+	useEffect(() => {
+		revisionRef.current = null;
+	}, [bus]);
 
-    const requestId = typeof msg.request_id === "string" ? msg.request_id : "";
-    const tool = typeof msg.tool === "string" ? msg.tool : "unknown";
-    const action = typeof msg.action === "string" ? msg.action : "unknown";
-    const ok = msg.type === "tool:result" && msg.ok === true;
-    const error = typeof msg.error === "string"
-      ? msg.error
-      : typeof msg.detail === "string"
-        ? msg.detail
-        : ok
-          ? undefined
-          : "操作失败";
-
-    if (requestId) settleRequest(bus, requestId, ok, error);
-
-    bus.emit("tool:result", {
-      requestId,
-      tool,
-      action,
-      ok,
-      data: msg.data && typeof msg.data === "object"
-        ? msg.data as Record<string, unknown>
-        : {},
-      error,
-    });
-
-    if (msg.scene && typeof msg.scene === "object") {
-      bus.emit("scene:state", msg.scene as Record<string, unknown>);
-    }
-
-    // 查体 → 情绪桥接（feedback id=30）：工具结果携带 emotion 时驱动情绪条
-    const emotion =
-      msg.data && typeof msg.data === "object"
-        ? (msg.data as Record<string, unknown>).emotion
-        : undefined;
-    if (emotion && typeof emotion === "object") {
-      bus.emit(
-        "emotion:changed",
-        emotion as {
-          trust?: number;
-          anxiety?: number;
-          irritation?: number;
-          cooperation?: number;
-          dominant_state?: string;
-        },
-      );
-    }
-  });
+	// 保留 WS 连接订阅以维持连接状态指示（工具不再依赖 WS）
+	useEffect(() => subscribeWSConnection(() => {}), []);
 }

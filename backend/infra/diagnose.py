@@ -204,6 +204,7 @@ class DiagnoseService:
         def _check():
             try:
                 from sqlalchemy import text
+
                 from core.database import engine
 
                 pool = getattr(engine, "pool", None)
@@ -246,7 +247,9 @@ class DiagnoseService:
 
         groups: dict[str, dict] = {}
         for event in events:
-            fp = str(event.get("fingerprint") or _fingerprint(str(event.get("logger", "")), str(event.get("message", ""))))
+            fp = str(
+                event.get("fingerprint") or _fingerprint(str(event.get("logger", "")), str(event.get("message", "")))
+            )
             count = max(1, int(event.get("count", 1) or 1))
             first_seen = str(event.get("first_seen") or event.get("time") or "")
             last_seen = str(event.get("last_seen") or event.get("time") or "")
@@ -297,10 +300,19 @@ class DiagnoseService:
                 "recent": self._handler.get_recent(),
             }
         else:
-            errors = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "unique_24h": 0, "burst_5min": 0, "recent": []}
+            errors = {
+                "last_5min": 0,
+                "last_hour": 0,
+                "total_captured": 0,
+                "unique_24h": 0,
+                "burst_5min": 0,
+                "recent": [],
+            }
 
         fe_buffer = getattr(self._app_ref.state, "frontend_error_buffer", None) if self._app_ref else None
-        frontend_errors = fe_buffer.snapshot() if fe_buffer else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
+        frontend_errors = (
+            fe_buffer.snapshot() if fe_buffer else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
+        )
         snapshot = DiagnoseSnapshot(
             database=await self._db_status(),
             llm=self._llm_status,

@@ -57,6 +57,8 @@ class TrainingRecord(Base):
     training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
     prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     rubric_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Phase 2.5：乐观并发版本号——工具/变更操作原子自增，旧版本请求 409
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
@@ -159,29 +161,11 @@ class NursingRecord(Base, TimestampMixin):
     user: Mapped[User] = relationship()
 
 
-class TrainingToolRequest(Base):
-    __tablename__ = "training_tool_requests"
-    __table_args__ = (
-        UniqueConstraint("record_id", "request_id", name="uq_training_tool_request"),
-        Index("ix_training_tool_requests_record_id", "record_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=False
-    )
-    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    tool_name: Mapped[str] = mapped_column(String(50), nullable=False)
-    action: Mapped[str] = mapped_column(String(50), nullable=False)
-    response: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-
-
 class TrainingAction(Base):
     """Immutable operation audit log — one row per student action in a training.
 
-    Unlike TrainingToolRequest (RPC dedup log), this is the domain timeline:
-    scoring reads actions in chronological order to evaluate student choices.
+    Phase 2.5：唯一审计表——同时承担 RPC 幂等（unique(record_id, request_id)）
+    与域时间线（评分按序读取）。TrainingToolRequest 已删除。
     """
 
     __tablename__ = "training_actions"

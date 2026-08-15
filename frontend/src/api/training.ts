@@ -71,3 +71,22 @@ export const triggerInitiative = (recordId: number) =>
 	api.post<components["schemas"]["InitiativeTriggerResponse"]>(
 		`/training/${recordId}/initiative/trigger` as ApiPath,
 	);
+
+export interface ToolCommandBody {
+	cmd: string;
+	params: Record<string, unknown>;
+	idem_key: string;
+	revision: number | null;
+}
+
+export interface ToolCommandResult {
+	ok: boolean;
+	data: Record<string, unknown>;
+	scene?: Record<string, unknown> | null;
+	error: string;
+	revision: number;
+}
+
+/** 工具指令面（Phase 2.5）：HTTP 请求/响应替代 WS tool 通道 */
+export const postToolCommand = (recordId: number | string, body: ToolCommandBody) =>
+	api.post<ToolCommandResult>(`/training/${recordId}/tools` as ApiPath, body).then((r) => r.data);

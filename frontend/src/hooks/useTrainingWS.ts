@@ -11,7 +11,7 @@
  * 自愈策略：指数退避 + 抖动，退避耗尽后转入 30s 周期探测（永不放弃）；
  * 监听 online / visibilitychange 即时重连；4001 刷新失败降级为普通退避。
  */
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import useAuthStore from "@/stores/authStore";
 
 export interface TrainingWSMessage {
@@ -21,7 +21,6 @@ export interface TrainingWSMessage {
 
 export interface TrainingWS {
 	send(msg: TrainingWSMessage): void;
-	sendTool(recordId: number, tool: string, action: string, params?: Record<string, unknown>): string;
 }
 
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
@@ -229,18 +228,5 @@ export function useTrainingWS(
 		};
 	}, [enabled]);
 
-	const sendTool = useCallback((recordId: number, tool: string, action: string, params?: Record<string, unknown>) => {
-		const requestId = crypto.randomUUID();
-		_send({
-			type: "tool",
-			request_id: requestId,
-			record_id: recordId,
-			tool,
-			action,
-			params: params ?? {},
-		});
-		return requestId;
-	}, []);
-
-	return { send: _send, sendTool };
+	return { send: _send };
 }

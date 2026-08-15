@@ -58,6 +58,7 @@ class ClassSummaryItemSchema(BaseModel):
 
 class ClassStudentItem(BaseModel):
     """班级学生训练聚合（只读）"""
+
     user_id: int
     display_name: str
     student_id: str | None = None

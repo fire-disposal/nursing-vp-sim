@@ -44,6 +44,7 @@ class UserUpdateRequest(BaseModel):
 
 class StudentRecentRecord(BaseModel):
     """学生详情页最近训练记录项（TrainingRecordBrief 子集）"""
+
     model_config = _RESP_CFG
     id: int
     case_id: int
@@ -63,6 +64,7 @@ class StudentRecentRecord(BaseModel):
 
 class StudentDailyStat(BaseModel):
     """学生详情页每日训练统计项"""
+
     model_config = _RESP_CFG
     date: str
     sessions: int = 0
