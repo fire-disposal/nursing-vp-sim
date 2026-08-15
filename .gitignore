@@ -96,3 +96,6 @@ deploy/monitor/state.json
 deploy/monitor/*.log
 deploy/monitor/*.bak.*
 deploy/monitor/report_*.html
+
+# Local pnpm store (sandbox: store must live inside workspace)
+.pnpm-store/
