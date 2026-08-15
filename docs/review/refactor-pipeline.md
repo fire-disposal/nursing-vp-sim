@@ -104,14 +104,13 @@
 4. **P6 异步修复**：`simulations/router.py` 三端点改 `async def`，直接 `await llm_client.call(...)`（去掉 `asyncio.run`）；`state_from_dict`/DB 操作保持同步（`run_in_threadpool` 或保持小事务）；新增 `tests/simulations/test_llm_integration.py`（真 client + 真 provider 占位，至少覆盖 consult/talk 路径不跨循环）。
 5. **P3 命名诚实**：`physical_exam_rules.py` docstring 与 README 表述改为"病例体征配置（静态基线）+ 解读"，训练模块体征演化列为 Phase 5.5 候选（与 D6 实验轨同评审）。
 
-### 5. 测试计划（Red-Green）
+### 5. 回归测试（克制：只保 3 个结构性不变量）
 
-- `test_chf_vitals_follow_severity`（P1）
-- `test_chf_requires_evidence_for_success`（P1 空手通关回归）
-- `test_abg_clinical_bounds_all_cases`（P2，全病例数值区间）
-- `test_dka_reports_ketones`（P2）
-- `test_simulations_llm_no_cross_loop`（P6）
-- `test_exam_readings_evolution_disabled_honest`（P3 命名回归：文档断言与实现一致）
+- `test_chf_requires_evidence_for_success`（P1：空手通关回归——引擎校准后此测试必须绿）
+- `test_abg_clinical_bounds_all_cases`（P2：全病例 sev<失败阈值时 pH∈[7.0,7.5]）
+- `test_stream_leak_correction_reaches_client`（T1：SSE 只推最终文本，前端显示 == DB）
+
+其余（情绪冻结、结算口径、JSONB 并发、查体门控、v2/v3 清理、FATIGUE、守卫误伤、拒绝门控）通过**代码结构重设计本身** + staging 冒烟验证（长会话情绪曲线、暂停训练不被提前结算、拒绝型患者查体被拒），不逐项建测试。
 
 ### 6. 验收（摘自主指南 §6 Phase 2/4）
 

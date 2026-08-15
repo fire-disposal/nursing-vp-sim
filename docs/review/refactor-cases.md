@@ -78,11 +78,11 @@ uv run python scripts/case-audit.py --case 9   # 单病例深查（示例↔病�
 3. `schemas/case_schema.py`：`nursing_record` 类型收敛 + `variant_of` 可选字段；
 4. 生成 prompt（`cases/prompts.py`）同步字段说明（hidden_info 与 deep_background 的关系已有文档，需与 validator 规则对齐）。
 
-## 7. 测试与 CI
+## 7. 测试与 CI（校验器即测试）
 
-- `tests/cases/test_case_validator.py`：每条规则 ≥1 个正例 + 1 个反例（用 case3/case6/case9 的现状缺陷做反例夹具，修复后反例夹具保留在测试里证明规则活着）；
-- `tests/cases/test_seeded_cases_pass_validator.py`：**全量 11 个内置病例必须过校验器**（防止未来 AI 修复时再引入回归）；
-- CI：`pnpm test:backend` 覆盖 + 单独的 `case-audit --json | jq empty` 门禁。
+- **校验器本身就是守护**：`case-audit.py` 是运行时诊断 + CI 门禁，不另建冗余单测；
+- 只补 2 个测试：`test_case_validator_rules`（每条规则 1 正 1 反，用 case3/case6/case9 现状缺陷做反例夹具）、`test_seeded_cases_pass_validator`（11 个内置病例全量过闸，防回归）；
+- CI：`pnpm test:backend` 覆盖上述 2 个 + `case-audit --json` 作为独立门禁命令。
 
 ## 8. 验收
 

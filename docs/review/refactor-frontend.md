@@ -36,41 +36,41 @@
 
 **门禁**（写进 `AGENTS.md` 前端节）：新组件必须基于 Mantine 原语或既有 shim；禁止引入新 UI 依赖（除非评审通过）；组件必须键盘可达（UnstyledButton/Button 语义）。
 
-## 4. U 类修复清单（文件级 + 测试名）
+## 4. U 类修复清单（直接优化，体验优先）
+
+> 每条 = 直接改代码 + 关键行为 1 个组件测试（或进冒烟清单），不逐项建测试。
 
 ### U1 通知中心横向滚动条（P2）
 - 文件：`components/NotificationBell.tsx:177`（Box `overflowY:"auto"`）+ `pages/NotificationInboxPage.tsx`（若有同类问题一并查）。
-- 修复：滚动容器加 `style={{ overflowX: "hidden" }}`；title/body 的 Text 加 `style={{ overflowWrap: "anywhere" }}`（URL/英文长串断行）；核对 ResponsiveDialog 在窄屏的 maxWidth 行为。
-- 测试：`NotificationBell.test.tsx` 断言长 URL 通知体不产生横向滚动（jsdom 中检查 `scrollWidth <= clientWidth` 的近似断言或用 style 断言）。
+- 修复：滚动容器加 `style={{ overflowX: "hidden" }}`；title/body 的 Text 加 `style={{ overflowWrap: "anywhere" }}`（URL/英文长串断行）；核对 ResponsiveDialog 在窄屏的 maxWidth 行为。改完即验（滚动条消失），不建测试。
 
 ### U4 流式中断无重试 + 假进度（P1）
 - 文件：`components/training/ChatBubble.tsx:148`（"⚠ 回复中断"chip）、`engine/ScoreManager.ts:183,193,252-253`（`_applyFakeProgress` 上限 95）。
-- 修复：中断 chip 加"重试本消息"按钮（复用 `correctLastMessage` 通道——后端已支持替换最近一轮）；假进度上限 95→90，且 90 后显示"评分耗时异常"文案 + 60s 超时倒计时（触发"可手动重试"入口）。
-- 测试：`ChatBubble.test.tsx`（中断态渲染重试按钮）；`ScoreManager.test.ts`（假进度封顶 90）。
+- 修复：中断 chip 加"重试本消息"按钮（复用 `correctLastMessage` 通道）；假进度上限 95→90 + 90 后显示"评分耗时异常" + 超时倒计时（触发"可手动重试"入口）。
+- 测试：`ScoreManager.test.ts` 1 个（假进度封顶 90）；中断重试按钮进冒烟清单。
 
 ### U5 计时器硬截止（D5，联动后端附录 A）
 - 文件：`components/training/TrainingHeader.tsx:66-70`（toast"可以继续对话"→ 改自动结束）、`hooks/useTrainingTimer.ts`（归零触发 onTimeUp 后进入"结束中"态）。
 - 修复：onTimeUp → 禁用输入 + 调 `onEnd()`（自动提交）；失败回退 toast + "重试结束"按钮；`useTrainingTimer` 归零后停止递减并暴露 `expired` 状态。
-- **依赖**：后端 `execution_deadline`（附录 A.3）先落；前端到点行为与后端 409 守卫互备（前端到点自动结束；后端 409 兜底）。
-- 测试：`useTrainingTimer.test.ts`（归零 → onTimeUp 一次；enabled=false 不触发）；`TrainingHeader.test.tsx`（时间到 → onEnd 被调用）。
+- **依赖**：后端 `execution_deadline`（附录 A.3）先落；前端到点行为与后端 409 守卫互备。
+- 测试：`useTrainingTimer.test.ts` 1 个（归零 → onTimeUp 一次、enabled=false 不触发）；到点自动结束进冒烟清单。
 
 ### U6 情绪轨迹与论文截图停用（P1 叙事）
 - 决策二选一（推荐 a）：
-  - (a) 在 `pages/record-detail/RecordDetail.tsx` 新增"情绪轨迹"区块：聚合 `EmotionEvent` 时间线（后端 `repository.py` 已有事件表），Mantine `LineChart`（recharts 已移除则用 Mantine Charts 或轻量 SVG）展示 trust/anxiety 曲线 + 事件标注（"共情+0.04"）；
+  - (a) 在 `pages/record-detail/RecordDetail.tsx` 新增"情绪轨迹"区块：聚合 `EmotionEvent` 时间线（后端 `repository.py` 已有事件表），轻量 SVG/Mantine 图表展示 trust/anxiety 曲线 + 事件标注（"共情+0.04"）；
   - (b) 从 README 核心能力删除"轨迹可视化"。
-- 情绪头像：`engine/TrainingEngine.tsx:14,121,242,257` 的"论文截图停用"注释——若保留静态头像，把注释改为产品决策说明（"情绪头像为实验特性，当前使用稳定静态头像"），**删除"论文截图"措辞**（叙事正当化）。
-- 测试：`RecordDetail.test.tsx`（情绪区块渲染 + 空态）。
+- 情绪头像：`engine/TrainingEngine.tsx:14,121,242,257` 的"论文截图停用"注释——改为产品决策说明（"情绪头像为实验特性，当前使用稳定静态头像"），删除"论文截图"措辞（叙事正当化）。
 
 ### U7 ScoreItem 无障碍（P3）
 - 文件：`components/record-review/ScoreItem.tsx:32`（div onClick 展开）。
-- 修复：改 `UnstyledButton`（Mantine）或 `button` + `aria-expanded`；4D 微条（`EmotionIndicator`）加 sr-only 文本（"信任 62%"）。
-- 测试：`ScoreItem.test.tsx`（键盘 Enter 展开；aria-expanded 翻转）。
+- 修复：改 `UnstyledButton` + `aria-expanded`；4D 微条（`EmotionIndicator`）加 sr-only 文本（"信任 62%"）。改完即验（键盘 Tab + Enter 展开），不建测试。
 
-## 5. 前端测试纪律（AI 辅助开发的红绿灯）
+## 5. 前端质量纪律（适配单人 + AI 辅助）
 
-- 所有 U 类修复**先写测试再实现**（§4 已给测试名）；测试必须能在 `pnpm test` 单测级跑通（jsdom，不依赖后端）。
-- 训练页冒烟清单（快反回归用，手动 3 分钟）：开始训练 → 对话 3 轮 → 查体 2 项 → 结束 → 看评分 → 复核 → 结果页导出。每次 U 类合入 staging 后跑一遍。
+- **测试只保关键路径**：U5（计时硬截止）、U4（假进度上限）、shim 冻结 API 各 1 个测试；其余体验修复以**改完即验 + 冒烟清单**为准，不逐项建测试。
+- 训练页冒烟清单（手动 3 分钟）：开始训练 → 对话 3 轮 → 查体 2 项 → 结束 → 看评分 → 复核 → 结果页导出。U 类每次合入 staging 后跑一遍。
 - 组件库升级（Mantine minor）必须过全量前端测试 + 冒烟清单，禁止裸升级。
+- AI 辅助纪律：修复指令以"改哪个文件哪个函数、达到什么行为"为准，不以"写什么测试"为准；测试由 AI 补的必须能跑通且守护关键行为。
 
 ## 6. ASR/电话方向（D6 实验室轨道，深度设计）
 

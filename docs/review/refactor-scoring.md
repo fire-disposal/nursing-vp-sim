@@ -44,6 +44,8 @@ scores.record_id unique 保留；新增 (record_id, revision) 幂等键由版本
 
 ## 3. 文件级重构步骤
 
+> 重设计核心（先想清楚再动代码）：**数据契约（§2）是重设计本身**——raw/display 双轨、Σ条目聚合、fallback 落库、复核写回，四项决定后，代码步骤是机械落地；反之先改函数就是打补丁。执行顺序：3.1→3.2→3.3（契约骨架）→ 3.4→3.5（rubric/复核）→ 3.6→3.7→3.8（配置/超时/成本）→ 3.9（前端契约）。
+
 ### 3.1 `backend/modules/training/scoring/validation.py`（重写核心）
 1. `_recalc_total_from_dimensions` → 改为 `aggregate_item_scores(detail_scores)`：只累加 `items[].score`（以 `len(items)*raw_scale` 为维上限，钳制后求和）；**删除 dim.score 参与总分**（S2）。
 2. `_validate_scoring_result`：把 `_validate_items_content` 的错误从"降为警告"改为**阻断重试**（S4 配套）；`EVIDENCE_COVERAGE_THRESHOLD` 从 log 改为可配置的阻断阈值（默认 0.5 → 低于即重试）。
@@ -92,23 +94,19 @@ scores.record_id unique 保留；新增 (record_id, revision) 幂等键由版本
 2. fallback 徽章：`fallback != NULL` → 分数旁红色"评分异常（系统故障）"徽章，禁止进入成绩对比。
 3. 复核编辑器：提交前本地预览"新总分"，>100 直接前端拦截。
 
-## 4. 测试计划（Red-Green 清单）
+## 4. 回归测试（克制：只保关键不变量，不逐项建测试）
 
-> 现状：`test_scoring.py` 纯函数、`test_scoring_integration.py` 仅 prompt 渲染；`_fallback_scoring/_postprocess/_stage_with_retry/evaluate_training/_persist_score/submit_score_review` 全部无测试——**先写测试暴露缺陷（红），再修（绿）**。
+> 现状：`test_scoring.py` 纯函数、`test_scoring_integration.py` 仅 prompt 渲染，核心路径（fallback/postprocess/review）无测试。**只补 5 个不变量回归**，其余靠 §6 的 staging 指标验证（score-health 数字比测试更能说明问题）。
 
-| 测试 | 目标缺陷 | 断言 |
-|---|---|---|
-| `test_review_unchanged_submission` | S1 | 复核提交与初评相同 detail_scores → reviewed_total == display_total |
-| `test_review_total_never_exceeds_max` | S1 | 任意输入 reviewed_total ∈ [0,100] |
-| `test_total_equals_item_sum` | S2 | 构造 dim.score=42/items 全 1 → total == len(items)×1 |
-| `test_missing_dimension_fails_or_fallback` | S4 | LLM 输出缺维度 → 重试触发；最终 fallback.kind='dims_injected' 且标记落库 |
-| `test_llm_empty_fallback_marked` | S3 | 双空 → Score.fallback.kind='llm_empty'，非 0 伪装 |
-| `test_fallback_excluded_from_scoreboard` | S3/S5 | fallback 分数不进 avg/best |
-| `test_stale_task_write_rejected` | S7 | 旧 revision 的 _persist_score 不写 |
-| `test_force_rescore_preserves_old_on_failure` | S6 | 新评分抛错 → 旧 Score/Review 保留 |
-| `test_scoring_budget_applies` | S9 | 超 120 条消息截断 + 截断统计入 fallback.note |
-| `test_timeout_budget_consistent` | S8 | per-stage×retry 总预算 < 全局（常量断言） |
-| `test_feedback_contains_scoring_result` | 假话修复 | feedback prompt 含 total/items |
+| 测试 | 守护的不变量 |
+|---|---|
+| `test_review_unchanged_submission` | INV-1/INV-4：复核不改分 → 总分不变且 ≤100 |
+| `test_total_equals_item_sum` | INV-2：总分 == Σ条目分 |
+| `test_llm_empty_fallback_marked` | INV-3：兜底 0 分带 fallback 标记，不进排行榜 |
+| `test_stale_task_write_rejected` | S7：旧 revision 不写库 |
+| `test_fallback_excluded_from_scoreboard` | INV-3 前端侧：成绩口径 = COALESCE(reviewed_total, display_total) |
+
+其余缺陷（S4 维度丢失、S6 先删后算、S8 超时预算、S9 成本）通过**代码结构与 staging 指标**验证（fallback 标记落库后 score-health 直接统计），不单独建测试。
 
 ## 5. 数据迁移与上线
 
@@ -120,5 +118,5 @@ scores.record_id unique 保留；新增 (record_id, revision) 幂等键由版本
 ## 6. 验收口径（摘自主指南 §6 Phase 1，附测量脚本）
 
 - `scripts/score-health.sql`（Phase 0 固化）：failed+0 分兜底率 < 3%（基线 15.8%）；0 分兜底 100% 带 fallback 标记；case5/case1 难度-得分不再倒挂（或豁免记录）。
-- 自动测试：上表 11 项全绿。
+- 回归测试：§4 的 5 个不变量测试全绿。
 - 产品确认：D1（未涉及→0 分）、D3（条目裁剪）、D4（provider 固定）三决策书面确认并落 doc。

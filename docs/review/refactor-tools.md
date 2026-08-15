@@ -83,14 +83,14 @@
 ### 兼容与灰度
 10. WS tool 协议保留一个发布周期（旧前端可用），新前端切 HTTP 后下个周期移除；`training_actions` 历史行直接可读（schema 兼容）。
 
-## 6. 验收与测试
+## 6. 验收与回归（克制）
 
-- `test_tool_http_endpoint`（新端点全流程：授权/幂等/revision 冲突 409/错误响应带 revision）；
-- `test_tool_revision_stale_rejected`（T5 根治：旧 revision 提交被拒）；
-- `test_training_actions_single_source`（双写删除后，评分读时间线与幂等回放同一张表）；
-- `test_end_training_without_pending_wait`（结束训练不再依赖 WS 在途请求）；
-- 前端：`useToolBridge.test.tsx` 重写（断言 fetch 调用 + loading 态，无 pending 语义）；
-- 验收：训练页查体/护理记录/quiz 全流程在 staging 无 WS 工具依赖；断线后工具操作错误可即时呈现（HTTP 明确失败）；`training_tool_requests` 表 drop 后无回归。
+- 关键回归（3 个）：
+  - `test_tool_revision_stale_rejected`（T5 根治：旧 revision 提交 409）；
+  - `test_training_actions_single_source`（双写合并后幂等回放与评分时间线同一张表）；
+  - `test_tool_http_endpoint`（新端点授权/幂等/错误响应带 revision 冒烟）。
+- 其余（前端 pending 机制删除、endTraining 不再等待、WS 工具分支移除）以**代码删除本身**为验收：`grep useToolBridge pending` 零命中、`waitForPendingToolRequests` 无引用即可，不建测试。
+- 训练页冒烟：查体/护理记录/quiz 全流程走 HTTP 指令面，断线重试错误即时可见。
 
 ## 7. 与其他域的关系
 
