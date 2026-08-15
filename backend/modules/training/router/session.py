@@ -207,7 +207,8 @@ def _create_record(
     training_type = "history_taking"
 
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
-    time_limit = max(5, min(120, int(time_limit)))
+    # D5 硬截止：生效值不得短于 30 分钟（病例可声明更长）
+    time_limit = max(30, min(120, int(time_limit)))
 
     config["features"] = config.get("features") or {}
     validate_case_data(case_data, strict=False)

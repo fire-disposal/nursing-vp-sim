@@ -61,12 +61,14 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const {
 		remaining,
 		formatTime,
+		expired,
 	} = useTrainingTimer({
 		initialRemainingSeconds: initialRemaining ?? null,
 		enabled: !trainingEnded,
 		onTimeUp: () => {
-			// 温和提示：时间到不强制交卷，训练结束由用户主动触发
-			toast.info("训练时间已到，你可以继续对话或随时结束训练");
+			// D5 硬截止：到点自动交卷（executeEnd 内部有 endingRef 防重入与失败提示）
+			toast.info("训练时间已到，正在自动提交…");
+			void executeEnd();
 		},
 	});
 
@@ -168,7 +170,9 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 					>
 						<WSStatusDot />
 						<IconClock size={12} style={{ flexShrink: 0 }} />
-						<Text span fw={700} size="sm" style={{ color: "inherit" }}>{formatTime(remaining)}</Text>
+						<Text span fw={700} size="sm" style={{ color: "inherit" }}>
+							{expired ? "已到期" : formatTime(remaining)}
+						</Text>
 					</Group>
 
 					<ActionIcon

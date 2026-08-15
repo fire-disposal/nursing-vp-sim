@@ -208,6 +208,7 @@ Phase 6 (基建) ───────────→ 独立，建议与 Phase 1
 **paused_seconds 是否延展截止时间？**
 - 现状：延展（`timing.py:26-27`）→ 学生离开 2 小时回来剩余时间不变 = **无限暂停 = 硬截止形同虚设**。
 - ✅ **已拍板（2026-08-15）：方案 A —— 执行口径 = 纯墙钟 `start + 30min`，paused 不延展**。离开页面：前端倒计时仍走服务端 remaining（到期即 0），服务端到期即结算；回来时若已超时 → 提示"训练已超时，已自动提交"。
+- ✅ **已实施（2026-08-15）**：timing.py 纯墙钟 deadline；session.py 生效下限 max(30,·)；chat.py 消息/修正双准入守卫（409）；settlement 宽限 60→15s；前端到点自动 executeEnd + "已到期" 徽标。验收项见 §6 Phase 5 U5。
 - 附带影响：`pause/resume` 端点（`session.py:623-664`）、`beforeunload` beacon、`settlement` SQL、`timing.py` 全部按方案 A 统一（paused_seconds 保留字段但不再进执行 deadline；`display_deadline` 与 `execution_deadline` 合一，均为墙钟）。
 
 ### A.3 硬截止 30 分钟落地清单（D5）

@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 SETTLEMENT_LOCK_KEY = 987654321
 STALE_SCORING_SWEEP_MINUTES = 10
 # 到期宽限：给前端 autoEnd 弹窗留出操作时间，超时后强制自动结算。
-EXPIRED_GRACE_SECONDS = 60
+# D5 硬截止：宽限只给最后一条消息落库留余量，不让学生到点后继续对话
+EXPIRED_GRACE_SECONDS = 15
 
 
 async def settlement_loop(*, interval: int = 30, app_state=None) -> None:

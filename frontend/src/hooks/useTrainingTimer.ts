@@ -73,5 +73,10 @@ export function useTrainingTimer({
 		return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 	}, []);
 
-	return { remaining: enabled ? remaining : null, formatTime };
+	return {
+		remaining: enabled ? remaining : null,
+		/** 已到期（剩余 0 且训练进行中）——供外部触发自动结束。 */
+		expired: enabled && remaining === 0,
+		formatTime,
+	};
 }
