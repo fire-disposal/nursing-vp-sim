@@ -61,8 +61,8 @@ PER_STAGE_TIMEOUT_SEC = 150
 # S8: 评分阶段预算 = 全局超时 - 余量（两阶段并行共享同一全局窗口，
 # 单阶段（首试+重试）不得超过该预算；重试超时优先走 fallback 而非拖垮全局）
 SCORING_BUDGET_MARGIN_SECONDS = 15
-# S9: 评分输入消息上限（与 chat 上下文一致，防长对话 token 爆炸）
-SCORING_MAX_MESSAGES = 120
+# 评分输入消息上界（内测期体验优先：保留充足上下文，仅在极端超长对话时兜底）
+SCORING_MAX_MESSAGES = 400
 
 log = logging.getLogger(__name__)
 

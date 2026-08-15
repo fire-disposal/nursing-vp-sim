@@ -62,6 +62,15 @@ class EnvConfig:
     status: str = "active"
     priority: int = -1
     model_override: str | None = None
+    # 内存级统计/熔断（env 兜底不落库，进程内追踪）
+    consecutive_failures: int = 0
+    degraded_until: datetime | None = None
+    degraded_reason: str | None = None
+    call_count_today: int = 0
+
+
+# env 兜底单例：跨调用共享熔断状态（select() 每次构造会丢失统计）
+_env_fallback: EnvConfig | None = None
 
 
 async def get_env_fallback_state() -> dict:
@@ -158,12 +167,23 @@ class ProfileRouter:
         from infra.llm.profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+            global _env_fallback
+            if _env_fallback is None:
+                _env_fallback = EnvConfig(
+                    api_key=DEEPSEEK_API_KEY,
+                    base_url=DEEPSEEK_BASE_URL,
+                    model_override=get_model(purpose),
+                )
+            cfg = _env_fallback
+            if cfg.degraded_until and now < cfg.degraded_until:
+                log.warning(
+                    "ProfileRouter: env 兜底熔断中 (%s) — 全局降级",
+                    cfg.degraded_reason,
+                )
+                with self._state_lock:
+                    self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+                raise RuntimeError(f"purpose={purpose} 无可用密钥（env 兜底已熔断）")
             log.warning("ProfileRouter: env 兜底 (purpose=%s)", purpose)
-            cfg = EnvConfig(
-                api_key=DEEPSEEK_API_KEY,
-                base_url=DEEPSEEK_BASE_URL,
-                model_override=get_model(purpose),
-            )
             self._bindings[purpose] = cfg
             return cfg
 
@@ -191,6 +211,33 @@ class ProfileRouter:
 
         with self._state_lock:
             profile = self._profiles.get(config.id)
+            if config.id == -1 and isinstance(config, EnvConfig):
+                # env 兜底：内存级记账与熔断（不落库，重启即清零——内测期可接受）
+                now = datetime.now(UTC)
+                if success:
+                    config.consecutive_failures = 0
+                    config.degraded_reason = None
+                    config.degraded_until = None
+                else:
+                    config.consecutive_failures += 1
+                    reason = classify_llm_error(error)
+                    if reason == "rate_limited":
+                        config.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+                        config.degraded_reason = reason
+                    elif reason == "insufficient_balance":
+                        config.degraded_until = now + timedelta(seconds=INSUFFICIENT_BALANCE_TTL_SECONDS)
+                        config.degraded_reason = reason
+                    elif config.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                        config.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                        config.degraded_reason = reason or "consecutive_failures"
+                config.call_count_today += 1
+                log.warning(
+                    "env 兜底调用统计: success=%s failures=%d reason=%s",
+                    success,
+                    config.consecutive_failures,
+                    config.degraded_reason,
+                )
+                return
             if not profile:
                 return
 

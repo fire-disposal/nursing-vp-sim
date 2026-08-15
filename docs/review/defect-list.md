@@ -90,6 +90,13 @@
 | U6 | 学生端无情绪轨迹可视化（README 卖点只在 showcase）；情绪头像因"论文截图"停用 | P1（叙事） | `TrainingEngine.tsx:10-11,126-131` + 前端无轨迹图 | 在 RecordDetail 做真实轨迹图或删卖点 |
 | U7 | 无障碍缺失：ScoreItem 用 div+onClick 展开（键盘不可达）、4D 微条仅 title 提示 | P3 | `ScoreItem.tsx:13-23` + `EmotionIndicator.tsx:245-272` | button 语义 + aria-expanded + sr-only |
 
+## 决策记录（2026-08-15）
+
+- **Phase 4 引擎校准（P1/P2）**：已决定跳过（内测期），延期至正式上线前。
+- **Phase 6 基建**：只做必须项（env 兜底记账/熔断、撤销成本闸门收紧）；
+  诊断 token 保持 query param（临时设计保留）、密钥加密/日志脱敏/队列 drain/metrics DB 化/预算执行 明确不做（内测期，体验优先）。
+- **评分成本（S9）**：评分输入截断 120→400、max_tokens 8k→16k——不做文本截断。
+
 ## 线上实测数据（staging，2026-08-14 采集）
 
 - 467 条 completed 训练记录 → 413 条有 Score（88.4%）

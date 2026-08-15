@@ -95,13 +95,8 @@
 - **入口**：`refactor-cases.md`。
 
 ### Phase 4 — 生理引擎临床校准
-- **范围**：P1-P6；`modules/simulations/*`。
-- **关键动作**：
-  1. CHF：vol 上限放开 + congestion→SpO2/RR/BP 耦合 + crackles 梯度化 + 结局判定绑定可观测证据；
-  2. 乳酸/pH：生产项设上限、pH 生理下限映射（Henderson-Hasselbalch 或 sigmoid）、DKA 加酮体/AG 字段；
-  3. 新增"临床数值区间校验"测试（pH∈[7.0,7.5] 且 sev<失败阈值 等）进 CI；
-  4. simulations 接入评分闭环或明确降级为"演示沙盒"（产品决策）。
-- **入口**：`refactor-pipeline.md`（P 域并入管道域文档或独立）。
+- **✅ 已决定跳过（2026-08-15，主程序）：内测期不做**。CHF 容量耦合、乳酸/pH 临床区间等校准
+  留待正式上线前（或随 simulations 实验位 D6 的收尾评估一并处理）。缺陷清单 P1/P2 状态改为"延期"。
 
 ### Phase 5 — 前端收敛 + ASR/电话方向（Mantine 已落地）
 - **范围**：U1、U4、U5、U6、U7 + 新能力。
@@ -118,14 +113,12 @@
      - README 叙事对齐：先改"语音交互—TTS（ASR 规划中）"，上线后补 ASR。
 - **入口**：`refactor-frontend.md`。
 
-### Phase 6 — 基建/安全/运维
-- **范围**：I1-I6。
-- **关键动作**：
-  1. 成本闸门：per-user/per-session 配额 + scoring max_tokens 降至 8k + monthly_cost_limit 真正比较降级；
-  2. 日志脱敏：LLMCallLog 默认只存统计，prompt 详情二次确认 + 保留期清理任务；
-  3. 密钥加密（AES-GCM + env 主密钥）+ 轮换流程；
-  4. 队列落 DB 或 shutdown drain；关键计数改 DB 统计（multi-worker 可信）；
-  5. 诊断 token 移 Authorization header；限流取真实 IP（反代层）+ IP+账号双维度。
+### Phase 6 — 基建/安全/运维（内测期只做必须项，不收太紧）
+- **必须项（本批）**：
+  1. **撤销成本闸门收紧（用户反馈）**：评分输入截断 120→400、scoring max_tokens 8k→16k——内测期体验优先，不做文本截断；
+  2. env 兜底密钥接入内存级记账/熔断（核心路径唯一监控盲区）；
+  3. ~~诊断 token 移 Authorization header~~ **已放缓（主程序：临时设计保留 query param，header 迁移不做）**。
+- **明确不做（记录在案，留待正式上线前）**：密钥加密与轮换、LLMCallLog prompt 脱敏与保留期、队列落 DB/drain、metrics 多 worker DB 化、monthly_cost_limit 强制执行、per-user 配额、XFF 真实 IP 修复、TTS 池锁、记账优先级调整。
 - **入口**：`refactor-infra.md`。
 
 ## 5. 依赖与并行边界
