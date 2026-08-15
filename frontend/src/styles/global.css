@@ -25,6 +25,11 @@ body {
 	font-variant-numeric: tabular-nums;
 }
 
+/* 暗色模式：边框对齐迁移前观感（半透明白而非纯灰线） */
+[data-mantine-color-scheme="dark"] {
+	--mantine-color-default-border: rgba(255, 255, 255, 0.1);
+}
+
 /* 键盘导航焦点环：仅键盘可见，品牌色 */
 :focus-visible {
 	outline: 2px solid var(--mantine-color-brand-6);
