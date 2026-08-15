@@ -1,4 +1,8 @@
-"""Session state caches — DB-backed for multi-worker safety."""
+"""Session state caches — DB-backed for multi-worker safety.
+
+Phase 2 (T8)：v2 EmotionCache 已删除（情绪状态统一走 EmotionRepository v3），
+仅保留 InitiativeCache。
+"""
 
 from __future__ import annotations
 
@@ -10,56 +14,8 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from models import TrainingSessionState
-    from modules.training.patient_ai.emotion import EmotionState
 
 log = logging.getLogger(__name__)
-
-
-class EmotionCache:
-    """DB-backed emotion state cache."""
-
-    def __init__(self) -> None:
-        pass
-
-    def get(self, record_id: int, db: Session) -> object | None:
-        from models import TrainingSessionState
-
-        row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
-        if row is None or not isinstance(row.emotion_state, dict) or "trust" not in row.emotion_state:
-            return None
-        from modules.training.patient_ai.emotion import EmotionState
-
-        return EmotionState.from_dict(row.emotion_state)
-
-    def set(self, record_id: int, state: EmotionState, db: Session) -> None:
-        from models import TrainingSessionState
-        from modules.training.patient_ai.emotion import EmotionState
-
-        if isinstance(state, EmotionState):
-            row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
-            if row:
-                row.emotion_state = state.to_dict()
-            else:
-                row = TrainingSessionState(record_id=record_id, emotion_state=state.to_dict())
-                db.add(row)
-
-    def cleanup(self, record_id: int, db: Session) -> None:
-        from models import TrainingSessionState
-
-        row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
-        if row:
-            db.delete(row)
-
-    def cleanup_completed(self, completed_ids: AbstractSet[int], db: Session) -> int:
-        from models import TrainingSessionState
-
-        if not completed_ids:
-            return 0
-        return (
-            db.query(TrainingSessionState)
-            .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
-            .delete(synchronize_session="fetch")
-        )
 
 
 class InitiativeCache:

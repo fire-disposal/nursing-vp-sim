@@ -31,7 +31,7 @@ from infra.queue import TaskQueue
 from infra.realtime import RealtimeHub
 from infra.scoring_progress import ScoringProgressTracker
 from models import Notification, SystemNotification, User
-from modules.training.session.cache import EmotionCache, InitiativeCache
+from modules.training.session.cache import InitiativeCache
 from modules.training.session.settlement import settlement_loop
 
 if TYPE_CHECKING:
@@ -100,7 +100,6 @@ async def init_infra(app_state, llm_router):
     app_state.task_queue = task_queue
     log.info("Task queue: %d workers", task_queue.max_workers)
 
-    app_state.emotion_cache = EmotionCache()
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()
     from infra.telemetry import FrontendErrorBuffer

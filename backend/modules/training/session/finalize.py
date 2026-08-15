@@ -57,6 +57,13 @@ def mark_discarded(db: Session, record: TrainingRecord, *, ended_at: datetime | 
     record.scoring_error = NO_STUDENT_MESSAGES_REASON
     set_overdue_if_needed(record, db)
     db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete()
+    # T8：discarded 记录同样清理 v3 情绪行
+    try:
+        from modules.training.patient_ai.emotion import EmotionRepository
+
+        EmotionRepository().cleanup(record.id, db)
+    except Exception:
+        log.warning("Emotion cleanup failed on discard: record_id=%d", record.id, exc_info=True)
 
 
 def finalize_training(

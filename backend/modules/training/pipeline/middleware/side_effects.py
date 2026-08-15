@@ -15,25 +15,6 @@ from ..context import (
 log = logging.getLogger(__name__)
 
 
-def _read_emotion_state(record_id: int, emotion_cache, db, personality: dict):
-    """Return current emotion state from cache (v2 format)."""
-    from modules.training.patient_ai.emotion._legacy import EmotionState
-    from modules.training.patient_ai.emotion_profile import PersonalityProfile
-
-    profile = PersonalityProfile.from_personality(personality)
-    state = None
-    if emotion_cache is not None:
-        try:
-            state = emotion_cache.get(record_id, db)
-        except Exception:
-            log.warning("Emotion state read failed: record_id=%d", record_id, exc_info=True)
-    if isinstance(state, EmotionState):
-        if state.profile.trust_base == 50 and profile.trust_base != 50:
-            state.profile = profile
-        return state
-    return EmotionState(trust=profile.trust_base, comfort=profile.comfort_base, profile=profile)
-
-
 async def side_effects(ctx: PipelineContext, next_mw) -> None:
     await next_mw()
 

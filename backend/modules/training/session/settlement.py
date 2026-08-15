@@ -147,6 +147,10 @@ def _abandon_stale_records(db) -> None:
             db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record.id).delete(
                 synchronize_session="fetch"
             )
+            # T8：abandoned 记录同样清理 v3 情绪行（与评分路径 cleanup_session_runtime 对齐）
+            from modules.training.patient_ai.emotion import EmotionRepository
+
+            EmotionRepository().cleanup(record.id, db)
             db.commit()
             log.info("Settlement: record_id=%d auto-abandoned (stale)", record.id)
         except Exception:
