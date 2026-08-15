@@ -47,6 +47,7 @@ export default function TeacherRecordsPage() {
 	const student_name = searchParams.get("student_name") || "";
 	const case_id = searchParams.get("case_id") || "";
 	const status = searchParams.get("status") || "";
+	const review_status = searchParams.get("review_status") || "";
 	const training_type = searchParams.get("training_type") || "";
 	const date_from = searchParams.get("date_from") || "";
 	const date_to = searchParams.get("date_to") || "";
@@ -94,7 +95,7 @@ export default function TeacherRecordsPage() {
 			p.order = sortDir;
 		}
 		return p;
-	}, [offset, debouncedStudent, case_id, status, training_type, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
+	}, [offset, debouncedStudent, case_id, status, review_status, training_type, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.training.records(params),
@@ -252,6 +253,18 @@ export default function TeacherRecordsPage() {
 									{ value: "in_progress", label: "进行中" },
 									{ value: "completed", label: "已完成" },
 									{ value: "abandoned", label: "已放弃" },
+								]}
+							/>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="xs" fw={500} c="dimmed">复核</Text>
+							<Select
+								value={review_status || null}
+								onChange={(v) => setParam("review_status", v ?? "")}
+								data={[
+									{ value: "", label: "全部" },
+									{ value: "pending", label: "待复核" },
+									{ value: "reviewed", label: "已复核" },
 								]}
 							/>
 						</Stack>

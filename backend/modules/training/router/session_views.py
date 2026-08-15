@@ -71,6 +71,9 @@ def get_records(
     student_name: Annotated[str | None, Query(description="按学生姓名模糊搜索")] = None,
     case_id: Annotated[int | None, Query(description="按病例ID筛选")] = None,
     status: Annotated[str | None, Query(description="按状态筛选(in_progress/completed)")] = None,
+    review_status: Annotated[
+        str | None, Query(description="按复核状态筛选(pending=已完成未复核/reviewed=已复核)")
+    ] = None,
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
@@ -102,6 +105,19 @@ def get_records(
 
     if status:
         base = base.filter(TrainingRecord.status == status)
+    if review_status == "pending":
+        # 待复核 = 已完成评分但尚无教师复核（批次 B-3）
+        base = (
+            base.join(Score, Score.record_id == TrainingRecord.id)
+            .outerjoin(ScoreReview, ScoreReview.score_id == Score.id)
+            .filter(TrainingRecord.scoring_status == "completed", ScoreReview.id.is_(None))
+        )
+    elif review_status == "reviewed":
+        base = (
+            base.join(Score, Score.record_id == TrainingRecord.id)
+            .join(ScoreReview, ScoreReview.score_id == Score.id)
+            .filter(TrainingRecord.scoring_status == "completed")
+        )
     if date_from:
         try:
             df = parse_iso_datetime(date_from)
