@@ -109,6 +109,19 @@ class Score(Base):
     prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
+    # ── Phase 1 评分契约（refactor-scoring.md §2）──
+    # raw_total: Σ条目原始分（0..raw_max），NULL = 旧口径历史分（不可逆）
+    # mapping_version: 映射曲线版本（0=旧口径，1=现行线性映射）
+    # fallback: {kind, note, attempts} 兜底/降级标记——非 NULL 时必须 UI 呈现且不进排行榜
+    # dim_total: LLM 维度自评快照（展示用，不参与总分）
+    # reviewed_total/reviewed_at: 教师复核写回（成绩口径 = COALESCE(reviewed_total, total_score)）
+    raw_total: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mapping_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fallback: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    dim_total: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    reviewed_total: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     record: Mapped[TrainingRecord] = relationship(back_populates="score")
     reviews: Mapped[list[ScoreReview]] = relationship(
         back_populates="score", order_by="ScoreReview.created_at", cascade="all, delete-orphan"

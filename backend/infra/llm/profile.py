@@ -57,7 +57,7 @@ PROFILES: dict[str, LLMProfile] = {
     "scoring": LLMProfile(
         model="deepseek-v4-flash",
         timeout=120,
-        max_tokens=65536,
+        max_tokens=8192,  # Phase 1 成本闸门（S9）：输出上限收紧，thinking 保留
         temperature=0,
         max_retries=3,
         response_format={"type": "json_object"},
@@ -67,7 +67,7 @@ PROFILES: dict[str, LLMProfile] = {
     "scoring_feedback": LLMProfile(
         model="deepseek-v4-flash",
         timeout=60,
-        max_tokens=65536,
+        max_tokens=8192,  # Phase 1 成本闸门（S9）
         temperature=0.3,
         max_retries=2,
         response_format={"type": "json_object"},

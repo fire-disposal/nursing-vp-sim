@@ -1,61 +1,43 @@
-"""分数映射配置 — 将 rubric 原始分映射到 0-100 显示分。
+"""分数映射配置 — 版本化 MappingPolicy（Phase 1 契约）。
 
-所有变量通过 ScoreMappingConfig 集中管理，改配置即生效，无需重跑评分。
+原始分（raw_total，Σ条目）与展示分（total_score，0-100）分离：
+- 展示分 = apply_score_mapping(raw_total, raw_max, policy)
+- mapping_version 记录所用策略，展示语义可解释、可重算；历史分 raw_total=NULL 不可逆
+- 改映射策略 = 新增 version，不重评历史分
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 
-@dataclass
-class ScoreMappingConfig:
-    """评分映射配置
+@dataclass(frozen=True)
+class MappingPolicy:
+    """版本化映射策略。
 
-    修改此 dataclass 即可调整全局评分映射行为。
-    映射基于原始总分 (raw_max) 与显示满分 (display_max) 的比例关系。
+    curve:
+      "linear" — 线性映射: display = raw * (display_max / raw_max)
+      "sqrt"   — 平方根曲线，压低高分段、拉升低分段
+      "power"  — 幂曲线，press_factor 控制弯曲程度
     """
 
-    # 显示满分（通常为 100）
+    version: int = 1
     display_max: int = 100
-
-    # 映射曲线类型
-    # "linear" — 线性映射: display = raw * (display_max / raw_max)
-    # "sqrt"   — 平方根曲线，压低高分段、拉升低分段
-    # "power"  — 幂曲线，press_factor 控制弯曲程度
     curve: Literal["linear", "sqrt", "power"] = "linear"
-
-    # 幂曲线参数（仅 curve="power" 时生效）
-    # < 1: 压缩高分段，给低分段更多区分度
-    # > 1: 拉开高分段差距
-    # = 1: 等同于 linear
     press_factor: float = 0.9
-
     # 最低保障分（原始分 > 0 时，显示分不低于此值）
     floor: int = 0
 
-    # 维度权重覆盖（key: 维度 id, value: 权重系数）
-    # 用于调整各维度在总分中的占比，例如：
-    #   {"inquiry": 1.2, "physical_exam": 0.8}
-    # 空字典则所有维度等权重
-    dimension_weights: dict[str, float] = field(default_factory=dict)
+
+# 当前生效策略（v1 = 线性）。新增策略时 +version，历史分 mapping_version 不变。
+CURRENT_POLICY = MappingPolicy(version=1, curve="linear")
+
+# 旧口径标记：mapping_version=0 的历史分（无 raw_total，展示分不可重算）
+LEGACY_VERSION = 0
 
 
-# 全局单例 — 模块导入时即创建，运行时可通过修改属性热更新
-SCORE_MAPPING = ScoreMappingConfig()
-
-
-def apply_score_mapping(raw_score: float, raw_max: int, cfg: ScoreMappingConfig | None = None) -> int:
-    """将原始评分映射为显示分。
-
-    Args:
-        raw_score: 原始评分（0 - raw_max）
-        raw_max: 原始满分值
-        cfg: 映射配置，默认使用全局 SCORE_MAPPING
-
-    Returns:
-        0 到 display_max 之间的整数显示分
-    """
-    c = cfg or SCORE_MAPPING
+def apply_score_mapping(raw_score: float, raw_max: int, cfg: MappingPolicy | None = None) -> int:
+    """将原始分映射为展示分（0 到 display_max 的整数）。"""
+    c = cfg or CURRENT_POLICY
 
     if raw_max <= 0 or raw_score <= 0:
         return 0
