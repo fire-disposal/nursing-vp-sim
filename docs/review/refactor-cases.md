@@ -24,6 +24,16 @@
 | 生成 | `modules/cases/generation.py` 产出 `hidden_info/exam_anchors`；内置病例只有 `deep_background` | 两个 schema 世界观（C4） |
 | 时长 | 全部 `time_limit: 20` | 与 D5（硬截止 30 分钟）冲突：要么改数据，要么统一 `max(30, ...)`（推荐后者，见主指南附录 A） |
 
+### 2.5 字段粒度收敛（主程序洞察：内部字段过细分并非好事）
+
+**判断依据（已落地为 validator 的消费端清单）**：
+1. **字段必须消费端**：`validator.CONSUMED_FIELDS` 登记每个字段的消费模块——无消费端的字段 = 死字段 = 过细分的税。当前 21 个内置字段全部有消费端（prompt 6 史字段 + 工具 5 项 + 教学 3 项…），**legacy 残留（phases/exam_anchors/voice_*）出现即告警**。
+2. **矛盾温床是"四套心理刻画"**：`personality`（6 维人格）＋`communication_style`＋`deep_background`＋`hidden_info` 各自独立描述"患者怎么想/说什么/不说啥"——C1 的 case3/case9 矛盾本质是**多字段各自维护同一叙事**的漂移。本次修复只做"拉回一致"，**四套收敛为单一 `patient_profile` 是 Phase 3.5 候选**（需同步改 prompt builder + 生成器 + 情绪 profile，动面大，另行排期）。
+3. **6 史字段保留**：`present/past/medication/allergy/family/social` 每个都有独立 prompt 模板变量与默认值兜底，合并会损失结构提示——**"字段数"不是问题，"死字段"和"多字段同叙事"才是**。
+4. **nursing_record 类型统一方向推迟**：bool（现状 9 例）vs object 带 hints（case2/quiz）取决于"hints 是否过细"的粒度决策，与 3.5 同批，当前仅告警不强制。
+
+**已落地（本批）**：`validator.py`（9 类规则 + 消费端清单 + 死字段检测）、`scripts/case-audit.py`（快反诊断，`--json` 供 AI 代理消费）、内置病例数据修复（case3 时间线/呕吐、case9 人物关系/次数/绝对年份、case6 前囟、case4 补示例、quiz 加 `variant_of: case2`）、schema 加 `variant_of` 字段、CI 门禁测试（全量 11 例 0 error）。
+
 ## 3. 病例校验器设计（`backend/modules/cases/validator.py` 新建）
 
 > 单一入口，供 CI、AI 生成闸门、case-audit 脚本三方复用。纯函数 + 结构化错误输出（`list[CaseIssue{severity, field, message, fix_hint}]`）。

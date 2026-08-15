@@ -104,6 +104,9 @@ class CaseDataSchema(JsonbModel):
     nursing_record: dict[str, Any] = {}
     hidden_info: list[str] = []
 
+    # 同名患者跨病例去重声明（校验器要求）：如 quiz 变体指向 case2
+    variant_of: str = ""
+
     quiz: QuizConfig | None = None
     voice_type: str = ""
     voice_override: str = ""
