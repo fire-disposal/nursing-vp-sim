@@ -130,7 +130,7 @@ export interface TrainingStore {
 		timeLimitMinutes: number;
 		recordDetail: SessionRecordDetail | null;
 		initialMessages: ChatMessage[];
-		emotionSeed?: { trust: number; comfort: number; state: string } | null;
+		emotionSeed?: { trust: number; comfort?: number; anxiety?: number; irritation?: number; cooperation?: number; dominant_state?: string; state?: string } | null;
 	}) => void;
 	reset: () => void;
 
@@ -202,10 +202,10 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 				: "neutral",
 			trust: data.emotionSeed?.trust ?? 50,
 			comfort: data.emotionSeed?.comfort ?? 50,
-			anxiety: 50,
-			irritation: 50,
-			cooperation: 50,
-			emotion4D: "neutral" as Emotion4DLabel,
+			anxiety: data.emotionSeed?.anxiety ?? 50,
+			irritation: data.emotionSeed?.irritation ?? 50,
+			cooperation: data.emotionSeed?.cooperation ?? 50,
+			emotion4D: (data.emotionSeed?.dominant_state as Emotion4DLabel) ?? "neutral",
 		});
 	},
 
@@ -352,8 +352,21 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 	setTtsAutoPlay(v) { set({ ttsAutoPlay: v }); },
 	toggleTts() { set((s) => ({ ttsAutoPlay: !s.ttsAutoPlay })); },
 	setEmotion(e) { set({ emotion: e }); },
-	setTrustComfort(trust, comfort) { set({ trust, comfort }); },
-	setEmotion4D(trust, anxiety, irritation, cooperation, label) { set({ trust, anxiety, irritation, cooperation, emotion4D: label }); },
+	setTrustComfort(trust, comfort) {
+		const norm = (v: number) => (v <= 1 ? Math.round(v * 100) : v);
+		set({ trust: norm(trust), comfort: norm(comfort) });
+	},
+	setEmotion4D(trust, anxiety, irritation, cooperation, label) {
+		// v3 后端 4D 为 0-1 浮点，UI 按 0-100 渲染——此处统一归一化（修复"情绪指示条无变动"）
+		const norm = (v: number) => (v <= 1 ? Math.round(v * 100) : v);
+		set({
+			trust: norm(trust),
+			anxiety: norm(anxiety),
+			irritation: norm(irritation),
+			cooperation: norm(cooperation),
+			emotion4D: label,
+		});
+	},
 	setPortraitUrl(url) { set({ portraitUrl: url }); },
 }));
 

@@ -100,3 +100,18 @@ def derive_speech_policy(vector: EmotionVector) -> dict:
 
 def clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
+
+
+def serialize_emotion_vector(vector) -> dict:
+    """情绪向量统一序列化（前端契约）：0-100 四维 + dominant_state 标签。
+
+    会话 init / 主动追问惩罚 / SSE emotion_change 三处共用，消除
+    0-1 与 0-100 混用导致的"指示条无变动"类刻度错位。
+    """
+    return {
+        "trust": round(vector.trust * 100),
+        "anxiety": round(vector.anxiety * 100),
+        "irritation": round(vector.irritation * 100),
+        "cooperation": round(vector.cooperation * 100),
+        "dominant_state": resolve_dominant_state(vector),
+    }

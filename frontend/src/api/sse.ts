@@ -29,7 +29,7 @@ export interface SSEHandlers {
 	onChunk?: (text: string) => void;
 	onDone?: (id?: number, citations?: Array<{ source: string; section: string }>, payload?: StreamDonePayload) => void;
 	onError?: (msg: string) => void;
-	onEmotionChange?: (data: { state: string; trust: number; comfort: number }) => void;
+	onEmotionChange?: (data: { trust: number; anxiety: number; irritation: number; cooperation: number; dominant_state?: string }) => void;
 	onInitiativeState?: (data: InitiativeStateData) => void;
 }
 

@@ -10,9 +10,11 @@ export async function sendMessageStream(
 	onError: (msg: string) => void,
 	signal?: AbortSignal,
 	onEmotionChange?: (change: {
-		state: string;
 		trust: number;
-		comfort: number;
+		anxiety: number;
+		irritation: number;
+		cooperation: number;
+		dominant_state?: string;
 	}) => void,
 	onInitiativeState?: (data: InitiativeStateData) => void,
 ) {
@@ -39,9 +41,11 @@ export async function correctLastMessageStream(
 	onError: (msg: string) => void,
 	signal?: AbortSignal,
 	onEmotionChange?: (change: {
-		state: string;
 		trust: number;
-		comfort: number;
+		anxiety: number;
+		irritation: number;
+		cooperation: number;
+		dominant_state?: string;
 	}) => void,
 	onInitiativeState?: (data: InitiativeStateData) => void,
 ) {

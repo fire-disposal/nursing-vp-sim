@@ -13,9 +13,11 @@ export interface StreamCallbacks {
 	onPatientDone?: (replyId?: number) => void;
 	onError?: (err: string) => void;
 	onEmotionChange?: (change: {
-		state: string;
 		trust: number;
-		comfort: number;
+		anxiety: number;
+		irritation: number;
+		cooperation: number;
+		dominant_state?: string;
 	}) => void;
 	onInitiativeState?: (data: InitiativeStateData) => void;
 }

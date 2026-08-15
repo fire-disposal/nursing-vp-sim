@@ -1,6 +1,7 @@
 """Unit tests for initiative gaps — fallback wording and trigger bookkeeping."""
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -13,6 +14,13 @@ from modules.training.patient_ai.initiative import (
 )
 from modules.training.session.cache import InitiativeCache
 from tests._fakes import FakeSession, UpdateCapableFakeSession
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+
+def _db(fake) -> "Session":
+    return cast("Session", fake)
 
 
 class TestLastResortFallback:
@@ -33,9 +41,9 @@ class TestTriggerBookkeeping:
         cache = InitiativeCache()
         db = FakeSession()
         db.add(TrainingSessionState(record_id=1, initiative_count=0))
-        count = mark_initiative_triggered(1, cache, db)
+        count = mark_initiative_triggered(1, cache, _db(db))
         assert count == 1
-        assert mark_initiative_triggered(1, cache, db) == 2
+        assert mark_initiative_triggered(1, cache, _db(db)) == 2
 
     def test_update_initiative_timer_sets_now(self):
         from models import TrainingSessionState
@@ -44,10 +52,10 @@ class TestTriggerBookkeeping:
         db = FakeSession()
         db.add(TrainingSessionState(record_id=1, initiative_count=0))
         before = datetime.now(UTC).timestamp()
-        update_initiative_timer(1, cache, db)
+        update_initiative_timer(1, cache, _db(db))
         state = db.rows.get(1)
         assert state is not None
-        assert state.initiative_timer >= before
+        assert state.initiative_timer >= before  # ty: ignore[unresolved-attribute]
 
 
 class TestInitiativePenalty:
@@ -70,24 +78,24 @@ class TestInitiativePenalty:
         self._state_row(db, 1, trust=0.5)
         cache = InitiativeCache()
 
-        result = apply_initiative_penalty(1, cache, db)
+        result = apply_initiative_penalty(1, cache, _db(db))
 
-        assert result["trust"] == 0.42  # 0.50 - 0.08
+        assert result["trust"] == 42  # 0.50-0.08=0.42 → 0-100 序列化
         row = db.query(TrainingSessionEmotionState).filter(TrainingSessionEmotionState.record_id == 1).first()
         assert row is not None
-        assert row.trust == 0.42
-        assert row.cooperation == pytest.approx(0.56, abs=1e-9)  # 0.60 - 0.04
-        assert row.version == 2
+        assert row.trust == 0.42  # ty: ignore[unresolved-attribute]
+        assert row.cooperation == pytest.approx(0.56, abs=1e-9)  # ty: ignore[unresolved-attribute]
+        assert row.version == 2  # ty: ignore[unresolved-attribute]
 
     def test_penalty_noop_without_state(self):
         db = UpdateCapableFakeSession()
         cache = InitiativeCache()
-        assert apply_initiative_penalty(1, cache, db) == {}
+        assert apply_initiative_penalty(1, cache, _db(db)) == {}
         assert db.query(TrainingSessionEmotionState).all() == []
 
     def test_penalty_clamps_at_zero(self):
         db = UpdateCapableFakeSession()
         self._state_row(db, 1, trust=0.02)
         cache = InitiativeCache()
-        result = apply_initiative_penalty(1, cache, db)
+        result = apply_initiative_penalty(1, cache, _db(db))
         assert result["trust"] == 0.0

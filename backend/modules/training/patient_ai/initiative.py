@@ -299,7 +299,9 @@ def apply_initiative_penalty(
         # 直接套用会被 clamp01 钳到 0，等价于一次性清零信任。
         new_state = state.apply(delta, turn_id=f"{record_id}-initiative_penalty")
         saved = repo.save(record_id, new_state, db)
-        return {"trust": saved.vector.trust, "anxiety": saved.vector.anxiety}
+        from modules.training.patient_ai.emotion.renderer import serialize_emotion_vector
+
+        return serialize_emotion_vector(saved.vector)
     except Exception:
         log.warning("Initiative penalty failed: record_id=%d", record_id, exc_info=True)
         return {}

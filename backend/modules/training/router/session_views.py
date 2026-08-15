@@ -239,14 +239,9 @@ def get_record_detail(
         repo = EmotionRepository()
         es = repo.get(record_id, db)
         if es is not None:
-            emotion = {
-                "trust": round(es.vector.trust * 100),
-                "comfort": round((1.0 - es.vector.anxiety * 0.5 - es.vector.irritation * 0.5) * 100),
-                "anxiety": round(es.vector.anxiety * 100),
-                "irritation": round(es.vector.irritation * 100),
-                "cooperation": round(es.vector.cooperation * 100),
-                "state": "neutral",  # deprecated; use 4D fields
-            }
+            from modules.training.patient_ai.emotion.renderer import serialize_emotion_vector
+
+            emotion = serialize_emotion_vector(es.vector)
         initiative_count = session_state.initiative_count or 0
     correction_raw = dict(record.runtime_state or {}).get("message_correction")
     correction_state = correction_raw if isinstance(correction_raw, dict) else {}

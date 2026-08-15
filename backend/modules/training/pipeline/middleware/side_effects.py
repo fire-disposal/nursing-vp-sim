@@ -26,14 +26,23 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
 
     has_emotion = features.get("emotion", False)
     if has_emotion and ctx.llm_reply:
-        # 推送 4D emotion_change
+        # 推送 4D emotion_change（统一 0-100 刻度 + dominant_state，见 serialize_emotion_vector）
         change_4d = ctx.state.get("_emotion_change")
         dominant = ctx.state.get("_emotion_dominant")
         if change_4d and dominant:
+            from modules.training.patient_ai.emotion import EmotionVector
+            from modules.training.patient_ai.emotion.renderer import serialize_emotion_vector
+
+            vector = EmotionVector(
+                trust=change_4d.get("trust", 0.5),
+                anxiety=change_4d.get("anxiety", 0.5),
+                irritation=change_4d.get("irritation", 0.5),
+                cooperation=change_4d.get("cooperation", 0.5),
+            )
             ctx.system_events.append(
                 {
                     "emotion_change": {
-                        **change_4d,
+                        **serialize_emotion_vector(vector),
                         "dominant_state": dominant,
                     }
                 }

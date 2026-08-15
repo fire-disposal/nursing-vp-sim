@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { triggerInitiative } from "@/api/training";
 import type { EmotionState } from "@/stores/trainingStore";
 import {
+	EMOTION_4D_LABELS,
 	EMOTION_LABELS,
 	useTrainingStore,
 } from "@/stores/trainingStore";
@@ -45,6 +46,41 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	open: "var(--mantine-color-green-6)",
 };
 
+// ── v3 4D 九态显示映射（全局对齐：显示以 dominant_state 为准）──
+const EMOTION_4D_ICONS: Record<string, string> = {
+	open_trusting: "😄",
+	trusting_anxious: "😊",
+	irritated: "😠",
+	anxious_cooperative: "😰",
+	anxious_guarded: "😟",
+	withdrawn: "😐",
+	defensive: "😟",
+	relaxed: "😊",
+	neutral: "🙂",
+};
+const EMOTION_4D_COLOR: Record<string, string> = {
+	open_trusting: "green",
+	trusting_anxious: "blue",
+	irritated: "red",
+	anxious_cooperative: "violet",
+	anxious_guarded: "violet",
+	withdrawn: "red",
+	defensive: "orange",
+	relaxed: "blue",
+	neutral: "dimmed",
+};
+const EMOTION_4D_DOT: Record<string, string> = {
+	open_trusting: "var(--mantine-color-green-6)",
+	trusting_anxious: "var(--mantine-color-blue-6)",
+	irritated: "var(--mantine-color-red-6)",
+	anxious_cooperative: "var(--mantine-color-violet-6)",
+	anxious_guarded: "var(--mantine-color-violet-6)",
+	withdrawn: "var(--mantine-color-red-6)",
+	defensive: "var(--mantine-color-orange-6)",
+	relaxed: "var(--mantine-color-blue-6)",
+	neutral: "var(--mantine-color-gray-6)",
+};
+
 export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const emotion = useTrainingStore((s) => s.emotion);
 	const trust = useTrainingStore((s) => s.trust);
@@ -80,7 +116,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 			if (res.data.triggered && res.data.message) {
 				bus.emit("initiative:triggered", { content: res.data.message });
 				if (res.data.emotion) {
-					bus.emit("emotion:changed", res.data.emotion as { state: string; trust: number; comfort: number });
+					bus.emit("emotion:changed", res.data.emotion as { trust: number; anxiety: number; irritation: number; cooperation: number; dominant_state?: string });
 				}
 			}
 			// 后端是唯一决策者：任何响应（触发/拒绝/上限）都停表，直到下一轮 initiative:state 重新武装。
@@ -181,7 +217,12 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 	}, [emotion, emotion4D]);
 
 	if (!capabilities.emotion) return null;
-	const label = EMOTION_LABELS[emotion];
+	// 全局对齐：v3 后端只发 4D（emotion4D 为 live 标签）；v2 emotion 兜底（legacy）
+	const use4D = emotion4D !== "neutral" || emotion === "neutral";
+	const displayLabel = use4D ? (EMOTION_4D_LABELS[emotion4D] ?? EMOTION_LABELS[emotion]) : EMOTION_LABELS[emotion];
+	const displayIcon = use4D ? (EMOTION_4D_ICONS[emotion4D] ?? EMOTION_ICONS[emotion]) : EMOTION_ICONS[emotion];
+	const displayColor = use4D ? (EMOTION_4D_COLOR[emotion4D] ?? EMOTION_COLOR[emotion]) : EMOTION_COLOR[emotion];
+	const displayDot = use4D ? (EMOTION_4D_DOT[emotion4D] ?? EMOTION_DOT[emotion]) : EMOTION_DOT[emotion];
 	const trustPct = Math.max(0, Math.min(100, trust));
 
 	if (compact) {
@@ -204,9 +245,9 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 							transform: emojiPop ? "scale(1.25)" : undefined,
 						}}
 					>
-						{EMOTION_ICONS[emotion]}
+						{displayIcon}
 					</Text>
-					<Text size="11px" c="dimmed" truncate>{label}</Text>
+					<Text size="11px" c="dimmed" truncate>{displayLabel}</Text>
 					{/* Trust micro-bar */}
 					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", flexShrink: 0 }}>
 						<Box
@@ -275,12 +316,12 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 							transform: emojiPop ? "scale(1.25)" : undefined,
 						}}
 					>
-						{EMOTION_ICONS[emotion]}
+						{displayIcon}
 					</Text>
-					<Text size="xs" fw={600} c={EMOTION_COLOR[emotion]}>
-						{label}
+					<Text size="xs" fw={600} c={displayColor}>
+						{displayLabel}
 					</Text>
-					<Box w={8} h={8} style={{ borderRadius: 999, background: EMOTION_DOT[emotion] }} />
+					<Box w={8} h={8} style={{ borderRadius: 999, background: displayDot }} />
 				</Group>
 
 				{/* 4D bars: trust, anxiety, irritation, cooperation */}
