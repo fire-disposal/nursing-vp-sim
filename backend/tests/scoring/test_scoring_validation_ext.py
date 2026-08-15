@@ -1,5 +1,7 @@
 """Extended scoring validation tests for 1.8 — hallucination filtering, clamping, total recalc, missing-zero."""
 
+from typing import Any
+
 from modules.training.scoring.validation import (
     _clamp_scores,
     _filter_hallucinated_dimensions,
@@ -7,7 +9,7 @@ from modules.training.scoring.validation import (
     _recalc_total_from_dimensions,
 )
 
-RUBRIC_SAMPLE = {
+RUBRIC_SAMPLE: dict[str, Any] = {
     "raw_scale": 3,
     "raw_max": 57,
     "dimensions": [
@@ -63,20 +65,25 @@ class TestClampScores:
 
 
 class TestRecalcTotalFromDimensions:
-    def test_recalc_total_matches_rounded_weighted_sum(self):
+    def test_recalc_total_sums_item_scores(self):
+        """Phase 1 (S2)：总分 = Σ条目分（维度分不参与）。"""
         detail = {
-            "问诊完整性": {"score": 25, "max": 30, "items": [{}, {}]},
-            "沟通技巧": {"score": 10, "max": 15, "items": [{}]},
-            "临床推理": {"score": 8, "max": 12, "items": [{}]},
+            "问诊完整性": {"score": 25, "max": 30, "items": [{"score": 3}, {"score": 2}]},
+            "沟通技巧": {"score": 10, "max": 15, "items": [{"score": 1}]},
+            "临床推理": {"score": 8, "max": 12, "items": [{"score": 3}]},
         }
         total = _recalc_total_from_dimensions(detail, raw_scale=3)
-        expected = round(25 * 30 / (2 * 3) + 10 * 15 / (1 * 3) + 8 * 12 / (1 * 3))
-        assert total == expected
+        assert total == 3 + 2 + 1 + 3  # 9，与维度分 25/10/8 无关
+
+    def test_item_scores_clamped_to_raw_scale(self):
+        detail = {"d": {"max": 9, "items": [{"score": 5}, {"score": -2}]}}
+        total = _recalc_total_from_dimensions(detail, raw_scale=3)
+        assert total == 3 + 0  # 超上限钳到 3，负分钳到 0
 
     def test_skips_dim_without_items(self):
         detail = {"问诊完整性": {"score": 10, "max": 10}}
         total = _recalc_total_from_dimensions(detail, raw_scale=3)
-        assert total == 10  # no items → adds raw score directly
+        assert total == 0  # 无条目 → 贡献 0（维度分不再直接计入）
 
 
 class TestInjectMissingDimensions:

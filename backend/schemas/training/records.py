@@ -61,6 +61,11 @@ class ScoreItem(BaseModel):
     review_comment: str | None = None
     review: ScoreReviewItem | None = None
     created_at: datetime
+    # Phase 1 契约：raw_total / fallback / 复核写回（成绩口径 = COALESCE(reviewed_total, total_score)）
+    raw_total: float | None = None
+    mapping_version: int = 0
+    fallback: dict[str, Any] | None = None
+    reviewed_total: float | None = None
 
 
 class PatientPublicInfo(BaseModel):

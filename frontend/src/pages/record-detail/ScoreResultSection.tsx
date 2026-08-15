@@ -78,10 +78,11 @@ export default function ScoreResultSection({
 }: Props) {
 	const [showAiOriginal, setShowAiOriginal] = useState(false);
 
-	const displayTotal = scoreReview?.total_score ?? recordScore.total_score;
+	const displayTotal = recordScore.reviewed_total ?? scoreReview?.total_score ?? recordScore.total_score;
 	const hasReviewOverride =
-		scoreReview?.total_score != null &&
-		scoreReview.total_score !== recordScore.total_score;
+		(scoreReview?.total_score != null && scoreReview.total_score !== recordScore.total_score) ||
+		(recordScore.reviewed_total != null && recordScore.reviewed_total !== recordScore.total_score);
+	const hasFallback = recordScore.fallback != null;
 
 	return (
 		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }}>
@@ -97,6 +98,11 @@ export default function ScoreResultSection({
 							</Badge>
 						) : (
 							<Badge variant="light" color="brand">AI 初评</Badge>
+						)}
+						{hasFallback && (
+							<Badge variant="light" color="red">
+								<IconAlertTriangle size={12} /> 评分异常（系统故障）
+							</Badge>
 						)}
 						{isReviewed && review?.reviewed_by_name && (
 							<Text size="xs" c="dimmed">

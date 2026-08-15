@@ -155,7 +155,8 @@ class ScoreboardService:
             )
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
-            .filter(*conditions)
+            # INV-3：fallback 分（评分故障）不进排名/平均分
+            .filter(*conditions, Score.fallback.is_(None))
             .group_by(TrainingRecord.user_id)
         )
 
@@ -210,8 +211,7 @@ class ScoreboardService:
             progress_map = self._progress_for_users(user_ids, conditions)
             # 无进步数据（不足 2 次训练）一律排最后
             progress_keys = {
-                uid: (delta if delta is not None else float("-inf"))
-                for uid, (delta, _trend) in progress_map.items()
+                uid: (delta if delta is not None else float("-inf")) for uid, (delta, _trend) in progress_map.items()
             }
             all_rows.sort(
                 key=lambda r: progress_keys.get(r.user_id, float("-inf")),
@@ -246,7 +246,7 @@ class ScoreboardService:
             )
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
-            .filter(*conditions, TrainingRecord.user_id.in_(user_ids))
+            .filter(*conditions, TrainingRecord.user_id.in_(user_ids), Score.fallback.is_(None))
             .order_by(TrainingRecord.start_time.asc())
             .all()
         )
@@ -331,7 +331,7 @@ class ScoreboardService:
             self.db.query(func.count(func.distinct(TrainingRecord.case_id)))
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
-            .filter(*conditions)
+            .filter(*conditions, Score.fallback.is_(None))
             .scalar()
             or 0
         )
@@ -365,7 +365,7 @@ class ScoreboardService:
             self.db.query(TrainingRecord, Score.total_score.label("score"))
             .options(joinedload(TrainingRecord.case), joinedload(TrainingRecord.assignment))
             .join(Score, Score.record_id == TrainingRecord.id)
-            .filter(*conditions)
+            .filter(*conditions, Score.fallback.is_(None))
             .order_by(TrainingRecord.start_time.asc())
             .all()
         )

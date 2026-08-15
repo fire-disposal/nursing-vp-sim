@@ -134,6 +134,10 @@ def get_scoring_status(
         "score": {
             "total_score": score.total_score,
             "detail_scores": score.detail_scores,
+            "raw_total": score.raw_total,
+            "mapping_version": score.mapping_version,
+            "fallback": score.fallback,
+            "reviewed_total": score.reviewed_total,
             "review_status": "reviewed" if review_exists else "pending",
         }
         if score
@@ -163,6 +167,45 @@ def _handle_scoring_failure(
                 if terminal == ScoringStatus.COMPLETED:
                     log.info("评分超时但已存在有效 Score，纠正为 completed", extra={"record_id": record_id})
                     return
+                # S6 两阶段 force 重评：新评分失败 → 从 runtime_state 快照恢复旧分/旧复核
+                snapshot = dict(record.runtime_state or {}).get("force_rescore_snapshot")
+                if snapshot and not db.query(Score).filter(Score.record_id == record_id).first():
+                    old = snapshot.get("score")
+                    if old:
+                        restored = Score(
+                            record_id=record_id,
+                            total_score=old["total_score"],
+                            detail_scores=old.get("detail_scores"),
+                            strengths=old.get("strengths"),
+                            weaknesses=old.get("weaknesses"),
+                            missed_content=old.get("missed_content"),
+                            suggestions=old.get("suggestions"),
+                            rubric_version=old.get("rubric_version"),
+                            model_name=old.get("model_name"),
+                            prompt_version=old.get("prompt_version"),
+                            raw_total=old.get("raw_total"),
+                            mapping_version=old.get("mapping_version", 0),
+                            fallback=old.get("fallback"),
+                            reviewed_total=old.get("reviewed_total"),
+                        )
+                        db.add(restored)
+                        db.flush()
+                        rv = snapshot.get("review")
+                        if rv:
+                            db.add(
+                                ScoreReview(
+                                    score_id=restored.id,
+                                    reviewed_by=rv.get("reviewed_by"),
+                                    detail_scores=rv.get("detail_scores"),
+                                    total_score=rv.get("total_score"),
+                                    comment=rv.get("comment"),
+                                )
+                            )
+                        rs = dict(record.runtime_state or {})
+                        rs.pop("force_rescore_snapshot", None)
+                        record.runtime_state = rs
+                        db.commit()
+                        log.warning("force rescore 失败，已恢复旧分", extra={"record_id": record_id})
                 actual_user_id = user_id or record.user_id
                 _create_notification(
                     db,
@@ -307,17 +350,18 @@ async def _run_scoring_background(
             tracker.update(record_id, ScoringStatus.COMPLETED, 100, "评分完成")
         log.info("[SCORING] DONE record_id=%d", record_id)
 
+        score_obj = db.query(Score).filter(Score.record_id == record_id).first()
+        has_fallback = bool(score_obj and score_obj.fallback)
         _create_notification(
             db,
             user_id=record.user_id,
             record_id=record.id,
             type="scoring_complete",
             title="评分已完成",
-            body="训练评分已完成，请查看详情",
+            body=("训练评分已完成（评分异常，已标记，请查看详情）" if has_fallback else "训练评分已完成，请查看详情"),
         )
         db.commit()
 
-        score_obj = db.query(Score).filter(Score.record_id == record_id).first()
         await _publish_scoring_event(
             realtime_hub,
             record.user_id,
@@ -325,6 +369,7 @@ async def _run_scoring_background(
             {
                 "record_id": record.id,
                 "total_score": score_obj.total_score if score_obj else None,
+                "fallback": bool(score_obj and score_obj.fallback),
             },
         )
     except TimeoutError:
@@ -485,6 +530,37 @@ async def retry_scoring(
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
         if old_score:
+            # S6 两阶段 force 重评：先快照旧分/旧复核，新评分失败时由
+            # _handle_scoring_failure 恢复（不再"先删后算"丢分）
+            snapshot = {
+                "score": {
+                    "total_score": old_score.total_score,
+                    "detail_scores": old_score.detail_scores,
+                    "strengths": old_score.strengths,
+                    "weaknesses": old_score.weaknesses,
+                    "missed_content": old_score.missed_content,
+                    "suggestions": old_score.suggestions,
+                    "rubric_version": old_score.rubric_version,
+                    "model_name": old_score.model_name,
+                    "prompt_version": old_score.prompt_version,
+                    "raw_total": old_score.raw_total,
+                    "mapping_version": old_score.mapping_version,
+                    "fallback": old_score.fallback,
+                    "reviewed_total": old_score.reviewed_total,
+                },
+                "review": None,
+            }
+            old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first()
+            if old_review:
+                snapshot["review"] = {
+                    "reviewed_by": old_review.reviewed_by,
+                    "detail_scores": old_review.detail_scores,
+                    "total_score": old_review.total_score,
+                    "comment": old_review.comment,
+                }
+            rs = dict(record.runtime_state or {})
+            rs["force_rescore_snapshot"] = snapshot
+            record.runtime_state = rs
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
 

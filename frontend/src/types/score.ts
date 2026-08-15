@@ -29,4 +29,9 @@ export interface ScoreData {
 	suggestions?: string;
 	rubric_version?: string;
 	review?: ScoreReviewData | null;
+	/** Phase 1 契约：原始分/映射版本/兜底标记/复核写回分 */
+	raw_total?: number | null;
+	mapping_version?: number;
+	fallback?: { kind?: string; dims?: string[] } | null;
+	reviewed_total?: number | null;
 }

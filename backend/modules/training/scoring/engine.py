@@ -440,44 +440,60 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
         else:
             result.setdefault(field, _FEEDBACK_DEFAULTS[field])
 
+    # S3: 全空兜底（LLM 双次失败）——跳过注入/换算，保留 0 分 + llm_empty 标记
+    if result.get("fallback", {}).get("kind") == "llm_empty":
+        result["raw_total"] = 0
+        result["dim_total"] = {}
+        return result
+
     _inject_rubric_max(result, rubric)
     _coerce_numeric_fields(result)
 
     rubric_dim_names = {d["name"] for d in rubric.get("dimensions", [])}
     result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
     _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
-    _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
+    injected_dims = _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
+    if injected_dims:
+        # S4: 维度静默丢失 → 显式 fallback 标记（不再是静默 0 分）
+        result["fallback"] = {"kind": "dims_injected", "dims": injected_dims}
+        log.warning("scoring dims injected: %s", injected_dims, extra={"record_id": result.get("_record_id")})
+
+    # S2: 总分 = Σ条目分（raw），dim_total 为 LLM 维度自评快照（展示用）
+    raw_scale = rubric.get("raw_scale", 3)
+    raw_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale)
+    result["raw_total"] = raw_total
+    result["dim_total"] = {
+        name: {"score": d.get("score"), "max": d.get("max")}
+        for name, d in result.get("detail_scores", {}).items()
+        if isinstance(d, dict)
+    }
+
     if result.get("_scoring_fallback"):
         log.warning(
             "scoring fallback: keeping LLM total_score, bypassing dimension recalculation",
             extra={"llm_total": result.get("total_score")},
         )
-    else:
-        recalc_total = _recalc_total_from_dimensions(
-            result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3)
-        )
-        if abs(recalc_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
-            original_total = float(result.get("total_score", 0))
-            if recalc_total == 0.0 and original_total > 0:
-                log.warning(
-                    "total_score_mismatch_dim_zero: recalc=0 while LLM gave non-zero, keeping LLM value",
-                    extra={"original_llm_total": original_total, "recalc_total": recalc_total},
-                )
-            else:
-                log.warning(
-                    "total_score_mismatch",
-                    extra={"llm_total": result["total_score"], "recalc_total": recalc_total},
-                )
-                result["total_score"] = recalc_total
+    elif abs(raw_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
+        original_total = float(result.get("total_score", 0))
+        if raw_total == 0.0 and original_total > 0:
+            log.warning(
+                "total_score_mismatch_dim_zero: recalc=0 while LLM gave non-zero, keeping LLM value",
+                extra={"original_llm_total": original_total, "recalc_total": raw_total},
+            )
+        else:
+            log.warning(
+                "total_score_mismatch",
+                extra={"llm_total": result["total_score"], "recalc_total": raw_total},
+            )
+            result["total_score"] = raw_total
 
     _validate_scoring_result(result, rubric)
 
-    injected_count = sum(
-        1 for v in result.get("detail_scores", {}).values() if isinstance(v, dict) and v.get("_injected")
-    )
+    injected_count = len(injected_dims)
     total_dims = len(rubric.get("dimensions", []))
     if total_dims > 0 and injected_count == total_dims:
         result["_scoring_fallback"] = True
+        result.setdefault("fallback", {"kind": "all_dims_injected"})
         log.warning(
             "scoring_all_dims_injected: record_id=%d total_score=%s",
             result.get("_record_id", "?"),
@@ -516,6 +532,11 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         rubric_version=get_rubric_version_id(rubric),
         model_name=get_model("scoring"),
         prompt_version=snapshot.schema_version if snapshot else 1,
+        # Phase 1 契约：raw_total/fallback/dim_total 落库（S2/S3/S4）
+        raw_total=result.get("raw_total"),
+        mapping_version=1 if result.get("raw_total") is not None else 0,
+        fallback=result.get("fallback"),
+        dim_total=result.get("dim_total"),
     )
     db.add(score)
     db.commit()
@@ -679,9 +700,17 @@ def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None 
 
     Preserves the partial first-attempt result so the parallel feedback
     result (which may have succeeded) is not discarded by asyncio.gather.
+    Phase 1 (S3)：fallback 结构化落库——UI 可见、不进排行榜。
     """
     if first:
         first["_scoring_fallback"] = True
+        first["fallback"] = {"kind": "llm_partial"}
         return first
     log.warning("scoring_fallback_zero: both LLM attempts returned empty — saving 0-score")
-    return {"total_score": 0, "detail_scores": {}, "_scoring_fallback": True}
+    return {
+        "total_score": 0,
+        "detail_scores": {},
+        "raw_total": 0,
+        "_scoring_fallback": True,
+        "fallback": {"kind": "llm_empty"},
+    }

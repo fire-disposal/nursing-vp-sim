@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,8 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from models import Score, ScoreReview, TrainingRecord, User
-from modules.training.scoring.validation import _recalc_total_from_dimensions
+from modules.training.scoring.engine import DEFAULT_RAW_MAX, _resolve_rubric
+from modules.training.scoring.validation import review_total_from_detail
 from schemas import ScoreReviewRequest, ScoreReviewResponse
 
 log = logging.getLogger(__name__)
@@ -63,8 +65,16 @@ def submit_score_review(
         raise HTTPException(status_code=404, detail="该记录暂无评分")
 
     if req.detail_scores is not None:
-        raw_scale = 3
-        review_total = _recalc_total_from_dimensions(req.detail_scores, raw_scale)
+        # Phase 1 (S1/S5)：展示刻度 → raw → Σ条目 → 展示分，恒 ∈ [0,100]；
+        # 复核结果写回 Score.reviewed_total，成绩口径 = COALESCE(reviewed_total, total_score)
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == score.record_id).first()
+        raw_max = DEFAULT_RAW_MAX
+        if record is not None:
+            rubric = _resolve_rubric(db, record)
+            raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
+        review_total = review_total_from_detail(req.detail_scores, raw_max)
+        if not 0 <= review_total <= 100:
+            raise HTTPException(status_code=400, detail=f"复核总分越界: {review_total}")
     else:
         review_total = None
 
@@ -88,6 +98,12 @@ def submit_score_review(
         db.add(review)
         db.commit()
         db.refresh(review)
+
+    if review_total is not None:
+        score.reviewed_total = review_total
+        score.reviewed_at = datetime.now(UTC)
+        db.add(score)
+        db.commit()
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id}",

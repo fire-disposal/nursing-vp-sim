@@ -2,7 +2,7 @@
 
 import logging
 
-from .mapping import SCORE_MAPPING, apply_score_mapping
+from .mapping import CURRENT_POLICY, apply_score_mapping
 
 log = logging.getLogger(__name__)
 
@@ -202,18 +202,18 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
 
 def _convert_to_100_scale(result: dict, raw_max: int):
-    """使用可配置的分数映射将原始分转换为显示分。
+    """展示换算（落库前调用）：total_score 与 detail_scores 转为展示刻度。
 
-    配置位于 core/score_mapping.py 的 SCORE_MAPPING 单例，
-    修改其属性即可调整映射行为，无需重跑评分。
+    Phase 1 契约：raw_total/dim_total 在换算前已由 postprocess 快照（保持 raw）；
+    此处只做展示化，供前端直接消费（与旧版展示形态一致，前端零改动）。
     """
     if raw_max <= 0:
         return
 
-    cfg = SCORE_MAPPING
-    result["total_score"] = apply_score_mapping(result["total_score"], raw_max, cfg)
+    policy = CURRENT_POLICY
+    result["total_score"] = apply_score_mapping(result["total_score"], raw_max, policy)
 
-    factor = cfg.display_max / raw_max if cfg.curve == "linear" else 1.0
+    factor = policy.display_max / raw_max if policy.curve == "linear" else 1.0
 
     detail_scores = result.get("detail_scores", {})
     for dim_data in detail_scores.values():
@@ -247,26 +247,71 @@ def _clamp_scores(detail_scores: dict, raw_scale: int) -> None:
                 item["score"] = max(0.0, min(float(item.get("score", 0)), float(raw_scale)))
 
 
-def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int) -> float:
+def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 3) -> float:
+    """Phase 1 (S2)：总分 = Σ条目分。维度分仅自评展示，不参与总分。
+
+    旧实现用 dim.score（LLM 维度自评）归一化——条目分成为装饰且与总分无
+    算术关系；本实现改为逐条目累加（每项钳制在 [0, raw_scale]），
+    保证"总分 == Σ条目分"可审计。
+    """
     if raw_scale <= 0:
         return 0.0
     total = 0.0
     for dim_data in detail_scores.values():
         if not isinstance(dim_data, dict):
             continue
-        dim_score = dim_data.get("score", 0)
-        dim_max = dim_data.get("max", 0)
-        items = dim_data.get("items", [])
-        if isinstance(items, list) and len(items) > 0 and dim_max > 0:
-            raw_max_dim = len(items) * raw_scale
-            total += round(dim_score * dim_max / raw_max_dim, 1)
-        else:
-            total += dim_score
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            s = item.get("score", 0)
+            if not isinstance(s, (int, float)):
+                continue
+            total += max(0.0, min(float(s), float(raw_scale)))
     return round(total, 1)
 
 
-def _inject_missing_dimensions(detail_scores: dict, rubric: dict) -> None:
+def display_to_raw(detail_scores: dict, factor: float) -> dict:
+    """把展示刻度（item max = round(raw_scale*factor)）还原为 raw 刻度（0-3）。
+
+    教师复核在前端编辑的是展示刻度（0-5/项），提交后必须先还原为 raw
+    再聚合——否则复核总分会按展示刻度放大（S1 根因）。
+    """
+    out: dict = {}
+    if factor <= 0:
+        factor = 1.0
+    for name, d in detail_scores.items():
+        if not isinstance(d, dict):
+            continue
+        nd = dict(d)
+        if isinstance(nd.get("score"), (int, float)):
+            nd["score"] = round(nd["score"] / factor)
+        items = []
+        for it in d.get("items", []) or []:
+            if not isinstance(it, dict):
+                continue
+            ni = dict(it)
+            if isinstance(ni.get("score"), (int, float)):
+                ni["score"] = round(ni["score"] / factor)
+            items.append(ni)
+        nd["items"] = items
+        out[name] = nd
+    return out
+
+
+def review_total_from_detail(detail_scores: dict, raw_max: int) -> int:
+    """复核总分：展示刻度 → raw → Σ条目 → 展示分。恒 ∈ [0, 100]。"""
+    from .mapping import apply_score_mapping
+
+    factor = 100.0 / raw_max if raw_max > 0 else 1.0
+    raw = display_to_raw(detail_scores, factor)
+    total = _recalc_total_from_dimensions(raw, 3)
+    return apply_score_mapping(total, raw_max)
+
+
+def _inject_missing_dimensions(detail_scores: dict, rubric: dict) -> list[str]:
+    """为缺失维度注入 0 分条目；返回被注入的维度名列表（供 fallback 标记，S4）。"""
     raw_scale = rubric.get("raw_scale", 3)
+    injected: list[str] = []
     for dim in rubric.get("dimensions", []):
         dim_name = dim["name"]
         if dim_name not in detail_scores:
@@ -277,4 +322,6 @@ def _inject_missing_dimensions(detail_scores: dict, rubric: dict) -> None:
                 "items": items,
                 "_injected": True,
             }
+            injected.append(dim_name)
             log.warning("missing_dimension_injected", extra={"dimension": dim_name})
+    return injected
