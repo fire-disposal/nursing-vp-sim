@@ -19,24 +19,25 @@ SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门
 
 ## 输出规则
 
-根据对话内容逐项评分，每项 1-3 分：
+根据对话内容逐项评分，每项 0-3 分（D1：未涉及为 0 分，取消 1 分保底）：
 - 3 分：学生主动、完整地覆盖了该项内容，提问自然、深入
 - 2 分：学生部分涉及该项内容，但不完整或不够深入
-- 1 分：学生未提及该项内容
+- 1 分：学生提及但明显不足
+- 0 分：学生完全未涉及该项
 
 **每项必须提供：**
-- `score`：1-3 分（1=未涉及, 2=部分覆盖, 3=完成）
-- `evidence`：直接引用对话原文中支持评分的具体证据（至少 10 个汉字）
+- `score`：0-3 分（0=未涉及, 1=不足, 2=部分覆盖, 3=完成）
+- `evidence`：直接引用对话原文中支持评分的具体证据（score>0 时至少 10 个汉字）
 - `reason`：为什么给这个分数，点出关键得失（至少 5 个汉字）
-- 学生未涉及的条目：score=1，evidence="未涉及"
+- 学生未涉及的条目：score=0，evidence="未涉及"
 
 **只输出 JSON，严格遵循以下 schema：**
 {#scoring_json_schema#}
 
 ## 输出前自检
 - total_score 在合理范围内
-- 每项都有 name、score(1-3)、evidence(≥10字)、reason(≥5字)
-- 未涉及的条目 score=1，evidence="未涉及"
+- 每项都有 name、score(0-3)、evidence、reason
+- 未涉及的条目 score=0，evidence="未涉及"
 """
 
 SCORING_USER = """请评估以下护理学生与患者的病史采集对话，逐项评分：
@@ -96,7 +97,7 @@ SCORING_RETRY_USER = """你上一次的输出存在以下问题：
 {#partial_json#}
 ```
 
-请重新输出完整的 JSON，确保每条目的 id、name、score(1-3)、evidence(≥10字)、reason(≥5字) 都完备。"""
+请重新输出完整的 JSON，确保每条目的 id、name、score(0-3)、evidence、reason 都完备。"""
 
 FEEDBACK_RETRY_USER = """你上一次的输出中，以下反馈字段为空：{#missing#}。
 

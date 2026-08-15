@@ -58,6 +58,11 @@ FEEDBACK_PCT_RANGE = 23
 SCORING_START_PCT = 10
 SAVING_PCT = 95
 PER_STAGE_TIMEOUT_SEC = 150
+# S8: 评分阶段预算 = 全局超时 - 余量（两阶段并行共享同一全局窗口，
+# 单阶段（首试+重试）不得超过该预算；重试超时优先走 fallback 而非拖垮全局）
+SCORING_BUDGET_MARGIN_SECONDS = 15
+# S9: 评分输入消息上限（与 chat 上下文一致，防长对话 token 爆炸）
+SCORING_MAX_MESSAGES = 120
 
 log = logging.getLogger(__name__)
 
@@ -198,16 +203,25 @@ async def _stage_with_retry(
     validate_fn,
     retry_prompt_template: str,
     fallback_fn=None,
+    budget_seconds: float,
 ) -> dict:
-    """Single scoring stage with retry.  Per-stage timeout prevents retry from blowing past global deadline."""
+    """Single scoring stage with retry.  Per-stage timeout = min(150s, 剩余预算)。
+
+    S8：全局超时（SCORING_TIMEOUT_SECONDS）约束整次评分（两阶段并行共享）；
+    单阶段（首试+重试）预算 = 全局 - 余量。重试超时优先走 fallback，
+    不再出现"重试必然被全局超时杀死"的矛盾。
+    """
     _tracker_update(stage, stage.pct_base, f"正在{stage.progress_msg}...")
+    deadline = time.monotonic() + budget_seconds
 
     async def _try_once(msgs: list[dict]) -> dict:
+        remaining = max(15.0, deadline - time.monotonic())
+        timeout = min(PER_STAGE_TIMEOUT_SEC, remaining)
         return await asyncio.wait_for(
             _stream_attempt(
                 llm_client, msgs, llm_cfg, stage=stage, purpose=purpose, case_id=case_id, log_meta=log_meta
             ),
-            timeout=PER_STAGE_TIMEOUT_SEC,
+            timeout=timeout,
         )
 
     result = await _try_once(messages)
@@ -279,7 +293,16 @@ async def _load_record_and_messages(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise ValueError("训练记录不存在")
-    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+    all_messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+    # S9: 与 chat 上下文一致，截断到最近 SCORING_MAX_MESSAGES 条（保留时间顺序）
+    messages = all_messages[-SCORING_MAX_MESSAGES:] if len(all_messages) > SCORING_MAX_MESSAGES else all_messages
+    if len(all_messages) > SCORING_MAX_MESSAGES:
+        log.warning(
+            "scoring history truncated: record_id=%d total=%d kept=%d",
+            record_id,
+            len(all_messages),
+            len(messages),
+        )
     if tracker:
         tracker.start(record_id)
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
@@ -614,6 +637,11 @@ async def evaluate_training(
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
 
+    # S8: 两阶段并行共享全局超时窗口，单阶段预算 = 全局 - 余量
+    from core.config import SCORING_TIMEOUT_SECONDS
+
+    stage_budget = max(60.0, float(SCORING_TIMEOUT_SECONDS) - SCORING_BUDGET_MARGIN_SECONDS)
+
     scoring_coro = _stage_with_retry(
         score_messages,
         stage=scoring_stage,
@@ -625,6 +653,7 @@ async def evaluate_training(
         validate_fn=_validate_scoring_essentials,
         retry_prompt_template=SCORING_RETRY_USER,
         fallback_fn=_fallback_scoring,
+        budget_seconds=stage_budget,
     )
     feedback_coro = _stage_with_retry(
         feedback_messages,
@@ -637,6 +666,7 @@ async def evaluate_training(
         validate_fn=_validate_feedback_fields,
         retry_prompt_template=FEEDBACK_RETRY_USER,
         fallback_fn=_merge_feedback,
+        budget_seconds=stage_budget,
     )
 
     scoring_task = asyncio.ensure_future(scoring_coro)

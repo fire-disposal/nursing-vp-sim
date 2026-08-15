@@ -115,3 +115,16 @@ def test_missing_dimension_fallback_marked():
     result = _postprocess_scoring_result({"total_score": 40, "detail_scores": raw}, {}, RUBRIC)
     assert result["fallback"]["kind"] == "dims_injected"
     assert "病史采集" in result["fallback"]["dims"]
+
+
+# ── S8 超时预算一致（重试总预算 ≤ 全局 - 余量）─────────────────────────────
+
+
+def test_timeout_budget_consistent():
+    from core.config import SCORING_TIMEOUT_SECONDS
+    from modules.training.scoring import engine
+
+    stage_budget = max(60.0, float(SCORING_TIMEOUT_SECONDS) - engine.SCORING_BUDGET_MARGIN_SECONDS)
+    # 单阶段首试上限（150s）不得超过阶段预算（否则重试无剩余预算，必被全局超时杀死）
+    assert stage_budget + engine.SCORING_BUDGET_MARGIN_SECONDS >= engine.PER_STAGE_TIMEOUT_SEC
+    assert stage_budget <= SCORING_TIMEOUT_SECONDS
