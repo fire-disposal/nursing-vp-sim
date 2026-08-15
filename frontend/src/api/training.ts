@@ -90,3 +90,18 @@ export interface ToolCommandResult {
 /** 工具指令面（Phase 2.5）：HTTP 请求/响应替代 WS tool 通道 */
 export const postToolCommand = (recordId: number | string, body: ToolCommandBody) =>
 	api.post<ToolCommandResult>(`/training/${recordId}/tools` as ApiPath, body).then((r) => r.data);
+
+export interface EmotionEventItem {
+	turn_id?: string | null;
+	event_type: string;
+	confidence?: number | null;
+	evidence?: string | null;
+	delta?: Record<string, number>;
+	after_state: { trust: number; anxiety: number; irritation: number; cooperation: number };
+}
+
+/** 情绪事件历史（批次 A-3 轨迹图数据源） */
+export const getEmotionEvents = (recordId: number | string) =>
+	api
+		.get<{ events: EmotionEventItem[] }>(`/training/${recordId}/emotion-events` as ApiPath)
+		.then((r) => r.data.events);

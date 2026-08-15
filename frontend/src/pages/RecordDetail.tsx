@@ -11,6 +11,7 @@ import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
 import ScoreResultSection from "./record-detail/ScoreResultSection";
+import { EmotionTrajectory } from "./record-detail/EmotionTrajectory";
 import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 
@@ -126,6 +127,7 @@ export default function RecordDetail() {
 								hasDetailItems={hasDetailItems}
 							/>
 						)}
+						{id && <EmotionTrajectory recordId={id} />}
 						{sheet && <NursingRecordSection sheet={sheet} />}
 					</Stack>
 				</Grid.Col>

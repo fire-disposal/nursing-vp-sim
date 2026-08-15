@@ -169,6 +169,51 @@ def get_records(
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
+@router.get("/records/{record_id}/emotion-events")
+def get_emotion_events(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """情绪事件历史（批次 A-3 轨迹图数据源）：按序返回事件 + 4D 状态快照。
+
+    前端据此绘制 trust/anxiety/irritation/cooperation 轨迹与事件标注。
+    """
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise NotFoundError(detail="记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail="无权查看此记录", status_code=403)
+
+    from models import TrainingSessionEmotionEvent
+
+    rows = (
+        db.query(TrainingSessionEmotionEvent)
+        .filter(TrainingSessionEmotionEvent.record_id == record_id)
+        .order_by(TrainingSessionEmotionEvent.created_at.asc(), TrainingSessionEmotionEvent.id.asc())
+        .all()
+    )
+    events = []
+    for r in rows:
+        after = r.after_state or {}
+        events.append(
+            {
+                "turn_id": r.turn_id,
+                "event_type": r.event_type,
+                "confidence": r.confidence,
+                "evidence": r.evidence,
+                "delta": r.delta or {},
+                "after_state": {
+                    "trust": round(after.get("trust", 0) * 100),
+                    "anxiety": round(after.get("anxiety", 0) * 100),
+                    "irritation": round(after.get("irritation", 0) * 100),
+                    "cooperation": round(after.get("cooperation", 0) * 100),
+                },
+            }
+        )
+    return {"events": events}
+
+
 @router.get("/records/{record_id}", response_model=TrainingRecordDetail)
 def get_record_detail(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
