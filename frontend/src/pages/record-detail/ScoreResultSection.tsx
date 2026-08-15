@@ -50,6 +50,8 @@ interface Props {
 	onReviewClick: () => void;
 	onExport: () => void;
 	onDetailedScoreClick: () => void;
+	/** 证据点击回调（工作台：证据 ↔ 对话气泡联动） */
+	onEvidenceClick?: (evidence: string) => void;
 	scoreMax: number;
 	categories: [string, DetailScoreCategory][];
 	hasDetailItems: boolean;
@@ -72,6 +74,7 @@ export default function ScoreResultSection({
 	onReviewClick,
 	onExport,
 	onDetailedScoreClick,
+	onEvidenceClick,
 	scoreMax,
 	categories,
 	hasDetailItems,
@@ -190,7 +193,7 @@ export default function ScoreResultSection({
 									<Progress value={pct} color={progressColor(pct)} size="sm" radius="md" />
 									<Stack gap={2} mt={4}>
 										{catData.items.map((item, i) => (
-											<ScoreItem key={item.id || i} item={item} />
+											<ScoreItem key={item.id || i} item={item} onEvidenceClick={onEvidenceClick} />
 										))}
 									</Stack>
 								</Stack>

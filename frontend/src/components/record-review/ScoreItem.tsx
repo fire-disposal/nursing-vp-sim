@@ -1,9 +1,15 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Box, Group, Text, UnstyledButton } from "@mantine/core";
 import { IconChevronDown, IconChevronUp, IconMessageCircle } from "@tabler/icons-react";
 import { useState } from "react";
 import type { ScoreItemData } from "@/types/score";
 
-export default function ScoreItem({ item }: { item: ScoreItemData }) {
+interface ScoreItemProps {
+	item: ScoreItemData;
+	/** 点击证据回调（结果页工作台：证据 ↔ 对话气泡联动） */
+	onEvidenceClick?: (evidence: string) => void;
+}
+
+export default function ScoreItem({ item, onEvidenceClick }: ScoreItemProps) {
 	const itemMax = Number.isFinite(item.max) && item.max! > 0 ? item.max! : 3;
 	const [expanded, setExpanded] = useState(item.score < itemMax * 0.6);
 	const hasEvidence = item.evidence || item.reason;
@@ -76,9 +82,21 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 									证据
 								</Text>
 							</Group>
-							<Text size="sm" opacity={0.8}>
-								{item.evidence}
-							</Text>
+							{onEvidenceClick ? (
+								<UnstyledButton
+									onClick={() => onEvidenceClick(item.evidence ?? "")}
+									style={{ textAlign: "left", width: "100%" }}
+									aria-label="在对话中定位该证据"
+								>
+									<Text size="sm" opacity={0.8} td="underline" c="brand">
+										{item.evidence}
+									</Text>
+								</UnstyledButton>
+							) : (
+								<Text size="sm" opacity={0.8}>
+									{item.evidence}
+								</Text>
+							)}
 						</Box>
 					)}
 					{item.reason && (

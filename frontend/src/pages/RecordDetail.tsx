@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Container, Paper, Stack, Text, Title } from "@mantine/core";
+import { Box, Container, Grid, Paper, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
@@ -22,6 +22,8 @@ export default function RecordDetail() {
 		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
 		return { strengths: isDesktop, weaknesses: isDesktop, missed_content: isDesktop, suggestions: isDesktop };
 	});
+	// 证据 → 对话气泡联动（工作台核心）
+	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
 
 	const { data: record, isError: recordError } = useQuery({
 		queryKey: queryKeys.training.detail(id),
@@ -67,6 +69,15 @@ export default function RecordDetail() {
 		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
 
+	const handleEvidenceClick = (evidence: string) => {
+		const probe = evidence.slice(0, 12);
+		if (!probe) return;
+		const match = messages.find(
+			(m) => m.content.includes(probe) || evidence.slice(0, 6).length > 0 && m.content.includes(evidence.slice(0, 6)),
+		);
+		setHighlightMsgId(match?.id ?? null);
+	};
+
 	return (
 		<Container size="xl" py="md">
 			<PageHeader
@@ -88,31 +99,37 @@ export default function RecordDetail() {
 				onRetry={() => {}}
 			/>
 
-			{recordScore && (
-				<Box mt="md">
-					<ScoreResultSection
-						recordScore={recordScore}
-						isReviewed={false}
-						review={null}
-						scoreReview={null}
-						isTeacher={false}
-						expanded={expanded}
-						onToggleExpand={handleToggleExpand}
-						onReviewClick={() => {}}
-						onExport={() => {}}
-						onDetailedScoreClick={() => {}}
-						scoreMax={scoreMax}
-						categories={categories as [string, DetailScoreCategory][]}
-						hasDetailItems={hasDetailItems}
-					/>
-				</Box>
-			)}
-
-			{sheet && <NursingRecordSection sheet={sheet} />}
-
-			<Box mt="md">
-				<MessagePlayback messages={messages} />
-			</Box>
+			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/护理记录 */}
+			<Grid mt="md" align="stretch">
+				<Grid.Col span={{ base: 12, lg: 7 }}>
+					<Box h="100%" style={{ maxHeight: "calc(100vh - 220px)" }}>
+						<MessagePlayback messages={messages} highlightId={highlightMsgId} />
+					</Box>
+				</Grid.Col>
+				<Grid.Col span={{ base: 12, lg: 5 }}>
+					<Stack gap="md">
+						{recordScore && (
+							<ScoreResultSection
+								recordScore={recordScore}
+								isReviewed={false}
+								review={null}
+								scoreReview={null}
+								isTeacher={false}
+								expanded={expanded}
+								onToggleExpand={handleToggleExpand}
+								onReviewClick={() => {}}
+								onExport={() => {}}
+								onDetailedScoreClick={() => {}}
+								onEvidenceClick={handleEvidenceClick}
+								scoreMax={scoreMax}
+								categories={categories as [string, DetailScoreCategory][]}
+								hasDetailItems={hasDetailItems}
+							/>
+						)}
+						{sheet && <NursingRecordSection sheet={sheet} />}
+					</Stack>
+				</Grid.Col>
+			</Grid>
 		</Container>
 	);
 }
