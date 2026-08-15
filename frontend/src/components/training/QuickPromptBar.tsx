@@ -95,6 +95,18 @@ export function QuickPromptBar({ patient, disabled, onSelect }: QuickPromptBarPr
 						color: "var(--mantine-color-dimmed)",
 						cursor: disabled ? "not-allowed" : "pointer",
 						opacity: disabled ? 0.4 : 1,
+						transition: "border-color 120ms ease, background 120ms ease, color 120ms ease",
+					}}
+					onMouseEnter={(e) => {
+						if (disabled) return;
+						e.currentTarget.style.borderColor = "var(--mantine-color-brand-4)";
+						e.currentTarget.style.background = "var(--mantine-color-brand-0)";
+						e.currentTarget.style.color = "var(--mantine-color-brand-8)";
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.borderColor = "var(--mantine-color-default-border)";
+						e.currentTarget.style.background = "var(--mantine-color-body)";
+						e.currentTarget.style.color = "var(--mantine-color-dimmed)";
 					}}
 				>
 					{prompt}

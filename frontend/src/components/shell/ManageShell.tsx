@@ -1,8 +1,8 @@
 import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope } from "@tabler/icons-react";
-import { useEffect, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
@@ -10,6 +10,7 @@ import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useShortViewport } from "@/hooks/useShortViewport";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import useAuthStore from "@/stores/authStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import SidebarNav from "./SidebarNav";
@@ -42,11 +43,25 @@ export default function ManageShell({
 	const { openFeedback } = useFeedback();
 	// 横屏/短视口（高度 <500px）：垂直空间宝贵 → 压缩顶栏、折叠侧栏、保留底部 Tab
 	const isShort = useShortViewport();
+	const sidebarCollapsed = useUiPrefsStore((s) => s.sidebarCollapsed);
+	const setSidebarCollapsed = useUiPrefsStore((s) => s.setSidebarCollapsed);
 	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-	const [desktopOpened, { toggle: toggleDesktop, close: closeDesktop }] = useDisclosure(!isShort);
+	const [desktopOpened, { toggle: toggleDesktop, close: closeDesktop }] = useDisclosure(!sidebarCollapsed);
+	// 短视口强制折叠（横屏手机默认）
 	useEffect(() => {
 		if (isShort) closeDesktop();
 	}, [isShort, closeDesktop]);
+	// 折叠状态持久化：刷新/重进后保留用户的侧栏偏好
+	useEffect(() => {
+		setSidebarCollapsed(!desktopOpened);
+	}, [desktopOpened, setSidebarCollapsed]);
+
+	// 路由切换时主内容滚动回顶（避免停留在旧页面滚动位置）
+	const mainRef = useRef<HTMLDivElement>(null);
+	const { pathname } = useLocation();
+	useEffect(() => {
+		mainRef.current?.scrollTo({ top: 0 });
+	}, [pathname]);
 
 	return (
 		<AppShell
@@ -148,7 +163,7 @@ export default function ManageShell({
 				/>
 			</AppShell.Navbar>
 
-			<AppShell.Main>
+			<AppShell.Main ref={mainRef}>
 				{!isOnline && <NetworkBanner />}
 				{/* 内容容器：超宽屏不贴边，管理页可读性（表格仍可横向滚动） */}
 				<Box p={{ base: "sm", sm: "lg" }} maw={1600} mx="auto" style={{ width: "100%" }}>

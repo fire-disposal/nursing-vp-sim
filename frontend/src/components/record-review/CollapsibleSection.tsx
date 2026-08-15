@@ -19,7 +19,15 @@ export default function CollapsibleSection({
 }: CollapsibleSectionProps) {
 	return (
 		<Box pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
-			<UnstyledButton onClick={onToggle} w="100%" py="xs">
+			<UnstyledButton
+				onClick={onToggle}
+				w="100%"
+				py="xs"
+				px="xs"
+				style={{ borderRadius: "var(--mantine-radius-sm)", transition: "background 120ms ease", marginLeft: -8, width: "calc(100% + 16px)" }}
+				onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+				onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+			>
 				<Group justify="space-between" wrap="nowrap">
 					<Group gap="xs" wrap="nowrap">
 						{icon}

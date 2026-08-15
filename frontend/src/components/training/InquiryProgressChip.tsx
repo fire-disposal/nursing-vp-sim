@@ -48,6 +48,15 @@ export function InquiryProgressChip() {
 				color: "var(--mantine-color-dimmed)",
 				cursor: "pointer",
 				flexShrink: 0,
+				transition: "border-color 120ms ease, background 120ms ease",
+			}}
+			onMouseEnter={(e) => {
+				e.currentTarget.style.borderColor = "var(--mantine-color-brand-4)";
+				e.currentTarget.style.background = "var(--mantine-color-brand-0)";
+			}}
+			onMouseLeave={(e) => {
+				e.currentTarget.style.borderColor = "var(--mantine-color-default-border)";
+				e.currentTarget.style.background = "var(--mantine-color-body)";
 			}}
 		>
 			<IconListCheck size={12} />

@@ -41,6 +41,9 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 					px="sm"
 					py={8}
 					onClick={() => setOpen(!open)}
+					style={{ transition: "background 120ms ease" }}
+					onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+					onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
 				>
 					<Group gap={8} wrap="nowrap">
 						<IconBook2 size={12} />
@@ -67,6 +70,9 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 								py={4}
 								px={6}
 								onClick={() => openModal(c)}
+								style={{ borderRadius: "var(--mantine-radius-sm)", transition: "background 120ms ease" }}
+								onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+								onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
 							>
 								<Text size="xs">
 									<span style={{ fontWeight: 500 }}>{c.source}</span>

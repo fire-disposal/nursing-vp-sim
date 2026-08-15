@@ -13,9 +13,12 @@ interface UiPrefsState {
 	mobileHintDismissed: boolean;
 	quickPromptsCollapsed: boolean;
 	feedbackChartsOpen: boolean;
+	/** 桌面侧栏折叠状态（跨会话保留） */
+	sidebarCollapsed: boolean;
 	setMobileHintDismissed: (value: boolean) => void;
 	setQuickPromptsCollapsed: (value: boolean) => void;
 	setFeedbackChartsOpen: (value: boolean) => void;
+	setSidebarCollapsed: (value: boolean) => void;
 }
 
 export const useUiPrefsStore = create<UiPrefsState>()(
@@ -24,12 +27,15 @@ export const useUiPrefsStore = create<UiPrefsState>()(
 			mobileHintDismissed: readLegacyBoolean("admin:mobileHintDismissed"),
 			quickPromptsCollapsed: readLegacyBoolean("training:quickPromptsCollapsed"),
 			feedbackChartsOpen: readLegacyBoolean("admin:feedbackChartsOpen"),
+			sidebarCollapsed: false,
 			setMobileHintDismissed: (mobileHintDismissed) =>
 				set({ mobileHintDismissed }),
 			setQuickPromptsCollapsed: (quickPromptsCollapsed) =>
 				set({ quickPromptsCollapsed }),
 			setFeedbackChartsOpen: (feedbackChartsOpen) =>
 				set({ feedbackChartsOpen }),
+			setSidebarCollapsed: (sidebarCollapsed) =>
+				set({ sidebarCollapsed }),
 		}),
 		{
 			name: "nursing-ui-prefs",
