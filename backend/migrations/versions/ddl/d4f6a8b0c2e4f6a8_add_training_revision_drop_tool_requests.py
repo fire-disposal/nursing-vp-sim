@@ -33,20 +33,24 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # 与原表完全对称（含索引），保证 alembic roundtrip 可回放
     op.create_table(
         "training_tool_requests",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column(
-            "record_id",
-            sa.Integer(),
-            sa.ForeignKey("training_records.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("request_id", sa.String(64), nullable=False),
-        sa.Column("tool_name", sa.String(50), nullable=False),
-        sa.Column("action", sa.String(50), nullable=False),
-        sa.Column("response", sa.dialects.postgresql.JSONB(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("record_id", sa.Integer(), nullable=False),
+        sa.Column("request_id", sa.String(length=64), nullable=False),
+        sa.Column("tool_name", sa.String(length=50), nullable=False),
+        sa.Column("action", sa.String(length=50), nullable=False),
+        sa.Column("response", sa.dialects.postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["record_id"], ["training_records.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("record_id", "request_id", name="uq_training_tool_request"),
+    )
+    op.create_index(
+        "ix_training_tool_requests_record_id",
+        "training_tool_requests",
+        ["record_id"],
+        unique=False,
     )
     op.drop_column("training_records", "revision")
