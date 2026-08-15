@@ -126,9 +126,12 @@ async def _stream_attempt(
         purpose=purpose, user_id=stage.user_id, record_id=stage.record_id, case_id=case_id, log_meta=log_meta
     )
     stream_kwargs: dict[str, Any] = {"purpose": purpose, "ctx": ctx, "enable_thinking": get_enable_thinking(purpose)}
-    for key in ("temperature", "max_tokens", "timeout", "max_retries", "response_format"):
+    for key in ("temperature", "max_tokens", "timeout", "response_format"):
         if key in cfg:
             stream_kwargs[key] = cfg[key]
+    # T2：客户端级流式重试置 0——流式中断重试会把已发 chunk 从头重放造成重复；
+    # 重试由 _stage_with_retry 用全新 stream 调用完成。
+    stream_kwargs["max_retries"] = 0
 
     content_parts: list[str] = []
     thought_buffer: list[str] = []

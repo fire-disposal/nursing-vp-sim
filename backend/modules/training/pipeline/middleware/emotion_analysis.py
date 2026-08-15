@@ -80,7 +80,11 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
         )
 
         # 4. Apply events
-        turn_id = str(ctx.record.id) + "-" + str(ctx.message_count + 1)
+        # T3: turn_id 用单调递增的 max(msg.id)，而非有界 message_count——
+        # 上下文截断（120 条）会让 message_count 恒为 120，turn_id 撞车导致
+        # 60 轮后情绪系统静默冻结。
+        last_msg_id = max((m.id for m in ctx.messages if getattr(m, "id", None)), default=0)
+        turn_id = f"{ctx.record.id}-{last_msg_id}"
         if state.last_turn_id == turn_id:
             log.debug("Turn %s already processed, skipping emotion update", turn_id)
         elif result.events:

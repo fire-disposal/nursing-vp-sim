@@ -9,7 +9,6 @@ from .context import (
     STATE_DONE_PAYLOAD,
     STATE_POST_STREAM_EVENTS,
     STATE_SAVED_MESSAGES,
-    STATE_STREAM_CHUNKS,
     STATE_STREAM_QUEUE,
     PipelineContext,
 )
@@ -49,8 +48,8 @@ async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddlewar
 async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddleware]):
     """Execute pipeline in streaming mode, yielding SSE events.
 
-    使用 asyncio.Queue 在 LLM 产出块时实时推送 SSE，而非全缓冲后回放。
-    保留 STATE_STREAM_CHUNKS 以支持身份纠正（correction 不经过队列）。
+    使用 asyncio.Queue 承载 LLM 最终文本（collect-then-push，见 llm_caller）：
+    患者回复通过泄漏守卫后才整体入队，前端实时看到的 == DB 持久化的。
     """
     queue: asyncio.Queue[str] = asyncio.Queue()
     ctx.state[STATE_STREAM_QUEUE] = queue
@@ -112,12 +111,3 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
 
     done_payload = {"done": True, "id": done_id, **ctx.state.get(STATE_DONE_PAYLOAD, {})}
     yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
-
-
-async def _emit_chunks(ctx: PipelineContext):
-    chunks = ctx.state.get(STATE_STREAM_CHUNKS, [])
-    for chunk in chunks:
-        yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
-
-    if not chunks and ctx.llm_reply:
-        yield f"data: {json.dumps({'content': ctx.llm_reply}, ensure_ascii=False)}\n\n"

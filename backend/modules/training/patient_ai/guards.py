@@ -1,38 +1,43 @@
-"""Identity leak guard — prevents patient LLM from exposing its AI nature."""
+"""Identity leak guard — prevents patient LLM from exposing its AI nature.
+
+Phase 2 (T9)：误伤修复——黑名单只保留真正的 AI/系统术语；自然口语
+（"继续问""你还想知道""你做得很好"等）从清单移除，避免整条重试。
+
+判定规则：
+- STRONG（AI 身份自曝）：命中任意 1 条即判泄漏；
+- WEAK（系统/训练元语）：需命中 ≥2 条才判泄漏（单条可能是自然语境）。
+"""
 
 import logging
 
 log = logging.getLogger(__name__)
 
-IDENTITY_LEAK_PATTERNS = [
-    "我是AI",
+_STRONG = [
+    "我是ai",
     "我是人工智能",
-    "我是AI助手",
+    "我是ai助手",
     "我是虚拟患者",
-    "作为AI",
+    "作为ai",
     "作为人工智能",
-    "作为一个AI",
-    "此AI",
+    "作为一个ai",
+    "此ai",
     "作为语言模型",
     "作为大模型",
     "我是大模型",
-    "评分标准",
-    "教学反馈",
-    "你应该继续问",
-    "你还需要问",
+    "我是一个语言模型",
+    "我是语言模型",
+]
+
+_WEAK = [
     "训练模式",
     "模拟训练",
+    "角色扮演",
+    "扮演患者",
     "token",
     "prompt",
     "system prompt",
-    "角色扮演",
-    "扮演患者",
-    "在此模拟",
-    "通过本次训练",
-    "你做得很好",
-    "非常好的问题",
-    "继续问",
-    "你还想知道",
+    "评分标准",
+    "测试数据",
 ]
 
 
@@ -40,10 +45,16 @@ def has_identity_leak(reply: str) -> bool:
     if not reply or not reply.strip():
         return False
     reply_lower = reply.lower()
-    for pattern in IDENTITY_LEAK_PATTERNS:
-        if pattern.lower() in reply_lower:
-            log.warning("身份泄露检测: pattern=%r triggered in reply[%d]", pattern, len(reply))
+
+    for pattern in _STRONG:
+        if pattern in reply_lower:
+            log.warning("身份泄露检测: strong pattern=%r triggered", pattern)
             return True
+
+    weak_hits = [p for p in _WEAK if p in reply_lower]
+    if len(weak_hits) >= 2:
+        log.warning("身份泄露检测: weak patterns=%r triggered", weak_hits)
+        return True
     return False
 
 
