@@ -31,6 +31,8 @@ export default function TeacherRecordDetail() {
 	const [retryProgress, setRetryProgress] = useState<number | null>(null);
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
 	const [submittingReview, setSubmittingReview] = useState(false);
+	// 证据 ↔ 对话气泡联动（工作台，与结果页同款）
+	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
 		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
 		return {
@@ -248,6 +250,13 @@ export default function TeacherRecordDetail() {
 		}));
 	};
 	const hasScore = !!record.score;
+
+	const handleEvidenceClick = (evidence: string) => {
+		const probe = evidence.slice(0, 12);
+		if (!probe) return;
+		const match = messages.find((m) => m.content.includes(probe));
+		setHighlightMsgId(match?.id ?? null);
+	};
 	const detailScores = (mergedDetailScores || {}) as Record<string, DetailScoreCategory>;
 	const categories = Object.entries(detailScores);
 	const hasDetailItems = categories.some(
@@ -285,7 +294,7 @@ export default function TeacherRecordDetail() {
 					{/* Left: conversation + extras */}
 					<Box style={{ flex: 1, minWidth: 0 }}>
 						<Stack gap="md">
-							<MessagePlayback messages={messages} />
+							<MessagePlayback messages={messages} highlightId={highlightMsgId} />
 
 							{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
 								<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
@@ -320,6 +329,7 @@ export default function TeacherRecordDetail() {
 								onReviewClick={() => setShowReviewEditor(true)}
 								onExport={handleExport}
 								onDetailedScoreClick={() => {}}
+								onEvidenceClick={handleEvidenceClick}
 								scoreMax={scoreMax}
 								categories={categories}
 								hasDetailItems={hasDetailItems}

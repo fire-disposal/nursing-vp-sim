@@ -174,7 +174,7 @@ export default function NotificationBell() {
 					</Center>
 				) : items.length > 0 ? (
 					<Box style={{ marginLeft: -16, marginRight: -16, marginBottom: -16 }}>
-						<Box style={{ maxHeight: 288, overflowY: "auto" }}>
+						<Box style={{ maxHeight: 288, overflowY: "auto", overflowX: "hidden" }}>
 							{items.map((n, i) => (
 								<Box
 									key={n.id}
@@ -204,7 +204,7 @@ export default function NotificationBell() {
 												/>
 											)}
 											<Box style={{ minWidth: 0, flex: 1 }}>
-												<Text size="sm" fw={500} style={{ lineHeight: 1.4 }}>
+												<Text size="sm" fw={500} style={{ lineHeight: 1.4, overflowWrap: "anywhere" }}>
 													{n.title}
 												</Text>
 												{n.body && (

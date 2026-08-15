@@ -197,7 +197,7 @@ export default function NotificationInboxPage() {
 												{n.created_at.slice(0, 16).replace("T", " ")}
 											</Text>
 										</Group>
-										<Text size="sm" fw={500} lh={1.35}>
+										<Text size="sm" fw={500} lh={1.35} style={{ overflowWrap: "anywhere" }}>
 											{n.title}
 										</Text>
 										{n.body && (
