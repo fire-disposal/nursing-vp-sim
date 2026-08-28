@@ -1,6 +1,6 @@
 import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconTrash } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
@@ -427,10 +427,23 @@ export default function TeacherRecordsPage() {
 												</Table.Td>
 												<Table.Td>
 													<Group gap={8} wrap="nowrap">
+														{r.scoring_status === "completed" && (
+															<Button
+																variant={r.score_reviewed ? "light" : "filled"}
+																color={r.score_reviewed ? "green" : "brand"}
+																size="xs"
+																leftSection={
+																	r.score_reviewed ? <IconShieldCheck size={13} /> : <IconPencil size={13} />
+																}
+																onClick={() => navigate(`/admin/records/${r.id}`)}
+															>
+																{r.score_reviewed ? "修改复核" : "待复核"}
+															</Button>
+														)}
 														<Button
 															variant="transparent"
 															size="xs"
-															onClick={() => navigate(`/record/${r.id}`)}
+															onClick={() => navigate(`/admin/records/${r.id}`)}
 														>
 															查看详情
 														</Button>

@@ -9,6 +9,7 @@
 
 from typing import Any
 
+from models import Score
 from modules.training.scoring.engine import _fallback_scoring, _postprocess_scoring_result
 from modules.training.scoring.mapping import apply_score_mapping
 from modules.training.scoring.validation import review_total_from_detail
@@ -128,3 +129,13 @@ def test_timeout_budget_consistent():
     # 单阶段首试上限（150s）不得超过阶段预算（否则重试无剩余预算，必被全局超时杀死）
     assert stage_budget + engine.SCORING_BUDGET_MARGIN_SECONDS >= engine.PER_STAGE_TIMEOUT_SEC
     assert stage_budget <= SCORING_TIMEOUT_SECONDS
+
+
+# ── S5 复核写回成绩口径（COALESCE(reviewed_total, total_score)）──────────────
+
+
+def test_reviewed_total_is_effective_grade():
+    """教师复核后：成绩口径恒为复核分；无复核回退 AI 原始分；两者皆空为 None。"""
+    assert Score(record_id=1, total_score=80.0).effective_total == 80.0
+    assert Score(record_id=2, total_score=80.0, reviewed_total=90.0).effective_total == 90.0
+    assert Score(record_id=3, total_score=80.0, reviewed_total=0.0).effective_total == 0.0

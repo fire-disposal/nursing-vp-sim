@@ -117,7 +117,7 @@ export default function ScoreResultSection({
 					</Group>
 					<Group gap="xs" wrap="wrap">
 						{isTeacher && (
-							<Button variant="outline" size="sm" onClick={onReviewClick}>
+							<Button variant="filled" color="brand" size="sm" onClick={onReviewClick}>
 								<IconPencil size={14} />{" "}
 								{isReviewed ? "修改复核" : "复核评分"}
 							</Button>

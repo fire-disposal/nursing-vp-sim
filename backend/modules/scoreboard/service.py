@@ -145,8 +145,8 @@ class ScoreboardService:
         return (
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
-                func.avg(Score.total_score).label("avg_score"),
-                func.max(Score.total_score).label("best_score"),
+                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
+                func.max(func.coalesce(Score.reviewed_total, Score.total_score)).label("best_score"),
                 func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time)).label(
                     "avg_duration"
                 ),
@@ -242,7 +242,7 @@ class ScoreboardService:
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
                 TrainingRecord.start_time.label("start_time"),
-                Score.total_score.label("score"),
+                func.coalesce(Score.reviewed_total, Score.total_score).label("score"),
             )
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
@@ -362,7 +362,7 @@ class ScoreboardService:
         conditions = self._scope_conditions(scope, now) + [TrainingRecord.user_id == user_id]
 
         rows = (
-            self.db.query(TrainingRecord, Score.total_score.label("score"))
+            self.db.query(TrainingRecord, func.coalesce(Score.reviewed_total, Score.total_score).label("score"))
             .options(joinedload(TrainingRecord.case), joinedload(TrainingRecord.assignment))
             .join(Score, Score.record_id == TrainingRecord.id)
             .filter(*conditions, Score.fallback.is_(None))

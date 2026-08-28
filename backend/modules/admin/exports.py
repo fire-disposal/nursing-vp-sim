@@ -80,7 +80,8 @@ def export_records(
         ColumnDef("开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
         ColumnDef("结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
         ColumnDef(
-            "总分", value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""
+            "总分",
+            value=lambda r: str(r.score.effective_total) if r.score and r.score.effective_total is not None else "",
         ),
         ColumnDef("优点", value=lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
         ColumnDef("不足", value=lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
@@ -124,7 +125,7 @@ def export_record_detail(
     if score:
         lines.append("【评分结果】")
         lines.append("-" * 40)
-        lines.append(f"总分：{score.total_score}")
+        lines.append(f"总分：{score.effective_total}")
         lines.append(f"分项得分：{score.detail_scores}")
         lines.append(f"优点：{score.strengths}")
         lines.append(f"不足：{score.weaknesses}")

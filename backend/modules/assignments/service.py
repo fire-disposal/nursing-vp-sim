@@ -203,10 +203,11 @@ class AssignmentService:
             for r in user_records:
                 if r.status in ("abandoned", "discarded"):
                     continue
-                if r.scoring_status == "completed" and r.score and r.score.total_score is not None:
-                    if best_score is None or r.score.total_score > best_score:
+                score_val = r.score.effective_total if r.scoring_status == "completed" and r.score else None
+                if score_val is not None:
+                    if best_score is None or score_val > best_score:
                         best = r
-                        best_score = r.score.total_score
+                        best_score = score_val
             if best is None:
                 non_abandoned = [r for r in user_records if r.status not in ("abandoned", "discarded")]
                 if non_abandoned:
@@ -225,7 +226,9 @@ class AssignmentService:
                     student_id=student.student_id,
                     record_id=best.id,
                     status=status,
-                    score_total=best.score.total_score if best.score and best.scoring_status == "completed" else None,
+                    score_total=best.score.effective_total
+                    if best.scoring_status == "completed" and best.score
+                    else None,
                     scoring_status=best.scoring_status,
                     start_time=best.start_time,
                     end_time=best.end_time,

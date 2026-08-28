@@ -69,6 +69,7 @@ def submit_score_review(
         # 复核结果写回 Score.reviewed_total，成绩口径 = COALESCE(reviewed_total, total_score)
         record = db.query(TrainingRecord).filter(TrainingRecord.id == score.record_id).first()
         raw_max = DEFAULT_RAW_MAX
+        rubric: dict = {"raw_scale": 2, "raw_max": DEFAULT_RAW_MAX}
         if record is not None:
             rubric = _resolve_rubric(db, record)
             raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)

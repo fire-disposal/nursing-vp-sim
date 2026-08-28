@@ -417,7 +417,7 @@ class LLMMonitorService:
             ColumnDef("病例", value=lambda r: r.case.name if r.case else ""),
             ColumnDef("状态", key="status"),
             ColumnDef("评分状态", key="scoring_status"),
-            ColumnDef("总分", value=lambda r: r.score.total_score if r.score else None),
+            ColumnDef("总分", value=lambda r: r.score.effective_total if r.score else None),
             ColumnDef("开始时间", value=lambda r: str(r.start_time) if r.start_time else ""),
             ColumnDef("结束时间", value=lambda r: str(r.end_time) if r.end_time else ""),
         ]

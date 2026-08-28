@@ -129,6 +129,13 @@ class Score(Base):
         back_populates="score", order_by="ScoreReview.created_at", cascade="all, delete-orphan"
     )
 
+    @property
+    def effective_total(self) -> float | None:
+        """成绩口径：教师复核分优先，否则 AI 原始分（COALESCE(reviewed_total, total_score)）。"""
+        if self.reviewed_total is not None:
+            return float(self.reviewed_total)
+        return float(self.total_score) if self.total_score is not None else None
+
 
 class ScoreReview(Base):
     __tablename__ = "score_reviews"

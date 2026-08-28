@@ -238,7 +238,7 @@ class UserService:
                 scoring_error=r.scoring_error,
                 start_time=r.start_time,
                 end_time=r.end_time,
-                score_total=r.score.total_score if r.score else None,
+                score_total=r.score.effective_total if r.score else None,
                 assignment_id=r.assignment_id,
                 assignment_title=r.assignment.title if r.assignment else None,
             )
@@ -269,7 +269,7 @@ class UserService:
         total_records = base.count()
         completed_records = base.filter(TrainingRecord.status == "completed").count()
         avg_score = (
-            self.db.query(sa_func.avg(Score.total_score))
+            self.db.query(sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)))
             .join(TrainingRecord, Score.record_id == TrainingRecord.id)
             .join(User, TrainingRecord.user_id == User.id)
             .filter(TrainingRecord.is_test == False)
@@ -508,7 +508,9 @@ class UserService:
                     sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                sa_func.coalesce(sa_func.avg(Score.total_score), 0).label("avg_score"),
+                sa_func.coalesce(sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)), 0).label(
+                    "avg_score"
+                ),
             )
             .outerjoin(Score, Score.record_id == TrainingRecord.id)
             .filter(
@@ -526,7 +528,7 @@ class UserService:
                 sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label(
                     "minutes"
                 ),
-                sa_func.avg(Score.total_score).label("avg_score"),
+                sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
             )
             .outerjoin(Score, Score.record_id == TrainingRecord.id)
             .filter(

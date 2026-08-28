@@ -69,7 +69,7 @@ class StatsService:
                 func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label(
                     "minutes"
                 ),
-                func.avg(Score.total_score).label("avg_score"),
+                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
             )
             .outerjoin(Score, Score.record_id == TrainingRecord.id)
             .filter(
@@ -172,13 +172,17 @@ class StatsService:
                 User.display_name.label("display_name"),
                 User.student_id.label("student_id"),
                 func.count(TrainingRecord.id).label("total_sessions"),
-                func.coalesce(func.avg(Score.total_score), 0).label("avg_score"),
-                func.coalesce(func.sum(Score.total_score), 0).label("total_score"),
+                func.coalesce(func.avg(func.coalesce(Score.reviewed_total, Score.total_score)), 0).label("avg_score"),
+                func.coalesce(func.sum(func.coalesce(Score.reviewed_total, Score.total_score)), 0).label("total_score"),
                 func.coalesce(
                     func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                func.rank().over(order_by=func.coalesce(func.avg(Score.total_score), 0).desc()).label("rank"),
+                func.rank()
+                .over(
+                    order_by=func.coalesce(func.avg(func.coalesce(Score.reviewed_total, Score.total_score)), 0).desc()
+                )
+                .label("rank"),
             )
             .outerjoin(
                 TrainingRecord,
@@ -223,7 +227,7 @@ class StatsService:
                 User.display_name,
                 User.student_id,
                 func.count(TrainingRecord.id).label("total_sessions"),
-                func.avg(Score.total_score).label("avg_score"),
+                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
                 func.max(TrainingRecord.start_time).label("last_start_time"),
             )
             .join(UserClass, UserClass.user_id == User.id)
@@ -278,7 +282,7 @@ class StatsService:
                     func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                func.avg(Score.total_score).label("avg_score"),
+                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
             )
             .outerjoin(UserClass, UserClass.class_id == Class.id)
             .outerjoin(

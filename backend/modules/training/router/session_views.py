@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
@@ -135,14 +136,14 @@ def get_records(
     query = base.options(
         joinedload(TrainingRecord.case).load_only(Case.id, Case.name),
         joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id),
-        joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score),
+        joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score, Score.reviewed_total),
         joinedload(TrainingRecord.assignment).load_only(Assignment.id, Assignment.title),
     )
 
     # 服务端排序（教师页按分数/时长排序需全局正确，不能只排当前页）
     desc = order != "asc"
     if sort_by == "score_total":
-        sort_col = Score.total_score
+        sort_col = func.coalesce(Score.reviewed_total, Score.total_score)
     elif sort_by == "duration":
         sort_col = TrainingRecord.end_time - TrainingRecord.start_time
     else:
@@ -173,7 +174,7 @@ def get_records(
             status=r.status,
             start_time=r.start_time,
             end_time=r.end_time,
-            score_total=r.score.total_score if r.score else None,
+            score_total=r.score.effective_total if r.score else None,
             scoring_status=r.scoring_status,
             scoring_error=r.scoring_error,
             is_test=r.is_test,
