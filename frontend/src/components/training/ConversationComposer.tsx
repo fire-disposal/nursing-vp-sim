@@ -40,6 +40,7 @@ export function ConversationComposer({
 		onSend,
 		patientReplying: !!loading,
 		autoRearm: false,
+		silenceMs: 800,
 	});
 
 	// 语音模式中的状态提示（转写中 / 患者回复中 / 该你说话了 / 错误）。
@@ -54,6 +55,22 @@ export function ConversationComposer({
 					: "");
 
 	const showVoiceStatus = mode === "voice" && voice.phase !== "idle";
+
+	// 按住途中若患者突然回复（loading 翻转），不要吞掉正在进行的转写；
+	// 只在非"聆听中"时才被 loading/发送态禁用。
+	const micDisabled =
+		disabled ||
+		trainingEnded ||
+		!voice.supported ||
+		((loading || voice.phase === "sending") && voice.phase !== "listening");
+	const micVariant =
+		voice.phase === "listening" || voice.phase === "ready" ? "filled" : "default";
+	const micColor =
+		voice.phase === "listening" ? "red" : voice.phase === "ready" ? "brand" : undefined;
+	const micStyle =
+		voice.phase === "listening"
+			? { touchAction: "none", boxShadow: "0 0 0 4px rgba(239,68,68,.22)" }
+			: { touchAction: "none" };
 
 	const placeholder = trainingEnded
 		? "训练已结束，评分结果已生成"
@@ -135,16 +152,16 @@ export function ConversationComposer({
 					}
 				>
 					<ActionIcon
-						variant={voice.phase === "listening" ? "filled" : "default"}
-						color={voice.phase === "listening" ? "red" : undefined}
+						variant={micVariant}
+						color={micColor}
 						size="lg"
-						disabled={disabled || loading || trainingEnded || !voice.supported}
+						disabled={micDisabled}
 						onPointerDown={handleMicDown}
 						onPointerUp={handleMicUp}
 						onPointerLeave={handleMicUp}
 						onPointerCancel={handleMicUp}
 						aria-label="语音输入"
-						style={{ touchAction: "none" }}
+						style={micStyle}
 					>
 						<IconBroadcast size={18} />
 					</ActionIcon>
@@ -197,6 +214,7 @@ export function ConversationComposer({
 					c={voice.notice ? "red" : "dimmed"}
 					px="md"
 					pb={4}
+					aria-live="polite"
 				>
 					{voiceStatus}
 				</Text>

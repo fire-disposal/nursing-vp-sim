@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { defaultAsrProvider, type AsrProvider, type AsrSession } from "@/engine/asr";
 
 /**
  * useVoiceDialogue — 半双工语音对答的状态机（方案 A 的基础件）。
@@ -11,17 +12,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  *   `onSend(text)`            —— 唯一语义出口（与文本输入共用）
  *   `patientReplying`         —— 训练 store 的 `sending`（患者是否正在回复）
  *   `silenceMs`               —— 说完静音窗口，到点自动发送（0 = 仅依赖识别 onend）
+ *   `asrProvider`             —— 依赖注入 ASR 供应商，默认 `defaultAsrProvider`（Web Speech），
+ *                               未来可换在线 ASR 而不改本 hook。
  *
  * 状态机：
  *   idle ──start──▶ listening ──说完/松开──▶ sending ──▶ awaiting(患者回复中)
  *   awaiting ──patientReplying=false──▶ ready（"该你说话了"）──start──▶ listening
  *   任意态遇到不支持/错误 → idle + notice。
- *
- * 说明：`SpeechRecognition` 为浏览器 Web Speech API（Chrome/Edge 内建）。
- * 类型已在 `src/types/globals.d.ts` 全局声明，本文件仅做运行时构造拉取。
  */
-
-type SpeechRecognitionCtor = new () => SpeechRecognition;
 
 export type VoicePhase = "idle" | "listening" | "sending" | "awaiting" | "ready";
 
@@ -36,13 +34,15 @@ export interface UseVoiceDialogueOptions {
 	lang?: string;
 	/** 患者在回复结束后是否自动重新开始聆听（默认 false；true 需浏览器允许无手势启动麦克风）。 */
 	autoRearm?: boolean;
+	/** ASR 供应商（依赖注入）。默认 `defaultAsrProvider`（Web Speech）。 */
+	asrProvider?: AsrProvider;
 }
 
 export interface UseVoiceDialogueResult {
 	phase: VoicePhase;
 	/** 实时转写字幕（interim + final 拼接）。 */
 	transcript: string;
-	/** 当前浏览器是否支持 Web Speech 语音输入。 */
+	/** 当前运行时是否支持语音输入。 */
 	supported: boolean;
 	/** 错误/提示文案（没听清、不支持、启动失败等）。 */
 	notice: string | null;
@@ -55,40 +55,31 @@ export interface UseVoiceDialogueResult {
 	reset: () => void;
 }
 
-function detectSpeechRecognition(): SpeechRecognitionCtor | null {
-	const w = window as unknown as {
-		SpeechRecognition?: SpeechRecognitionCtor;
-		webkitSpeechRecognition?: SpeechRecognitionCtor;
-	};
-	return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
 export function useVoiceDialogue({
 	onSend,
 	patientReplying,
 	silenceMs = 0,
 	lang = "zh-CN",
 	autoRearm = false,
+	asrProvider = defaultAsrProvider,
 }: UseVoiceDialogueOptions): UseVoiceDialogueResult {
 	const [phase, setPhase] = useState<VoicePhase>("idle");
 	const [transcript, setTranscript] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 
-	// SpeechRecognition 构造器在模块加载时探测一次（浏览器能力稳定）。
-	const Ctor = useMemo(detectSpeechRecognition, []);
-	const supported = Ctor !== null;
+	// 供应商能力可能在运行时不变（浏览器特性稳定），一次性探测。
+	const supported = useMemo(() => asrProvider.supported(), [asrProvider]);
 
-	const recRef = useRef<SpeechRecognition | null>(null);
+	const sessionRef = useRef<AsrSession | null>(null);
 	const listeningRef = useRef(false);
 	const transcriptRef = useRef("");
 	const finalizedRef = useRef(false);
 	const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const wasReplyingRef = useRef(patientReplying);
 
-	// 保持 onSend 最新引用，避免重建识别对象。
+	// 保持最新引用，避免重建识别会话。
 	const onSendRef = useRef(onSend);
 	onSendRef.current = onSend;
-	// patientReplying 走 ref，供 onend/静音回调读到最新值。
 	const patientReplyingRef = useRef(patientReplying);
 	patientReplyingRef.current = patientReplying;
 
@@ -124,38 +115,37 @@ export function useVoiceDialogue({
 		[clearSilenceTimer, setTranscriptBoth],
 	);
 
-	/** 手动停止：立即收尾当前转写（tap 结束 / 松手）. */
+	/** 手动停止：立即收尾当前转写（tap 结束 / 松手）。 */
 	const stop = useCallback(() => {
 		if (!listeningRef.current) return;
 		clearSilenceTimer();
 		try {
-			recRef.current?.stop(); // 触发 onend；finalizedRef 保证只发一次
+			sessionRef.current?.stop();
 		} catch {
 			/* ignore */
 		}
 		finalize(transcriptRef.current);
 	}, [clearSilenceTimer, finalize]);
 
-	/** 开始聆听：拉起一次识别会话。 */
+	/** 开始聆听：通过 ASR 供应商拉起一次识别会话。 */
 	const start = useCallback(() => {
 		if (listeningRef.current) return;
-		if (!Ctor) {
+		if (!supported) {
 			setNotice("当前浏览器不支持语音输入（建议 Chrome/Edge）");
 			return;
 		}
 		if (patientReplyingRef.current) return; // 半双工：患者回复中不可开启
 
+		let session: AsrSession;
+		try {
+			session = asrProvider.createSession({ lang, interimResults: true, continuous: false });
+		} catch {
+			setNotice("语音输入启动失败");
+			return;
+		}
 		clearSilenceTimer();
-		const rec = new Ctor();
-		rec.lang = lang;
-		rec.interimResults = true;
-		rec.continuous = false;
 
-		rec.onresult = (e) => {
-			let acc = "";
-			for (let i = 0; i < e.results.length; i += 1) {
-				acc += e.results[i][0].transcript;
-			}
+		session.onresult = ({ transcript: acc }) => {
 			setTranscriptBoth(acc);
 			// 可选静音窗口：动态重置，模拟"说完停顿即自动发送"。
 			if (silenceMs > 0) {
@@ -163,11 +153,11 @@ export function useVoiceDialogue({
 				silenceTimerRef.current = setTimeout(() => finalize(acc), silenceMs);
 			}
 		};
-		rec.onend = () => {
+		session.onend = () => {
 			// 识别自然结束（说完停顿 / 手动 stop）——自动收尾发送。
 			finalize(transcriptRef.current);
 		};
-		rec.onerror = () => {
+		session.onerror = () => {
 			listeningRef.current = false;
 			clearSilenceTimer();
 			setPhase("idle");
@@ -176,18 +166,18 @@ export function useVoiceDialogue({
 		};
 
 		finalizedRef.current = false;
-		recRef.current = rec;
+		sessionRef.current = session;
 		listeningRef.current = true;
 		setPhase("listening");
 		setNotice(null);
 		try {
-			rec.start();
+			session.start();
 		} catch {
 			listeningRef.current = false;
 			setPhase("idle");
 			setNotice("语音输入启动失败");
 		}
-	}, [Ctor, lang, silenceMs, clearSilenceTimer, finalize, setTranscriptBoth]);
+	}, [asrProvider, supported, lang, silenceMs, clearSilenceTimer, finalize, setTranscriptBoth]);
 
 	const pressStart = useCallback(() => start(), [start]);
 	const pressEnd = useCallback(() => stop(), [stop]);
@@ -196,7 +186,7 @@ export function useVoiceDialogue({
 		clearSilenceTimer();
 		listeningRef.current = false;
 		try {
-			recRef.current?.stop();
+			sessionRef.current?.stop();
 		} catch {
 			/* ignore */
 		}
@@ -222,7 +212,7 @@ export function useVoiceDialogue({
 		return () => {
 			clearSilenceTimer();
 			try {
-				recRef.current?.stop();
+				sessionRef.current?.stop();
 			} catch {
 				/* ignore */
 			}

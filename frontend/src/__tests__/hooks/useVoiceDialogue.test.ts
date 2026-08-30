@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AsrProvider, AsrSession } from "@/engine/asr";
 import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
 
 type Rec = {
@@ -30,6 +31,7 @@ function makeRec(): Rec {
 
 afterEach(() => {
 	vi.unstubAllGlobals();
+	vi.useRealTimers();
 });
 
 describe("useVoiceDialogue（半双工语音对答状态机）", () => {
@@ -129,5 +131,56 @@ describe("useVoiceDialogue（半双工语音对答状态机）", () => {
 		act(() => rec.onerror?.());
 		expect(result.current.notice).toContain("识别失败");
 		expect(result.current.phase).toBe("idle");
+	});
+
+	it("可注入自定义 ASR 供应商（未来在线 ASR 的替换点）", () => {
+		const handlers = {
+			onresult: null as ((r: { transcript: string; final: boolean }) => void) | null,
+			onend: null as (() => void) | null,
+			onerror: null as ((e: string) => void) | null,
+		};
+		const provider: AsrProvider = {
+			id: "fake",
+			supported: () => true,
+			createSession: () => {
+				const session: AsrSession = {
+					start: vi.fn(),
+					stop: vi.fn(),
+					onresult: null,
+					onend: null,
+					onerror: null,
+				};
+				handlers.onresult = (r) => session.onresult?.(r);
+				handlers.onend = () => session.onend?.();
+				handlers.onerror = (e) => session.onerror?.(e);
+				return session;
+			},
+		};
+		const onSend = vi.fn();
+		const { result } = renderHook(() =>
+			useVoiceDialogue({ onSend, patientReplying: false, asrProvider: provider }),
+		);
+		expect(result.current.supported).toBe(true);
+		act(() => result.current.start());
+		act(() => handlers.onresult?.({ transcript: "胸口闷", final: true }));
+		act(() => handlers.onend?.());
+		expect(onSend).toHaveBeenCalledWith("胸口闷");
+		expect(result.current.phase).toBe("sending");
+	});
+
+	it("静音窗口到点自动发送（onend 未触发时兜底）", () => {
+		const rec = makeRec();
+		const onSend = vi.fn();
+		vi.useFakeTimers();
+		const { result } = renderHook(() =>
+			useVoiceDialogue({ onSend, patientReplying: false, silenceMs: 800 }),
+		);
+		act(() => result.current.start());
+		act(() => {
+			rec.onresult?.({ results: [[{ transcript: "头晕" }]] });
+		});
+		act(() => vi.advanceTimersByTime(850));
+		expect(onSend).toHaveBeenCalledWith("头晕");
+		expect(result.current.phase).toBe("sending");
 	});
 });
