@@ -1,7 +1,11 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@/__tests__/render";
 import { ConversationComposer } from "@/components/training/ConversationComposer";
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 function mockSpeechRecognition() {
 	const rec = {
@@ -18,7 +22,7 @@ function mockSpeechRecognition() {
 	return rec;
 }
 
-describe("ConversationComposer（对话通道 / ASR 预留）", () => {
+describe("ConversationComposer（半双工对讲机式语音对答 MVP）", () => {
 	it("文本输入 Enter 提交走唯一 send 出口", () => {
 		const onSend = vi.fn();
 		render(<ConversationComposer onSend={onSend} />);
@@ -37,29 +41,35 @@ describe("ConversationComposer（对话通道 / ASR 预留）", () => {
 		expect(onSend).not.toHaveBeenCalled();
 	});
 
-	it("语音按钮存在，转写结果进输入框后需确认发送（ASR 预留单出口）", async () => {
+	it("患者回复中文本输入被禁用", () => {
+		render(<ConversationComposer onSend={vi.fn()} loading />);
+		expect(screen.getByLabelText("对话输入")).toBeDisabled();
+	});
+
+	it("按住麦克风说话 → 实时转写 → 松开自动发送（对讲机式）", async () => {
 		const rec = mockSpeechRecognition();
 		const onSend = vi.fn();
 		render(<ConversationComposer onSend={onSend} />);
-		const voiceBtn = screen.getByLabelText("语音输入");
-		fireEvent.click(voiceBtn);
+		const micBtn = screen.getByLabelText("语音输入");
+
+		fireEvent.pointerDown(micBtn);
 		expect(rec.start).toHaveBeenCalled();
 
-		// 模拟转写回调 → 文本进输入框
-		await waitFor(() => {
+		// 实时转写显示在状态行（不写进输入框）。
+		act(() => {
 			rec.onresult?.({ results: [[{ transcript: "我这两天喘不上气" }]] });
 		});
-		const input = screen.getByLabelText("对话输入") as HTMLTextAreaElement;
-		await waitFor(() => expect(input.value).toContain("喘不上气"));
+		await waitFor(() => {
+			expect(screen.getByText(/喘不上气/)).toBeInTheDocument();
+		});
 
-		// 确认后发送（转写与文本共用 send）
-		fireEvent.keyDown(input, { key: "Enter" });
+		// 松开 → 自动发送当前转写。
+		fireEvent.pointerUp(micBtn);
 		expect(onSend).toHaveBeenCalledWith("我这两天喘不上气");
 	});
 
-	it("通话模式入口占位存在（规划中，disabled）", () => {
+	it("浏览器不支持语音 → 麦克风按钮禁用", () => {
 		render(<ConversationComposer onSend={vi.fn()} />);
-		const callBtn = screen.getByLabelText("通话模式（规划中）");
-		expect(callBtn).toBeDisabled();
+		expect(screen.getByLabelText("语音输入")).toBeDisabled();
 	});
 });
