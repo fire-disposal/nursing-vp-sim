@@ -1,10 +1,17 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@/__tests__/render";
 import { ConversationComposer } from "@/components/training/ConversationComposer";
 
+const toastMock = vi.hoisted(() => ({ warning: vi.fn() }));
+vi.mock("@/components/Toast", () => ({ useToast: () => toastMock }));
+
 afterEach(() => {
 	vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+	toastMock.warning.mockClear();
 });
 
 function mockSpeechRecognition() {
@@ -68,8 +75,12 @@ describe("ConversationComposer（半双工对讲机式语音对答 MVP）", () =
 		expect(onSend).toHaveBeenCalledWith("我这两天喘不上气");
 	});
 
-	it("浏览器不支持语音 → 麦克风按钮禁用", () => {
+	it("浏览器不支持语音 → 麦克风灰色但可点，点击弹出简洁提示", async () => {
 		render(<ConversationComposer onSend={vi.fn()} />);
-		expect(screen.getByLabelText("语音输入")).toBeDisabled();
+		const micBtn = screen.getByLabelText("语音输入");
+		// 灰色（非 HTML disabled），仍可点击以获取原因。
+		expect(micBtn).not.toBeDisabled();
+		fireEvent.pointerDown(micBtn);
+		expect(toastMock.warning).toHaveBeenCalledWith(expect.stringContaining("不支持"));
 	});
 });

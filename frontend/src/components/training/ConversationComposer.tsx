@@ -1,6 +1,7 @@
 import { ActionIcon, Box, Group, Text, Tooltip } from "@mantine/core";
 import { IconBroadcast, IconLoader2, IconSend } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
+import { useToast } from "@/components/Toast";
 import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
 
 /**
@@ -34,6 +35,7 @@ export function ConversationComposer({
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const showCount = text.length >= 1600;
+	const toast = useToast();
 
 	// 半双工语音对答状态机：patientReplying 由父级的 loading（sending）驱动。
 	const voice = useVoiceDialogue({
@@ -56,12 +58,22 @@ export function ConversationComposer({
 
 	const showVoiceStatus = mode === "voice" && voice.phase !== "idle";
 
+	// 浏览器不支持语音输入：灰色按钮仍可点，点击后弹出简洁提示（tooltip 兜底）。
+	const unsupported = !voice.supported;
+	const unsupportedHint = "当前浏览器不支持语音输入（建议 Chrome/Edge），可直接用文字对话";
+	const micTooltip = unsupported
+		? unsupportedHint
+		: voice.phase === "listening"
+			? "松开自动发送"
+			: voice.phase === "ready"
+				? "该你说话了"
+				: "按住说话";
+
 	// 按住途中若患者突然回复（loading 翻转），不要吞掉正在进行的转写；
 	// 只在非"聆听中"时才被 loading/发送态禁用。
 	const micDisabled =
 		disabled ||
 		trainingEnded ||
-		!voice.supported ||
 		((loading || voice.phase === "sending") && voice.phase !== "listening");
 	const micVariant =
 		voice.phase === "listening" || voice.phase === "ready" ? "filled" : "default";
@@ -70,7 +82,9 @@ export function ConversationComposer({
 	const micStyle =
 		voice.phase === "listening"
 			? { touchAction: "none", boxShadow: "0 0 0 4px rgba(239,68,68,.22)" }
-			: { touchAction: "none" };
+			: unsupported
+				? { touchAction: "none", opacity: 0.5, cursor: "not-allowed" }
+				: { touchAction: "none" };
 
 	const placeholder = trainingEnded
 		? "训练已结束，评分结果已生成"
@@ -121,10 +135,15 @@ export function ConversationComposer({
 	const handleMicDown = useCallback(
 		(e: React.PointerEvent) => {
 			e.preventDefault();
+			if (!voice.supported) {
+				// 浏览器不支持：灰色按钮仍可点，点击弹出简洁提示（不进入语音模式）。
+				toast.warning(unsupportedHint);
+				return;
+			}
 			setMode("voice");
 			voice.pressStart();
 		},
-		[voice],
+		[unsupportedHint, voice, toast],
 	);
 	const handleMicUp = useCallback(() => voice.pressEnd(), [voice]);
 
@@ -142,15 +161,7 @@ export function ConversationComposer({
 				wrap="nowrap"
 				style={{ maxWidth: 768, margin: "0 auto" }}
 			>
-				<Tooltip
-					label={
-						voice.phase === "listening"
-							? "松开自动发送"
-							: voice.phase === "ready"
-								? "该你说话了"
-								: "按住说话"
-					}
-				>
+				<Tooltip label={micTooltip}>
 					<ActionIcon
 						variant={micVariant}
 						color={micColor}
