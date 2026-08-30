@@ -420,6 +420,32 @@ def send_email(subject: str, body_html: str) -> bool:
         return False
 
 
+# ── Report gating ────────────────────────────────────────────────────────────
+
+
+def should_push(data: dict, online: dict) -> bool:
+    """Whether today's report is worth sending.
+
+    Skips on a quiet day: no business activity (0 users / 0 trainings / 0
+    completed across prod & staging) and no real anomalies to surface. An
+    offline endpoint is itself an anomaly → always push.
+    """
+    if not (online.get("prod") and online.get("staging")):
+        return True
+    has_business = False
+    for env in ("prod", "staging"):
+        biz = (data.get(env) or {}).get("business") or {}
+        if any((biz.get(k) or 0) > 0 for k in ("today_users", "today_trainings", "today_completed")):
+            has_business = True
+            break
+    if has_business:
+        return True
+    for env in ("prod", "staging"):
+        if (data.get(env) or {}).get("alerts"):
+            return True
+    return False
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -429,6 +455,10 @@ def main():
     log.info("Building daily report...")
 
     data, online = fetch_all_reports()
+
+    if not should_push(data, online):
+        log.info("No business activity and no anomalies — skipping daily report")
+        return
 
     try:
         body = build_email(data, online)

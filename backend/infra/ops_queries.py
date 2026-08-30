@@ -229,10 +229,11 @@ def compute_alerts(dashboard: dict) -> list[str]:
         alerts.append(f"LLM 5 分钟突发错误 {error_burst} 次")
 
     # ── HTTP/API surface ──
-    http_total = http.get("total", 0)
-    http_4xx = (http.get("by_status") or {}).get("4xx", 0)
-    if http_total >= 20 and http_4xx / max(http_total, 1) > 0.2:
-        alerts.append(f"HTTP 4xx 占比 {round(http_4xx / http_total * 100, 1)}% 偏高")
+    # A public API is constantly probed by port/exploit scanners, which flood 4xx
+    # (mostly 404 on non-existent paths: /api/.aws/credentials, /api/v1/fetch,
+    # /graphql, /download, …). A raw 4xx ratio is therefore NOT an actionable signal
+    # — don't alert on it. Genuine HTTP degradation is covered by the dashboard 5xx
+    # counts and the p95 latency check below.
     http_latency = http.get("latency_ms") or {}
     if http_latency.get("p95", 0) > 2000:
         alerts.append(f"HTTP p95 延迟 {http_latency['p95']}ms 偏高")
