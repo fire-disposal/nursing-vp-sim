@@ -468,11 +468,9 @@ sudo nginx -s reload
 
 | 脚本 | 频率 | 用途 |
 |------|------|------|
-| `monitor.py` | `*/15 * * * *` | 系统监控：Docker 容器状态、磁盘/CPU/内存、HTTP 端点健康、异常告警邮件 |
 | `daily_report.py` | `0 9 * * *` | 每日运维报告：调用 `/api/diagnose` 汇总两环境数据，HTML 邮件 |
-| `weekly_report.py` | `0 9 * * 1` | 周报：赛博朋克主题 HTML 邮件，含容器/资源/告警汇总 |
 
-**配置方式：** 所有 SMTP 和端口配置通过环境变量读取（不再使用 `config.py`），从 `/opt/nursing-vp-sim/.env` 中读取：
+**配置方式：** SMTP 和端口配置通过环境变量读取，从 `/opt/nursing-vp-sim/.env` 中读取：
 
 ```bash
 SMTP_HOST=smtp.qq.com
@@ -481,13 +479,10 @@ SMTP_USER=your-email@qq.com
 SMTP_PASS=your-authorization-code
 MAIL_FROM=your-email@qq.com
 MAIL_TO=your-email@qq.com
-# 可选：DISK_THRESHOLD_PCT=85 CPU_LOAD_MULTIPLIER=1.5 MEM_MIN_MB=500
 ```
 
 **Crontab 参考：**
 ```
-*/15 * * * * cd /opt/monitor && /usr/bin/python3 monitor.py >> /opt/monitor/cron.log 2>&1
-0 9 * * 1 cd /opt/monitor && /usr/bin/python3 weekly_report.py >> /opt/monitor/cron.log 2>&1
 0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py >> /opt/monitor/cron.log 2>&1
 0 3 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh staging >> /var/log/db-backup.log 2>&1
 0 4 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
