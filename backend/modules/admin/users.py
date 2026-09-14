@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import and_, or_
 from sqlalchemy import func as sa_func
-from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
@@ -18,6 +18,7 @@ from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from models.school import Grade
+from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     AdminStats,
     BatchCreateResult,
@@ -232,7 +233,10 @@ class UserService:
         stats = self.training_summary(user_id)
         total_sessions = int(stats.total_sessions or 0) if stats else 0
         total_minutes = round(float(stats.total_minutes or 0)) if stats else 0
-        avg_score = round(float(stats.avg_score), 1) if stats and stats.avg_score else None
+        # INV-5/INV-3：avg_score 的 0 是聚合默认值，只有存在有效成绩行时才可当成绩展示，
+        # 否则「教师复核 0 分」与「整门没有有效成绩」会被混为一谈。
+        graded_count = int(stats.graded_count or 0) if stats else 0
+        avg_score = round(float(stats.avg_score), 1) if graded_count > 0 else None
 
         daily = [
             {
@@ -288,10 +292,11 @@ class UserService:
         total_records = base.count()
         completed_records = base.filter(TrainingRecord.status == "completed").count()
         avg_score = (
-            self.db.query(sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)))
+            self.db.query(sa_func.avg(grade_expr()))
             .join(TrainingRecord, Score.record_id == TrainingRecord.id)
             .join(User, TrainingRecord.user_id == User.id)
-            .filter(TrainingRecord.is_test == False)
+            # INV-3：纯成绩聚合（无父行可保留），兜底分直接过滤
+            .filter(TrainingRecord.is_test == False, *grade_conditions())
             .scalar()
         )
         avg_duration = (
@@ -320,8 +325,8 @@ class UserService:
             total_students=total_students,
             total_records=total_records,
             completed_records=completed_records,
-            average_score=round(float(avg_score), 1) if avg_score else None,
-            avg_duration_min=round(float(avg_duration), 1) if avg_duration else None,
+            average_score=round(float(avg_score), 1) if avg_score is not None else None,
+            avg_duration_min=round(float(avg_duration), 1) if avg_duration is not None else None,
             today_records=today_records,
         )
 
@@ -527,11 +532,11 @@ class UserService:
                     sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                sa_func.coalesce(sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)), 0).label(
-                    "avg_score"
-                ),
+                sa_func.coalesce(sa_func.avg(grade_expr()), 0).label("avg_score"),
+                sa_func.count(grade_expr()).label("graded_count"),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不进平均分，但该学生的场次/时长照旧统计
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(
                 TrainingRecord.user_id == user_id,
                 TrainingRecord.status == "completed",
@@ -547,9 +552,10 @@ class UserService:
                 sa_func.sum(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label(
                     "minutes"
                 ),
-                sa_func.avg(sa_func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
+                sa_func.avg(grade_expr()).label("avg_score"),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不进平均分，但当日场次/时长照旧统计
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(
                 TrainingRecord.user_id == user_id,
                 TrainingRecord.status == "completed",

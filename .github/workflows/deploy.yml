@@ -229,9 +229,101 @@ jobs:
           scp deploy/monitor/_env.py "$USER@$HOST":/opt/monitor/
 
           echo ">> Deploy nginx config"
-          scp deploy/nginx/iomt.205716.xyz.conf "$USER@$HOST":/etc/nginx/sites-enabled/iomt.205716.xyz.conf
-          scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":/etc/nginx/snippets/block-scanners.conf
-          ssh "$USER@$HOST" "sudo nginx -t && sudo nginx -s reload || echo 'nginx reload skipped (config test failed)'"
+          # 先暂存候选文件 → 备份原文件 → 安装 → 完整 nginx -t → 校验通过才 reload。
+          # 任一步失败都还原磁盘上的原配置并以非零退出（不再吞掉 nginx -t 失败让流程继续）。
+          NGINX_STAGE="$(ssh "$USER@$HOST" "mktemp -d '/tmp/nginx-deploy-${{ github.run_id }}-${{ github.run_attempt }}-XXXXXX'")"
+          if ! scp deploy/nginx/iomt.205716.xyz.conf "$USER@$HOST":"$NGINX_STAGE/iomt.205716.xyz.conf" ||
+             ! scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":"$NGINX_STAGE/block-scanners.conf"; then
+            ssh "$USER@$HOST" "rm -rf -- '$NGINX_STAGE'"
+            exit 1
+          fi
+          ssh "$USER@$HOST" "bash -s -- '$NGINX_STAGE'" <<'NGINX_CFG_DEPLOY'
+          set -euo pipefail
+
+          STAGE="${1:-}"
+          case "$STAGE" in
+            /tmp/nginx-deploy-*) ;;
+            *) echo "::error::nginx 配置暂存目录异常: '$STAGE'"; exit 1 ;;
+          esac
+          [ -d "$STAGE" ] || { echo "::error::nginx 配置暂存目录不存在: $STAGE"; exit 1; }
+
+          # 只部署这两个仓库自有文件；其它 vhost / snippets 一律不碰。
+          VHOST_CONF=/etc/nginx/sites-enabled/iomt.205716.xyz.conf
+          SNIP_CONF=/etc/nginx/snippets/block-scanners.conf
+          BACKUP="$STAGE/backup"
+
+          KEEP_BACKUP=no
+          cleanup() {
+            if [ "$KEEP_BACKUP" = yes ]; then
+              echo "::error::nginx 配置恢复未完成，保留备份目录供人工恢复: $STAGE" >&2
+            else
+              sudo rm -rf -- "$STAGE"
+            fi
+          }
+          trap cleanup EXIT
+
+          # sites-enabled 里通常是符号链接：解析出真实文件，备份/安装/回滚都作用于同一个真实文件，
+          # 不会把符号链接本身换成普通文件；解析结果落在 /etc/nginx 之外就直接拒绝，避免覆盖无关文件。
+          resolve_target() {
+            local p="$1" r
+            r="$(readlink -m -- "$p")" || return 1
+            case "$r" in
+              /etc/nginx/*) ;;
+              *) echo "::error::$p 解析为 $r——不在 /etc/nginx 下，拒绝安装" >&2; return 1 ;;
+            esac
+            [ ! -d "$r" ] || { echo "::error::$p 解析为目录: $r" >&2; return 1; }
+            printf '%s' "$r"
+          }
+
+          REAL_VHOST="$(resolve_target "$VHOST_CONF")" || exit 1
+          REAL_SNIP="$(resolve_target "$SNIP_CONF")" || exit 1
+
+          # 备份原文件（含「原本不存在」的情况——回滚时改为删除新装文件）
+          mkdir -p "$BACKUP"
+          VHOST_EXISTED=no
+          SNIP_EXISTED=no
+          if [ -e "$REAL_VHOST" ]; then
+            sudo cp -a -- "$REAL_VHOST" "$BACKUP/vhost.conf"
+            VHOST_EXISTED=yes
+          fi
+          if [ -e "$REAL_SNIP" ]; then
+            sudo cp -a -- "$REAL_SNIP" "$BACKUP/snippet.conf"
+            SNIP_EXISTED=yes
+          fi
+
+          restore_previous() {
+            local failed=0
+            echo ">> 回滚 nginx 配置到部署前状态"
+            if [ "$VHOST_EXISTED" = yes ]; then
+              sudo cp -a -- "$BACKUP/vhost.conf" "$REAL_VHOST" || failed=1
+            else
+              sudo rm -f -- "$REAL_VHOST" || failed=1
+            fi
+            if [ "$SNIP_EXISTED" = yes ]; then
+              sudo cp -a -- "$BACKUP/snippet.conf" "$REAL_SNIP" || failed=1
+            else
+              sudo rm -f -- "$REAL_SNIP" || failed=1
+            fi
+            sudo nginx -t || failed=1
+            if [ "$failed" -ne 0 ]; then KEEP_BACKUP=yes; fi
+            return "$failed"
+          }
+
+          sudo cp -- "$STAGE/iomt.205716.xyz.conf" "$REAL_VHOST" || { echo "::error::安装 $VHOST_CONF 失败"; restore_previous; exit 1; }
+          sudo cp -- "$STAGE/block-scanners.conf" "$REAL_SNIP" || { echo "::error::安装 $SNIP_CONF 失败"; restore_previous; exit 1; }
+
+          if ! sudo nginx -t; then
+            echo "::error::nginx -t 校验失败——恢复原配置，不执行 reload"
+            restore_previous
+            exit 1
+          fi
+          if ! sudo nginx -s reload; then
+            echo "::error::nginx -s reload 失败——恢复原磁盘配置"
+            restore_previous
+            exit 1
+          fi
+          echo "  ✓ nginx 配置已校验并 reload"
+          NGINX_CFG_DEPLOY
 
           ssh "$USER@$HOST" << DEPLOY
             set -e

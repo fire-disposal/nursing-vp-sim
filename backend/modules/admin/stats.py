@@ -4,13 +4,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
+from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassStudentItem,
     ClassSummaryItemSchema,
@@ -69,9 +70,11 @@ class StatsService:
                 func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label(
                     "minutes"
                 ),
-                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
+                func.avg(grade_expr()).label("avg_score"),
+                func.count(grade_expr()).label("graded"),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不进平均分，但训练记录仍要计入场次/时长 → 条件挂在 Score 的 JOIN 上
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(
                 TrainingRecord.status == "completed",
                 TrainingRecord.start_time >= since,
@@ -95,8 +98,11 @@ class StatsService:
         ]
         total_sessions = sum(r.sessions for r in rows)
         total_minutes = round(sum(r.minutes or 0 for r in rows))
-        score_sum = sum(float(r.avg_score) * r.sessions for r in rows if r.avg_score is not None)
-        score_weight = sum(r.sessions for r in rows if r.avg_score is not None)
+        # INV-3/INV-5：跨日总平均按「有效成绩条数」加权。用场次加权会让兜底分/无成绩的
+        # 场次放大某天的平均分（场次与时长仍照旧展示，不受成绩口径影响）。
+        graded_rows = [r for r in rows if r.graded and r.avg_score is not None]
+        score_sum = sum(float(r.avg_score) * r.graded for r in graded_rows)
+        score_weight = sum(r.graded for r in graded_rows)
         overall_avg = round(score_sum / score_weight, 1) if score_weight > 0 else None
 
         return TrendStats(
@@ -172,17 +178,14 @@ class StatsService:
                 User.display_name.label("display_name"),
                 User.student_id.label("student_id"),
                 func.count(TrainingRecord.id).label("total_sessions"),
-                func.coalesce(func.avg(func.coalesce(Score.reviewed_total, Score.total_score)), 0).label("avg_score"),
-                func.coalesce(func.sum(func.coalesce(Score.reviewed_total, Score.total_score)), 0).label("total_score"),
+                func.coalesce(func.avg(grade_expr()), 0).label("avg_score"),
+                func.coalesce(func.sum(grade_expr()), 0).label("total_score"),
                 func.coalesce(
                     func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                func.rank()
-                .over(
-                    order_by=func.coalesce(func.avg(func.coalesce(Score.reviewed_total, Score.total_score)), 0).desc()
-                )
-                .label("rank"),
+                func.rank().over(order_by=func.coalesce(func.avg(grade_expr()), 0).desc()).label("rank"),
+                func.count(grade_expr()).label("graded"),
             )
             .outerjoin(
                 TrainingRecord,
@@ -190,7 +193,8 @@ class StatsService:
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_test == False),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不进平均分/总分/排名，但场次与时长照旧统计
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(User.role_id == student_role_id)
         )
 
@@ -207,7 +211,9 @@ class StatsService:
                 display_name=r.display_name,
                 student_id=r.student_id,
                 total_sessions=r.total_sessions,
-                avg_score=round(float(r.avg_score), 1) if r.avg_score else None,
+                # INV-3/INV-5：avg_score 的 0 是聚合默认值；只有存在有效成绩行时才是真成绩
+                # （教师复核 0 分必须显示 0.0，无有效成绩才显示 None）。
+                avg_score=round(float(r.avg_score), 1) if r.graded else None,
                 total_score=round(float(r.total_score), 1),
                 total_minutes=round(float(r.total_minutes)),
                 rank=r.rank,
@@ -227,7 +233,7 @@ class StatsService:
                 User.display_name,
                 User.student_id,
                 func.count(TrainingRecord.id).label("total_sessions"),
-                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
+                func.avg(grade_expr()).label("avg_score"),
                 func.max(TrainingRecord.start_time).label("last_start_time"),
             )
             .join(UserClass, UserClass.user_id == User.id)
@@ -237,7 +243,8 @@ class StatsService:
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_test == False),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不参与平均分，无有效成绩的学生仍保留（avg_score = None）
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(UserClass.class_id == class_id)
             .group_by(User.id)
             .order_by(User.display_name, User.id)
@@ -282,7 +289,7 @@ class StatsService:
                     func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
                     0,
                 ).label("total_minutes"),
-                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
+                func.avg(grade_expr()).label("avg_score"),
             )
             .outerjoin(UserClass, UserClass.class_id == Class.id)
             .outerjoin(
@@ -291,7 +298,8 @@ class StatsService:
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_test == False),
             )
-            .outerjoin(Score, Score.record_id == TrainingRecord.id)
+            # INV-3：兜底分不参与班级平均分，无有效成绩的班级仍保留（avg_score = None）
+            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(Class.id.in_(class_ids))
             .group_by(Class.id)
             .all()

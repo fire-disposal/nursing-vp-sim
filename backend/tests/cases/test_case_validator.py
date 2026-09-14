@@ -97,16 +97,23 @@ def test_example_count_too_few():
 # ── 死字段（字段过细分治理）─────────────────────────────────────────────
 
 
-def test_dead_field_detected():
-    c = json.loads(json.dumps(_load("case1")))
-    c["exam_anchors"] = {"legacy": True}
-    r = validate_case(c)
-    assert any("无消费端" in i.message or "legacy" in i.message for i in r.warnings)
-
-
-def test_no_dead_fields_in_builtin():
-    from modules.cases.validator import CONSUMED_FIELDS
-
+def test_consumed_optional_fields_do_not_warn():
     c = _load("case1")
-    unknown = [k for k in c if k not in CONSUMED_FIELDS and k != "variant_of"]
-    assert unknown == [], f"未登记消费端的字段: {unknown}"
+    c["exam_anchors"] = {"vital_signs": {"temperature": "37℃"}}
+    c["voice_override"] = "custom-speaker"
+    r = validate_case(c)
+    assert not [i for i in r.warnings if i.field in {"exam_anchors", "voice_override"}]
+
+
+def test_unregistered_field_still_warns():
+    c = _load("case1")
+    c["unregistered_case_setting"] = True
+    r = validate_case(c)
+    assert any(i.field == "unregistered_case_setting" for i in r.warnings)
+
+
+def test_retired_field_still_warns():
+    c = _load("case1")
+    c["capabilities"] = ["physical_exam"]
+    r = validate_case(c)
+    assert any(i.field == "capabilities" for i in r.warnings)

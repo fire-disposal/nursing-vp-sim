@@ -16,7 +16,7 @@ GitHub Actions 只会从 `.github/workflows/` **顶层**读取工作流；子目
 | `deploy-staging.yml` | tag/dispatch → 构建推送 GHCR → 部署 staging → 健康检查 + 自动回滚 | 迁移门禁、健康检查、自动回滚（含 alembic 回退）、镜像清理、部署横幅、钉钉通知、开发报告发布 → 全部进入 `deploy.yml` |
 | `deploy-production.yml` | 手动 dispatch → 部署 prod | **部署前数据库备份（失败即停）**、版本历史文件、生产 nginx/监控脚本下发 → 进入 `deploy.yml` |
 | `rollback-production.yml` | 手动选择环境 + 版本 → 执行 `deploy/rollback.sh` | 全部保留，去掉 environment 二选一 → `rollback.yml` |
-| `piops-auto-deploy.yml` | `piops/*` PR 合并后自动打 tag 并部署 staging | **刻意不保留**：单实例下它等价于「AI 直接发版到正式服」，与 AGENTS.md 部署红线冲突。若要恢复自动化发版，必须改成「开 PR / 通知人工」，不得直接触发部署 |
+| `piops-auto-deploy.yml` | `piops/*` PR 合并后自动打 tag 并部署 staging | **刻意不保留**：单实例下它等价于「PR 合并即自动发版正式服」，不经过任何验证步骤。若要恢复自动化发版，至少应改成「开 PR + 跑门禁」 |
 | `piops-fix.yml` | 按线上错误窗口采集 `/api/diagnose` 上下文 → LLM 生成修复 PR | 未进入部署流水线；作为平台能力原样存档。恢复时请注意它只应产出 PR，不应触发部署 |
 
 > `deploy/docker-compose.staging.yml` 已随单实例收敛删除（2026-09-14）。恢复第二套栈需要
@@ -25,9 +25,9 @@ GitHub Actions 只会从 `.github/workflows/` **顶层**读取工作流；子目
 
 ## 单实例流水线新增/保留的约定
 
-1. **人工闸门机制化**：`deploy.yml` / `rollback.yml` 都绑定 GitHub Environment `production`。
-   必须在仓库 Settings → Environments → `production` 配置 **Required reviewers**，
-   否则 tag 推送会直接发版（旧流程靠「prod 用 workflow_dispatch」表达人工确认）。
+1. **审批闸门（当前未启用）**：`deploy.yml` / `rollback.yml` 都绑定 GitHub Environment `production`。
+   在仓库 Settings → Environments → `production` 配置 **Required reviewers** 才会出现审批等待；
+   未配置时 tag 推送即直接发版。
 2. **部署前必须备份成功**：`pg_dump` 失败即终止部署（继承自旧 prod 流水线）。
 3. **版本历史文件统一为 `.version-history-prod`**：`deploy/rollback.sh` 依赖该文件名。
 4. **部署后冒烟**：`/api/diagnose` 必须返回 `healthy|degraded`；未配置 `DIAGNOSE_TOKEN` 时跳过并提示。

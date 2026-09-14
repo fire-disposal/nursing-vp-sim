@@ -12,11 +12,11 @@ ssh yecaoyun "uptime; free -h; df -h /"
 ssh yecaoyun "docker ps --format 'table {{.Names}}\t{{.Status}}'"
 
 # 所有容器日志（最近 30 行）
-ssh yecaoyun "docker logs nursing-backend-staging --tail 30"
-ssh yecaoyun "docker logs nursing-db-staging --tail 30"
+ssh yecaoyun "docker logs nursing-vp-sim-backend-1 --tail 30"
+ssh yecaoyun "docker logs nursing-db --tail 30"
 
 # 综合诊断快照
-ssh yecaoyun 'curl -sf "http://127.0.0.1:9081/api/diagnose?token=$DIAGNOSE_TOKEN"'
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9001/api/diagnose?token=$DIAGNOSE_TOKEN"'
 ```
 
 ## 常见场景
@@ -34,20 +34,20 @@ ssh 失败 / 超时
 
 ```bash
 # 查看失败原因
-ssh yecaoyun "docker inspect nursing-backend-staging --format '{{json .State.Health}}' | python3 -m json.tool"
+ssh yecaoyun "docker inspect nursing-vp-sim-backend-1 --format '{{json .State.Health}}' | python3 -m json.tool"
 
 # 重启问题容器
-ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose -f docker-compose.staging.yml --env-file .env restart"
+ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose --env-file .env restart backend"
 
 # 日志中搜索关键错误
-ssh yecaoyun "docker logs nursing-backend-staging 2>&1 | grep -iE 'error|fail|panic|traceback' | tail -20"
+ssh yecaoyun "docker logs nursing-vp-sim-backend-1 2>&1 | grep -iE 'error|fail|panic|traceback' | tail -20"
 ```
 
 ### 磁盘空间不足
 
 ```bash
-# 清理未使用的 Docker 资源
-ssh yecaoyun "docker system prune -af --volumes"
+# 清理悬空镜像 + 旧镜像（保留 5 个可回滚版本；脚本不含任何卷清理）
+ssh yecaoyun "/opt/nursing-vp-sim/deploy/docker-cleanup.sh"
 
 # 检查大文件
 ssh yecaoyun "du -sh /opt/nursing-vp-sim/backups/*"
@@ -64,7 +64,7 @@ ssh yecaoyun "find /opt/nursing-vp-sim/backups -mtime +7 -delete"
 ssh yecaoyun "docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.MemPct}}'"
 
 # 重启所有容器
-ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose -f docker-compose.staging.yml --env-file .env down && docker compose -f docker-compose.staging.yml --env-file .env up -d"
+ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose --env-file .env down && docker compose --env-file .env up -d"
 ```
 
 ### 数据库连接拒绝
@@ -74,23 +74,23 @@ ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose -f docker-compose.staging
 ssh yecaoyun "docker ps | grep nursing-db"
 
 # 测试 DB 连接
-ssh yecaoyun "docker exec nursing-db-staging psql -U nursing -d nursing_vp -c 'SELECT 1'"
+ssh yecaoyun "docker exec nursing-db psql -U nursing -d nursing_vp -c 'SELECT 1'"
 
 # DB 日志
-ssh yecaoyun "docker logs nursing-db-staging --tail 30"
+ssh yecaoyun "docker logs nursing-db --tail 30"
 ```
 
 ## DNS / Nginx
 
 ```bash
-# 检查 nginx 配置
-ssh yecaoyun "nginx -t"
+# 检查 nginx 配置（必须先通过校验再 reload：校验失败时 reload 会静默保留旧配置）
+ssh yecaoyun "sudo nginx -t && sudo nginx -s reload"
 
-# 重载 nginx
-ssh yecaoyun "nginx -s reload"
+# 测试域名
+ssh yecaoyun "curl -sI https://iomt.205716.xyz | head -5"
 
-# 测试域名解析
-ssh yecaoyun "curl -sI https://test.205716.xyz | head -5"
+# 测试域名解析（本机）
+dig +short iomt.205716.xyz
 ```
 
 ## 告警触发条件

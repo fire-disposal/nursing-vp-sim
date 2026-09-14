@@ -6,22 +6,13 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { theme } from "./theme";
+import { installChunkRecovery } from "./utils/chunk-recovery";
 import "./styles/global.css";
 
-// Chunk 加载失败恢复：新部署后浏览器缓存的 index.html 可能
-// 引用已不存在的旧 chunk hash → 强制全量刷新。
-// vite:preloadError 是 Vite 构建注入的事件（生产环境生效）。
-window.addEventListener("vite:preloadError", () => {
-	window.location.reload();
-});
-// 兜底：unhandledrejection 捕获未被 vite:preloadError 覆盖的
-// 动态 import 失败场景。
-window.addEventListener("unhandledrejection", (event) => {
-	const msg = String(event.reason?.message ?? event.reason ?? "");
-	if (msg.includes("dynamically imported module") || msg.includes("Failed to fetch")) {
-		window.location.reload();
-	}
-});
+// chunk 加载失败的有界自恢复：同一构建同一标签页最多自动刷新一次，
+// 接口请求失败不刷新，额度用尽后交给 ErrorBoundary 显示可恢复错误。
+// 详见 utils/chunk-recovery.ts。
+installChunkRecovery();
 
 function Root() {
 	return (

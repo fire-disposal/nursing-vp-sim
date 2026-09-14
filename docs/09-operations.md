@@ -13,8 +13,8 @@
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
 | `commit-format.yml` | PR → master（自动） | 提交格式 + 代码质量门禁 + 迁移往返 | — |
-| `deploy.yml` | 推送 `v*` tag / `workflow_dispatch`（手动） | 正式服部署（需 `production` 环境审批） | `iomt.205716.xyz` |
-| `rollback.yml` | `workflow_dispatch`（手动） | 正式服定向回滚（需 `production` 环境审批） | `iomt.205716.xyz` |
+| `deploy.yml` | 推送 `v*` tag / `workflow_dispatch`（手动） | 正式服部署（`production` 未配 Required reviewers 时无审批步骤） | `iomt.205716.xyz` |
+| `rollback.yml` | `workflow_dispatch`（手动） | 正式服定向回滚（同上） | `iomt.205716.xyz` |
 
 单实例部署：唯一目标为正式服 `iomt.205716.xyz`。旧双栈（staging + prod）流水线
 （`deploy-staging` / `deploy-production` / `rollback-production` / `piops-*`）已于 2026-09-14 归档到
@@ -30,13 +30,12 @@ PR 创建 → commit-format.yml 门禁
   ├─ ruff + ty (backend)
   └─ biome + tsc (frontend)
      │
-     ▼ 通过后合并 PR，人工 `pnpm run tag` 推 tag（本地 pre-push 做迁移往返）
+     ▼ 通过后合并 PR，`pnpm run tag` 推 tag（本地 pre-push 做迁移往返）
      │
      ▼ deploy.yml（推送 v* tag 触发；也可手动 dispatch 指定历史版本）
-  GitHub Environment `production` 人工审批
+     │  （`production` 未配 Required reviewers → 无审批等待，直接进入部署）
      │
-     ▼ 审批通过
-  校验迁移/镜像 → 备份DB（失败即停） → 记录当前 Alembic revision → 拉镜像 → 部署 → 健康检查
+  校验迁移/镜像 → 下发 nginx 配置（暂存 → 备份 → 安装 → `nginx -t` → reload，任一步失败即恢复原配置并中止）→ 备份DB（失败即停） → 记录当前 Alembic revision → 拉镜像 → 部署 → 健康检查
                    ├─ healthy  → /api/diagnose 冒烟 → 完成
                    └─ unhealthy/timeout → DB 回滚到部署前 revision → 回滚旧镜像
 ```
@@ -150,7 +149,7 @@ bash rollback.sh --env prod --list
 
 1. 打开仓库 Actions 页面
 2. 选择 **Emergency Rollback**（`.github/workflows/rollback.yml`）
-3. 点击 "Run workflow"（需通过 `production` 环境审批）
+3. 点击 "Run workflow"（`production` 未配 Required reviewers 时无审批步骤）
 4. 输入目标版本号（如 `2026.06.02-2`）
 5. 点击 "Run workflow" 执行
 

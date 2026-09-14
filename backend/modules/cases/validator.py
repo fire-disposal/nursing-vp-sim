@@ -43,6 +43,8 @@ CONSUMED_FIELDS: dict[str, str] = {
     "required_inquiries": "prompt + 评分",
     "example_dialogues": "few-shot (context/examples.py)",
     "tools": "查体/护理记录工具",
+    "exam_anchors": "capabilities + 查体/生命体征 + 病例生成",
+    "voice_override": "voice.service 病例音色覆盖",
     "hidden_info": "prompt (format_case_for_prompt)",
     "quiz": "引导式测验工具",
     "nursing_record": "护理记录工具 (类型待收敛)",
@@ -51,7 +53,7 @@ CONSUMED_FIELDS: dict[str, str] = {
 }
 
 # Legacy/已移除消费端的字段——出现即告警（过细分残留）
-LEGACY_FIELDS = {"phases", "exam_anchors", "voice_type", "voice_override", "capabilities"}
+LEGACY_FIELDS = {"phases", "voice_type", "capabilities"}
 
 # ── 规则常量 ──────────────────────────────────────────────────────────────
 
