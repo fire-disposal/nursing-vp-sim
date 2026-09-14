@@ -19,6 +19,10 @@ GitHub Actions 只会从 `.github/workflows/` **顶层**读取工作流；子目
 | `piops-auto-deploy.yml` | `piops/*` PR 合并后自动打 tag 并部署 staging | **刻意不保留**：单实例下它等价于「AI 直接发版到正式服」，与 AGENTS.md 部署红线冲突。若要恢复自动化发版，必须改成「开 PR / 通知人工」，不得直接触发部署 |
 | `piops-fix.yml` | 按线上错误窗口采集 `/api/diagnose` 上下文 → LLM 生成修复 PR | 未进入部署流水线；作为平台能力原样存档。恢复时请注意它只应产出 PR，不应触发部署 |
 
+> `deploy/docker-compose.staging.yml` 已随单实例收敛删除（2026-09-14）。恢复第二套栈需要
+> 从 git 历史取回该文件，并同步撤回 `deploy/rollback.sh`、`deploy/db-backup.sh`、
+> `deploy/db-restore.sh` 与 `deploy/monitor/_env.py` 中的单实例化改动。
+
 ## 单实例流水线新增/保留的约定
 
 1. **人工闸门机制化**：`deploy.yml` / `rollback.yml` 都绑定 GitHub Environment `production`。

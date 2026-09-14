@@ -254,7 +254,7 @@ const presentation = buildPatientPresentation(patient, { emotion, emotion4D, val
 | `patient-portrait.test.ts` | 6 | 变体映射与回退 |
 
 - 全量：`cd frontend && npx vitest run`（344 用例）、`npx tsc --noEmit`、`npx vite build`。
-- 发布：`pnpm run tag` → staging 自动部署；生产走人工流程（红线见 `AGENTS.md`）。
+- 发布：`pnpm run tag` → 人工批准 `production` 环境审批后由 `deploy.yml` 发布（单实例；红线见 `AGENTS.md`）。
 
 ## 8. 相关文档
 

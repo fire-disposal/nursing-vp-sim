@@ -38,16 +38,14 @@ CPU_LOAD_MULTIPLIER = float(_get("CPU_LOAD_MULTIPLIER", "1.5"))
 MEM_MIN_MB = int(_get("MEM_MIN_MB", "500"))
 
 # ── Endpoints ────────────────────────────────────────────────────────────
+# 单实例部署：唯一后端 = 正式服（staging 已于 2026-09-14 退役，
+# 见 docs/ops/single-instance-migration.md）
+DIAGNOSE_PORT = int(_get("PROD_BACKEND_PORT", "9001"))
 ENDPOINTS = [
-    {"name": "nursing-prod-backend", "url": f"http://localhost:{_get('PROD_BACKEND_PORT','9001')}/api/health"},
-    {"name": "nursing-staging-backend","url": f"http://localhost:{_get('STAGING_BACKEND_PORT','9081')}/api/health"},
+    {"name": "nursing-backend", "url": f"http://localhost:{DIAGNOSE_PORT}/api/health"},
 ]
 
 # ── Report & Diagnose ────────────────────────────────────────────────────
-_REPORT_PORTS = {
-    "prod": int(_get("PROD_BACKEND_PORT", "9001")),
-    "staging": int(_get("STAGING_BACKEND_PORT", "9081")),
-}
 DIAGNOSE_TOKEN = _get("DIAGNOSE_TOKEN")
 
 # ── Server identity ──────────────────────────────────────────────────────

@@ -20,21 +20,20 @@ DO_LIST="0"
 usage() {
     cat <<'USAGE'
 Usage:
-  bash rollback.sh [--env prod|staging] --list
-  bash rollback.sh [--env prod|staging] [--yes] <version>
-  bash rollback.sh [--env prod|staging]
+  bash rollback.sh [--env prod] --list
+  bash rollback.sh [--env prod] [--yes] <version>
+  bash rollback.sh [--env prod]
 
 Examples:
   bash rollback.sh --env prod --yes 2026.06.02-2
-  bash rollback.sh --env staging --yes 2026.06.02-2
-  bash rollback.sh --env staging --list
+  bash rollback.sh --env prod --list
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --env)
-            [[ $# -ge 2 ]] || msg_fatal "--env 需要参数: prod 或 staging"
+            [[ $# -ge 2 ]] || msg_fatal "--env 需要参数: prod"
             ENV_NAME="$2"
             shift 2
             ;;
@@ -72,15 +71,11 @@ case "$ENV_NAME" in
         DB_BACKUP_ENV="prod"
         ;;
     staging)
-        HISTORY_FILE=".version-history-staging"
-        COMPOSE_FILE="docker-compose.staging.yml"
-        COMPOSE_PROJECT_ARGS=(-p nursing-vp-staging)
-        BACKEND_CONTAINER="nursing-backend-staging"
-        API_HEALTH_URL="http://127.0.0.1:9081/api/health"
-        DB_BACKUP_ENV="staging"
+        # 单实例收敛：staging 栈已于 2026-09-14 退役，不存在对应容器/历史文件
+        msg_fatal "staging 已于 2026-09-14 退役，见 docs/ops/single-instance-migration.md"
         ;;
     *)
-        msg_fatal "无效环境: ${ENV_NAME}，只能是 prod 或 staging"
+        msg_fatal "无效环境: ${ENV_NAME}，只能是 prod"
         ;;
 esac
 

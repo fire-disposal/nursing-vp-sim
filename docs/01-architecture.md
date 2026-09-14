@@ -31,7 +31,7 @@
 | 速率限制 | `core/rate_limits.py`（PostgreSQL 滑动窗口） | 多 worker 口径一致，无需 Redis |
 | LLM 调用日志 | `infra/llm/logging.py`（异步批量写 `llm_call_logs` 表） | 调用/错误/token/成本/延迟可查，供 `/api/diagnose`、`pnpm run health:cost` 消费 |
 | 容器化 | Docker + docker compose | 前后端 + 数据库 + nginx |
-| CI/CD | GitHub Actions | commit-format.yml (PR门禁) + deploy-staging.yml (tag触发) + deploy-production.yml (手动) |
+| CI/CD | GitHub Actions | `commit-format.yml`（PR 门禁）+ `deploy.yml`（tag 触发单实例部署，需 `production` 环境审批）/ `rollback.yml`（回滚） |
 
 ## 项目结构
 

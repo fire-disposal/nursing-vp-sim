@@ -14,8 +14,7 @@
 | ORM | SQLAlchemy 2.0 | 声明式映射 (Mapped[T])，UtcDateTime 时区保护 |
 | 迁移 | Alembic | `--autogenerate` 自动生成 DDL |
 | 开发连接 | `postgresql://postgres:<your-password>@localhost:5432/vptest` | 可通过 DATABASE_URL 覆盖 |
-| Staging 连接 | `postgresql://nursing:${PASSWORD}@db:5432/nursing_vp` | docker-compose.staging.yml |
-| Production 连接 | `postgresql://nursing:${PASSWORD}@db:5432/nursing_vp` | docker-compose.prod.yml |
+| Production 连接 | `postgresql://nursing:${PASSWORD}@db:5432/nursing_vp` | docker-compose.prod.yml（单实例唯一环境） |
 | pool_pre_ping | True | 连接前检测有效性 |
 | pool_recycle | 3600s | 每小时回收连接 |
 

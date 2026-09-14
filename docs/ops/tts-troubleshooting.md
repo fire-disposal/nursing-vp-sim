@@ -6,13 +6,13 @@
 
 ```bash
 # 检测后端健康
-ssh yecaoyun "curl -sf http://127.0.0.1:9081/api/health"
+ssh yecaoyun "curl -sf http://127.0.0.1:9001/api/health"
 
 # 查看 TTS 相关日志
-ssh yecaoyun "docker logs nursing-backend-staging --tail 50 2>&1 | grep -iE 'tts|asr|volc|voice'"
+ssh yecaoyun "docker logs nursing-vp-sim-backend-1 --tail 50 2>&1 | grep -iE 'tts|asr|volc|voice'"
 
 # 测试连通性
-ssh yecaoyun "curl -sf 'http://127.0.0.1:9081/api/admin/voice/test?service=tts'"
+ssh yecaoyun "curl -sf 'http://127.0.0.1:9001/api/admin/voice/test?service=tts'"
 ```
 
 ## 排查链路

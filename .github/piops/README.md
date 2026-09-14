@@ -1,5 +1,10 @@
 # PiOps GitHub Actions 工作流
 
+> 状态（2026-09-14）：`PiOps repair`（`piops-fix.yml`）与 `piops-auto-deploy.yml` 已归档到
+> `.github/workflows/archive/`（子目录不激活，Active 列表不再显示），本目录脚本随文件一并存档。
+> 恢复方式见 `.github/workflows/archive/README.md`；注意其中的 `target_env` / `vars.PIOPS_STAGING_DIAGNOSE_URL`
+> 选项指向已退役的测试服，恢复时必须一并删除。
+
 `PiOps repair` 是手动触发的一次性修复工作流：Runner checkout 默认分支，读取线上诊断，运行临时 Pi 实例完成受控修复与验证，最后创建草稿 PR。Runner 结束后不保留 Agent 工作区。
 
 ## Repository variables
@@ -47,7 +52,7 @@ DEEPSEEK_API_KEY=...
 
 ## PR 与 CI
 
-草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建（署名 `piops[bot]`）。`pull_request` 事件会正常触发 PR Gate 自动运行，但 bot 创建 PR 的首次运行可能被 GitHub 暂停为 `action_required`（需维护者在 Actions 页批准一次），批准后自动执行。commit-format 要求提交信息符合 `<emoji> <type>: <描述>` 格式。合入 `piops/*` 分支后由 `piops-auto-deploy` 自动打 tag 并 dispatch deploy-staging（见 `docs/09-operations.md`）。第一版保留人工审核。
+草稿 PR 默认使用仓库 `GITHUB_TOKEN` 创建（署名 `piops[bot]`）。`pull_request` 事件会正常触发 PR Gate 自动运行，但 bot 创建 PR 的首次运行可能被 GitHub 暂停为 `action_required`（需维护者在 Actions 页批准一次），批准后自动执行。commit-format 要求提交信息符合 `<emoji> <type>: <描述>` 格式。合入 `piops/*` 分支后的自动打 tag + 发版（`piops-auto-deploy`）已归档（见 `.github/workflows/archive/README.md`）——其直接发版能力与部署红线冲突，**刻意不恢复**；发版只能由人工推送 tag 并在 `production` 环境审批。第一版保留人工审核。
 
 ## 安全边界
 

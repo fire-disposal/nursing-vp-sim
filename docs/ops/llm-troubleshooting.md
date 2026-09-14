@@ -6,10 +6,10 @@
 
 ```bash
 # 诊断快照（含 LLM 成功率、限流、错误数）
-ssh yecaoyun 'curl -sf "http://127.0.0.1:9081/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -m json.tool | grep -A20 "\"llm\""'
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9001/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -m json.tool | grep -A20 "\"llm\""'
 
 # LLM 调用日志（最近错误）
-ssh yecaoyun "docker logs nursing-backend-staging --tail 100 2>&1 | grep -iE 'llm|deepseek|api_key|rate.limit|timeout'"
+ssh yecaoyun "docker logs nursing-vp-sim-backend-1 --tail 100 2>&1 | grep -iE 'llm|deepseek|api_key|rate.limit|timeout'"
 ```
 
 ## 排查链路
@@ -46,14 +46,14 @@ ssh yecaoyun "docker logs nursing-backend-staging --tail 100 2>&1 | grep -iE 'll
 
 ```bash
 # Top 消耗用户
-ssh yecaoyun "docker exec nursing-db-staging psql -U nursing -d nursing_vp -c \"
+ssh yecaoyun "docker exec nursing-db psql -U nursing -d nursing_vp -c \"
   SELECT u.username, COUNT(*) AS calls, SUM(estimated_cost) AS total_cost
   FROM llm_call_logs l JOIN users u ON l.user_id = u.id
   WHERE l.created_at > NOW() - INTERVAL '7 days'
   GROUP BY u.username ORDER BY total_cost DESC LIMIT 10\""
 
 # 检查是否有死循环训练
-ssh yecaoyun "docker exec nursing-db-staging psql -U nursing -d nursing_vp -c \"
+ssh yecaoyun "docker exec nursing-db psql -U nursing -d nursing_vp -c \"
   SELECT id, user_id, current_phase, message_count, scoring_status
   FROM training_records WHERE state = 'in_progress' AND created_at < NOW() - INTERVAL '2 hours'\""
 ```

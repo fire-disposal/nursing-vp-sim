@@ -32,7 +32,7 @@ log = logging.getLogger("daily_report")
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from _env import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_TO, DIAGNOSE_TOKEN, HOSTNAME  # noqa: E402
-from _env import _REPORT_PORTS, DINGTALK_WEBHOOK, FEEDBACK_BOT_TOKEN  # noqa: E402
+from _env import DIAGNOSE_PORT, DINGTALK_WEBHOOK, FEEDBACK_BOT_TOKEN  # noqa: E402
 
 if not SMTP_HOST:
     log.warning("SMTP_HOST not configured, email disabled")
@@ -41,8 +41,8 @@ if not SMTP_HOST:
 # ── Data fetching ─────────────────────────────────────────────────────────────
 
 
-def fetch_report(port: int) -> dict | None:
-    url = f"http://127.0.0.1:{port}/api/diagnose"
+def fetch_report() -> dict | None:
+    url = f"http://127.0.0.1:{DIAGNOSE_PORT}/api/diagnose"
     if DIAGNOSE_TOKEN:
         url += f"?token={DIAGNOSE_TOKEN}"
     try:
@@ -58,22 +58,11 @@ def fetch_report(port: int) -> dict | None:
         return None
 
 
-def fetch_all_reports() -> tuple[dict, dict]:
-    data = {}
-    online = {}
-    for key, port in _REPORT_PORTS.items():
-        rpt = fetch_report(port)
-        data[key] = rpt
-        online[key] = rpt is not None
-    return data, online
-
-
 def fetch_feedback_unreplied() -> int:
-    """Fetch count of unreplied user feedback from prod backend via bot API."""
-    port = _REPORT_PORTS.get("prod", 9001)
+    """Fetch count of unreplied user feedback via bot API."""
     if not FEEDBACK_BOT_TOKEN:
         return 0
-    url = f"http://127.0.0.1:{port}/api/feedback/bot?token={FEEDBACK_BOT_TOKEN}&replied=false&limit=1"
+    url = f"http://127.0.0.1:{DIAGNOSE_PORT}/api/feedback/bot?token={FEEDBACK_BOT_TOKEN}&replied=false&limit=1"
     try:
         r = subprocess.run(
             ["curl", "-sS", "-m", "5", url],
@@ -108,58 +97,47 @@ def _row(label: str, *cells: str) -> str:
 # ── Report builder ────────────────────────────────────────────────────────────
 
 
-def build_email(data: dict, online: dict) -> str:
+def build_email(report: dict, online: bool) -> str:
     now = datetime.now()
     date_str, time_str = now.strftime("%Y-%m-%d"), now.strftime("%H:%M")
-    prod, stag = data.get("prod") or {}, data.get("staging") or {}
+    prod = report or {}
     sections = []
 
     # ── Header ──
-    prod_status = prod.get("summary", {}).get("status", "unknown")
-    stag_status = stag.get("summary", {}).get("status", "unknown")
-    overall = "healthy" if prod_status == "healthy" and stag_status == "healthy" else "degraded"
+    status = prod.get("summary", {}).get("status", "unknown") if online else "offline"
+    overall = "healthy" if status == "healthy" else "degraded"
+    if not online:
+        status_text = "🔴 无响应"
+    else:
+        status_text = "🟢 运行正常" if overall == "healthy" else "🟡 存在异常"
     header = f"""<div class="header">
   <h1>VP-SIM 运维日报</h1>
   <div class="sub">{date_str} {time_str} ｜ {HOSTNAME}</div>
   <div class="status-bar {overall}">
-    {'🟢 运行正常' if overall == 'healthy' else '🟡 存在异常'} ｜
-    正式服: {prod.get('version', '-')} ｜
-    测试服: {stag.get('version', '-')}
+    {status_text} ｜ 版本: {prod.get('version', '-')}
   </div>
 </div>"""
     sections.append(header)
 
     # ── Alerts — top priority ──
-    pa = prod.get("alerts") or []
-    sa = stag.get("alerts") or []
-    if pa or sa:
-        rows = ""
-        for a in pa:
-            rows += f"<tr><td class='r'>{_tag('正式', 'err')}</td><td>{a}</td></tr>"
-        for a in sa:
-            rows += f"<tr><td class='r'>{_tag('测试', 'warn')}</td><td>{a}</td></tr>"
+    alerts = prod.get("alerts") or []
+    if alerts:
+        rows = "".join(f"<tr><td>{a}</td></tr>" for a in alerts)
         sections.append(_card("异常", "⚠️", "h-err") + f"<table>{rows}</table></div>")
     else:
         sections.append(_card("异常", "✅", "h-ok") + '<div class="status-ok">无异常</div></div>')
 
     # ── Error ring-buffer (recent errors, not rates) ──
-    pe = prod.get("errors") or {}
-    se = stag.get("errors") or {}
-    err_rows = ""
-    for label, env_err, env_name in [
-        ("正式服", pe, "prod"), ("测试服", se, "staging"),
-    ]:
-        c = env_err.get("count", {})
-        err_rows += (
-            f"<tr><td>{env_name}</td>"
-            f"<td class='r'>{c.get('last_5min', '-')}</td>"
-            f"<td class='r'>{c.get('last_hour', '-')}</td>"
-            f"<td class='r'>{c.get('unique_24h', '-')}</td>"
-            f"<td class='r'>{c.get('total_captured', '-')}</td></tr>"
-        )
+    c = (prod.get("errors") or {}).get("count", {})
+    err_rows = (
+        f"<tr><td class='r'>{c.get('last_5min', '-')}</td>"
+        f"<td class='r'>{c.get('last_hour', '-')}</td>"
+        f"<td class='r'>{c.get('unique_24h', '-')}</td>"
+        f"<td class='r'>{c.get('total_captured', '-')}</td></tr>"
+    )
     sections.append(
         _card("错误捕获", "📊")
-        + "<table><tr><th></th><th class='r'>近 5min</th><th class='r'>近 1h</th><th class='r'>24h 去重</th><th class='r'>缓冲区</th></tr>"
+        + "<table><tr><th class='r'>近 5min</th><th class='r'>近 1h</th><th class='r'>24h 去重</th><th class='r'>缓冲区</th></tr>"
         + err_rows
         + "</table></div>"
     )
@@ -173,34 +151,31 @@ def build_email(data: dict, online: dict) -> str:
     )
 
     # ── LLM error types (actionable: which errors, not success rate) ──
-    for env_name, pl in [("正式服", prod.get("llm", {})), ("测试服", stag.get("llm", {}))]:
-        errs = pl.get("recent_errors") or []
-        if errs:
-            detail = " ｜ ".join(f"{e['type']} ×{e['count']}" for e in errs[:5])
-            sections.append(
-                _card(f"LLM 错误 — {env_name}", "🤖")
-                + f'<div class="mono">{detail}</div></div>'
-            )
+    errs = (prod.get("llm") or {}).get("recent_errors") or []
+    if errs:
+        detail = " ｜ ".join(f"{e['type']} ×{e['count']}" for e in errs[:5])
+        sections.append(
+            _card("LLM 错误", "🤖")
+            + f'<div class="mono">{detail}</div></div>'
+        )
 
     # ── Scoring health ──
-    for env_name, ps in [
-        ("正式服", prod.get("scoring", {})), ("测试服", stag.get("scoring", {})),
-    ]:
-        completed = ps.get("completed_24h", 0)
-        failed = ps.get("failed_24h", 0)
-        pending = ps.get("pending", 0)
-        ip = ps.get("in_progress", 0)
-        sr = ps.get("success_rate", 100)
-        sc_tag = "err" if sr < 80 else ("warn" if failed > 0 else "ok")
-        sc_label = f"成功率 {sr}%" if sr < 100 else "正常"
-        sections.append(
-            _card(f"评分队列 — {env_name}", "🎯")
-            + f"<div>成功率 <strong>{sr}%</strong> ｜ "
-            f"完成 <strong>{completed}</strong> ｜ 失败 <strong>{failed}</strong> ｜ "
-            f"待处理 <strong>{pending}</strong> ｜ "
-            f"进行中 <strong>{ip}</strong> ｜ "
-            f"{_tag(sc_label, sc_tag)}</div></div>"
-        )
+    ps = prod.get("scoring") or {}
+    completed = ps.get("completed_24h", 0)
+    failed = ps.get("failed_24h", 0)
+    pending = ps.get("pending", 0)
+    ip = ps.get("in_progress", 0)
+    sr = ps.get("success_rate", 100)
+    sc_tag = "err" if sr < 80 else ("warn" if failed > 0 else "ok")
+    sc_label = f"成功率 {sr}%" if sr < 100 else "正常"
+    sections.append(
+        _card("评分队列", "🎯")
+        + f"<div>成功率 <strong>{sr}%</strong> ｜ "
+        f"完成 <strong>{completed}</strong> ｜ 失败 <strong>{failed}</strong> ｜ "
+        f"待处理 <strong>{pending}</strong> ｜ "
+        f"进行中 <strong>{ip}</strong> ｜ "
+        f"{_tag(sc_label, sc_tag)}</div></div>"
+    )
 
     # ── Voice budget ──
     vb = prod.get("voice_budget") or {}
@@ -216,69 +191,58 @@ def build_email(data: dict, online: dict) -> str:
         )
 
     # ── Voice errors (not rates) ──
-    for env_name, pv in [
-        ("正式服", prod.get("voice", {})), ("测试服", stag.get("voice", {})),
-    ]:
-        tts = pv.get("tts") or {}
+    tts = (prod.get("voice") or {}).get("tts") or {}
+    tc = tts.get("calls_24h", 0)
+    if tc:
         te = tts.get("error_count_24h", 0)
-        tc = tts.get("calls_24h", 0)
-        if tc:
-            sections.append(
-                _card(f"语音 — {env_name}", "🔊")
-                + f"<div>TTS <strong>{tc}</strong>次 ｜ 错误 <strong>{te}</strong></div></div>"
-            )
+        sections.append(
+            _card("语音", "🔊")
+            + f"<div>TTS <strong>{tc}</strong>次 ｜ 错误 <strong>{te}</strong></div></div>"
+        )
 
     # ── Request volume — 5xx matters ──
-    for env_name, pm in [
-        ("正式服", prod.get("metrics", {})), ("测试服", stag.get("metrics", {})),
-    ]:
-        reqs = pm.get("requests") or {}
-        total = reqs.get("total", 0)
-        by_status = reqs.get("by_status") or {}
-        s5xx = by_status.get("5xx", 0)
-        sessions = pm.get("active_sessions", "-")
-        latency = (reqs.get("latency_ms") or {}).get("avg", "-")
-        if total:
-            sections.append(
-                _card(f"请求量 — {env_name}", "📈")
-                + f"<div>总计 <strong>{total}</strong> ｜ "
-                f"5xx <strong>{s5xx}</strong> ｜ "
-                f"会话 <strong>{sessions}</strong> ｜ "
-                f"延迟 <strong>{latency}ms</strong></div></div>"
-            )
+    pm = prod.get("metrics") or {}
+    reqs = pm.get("requests") or {}
+    total = reqs.get("total", 0)
+    by_status = reqs.get("by_status") or {}
+    s5xx = by_status.get("5xx", 0)
+    sessions = pm.get("active_sessions", "-")
+    latency = (reqs.get("latency_ms") or {}).get("avg", "-")
+    if total:
+        sections.append(
+            _card("请求量", "📈")
+            + f"<div>总计 <strong>{total}</strong> ｜ "
+            f"5xx <strong>{s5xx}</strong> ｜ "
+            f"会话 <strong>{sessions}</strong> ｜ "
+            f"延迟 <strong>{latency}ms</strong></div></div>"
+        )
 
     # ── LLM degradation — 区分余额耗尽(需充值)与官方容量波动(等待恢复) ──
-    for env_name, pm in [
-        ("正式服", prod.get("metrics", {})), ("测试服", stag.get("metrics", {})),
-    ]:
-        llm_m = (pm.get("llm") or {}) if isinstance(pm, dict) else {}
-        degraded = llm_m.get("degraded_providers", 0)
-        gd = llm_m.get("global_degraded", False)
-        if degraded or gd:
-            by_reason = llm_m.get("degraded_by_reason") or {}
-            balance = int(by_reason.get("insufficient_balance", 0) or 0)
-            capacity = max(0, degraded - balance)
-            parts = [f"降级 Provider: {degraded} 个"]
-            if balance:
-                parts.append(f"余额不足 {balance} 个 (需充值)")
-            if capacity:
-                parts.append(f"容量波动 {capacity} 个")
-            if gd:
-                parts.append("全局降级")
-            # 余额不足/全局降级属需关注项标红，纯容量波动仅作提示
-            severity = "h-err" if (balance or gd) else ""
-            sections.append(
-                _card(f"LLM 状态 — {env_name}", "⚡", severity)
-                + f'<div class="mono">{" ｜ ".join(parts)}</div></div>'
-            )
+    llm_m = pm.get("llm") or {}
+    degraded = llm_m.get("degraded_providers", 0)
+    gd = llm_m.get("global_degraded", False)
+    if degraded or gd:
+        by_reason = llm_m.get("degraded_by_reason") or {}
+        balance = int(by_reason.get("insufficient_balance", 0) or 0)
+        capacity = max(0, degraded - balance)
+        parts = [f"降级 Provider: {degraded} 个"]
+        if balance:
+            parts.append(f"余额不足 {balance} 个 (需充值)")
+        if capacity:
+            parts.append(f"容量波动 {capacity} 个")
+        if gd:
+            parts.append("全局降级")
+        # 余额不足/全局降级属需关注项标红，纯容量波动仅作提示
+        severity = "h-err" if (balance or gd) else ""
+        sections.append(
+            _card("LLM 状态", "⚡", severity)
+            + f'<div class="mono">{" ｜ ".join(parts)}</div></div>'
+        )
 
     # ── Uptime ──
-    rows = ""
-    for env_name, pm in [("正式服", prod), ("测试服", stag)]:
-        u = (pm.get("metrics") or {}).get("uptime_seconds", 0)
-        rows += _row(env_name, f"{u / 3600:.1f}h")
+    u = pm.get("uptime_seconds", 0)
     sections.append(
-        _card("运行时长", "⏱️") + f"<table>{rows}</table></div>"
+        _card("运行时长", "⏱️") + f"<table>{_row('正式服', f'{u / 3600:.1f}h')}</table></div>"
     )
 
     body = "\n".join(sections)
@@ -345,37 +309,31 @@ WRAPPER = (
 # ── DingTalk ──────────────────────────────────────────────────────────────────
 
 
-def build_dingtalk_summary(data: dict, online: dict) -> str:
+def build_dingtalk_summary(prod: dict, online: bool) -> str:
     now = datetime.now().strftime("%Y-%m-%d")
-    prod, stag = data.get("prod") or {}, data.get("staging") or {}
-    unreplied = fetch_feedback_unreplied()
-
     lines = [f"## 📋 VP-SIM 日报 · {now}", ""]
 
-    def _section(title: str, env: dict, is_up: bool, extras: list[str]) -> list[str]:
-        if not is_up:
-            return [f"### {title} 🔴 无响应", ""]
-        version = env.get("version", "-")
-        exc: list[str] = []
-        err_1h = ((env.get("errors") or {}).get("count") or {}).get("last_hour", 0)
-        if err_1h > 0:
-            exc.append(f"> ⚠️ 近 1h 服务端错误 {err_1h} 条")
-        for a in env.get("alerts") or []:
-            exc.append(f"> ⚠️ {a}")
-        exc.extend(extras)
-        lamp = "🟢" if not exc else "🟡"
-        sec = [f"### {title} {lamp} {version}"]
-        biz = env.get("business") or {}
-        if biz:
-            sec.append(f"今日用户 **{biz.get('today_users', 0)}** 人")
-            sec.append(f"今日训练 **{biz.get('today_trainings', 0)}** 次（完成 {biz.get('today_completed', 0)}）")
-        sec.extend(exc)
-        sec.append("")
-        return sec
+    if not online:
+        lines += ["### 🏥 正式服 🔴 无响应", ""]
+        return "\n".join(lines).rstrip()
 
-    fb_line = [f"> 💬 未回复用户反馈 {unreplied} 条"] if unreplied else []
-    lines += _section("🧪 测试服", stag, online.get("staging", False), [])
-    lines += _section("🏥 正式服", prod, online.get("prod", False), fb_line)
+    exc: list[str] = []
+    err_1h = ((prod.get("errors") or {}).get("count") or {}).get("last_hour", 0)
+    if err_1h > 0:
+        exc.append(f"> ⚠️ 近 1h 服务端错误 {err_1h} 条")
+    for a in prod.get("alerts") or []:
+        exc.append(f"> ⚠️ {a}")
+    unreplied = fetch_feedback_unreplied()
+    if unreplied:
+        exc.append(f"> 💬 未回复用户反馈 {unreplied} 条")
+
+    lines.append(f"### 🏥 正式服 {'🟢' if not exc else '🟡'} {prod.get('version', '-')}")
+    biz = prod.get("business") or {}
+    if biz:
+        lines.append(f"今日用户 **{biz.get('today_users', 0)}** 人")
+        lines.append(f"今日训练 **{biz.get('today_trainings', 0)}** 次（完成 {biz.get('today_completed', 0)}）")
+    lines.extend(exc)
+    lines.append("")
 
     return "\n".join(lines).rstrip()
 
@@ -423,27 +381,19 @@ def send_email(subject: str, body_html: str) -> bool:
 # ── Report gating ────────────────────────────────────────────────────────────
 
 
-def should_push(data: dict, online: dict) -> bool:
+def should_push(prod: dict, online: bool) -> bool:
     """Whether today's report is worth sending.
 
     Skips on a quiet day: no business activity (0 users / 0 trainings / 0
-    completed across prod & staging) and no real anomalies to surface. An
-    offline endpoint is itself an anomaly → always push.
+    completed) and no real anomalies to surface. An offline endpoint is
+    itself an anomaly → always push.
     """
-    if not (online.get("prod") and online.get("staging")):
+    if not online:
         return True
-    has_business = False
-    for env in ("prod", "staging"):
-        biz = (data.get(env) or {}).get("business") or {}
-        if any((biz.get(k) or 0) > 0 for k in ("today_users", "today_trainings", "today_completed")):
-            has_business = True
-            break
-    if has_business:
+    biz = prod.get("business") or {}
+    if any((biz.get(k) or 0) > 0 for k in ("today_users", "today_trainings", "today_completed")):
         return True
-    for env in ("prod", "staging"):
-        if (data.get(env) or {}).get("alerts"):
-            return True
-    return False
+    return bool(prod.get("alerts"))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -454,14 +404,15 @@ def main():
     subject = f"VP-SIM 运维日报 — {now.strftime('%Y-%m-%d')}"
     log.info("Building daily report...")
 
-    data, online = fetch_all_reports()
+    report = fetch_report()
+    online = report is not None
 
-    if not should_push(data, online):
+    if not should_push(report or {}, online):
         log.info("No business activity and no anomalies — skipping daily report")
         return
 
     try:
-        body = build_email(data, online)
+        body = build_email(report or {}, online)
     except Exception:
         log.exception("Failed to build email")
         body = "<p>报告生成失败</p>"
@@ -469,7 +420,7 @@ def main():
     send_email(subject, body)
 
     try:
-        dt_text = build_dingtalk_summary(data, online)
+        dt_text = build_dingtalk_summary(report or {}, online)
         send_dingtalk(dt_text)
     except Exception:
         log.exception("Failed to send DingTalk")

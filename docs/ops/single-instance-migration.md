@@ -1,7 +1,8 @@
 # 单实例迁移（staging → 正式服）
 
 > 决策：2026-09-14，方案 B（把 staging 库灌进正式栈），随后归档双栈 CI/CD、转为单实例部署。
-> 状态：**准备就绪，待人工执行 P1/P2/P3**（涉正式服的写操作不由 Agent 执行）。
+> 状态（2026-09-14 收尾）：**P1–P4 已人工执行完成** —— 数据已灌入正式栈、`test.205716.xyz` 已改为单跳 301、
+> staging 容器已退役（卷保留 7 天冷备）、仓库内双栈残留已同步清理。**剩余「待人工」项汇总见 §9。**
 
 ## 0. 事实基础（2026-09-14 实测）
 
@@ -98,7 +99,7 @@ docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend 
 - 迁移后请**确认启动日志**出现病例覆盖告警，并抽查 `docker exec nursing-db psql -U nursing -d nursing_vp -t -c "select count(*) from cases where case_data ? 'tools';"` → 期望 11
 - 已带指纹且与内容不符的行 = 教师改动，**永不静默回滚**（设计约定，请勿在迁移后手工覆盖）
 
-## 4. P3 — 域名收敛（人工，5 分钟）
+## 4. P3 — 域名收敛（人工，5 分钟）— 已完成（2026-09-14）
 
 `deploy/nginx/test.205716.xyz.conf` 改为 301 跳转到正式域（保留 vhost，避免旧书签 404）：
 
@@ -118,22 +119,32 @@ sudo nginx -t && sudo nginx -s reload
 ## 5. P4 — 退役 staging 栈与旧配置（人工，10 分钟）
 
 ```bash
-# 5.1 停并删除 staging 三件套（库卷先留 7 天冷备）
+# 5.1 停并删除 staging 三件套（库卷先留 7 天冷备） —— 已完成
 docker rm -f nursing-backend-staging nursing-frontend-staging nursing-db-staging
-# 5.2 确认无引用后再删卷（含早期项目名残留的第三只卷）
+# 5.2 确认无引用后再删卷（含早期项目名残留的第三只卷） —— 待人工，见 §9（7 天冷备期结束后）
 docker volume ls | grep nursing
 docker volume rm nursing-vp-staging_nursing_staging_pg_data nursing-vp-staging_nursing_staging_logs
 docker volume rm nursing-vp-sim_db_data          # 早期项目名残留的空卷
-# 5.3 清理旧镜像
+# 5.3 清理旧镜像 —— 待人工，见 §9（同上，待冷备期结束）
 docker image prune -a --filter "until=168h"
 ```
 
-文档/规则同步（**必须做，否则运维手册与现实矛盾**）：
+> 当前状态：staging 三个容器已删除；两只 staging 卷与早期残留空卷 `nursing-vp-sim_db_data`
+> **刻意保留**作为 7 天冷备（至 2026-09-21），旧镜像同理；冷备期内可随时重挂回退。
 
-- `AGENTS.md`：部署红线段落已改为单实例 + `production` 环境审批（本次已更新）
-- `docs/09-operations.md`：删除 staging 相关段落（域名、端口、容器名、`docker stats` 示例端口）
-- `docs/09-operations.md` 的「Docker 容器无资源限制」条目：本轮已加 `mem_limit`，改为「已配置」
-- `.github/workflows/archive/README.md`：记录归档原因与恢复方式（本次已建）
+文档/规则同步（**必须做，否则运维手册与现实矛盾**）—— 本轮已全部完成：
+
+- `AGENTS.md`：部署红线段落已改为单实例 + `production` 环境审批
+- `docs/09-operations.md`：删除 staging 段落（流水线表、发布流程、回滚、环境参数、端口、容器名、日志与备份命令）
+- `docs/09-operations.md` 的「Docker 容器资源上限」条目：已改为「已配置」（compose `mem_limit`）
+- `.github/workflows/archive/README.md`：记录归档原因、恢复方式，以及 `deploy/docker-compose.staging.yml` 的删除
+- 其余同步：`README.md` / `docs/00-dev-onboarding.md` / `docs/01-architecture.md` / `docs/03-database.md` /
+  `CONTRIBUTING.md` / `AGENTS.md`（诊断端口）/ `docs/12-patient-presentation-layer.md` /
+  `docs/ops/*` 运维手册（backup-restore、server-recovery、llm/tts-troubleshooting、incident 记录）
+- 死配置与脚本：删除 `deploy/docker-compose.staging.yml`；`rollback.sh` / `db-backup.sh` / `db-restore.sh`
+  的 `staging` 分支改为**快速失败**；`deploy/monitor/`（`_env.py` + `daily_report.py`）改为单实例日报；
+  `prune-images.sh` / `docker-cleanup.sh` 去掉 staging 专用分支；`.husky/pre-push` 与
+  `commit-format.yml` 注释指向 `deploy.yml`；`frontend` 展示页文案与 `package.json` 报告链接改指正式域
 
 ## 6. P5 — 可选：同位预览（保留"敢试错"的能力，但不是第二套栈）
 
@@ -152,7 +163,7 @@ IMAGE_VERSION=<上一版> docker run -d --name nursing-preview --network host \
 | P0–P1 | 无需回退（只读/只备份） | 0 |
 | P2 灌库后起栈失败 | `pg_restore` 回 P1 的 prod dump + 用旧 tag 起栈 | ~10 分钟 |
 | P2 起栈成功但业务异常 | `bash deploy/rollback.sh --env prod --yes <上一版>`（自动含备份 + 健康检查） | ~5 分钟 |
-| P3 域名收敛后异常 | 还原 `test.205716.xyz.conf` 为反代 9080/9081 并恢复 staging 栈 | ~10 分钟 |
+| P3 域名收敛后异常 | 冷备期内可重挂 staging 卷、把 `test.205716.xyz.conf` 临时改回反代 9080/9081 并恢复 staging 栈 | ~10 分钟 |
 | P4 之后 | staging 卷保留 7 天，可重挂；CI 归档目录 `git mv` 回顶层即恢复旧流水线 | ~15 分钟 |
 
 ## 8. 顺带收益
@@ -160,3 +171,13 @@ IMAGE_VERSION=<上一版> docker run -d --name nursing-preview --network host \
 - 内存：回收 1 套后端（2 worker ≈ 232 MB）+ master（30 MB）+ 1 个 postgres（66 MB）≈ **330 MB**
 - 单实例建议 `UVICORN_WORKERS=1`（异步应用，低流量期），再省 ~120 MB（`mem_limit` 本轮已加）
 - `llm_call_logs`（10 875 行）是评测语料，**归档而非删除**
+
+## 9. 待人工项（收尾清单）
+
+P0–P4 已完成，剩余动作全部需要正式服 / 仓库设置权限，**不由 Agent 执行**：
+
+| # | 事项 | 位置 | 说明 |
+|---|------|------|------|
+| 1 | `production` 环境加 **Required reviewers** | 仓库 Settings → Environments → `production` | 不配置则 tag 推送会直接发版（`deploy.yml` / `rollback.yml` 的人工闸门失效） |
+| 2 | 7 天后（≥ 2026-09-21）清理冷备卷与旧镜像 | 线上服务器 | `docker volume rm nursing-vp-staging_nursing_staging_pg_data nursing-vp-staging_nursing_staging_logs`；`docker image prune -a --filter "until=168h"` |
+| 3 | 清理早期残留空卷 `nursing-vp-sim_db_data` | 线上服务器 | `docker volume ls` 确认无引用后删除（早期项目名遗留，与本次迁移无关） |

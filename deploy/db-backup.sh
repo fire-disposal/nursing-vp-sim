@@ -3,9 +3,9 @@
 #  db-backup.sh — 数据库全量备份（pg_dump）
 #
 #  用法:
-#    ./db-backup.sh [staging|prod]              # 创建备份
-#    ./db-backup.sh [staging|prod] list          # 列出可用备份
-#    ./db-backup.sh [staging|prod] prune         # 手动清理过期
+#    ./db-backup.sh [prod]              # 创建备份
+#    ./db-backup.sh [prod] list          # 列出可用备份
+#    ./db-backup.sh [prod] prune         # 手动清理过期
 #
 #  退出码:
 #    0 = 成功
@@ -29,15 +29,17 @@ FILENAME="${ENV}_${TIMESTAMP}.sql.gz"
 BACKUP_PATH="${BACKUP_BASE}/${FILENAME}"
 HISTORY_FILE="${BACKUP_BASE}/.backup-history"
 RETENTION_DAYS=30
-DOCKER_COMPOSE="docker compose -f ${SCRIPT_DIR}/docker-compose.${ENV}.yml --env-file ${DEPLOY_DIR}/.env"
 
 # ── 容器名映射 ──
 case "$ENV" in
-  staging) CONTAINER="nursing-db-staging" ;;
+  staging)
+    echo "[ERR] staging 已于 2026-09-14 退役，见 docs/ops/single-instance-migration.md"
+    exit 1
+    ;;
   prod)    CONTAINER="nursing-db" ;;
   *)
-    echo "[ERR] 环境必须是 staging 或 prod"
-    echo "  用法: ./db-backup.sh [staging|prod] [backup|list|prune]"
+    echo "[ERR] 环境必须是 prod"
+    echo "  用法: ./db-backup.sh [prod] [backup|list|prune]"
     exit 1
     ;;
 esac

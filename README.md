@@ -2,7 +2,7 @@
 
 > 护理学生虚拟患者训练平台 — LLM 角色扮演问诊 · 自动评分 · 教师复核 · 语音交互
 
-📦 **Staging** [test.205716.xyz](https://test.205716.xyz) · 🚀 **Production** [iomt.205716.xyz](https://iomt.205716.xyz)
+🚀 **Production** [iomt.205716.xyz](https://iomt.205716.xyz)（单实例部署）
 
 ---
 
@@ -47,10 +47,11 @@ pnpm run dev            # 后端 :8000 + 前端 :3000
 
 ## 在线环境
 
+唯一部署实例（staging 已于 2026-09-14 退役，见 [docs/ops/single-instance-migration.md](docs/ops/single-instance-migration.md)）：
+
 | 环境 | 地址 | 部署 |
 |------|------|------|
-| Staging | [test.205716.xyz](https://test.205716.xyz) | Tag push 自动 |
-| Production | [iomt.205716.xyz](https://iomt.205716.xyz) | 人工执行 |
+| Production | [iomt.205716.xyz](https://iomt.205716.xyz) | 推送 `v*` tag（`pnpm run tag`）→ `deploy.yml`，需 `production` 环境人工审批 |
 
 ---
 

@@ -74,14 +74,14 @@ pre-commit                 pre-push              Actions CI
 
 ## 部署流
 
+单实例部署（staging 已于 2026-09-14 退役）：唯一目标 `iomt.205716.xyz`。
+
 | 操作 | 方式 |
 |------|------|
-| 测试服 | `pnpm run tag`（自动打 tag + push → staging 部署） |
-| 正式服 | GitHub Actions → Deploy to Production |
-| 回滚 | Actions → Emergency Rollback |
-| 维护模式 | Actions → Maintenance Mode |
+| 发版 | `pnpm run tag`（打 tag + push）→ `deploy.yml`，需人工在 GitHub 批准 `production` 环境审批 |
+| 回滚 | Actions → Emergency Rollback（`rollback.yml`，同为生产动作，需 `production` 审批） |
 
-> 上生产前必须先经测试服验证。详见 [09-运维安全指南](docs/09-operations.md)。
+> 发版前必须由人工完成发布前验证（冒烟清单 + 诊断端点）；Agent 不得推送发版 tag 或批准环境审批。详见 [09-运维安全指南](docs/09-operations.md)。
 
 ## 最佳实践
 

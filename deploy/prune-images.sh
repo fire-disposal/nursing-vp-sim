@@ -9,8 +9,8 @@
 #           (recorded in .stable-versions so the marker survives container
 #           swaps — a version that ran a full day is deliberately kept)
 #         - images referenced by any *running* container (never prune in use)
-#         - the most recent KEEP_RECENT deployed versions per environment
-#           (rollback buffer, read from .version-history-{prod,staging})
+#         - the most recent KEEP_RECENT deployed versions
+#           (rollback buffer, read from .version-history-*)
 #   drop  - everything else (transitional versions)
 #
 # Only touches ghcr.io/fire-disposal/nursing-vp-sim-* images. Non-fatal:
@@ -32,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 STABLE_HOURS="${STABLE_HOURS:-24}"   # 运行满此小时数 → 判定稳定
-KEEP_RECENT="${KEEP_RECENT:-2}"      # 每环境保留最近 N 个部署版本（回滚缓冲）
+KEEP_RECENT="${KEEP_RECENT:-2}"      # 保留最近 N 个部署版本（回滚缓冲）
 KEEP_STABLE_MAX="${KEEP_STABLE_MAX:-3}"  # 稳定版标记上限，超出淘汰最旧（ghcr 兜底）
 REGISTRY_PREFIX="ghcr.io/fire-disposal/nursing-vp-sim"
 STABLE_FILE="${DEPLOY_DIR}/.stable-versions"
@@ -74,7 +74,7 @@ KEEP_TAGS=$(
         sed '/^$/d' "$STABLE_FILE"
         # images in use by running containers
         docker ps --format '{{.Image}}' | grep "^${REGISTRY_PREFIX}-" | awk -F: '{print $NF}'
-        # most recent deployed versions per environment (rollback buffer)
+        # most recent deployed versions (rollback buffer)
         for hist in "${DEPLOY_DIR}"/.version-history-*; do
             [[ -f "$hist" ]] && tail -n "$KEEP_RECENT" "$hist" | cut -d'|' -f1
         done

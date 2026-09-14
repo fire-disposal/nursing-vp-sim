@@ -5,7 +5,7 @@
 #  用法:
 #    ./db-restore.sh <备份文件路径>                # 交互恢复
 #    ./db-restore.sh <备份文件路径> --yes          # 非交互恢复 (AI 调用)
-#    ./db-restore.sh [staging|prod] list           # 列出可用备份
+#    ./db-restore.sh [prod] list                   # 列出可用备份
 #
 #  安全机制:
 #    1. 恢复前自动创建急救快照 (emergency_*.sql.gz)
@@ -36,24 +36,24 @@ fi
 if [ -z "$BACKUP_FILE" ]; then
   echo "[ERR] 缺少备份文件路径"
   echo "  用法: ./db-restore.sh <备份文件> [--yes]"
-  echo "        ./db-restore.sh [staging|prod] list"
+  echo "        ./db-restore.sh [prod] list"
   exit 1
 fi
 
 # 从文件名推断环境
 case "$(basename "$BACKUP_FILE")" in
-  staging_*) ENV="staging" ;;
-  prod_*)    ENV="prod" ;;
+  staging_*)
+    echo "[ERR] staging 已于 2026-09-14 退役，见 docs/ops/single-instance-migration.md"
+    exit 1
+    ;;
+  prod_*) ENV="prod" ;;
   *)
-    echo "[ERR] 无法从文件名推断环境 (文件名须以 staging_ 或 prod_ 开头)"
+    echo "[ERR] 无法从文件名推断环境 (文件名须以 prod_ 开头)"
     exit 1
     ;;
 esac
 
-case "$ENV" in
-  staging) CONTAINER="nursing-db-staging"; COMPOSE_FILE="docker-compose.staging.yml" ;;
-  prod)    CONTAINER="nursing-db";        COMPOSE_FILE="docker-compose.prod.yml" ;;
-esac
+CONTAINER="nursing-db"
 
 BACKUP_DIR="$(cd "$(dirname "$BACKUP_FILE")" 2>/dev/null && pwd || echo "")"
 BACKUP_BASENAME="$(basename "$BACKUP_FILE")"

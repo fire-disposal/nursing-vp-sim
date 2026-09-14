@@ -64,7 +64,7 @@ if $HAS_ALEMBIC; then
   else
     # Never fall back to .env's DATABASE_URL here: a `downgrade base` on a
     # real database destroys every table. Skip the roundtrip instead — CI
-    # (deploy-staging) still validates single-head + directory contract.
+    # (deploy.yml) still validates single-head + directory contract.
     echo "  WARNING: psql not found — migration roundtrip skipped"
     ROUNDTRIP_SKIP=true
   fi

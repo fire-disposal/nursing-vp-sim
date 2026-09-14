@@ -34,7 +34,7 @@ Token 在 `.env` 的 `DIAGNOSE_TOKEN`。未设置 → 404，错误 → 403。
 
 ```bash
 # 快速检查
-curl -s "http://127.0.0.1:9081/api/diagnose?token=$TOKEN" | python3 -m json.tool | head -20
+curl -s "http://127.0.0.1:9001/api/diagnose?token=$TOKEN" | python3 -m json.tool | head -20
 # 只看告警
 curl -s "...token=$TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['alerts'])"
 ```

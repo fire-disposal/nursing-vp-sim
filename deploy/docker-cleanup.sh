@@ -1,5 +1,5 @@
 #!/bin/bash
-# Docker image cleanup — staging keep 2, production keep 5.
+# Docker image cleanup — deployed images keep 5 (rollback buffer).
 # Run nightly via crontab to prevent disk from filling with stale images.
 # Cron: 0 3 * * * /opt/nursing-vp-sim/deploy/docker-cleanup.sh
 
@@ -16,8 +16,7 @@ docker images --format '{{.Repository}}' | sort -u | while read repo; do
   [[ "$repo" == "<none>" ]] && continue
 
   case "$repo" in
-    *staging*) KEEP=2 ;;   # staging images: keep 2 newest
-    *prod*|*production*) KEEP=5 ;;  # production: keep 5 for rollback
+    *prod*|*production*) KEEP=5 ;;  # deployed images: keep 5 for rollback
     *) KEEP=3 ;;
   esac
 
