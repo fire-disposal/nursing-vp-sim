@@ -161,6 +161,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build & push backend
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.resolve_version.outputs.version }}
+          build-args: APP_VERSION=${{ steps.resolve_version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.resolve_version.outputs.version }}
+          build-args: APP_VERSION=${{ steps.resolve_version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
       - name: Verify images exist in registry
         run: |
           OWNER="${{ steps.owner.outputs.value }}"
@@ -169,7 +193,7 @@ jobs:
             if docker manifest inspect "${{ env.REGISTRY }}/$OWNER/$repo:$VER" >/dev/null 2>&1; then
               echo "  ✓ $repo:$VER"
             else
-              echo "::error::$repo:$VER 不存在于镜像仓库——先跑 pnpm run tag 构建，或确认版本号"
+              echo "::error::$repo:$VER 不存在于镜像仓库——构建/推送失败，或版本号不符"
               exit 1
             fi
           done
