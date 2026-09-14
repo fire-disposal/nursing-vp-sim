@@ -112,7 +112,13 @@ class TestPrefixStabilityUnderSaturation:
         assert len(heads) == 1
         idx = heads[0]
         assert idx == 2 + HEAD_PINNED_ROUNDS * 2  # 紧跟钉住的首 K 轮
-        assert msgs[idx + 1]["role"] == "user"  # 摘要之后是近期尾部
+        # 摘要之后是连续的近期尾部，且尾部以最新一条历史收尾。
+        # 尾部下界按**条**计费（见 compact_history），可能落在轮次中间，
+        # 故不断言首条的角色，只断言：其后全为历史消息（无 system）、直至尾端。
+        assert msgs[idx + 1]["content"].startswith(("问", "答"))
+        assert all(m["role"] != "system" for m in msgs[idx + 1 :])
+        assert msgs[-1]["content"] == "last"
+        assert msgs[-2]["content"].startswith("答29:")
 
     def test_old_rounds_are_summarized_not_dropped(self):
         history = _filler_history(30)

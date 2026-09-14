@@ -13,9 +13,9 @@
   - 只从**中间**丢弃，被丢弃的中段交给 ``history_compaction.summarize_rounds``
     压成摘要文本（纯函数，不调 LLM）；摘要由调用方插入稳定的首段之后。
 
-token 口径（评审 R4）：``estimate_tokens`` 用 0.6/0.3 的字符比例估算，真实中文
-提示词的用量常常更高。调用方若拿到 API usage，可把它传进 ``resolve_token_scale``
-按真实值收紧预算，而不是继续按启发式判断。
+token 口径（评审 R4）：``estimate_tokens`` 优先用官方 tokenizer 计数（残差仅剩 API 侧
+chat 模板开销，约 2%），产物不可用时降级为 0.6/0.3 的字符比例估算（低估约 10%）。
+调用方若拿到 API usage，可把它传进 ``resolve_token_scale`` 按真实值收紧预算。
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def compact_history(
       消息即尾部下界
     - 首尾之间（若存在）**只从中段丢弃**，交由 ``summarizer`` 压成摘要文本
     - ``token_scale`` = 真实/估算用量的比例（见 ``resolve_token_scale``），按此比例
-      折算有效预算，使预算"按真实值"而非 0.6/0.3 启发式
+      折算有效预算，使预算"按真实值"而非字符比例启发式
     - ``summarizer`` 是摘要生成的接缝：默认 ``summarize_rounds``（抽取式纯函数），
       需要模型生成时由调用方注入 ``Callable[[list], str]``，本模块不接 LLM
     """

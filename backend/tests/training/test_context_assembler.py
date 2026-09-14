@@ -215,9 +215,13 @@ class TestExamplePairs:
         assert len(pairs) == 2
 
     def test_token_budget_limits_pairs(self):
-        case = {"example_dialogues": [{"question": "长" * 200, "answer": "长" * 200} for _ in range(3)]}
+        # 单对（4000 字）在任何 token 口径下都远超 MAX_EXAMPLES_TOKENS(400)，
+        # 断言因此不依赖估算比例：首对无条件保留，其后逐对截断。
+        case = {"example_dialogues": [{"question": "长" * 2000, "answer": "长" * 2000} for _ in range(3)]}
         pairs = build_example_pairs(case)
-        assert len(pairs) <= 2  # 第一对超预算也保留，后续截断
+        assert len(pairs) == 2
+        assert pairs[0]["content"] == "长" * 2000
+        assert pairs[1]["content"] == "长" * 2000
 
 
 class TestBuildPatientState:

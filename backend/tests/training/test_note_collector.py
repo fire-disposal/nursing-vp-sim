@@ -2,7 +2,6 @@
 
 import pytest
 
-from infra.llm.token_counter import estimate_tokens
 from modules.training.patient_ai.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,
@@ -26,17 +25,6 @@ class FakeSource(NoteSource):
 
 class FakeContext:
     pass
-
-
-class TestTokenEstimation:
-    def test_english(self):
-        assert estimate_tokens("hello world") == 3
-
-    def test_chinese(self):
-        assert estimate_tokens("\u60a3\u8005\u4f53\u6e2938.5") == 4
-
-    def test_mixed(self):
-        assert estimate_tokens("\u4f53\u6e29 38.5 \u00b0C") == 4
 
 
 class TestOperationNoteSource:
@@ -110,7 +98,8 @@ class TestOperationNoteSource:
     @pytest.mark.asyncio
     async def test_budget_truncation(self):
         collector = NoteCollector()
-        long_text = "\u60a3\u8005" * MAX_AUTHOR_NOTE_TOKENS
+        # 单条注记显著超出 token 预算（"患者" 官方 1 token/2 字，取 4 倍预算的字符量）
+        long_text = "\u60a3\u8005" * (MAX_AUTHOR_NOTE_TOKENS * 4)
         collector.add(FakeSource("long", 0, long_text))
         result = await collector.collect(FakeContext())
         assert len(result) < len(long_text)

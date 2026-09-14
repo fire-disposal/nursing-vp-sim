@@ -1,8 +1,9 @@
 """DeepSeek token 计数与成本计算 —— 全局唯一，基于官方中文文档。
 
-Token 换算比例 (官方中文文档):
-  - 1 个中文字符 ≈ 0.6 token
-  - 1 个英文字符 ≈ 0.3 token
+Token 计数：**官方 tokenizer 优先**（``infra.llm.tokenizer``，产物入库
+``backend/data/tokenizer/tokenizer.json``），不可用时降级到字符比例估算
+（1 个中文字符 ≈ 0.6 token，1 个英文字符 ≈ 0.3 token）。两条路径的实测精度见
+``estimate_tokens`` 的校准表。
 
 定价 (元/百万 tokens, 2026-08 官方中文 api-docs.deepseek.com/zh-cn/quick_start/pricing):
   - deepseek-v4-flash:  输入 ¥1,    输出 ¥2      (缓存命中 ¥0.02/¥0)
@@ -19,6 +20,8 @@ Token 换算比例 (官方中文文档):
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
+
+from .tokenizer import count_tokens
 
 # ── 官方换算比例 ──
 _CJK_TOKENS_PER_CHAR = 0.6
@@ -41,27 +44,43 @@ _PEAK_HOUR_RANGES = ((9, 12), (14, 18))  # 北京 09:00~12:00、14:00~18:00（�
 
 
 def estimate_tokens(text: str) -> int:
-    """基于 DeepSeek 官方比例估算 token 数。API 返回 usage 时不应调用此函数。
+    """token 计数：官方 tokenizer 优先，不可用时降级到字符比例估算。
 
-    2026-09-14 校准（staging 生产语料 10 875 条 LLM 调用日志，`prompt_tokens / request_chars`）：
+    API 返回 usage 时不应调用此函数（调用方已有真实值）。
 
-    | purpose | 调用数 | 实测 tokens/char | 标准差 |
-    |---|---|---|---|
-    | patient_chat | 5306 | **0.6498** | 0.079 |
-    | emotion_analysis | 4499 | 0.5506 | 0.021 |
-    | scoring_feedback | 525 | 0.5746 | 0.020 |
-    | scoring | 516 | 0.4554 | 0.034 |
-    | qa | 27 | 2.4925 | 5.54 |
+    2026-09-14 校准（staging 真实 ``llm_call_logs`` 抽样 120 条 ``status='success'`` 且
+    未截断的调用，逐条比对 ``prompt_tokens``；复现命令见
+    ``tests/infra/test_llm_tokenizer.py`` 模块文档）：
 
-    → 主用途漂移 ≤8%，本估算器（0.6/0.3 混合）对 `patient_chat` 实际落在 0.65，
-    与真实值吻合；因此**不需要**按轮反馈校正，`context.budget.resolve_token_scale`
-    仅作为换模型/非中文内容时的安全网保留（默认 1.0）。
+    | purpose | n | 官方 mean&#124;e&#124; | 官方 中位&#124;e&#124; | 启发式 mean&#124;e&#124; |
+    |---|---|---|---|---|
+    | patient_chat | 51 | **1.5%** | 1.3% | 14.2% |
+    | emotion_analysis | 45 | 0.2% | 0.2% | 5.6% |
+    | scoring | 10 | 3.8% | 3.9% | 10.1% |
+    | scoring_feedback | 10 | 10.2% | 10.6% | 15.0% |
+    | 全部 | 120 | **1.9%** | 1.1% | 10.9% |
 
-    注意 `qa`：实测比值 2.49 且方差极大，说明其 `request_chars` 未计入工具结果/RAG 注入的
-    内容——该用途的 token 估算不可信，若要按 token 管控 qa 需先修 `request_chars` 口径。
+    官方编码与 ``prompt_tokens`` 的残差恒为负、且按用途近似恒定：emotion_analysis −4~−3、
+    patient_chat −50~−3（随消息条数变化）、scoring/scoring_feedback 恒为 −102。
+    前两类是 API 侧 chat 模板的逐消息开销（``infra.llm.client`` 用 ``" ".join(content)``
+    拼 ``request_text``，不含 role 标记），−102 是 ``response_format`` 的 JSON schema
+    注入（作为独立 payload 字段发送，不在 ``request_text`` 里）—— 都属预期口径差，
+    不是编码误差。降级路径对同一批的 mean&#124;e&#124; 为 10.9% 且全为负偏差，
+    与官方路径相差约 5 倍。
+
+    抽样口径：``status='failed'`` 的调用会带残缺 usage（实测 3 条 failed 行的
+    ``prompt_tokens`` 比真实 prompt 低 75 token），已排除。
     """
     if not text:
         return 0
+    official = count_tokens(text)
+    if official is not None:
+        return official
+    return _heuristic_tokens(text)
+
+
+def _heuristic_tokens(text: str) -> int:
+    """字符比例估算 —— 官方 tokenizer 不可用时的降级路径（会记日志与计数）。"""
     cjk_count = len(_CJK_RE.findall(text))
     other_count = len(text) - cjk_count
     tokens = cjk_count * _CJK_TOKENS_PER_CHAR + other_count * _EN_TOKENS_PER_CHAR
@@ -72,8 +91,10 @@ def estimate_tokens(text: str) -> int:
 class TokenReconciliation:
     """估算用量与 API 实际用量的对账结果（评审 R4）。
 
-    ``delta`` / ``ratio`` 供日志与指标消费：``ratio > 1`` 表示启发式低估了真实
-    用量，预算应按该比例收紧，而不是继续按 0.6/0.3 的字符比例判断。
+    ``delta`` / ``ratio`` 供日志与指标消费：``ratio > 1`` 表示计数低于真实用量，
+    预算应按该比例收紧。官方 tokenizer 可用时该残差只剩 API 侧 chat 模板开销
+    （约 2%，见 ``estimate_tokens``），故 ``ratio`` 通常贴近 1.0；降级到字符比例
+    估算时会明显 > 1。
     """
 
     estimated: int
