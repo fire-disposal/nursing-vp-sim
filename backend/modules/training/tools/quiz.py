@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from modules.training.capabilities import is_enabled
+from core.exceptions import ValidationError
 
 from .base import ToolContext, ToolHandler, ToolResult, get_tool_config
 
@@ -13,22 +13,18 @@ log = logging.getLogger(__name__)
 
 class QuizHandler(ToolHandler):
     tool_name = "quiz"
+    actions = frozenset({"load", "submit"})
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
-        if not is_enabled(ctx.record, "quiz"):
-            return ToolResult(ok=False, error="本次训练未启用引导题目")
-
+        # action/授权/启用由 registry.dispatch + service._authorize 统一校验
         if action == "load":
             return self._load(ctx)
 
-        if action == "submit":
-            question_id = params.get("question_id", "")
-            answer = params.get("answer", "")
-            if not question_id:
-                return ToolResult(ok=False, error="Missing question_id")
-            return self._submit(question_id, answer, ctx)
-
-        return ToolResult(ok=False, error=f"Unknown action: {action}")
+        question_id = params.get("question_id", "")
+        answer = params.get("answer", "")
+        if not question_id:
+            raise ValidationError(detail="缺少 question_id")
+        return self._submit(question_id, answer, ctx)
 
     def _load(self, ctx: ToolContext) -> ToolResult:
         quiz_config = get_tool_config(ctx.case_data, "quiz")

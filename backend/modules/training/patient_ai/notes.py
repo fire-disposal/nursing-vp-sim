@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from modules.training.pipeline.context import PipelineContext
 
 from modules.training.patient_ai.note_source import NoteSource
+from modules.training.pipeline.context import STATE_EMOTION_NOTE
 
 from .guards import get_identity_correction_note, has_identity_leak
 
@@ -21,7 +22,8 @@ class EmotionNoteSource(NoteSource):
     max_tokens = 300
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        cached_note = ctx.state.get("_emotion_note")
+        # 键由 pipeline.context 统一登记（写方：pipeline 的 emotion_analysis 中间件）
+        cached_note = ctx.state.get(STATE_EMOTION_NOTE)
         if cached_note:
             return cached_note
         return None

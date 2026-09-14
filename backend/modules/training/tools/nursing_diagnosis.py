@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from modules.training.capabilities import is_enabled
-
 from .base import ToolContext, ToolHandler, ToolResult
 
 log = logging.getLogger(__name__)
@@ -71,19 +69,15 @@ _CHARACTERISTIC_OPTIONS: list[str] = [
 
 class NursingDiagnosisHandler(ToolHandler):
     tool_name = "nursing_diagnosis"
+    actions = frozenset({"load", "save"})
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
-        if not is_enabled(ctx.record, "nursing_diagnosis"):
-            return ToolResult(ok=False, error="本次训练未启用护理诊断")
-
+        # action/授权/启用由 registry.dispatch + service._authorize 统一校验
         if action == "load":
             return self._load(ctx)
 
-        if action == "save":
-            diagnoses = params.get("diagnoses") or []
-            return self._save(diagnoses, ctx)
-
-        return ToolResult(ok=False, error=f"Unknown action: {action}")
+        diagnoses = params.get("diagnoses") or []
+        return self._save(diagnoses, ctx)
 
     def _load(self, ctx: ToolContext) -> ToolResult:
         rs = ctx.record.runtime_state or {}

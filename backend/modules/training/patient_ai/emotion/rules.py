@@ -62,6 +62,15 @@ EVENT_RULES: dict[EmotionEventType, EmotionDelta] = {
         irritation=0.08,
         cooperation=-0.08,
     ),
+    # 人格侮辱：真人被骂会当场爆发，而不是温和劝诫。量级取评判性语言的近 3 倍——
+    # 连续两轮即进入「敌意」区（trust ≤0.25 且 irritation ≥0.70），由 behavior 层
+    # 切换为拒绝配合问诊/要求道歉换人。
+    EmotionEventType.INSULT: EmotionDelta(
+        trust=-0.22,
+        anxiety=0.04,
+        irritation=0.30,
+        cooperation=-0.26,
+    ),
     EmotionEventType.PRIVACY_INTRUSION: EmotionDelta(
         trust=-0.07,
         anxiety=0.04,

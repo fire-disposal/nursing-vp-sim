@@ -57,7 +57,9 @@ class QuestionnaireQuestion(Base):
 class QuestionnaireResponse(Base):
     __tablename__ = "questionnaire_responses"
     __table_args__ = (
-        Index("ix_qr_user_template", "user_id", "template_id"),
+        # 同一学生对同一病例的同一问卷只保留一行（提交幂等的前提）；
+        # 该约束的索引同时覆盖 ix_qr_user_template 的查询前缀，故原索引已删。
+        UniqueConstraint("user_id", "template_id", "case_id", name="uq_qr_user_template_case"),
         Index("ix_qr_record_id", "record_id"),
     )
 
@@ -104,6 +106,7 @@ class CaseQuestionnaire(Base):
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="CASCADE"))
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("questionnaire_templates.id", ondelete="CASCADE"))
     is_required: Mapped[bool] = mapped_column(default=True)
+    # 取值见 core.statuses.QuestionnaireTrigger（DB 无 CHECK，写入侧由 schema 枚举把关）
     trigger_event: Mapped[str] = mapped_column(String(30), default="before_training")
 
     case: Mapped[Case] = relationship()

@@ -1,0 +1,346 @@
+name: Deploy (single instance)
+
+# 单实例部署流水线 —— 取代已归档的 deploy-staging.yml + deploy-production.yml。
+#
+# 设计要点（保留自旧双栈，逐条有出处）：
+#   1. 人工闸门：deploy job 绑定 GitHub Environment `production`，需 reviewer 批准才执行
+#      （旧 prod 流水线靠"人来点 workflow_dispatch"；单实例后 tag 推送也会触发，
+#       必须由环境审批承担红线，见 archive/README.md）。
+#   2. 迁移门禁：单 head + ddl/data 目录契约（保留自 deploy-staging.yml）。
+#   3. 部署前数据库备份，失败即停（保留自 deploy-production.yml，fail-closed）。
+#   4. 健康检查 + 自动回滚（含 alembic 回退旧 revision）（保留自 deploy-staging.yml）。
+#   5. 版本历史文件 + 稳定性感知镜像清理 + 部署横幅 + 钉钉通知 + 开发报告发布。
+#   6. 部署后 /api/diagnose 冒烟（新增：让"部署成功"有业务侧证据）。
+#
+# 触发：推送 vYYYY.MM.DD-N tag（由 `pnpm run tag` 产生），或手动 dispatch 指定历史版本。
+
+run-name: "Deploy ${{ inputs.version || github.ref_name }}"
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy (e.g. 2026.09.14-1 or v2026.09.14-1)"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  DEPLOY_DIR: /opt/nursing-vp-sim
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # 人工闸门：在仓库 Settings → Environments 为 production 配置 required reviewers。
+    environment: production
+    steps:
+      # workflow_dispatch 输入历史版本时，必须 checkout 对应 tag 的源码，
+      # 否则会拿 master 代码冒充旧版本镜像（tag push 触发时 github.ref 即 tag）
+      - name: Resolve ref (dispatch → version tag)
+        id: ref
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          RAW="${{ inputs.version }}"
+          CLEAN="${RAW#v}"
+          echo "ref=refs/tags/v${CLEAN}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.ref.outputs.ref || github.ref }}
+
+      - name: Validate alembic migrations
+        run: |
+          cd backend
+          pip install -q alembic psycopg sqlalchemy >/dev/null 2>&1
+
+          # Rule 1: single head only
+          HEADS=$(alembic heads 2>&1)
+          HEAD_COUNT=$(echo "$HEADS" | wc -l)
+          if [ "$HEAD_COUNT" -gt 1 ]; then
+            echo "::error::Multiple alembic heads detected"
+            echo "$HEADS"
+            exit 1
+          fi
+          echo "✓ Single head: $HEADS"
+
+          # Rule 2: HEAD migration must obey the directory contract
+          #   versions/ddl/  → schema-only, 禁止 op.execute()（数据操作放 data/）
+          #   versions/data/ → 需声明 "# Manual override reason: data_only"
+          HEAD_REV=$(echo "$HEADS" | head -1 | sed 's/ *(head)$//')
+          HEAD_FILE=$(grep -rl --include="*.py" "Revision ID: $HEAD_REV" migrations/versions/ | head -1)
+          if [ -z "$HEAD_FILE" ]; then
+            echo "::warning::Could not find HEAD migration file for $HEAD_REV"
+            exit 0
+          fi
+          echo "  checking: $HEAD_FILE"
+
+          case "$HEAD_FILE" in
+            */versions/ddl/*)
+              if grep -qE '^\s+op\.execute\(' "$HEAD_FILE"; then
+                echo "::error::DDL migration $(basename "$HEAD_FILE") contains op.execute() — 数据操作请拆到 versions/data/ 迁移 (见 AGENTS.md)"
+                exit 1
+              fi
+              echo "✓ DDL migration — schema-only (no data ops)"
+              ;;
+            */versions/data/*)
+              if grep -qE "Manual override reason:\s*data_only" "$HEAD_FILE"; then
+                echo "✓ Data migration — reason: data_only"
+              else
+                echo "::error::Data migration $(basename "$HEAD_FILE") 缺少 '# Manual override reason: data_only' (见 AGENTS.md)"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Migration $(basename "$HEAD_FILE") 必须位于 versions/ddl/ 或 versions/data/"
+              exit 1
+              ;;
+          esac
+          echo "✓ Migration check passed"
+
+      - name: Normalize owner
+        id: owner
+        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
+          tags: type=match,pattern=v(.*),group=1
+
+      - name: Resolve version
+        id: resolve_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW="${{ inputs.version }}"
+            CLEAN="${RAW#v}"
+            echo "version=$CLEAN" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write change summary
+        id: change_summary
+        run: |
+          VER="${{ steps.resolve_version.outputs.version }}"
+          PREV=$(git tag --sort=-creatordate | grep -E '^v[0-9]' | head -2 | tail -1)
+          COMMITS=$(git log "$PREV..v$VER" --oneline --no-merges 2>/dev/null || echo "")
+          echo "commits<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMITS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "# Deploy v$VER"
+            echo ""
+            echo "**Previous**: $PREV  |  **Target**: v$VER"
+            echo ""
+            echo "## Changes"
+            echo '```'
+            git log "$PREV..v$VER" --oneline --no-merges || echo "(first deploy or no previous tag)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify images exist in registry
+        run: |
+          OWNER="${{ steps.owner.outputs.value }}"
+          VER="${{ steps.resolve_version.outputs.version }}"
+          for repo in nursing-vp-sim-backend nursing-vp-sim-frontend; do
+            if docker manifest inspect "${{ env.REGISTRY }}/$OWNER/$repo:$VER" >/dev/null 2>&1; then
+              echo "  ✓ $repo:$VER"
+            else
+              echo "::error::$repo:$VER 不存在于镜像仓库——先跑 pnpm run tag 构建，或确认版本号"
+              exit 1
+            fi
+          done
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Activate deploy warning banner
+        run: |
+          curl -s -X POST "https://iomt.205716.xyz/api/admin/deploy-warning?token=${{ secrets.DEPLOY_WARNING_TOKEN }}" \
+            -G --data-urlencode "message=系统即将更新到 ${{ steps.resolve_version.outputs.version }}，预计 3-5 分钟，请保存当前进度。" \
+            || echo "Warning: could not activate deploy banner (server may be down)"
+
+      - name: Deploy
+        run: |
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          VER="${{ steps.resolve_version.outputs.version }}"
+          OWNER="${{ steps.owner.outputs.value }}"
+
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh "$USER@$HOST" "mkdir -p $DEPLOY_DIR/deploy"
+          scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
+          scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
+          scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
+          scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
+
+          echo ">> Deploy monitor scripts"
+          ssh "$USER@$HOST" "mkdir -p /opt/monitor"
+          scp deploy/monitor/daily_report.py "$USER@$HOST":/opt/monitor/
+          scp deploy/monitor/_env.py "$USER@$HOST":/opt/monitor/
+
+          echo ">> Deploy nginx config"
+          scp deploy/nginx/iomt.205716.xyz.conf "$USER@$HOST":/etc/nginx/sites-enabled/iomt.205716.xyz.conf
+          scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":/etc/nginx/snippets/block-scanners.conf
+          ssh "$USER@$HOST" "sudo nginx -t && sudo nginx -s reload || echo 'nginx reload skipped (config test failed)'"
+
+          ssh "$USER@$HOST" << DEPLOY
+            set -e
+            cd $DEPLOY_DIR
+            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo ">> Deploy v$VER"
+
+            # —— 部署前备份（失败即停，绝不带着未知状态上车）——
+            BAK="$DEPLOY_DIR/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
+            echo ">> Backup DB"
+            mkdir -p $DEPLOY_DIR/backups
+            if docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null; then
+              echo "  ✓ backup: \$BAK (\$(du -h "\$BAK" | cut -f1))"
+            else
+              echo "::error::数据库备份失败，停止部署"
+              exit 1
+            fi
+
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || {
+              echo "  ⚠ First pull attempt failed, retrying after 10s..."
+              sleep 10
+              IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || {
+                echo "  ⚠ Second pull attempt failed, retrying after 30s..."
+                sleep 30
+                IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || exit 1
+              }
+            }
+
+            OLD_IMG=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+            OLD_DB_REV=\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}' || true)
+            echo ">> Current: \${OLD_IMG:-none} (db=\${OLD_DB_REV:-unknown})"
+
+            rollback_deploy() {
+              echo "  ✗ \$1 Rolling back..."
+              if [ -n "\$OLD_DB_REV" ]; then
+                echo "  >> attempting alembic downgrade to \$OLD_DB_REV before rolling back image..."
+                docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic downgrade "\$OLD_DB_REV" 2>/dev/null \
+                  || echo "  ⚠ downgrade to \$OLD_DB_REV failed; restore backup manually: \$BAK"
+              else
+                echo "  ⚠ previous DB revision unknown; skipping automatic migration downgrade"
+              fi
+              if [ -n "\$OLD_IMG" ]; then
+                OLD_VER=\$(echo "\$OLD_IMG" | rev | cut -d: -f1 | rev)
+                IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
+                echo "  ⚠ rolled back to \$OLD_VER"
+              fi
+            }
+
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
+
+            echo ">> Health check..."
+            OK=false
+            for i in \$(seq 1 30); do
+              S=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+              case "\$S" in
+                healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
+                unhealthy)
+                  rollback_deploy "backend unhealthy!"
+                  exit 1 ;;
+              esac
+              sleep 2
+            done
+            [ "\$OK" = true ] || { rollback_deploy "health check timeout."; exit 1; }
+
+            docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health && echo ">> v$VER ✓"
+            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/$OWNER/nursing-vp-sim-backend:$VER|ghcr.io/$OWNER/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
+            tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
+            # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
+            bash deploy/prune-images.sh || echo "⚠ image prune skipped (non-fatal)"
+          DEPLOY
+
+      - name: Smoke check /api/diagnose
+        run: |
+          if [ -z "${{ secrets.DIAGNOSE_TOKEN }}" ]; then
+            echo "⚠ DIAGNOSE_TOKEN 未配置——跳过部署后冒烟（请在仓库 secrets 配置后启用）"
+            exit 0
+          fi
+          RESP=$(curl -sf "https://iomt.205716.xyz/api/diagnose?token=${{ secrets.DIAGNOSE_TOKEN }}") || {
+            echo "::error::/api/diagnose 请求失败——服务可能未真正就绪"
+            exit 1
+          }
+          echo "$RESP" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          s = d.get('summary', {})
+          print('status =', s.get('status'))
+          print('version =', d.get('version'))
+          alerts = d.get('alerts') or []
+          for a in alerts[:10]:
+              print('  alert:', a)
+          if s.get('status') not in ('healthy', 'degraded'):
+              sys.exit('::error::diagnose status 异常')
+          "
+
+      - name: Publish dev report (non-blocking)
+        continue-on-error: true
+        run: |
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          cd backend
+          python -m ensurepip --upgrade 2>/dev/null || true
+          pip install -q uv 2>/dev/null || true
+          python -m uv run python ../scripts/dev-report.py --output ../frontend/public/report.html 2>&1 || {
+            echo "⚠ Report generation failed — skipping publish"
+            exit 0
+          }
+
+          scp ../frontend/public/report.html "$USER@$HOST":/tmp/report.html 2>/dev/null || {
+            echo "⚠ SCP failed — skipping publish"
+            exit 0
+          }
+          ssh "$USER@$HOST" "
+            docker cp /tmp/report.html nursing-vp-sim-frontend-1:/usr/share/nginx/html/report.html 2>/dev/null && \
+            rm -f /tmp/report.html && \
+            echo '✓ report.html published to container' || echo '⚠ docker cp failed'
+          " 2>/dev/null
+          echo "✓ → https://iomt.205716.xyz/report.html"
+
+      - name: Notify DingTalk
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
+          DEPLOY_ENV: production
+          DEPLOY_URL: https://iomt.205716.xyz
+          COMMITS: ${{ steps.change_summary.outputs.commits }}
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "⚠ DINGTALK_WEBHOOK not set — skipping"
+            exit 0
+          fi
+          node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
+
+      - name: "✅ Deployed"
+        run: echo "v${{ steps.resolve_version.outputs.version }} → iomt.205716.xyz 🚀"

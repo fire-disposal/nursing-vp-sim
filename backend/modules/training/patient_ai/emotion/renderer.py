@@ -34,6 +34,10 @@ def render_behavior_note(policy: PatientBehaviorPolicy) -> str:
     if policy.refusal_style:
         parts.append(f"- 拒绝方式：{policy.refusal_style}")
 
+    # 中止访谈：不可逆敌意区，患者当场走人（拟人化必须有代价）
+    if policy.walkout:
+        parts.append("- 中止访谈：明确告诉对方你要离开（去找护士长、投诉、要求换人），本轮之后不再回答任何病情问题")
+
     # 通用约束
     parts.append("- 行为边界：情绪只能影响表达方式，不得修改既定病史、症状、检查结果和病例事实")
 

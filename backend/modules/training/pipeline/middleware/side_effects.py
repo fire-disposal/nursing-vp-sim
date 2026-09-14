@@ -1,14 +1,21 @@
 """side_effects — post-reply effects: emotion state push (immediate), initiative state."""
 
 import logging
+from datetime import UTC, datetime
 
+from core.statuses import TrainingStatus
+from infra.queue import QueueFullError
 from modules.training.patient_ai.initiative import (
     MAX_INITIATIVE_PER_SESSION,
     get_initiative_policy_seconds,
 )
 
 from ..context import (
+    STATE_DONE_PAYLOAD,
+    STATE_EMOTION_CHANGE,
+    STATE_EMOTION_DOMINANT,
     STATE_FEATURES,
+    STATE_PATIENT_WALKOUT,
     PipelineContext,
 )
 
@@ -27,8 +34,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     has_emotion = features.get("emotion", False)
     if has_emotion and ctx.llm_reply:
         # 推送 4D emotion_change（统一 0-100 刻度 + dominant_state，见 serialize_emotion_vector）
-        change_4d = ctx.state.get("_emotion_change")
-        dominant = ctx.state.get("_emotion_dominant")
+        change_4d = ctx.state.get(STATE_EMOTION_CHANGE)
+        dominant = ctx.state.get(STATE_EMOTION_DOMINANT)
         if change_4d and dominant:
             from modules.training.patient_ai.emotion import EmotionVector
             from modules.training.patient_ai.emotion.renderer import serialize_emotion_vector
@@ -82,8 +89,64 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
             except Exception:
                 log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
 
+    if has_emotion and ctx.state.get(STATE_PATIENT_WALKOUT):
+        try:
+            await _end_by_patient_walkout(ctx, app)
+        except Exception:
+            log.exception("Patient walkout finalization failed: record_id=%d", ctx.record.id)
+
     try:
         ctx.db.commit()
     except Exception:
         ctx.db.rollback()
         log.warning("Side effects commit failed: record_id=%d", ctx.record.id, exc_info=True)
+
+
+async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
+    """患者中止访谈 → 终结会话（复用 /end 的幂等路径：finalize + 入队评分）。
+
+    在 SIDE_EFFECTS 阶段执行：此时 persister 已提交本轮 student+patient 消息，
+    因此评分读到的转录包含患者最后一句话（这才是「走人」的完整体现）。
+    """
+    from modules.training.router.scoring import _run_scoring_background
+    from modules.training.session.finalize import (
+        cleanup_session_runtime,
+        finalize_training,
+        mark_patient_walkout,
+    )
+
+    now = datetime.now(UTC)
+    mark_patient_walkout(ctx.record, at=now)
+    claimed, kind, case_data = finalize_training(ctx.db, ctx.record.id, ended_at=now)
+    if not claimed:
+        log.warning("Patient walkout: record not finalizable (already ending?): record_id=%d", ctx.record.id)
+        return
+    if kind != TrainingStatus.COMPLETED or case_data is None:
+        return
+
+    try:
+        await app.task_queue.enqueue(
+            lambda: _run_scoring_background(
+                ctx.record.id,
+                case_data,
+                llm_client=app.llm_client,
+                tracker=getattr(app, "scoring_tracker", None),
+                realtime_hub=app.realtime_hub,
+            ),
+            priority=5,
+        )
+    except QueueFullError:
+        # 响应已在流式输出中，无法回 503：残留的 pending 交给 settlement 的卡死评分清扫
+        log.error("Patient walkout: scoring queue full: record_id=%d", ctx.record.id)
+
+    ctx.state[STATE_DONE_PAYLOAD] = {
+        **(ctx.state.get(STATE_DONE_PAYLOAD) or {}),
+        "ended": True,
+        "end_reason": "patient_walkout",
+    }
+    cleanup_session_runtime(ctx.record, app, ctx.db)
+    log.info(
+        "训练因患者中止访谈结束: record_id=%d",
+        ctx.record.id,
+        extra={"user_id": ctx.current_user.id, "action": "training_patient_walkout"},
+    )

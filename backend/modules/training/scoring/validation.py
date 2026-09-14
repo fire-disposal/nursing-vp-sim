@@ -2,7 +2,7 @@
 
 import logging
 
-from .mapping import CURRENT_POLICY, apply_score_mapping
+from .mapping import apply_score_mapping, display_factor
 
 log = logging.getLogger(__name__)
 
@@ -140,8 +140,11 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
     return errors
 
 
-def _validate_scoring_result(result: dict, rubric: dict | None = None):
-    """最终校验：全字段完整性检查。"""
+def _normalize_feedback_fields(result: dict) -> list[str]:
+    """反馈字段类型归一化（唯一判定处）。
+
+    返回缺失/非法字段标签列表，供日志使用；不抛异常——反馈缺失不影响评分维度。
+    """
     type_defaults = {
         "strengths": [],
         "weaknesses": [],
@@ -151,15 +154,6 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
     for field, default in type_defaults.items():
         if field in result and not isinstance(result[field], type(default)):
             result[field] = default
-
-    _validate_scoring_essentials(result)
-
-    item_errors = _validate_items_content(result.get("detail_scores", {}))
-    if item_errors:
-        log.warning(
-            "评分条目内容校验不通过（降为警告，不阻断评分）",
-            extra={"item_errors": item_errors, "detail_scores": result.get("detail_scores", {})},
-        )
 
     empty_feedback = []
     for field, expected_type in [
@@ -178,6 +172,21 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
             result[field] = [] if is_list_type else ""
         elif (is_list_type and len(value) == 0) or (not is_list_type and not value.strip()):
             empty_feedback.append(f"{field}(为空)")
+    return empty_feedback
+
+
+def _validate_scoring_result(result: dict, rubric: dict | None = None):
+    """最终校验：全字段完整性检查。"""
+    _validate_scoring_essentials(result)
+
+    item_errors = _validate_items_content(result.get("detail_scores", {}))
+    if item_errors:
+        log.warning(
+            "评分条目内容校验不通过（降为警告，不阻断评分）",
+            extra={"item_errors": item_errors, "detail_scores": result.get("detail_scores", {})},
+        )
+
+    empty_feedback = _normalize_feedback_fields(result)
     if empty_feedback:
         log.warning(
             "反馈字段不完整（评分维度不受影响）",
@@ -210,10 +219,9 @@ def _convert_to_100_scale(result: dict, raw_max: int):
     if raw_max <= 0:
         return
 
-    policy = CURRENT_POLICY
-    result["total_score"] = apply_score_mapping(result["total_score"], raw_max, policy)
+    result["total_score"] = apply_score_mapping(result["total_score"], raw_max)
 
-    factor = policy.display_max / raw_max if policy.curve == "linear" else 1.0
+    factor = display_factor(raw_max)
 
     detail_scores = result.get("detail_scores", {})
     for dim_data in detail_scores.values():
@@ -300,10 +308,7 @@ def display_to_raw(detail_scores: dict, factor: float) -> dict:
 
 def review_total_from_detail(detail_scores: dict, raw_max: int, raw_scale: int = 2) -> int:
     """复核总分：展示刻度 → raw → Σ条目 → 展示分。恒 ∈ [0, 100]。"""
-    from .mapping import apply_score_mapping
-
-    factor = 100.0 / raw_max if raw_max > 0 else 1.0
-    raw = display_to_raw(detail_scores, factor)
+    raw = display_to_raw(detail_scores, display_factor(raw_max))
     total = _recalc_total_from_dimensions(raw, raw_scale)
     return apply_score_mapping(total, raw_max)
 

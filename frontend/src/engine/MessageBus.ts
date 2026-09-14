@@ -1,4 +1,5 @@
-import type { MessageBus, ScoreData } from "./types";
+import type { MessageBus } from "./types";
+import type { ScoreData } from "@/types/score";
 
 export interface BusEvents {
 	"stream:chunk": [chunk: string];

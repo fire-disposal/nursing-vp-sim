@@ -99,6 +99,15 @@ class LLMRateLimited(LLMError):
     """Provider returned 429 after all retries."""
 
 
+class LLMBudgetExceeded(LLMError):
+    """月度成本预算闸门命中 —— 拒绝发起**新的** LLM 调用。
+
+    这是一个策略性拒绝（不是供应商故障）：该 purpose 下所有密钥的
+    ``monthly_cost_used`` 加上预调用估算都超过 ``monthly_cost_limit``。
+    在途调用不受影响；管理员调高预算或等待下月后自动恢复。
+    """
+
+
 # ── Scoring ──
 
 

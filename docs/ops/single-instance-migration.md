@@ -1,0 +1,162 @@
+# 单实例迁移（staging → 正式服）
+
+> 决策：2026-09-14，方案 B（把 staging 库灌进正式栈），随后归档双栈 CI/CD、转为单实例部署。
+> 状态：**准备就绪，待人工执行 P1/P2/P3**（涉正式服的写操作不由 Agent 执行）。
+
+## 0. 事实基础（2026-09-14 实测）
+
+| 项 | prod `nursing-db` | staging `nursing-db-staging` |
+|---|---|---|
+| 库体积 | 11 MB | **82 MB** |
+| users / training_records / messages | 6 / 8 / 29 | **35 / 494 / 10 368** |
+| llm_call_logs / feedback | 17 / 0 | **10 875 / 31** |
+| alembic current | — | `d4f6a8b0c2e4f6a8`（= 代码 head） |
+| 镜像 | `2026.08.30-1` | `2026.08.30-2` |
+| 容器 | `nursing-vp-sim-backend-1` / `nursing-vp-sim-frontend-1` / `nursing-db` | `nursing-backend-staging` / `nursing-frontend-staging` / `nursing-db-staging` |
+| 端口 | 9001 / 9000 / 5433 | 9081 / 9080 / 5434 |
+| 域名 | `iomt.205716.xyz` | `test.205716.xyz` |
+
+**结论：真数据集在 staging**，迁移方向是 staging → prod 栈。
+
+### 已完成的演练（可复现）
+
+```bash
+# 1) 导出（16 MB，custom format）
+docker exec nursing-db-staging pg_dump -U nursing -d nursing_vp -Fc > /tmp/staging.dump
+
+# 2) 恢复进一次性容器（不碰任何在跑的服务）
+docker run -d --name nursing-mig-rehearsal \
+  -e POSTGRES_USER=nursing -e POSTGRES_PASSWORD=rehearsal -e POSTGRES_DB=nursing_vp postgres:15
+docker exec -i nursing-mig-rehearsal pg_restore -U nursing -d nursing_vp --no-owner --clean --if-exists < /tmp/staging.dump
+
+# 3) 校验（与 staging 逐项一致）
+docker exec nursing-mig-rehearsal psql -U nursing -d nursing_vp -t -c \
+  "select (select count(*) from users), (select count(*) from training_records), (select count(*) from messages), (select count(*) from cases);"
+#   → 35 | 494 | 10368 | 13
+docker exec nursing-mig-rehearsal psql -U nursing -d nursing_vp -t -c "select version_num from alembic_version;"
+#   → d4f6a8b0c2e4f6a8
+docker rm -f nursing-mig-rehearsal
+```
+
+## 1. P0 — 冻结写入（随时可做，零风险）
+
+```bash
+# 让 staging 成为唯一写入方；prod 栈只读观察
+# 1) 不再对 prod 发版（已由 CI 归档保证：deploy-staging/deploy-production 均不激活）
+# 2) 确认 prod 无会话：看 /api/metrics 的 active_sessions（当前 body 与业务均无流量）
+curl -s "http://127.0.0.1:9001/api/health"
+```
+
+## 2. P1 — 备份双库（人工，5 分钟）
+
+```bash
+cd /opt/nursing-vp-sim            # prod 部署目录
+mkdir -p backups
+docker exec nursing-db         pg_dump -U nursing -d nursing_vp -Fc > backups/prod-$(date +%Y%m%d-%H%M).dump
+docker exec nursing-db-staging pg_dump -U nursing -d nursing_vp -Fc > backups/staging-$(date +%Y%m%d-%H%M).dump
+ls -lh backups/
+```
+
+两份 dump 都留档；**prod 的 dump 是回滚用的**（即使它是空壳）。
+
+## 3. P2 — 灌库 + 单实例起栈（人工，15 分钟，**这是唯一不可秒回退的一步，靠 P1 备份兜底**）
+
+```bash
+cd /opt/nursing-vp-sim
+VER=<已验证通过的 tag，例如 2026.09.14-1>
+
+# 3.1 停 prod 应用（保留库容器）
+docker compose -f docker-compose.yml --env-file .env stop backend frontend
+
+# 3.2 恢复 staging 数据到 prod 库（--clean 会重建对象，故务必先完成 P1）
+docker exec -i nursing-db pg_restore -U nursing -d nursing_vp \
+  --no-owner --clean --if-exists < backups/staging-<时间戳>.dump
+
+# 3.3 校验（与 staging 一致 + 无遗留连接）
+docker exec nursing-db psql -U nursing -d nursing_vp -t -c \
+  "select (select count(*) from users), (select count(*) from training_records), (select count(*) from messages);"
+docker exec nursing-db psql -U nursing -d nursing_vp -t -c "select version_num from alembic_version;"
+
+# 3.4 起单实例（deploy.yml 平时会自动做这件事；此处手工等价）
+IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
+# 3.5 迁移到最新 head（本次修复批次可能新增迁移）
+docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic upgrade head
+```
+
+### 业务冒烟（必须做完整链路，不能只看 `/api/health`）
+
+1. `https://iomt.205716.xyz` 登录（用 staging 的账号）
+2. 新建一次训练 → 对话 3~5 轮 → 结束 → 等待评分 → 打开结果页（评分、轨迹图、证据联动）
+3. `curl "https://iomt.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN"` → `summary.status` 为 `healthy|degraded`，且历史错误数不再恒为 0（本轮修复项）
+
+### 迁移时会顺带修复的存量数据损伤（已实测）
+
+2026-09-14 对真库只读盘点发现：`cases` 共 13 行，其中 **11 个内置病例全部缺 `tools`**（查体/护理记录配置被教师端保存静默抹掉，P0 缺陷的存量后果），且 `#4/#5/#10` 的 `example_dialogues`/`present_illness` 落后于仓库版本。
+
+`seed_all()` 在每次启动都跑「按 name 收敛」：无指纹的旧行视为可覆盖 → **第一次启动就会把 11 个病例的 `tools` 回填并写入内容指纹**。因此：
+
+- 迁移后请**确认启动日志**出现病例覆盖告警，并抽查 `docker exec nursing-db psql -U nursing -d nursing_vp -t -c "select count(*) from cases where case_data ? 'tools';"` → 期望 11
+- 已带指纹且与内容不符的行 = 教师改动，**永不静默回滚**（设计约定，请勿在迁移后手工覆盖）
+
+## 4. P3 — 域名收敛（人工，5 分钟）
+
+`deploy/nginx/test.205716.xyz.conf` 改为 301 跳转到正式域（保留 vhost，避免旧书签 404）：
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name test.205716.xyz;
+    # ... 保留 ssl 证书段 ...
+    return 301 https://iomt.205716.xyz$request_uri;
+}
+```
+
+```bash
+sudo nginx -t && sudo nginx -s reload
+```
+
+## 5. P4 — 退役 staging 栈与旧配置（人工，10 分钟）
+
+```bash
+# 5.1 停并删除 staging 三件套（库卷先留 7 天冷备）
+docker rm -f nursing-backend-staging nursing-frontend-staging nursing-db-staging
+# 5.2 确认无引用后再删卷（含早期项目名残留的第三只卷）
+docker volume ls | grep nursing
+docker volume rm nursing-vp-staging_nursing_staging_pg_data nursing-vp-staging_nursing_staging_logs
+docker volume rm nursing-vp-sim_db_data          # 早期项目名残留的空卷
+# 5.3 清理旧镜像
+docker image prune -a --filter "until=168h"
+```
+
+文档/规则同步（**必须做，否则运维手册与现实矛盾**）：
+
+- `AGENTS.md`：部署红线段落已改为单实例 + `production` 环境审批（本次已更新）
+- `docs/09-operations.md`：删除 staging 相关段落（域名、端口、容器名、`docker stats` 示例端口）
+- `docs/09-operations.md` 的「Docker 容器无资源限制」条目：本轮已加 `mem_limit`，改为「已配置」
+- `.github/workflows/archive/README.md`：记录归档原因与恢复方式（本次已建）
+
+## 6. P5 — 可选：同位预览（保留"敢试错"的能力，但不是第二套栈）
+
+```bash
+# 在 9002 起上一版镜像做冒烟，不接公网域名
+IMAGE_VERSION=<上一版> docker run -d --name nursing-preview --network host \
+  -e DATABASE_URL=...  ghcr.io/fire-disposal/nursing-vp-sim-backend:<上一版>
+```
+
+比维护第二套 DB+后端+前端便宜得多，且不产生"两个库谁是真相"的问题。
+
+## 7. 回退路径（每一步都能退）
+
+| 阶段 | 回退方式 | 代价 |
+|---|---|---|
+| P0–P1 | 无需回退（只读/只备份） | 0 |
+| P2 灌库后起栈失败 | `pg_restore` 回 P1 的 prod dump + 用旧 tag 起栈 | ~10 分钟 |
+| P2 起栈成功但业务异常 | `bash deploy/rollback.sh --env prod --yes <上一版>`（自动含备份 + 健康检查） | ~5 分钟 |
+| P3 域名收敛后异常 | 还原 `test.205716.xyz.conf` 为反代 9080/9081 并恢复 staging 栈 | ~10 分钟 |
+| P4 之后 | staging 卷保留 7 天，可重挂；CI 归档目录 `git mv` 回顶层即恢复旧流水线 | ~15 分钟 |
+
+## 8. 顺带收益
+
+- 内存：回收 1 套后端（2 worker ≈ 232 MB）+ master（30 MB）+ 1 个 postgres（66 MB）≈ **330 MB**
+- 单实例建议 `UVICORN_WORKERS=1`（异步应用，低流量期），再省 ~120 MB（`mem_limit` 本轮已加）
+- `llm_call_logs`（10 875 行）是评测语料，**归档而非删除**

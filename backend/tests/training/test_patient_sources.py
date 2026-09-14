@@ -2,6 +2,7 @@
 
 from modules.training.patient_ai.note_source import OperationNoteSource
 from modules.training.patient_ai.notes import EmotionNoteSource, IdentityGuardSource
+from modules.training.pipeline.context import STATE_EMOTION_NOTE
 
 
 class FakeContext:
@@ -29,7 +30,7 @@ class TestEmotionNoteSource:
     async def test_returns_cached_note_from_state(self):
         src = EmotionNoteSource()
         note = "【患者当前互动策略】\n- 语气：平稳、正常交流"
-        ctx = FakeContext(state={"_emotion_note": note})
+        ctx = FakeContext(state={STATE_EMOTION_NOTE: note})
         result = await src.collect(ctx)
         assert result == note
 

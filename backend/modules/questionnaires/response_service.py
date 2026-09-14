@@ -1,6 +1,7 @@
 """Questionnaire response business logic — submit, list, stats, export."""
 
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
+from core.statuses import normalize_questionnaire_trigger
 from core.unit_of_work import unit_of_work
 from models import (
     CaseQuestionnaire,
@@ -23,6 +25,70 @@ from schemas.questionnaire import (
     QuestionnaireStatsResponse,
     QuestionStatsItem,
 )
+
+
+def validate_submitted_answers(
+    questions: Mapping[int, QuestionnaireQuestion],
+    answers_data: Sequence[dict],
+) -> list[tuple[int, str | None]]:
+    """校验提交答案：题目归属本模板、不得重复、必答题不得留空。
+
+    服务端是必答契约的唯一权威（前端 ``QuestionnaireModal`` 的校验只是体验优化）；
+    「留空」的判定与前端一致：``None`` 或全空白串视为未作答。
+    返回 ``(question_id, answer_value)`` 列表，失败抛 ``ValidationError``。
+    """
+    submitted: dict[int, str | None] = {}
+    for ans in answers_data:
+        question_id = ans["question_id"]
+        if question_id not in questions:
+            raise ValidationError(f"题目 {question_id} 不属于该问卷")
+        if question_id in submitted:
+            raise ValidationError(f"题目 {question_id} 重复作答")
+        submitted[question_id] = ans.get("answer_value")
+
+    missing = [q.content for qid, q in questions.items() if q.required and not (submitted.get(qid) or "").strip()]
+    if missing:
+        preview = "、".join(missing[:3]) + ("..." if len(missing) > 3 else "")
+        raise ValidationError(f"必答题未作答：{preview}")
+
+    return list(submitted.items())
+
+
+def count_pending_required(db: Session, user_id: int, case_id: int) -> int:
+    """该学生在该病例下「仍需作答」的必做问卷数。
+
+    与 ``check()`` 同一判定：只看启用中的模板、只看该学生自己的已完成作答。
+    训练横幅与问卷弹窗据此保持一致（答完后不再提示）。
+    """
+    if not case_id:
+        return 0
+
+    template_ids = [
+        row[0]
+        for row in db.query(CaseQuestionnaire.template_id)
+        .join(QuestionnaireTemplate, CaseQuestionnaire.template_id == QuestionnaireTemplate.id)
+        .filter(
+            CaseQuestionnaire.case_id == case_id,
+            CaseQuestionnaire.is_required == True,
+            QuestionnaireTemplate.is_active == True,
+        )
+        .all()
+    ]
+    if not template_ids:
+        return 0
+
+    completed = {
+        row[0]
+        for row in db.query(QuestionnaireResponse.template_id)
+        .filter(
+            QuestionnaireResponse.user_id == user_id,
+            QuestionnaireResponse.case_id == case_id,
+            QuestionnaireResponse.template_id.in_(template_ids),
+            QuestionnaireResponse.status == "completed",
+        )
+        .all()
+    }
+    return sum(1 for tid in template_ids if tid not in completed)
 
 
 @dataclass
@@ -55,26 +121,14 @@ class QuestionnaireResponseService:
 
     # ── inlined repository methods ──
 
-    def _find_pending(self, user_id: int, template_id: int, case_id: int) -> QuestionnaireResponse | None:
+    def _find_response(self, user_id: int, template_id: int, case_id: int) -> QuestionnaireResponse | None:
+        """(user, template, case) 的作答行 —— 唯一约束保证至多一条，与状态无关。"""
         return (
             self.db.query(QuestionnaireResponse)
             .filter(
                 QuestionnaireResponse.user_id == user_id,
                 QuestionnaireResponse.template_id == template_id,
                 QuestionnaireResponse.case_id == case_id,
-                QuestionnaireResponse.status == "pending",
-            )
-            .first()
-        )
-
-    def _find_completed(self, user_id: int, template_id: int, case_id: int) -> QuestionnaireResponse | None:
-        return (
-            self.db.query(QuestionnaireResponse)
-            .filter(
-                QuestionnaireResponse.user_id == user_id,
-                QuestionnaireResponse.template_id == template_id,
-                QuestionnaireResponse.case_id == case_id,
-                QuestionnaireResponse.status == "completed",
             )
             .first()
         )
@@ -202,19 +256,18 @@ class QuestionnaireResponseService:
         cqs = self._case_questionnaires_for(case_id, trigger)
 
         for cq in cqs:
-            existing = self._find_completed(user_id, cq.template_id, case_id)
-            if existing:
+            response = self._find_response(user_id, cq.template_id, case_id)
+            if response is not None and response.status == "completed":
                 continue
 
-            partial = self._find_pending(user_id, cq.template_id, case_id)
             t = self._get_template(cq.template_id)
             return QuestionnaireCheckResponse(
                 has_pending=True,
                 template_id=cq.template_id,
-                response_id=partial.id if partial else None,
+                response_id=response.id if response else None,
                 template=template_to_detail(t) if t else None,
                 is_required=cq.is_required,
-                trigger_event=cq.trigger_event or "before_training",
+                trigger_event=normalize_questionnaire_trigger(cq.trigger_event),
             )
 
         return QuestionnaireCheckResponse(has_pending=False)
@@ -233,11 +286,21 @@ class QuestionnaireResponseService:
         if case_id is None:
             raise ValidationError("请提供病例ID")
 
-        response = self._find_pending(user_id, template_id, case_id)
+        questions = {
+            q.id: q
+            for q in self.db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id == template_id).all()
+        }
+        answers = validate_submitted_answers(questions, answers_data)
+
+        # 幂等：同一 (user, template, case) 复用同一行（唯一约束见 models.questionnaire），
+        # 重试/并发提交只覆盖答案，不产生第二条 completed。
+        response = self._find_response(user_id, template_id, case_id)
 
         with unit_of_work(self.db, conflict_detail="提交问卷失败"):
             if response:
                 self._delete_answers(response.id)
+                if record_id is not None:
+                    response.record_id = record_id
             else:
                 response = QuestionnaireResponse(
                     template_id=template_id,
@@ -249,12 +312,12 @@ class QuestionnaireResponseService:
                 self.db.add(response)
                 self.db.flush()
 
-            for ans in answers_data:
+            for question_id, answer_value in answers:
                 self.db.add(
                     QuestionnaireAnswer(
                         response_id=response.id,
-                        question_id=ans["question_id"],
-                        answer_value=ans.get("answer_value"),
+                        question_id=question_id,
+                        answer_value=answer_value,
                     )
                 )
 

@@ -38,6 +38,7 @@ class Assignment(Base, TimestampMixin):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_closed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # NULL 或 0 = 不限制尝试次数（门控见 modules/assignments/progress.py）
     max_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     case: Mapped[Case] = relationship()

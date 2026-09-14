@@ -52,7 +52,7 @@
 2. **工具走 HTTP POST**：`POST /api/training/{record_id}/tools`，同步返回 `{ok, data, scene, revision}`。请求/响应天然匹配工具语义；**WS 只保留服务端推送事件**（scoring/emotion/initiative/心跳，RealtimeHub 不变）。
 3. **revision 乐观并发**（学 `engine.py:338`）：`training_records.revision` 单调递增，每次变更返回新 revision，前端下次请求携带——结构上消灭 JSONB 无锁覆盖（T5），替代"行锁 + request_id 幂等"的复杂组合（行锁保留给最终一致性兜底，不作为主机制）。
 4. **单审计表**：`TrainingAction` 与 `TrainingToolRequest` 合并为一张 `training_actions`（unique(record_id, request_id) 同时承担幂等与时间线）；评分契约（读 TrainingAction 时间线）不变，评分域零影响。
-5. **前端快照化**：每个工具响应带**完整** `scene`（当前 service 已返回 scene，前端 patch 改为替换），删除 `useToolBridge` 的 pending 机制与 `waitForPendingToolRequests`（结束训练不再等工具——HTTP 请求天然先于 endTraining 完成）。
+5. **前端快照化**：每个工具响应带 `scene`，删除 `useToolBridge` 的 pending 机制与 `waitForPendingToolRequests`（结束训练不再等工具——HTTP 请求天然先于 endTraining 完成）。**已定案（实现时修正）**：`scene` 保持 **vitals 增量 patch**，前端 `sceneStore.mergeScene` 单层深合并——`runtime_state.scene` 含病例全部体征，整体下发会在采集史阶段（`_public_scene` 按已测量项脱敏）把未测量体征泄露给学生。同时幂等回放必须连 `scene` 一起还原（`TrainingAction.result = {data, scene}`），否则重试响应 `ok=true` 但 `scene=null`。
 
 ### 不学什么
 1. **自由文本命令解析**（`/give morphine`、`aliases.ts`）：核心训练的按钮是结构化交互，字符串解析只属于 simulation 的终端美学。
@@ -77,7 +77,7 @@
 
 ### 前端
 7. `engine/useToolBridge.ts`：删除 pending 机制；`sendTool` → `fetch POST /tools`（组件局部 loading 状态）；`waitForPendingToolRequests` 删除；endTraining 不再等待。
-8. `engine/TrainingTool.ts`/各工具面板：调用签名从 `{tool, action, params}` 改为 `cmd`；scene 状态从 patch 改快照替换（`scene:state` 事件保留）。
+8. `engine/TrainingTool.ts`/各工具面板：调用签名从 `{tool, action, params}` 改为 `cmd`；`scene:state` 保留 patch 语义（见 §4「学什么」第 5 条定案，不改为快照替换）。
 9. `useTrainingWS`：仅事件订阅（scoring/emotion/initiative/heartbeat）。
 
 ### 兼容与灰度

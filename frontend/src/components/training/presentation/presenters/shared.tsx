@@ -13,7 +13,7 @@ export function avatarShapeStyle(ctx: PresentationContext): CSSProperties {
 }
 
 /**
- * 图片类负载的共享渲染 — static / realistic / png-variant 及视频 poster 兜底共用。
+ * 图片类负载的共享渲染 — static / realistic 及视频 poster 兜底共用。
  */
 export function renderAvatarImage(
 	p: { src: string; alt: string },

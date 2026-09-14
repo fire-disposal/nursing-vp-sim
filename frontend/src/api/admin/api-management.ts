@@ -1,43 +1,36 @@
 import type { ApiPath } from "../api-path";
-import type {
-	ApiSecretCreate,
-	ApiSecretResponse,
-	ApiSecretUpdate,
-	HealthCheckItem,
-	OkResponse,
-	SecretCreateResponse,
-	TestAllResultsResponse,
-	TestResultItem,
-} from "./api-management-types";
+import type { components } from "../api-types.gen";
 import { api } from "../client";
 
-export const fetchSecrets = () =>
-	api.get<ApiSecretResponse[]>("/admin/secrets");
+type Schemas = components["schemas"];
 
-export const createSecret = (data: ApiSecretCreate) =>
-	api.post<SecretCreateResponse>("/admin/secrets", data);
+export const fetchSecrets = () =>
+	api.get<Schemas["ApiSecretResponse"][]>("/admin/secrets");
+
+export const createSecret = (data: Schemas["ApiSecretCreate"]) =>
+	api.post<Schemas["SecretCreateResponse"]>("/admin/secrets", data);
 
 export const updateSecret = (
 	id: number | string,
-	data: ApiSecretUpdate,
-) => api.put<ApiSecretResponse>(`/admin/secrets/${id}`, data);
+	data: Schemas["ApiSecretUpdate"],
+) => api.put<Schemas["ApiSecretResponse"]>(`/admin/secrets/${id}`, data);
 
 export const deleteSecret = (id: number | string) =>
-	api.delete<OkResponse>(`/admin/secrets/${id}`);
+	api.delete<Schemas["OkResponse"]>(`/admin/secrets/${id}`);
 
 export const testSecret = (id: number | string) =>
-	api.post<TestResultItem>(`/admin/secrets/${id}/test`);
+	api.post<Schemas["TestResultItem"]>(`/admin/secrets/${id}/test`);
 
 export const testAllSecrets = () =>
-	api.post<TestAllResultsResponse>("/admin/secrets/test-all");
+	api.post<Schemas["TestAllResultsResponse"]>("/admin/secrets/test-all");
 
 export const reloadRouter = () =>
-	api.post<OkResponse>("/admin/reload");
+	api.post<Schemas["OkResponse"]>("/admin/reload");
 
 export const checkHealth = () =>
-	api.get<HealthCheckItem[]>("/admin/health");
+	api.get<Schemas["HealthCheckItem"][]>("/admin/health");
 
 export const fetchEnvFallback = () => api.get("/admin/fallback" satisfies ApiPath as string);
 
 export const testEnvFallback = () =>
-	api.post<TestResultItem>("/admin/fallback/test");
+	api.post<Schemas["TestResultItem"]>("/admin/fallback/test");

@@ -1,5 +1,8 @@
 """Tests for physical exam operation handler and age-adaptive defaults."""
 
+import json
+from pathlib import Path
+
 from modules.training.tools.physical_exam_rules import (
     _format_skin,
     _get_age_group,
@@ -123,11 +126,25 @@ class TestHandleOperation:
         result = handle_operation("skin", case)
         assert "未见" in result["value"]
 
-    def test_pain_from_vital_signs_subpath(self):
-        """Pain resolved from exam_anchors.vital_signs.pain_score."""
+    def test_pain_range_normalized_to_midpoint(self):
+        """Pain resolved from exam_anchors.vital_signs.pain_score — range 串必须归一化。
+
+        旧实现直接返回 "4-6"，下游 _vitals_patch/情绪桥接 float() 抛错 → 场景体征与
+        情绪事件双双静默丢失；恒真断言（"4" in v or "6" in v or v != "0"）固化了它。
+        """
         case = {"exam_anchors": {"vital_signs": {"pain_score": "4-6"}}}
         result = handle_operation("pain", case)
-        assert "4" in result["value"] or "6" in result["value"] or result["value"] != "0"
+        assert float(result["value"]) == 5.0
+
+    def test_seeded_cases_pain_is_numeric(self):
+        """data/cases 里所有病例的疼痛读数都必须能被下游 float() 消费。"""
+        cases_dir = Path(__file__).resolve().parents[2] / "data" / "cases"
+        cases = sorted(cases_dir.glob("*.json"))
+        assert cases
+        for path in cases:
+            case = json.loads(path.read_text(encoding="utf-8"))
+            value = handle_operation("pain", case)["value"]
+            assert float(value) >= 0, f"{path.name}: pain={value!r}"
 
     def test_pain_from_top_level(self):
         """Pain resolved from exam_anchors.pain_score (top-level)."""

@@ -1,5 +1,4 @@
 import type { PatientPresenter, PresentationKind } from "./types";
-import { pngVariantPresenter } from "./presenters/pngVariant";
 import { realisticAvatarPresenter } from "./presenters/realisticAvatar";
 import { staticAvatarPresenter } from "./presenters/staticAvatar";
 import { svgFacePresenter } from "./presenters/svgFace";
@@ -12,7 +11,6 @@ import { videoSchedulerPresenter } from "./presenters/videoScheduler";
 export const PRESENTERS: Record<PresentationKind, PatientPresenter> = {
 	static: staticAvatarPresenter,
 	realistic: realisticAvatarPresenter,
-	"png-variant": pngVariantPresenter,
 	svg: svgFacePresenter,
 	video: videoSchedulerPresenter,
 };

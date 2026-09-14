@@ -32,15 +32,6 @@ def parse_cmd(cmd: str) -> tuple[str, str]:
     return tool, action
 
 
-def _serialize_result(result: ToolResult) -> dict[str, Any]:
-    return {
-        "ok": result.ok,
-        "data": result.data,
-        "scene": result.scene,
-        "error": result.error,
-    }
-
-
 def _deserialize_result(payload: dict[str, Any]) -> ToolResult:
     raw_data = payload.get("data")
     return ToolResult(
@@ -52,7 +43,14 @@ def _deserialize_result(payload: dict[str, Any]) -> ToolResult:
 
 
 def _cached_action(ctx: ToolContext, request_id: str) -> tuple[ToolResult | None, str | None]:
-    """按 (record_id, request_id) 幂等回放；返回 (结果, 命中的 kind)。"""
+    """按 (record_id, request_id) 幂等回放；返回 (结果, 命中的 kind)。
+
+    成功行的 ``result`` 形如 ``{"data": …, "scene": …}``（见 ``_claim_and_dispatch``）——
+    回放必须连 ``scene`` 一起还原，否则重试响应 ``ok=true`` 但 ``scene=null``，
+    前端监护卡体征不更新（服务端已落库），表现为"测量成功但数值不变"。
+    scene 是 vitals **增量 patch**（前端 sceneStore 单层深合并），不是快照：
+    快照会把未测量的体征一并推给还在采集史阶段的学生。
+    """
     row = (
         ctx.db.query(TrainingAction)
         .filter(TrainingAction.record_id == ctx.record.id, TrainingAction.request_id == request_id)
@@ -60,11 +58,19 @@ def _cached_action(ctx: ToolContext, request_id: str) -> tuple[ToolResult | None
     )
     if row is None:
         return None, None
+    stored = row.result or {}
     if row.kind.endswith(_ERROR_KIND_SUFFIX):
-        payload = {"ok": False, "data": {}, "scene": None, "error": (row.result or {}).get("error", "操作失败")}
+        payload = {"ok": False, "data": {}, "scene": None, "error": stored.get("error", "操作失败")}
         return _deserialize_result(payload), row.kind
     return (
-        _deserialize_result({"ok": True, "data": row.result or {}, "scene": None, "error": ""}),
+        _deserialize_result(
+            {
+                "ok": True,
+                "data": stored.get("data") or {},
+                "scene": stored.get("scene"),
+                "error": "",
+            }
+        ),
         row.kind,
     )
 
@@ -165,7 +171,6 @@ async def _claim_and_dispatch(
         raise ConflictError(detail="重复指令请求仍在处理中")
 
     result = await dispatch(tool_name, action, params, ctx)
-    payload = _serialize_result(result)
     # 原子推进 revision（成功与失败都算一次尝试，前端据此续发）
     new_revision = ctx.db.execute(
         text(
@@ -180,7 +185,9 @@ async def _claim_and_dispatch(
 
     if result.ok:
         placeholder.kind = tool_name
-        placeholder.result = payload.get("data") or {}
+        # data 与 scene 一起落库：幂等回放要还原完整响应（见 _cached_action）。
+        # scoring/engine.py 读该行时取 result["data"]（旧行仍是裸 data dict）。
+        placeholder.result = {"data": result.data, "scene": result.scene}
     else:
         placeholder.kind = f"{tool_name}{_ERROR_KIND_SUFFIX}"
         placeholder.result = {"error": result.error} if result.error else {}

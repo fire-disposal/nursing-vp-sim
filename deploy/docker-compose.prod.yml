@@ -6,6 +6,12 @@ services:
     image: postgres:15
     container_name: nursing-db
     restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_USER: nursing
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -25,6 +31,9 @@ services:
   backend:
     image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION}
     container_name: nursing-vp-sim-backend-1
+    # 资源上限：uvicorn --workers 2 每 worker 常驻 ~116MB（import 基线，见 docs/09 内存排查），
+    # 留足 LLM 日志队列与突发余量。无上限时单个容器可耗尽宿主机并连带其它租户。
+    mem_limit: 640m
     ports:
       - "127.0.0.1:9001:8000"
     volumes:
@@ -54,6 +63,12 @@ services:
   frontend:
     image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION}
     container_name: nursing-vp-sim-frontend-1
+    mem_limit: 128m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "127.0.0.1:9000:80"
     depends_on:

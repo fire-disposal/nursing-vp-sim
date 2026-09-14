@@ -6,7 +6,7 @@ import json
 def _get_default_rubric() -> dict:
     from modules.training.scoring.rubric_loader import load_rubric
 
-    return load_rubric("nursing_history_v1")
+    return load_rubric()
 
 
 def build_scoring_criteria(rubric: dict | None = None, level: str = "full") -> str:

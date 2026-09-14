@@ -131,12 +131,13 @@ export default function QuestionnaireAssign({
 							label="触发时机"
 							data={TRIGGER_EVENT_OPTIONS}
 							value={assignForm.trigger_event}
-							onChange={(v) =>
+							onChange={(v) => {
+								if (v !== "before_training" && v !== "after_scoring") return;
 								onAssignFormChange((f) => ({
 									...f,
-									trigger_event: v ?? "",
-								}))
-							}
+									trigger_event: v,
+								}));
+							}}
 							style={{ flex: 1 }}
 						/>
 						<Box style={{ flex: 1 }}>

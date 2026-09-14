@@ -1,59 +1,44 @@
-"""分数映射配置 — 版本化 MappingPolicy（Phase 1 契约）。
+"""分数映射 —— 单一策略（Phase 1 契约）。
 
-原始分（raw_total，Σ条目）与展示分（total_score，0-100）分离：
-- 展示分 = apply_score_mapping(raw_total, raw_max, policy)
-- mapping_version 记录所用策略，展示语义可解释、可重算；历史分 raw_total=NULL 不可逆
-- 改映射策略 = 新增 version，不重评历史分
+系统只有一套映射：原始分（raw_total，Σ条目）→ 展示分（0-100），恒为线性
+
+    display = round(raw_total / raw_max * 100)
+
+（``raw_max == 100`` 时即恒等）。落库换算（``_convert_to_100_scale``）与
+复核换算（``review_total_from_detail``）共用 ``display_factor()`` 的同一因子，
+两条刻度因此永远一致。
+
+``mapping_version`` 只标记"展示分能否重算"，不是曲线选择器：
+
+    1 = 有 raw_total，展示分可由上式重算（现行口径）
+    0 = 旧口径历史分（raw_total=NULL，展示分不可逆）
+
+新增曲线属于口径变更，必须同时给出新 version、历史分重算说明与消费方改造；
+在此之前不保留未生效的曲线分支（避免"声明了 sqrt/power 却只有线性生效"的假配置）。
 """
 
-from dataclasses import dataclass
-from typing import Literal
+# 展示分上限（0-100 分制）
+DISPLAY_MAX = 100
 
-
-@dataclass(frozen=True)
-class MappingPolicy:
-    """版本化映射策略。
-
-    curve:
-      "linear" — 线性映射: display = raw * (display_max / raw_max)
-      "sqrt"   — 平方根曲线，压低高分段、拉升低分段
-      "power"  — 幂曲线，press_factor 控制弯曲程度
-    """
-
-    version: int = 1
-    display_max: int = 100
-    curve: Literal["linear", "sqrt", "power"] = "linear"
-    press_factor: float = 0.9
-    # 最低保障分（原始分 > 0 时，显示分不低于此值）
-    floor: int = 0
-
-
-# 当前生效策略（v1 = 线性）。新增策略时 +version，历史分 mapping_version 不变。
-CURRENT_POLICY = MappingPolicy(version=1, curve="linear")
+# 现行口径版本：展示分可由 raw_total 重算
+MAPPING_VERSION = 1
 
 # 旧口径标记：mapping_version=0 的历史分（无 raw_total，展示分不可重算）
 LEGACY_VERSION = 0
 
 
-def apply_score_mapping(raw_score: float, raw_max: int, cfg: MappingPolicy | None = None) -> int:
-    """将原始分映射为展示分（0 到 display_max 的整数）。"""
-    c = cfg or CURRENT_POLICY
-
+def apply_score_mapping(raw_score: float, raw_max: int) -> int:
+    """将原始分映射为展示分（0 到 DISPLAY_MAX 的整数）。"""
     if raw_max <= 0 or raw_score <= 0:
         return 0
-    if raw_max == c.display_max:
-        return round(raw_score)
+    display = round(raw_score / raw_max * DISPLAY_MAX)
+    return max(0, min(display, DISPLAY_MAX))
 
-    normalized = max(0.0, min(1.0, raw_score / raw_max))
 
-    if c.curve == "linear":
-        display = normalized * c.display_max
-    elif c.curve == "sqrt":
-        display = (normalized**0.5) * c.display_max
-    elif c.curve == "power":
-        display = (normalized**c.press_factor) * c.display_max
-    else:
-        display = normalized * c.display_max
+def display_factor(raw_max: int) -> float:
+    """展示刻度因子：raw 刻度 × factor = 展示刻度。
 
-    result = round(display)
-    return max(c.floor, min(result, c.display_max))
+    落库换算与复核换算的唯一来源——因子若各写一份，复核"不改分提交"
+    就不再恒等（S1 根因）。
+    """
+    return DISPLAY_MAX / raw_max if raw_max > 0 else 1.0

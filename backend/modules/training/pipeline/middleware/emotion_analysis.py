@@ -26,13 +26,17 @@ from modules.training.patient_ai.emotion import (
     render_behavior_note,
     resolve_dominant_state,
 )
-from modules.training.pipeline.context import PipelineContext
+from modules.training.pipeline.context import (
+    STATE_CORRECTION_TURN,
+    STATE_EMOTION_CHANGE,
+    STATE_EMOTION_DOMINANT,
+    STATE_EMOTION_NOTE,
+    STATE_FEATURES,
+    STATE_PATIENT_WALKOUT,
+    PipelineContext,
+)
 
 log = logging.getLogger(__name__)
-
-STATE_EMOTION_NOTE: str = "_emotion_note"
-STATE_EMOTION_CHANGE: str = "_emotion_change"
-STATE_EMOTION_DOMINANT: str = "_emotion_dominant"
 
 
 async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
@@ -41,7 +45,7 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
-    features = ctx.state.get("features") or {}
+    features = ctx.state.get(STATE_FEATURES) or {}
     if not features.get("emotion", False):
         await next_mw()
         return
@@ -84,7 +88,11 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
         # 上下文截断（120 条）会让 message_count 恒为 120，turn_id 撞车导致
         # 60 轮后情绪系统静默冻结。
         last_msg_id = max((m.id for m in ctx.messages if getattr(m, "id", None)), default=0)
-        turn_id = f"{ctx.record.id}-{last_msg_id}"
+        # 修正轮：ctx.messages 是"被修正那轮之前"的历史，与被修正轮完全一致 → 只按
+        # last_msg_id 会与已入库的 last_turn_id 撞车而整轮跳过，情绪便停留在被替换掉
+        # 的那句话的判定上（DB/评分已是新文本）。加修正序号，才能按新文本重算。
+        correction_turn = ctx.state.get(STATE_CORRECTION_TURN)
+        turn_id = f"{ctx.record.id}-{last_msg_id}" + (f"-c{correction_turn}" if correction_turn is not None else "")
         if state.last_turn_id == turn_id:
             log.debug("Turn %s already processed, skipping emotion update", turn_id)
         elif result.events:
@@ -116,6 +124,9 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
         policy = derive_behavior(state.vector)
         note = render_behavior_note(policy)
         dominant = resolve_dominant_state(state.vector)
+
+        if policy.walkout:
+            ctx.state[STATE_PATIENT_WALKOUT] = True
 
         ctx.state[STATE_EMOTION_NOTE] = note
         ctx.state[STATE_EMOTION_CHANGE] = {

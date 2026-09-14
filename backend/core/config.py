@@ -100,6 +100,11 @@ LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
 LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 
+# LLM 日志队列上限：条目含 prompt/response 全文，必须同时按字节与条数封顶
+# （只按条数封顶最坏可达数百 MB）。超额丢最旧条目并落盘兜底。
+LLM_LOG_QUEUE_MAX_BYTES = int(os.getenv("LLM_LOG_QUEUE_MAX_BYTES", str(32 * 1024 * 1024)))
+LLM_LOG_QUEUE_MAX_ENTRIES = int(os.getenv("LLM_LOG_QUEUE_MAX_ENTRIES", "2000"))
+
 LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "2"))
 
 # 批量建用户上限 —— 防止单次请求过大导致系统卡死

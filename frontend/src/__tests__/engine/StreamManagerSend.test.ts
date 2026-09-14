@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StreamDonePayload } from "@/api/sse";
 import { StreamManager } from "@/engine/StreamManager";
 import { useTrainingStore } from "@/stores/trainingStore";
 
@@ -13,7 +14,7 @@ const mockStream = sendMessageStream as ReturnType<typeof vi.fn>;
 
 type StreamCallbacks = {
 	onChunk: (chunk: string) => void;
-	onDone: (id?: number) => void;
+	onDone: (id?: number, payload?: StreamDonePayload) => void;
 	onError: (err: string) => void;
 	onEmotion: (c: { state: string; trust: number; comfort: number }) => void;
 	onInitiativeState: (d: Record<string, unknown>) => void;
@@ -63,7 +64,7 @@ describe("StreamManager.send 主流程", () => {
 
 		cb.onChunk("你");
 		cb.onChunk("好");
-		cb.onDone(42);
+		cb.onDone(42, { ended: true, end_reason: "patient_walkout" });
 		await promise;
 
 		const msgs = useTrainingStore.getState().messages;
@@ -72,7 +73,8 @@ describe("StreamManager.send 主流程", () => {
 		expect(msgs[1].id).toBe("42");
 		expect(useTrainingStore.getState().sending).toBe(false);
 		expect(onPatientChunk).toHaveBeenCalledTimes(2);
-		expect(onPatientDone).toHaveBeenCalledWith(42);
+		// done 负载必须原样转发：前端靠 end_reason 识别「患者中止访谈」并结束训练
+		expect(onPatientDone).toHaveBeenCalledWith(42, { ended: true, end_reason: "patient_walkout" });
 	});
 
 	it("stream error with partial content marks message with error", async () => {

@@ -6,7 +6,7 @@ export async function sendMessageStream(
 	recordId: number | string,
 	content: string,
 	onChunk: (text: string) => void,
-	onDone: (id?: number) => void,
+	onDone: (id?: number, payload?: StreamDonePayload) => void,
 	onError: (msg: string) => void,
 	signal?: AbortSignal,
 	onEmotionChange?: (change: {
@@ -25,7 +25,7 @@ export async function sendMessageStream(
 		reportFailure: (kind, message, url) => reportError(kind, message, url),
 		handlers: {
 			onChunk,
-			onDone: (id) => onDone(id),
+			onDone: (id, _citations, payload) => onDone(id, payload),
 			onError,
 			onEmotionChange,
 			onInitiativeState,

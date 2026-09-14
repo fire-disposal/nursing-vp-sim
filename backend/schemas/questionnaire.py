@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from core.statuses import QuestionnaireTrigger
 from schemas.common import _REQ_CFG, _RESP_CFG
 
 
@@ -86,7 +87,10 @@ class CaseAssignmentRequest(BaseModel):
     model_config = _REQ_CFG
     case_ids: list[int]
     is_required: bool = True
-    trigger_event: str = Field(default="before_training", max_length=30)
+    trigger_event: QuestionnaireTrigger = Field(
+        default=QuestionnaireTrigger.BEFORE_TRAINING,
+        description="触发时点：before_training（训练入口）/ after_scoring（评分完成后）",
+    )
 
 
 class QuestionnaireAnswerSubmit(BaseModel):

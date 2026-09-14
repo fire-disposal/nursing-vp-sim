@@ -50,7 +50,7 @@ _MOCK_REQUIRED_INQUIRIES_TEXT = json.dumps(_MOCK_REQUIRED_INQUIRIES, ensure_asci
 
 
 def _make_scoring_kwargs():
-    rubric = load_rubric("nursing_history_v1")
+    rubric = load_rubric()
     return {
         "scoring_criteria": build_scoring_criteria(rubric),
         "required_inquiries": _MOCK_REQUIRED_INQUIRIES_TEXT,
@@ -62,7 +62,7 @@ class TestScoringPromptSanity:
     """以 LLM 视角验证评分 prompt 结构是否正确"""
 
     def test_rubric_builds_without_error(self):
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
         assert len(text) > 1000
         assert "评分标准:" in text
@@ -70,7 +70,7 @@ class TestScoringPromptSanity:
         assert "必须采集到的内容" in text
 
     def test_rubric_contains_required_sections(self):
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
 
         # 19 个条目全覆盖
@@ -104,7 +104,7 @@ class TestScoringPromptSanity:
 
     def test_json_template_is_valid_json_structure(self):
         """输出格式部分必须能被 json.loads 解析（去掉占位符后）"""
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         schema_text = build_scoring_json_schema(rubric)
 
         system = render_template("{#scoring_json_schema#}", scoring_json_schema=schema_text)
@@ -130,7 +130,7 @@ class TestScoringPromptSanity:
 
     def test_variable_name_match(self):
         """模板 {#var#} 与传入变量名一致"""
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         criteria_text = build_scoring_criteria(rubric)
 
         s, u = (
@@ -261,7 +261,7 @@ class TestScoringPromptSanity:
 
     def test_numeric_placeholders_not_quoted_in_json_template(self):
         """JSON 模板中的数字占位符不应有引号，避免 LLM 误解为字符串"""
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
 
         assert '"N_TOTAL_SCORE"' not in text, "sentinel 残留"
@@ -370,7 +370,7 @@ class TestScoringFlowEndToEnd:
 
     def test_sample_vars_are_renderable(self):
         """SAMPLE_VARS 中的 scoring 预览数据必须可渲染"""
-        rubric = load_rubric("nursing_history_v1")
+        rubric = load_rubric()
         sample = {
             "scoring_criteria": build_scoring_criteria(rubric),
             "required_inquiries": json.dumps(

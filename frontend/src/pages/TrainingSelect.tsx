@@ -708,6 +708,7 @@ export default function TrainingSelect() {
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 						{assignments.map((a) => {
 							const isExpired = a.end_time && new Date(a.end_time) < new Date();
+							const isClosed = a.status === "closed";
 							const isCompleted = a.status === "completed";
 							const isInProgress = a.status === "in_progress";
 							const attemptsLeft =
@@ -739,8 +740,9 @@ export default function TrainingSelect() {
 										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
 											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>
 											{isExpired && <Badge variant="light" color="red">已过期</Badge>}
+											{isClosed && <Badge variant="light" color="orange">已关闭</Badge>}
 											{isCompleted && <Badge variant="light" color="green">已完成</Badge>}
-											{!isExpired && !isCompleted && <Badge variant="light" color="gray">待完成</Badge>}
+											{!isExpired && !isClosed && !isCompleted && <Badge variant="light" color="gray">待完成</Badge>}
 										</Group>
 										<Text size="xs" c="dimmed" mt={4}>
 											{a.case_name}
@@ -754,8 +756,8 @@ export default function TrainingSelect() {
 										)}
 									</Box>
 									<Box style={{ marginTop: "auto" }}>
-										{isExpired ? (
-											<Button size="sm" variant="outline" disabled style={{ width: "100%" }}>已过期</Button>
+										{isExpired || isClosed ? (
+											<Button size="sm" variant="outline" disabled style={{ width: "100%" }}>{isClosed ? "已关闭" : "已过期"}</Button>
 										) : isInProgress && a.record_id ? (
 											<Button size="sm" style={{ width: "100%" }} onClick={() => navigate(`/training/${a.record_id}`)}><IconPlayerPlay size={14} />继续训练</Button>
 										) : isCompleted ? (

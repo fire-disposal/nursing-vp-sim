@@ -109,7 +109,11 @@ export default function VoiceTokenCard() {
 	// Auto-verify on mount + when config identity changes
 	const configId = cfg?.id;
 	useEffect(() => { if (configId) doCheck(); /* eslint-disable-next-line */ }, [configId]);
-	useEffect(() => () => stopPlay(), []);
+	useEffect(() => () => {
+		stopPlay();
+		player.current?.dispose();
+		player.current = null;
+	}, []);
 
 	const doCheck = useCallback(() => {
 		setChecking(true);

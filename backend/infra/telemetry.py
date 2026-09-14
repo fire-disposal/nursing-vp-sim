@@ -15,6 +15,8 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from core.rate_limits import get_client_ip
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/telemetry", tags=["遥测"])
@@ -157,10 +159,9 @@ def _rate_check(ip: str) -> bool:
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    # 与限流同一套取值策略（core.rate_limits.get_client_ip）——遥测限流同样不能被
+    # 客户端伪造的 X-Forwarded-For 第一段绕过。
+    return get_client_ip(request)
 
 
 class ErrorItem(BaseModel):

@@ -21,19 +21,6 @@ export interface PatientData {
 	examAnchors?: Record<string, unknown>;
 }
 
-export interface ScoreDimension {
-	score: number;
-	max: number;
-	items?: ScoreDimensionItem[];
-}
-export interface ScoreDimensionItem {
-	name: string;
-	score: number;
-	max: number;
-	evidence?: string;
-	reason?: string;
-}
-
 export type ScorePhase = "loading" | "scoring" | "feedback" | "saving" | "completed" | "failed" | "processing" | null;
 
 export interface ScoringProgress {
@@ -43,15 +30,6 @@ export interface ScoringProgress {
 	thought?: string;
 	score_thought?: string;
 	feedback_thought?: string;
-}
-
-export interface ScoreData {
-	total_score?: number;
-	detail_scores?: Record<string, ScoreDimension>;
-	strengths?: string[];
-	weaknesses?: string[];
-	missed_content?: string[];
-	suggestions?: string;
 }
 
 export interface MessageBus {

@@ -9,16 +9,29 @@ cd "$ROOT/frontend" || exit 1
 pnpm exec lint-staged
 pnpm tsc --noEmit
 
-# Backend checks — only if Python files are staged
-STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM -- "$ROOT/backend/**/*.py" "$ROOT/backend/*.py" 2>/dev/null || true)
+# Backend checks — only if Python files are staged (R 也收：重命名的文件同样要检查)
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR -- "$ROOT/backend/**/*.py" "$ROOT/backend/*.py" 2>/dev/null || true)
 if [ -n "$STAGED_PY" ]; then
   echo ""
   echo "  ruff format + check + ty (backend)"
   cd "$ROOT/backend" || exit 1
-  STAGED_PY_REL=$(echo "$STAGED_PY" | sed 's|^backend/||')
-  uv run ruff format --check $STAGED_PY_REL || exit 1
-  uv run ruff check $STAGED_PY_REL || exit 1
-  uv run ty check $STAGED_PY_REL || exit 1
+  # 文件名可能含空格：逐行读（IFS= read -r）收集为位置参数，
+  # 不能用 $VAR 直接展开（分词会把一个文件名拆成多个伪参数）
+  set --
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    set -- "$@" "$f"
+  done <<EOF
+$(printf '%s\n' "$STAGED_PY" | sed 's|^backend/||')
+EOF
+  if [ "$#" -gt 0 ]; then
+    # --force-exclude：显式传入的路径也要遵守 pyproject 的 exclude
+    # （ruff: migrations/versions/；ty: tests/ + migrations/versions/）。
+    # 否则 pre-commit 会检查 `pnpm run check:backend` 明确排除的手写迁移/测试文件 → 误红。
+    uv run ruff format --check --force-exclude "$@" || exit 1
+    uv run ruff check --force-exclude "$@" || exit 1
+    uv run ty check --force-exclude "$@" || exit 1
+  fi
 fi
 
 # Alembic heads check + autogenerate enforcement — if migration files are staged

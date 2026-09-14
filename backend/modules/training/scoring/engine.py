@@ -27,6 +27,7 @@ from modules.training.prompts.scoring import (
 )
 from modules.training.scoring.rubric_loader import get_rubric_version_id
 
+from .mapping import LEGACY_VERSION, MAPPING_VERSION
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
 from .validation import (
     _check_feedback_empty,
@@ -37,6 +38,7 @@ from .validation import (
     _inject_missing_dimensions,
     _inject_rubric_max,
     _merge_feedback,
+    _normalize_feedback_fields,
     _recalc_total_from_dimensions,
     _validate_feedback_fields,
     _validate_items_content,
@@ -388,7 +390,9 @@ def _build_history_messages(
         .all()
     )
     if actions:
-        exam_results_raw = [a.result for a in actions]
+        # 工具动作结果两种形态：{"data": ..., "scene": ...}（新）与裸 data（旧）。
+        # 只取 data，避免 scene 补丁污染评分提示词。
+        exam_results_raw = [a.result.get("data", a.result) if isinstance(a.result, dict) else a.result for a in actions]
     else:
         exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
         if exam_results_raw:
@@ -495,10 +499,17 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
     }
 
     if result.get("_scoring_fallback"):
-        log.warning(
-            "scoring fallback: keeping LLM total_score, bypassing dimension recalculation",
-            extra={"llm_total": result.get("total_score")},
-        )
+        # S3：兜底输出不做"总分 = Σ条目分"校正——保留 LLM 自评分作为证据。
+        # 但 LLM 自评分缺失/非法时无法落库，退化到 Σ条目分（S2 不变量），
+        # 而不是用一个凭空的 0 冒充"该生得 0 分"。
+        if not isinstance(result.get("total_score"), (int, float)):
+            log.warning("scoring_fallback_total_from_items", extra={"raw_total": raw_total})
+            result["total_score"] = raw_total
+        else:
+            log.warning(
+                "scoring fallback: keeping LLM total_score, bypassing dimension recalculation",
+                extra={"llm_total": result.get("total_score")},
+            )
     elif abs(raw_total - float(result.get("total_score", 0))) > TOTAL_SCORE_MISMATCH_TOLERANCE:
         original_total = float(result.get("total_score", 0))
         if raw_total == 0.0 and original_total > 0:
@@ -509,12 +520,11 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
         else:
             log.warning(
                 "total_score_mismatch",
-                extra={"llm_total": result["total_score"], "recalc_total": raw_total},
+                extra={"llm_total": original_total, "recalc_total": raw_total},
             )
             result["total_score"] = raw_total
 
-    _validate_scoring_result(result, rubric)
-
+    # S4b: 全维度注入 = 没有任何可用 LLM 评分 → 显式 fallback 标记（先标记，再决定是否终局校验）
     injected_count = len(injected_dims)
     total_dims = len(rubric.get("dimensions", []))
     if total_dims > 0 and injected_count == total_dims:
@@ -525,6 +535,17 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
             result.get("_record_id", "?"),
             result.get("total_score"),
         )
+
+    if result.get("_scoring_fallback"):
+        # S3 契约：兜底结果本身即"已知不完整"，必须落库可见而不是被判死。
+        # 终局校验降级为字段归一化（不抛异常），否则故障从"带标记的兜底分"退化成"无分 failed"。
+        missing_feedback = _normalize_feedback_fields(result)
+        log.warning(
+            "scoring_fallback_bypass_final_validation",
+            extra={"missing_feedback": missing_feedback, "fallback": result.get("fallback")},
+        )
+    else:
+        _validate_scoring_result(result, rubric)
 
     raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
     _convert_to_100_scale(result, raw_max)
@@ -560,7 +581,7 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         prompt_version=snapshot.schema_version if snapshot else 1,
         # Phase 1 契约：raw_total/fallback/dim_total 落库（S2/S3/S4）
         raw_total=result.get("raw_total"),
-        mapping_version=1 if result.get("raw_total") is not None else 0,
+        mapping_version=MAPPING_VERSION if result.get("raw_total") is not None else LEGACY_VERSION,
         fallback=result.get("fallback"),
         dim_total=result.get("dim_total"),
     )
@@ -736,6 +757,9 @@ def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None 
     Phase 1 (S3)：fallback 结构化落库——UI 可见、不进排行榜。
     """
     if first:
+        # 首试是"半坏"结果（有 detail_scores 但缺 total_score/类型错）：
+        # 兜底标记保证它能落库；total_score 缺失时由 _postprocess_scoring_result
+        # 退化到 Σ条目分（S2），此处不写一个凭空的 0。
         first["_scoring_fallback"] = True
         first["fallback"] = {"kind": "llm_partial"}
         return first

@@ -25,11 +25,11 @@ class TrainingProfile:
     rubric: dict
 
 
-from modules.training.scoring.rubric_data import RUBRIC as _RUBRIC
+from modules.training.scoring.rubric_loader import get_base_rubric
 
 PROFILE = TrainingProfile(
     name="history_taking",
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=PromptCollection(system=PATIENT_SYSTEM, dynamic=PATIENT_DYNAMIC),
-    rubric=_RUBRIC,
+    rubric=get_base_rubric(),
 )

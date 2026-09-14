@@ -35,6 +35,8 @@ export const queryKeys = {
 		list: (params: Record<string, unknown> | null | undefined) =>
 			["notifications", params] as const,
 		recent: () => [...queryKeys.notifications.all, "recent"] as const,
+		/** 未读总数（徽标专用，独立于列表分页） */
+		unread: () => [...queryKeys.notifications.all, "unread"] as const,
 	},
 	diagnose: ["admin", "diagnose"] as const,
 	voice: {

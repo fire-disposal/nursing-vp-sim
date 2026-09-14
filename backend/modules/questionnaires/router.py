@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
+from core.statuses import QuestionnaireTrigger
 from infra.exporter import ColumnDef, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService
@@ -260,7 +261,10 @@ def check_questionnaire(
     db: DbSession,
     case_id: Annotated[int | None, Query()] = None,
     record_id: Annotated[int | None, Query()] = None,
-    trigger: Annotated[str | None, Query(description="触发事件: before_training / after_scoring / manual")] = None,
+    trigger: Annotated[
+        QuestionnaireTrigger | None,
+        Query(description="触发时点: before_training / after_scoring"),
+    ] = None,
 ):
     return QuestionnaireResponseService(db).check(
         user_id=current_user.id,

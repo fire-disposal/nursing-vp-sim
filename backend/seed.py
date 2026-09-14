@@ -14,6 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from models import ApiSecret, Case, Role, RolePermission, User, VoiceConfig
+from modules.cases.builtin_sync import has_bookmark, is_locally_edited, same_content, with_seed_bookmark
 
 log = logging.getLogger(__name__)
 
@@ -158,20 +159,33 @@ def _seed_data() -> None:
 
 
 def _seed_cases() -> None:
-    """Import cases from data/cases/*.json. Idempotent — skips existing names."""
+    """Import / refresh built-in cases from data/cases/*.json.
+
+    Idempotent and converging: a row whose content still matches the revision it
+    was seeded from (or that carries no seed fingerprint at all) is rewritten
+    from the repository file, so content fixes in data/cases/*.json reach
+    databases initialised from an older revision. Rows a teacher has edited are
+    left untouched and logged.
+    """
+    cases_dir = _PROJECT_ROOT / "data" / "cases"
+    entries: list[tuple[str, dict]] = []
+    for fpath in sorted(cases_dir.glob("*.json")):
+        try:
+            d = json.loads(fpath.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            log.warning("病例文件读取失败 %s: %s", fpath.name, e)
+            continue
+        entries.append((d.get("name") or fpath.stem, d))
+    if not entries:
+        return
+
     db = SessionLocal()
     try:
-        existing_names = {c.name for c in db.query(Case.name).all()}
-        cases_dir = _PROJECT_ROOT / "data" / "cases"
-        imported = 0
-        skipped = 0
-        for fpath in sorted(cases_dir.glob("*.json")):
-            try:
-                d = json.loads(fpath.read_text(encoding="utf-8"))
-                name = d.get("name", fpath.stem)
-                if name in existing_names:
-                    skipped += 1
-                    continue
+        rows = {c.name: c for c in db.query(Case).filter(Case.name.in_([name for name, _ in entries])).all()}
+        imported = updated = kept = 0
+        for name, d in entries:
+            row = rows.get(name)
+            if row is None:
                 db.add(
                     Case(
                         name=name,
@@ -180,20 +194,36 @@ def _seed_cases() -> None:
                         difficulty=d.get("difficulty", 1),
                         time_limit_minutes=d.get("time_limit", 20),
                         is_open=True,
-                        case_data=d,
+                        case_data=with_seed_bookmark(d),
                     )
                 )
-                existing_names.add(name)
                 imported += 1
-            except (OSError, json.JSONDecodeError) as e:
-                log.warning("病例文件读取失败 %s: %s", fpath.name, e)
-        if imported:
+                continue
+            existing = row.case_data or {}
+            if is_locally_edited(existing):
+                kept += 1
+                log.warning("内置病例已被本地修改，保留库内内容（case_id=%s name=%s）", row.id, name)
+                continue
+            if same_content(existing, d):
+                if not has_bookmark(existing):
+                    # 内容已是仓库版本（旧库刚被手工修好）——补指纹，让后续教师编辑可被识别
+                    row.case_data = with_seed_bookmark(d)
+                    updated += 1
+                continue
+            row.description = d.get("description", "")
+            row.training_type = d.get("training_type", "history_taking")
+            row.difficulty = d.get("difficulty", 1)
+            row.time_limit_minutes = d.get("time_limit", 20)
+            row.case_data = with_seed_bookmark(d)
+            updated += 1
+            log.warning("内置病例内容随版本更新（case_id=%s name=%s）", row.id, name)
+        if imported or updated:
             try:
                 db.commit()
             except Exception as e:
                 db.rollback()
                 log.warning("病例种子写入失败（数据库 schema 不匹配？）: %s", e)
-        log.debug("病例导入完成: 新增 %d, 跳过 %d", imported, skipped)
+        log.debug("病例导入完成: 新增 %d, 更新 %d, 保留本地修改 %d", imported, updated, kept)
     finally:
         db.close()
 

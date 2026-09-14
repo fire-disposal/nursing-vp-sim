@@ -54,7 +54,10 @@ class AssignmentUpdateRequest(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_closed: bool | None = None
-    max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
+    max_attempts: int | None = Field(
+        default=None,
+        description="最大尝试次数；显式 null = 不限制，请求未携带该键 = 不修改",
+    )
 
     @field_validator("behavior")
     @classmethod
@@ -75,6 +78,7 @@ class AssignmentListItem(BaseModel):
     completed_count: int = 0
     created_at: datetime
     is_closed: bool = False
+    max_attempts: int | None = None
 
 
 class AssignmentStudentItem(BaseModel):
@@ -120,15 +124,22 @@ class AssignmentDetail(BaseModel):
 
 
 class StudentAssignmentItem(BaseModel):
+    """学生作业卡片 —— status 取值见 core.statuses.AssignmentProgressStatus。
+
+    与教师端 ``AssignmentStudentItem`` 同一推导（modules.assignments.progress），
+    状态词表不再混用训练记录状态（pending → not_started）。
+    """
+
     model_config = _RESP_CFG
     id: str
     title: str
     case_name: str
     start_time: datetime
     end_time: datetime
-    status: str = "pending"
+    status: str = "not_started"
     record_id: int | None = None
     score_total: float | None = None
+    scoring_status: str | None = None
     is_overdue: bool = False
     max_attempts: int | None = None
     attempt_count: int = 0

@@ -32,6 +32,8 @@ class FeedbackItem(BaseModel):
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime
+    auto_fix_attempted: bool = False
+    auto_fix_at: datetime | None = None
 
 
 class FeedbackReplyRequest(BaseModel):

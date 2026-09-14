@@ -26,7 +26,7 @@ from modules.training.session.state import (
     format_scene_for_prompt,
 )
 
-from ..context import STATE_CONTEXT_LEDGER, STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
+from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
 from ..prompt_context import PromptContext
 
 log = logging.getLogger(__name__)
@@ -85,7 +85,6 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         patient_state=patient_state,
         examples=build_example_pairs(ctx.case_data),
     )
-    ctx.state[STATE_CONTEXT_LEDGER] = ledger
     log.debug("context ledger: %s", ledger)
 
     await next_mw()

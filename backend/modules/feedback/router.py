@@ -108,9 +108,10 @@ def reply_feedback(
     req: FeedbackReplyRequest,
     current_user: _FeedbackReviewer,
     db: DbSession,
+    overwrite: Annotated[bool, Query(description="已有回复时是否覆盖（默认拒绝）")] = False,
 ):
     admin_name = current_user.display_name or current_user.username
-    fb = FeedbackService(db).reply(feedback_id, req.reply, admin_name)
+    fb = FeedbackService(db).reply(feedback_id, req.reply, admin_name, overwrite=overwrite)
     return _to_item_from_model(fb)
 
 
@@ -184,6 +185,8 @@ def _to_item(r) -> FeedbackItem:
         developer_reply=r.developer_reply,
         replied_at=r.replied_at,
         created_at=r.created_at,
+        auto_fix_attempted=r.auto_fix_attempted,
+        auto_fix_at=r.auto_fix_at,
     )
 
 
@@ -202,6 +205,8 @@ def _to_item_from_model(fb: Feedback) -> FeedbackItem:
         developer_reply=fb.developer_reply,
         replied_at=fb.replied_at,
         created_at=fb.created_at,
+        auto_fix_attempted=fb.auto_fix_attempted,
+        auto_fix_at=fb.auto_fix_at,
     )
 
 

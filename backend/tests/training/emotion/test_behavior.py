@@ -10,6 +10,7 @@ import pytest
 from modules.training.patient_ai.emotion.behavior import (
     PatientBehaviorPolicy,
     derive_behavior,
+    is_patient_walkout,
 )
 from modules.training.patient_ai.emotion.models import EmotionVector
 from modules.training.patient_ai.emotion.renderer import (
@@ -76,6 +77,26 @@ class TestDeriveBehavior:
         policy = derive_behavior(v)
         assert "不耐烦" in policy.tone
 
+    def test_insulted_patient_refuses_interview(self):
+        """被辱骂后的状态：斥责对方、拒绝继续回答病情、要求道歉或换人。"""
+        v = EmotionVector(trust=0.10, anxiety=0.5, irritation=0.85, cooperation=0.10)
+        policy = derive_behavior(v)
+        assert "拒绝" in policy.response_style
+        assert policy.refusal_style is not None
+        assert "道歉" in policy.refusal_style
+        assert "愤怒" in policy.tone
+
+    def test_walkout_only_beyond_hostile_regime(self):
+        """中止阈值必须晚于敌意区：第 2 轮辱骂（trust 0.25 / irritation 0.74）仍可道歉挽回，
+        第 3 轮（trust 0.15 / irritation 0.88）才走人。"""
+        recoverable = EmotionVector(trust=0.2477, anxiety=0.5492, irritation=0.7428, cooperation=0.2067)
+        assert is_patient_walkout(recoverable) is False
+        assert derive_behavior(recoverable).walkout is False
+
+        walked_out = EmotionVector(trust=0.1518, anxiety=0.5727, irritation=0.8757, cooperation=0.1014)
+        assert is_patient_walkout(walked_out) is True
+        assert derive_behavior(walked_out).walkout is True
+
     def test_refusal_style_when_low_cooperation(self):
         """低配合时应有拒绝风格。"""
         v = EmotionVector(trust=0.3, anxiety=0.4, irritation=0.7, cooperation=0.2)
@@ -112,6 +133,13 @@ class TestRenderBehaviorNote:
         note = render_behavior_note(policy)
         assert "行为边界" in note
         assert "病例事实" in note
+
+    def test_note_announces_walkout(self):
+        """走人状态必须注入终止指令，否则模型会继续留在访谈里。"""
+        v = EmotionVector(trust=0.10, anxiety=0.5, irritation=0.90, cooperation=0.10)
+        note = render_behavior_note(derive_behavior(v))
+        assert "中止访谈" in note
+        assert "不再回答" in note
 
 
 class TestResolveDominantState:

@@ -23,9 +23,9 @@ class TestLoadRubricHotReload:
         mod._RUBRIC_JSON_PATH = rubric_json
         _CACHE.clear()
         try:
-            result1 = load_rubric("test_v1")
+            result1 = load_rubric()
             assert result1 == rubric_data
-            result2 = load_rubric("test_v1")
+            result2 = load_rubric()
             assert result2 is result1
         finally:
             mod._RUBRIC_JSON_PATH = orig_path
@@ -47,12 +47,12 @@ class TestLoadRubricHotReload:
         mod._RUBRIC_JSON_PATH = rubric_json
         _CACHE.clear()
         try:
-            result1 = load_rubric("test_v1")
+            result1 = load_rubric()
             assert result1["name"] == "v1"
             time.sleep(0.01)
             with open(rubric_json, "w", encoding="utf-8") as f:
                 json.dump(rubric_data_v2, f)
-            result2 = load_rubric("test_v1")
+            result2 = load_rubric()
             assert result2["name"] == "v2"
             assert result2["version"] == "2.0"
         finally:
@@ -75,11 +75,15 @@ class TestLoadRubricHotReload:
             mod._RUBRIC_JSON_PATH = orig_path
             _CACHE.clear()
 
-    def test_rubric_py_loads_from_json(self):
-        """modules.training.scoring.rubric_data.RUBRIC loads from rubric.json."""
-        from modules.training.scoring.rubric_data import RUBRIC
+    def test_base_rubric_loads_from_json(self):
+        """SSOT：基准 rubric 只从 rubric.json 读取（rubric_loader）。"""
+        from modules.training.scoring.rubric_loader import get_base_rubric, load_rubric
 
-        assert isinstance(RUBRIC, dict)
-        assert RUBRIC["id"] == "nursing_history_v1"
-        assert "dimensions" in RUBRIC
-        assert len(RUBRIC["dimensions"]) == 2
+        rubric = load_rubric()
+        assert isinstance(rubric, dict)
+        assert rubric["id"] == "nursing_history_v1"
+        assert "dimensions" in rubric
+        assert len(rubric["dimensions"]) == 2
+        # 调用方拿到的是副本，不会污染进程内缓存
+        assert get_base_rubric() is not rubric
+        assert get_base_rubric() == rubric

@@ -27,6 +27,8 @@ class FeedbackRow:
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime | None = None
+    auto_fix_attempted: bool = False
+    auto_fix_at: datetime | None = None
 
 
 class FeedbackService:
@@ -126,6 +128,8 @@ class FeedbackService:
                 developer_reply=r.developer_reply,
                 replied_at=r.replied_at,
                 created_at=r.created_at,
+                auto_fix_attempted=r.auto_fix_attempted,
+                auto_fix_at=r.auto_fix_at,
             )
             for r in rows
         ]
@@ -186,28 +190,43 @@ class FeedbackService:
                 developer_reply=r.developer_reply,
                 replied_at=r.replied_at,
                 created_at=r.created_at,
+                auto_fix_attempted=r.auto_fix_attempted,
+                auto_fix_at=r.auto_fix_at,
             )
             for r in rows
         ]
         return items, total
 
-    def reply(self, feedback_id: int, reply_text: str, admin_name: str) -> Feedback:
+    def reply(self, feedback_id: int, reply_text: str, admin_name: str, overwrite: bool = False) -> Feedback:
+        """开发者回复（人工路径）—— 与 bot 路径共用 ``_write_reply`` 的覆盖守卫。"""
         fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
         if not fb:
             raise NotFoundError("反馈不存在")
+        return self._write_reply(fb, reply_text, admin_name, allow_overwrite=overwrite)
 
-        now = datetime.now(UTC)
+    def _write_reply(self, fb: Feedback, reply_text: str, admin_name: str, *, allow_overwrite: bool) -> Feedback:
+        """开发者回复的唯一写入口 —— 已有回复时默认拒绝，防静默覆盖。
+
+        覆盖（``allow_overwrite=True``）只替换回复正文，不重置首条 ``replied_at``，
+        因此「用户首次收到回复的时间」始终可追溯。
+        """
+        if fb.developer_reply is not None and not allow_overwrite:
+            raise ConflictError("该反馈已有回复，如需覆盖请传 overwrite=true")
+
+        is_first_reply = fb.developer_reply is None
         with unit_of_work(self.db, conflict_detail="回复保存冲突"):
             fb.developer_reply = reply_text
-            fb.replied_at = now
+            if is_first_reply:
+                fb.replied_at = datetime.now(UTC)
 
-            notification = Notification(
-                user_id=fb.user_id,
-                type="feedback_replied",
-                title="开发者回复了你的反馈",
-                body=f"{admin_name} 回复了你的反馈：{reply_text[:100]}{'...' if len(reply_text) > 100 else ''}",
+            self.db.add(
+                Notification(
+                    user_id=fb.user_id,
+                    type="feedback_replied",
+                    title="开发者回复了你的反馈",
+                    body=f"{admin_name} 回复了你的反馈：{reply_text[:100]}{'...' if len(reply_text) > 100 else ''}",
+                )
             )
-            self.db.add(notification)
 
         self.db.refresh(fb)
         return fb
@@ -266,6 +285,8 @@ class FeedbackService:
             Feedback.developer_reply,
             Feedback.replied_at,
             Feedback.created_at,
+            Feedback.auto_fix_attempted,
+            Feedback.auto_fix_at,
         ).order_by(Feedback.created_at.desc())
 
         if tag:
@@ -404,20 +425,16 @@ class FeedbackService:
         fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
         if not fb:
             raise NotFoundError("反馈不存在")
-        fb.auto_fix_attempted = True
         now = datetime.now(UTC)
-        fb.auto_fix_at = now
-        self.db.commit()
+        with unit_of_work(self.db, conflict_detail="标记失败"):
+            fb.auto_fix_attempted = True
+            fb.auto_fix_at = now
         return {"id": fb.id, "auto_fix_attempted": True, "auto_fix_at": now.isoformat()}
 
     def bot_reply(self, feedback_id: int, reply_text: str, admin_name: str, overwrite: bool = False) -> Feedback:
         """Bot 直写开发者回复（token 鉴权路由复用）。
 
-        已回复且未显式 overwrite 时拒绝，防止自动回复静默覆盖人工回复。
+        覆盖守卫在 ``_write_reply``：已回复且未显式 overwrite 时拒绝，
+        防止自动回复静默覆盖人工回复。
         """
-        fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
-        if not fb:
-            raise NotFoundError("反馈不存在")
-        if fb.developer_reply is not None and not overwrite:
-            raise ConflictError("该反馈已有回复，如需覆盖请传 overwrite=true")
-        return self.reply(feedback_id, reply_text, admin_name)
+        return self.reply(feedback_id, reply_text, admin_name, overwrite=overwrite)

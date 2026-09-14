@@ -9,7 +9,7 @@ import logging
 import re
 import threading
 import time
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from typing import Protocol, cast
 
@@ -42,7 +42,11 @@ class MetricsSnapshot:
     _request_total: int = 0
     _request_by_status: dict[str, int] = defaultdict(int)
     _request_by_status_code: dict[str, int] = defaultdict(int)
-    _request_by_route_status: dict[tuple[str, str, int], int] = defaultdict(int)
+    # 键里带路径：扫描器/资源 404（/wp-login.php、/assets/index-<hash>.js…）会无限累积条目。
+    # 用 LRU 封顶——只在 top_4xx/top_5xx 展示前 10 条，热路径每次命中都 move_to_end，
+    # 不会被一次性噪声挤出（2026-09 内存排查中发现的唯一无界容器）。
+    _request_by_route_status: OrderedDict[tuple[str, str, int], int] = OrderedDict()
+    _ROUTE_STATUS_MAX = 500
     _request_latencies: list[float] = []  # last N latencies in ms, circular
 
     _LATENCY_BUFFER = 2000  # keep last 2k latencies for percentile calc
@@ -54,7 +58,11 @@ class MetricsSnapshot:
             self._request_by_status[bucket] += 1
             self._request_by_status_code[str(status_code)] += 1
             if method and path:
-                self._request_by_route_status[(method.upper(), _route_key(method, path), status_code)] += 1
+                key = (method.upper(), _route_key(method, path), status_code)
+                self._request_by_route_status[key] = self._request_by_route_status.get(key, 0) + 1
+                self._request_by_route_status.move_to_end(key)
+                while len(self._request_by_route_status) > self._ROUTE_STATUS_MAX:
+                    self._request_by_route_status.popitem(last=False)
             self._request_latencies.append(latency_ms)
             if len(self._request_latencies) > self._LATENCY_BUFFER:
                 self._request_latencies = self._request_latencies[-self._LATENCY_BUFFER :]
@@ -179,20 +187,19 @@ class MetricsSnapshot:
 
     @staticmethod
     def _memory_mb() -> float:
-        import platform
+        """本 worker 当前 RSS（MB）。
 
-        if platform.system() != "Linux":
-            return 0.0
+        不要用 ``resource.ru_maxrss``：那是历史峰值，只增不减——泄漏进程与健康进程读数完全一样
+        （2026-09「闲置内存偏高」排查中，陈旧峰值就是误判来源之一）。VmRSS 才能看出趋势。
+        """
         try:
-            import resource
-        except ImportError:
+            with open("/proc/self/status") as status:
+                for line in status:
+                    if line.startswith("VmRSS:"):
+                        return round(int(line.split()[1]) / 1024, 1)
+        except (OSError, ValueError, IndexError):
             return 0.0
-        getrusage = getattr(resource, "getrusage", None)
-        self_usage = getattr(resource, "RUSAGE_SELF", None)
-        if not callable(getrusage) or self_usage is None:
-            return 0.0
-        usage = getrusage(self_usage)
-        return round(usage.ru_maxrss / 1024, 1)
+        return 0.0
 
     def snapshot(self) -> dict:
         def _safe(fn, default=None):

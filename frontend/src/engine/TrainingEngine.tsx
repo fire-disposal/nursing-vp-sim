@@ -11,8 +11,6 @@ import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientAvatar } from "@/utils/avatar";
-// 暂停使用基于情绪切换的人像变体，保留实现以便后续恢复。
-// import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useToolBridge } from "@/hooks/useToolBridge";
@@ -51,7 +49,8 @@ function TrainingBootSkeleton() {
 
 export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const recordNum = Number(recordId);
-	const { error: toastError } = useToast();
+	const { error: toastError, warning: toastWarning } = useToast();
+	const queryClient = useQueryClient();
 
 	// ── Read raw data from RQ-backed context (single source: TrainingEntry's query) ──
 	const patient = usePatientData();
@@ -125,6 +124,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		}
 	}, [patient]);
 
+	// ── 患者中止访谈（内生 GAMEOVER）──
+	// 服务端在同一轮里已完成 finalize 并触发评分，前端只做本地收尾与提示：
+	// 绝不能再调 /end（那会因「训练已结束」报错）。
+	const handlePatientWalkout = useCallback(() => {
+		getTrainingState().setTrainingEnded(true);
+		busRef.current.emit("training:ended");
+		queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+		queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student() });
+		queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+		toastWarning("患者已中止本次访谈，训练已提交评分");
+	}, [queryClient, toastWarning]);
+
 	// ── sendMessage (SSE orchestration + bus events) ──
 	const trainingStartedRef = useRef(false);
 	const sendMessage = useCallback(
@@ -137,17 +148,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					patientAccRef.current += chunk;
 					bus.emit("stream:chunk", chunk);
 				},
-				onPatientDone: () => {
+				onPatientDone: (_replyId, done) => {
 					const txt = patientAccRef.current;
 					bus.emit("stream:done", txt);
 					patientAccRef.current = "";
+					if (done?.end_reason === "patient_walkout") handlePatientWalkout();
 				},
 				onError: (err) => bus.emit("stream:error", err),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
-		[],
+		[handlePatientWalkout],
 	);
 
 	const correctLastMessage = useCallback(
@@ -160,17 +172,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					patientAccRef.current += chunk;
 					bus.emit("stream:chunk", chunk);
 				},
-				onPatientDone: () => {
+				onPatientDone: (_replyId, done) => {
 					const txt = patientAccRef.current;
 					bus.emit("stream:done", txt);
 					patientAccRef.current = "";
+					if (done?.end_reason === "patient_walkout") handlePatientWalkout();
 				},
 				onError: (err) => bus.emit("stream:error", err),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
-		[],
+		[handlePatientWalkout],
 	);
 
 	const getProgress = useCallback(
@@ -183,7 +196,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		[],
 	);
 
-	const queryClient = useQueryClient();
 	const endTraining = useCallback(async () => {
 		if (endingRef.current) return;
 		endingRef.current = true;
@@ -239,10 +251,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 						data.cooperation,
 						(data.dominant_state as Emotion4DLabel) ?? "neutral",
 					);
-					// 暂时停用动态病人头像，保留情绪状态更新。
-					// if (patient && data.dominant_state) {
-					// 	store.setPortraitUrl(getPatientPortraitUrl(patient, data.dominant_state));
-					// }
 					return;
 				}
 				// 回退：v2 格式
@@ -254,10 +262,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				if (data.trust != null && data.comfort != null) {
 					store.setTrustComfort(data.trust, data.comfort);
 				}
-				// 暂时停用动态病人头像，保留情绪状态更新。
-				// if (patient && data.state) {
-				// 	store.setPortraitUrl(getPatientPortraitUrl(patient, data.state));
-				// }
 			},
 		));
 

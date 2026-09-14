@@ -10,5 +10,5 @@ export type {
 	MessageBus,
 	PanelContext,
 	PatientData,
-	ScoreData,
 } from "./types";
+export type { ScoreData } from "@/types/score";

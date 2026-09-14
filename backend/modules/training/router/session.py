@@ -11,11 +11,15 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, load_role_permissions, require_permission
-from core.statuses import TrainingMode, TrainingStatus, normalize_training_mode
+from core.statuses import (
+    AssignmentLifecycle,
+    TrainingMode,
+    TrainingStatus,
+    normalize_training_mode,
+)
 from models import (
     Assignment,
     Case,
-    CaseQuestionnaire,
     LLMCallLog,
     Message,
     NursingRecord,
@@ -27,6 +31,8 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
+from modules.assignments.progress import count_attempts, effective_status
+from modules.questionnaires.response_service import count_pending_required
 from modules.training.capabilities import detect_capabilities
 from modules.training.profile import PROFILE
 from schemas import (
@@ -59,15 +65,6 @@ def _cascade_delete_training_record(db: Session, record_id: int) -> None:
 def _lock_user_row(db: Session, user_id: int) -> None:
     """行级锁串行化同一用户的并发 start，防全局唯一 in_progress 竞态双开。"""
     db.query(User).filter(User.id == user_id).with_for_update().first()
-
-
-def _count_pending_questionnaires(db: Session, case_id: int) -> int:
-    """病例下「必做」问卷的数量（供训练开始/详情响应提示用）。"""
-    return (
-        db.query(CaseQuestionnaire)
-        .filter(CaseQuestionnaire.case_id == case_id, CaseQuestionnaire.is_required == True)
-        .count()
-    )
 
 
 def _build_config(features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
@@ -404,7 +401,7 @@ def start_training(
             "action": "training_start",
         },
     )
-    pending_questionnaires = _count_pending_questionnaires(db, case.id)
+    pending_questionnaires = count_pending_required(db, current_user.id, case.id)
     session["pending_questionnaires"] = pending_questionnaires
 
     return TrainingStartResponse(
@@ -429,14 +426,16 @@ def start_training_from_assignment(
     if not assignment:
         raise NotFoundError(detail="练习发布不存在")
 
-    if assignment.is_closed:
+    # 关闭 / 逾期由同一口径推导（modules.assignments.progress.effective_status）
+    lifecycle = effective_status(assignment.is_closed, assignment.end_time, datetime.now(UTC))
+    if lifecycle is AssignmentLifecycle.CLOSED:
         raise HTTPException(status_code=400, detail="该作业已被教师关闭")
 
     now = datetime.now(UTC)
     if assignment.start_time and now < ensure_utc(assignment.start_time):
         raise HTTPException(status_code=400, detail="该作业尚未开始，请在开放时间后再试")
 
-    is_overdue = now > ensure_utc(assignment.end_time)
+    is_overdue = lifecycle is AssignmentLifecycle.ENDED
 
     user_class = (
         db.query(UserClass)
@@ -452,17 +451,15 @@ def start_training_from_assignment(
     if assignment.student_ids is not None and current_user.id not in assignment.student_ids:
         raise AuthError(detail="你不在该作业的指定学生名单中", status_code=403)
 
-    attempt_count = (
-        db.query(TrainingRecord)
+    attempt_count = count_attempts(
+        row[0]
+        for row in db.query(TrainingRecord.status)
         .filter(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
             TrainingRecord.is_test == False,
-            TrainingRecord.status.notin_(
-                [TrainingStatus.IN_PROGRESS, TrainingStatus.DISCARDED, TrainingStatus.ABANDONED]
-            ),
         )
-        .count()
+        .all()
     )
 
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
@@ -518,7 +515,7 @@ def start_training_from_assignment(
             case_name="隐藏病例练习"
             if (assignment.behavior or {}).get("hide_case_info")
             else (case.name if case else ""),
-            pending_questionnaires=_count_pending_questionnaires(db, case.id if case else 0),
+            pending_questionnaires=count_pending_required(db, current_user.id, case.id if case else 0),
         )
 
     if is_overdue:
@@ -555,7 +552,7 @@ def start_training_from_assignment(
         greeting=greeting,
         case_name="隐藏病例练习" if (assignment.behavior or {}).get("hide_case_info") else case.name,
         session=session,
-        pending_questionnaires=_count_pending_questionnaires(db, case.id),
+        pending_questionnaires=count_pending_required(db, current_user.id, case.id),
     )
 
 
@@ -610,7 +607,7 @@ def start_blind_box_training(
         app_state=request.app.state,
     )
 
-    pending_questionnaires = _count_pending_questionnaires(db, case.id)
+    pending_questionnaires = count_pending_required(db, current_user.id, case.id)
     session["pending_questionnaires"] = pending_questionnaires
     return TrainingStartResponse(
         record_id=record.id,

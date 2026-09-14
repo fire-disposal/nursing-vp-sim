@@ -5,12 +5,12 @@
  * 本类仅负责：SSE 回调→store action 的接线、AbortController 生命周期、loading 状态。
  */
 import { correctLastMessageStream, sendMessageStream } from "@/api";
-import type { InitiativeStateData } from "@/api/sse";
+import type { InitiativeStateData, StreamDonePayload } from "@/api/sse";
 import { getTrainingState } from "@/stores/trainingStore";
 
 export interface StreamCallbacks {
 	onPatientChunk?: (chunk: string) => void;
-	onPatientDone?: (replyId?: number) => void;
+	onPatientDone?: (replyId?: number, done?: StreamDonePayload) => void;
 	onError?: (err: string) => void;
 	onEmotionChange?: (change: {
 		trust: number;
@@ -107,10 +107,10 @@ export class StreamManager {
 					this.enqueueChunk(placeholderId, chunk);
 					callbacks.onPatientChunk?.(chunk);
 				},
-				(doneId) => {
+				(doneId, done) => {
 					this.flushChunks();
 					store.finalizeMessage(placeholderId, doneId);
-					callbacks.onPatientDone?.(doneId);
+					callbacks.onPatientDone?.(doneId, done);
 				},
 				(err) => {
 					this.flushChunks();
@@ -177,7 +177,7 @@ export class StreamManager {
 				(done) => {
 					this.flushChunks();
 					store.finalizeCorrection(snapshot, done);
-					callbacks.onPatientDone?.(done.patient_id ?? done.id);
+					callbacks.onPatientDone?.(done.patient_id ?? done.id, done);
 				},
 				(err) => {
 					this.flushChunks();

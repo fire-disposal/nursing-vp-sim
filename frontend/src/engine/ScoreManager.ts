@@ -1,7 +1,8 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/client";
 import { retryScoring } from "@/api/training";
-import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
+import type { MessageBus, ScorePhase, ScoringProgress } from "./types";
+import type { ScoreData } from "@/types/score";
 
 /** 相位顺序 — 用于拒绝乱序/回退的进度更新（WS 推送与 HTTP 轮询共用） */
 const PHASE_ORDER: Record<string, number> = {
@@ -144,11 +145,11 @@ export class ScoreManager {
 						if (record.score?.detail_scores) {
 							this._score = record.score;
 						} else if (data.score?.total_score != null) {
-							this._score = { total_score: data.score.total_score } as ScoreData;
+							this._score = { total_score: data.score.total_score };
 						}
 					} catch {
 						if (data.score?.total_score != null) {
-							this._score = { total_score: data.score.total_score } as ScoreData;
+							this._score = { total_score: data.score.total_score };
 						}
 					}
 					this.notifyScoreReady();

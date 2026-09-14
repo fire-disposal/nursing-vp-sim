@@ -91,16 +91,40 @@ export function useStartTime(): string | null {
 
 // ── Derived: emotion/scene seed data (was _restoreRecord in TrainingEngine) ──
 
-export function useEmotionSeed(): { trust: number; comfort: number; state: string } | null {
-  const record = useTrainingData();
-  return useMemo(() => {
-    if (!record) return null;
-    const em = (record as unknown as { emotion?: { trust?: number; comfort?: number; state?: string } }).emotion;
-    if (em && typeof em.trust === "number" && typeof em.comfort === "number") {
-      return { trust: em.trust, comfort: em.comfort, state: em.state ?? "neutral" };
-    }
-    return null;
-  }, [record]);
+/**
+ * v3 情绪种子 —— 后端 `record.emotion` 的唯一契约
+ * （`serialize_emotion_vector`：0-100 四维 + dominant_state 标签）。
+ */
+export interface EmotionSeed {
+	trust: number;
+	anxiety: number;
+	irritation: number;
+	cooperation: number;
+	dominant_state: string;
+}
+
+export function useEmotionSeed(): EmotionSeed | null {
+	const record = useTrainingData();
+	return useMemo(() => {
+		if (!record) return null;
+		const em = record.emotion;
+		if (
+			em &&
+			typeof em.trust === "number" &&
+			typeof em.anxiety === "number" &&
+			typeof em.irritation === "number" &&
+			typeof em.cooperation === "number"
+		) {
+			return {
+				trust: em.trust,
+				anxiety: em.anxiety,
+				irritation: em.irritation,
+				cooperation: em.cooperation,
+				dominant_state: typeof em.dominant_state === "string" ? em.dominant_state : "neutral",
+			};
+		}
+		return null;
+	}, [record]);
 }
 
 export function useSceneSeed(): Record<string, unknown> | null {

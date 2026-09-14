@@ -22,6 +22,7 @@ from models import (
     User,
     UserClass,
 )
+from modules.questionnaires.response_service import count_pending_required
 from modules.training.capabilities import detect_capabilities
 from modules.training.timing import remaining_seconds as compute_remaining_seconds
 from schemas import (
@@ -35,7 +36,6 @@ from schemas import (
 from schemas.case_schema import normalize_gender
 
 from .session import (
-    _count_pending_questionnaires,
     _load_nursing_sheet,
     _public_patient_info,
     _public_scene,
@@ -211,8 +211,18 @@ def get_emotion_events(
         .all()
     )
     events = []
+    from modules.training.patient_ai.emotion import EmotionVector
+    from modules.training.patient_ai.emotion.renderer import serialize_emotion_vector
+
     for r in rows:
         after = r.after_state or {}
+        # 统一走 serialize_emotion_vector（0-100 四维 + dominant_state）：这是第 4 处序列化点，
+        # 此前手写四维导致前端拿不到 dominant_state。缺失快照的旧行保留零值形状。
+        after_state = (
+            {"trust": 0, "anxiety": 0, "irritation": 0, "cooperation": 0}
+            if not after
+            else serialize_emotion_vector(EmotionVector.from_dict(after))
+        )
         events.append(
             {
                 "turn_id": r.turn_id,
@@ -220,12 +230,7 @@ def get_emotion_events(
                 "confidence": r.confidence,
                 "evidence": r.evidence,
                 "delta": r.delta or {},
-                "after_state": {
-                    "trust": round(after.get("trust", 0) * 100),
-                    "anxiety": round(after.get("anxiety", 0) * 100),
-                    "irritation": round(after.get("irritation", 0) * 100),
-                    "cooperation": round(after.get("cooperation", 0) * 100),
-                },
+                "after_state": after_state,
             }
         )
     return {"events": events}
@@ -282,7 +287,7 @@ def get_record_detail(
             score_obj.reviewed_by_name = reviewer.display_name if reviewer else None
             score_obj.reviewed_at = latest_review.created_at
             score_obj.review_comment = latest_review.comment
-    pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
+    pending_questionnaires = count_pending_required(db, record.user_id, case.id) if case is not None else 0
 
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
     time_limit = record.time_limit or 20

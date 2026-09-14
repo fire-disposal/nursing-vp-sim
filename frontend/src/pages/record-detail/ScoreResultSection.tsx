@@ -23,20 +23,13 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { CollapsibleSection, ScoreItem } from "@/components/record-review";
-import type { DetailScoreCategory, ScoreData } from "@/types/score";
+import type { DetailScoreCategory, ScoreData, ScoreReviewData } from "@/types/score";
 
 interface ReviewData {
 	review_status?: string | null;
 	reviewed_by_name?: string | null;
 	reviewed_at?: string | null;
 	review_comment?: string | null;
-}
-
-interface ScoreReviewData {
-	detail_scores?: Record<string, unknown> | null;
-	total_score?: number | null;
-	comment?: string | null;
-	reviewed_at?: string | null;
 }
 
 interface Props {
@@ -47,9 +40,9 @@ interface Props {
 	isTeacher: boolean;
 	expanded: Record<string, boolean>;
 	onToggleExpand: (key: string) => void;
-	onReviewClick: () => void;
+	/** 教师端专属：打开复核编辑器。学生页不传 → 不渲染该按钮（避免空实现假按钮）。 */
+	onReviewClick?: () => void;
 	onExport: () => void;
-	onDetailedScoreClick: () => void;
 	/** 证据点击回调（工作台：证据 ↔ 对话气泡联动） */
 	onEvidenceClick?: (evidence: string) => void;
 	scoreMax: number;
@@ -73,7 +66,6 @@ export default function ScoreResultSection({
 	onToggleExpand,
 	onReviewClick,
 	onExport,
-	onDetailedScoreClick,
 	onEvidenceClick,
 	scoreMax,
 	categories,
@@ -116,15 +108,12 @@ export default function ScoreResultSection({
 						)}
 					</Group>
 					<Group gap="xs" wrap="wrap">
-						{isTeacher && (
+						{isTeacher && onReviewClick && (
 							<Button variant="filled" color="brand" size="sm" onClick={onReviewClick}>
 								<IconPencil size={14} />{" "}
 								{isReviewed ? "修改复核" : "复核评分"}
 							</Button>
 						)}
-						<Button size="sm" onClick={onDetailedScoreClick}>
-							查看详细评分
-						</Button>
 						<Button variant="outline" size="sm" onClick={onExport}>
 							<IconDownload size={14} />
 							导出记录

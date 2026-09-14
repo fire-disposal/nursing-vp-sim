@@ -54,6 +54,53 @@ def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> s
     return intended
 
 
+# force 重评快照的字段集合 —— 快照/恢复两侧的唯一真相。
+# 字段漏在任一侧都会静默丢数据（dim_total/reviewed_at 曾因此丢失）。
+_SCORE_SNAPSHOT_FIELDS = (
+    "total_score",
+    "detail_scores",
+    "strengths",
+    "weaknesses",
+    "missed_content",
+    "suggestions",
+    "rubric_version",
+    "model_name",
+    "prompt_version",
+    "raw_total",
+    "mapping_version",
+    "fallback",
+    "dim_total",
+    "reviewed_total",
+    "reviewed_at",
+)
+_SCORE_REVIEW_SNAPSHOT_FIELDS = ("reviewed_by", "detail_scores", "total_score", "comment")
+
+
+def _snapshot_score_for_rescore(score: Score, review: ScoreReview | None) -> dict:
+    """快照旧分/旧复核，供 force 重评失败时恢复。"""
+    return {
+        "score": {field: getattr(score, field) for field in _SCORE_SNAPSHOT_FIELDS},
+        "review": (
+            {field: getattr(review, field) for field in _SCORE_REVIEW_SNAPSHOT_FIELDS} if review is not None else None
+        ),
+    }
+
+
+def _restore_score_from_snapshot(snapshot: dict, record_id: int) -> tuple[Score, ScoreReview | None] | None:
+    """从快照重建 Score/ScoreReview；快照无分数时返回 None。"""
+    old = snapshot.get("score")
+    if not old:
+        return None
+    score = Score(record_id=record_id, **{field: old.get(field) for field in _SCORE_SNAPSHOT_FIELDS})
+    review_snapshot = snapshot.get("review")
+    review = (
+        ScoreReview(score=score, **{field: review_snapshot.get(field) for field in _SCORE_REVIEW_SNAPSHOT_FIELDS})
+        if review_snapshot
+        else None
+    )
+    return score, review
+
+
 # Generation counter to detect stale background scoring tasks.
 # Incremented in acquire_scoring whenever a new scoring session starts.
 # Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
@@ -170,42 +217,23 @@ def _handle_scoring_failure(
                 # S6 两阶段 force 重评：新评分失败 → 从 runtime_state 快照恢复旧分/旧复核
                 snapshot = dict(record.runtime_state or {}).get("force_rescore_snapshot")
                 if snapshot and not db.query(Score).filter(Score.record_id == record_id).first():
-                    old = snapshot.get("score")
-                    if old:
-                        restored = Score(
-                            record_id=record_id,
-                            total_score=old["total_score"],
-                            detail_scores=old.get("detail_scores"),
-                            strengths=old.get("strengths"),
-                            weaknesses=old.get("weaknesses"),
-                            missed_content=old.get("missed_content"),
-                            suggestions=old.get("suggestions"),
-                            rubric_version=old.get("rubric_version"),
-                            model_name=old.get("model_name"),
-                            prompt_version=old.get("prompt_version"),
-                            raw_total=old.get("raw_total"),
-                            mapping_version=old.get("mapping_version", 0),
-                            fallback=old.get("fallback"),
-                            reviewed_total=old.get("reviewed_total"),
-                        )
+                    rebuilt = _restore_score_from_snapshot(snapshot, record_id)
+                    if rebuilt is not None:
+                        restored, restored_review = rebuilt
                         db.add(restored)
                         db.flush()
-                        rv = snapshot.get("review")
-                        if rv:
-                            db.add(
-                                ScoreReview(
-                                    score_id=restored.id,
-                                    reviewed_by=rv.get("reviewed_by"),
-                                    detail_scores=rv.get("detail_scores"),
-                                    total_score=rv.get("total_score"),
-                                    comment=rv.get("comment"),
-                                )
-                            )
+                        if restored_review is not None:
+                            db.add(restored_review)
                         rs = dict(record.runtime_state or {})
                         rs.pop("force_rescore_snapshot", None)
                         record.runtime_state = rs
+                        # 有 Score ⇒ completed（本文件三次实现同一不变量的第三个）：
+                        # 只恢复分不纠正状态，恢复出的旧分会在成绩管理/作业详情永久不可见。
+                        record.scoring_status = ScoringStatus.COMPLETED
+                        record.scoring_error = None
                         db.commit()
                         log.warning("force rescore 失败，已恢复旧分", extra={"record_id": record_id})
+                        return
                 actual_user_id = user_id or record.user_id
                 _create_notification(
                     db,
@@ -461,8 +489,10 @@ async def end_training(
             db.rollback()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
-        db.commit()
+        # 先清理运行时缓存再提交：cleanup 发的 DELETE 必须在同一事务里落库
+        # （db_session 关闭时只 close 不 commit，先 commit 会把 DELETE 回滚掉）
         cleanup_session_runtime(record, request.app.state, db)
+        db.commit()
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(
@@ -532,32 +562,8 @@ async def retry_scoring(
         if old_score:
             # S6 两阶段 force 重评：先快照旧分/旧复核，新评分失败时由
             # _handle_scoring_failure 恢复（不再"先删后算"丢分）
-            snapshot = {
-                "score": {
-                    "total_score": old_score.total_score,
-                    "detail_scores": old_score.detail_scores,
-                    "strengths": old_score.strengths,
-                    "weaknesses": old_score.weaknesses,
-                    "missed_content": old_score.missed_content,
-                    "suggestions": old_score.suggestions,
-                    "rubric_version": old_score.rubric_version,
-                    "model_name": old_score.model_name,
-                    "prompt_version": old_score.prompt_version,
-                    "raw_total": old_score.raw_total,
-                    "mapping_version": old_score.mapping_version,
-                    "fallback": old_score.fallback,
-                    "reviewed_total": old_score.reviewed_total,
-                },
-                "review": None,
-            }
             old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first()
-            if old_review:
-                snapshot["review"] = {
-                    "reviewed_by": old_review.reviewed_by,
-                    "detail_scores": old_review.detail_scores,
-                    "total_score": old_review.total_score,
-                    "comment": old_review.comment,
-                }
+            snapshot = _snapshot_score_for_rescore(old_score, old_review)
             rs = dict(record.runtime_state or {})
             rs["force_rescore_snapshot"] = snapshot
             record.runtime_state = rs

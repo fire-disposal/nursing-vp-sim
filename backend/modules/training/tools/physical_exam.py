@@ -2,8 +2,7 @@
 
 import logging
 
-from core.exceptions import AuthError, ValidationError
-from core.statuses import TrainingStatus
+from core.exceptions import ValidationError
 from modules.training.capabilities import is_enabled
 from modules.training.tools.exam_emotion import apply_exam_emotion
 from modules.training.tools.physical_exam_rules import handle_operation
@@ -45,23 +44,15 @@ def _vitals_patch(op_type: str, value: str) -> dict:
 
 class PhysicalExamHandler(ToolHandler):
     tool_name = "physical_exam"
+    actions = frozenset({"measure"})
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
-        if action != "measure":
-            return ToolResult(ok=False, error=f"Unknown action: {action}")
-
+        # action/授权/启用/生命周期由 registry.dispatch + service._authorize 统一校验
         op_type = params.get("op_type", "")
         if not op_type:
-            return ToolResult(ok=False, error="Missing op_type")
+            raise ValidationError(detail="缺少 op_type")
 
         record = ctx.record
-        if record.user_id != ctx.current_user.id:
-            raise AuthError(detail="只能操作自己的训练", status_code=403)
-        if record.status != TrainingStatus.IN_PROGRESS:
-            raise ValidationError(detail="训练已结束")
-        if not is_enabled(record, "physical_exam"):
-            raise ValidationError(detail="本次训练未启用护理查体")
-
         result = handle_operation(op_type, ctx.case_data)
 
         rs = dict(record.runtime_state or {})

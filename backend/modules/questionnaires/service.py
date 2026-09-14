@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
+from core.statuses import QuestionnaireTrigger
 from core.unit_of_work import unit_of_work
 from models import (
     Case,
@@ -294,7 +295,7 @@ class QuestionnaireTemplateService:
         template_id: int,
         case_ids: List[int],
         is_required: bool,
-        trigger_event: str,
+        trigger_event: QuestionnaireTrigger,
     ) -> None:
         t = self.db.get(QuestionnaireTemplate, template_id)
         if t is None:
@@ -362,11 +363,8 @@ class QuestionnaireQuestionService:
         options: List[str] | None,
     ) -> QuestionView:
         q = self.db.get(QuestionnaireQuestion, question_id)
-        if q is None:
+        if q is None or q.template_id != template_id:
             raise NotFoundError("题目不存在")
-        t = self.db.get(QuestionnaireTemplate, q.template_id)
-        if t is None:
-            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="更新题目失败"):
             if content is not None:
                 q.content = content
@@ -383,11 +381,8 @@ class QuestionnaireQuestionService:
 
     def delete(self, template_id: int, question_id: int) -> None:
         q = self.db.get(QuestionnaireQuestion, question_id)
-        if q is None:
+        if q is None or q.template_id != template_id:
             raise NotFoundError("题目不存在")
-        t = self.db.get(QuestionnaireTemplate, q.template_id)
-        if t is None:
-            raise NotFoundError("问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="删除题目失败"):
             self.db.delete(q)
             self.db.flush()

@@ -1,3 +1,5 @@
+import type { components } from "@/api/api-types.gen";
+
 export interface TemplateListItem {
 	id: number;
 	title: string;
@@ -50,7 +52,7 @@ export interface CaseBrief {
 export interface AssignForm {
 	case_ids: number[];
 	is_required: boolean;
-	trigger_event: string;
+	trigger_event: components["schemas"]["QuestionnaireTrigger"];
 }
 
 export interface ResponseStats {
@@ -99,9 +101,9 @@ export const TYPE_OPTIONS = [
 	{ value: "post", label: "后测" },
 ];
 
-export const TRIGGER_EVENT_OPTIONS = [
-	{ value: "after_training", label: "训练完成后" },
+export const TRIGGER_EVENT_OPTIONS: { value: components["schemas"]["QuestionnaireTrigger"]; label: string }[] = [
 	{ value: "before_training", label: "训练开始前" },
+	{ value: "after_scoring", label: "评分完成后" },
 ];
 
 export function emptyForm(): TemplateForm {

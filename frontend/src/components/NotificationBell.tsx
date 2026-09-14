@@ -38,6 +38,15 @@ export default function NotificationBell() {
 		enabled: open,
 	});
 
+	// 徽标用独立未读计数：列表查询被 `open` 门控，若复用其 data 则面板未打开过
+	// 时 items 恒为空 → 未读永远不显示；且列表分页封顶 LIMIT 条，数不准。
+	const { data: unreadTotal } = useQuery({
+		queryKey: queryKeys.notifications.unread(),
+		queryFn: () =>
+			getNotifications({ unread_only: true, limit: 1 }).then((r) => r.data.total ?? 0),
+		refetchInterval: 60_000,
+	});
+
 	useEffect(() => {
 		if (!data) return;
 		if (offset === 0) {
@@ -52,7 +61,12 @@ export default function NotificationBell() {
 	}, [data, offset]);
 
 	const hasMore = (data?.length ?? 0) >= LIMIT;
-	const unreadCount = items.filter((n) => !n.is_read).length;
+	const unreadCount = unreadTotal ?? 0;
+
+	/** 未读计数是独立查询，标记已读/未读后必须让它失效重取，否则徽标停在旧值。 */
+	const refreshUnread = useCallback(() => {
+		qc.invalidateQueries({ queryKey: queryKeys.notifications.unread() });
+	}, [qc]);
 
 	const updateItemInList = useCallback((id: number, is_read: boolean) => {
 		setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read } : n)));
@@ -69,6 +83,7 @@ export default function NotificationBell() {
 			updateItemInList(id, false);
 			qc.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		},
+		onSettled: refreshUnread,
 	});
 
 	const markOneUnreadMutation = useMutation({
@@ -81,6 +96,7 @@ export default function NotificationBell() {
 			updateItemInList(id, true);
 			qc.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		},
+		onSettled: refreshUnread,
 	});
 
 	const markAllReadMutation = useMutation({
@@ -95,6 +111,7 @@ export default function NotificationBell() {
 		},
 		onSettled: () => {
 			mutationLockRef.current = false;
+			refreshUnread();
 		},
 	});
 

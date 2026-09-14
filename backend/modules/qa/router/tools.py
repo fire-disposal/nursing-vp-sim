@@ -99,13 +99,14 @@ def build_tool_handlers() -> dict:
 def pre_search(question: str) -> list[dict[str, str]]:
     """Quick keyword search to provide citation metadata + snippets. Never raises."""
     try:
+        from modules.qa.knowledge_base.chapter_index import make_section_key
         from modules.qa.knowledge_base.chapter_index import search as chapter_search
 
         results = chapter_search(question, top_k=2)
         return [
             {
                 "source": r["textbook"],
-                "section": f"{r['chapter']}/{r['heading']}",
+                "section": make_section_key(r["chapter"], r["heading"]),
                 "snippet": r.get("snippet", ""),
             }
             for r in results
@@ -125,7 +126,7 @@ def inject_search_context(
     if not citations:
         return
     try:
-        from modules.qa.knowledge_base.chapter_index import read_section
+        from modules.qa.knowledge_base.chapter_index import read_section_by_key
 
         parts = ["【参考教材信息】"]
         parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
@@ -134,7 +135,8 @@ def inject_search_context(
             if snippets_only:
                 text = c.get("snippet", "")
             else:
-                text = read_section(c["source"], c["section"].split("/")[0], c["section"].split("/")[1])[:1500]
+                # 未命中时返回 None —— 绝不能把「小节不存在」这类错误串当正文注入
+                text = (read_section_by_key(c["source"], c["section"]) or "")[:1500]
             if text:
                 parts.append(text)
             parts.append("")

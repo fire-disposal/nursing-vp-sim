@@ -130,7 +130,7 @@ export interface TrainingStore {
 		timeLimitMinutes: number;
 		recordDetail: SessionRecordDetail | null;
 		initialMessages: ChatMessage[];
-		emotionSeed?: { trust: number; comfort?: number; anxiety?: number; irritation?: number; cooperation?: number; dominant_state?: string; state?: string } | null;
+		emotionSeed?: { trust: number; anxiety: number; irritation: number; cooperation: number; dominant_state?: string } | null;
 	}) => void;
 	reset: () => void;
 
@@ -196,12 +196,11 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			messages: data.initialMessages,
 			sending: false,
 			trainingEnded: false,
-			emotion: (data.emotionSeed?.state &&
-				Object.hasOwn(EMOTION_LABELS, data.emotionSeed.state))
-				? (data.emotionSeed.state as EmotionState)
-				: "neutral",
+			// v2 六态/comfort 不再由种子驱动：后端 payload 只有 4D + dominant_state，
+			// 会话恢复的唯一可信来源是下面的四维与 emotion4D。
+			emotion: "neutral",
 			trust: data.emotionSeed?.trust ?? 50,
-			comfort: data.emotionSeed?.comfort ?? 50,
+			comfort: 50,
 			anxiety: data.emotionSeed?.anxiety ?? 50,
 			irritation: data.emotionSeed?.irritation ?? 50,
 			cooperation: data.emotionSeed?.cooperation ?? 50,

@@ -100,8 +100,10 @@ export interface EmotionEventItem {
 	after_state: { trust: number; anxiety: number; irritation: number; cooperation: number };
 }
 
-/** 情绪事件历史（批次 A-3 轨迹图数据源） */
+/** 情绪事件历史（批次 A-3 轨迹图数据源） — 路径取自生成类型，写错段名会在编译期失败 */
+const EMOTION_EVENTS_PATH = "/training/records/{record_id}/emotion-events" satisfies ApiPath;
+
 export const getEmotionEvents = (recordId: number | string) =>
 	api
-		.get<{ events: EmotionEventItem[] }>(`/training/${recordId}/emotion-events` as ApiPath)
+		.get<{ events: EmotionEventItem[] }>(EMOTION_EVENTS_PATH.replace("{record_id}", String(recordId)))
 		.then((r) => r.data.events);

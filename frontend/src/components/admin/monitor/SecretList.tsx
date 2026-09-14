@@ -1,5 +1,5 @@
 import { Badge, Button, Group, Paper, Text } from "@mantine/core";
-import type { ApiSecretResponse, FallbackStateResponse } from "@/api/admin/api-management-types";
+import type { components } from "@/api/api-types.gen";
 import { Table } from "@mantine/core";
 import {
 	costColorClass,
@@ -7,11 +7,13 @@ import {
 	statusText,
 } from "@/utils/llm-status";
 
+type Schemas = components["schemas"];
+
 interface SecretListProps {
-	secrets: ApiSecretResponse[];
-	envFallback: FallbackStateResponse | undefined;
-	onEdit: (secret: ApiSecretResponse) => void;
-	onDelete: (secret: ApiSecretResponse) => void;
+	secrets: Schemas["ApiSecretResponse"][];
+	envFallback: Schemas["FallbackStateResponse"] | undefined;
+	onEdit: (secret: Schemas["ApiSecretResponse"]) => void;
+	onDelete: (secret: Schemas["ApiSecretResponse"]) => void;
 }
 
 const STATUS_DOT: Record<string, string> = {

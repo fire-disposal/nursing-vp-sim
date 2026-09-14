@@ -2,15 +2,38 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.pagination import paginate
+from core.statuses import ScoringStatus, TrainingStatus
 from core.unit_of_work import unit_of_work
 from models import Assignment, Case, TrainingRecord, User, UserClass
+from modules.assignments.progress import (
+    attempt_from_record,
+    count_attempts,
+    pick_representative,
+    progress_status,
+)
 
 log = logging.getLogger(__name__)
+
+
+class _Unset:
+    """哨兵：区分「请求未提供该字段」与「显式传 null（= 不限制）」。
+
+    ``max_attempts=None`` 是有意义的值（不限制尝试次数），不能用 ``None`` 兼作
+    「不修改」；本哨兵让 update 的调用方显式表达这两种意图。
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()
 
 
 @dataclass
@@ -26,6 +49,7 @@ class AssignmentListView:
     created_at: datetime
     teacher_name: str = ""
     is_closed: bool = False
+    max_attempts: int | None = None
 
 
 @dataclass
@@ -121,9 +145,10 @@ class AssignmentService:
             q = q.filter(Assignment.class_id == class_id)
 
         if status == "active":
-            q = q.filter(Assignment.end_time >= now)
+            # 与 progress.effective_status 同一规则：关闭的作业不算进行中
+            q = q.filter(Assignment.is_closed.is_(False), Assignment.end_time >= now)
         elif status == "ended":
-            q = q.filter(Assignment.end_time < now)
+            q = q.filter(or_(Assignment.is_closed.is_(True), Assignment.end_time < now))
 
         q = q.order_by(Assignment.created_at.desc())
         return paginate(q, offset, limit)
@@ -155,17 +180,6 @@ class AssignmentService:
             .first()
         )
 
-    @staticmethod
-    def _is_auto_closed(assignment: Assignment) -> bool:
-        if assignment.is_closed:
-            return True
-        now = datetime.now(UTC)
-        return (
-            now > assignment.end_time.replace(tzinfo=UTC)
-            if assignment.end_time.tzinfo is None
-            else now > assignment.end_time
-        )
-
     def _get_target_student_ids(self, assignment: Assignment) -> list[int]:
         if assignment.student_ids:
             return assignment.student_ids
@@ -187,61 +201,35 @@ class AssignmentService:
 
         student_items: list[AssignmentStudentItemView] = []
         for student in students_in_class:
-            user_records = records_by_user.get(student.id, [])
-            if not user_records:
-                student_items.append(
-                    AssignmentStudentItemView(
-                        user_id=student.id,
-                        display_name=student.display_name,
-                        student_id=student.student_id,
-                    )
-                )
-                continue
-
-            best = None
-            best_score = None
-            for r in user_records:
-                if r.status in ("abandoned", "discarded"):
-                    continue
-                score_val = r.score.effective_total if r.scoring_status == "completed" and r.score else None
-                if score_val is not None:
-                    if best_score is None or score_val > best_score:
-                        best = r
-                        best_score = score_val
-            if best is None:
-                non_abandoned = [r for r in user_records if r.status not in ("abandoned", "discarded")]
-                if non_abandoned:
-                    best = max(non_abandoned, key=lambda r: r.start_time or datetime.min.replace(tzinfo=UTC))
-                else:
-                    best = max(user_records, key=lambda r: r.start_time or datetime.min.replace(tzinfo=UTC))
-
-            status = best.status
-            if best.is_overdue and status != "completed":
-                status = "overdue"
-
+            attempts = [attempt_from_record(r) for r in records_by_user.get(student.id, [])]
+            representative = pick_representative(attempts)
             student_items.append(
                 AssignmentStudentItemView(
                     user_id=student.id,
                     display_name=student.display_name,
                     student_id=student.student_id,
-                    record_id=best.id,
-                    status=status,
-                    score_total=best.score.effective_total
-                    if best.scoring_status == "completed" and best.score
-                    else None,
-                    scoring_status=best.scoring_status,
-                    start_time=best.start_time,
-                    end_time=best.end_time,
-                    is_overdue=best.is_overdue,
-                    attempt_count=sum(1 for r in user_records if r.status not in ("in_progress", "discarded")),
+                    record_id=representative.record_id if representative else None,
+                    status=progress_status(representative),
+                    score_total=representative.score if representative else None,
+                    scoring_status=representative.scoring_status if representative else None,
+                    start_time=representative.start_time if representative else None,
+                    end_time=representative.end_time if representative else None,
+                    is_overdue=representative.is_overdue if representative else False,
+                    attempt_count=count_attempts(a.status for a in attempts),
                 )
             )
 
+        # 分子只统计目标学生（与分母 student_items 同源），否则移出名单会算出 >100%
+        target_ids = {s.id for s in students_in_class}
         completed_count = sum(
-            1 for records in records_by_user.values() if any(r.status == "completed" for r in records)
+            1
+            for uid in target_ids
+            if any(r.status == TrainingStatus.COMPLETED.value for r in records_by_user.get(uid, []))
         )
         scored_count = sum(
-            1 for records in records_by_user.values() if any(r.scoring_status == "completed" for r in records)
+            1
+            for uid in target_ids
+            if any(r.scoring_status == ScoringStatus.COMPLETED.value for r in records_by_user.get(uid, []))
         )
 
         scored_students = [s for s in student_items if s.scoring_status == "completed" and s.score_total is not None]
@@ -357,6 +345,7 @@ class AssignmentService:
                 completed_count=r[1],
                 created_at=r[0].created_at,
                 is_closed=r[0].is_closed,
+                max_attempts=r[0].max_attempts,
             )
             for r in rows
         ]
@@ -384,7 +373,7 @@ class AssignmentService:
         start_time: datetime | None,
         end_time: datetime | None,
         is_closed: bool | None = None,
-        max_attempts: int | None = None,
+        max_attempts: int | None | _Unset = UNSET,
         skip_ownership: bool = False,
     ) -> AssignmentDetailView:
         assignment = self.get_with_relations(assignment_id)
@@ -420,7 +409,7 @@ class AssignmentService:
             assignment.end_time = end_time
         if is_closed is not None:
             assignment.is_closed = is_closed
-        if max_attempts is not None:
+        if not isinstance(max_attempts, _Unset):
             assignment.max_attempts = max_attempts
 
         if assignment.end_time <= assignment.start_time:

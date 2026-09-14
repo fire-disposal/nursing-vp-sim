@@ -7,18 +7,21 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
+import { useScoringRetry } from "@/hooks/useScoringRetry";
+import { downloadRecordDetail } from "@/utils/export-record";
+import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
 import ScoreResultSection from "./record-detail/ScoreResultSection";
 import { EmotionTrajectory } from "./record-detail/EmotionTrajectory";
 import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
-import type { DetailScoreCategory, ScoreData } from "@/types/score";
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const toast = useToast();
+	const { retrying, retryProgress, retry } = useScoringRetry(id);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
 		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
 		return { strengths: isDesktop, weaknesses: isDesktop, missed_content: isDesktop, suggestions: isDesktop };
@@ -48,15 +51,9 @@ export default function RecordDetail() {
 					60000,
 			)
 		: null;
-	const recordScore = record.score as ScoreData | null;
+	const recordScore = toScoreData(record.score);
 	const hasScore = !!recordScore;
-	const scoreMax = recordScore?.detail_scores
-		? Object.values(recordScore.detail_scores).reduce((sum, value) => {
-				if (value && typeof value === "object" && "max" in (value as DetailScoreCategory))
-					return sum + ((value as DetailScoreCategory).max || 0);
-				return sum + 30;
-			}, 0)
-		: 100;
+	const scoreMax = getScoreDenominator(recordScore);
 	const detailScores = recordScore?.detail_scores ?? {};
 	const categories = Object.entries(detailScores);
 	const hasDetailItems = categories.some(
@@ -68,6 +65,14 @@ export default function RecordDetail() {
 
 	const handleToggleExpand = (key: string) => {
 		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
+
+	const handleExport = async () => {
+		try {
+			await downloadRecordDetail(id!);
+		} catch {
+			toast.error("导出失败");
+		}
 	};
 
 	const handleEvidenceClick = (evidence: string) => {
@@ -96,8 +101,9 @@ export default function RecordDetail() {
 
 			<ScoringPendingBanner
 				record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
-				retrying={false}
-				onRetry={() => {}}
+				retrying={retrying}
+				retryProgress={retryProgress}
+				onRetry={() => void retry()}
 			/>
 
 			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/护理记录 */}
@@ -118,12 +124,10 @@ export default function RecordDetail() {
 								isTeacher={false}
 								expanded={expanded}
 								onToggleExpand={handleToggleExpand}
-								onReviewClick={() => {}}
-								onExport={() => {}}
-								onDetailedScoreClick={() => {}}
+								onExport={handleExport}
 								onEvidenceClick={handleEvidenceClick}
 								scoreMax={scoreMax}
-								categories={categories as [string, DetailScoreCategory][]}
+								categories={categories}
 								hasDetailItems={hasDetailItems}
 							/>
 						)}

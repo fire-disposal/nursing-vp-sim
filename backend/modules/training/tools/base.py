@@ -28,6 +28,9 @@ class ToolResult:
 
 class ToolHandler:
     tool_name: str
+    #: 该工具接受的 action 白名单——由 registry.dispatch 统一校验（未知 action → 400）。
+    #: 子类必须声明，少了就是"任何 action 都放行"，比漏写检查更危险。
+    actions: frozenset[str] = frozenset()
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
         raise NotImplementedError

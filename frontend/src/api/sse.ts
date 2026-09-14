@@ -23,6 +23,9 @@ export interface StreamDonePayload {
 	corrections_used?: number;
 	corrections_remaining?: number;
 	citations?: Array<{ source: string; section: string }>;
+	/** 会话被服务端终结（目前仅患者中止访谈） */
+	ended?: boolean;
+	end_reason?: string;
 }
 
 export interface SSEHandlers {

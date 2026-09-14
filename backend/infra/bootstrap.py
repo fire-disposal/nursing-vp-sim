@@ -21,6 +21,8 @@ from core.config import (
     LLM_LOG_OVERFLOW_DIR,
     LLM_LOG_OVERFLOW_MAX_FILES,
     LLM_LOG_OVERFLOW_MAX_SIZE_MB,
+    LLM_LOG_QUEUE_MAX_BYTES,
+    LLM_LOG_QUEUE_MAX_ENTRIES,
 )
 from core.database import SessionLocal, engine
 from infra.diagnose import get_diagnose_service
@@ -148,6 +150,8 @@ async def init_llm(app_state, httpx_client, llm_router, metrics):
         overflow_dir=LLM_LOG_OVERFLOW_DIR,
         overflow_max_size_mb=LLM_LOG_OVERFLOW_MAX_SIZE_MB,
         overflow_max_files=LLM_LOG_OVERFLOW_MAX_FILES,
+        max_queue_bytes=LLM_LOG_QUEUE_MAX_BYTES,
+        max_queue_entries=LLM_LOG_QUEUE_MAX_ENTRIES,
     )
     await log_worker.start()
     app_state.log_worker = log_worker

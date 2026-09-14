@@ -5,6 +5,7 @@
 
 import pytest
 
+from modules.training.patient_ai.emotion.behavior import is_patient_walkout
 from modules.training.patient_ai.emotion.engine import EmotionEngine
 from modules.training.patient_ai.emotion.events import DetectedEmotionEvent, EmotionEventType
 from modules.training.patient_ai.emotion.models import EmotionState, EmotionVector
@@ -36,6 +37,21 @@ class TestEventRules:
         assert delta.trust < -0.05
         assert delta.irritation > 0.05
         assert delta.cooperation < -0.05
+
+    def test_insult_outweighs_other_negative_events(self):
+        """人格侮辱必须是负向事件里最重的，否则患者对辱骂仍会温和回应。"""
+        insult = EVENT_RULES[EmotionEventType.INSULT]
+        for other in (
+            EmotionEventType.JUDGMENTAL_LANGUAGE,
+            EmotionEventType.DISMISSAL,
+            EmotionEventType.PRIVACY_INTRUSION,
+            EmotionEventType.INTERRUPTION,
+            EmotionEventType.REPEATED_QUESTION,
+        ):
+            delta = EVENT_RULES[other]
+            assert insult.trust < delta.trust
+            assert insult.irritation > delta.irritation
+            assert insult.cooperation < delta.cooperation
 
 
 class TestEmotionEngine:
@@ -88,6 +104,30 @@ class TestEmotionEngine:
         assert len(applied) == 1
         assert new_state.vector.trust < neutral_state.vector.trust
         assert new_state.vector.irritation > neutral_state.vector.irritation
+
+    def test_two_insults_reach_hostile_regime(self, engine, neutral_profile, neutral_state):
+        """连续两轮辱骂必须把患者推进「敌意」区（trust ≤0.25 且 irritation ≥0.70）。
+
+        behavior 层据此切换为「拒绝继续回答病情 + 要求道歉换人」；阈值一旦放松，
+        患者就会退回「温和劝诫后继续配合」的失真表现。"""
+        state = neutral_state
+        insults = [DetectedEmotionEvent(type=EmotionEventType.INSULT, confidence=1.0)]
+        for _ in range(2):
+            state, _ = engine.apply_events(state, neutral_profile, insults)
+        assert state.vector.irritation >= 0.70
+        assert state.vector.trust <= 0.25
+
+    def test_third_insult_triggers_walkout(self, engine, neutral_profile, neutral_state):
+        """辱骂阶梯：第 2 轮进入敌意区（可道歉挽回），第 3 轮才中止访谈。
+
+        这条链路是「内生 GAMEOVER」的唯一入口——阈值一旦松动，患者被连续辱骂也不会离场。"""
+        state = neutral_state
+        insults = [DetectedEmotionEvent(type=EmotionEventType.INSULT, confidence=1.0)]
+        for _ in range(2):
+            state, _ = engine.apply_events(state, neutral_profile, insults)
+        assert is_patient_walkout(state.vector) is False
+        state, _ = engine.apply_events(state, neutral_profile, insults)
+        assert is_patient_walkout(state.vector) is True
 
     def test_high_confidence_stronger_than_low(self, engine, neutral_profile):
         """高置信事件影响大于低置信。"""

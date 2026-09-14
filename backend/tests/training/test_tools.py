@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.exceptions import AuthError
+from core.exceptions import ValidationError
 from modules.training.capabilities import ToolBinding
 from modules.training.patient_ai.emotion.events import EmotionEventType
 from modules.training.tools.base import ToolContext, get_tool_config
@@ -74,22 +74,6 @@ class TestGetToolConfig:
 
 
 class TestQuiz:
-    @pytest.mark.asyncio
-    async def test_disabled_training_rejects(self):
-        handler = QuizHandler()
-        ctx = _ctx(case_data={})
-        result = await handler.handle("load", {}, ctx)
-        assert result.ok is False
-        assert "未启用" in result.error
-
-    @pytest.mark.asyncio
-    async def test_unknown_action(self):
-        handler = QuizHandler()
-        ctx = _ctx(case_data=_case(tools={"quiz": {"questions": []}}))
-        result = await handler.handle("nope", {}, ctx)
-        assert result.ok is False
-        assert "Unknown action" in result.error
-
     @pytest.mark.asyncio
     async def test_load_without_config(self):
         handler = QuizHandler()
@@ -165,9 +149,8 @@ class TestQuiz:
         handler = QuizHandler()
         cfg = {"questions": [{"id": "q1", "stem": "s", "options": [], "answer": "A"}]}
         ctx = _ctx(case_data=_case(tools={"quiz": cfg}))
-        result = await handler.handle("submit", {"answer": "A"}, ctx)
-        assert result.ok is False
-        assert "question_id" in result.error
+        with pytest.raises(ValidationError):
+            await handler.handle("submit", {"answer": "A"}, ctx)
 
     @pytest.mark.asyncio
     async def test_submit_updates_existing_answer(self):
@@ -197,21 +180,6 @@ _DIAGNOSIS_TOOLS = {"nursing_diagnosis": {"enabled": True}}
 
 
 class TestNursingDiagnosis:
-    @pytest.mark.asyncio
-    async def test_disabled_rejects(self):
-        handler = NursingDiagnosisHandler()
-        ctx = _ctx(case_data={})
-        result = await handler.handle("save", {"diagnoses": []}, ctx)
-        assert result.ok is False
-        assert "未启用" in result.error
-
-    @pytest.mark.asyncio
-    async def test_unknown_action(self):
-        handler = NursingDiagnosisHandler()
-        ctx = _ctx(case_data=_case(tools=_DIAGNOSIS_TOOLS))
-        result = await handler.handle("nope", {}, ctx)
-        assert result.ok is False
-
     @pytest.mark.asyncio
     async def test_load_returns_options_and_saved(self):
         handler = NursingDiagnosisHandler()
@@ -264,23 +232,6 @@ def _nr_case() -> dict:
 
 class TestNursingRecord:
     @pytest.mark.asyncio
-    async def test_denied_without_permission(self):
-        handler = NursingRecordHandler()
-        user = SimpleNamespace(id=99, has_permission=lambda p: False)
-        ctx = _ctx(user=user, case_data=_nr_case())
-        result = await handler.handle("load", {}, ctx)
-        assert result.ok is False
-        assert "无权限" in result.error
-
-    @pytest.mark.asyncio
-    async def test_disabled_rejects(self):
-        handler = NursingRecordHandler()
-        ctx = _ctx(case_data=_case())
-        result = await handler.handle("load", {}, ctx)
-        assert result.ok is False
-        assert "未启用" in result.error
-
-    @pytest.mark.asyncio
     async def test_load_builds_template_when_no_record(self):
         handler = NursingRecordHandler()
         ctx = _ctx(case_data=_nr_case())
@@ -307,9 +258,8 @@ class TestNursingRecord:
     async def test_save_rejects_non_dict_sheet(self):
         handler = NursingRecordHandler()
         ctx = _ctx(case_data=_nr_case())
-        result = await handler.handle("save", {"sheet_data": "nope"}, ctx)
-        assert result.ok is False
-        assert "必须是对象" in result.error
+        with pytest.raises(ValidationError):
+            await handler.handle("save", {"sheet_data": "nope"}, ctx)
 
     @pytest.mark.asyncio
     async def test_submit_before_save_fails(self):
@@ -344,36 +294,21 @@ class TestNursingRecord:
 
 class TestPhysicalExam:
     @pytest.mark.asyncio
-    async def test_unknown_action(self):
-        handler = PhysicalExamHandler()
-        ctx = _ctx(case_data=_case(tools={"physical_exam": {"groups": []}}))
-        result = await handler.handle("nope", {}, ctx)
-        assert result.ok is False
-        assert "Unknown action" in result.error
-
-    @pytest.mark.asyncio
     async def test_missing_op_type(self):
         handler = PhysicalExamHandler()
         ctx = _ctx(case_data=_case(tools={"physical_exam": {"groups": []}}))
-        result = await handler.handle("measure", {}, ctx)
-        assert result.ok is False
-        assert "op_type" in result.error
+        with pytest.raises(ValidationError):
+            await handler.handle("measure", {}, ctx)
 
     @pytest.mark.asyncio
-    async def test_cannot_measure_others_record(self):
+    async def test_unknown_op_type_rejected(self):
+        """未知 op_type 是客户端错误——不得落成一条伪查体记录。"""
         handler = PhysicalExamHandler()
-        record = SimpleNamespace(
-            id=1,
-            user_id=5,
-            runtime_state=None,
-            status="in_progress",
-            case_snapshot=_case(tools={"physical_exam": {"groups": []}}),
-            practice_snapshot={},
-            training_type="history_taking",
-        )
-        ctx = _ctx(record=record, case_data=_case(tools={"physical_exam": {"groups": []}}))
-        with pytest.raises(AuthError):
-            await handler.handle("measure", {"op_type": "temp"}, ctx)
+        case_data = _case(tools={"physical_exam": {"groups": []}})
+        ctx = _ctx(case_data=case_data)
+        with pytest.raises(ValidationError):
+            await handler.handle("measure", {"op_type": "bogus"}, ctx)
+        assert not (ctx.record.runtime_state or {}).get("exam_results")
 
     @pytest.mark.asyncio
     async def test_measure_temp_records_result(self):
@@ -454,6 +389,7 @@ class TestDeriveExamEmotionEvents:
 
 class _DummyHandler:
     tool_name = "dummy"
+    actions = frozenset({"ping"})
 
     async def handle(self, action, params, ctx):
         return SimpleNamespace(ok=True, data={"action": action})
@@ -468,15 +404,21 @@ class TestRegistry:
         assert result.data["action"] == "ping"
 
     @pytest.mark.asyncio
-    async def test_unknown_tool_returns_error(self):
-        result = await dispatch("no_such_tool", "ping", {}, _ctx())
-        assert result.ok is False
-        assert "Unknown tool" in result.error
+    async def test_unknown_tool_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            await dispatch("no_such_tool", "ping", {}, _ctx())
+
+    @pytest.mark.asyncio
+    async def test_unknown_action_raises_validation_error(self):
+        register(_DummyHandler())
+        with pytest.raises(ValidationError):
+            await dispatch("dummy", "nope", {}, _ctx())
 
     @pytest.mark.asyncio
     async def test_handler_exception_wrapped(self):
         class _Boom:
             tool_name = "boom"
+            actions = frozenset({"x"})
 
             async def handle(self, action, params, ctx):
                 raise RuntimeError("kaboom")

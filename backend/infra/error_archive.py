@@ -61,7 +61,8 @@ class ErrorArchive:
 
 
 def _parse_time(value: Any) -> datetime:
-    return _as_utc(datetime.fromisoformat(str(value).replace("Z", "+00:00")))
+    # Python ≥3.11 的 fromisoformat 原生接受尾部 "Z"，无需手工替换为 "+00:00"。
+    return _as_utc(datetime.fromisoformat(str(value)))
 
 
 def _as_utc(value: datetime) -> datetime:

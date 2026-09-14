@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
+import type { components } from "@/api/api-types.gen";
 import { checkQuestionnaire, submitQuestionnaire } from "@/api/questionnaires";
 import type { CheckResponse } from "@/components/QuestionnaireModal";
 
 interface UseQuestionnaireOptions {
 	caseId?: number | null;
 	recordId?: number | null;
-	trigger: string;
+	trigger: components["schemas"]["QuestionnaireTrigger"];
 	onComplete?: () => void;
 }
 

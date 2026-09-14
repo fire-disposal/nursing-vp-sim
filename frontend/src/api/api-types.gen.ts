@@ -1404,7 +1404,7 @@ export interface paths {
         };
         /**
          * List Profiles
-         * @description Return all registered training types with metadata.
+         * @description Return the registered training type with metadata.
          */
         get: operations["list_profiles_api_profiles_get"];
         put?: never;
@@ -1477,6 +1477,8 @@ export interface paths {
         /**
          * Get Section Text
          * @description Return the full textbook section text for a citation (no LLM).
+         *
+         *     ``section`` 是引用卡片传回的 ``chapter/heading`` key（见 chapter_index.make_section_key）。
          */
         get: operations["get_section_text_api_qa_section_text_get"];
         put?: never;
@@ -2122,6 +2124,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/records/{record_id}/emotion-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Emotion Events
+         * @description 情绪事件历史（批次 A-3 轨迹图数据源）：按序返回事件 + 4D 状态快照。
+         *
+         *     前端据此绘制 trust/anxiety/irritation/cooperation 轨迹与事件标注。
+         */
+        get: operations["get_emotion_events_api_training_records__record_id__emotion_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/training/{record_id}/initiative/trigger": {
         parameters: {
             query?: never;
@@ -2270,6 +2294,23 @@ export interface paths {
         put?: never;
         /** Submit Score Review */
         post: operations["submit_score_review_api_training_records__record_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Tool Command */
+        post: operations["post_tool_command_api_training__record_id__tools_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2641,6 +2682,8 @@ export interface components {
              * @default false
              */
             is_closed: boolean;
+            /** Max Attempts */
+            max_attempts?: number | null;
         };
         /** AssignmentStudentItem */
         AssignmentStudentItem: {
@@ -2704,7 +2747,7 @@ export interface components {
             is_closed?: boolean | null;
             /**
              * Max Attempts
-             * @description 最大尝试次数，None 为不限制
+             * @description 最大尝试次数；显式 null = 不限制，请求未携带该键 = 不修改
              */
             max_attempts?: number | null;
         };
@@ -2780,10 +2823,10 @@ export interface components {
              */
             is_required: boolean;
             /**
-             * Trigger Event
+             * @description 触发时点：before_training（训练入口）/ after_scoring（评分完成后）
              * @default before_training
              */
-            trigger_event: string;
+            trigger_event: components["schemas"]["QuestionnaireTrigger"];
         };
         /** CaseBrief */
         CaseBrief: {
@@ -3384,6 +3427,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Auto Fix Attempted
+             * @default false
+             */
+            auto_fix_attempted: boolean;
+            /** Auto Fix At */
+            auto_fix_at?: string | null;
         };
         /** FeedbackReplyRequest */
         FeedbackReplyRequest: {
@@ -4256,6 +4306,16 @@ export interface components {
             /** Questions */
             questions?: components["schemas"]["QuestionnaireQuestionSync"][] | null;
         };
+        /**
+         * QuestionnaireTrigger
+         * @description CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。
+         *
+         *     ``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；
+         *     ``AFTER_SCORING``：教师端评分/复核完成后触发（前端 TeacherRecordDetail）。
+         *     历史后台默认值 ``after_training`` 无任何触发点，已废弃（新写入一律被枚举拒绝）。
+         * @enum {string}
+         */
+        QuestionnaireTrigger: "before_training" | "after_scoring";
         /** RankingItem */
         RankingItem: {
             /** User Id */
@@ -4398,6 +4458,19 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Raw Total */
+            raw_total?: number | null;
+            /**
+             * Mapping Version
+             * @default 0
+             */
+            mapping_version: number;
+            /** Fallback */
+            fallback?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reviewed Total */
+            reviewed_total?: number | null;
         };
         /** ScoreReviewItem */
         ScoreReviewItem: {
@@ -4738,7 +4811,13 @@ export interface components {
             /** Total Mb */
             total_mb: number;
         };
-        /** StudentAssignmentItem */
+        /**
+         * StudentAssignmentItem
+         * @description 学生作业卡片 —— status 取值见 core.statuses.AssignmentProgressStatus。
+         *
+         *     与教师端 ``AssignmentStudentItem`` 同一推导（modules.assignments.progress），
+         *     状态词表不再混用训练记录状态（pending → not_started）。
+         */
         StudentAssignmentItem: {
             /** Id */
             id: string;
@@ -4758,13 +4837,15 @@ export interface components {
             end_time: string;
             /**
              * Status
-             * @default pending
+             * @default not_started
              */
             status: string;
             /** Record Id */
             record_id?: number | null;
             /** Score Total */
             score_total?: number | null;
+            /** Scoring Status */
+            scoring_status?: string | null;
             /**
              * Is Overdue
              * @default false
@@ -5086,6 +5167,48 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
+        };
+        /** ToolCommandRequest */
+        ToolCommandRequest: {
+            /**
+             * Cmd
+             * @description 指令全名，如 "physical_exam.measure"
+             */
+            cmd: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Idem Key
+             * @description 客户端幂等键（重试复用同一 key）
+             */
+            idem_key: string;
+            /**
+             * Revision
+             * @description 上次已知 revision；首次调用可传 null
+             */
+            revision?: number | null;
+        };
+        /** ToolCommandResponse */
+        ToolCommandResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Scene */
+            scene?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Revision */
+            revision: number;
         };
         /** TrainingNotificationItem */
         TrainingNotificationItem: {
@@ -8436,7 +8559,10 @@ export interface operations {
     };
     reply_feedback_api_admin_feedback__feedback_id__reply_put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 已有回复时是否覆盖（默认拒绝） */
+                overwrite?: boolean;
+            };
             header?: never;
             path: {
                 feedback_id: number;
@@ -9286,8 +9412,8 @@ export interface operations {
             query?: {
                 case_id?: number | null;
                 record_id?: number | null;
-                /** @description 触发事件: before_training / after_scoring / manual */
-                trigger?: string | null;
+                /** @description 触发时点: before_training / after_scoring */
+                trigger?: components["schemas"]["QuestionnaireTrigger"] | null;
             };
             header?: never;
             path?: never;
@@ -10164,6 +10290,8 @@ export interface operations {
                 case_id?: number | null;
                 /** @description 按状态筛选(in_progress/completed) */
                 status?: string | null;
+                /** @description 按复核状态筛选(pending=已完成未复核/reviewed=已复核) */
+                review_status?: string | null;
                 /** @description 开始日期 ISO 格式 (含) */
                 date_from?: string | null;
                 /** @description 结束日期 ISO 格式 (含) */
@@ -10193,6 +10321,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_TrainingRecordBrief_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_emotion_events_api_training_records__record_id__emotion_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10502,6 +10661,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScoreReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_tool_command_api_training__record_id__tools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCommandResponse"];
                 };
             };
             /** @description Validation Error */

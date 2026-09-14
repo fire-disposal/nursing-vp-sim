@@ -92,10 +92,14 @@ jobs:
         run: |
           cd backend
           git fetch origin "${GITHUB_BASE_REF:-master}" --depth=1 2>/dev/null || true
-          FILES=$(git diff --name-only "origin/${GITHUB_BASE_REF:-master}"...HEAD -- 'migrations/versions/**/*.py' 2>/dev/null || true)
+          # --relative：cwd 是 backend/，git 默认输出仓库根相对路径（backend/...），
+          # 直接喂 grep 会"文件不存在"→ data/ 迁移永远误报缺声明、ddl/ 的 op.execute 检查静默失效
+          FILES=$(git diff --name-only --relative "origin/${GITHUB_BASE_REF:-master}"...HEAD -- 'migrations/versions/**/*.py' 2>/dev/null || true)
           [ -n "$FILES" ] || { echo "No migration files changed — skipping"; exit 0; }
           FAIL=0
-          for f in $FILES; do
+          # 逐行读取：文件名含空格时 `for f in $FILES` 会按空白拆成伪路径（造成误报与漏检）
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
             case "$f" in
               */versions/ddl/*)
                 if grep -qE '^\s+op\.execute\(' "$f"; then
@@ -114,7 +118,7 @@ jobs:
                 FAIL=1
                 ;;
             esac
-          done
+          done <<< "$FILES"
           [ $FAIL -eq 0 ] || exit 1
           echo "✓ Migration directory contract OK"
 
@@ -162,7 +166,9 @@ jobs:
             exit 0
           fi
           echo "Checking: $CHANGED"
-          uv run ruff format --check $CHANGED
+          # --force-exclude：显式路径同样遵守 pyproject 的 exclude（ruff/ty: migrations/versions/，ty 另含 tests/），
+          # 与 `pnpm run check:backend` 口径一致，避免改迁移/测试文件时误红
+          printf '%s\n' "$CHANGED" | xargs -d '\n' -r uv run ruff format --check --force-exclude
 
       - name: ruff check (changed files only)
         run: |
@@ -172,7 +178,9 @@ jobs:
             echo "No Python files changed — skipping"
             exit 0
           fi
-          uv run ruff check $CHANGED
+          # --force-exclude：显式路径同样遵守 pyproject 的 exclude（ruff/ty: migrations/versions/，ty 另含 tests/），
+          # 与 `pnpm run check:backend` 口径一致，避免改迁移/测试文件时误红
+          printf '%s\n' "$CHANGED" | xargs -d '\n' -r uv run ruff check --force-exclude
 
       - name: ty check (changed files only)
         run: |
@@ -182,7 +190,12 @@ jobs:
             echo "No Python files changed — skipping"
             exit 0
           fi
-          uv run ty check $CHANGED
+          # --force-exclude：显式路径同样遵守 pyproject 的 exclude（ruff/ty: migrations/versions/，ty 另含 tests/），
+          # 与 `pnpm run check:backend` 口径一致，避免改迁移/测试文件时误红
+          printf '%s\n' "$CHANGED" | xargs -d '\n' -r uv run ty check --force-exclude
+
+      - name: case-audit (病例数据健康门禁 — 0 error 才放行)
+        run: uv run python ../scripts/case-audit.py --json
 
       - name: api:spec (check openapi.json is in sync)
         run: |
@@ -196,12 +209,12 @@ jobs:
           "
           cd ..
           if ! git diff --exit-code -- openapi.json; then
-            echo "::error::openapi.json is out of sync — run 'pnpm run api:update:all' and commit the changes"
+            echo "::error::openapi.json is out of sync — run 'pnpm run api:update' and commit the changes"
             exit 1
           fi
           echo "✓ openapi.json is in sync"
 
-  # ── Frontend quality (mirrors husky pre-commit: biome + tsc) ─────────────
+  # ── Frontend quality (biome + tsc + vitest 全量测试) ────────────────────
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -237,12 +250,15 @@ jobs:
       - name: tsc (full project — type safety requires holistic check)
         run: pnpm tsc --noEmit
 
+      - name: vitest (全量前端测试)
+        run: pnpm test
+
       - name: api:generate (check frontend types in sync)
         run: |
           pnpm openapi-typescript ../openapi.json -o src/api/api-types.gen.ts
           cd ..
           if ! git diff --exit-code -- frontend/src/api/api-types.gen.ts; then
-            echo "::error::api-types.gen.ts is out of sync — run 'pnpm run api:update:all' and commit the changes"
+            echo "::error::api-types.gen.ts is out of sync — run 'pnpm run api:update' and commit the changes"
             exit 1
           fi
           echo "✓ api-types.gen.ts is in sync"

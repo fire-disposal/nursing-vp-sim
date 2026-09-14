@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from core.exceptions import ValidationError
 from models import NursingRecord
-from modules.training.capabilities import is_enabled
 
 from .base import ToolContext, ToolHandler, ToolResult
 
@@ -31,34 +31,24 @@ _HINTS: dict[str, str] = {
 
 class NursingRecordHandler(ToolHandler):
     tool_name = "nursing_record"
+    actions = frozenset({"load", "save", "submit"})
 
     async def handle(self, action: str, params: dict, ctx: ToolContext) -> ToolResult:
-        record = ctx.record
-        if record.user_id != ctx.current_user.id and not ctx.current_user.has_permission("score_review"):
-            return ToolResult(ok=False, error="无权限")
-        if not is_enabled(record, "nursing_record"):
-            return ToolResult(ok=False, error="本次训练未启用护理评估记录")
-
+        # action/授权/启用由 registry.dispatch + service._authorize 统一校验
         if action == "load":
             return self._load(ctx)
 
         if action == "save":
             sheet_data = params.get("sheet_data")
             if not isinstance(sheet_data, dict):
-                return ToolResult(ok=False, error="sheet_data 必须是对象")
-            status = params.get("status", "draft")
-            return self._save(sheet_data, status, ctx)
+                raise ValidationError(detail="sheet_data 必须是对象")
+            return self._save(sheet_data, params.get("status", "draft"), ctx)
 
-        if action == "submit":
-            return self._submit(ctx)
-
-        return ToolResult(ok=False, error=f"Unknown action: {action}")
+        return self._submit(ctx)
 
     def _load(self, ctx: ToolContext) -> ToolResult:
         nr = ctx.db.query(NursingRecord).filter(NursingRecord.record_id == ctx.record.id).first()
         if nr:
-            if nr.user_id != ctx.current_user.id and not ctx.current_user.has_permission("score_review"):
-                return ToolResult(ok=False, error="无权限")
             return ToolResult(
                 ok=True,
                 data={

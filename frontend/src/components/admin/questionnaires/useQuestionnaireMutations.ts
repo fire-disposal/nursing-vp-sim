@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import {
 	assignCaseQuestionnaire,
@@ -79,7 +80,7 @@ export function useAssignTemplateMutation() {
 			payload: {
 				case_ids: number[];
 				is_required: boolean;
-				trigger_event: string;
+				trigger_event: components["schemas"]["QuestionnaireTrigger"];
 			};
 		}) =>
 			assignCaseQuestionnaire(templateId, payload),

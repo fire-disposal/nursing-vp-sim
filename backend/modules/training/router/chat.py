@@ -15,12 +15,15 @@ from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingStatus
 from models import Case, Message, TrainingAction, TrainingRecord, User
 from modules.training.capabilities import detect_capabilities
+from modules.training.session.finalize import is_patient_walkout_ended
 from modules.training.timing import is_training_overdue
 from schemas import ChatCorrectionRequest, ChatMessageRequest, ChatMessageResponse
 
 from ..pipeline import (
     STATE_CORRECTION_TARGET,
+    STATE_CORRECTION_TURN,
     STATE_FEATURES,
+    STATE_PIPELINE_TASK,
     STATE_STREAM_MODE,
     PipelineContext,
     build_pipeline,
@@ -31,6 +34,11 @@ from ..pipeline import (
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
+
+# 单次从 DB 读取的消息条数上限。**不是** LLM 上下文上限——实际有多少条进入提示词由
+# context.budget 的 token 预算 + 保护集决定。这里限流只为控制 I/O 与内存：单次训练的
+# 有效轮次远小于该值，截断不会影响评分/回放（这两者走自己的查询）。
+_MESSAGE_READ_LIMIT = 120
 
 
 async def _build_context(
@@ -50,22 +58,26 @@ async def _build_context(
         raise HTTPException(status_code=400, detail="训练已结束")
     if is_training_overdue(record):
         raise HTTPException(status_code=409, detail="训练已超时，已自动提交，无法继续对话")
+    if is_patient_walkout_ended(record):
+        raise HTTPException(status_code=409, detail="患者已中止本次访谈，无法继续对话")
 
     await check_chat_limit(current_user.id, request)
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
 
-    # 只加载最近消息用于 LLM 上下文（token 预算 + 保护集在 context.budget 处理；120 条上限足够）
+    # 只读最近 _MESSAGE_READ_LIMIT 条（见常量说明：DB I/O 上限，不是 LLM 上下文上限）
     # 使用子查询避免加载整张表，减少 ~60-80% 的 DB I/O
-    _subq = (
+    _recent_ids = (
         db.query(Message.id)
         .filter(Message.record_id == record_id)
         .order_by(Message.created_at.desc())
-        .limit(120)
+        .limit(_MESSAGE_READ_LIMIT)
         .subquery()
     )
-    messages = db.query(Message).filter(Message.id.in_(db.query(_subq.c.id))).order_by(Message.created_at.asc()).all()
+    messages = (
+        db.query(Message).filter(Message.id.in_(db.query(_recent_ids.c.id))).order_by(Message.created_at.asc()).all()
+    )
 
     if messages and messages[-1].role == "student":
         log.warning("Orphaned student message detected: record_id=%d msg_id=%d", record_id, messages[-1].id)
@@ -164,7 +176,7 @@ async def _build_correction_context(
     await check_chat_limit(current_user.id, request)
 
     student, patient, prior_messages = _latest_correctable_pair(db, record_id)
-    _ensure_correction_allowed(db, record, student)
+    correction_state = _ensure_correction_allowed(db, record, student)
     if req.content.strip() == student.content.strip():
         raise HTTPException(status_code=400, detail="修正内容没有变化")
 
@@ -178,10 +190,13 @@ async def _build_correction_context(
         app_state=request.app.state,
         student_input=req.content,
         student_display=req.content,
-        messages=prior_messages[-120:],
+        messages=prior_messages[-_MESSAGE_READ_LIMIT:],
     )
     ctx.state[STATE_STREAM_MODE] = True
     ctx.state[STATE_CORRECTION_TARGET] = {"student": student, "patient": patient}
+    # 修正序号：情绪分析的 turn_id 需要与"被修正的那一轮"区分开，否则整轮被当作
+    # 重复轮跳过，情绪停留在已被删除的那句话上（见 middleware/emotion_analysis）。
+    ctx.state[STATE_CORRECTION_TURN] = correction_state["used"]
     ctx.state[STATE_FEATURES] = detect_capabilities(
         case_data=ctx.case_data,
         training_type=ctx.record.training_type or "history_taking",
@@ -199,7 +214,7 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    pipe, collector = build_pipeline(training_type=ctx.record.training_type)
+    pipe, collector = build_pipeline()
     ctx.note_collector = collector
     await run_pipeline(ctx, pipe)
 
@@ -229,7 +244,7 @@ async def send_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        pipe, collector = build_pipeline(training_type=ctx.record.training_type)
+        pipe, collector = build_pipeline()
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()
@@ -238,11 +253,18 @@ async def send_message_stream(
         raise
 
     async def _stream_with_db():
+        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上，保证 session 的
+        # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
+        # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
         try:
-            async for chunk in stream_pipeline(ctx, pipe):
+            async for chunk in stream_pipeline(ctx, pipe, release=stack.aclose):
                 yield chunk
         finally:
-            await stack.aclose()
+            # 兜底：生成器从未被迭代（任务没启动）或任务已结束（session 已由任务释放）时
+            # 由请求侧收尾；AsyncExitStack.aclose 幂等，重复调用无副作用。
+            task = ctx.state.get(STATE_PIPELINE_TASK)
+            if task is None or task.done():
+                await stack.aclose()
 
     return StreamingResponse(
         _stream_with_db(),
@@ -267,7 +289,7 @@ async def correct_last_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
-        pipe, collector = build_pipeline(training_type=ctx.record.training_type)
+        pipe, collector = build_pipeline()
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()
@@ -276,11 +298,18 @@ async def correct_last_message_stream(
         raise
 
     async def _stream_with_db():
+        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上，保证 session 的
+        # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
+        # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
         try:
-            async for chunk in stream_pipeline(ctx, pipe):
+            async for chunk in stream_pipeline(ctx, pipe, release=stack.aclose):
                 yield chunk
         finally:
-            await stack.aclose()
+            # 兜底：生成器从未被迭代（任务没启动）或任务已结束（session 已由任务释放）时
+            # 由请求侧收尾；AsyncExitStack.aclose 幂等，重复调用无副作用。
+            task = ctx.state.get(STATE_PIPELINE_TASK)
+            if task is None or task.done():
+                await stack.aclose()
 
     return StreamingResponse(
         _stream_with_db(),

@@ -5,6 +5,8 @@
   非测试训练记录（有 Score 行）。
 - 默认只统计作业关联记录（assignment_id 非空）；``include_free=True``
   时纳入自主训练。
+- 分数口径（复核分优先 + 排除兜底分）由
+  ``modules.training.scoring.grade_scope`` 统一定义，本模块只消费不重写。
 - 排名按「学生平均分」降序；平均用时取 ``end_time - start_time`` 秒。
 - 好/中/差分层基于平均分固定阈值（与前端 SCORE_COLOR 一致）：
   good ≥ 85，medium ≥ 60，poor < 60。
@@ -26,6 +28,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.exceptions import NotFoundError
 from core.statuses import ScoringStatus, TrainingStatus
 from models import Assignment, Class, Score, TrainingRecord, User, UserClass
+from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas.scoreboard import (
     TIER_GOOD,
     TIER_MEDIUM,
@@ -145,8 +148,8 @@ class ScoreboardService:
         return (
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
-                func.avg(func.coalesce(Score.reviewed_total, Score.total_score)).label("avg_score"),
-                func.max(func.coalesce(Score.reviewed_total, Score.total_score)).label("best_score"),
+                func.avg(grade_expr()).label("avg_score"),
+                func.max(grade_expr()).label("best_score"),
                 func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time)).label(
                     "avg_duration"
                 ),
@@ -156,7 +159,7 @@ class ScoreboardService:
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
             # INV-3：fallback 分（评分故障）不进排名/平均分
-            .filter(*conditions, Score.fallback.is_(None))
+            .filter(*conditions, *grade_conditions())
             .group_by(TrainingRecord.user_id)
         )
 
@@ -242,11 +245,11 @@ class ScoreboardService:
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
                 TrainingRecord.start_time.label("start_time"),
-                func.coalesce(Score.reviewed_total, Score.total_score).label("score"),
+                grade_expr().label("score"),
             )
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
-            .filter(*conditions, TrainingRecord.user_id.in_(user_ids), Score.fallback.is_(None))
+            .filter(*conditions, TrainingRecord.user_id.in_(user_ids), *grade_conditions())
             .order_by(TrainingRecord.start_time.asc())
             .all()
         )
@@ -331,7 +334,7 @@ class ScoreboardService:
             self.db.query(func.count(func.distinct(TrainingRecord.case_id)))
             .join(Score, Score.record_id == TrainingRecord.id)
             .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
-            .filter(*conditions, Score.fallback.is_(None))
+            .filter(*conditions, *grade_conditions())
             .scalar()
             or 0
         )
@@ -362,10 +365,10 @@ class ScoreboardService:
         conditions = self._scope_conditions(scope, now) + [TrainingRecord.user_id == user_id]
 
         rows = (
-            self.db.query(TrainingRecord, func.coalesce(Score.reviewed_total, Score.total_score).label("score"))
+            self.db.query(TrainingRecord, grade_expr().label("score"))
             .options(joinedload(TrainingRecord.case), joinedload(TrainingRecord.assignment))
             .join(Score, Score.record_id == TrainingRecord.id)
-            .filter(*conditions, Score.fallback.is_(None))
+            .filter(*conditions, *grade_conditions())
             .order_by(TrainingRecord.start_time.asc())
             .all()
         )

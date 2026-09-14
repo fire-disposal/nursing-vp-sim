@@ -38,7 +38,7 @@ export const deleteQuestionnaireTemplate = (id: number) =>
 export const checkQuestionnaire = (params: {
 	case_id?: number;
 	record_id?: number;
-	trigger?: string;
+	trigger?: Schemas["QuestionnaireTrigger"];
 }) =>
 	api.get<Schemas["QuestionnaireCheckResponse"]>("/questionnaires/check", {
 		params,
@@ -77,7 +77,11 @@ export const exportQuestionnaireCSV = (templateId: number) =>
 
 export const assignCaseQuestionnaire = (
 	templateId: number,
-	payload: { case_ids: number[]; is_required: boolean; trigger_event: string },
+	payload: {
+		case_ids: number[];
+		is_required: boolean;
+		trigger_event: Schemas["QuestionnaireTrigger"];
+	},
 ) =>
 	api.put<Schemas["OkResponse"]>(
 		`/questionnaires/templates/${templateId}/case-assignments`,

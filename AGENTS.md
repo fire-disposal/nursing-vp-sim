@@ -14,10 +14,11 @@ git push   → pre-push: tag 格式 + alembic roundtrip（无 psql 时跳过，�
 
 ## 部署红线（不可违反）
 
-- **严禁 Agent 直接触发正式服（生产环境）发版**：不得运行 `gh workflow run deploy-production.yml`、不得推送生产部署所需 tag 时绕过人工确认、不得以任何自动化方式直接对 `iomt.205716.xyz` 发布版本。
-- 生产发布的**唯一合法路径**：Agent 完成代码与验证 → 推送 master → **人工**审阅后由人执行生产部署（`deploy-production.yml` workflow_dispatch 或人工 tag 流程）。
-- Agent 可自主执行到 **staging（测试服，test.205716.xyz）** 为止：`pnpm run tag` 触发 staging 部署、PiOps 自动部署 staging 均属允许范围。
-- 违反此红线视为重大事故；如需生产发布，明确向用户请求人工确认，等待用户执行。
+- **严禁 Agent 直接触发正式服发版**：不得运行 `gh workflow run deploy.yml` / `rollback.yml`、不得为发版推送 tag、不得以任何自动化方式直接对 `iomt.205716.xyz` 发布版本。
+- 生产发布的**唯一合法路径**：Agent 完成代码与验证 → 推送 master → **人工**在 GitHub 批准 `production` 环境审批（或由人手动 `workflow_dispatch` 触发 `deploy.yml`）。
+- 双栈已收敛为**单实例**：`test.205716.xyz` 进入退役流程（见 `docs/ops/single-instance-migration.md`），因此**不存在"可自主部署的测试服"**。旧 `deploy-staging` / `deploy-production` / `piops-auto-deploy` / `piops-fix` 工作流已归档到 `.github/workflows/archive/`（子目录不激活；其中 `piops-auto-deploy` 因与本节红线冲突**刻意不恢复**）。
+- `pnpm run tag` 只做「构建 + 推 tag」，发版仍由人工审批闸门触发；Agent 不得代替人工批准。
+- 违反此红线视为重大事故；如需发布，明确向用户请求人工确认，等待用户执行。
 
 ## 诊断端点 `/api/diagnose`
 
@@ -62,7 +63,7 @@ PUT   /api/feedback/bot/{id}/reply?token=xxx&overwrite=false      # 直写开发
 
 | 主题 | 位置 |
 |------|------|
-| Tag/部署/CI | **发布请用 `pnpm run tag`**（`auto-tag.mjs --push`：自动算当天 `vYYYY.MM.DD-N` 序号，脏树/冗余门，推送 master+tag）；只建不推用 `pnpm run tag:local`；手动 `git tag` 亦可但需自算序号，pre-push 会校验格式/日期/序号。tag 触发 staging 部署，详见 `.github/workflows/` |
+| Tag/部署/CI | **发布请用 `pnpm run tag`**（`auto-tag.mjs --push`：自动算当天 `vYYYY.MM.DD-N` 序号，脏树/冗余门，推送 master+tag）；只建不推用 `pnpm run tag:local`；手动 `git tag` 亦可但需自算序号，pre-push 会校验格式/日期/序号。tag 触发 `deploy.yml`（单实例，需 `production` 环境人工审批）；归档流水线见 `.github/workflows/archive/README.md` |
 | Python | `cd backend && uv run <cmd>` |
 | 测试 | `pnpm test:backend`（纯逻辑，无库约 4s；数据库相关测试已移除） |
 | 迁移 | `ddl/` 禁 `op.execute()`；`data/` 需 `# Manual override reason: data_only` |

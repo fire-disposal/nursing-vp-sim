@@ -37,6 +37,21 @@ class PatientBehaviorPolicy:
     tone: str
     response_style: str
     refusal_style: str | None = None
+    # 已进入不可逆敌意区：患者决定中止访谈（会话终结 + prompt 注入终止指令）
+    walkout: bool = False
+
+
+# 中止访谈阈值：比「敌意区」（trust ≤0.25 / irritation ≥0.70）更靠后——
+# 连续辱骂且中途没有真诚道歉才会到达，因此仍留出两轮道歉挽回窗口。
+# 实测（中性人格 + confidence 1.0）：第 2 轮 trust 0.248 / irritation 0.743（可挽回），
+# 第 3 轮 trust 0.152 / irritation 0.876（走人）——阈值取在两者之间。
+WALKOUT_TRUST_MAX = 0.20
+WALKOUT_IRRITATION_MIN = 0.85
+
+
+def is_patient_walkout(state: EmotionVector) -> bool:
+    """患者是否已决定中止访谈（拒绝继续、要求换人或投诉）。"""
+    return state.trust <= WALKOUT_TRUST_MAX and state.irritation >= WALKOUT_IRRITATION_MIN
 
 
 def derive_behavior(state: EmotionVector) -> PatientBehaviorPolicy:
@@ -67,11 +82,18 @@ def derive_behavior(state: EmotionVector) -> PatientBehaviorPolicy:
         tone=tone,
         response_style=response_style,
         refusal_style=refusal_style,
+        walkout=is_patient_walkout(state),
     )
 
 
 def _resolve_tone(state: EmotionVector) -> str:
     """根据四维状态解析患者语气描述。"""
+    if state.trust <= 0.25 and state.irritation >= 0.70:
+        return (
+            "明显愤怒且已不信任对方，语气强硬，会当面斥责对方的无礼，并可能要求换人、找护士长或投诉"
+            "（不得回骂脏话、不得威胁人身安全）"
+        )
+
     if state.irritation >= 0.75:
         return "明显不耐烦，语气生硬，但不得辱骂或失控"
 
@@ -92,6 +114,9 @@ def _resolve_tone(state: EmotionVector) -> str:
 
 def _resolve_response_style(state: EmotionVector) -> str:
     """根据四维状态解析回答风格描述。"""
+    if state.trust <= 0.25 and state.irritation >= 0.70:
+        return "拒绝继续回答病情相关提问；只回应道歉、投诉或与刚才冲突直接相关的话题；回答简短生硬"
+
     disclosure = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
     verbosity = clamp01(0.45 + state.trust * 0.25 + state.anxiety * 0.15 - state.irritation * 0.45)
 
@@ -132,6 +157,9 @@ def _resolve_refusal_style(state: EmotionVector) -> str | None:
 
     None 表示当前状态不太可能拒绝。
     """
+    if state.trust <= 0.25 and state.irritation >= 0.70:
+        return "断然拒绝配合，明确要求对方道歉或换人，扬言找护士长、投诉"
+
     if state.cooperation >= 0.6:
         return None
 

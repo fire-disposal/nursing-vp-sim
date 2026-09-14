@@ -24,6 +24,8 @@ log = logging.getLogger(__name__)
 
 NO_STUDENT_MESSAGES_REASON = "no_student_messages"
 NO_STUDENT_MESSAGES_MESSAGE = "本次训练没有有效问诊内容，未生成评分"
+# runtime_state 上「患者主动中止访谈」的键：chat 准入守卫与前端读取的唯一真值
+PATIENT_WALKOUT_KEY = "patient_walkout"
 
 
 def student_message_count(db: Session, record_id: int) -> int:
@@ -64,6 +66,22 @@ def mark_discarded(db: Session, record: TrainingRecord, *, ended_at: datetime | 
         EmotionRepository().cleanup(record.id, db)
     except Exception:
         log.warning("Emotion cleanup failed on discard: record_id=%d", record.id, exc_info=True)
+
+
+def mark_patient_walkout(record: TrainingRecord, *, at: datetime) -> None:
+    """标记「患者主动中止访谈」。
+
+    写入 runtime_state（而非另建字段）：该标记是 chat 准入守卫、前端提示与审计的
+    唯一真值；真正的终结仍由 ``finalize_training`` 承担，标记只回答「为什么结束」。
+    """
+    state = dict(record.runtime_state or {})
+    state[PATIENT_WALKOUT_KEY] = {"reason": PATIENT_WALKOUT_KEY, "at": at.isoformat()}
+    record.runtime_state = state
+
+
+def is_patient_walkout_ended(record: TrainingRecord) -> bool:
+    """患者是否已中止访谈（不可再继续对话）。"""
+    return PATIENT_WALKOUT_KEY in (record.runtime_state or {})
 
 
 def finalize_training(

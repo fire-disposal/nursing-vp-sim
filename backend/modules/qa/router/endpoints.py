@@ -263,15 +263,13 @@ async def ask_stream(
 
 @router.get("/section-text", response_model=SectionTextResponse)
 def get_section_text(source: str, section: str):
-    """Return the full textbook section text for a citation (no LLM)."""
-    from modules.qa.knowledge_base.chapter_index import _ensure_index
+    """Return the full textbook section text for a citation (no LLM).
 
-    idx = _ensure_index()
-    tb = idx.get(source)
-    if not tb:
-        raise HTTPException(status_code=404, detail=f"教材 '{source}' 不存在")
-    for ch_name, ch_data in tb["chapters"].items():
-        for sec in ch_data["sections"]:
-            if sec["heading"] == section:
-                return {"source": source, "section": section, "text": sec["body"]}
-    raise HTTPException(status_code=404, detail="教材章节不存在")
+    ``section`` 是引用卡片传回的 ``chapter/heading`` key（见 chapter_index.make_section_key）。
+    """
+    from modules.qa.knowledge_base.chapter_index import read_section_by_key
+
+    text = read_section_by_key(source, section)
+    if text is None:
+        raise HTTPException(status_code=404, detail="教材章节不存在")
+    return {"source": source, "section": section, "text": text}

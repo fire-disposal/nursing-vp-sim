@@ -11,11 +11,51 @@ never dumps entire chapters.
 """
 
 import logging
+import math
 import re
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+# ── 中文分词（无外部依赖）─────────────────────────────────────────────
+# 中文查询没有空格，若只按 [,，\s]+ 切分，整句会变成单个 term，退化成整串子串
+# 匹配 → 典型问题（「肺炎病人的护理措施有哪些？」）恒 0 命中。这里对每段中文同时
+# 保留整词（≤6 字，覆盖「肺炎护理」这类短语）与字符二元组，兼顾召回与排序精度。
+_CJK_RUN_RE = re.compile(r"[\u4e00-\u9fff]+")
+_WORD_RUN_RE = re.compile(r"[0-9a-zA-Z]+")
+_MAX_CJK_TERM_LEN = 6
+# 检索成本 ≈ term 数 × 全库正文（当前 ~2.5M 字）。问题框允许 4096 字，
+# 长文粘贴一刀切进来（每字一个 2-gram）会把单次检索拖到十几秒，故设上限：
+# 保留靠前的 term —— 中文问句的主题在句首。
+_MAX_TERMS = 40
+
+# BM25 参数（标准默认值）：tf 饱和 + 文档长度归一化
+_BM25_K1 = 1.2
+_BM25_B = 0.75
+
+
+def _tokenize(query: str) -> list[str]:
+    """把查询切成检索 term（中文 2-gram + 短整词；英文/数字整词）。去重保序、有上限。"""
+    terms: list[str] = []
+    for run in _CJK_RUN_RE.findall(query):
+        if len(run) <= _MAX_CJK_TERM_LEN:
+            terms.append(run)
+        terms.extend(run[i : i + 2] for i in range(len(run) - 1))
+    terms.extend(_WORD_RUN_RE.findall(query))
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for raw in terms:
+        term = raw.strip().lower()
+        if len(term) < 2 or term in seen:
+            continue
+        seen.add(term)
+        unique.append(term)
+        if len(unique) >= _MAX_TERMS:
+            break
+    return unique
+
 
 TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "textbooks"
 
@@ -125,52 +165,116 @@ def search(query: str, textbook: str | None = None, top_k: int = 5) -> list[dict
     """Full-text keyword search across sections. Returns snippets with location.
 
     Each result: {textbook, chapter, heading, snippet (≤500 chars), match_count}
+
+    排序用 BM25（k1=1.2, b=0.75）：idf 让「肺炎」这类领域词压过「病人」「护理」这类
+    全教材高频词，文档长度归一化让超长小节不会仅因为长就霸榜（教材小节可达数万字）。
     """
-    idx = _ensure_index()
-    terms = [w.strip() for w in re.split(r"[,，\s]+", query) if len(w.strip()) >= 2]
-
+    terms = _tokenize(query)
     if not terms:
-        terms = [query]
+        return []
 
-    scored: list[tuple[int, dict]] = []
+    idx = _ensure_index()
     textbooks = [textbook] if textbook else list(idx.keys())
 
+    sections: list[tuple[str, str, dict]] = []
     for tb_name in textbooks:
         tb = idx.get(tb_name)
         if not tb:
             continue
         for ch_title, ch in tb["chapters"].items():
-            for sec in ch["sections"]:
-                body_lower = sec["body"].lower()
-                matches = 0
-                for t in terms:
-                    count = body_lower.count(t.lower())
-                    if t.lower() in ch_title.lower():
-                        count += 1  # bonus for chapter title match
-                    matches += count
-                if matches > 0:
-                    # Show ~500 chars centered on the first match, not just the start
-                    first_pos = min(
-                        (body_lower.find(t.lower()) for t in terms if body_lower.find(t.lower()) >= 0),
-                        default=0,
-                    )
-                    start = max(0, first_pos - 120)
-                    snippet = sec["body"][start : start + 500]
-                    scored.append(
-                        (
-                            matches,
-                            {
-                                "textbook": tb_name,
-                                "chapter": ch_title,
-                                "heading": sec["heading"],
-                                "snippet": snippet,
-                                "match_count": matches,
-                            },
-                        )
-                    )
+            sections.extend((tb_name, ch_title, sec) for sec in ch["sections"])
+    if not sections:
+        return []
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [r for _, r in scored[:top_k]]
+    corpus = len(sections)
+    avgdl = sum(len(sec["body"]) for _, _, sec in sections) / corpus
+
+    df: dict[str, int] = dict.fromkeys(terms, 0)
+    hits: list[tuple[str, str, dict, list[int], str]] = []  # + 各 term 计数 + 小写正文
+    for tb_name, ch_title, sec in sections:
+        body_lower = sec["body"].lower()
+        ch_lower = ch_title.lower()
+        counts = []
+        for term in terms:
+            count = body_lower.count(term)
+            if count == 0 and term in ch_lower:
+                count = 1  # 章节标题命中记一次
+            counts.append(count)
+        if any(counts):
+            hits.append((tb_name, ch_title, sec, counts, body_lower))
+            for i, count in enumerate(counts):
+                if count:
+                    df[terms[i]] += 1
+
+    if not hits:
+        return []
+
+    idf = {term: math.log(1 + (corpus - df[term] + 0.5) / (df[term] + 0.5)) for term in terms if df[term]}
+
+    scored: list[tuple[float, str, str, str, dict]] = []
+    for tb_name, ch_title, sec, counts, body_lower in hits:
+        length_norm = _BM25_K1 * (1 - _BM25_B + _BM25_B * len(sec["body"]) / avgdl)
+        score = sum(
+            idf[terms[i]] * count * (_BM25_K1 + 1) / (count + length_norm) for i, count in enumerate(counts) if count
+        )
+        positions = [body_lower.find(term) for i, term in enumerate(terms) if counts[i] and body_lower.find(term) >= 0]
+        start = max(0, min(positions, default=0) - 120)
+        scored.append(
+            (
+                score,
+                tb_name,
+                ch_title,
+                sec["heading"],
+                {
+                    "textbook": tb_name,
+                    "chapter": ch_title,
+                    "heading": sec["heading"],
+                    "snippet": sec["body"][start : start + 500],
+                    "match_count": sum(counts),
+                },
+            )
+        )
+
+    scored.sort(key=lambda row: (-row[0], row[1], row[2], row[3]))
+    return [row[4] for row in scored[:top_k]]
+
+
+# ── 引用 key（chapter/heading）─────────────────────────────────────────
+# 引用卡片把「小节」当成一个不透明字符串在检索、上下文注入与 /api/qa/section-text
+# 之间传递，拼接与解析必须成对：小节标题里可能有 "/"（教材实有「断肢/指再植」），
+# 因此只按第一个 "/" 切分（章节标题不含 "/"，由 data/textbooks 的文件名保证）。
+
+
+def make_section_key(chapter: str, heading: str) -> str:
+    """构造引用 key：``chapter/heading``。"""
+    return f"{chapter}/{heading}"
+
+
+def parse_section_key(section_key: str) -> tuple[str, str]:
+    """解析引用 key → (chapter, heading)。无 "/" 时章节为空串。"""
+    chapter, sep, heading = section_key.partition("/")
+    if not sep:
+        return "", section_key
+    return chapter, heading
+
+
+def _find_section(tb: dict, chapter: str, heading: str) -> str | None:
+    ch = tb["chapters"].get(chapter)
+    if not ch:
+        return None
+    for sec in ch["sections"]:
+        if sec["heading"] == heading:
+            return sec["body"]
+    return None
+
+
+def read_section_by_key(textbook: str, section_key: str) -> str | None:
+    """按引用 key 读取小节正文；教材/章节/小节不存在时返回 None（调用方决定降级）。"""
+    tb = _ensure_index().get(textbook)
+    if not tb:
+        return None
+    chapter, heading = parse_section_key(section_key)
+    return _find_section(tb, chapter, heading)
 
 
 def read_section(textbook: str, chapter: str, heading: str) -> str:
@@ -182,10 +286,9 @@ def read_section(textbook: str, chapter: str, heading: str) -> str:
     tb = idx.get(textbook)
     if not tb:
         return f"教材 '{textbook}' 不存在。"
-    ch = tb["chapters"].get(chapter)
-    if not ch:
+    if chapter not in tb["chapters"]:
         return f"章节 '{chapter}' 不存在于 {textbook} 中。"
-    for sec in ch["sections"]:
-        if sec["heading"] == heading:
-            return sec["body"]
-    return f"小节 '{heading}' 不存在于 {textbook} > {chapter} 中。"
+    body = _find_section(tb, chapter, heading)
+    if body is None:
+        return f"小节 '{heading}' 不存在于 {textbook} > {chapter} 中。"
+    return body

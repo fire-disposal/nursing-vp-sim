@@ -29,6 +29,7 @@ class EmotionEventType(StrEnum):
         interruption          打断 — 护士打断患者叙述
         repeated_question     重复询问 — 护士反复问已回答的问题
         judgmental_language   评判性语言 — 护士使用指责或评判语气
+        insult                人格侮辱 — 护士辱骂、诅咒或人身攻击患者本人
         privacy_intrusion     隐私冒犯 — 护士不当触及敏感话题
         dismissal             忽视 — 护士忽视或贬低患者主诉
 
@@ -51,6 +52,7 @@ class EmotionEventType(StrEnum):
     INTERRUPTION = "interruption"
     REPEATED_QUESTION = "repeated_question"
     JUDGMENTAL_LANGUAGE = "judgmental_language"
+    INSULT = "insult"
     PRIVACY_INTRUSION = "privacy_intrusion"
     DISMISSAL = "dismissal"
 

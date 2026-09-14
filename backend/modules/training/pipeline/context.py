@@ -18,14 +18,20 @@ STATE_STREAM_MODE: str = "_stream_mode"
 STATE_PATIENT_CONTEXT_KWARGS: str = "_patient_context_kwargs"
 STATE_PATIENT_CHAT_CFG: str = "_patient_chat_cfg"
 STATE_LEAK_CORRECTION_COUNT: str = "_leak_correction_count"
-STATE_CONTEXT_LEDGER: str = "_context_ledger"
-STATE_SOURCE_TRACES: str = "_source_traces"
-STATE_STREAM_CHUNKS: str = "_stream_chunks"
 STATE_STREAM_QUEUE: str = "_stream_queue"
 STATE_SAVED_MESSAGES: str = "_saved_messages"
-STATE_POST_STREAM_EVENTS: str = "_post_stream_events"
 STATE_DONE_PAYLOAD: str = "_done_payload"
 STATE_CORRECTION_TARGET: str = "_correction_target"
+# 修正轮序号（修正后的发言要重新分析情绪：turn_id 需要与被修正的那一轮区分开）
+STATE_CORRECTION_TURN: str = "_correction_turn"
+# 情绪中间件写、NoteSource（patient_ai.notes）与 side_effects 读
+STATE_EMOTION_NOTE: str = "_emotion_note"
+STATE_EMOTION_CHANGE: str = "_emotion_change"
+STATE_EMOTION_DOMINANT: str = "_emotion_dominant"
+# stream_pipeline 创建的后台任务：router 据此判断 session 该由谁释放（见 runner.stream_pipeline）
+STATE_PIPELINE_TASK: str = "_pipeline_task"
+# 患者决定中止访谈（不可逆敌意区）→ 会话在 SIDE_EFFECTS 阶段终结
+STATE_PATIENT_WALKOUT: str = "_patient_walkout"
 
 
 @dataclass

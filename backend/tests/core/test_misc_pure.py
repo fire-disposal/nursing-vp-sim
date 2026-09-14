@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.pagination import paginate
-from core.rate_limits import _get_client_ip
+from core.rate_limits import get_client_ip
 from core.statuses import TrainingMode, TrainingStatus, normalize_training_mode
 
 
@@ -105,20 +105,28 @@ class TestGetClientIp:
         )
 
     def test_direct_ip(self):
-        assert _get_client_ip(self._request({}, "10.0.0.1")) == "10.0.0.1"
-
-    def test_forwarded_header_takes_precedence(self):
-        req = self._request({"X-Forwarded-For": "203.0.113.5, 10.0.0.1"}, "10.0.0.1")
-        assert _get_client_ip(req) == "203.0.113.5"
-
-    def test_real_ip_fallback(self):
-        req = self._request({"X-Real-IP": "198.51.100.7"}, "10.0.0.1")
-        assert _get_client_ip(req) == "198.51.100.7"
-
-    def test_forwarded_beats_real_ip(self):
-        req = self._request({"X-Forwarded-For": " 203.0.113.9 ", "X-Real-IP": "198.51.100.7"}, None)
-        assert _get_client_ip(req) == "203.0.113.9"
+        assert get_client_ip(self._request({}, "10.0.0.1")) == "10.0.0.1"
 
     def test_no_client_returns_unknown(self):
         req = SimpleNamespace(headers={}, client=None)
-        assert _get_client_ip(req) == "unknown"
+        assert get_client_ip(req) == "unknown"
+
+    def test_x_real_ip_from_proxy_wins(self):
+        """nginx 用 $remote_addr 覆盖 X-Real-IP，比可追加的 XFF 更可信。"""
+        req = self._request({"X-Real-IP": "198.51.100.7", "X-Forwarded-For": "198.51.100.7"}, "10.0.0.1")
+        assert get_client_ip(req) == "198.51.100.7"
+
+    def test_forwarded_tail_not_client_supplied_first(self):
+        """回归（限流绕过）：客户端可伪造 XFF 首段，nginx 追加真实地址 → 必须取尾段。"""
+        req = self._request({"X-Forwarded-For": "1.2.3.4, 203.0.113.5"}, "10.0.0.1")
+        assert get_client_ip(req) == "203.0.113.5"
+
+    def test_forged_forwarded_head_does_not_change_key(self):
+        """同一真实客户端伪造不同 XFF 首段时，限流键必须保持不变。"""
+        forged = ["1.1.1.1", "2.2.2.2", "3.3.3.3"]
+        ips = {get_client_ip(self._request({"X-Forwarded-For": f"{fake}, 203.0.113.5"}, "10.0.0.1")) for fake in forged}
+        assert ips == {"203.0.113.5"}
+
+    def test_blank_real_ip_falls_back_to_forwarded_tail(self):
+        req = self._request({"X-Real-IP": "   ", "X-Forwarded-For": " 203.0.113.9 , 198.51.100.7 "}, None)
+        assert get_client_ip(req) == "198.51.100.7"

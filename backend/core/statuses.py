@@ -59,3 +59,60 @@ def normalize_training_mode(value: object) -> str:
     if isinstance(value, str) and value in TrainingMode:
         return value
     return TrainingMode.GUIDED.value
+
+
+class AssignmentProgressStatus(StrEnum):
+    """作业进度状态 — 学生端/教师端读侧共用的唯一词表。
+
+    ``abandoned`` / ``discarded`` 记录不构成一次作业进度（既不消耗尝试次数，
+    也不参与代表记录推导），故不在此列；推导见 ``modules.assignments.progress``。
+    """
+
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    OVERDUE = "overdue"
+    CLOSED = "closed"
+
+
+class AssignmentLifecycle(StrEnum):
+    """作业生命周期 — 由 ``is_closed`` 与 ``end_time`` 推导的唯一口径。
+
+    ``CLOSED``（教师手动关闭）优先于 ``ENDED``（超过截止时间）；三处读侧
+    （教师列表过滤/学生端状态/开始门控）共用 ``modules.assignments.progress.effective_status``。
+    """
+
+    ACTIVE = "active"
+    ENDED = "ended"
+    CLOSED = "closed"
+
+
+class QuestionnaireTrigger(StrEnum):
+    """CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。
+
+    ``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；
+    ``AFTER_SCORING``：教师端评分/复核完成后触发（前端 TeacherRecordDetail）。
+    历史后台默认值 ``after_training`` 无任何触发点，已废弃（新写入一律被枚举拒绝）。
+    """
+
+    BEFORE_TRAINING = "before_training"
+    AFTER_SCORING = "after_scoring"
+
+
+def normalize_questionnaire_trigger(value: object) -> str:
+    """白名单规范化；非法或缺失值（含历史 ``after_training``）一律回退 before_training。"""
+    if isinstance(value, str) and value in QuestionnaireTrigger:
+        return value
+    return QuestionnaireTrigger.BEFORE_TRAINING.value
+
+
+class SimulationStatus(StrEnum):
+    """SimulationSession.state.case_status — 临床推理模拟会话的结局状态（唯一真值）。
+
+    真值只存于 ``state`` JSONB（``build_snapshot`` / 前端读取的就是它）；
+    曾与之并存的 ``simulation_sessions.status`` 列已删除，避免双写漂移。
+    """
+
+    ACTIVE = "ACTIVE"
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 from core.template import render_template
 from modules.training.context.assembler import assemble_patient_messages
-from modules.training.context.budget import select_history_messages
+from modules.training.context.budget import compact_history
 from modules.training.context.examples import EXAMPLES_MARKER, build_example_pairs
 from modules.training.context.leak_guard import (
     find_hidden_topic_leaks,
@@ -109,10 +109,13 @@ class TestAssemblePatientMessages:
             history_budget_tokens=0,
             min_history_rounds=2,
         )
-        # floor = 2 轮 = 4 条消息；预算 0 → 更早的全裁
-        assert len(msgs) == 2 + 4 + 1
+        # 首 2 轮（4 条）钉住 + 尾 2 轮（4 条）保底；预算 0 → 中间 32 条全部进摘要段
+        assert len(msgs) == 2 + 4 + 1 + 4 + 1
+        assert msgs[2]["content"] == "q0问"
+        assert msgs[3]["content"] == "q0答"
         assert msgs[-2]["content"] == "q19答"
-        assert ledger["history_dropped"] == 36
+        assert ledger["history_summarized"] == 32
+        assert ledger["history_head_messages"] == 4
 
     def test_generous_budget_keeps_all(self):
         msgs, ledger = assemble_patient_messages(
@@ -122,7 +125,8 @@ class TestAssemblePatientMessages:
             student_input="last",
             history_budget_tokens=100_000,
         )
-        assert ledger["history_dropped"] == 0
+        assert ledger["history_summarized"] == 0
+        assert ledger["history_summary_tokens"] == 0
         assert len(msgs) == 2 + 40 + 1
 
     def test_ledger_contains_segments(self):
@@ -140,37 +144,51 @@ class TestAssemblePatientMessages:
             "examples_tokens",
             "examples_pairs",
             "history_budget_tokens",
+            "history_effective_budget_tokens",
+            "history_token_scale",
+            "history_head_messages",
             "history_selected_tokens",
-            "history_dropped",
+            "history_summarized",
+            "history_summary_tokens",
             "state_tokens",
             "user_tokens",
+            "prompt_estimated_tokens",
         ):
             assert key in ledger
         assert ledger["examples_pairs"] == 1
         assert ledger["state_tokens"] > 0
 
 
-class TestSelectHistoryMessages:
+class TestCompactHistory:
     def test_empty_history(self):
-        selected, dropped = select_history_messages([])
-        assert selected == []
-        assert dropped == 0
+        selection = compact_history([])
+        assert selection.head == []
+        assert selection.tail == []
+        assert selection.summarized == []
+        assert selection.summary == ""
 
-    def test_floor_protection(self):
-        history = _history(10)
-        selected, dropped = select_history_messages(history, budget_tokens=0, min_rounds=2)
-        assert dropped == 16
-        assert [m.content for m in selected] == ["q8问", "q8答", "q9问", "q9答"]
+    def test_head_pinned_and_tail_floor_under_zero_budget(self):
+        selection = compact_history(_history(10), budget_tokens=0, min_rounds=2, head_rounds=1)
+        assert [m.content for m in selection.head] == ["q0问", "q0答"]
+        assert [m.content for m in selection.tail] == ["q8问", "q8答", "q9问", "q9答"]
+        assert [m.content for m in selection.summarized] == [
+            f"q{i}{side}" for i in range(1, 8) for side in ("问", "答")
+        ]
 
-    def test_budget_extends_floor(self):
-        history = _history(10)
-        selected, _ = select_history_messages(history, budget_tokens=10_000)
-        assert len(selected) == 20
+    def test_budget_extends_tail(self):
+        selection = compact_history(_history(10), budget_tokens=10_000)
+        assert len(selection.head) + len(selection.tail) == 20
+        assert selection.summarized == []
 
     def test_system_ignored(self):
-        history = [_msg("system", "x")] + _history(2)
-        selected, _ = select_history_messages(history)
-        assert len(selected) == 4
+        selection = compact_history([_msg("system", "x")] + _history(2))
+        assert len(selection.head) + len(selection.tail) == 4
+
+    def test_short_history_keeps_input_order(self):
+        history = _history(3)
+        selection = compact_history(history, budget_tokens=100_000, min_rounds=4)
+        assert selection.summarized == []
+        assert [m.content for m in [*selection.head, *selection.tail]] == [m.content for m in history]
 
 
 class TestExamplePairs:

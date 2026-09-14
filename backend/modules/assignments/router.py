@@ -8,13 +8,20 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.datetime_utils import ensure_utc
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
+from core.statuses import AssignmentLifecycle, AssignmentProgressStatus
 from infra.exporter import ColumnDef, export_response
 from models import Assignment, TrainingRecord, User, UserClass
-from modules.assignments.service import AssignmentService
+from modules.assignments.progress import (
+    attempt_from_record,
+    count_attempts,
+    effective_status,
+    pick_representative,
+    progress_status,
+)
+from modules.assignments.service import UNSET, AssignmentService
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -70,59 +77,26 @@ class StudentService:
             if a.student_ids is not None and user_id not in a.student_ids:
                 continue
 
-            case_name = a.case.name if a.case else ""
-            user_records = records_by_assignment.get(a.id, [])
-            attempt_count = sum(1 for r in user_records if r.status not in ("in_progress", "discarded"))
+            attempts = [attempt_from_record(r) for r in records_by_assignment.get(a.id, [])]
+            representative = pick_representative(attempts)
+            closed = effective_status(a.is_closed, a.end_time, now) is AssignmentLifecycle.CLOSED
 
-            end_time = ensure_utc(a.end_time)
-            if a.is_closed or now > end_time:
-                items.append(
-                    StudentAssignmentItem(
-                        id=a.id,
-                        title=a.title,
-                        case_name=case_name,
-                        start_time=a.start_time,
-                        end_time=a.end_time,
-                        status="closed",
-                        max_attempts=a.max_attempts,
-                        attempt_count=attempt_count,
-                    )
+            items.append(
+                StudentAssignmentItem(
+                    id=a.id,
+                    title=a.title,
+                    case_name=a.case.name if a.case else "",
+                    start_time=a.start_time,
+                    end_time=a.end_time,
+                    status=AssignmentProgressStatus.CLOSED.value if closed else progress_status(representative),
+                    record_id=representative.record_id if representative else None,
+                    score_total=representative.score if representative else None,
+                    scoring_status=representative.scoring_status if representative else None,
+                    is_overdue=representative.is_overdue if representative else False,
+                    max_attempts=a.max_attempts,
+                    attempt_count=count_attempts(attempt.status for attempt in attempts),
                 )
-                continue
-
-            if user_records:
-                record = user_records[0]
-                status = record.status
-                if status != "completed" and record.is_overdue:
-                    status = "overdue"
-                items.append(
-                    StudentAssignmentItem(
-                        id=a.id,
-                        title=a.title,
-                        case_name=case_name,
-                        start_time=a.start_time,
-                        end_time=a.end_time,
-                        status=status,
-                        record_id=record.id,
-                        score_total=record.score.total_score if record.score else None,
-                        is_overdue=record.is_overdue,
-                        max_attempts=a.max_attempts,
-                        attempt_count=attempt_count,
-                    )
-                )
-            else:
-                items.append(
-                    StudentAssignmentItem(
-                        id=a.id,
-                        title=a.title,
-                        case_name=case_name,
-                        start_time=a.start_time,
-                        end_time=a.end_time,
-                        status="pending",
-                        max_attempts=a.max_attempts,
-                        attempt_count=attempt_count,
-                    )
-                )
+            )
 
         return items
 
@@ -147,6 +121,7 @@ def _list_resp(view) -> AssignmentListItem:
         completed_count=view.completed_count,
         created_at=view.created_at,
         is_closed=view.is_closed,
+        max_attempts=view.max_attempts,
     )
 
 
@@ -258,7 +233,8 @@ def update_assignment(
             start_time=req.start_time,
             end_time=req.end_time,
             is_closed=req.is_closed,
-            max_attempts=req.max_attempts,
+            # 显式 null = 不限制；请求未带该键 = 不修改
+            max_attempts=req.max_attempts if "max_attempts" in req.model_fields_set else UNSET,
             skip_ownership=is_admin,
         )
     )

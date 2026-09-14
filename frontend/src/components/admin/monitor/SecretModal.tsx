@@ -3,7 +3,7 @@ import { schemaResolver, useForm } from "@mantine/form";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { createSecret, updateSecret } from "@/api";
-import type { ApiSecretResponse } from "@/api/admin/api-management-types";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 
@@ -12,7 +12,7 @@ import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
 
 interface SecretModalProps {
 	open: boolean;
-	secret: ApiSecretResponse | null;
+	secret: components["schemas"]["ApiSecretResponse"] | null;
 	onClose: () => void;
 	onSaved: () => void;
 }

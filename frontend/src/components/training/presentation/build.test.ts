@@ -61,12 +61,6 @@ describe("buildPatientPresentation — 指定策略链", () => {
 		}
 	});
 
-	it('["png-variant"]: 情绪映射到变体 PNG', () => {
-		const p = buildPatientPresentation(WANG, { ...NEUTRAL, emotion: "withdrawn" }, ["png-variant"]);
-		expect(p.kind).toBe("png-variant");
-		if (p.kind === "png-variant") expect(p.src).toMatch(/-s\.png/);
-	});
-
 	it("非法链（无 static）防御性兜底到简洁画风", () => {
 		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, ["video"]);
 		expect(p.kind).toBe("static");

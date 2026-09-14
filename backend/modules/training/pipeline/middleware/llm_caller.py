@@ -12,8 +12,6 @@ from modules.training.patient_ai.guards import get_identity_correction_note, has
 from ..context import (
     STATE_LEAK_CORRECTION_COUNT,
     STATE_PATIENT_CHAT_CFG,
-    STATE_SOURCE_TRACES,
-    STATE_STREAM_CHUNKS,
     STATE_STREAM_MODE,
     STATE_STREAM_QUEUE,
     PipelineContext,
@@ -63,7 +61,6 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
         llm_cfg = get_llm_config("patient_chat")
         ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
-    log_meta = {"source_traces": ctx.state.get(STATE_SOURCE_TRACES, [])}
     try:
         reply = await llm_client.call(
             ctx.llm_messages,
@@ -73,7 +70,6 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 user_id=ctx.current_user.id,
                 record_id=ctx.record.id,
                 case_id=ctx.record.case_id,
-                log_meta=log_meta,
             ),
             **llm_cfg,
         )
@@ -105,7 +101,6 @@ async def _call_batch(ctx: PipelineContext) -> None:
                         user_id=ctx.current_user.id,
                         record_id=ctx.record.id,
                         case_id=ctx.record.case_id,
-                        log_meta=log_meta,
                     ),
                     **llm_cfg,
                 )
@@ -130,7 +125,6 @@ async def _call_stream(ctx: PipelineContext) -> None:
         llm_cfg = get_llm_config("patient_chat")
         ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
     stream_queue = ctx.state.get(STATE_STREAM_QUEUE)
-    log_meta = {"source_traces": ctx.state.get(STATE_SOURCE_TRACES, [])}
 
     def _call_ctx() -> CallContext:
         return CallContext(
@@ -138,7 +132,6 @@ async def _call_stream(ctx: PipelineContext) -> None:
             user_id=ctx.current_user.id,
             record_id=ctx.record.id,
             case_id=ctx.record.case_id,
-            log_meta=log_meta,
         )
 
     async def _stream_full(msgs: list[dict]) -> str:
@@ -200,7 +193,6 @@ async def _call_stream(ctx: PipelineContext) -> None:
         return
 
     ctx.llm_reply = full_reply
-    ctx.state[STATE_STREAM_CHUNKS] = [full_reply]
     # T1：通过泄漏守卫后一次性推 SSE —— 前端实时看到的 == DB 持久化的 == 评分读到的
     if stream_queue is not None:
         await stream_queue.put(full_reply)

@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
-from core.exceptions import NotFoundError, ValidationError
-from core.security import hash_password, require_permission
+from core.exceptions import AuthError, NotFoundError, ValidationError
+from core.security import hash_password, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
 from models import Class, Role, Score, TrainingRecord, User, UserClass
@@ -148,7 +148,19 @@ class UserService:
             limit=limit,
         )
 
-    def update(self, user_id: int, req: UserUpdateRequest, current_user: User | None = None) -> UserBriefView:
+    def _grantable(self, current_user: User) -> set[str]:
+        """操作者自身角色拥有的权限 = 其可授予/可支配的上限（与 roles.py 同一套反越权口径）。"""
+        return set(load_role_permissions(self.db, current_user.role_id))
+
+    def _assert_role_within_scope(self, current_user: User, role_obj: Role, *, action: str) -> None:
+        exceeded = sorted(set(load_role_permissions(self.db, role_obj.id)) - self._grantable(current_user))
+        if exceeded:
+            raise AuthError(
+                f"无权{action}「{role_obj.display_name}」：目标角色包含你自身没有的权限 {exceeded}",
+                status_code=403,
+            )
+
+    def update(self, user_id: int, req: UserUpdateRequest, current_user: User) -> UserBriefView:
         user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
@@ -158,16 +170,23 @@ class UserService:
             if req.student_id is not None:
                 user.student_id = req.student_id or None
             if req.role is not None:
-                if current_user and current_user.id == user_id:
+                if current_user.id == user_id:
                     raise ValidationError("不能修改自己的角色")
                 role_obj = self.get_role_by_name(req.role)
                 if not role_obj:
                     raise ValidationError("角色不存在")
+                # 反越权：只能授予自身权限集合内的角色。admin 没有 role_manage/api_manage，
+                # 因此无法把任何账号提为 super_admin（否则等于绕过整个权限表）。
+                self._assert_role_within_scope(current_user, role_obj, action="授予角色")
                 user.role_id = role_obj.id
             if req.password is not None and req.password:
                 if len(req.password) < 6:
                     raise ValidationError("密码长度不能少于6位")
+                # 反越权：不能重置权限高于自己的账号的密码（否则等于接管该账号）。
+                if user.role is not None and current_user.id != user_id:
+                    self._assert_role_within_scope(current_user, user.role, action="重置密码")
                 user.password_hash = hash_password(req.password)
+
             if req.gender is not None:
                 user.gender = req.gender or None
             if req.avatar is not None:

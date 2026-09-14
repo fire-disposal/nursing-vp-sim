@@ -18,9 +18,11 @@ import type { PremiumExtras } from "../face/premiumExtras";
  * 已落地策略：
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
  *   - realistic    写实画风专属病例头像路由器（按患者姓名）— 未命中让位
- *   - png-variant  情绪 PNG 变体路由器（patient-portrait）— 保留恢复能力
  *   - svg          参数化 SVG 动态渲染器（PremiumFaceArtwork）— 保留恢复能力
  *   - video        视频调度器（预留：AI 生成视频按情绪剪切切换，无源时回退）
+ *
+ * 已移除：png-variant（情绪 PNG 变体）—— 情绪变体头像已停用，其
+ * `import.meta.glob({ eager: true })` 会把 36MB 变体图无条件下进构建产物。
  */
 
 /** 情绪快照 — 表现层的唯一输入契约。 */
@@ -55,7 +57,6 @@ export interface PresentationContext {
 export type PatientPresentation =
 	| { kind: "static"; src: string; alt: string }
 	| { kind: "realistic"; src: string; alt: string }
-	| { kind: "png-variant"; src: string; alt: string }
 	| { kind: "svg"; cfg: FaceConfig; extras: PremiumExtras; appearance: AppearanceProfile }
 	| {
 			kind: "video";

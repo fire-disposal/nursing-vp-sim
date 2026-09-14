@@ -44,21 +44,24 @@ describe("init / reset", () => {
 		expect(s.emotion4D).toBe("neutral");
 	});
 
-	it("init accepts valid emotionSeed state", () => {
-		useTrainingStore
-			.getState()
-			.init(makeInit({ emotionSeed: { trust: 30, comfort: 70, state: "anxious" } }));
+	it("init applies v3 4D emotionSeed", () => {
+		useTrainingStore.getState().init(
+			makeInit({
+				emotionSeed: {
+					trust: 30,
+					anxiety: 70,
+					irritation: 20,
+					cooperation: 40,
+					dominant_state: "trusting_anxious",
+				},
+			}),
+		);
 		const s = getTrainingState();
-		expect(s.emotion).toBe("anxious");
 		expect(s.trust).toBe(30);
-		expect(s.comfort).toBe(70);
-	});
-
-	it("init rejects unknown emotionSeed state", () => {
-		useTrainingStore
-			.getState()
-			.init(makeInit({ emotionSeed: { trust: 30, comfort: 70, state: "furious" } }));
-		expect(getTrainingState().emotion).toBe("neutral");
+		expect(s.anxiety).toBe(70);
+		expect(s.irritation).toBe(20);
+		expect(s.cooperation).toBe(40);
+		expect(s.emotion4D).toBe("trusting_anxious");
 	});
 
 	it("reset restores initial defaults", () => {

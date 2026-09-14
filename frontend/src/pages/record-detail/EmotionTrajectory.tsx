@@ -30,6 +30,7 @@ const EVENT_LABELS: Record<string, string> = {
 	interruption: "打断",
 	repeated_question: "重复提问",
 	judgmental_language: "评判性语言",
+	insult: "人格侮辱",
 	privacy_intrusion: "隐私冒犯",
 	long_wait: "长时间等待",
 	fatigue: "对话疲劳",
@@ -48,7 +49,7 @@ const LINE_DEFS = [
  * 4D 状态快照连成曲线，事件点标注类型与证据。
  */
 export function EmotionTrajectory({ recordId }: Props) {
-	const { data: events, isLoading } = useQuery({
+	const { data: events, isLoading, isError } = useQuery({
 		queryKey: ["record", recordId, "emotion-events"],
 		queryFn: () => getEmotionEvents(recordId),
 		enabled: !!recordId,
@@ -68,6 +69,15 @@ export function EmotionTrajectory({ recordId }: Props) {
 	);
 
 	if (isLoading) return null;
+	if (isError) {
+		return (
+			<Paper withBorder radius="md" p="md">
+				<Text size="sm" c="red">
+					情绪轨迹加载失败，请稍后刷新重试
+				</Text>
+			</Paper>
+		);
+	}
 	if (!chartData.length) return null;
 
 	return (

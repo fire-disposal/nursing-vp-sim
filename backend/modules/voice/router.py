@@ -11,10 +11,8 @@ from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
 from core.security import get_current_user
 from infra.tts.circuit import CircuitOpenError
-from infra.tts.client import VolcBidirectionalTTSClient
-from infra.tts.pool import TTSConnectionPool
 from models import User
-from modules.voice.service import TTSService
+from modules.voice.service import TTSCapability, TTSConnectionProvider, TTSService
 from schemas.voice import TTSSynthesizeRequest
 
 log = logging.getLogger(__name__)
@@ -63,7 +61,7 @@ async def synthesize(
     await check_tts_limit(current_user.id, request)
 
     record_id = _require_record_id(req.record_id)
-    client: VolcBidirectionalTTSClient | None = request.app.state.tts_client
+    client: TTSCapability | None = request.app.state.tts_client
     emotion_state = _resolve_emotion(request, record_id, db)
     db.rollback()  # 只读情绪查询结束后立即释放连接事务；TTS 流式期间不持有快照
 
@@ -114,7 +112,7 @@ async def synthesize_stream(
     await check_tts_limit(current_user.id, request)
 
     record_id = _require_record_id(req.record_id)
-    pool: TTSConnectionPool | None = getattr(request.app.state, "tts_pool", None)
+    pool: TTSConnectionProvider | None = getattr(request.app.state, "tts_pool", None)
     emotion_state = _resolve_emotion(request, record_id, db)
     db.rollback()  # 只读情绪查询结束后立即释放连接事务；TTS 流式期间不持有快照
 

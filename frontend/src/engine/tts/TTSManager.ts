@@ -91,6 +91,7 @@ export class TTSManager {
 		for (const fn of this.unsubs) fn();
 		this.unsubs = [];
 		this.stop();
+		this.player.dispose();
 		this.bus = null;
 	}
 

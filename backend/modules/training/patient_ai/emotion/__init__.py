@@ -13,7 +13,7 @@ _read_emotion_state），裸名 EmotionState 即 v3（见 .models）。
 """
 
 from .analyzer import EmotionAnalyzer
-from .behavior import PatientBehaviorPolicy, derive_behavior
+from .behavior import PatientBehaviorPolicy, derive_behavior, is_patient_walkout
 from .engine import EmotionEngine
 from .events import AppliedEmotionEvent, DetectedEmotionEvent, EmotionAnalysisResult, EmotionEventType
 from .models import EmotionDelta, EmotionState, EmotionVector
@@ -45,6 +45,7 @@ __all__ = [
     "PatientBehaviorPolicy",
     "derive_behavior",
     "derive_speech_policy",
+    "is_patient_walkout",
     # v3 renderer
     "render_behavior_note",
     "resolve_dominant_state",

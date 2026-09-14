@@ -1,23 +1,59 @@
-"""TTS synthesis business logic."""
+"""TTS synthesis business logic.
+
+供应商边界：本模块只依赖 ``TTSCapability`` / ``TTSConnectionProvider`` 两个 Protocol，
+不 import 任何 Volc 具体类型（装配点唯一：``load_tts_state``）。换/新增供应商只需在
+装配处提供满足协议的实现，router 与业务逻辑零改动——与前端
+``engine/tts/types.ts`` 的 ``TTSProvider`` 缝同构。
+"""
 
 import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 from sqlalchemy.orm import Session
 
 from core.config import TTS_POOL_SIZE
+from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
-from infra.tts.client import TTSRequest, VolcBidirectionalTTSClient, VolcTTSConnection
+from infra.tts.client import TTSRequest
 from infra.tts.mapper import resolve_voice_type
-from infra.tts.pool import TTSConnectionPool
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class TTSCapability(Protocol):
+    """非流式合成能力（一次性返回整段音频）。"""
+
+    async def synthesize(self, req: TTSRequest) -> bytes: ...
+
+
+@runtime_checkable
+class TTSStreamConnection(Protocol):
+    """一路流式 TTS 会话；由 ``TTSConnectionProvider.acquire()`` 产出。"""
+
+    last_usage: dict | None
+
+    async def begin_session(self, req: TTSRequest) -> None: ...
+
+    def read_stream(self) -> AsyncIterator[bytes]: ...
+
+    async def abort(self) -> None: ...
+
+
+@runtime_checkable
+class TTSConnectionProvider(Protocol):
+    """流式合成的连接来源（连接池或单连接实现均可）。"""
+
+    def acquire(self) -> AbstractAsyncContextManager[TTSStreamConnection]: ...
+
 
 _DEFAULT_TTS_CONFIG = {
     "model": "seed-tts-2.0-standard",
@@ -63,6 +99,11 @@ def load_tts_state(app_state, db: Session) -> None:
     if vc and vc.api_key:
         api_key = vc.api_key
         if api_key:
+            # 组装点（唯一出现具体供应商的地方）：业务逻辑只认 TTSCapability/
+            # TTSConnectionProvider，新增/更换供应商只改这里。
+            from infra.tts.client import VolcBidirectionalTTSClient
+            from infra.tts.pool import TTSConnectionPool
+
             app_state.tts_client = VolcBidirectionalTTSClient(
                 api_key=api_key,
                 resource_id=vc.tts_resource_id,
@@ -149,21 +190,28 @@ class TTSService:
         latency_ms: int,
         status: str,
     ) -> None:
+        """写 VoiceCallLog（独立事务，best-effort）。
+
+        调用日志不能挂在请求会话上：``get_db()`` 只 close 不 commit，流式路径还会
+        中途 rollback，挂在请求会话里的行会被一起回滚 → 运营面板与成本统计恒为零。
+        与 ``infra/llm/logging.py`` 的 LLM 调用日志同约定：独立 session + commit。
+        """
         cost = round(text_length * _COST_PER_CHAR, 6) if status == "success" else 0.0
         try:
-            self.db.add(
-                VoiceCallLog(
-                    user_id=user_id,
-                    record_id=record_id,
-                    direction="tts",
-                    text_length=text_length,
-                    emotion_state=emotion_state,
-                    latency_ms=latency_ms,
-                    status=status,
-                    cost_estimated=cost,
+            with SessionLocal() as log_db:
+                log_db.add(
+                    VoiceCallLog(
+                        user_id=user_id,
+                        record_id=record_id,
+                        direction="tts",
+                        text_length=text_length,
+                        emotion_state=emotion_state,
+                        latency_ms=latency_ms,
+                        status=status,
+                        cost_estimated=cost,
+                    )
                 )
-            )
-            self.db.flush()
+                log_db.commit()
         except Exception:
             log.warning("TTS: failed to write call log", exc_info=True)
 
@@ -173,7 +221,7 @@ class TTSService:
         text: str,
         voice_type: str | None,
         user_id: int,
-        client: VolcBidirectionalTTSClient | None,
+        client: TTSCapability | None,
         emotion_state: str,
         tts_format: str,
         tts_sample_rate: int,
@@ -192,6 +240,16 @@ class TTSService:
         except CircuitOpenError:
             raise
         except Exception as e:
+            # 失败调用同样入账（status="error"）：旧实现只在成功路径写日志，
+            # 失败在成本与运营视图中完全不可见。
+            self._write_log(
+                user_id=user_id,
+                record_id=record_id,
+                emotion_state=emotion_state,
+                text_length=len(text),
+                latency_ms=int((time.perf_counter() - t0) * 1000),
+                status="error",
+            )
             log.error("TTS synthesis failed: record_id=%s user_id=%s error=%s", record_id, user_id, e)
             raise RuntimeError(f"TTS 合成失败: {str(e)[:200]}")
 
@@ -216,7 +274,7 @@ class TTSService:
         text: str,
         voice_type: str | None,
         user_id: int,
-        pool: TTSConnectionPool | None,
+        pool: TTSConnectionProvider | None,
         emotion_state: str,
         timeout: int,
         speaker_library: dict | None = None,
@@ -247,7 +305,7 @@ class TTSService:
         # Eager phase — CircuitOpenError / RuntimeError propagate pre-headers.
         conn_ctx = pool.acquire()
 
-        async def _acquire() -> VolcTTSConnection:
+        async def _acquire() -> TTSStreamConnection:
             return await conn_ctx.__aenter__()
 
         conn = await _TTS_CIRCUIT_BREAKER.call(_acquire)

@@ -4629,6 +4629,18 @@
               "type": "integer",
               "title": "Feedback Id"
             }
+          },
+          {
+            "name": "overwrite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "已有回复时是否覆盖（默认拒绝）",
+              "default": false,
+              "title": "Overwrite"
+            },
+            "description": "已有回复时是否覆盖（默认拒绝）"
           }
         ],
         "requestBody": {
@@ -5086,7 +5098,7 @@
           "训练类型"
         ],
         "summary": "List Profiles",
-        "description": "Return all registered training types with metadata.",
+        "description": "Return the registered training type with metadata.",
         "operationId": "list_profiles_api_profiles_get",
         "responses": {
           "200": {
@@ -5334,7 +5346,7 @@
           "通用问答"
         ],
         "summary": "Get Section Text",
-        "description": "Return the full textbook section text for a citation (no LLM).",
+        "description": "Return the full textbook section text for a citation (no LLM).\n\n``section`` 是引用卡片传回的 ``chapter/heading`` key（见 chapter_index.make_section_key）。",
         "operationId": "get_section_text_api_qa_section_text_get",
         "parameters": [
           {
@@ -6162,16 +6174,16 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "$ref": "#/components/schemas/QuestionnaireTrigger"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "触发事件: before_training / after_scoring / manual",
+              "description": "触发时点: before_training / after_scoring",
               "title": "Trigger"
             },
-            "description": "触发事件: before_training / after_scoring / manual"
+            "description": "触发时点: before_training / after_scoring"
           }
         ],
         "responses": {
@@ -7851,6 +7863,24 @@
             "description": "按状态筛选(in_progress/completed)"
           },
           {
+            "name": "review_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按复核状态筛选(pending=已完成未复核/reviewed=已复核)",
+              "title": "Review Status"
+            },
+            "description": "按复核状态筛选(pending=已完成未复核/reviewed=已复核)"
+          },
+          {
             "name": "date_from",
             "in": "query",
             "required": false,
@@ -7983,6 +8013,52 @@
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedResponse_TrainingRecordBrief_"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/records/{record_id}/emotion-events": {
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Emotion Events",
+        "description": "情绪事件历史（批次 A-3 轨迹图数据源）：按序返回事件 + 4D 状态快照。\n\n前端据此绘制 trust/anxiety/irritation/cooperation 轨迹与事件标注。",
+        "operationId": "get_emotion_events_api_training_records__record_id__emotion_events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -8491,6 +8567,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScoreReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/tools": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Post Tool Command",
+        "operationId": "post_tool_command_api_training__record_id__tools_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToolCommandRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolCommandResponse"
                 }
               }
             }
@@ -9318,6 +9451,17 @@
             "type": "boolean",
             "title": "Is Closed",
             "default": false
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts"
           }
         },
         "type": "object",
@@ -9565,7 +9709,7 @@
               }
             ],
             "title": "Max Attempts",
-            "description": "最大尝试次数，None 为不限制"
+            "description": "最大尝试次数；显式 null = 不限制，请求未携带该键 = 不修改"
           }
         },
         "additionalProperties": false,
@@ -9777,9 +9921,8 @@
             "default": true
           },
           "trigger_event": {
-            "type": "string",
-            "maxLength": 30,
-            "title": "Trigger Event",
+            "$ref": "#/components/schemas/QuestionnaireTrigger",
+            "description": "触发时点：before_training（训练入口）/ after_scoring（评分完成后）",
             "default": "before_training"
           }
         },
@@ -10989,6 +11132,23 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "auto_fix_attempted": {
+            "type": "boolean",
+            "title": "Auto Fix Attempted",
+            "default": false
+          },
+          "auto_fix_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Fix At"
           }
         },
         "type": "object",
@@ -13189,6 +13349,15 @@
         "type": "object",
         "title": "QuestionnaireTemplateUpdate"
       },
+      "QuestionnaireTrigger": {
+        "type": "string",
+        "enum": [
+          "before_training",
+          "after_scoring"
+        ],
+        "title": "QuestionnaireTrigger",
+        "description": "CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。\n\n``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；\n``AFTER_SCORING``：教师端评分/复核完成后触发（前端 TeacherRecordDetail）。\n历史后台默认值 ``after_training`` 无任何触发点，已废弃（新写入一律被枚举拒绝）。"
+      },
       "RankingItem": {
         "properties": {
           "user_id": {
@@ -13629,6 +13798,45 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "raw_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Total"
+          },
+          "mapping_version": {
+            "type": "integer",
+            "title": "Mapping Version",
+            "default": 0
+          },
+          "fallback": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback"
+          },
+          "reviewed_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed Total"
           }
         },
         "type": "object",
@@ -14499,7 +14707,7 @@
           "status": {
             "type": "string",
             "title": "Status",
-            "default": "pending"
+            "default": "not_started"
           },
           "record_id": {
             "anyOf": [
@@ -14522,6 +14730,17 @@
               }
             ],
             "title": "Score Total"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
           },
           "is_overdue": {
             "type": "boolean",
@@ -14553,7 +14772,8 @@
           "start_time",
           "end_time"
         ],
-        "title": "StudentAssignmentItem"
+        "title": "StudentAssignmentItem",
+        "description": "学生作业卡片 —— status 取值见 core.statuses.AssignmentProgressStatus。\n\n与教师端 ``AssignmentStudentItem`` 同一推导（modules.assignments.progress），\n状态词表不再混用训练记录状态（pending → not_started）。"
       },
       "StudentDailyStat": {
         "properties": {
@@ -15379,6 +15599,85 @@
           "user_id"
         ],
         "title": "TokenResponse"
+      },
+      "ToolCommandRequest": {
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "title": "Cmd",
+            "description": "指令全名，如 \"physical_exam.measure\""
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          },
+          "idem_key": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Idem Key",
+            "description": "客户端幂等键（重试复用同一 key）"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision",
+            "description": "上次已知 revision；首次调用可传 null"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cmd",
+          "idem_key"
+        ],
+        "title": "ToolCommandRequest"
+      },
+      "ToolCommandResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "data",
+          "revision"
+        ],
+        "title": "ToolCommandResponse"
       },
       "TrainingNotificationItem": {
         "properties": {

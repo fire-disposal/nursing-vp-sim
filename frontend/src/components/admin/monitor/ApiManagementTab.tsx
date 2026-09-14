@@ -8,13 +8,15 @@ import {
 	fetchSecrets,
 	testAllSecrets,
 } from "@/api";
-import type { ApiSecretResponse } from "@/api/admin/api-management-types";
+import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import SecretList from "./SecretList";
 import SecretModal from "./SecretModal";
+
+type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 
 export default function ApiManagementTab() {
 	const toast = useToast();

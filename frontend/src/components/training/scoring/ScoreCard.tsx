@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
+import type { MessageBus } from "@/engine/types";
+import type { DetailScoreCategory, ScoreData } from "@/types/score";
+import { getScoreDenominator } from "@/utils/score";
 
 // ── Circular Progress Ring ──
 
@@ -70,9 +72,9 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 
 // ── Dimension Section ──
 
-function DimensionSection({ name, dimension }: { name: string; dimension: ScoreDimension }) {
+function DimensionSection({ name, dimension }: { name: string; dimension: DetailScoreCategory }) {
 	const [barWidth, setBarWidth] = useState("0%");
-	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (Number.isFinite(i.max) && i.max > 0 ? i.max : 3), 0) ?? 100;
+	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (typeof i.max === "number" && i.max > 0 ? i.max : 3), 0) ?? 100;
 	const percentage = dimMax > 0 ? (dimension.score / dimMax) * 100 : 0;
 	const barColor =
 		percentage >= 80
@@ -103,7 +105,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 			{dimension.items && dimension.items.length > 0 && (
 				<Box mt={8}>
 					{dimension.items.map((item, i) => {
-						const itemMax = Number.isFinite(item.max) && item.max > 0 ? item.max : 3;
+						const itemMax = typeof item.max === "number" && item.max > 0 ? item.max : 3;
 						return (
 							<Group key={i} justify="space-between" wrap="nowrap" ml={4}>
 								<Text size="xs" c="dimmed">{item.name || `项目 ${i + 1}`}</Text>
@@ -132,13 +134,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 
 	const handleRestart = () => onRestart?.();
 
-	const totalMax = useMemo(() => {
-		const sumOfDimMax = score.detail_scores
-			? Object.values(score.detail_scores).reduce((sum, d) => sum + (d.max || 0), 0)
-			: 0;
-		const denom = Math.max(sumOfDimMax, score.total_score || 0) || 100;
-		return denom;
-	}, [score.detail_scores, score.total_score]);
+	const totalMax = useMemo(() => getScoreDenominator(score), [score]);
 
 	return (
 		<Modal opened onClose={handleClose} size={448} centered withinPortal>

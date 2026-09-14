@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from core.exceptions import ValidationError
+
 log = logging.getLogger(__name__)
 # ── 操作定义表（所有标准操作始终可用，未配置时回落默认值）──────────
 
@@ -275,7 +277,9 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
     op_defs = _collect_op_defs(anchors)
     op_def = op_defs.get(op_type)
     if not op_def:
-        return {"type": "error", "label": "未知操作", "value": f"不支持的操作: {op_type}", "unit": ""}
+        # 客户端错误（400）：旧实现返回 {"type": "error", ...}，被 PhysicalExamHandler
+        # 当作正常结果写进 exam_results / 审计 / 评分时间线（一条伪查体记录）。
+        raise ValidationError(detail=f"不支持的操作: {op_type}")
 
     if op_type in _VITAL_OPS or op_type == "pain":
         value = _resolve_physiology(case_data).get(op_type, "—")
@@ -356,7 +360,9 @@ def _try_from_config(path: tuple[str, ...], anchors: dict, case_data: dict) -> s
         if nrs is None and isinstance(vs, dict):
             nrs = vs.get("pain_score")
         if nrs is not None:
-            return str(nrs)
+            # 与其它体征同样走 range 归一化：病例里 pain_score 常写成 "4-6"，
+            # 直接返回原串会让下游 float() 抛错（场景体征写入与情绪桥接双双静默失败）。
+            return _resolve_range(str(nrs))
         return None
 
     return None

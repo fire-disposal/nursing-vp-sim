@@ -9,52 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TextInput } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
-
-// ── Types: raw from API vs editor format ──
-interface RubricAnchor { score: number; description: string; }
-interface RubricItem { id: string; name: string; anchors: RubricAnchor[]; }
-interface RubricDimension { id: string; name: string; max: number; description?: string; items: RubricItem[]; }
-interface RubricData { id: string; name: string; version: string; total_max: number; dimensions: RubricDimension[]; }
-
-// Raw API types
-interface RubricItemRaw { id: string; name: string; anchors: Record<string, string>; }
-interface RubricDataRaw {
-	id: string; name: string; version: string; total_max: number;
-	scale: number; raw_max: number; raw_scale: number;
-	dimensions: { id: string; name: string; max: number; description?: string; items: RubricItemRaw[] }[];
-}
-
-function anchorsToArray(raw: Record<string, string>): RubricAnchor[] {
-	return Object.entries(raw)
-		.map(([s, d]) => ({ score: Number(s), description: d }))
-		.sort((a, b) => a.score - b.score);
-}
-function anchorsToRecord(arr: RubricAnchor[]): Record<string, string> {
-	const rec: Record<string, string> = {};
-	for (const a of arr) rec[String(a.score)] = a.description;
-	return rec;
-}
-function rawToDraft(raw: RubricDataRaw): RubricData {
-	return {
-		id: raw.id, name: raw.name, version: raw.version, total_max: raw.total_max,
-		dimensions: raw.dimensions.map((d) => ({
-			id: d.id, name: d.name, max: d.max, description: d.description,
-			items: d.items.map((i) => ({ id: i.id, name: i.name, anchors: anchorsToArray(i.anchors) })),
-		})),
-	};
-}
-function draftToExport(draft: RubricData): RubricDataRaw {
-	return {
-		id: draft.id, name: draft.name, version: draft.version,
-		total_max: draft.total_max, scale: 1, raw_max: draft.total_max, raw_scale: 1,
-		dimensions: draft.dimensions.map((d) => ({
-			id: d.id, name: d.name, max: d.max, description: d.description,
-			items: d.items.map((i) => ({ id: i.id, name: i.name, anchors: anchorsToRecord(i.anchors) })),
-		})),
-	};
-}
-
-function _cloneRubric(r: RubricData): RubricData { return JSON.parse(JSON.stringify(r)); }
+import {
+	type RubricAnchor,
+	type RubricData,
+	type RubricDataRaw,
+	type RubricDimension,
+	type RubricItem,
+	draftToExport,
+	rawToDraft,
+} from "@/utils/rubric";
 
 function downloadJson(data: unknown, filename: string) {
 	const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -232,6 +195,12 @@ export default function RubricPage() {
 					</Group>
 				}
 			/>
+
+			{/* 评分刻度不在本页编辑：导出时原样写回部署文件，改动会使历史分与新分不可比 */}
+			<Text size="xs" c="dimmed">
+				评分刻度（导出原样保留，只读）：展示满分 {displayData.scale} · 原始满分{" "}
+				{displayData.raw_max} · 原始每项上限 {displayData.raw_scale}
+			</Text>
 
 			{editing ? (
 				<>

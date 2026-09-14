@@ -106,4 +106,22 @@ export class PcmStreamPlayer {
 		this.sources.clear();
 		this.endTime = 0;
 	}
+
+	/**
+	 * 释放 AudioContext。
+	 *
+	 * 浏览器对每页并发 AudioContext 有硬上限（Chrome ≈6），而每次进入训练页都会新建一个
+	 * PcmStreamPlayer：只 stop 不 close 会在几次进出后静默失效（TTS 再也发不出声音），
+	 * 并常驻音频线程内存。prime() 会按需重建，因此 dispose 后仍可安全复用。
+	 */
+	dispose(): void {
+		this.stop();
+		const ctx = this.ctx;
+		this.ctx = null;
+		if (ctx && ctx.state !== "closed") {
+			void ctx.close().catch(() => {
+				/* already closing */
+			});
+		}
+	}
 }

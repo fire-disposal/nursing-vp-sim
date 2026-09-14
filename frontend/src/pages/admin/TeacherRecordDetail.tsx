@@ -1,24 +1,22 @@
 import { Anchor, Box, Container, Flex, Paper, Stack, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconChartBar } from "@tabler/icons-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-	exportRecordDetail,
-	getRecordDetail,
-	retryScoring,
-	submitScoreReview,
-} from "@/api";
+import { getRecordDetail, submitScoreReview } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
+import { useScoringRetry } from "@/hooks/useScoringRetry";
 import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
-import type { DetailScoreCategory, ScoreData } from "@/types/score";
+import type { DetailScoreCategory } from "@/types/score";
+import { downloadRecordDetail } from "@/utils/export-record";
+import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "../record-detail/MessagePlayback";
 import MessagePlayback from "../record-detail/MessagePlayback";
 import RecordStatsBar from "../record-detail/RecordStatsBar";
@@ -27,8 +25,7 @@ import ScoringPendingBanner from "../record-detail/ScoringPendingBanner";
 
 export default function TeacherRecordDetail() {
 	const { id } = useParams<{ id: string }>();
-	const [retrying, setRetrying] = useState(false);
-	const [retryProgress, setRetryProgress] = useState<number | null>(null);
+	const { retrying, retryProgress, retry } = useScoringRetry(id);
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
 	const [submittingReview, setSubmittingReview] = useState(false);
 	// 证据 ↔ 对话气泡联动（工作台，与结果页同款）
@@ -57,12 +54,7 @@ export default function TeacherRecordDetail() {
 	// 复核信息随详情响应一次携带（后端已并入 score.review_status/reviewed_by_name 等），
 	// 不再串行发 GET /review —— 消除详情页瀑布等待。
 	const review = useMemo(() => {
-		const s = record?.score as (ScoreData & {
-			review_status?: string | null;
-			reviewed_by_name?: string | null;
-			reviewed_at?: string | null;
-			review_comment?: string | null;
-		}) | null | undefined;
+		const s = toScoreData(record?.score);
 		if (!s?.review_status) return null;
 		return {
 			review_status: s.review_status,
@@ -80,13 +72,6 @@ export default function TeacherRecordDetail() {
 
 	const isReviewed = review?.review_status === "reviewed";
 	const hasScoreReview = permissions.includes("score_review");
-
-	const abortRef = useRef<AbortController | null>(null);
-	useEffect(() => {
-		return () => {
-			abortRef.current?.abort();
-		};
-	}, []);
 
 	const caseId = record?.case_id ?? null;
 	const recordIdNum = id ? Number(id) : undefined;
@@ -110,63 +95,17 @@ export default function TeacherRecordDetail() {
 		}
 	}, [record?.scoring_status, hasScoreReview, postQCheck]);
 
-	const sleep = (ms: number, signal: AbortSignal) =>
-		new Promise<void>((resolve) => {
-			const timer = setTimeout(resolve, ms);
-			signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
-		});
-
 	const handleRetryScoring = async () => {
-		if (retrying) return;
 		if (hasScoreReview && isReviewed) {
 			const ok = await confirm({ title: "重新评分", message: "重新评分将丢弃已有的教师复核，确定继续？" });
 			if (!ok) return;
 		}
-		setRetrying(true);
-		setRetryProgress(0);
-		const controller = new AbortController();
-		abortRef.current = controller;
-		try {
-			await retryScoring(id!, hasScoreReview && isReviewed ? { force: true } : undefined);
-			toast.info("评分已重新触发，请稍后刷新查看结果");
-			for (let i = 0; i < 30; i++) {
-				setRetryProgress(i + 1);
-				if (controller.signal.aborted) break;
-				await sleep(3000, controller.signal);
-				if (controller.signal.aborted) break;
-				const { data } = await getRecordDetail(id!);
-				if (controller.signal.aborted) break;
-				if (data.scoring_status === "completed" && data.score) {
-					queryClient.setQueryData(queryKeys.training.detail(id!), data);
-					toast.success("评分已完成");
-					break;
-				}
-				if (data.scoring_status === "failed") {
-					queryClient.setQueryData(queryKeys.training.detail(id!), data);
-					toast.error(`评分再次失败: ${data.scoring_error || "未知错误"}`);
-					break;
-				}
-			}
-		} catch (err: unknown) {
-			if (err instanceof DOMException && err.name === "AbortError") return;
-			toast.apiError(err, "重试评分失败");
-		} finally {
-			setRetrying(false);
-			setRetryProgress(null);
-		}
+		await retry(hasScoreReview && isReviewed);
 	};
 
 	const handleExport = async () => {
 		try {
-			const res = await exportRecordDetail(id!);
-			const url = URL.createObjectURL(
-				new Blob([res.data], { type: "text/plain" }),
-			);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `record_${id}.txt`;
-			a.click();
-			URL.revokeObjectURL(url);
+			await downloadRecordDetail(id!);
 		} catch {
 			toast.error("导出失败");
 		}
@@ -195,11 +134,11 @@ export default function TeacherRecordDetail() {
 	};
 
 	const mergedDetailScores = useMemo(() => {
-		if (!record?.score) return undefined;
-		const recScore = record.score as ScoreData;
-		const scReview = recScore?.review;
-		if (!scReview?.detail_scores || !recScore?.detail_scores) return recScore?.detail_scores;
-		const merged = { ...recScore.detail_scores } as Record<string, unknown>;
+		const recScore = toScoreData(record?.score);
+		if (!recScore) return undefined;
+		const scReview = recScore.review;
+		if (!scReview?.detail_scores || !recScore.detail_scores) return recScore.detail_scores;
+		const merged: Record<string, unknown> = { ...recScore.detail_scores };
 		for (const [key, val] of Object.entries(scReview.detail_scores)) {
 			const existing = merged[key];
 			if (existing && typeof existing === "object") {
@@ -227,19 +166,8 @@ export default function TeacherRecordDetail() {
 					60000,
 			)
 		: null;
-	const scoreMax = record.score?.detail_scores
-		? Object.values(record.score.detail_scores).reduce((sum: number, value) => {
-				if (
-					value &&
-					typeof value === "object" &&
-					"max" in (value as DetailScoreCategory)
-				)
-					return sum + ((value as DetailScoreCategory).max || 0);
-				return sum + 30;
-			}, 0)
-		: 100;
-
-	const recordScore = record.score as ScoreData | null;
+	const recordScore = toScoreData(record.score);
+	const scoreMax = getScoreDenominator(recordScore);
 	const scoreReview = recordScore?.review ?? null;
 	const messages = (record.messages || []) as MessageData[];
 
@@ -249,7 +177,7 @@ export default function TeacherRecordDetail() {
 			[key]: !prev[key],
 		}));
 	};
-	const hasScore = !!record.score;
+	const hasScore = !!recordScore;
 
 	const handleEvidenceClick = (evidence: string) => {
 		const probe = evidence.slice(0, 12);
@@ -257,7 +185,7 @@ export default function TeacherRecordDetail() {
 		const match = messages.find((m) => m.content.includes(probe));
 		setHighlightMsgId(match?.id ?? null);
 	};
-	const detailScores = (mergedDetailScores || {}) as Record<string, DetailScoreCategory>;
+	const detailScores = mergedDetailScores ?? {};
 	const categories = Object.entries(detailScores);
 	const hasDetailItems = categories.some(
 		([, v]) =>
@@ -328,7 +256,6 @@ export default function TeacherRecordDetail() {
 								onToggleExpand={handleToggleExpand}
 								onReviewClick={() => setShowReviewEditor(true)}
 								onExport={handleExport}
-								onDetailedScoreClick={() => {}}
 								onEvidenceClick={handleEvidenceClick}
 								scoreMax={scoreMax}
 								categories={categories}
@@ -350,9 +277,9 @@ export default function TeacherRecordDetail() {
 				/>
 			)}
 
-			{showReviewEditor && record.score && (
+			{showReviewEditor && recordScore && (
 				<ReviewEditor
-					score={record.score as ScoreData}
+					score={recordScore}
 					review={review ?? null}
 					onSubmit={handleSubmitReview}
 					onClose={() => setShowReviewEditor(false)}

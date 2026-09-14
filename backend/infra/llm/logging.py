@@ -7,7 +7,7 @@ import logging
 import time
 from pathlib import Path
 
-from core.config import LLM_COST_CURRENCY
+from core.config import LLM_COST_CURRENCY, LLM_LOG_QUEUE_MAX_BYTES, LLM_LOG_QUEUE_MAX_ENTRIES
 from core.database import SessionLocal
 from core.statuses import LLMCallStatus
 from models import LLMCallLog
@@ -94,17 +94,41 @@ def _build_entry(
 
 
 class LogWorker:
-    def __init__(self, overflow_dir: str = "", overflow_max_size_mb: int = 10, overflow_max_files: int = 5):
-        self._queue: asyncio.Queue[dict] | None = None
+    """异步 LLM 调用日志队列 —— 双重上限（条数 + 字节）防内存爆炸。
+
+    每条日志含 prompt/response 全文（学校场景单条可达数十~数百 KB），只按"条数"封顶
+    （原 ``maxsize=2000``）最坏可占数百 MB，直接把 worker 推向 OOM。这里改为：
+
+    - **字节预算**：``max_queue_bytes``（默认 32MB）为硬上限，超预算先丢**最旧**条目；
+    - **条数上限**：``max_queue_entries`` 保留既有 2000 的护栏，防止大量小条目堆内存；
+    - **丢弃计数**：``dropped_entries`` / ``dropped_bytes`` 可查（诊断快照 + WARNING 日志）；
+    - **落盘兜底**：配了 ``overflow_dir`` 时，被丢弃的条目仍写入 JSONL 溢出文件，由
+      ``_drain_overflow_files`` 后续回收 —— 丢弃不等于丢失。
+    """
+
+    def __init__(
+        self,
+        overflow_dir: str = "",
+        overflow_max_size_mb: int = 10,
+        overflow_max_files: int = 5,
+        max_queue_bytes: int = LLM_LOG_QUEUE_MAX_BYTES,
+        max_queue_entries: int = LLM_LOG_QUEUE_MAX_ENTRIES,
+    ):
+        self._queue: asyncio.Queue[tuple[dict, int]] | None = None
         self._task: asyncio.Task | None = None
         self._overflow_dir = Path(overflow_dir) if overflow_dir else None
         self._overflow_max_bytes = overflow_max_size_mb * 1024 * 1024
         self._overflow_max_files = max(overflow_max_files, 1)
+        self._max_queue_bytes = max(1, max_queue_bytes)
+        self._max_queue_entries = max(1, max_queue_entries)
+        self._queued_bytes = 0
+        self._dropped_entries = 0
+        self._dropped_bytes = 0
         if self._overflow_dir:
             self._overflow_dir.mkdir(parents=True, exist_ok=True)
 
     async def start(self):
-        self._queue = asyncio.Queue(maxsize=2000)
+        self._queue = asyncio.Queue()
         self._task = asyncio.create_task(self._loop())
 
     async def stop(self):
@@ -114,6 +138,7 @@ class LogWorker:
                 await self._task
             self._task = None
         self._queue = None
+        self._queued_bytes = 0
 
     async def _loop(self):
         batch: list[dict] = []
@@ -122,7 +147,8 @@ class LogWorker:
             try:
                 if self._queue is None:
                     break
-                item = await asyncio.wait_for(self._queue.get(), timeout=2.0)
+                item, size = await asyncio.wait_for(self._queue.get(), timeout=2.0)
+                self._queued_bytes -= size
                 batch.append(item)
             except TimeoutError:
                 _drain_count += 1
@@ -143,9 +169,11 @@ class LogWorker:
         if self._queue is not None:
             while not self._queue.empty():
                 try:
-                    batch.append(self._queue.get_nowait())
+                    item, size = self._queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
+                self._queued_bytes -= size
+                batch.append(item)
         if self._overflow_dir is not None:
             self._drain_overflow_files(batch)
         if batch:
@@ -233,13 +261,60 @@ class LogWorker:
             cache_hit_tokens=cache_hit_tokens,
             cache_miss_tokens=cache_miss_tokens,
         )
-        try:
-            self._queue.put_nowait(entry)
-        except asyncio.QueueFull:
-            if self._overflow_dir:
-                self._write_overflow(entry)
-            else:
-                log.error("llm log queue full (%d), entry lost", self._queue.maxsize)
+        self._enqueue_entry(entry)
+
+    @staticmethod
+    def _entry_bytes(entry: dict) -> int:
+        # 队列内存占用 ≈ 序列化长度；用 json 长度近似（含中文按字符计，够保守）。
+        return len(_json.dumps(entry, ensure_ascii=False, default=str))
+
+    def _enqueue_entry(self, entry: dict) -> None:
+        if self._queue is None:
+            return
+        size = self._entry_bytes(entry)
+        dropped: list[dict] = []
+        # 超预算/超条数 → 丢最旧的条目（保留最新调用现场），而不是丢新条目。
+        while not self._queue.empty() and (
+            self._queued_bytes + size > self._max_queue_bytes or self._queue.qsize() >= self._max_queue_entries
+        ):
+            try:
+                old, old_size = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            self._queued_bytes -= old_size
+            self._dropped_entries += 1
+            self._dropped_bytes += old_size
+            dropped.append(old)
+        self._queue.put_nowait((entry, size))
+        self._queued_bytes += size
+        if dropped:
+            # 落盘兜底：被挤出内存的条目仍进 JSONL 溢出文件，由 drain 回收。
+            for old in dropped:
+                if self._overflow_dir:
+                    self._write_overflow(old)
+            log.warning(
+                "llm log queue over budget: dropped %d oldest entries "
+                "(queued=%dB/%dB, entries=%d/%d, 累计丢弃 %d 条/%.1fMB)",
+                len(dropped),
+                self._queued_bytes,
+                self._max_queue_bytes,
+                self._queue.qsize(),
+                self._max_queue_entries,
+                self._dropped_entries,
+                self._dropped_bytes / 1024 / 1024,
+            )
+
+    def queue_stats(self) -> dict:
+        """队列水位与丢弃计数 —— 供诊断快照/监控读取。"""
+        queued = self._queue.qsize() if self._queue is not None else 0
+        return {
+            "queued_entries": queued,
+            "queued_bytes": self._queued_bytes,
+            "max_entries": self._max_queue_entries,
+            "max_bytes": self._max_queue_bytes,
+            "dropped_entries": self._dropped_entries,
+            "dropped_bytes": self._dropped_bytes,
+        }
 
     def _overflow_path(self) -> Path:
         ts = time.strftime("%Y%m%d_%H%M%S")

@@ -48,7 +48,7 @@ export default function QuestionnairesTab() {
 	const [assignForm, setAssignForm] = useState<AssignForm>({
 		case_ids: [],
 		is_required: true,
-		trigger_event: "after_training",
+		trigger_event: "before_training",
 	});
 	const LIMIT = 20;
 
@@ -196,13 +196,13 @@ export default function QuestionnairesTab() {
 			setAssignForm({
 				case_ids: detail.case_ids || [],
 				is_required: true,
-				trigger_event: "after_training",
+				trigger_event: "before_training",
 			});
 		} catch {
 			setAssignForm({
 				case_ids: [],
 				is_required: true,
-				trigger_event: "after_training",
+				trigger_event: "before_training",
 			});
 		}
 		setShowAssign(true);

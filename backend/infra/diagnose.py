@@ -229,11 +229,21 @@ class DiagnoseService:
             router = getattr(self._app_ref.state, "llm_router", None) if self._app_ref else None
             if router is None:
                 return {"status": "not_loaded"}
-            return {
+            status = {
                 "degraded_providers": router.degraded_count() if hasattr(router, "degraded_count") else 0,
                 "global_degraded": getattr(router, "global_degraded", False),
                 "degraded_by_reason": router.degraded_by_reason() if hasattr(router, "degraded_by_reason") else {},
             }
+            # env 兜底与落库失败此前"只记不读"：没有任何出口能看出"钱花在 env key 上"
+            # 或"成本账没写进 DB"。这里一并透出（均为 worker-local 进程内计数）。
+            if hasattr(router, "env_fallback_usage"):
+                status["env_fallback"] = router.env_fallback_usage()
+            if hasattr(router, "persist_failures"):
+                status["persist_failures"] = router.persist_failures
+            log_worker = getattr(self._app_ref.state, "log_worker", None) if self._app_ref else None
+            if log_worker is not None and hasattr(log_worker, "queue_stats"):
+                status["log_queue"] = log_worker.queue_stats()
+            return status
         except Exception as exc:
             return {"status": "error", "detail": str(exc)[:200]}
 

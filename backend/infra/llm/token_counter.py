@@ -10,9 +10,14 @@ Token 换算比例 (官方中文文档):
 
 峰谷计费 (官方，以正式通知为准): 高峰时段价格为平时 2 倍，适用所有计费项；
 高峰时段 = 北京时间每日 09:00~12:00 与 14:00~18:00。
+
+估算 vs 真实用量 (评审 R4): 上面的字符比例只是估算，API 返回 usage 时真实 token 数
+通常更高。`reconcile_tokens` 是对账入口：给出差值/比例供日志与指标消费，调用方据此
+把预算按真实值校正（见 modules.training.context.budget.resolve_token_scale）。
 """
 
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 
 # ── 官方换算比例 ──
@@ -36,13 +41,61 @@ _PEAK_HOUR_RANGES = ((9, 12), (14, 18))  # 北京 09:00~12:00、14:00~18:00（�
 
 
 def estimate_tokens(text: str) -> int:
-    """基于 DeepSeek 官方比例估算 token 数。API 返回 usage 时不应调用此函数。"""
+    """基于 DeepSeek 官方比例估算 token 数。API 返回 usage 时不应调用此函数。
+
+    2026-09-14 校准（staging 生产语料 10 875 条 LLM 调用日志，`prompt_tokens / request_chars`）：
+
+    | purpose | 调用数 | 实测 tokens/char | 标准差 |
+    |---|---|---|---|
+    | patient_chat | 5306 | **0.6498** | 0.079 |
+    | emotion_analysis | 4499 | 0.5506 | 0.021 |
+    | scoring_feedback | 525 | 0.5746 | 0.020 |
+    | scoring | 516 | 0.4554 | 0.034 |
+    | qa | 27 | 2.4925 | 5.54 |
+
+    → 主用途漂移 ≤8%，本估算器（0.6/0.3 混合）对 `patient_chat` 实际落在 0.65，
+    与真实值吻合；因此**不需要**按轮反馈校正，`context.budget.resolve_token_scale`
+    仅作为换模型/非中文内容时的安全网保留（默认 1.0）。
+
+    注意 `qa`：实测比值 2.49 且方差极大，说明其 `request_chars` 未计入工具结果/RAG 注入的
+    内容——该用途的 token 估算不可信，若要按 token 管控 qa 需先修 `request_chars` 口径。
+    """
     if not text:
         return 0
     cjk_count = len(_CJK_RE.findall(text))
     other_count = len(text) - cjk_count
     tokens = cjk_count * _CJK_TOKENS_PER_CHAR + other_count * _EN_TOKENS_PER_CHAR
     return max(1, round(tokens))
+
+
+@dataclass(frozen=True)
+class TokenReconciliation:
+    """估算用量与 API 实际用量的对账结果（评审 R4）。
+
+    ``delta`` / ``ratio`` 供日志与指标消费：``ratio > 1`` 表示启发式低估了真实
+    用量，预算应按该比例收紧，而不是继续按 0.6/0.3 的字符比例判断。
+    """
+
+    estimated: int
+    actual: int
+    delta: int
+    ratio: float
+
+
+def reconcile_tokens(estimated: int, actual: int | None) -> TokenReconciliation:
+    """对账入口：``actual`` 为 API usage 的真实 token 数，缺省时回退为估算值。
+
+    回退（``actual is None``）时 ``delta == 0`` 且 ``ratio == 1.0``，调用方无需分支。
+    ``estimated == 0`` 时 ``ratio`` 定义为 1.0（无从比较，不做校正）。
+    """
+    est = max(0, int(estimated or 0))
+    act = est if actual is None else max(0, int(actual))
+    return TokenReconciliation(
+        estimated=est,
+        actual=act,
+        delta=act - est,
+        ratio=(act / est) if est else 1.0,
+    )
 
 
 def get_model_price_cny(model: str) -> tuple[float, float]:

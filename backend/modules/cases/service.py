@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.exceptions import ConflictError, NotFoundError
 from core.unit_of_work import unit_of_work
 from models import Case, TrainingRecord
+from modules.training.capabilities import detect_capabilities
 from schemas.case_schema import normalize_gender, validate_case_data
 
 log = logging.getLogger(__name__)
@@ -75,7 +76,8 @@ class CaseService:
             time_limit=cd.get("time_limit", 20),
             difficulty=cd.get("difficulty", 1),
             patient_personality=_personality_label(personality),
-            capabilities=cd.get("capabilities", {}),
+            # 能力由 tools.* 派生（与学生端 /api/cases 同源），不读库里的存储字段
+            capabilities=detect_capabilities(cd) if cd else {},
             is_open=case.is_open,
             created_at=case.created_at,
             training_count=training_count,

@@ -3,16 +3,17 @@
 import csv
 import io
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case, func
+from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
 from core.deps import DbSession
-from core.exceptions import ValidationError
 from core.security import require_permission
+from core.statuses import LLMCallStatus
+from infra.ops_queries import cn_day_start, cn_month_start, day_range, llm_window, local_date, local_ts, voice_window
 from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
 from schemas.voice import (
     CostBreakdown,
@@ -22,131 +23,42 @@ from schemas.voice import (
     VoiceUsageResponse,
 )
 
-_LOCAL_TZ = "Asia/Shanghai"
-
-
-def _local_ts(col):
-    """将 naive-UTC 时间列转为北京时区（先标记 UTC 再转 Asia/Shanghai）。"""
-    return func.timezone(_LOCAL_TZ, func.timezone("UTC", col))
-
-
-def _local_date(col):
-    """按北京时区对时间列取 date，用于日/月成本分桶（修正跨零点错位）。"""
-    return func.date(_local_ts(col))
-
 
 class CostService:
     def __init__(self, db: Session):
         self.db = db
 
-    # --- inlined from LLMCallLogRepository ---
-    def _llm_count_since(self, since: datetime) -> int:
-        return (
-            self.db.query(LLMCallLog)
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
-            .count()
-        )
+    # ── 窗口统计全部走 infra.ops_queries 单一查询层 ──
 
-    def _llm_success_count_since(self, since: datetime) -> int:
-        return (
-            self.db.query(LLMCallLog)
-            .filter(
-                LLMCallLog.created_at >= since,
-                LLMCallLog.created_at < datetime.now(UTC),
-                LLMCallLog.status == "success",
-            )
-            .count()
-        )
+    def _llm_stats(self, since: datetime) -> tuple:
+        w = llm_window(self.db, since)
+        return w["total"], w["success"], w["error"], float(w["avg_latency_ms"]), float(w["cost"])
 
-    def _llm_avg_latency_since(self, since: datetime) -> float:
-        return (
-            self.db.query(func.avg(LLMCallLog.latency_ms))
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
-            .scalar()
-            or 0
-        )
-
-    def _llm_total_cost_since(self, since: datetime) -> float:
-        return (
-            self.db.query(func.sum(LLMCallLog.estimated_cost))
-            .filter(
-                LLMCallLog.created_at >= since,
-                LLMCallLog.created_at < datetime.now(UTC),
-                LLMCallLog.status == "success",
-            )
-            .scalar()
-            or 0
-        )
-
-    # --- inlined from VoiceCallLogRepository ---
-    def _voice_count_direction_since(self, direction: str, since: datetime) -> int:
-        return (
-            self.db.query(VoiceCallLog)
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .count()
-        )
-
-    def _voice_count_status_since(self, direction: str, status: str, since: datetime) -> int:
-        return (
-            self.db.query(VoiceCallLog)
-            .filter(
-                VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since, VoiceCallLog.status == status
-            )
-            .count()
-        )
-
-    def _voice_sum_field_since(self, field: Any, direction: str, since: datetime):
-        return (
-            self.db.query(func.coalesce(func.sum(field), 0))
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .scalar()
-            or 0
-        )
-
-    def _voice_count_since(self, since: datetime) -> int:
-        return self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since).count()
-
-    def _voice_status_count_since(self, status: str, since: datetime) -> int:
-        return (
-            self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since, VoiceCallLog.status == status).count()
-        )
-
-    def _voice_avg_field_since(self, field: Any, since: datetime) -> float:
-        return self.db.query(func.avg(field)).filter(VoiceCallLog.created_at >= since).scalar() or 0.0
-
-    def _voice_sum_field_all_since(self, field: Any, since: datetime) -> float:
-        return self.db.query(func.coalesce(func.sum(field), 0)).filter(VoiceCallLog.created_at >= since).scalar() or 0.0
-
-    def _voice_avg_field_direction_since(self, field: Any, direction: str, since: datetime) -> float:
-        return float(
-            self.db.query(func.avg(field))
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .scalar()
-            or 0.0
-        )
+    def _voice_stats(self, since: datetime, direction: str | None = None) -> tuple:
+        windows = voice_window(self.db, since, direction=direction)
+        total = sum(w["total"] for w in windows.values())
+        success = sum(w["success"] for w in windows.values())
+        error_count = sum(w["error"] for w in windows.values())
+        latency_ms = sum(w["total_latency_ms"] for w in windows.values())
+        cost = sum(w["cost"] for w in windows.values())
+        return total, success, error_count, (latency_ms / total if total else 0.0), cost
 
     def _voice_usage(self, direction: str, since: datetime) -> VoiceUsageItem:
-        total = self._voice_count_direction_since(direction, since)
-        success = self._voice_count_status_since(direction, "success", since)
-        fallback = self._voice_count_status_since(direction, "fallback", since)
-        error_count = self._voice_count_status_since(direction, "error", since)
-        total_chars = self._voice_sum_field_since(VoiceCallLog.text_length, direction, since)
-        total_latency = self._voice_sum_field_since(VoiceCallLog.latency_ms, direction, since)
-        cost = self._voice_sum_field_since(VoiceCallLog.cost_estimated, direction, since)
+        w = voice_window(self.db, since, direction=direction).get(direction, {})
         return VoiceUsageItem(
-            calls_total=total,
-            calls_success=success,
-            calls_fallback=fallback,
-            calls_error=error_count,
-            total_chars=int(total_chars),
-            total_latency_ms=int(total_latency),
-            cost_estimated=round(float(cost), 6),
+            calls_total=w.get("total", 0),
+            calls_success=w.get("success", 0),
+            calls_fallback=w.get("fallback", 0),
+            calls_error=w.get("error", 0),
+            total_chars=w.get("chars", 0),
+            total_latency_ms=w.get("total_latency_ms", 0),
+            cost_estimated=w.get("cost", 0.0),
         )
 
     def get_usage(self) -> VoiceUsageResponse:
         now = datetime.now(UTC)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        month_start = today_start.replace(day=1)
+        today_start = cn_day_start(now)
+        month_start = cn_month_start(now)
         vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
         monthly_budget = vc.monthly_budget if vc else 0.0
         month_tts = self._voice_usage("tts", month_start)
@@ -168,46 +80,22 @@ class CostService:
             total_cost=round(total_cost or 0, 6),
         )
 
-    def _llm_stats(self, since: datetime) -> tuple:
-        total = self._llm_count_since(since)
-        success = self._llm_success_count_since(since)
-        error_count = total - success
-        avg_latency = self._llm_avg_latency_since(since)
-        total_cost = self._llm_total_cost_since(since)
-        return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
-
-    def _voice_stats(self, since: datetime) -> tuple:
-        total = self._voice_count_since(since)
-        success = self._voice_status_count_since("success", since)
-        error_count = self._voice_status_count_since("error", since)
-        avg_latency = self._voice_avg_field_since(VoiceCallLog.latency_ms, since)
-        total_cost = self._voice_sum_field_all_since(VoiceCallLog.cost_estimated, since)
-        return total, success, error_count, avg_latency, total_cost
-
-    def _voice_stats_direction(self, since: datetime, direction: str) -> tuple:
-        total = self._voice_count_direction_since(direction, since)
-        success = self._voice_count_status_since(direction, "success", since)
-        error_count = self._voice_count_status_since(direction, "error", since)
-        avg_latency = self._voice_avg_field_direction_since(VoiceCallLog.latency_ms, direction, since)
-        total_cost = self._voice_sum_field_since(VoiceCallLog.cost_estimated, direction, since)
-        return total, success, error_count, avg_latency, total_cost
-
     def _daily_series(self, days: int = 30) -> list[CostSeriesPoint]:
         now = datetime.now(UTC)
         since = now - timedelta(days=days - 1)
         llm_rows = (
             self.db.query(
-                _local_date(LLMCallLog.created_at).label("date"),
+                local_date(LLMCallLog.created_at).label("date"),
                 func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("llm_cost"),
             )
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == "success")
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == LLMCallStatus.SUCCESS)
             .group_by("date")
             .all()
         )
         llm_map = {str(r[0]): float(r[1]) for r in llm_rows}
         tts_rows = (
             self.db.query(
-                _local_date(VoiceCallLog.created_at).label("date"),
+                local_date(VoiceCallLog.created_at).label("date"),
                 func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0).label(
                     "tts_cost"
                 ),
@@ -232,8 +120,8 @@ class CostService:
 
     def get_dashboard(self) -> CostDashboardResponse:
         now = datetime.now(UTC)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        month_start = today_start.replace(day=1)
+        today_start = cn_day_start(now)
+        month_start = cn_month_start(now)
 
         vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
         voice_budget = vc.monthly_budget if vc else 0.0
@@ -257,7 +145,7 @@ class CostService:
             else 0.0
         )
 
-        voice_tts_today = self._voice_stats_direction(today_start, "tts")
+        voice_tts_today = self._voice_stats(today_start, "tts")
 
         llm_month = self._llm_stats(month_start)
         voice_month = self._voice_stats(month_start)
@@ -345,7 +233,7 @@ class CostService:
         )
 
     def get_user_breakdown(self, month_start: datetime | None = None, limit: int = 50) -> list[dict]:
-        since = month_start or datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        since = month_start or cn_month_start(datetime.now(UTC))
         rows = (
             self.db.query(
                 User.id.label("user_id"),
@@ -390,15 +278,18 @@ class CostService:
         )[:limit]
 
     def export_data(self, start_date: str, end_date: str, service: str, granularity: str) -> list[dict]:
-        now = datetime.now(UTC)
-        since = self._parse_date(start_date) if start_date else now - timedelta(days=30)
-        until = (self._parse_date(end_date) + timedelta(days=1)) if end_date else now
+        # 闭区间 [start_date, end_date]，按北京自然日解释（与 llm_monitor 筛选同一助手）。
+        since, until = day_range(start_date or None, end_date or None)
+        if since is None:
+            since = datetime.now(UTC) - timedelta(days=30)
+        if until is None:
+            until = datetime.now(UTC)
         rows: list[dict] = []
 
         date_group = (
-            func.date_trunc("month", _local_ts(LLMCallLog.created_at))
+            func.date_trunc("month", local_ts(LLMCallLog.created_at))
             if granularity == "monthly"
-            else _local_date(LLMCallLog.created_at)
+            else local_date(LLMCallLog.created_at)
         )
 
         include_llm = not service or service == "llm"
@@ -409,11 +300,14 @@ class CostService:
                 self.db.query(
                     date_group.label("date"),
                     func.coalesce(
-                        func.sum(case((LLMCallLog.status == "success", LLMCallLog.estimated_cost), else_=0)), 0
+                        func.sum(
+                            case((LLMCallLog.status == LLMCallStatus.SUCCESS, LLMCallLog.estimated_cost), else_=0)
+                        ),
+                        0,
                     ).label("cost"),
                     func.count().label("calls"),
-                    func.sum(func.cast(LLMCallLog.status == "success", type_=int)).label("success"),
-                    func.sum(func.cast(LLMCallLog.status != "success", type_=int)).label("error"),
+                    func.sum(func.cast(LLMCallLog.status == LLMCallStatus.SUCCESS, type_=Integer)).label("success"),
+                    func.sum(func.cast(LLMCallLog.status != LLMCallStatus.SUCCESS, type_=Integer)).label("error"),
                 )
                 .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < until)
                 .group_by("date")
@@ -433,9 +327,9 @@ class CostService:
 
         if include_voice:
             voice_date_group = (
-                func.date_trunc("month", _local_ts(VoiceCallLog.created_at))
+                func.date_trunc("month", local_ts(VoiceCallLog.created_at))
                 if granularity == "monthly"
-                else _local_date(VoiceCallLog.created_at)
+                else local_date(VoiceCallLog.created_at)
             )
             for direction in [service] if service == "tts" else ["tts"]:
                 for r in (
@@ -443,8 +337,8 @@ class CostService:
                         voice_date_group.label("date"),
                         func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0).label("cost"),
                         func.count().label("calls"),
-                        func.sum(func.cast(VoiceCallLog.status == "success", type_=int)).label("success"),
-                        func.sum(func.cast(VoiceCallLog.status != "success", type_=int)).label("error"),
+                        func.sum(func.cast(VoiceCallLog.status == "success", type_=Integer)).label("success"),
+                        func.sum(func.cast(VoiceCallLog.status != "success", type_=Integer)).label("error"),
                     )
                     .filter(
                         VoiceCallLog.direction == direction,
@@ -468,13 +362,6 @@ class CostService:
 
         rows.sort(key=lambda x: x["date"])
         return rows
-
-    @staticmethod
-    def _parse_date(d: str) -> datetime:
-        try:
-            return datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=UTC)
-        except (ValueError, TypeError):
-            raise ValidationError(f"无效的日期格式: {d}，请使用 YYYY-MM-DD 格式")
 
 
 router = APIRouter(prefix="/costs", tags=["成本管理"])
