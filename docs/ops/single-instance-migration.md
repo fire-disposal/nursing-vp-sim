@@ -181,3 +181,21 @@ P0–P4 已完成，剩余动作全部需要正式服 / 仓库设置权限，**�
 | 1 | `production` 环境加 **Required reviewers** | 仓库 Settings → Environments → `production` | 不配置则 tag 推送会直接发版（`deploy.yml` / `rollback.yml` 的人工闸门失效） |
 | 2 | 7 天后（≥ 2026-09-21）清理冷备卷与旧镜像 | 线上服务器 | `docker volume rm nursing-vp-staging_nursing_staging_pg_data nursing-vp-staging_nursing_staging_logs`；`docker image prune -a --filter "until=168h"` |
 | 3 | 清理早期残留空卷 `nursing-vp-sim_db_data` | 线上服务器 | `docker volume ls` 确认无引用后删除（早期项目名遗留，与本次迁移无关） |
+
+## 9. 2026-09-14 事故记录：iomt 证书过期（HTTPS 不可用）
+
+**现象**：`https://iomt.205716.xyz` 浏览器报证书过期；`test.` 域名仍指向另一站点的旧 vhost。
+
+**根因（两条独立）**
+1. **证书 SAN 含无 vhost 的域名**：`iomt` 证书 SAN = `iomt` + `test` + `claw`，而 certbot renewal 的 `webroot_map` 只映射了 `claw.205716.xyz`，该域名没有服务它的 vhost → HTTP-01 挑战必然失败。`/var/log/letsencrypt` 在 2026-09-13 20:14 已记录 `Failed to renew certificate iomt.205716.xyz: Some challenges have failed`，**但没有任何告警**，证书于 2026-09-14 02:53Z 到期。
+2. **`.bak` 文件被 nginx 加载**：手工改 vhost 时留下的 `sites-enabled/test.205716.xyz.conf.bak-*` 会被 `include sites-enabled/*` 一起加载（重复 server_name + 指向已删除容器的 `proxy_pass 9080/9081`）。已移到 `/root/nginx-archive/`。
+
+**处置**
+- 重签证书，SAN 缩到 **仅 `iomt.205716.xyz`**（`certbot certonly --cert-name iomt.205716.xyz --webroot -w /var/www/html -d iomt.205716.xyz`），新证书有效 90 天；
+- `test.205716.xyz` **不特判**：删除其 vhost，由主机级 `/etc/nginx/conf.d/00-catch-all.conf`（`default_server`）兜底 —— HTTP 一律 404、HTTPS 在 TLS 阶段拒绝握手；未知/废弃域名（含 `claw.205716.xyz`）同样被拒，不会回落到其它站点；
+- 移除仓库里的 `deploy/nginx/test.205716.xyz.conf`（该文件已无对应线上配置）。
+
+**遗留改进（未做）**
+- 证书续期缺**校验与告警**：建议服务器级加 `certs.yaml`（cert → domains → vhost → webroot）+ `cert-check`（校验 SAN 与实际 vhost/webroot 一致、<14 天且续期不可行即告警），并接进 `/opt/server-ops/monitor` 的钉钉通道；所有证书统一挂 `--deploy-hook "systemctl reload nginx"`。
+- **域名退役清单**（本次即违反）：删 vhost ＋ 从所有证书 SAN 移除 ＋ 从 renewal `webroot_map` 移除。此三条应写入 `docs/09-operations.md`。
+- 注意 `nginx -t` 失败时 `nginx -s reload` 会静默保留旧配置（软失败），运维脚本应显式判断 `nginx -t` 的退出码而非仅看 `tail`。
