@@ -127,6 +127,14 @@ cmd_backup() {
     *"PostgreSQL database dump"*) ;;
     *) rm -f "$tmp"; die "产物不是 pg_dump 明文输出（头部校验失败）" ;;
   esac
+  # 完整性：pg_dump 明文以 "PostgreSQL database dump complete" 收尾 —— 这是「整份 dump
+  # 写完」的权威标记。只看头部不够：被截断/中断的 dump 头部照样是好的。
+  local trailer
+  trailer=$(gzip -dc "$tmp" 2>/dev/null | tail -c 4000)
+  case "$trailer" in
+    *"PostgreSQL database dump complete"*) ;;
+    *) rm -f "$tmp"; die "备份不完整（缺少 pg_dump 完成标记）—— 中止部署" ;;
+  esac
 
   mv -f "$tmp" "$BACKUP_DIR/$name" || { rm -f "$tmp"; die "无法写入 $BACKUP_DIR/$name"; }
   printf '%s\n' "$BACKUP_DIR/$name" >"$STATE_FILE"
