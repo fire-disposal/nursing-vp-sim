@@ -4,7 +4,7 @@
 # 为什么需要它：2026-06-25 nursing 的定时备份 cron 被删，直到 09-15 排查才
 # 发现（81 天空档）；同期 twinsia 的每日快照连续 4 次失败也无人知晓。两次都是
 # 同一类故障——**备份坏了没人知道**，因为监控只查容器/磁盘/健康检查，不查备份。
-# 本脚本把这些检查放进 CI：每天跑一次，失败即置红（并可推钉钉）。
+# 本脚本把只读检查放进 CI：每天跑一次，失败即置红，不发送备份通知。
 #
 # 用法:  bash deploy/backup-audit.sh [user@host]
 # 退出码: 0 = 全部通过；1 = 至少一项 FAIL（CI 置红）
@@ -13,7 +13,7 @@ set -uo pipefail
 TARGET="${1:-yecaoyun}"
 
 # 远端检查体包成函数，只为了对“连接类失败”重试一次：CI 的单条 ssh 抖动不该变成
-# 一次夜间误报 + 一次钉钉打扰（实测遇到过 Connection closed）。
+# 一次夜间误报（实测遇到过 Connection closed）。
 audit_remote() {
   ssh -o ConnectTimeout=10 -o BatchMode=yes "$TARGET" 'bash -s' <<'REMOTE'
 set -uo pipefail
@@ -87,28 +87,43 @@ fi
 echo
 echo "══ 3. 部署前备份是否存在"
 for d in /opt/nursing-vp-sim/backups /opt/twinsia/backups /opt/emoguard/backups; do
-  [[ -d $d ]] || { echo "  - $d 不存在（尚未接入 pre-deploy 备份）"; continue; }
+  [[ -d $d ]] || { bad "$d 不存在（已接入栈的备份目录缺失）"; continue; }
   n=$(find "$d" -maxdepth 1 -type f \( -name 'pre-deploy-*.sql' -o -name 'pre-deploy-*.sql.gz' \) | wc -l)
   ((n > 0)) && ok "$d 有 $n 份" || bad "$d 一份都没有"
   # 明文残留：只会在“部署历史 tag”（用旧流水线代码）后出现，提醒压缩即可
   raw=$(find "$d" -maxdepth 1 -type f -name 'pre-deploy-*.sql' | wc -l)
   ((raw > 0)) && warn "$d 有 $raw 份未压缩明文（跑 pre-deploy-backup.sh transcode 可省约 80% 空间）"
-  # 锚点可见性：编辑 keep-list 时把锚点写没，会让保护**静默**失效（本次真实发生过一次）。
-  # 期望条数 = 备份恢复文档里登记的锚点清单条数；预期为 0 的栈不产生噪声。
+  # 必需锚点按名称核对清单与文件，条数相同不能证明保护仍然有效。
+  required=()
+  case "$d" in
+    /opt/nursing-vp-sim/backups) required=(pre-deploy-20260913-224143 pre-deploy-20260914-030300) ;;
+    /opt/twinsia/backups) required=(pre-deploy-20260914-234844) ;;
+  esac
   kl="$d/.pre-deploy-keep"
-  if [[ -f $kl ]]; then
-    a=$(grep -v '^#' "$kl" | grep -cv '^$')
-    exp=0
-    case "$d" in
-      /opt/nursing-vp-sim/backups) exp=2 ;;
-      /opt/twinsia/backups) exp=1 ;;
-    esac
-    if ((a >= exp)); then
-      echo "  - $kl 锚点 $a 条（期望 ≥$exp）"
-    else
-      warn "$kl 锚点只有 $a 条，期望 ≥$exp —— 可能编辑时被写没了（清单见 docs/ops/backup-restore.md）"
-    fi
+  keep_names=''
+  keep_readable=0
+  if [[ -f $kl && -r $kl ]] &&
+     keep_names=$(sed -e 's/#.*//' -e 's/[[:space:]]\{1,\}//g' -e '/^$/d' "$kl"); then
+    keep_readable=1
+  elif ((${#required[@]} > 0)); then
+    bad "$kl 缺失或不可读，无法确认必需锚点保护"
+  else
+    warn "$kl 缺失或不可读；emoguard 允许无锚点，但裁剪需要可读清单（审计不自动生成）"
   fi
+  for anchor in "${required[@]}"; do
+    if ((keep_readable)); then
+      if grep -Fxq -- "$anchor" <<<"$keep_names"; then
+        ok "$kl 包含必需锚点 $anchor"
+      else
+        bad "$kl 缺少必需锚点 $anchor"
+      fi
+    fi
+    if [[ -f "$d/$anchor.sql" || -f "$d/$anchor.sql.gz" ]]; then
+      ok "$d 必需锚点 $anchor 备份文件存在"
+    else
+      bad "$d 必需锚点 $anchor 缺少 .sql 或 .sql.gz 备份文件"
+    fi
+  done
 done
 
 echo

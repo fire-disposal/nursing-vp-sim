@@ -6,8 +6,8 @@
 # （nursing 三个月 297 MiB、twinsia 113 份），和生产库挤在同一个 50G 卷上。
 #
 # 失败语义（与流水线契约一致）：
-#   backup   失败 → 非零退出 → **部署中止**（绝不带着不可回退的状态上车）
-#   prune    失败 → 只警告，不影响部署（清理是维护动作，不该挡住发布）
+#   backup   失败 → 非零退出 → 部署中止；文件校验不等于恢复演练
+#   backup 后的 prune 失败只警告；独立 prune 失败返回非零
 #
 # 用法：
 #   pre-deploy-backup.sh backup    [--dry-run]
@@ -18,7 +18,7 @@
 # 保留规则（prune；任一条命中即保留，其余删除）：
 #   1. 最新 KEEP_N 份
 #   2. .pre-deploy-keep 里列的锚点（按“基准名”匹配，.sql 与 .sql.gz 通用）
-#   3. 最近 MIN_KEEP_HOURS 小时内新建的（防并发部署互踩）
+#   3. 最近 MIN_KEEP_HOURS 小时内新建的（额外保留窗口）
 #
 # 同体脚本（仅“站点默认值”一节不同，改动请三处同步）：
 #   nursing-vp-sim/deploy/pre-deploy-backup.sh、twinsia/scripts/ops/pre-deploy-backup.sh、
@@ -57,29 +57,18 @@ backup_files() { # 按 mtime 新→旧：每行 "<epoch> <path>"
 }
 
 keep_list_names() {
-  [[ -f $KEEP_LIST ]] || return 0
-  sed -e 's/#.*//' -e 's/[[:space:]]\{1,\}//g' "$KEEP_LIST" | grep -v '^$' || true
+  [[ -r $KEEP_LIST ]] || return 1
+  sed -e 's/#.*//' -e 's/[[:space:]]\{1,\}//g' -e '/^$/d' "$KEEP_LIST"
 }
 
-ensure_keep_list() { # $1=dry → 只报告不落盘（--dry-run 严格零写入）
-  [[ -f $KEEP_LIST ]] && return 0
-  if [[ ${1:-} == dry ]]; then
-    log "dry-run   keep-list $KEEP_LIST 不存在，正式运行时会创建空模板（锚点此刻无法评估）"
-    return 0
-  fi
-  mkdir -p "$BACKUP_DIR"
-  cat >"$KEEP_LIST" <<'EOF'
-# pre-deploy 备份的锚点：列在这里的备份永不自动删除。
-# 按“基准名”匹配，.sql 与 .sql.gz 通用（写 pre-deploy-20260913-224143 即可）。
-#
-# 什么时候加：跨结构性变更时 —— 库迁移、大版本 schema 重写、单实例收敛之类。
-# 加锚点随时可以；删锚点不可逆。锚点占用的是明文备份的存储，别无代价。
-EOF
-  log "keep-list $KEEP_LIST 不存在，已生成空模板"
+validate_retention() {
+  [[ $KEEP_N =~ ^[1-9][0-9]{0,5}$ ]] || { log "ERROR KEEP_N 必须为 1–999999"; return 1; }
+  [[ $MIN_KEEP_HOURS =~ ^(0|[1-9][0-9]{0,5})$ ]] || { log "ERROR MIN_KEEP_HOURS 必须为 0–999999"; return 1; }
+  [[ -f $KEEP_LIST && -r $KEEP_LIST ]] || { log "ERROR $KEEP_LIST 缺失或不可读，拒绝裁剪"; return 1; }
 }
 
 is_anchor() {
-  keep_list_names | grep -qxF -- "$1"
+  keep_list_names | grep -xF -- "$1" >/dev/null
 }
 
 decide() { # $1=名次(1 起) $2=mtime(epoch) $3=路径 → "keep:<原因>" 或 "prune"
@@ -95,12 +84,15 @@ cmd_backup() {
   [[ ${1:-} == --dry-run ]] && dry=1
   if (( dry )); then
     log "dry-run   会 pg_dump $PG_USER@$PG_DB（容器 $PG_CONTAINER）→ $BACKUP_DIR/pre-deploy-<时间戳>.sql.gz，随后裁剪（本次不写盘）"
-    ensure_keep_list dry
     return 0
   fi
-  ensure_keep_list
   mkdir -p "$BACKUP_DIR" || die "无法创建 $BACKUP_DIR（检查权限/磁盘）"
   local name="pre-deploy-$(date +%Y%m%d-%H%M%S).sql.gz"
+  # 锁已排除并发；同秒重复调用也不能覆盖已有备份。
+  while [[ -e $BACKUP_DIR/$name ]]; do
+    sleep 1
+    name="pre-deploy-$(date +%Y%m%d-%H%M%S).sql.gz"
+  done
   local tmp="$BACKUP_DIR/.$name.tmp.$$" errf="$BACKUP_DIR/.$name.err.$$"
 
   # 上次被 kill（超时/断连）可能留下半成品临时文件；>24h 才清理，避免误删并发运行的
@@ -127,8 +119,7 @@ cmd_backup() {
     *"PostgreSQL database dump"*) ;;
     *) rm -f "$tmp"; die "产物不是 pg_dump 明文输出（头部校验失败）" ;;
   esac
-  # 完整性：pg_dump 明文以 "PostgreSQL database dump complete" 收尾 —— 这是「整份 dump
-  # 写完」的权威标记。只看头部不够：被截断/中断的 dump 头部照样是好的。
+  # 完成标记用于排除明显截断；不证明 SQL 可恢复、角色或扩展兼容。
   local trailer
   trailer=$(gzip -dc "$tmp" 2>/dev/null | tail -c 4000)
   case "$trailer" in
@@ -137,24 +128,18 @@ cmd_backup() {
   esac
 
   mv -f "$tmp" "$BACKUP_DIR/$name" || { rm -f "$tmp"; die "无法写入 $BACKUP_DIR/$name"; }
-  printf '%s\n' "$BACKUP_DIR/$name" >"$STATE_FILE"
+  printf '%s\n' "$BACKUP_DIR/$name" >"$STATE_FILE.tmp.$$" &&
+    mv -f "$STATE_FILE.tmp.$$" "$STATE_FILE" || die "备份已保存，但无法更新 $STATE_FILE"
   log "ok        $name  $(human "$(stat -c%s "$BACKUP_DIR/$name")")"
 
-  cmd_prune || log "WARN 保留裁剪失败（不影响本次部署）"
+  (cmd_prune) || log "WARN 保留裁剪失败（不影响本次部署）"
+  return 0
 }
 
 cmd_prune() {
   local dry=0
   [[ ${1:-} == --dry-run ]] && dry=1
-  ensure_keep_list "$([[ $dry == 1 ]] && echo dry)"
-  (( KEEP_N >= 1 )) || die "KEEP_N=$KEEP_N 非法（必须 ≥1）—— 拒绝裁剪，避免删空"
-  # 没有 keep-list 时锚点机制等同失效，必须让人看见（而不是安静地按名次裁掉）
-  [[ -f $KEEP_LIST ]] || log "WARN $KEEP_LIST 不存在 —— 本次裁剪没有任何锚点保护，只按名次/时限保留"
-  # 锚点清单存在但一条有效锚点都没有：多半是编辑时被写没了（本次真实发生过）
-  if [[ -f $KEEP_LIST ]] && [[ -z $(keep_list_names) ]]; then
-    log "WARN $KEEP_LIST 里没有任何有效锚点 —— 若本应有锚点，请检查文件内容"
-  fi
-  [[ -e $KEEP_LIST && ! -r $KEEP_LIST ]] && die "$KEEP_LIST 存在但不可读 —— 锚点保护不可用，拒绝裁剪"
+  validate_retention || return 1
 
   local -a lines
   mapfile -t lines < <(backup_files)
@@ -205,7 +190,7 @@ cmd_list() {
   done
 }
 
-cmd_transcode() { # 历史明文 .sql → .sql.gz：先解压核对字节数，一致才删原件
+cmd_transcode() { # 历史明文 .sql → .sql.gz：逐字节相同才删原件
   local dry=0
   [[ ${1:-} == --dry-run ]] && dry=1
   local f gz tmp orig new n count=0 freed=0
@@ -231,10 +216,9 @@ cmd_transcode() { # 历史明文 .sql → .sql.gz：先解压核对字节数，�
       log "WARN $(basename "$f") 压缩/校验失败，保留原文件"
       continue
     fi
-    n=$(gzip -dc "$tmp" | wc -c)
-    if [[ $n != "$orig" ]]; then
+    if ! gzip -dc "$tmp" | cmp -s "$f" -; then
       rm -f "$tmp"
-      log "WARN $(basename "$f") 解压字节数不符（$n != $orig），保留原文件"
+      log "WARN $(basename "$f") 解压内容不符，保留原文件"
       continue
     fi
     mv -f "$tmp" "$gz" || { rm -f "$tmp"; log "WARN 写入 $gz 失败"; continue; }
@@ -245,7 +229,7 @@ cmd_transcode() { # 历史明文 .sql → .sql.gz：先解压核对字节数，�
     fi
     # 保留原始 mtime：排序（谁最新）与“多久算新鲜”都按备份时间算，不能因为压缩而
     # 把所有文件刷成“刚刚” —— 那会让保留判定错乱（实测：压缩后一次 prune 一份都没删）。
-    touch -r "$f" "$gz" 2>/dev/null || true
+    touch -r "$f" "$gz" || { log "WARN 无法保留时间戳，保留原文件"; continue; }
     new=$(stat -c%s "$gz")
     if rm -f -- "$f"; then
       count=$((count + 1))
@@ -260,6 +244,16 @@ cmd_transcode() { # 历史明文 .sql → .sql.gz：先解压核对字节数，�
 
 cmd="${1:-backup}"
 shift || true
+# 所有写操作共用锁；list 和 dry-run 不创建目录、锁或状态文件。
+case "$cmd" in
+  backup | prune | transcode)
+    if [[ ${1:-} != --dry-run ]]; then
+      mkdir -p "$BACKUP_DIR" || die "无法创建 $BACKUP_DIR"
+      exec 9>"$BACKUP_DIR/.pre-deploy.lock" || die "无法打开备份锁"
+      flock -w 60 9 || die "另一备份维护操作仍在运行"
+    fi
+    ;;
+esac
 case "$cmd" in
   backup | prune | list | transcode) "cmd_$cmd" "$@" ;;
   *) die "未知命令：$cmd（backup|prune|list|transcode）" ;;

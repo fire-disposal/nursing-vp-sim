@@ -60,6 +60,45 @@ jobs:
           fetch-depth: 0
           ref: ${{ steps.ref.outputs.ref || github.ref }}
 
+      # 应用保持目标 tag；新增备份工具取执行本次工作流的不可变提交，不依赖旧 tag 或浮动分支。
+      - name: Checkout workflow backup tools
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .deploy-ops
+          sparse-checkout: |
+            /deploy/pre-deploy-backup.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Preflight local deploy inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            Dockerfile.backend
+            Dockerfile.frontend
+            deploy/docker-compose.prod.yml
+            deploy/rollback.sh
+            deploy/db-backup.sh
+            .deploy-ops/deploy/pre-deploy-backup.sh
+            deploy/prune-images.sh
+            deploy/monitor/daily_report.py
+            deploy/monitor/_env.py
+            deploy/nginx/iomt.205716.xyz.conf
+            deploy/nginx/snippets/block-scanners.conf
+          )
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" || ! -r "$file" || ! -s "$file" ]]; then
+              echo "::error::Required deploy input missing, unreadable or empty: $file"
+              exit 1
+            fi
+          done
+          for file in deploy/rollback.sh deploy/db-backup.sh \
+            .deploy-ops/deploy/pre-deploy-backup.sh deploy/prune-images.sh; do
+            bash -n "$file"
+          done
+
       - name: Validate alembic migrations
         run: |
           cd backend
@@ -221,7 +260,7 @@ jobs:
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
           scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
-          scp deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
+          scp .deploy-ops/deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
           scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
 
           echo ">> Deploy monitor scripts"
@@ -326,15 +365,15 @@ jobs:
           echo "  ✓ nginx 配置已校验并 reload"
           NGINX_CFG_DEPLOY
 
-          ssh "$USER@$HOST" << DEPLOY
+          ssh "$USER@$HOST" 'bash -s' << DEPLOY
             set -e
             cd $DEPLOY_DIR
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             echo ">> Deploy v$VER"
 
             # —— 部署前备份（失败即停，绝不带着未知状态上车）——
-            # 逻辑在 deploy/pre-deploy-backup.sh（随仓库版本化）：gzip + 三道校验 + 保留裁剪。
-            # 内联在这里时既不可测试，也没有保留策略 —— 明文 dump 只增不减，且与生产库同卷。
+            # 工具由本次工作流的不可变 github.workflow_sha 提供，应用仍构建自目标 tag。
+            # gzip + 完整性校验 + 保留裁剪；旧 tag 缺少新工具不能成为跳过备份的理由。
             echo ">> Backup DB"
             bash deploy/pre-deploy-backup.sh backup
             # 兜底取值：状态文件万一缺失，也不能让 set -e 在这里把部署打断
