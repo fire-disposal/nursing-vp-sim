@@ -8,7 +8,6 @@
  *   DEPLOY_ENV        环境标识（staging | production）
  *   DEPLOY_URL        访问 URL
  *   COMMITS           最近提交列表（可选，每行一个 --oneline 格式）
- *   BACKUP_REPORT     部署前备份摘要（可选，服务器 .last-pre-deploy.report）
  */
 
 const webhook = process.env.DINGTALK_WEBHOOK;
@@ -26,7 +25,6 @@ if (env === "staging" && process.env.SKIP_STAGING_NOTIFY === "true") {
 const version = process.env.DEPLOY_VERSION || "unknown";
 const url = process.env.DEPLOY_URL || "";
 const commitsRaw = process.env.COMMITS || "";
-const backupReport = process.env.BACKUP_REPORT || "";
 
 const envLabel = env === "production" ? "🚀 正式服" : "🧪 测试服";
 const title = `${envLabel} v${version} 部署成功`;
@@ -51,10 +49,9 @@ if (commitsRaw) {
   }
 }
 
-const backupBlock = backupReport ? `\n> 🗄️ 部署前备份：${backupReport}` : "";
 const markdown = `## ${title}
 > ${ts}
-> [${url}](${url})${backupBlock}${commitsBlock}`;
+> [${url}](${url})${commitsBlock}`;
 
 const payload = {
   msgtype: "markdown",
@@ -68,18 +65,10 @@ try {
     body: JSON.stringify(payload),
   });
   const body = await resp.text();
-  // 钉钉用 HTTP 200 + errcode 表达业务结果（例如关键字不匹配 → errcode 310000）。
-  // 只看 resp.ok 会把“消息被拒”记成成功，所以这里必须解 errcode。
-  let errcode;
-  try {
-    errcode = JSON.parse(body).errcode;
-  } catch {
-    /* 非 JSON：交给下面的判定 */
-  }
-  if (resp.ok && (errcode === undefined || errcode === 0)) {
+  if (resp.ok) {
     console.log(`✓ DingTalk notified (${env})`);
   } else {
-    console.error(`✗ DingTalk failed (${resp.status}, errcode=${errcode}): ${body.slice(0, 200)}`);
+    console.error(`✗ DingTalk failed (${resp.status}): ${body.slice(0, 200)}`);
     process.exit(1);
   }
 } catch (err) {

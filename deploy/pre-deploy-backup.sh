@@ -38,7 +38,6 @@ KEEP_N="${KEEP_N:-10}"
 MIN_KEEP_HOURS="${MIN_KEEP_HOURS:-6}"
 KEEP_LIST="$BACKUP_DIR/.pre-deploy-keep"
 STATE_FILE="$BACKUP_DIR/.last-pre-deploy"
-REPORT_FILE="$BACKUP_DIR/.last-pre-deploy.report"   # 一行摘要，供部署通知引用
 
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*" >&2; }
 die() { log "ERROR $*"; exit 1; }
@@ -134,13 +133,6 @@ cmd_backup() {
   log "ok        $name  $(human "$(stat -c%s "$BACKUP_DIR/$name")")"
 
   cmd_prune || log "WARN 保留裁剪失败（不影响本次部署）"
-
-  # 一行摘要给部署通知（钉钉）用：写失败不影响备份本身，通知里少一行而已
-  local kept total
-  kept=$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'pre-deploy-*.sql' -o -name 'pre-deploy-*.sql.gz' \) | wc -l)
-  total=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)
-  printf '%s · %s · pre-deploy 保留 %s 份 · backups %s\n' \
-    "$name" "$(human "$(stat -c%s "$BACKUP_DIR/$name")")" "$kept" "$total" >"$REPORT_FILE" 2>/dev/null || true
 }
 
 cmd_prune() {

@@ -14,11 +14,6 @@ on:
   schedule:
     - cron: "30 9 * * *"
   workflow_dispatch:
-    inputs:
-      self_test:
-        description: "注入一条失败项，用于验证「审计失败 → 钉钉」通路（不触碰任何备份）"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -47,22 +42,4 @@ jobs:
             exit 1
           fi
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          bash deploy/backup-audit.sh "$USER@$HOST" "${{ inputs.self_test && '--self-test' || '' }}"
-
-      - name: Notify DingTalk (failure only)
-        if: failure()
-        env:
-          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-        run: |
-          if [ -z "$DINGTALK_WEBHOOK" ]; then
-            echo "⚠ DINGTALK_WEBHOOK 未配置 — 跳过通知"
-            exit 0
-          fi
-          TS=$(date -u '+%F %T UTC')
-          RUN="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          # 钉钉对 HTTP 200 + errcode!=0（如关键字不匹配）也算“没送到”，必须解出来
-          RESP=$(curl -s -X POST "$DINGTALK_WEBHOOK" -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg ts "$TS" --arg run "$RUN" \
-              '{msgtype:"markdown",markdown:{title:"⚠️ 备份审计失败",text:("## ⚠️ 备份审计失败\n> " + $ts + "\n\n有检查项未通过（备份可能已停）。点开看是哪一项：\n\n[查看本次审计](" + $run + ")")}}')")
-          echo "DingTalk 响应: $RESP"
-          echo "$RESP" | grep -q '"errcode":0' || { echo "::error::钉钉未确认送达（响应见上）"; exit 1; }
+          bash deploy/backup-audit.sh "$USER@$HOST"
