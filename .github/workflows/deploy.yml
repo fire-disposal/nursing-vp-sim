@@ -454,6 +454,12 @@ jobs:
             echo "⚠ DINGTALK_WEBHOOK not set — skipping"
             exit 0
           fi
+          # 部署前备份的一行摘要（由 pre-deploy-backup.sh 写在服务器上）：
+          # 取不到就略过这一行，绝不让通知环节影响部署结果
+          BACKUP_REPORT=$(ssh -o ConnectTimeout=8 -o BatchMode=yes \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            'cat /opt/nursing-vp-sim/backups/.last-pre-deploy.report 2>/dev/null' || true)
+          export BACKUP_REPORT
           node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
 
       - name: "✅ Deployed"

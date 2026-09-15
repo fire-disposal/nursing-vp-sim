@@ -6,13 +6,20 @@
 # 同一类故障——**备份坏了没人知道**，因为监控只查容器/磁盘/健康检查，不查备份。
 # 本脚本把这些检查放进 CI：每天跑一次，失败即置红（并可推钉钉）。
 #
-# 用法:  bash deploy/backup-audit.sh [user@host]
+# 用法:  bash deploy/backup-audit.sh [user@host] [--self-test]
+#        --self-test: 在真实检查之后注入一条 FAIL，用来验证「审计失败 → 钉钉」这条
+#                     通路真的通（不触碰任何备份）。日常不要用它。
 # 退出码: 0 = 全部通过；1 = 至少一项 FAIL
 set -uo pipefail
 
 TARGET="${1:-yecaoyun}"
+SELF_TEST=0
+[[ "${2:-}" == --self-test ]] && SELF_TEST=1
 
-ssh -o ConnectTimeout=10 -o BatchMode=yes "$TARGET" 'bash -s' <<'REMOTE'
+# 远端检查体包成函数，只为了对“连接类失败”重试一次：CI 的单条 ssh 抖动不该变成
+# 一次夜间误报 + 一次钉钉打扰（实测遇到过 Connection closed）。
+audit_remote() {
+  ssh -o ConnectTimeout=10 -o BatchMode=yes "$TARGET" "SELF_TEST=$SELF_TEST bash -s" <<'REMOTE'
 set -uo pipefail
 
 FAIL=0
@@ -154,6 +161,11 @@ else
 fi
 
 echo
+# --self-test 放在所有真实检查之后：报告仍完整反映现状，只是多一条人为 FAIL
+if ((SELF_TEST == 1)); then
+  bad "【self-test】注入的失败项 —— 仅用于验证告警通路，未触碰任何备份"
+fi
+
 if ((FAIL == 0)); then
   echo "结果：全部通过 ✅"
   exit 0
@@ -161,3 +173,14 @@ fi
 echo "结果：${FAIL} 项失败 ❌"
 exit 1
 REMOTE
+}
+
+audit_remote
+rc=$?
+if ((rc == 255)); then
+  echo "ssh 连接失败（exit 255），5 秒后重试一次…" >&2
+  sleep 5
+  audit_remote
+  rc=$?
+fi
+exit "$rc"
