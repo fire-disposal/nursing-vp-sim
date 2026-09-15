@@ -461,6 +461,9 @@ MAIL_TO=your-email@qq.com
 0 4 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
 ```
 
+> 部署前备份（`backups/pre-deploy-*.sql.gz`）的保留策略、锚点清单与备份审计（CI 每日）
+> 见 [`ops/backup-restore.md`](ops/backup-restore.md)。
+
 ### 诊断端点
 
 正式服部署后可通过 `/api/diagnose` 端点查询系统实时状态：

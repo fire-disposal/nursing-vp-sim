@@ -1,0 +1,61 @@
+name: Backup audit
+
+# 备份审计：每天检查三套备份是否“还活着”，任一项不通过即置红 + 钉钉提醒。
+#
+# 为什么放在 CI 而不是服务器上：这台机器真实发生过“定时备份被静默删掉、81 天没人
+# 发现”，以及“每日快照连续 4 次失败无人知晓”——而目前唯一已经打在人身的事件通道
+# 就是 CI 红灯与钉钉。先让它可见，再谈自动化修复。
+#
+# 时间 09:30 UTC = 05:30 EDT：晚于 nursing(04:00) 与 twinsia(04:10) 的备份任务，
+# 所以当天失败当天可见。
+# 注意：GitHub 会在仓库 60 天无活动后自动停用 schedule；届时到 Actions 页手动 re-enable。
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Audit backups
+        run: |
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          if [ -z "$HOST" ] || [ -z "$USER" ]; then
+            echo "::error::SSH_HOST / SSH_USER 未配置"
+            exit 1
+          fi
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          bash deploy/backup-audit.sh "$USER@$HOST"
+
+      - name: Notify DingTalk (failure only)
+        if: failure()
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "⚠ DINGTALK_WEBHOOK 未配置 — 跳过通知"
+            exit 0
+          fi
+          TS=$(date -u '+%F %T UTC')
+          RUN="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "$DINGTALK_WEBHOOK" -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg ts "$TS" --arg run "$RUN" \
+              '{msgtype:"markdown",markdown:{title:"⚠️ 备份审计失败",text:("## ⚠️ 备份审计失败\n> " + $ts + "\n\n有检查项未通过（备份可能已停）。点开看是哪一项：\n\n[查看本次审计](" + $run + ")")}}')" \
+            || echo "⚠ 钉钉通知发送失败（不影响审计结论）"

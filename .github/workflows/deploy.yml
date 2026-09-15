@@ -221,6 +221,7 @@ jobs:
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
           scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
+          scp deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
           scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
 
           echo ">> Deploy monitor scripts"
@@ -332,15 +333,12 @@ jobs:
             echo ">> Deploy v$VER"
 
             # —— 部署前备份（失败即停，绝不带着未知状态上车）——
-            BAK="$DEPLOY_DIR/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
+            # 逻辑在 deploy/pre-deploy-backup.sh（随仓库版本化）：gzip + 三道校验 + 保留裁剪。
+            # 内联在这里时既不可测试，也没有保留策略 —— 明文 dump 只增不减，且与生产库同卷。
             echo ">> Backup DB"
-            mkdir -p $DEPLOY_DIR/backups
-            if docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null; then
-              echo "  ✓ backup: \$BAK (\$(du -h "\$BAK" | cut -f1))"
-            else
-              echo "::error::数据库备份失败，停止部署"
-              exit 1
-            fi
+            bash deploy/pre-deploy-backup.sh backup
+            # 兜底取值：状态文件万一缺失，也不能让 set -e 在这里把部署打断
+            BAK="\$(cat $DEPLOY_DIR/backups/.last-pre-deploy 2>/dev/null || echo '(见 backups/ 目录)')"
 
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || {
               echo "  ⚠ First pull attempt failed, retrying after 10s..."
