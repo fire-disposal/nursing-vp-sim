@@ -438,27 +438,33 @@ sudo nginx -s reload
 
 ### 监控脚本
 
-位于仓库 `deploy/monitor/`，部署到 `/opt/monitor/`，由 crontab 驱动。
+宿主侧监控、日报、周报**不归本仓库**：2026-09-18 起统一收进
+[`fire-disposal/server-ops`](https://github.com/fire-disposal/server-ops)（`monitor/`），
+由该仓的 `sync.yml` 下发到 `/opt/server-ops/monitor/`，由 crontab 驱动。
+（此前本仓 `deploy/monitor/` 的副本被 CI 投到 `/opt/monitor`，那条路径自 2026-09-08 起已无调度。）
 
 | 脚本 | 频率 | 用途 |
 |------|------|------|
-| `daily_report.py` | `0 9 * * *` | 每日运维报告：调用 `/api/diagnose` 汇总单实例数据，HTML 邮件（无明显业务活动且无异常时跳过） |
+| `monitor.py` | `*/15 * * * *` | 容器/磁盘/CPU/内存/健康检查 → 钉钉 + 邮件 |
+| `daily_report.py` | `0 9 * * *` | 每日运维报告：调用本服 `/api/diagnose` 汇总单实例数据，HTML 邮件 + 钉钉摘要（无明显业务活动且无异常时跳过） |
+| `weekly_report.py` | `5 9 * * 1` | 服务器周报 |
 
-**配置方式：** SMTP 和端口配置（`PROD_BACKEND_PORT`，默认 9001）通过环境变量读取，从 `/opt/nursing-vp-sim/.env` 中读取：
+**配置**：监控目标与阈值在 server-ops 仓的 `monitor/_env.py`（服务退役须同批清理，INV-7）；
+凭据（SMTP / 钉钉 webhook / `DIAGNOSE_TOKEN` / `FEEDBACK_BOT_TOKEN`）只存在于宿主
+`/opt/server-ops/monitor/secrets.env`（0600）——**本仓 `.env` 不再承载监控凭据**。
 
-```bash
-SMTP_HOST=smtp.qq.com
-SMTP_PORT=587
-SMTP_USER=your-email@qq.com
-SMTP_PASS=your-authorization-code
-MAIL_FROM=your-email@qq.com
-MAIL_TO=your-email@qq.com
-```
+**运维入口**：`ops.sh doctor | status | sync | mute | notify-test`（见 server-ops README）。
+测试期间不想打扰项目组：`bash ops.sh mute --for 30m`（宿主 + CI 一起静音，到点自动恢复）。
+
+**部署窗口**：本仓 `deploy.yml` 在换容器前 `touch`、退出时 `rm`
+`/opt/server-ops/monitor/.deploying`，监控在该标记 45 分钟内跳过健康检查，避免每次发布误报。
 
 **Crontab 参考：**
 ```
-0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py >> /opt/monitor/cron.log 2>&1
-0 4 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
+*/15 * * * * cd /opt/server-ops/monitor && /usr/bin/python3 monitor.py >> /opt/server-ops/monitor/cron.log 2>&1
+0 9 * * *    cd /opt/server-ops/monitor && /usr/bin/python3 daily_report.py >> /opt/server-ops/monitor/cron.log 2>&1
+5 9 * * 1    cd /opt/server-ops/monitor && /usr/bin/python3 weekly_report.py >> /opt/server-ops/monitor/cron.log 2>&1
+0 4 */3 * *  cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
 ```
 
 > 部署前备份（`backups/pre-deploy-*.sql.gz`）的保留策略、锚点清单与备份审计（CI 每日）

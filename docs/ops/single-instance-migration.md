@@ -139,6 +139,7 @@ docker image prune -a --filter "until=168h"
 - `docs/09-operations.md`：删除 staging 段落（流水线表、发布流程、回滚、环境参数、端口、容器名、日志与备份命令）
 - `docs/09-operations.md` 的「Docker 容器资源上限」条目：已改为「已配置」（compose `mem_limit`）
 - `.github/workflows/archive/README.md`：记录归档原因、恢复方式，以及 `deploy/docker-compose.staging.yml` 的删除
+  （2026-09-18：整个 `archive/` 已删除 —— GitHub 本就不加载子目录，留着只是陈旧通知步骤的来源）
 - 其余同步：`README.md` / `docs/00-dev-onboarding.md` / `docs/01-architecture.md` / `docs/03-database.md` /
   `CONTRIBUTING.md` / `AGENTS.md`（诊断端口）/ `docs/12-patient-presentation-layer.md` /
   `docs/ops/*` 运维手册（backup-restore、server-recovery、llm/tts-troubleshooting、incident 记录）
@@ -146,6 +147,7 @@ docker image prune -a --filter "until=168h"
   的 `staging` 分支改为**快速失败**；`deploy/monitor/`（`_env.py` + `daily_report.py`）改为单实例日报；
   `prune-images.sh` / `docker-cleanup.sh` 去掉 staging 专用分支；`.husky/pre-push` 与
   `commit-format.yml` 注释指向 `deploy.yml`；`frontend` 展示页文案与 `package.json` 报告链接改指正式域
+  （2026-09-18：`deploy/monitor/` 已整体迁出本仓 → `fire-disposal/server-ops`，CI 不再向 `/opt/monitor` 投递）
 
 ## 6. P5 — 可选：同位预览（保留"敢试错"的能力，但不是第二套栈）
 

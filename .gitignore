@@ -88,9 +88,5 @@ sync-log.txt
 # OpenClaw agent temp files
 .openclaw/
 
-# Monitor runtime files (deploy/monitor)
-deploy/monitor/*.log
-deploy/monitor/report_*.html
-
 # Local pnpm store (sandbox: store must live inside workspace)
 .pnpm-store/

@@ -71,6 +71,17 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # 通知工具取自 server-ops 仓的固定 tag：全机唯一实现，各项目仓不再各存一份副本。
+      # 只读部署密钥 OPS_DEPLOY_KEY 由 server-ops 的 scripts/install-ci-access.sh 配置。
+      - name: Checkout ops tooling (notify)
+        uses: actions/checkout@v7
+        with:
+          repository: fire-disposal/server-ops
+          ref: ops-v1
+          path: .ops
+          ssh-key: ${{ secrets.OPS_DEPLOY_KEY }}
+          persist-credentials: false
+
       - name: Preflight local deploy inputs
         shell: bash
         run: |
@@ -83,8 +94,6 @@ jobs:
             deploy/db-backup.sh
             .deploy-ops/deploy/pre-deploy-backup.sh
             deploy/prune-images.sh
-            deploy/monitor/daily_report.py
-            deploy/monitor/_env.py
             deploy/nginx/iomt.205716.xyz.conf
             deploy/nginx/snippets/block-scanners.conf
           )
@@ -263,11 +272,6 @@ jobs:
           scp .deploy-ops/deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
           scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
 
-          echo ">> Deploy monitor scripts"
-          ssh "$USER@$HOST" "mkdir -p /opt/monitor"
-          scp deploy/monitor/daily_report.py "$USER@$HOST":/opt/monitor/
-          scp deploy/monitor/_env.py "$USER@$HOST":/opt/monitor/
-
           echo ">> Deploy nginx config"
           # 先暂存候选文件 → 备份原文件 → 安装 → 完整 nginx -t → 校验通过才 reload。
           # 任一步失败都还原磁盘上的原配置并以非零退出（不再吞掉 nginx -t 失败让流程继续）。
@@ -368,6 +372,11 @@ jobs:
           ssh "$USER@$HOST" 'bash -s' << DEPLOY
             set -e
             cd $DEPLOY_DIR
+
+            # 部署窗口标记：监控在此期间跳过健康检查，避免每次发布都误报一次。
+            # 契约见 server-ops 仓 README；trap 保证失败退出也会摘掉标记。
+            touch /opt/server-ops/monitor/.deploying
+            trap 'rm -f /opt/server-ops/monitor/.deploying' EXIT
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             echo ">> Deploy v$VER"
 
@@ -482,18 +491,20 @@ jobs:
           echo "✓ → https://iomt.205716.xyz/report.html"
 
       - name: Notify DingTalk
+        if: always()   # 失败/取消也要播报：DEPLOY_STATUS 才有意义
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          NOTIFY_DISABLED: ${{ vars.NOTIFY_DISABLED }}          # 测试静音开关（ops.sh mute 维护）
+          NOTIFY_DISABLED_UNTIL: ${{ vars.NOTIFY_DISABLED_UNTIL }}
+          DEPLOY_PROJECT: nursing-vp-sim
           DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
           DEPLOY_ENV: production
           DEPLOY_URL: https://iomt.205716.xyz
+          DEPLOY_STATUS: ${{ job.status }}
+          DEPLOY_ACTOR: ${{ github.actor }}
+          DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMITS: ${{ steps.change_summary.outputs.commits }}
-        run: |
-          if [ -z "$DINGTALK_WEBHOOK" ]; then
-            echo "⚠ DINGTALK_WEBHOOK not set — skipping"
-            exit 0
-          fi
-          node scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed"
+        run: node .ops/scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed（不阻断部署）"
 
       - name: "✅ Deployed"
         run: echo "v${{ steps.resolve_version.outputs.version }} → iomt.205716.xyz 🚀"
