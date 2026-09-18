@@ -71,17 +71,6 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      # 通知工具取自 server-ops 仓的固定 tag：全机唯一实现，各项目仓不再各存一份副本。
-      # 只读部署密钥 OPS_DEPLOY_KEY 由 server-ops 的 scripts/install-ci-access.sh 配置。
-      - name: Checkout ops tooling (notify)
-        uses: actions/checkout@v7
-        with:
-          repository: fire-disposal/server-ops
-          ref: ops-v1
-          path: .ops
-          ssh-key: ${{ secrets.OPS_DEPLOY_KEY }}
-          persist-credentials: false
-
       - name: Preflight local deploy inputs
         shell: bash
         run: |
@@ -490,21 +479,30 @@ jobs:
           " 2>/dev/null
           echo "✓ → https://iomt.205716.xyz/report.html"
 
-      - name: Notify DingTalk
-        if: always()   # 失败/取消也要播报：DEPLOY_STATUS 才有意义
+      # 通知只在宿主（/opt/server-ops/notify）一处实现：CI 通过**部署用的 SSH** 上报事件，
+      # 宿主负责路由、渲染、静音与投递审计。因此这里不需要任何 webhook secret，
+      # 也不需要回读开关（宿主会自行判断静音；静音时不发但会记审计）。
+      - name: Notify deploy (via host)
+        if: always()
         env:
-          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-          NOTIFY_DISABLED: ${{ vars.NOTIFY_DISABLED }}          # 测试静音开关（ops.sh mute 维护）
-          NOTIFY_DISABLED_UNTIL: ${{ vars.NOTIFY_DISABLED_UNTIL }}
-          DEPLOY_PROJECT: nursing-vp-sim
-          DEPLOY_VERSION: ${{ steps.resolve_version.outputs.version }}
-          DEPLOY_ENV: production
-          DEPLOY_URL: https://iomt.205716.xyz
-          DEPLOY_STATUS: ${{ job.status }}
-          DEPLOY_ACTOR: ${{ github.actor }}
-          DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          VERSION: ${{ steps.resolve_version.outputs.version }}
+          STATUS: ${{ job.status }}
           COMMITS: ${{ steps.change_summary.outputs.commits }}
-        run: node .ops/scripts/notify-deploy.mjs || echo "⚠ dingtalk notify failed（不阻断部署）"
+        run: |
+          set -uo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=10 "$USER@$HOST" \
+            "cd /opt/server-ops && python3 notify/cli.py deploy \
+               --set project=nursing-vp-sim \
+               --set version='$VERSION' \
+               --set env=production \
+               --set url='https://iomt.205716.xyz' \
+               --set status='$STATUS' \
+               --set actor='${{ github.actor }}' \
+               --set run_url='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' \
+               --set-file commits=/dev/stdin" <<< "$COMMITS" \
+            || echo "⚠ 部署通知上报失败（不阻断部署）"
 
       - name: "✅ Deployed"
         run: echo "v${{ steps.resolve_version.outputs.version }} → iomt.205716.xyz 🚀"

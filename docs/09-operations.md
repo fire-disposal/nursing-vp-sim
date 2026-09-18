@@ -453,7 +453,7 @@ sudo nginx -s reload
 凭据（SMTP / 钉钉 webhook / `DIAGNOSE_TOKEN` / `FEEDBACK_BOT_TOKEN`）只存在于宿主
 `/opt/server-ops/monitor/secrets.env`（0600）——**本仓 `.env` 不再承载监控凭据**。
 
-**运维入口**：`ops.sh doctor | status | sync | mute | notify-test`（见 server-ops README）。
+**运维入口**（运维仓 `fire-disposal/server-ops`，本机 git）：`ops.sh doctor | status | sync | mute | notify-test`。
 测试期间不想打扰项目组：`bash ops.sh mute --for 30m`（宿主 + CI 一起静音，到点自动恢复）。
 
 **部署窗口**：本仓 `deploy.yml` 在换容器前 `touch`、退出时 `rm`
