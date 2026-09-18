@@ -147,7 +147,7 @@ docker image prune -a --filter "until=168h"
   的 `staging` 分支改为**快速失败**；`deploy/monitor/`（`_env.py` + `daily_report.py`）改为单实例日报；
   `prune-images.sh` / `docker-cleanup.sh` 去掉 staging 专用分支；`.husky/pre-push` 与
   `commit-format.yml` 注释指向 `deploy.yml`；`frontend` 展示页文案与 `package.json` 报告链接改指正式域
-  （2026-09-18：`deploy/monitor/` 已整体迁出本仓 → `fire-disposal/server-ops`，CI 不再向 `/opt/monitor` 投递）
+  （2026-09-18：`deploy/monitor/` 已整体迁出本仓 → 运维仓 `server-ops`（本机 git，不上 GitHub），CI 不再向 `/opt/monitor` 投递）
 
 ## 6. P5 — 可选：同位预览（保留"敢试错"的能力，但不是第二套栈）
 

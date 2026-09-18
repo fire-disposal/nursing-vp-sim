@@ -439,7 +439,7 @@ sudo nginx -s reload
 ### 监控脚本
 
 宿主侧监控、日报、周报**不归本仓库**：2026-09-18 起统一收进
-[`fire-disposal/server-ops`](https://github.com/fire-disposal/server-ops)（`monitor/`），
+运维仓 `server-ops`（`monitor/`）——**只存在本机 `~/dev/server-ops`，不上 GitHub**，
 由该仓的 `sync.yml` 下发到 `/opt/server-ops/monitor/`，由 crontab 驱动。
 （此前本仓 `deploy/monitor/` 的副本被 CI 投到 `/opt/monitor`，那条路径自 2026-09-08 起已无调度。）
 
@@ -453,7 +453,7 @@ sudo nginx -s reload
 凭据（SMTP / 钉钉 webhook / `DIAGNOSE_TOKEN` / `FEEDBACK_BOT_TOKEN`）只存在于宿主
 `/opt/server-ops/monitor/secrets.env`（0600）——**本仓 `.env` 不再承载监控凭据**。
 
-**运维入口**（运维仓 `fire-disposal/server-ops`，本机 git）：`ops.sh doctor | status | sync | mute | notify-test`。
+**运维入口**（运维仓 `~/dev/server-ops`，本机 git）：`ops.sh doctor | status | sync | mute | notify-test`。
 测试期间不想打扰项目组：`bash ops.sh mute --for 30m`（宿主 + CI 一起静音，到点自动恢复）。
 
 **部署窗口**：本仓 `deploy.yml` 在换容器前 `touch`、退出时 `rm`
