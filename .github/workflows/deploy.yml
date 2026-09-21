@@ -81,6 +81,7 @@ jobs:
             deploy/docker-compose.prod.yml
             deploy/rollback.sh
             deploy/db-backup.sh
+            deploy/db-restore.sh
             .deploy-ops/deploy/pre-deploy-backup.sh
             deploy/prune-images.sh
             deploy/nginx/iomt.205716.xyz.conf
@@ -92,7 +93,7 @@ jobs:
               exit 1
             fi
           done
-          for file in deploy/rollback.sh deploy/db-backup.sh \
+          for file in deploy/rollback.sh deploy/db-backup.sh deploy/db-restore.sh \
             .deploy-ops/deploy/pre-deploy-backup.sh deploy/prune-images.sh; do
             bash -n "$file"
           done
@@ -258,6 +259,7 @@ jobs:
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
           scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
+          scp deploy/db-restore.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-restore.sh
           scp .deploy-ops/deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
           scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
 
