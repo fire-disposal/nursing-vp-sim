@@ -21,6 +21,17 @@
 # ==============================================================
 set -euo pipefail
 
+# ── 备份事件账本接线（宿主 /opt/server-ops/backup/lib.sh）────────────────────
+# 库缺失时退化为空实现：脚本仍可独立运行（fail-open，见 server-ops docs/backup-design.md §10）
+BK_LIB="${BK_LIB:-/opt/server-ops/backup/lib.sh}"
+if [ -r "$BK_LIB" ]; then
+  # shellcheck source=/dev/null
+  . "$BK_LIB"
+else
+  bk_begin() { :; }; bk_artifact() { :; }; bk_context() { :; }; bk_note() { :; }
+  bk_restore_begin() { :; }; bk_restore_end() { :; }; bk_refused() { :; }
+fi
+
 BACKUP_FILE="${1:-}"
 AUTO_YES="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -86,11 +97,16 @@ fi
 
 echo ""
 
+# ── 事件账本：参数/完整性校验与确认都过了，真正开始恢复前记 attempt ──
+# （无既有 EXIT trap，由 bk_restore_begin 挂的 trap 在退出时记 ok/fail）
+bk_restore_begin nursing-db restore "$(id -un)" "$BACKUP_FILE"
+
 # ── 第 1 步: 创建急救快照 ──
 EMERGENCY_FILE="${BACKUP_DIR}/emergency_${ENV}_$(date +%Y%m%d_%H%M%S).sql.gz"
 echo "[..] 创建急救快照 (恢复前的数据) ..."
 if docker exec "$CONTAINER" pg_dump -U nursing -d nursing_vp --no-owner 2>/dev/null | gzip > "$EMERGENCY_FILE"; then
   echo "[OK] 急救快照已保存: ${EMERGENCY_FILE} ($(du -h "$EMERGENCY_FILE" | cut -f1))"
+  bk_artifact "$EMERGENCY_FILE"
 else
   echo "[WARN] 急救快照创建失败, 继续恢复"
   rm -f "$EMERGENCY_FILE"

@@ -18,6 +18,17 @@
 # ==============================================================
 set -euo pipefail
 
+# ── 备份事件账本接线（宿主 /opt/server-ops/backup/lib.sh）────────────────────
+# 库缺失时退化为空实现：脚本仍可独立运行（fail-open，见 server-ops docs/backup-design.md §10）
+BK_LIB="${BK_LIB:-/opt/server-ops/backup/lib.sh}"
+if [ -r "$BK_LIB" ]; then
+  # shellcheck source=/dev/null
+  . "$BK_LIB"
+else
+  bk_begin() { :; }; bk_artifact() { :; }; bk_context() { :; }; bk_note() { :; }
+  bk_restore_begin() { :; }; bk_restore_end() { :; }; bk_refused() { :; }
+fi
+
 ENV="${1:-prod}"
 ACTION="${2:-backup}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -43,6 +54,9 @@ case "$ENV" in
     exit 1
     ;;
 esac
+
+# 账本：记 attempt，EXIT trap 在退出时记 ok/fail（本脚本无既有 trap，不叠加）
+bk_begin nursing-db "$ACTION" periodic
 
 mkdir -p "$BACKUP_BASE"
 
@@ -97,6 +111,7 @@ do_backup() {
   if [ -f "${DEPLOY_DIR}/.version-history-${ENV}" ]; then
     version=$(tail -1 "${DEPLOY_DIR}/.version-history-${ENV}" | cut -d'|' -f1)
   fi
+  bk_context "" "$version"
 
   # pg_dump + gzip
   local size=0
@@ -104,6 +119,7 @@ do_backup() {
     size=$(du -h "$BACKUP_PATH" | cut -f1)
     local status="success"
     echo "[OK] 备份完成: ${BACKUP_PATH} (${size})"
+    bk_artifact "$BACKUP_PATH"
 
     # 写入 history（AI 可解析的结构化记录）
     echo "${TIMESTAMP}|${size}|${version}|${status}" >> "$HISTORY_FILE"
