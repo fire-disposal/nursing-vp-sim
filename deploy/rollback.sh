@@ -68,7 +68,6 @@ case "$ENV_NAME" in
         COMPOSE_PROJECT_ARGS=()
         BACKEND_CONTAINER="nursing-vp-sim-backend-1"
         API_HEALTH_URL="http://127.0.0.1:9001/api/health"
-        DB_BACKUP_ENV="prod"
         ;;
     staging)
         # 单实例收敛：staging 栈已于 2026-09-14 退役，不存在对应容器/历史文件
@@ -157,11 +156,16 @@ EOF
 }
 
 backup_before_rollback() {
-    local backup_script="deploy/db-backup.sh"
-    [[ -f "$backup_script" ]] || msg_fatal "未找到 ${backup_script}，拒绝无备份回滚"
+    # 统一入口：宿主备份层 CLI 按 datasets.toml 的 nursing-db 声明执行
+    # （bash deploy/db-backup.sh prod）+ 代记账本；--kind pre-rollback 只是把这次运行的
+    # 事件标签与周期/发布前区分开。子 shell 切到 /opt/server-ops：CLI 用声明的 cwd 跑脚本，
+    # 本脚本自身的相对路径（docker-compose.yml/.env）不受影响。
+    local cli="/opt/server-ops/backup/cli.py"
+    [[ -f "$cli" ]] || msg_fatal "宿主备份层缺失 ${cli}，拒绝无备份回滚（先在 yecaoyun 执行 ops.sh sync）"
 
     msg_ok "回滚前备份数据库 (${ENV_NAME}) ..."
-    bash "$backup_script" "$DB_BACKUP_ENV" backup || msg_fatal "回滚前数据库备份失败，停止回滚"
+    ( cd /opt/server-ops && /usr/bin/python3 backup/cli.py run nursing-db --kind pre-rollback --notify ) \
+        || msg_fatal "回滚前数据库备份失败，停止回滚"
 }
 
 verify_migration_revision() {

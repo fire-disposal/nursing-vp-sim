@@ -372,10 +372,16 @@ jobs:
             echo ">> Deploy v$VER"
 
             # —— 部署前备份（失败即停，绝不带着未知状态上车）——
+            # 统一入口：宿主备份层 CLI 按 datasets.toml 的 nursing-predeploy 声明执行
+            # （bash deploy/pre-deploy-backup.sh backup）+ 代记账本 + 跑声明的 verify；
             # 工具由本次工作流的不可变 github.workflow_sha 提供，应用仍构建自目标 tag。
-            # gzip + 完整性校验 + 保留裁剪；旧 tag 缺少新工具不能成为跳过备份的理由。
+            # 旧 tag 缺少新工具不能成为跳过备份的理由；宿主备份层缺失是显式失败，不静默跳过。
             echo ">> Backup DB"
-            bash deploy/pre-deploy-backup.sh backup
+            if [ ! -f /opt/server-ops/backup/cli.py ]; then
+              echo "::error::宿主备份层缺失 /opt/server-ops/backup/cli.py —— 请先在 yecaoyun 执行 bash ops.sh sync 再发布"
+              exit 1
+            fi
+            ( cd /opt/server-ops && /usr/bin/python3 backup/cli.py run nursing-predeploy --kind pre-deploy --notify )
             # 兜底取值：状态文件万一缺失，也不能让 set -e 在这里把部署打断
             BAK="\$(cat $DEPLOY_DIR/backups/.last-pre-deploy 2>/dev/null || echo '(见 backups/ 目录)')"
 

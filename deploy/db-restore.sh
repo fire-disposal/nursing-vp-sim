@@ -3,15 +3,19 @@
 #  db-restore.sh — 数据库恢复
 #
 #  用法:
-#    ./db-restore.sh <备份文件路径>                # 交互恢复
+#    ./db-restore.sh <备份文件路径>                # 交互恢复 (prod_* 或 pre-deploy-*)
 #    ./db-restore.sh <备份文件路径> --yes          # 非交互恢复 (AI 调用)
 #    ./db-restore.sh [prod] list                   # 列出可用备份
+#
+#  接受的文件名: prod_*.sql.gz（周期备份）、pre-deploy-*.sql.gz（发布前快照，含
+#  nursing-predeploy 数据集产物）。两者都是同版本 pg_dump plain 输出。
 #
 #  安全机制:
 #    1. 恢复前自动创建急救快照 (emergency_*.sql.gz)
 #    2. 交互模式需要确认 (--yes 跳过)
 #    3. 检查备份文件完整性 (gzip -t)
-#    4. 恢复完成后验证 (SELECT 1)
+#    4. 导入时遇到 SQL 错误立即停止 (-v ON_ERROR_STOP=1)，不再静默继续
+#    5. 恢复完成后验证 (SELECT 1)
 #
 #  退出码:
 #    0 = 成功
@@ -58,8 +62,9 @@ case "$(basename "$BACKUP_FILE")" in
     exit 1
     ;;
   prod_*) ENV="prod" ;;
+  pre-deploy-*) ENV="prod" ;;
   *)
-    echo "[ERR] 无法从文件名推断环境 (文件名须以 prod_ 开头)"
+    echo "[ERR] 无法从文件名推断环境 (文件名须以 prod_ 或 pre-deploy- 开头)"
     exit 1
     ;;
 esac
@@ -124,7 +129,9 @@ docker exec -i "$CONTAINER" psql -U nursing -d nursing_vp -c "
 " >/dev/null 2>&1
 
 # 导入备份
-if gunzip -c "$BACKUP_FILE" | docker exec -i "$CONTAINER" psql -U nursing -d nursing_vp 2>&1; then
+# -v ON_ERROR_STOP=1：单条 SQL 出错即让 psql 非零退出。否则 psql 默认“遇到错误继续跑”，
+# 部分失败的恢复会被这个 if 当成成功（if 只能看到 psql 整体退出码）。
+if gunzip -c "$BACKUP_FILE" | docker exec -i "$CONTAINER" psql -U nursing -d nursing_vp -v ON_ERROR_STOP=1 2>&1; then
   echo "[OK] 数据导入完成"
 else
   echo "[ERR] 数据导入失败"

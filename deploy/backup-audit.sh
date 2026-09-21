@@ -6,6 +6,13 @@
 # 同一类故障——**备份坏了没人知道**，因为监控只查容器/磁盘/健康检查，不查备份。
 # 本脚本把只读检查放进 CI：每天跑一次，失败即置红，不发送备份通知。
 #
+# 2026-09-21 变更：周期备份已统一由宿主 `/opt/server-ops/backup/cli.py`（S2）执行并代记
+# 账本，项目自装的周期 cron 全部退役。原「crontab 里旧 cron 是否在位」的断言因此只会命中
+# 退役注释而**假通过**，清掉注释后又会**假报警**。故该节**已改为转发宿主 canonical 审计**
+# `cd /opt/server-ops && /usr/bin/python3 backup/cli.py audit`（新鲜度/完整性/配平/未记账
+# 产物/预算以宿主数据集声明为唯一判据），非零即 CI 失败；这里不带 `--notify`，宿主每日
+# 09:15 的审计已负责通知。其余只读检查（日志末行、锚点保护、冷备）仍在本脚本内。
+#
 # 用法:  bash deploy/backup-audit.sh [user@host]
 # 退出码: 0 = 全部通过；1 = 至少一项 FAIL（CI 置红）
 set -uo pipefail
@@ -37,13 +44,21 @@ size_mb() { # 目录不存在 → 0（绝不能返回空串：$(( )) 会因操�
 }
 human() { numfmt --to=iec --suffix=B "$1" 2>/dev/null || printf '%sB' "$1"; }
 
-echo "══ 1. 定时任务是否还在（crontab 被重写删掉是本机真实发生过的事故）"
-crontab -l 2>/dev/null | grep -q 'db-backup.sh prod' \
-  && ok "nursing 周期备份 cron 在位" \
-  || bad "nursing 周期备份 cron 缺失 —— 备份已停，恢复方法见 docs/ops/backup-restore.md"
-crontab -l 2>/dev/null | grep -q 'backup-assets.sh run' \
-  && ok "twinsia 空间数据备份 cron 在位" \
-  || bad "twinsia 空间数据备份 cron 缺失（装法：backup-assets.sh install-cron）"
+echo "══ 1. 宿主备份审计（canonical：/opt/server-ops/backup/cli.py audit）"
+# 本节原为 `crontab -l | grep 'db-backup.sh prod'` / `grep 'backup-assets.sh run'` 断言项目 cron
+# 在位。周期备份已于 2026-09-21 移交宿主 cli run（crontab 里的旧行只剩退役注释），该断言既会
+# 命中断言注释假通过、又会在注释清掉后假报警，故整节改为转发宿主 canonical 审计。
+# 不带 --notify：宿主每日 09:15 已有自己的审计+通知，这里只需要 CI 置红。
+if [[ ! -f /opt/server-ops/backup/cli.py ]]; then
+  bad "宿主备份层缺失 /opt/server-ops/backup/cli.py —— 先在 yecaoyun 执行 bash ops.sh sync"
+elif audit_out=$(cd /opt/server-ops && /usr/bin/python3 backup/cli.py audit 2>&1); then
+  sed 's/^/    /' <<<"$audit_out"
+  ok "宿主备份审计通过"
+else
+  arc=$?
+  bad "宿主备份审计失败（exit ${arc}）："
+  sed 's/^/    /' <<<"$audit_out"
+fi
 
 echo
 echo "══ 2. 备份新鲜度"
