@@ -40,6 +40,10 @@ DEEPSEEK_API_KEY=...
 
 证据不足或不适合安全修复时，Pi 必须在 `docs/piops/` 新增一份中文调查报告，同时保留 `.piops-runtime/pi-report.md` 作为本次运行的机器报告和 PR 描述。文档变更本身可以形成审阅用 PR；不得为了通过校验伪造源码修复。
 
+## 诊断证据字段（schema_version 3）
+
+`build_prompt.py` 只透传定位缺陷所需的块（`runtime`、`sessions`、`errors`、`frontend_errors`、`llm`），每块自带 `scope`/`window`（`process`=本 worker 进程 / `workers`=跨 worker 档案合并 / `db`=数据库全局）。`llm` 顶层只有 24 小时 DB 统计，**LLM 降级/熔断证据在 `llm.router`**（scope=process、window=now）；`metrics` 体积大，不进入 prompt。
+
 ## 修改边界
 
 外围脚本拒绝以下变更：

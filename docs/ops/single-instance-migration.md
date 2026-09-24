@@ -44,8 +44,9 @@ docker rm -f nursing-mig-rehearsal
 ```bash
 # 让 staging 成为唯一写入方；prod 栈只读观察
 # 1) 不再对 prod 发版（已由 CI 归档保证：deploy-staging/deploy-production 均不激活）
-# 2) 确认 prod 无会话：看 /api/metrics 的 active_sessions（当前 body 与业务均无流量）
-curl -s "http://127.0.0.1:9001/api/health"
+# 2) 确认 prod 无会话：看 /api/metrics 的 active_sessions（已接线 = DB 进行中训练数；规范字段是
+#    /api/diagnose 的 sessions.active）
+curl -s "http://127.0.0.1:9001/api/metrics" | python3 -c "import json,sys; print(json.load(sys.stdin).get('active_sessions'))"
 ```
 
 ## 2. P1 — 备份双库（人工，5 分钟）
@@ -88,7 +89,7 @@ docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend 
 
 1. `https://iomt.205716.xyz` 登录（用 staging 的账号）
 2. 新建一次训练 → 对话 3~5 轮 → 结束 → 等待评分 → 打开结果页（评分、轨迹图、证据联动）
-3. `curl "https://iomt.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN"` → `summary.status` 为 `healthy|degraded`，且历史错误数不再恒为 0（本轮修复项）
+3. `curl "https://iomt.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN"` → `summary.status` 为 `healthy|degraded`（`sessions.active` 为 DB 进行中训练数，是会话数的规范字段），且历史错误数不再恒为 0（本轮修复项）
 
 ### 迁移时会顺带修复的存量数据损伤（已实测）
 

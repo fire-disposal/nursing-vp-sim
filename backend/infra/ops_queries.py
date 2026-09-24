@@ -339,9 +339,9 @@ def compute_alerts(dashboard: dict) -> list[str]:
         if total_rate > 10:
             alerts.append(f"LLM 限流错误 {total_rate} 次 (24h)")
 
-    # ── LLM 短窗口突发 ──
+    # ── 后端 ERROR 日志短窗口突发（workers 口径：档案 + 未落盘增量，按事件时间计）──
     if error_burst > 5:
-        alerts.append(f"LLM 5 分钟突发错误 {error_burst} 次")
+        alerts.append(f"后端 ERROR 日志 5 分钟突发 {error_burst} 次")
 
     # ── HTTP/API surface ──
     # A public API is constantly probed by port/exploit scanners, which flood 4xx
@@ -351,7 +351,7 @@ def compute_alerts(dashboard: dict) -> list[str]:
     # counts and the p95 latency check below.
     http_latency = http.get("latency_ms") or {}
     if http_latency.get("p95", 0) > 2000:
-        alerts.append(f"HTTP p95 延迟 {http_latency['p95']}ms 偏高")
+        alerts.append(f"HTTP p95 延迟 {http_latency['p95']}ms 偏高（本进程 since_start）")
 
     # ── Frontend telemetry ──
     if frontend_errors.get("last_5min", 0) > 0:

@@ -478,48 +478,58 @@ sudo nginx -s reload
 curl "https://iomt.205716.xyz/api/diagnose?token=***"
 ```
 
-返回信息包括：
+返回信息包括（`schema_version: 3`，每块自带 `scope` / `window`）：
 
 | 字段 | 说明 |
 |------|------|
+| `schema_version` | 返回结构版本（当前 3）|
 | `version` | 当前部署版本 |
-| `health` | 健康状态 |
-| `summary` | 汇总状态（healthy / degraded）|
-| `generated_at` / `windows` | 响应生成时间与各指标统计窗口说明 |
-| `llm` | LLM 调用统计（24h 调用量/成功率/错误数/延迟/top错误） |
-| `scoring` | 评分队列状态（success_rate / pending / in_progress / completed_24h / failed_24h） |
-| `voice` | 语音服务 TTS/ASR 统计 |
-| `voice_budget` | 语音月度预算使用 |
-| `metrics` | 系统指标快照（uptime/请求/活跃会话/内存/队列） |
-| `database` / `runtime` | DB 探测、LLM router 降级状态、诊断缓存时间 |
-| `frontend_errors` | 前端 ErrorBoundary / window error / unhandled rejection 遥测摘要 |
-| `errors` | 错误计数（last_5min / last_hour / unique_24h / total_captured）及最近错误列表 |
+| `generated_at` | 响应生成时间 |
+| `summary` | 汇总状态（healthy / degraded）与 alerts |
+| `runtime` | scope=process, window=now：`uptime_seconds`、`database{connected,pool_size,checked_out}`、诊断缓存时间 |
+| `sessions` | scope=db, window=now：`active` = 数据库中进行中的训练数 |
+| `llm` | scope=db, window=rolling_24h：24h 调用量/成功率/错误数/延迟/最近错误 |
+| `llm.router` | scope=process, window=now：LLM 降级/熔断/兜底/落库失败（**降级证据唯一规范位置**）|
+| `scoring` | scope=db, window=rolling_24h_by_record_end_time：success_rate / pending / in_progress / completed_24h / failed_24h |
+| `voice` | scope=db, window=rolling_24h：语音服务 TTS/ASR 统计 |
+| `voice_budget` | scope=db, window=month_cn：语音月度预算使用 |
+| `business` | scope=db, window=day_cn：北京自然日业务量 |
+| `metrics` | scope=process, window=since_start：系统指标快照（uptime/请求/内存/队列），形状与 `/api/metrics` 一致 |
+| `frontend_errors` | scope=workers, window=rolling_<N>m：前端 ErrorBoundary / window error / unhandled rejection 遥测摘要 |
+| `errors` | scope=workers, window=rolling_<N>m：错误计数（last_5min / last_hour / unique_24h / total_captured）及错误分组 |
 | `alerts` | 自动告警列表 |
+
+顶层无 `health`（那是 `/api/health`）、无顶层 `database`（在 `runtime.database`）；窗口口径随各块下发
+（每块自带 `scope` / `window`）。`<N>` = 请求参数 `error_window_minutes`（默认 60）。
 
 **安全配置：** 在 `.env` 中设置 `DIAGNOSE_TOKEN` 为随机字符串。未设置时端点自动隐藏（返回 404）。
 ### 运维诊断端点
 
 综合诊断快照 `/api/diagnose`，单端点聚合，使用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）。
 
-返回字段: `version`, `generated_at`, `windows`, `health`, `summary`, `database`, `runtime`, `llm`, `scoring`, `voice`, `voice_budget`, `business`, `metrics`, `frontend_errors`, `errors`, `alerts`。
+返回字段（`schema_version: 3`）: `schema_version`, `version`, `generated_at`, `summary`, `alerts`, `runtime`, `sessions`, `errors`, `frontend_errors`, `llm`, `scoring`, `voice`, `voice_budget`, `business`, `metrics`。
 
-`/api/diagnose` 自动告警阈值：
+`/api/diagnose` 自动告警阈值（`backend/infra/ops_queries.py:compute_alerts`）：
 
 | 指标 | 触发阈值 |
 |------|----------|
-| LLM 成功率 | < 90% |
+| LLM 成功率 | < 90%（24h 有调用时）|
 | LLM 24h 错误数 | > 50 |
-| LLM 5min 突发错误 | > 5 |
-| 评分成功率 | < 80% |
+| LLM 限流错误（rate / 429）| 24h > 10 |
+| 后端 ERROR 日志 5 分钟突发 | > 5（读 `errors.count.last_5min`，workers 口径）|
+| HTTP p95 延迟 | > 2000ms（本进程 since_start）|
+| 前端 5 分钟错误 | > 0 |
+| 前端 1 小时错误 | > 10 |
+| 评分成功率 | < 80%（24h 有完成/失败记录时）|
 | 排队评分 | > 30 条 |
-| 活跃会话 | > 50 个 |
-| TTS 成功率 | < 90% |
+| 活跃会话 | > 50 个（`sessions.active`，DB 进行中训练数）|
+| TTS 成功率 | < 90%（24h 有调用时）|
 | TTS 24h 错误数 | > 20 |
 | 语音月度预算 | > 90% |
-| HTTP 4xx 占比 | 请求总量 >= 20 且 4xx > 20% |
-| HTTP p95 延迟 | > 2000ms |
-| 前端 5min 错误 | > 0 |
-| 前端 1h 错误 | > 10 |
+
+> HTTP 4xx 占比规则已删除：公网 API 持续被扫描器探测 4xx（多为不存在的路径），原始占比
+> 不构成可处置信号。HTTP 侧只保留 p95 延迟；`metrics` 为 scope=process / window=since_start，
+> 与 `/api/metrics` 同形、同口径。
 
 **前端遥测口径（2026-09-24 起）**：后端以 `--workers 2` 运行，前端错误计数不再按 worker 分裂
 ——每个 worker 把去重后的增量写入共享归档，快照时合并「本进程增量 + 归档」，因此

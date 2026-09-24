@@ -6,7 +6,10 @@
 
 ```bash
 # 诊断快照（含 LLM 成功率、限流、错误数）
-ssh yecaoyun 'curl -sf "http://127.0.0.1:9001/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -m json.tool | grep -A20 "\"llm\""'
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9001/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -m json.tool | grep -A20 "\"router\""'
+
+# 或直接取降级/熔断状态（规范位置：llm.router，scope=process / window=now）
+ssh yecaoyun 'curl -sf "http://127.0.0.1:9001/api/diagnose?token=$DIAGNOSE_TOKEN" | jq ".llm.router"'
 
 # LLM 调用日志（最近错误）
 ssh yecaoyun "docker logs nursing-vp-sim-backend-1 --tail 100 2>&1 | grep -iE 'llm|deepseek|api_key|rate.limit|timeout'"
@@ -23,7 +26,7 @@ ssh yecaoyun "docker logs nursing-vp-sim-backend-1 --tail 100 2>&1 | grep -iE 'l
   → API Key 有效但仍失败
       → ssh 查看 LLM 成功率（diagnose 端点）
       → 检查 DeepSeek 服务状态页
-      → 查看限流情况（llm.rate_limit_hits）
+      → 查看限流情况（`llm.recent_errors` 中 type 含 rate/429 的条目，或 `llm.router.degraded_by_reason`）
 ```
 
 ## 常见问题

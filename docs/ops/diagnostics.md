@@ -51,6 +51,61 @@ FRONTEND_ERROR_ARCHIVE_BACKUPS=2
 
 ## 返回结构
 
+响应为 `schema_version: 3`。顶层键共 15 个（`summary` 的 `alerts` 与顶层 `alerts` 同源同值）：
+
+```text
+schema_version  version  generated_at  summary  alerts
+runtime  sessions  errors  frontend_errors  llm  scoring  voice  voice_budget  business  metrics
+```
+
+顶层不再有集中的窗口块：每个块自带 `scope` / `window` 字段，口径跟着数据走。
+`summary.status` 有 alerts 即 `degraded`，否则 `healthy`（发布冒烟依赖此语义）。
+
+### 口径词表
+
+`scope`：`process` = 本 worker 进程内；`workers` = 跨 worker JSONL 档案 + 未落盘增量合并；
+`db` = 数据库全局。
+
+`window`：`now` = 即时状态；`since_start` = 进程启动至今累计；`m5` / `h1` / `h24` = 滚动窗口；
+`rolling_24h` = DB 侧滚动 24 小时；`rolling_Nm` = 由请求参数 `error_window_minutes` 决定的滚动
+窗口；`day_cn` = 北京自然日；`month_cn` = 北京自然月；`rolling_24h_by_record_end_time` =
+`scoring` 专用，按记录结束时间归口的 24h 滚动窗口。
+
+### 各块 scope / window
+
+| 块 | scope | window | 说明 |
+|----|-------|--------|------|
+| `runtime` | `process` | `now` | `cache_ttl_seconds`(120) / `cached_age_seconds` / `uptime_seconds` / `database{connected,pool_size,checked_out}` / `diagnose_cached_at` |
+| `sessions` | `db` | `now` | `active` = 数据库中进行中的训练数（取代旧 `runtime` 内失效的会话计数） |
+| `errors` | `workers` | `rolling_<N>m` | N = `error_window_minutes`（默认 60） |
+| `frontend_errors` | `workers` | `rolling_<N>m` | 与 `errors` 同形 |
+| `llm` | `db` | `rolling_24h` | 24h 调用量 / 成功率 / 错误数 / 平均延迟 / 最近错误 |
+| `llm.router` | `process` | `now` | 降级 / 熔断 / 兜底 / 落库失败等进程侧状态 |
+| `scoring` | `db` | `rolling_24h_by_record_end_time` | 另标 `in_progress_scope: process` / `in_progress_window: now`（in_progress 来自进程内 scoring_tracker） |
+| `voice` | `db` | `rolling_24h` | TTS / ASR 统计 |
+| `voice_budget` | `db` | `month_cn` | 语音月度预算 |
+| `business` | `db` | `day_cn` | 北京自然日业务量 |
+| `metrics` | `process` | `since_start` | 另标 `active_sessions_scope: db` / `active_sessions_window: now`；形状与 `/api/metrics` 完全一致 |
+
+**LLM 降级/熔断证据的规范位置是 `llm.router`**（`degraded_providers` / `global_degraded` /
+`degraded_by_reason` / `env_fallback` / `persist_failures` / `log_queue`）。旧顶层 `runtime` 下的
+路由状态字段已移入此处；`metrics.llm.degraded_*` 仍在，仅作宿主日报的兼容别名。
+
+### 错误计数键（`errors` / `frontend_errors` 同形）
+
+`count` 的每个键对应 `window_by_count` 声明的窗口：
+
+| 键 | 窗口 | 语义 |
+|----|------|------|
+| `count.last_5min` | `m5` | 窗口内**发生次数**（按事件时间计） |
+| `count.last_hour` | `h1` | 窗口内**发生次数**（按事件时间计） |
+| `count.total_captured` | `h24` | 24h 内不同错误签名数（历史键名，语义已与 `unique_24h` 统一） |
+| `count.unique_24h` | `h24` | 24h 内不同错误签名数（== `count.total_captured`） |
+
+两块均为 **workers 口径**：合并「本进程未落盘增量 + 跨 worker 共享档案」后按事件时间统计，
+不再按 worker 分裂。窗口内另有 `window_minutes` / `total_events` / `unique_groups` / `truncated`；
+短窗口突发不再单列键，与 `last_5min` 同源同义。
+
 ### 后端错误（`errors.groups`）
 
 `errors.groups` 按最近出现时间和次数排序，并始终受 `error_groups` 限制：
@@ -61,20 +116,22 @@ FRONTEND_ERROR_ARCHIVE_BACKUPS=2
   "level": "ERROR",
   "logger": "modules.training.chat",
   "message": "TimeoutError: ...",
+  "messages": ["TimeoutError: ...", "ConnectionResetError: ..."],
   "count": 27,
   "first_seen": "2026-08-05T08:10:00+00:00",
   "last_seen": "2026-08-05T08:13:30+00:00"
 }
 ```
 
-`count` 块（`last_5min` / `last_hour` / `total_captured` / `unique_24h`）与 `recent` 仍是
-**本进程**计数（后端错误档案只服务于窗口分组），跨进程口径以 `groups` 为准。
+- `message`：`last_seen` 时刻的那条消息。
+- `messages`：同指纹的变体消息（去重、按首次出现顺序、上限 5 条），避免单一根因线索被覆盖。
+- `count` / `first_seen` / `last_seen`：该指纹在查询窗口内的累计次数与首末时间。
 
 ### 前端遥测（`frontend_errors`）
 
 ```json
 {
-  "count": {"last_5min": 5, "last_hour": 24, "total_captured": 8},
+  "count": {"last_5min": 5, "last_hour": 24, "total_captured": 8, "unique_24h": 8},
   "groups": [
     {
       "fingerprint": "b1f0c0a2e3d4f5a6",
@@ -93,12 +150,13 @@ FRONTEND_ERROR_ARCHIVE_BACKUPS=2
 }
 ```
 
-- `count.last_5min` / `last_hour`：跨 worker 发生次数；`count.total_captured`：24h 内不同签名数。
+- `count.last_5min` / `last_hour`：窗口内**发生次数**；`count.total_captured` == `count.unique_24h`：
+  24h 内不同签名数。均为跨 worker 口径。
 - `groups`：60 分钟窗口内按 `time`（最近一次发生）倒序，最多 20 条。
+- `errors` 块的 `total_events` / `unique_groups` 描述完整查询窗口，`truncated=true` 表示
+  `groups` 只包含裁剪后的代表错误；此时应先分析已有高优先级错误，而不是自动扩大到无限上下文。
 - `ua` **必须**用于区分环境问题与代码缺陷：机房/旧浏览器缺内置 API 会稳定复现同一
   `TypeError`，只看 message 会误判为代码 bug。
-
-响应中的 `total_events` 和 `unique_groups` 描述完整查询窗口；`groups` 只包含裁剪后的代表错误。如果 `truncated=true`，调用方应先分析已有高优先级错误，而不是自动扩大到无限上下文。
 
 ## 隐私与日志内容
 

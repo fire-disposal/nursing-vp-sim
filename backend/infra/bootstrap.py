@@ -41,6 +41,21 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+
+def _active_trainings() -> int:
+    """进行中训练数（DB 全局，即时）。查询失败返回 0 并告警，不拖垮 metrics 快照。"""
+    from infra.ops_queries import query_sessions
+
+    db = SessionLocal()
+    try:
+        return int(query_sessions(db) or 0)
+    except Exception:
+        log.warning("active trainings probe failed", exc_info=True)
+        return 0
+    finally:
+        db.close()
+
+
 NOTIFICATION_LOCK_KEY = 987654322
 
 _infra_client: httpx.AsyncClient | None = None
@@ -123,6 +138,9 @@ async def init_infra(app_state, llm_router):
     metrics.degraded_providers_supplier = lambda: llm_router.degraded_count() if llm_router else 0
     metrics.global_degraded_supplier = lambda: llm_router.global_degraded if llm_router else False
     metrics.degraded_by_reason_supplier = lambda: llm_router.degraded_by_reason() if llm_router else {}
+    # 进行中训练数（DB 全局，now）。此前该 supplier 从未接线 → 字段恒 0，
+    # 宿主监控与日报据此判断「无会话」是假安全。
+    metrics.active_sessions_supplier = _active_trainings
 
     diagnose_svc = get_diagnose_service()
     diagnose_svc.install_handler()

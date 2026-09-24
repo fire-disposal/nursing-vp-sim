@@ -16,10 +16,18 @@ export interface FrontendErrorEntry {
 	ua?: string;
 }
 
-export interface FrontendErrors {
+export interface ErrorCount {
 	last_5min: number;
 	last_hour: number;
+	/** 24h 内不同错误签名数（与 unique_24h 同义，历史键名）。 */
 	total_captured: number;
+	unique_24h: number;
+}
+export interface FrontendErrors {
+	scope: "workers";
+	window: string;
+	window_by_count: Record<string, string>;
+	count: ErrorCount;
 	groups: FrontendErrorEntry[];
 }
 
@@ -38,7 +46,6 @@ export interface RequestMetrics {
 	latency_ms?: { p50?: number; p95?: number; p99?: number; avg?: number };
 }
 export interface DiagnoseResponse {
-	health: { status: string; version?: string };
 	llm: {
 		total_calls_24h: number;
 		success_rate: number;
@@ -57,9 +64,11 @@ export interface DiagnoseResponse {
 		tts: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};
 	voice_budget: { monthly_budget: number; monthly_cost: number; usage_pct: number };
-	metrics: Record<string, unknown> & { requests?: RequestMetrics };
+	metrics: Record<string, unknown> & { requests?: RequestMetrics; version?: string; active_sessions?: number; uptime_seconds?: number };
 	errors: {
-		count: { last_5min: number; last_hour: number; total_captured: number; unique_24h?: number };
+		scope: "workers";
+		window_by_count: Record<string, string>;
+		count: ErrorCount;
 		recent: { time: string; level: string; logger: string; message: string }[];
 	};
 	frontend_errors?: FrontendErrors;

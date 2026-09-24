@@ -62,7 +62,7 @@ pnpm run health:cost
 
 ```bash
 curl -sS "https://test.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN" \
-  | jq '{version, health, summary, alerts, scoring, llm: {success_rate: .llm.success_rate}}'
+  | jq '{version, summary, alerts, scoring, llm: {success_rate: .llm.success_rate}}'
 ```
 
 | 通过条件 | 目标 |

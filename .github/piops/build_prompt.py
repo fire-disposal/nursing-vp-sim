@@ -12,8 +12,33 @@ _MAX_DIAGNOSTICS_CHARS = 240_000
 _MAX_FOCUS_HINT_CHARS = 500
 
 # 只保留与"定位代码缺陷"相关的诊断字段，砍掉 metrics/资源/预算类噪音。
-_DIAG_TOP_KEYS = ("schema_version", "version", "generated_at", "summary", "alerts", "errors", "frontend_errors", "llm")
-_LLM_KEYS = ("total_calls_24h", "success_rate", "error_count_24h", "avg_latency_ms", "recent_errors", "degraded_by_reason", "global_degraded", "degraded_providers")
+# schema_version 3 起每块自带 scope/window（顶层 windows 块已删除）：
+#   runtime  scope=process window=now        → uptime / DB 连接池 / 快照陈旧度
+#   sessions scope=db      window=now        → active = 进行中训练数
+#   llm      scope=db      window=rolling_24h（24h 调用统计）+ llm.router scope=process window=now（降级/熔断）
+_DIAG_TOP_KEYS = (
+    "schema_version",
+    "version",
+    "generated_at",
+    "summary",
+    "alerts",
+    "runtime",
+    "sessions",
+    "errors",
+    "frontend_errors",
+    "llm",
+)
+# llm 顶层只留 24 小时 DB 统计；进程侧降级/熔断证据在 llm.router（旧 runtime.llm_router 已删除）。
+_LLM_KEYS = ("total_calls_24h", "success_rate", "error_count_24h", "avg_latency_ms", "recent_errors")
+_LLM_ROUTER_KEYS = (
+    "degraded_providers",
+    "global_degraded",
+    "degraded_by_reason",
+    "env_fallback",
+    "persist_failures",
+    "log_queue",
+)
+_BLOCK_META_KEYS = ("scope", "window")
 
 
 def _filter_diagnostics(diag: Any) -> Any:
@@ -25,9 +50,27 @@ def _filter_diagnostics(diag: Any) -> Any:
             continue
         value = diag[key]
         if key == "llm" and isinstance(value, dict):
-            value = {k: v for k, v in value.items() if k in _LLM_KEYS}
+            kept = {k: v for k, v in value.items() if k in _LLM_KEYS}
+            router = value.get("router")
+            if isinstance(router, dict):
+                kept["router"] = {k: v for k, v in router.items() if k in _LLM_ROUTER_KEYS or k in _BLOCK_META_KEYS}
+            value = kept
         filtered[key] = value
     return filtered
+
+
+_FIELD_GUIDE = """Evidence field guide (schema_version 3):
+- Every block carries its own `scope`/`window`; there is no top-level `windows` block.
+  scope: process = this worker process only | workers = merged across worker archive files | db = database-wide.
+  window: now | since_start | m5 | h1 | h24 | rolling_24h | rolling_<N>m (N = error_window_minutes) | day_cn | month_cn.
+- `runtime` (process/now): uptime_seconds, database{connected,pool_size,checked_out}, cached_age_seconds (age of the diagnose snapshot).
+- `sessions` (db/now): `active` = number of trainings currently in progress.
+- `errors` (workers/rolling_<N>m): `count.last_5min` / `count.last_hour` are event counts inside their own window;
+  `count.total_captured` and `count.unique_24h` are the same 24h distinct error-signature count; per-key windows are in
+  `window_by_count`. `frontend_errors` has the same shape.
+- `llm` (db/rolling_24h): 24h LLM call statistics. LLM degradation / circuit-breaker evidence lives ONLY in `llm.router`
+  (process/now): degraded_providers, global_degraded, degraded_by_reason, env_fallback, persist_failures, log_queue.
+- `summary.status` is `degraded` whenever any alert exists, otherwise `healthy`."""
 
 
 def _read_json(path: str, limit: int) -> Any:
@@ -107,6 +150,8 @@ Rules:
 6. Add or adjust focused tests when practical. Run relevant local validation commands.
 7. If evidence is insufficient for a safe repair, or no safe source fix is justified, do not invent a workaround and do not suppress the symptom. Create exactly one durable investigation report under `docs/piops/` using a unique filename such as `YYYY-MM-DD-<short-topic>.md` (append `-2`, `-3`, etc. if needed). The report must be a real repository change, written in Chinese, and must include: Summary, Evidence, Root cause, Changes (state "未修改源码" when applicable), Validation, Risks, Rollback. A documentation-only proposal is valid and must be exported for review.
 8. Always write a concise Markdown report to `.piops-runtime/pi-report.md` in Chinese (中文), with sections: Summary, Evidence, Root cause, Changes, Validation, Risks, Rollback. When rule 7 applies, the runtime report and the durable `docs/piops/` report must both be written.
+
+{_FIELD_GUIDE}
 
 <UNTRUSTED_EVIDENCE kind="diagnostics">
 {json.dumps(_filter_diagnostics(diagnostics), ensure_ascii=False, indent=2)}

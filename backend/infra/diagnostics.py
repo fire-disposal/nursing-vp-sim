@@ -9,13 +9,64 @@ from sqlalchemy import text
 
 from core.config import APP_VERSION, DEPLOY_WARNING_TOKEN, DIAGNOSE_TOKEN
 from core.database import SessionLocal, engine
-from infra.diagnose import get_diagnose_service
+from infra.diagnose import CACHE_TTL_SECONDS, get_diagnose_service
 from infra.ops_queries import build_dashboard, compute_alerts
+from infra.telemetry import SNAPSHOT_WINDOW_MINUTES
 from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["ops"])
 _deploy_warning: dict | None = None
+
+# ── 诊断口径词表（唯一语义来源，改这里即改契约）──────────────────────────
+# scope：process = 本 worker 进程内；workers = 跨 worker 档案合并；db = 数据库全局。
+# window：now = 即时状态；since_start = 进程启动至今累计；m5/h1/h24 = 滚动窗口；
+#         rolling_Nm = 由请求参数 error_window_minutes 决定的滚动窗口；
+#         rolling_24h / day_cn / month_cn = DB 侧滚动 24 小时 / 北京自然日 / 北京自然月。
+SCOPE_PROCESS = "process"
+SCOPE_WORKERS = "workers"
+SCOPE_DB = "db"
+WINDOW_NOW = "now"
+WINDOW_SINCE_START = "since_start"
+WINDOW_H24 = "rolling_24h"
+WINDOW_DAY_CN = "day_cn"
+WINDOW_MONTH_CN = "month_cn"
+ERROR_COUNT_WINDOWS = {"last_5min": "m5", "last_hour": "h1", "unique_24h": "h24", "total_captured": "h24"}
+# 前端遥测分组窗口固定 60 分钟（telemetry.SNAPSHOT_WINDOW_MINUTES），标签同时供 admin 端点复用。
+TELEMETRY_WINDOW_LABEL = f"rolling_{SNAPSHOT_WINDOW_MINUTES}m"
+
+
+def _cached_age_seconds(cached_at: str, now: datetime) -> int:
+    """runtime 快照的陈旧秒数（快照最长 ``CACHE_TTL_SECONDS``）；缺字段返回 -1。"""
+    if not cached_at:
+        return -1
+    try:
+        stamp = datetime.fromisoformat(str(cached_at))
+    except ValueError:
+        return -1
+    stamp = stamp if stamp.tzinfo else stamp.replace(tzinfo=UTC)
+    return max(0, int((now - stamp).total_seconds()))
+
+
+def error_count_block(source: dict) -> dict:
+    """``count`` 子块（公开端点与 admin 端点共用，避免两套形状漂移）。"""
+    return {
+        "last_5min": source.get("last_5min", 0),
+        "last_hour": source.get("last_hour", 0),
+        "total_captured": source.get("total_captured", 0),
+        "unique_24h": source.get("unique_24h", source.get("total_captured", 0)),
+    }
+
+
+def frontend_errors_block(frontend_errors: dict, *, window_label: str) -> dict:
+    """前端遥测块 —— 与 ``errors`` 同形（公开端点与 admin 端点共用）。"""
+    return {
+        "scope": SCOPE_WORKERS,
+        "window": window_label,
+        "window_by_count": ERROR_COUNT_WINDOWS,
+        "count": error_count_block(frontend_errors),
+        "groups": (frontend_errors.get("groups") or [])[:20],
+    }
 
 
 @router.post("/api/admin/deploy-warning")
@@ -127,9 +178,11 @@ async def diagnose(
 
         system_errors = diagnostic.get("errors", {}) if isinstance(diagnostic, dict) else {}
         frontend_errors = diagnostic.get("frontend_errors", {}) if isinstance(diagnostic, dict) else {}
+        llm_router_state = diagnostic.get("llm", {}) if isinstance(diagnostic, dict) else {}
         error_context = diag_svc.get_error_context(minutes=error_window_minutes, max_groups=error_groups)
 
-        dashboard["error_burst_5min"] = system_errors.get("burst_5min", 0)
+        # 口径统一：5 分钟突发与错误块的 last_5min 同源同义（旧 burst_5min 是重复键）。
+        dashboard["error_burst_5min"] = error_context.get("last_5min", system_errors.get("last_5min", 0))
         dashboard["frontend_errors"] = frontend_errors
 
         if hasattr(request.app.state, "scoring_tracker"):
@@ -147,8 +200,11 @@ async def diagnose(
         dashboard["http"] = metrics_snapshot.get("requests", {})
         alerts = compute_alerts(dashboard)
 
+        cached_age_seconds = _cached_age_seconds(str(diagnostic.get("cached_at") or ""), now)
+        error_window_label = f"rolling_{error_window_minutes}m"
+
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "version": APP_VERSION,
             "generated_at": now.isoformat(),
             "summary": {
@@ -156,44 +212,52 @@ async def diagnose(
                 "alerts": alerts,
             },
             "alerts": alerts,
-            "windows": {
-                "llm": "rolling_24h",
-                "scoring": "rolling_24h_by_record_end_time",
-                "voice": "rolling_24h",
-                "business": "natural_day_asia_shanghai",
-                "metrics": "process_since_start",
-                "errors": f"rolling_{error_window_minutes}m_persistent_archive",
-            },
             "runtime": {
+                "scope": SCOPE_PROCESS,
+                "window": WINDOW_NOW,
+                "cache_ttl_seconds": CACHE_TTL_SECONDS,
+                "cached_age_seconds": cached_age_seconds,
                 "uptime_seconds": diagnostic.get("server", {}).get("uptime_seconds", 0),
                 "database": diagnostic.get("database", {}),
-                "llm_router": diagnostic.get("llm", {}),
-                "active_sessions": diagnostic.get("active_sessions", 0),
                 "diagnose_cached_at": diagnostic.get("cached_at", ""),
             },
+            "sessions": {
+                "scope": SCOPE_DB,
+                "window": WINDOW_NOW,
+                **dashboard.get("sessions", {}),
+            },
             "errors": {
-                "count": {
-                    "last_5min": system_errors.get("last_5min", 0),
-                    "last_hour": system_errors.get("last_hour", 0),
-                    "total_captured": system_errors.get("total_captured", 0),
-                    "unique_24h": system_errors.get("unique_24h", 0),
-                },
+                "scope": SCOPE_WORKERS,
+                "window": error_window_label,
+                "window_by_count": ERROR_COUNT_WINDOWS,
+                "count": error_count_block(system_errors),
                 **error_context,
             },
-            "frontend_errors": {
-                "count": {
-                    "last_5min": frontend_errors.get("last_5min", 0),
-                    "last_hour": frontend_errors.get("last_hour", 0),
-                    "total_captured": frontend_errors.get("total_captured", 0),
-                },
-                "groups": (frontend_errors.get("groups") or [])[:20],
+            "frontend_errors": frontend_errors_block(frontend_errors, window_label=error_window_label),
+            "llm": {
+                "scope": SCOPE_DB,
+                "window": WINDOW_H24,
+                **dashboard["llm"],
+                # 进程侧（router 熔断/降级/兜底/落库失败）单列，scope/window 与 24h 统计区分。
+                "router": {"scope": SCOPE_PROCESS, "window": WINDOW_NOW, **llm_router_state},
             },
-            "llm": dashboard["llm"],
-            "scoring": dashboard["scoring"],
-            "voice": dashboard["voice"],
-            "voice_budget": dashboard["voice_budget"],
-            "business": dashboard["business"],
-            "metrics": metrics_snapshot,
+            "scoring": {
+                "scope": SCOPE_DB,
+                "window": "rolling_24h_by_record_end_time",
+                "in_progress_scope": SCOPE_PROCESS,
+                "in_progress_window": WINDOW_NOW,
+                **dashboard["scoring"],
+            },
+            "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **dashboard["voice"]},
+            "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **dashboard["voice_budget"]},
+            "business": {"scope": SCOPE_DB, "window": WINDOW_DAY_CN, **dashboard["business"]},
+            "metrics": {
+                "scope": SCOPE_PROCESS,
+                "window": WINDOW_SINCE_START,
+                "active_sessions_scope": SCOPE_DB,
+                "active_sessions_window": WINDOW_NOW,
+                **metrics_snapshot,
+            },
         }
     finally:
         db.close()

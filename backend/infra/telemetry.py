@@ -42,7 +42,8 @@ _ARCHIVE_MAX_BYTES = int(os.getenv("FRONTEND_ERROR_ARCHIVE_MAX_MB", "2")) * 1024
 _ARCHIVE_BACKUPS = int(os.getenv("FRONTEND_ERROR_ARCHIVE_BACKUPS", "2"))
 _ARCHIVE_FLUSH_SECONDS = 30
 _ARCHIVE_QUERY_LIMIT = 1000
-_SNAPSHOT_WINDOW_MINUTES = 60
+# 前端遥测快照窗口（分钟）——诊断端点的 frontend_errors.window 标签由此派生。
+SNAPSHOT_WINDOW_MINUTES = 60
 _GROUPS_N = 20
 _BURST_SECONDS = 300
 _HOUR_SECONDS = 3600
@@ -196,9 +197,7 @@ class FrontendErrorBuffer:
             return [entry.as_event(count=entry.count) for entry in self.buffer if entry.timestamp >= cutoff]
         return self._unpersisted_events(since)
 
-    def aggregate_snapshot(
-        self, *, window_minutes: int = _SNAPSHOT_WINDOW_MINUTES, max_groups: int = _GROUPS_N
-    ) -> dict:
+    def aggregate_snapshot(self, *, window_minutes: int = SNAPSHOT_WINDOW_MINUTES, max_groups: int = _GROUPS_N) -> dict:
         """跨 worker 快照 = 本进程未落盘增量 + 共享归档。
 
         - ``last_5min`` / ``last_hour``：窗口内发生次数（含其它 worker 已归档的部分）
@@ -265,9 +264,12 @@ class FrontendErrorBuffer:
         cutoff = (now - timedelta(minutes=window_minutes)).isoformat()
         window = [group for group in groups.values() if group["time"] >= cutoff]
         window.sort(key=lambda group: group["time"], reverse=True)
+        # 与后端错误块统一：last_5min/last_hour 为窗口内发生次数，
+        # unique_24h 与 total_captured 同义（24h 内不同签名数），后者为历史键名。
         return {
             "last_5min": burst,
             "last_hour": hour,
+            "unique_24h": len(groups),
             "total_captured": len(groups),
             "groups": window[:max_groups],
         }

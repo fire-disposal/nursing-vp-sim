@@ -15,7 +15,8 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm?.success_rate ?? 100;
 	const rateColor =
 		successRate >= 95 ? "green" : successRate >= 90 ? "amber" : "red";
-	const activeSessions = (data.metrics as Record<string, unknown>)?.active_sessions as number ?? 0;
+	const activeSessions = data.metrics?.active_sessions ?? 0;
+	const degraded = (data.alerts?.length ?? 0) > 0;
 	const scoringSuccessRate = data.scoring?.success_rate ?? 100;
 	const scoringColor =
 		scoringSuccessRate >= 90 ? "green" : scoringSuccessRate >= 80 ? "amber" : "red";
@@ -24,9 +25,9 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 		<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 			<StatCard
 				icon={IconActivity}
-				value={data.health?.status === "ok" ? "正常" : (data.health?.status ?? "未知")}
-				label="运行状态"
-				color="green"
+				value={degraded ? "降级" : "正常"}
+				label="运行状态 (alerts)"
+				color={degraded ? "red" : "green"}
 			/>
 			<StatCard
 				icon={IconCpu}
@@ -43,7 +44,7 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 			<StatCard
 				icon={IconServer}
 				value={activeSessions}
-				label="活跃会话"
+				label="进行中训练"
 				color="blue"
 			/>
 		</SimpleGrid>
@@ -94,9 +95,9 @@ function LLMDetailCard({ data }: { data: DiagnoseResponse }) {
 }
 
 function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
-	const uptimeSeconds = Number((data.metrics as Record<string, unknown>)?.uptime_seconds ?? 0);
+	const uptimeSeconds = Number(data.metrics?.uptime_seconds ?? 0);
 	const uptimeHours = (uptimeSeconds / 3600).toFixed(1);
-	const activeSessions = String((data.metrics as Record<string, unknown>)?.active_sessions ?? 0);
+	const activeSessions = String(data.metrics?.active_sessions ?? 0);
 
 	return (
 		<Card>
@@ -141,7 +142,7 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 					</Text>
 					<Text size="sm" c="dimmed">版本</Text>
 					<Text size="xs" ta="right" ff="monospace">
-						{data.health?.version ?? "-"}
+						{data.metrics?.version ?? "-"}
 					</Text>
 				</SimpleGrid>
 			</CardContent>
@@ -190,7 +191,7 @@ function HttpFrontendCard({ data }: { data: DiagnoseResponse }) {
 					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>{requests?.latency_ms?.p95 ?? 0} ms</Text>
 					<Text size="sm" c="dimmed">前端错误 5min / 1h</Text>
 					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
-						{frontend?.last_5min ?? 0} / {frontend?.last_hour ?? 0}
+						{frontend?.count?.last_5min ?? 0} / {frontend?.count?.last_hour ?? 0}
 					</Text>
 				</SimpleGrid>
 				{top4xx.length > 0 && (
@@ -217,7 +218,7 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 				<Group justify="space-between" align="center" wrap="wrap">
 					<CardTitle>最近系统错误</CardTitle>
 					<Text size="xs" c="dimmed">
-						5min: {data.errors?.count?.last_5min ?? 0} · 1h: {data.errors?.count?.last_hour ?? 0} · 24h 类型: {data.errors?.count?.unique_24h ?? 0} · 总计: {data.errors?.count?.total_captured ?? 0}
+						5min: {data.errors?.count?.last_5min ?? 0} · 1h: {data.errors?.count?.last_hour ?? 0} · 24h 签名: {data.errors?.count?.unique_24h ?? 0}
 					</Text>
 				</Group>
 			</CardHeader>

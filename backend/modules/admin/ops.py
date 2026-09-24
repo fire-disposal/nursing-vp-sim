@@ -12,10 +12,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
-from core.config import APP_VERSION
 from core.database import get_db
 from core.security import require_permission
 from infra.diagnose import get_diagnose_service
+from infra.diagnostics import (
+    ERROR_COUNT_WINDOWS,
+    SCOPE_WORKERS,
+    TELEMETRY_WINDOW_LABEL,
+    error_count_block,
+    frontend_errors_block,
+)
 from infra.ops_queries import build_dashboard, compute_alerts
 from models import User
 
@@ -71,7 +77,7 @@ async def admin_ops_dashboard(
         raw_frontend_errors = diagnostic.get("frontend_errors") if isinstance(diagnostic, dict) else None
         system_errors = raw_system_errors if isinstance(raw_system_errors, dict) else {}
         frontend_errors = raw_frontend_errors if isinstance(raw_frontend_errors, dict) else {}
-        data["error_burst_5min"] = system_errors.get("burst_5min", 0)
+        data["error_burst_5min"] = system_errors.get("last_5min", 0)
         data["frontend_errors"] = frontend_errors
         data["http"] = metrics_snapshot.get("requests", {})
     except Exception:
@@ -80,20 +86,15 @@ async def admin_ops_dashboard(
         frontend_errors = {}
         data["error_burst_5min"] = 0
     errors_structured = {
-        "count": {
-            "last_5min": system_errors.get("last_5min", 0),
-            "last_hour": system_errors.get("last_hour", 0),
-            "total_captured": system_errors.get("total_captured", 0),
-            "unique_24h": system_errors.get("unique_24h", 0),
-            "burst_5min": system_errors.get("burst_5min", 0),
-        },
+        "scope": SCOPE_WORKERS,
+        "window_by_count": ERROR_COUNT_WINDOWS,
+        "count": error_count_block(system_errors),
         "recent": system_errors.get("recent", []),
     }
 
     alerts = compute_alerts(data)
 
     return {
-        "health": {"status": "ok", "version": APP_VERSION},
         "time": data["time"],
         "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
         "llm": data["llm"],
@@ -104,7 +105,8 @@ async def admin_ops_dashboard(
         "sse": sse_stats,
         "metrics": metrics_snapshot,
         "errors": errors_structured,
-        "frontend_errors": frontend_errors,
+        # 与公开端点同形（scope/window/window_by_count/count/groups）。
+        "frontend_errors": frontend_errors_block(frontend_errors, window_label=TELEMETRY_WINDOW_LABEL),
         "alerts": alerts,
     }
 
@@ -119,12 +121,13 @@ async def admin_ops_errors(
         diagnostic = await diag_svc.get_diagnose()
         errors = diagnostic.get("errors") or {}
         return {
+            "scope": "workers",
+            "window_by_count": ERROR_COUNT_WINDOWS,
             "count": {
                 "last_5min": errors.get("last_5min", 0),
                 "last_hour": errors.get("last_hour", 0),
                 "total_captured": errors.get("total_captured", 0),
                 "unique_24h": errors.get("unique_24h", 0),
-                "burst_5min": errors.get("burst_5min", 0),
             },
             "recent": (errors.get("recent") or [])[:n],
         }

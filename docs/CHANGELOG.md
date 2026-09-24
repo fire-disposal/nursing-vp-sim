@@ -215,3 +215,14 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - **问诊任务清单**：清单保留勾选与完成度配色（绿/琥珀/红），但只由关键词命中推断、会漏判，从交卷门槛降级为自检参考，并移除「全部覆盖」结算弹窗
 - **问卷闭环**：管理页正式接入导航；训练前按病例一次作答，评分后按训练记录逐次作答，学生结果页直接触发；该分域迁移的 downgrade 会先清理评分后作答行，避免回滚时旧唯一约束创建失败而中止（`deploy/rollback.sh`）
 - **作业次数**：新作业默认最多 1 次，`0` 明确表示不限制
+
+### 诊断口径收束（`/api/diagnose` schema_version 3）
+
+- **每块自带 scope/window**：`process`（本 worker）/`workers`（跨 worker 档案合并）/`db`（数据库全局）× `now`/`since_start`/`m5`/`h1`/`h24`/`rolling_24h`/`rolling_<N>m`/`day_cn`/`month_cn`；删除只覆盖半数字段、且表达不了同块混口径的顶层 `windows` 表
+- **修掉伪窗口**：`errors.count.last_5min/last_hour` 原为「命中窗口的组的**历史累计**」，改为**窗口内发生次数**（跨 worker 档案 + 本进程未落盘增量，按事件时间）；`total_captured` 与前端的同名字段统一为「24h 内不同签名数」（与 `unique_24h` 同义）；删除与 `last_5min` 重复的 `burst_5min`
+- **同形化**：`frontend_errors` 与 `errors` 由同一 builder 产出（公开端点与 admin 端点共用），消费者只需一份解析
+- **LLM 降级证据收拢**：`llm.router`（process/now）为唯一规范位置，原 `runtime.llm_router` 移除；`metrics.llm.degraded_*` 保留为宿主日报的兼容别名
+- **删掉恒 0 的死字段**：`runtime.active_sessions` 删除，新增 `sessions.active`（db/now = 进行中训练数）；`metrics.active_sessions` 的 supplier 首次接线，宿主监控与日报据此判断「无会话」不再是假安全
+- **陈旧度显式化**：`runtime.cache_ttl_seconds`/`cached_age_seconds`（快照最长 120s）
+- **删掉第二份契约**：`schemas/ops.py` 中未被引用且已漂移的 `Diagnose*`/`Metrics*`/`Ops*` pydantic 模型移除（只留 `HealthResponse`/`FallbackStateResponse`）
+- **同步消费方**：PiOps 诊断 prompt 改读 `llm.router`（此前降级证据根本进不了 prompt）、admin 看板、宿主日报兼容说明与本仓 5 份运维文档；告警文案修正（「LLM 5 分钟突发错误」实为后端 ERROR 日志突发）、p95 告警标注本进程口径
