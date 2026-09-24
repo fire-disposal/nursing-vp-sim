@@ -1,3 +1,5 @@
+// 必须最先引入：垫片要早于 React/Mantine/懒加载 chunk 求值，详见 utils/polyfills.ts。
+import "./utils/polyfills";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/spotlight/styles.css";

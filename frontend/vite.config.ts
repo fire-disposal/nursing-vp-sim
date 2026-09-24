@@ -40,6 +40,9 @@ export default defineConfig({
 		},
 	},
 	build: {
+		// 浏览器下限（机房镜像为 Chromium 92）：语法的降级底线，API 由 utils/polyfills.ts 兜底。
+		// 详见 docs/09-operations.md「浏览器下限」。
+		target: ["chrome92", "edge92", "firefox91", "safari15"],
 		rollupOptions: {
 			output: {
 				manualChunks(id) {

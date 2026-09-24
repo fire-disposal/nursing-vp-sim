@@ -234,6 +234,21 @@ TrainingEngine
 - **超时配置**: axios 120s，Vite proxy 120s（匹配 LLM 评分耗时）
 - **useNetworkStatus**: 网络连接状态实时检测
 
+### 浏览器下限与垫片
+
+支持下限：**Chromium/Edge 92+、Firefox 91+、Safari 15.4+**（学校机房镜像为 Chromium 92，
+2026-09-24 实测）。`vite.config.ts` 的 `build.target` 固定在该下限降级语法；
+**内置 API 只能靠 `src/utils/polyfills.ts` 垫片**（打包器不会补 API）：
+
+- `Object.hasOwn`：react-markdown（markdown chunk）与 recharts（charts chunk）依赖它。
+  机房 Edge 92 缺该 API → 渲染期 `TypeError` → ErrorBoundary 整页接管（线上事故根因）。
+- `crypto.randomUUID`：训练会话消息 id 依赖它（Firefox < 95 缺失）。
+
+垫片必须在 `main.tsx` 首行 import —— ESM 先求值被 import 的模块，只有独立模块才能早于
+React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（如 `structuredClone`、
+`Array.prototype.findLast`），需同步补垫片或抬高下限；`structuredClone` 目前只在
+markdown 的 `typeof` 守卫分支与 recharts 的 Error 深拷贝分支出现，未垫片。
+
 ## 测试
 
 - 框架: Vitest 4 + @testing-library/react 16 + jsdom
