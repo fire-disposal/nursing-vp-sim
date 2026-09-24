@@ -17,8 +17,15 @@ from core.security import require_permission
 from infra.diagnose import get_diagnose_service
 from infra.diagnostics import (
     ERROR_COUNT_WINDOWS,
+    SCOPE_DB,
+    SCOPE_PROCESS,
     SCOPE_WORKERS,
     TELEMETRY_WINDOW_LABEL,
+    WINDOW_DAY_CN,
+    WINDOW_H24,
+    WINDOW_MONTH_CN,
+    WINDOW_NOW,
+    WINDOW_SINCE_START,
     error_count_block,
     frontend_errors_block,
 )
@@ -87,6 +94,7 @@ async def admin_ops_dashboard(
         data["error_burst_5min"] = 0
     errors_structured = {
         "scope": SCOPE_WORKERS,
+        "window": TELEMETRY_WINDOW_LABEL,
         "window_by_count": ERROR_COUNT_WINDOWS,
         "count": error_count_block(system_errors),
         "recent": system_errors.get("recent", []),
@@ -97,13 +105,26 @@ async def admin_ops_dashboard(
     return {
         "time": data["time"],
         "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
-        "llm": data["llm"],
-        "scoring": data["scoring"],
-        "sessions": data["sessions"],
-        "voice": data["voice"],
-        "voice_budget": data["voice_budget"],
+        "llm": {"scope": SCOPE_DB, "window": WINDOW_H24, **data["llm"]},
+        "scoring": {
+            "scope": SCOPE_DB,
+            "window": "rolling_24h_by_record_end_time",
+            "in_progress_scope": SCOPE_PROCESS,
+            "in_progress_window": WINDOW_NOW,
+            **data["scoring"],
+        },
+        "sessions": {"scope": SCOPE_DB, "window": WINDOW_NOW, **data["sessions"]},
+        "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **data["voice"]},
+        "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **data["voice_budget"]},
+        "business": {"scope": SCOPE_DB, "window": WINDOW_DAY_CN, **data["business"]},
         "sse": sse_stats,
-        "metrics": metrics_snapshot,
+        "metrics": {
+            "scope": SCOPE_PROCESS,
+            "window": WINDOW_SINCE_START,
+            "active_sessions_scope": SCOPE_DB,
+            "active_sessions_window": WINDOW_NOW,
+            **metrics_snapshot,
+        },
         "errors": errors_structured,
         # 与公开端点同形（scope/window/window_by_count/count/groups）。
         "frontend_errors": frontend_errors_block(frontend_errors, window_label=TELEMETRY_WINDOW_LABEL),

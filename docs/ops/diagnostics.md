@@ -61,6 +61,10 @@ runtime  sessions  errors  frontend_errors  llm  scoring  voice  voice_budget  b
 顶层不再有集中的窗口块：每个块自带 `scope` / `window` 字段，口径跟着数据走。
 `summary.status` 有 alerts 即 `degraded`，否则 `healthy`（发布冒烟依赖此语义）。
 
+admin 出口 `/admin/ops/dashboard`、`/admin/ops/errors` 与公开端点**同规则**：各块同样自带
+`scope` / `window`（`errors` / `frontend_errors` 的形状与公开端点逐字一致，由同一 builder 产出），
+且不再返回恒为 `ok` 的 `health` 字段——页面按 `alerts` 判运行状态、版本取 `metrics.version`。
+
 ### 口径词表
 
 `scope`：`process` = 本 worker 进程内；`workers` = 跨 worker JSONL 档案 + 未落盘增量合并；
