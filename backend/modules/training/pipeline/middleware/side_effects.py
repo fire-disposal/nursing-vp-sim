@@ -116,18 +116,21 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     )
 
     now = datetime.now(UTC)
+    record_id = ctx.record.id
     mark_patient_walkout(ctx.record, at=now)
-    claimed, kind, case_data = finalize_training(ctx.db, ctx.record.id, ended_at=now)
+    claimed, kind, case_data = finalize_training(ctx.db, record_id, ended_at=now)
     if not claimed:
-        log.warning("Patient walkout: record not finalizable (already ending?): record_id=%d", ctx.record.id)
+        log.warning("Patient walkout: record not finalizable (already ending?): record_id=%d", record_id)
         return
     if kind != TrainingStatus.COMPLETED or case_data is None:
         return
 
     try:
+        # 闭包在 worker 阶段才执行，彼时 ctx.record 已随请求 session 脱离（DetachedInstanceError）：
+        # 只能捕获标量，不能在闭包里回读 ORM 属性。
         await app.task_queue.enqueue(
             lambda: _run_scoring_background(
-                ctx.record.id,
+                record_id,
                 case_data,
                 llm_client=app.llm_client,
                 tracker=getattr(app, "scoring_tracker", None),
@@ -137,7 +140,7 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
         )
     except QueueFullError:
         # 响应已在流式输出中，无法回 503：残留的 pending 交给 settlement 的卡死评分清扫
-        log.error("Patient walkout: scoring queue full: record_id=%d", ctx.record.id)
+        log.error("Patient walkout: scoring queue full: record_id=%d", record_id)
 
     ctx.state[STATE_DONE_PAYLOAD] = {
         **(ctx.state.get(STATE_DONE_PAYLOAD) or {}),
@@ -147,6 +150,6 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     cleanup_session_runtime(ctx.record, app, ctx.db)
     log.info(
         "训练因患者中止访谈结束: record_id=%d",
-        ctx.record.id,
+        record_id,
         extra={"user_id": ctx.current_user.id, "action": "training_patient_walkout"},
     )
