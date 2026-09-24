@@ -31,6 +31,7 @@ from infra.diagnostics import (
 )
 from infra.ops_queries import build_dashboard, compute_alerts
 from models import User
+from modules.feedback.service import FeedbackService
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,20 @@ async def admin_ops_diagnose(
 ):
     diag_svc = get_diagnose_service()
     return await diag_svc.get_diagnose()
+
+
+def _feedback_block(db: Session) -> dict:
+    """未回复反馈块 —— 只暴露计数与最老一条的时间，绝不返回正文或用户标识。
+
+    查询走 ``modules.feedback.service`` 服务层；失败只告警并降级为 0/None，
+    不能让反馈统计拖垮整个 dashboard。
+    """
+    summary: dict = {"unanswered": 0, "oldest_created_at": None, "oldest_age_days": None}
+    try:
+        summary = FeedbackService(db).unreplied_summary()
+    except Exception:
+        log.warning("feedback unreplied summary failed", exc_info=True)
+    return {"scope": SCOPE_DB, "window": WINDOW_NOW, **summary}
 
 
 @router.get("/ops/dashboard")
@@ -117,6 +132,7 @@ async def admin_ops_dashboard(
         "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **data["voice"]},
         "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **data["voice_budget"]},
         "business": {"scope": SCOPE_DB, "window": WINDOW_DAY_CN, **data["business"]},
+        "feedback": _feedback_block(db),
         "sse": sse_stats,
         "metrics": {
             "scope": SCOPE_PROCESS,

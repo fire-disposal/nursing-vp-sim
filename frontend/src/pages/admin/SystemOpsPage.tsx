@@ -5,7 +5,7 @@ import { useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@mantine/core";
+import { Checkbox, Progress } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
@@ -150,6 +150,126 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 	);
 }
 
+function VoiceBudgetCard({ data }: { data: DiagnoseResponse }) {
+	const tts = data.voice?.tts;
+	const successRate = tts?.success_rate ?? 0;
+	const rateColor = successRate >= 95 ? "green" : successRate >= 90 ? "amber" : "red";
+	const budget = data.voice_budget ?? { monthly_budget: 0, monthly_cost: 0, usage_pct: 0 };
+	const usagePct = budget.usage_pct ?? 0;
+	// 月用量 >=80% 进入警示区（>=90% 红），未设预算时 usage_pct 恒为 0。
+	const usageColor = usagePct >= 90 ? "red" : usagePct >= 80 ? "amber" : "green";
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>语音与预算</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<SimpleGrid cols={2} spacing="sm">
+					<Text size="sm" c="dimmed">TTS 调用 (24h)</Text>
+					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+						{(tts?.calls_24h ?? 0).toLocaleString()}
+					</Text>
+					<Text size="sm" c="dimmed">成功率</Text>
+					<Text
+						size="sm"
+						ta="right"
+						fw={500}
+						c={rateColor}
+						style={{ fontVariantNumeric: "tabular-nums" }}
+					>
+						{successRate}%
+					</Text>
+					<Text size="sm" c="dimmed">失败</Text>
+					<Text size="sm" ta="right" c="red" style={{ fontVariantNumeric: "tabular-nums" }}>
+						{tts?.error_count_24h ?? 0}
+					</Text>
+					<Text size="sm" c="dimmed">平均延迟</Text>
+					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+						{tts?.avg_latency_ms ?? 0} ms
+					</Text>
+					<Text size="sm" c="dimmed">成本 (24h)</Text>
+					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+						¥{(tts?.cost_24h ?? 0).toFixed(4)}
+					</Text>
+				</SimpleGrid>
+				<Stack
+					gap={6}
+					mt="sm"
+					pt="sm"
+					style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+				>
+					<Group justify="space-between" gap={8}>
+						<Text size="sm" c="dimmed">月用量 (北京自然月)</Text>
+						<Text
+							size="sm"
+							fw={500}
+							c={usageColor}
+							style={{ fontVariantNumeric: "tabular-nums" }}
+						>
+							{usagePct}%
+						</Text>
+					</Group>
+					<Progress value={Math.min(Math.max(usagePct, 0), 100)} color={usageColor} size="sm" />
+					<Text size="xs" c="dimmed" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+						¥{(budget.monthly_cost ?? 0).toFixed(4)} / ¥{(budget.monthly_budget ?? 0).toFixed(2)}
+					</Text>
+				</Stack>
+			</CardContent>
+		</Card>
+	);
+}
+
+function BusinessCard({ data }: { data: DiagnoseResponse }) {
+	const business = data.business;
+	const feedback = data.feedback;
+	const unanswered = feedback?.unanswered ?? 0;
+	const ageDays = feedback?.oldest_age_days ?? null;
+	const feedbackColor = unanswered === 0 ? "green" : unanswered >= 5 ? "red" : "amber";
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>业务量 (今日 · 北京)</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<SimpleGrid cols={2} spacing="sm">
+					<Text size="sm" c="dimmed">今日用户</Text>
+					<Text size="sm" ta="right" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
+						{(business?.today_users ?? 0).toLocaleString()}
+					</Text>
+					<Text size="sm" c="dimmed">今日训练</Text>
+					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+						{(business?.today_trainings ?? 0).toLocaleString()}
+					</Text>
+					<Text size="sm" c="dimmed">今日完成</Text>
+					<Text size="sm" ta="right" c="green" style={{ fontVariantNumeric: "tabular-nums" }}>
+						{(business?.today_completed ?? 0).toLocaleString()}
+					</Text>
+				</SimpleGrid>
+				<Stack
+					gap={4}
+					mt="sm"
+					pt="sm"
+					style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+				>
+					<Group justify="space-between" gap={8}>
+						<Text size="sm" c="dimmed">未回复反馈</Text>
+						<Text size="sm" fw={500} c={feedbackColor} style={{ fontVariantNumeric: "tabular-nums" }}>
+							{unanswered} 条
+						</Text>
+					</Group>
+					{unanswered > 0 && ageDays != null && (
+						<Text size="xs" c="dimmed">
+							{ageDays >= 1 ? `最老一条 ${ageDays} 天前` : "最老一条不足 1 天"}
+						</Text>
+					)}
+				</Stack>
+			</CardContent>
+		</Card>
+	);
+}
+
 function AlertsCard({ data }: { data: DiagnoseResponse }) {
 	const alerts = data.alerts || [];
 	return (
@@ -283,7 +403,7 @@ export default function SystemOpsPage() {
 		<Stack gap="xl" mt="md">
 			<PageHeader
 				title="系统运维"
-				subtitle="LLM 状态 · 评分队列 · 错误日志 · 会话统计"
+				subtitle="LLM 状态 · 评分队列 · 语音预算 · 业务量 · 错误日志 · 会话统计"
 				actions={
 					<Group gap={8} align="center">
 						<Checkbox
@@ -303,6 +423,8 @@ export default function SystemOpsPage() {
 			<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
 				<LLMDetailCard data={data} />
 				<ScoringSessionsCard data={data} />
+				<VoiceBudgetCard data={data} />
+				<BusinessCard data={data} />
 				<HttpFrontendCard data={data} />
 			</SimpleGrid>
 

@@ -75,8 +75,12 @@ curl -s -X PUT "$BASE/api/feedback/bot/<id>/reply" --url-query "token@$TOKEN_FIL
 ## 改口径的开发规矩
 
 - 契约唯一来源：`backend/infra/diagnostics.py` 的 scope/window 词表（含 `ERROR_COUNT_WINDOWS`）+ `docs/ops/diagnostics.md`。
-- 改字段必须同步全部消费方：`docs/09-operations.md`、宿主日报 `/opt/server-ops/monitor/daily_report.py`、
-  `.github/piops/build_prompt.py`、admin 看板（`frontend/src/pages/admin/SystemOpsPage.tsx` + `api/admin/ops.ts`）、`deploy.yml` 冒烟。
+- 改字段必须同步全部消费方：`docs/09-operations.md`、`.github/piops/build_prompt.py`、
+  admin 看板（`frontend/src/pages/admin/SystemOpsPage.tsx` + `api/admin/ops.ts`）、`deploy.yml` 冒烟。
+  （宿主 VP-SIM 日报已于 2026-09-24 退役：`monitor/daily_report.py` 与 `templates/daily.*` 已删、
+  `[routes] daily` 已移除，其业务面由 panel 的 `voice`/`voice_budget`/`business`/`feedback` 承担。）
+- admin 出口另有 `feedback` 块（scope=db, window=now）：`unanswered` / `oldest_created_at` / `oldest_age_days`，
+  只给计数与时间（无正文、无用户标识），查询走 `modules.feedback` 服务层、异常降级为 0/None。
 - 三条不变量：一个数据只放一处；**同名必须同义**；每块自带 `scope`/`window`。
 - 改完跑 `cd backend && uv run python -m pytest tests/infra/test_diagnose_contract.py`（窗口语义/词表/去重不变量）。
 - 生效路径：`pnpm run tag` ⇒ tag 推送触发 `deploy.yml` ⇒ 部署后冒烟会真打 `/api/diagnose`

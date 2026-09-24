@@ -65,6 +65,11 @@ admin 出口 `/admin/ops/dashboard`、`/admin/ops/errors` 与公开端点**同�
 `scope` / `window`（`errors` / `frontend_errors` 的形状与公开端点逐字一致，由同一 builder 产出），
 且不再返回恒为 `ok` 的 `health` 字段——页面按 `alerts` 判运行状态、版本取 `metrics.version`。
 
+admin 出口另有公开端点没有的 `feedback` 块（`scope: db` / `window: now`）：
+`unanswered` / `oldest_created_at` / `oldest_age_days`，取代宿主日报的「未回复用户反馈 N 条」。
+为遵守最小暴露原则，该块**不含反馈正文与用户标识**；查询失败只告警并降级为 0/`null`，
+不会让整个 dashboard 失败。
+
 ### 口径词表
 
 `scope`：`process` = 本 worker 进程内；`workers` = 跨 worker JSONL 档案 + 未落盘增量合并；

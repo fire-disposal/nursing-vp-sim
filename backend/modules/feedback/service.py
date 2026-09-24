@@ -5,7 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.config import APP_VERSION
-from core.datetime_utils import parse_iso_datetime
+from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.unit_of_work import unit_of_work
@@ -265,6 +265,31 @@ class FeedbackService:
             "total_images": total_images,
             "total_bytes": total_bytes,
             "total_mb": round(total_bytes / (1024 * 1024), 2),
+        }
+
+    def unreplied_summary(self, now: datetime | None = None) -> dict:
+        """未回复反馈概览 —— 供运维面板显示「未回复用户反馈 N 条」。
+
+        只返回计数与**最老一条**的时间（``oldest_created_at`` / ``oldest_age_days``），
+        不含正文与用户标识。回复判定复用 ``_query_admin_list(replied=False)``，
+        与后台反馈列表同口径（``developer_reply IS NULL``）。
+        """
+        q = self._query_admin_list(replied=False)
+        unanswered = q.count()
+        if not unanswered:
+            return {"unanswered": 0, "oldest_created_at": None, "oldest_age_days": None}
+
+        # ``_query_admin_list`` 已按 created_at 倒序；Query.order_by 是**追加**语义，
+        # 必须先用 order_by(None) 清空，否则取到的会是"最新一条"。
+        oldest = q.order_by(None).order_by(Feedback.created_at.asc()).first()
+        created_at = ensure_utc(oldest.created_at) if oldest is not None and oldest.created_at else None
+        age_days = None
+        if created_at is not None:
+            age_days = round(((now or datetime.now(UTC)) - created_at).total_seconds() / 86400, 1)
+        return {
+            "unanswered": unanswered,
+            "oldest_created_at": created_at.isoformat() if created_at else None,
+            "oldest_age_days": age_days,
         }
 
     def _query_admin_list(

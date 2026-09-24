@@ -64,6 +64,15 @@ export interface DiagnoseResponse {
 		tts: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};
 	voice_budget: { monthly_budget: number; monthly_cost: number; usage_pct: number };
+	business: { today_users: number; today_trainings: number; today_completed: number };
+	/** 未回复反馈概览 —— 只含计数与最老一条的时间，不含正文/用户标识。 */
+	feedback?: {
+		scope: "db";
+		window: string;
+		unanswered: number;
+		oldest_created_at: string | null;
+		oldest_age_days: number | null;
+	};
 	metrics: Record<string, unknown> & { requests?: RequestMetrics; version?: string; active_sessions?: number; uptime_seconds?: number };
 	errors: {
 		scope: "workers";
