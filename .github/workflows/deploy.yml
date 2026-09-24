@@ -513,4 +513,4 @@ jobs:
             || echo "⚠ 部署通知上报失败（不阻断部署）"
 
       - name: "✅ Deployed"
-        run: echo "v${{ steps.resolve_version.outputs.version }} → iomt.205716.xyz 🚀"
+        run: echo "v${{ steps.resolve_version.outputs.version }} → iomt.205716.xyz ✓"
