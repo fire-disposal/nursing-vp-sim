@@ -280,7 +280,7 @@ class AssignmentService:
         start_time: datetime,
         end_time: datetime,
         teacher_id: int,
-        max_attempts: int | None = None,
+        max_attempts: int | None = 1,
     ) -> AssignmentDetailView:
         case = self.db.query(Case).filter(Case.id == case_id).first()
         if not case:

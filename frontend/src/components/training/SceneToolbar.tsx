@@ -4,7 +4,7 @@
  * 渲染在 ChatInput 上方，隐藏于大屏桌面端（lg:hidden）。
  * 点击图标打开对应的 Bottomsheet 面板。
  */
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ActionIcon, Box, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Bottomsheet from "@/components/ui/bottomsheet";
@@ -20,7 +20,12 @@ export default function SceneToolbar() {
   const trainingType = useTrainingStore(s => s.trainingType);
   const recordId = useTrainingStore(s => s.recordId);
   const recordDetail = useTrainingStore(s => s.recordDetail);
-  const tools: TrainingTool[] = getTools(trainingType, capabilities);
+  const tools: TrainingTool[] = useMemo(() => {
+    const available = getTools(trainingType, capabilities);
+    return recordDetail?.mode === "assessment"
+      ? available.filter((tool) => tool.id !== "inquiry")
+      : available;
+  }, [capabilities, recordDetail?.mode, trainingType]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const activeTool = tools.find((c) => c.id === activeId);

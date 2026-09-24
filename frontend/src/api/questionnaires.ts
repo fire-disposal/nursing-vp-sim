@@ -66,11 +66,6 @@ export const getQuestionnaireStats = (templateId: number) =>
 		`/questionnaires/responses/${templateId}/stats`,
 	);
 
-export const getMyResponses = (params?: Record<string, unknown>) =>
-	api.get<Schemas["PaginatedResponse_QuestionnaireResponseItem_"]>(
-		"/questionnaires/my-responses",
-		{ params },
-	);
 
 export const exportQuestionnaireCSV = (templateId: number) =>
 	api.post(`/questionnaires/responses/${templateId}/export` as ApiPath, null, { responseType: "blob" });
@@ -88,17 +83,3 @@ export const assignCaseQuestionnaire = (
 		payload,
 	);
 
-export const getTrainingQuestionnaire = (
-	trainingId: number | string,
-	type: "pre" | "post",
-) =>
-	api.get<{
-		id: number;
-		title: string;
-		questions: Array<{
-			id: number;
-			text: string;
-			type: string;
-			options?: string[];
-		}>;
-	}>(`/questionnaires/training/${trainingId}/${type}`);

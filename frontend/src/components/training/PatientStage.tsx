@@ -28,6 +28,7 @@ export default function PatientStage() {
 	const anxiety = useTrainingStore((s) => s.anxiety);
 	const irritation = useTrainingStore((s) => s.irritation);
 	const cooperation = useTrainingStore((s) => s.cooperation);
+	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
 
 	const values = useMemo(
 		() => ({ trust, anxiety, irritation, cooperation }),
@@ -130,12 +131,14 @@ export default function PatientStage() {
 							)}
 						</Stack>
 
-						<EmotionIndicator
-							bus={bus}
-							capabilities={capabilities}
-							recordId={recordId}
-							trailing={<InquiryProgressChip />}
-						/>
+						{mode !== "assessment" && (
+							<EmotionIndicator
+								bus={bus}
+								capabilities={capabilities}
+								recordId={recordId}
+								trailing={<InquiryProgressChip />}
+							/>
+						)}
 					</Box>
 				)}
 			</Transition>

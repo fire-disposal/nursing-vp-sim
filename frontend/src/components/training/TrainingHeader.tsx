@@ -33,19 +33,21 @@ function WSStatusDot() {
 	);
 }
 
-/**
- * Zero props — TrainingHeader reads precisely selected fields from trainingStore.
- * This avoids the prop-explosion problem that accumulated 13+ props.
- */
 interface TrainingHeaderProps {
 	toggleTts: () => void;
 	endTraining: () => Promise<void>;
+	leaveTraining: () => Promise<void>;
 }
 
-export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: TrainingHeaderProps) {
+export function TrainingHeader({
+	toggleTts: onTtsToggle,
+	endTraining: onEnd,
+	leaveTraining: onLeave,
+}: TrainingHeaderProps) {
 	const patient = useTrainingStore(s => s.patient);
 	const mode = useTrainingStore(s => s.recordDetail?.mode);
 	const hideCaseInfo = useTrainingStore(s => s.recordDetail?.hide_case_info === true);
+	const isAssessment = mode === "assessment";
 	const isHiddenCase = mode === "blind_box" || hideCaseInfo;
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
@@ -55,6 +57,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
+	const [leaving, setLeaving] = useState(false);
 	const toast = useToast();
 	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds);
 
@@ -79,7 +82,7 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 		try {
 			await onEnd();
 		} catch {
-			toast.apiError(null, "结束训练失败，请重试");
+			/* toast 由 TrainingEngine 给出（含具体失败原因） */
 		} finally {
 			endingRef.current = false;
 		}
@@ -88,6 +91,20 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 	const handleEndClick = useCallback(() => {
 		setEndConfirmOpen(true);
 	}, []);
+
+	const executeLeave = useCallback(async () => {
+		if (leaving) return;
+		setLeaving(true);
+		try {
+			await onLeave();
+			setLeaveDialogOpen(false);
+			navigate(-1);
+		} catch {
+			/* toast 由 TrainingEngine 给出（含具体失败原因），失败时留在当前页 */
+		} finally {
+			setLeaving(false);
+		}
+	}, [leaving, navigate, onLeave]);
 
 	const headerStyle = {
 		zIndex: 10,
@@ -218,10 +235,14 @@ export function TrainingHeader({ toggleTts: onTtsToggle, endTraining: onEnd }: T
 			</Modal>
 
 			<Modal opened={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)} title="离开训练" size={300} centered withinPortal>
-				<Text size="sm" c="dimmed" mb="xl">训练仍在进行中，进度已自动保存</Text>
+				<Text size="sm" c="dimmed" mb="xl">
+					{isAssessment
+						? "独立考核采用连续计时，离开页面后倒计时仍会继续。"
+						: "训练进度已自动保存，暂离期间倒计时会暂停。"}
+				</Text>
 				<Stack gap={8}>
-					<Button onClick={() => { setLeaveDialogOpen(false); navigate(-1); }}>
-						暂离，保留进度
+					<Button onClick={executeLeave} loading={leaving}>
+						{isAssessment ? "离开，计时继续" : "暂离，暂停计时"}
 					</Button>
 					<Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
 						继续训练

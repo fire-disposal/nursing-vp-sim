@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Group, Stack, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 
-import { computeCovered } from "./tools/inquiryProgress";
 import { ChatDisplay } from "./ChatDisplay";
 import { ConversationComposer } from "./ConversationComposer";
 import SceneToolbar from "./SceneToolbar";
@@ -13,13 +12,11 @@ import { WelcomeScreen } from "./WelcomeScreen";
 interface ChatAreaProps {
 	onSend: (text: string) => void;
 	onCorrectLast: (messageId: string | number, text: string) => void;
-	endTraining: () => Promise<void>;
 }
 
 export function ChatArea({
 	onSend,
 	onCorrectLast,
-	endTraining,
 }: ChatAreaProps) {
   const messages = useTrainingStore(s => s.messages);
   const patient = useTrainingStore(s => s.patient)!;
@@ -28,7 +25,10 @@ export function ChatArea({
   const bus = useTrainingStore(s => s.bus)!;
   const capabilities = useTrainingStore(s => s.capabilities);
   const recordDetail = useTrainingStore(s => s.recordDetail);
-  const hasStudentMessages = messages.some(m => m.role === "student") || recordDetail?.messages?.some(m => m.role === "student");
+  const hasConversationActivity =
+    messages.some(m => m.role === "student") ||
+    recordDetail?.messages?.some(m => m.role === "student") ||
+    (recordDetail?.exam_results?.length ?? 0) > 0;
   const greeting = useMemo(() => {
     const msgs = recordDetail?.messages;
     if (msgs && msgs.length > 0) {
@@ -38,31 +38,12 @@ export function ChatArea({
     return undefined;
   }, [recordDetail]);
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
-  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
-  const shownRef = useRef(false);
   const isShort = useShortViewport();
 
-  const inquiriesComplete = useMemo(() => {
-    const inquiries = (recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
-    if (inquiries.length === 0) return false;
-    const studentText = messages
-      .filter((m) => m.role === "student")
-      .map((m) => String(m.content ?? ""))
-      .join("");
-    return computeCovered(inquiries, studentText).size === inquiries.length;
-  }, [messages, recordDetail]);
-
-  useEffect(() => {
-    if (inquiriesComplete && !shownRef.current && !trainingEnded) {
-      shownRef.current = true;
-      setInquiryModalOpen(true);
-    }
-  }, [inquiriesComplete, trainingEnded]);
 
   useEffect(() => {
     if (messages.length === 0) {
       setInitiativeMsgs(new Set());
-      shownRef.current = false;
     }
   }, [messages.length]);
 
@@ -86,7 +67,7 @@ export function ChatArea({
 	return (
 		<Stack gap={0} flex={1} mih={0} style={{ paddingTop: isShort ? 36 : 44 }}>
 			<AnimatePresence mode="wait">
-				{!hasStudentMessages ? (
+				{!hasConversationActivity ? (
 					<motion.div
 						key="welcome"
 						initial={{ opacity: 0 }}
@@ -144,19 +125,6 @@ export function ChatArea({
 			</AnimatePresence>
 			<ConversationComposer onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
-			<Modal opened={inquiryModalOpen} onClose={() => setInquiryModalOpen(false)} title="问诊内容全部覆盖" size={360} centered withinPortal>
-				<Text size="sm" c="dimmed">
-					你已成功采集了该病例的全部关键病史信息。是否结束本次训练并生成评分？
-				</Text>
-				<Group justify="flex-end" gap={8} mt="xl">
-					<Button variant="outline" size="sm" onClick={() => setInquiryModalOpen(false)}>
-						继续交流
-					</Button>
-					<Button size="sm" onClick={() => { setInquiryModalOpen(false); endTraining(); }}>
-						立即结算
-					</Button>
-				</Group>
-			</Modal>
 		</Stack>
 	);
 }

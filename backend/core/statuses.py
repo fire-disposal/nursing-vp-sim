@@ -91,8 +91,8 @@ class QuestionnaireTrigger(StrEnum):
     """CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。
 
     ``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；
-    ``AFTER_SCORING``：教师端评分/复核完成后触发（前端 TeacherRecordDetail）。
-    历史后台默认值 ``after_training`` 无任何触发点，已废弃（新写入一律被枚举拒绝）。
+    ``AFTER_SCORING``：评分完成后在学生结果页触发（前端 RecordDetail）。
+    历史后台默认值 ``after_training`` 无触发点，已废弃（新写入一律被枚举拒绝）。
     """
 
     BEFORE_TRAINING = "before_training"

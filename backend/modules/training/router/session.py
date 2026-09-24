@@ -623,8 +623,9 @@ def pause_training(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    questionnaire: Annotated[bool, Query()] = False,
 ):
-    """离开训练页：暂停倒计时（记录暂停起点），幂等。"""
+    """记录离页暂停，或在必做训练前问卷期间冻结倒计时。"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise NotFoundError(detail="训练记录不存在")
@@ -632,9 +633,43 @@ def pause_training(
         raise AuthError(detail="无权操作此记录", status_code=403)
     if record.status != TrainingStatus.IN_PROGRESS:
         return OkResponse(message="训练已结束，无需暂停")
+
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
     rs = dict(record.runtime_state or {})
+    now = datetime.now(UTC)
+    if questionnaire:
+        pending_required = count_pending_required(db, current_user.id, record.case_id)
+        if pending_required == 0:
+            return OkResponse(message="没有待完成的必做训练前问卷")
+        if not rs.get("questionnaire_paused_at"):
+            rs["questionnaire_paused_at"] = now.isoformat()
+            record.runtime_state = rs
+            db.commit()
+        return OkResponse(message="问卷作答期间计时已暂停")
+
+    changed = False
+    questionnaire_paused_at = rs.pop("questionnaire_paused_at", None)
+    if questionnaire_paused_at:
+        try:
+            elapsed = max(
+                0,
+                int((now - ensure_utc(datetime.fromisoformat(questionnaire_paused_at))).total_seconds()),
+            )
+        except (TypeError, ValueError):
+            elapsed = 0
+        rs["questionnaire_paused_seconds"] = int(rs.get("questionnaire_paused_seconds", 0)) + elapsed
+        changed = True
+
+    if mode == TrainingMode.ASSESSMENT.value:
+        if changed:
+            record.runtime_state = rs
+            db.commit()
+        return OkResponse(message="独立考核离开后仍继续计时")
+
     if not rs.get("paused_at"):
-        rs["paused_at"] = datetime.now(UTC).isoformat()
+        rs["paused_at"] = now.isoformat()
+        changed = True
+    if changed:
         record.runtime_state = rs
         db.commit()
     return OkResponse(message="训练已暂停")
@@ -646,23 +681,39 @@ def resume_training(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """回到训练页：把暂停时长计入 paused_seconds（倒计时顺延），幂等。"""
+    """恢复训练，并结算普通离页或训练前问卷产生的暂停时长。"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise NotFoundError(detail="训练记录不存在")
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise AuthError(detail="无权操作此记录", status_code=403)
+
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
     rs = dict(record.runtime_state or {})
-    paused_at = rs.get("paused_at")
-    if paused_at:
+    now = datetime.now(UTC)
+    changed = False
+    pause_fields = [("questionnaire_paused_at", "questionnaire_paused_seconds")]
+    if mode != TrainingMode.ASSESSMENT.value:
+        pause_fields.append(("paused_at", "paused_seconds"))
+    elif rs.pop("paused_at", None) is not None:
+        changed = True
+
+    for paused_at_key, paused_seconds_key in pause_fields:
+        paused_at = rs.pop(paused_at_key, None)
+        if not paused_at:
+            continue
         try:
-            paused_seconds = max(0, int((datetime.now(UTC) - datetime.fromisoformat(paused_at)).total_seconds()))
-        except ValueError:
-            paused_seconds = 0
-        rs["paused_seconds"] = int(rs.get("paused_seconds", 0)) + paused_seconds
-        rs.pop("paused_at", None)
+            elapsed = max(0, int((now - ensure_utc(datetime.fromisoformat(paused_at))).total_seconds()))
+        except (TypeError, ValueError):
+            elapsed = 0
+        rs[paused_seconds_key] = int(rs.get(paused_seconds_key, 0)) + elapsed
+        changed = True
+
+    if changed:
         record.runtime_state = rs
         db.commit()
+    if mode == TrainingMode.ASSESSMENT.value:
+        return OkResponse(message="独立考核计时继续")
     return OkResponse(message="训练已恢复")
 
 
@@ -679,8 +730,8 @@ def delete_record(
 
     try:
         _cascade_delete_training_record(db, record_id)
-        db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
-            {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
+        db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).delete(
+            synchronize_session="fetch"
         )
         db.delete(record)
         db.commit()

@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActionIcon, Box, Group, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useTrainingStore } from "@/stores/trainingStore";
@@ -18,10 +18,15 @@ export function SceneRenderer() {
   const recordId = useTrainingStore(s => s.recordId);
   const trainingType = useTrainingStore(s => s.trainingType);
   const recordDetail = useTrainingStore(s => s.recordDetail);
-  const tools = getTools(trainingType, capabilities);
+  const tools = useMemo(() => {
+    const available = getTools(trainingType, capabilities);
+    return recordDetail?.mode === "assessment"
+      ? available.filter((tool) => tool.id !== "inquiry")
+      : available;
+  }, [capabilities, recordDetail?.mode, trainingType]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [closingId, setClosingId] = useState<string | null>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<number | undefined>(undefined);
 	const quizAutoOpenedRef = useRef(false);
 
   const toolProps: TrainingToolProps = { bus, recordId, recordDetail };
@@ -31,7 +36,10 @@ export function SceneRenderer() {
     const handler = (payload: { id: string }) => {
       if (!window.matchMedia("(min-width: 1024px)").matches) return;
       if (tools.some((t) => t.id === payload.id)) {
-        if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+        if (closeTimerRef.current !== undefined) {
+          window.clearTimeout(closeTimerRef.current);
+          closeTimerRef.current = undefined;
+        }
         setClosingId(null);
         setActiveId(payload.id);
       }
@@ -42,10 +50,10 @@ export function SceneRenderer() {
   const handleClose = useCallback(() => {
     if (!activeId) return;
     setClosingId(activeId);
-    closeTimerRef.current = setTimeout(() => {
+    closeTimerRef.current = window.setTimeout(() => {
       setActiveId(null);
       setClosingId(null);
-      closeTimerRef.current = null;
+      closeTimerRef.current = undefined;
     }, ANIM_DURATION);
   }, [activeId]);
 
@@ -59,7 +67,14 @@ export function SceneRenderer() {
 	}, [capabilities.quiz, tools]);
 
 	// Cleanup timer on unmount
-	useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== undefined) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    },
+    [],
+  );
 
   if (tools.length === 0) return null;
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
-from core.statuses import normalize_questionnaire_trigger
+from core.statuses import QuestionnaireTrigger, normalize_questionnaire_trigger
 from core.unit_of_work import unit_of_work
 from models import (
     CaseQuestionnaire,
@@ -57,8 +57,8 @@ def validate_submitted_answers(
 def count_pending_required(db: Session, user_id: int, case_id: int) -> int:
     """该学生在该病例下「仍需作答」的必做问卷数。
 
-    与 ``check()`` 同一判定：只看启用中的模板、只看该学生自己的已完成作答。
-    训练横幅与问卷弹窗据此保持一致（答完后不再提示）。
+    与 ``check()`` 同一判定：仅统计训练前、启用、必做，且该学生尚未完成的问卷。
+    训练入口据此决定是否冻结倒计时并阻止训练场景挂载。
     """
     if not case_id:
         return 0
@@ -70,6 +70,7 @@ def count_pending_required(db: Session, user_id: int, case_id: int) -> int:
         .filter(
             CaseQuestionnaire.case_id == case_id,
             CaseQuestionnaire.is_required == True,
+            CaseQuestionnaire.trigger_event == QuestionnaireTrigger.BEFORE_TRAINING.value,
             QuestionnaireTemplate.is_active == True,
         )
         .all()
@@ -84,6 +85,7 @@ def count_pending_required(db: Session, user_id: int, case_id: int) -> int:
             QuestionnaireResponse.user_id == user_id,
             QuestionnaireResponse.case_id == case_id,
             QuestionnaireResponse.template_id.in_(template_ids),
+            QuestionnaireResponse.record_id.is_(None),
             QuestionnaireResponse.status == "completed",
         )
         .all()
@@ -121,17 +123,23 @@ class QuestionnaireResponseService:
 
     # ── inlined repository methods ──
 
-    def _find_response(self, user_id: int, template_id: int, case_id: int) -> QuestionnaireResponse | None:
-        """(user, template, case) 的作答行 —— 唯一约束保证至多一条，与状态无关。"""
-        return (
-            self.db.query(QuestionnaireResponse)
-            .filter(
-                QuestionnaireResponse.user_id == user_id,
-                QuestionnaireResponse.template_id == template_id,
-                QuestionnaireResponse.case_id == case_id,
-            )
-            .first()
+    def _find_response(
+        self,
+        user_id: int,
+        template_id: int,
+        case_id: int,
+        record_id: int | None,
+    ) -> QuestionnaireResponse | None:
+        q = self.db.query(QuestionnaireResponse).filter(
+            QuestionnaireResponse.user_id == user_id,
+            QuestionnaireResponse.template_id == template_id,
+            QuestionnaireResponse.case_id == case_id,
         )
+        if record_id is None:
+            q = q.filter(QuestionnaireResponse.record_id.is_(None))
+        else:
+            q = q.filter(QuestionnaireResponse.record_id == record_id)
+        return q.first()
 
     def _list_by_user(self, user_id: int, offset: int, limit: int) -> tuple[list[QuestionnaireResponse], int]:
         q = (
@@ -244,19 +252,26 @@ class QuestionnaireResponseService:
         if not case_id and not record_id:
             raise ValidationError("请提供 case_id 或 record_id")
 
-        if record_id:
+        normalized_trigger = normalize_questionnaire_trigger(trigger)
+        response_record_id: int | None = None
+        if record_id is not None:
             record = self._get_training_record(record_id, user_id)
             if not record:
                 raise NotFoundError("训练记录不存在")
             case_id = record.case_id
+            if normalized_trigger == QuestionnaireTrigger.AFTER_SCORING.value:
+                if record.scoring_status != "completed":
+                    return QuestionnaireCheckResponse(has_pending=False)
+                response_record_id = record_id
+        elif normalized_trigger == QuestionnaireTrigger.AFTER_SCORING.value:
+            return QuestionnaireCheckResponse(has_pending=False)
 
         if case_id is None:
             return QuestionnaireCheckResponse(has_pending=False)
 
-        cqs = self._case_questionnaires_for(case_id, trigger)
-
+        cqs = self._case_questionnaires_for(case_id, normalized_trigger)
         for cq in cqs:
-            response = self._find_response(user_id, cq.template_id, case_id)
+            response = self._find_response(user_id, cq.template_id, case_id, response_record_id)
             if response is not None and response.status == "completed":
                 continue
 
@@ -272,6 +287,26 @@ class QuestionnaireResponseService:
 
         return QuestionnaireCheckResponse(has_pending=False)
 
+    def _resolve_submit_scope(
+        self,
+        user_id: int,
+        case_id: int | None,
+        record_id: int | None,
+    ) -> int:
+        """校验提交作用域并返回病例 ID：训练记录归属、病例匹配与评分状态。"""
+        if record_id is None:
+            if case_id is None:
+                raise ValidationError("请提供病例ID")
+            return case_id
+        record = self._get_training_record(record_id, user_id)
+        if record is None:
+            raise NotFoundError("训练记录不存在")
+        if case_id is not None and case_id != record.case_id:
+            raise ValidationError("病例与训练记录不匹配")
+        if record.scoring_status != "completed":
+            raise ValidationError("训练尚未完成评分")
+        return record.case_id
+
     def submit(
         self,
         user_id: int,
@@ -283,18 +318,31 @@ class QuestionnaireResponseService:
         t = self._get_template(template_id)
         if not t or not t.is_active:
             raise NotFoundError("问卷模板不存在或已停用")
-        if case_id is None:
-            raise ValidationError("请提供病例ID")
+        case_id = self._resolve_submit_scope(user_id, case_id, record_id)
+
+        trigger = (
+            QuestionnaireTrigger.AFTER_SCORING.value
+            if record_id is not None
+            else QuestionnaireTrigger.BEFORE_TRAINING.value
+        )
+        assignment = (
+            self.db.query(CaseQuestionnaire)
+            .filter(
+                CaseQuestionnaire.case_id == case_id,
+                CaseQuestionnaire.template_id == template_id,
+                CaseQuestionnaire.trigger_event == trigger,
+            )
+            .first()
+        )
+        if assignment is None:
+            raise ValidationError("该问卷未分配到当前训练阶段")
 
         questions = {
             q.id: q
             for q in self.db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id == template_id).all()
         }
         answers = validate_submitted_answers(questions, answers_data)
-
-        # 幂等：同一 (user, template, case) 复用同一行（唯一约束见 models.questionnaire），
-        # 重试/并发提交只覆盖答案，不产生第二条 completed。
-        response = self._find_response(user_id, template_id, case_id)
+        response = self._find_response(user_id, template_id, case_id, record_id)
 
         with unit_of_work(self.db, conflict_detail="提交问卷失败"):
             if response:

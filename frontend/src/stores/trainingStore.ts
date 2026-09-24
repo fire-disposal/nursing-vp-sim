@@ -100,6 +100,8 @@ interface CorrectionDonePayload {
 }
 
 
+export type NursingRecordSheet = Record<string, string>;
+
 export interface TrainingStore {
 	bus: MessageBus | null;
 	recordId: string;
@@ -120,6 +122,8 @@ export interface TrainingStore {
 	cooperation: number;
 	emotion4D: Emotion4DLabel;
 	portraitUrl: string | null;
+	nursingRecordDraft: NursingRecordSheet | null;
+	nursingRecordDirty: boolean;
 
 	init: (data: {
 		bus: MessageBus;
@@ -152,6 +156,9 @@ export interface TrainingStore {
 	setTrustComfort: (trust: number, comfort: number) => void;
 	setEmotion4D: (trust: number, anxiety: number, irritation: number, cooperation: number, label: Emotion4DLabel) => void;
 	setPortraitUrl: (url: string | null) => void;
+	hydrateNursingRecord: (sheet: NursingRecordSheet) => void;
+	updateNursingRecordField: (key: string, value: string) => void;
+	markNursingRecordSaved: (savedSheet: NursingRecordSheet) => void;
 }
 
 const initialTrainingState = {
@@ -174,6 +181,8 @@ const initialTrainingState = {
 	cooperation: 50,
 	emotion4D: "neutral" as Emotion4DLabel,
 	portraitUrl: null as string | null,
+	nursingRecordDraft: null as NursingRecordSheet | null,
+	nursingRecordDirty: false,
 };
 
 export const useTrainingStore = create<TrainingStore>()((set, get) => ({
@@ -181,10 +190,23 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 
 	init(data) {
 		const cur = get();
-		// 幂等守卫：同一记录且已有会话消息时不重播种。
-		// 避免 RQ refetch（窗口聚焦/staleTime 到期）触发 init 时
-		// 冲掉流式占位消息与修正乐观消息、误清 sending 状态。
-		if (cur.recordId === data.recordId && cur.messages.length > 0) return;
+		// 同一记录的 RQ refetch / React 重挂载必须保留会话内消息，但也必须
+		// 重新绑定本次 TrainingEngine 的 bus；否则工具仍向已卸载引擎的 bus 发消息。
+		if (cur.recordId === data.recordId && cur.messages.length > 0) {
+			set({
+				bus: data.bus,
+				patient: data.patient,
+				trainingType: data.trainingType,
+				capabilities: data.capabilities,
+				timeLimitMinutes: data.timeLimitMinutes,
+				recordDetail: data.recordDetail,
+				nursingRecordDraft: cur.nursingRecordDirty
+					? cur.nursingRecordDraft
+					: ((data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ??
+						cur.nursingRecordDraft),
+			});
+			return;
+		}
 		set({
 			bus: data.bus,
 			recordId: data.recordId,
@@ -205,6 +227,9 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			irritation: data.emotionSeed?.irritation ?? 50,
 			cooperation: data.emotionSeed?.cooperation ?? 50,
 			emotion4D: (data.emotionSeed?.dominant_state as Emotion4DLabel) ?? "neutral",
+			nursingRecordDraft:
+				(data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ?? null,
+			nursingRecordDirty: false,
 		});
 	},
 
@@ -367,6 +392,25 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 		});
 	},
 	setPortraitUrl(url) { set({ portraitUrl: url }); },
+	hydrateNursingRecord(sheet) {
+		set((s) =>
+			s.nursingRecordDirty || s.nursingRecordDraft
+				? {}
+				: { nursingRecordDraft: sheet, nursingRecordDirty: false },
+		);
+	},
+	updateNursingRecordField(key, value) {
+		set((s) => ({
+			nursingRecordDraft: { ...(s.nursingRecordDraft ?? {}), [key]: value },
+			nursingRecordDirty: true,
+		}));
+	},
+	markNursingRecordSaved(savedSheet) {
+		set((s) => {
+			if (JSON.stringify(s.nursingRecordDraft ?? {}) !== JSON.stringify(savedSheet)) return {};
+			return { nursingRecordDirty: false };
+		});
+	},
 }));
 
 export function getTrainingState(): TrainingStore {

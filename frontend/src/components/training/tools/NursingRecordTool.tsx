@@ -4,14 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Box, Button, Group, Loader, Stack, Text, Textarea } from "@mantine/core";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
-
-interface SheetData {
-	subjective?: string;
-	objective?: string;
-	assessment?: string;
-	plan?: string;
-	evaluation?: string;
-}
+import {
+	type NursingRecordSheet,
+	useTrainingStore,
+} from "@/stores/trainingStore";
+type SheetData = NursingRecordSheet;
 
 interface TemplateData {
 	hints?: Record<string, string>;
@@ -40,22 +37,32 @@ const LOAD_TIMEOUT_MS = 8000;
 
 export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) {
 	const rid = Number(recordId);
-	const [sheet, setSheet] = useState<SheetData>({});
+	const sheet = useTrainingStore((s) => s.nursingRecordDraft) ?? {};
+	const dirty = useTrainingStore((s) => s.nursingRecordDirty);
+	const hydrateSheet = useTrainingStore((s) => s.hydrateNursingRecord);
+	const updateField = useTrainingStore((s) => s.updateNursingRecordField);
+	const markSaved = useTrainingStore((s) => s.markNursingRecordSaved);
 	const [template, setTemplate] = useState<TemplateData>({});
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const dirtyRef = useRef(false);
-	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const autoSaveTimerRef = useRef<number | undefined>(undefined);
+	const loadTimeoutRef = useRef<number | undefined>(undefined);
+	const latestSheetRef = useRef<SheetData>(sheet);
+	const dirtyRef = useRef(dirty);
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
 	const requestLoad = useCallback(() => {
 		setLoading(true);
 		setLoadError(null);
-		bus.emit("tool:invoke", { tool: "nursing_record", action: "load", params: {}, recordId: rid });
-		if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
-		loadTimeoutRef.current = setTimeout(() => {
+		bus.emit("tool:invoke", {
+			tool: "nursing_record",
+			action: "load",
+			params: {},
+			recordId: rid,
+		});
+		clearTimeout(loadTimeoutRef.current);
+		loadTimeoutRef.current = window.setTimeout(() => {
 			setLoading(false);
 			setLoadError("加载超时：实时连接可能已中断，请检查网络后重试");
 		}, LOAD_TIMEOUT_MS);
@@ -72,7 +79,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 	useEffect(() => {
 		requestLoad();
 		return () => {
-			if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+			clearTimeout(loadTimeoutRef.current);
 		};
 	}, [requestLoad]);
 
@@ -88,15 +95,11 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 			if (payload.action === "load") {
 				if (loadTimeoutRef.current) {
 					clearTimeout(loadTimeoutRef.current);
-					loadTimeoutRef.current = null;
+					loadTimeoutRef.current = undefined;
 				}
 				if (payload.ok) {
 					const sd = (payload.data.sheet_data as SheetData) || {};
-					setSheet((prev) => {
-						if (dirtyRef.current) return prev;
-						if (Object.keys(prev).length > 0) return prev;
-						return sd;
-					});
+					hydrateSheet(sd);
 					setTemplate((payload.data.template as TemplateData) || {});
 					setLoading(false);
 				} else {
@@ -106,6 +109,8 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 			}
 			if (payload.action === "save") {
 				if (payload.ok) {
+					const savedSheet = (payload.data.sheet_data as SheetData | undefined) ?? {};
+					markSaved(savedSheet);
 					setSaveStatus("saved");
 					setLastSavedAt(
 						new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
@@ -117,7 +122,7 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 		};
 		bus.on("tool:result", onResult);
 		return () => { bus.off("tool:result", onResult); };
-	}, [bus]);
+	}, [bus, hydrateSheet, markSaved]);
 
 	const doSave = useCallback(
 		(sd: SheetData) => {
@@ -133,31 +138,34 @@ export default function NursingRecordTool({ recordId, bus }: TrainingToolProps) 
 	);
 
 	const update = (key: string, value: string) => {
-		dirtyRef.current = true;
-		setSheet((prev) => ({ ...prev, [key]: value }));
+		updateField(key, value);
 	};
 
 	useEffect(() => {
-		if (!dirtyRef.current) return;
-		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-		autoSaveTimerRef.current = setTimeout(() => {
+		latestSheetRef.current = sheet;
+		dirtyRef.current = dirty;
+		if (!dirty) return;
+		clearTimeout(autoSaveTimerRef.current);
+		autoSaveTimerRef.current = window.setTimeout(() => {
 			doSave(sheet);
 		}, 3000);
 		return () => {
-			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+			clearTimeout(autoSaveTimerRef.current);
 		};
-	}, [sheet, doSave]);
+	}, [sheet, dirty, doSave]);
 
-	useEffect(() => {
-		if (!bus) return;
-		const handler = () => {
-			if (dirtyRef.current) {
-				if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-				doSave(sheet);
-			}
-		};
-		return bus.on("training:beforeEnd", handler);
-	}, [bus, sheet, doSave]);
+	useEffect(
+		() => () => {
+			if (!dirtyRef.current) return;
+			bus.emit("tool:invoke", {
+				tool: "nursing_record",
+				action: "save",
+				params: { sheet_data: latestSheetRef.current, status: "draft" },
+				recordId: rid,
+			});
+		},
+		[bus, rid],
+	);
 
 
 	if (loading) {

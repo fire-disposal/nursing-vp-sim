@@ -82,7 +82,8 @@ const DEFAULT_VALUES: AssignmentValues = {
 	classId: 0,
 	startTime: "",
 	endTime: "",
-	maxAttempts: null as number | null,
+	maxAttempts: 1,
+	mode: "guided",
 	hideCaseInfo: false,
 };
 
@@ -165,7 +166,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				classId: d.class_id,
 				startTime: toDatetimeLocal(d.start_time),
 				endTime: toDatetimeLocal(d.end_time),
-				maxAttempts: d.max_attempts ?? null,
+				maxAttempts: d.max_attempts ?? 0,
+				mode: d.behavior?.mode === "assessment" ? "assessment" : "guided",
 				hideCaseInfo: d.behavior?.hide_case_info === true,
 			});
 			form.resetDirty();
@@ -183,11 +185,12 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			class_id: values.classId,
 			start_time: fromDatetimeLocal(values.startTime) ?? "",
 			end_time: fromDatetimeLocal(values.endTime) ?? "",
+			max_attempts: values.maxAttempts,
+			behavior: {
+				mode: values.mode,
+				hide_case_info: values.hideCaseInfo,
+			},
 		};
-		if (values.maxAttempts != null) {
-			payload.max_attempts = values.maxAttempts;
-		}
-		payload.behavior = { hide_case_info: values.hideCaseInfo };
 		try {
 			if (editingId) {
 				await updateAssignment(editingId, payload);
@@ -477,13 +480,29 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								label="最大尝试次数"
 								type="number"
 								min={0}
-								placeholder="留空为1次，0为不限制"
-								value={form.values.maxAttempts != null ? String(form.values.maxAttempts) : ""}
+								description="默认 1 次；填写 0 表示不限制"
+								value={String(form.values.maxAttempts)}
 								onChange={(e) => {
-									const v = e.currentTarget.value;
-									form.setFieldValue("maxAttempts", v === "" ? null : Math.max(0, Number(v)));
+									const raw = e.currentTarget.value;
+									form.setFieldValue(
+										"maxAttempts",
+										raw === "" ? 1 : Math.max(0, Number(raw)),
+									);
 								}}
 								error={form.errors.maxAttempts}
+							/>
+							<Select
+								label="训练模式"
+								description={
+									form.values.mode === "guided"
+										? "提供问诊线索、查体解读和沟通状态反馈"
+										: "隐藏训练提示、状态数值和消息修正，用于正式考核"
+								}
+								data={[
+									{ value: "guided", label: "引导训练" },
+									{ value: "assessment", label: "独立考核" },
+								]}
+								{...form.getInputProps("mode")}
 							/>
 							<Box>
 								<Group

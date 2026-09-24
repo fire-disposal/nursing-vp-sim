@@ -31,9 +31,26 @@ export function computeCovered(inquiries: string[], studentText: string): Set<nu
 	return result;
 }
 
-/** 进度配色阈值（沿用 v0）：<40 红 / <80 琥珀 / >=80 绿 */
-export function progressColor(pct: number): "danger" | "warning" | "success" {
+/** 任务清单完成度分档（沿用 v0）：<40 红 / <80 琥珀 / >=80 绿 */
+export type ProgressBand = "danger" | "warning" | "success";
+
+export function progressColor(pct: number): ProgressBand {
 	if (pct >= 80) return "success";
 	if (pct >= 40) return "warning";
 	return "danger";
 }
+
+/** 分档 → Mantine 语义色名（用于 `c` / `color`）。 */
+export const PROGRESS_TEXT: Record<ProgressBand, string> = {
+	success: "green",
+	warning: "yellow",
+	danger: "red",
+};
+
+/** 分档 → CSS 颜色值（用于内联 background）。 */
+export const PROGRESS_BG: Record<ProgressBand, string> = {
+	success: "var(--mantine-color-green-6)",
+	warning: "var(--mantine-color-yellow-6)",
+	danger: "var(--mantine-color-red-6)",
+};
+

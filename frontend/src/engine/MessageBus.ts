@@ -38,7 +38,6 @@ export interface BusEvents {
 	"tts:error": [message: string];
 	"tts:degraded": [{ provider: string }];
 	"chat:beforeSend": [];
-	"training:beforeEnd": [];
 }
 
 export class TypedMessageBus implements MessageBus {

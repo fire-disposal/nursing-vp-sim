@@ -38,9 +38,49 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const sending = useTrainingStore((s) => s.sending);
   const trainingEnded = useTrainingStore((s) => s.trainingEnded);
   const correction = useTrainingStore((s) => s.recordDetail?.message_correction);
+  const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
+  const recordDetail = useTrainingStore((s) => s.recordDetail);
   const eligibleLastMessageId = correction?.eligible_last_message_id;
   const correctionsRemaining = correction?.remaining ?? 0;
   const [examResults, setExamResults] = useState<ChatMessage[]>([]);
+  const persistedExamResults = useMemo<ChatMessage[]>(() => {
+    const rawResults = recordDetail?.exam_results;
+    if (!Array.isArray(rawResults)) return [];
+    return rawResults.flatMap((entry, index) => {
+      if (!entry || typeof entry !== "object") return [];
+      const type = "type" in entry ? entry.type : undefined;
+      if (typeof type !== "string") return [];
+      const data: Record<string, unknown> = {};
+      for (const key of ["label", "value", "unit", "status"] as const) {
+        if (key in entry) data[key] = entry[key];
+      }
+      return [{
+        id: `persisted-exam-${type}-${index}`,
+        role: "system" as const,
+        content: "",
+        examResult: { type, data },
+      }];
+    });
+  }, [recordDetail?.exam_results]);
+  const displayedExamResults = useMemo(() => {
+    const persistedCounts = new Map<string, number>();
+    for (const message of persistedExamResults) {
+      const result = message.examResult;
+      if (!result) continue;
+      const key = `${result.type}:${String(result.data.value ?? "")}`;
+      persistedCounts.set(key, (persistedCounts.get(key) ?? 0) + 1);
+    }
+    const liveCounts = new Map<string, number>();
+    const newLiveResults = examResults.filter((message) => {
+      const result = message.examResult;
+      if (!result) return false;
+      const key = `${result.type}:${String(result.data.value ?? "")}`;
+      const occurrence = (liveCounts.get(key) ?? 0) + 1;
+      liveCounts.set(key, occurrence);
+      return occurrence > (persistedCounts.get(key) ?? 0);
+    });
+    return [...persistedExamResults, ...newLiveResults];
+  }, [examResults, persistedExamResults]);
 
   useEffect(() => {
     const unsub = bus.on("tool:result", (payload: { tool: string; action: string; ok: boolean; data: Record<string, unknown> }) => {
@@ -158,6 +198,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 									String(msg.id) === String(eligibleLastMessageId ?? "") &&
 									correctionsRemaining > 0 &&
 									!sending &&
+									mode !== "assessment" &&
 									!trainingEnded;
 								return (
 									<ChatBubble
@@ -185,7 +226,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 						</motion.div>
 					);
 				})}
-				{examResults
+				{displayedExamResults
 					.filter((er) => !messages.some((m) => m.role === "system" && m.examResult?.type === er.examResult?.type))
 					.map((msg, i) => (
 						<ExamResultCard key={msg.id ?? `exam-${i}`} result={msg.examResult!} />

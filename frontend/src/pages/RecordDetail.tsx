@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
+import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
+import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import { downloadRecordDetail } from "@/utils/export-record";
 import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "./record-detail/MessagePlayback";
@@ -41,6 +43,25 @@ export default function RecordDetail() {
 			navigate(-1);
 		}
 	}, [recordError, navigate, toast]);
+
+	const {
+		checkResponse: postCheckResponse,
+		isLoading: postQLoading,
+		shouldShow: postQShouldShow,
+		check: postQCheck,
+		submit: postQSubmit,
+		dismiss: postQDismiss,
+	} = useQuestionnaire({
+		caseId: record?.case_id ?? null,
+		recordId: id ? Number(id) : null,
+		trigger: "after_scoring",
+	});
+
+	useEffect(() => {
+		if (record?.scoring_status === "completed") {
+			void postQCheck();
+		}
+	}, [postQCheck, record?.scoring_status]);
 
 	if (!record) return <LoadingSkeleton />;
 
@@ -85,7 +106,8 @@ export default function RecordDetail() {
 	};
 
 	return (
-		<Container size="xl" py="md">
+		<>
+			<Container size="xl" py="md">
 			<PageHeader
 				title={[record.user_display_name, record.case_name].filter(Boolean).join(" · ")}
 				backTo="/history"
@@ -136,7 +158,19 @@ export default function RecordDetail() {
 					</Stack>
 				</Grid.Col>
 			</Grid>
-		</Container>
+			</Container>
+			{postQShouldShow && postCheckResponse && (
+				<QuestionnaireModal
+					open={postQShouldShow}
+					key={postCheckResponse.template_id}
+					onComplete={() => { void postQCheck(); }}
+					onSkip={postQDismiss}
+					checkResponse={postCheckResponse}
+					loading={postQLoading}
+					onSubmit={postQSubmit}
+				/>
+			)}
+		</>
 	);
 }
 

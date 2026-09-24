@@ -5,10 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail, submitScoreReview } from "@/api";
 import { queryKeys } from "@/api/query-keys";
-import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
-import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -73,27 +71,6 @@ export default function TeacherRecordDetail() {
 	const isReviewed = review?.review_status === "reviewed";
 	const hasScoreReview = permissions.includes("score_review");
 
-	const caseId = record?.case_id ?? null;
-	const recordIdNum = id ? Number(id) : undefined;
-
-	const {
-		checkResponse: postCheckResponse,
-		isLoading: postQLoading,
-		shouldShow: postQShouldShow,
-		check: postQCheck,
-		submit: postQSubmit,
-		dismiss: postQDismiss,
-	} = useQuestionnaire({
-		caseId,
-		recordId: recordIdNum ?? null,
-		trigger: "after_scoring",
-	});
-
-	useEffect(() => {
-		if (!hasScoreReview && record?.scoring_status === "completed") {
-			postQCheck();
-		}
-	}, [record?.scoring_status, hasScoreReview, postQCheck]);
 
 	const handleRetryScoring = async () => {
 		if (hasScoreReview && isReviewed) {
@@ -266,16 +243,6 @@ export default function TeacherRecordDetail() {
 				</Flex>
 			</Container>
 
-			{postQShouldShow && postCheckResponse && (
-				<QuestionnaireModal
-					open={postQShouldShow}
-					onComplete={() => { postQCheck(); }}
-					onSkip={postQDismiss}
-					checkResponse={postCheckResponse}
-					loading={postQLoading}
-					onSubmit={postQSubmit}
-				/>
-			)}
 
 			{showReviewEditor && recordScore && (
 				<ReviewEditor

@@ -10,6 +10,8 @@ const apiMock = vi.hoisted(() => ({
 	getEmotionEvents: vi.fn(),
 	retryScoring: vi.fn(),
 	exportRecordDetail: vi.fn(),
+	checkQuestionnaire: vi.fn(),
+	submitQuestionnaire: vi.fn(),
 }));
 
 vi.mock("@/api/training", () => ({
@@ -20,6 +22,11 @@ vi.mock("@/api/training", () => ({
 
 vi.mock("@/api/export", () => ({
 	exportRecordDetail: apiMock.exportRecordDetail,
+}));
+
+vi.mock("@/api/questionnaires", () => ({
+	checkQuestionnaire: apiMock.checkQuestionnaire,
+	submitQuestionnaire: apiMock.submitQuestionnaire,
 }));
 
 const FAILED_RECORD = {
@@ -69,6 +76,8 @@ beforeEach(() => {
 	apiMock.getRecordDetail.mockResolvedValue({ data: FAILED_RECORD });
 	apiMock.getEmotionEvents.mockResolvedValue([]);
 	apiMock.retryScoring.mockResolvedValue({ data: { message: "ok", record_id: 7 } });
+	apiMock.checkQuestionnaire.mockResolvedValue({ data: { has_pending: false } });
+	apiMock.submitQuestionnaire.mockResolvedValue({ data: {} });
 	apiMock.exportRecordDetail.mockResolvedValue({ data: "记录文本" });
 	Object.defineProperty(URL, "createObjectURL", { value: vi.fn(() => "blob:test"), writable: true });
 	Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), writable: true });
@@ -104,5 +113,46 @@ describe("学生结果页操作按钮", () => {
 		expect(await screen.findByText("评分结果")).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /查看详细评分/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /复核评分/ })).not.toBeInTheDocument();
+	});
+
+	it("评分完成后在学生结果页触发训练后问卷", async () => {
+		apiMock.getRecordDetail.mockResolvedValue({
+			data: { ...FAILED_RECORD, scoring_status: "completed", scoring_error: null },
+		});
+		apiMock.checkQuestionnaire.mockResolvedValue({
+			data: {
+				has_pending: true,
+				template_id: 9,
+				is_required: true,
+				trigger_event: "after_scoring",
+				template: {
+					id: 9,
+					title: "训练后反馈",
+					description: null,
+					is_active: true,
+					question_count: 1,
+					response_count: 0,
+					questions: [
+						{
+							id: 91,
+							content: "本次训练是否有帮助？",
+							question_type: "short_text",
+							required: true,
+							sort_order: 1,
+							options: null,
+						},
+					],
+				},
+			},
+		});
+
+		renderPage();
+
+		expect(await screen.findByText("训练后反馈")).toBeInTheDocument();
+		expect(apiMock.checkQuestionnaire).toHaveBeenCalledWith({
+			case_id: 1,
+			record_id: 7,
+			trigger: "after_scoring",
+		});
 	});
 });

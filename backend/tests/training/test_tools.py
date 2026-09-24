@@ -172,6 +172,27 @@ class TestQuiz:
         assert answers[0]["answer"] == "A"
         assert answers[0]["correct"] is True
 
+    @pytest.mark.asyncio
+    async def test_submit_does_not_mutate_previous_state(self):
+        """裸 JSONB 无变更追踪：就地改旧对象图会让 flush 判定"未修改"，作答静默不入库。"""
+        handler = QuizHandler()
+        cfg = {"questions": [{"id": "q1", "stem": "s", "options": [], "answer": "A"}]}
+        previous = {"quiz_answers": [{"question_id": "q1", "answer": "B", "correct": False}]}
+        record = SimpleNamespace(
+            id=1,
+            user_id=10,
+            runtime_state=previous,
+            status="in_progress",
+            case_snapshot=_case(tools={"quiz": cfg}),
+            practice_snapshot={},
+            training_type="history_taking",
+        )
+        ctx = _ctx(record=record, case_data=_case(tools={"quiz": cfg}))
+        await handler.handle("submit", {"question_id": "q1", "answer": "A"}, ctx)
+
+        assert previous["quiz_answers"] == [{"question_id": "q1", "answer": "B", "correct": False}]
+        assert ctx.record.runtime_state["quiz_answers"][0]["answer"] == "A"
+
 
 # ── nursing_diagnosis ─────────────────────────────────────────────────────
 
@@ -322,6 +343,40 @@ class TestPhysicalExam:
         assert result.data["all_results"][-1]["type"] == "temp"
         # vitals patch written into runtime_state.scene
         assert "temp" in ctx.record.runtime_state["scene"]["vitals"]
+
+    @pytest.mark.asyncio
+    async def test_measure_does_not_mutate_previous_state(self):
+        """裸 JSONB 无变更追踪：就地改旧对象图会让 flush 判定"未修改"，查体结果静默不入库。"""
+        handler = PhysicalExamHandler()
+        case_data = _case(tools={"physical_exam": {"groups": []}})
+        previous = {"exam_results": [{"type": "hr", "value": "72"}], "scene": {"vitals": {"hr": 72}}}
+        record = SimpleNamespace(
+            id=1,
+            user_id=10,
+            runtime_state=previous,
+            status="in_progress",
+            case_snapshot=case_data,
+            practice_snapshot={},
+            training_type="history_taking",
+        )
+        ctx = _ctx(record=record, case_data=case_data)
+        await handler.handle("measure", {"op_type": "temp"}, ctx)
+
+        assert previous["exam_results"] == [{"type": "hr", "value": "72"}]
+        assert previous["scene"]["vitals"] == {"hr": 72}
+        assert [e["type"] for e in ctx.record.runtime_state["exam_results"]] == ["hr", "temp"]
+
+    @pytest.mark.asyncio
+    async def test_measure_freezes_interpretation_for_replay(self):
+        """解读文案随结果冻结进历史，重进训练时引导模式才还原教学反馈。"""
+        handler = PhysicalExamHandler()
+        case_data = _case(exam_anchors={"vital_signs": {"temperature": "39.0"}})
+        ctx = _ctx(case_data=case_data)
+        await handler.handle("measure", {"op_type": "temp"}, ctx)
+
+        entry = ctx.record.runtime_state["exam_results"][-1]
+        assert entry["status"] == "high"
+        assert "高于参考范围" in entry["interpretation"]
 
     @pytest.mark.asyncio
     async def test_measure_appends_to_history(self):

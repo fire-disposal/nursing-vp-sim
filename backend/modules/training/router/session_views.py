@@ -312,6 +312,7 @@ def get_record_detail(
         initiative_count = session_state.initiative_count or 0
     correction_raw = dict(record.runtime_state or {}).get("message_correction")
     correction_state = correction_raw if isinstance(correction_raw, dict) else {}
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
     correction_limit = int(correction_state.get("limit") or 3)
     correction_used = max(0, int(correction_state.get("used") or 0))
     eligible_last_message_id = None
@@ -320,6 +321,7 @@ def get_record_detail(
         and record.scoring_status not in {ScoringStatus.PENDING, ScoringStatus.PROCESSING, ScoringStatus.COMPLETED}
         and score is None
         and correction_used < correction_limit
+        and mode != TrainingMode.ASSESSMENT.value
     ):
         ordered_messages = list(record.messages or [])
         patient = ordered_messages[-1] if ordered_messages and ordered_messages[-1].role == "patient" else None
@@ -339,7 +341,6 @@ def get_record_detail(
                 eligible_last_message_id = student.id
 
     hidden_placeholder = _hidden_case(record)
-    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
     # 隐藏时全量匿名（姓名/年龄/性别/主诉），避免 PatientInfoTool 等消费点泄露患者特征
     redacted_patient_info = {"name": "患者", "age": 0, "gender": ""}
     return TrainingRecordDetail(
@@ -383,7 +384,7 @@ def get_record_detail(
             "remaining": max(0, correction_limit - correction_used),
             "eligible_last_message_id": eligible_last_message_id,
         },
-        # 盲盒不显示引导内容（必问清单）；作业隐藏（hide_case_info）仅隐藏病例信息，引导保留
-        required_inquiries=([] if mode == TrainingMode.BLIND_BOX.value else case_data.get("required_inquiries", [])),
+        # 只有引导模式披露问诊线索；独立考核与盲盒均保持隐藏。
+        required_inquiries=(case_data.get("required_inquiries", []) if mode == TrainingMode.GUIDED.value else []),
         is_test=record.is_test,
     )

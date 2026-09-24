@@ -34,7 +34,7 @@ class AssignmentCreateRequest(BaseModel):
     student_ids: list[int] | None = None
     start_time: datetime
     end_time: datetime
-    max_attempts: int | None = Field(default=None, description="最大尝试次数，None 为不限制")
+    max_attempts: int | None = Field(default=1, description="最大尝试次数；0 或 None 为不限制")
 
     @field_validator("behavior")
     @classmethod

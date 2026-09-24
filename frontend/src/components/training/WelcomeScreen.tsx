@@ -18,6 +18,8 @@ interface WelcomeScreenProps {
  */
 export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: WelcomeScreenProps) {
 	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
+	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
+	const showGuidance = mode === "guided";
 	const fallbackAvatar = getPatientAvatar({ name: patient.name, gender: patient.gender });
 	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);
 
@@ -116,7 +118,7 @@ export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: Wel
 						))}
 					</Group>
 
-					{onQuickPrompt && (
+					{showGuidance && onQuickPrompt && (
 						<Box>
 							<Text size="xs" fw={600} c="dimmed" mb={8}>
 								建议开场

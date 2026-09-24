@@ -57,6 +57,9 @@ const TeacherRecordsPage = lazy(
 	() => import("@/pages/admin/TeacherRecordsPage"),
 );
 const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
+const AdminQuestionnaires = lazy(
+	() => import("@/pages/admin/AdminQuestionnaires"),
+);
 
 export type Activity = "practice" | "review" | "manage";
 
@@ -238,6 +241,18 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <TeacherRecordDetail />,
 		permission: "score_review",
 		activity: "manage",
+	},
+	{
+		path: "/admin/questionnaires",
+		element: <AdminQuestionnaires />,
+		permission: "questionnaire_manage",
+		activity: "manage",
+		nav: {
+			label: "问卷管理",
+			icon: IconClipboardList,
+			section: "admin",
+			group: "teaching",
+		},
 	},
 	{
 		path: "/admin/rubric",

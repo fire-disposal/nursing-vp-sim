@@ -44,6 +44,24 @@ describe("init / reset", () => {
 		expect(s.emotion4D).toBe("neutral");
 	});
 
+	it("rebinds the message bus without replaying same-record history", () => {
+		const firstBus = { on: () => () => {} } as never;
+		const nextBus = { on: () => () => {} } as never;
+		const messages = [{ id: "m1", role: "patient" as const, content: "保留现场消息" }];
+		useTrainingStore.getState().init(makeInit({ bus: firstBus, initialMessages: messages }));
+
+		useTrainingStore.getState().init(
+			makeInit({
+				bus: nextBus,
+				initialMessages: [{ id: "server", role: "patient", content: "不应重播" }],
+			}),
+		);
+
+		const state = getTrainingState();
+		expect(state.bus).toBe(nextBus);
+		expect(state.messages).toEqual(messages);
+	});
+
 	it("init applies v3 4D emotionSeed", () => {
 		useTrainingStore.getState().init(
 			makeInit({

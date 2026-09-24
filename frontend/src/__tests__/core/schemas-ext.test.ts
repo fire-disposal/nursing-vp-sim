@@ -32,7 +32,8 @@ describe("assignmentSchema", () => {
 		classId: 1,
 		startTime: "2026-08-01T10:00",
 		endTime: "2026-08-02T10:00",
-		maxAttempts: null,
+		maxAttempts: 1,
+		mode: "guided" as const,
 		hideCaseInfo: false,
 	};
 
@@ -69,6 +70,10 @@ describe("assignmentSchema", () => {
 	it("rejects negative attempts", () => {
 		const r = assignmentSchema.safeParse({ ...valid, maxAttempts: -1 });
 		expect(r.success).toBe(false);
+	});
+
+	it("uses zero rather than null for unlimited attempts", () => {
+		expect(assignmentSchema.safeParse({ ...valid, maxAttempts: null }).success).toBe(false);
 	});
 });
 

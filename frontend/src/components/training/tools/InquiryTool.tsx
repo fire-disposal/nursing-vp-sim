@@ -4,26 +4,22 @@ import { Box, Group, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { TrainingToolProps } from "@/engine/TrainingTool";
 import type { ChatMessage } from "@/engine/types";
-import { computeCovered, getInquiryLabel, progressColor } from "./inquiryProgress";
+import {
+	PROGRESS_BG,
+	PROGRESS_TEXT,
+	computeCovered,
+	getInquiryLabel,
+	progressColor,
+} from "./inquiryProgress";
 
-/** progressColor 结果 → Mantine 语义色。 */
-const PROGRESS_TEXT: Record<string, string> = {
-	success: "green",
-	warning: "yellow",
-	danger: "red",
-};
-const PROGRESS_BG: Record<string, string> = {
-	success: "var(--mantine-color-green-6)",
-	warning: "var(--mantine-color-yellow-6)",
-	danger: "var(--mantine-color-red-6)",
-};
 
 export default function InquiryTool(props: TrainingToolProps) {
 	const messages = useTrainingStore((s) => s.messages);
 
-	const inquiries: string[] = useMemo(() => {
-		return (props.recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
-	}, [props.recordDetail]);
+	const inquiries = useMemo(
+		() => props.recordDetail?.required_inquiries ?? [],
+		[props.recordDetail?.required_inquiries],
+	);
 
 	const studentText = useMemo(
 		() =>
@@ -42,26 +38,34 @@ export default function InquiryTool(props: TrainingToolProps) {
 
 	const doneCount = covered.size;
 	const total = inquiries.length;
-	const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-	const color = progressColor(pct);
+	const pct = Math.round((doneCount / total) * 100);
+	const band = progressColor(pct);
 
 	return (
 		<Box p="sm">
 			<Box mb="md">
 				<Group justify="space-between" mb={4} wrap="nowrap">
-					<Text size="xs" c="dimmed">关键问诊内容覆盖</Text>
-					<Text size="xs" fw={700} c={PROGRESS_TEXT[color]} style={{ fontVariantNumeric: "tabular-nums" }}>
+					<Text size="xs" c="dimmed">问诊任务清单（关键词自检）</Text>
+					<Text size="xs" fw={700} c={PROGRESS_TEXT[band]} style={{ fontVariantNumeric: "tabular-nums" }}>
 						{doneCount}/{total}
 					</Text>
 				</Group>
-				<Box h={6} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+				<Box
+					h={6}
+					role="progressbar"
+					aria-label="问诊任务完成度"
+					aria-valuenow={pct}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}
+				>
 					<Box
 						h="100%"
 						style={{
 							width: `${pct}%`,
 							borderRadius: 999,
 							transition: "all 500ms",
-							background: PROGRESS_BG[color],
+							background: PROGRESS_BG[band],
 						}}
 					/>
 				</Box>
@@ -99,7 +103,7 @@ export default function InquiryTool(props: TrainingToolProps) {
 				lh={1.6}
 				style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
 			>
-				提示：系统根据对话关键词自动匹配，仅供参考。建议按护理评估框架全面采集病史。
+				勾选只由关键词推测，可能漏判；交卷与评分不以此为准。请按护理评估框架全面问诊。
 			</Text>
 		</Box>
 	);

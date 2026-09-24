@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Box, Button, Center, Stack, Text } from "@mantine/core";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
@@ -12,6 +12,9 @@ import { TrainingDataProvider } from "@/engine/TrainingDataContext";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
+	const [sessionReady, setSessionReady] = useState(false);
+	const questionnairePauseActiveRef = useRef(false);
+	const questionnairePauseRequestRef = useRef<Promise<unknown> | null>(null);
 
 	// 唯一数据查询 — 整个训练页子树共享此缓存
 	const { data: record, isLoading, error, refetch } = useQuery({
@@ -26,37 +29,47 @@ export default function TrainingEntry() {
 			query.state.data?.status === "in_progress" ? 15_000 : false,
 	});
 
-	// 进入训练页：恢复倒计时（离开期间服务端暂停，重进后 remaining 顺延）；
-	// 无论恢复成功与否都重取一次完整详情，避免 startTraining 预写 session 缺字段
+	// 进入训练页：恢复引导/盲盒暂停时间；独立考核由服务端保持连续计时。
+	// 随后重取完整详情，避免 startTraining 的轻量 session 缺字段。
 	useEffect(() => {
 		if (!recordId) return;
+		questionnairePauseActiveRef.current = false;
+		setSessionReady(false);
 		resumeTraining(Number(recordId))
 			.catch(() => {})
-			.finally(() => refetch());
+			.finally(() => {
+				setSessionReady(true);
+				void refetch();
+			});
 	}, [recordId, refetch]);
 
-	// 离开训练页：暂停倒计时（fire-and-forget）
+	const mode = record?.mode;
 	useEffect(() => {
-		if (!recordId) return;
+		if (!recordId || !mode) return;
 		return () => {
-			pauseTraining(Number(recordId)).catch(() => {});
+			const pendingQuestionnairePause =
+				questionnairePauseRequestRef.current?.catch(() => {});
+			void (pendingQuestionnairePause ?? Promise.resolve()).then(() =>
+				pauseTraining(Number(recordId)),
+			);
 		};
-	}, [recordId]);
+	}, [mode, recordId]);
 
-	// 浏览器关闭/刷新：beacon 暂停（unmount 不触发）
+	// 浏览器关闭/刷新：服务端按模式决定暂停，且会结束问卷专用暂停。
 	useEffect(() => {
-		if (!recordId) return;
+		if (!recordId || !mode) return;
 		const handler = () => {
 			navigator.sendBeacon(`/api/training/records/${recordId}/pause`);
 		};
 		window.addEventListener("beforeunload", handler);
 		return () => window.removeEventListener("beforeunload", handler);
-	}, [recordId]);
+	}, [mode, recordId]);
 
 	const caseId = record?.case_id ?? null;
 
 	const {
 		checkResponse,
+		hasChecked: qHasChecked,
 		isLoading: qLoading,
 		shouldShow: qShouldShow,
 		check: qCheck,
@@ -68,8 +81,34 @@ export default function TrainingEntry() {
 	});
 
 	useEffect(() => {
-		if (caseId) qCheck();
-	}, [caseId, qCheck]);
+		if (caseId && sessionReady) void qCheck();
+	}, [caseId, qCheck, sessionReady]);
+	useEffect(() => {
+		if (!recordId) return;
+		const requiredQuestionnaireOpen =
+			qShouldShow && checkResponse?.is_required === true;
+		if (requiredQuestionnaireOpen && !questionnairePauseActiveRef.current) {
+			questionnairePauseActiveRef.current = true;
+			const request = pauseTraining(Number(recordId), { questionnaire: true });
+			questionnairePauseRequestRef.current = request;
+			void request
+				.catch(() => {
+					questionnairePauseActiveRef.current = false;
+				})
+				.finally(() => {
+					if (questionnairePauseRequestRef.current === request) {
+						questionnairePauseRequestRef.current = null;
+					}
+				});
+		} else if (!requiredQuestionnaireOpen && questionnairePauseActiveRef.current) {
+			questionnairePauseActiveRef.current = false;
+			const pendingQuestionnairePause =
+				questionnairePauseRequestRef.current?.catch(() => {});
+			void (pendingQuestionnairePause ?? Promise.resolve()).then(() =>
+				resumeTraining(Number(recordId)),
+			);
+		}
+	}, [checkResponse?.is_required, qShouldShow, recordId]);
 
 	if (!recordId) return <Text p="md">缺少训练记录 ID</Text>;
 	if (isLoading) return <TrainingSkeleton />;
@@ -89,39 +128,30 @@ export default function TrainingEntry() {
 		);
 	}
 	if (!record) return <Text p="md">记录不存在</Text>;
+	if (!qHasChecked) return <TrainingSkeleton />;
 
 	const type = record.training_type || "history_taking";
 	const SceneComponent = TRAINING_SCENES[type];
 	if (!SceneComponent) return <Text p="md">未知训练类型: {type}</Text>;
 
-	const pendingQ = (record as { pending_questionnaires?: number }).pending_questionnaires ?? 0;
+	const requiredQuestionnaireOpen = qShouldShow && checkResponse?.is_required === true;
 
 	return (
 		<TrainingDataProvider value={record}>
 			{qShouldShow && checkResponse && (
 				<QuestionnaireModal
+					key={checkResponse.template_id}
 					open={qShouldShow}
-					onComplete={() => { qCheck(); }}
+					onComplete={() => { void qCheck(); }}
 					onSkip={qDismiss}
 					checkResponse={checkResponse}
 					loading={qLoading}
 					onSubmit={qSubmit}
 				/>
 			)}
-			{pendingQ > 0 && !qShouldShow && (
-				<Box
-					bg="blue.1"
-					c="blue.8"
-					px="md"
-					py={8}
-					ta="center"
-					style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }}
-				>
-					<Text size="xs">本练习包含问卷，可在训练后于「我的问卷」中完成</Text>
-				</Box>
+			{!requiredQuestionnaireOpen && (
+				<SceneComponent key={recordId} recordId={recordId} />
 			)}
-			{/* key={recordId}：切换病例时强制重挂场景子树，避免复用旧对话状态 */}
-			<SceneComponent key={recordId} recordId={recordId} />
 		</TrainingDataProvider>
 	);
 }

@@ -48,8 +48,13 @@ export const deleteRecord = (id: number | string) =>
 export const getRecordDetail = (id: number | string) =>
 	api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}` as ApiPath);
 
-export const pauseTraining = (id: number | string) =>
-	api.post<Schemas["OkResponse"]>(`/training/records/${id}/pause` as ApiPath, {});
+export const pauseTraining = (
+	id: number | string,
+	options?: { questionnaire?: boolean },
+) =>
+	api.post<Schemas["OkResponse"]>(`/training/records/${id}/pause` as ApiPath, {}, {
+		params: options?.questionnaire ? { questionnaire: true } : undefined,
+	});
 
 export const resumeTraining = (id: number | string) =>
 	api.post<Schemas["OkResponse"]>(`/training/records/${id}/resume` as ApiPath, {});

@@ -13,6 +13,11 @@ Tool contracts (centralised, one place each):
     ``service._authorize`` — handlers contain domain logic only;
   - all mutations happen inside the request-scoped DB session; no
     multi-transaction or detached commit in tool code;
+  - ``runtime_state`` is a bare JSONB column with no change tracking: a handler
+    that mutates nested structures MUST start from ``base.copy_runtime_state``
+    (shallow ``dict(state)`` shares the nested objects, so an in-place
+    ``append``/``update`` makes the ORM's stored old value change too and the
+    flush writes nothing — the measurement silently never reaches the DB);
   - idempotency: ``service.execute_tool_command`` replays the stored
     ``{data, scene}`` payload for a repeated ``idem_key``.
 """

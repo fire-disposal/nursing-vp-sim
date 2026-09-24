@@ -1,4 +1,5 @@
 import { act, render, screen } from "@/__tests__/render";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PhysicalExamTool from "@/components/training/tools/PhysicalExamTool";
 
@@ -25,14 +26,6 @@ function makeBus() {
 		},
 	};
 }
-
-vi.mock("@/engine/useSceneBus", () => ({
-	useSceneStateValue: () => ({ vitals: {} }),
-}));
-
-vi.mock("@/hooks/useTrainingWS", () => ({
-	subscribeWSConnection: () => () => {},
-}));
 
 const HIGH_TEMP_RESULT = {
 	tool: "physical_exam",
@@ -69,6 +62,50 @@ afterEach(() => {
 });
 
 describe("PhysicalExamTool 解读与异常汇总", () => {
+	it("部位导航与检查动作可通过可访问按钮操作", async () => {
+		const bus = makeBus();
+		render(<PhysicalExamTool recordId="1" bus={bus} recordDetail={null} />);
+
+		expect(screen.getByRole("button", { name: "胸部" })).toHaveAttribute("aria-pressed", "true");
+		await userEvent.click(screen.getByRole("button", { name: "检查心率" }));
+
+		expect(bus.invoked).toContainEqual({
+			tool: "physical_exam",
+			action: "measure",
+			params: { op_type: "hr" },
+			recordId: 1,
+		});
+		expect(screen.getByRole("button", { name: "检查呼吸频率" })).toBeDisabled();
+	});
+
+	it("重新进入时恢复已采集结果与解读，考核模式隐藏解读", () => {
+		const bus = makeBus();
+		const exam_results = [
+			{ type: "hr", value: "94.0", unit: "次/分", status: "normal" },
+			{
+				type: "temp",
+				value: "39.0",
+				unit: "°C",
+				status: "high",
+				interpretation: "体温 39.0°C，高于参考范围（36.3-37.2°C）",
+			},
+		];
+		const { unmount } = render(
+			<PhysicalExamTool recordId="1" bus={bus} recordDetail={{ mode: "guided", exam_results } as never} />,
+		);
+
+		expect(screen.getByText("94.0")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "复查心率" })).toBeInTheDocument();
+		expect(screen.getByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeInTheDocument();
+		unmount();
+
+		render(
+			<PhysicalExamTool recordId="1" bus={bus} recordDetail={{ mode: "assessment", exam_results } as never} />,
+		);
+
+		expect(screen.getByText("异常发现")).toBeInTheDocument();
+		expect(screen.queryByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeNull();
+	});
 	it("高温测量：异常汇总 + 引导模式展示解读文案", () => {
 		const bus = makeBus();
 		render(<PhysicalExamTool recordId="1" bus={bus} recordDetail={null} />);

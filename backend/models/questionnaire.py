@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -57,9 +58,22 @@ class QuestionnaireQuestion(Base):
 class QuestionnaireResponse(Base):
     __tablename__ = "questionnaire_responses"
     __table_args__ = (
-        # 同一学生对同一病例的同一问卷只保留一行（提交幂等的前提）；
-        # 该约束的索引同时覆盖 ix_qr_user_template 的查询前缀，故原索引已删。
-        UniqueConstraint("user_id", "template_id", "case_id", name="uq_qr_user_template_case"),
+        Index(
+            "uq_qr_user_template_case_once",
+            "user_id",
+            "template_id",
+            "case_id",
+            unique=True,
+            postgresql_where=text("record_id IS NULL"),
+        ),
+        Index(
+            "uq_qr_user_template_record",
+            "user_id",
+            "template_id",
+            "record_id",
+            unique=True,
+            postgresql_where=text("record_id IS NOT NULL"),
+        ),
         Index("ix_qr_record_id", "record_id"),
     )
 
@@ -68,7 +82,7 @@ class QuestionnaireResponse(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     case_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
     record_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(20), default="pending")
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)

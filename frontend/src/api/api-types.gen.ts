@@ -2043,7 +2043,7 @@ export interface paths {
         put?: never;
         /**
          * Pause Training
-         * @description 离开训练页：暂停倒计时（记录暂停起点），幂等。
+         * @description 记录离页暂停，或在必做训练前问卷期间冻结倒计时。
          */
         post: operations["pause_training_api_training_records__record_id__pause_post"];
         delete?: never;
@@ -2063,7 +2063,7 @@ export interface paths {
         put?: never;
         /**
          * Resume Training
-         * @description 回到训练页：把暂停时长计入 paused_seconds（倒计时顺延），幂等。
+         * @description 恢复训练，并结算普通离页或训练前问卷产生的暂停时长。
          */
         post: operations["resume_training_api_training_records__record_id__resume_post"];
         delete?: never;
@@ -2544,9 +2544,10 @@ export interface components {
             end_time: string;
             /**
              * Max Attempts
-             * @description 最大尝试次数，None 为不限制
+             * @description 最大尝试次数；0 或 None 为不限制
+             * @default 1
              */
-            max_attempts?: number | null;
+            max_attempts: number | null;
         };
         /** AssignmentDetail */
         AssignmentDetail: {
@@ -4311,8 +4312,8 @@ export interface components {
          * @description CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。
          *
          *     ``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；
-         *     ``AFTER_SCORING``：教师端评分/复核完成后触发（前端 TeacherRecordDetail）。
-         *     历史后台默认值 ``after_training`` 无任何触发点，已废弃（新写入一律被枚举拒绝）。
+         *     ``AFTER_SCORING``：评分完成后在学生结果页触发（前端 RecordDetail）。
+         *     历史后台默认值 ``after_training`` 无触发点，已废弃（新写入一律被枚举拒绝）。
          * @enum {string}
          */
         QuestionnaireTrigger: "before_training" | "after_scoring";
@@ -10126,7 +10127,9 @@ export interface operations {
     };
     pause_training_api_training_records__record_id__pause_post: {
         parameters: {
-            query?: never;
+            query?: {
+                questionnaire?: boolean;
+            };
             header?: never;
             path: {
                 record_id: number;

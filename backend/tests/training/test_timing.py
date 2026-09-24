@@ -6,8 +6,13 @@ from models import TrainingRecord
 from modules.training.timing import is_training_overdue, remaining_seconds, training_deadline
 
 
-def _record(*, start_time, status="in_progress", time_limit=20) -> TrainingRecord:
-    return TrainingRecord(start_time=start_time, status=status, time_limit=time_limit)
+def _record(*, start_time, status="in_progress", time_limit=20, mode="guided") -> TrainingRecord:
+    return TrainingRecord(
+        start_time=start_time,
+        status=status,
+        time_limit=time_limit,
+        practice_snapshot={"behavior": {"mode": mode}},
+    )
 
 
 def test_training_deadline_start_plus_limit():
@@ -54,29 +59,51 @@ def test_remaining_seconds_clamps_to_zero():
     assert remaining_seconds(rec) == 0
 
 
-def test_deadline_pure_wall_clock():
-    """D5 硬截止：deadline = start + time_limit，与 paused_seconds 无关。"""
+def test_guided_pause_extends_deadline_and_remaining():
     start = datetime(2026, 7, 31, 10, 0, tzinfo=UTC)
+    now = start + timedelta(minutes=25)
     rec = _record(start_time=start, time_limit=20)
     rec.runtime_state = {"paused_seconds": 600}
-    assert training_deadline(rec) == start + timedelta(minutes=20)
+
+    assert training_deadline(rec, now) == start + timedelta(minutes=30)
+    assert remaining_seconds(rec, now) == 300
+    assert not is_training_overdue(rec, now)
 
 
-def test_paused_seconds_does_not_extend_deadline():
-    """D5 硬截止（方案 A）：暂停不延展截止时间，纯墙钟。"""
+def test_active_guided_pause_freezes_remaining_time():
     start = datetime(2026, 7, 31, 10, 0, tzinfo=UTC)
+    paused_at = start + timedelta(minutes=5)
+    now = start + timedelta(minutes=15)
     rec = _record(start_time=start, time_limit=20)
-    rec.runtime_state = {"paused_seconds": 600}  # 离开 10 分钟 → 无效，deadline 不变
-    assert training_deadline(rec) == start + timedelta(minutes=20)
+    rec.runtime_state = {"paused_at": paused_at.isoformat()}
+
+    assert remaining_seconds(rec, now) == 900
 
 
-def test_paused_seconds_does_not_extend_remaining():
-    """暂停后重进：剩余时间按墙钟递减（离开时段照扣）。"""
-    start = datetime.now(UTC) - timedelta(minutes=25)
-    rec = _record(start_time=start, time_limit=20)
-    rec.runtime_state = {"paused_seconds": 600}  # 离开 10 分钟 → 无效
-    assert remaining_seconds(rec) == 0  # 25 分钟 > 20 分钟，已到期
-    assert is_training_overdue(rec)
+def test_assessment_ignores_pause_state_and_uses_wall_clock():
+    start = datetime(2026, 7, 31, 10, 0, tzinfo=UTC)
+    now = start + timedelta(minutes=25)
+    rec = _record(start_time=start, time_limit=20, mode="assessment")
+    rec.runtime_state = {"paused_seconds": 600, "paused_at": (start + timedelta(minutes=10)).isoformat()}
+
+    assert training_deadline(rec, now) == start + timedelta(minutes=20)
+    assert remaining_seconds(rec, now) == 0
+    assert is_training_overdue(rec, now)
+
+
+def test_required_questionnaire_pause_freezes_assessment_timer():
+    start = datetime(2026, 7, 31, 10, 0, tzinfo=UTC)
+    now = start + timedelta(minutes=25)
+    rec = _record(start_time=start, time_limit=20, mode="assessment")
+    rec.runtime_state = {
+        "paused_seconds": 600,
+        "paused_at": (start + timedelta(minutes=10)).isoformat(),
+        "questionnaire_paused_seconds": 600,
+    }
+
+    assert training_deadline(rec, now) == start + timedelta(minutes=30)
+    assert remaining_seconds(rec, now) == 300
+    assert not is_training_overdue(rec, now)
 
 
 def test_no_paused_seconds_unchanged():

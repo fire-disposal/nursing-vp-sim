@@ -16,6 +16,7 @@ from modules.assignments.progress import (
     pick_representative,
     progress_status,
 )
+from schemas.assignment import AssignmentCreateRequest
 
 T0 = datetime(2026, 3, 1, 8, 0, tzinfo=UTC)
 
@@ -43,6 +44,17 @@ def _record(
     if scored:
         r.score = Score(record_id=record_id, total_score=total, reviewed_total=reviewed)
     return r
+
+
+def test_assignment_defaults_to_one_attempt():
+    request = AssignmentCreateRequest(
+        case_id=1,
+        class_id=1,
+        title="首次考核",
+        start_time=T0,
+        end_time=T0 + timedelta(days=1),
+    )
+    assert request.max_attempts == 1
 
 
 class TestCountAttempts:

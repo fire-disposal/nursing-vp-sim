@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from core.database import db_session, get_db
 from core.rate_limits import check_chat_limit
 from core.security import get_current_user
-from core.statuses import ScoringStatus, TrainingStatus
+from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
 from models import Case, Message, TrainingAction, TrainingRecord, User
 from modules.training.capabilities import detect_capabilities
 from modules.training.session.finalize import is_patient_walkout_ended
@@ -131,6 +131,9 @@ def _latest_correctable_pair(db: Session, record_id: int) -> tuple[Message, Mess
 def _ensure_correction_allowed(db: Session, record: TrainingRecord, student: Message) -> dict:
     if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="训练已结束")
+    mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
+    if mode == TrainingMode.ASSESSMENT.value:
+        raise HTTPException(status_code=400, detail="独立考核不允许修正已发送消息")
     if (
         record.scoring_status
         in {

@@ -134,3 +134,12 @@ VoiceConfig / VoiceCallLog / RateLimitEntry / SystemNotification：独立表
 
 - 迁移命令: `cd backend && alembic revision --autogenerate -m "描述变更"`
 - 迁移纪律：`ddl/` 禁 `op.execute()`；`data/` 需 `# Manual override reason: data_only`（见 AGENTS.md）
+- JSONB 写入纪律：`training_records.runtime_state` 没有变更追踪（裸 `JSONB`）。
+  改嵌套结构（`list.append` / `dict.update`）必须先深拷贝——浅拷贝仍共享嵌套对象，
+  就地修改会同时改掉 ORM 手里的旧值，flush 判定「未修改」而整条 UPDATE 被丢弃。
+  工具侧用 `modules/training/tools/base.py:copy_runtime_state`。
+- `questionnaire_responses` 唯一性按触发时点分域（迁移 `c9a7e2f4b6d8`）：训练前问卷
+  一个 `(user, template, case)` 一行（`record_id IS NULL` 的部分唯一索引），评分后问卷
+  按训练记录逐次一行（`record_id IS NOT NULL`）。`record_id` 外键为 `CASCADE`——删训练
+  记录即删其评分后作答。**该迁移的 downgrade 会先删掉评分后作答行**，否则旧的
+  `(user, template, case)` 唯一约束在回滚时创建失败，`deploy/rollback.sh` 会因此中止。

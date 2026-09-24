@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -45,3 +46,14 @@ def get_tool_config(case_data: dict, tool_name: str) -> dict | None:
     # Backward compat: top-level field
     legacy = case_data.get(tool_name) if isinstance(case_data, dict) else None
     return legacy if isinstance(legacy, dict) else None
+
+
+def copy_runtime_state(ctx: ToolContext) -> dict:
+    """``record.runtime_state`` 的独立深拷贝，供要改嵌套结构的 handler 使用。
+
+    ``runtime_state`` 是裸 JSONB，没有变更追踪：对已加载值就地改嵌套结构
+    （``list.append`` / ``dict.update``）会同时改掉 ORM 里那份“旧值”，
+    flush 时新旧内容比较相等 → SQLAlchemy 判定该列未修改，整条 UPDATE 被丢弃，
+    查体/测验结果静默不入库。浅拷贝 ``dict(state)`` 挡不住这一点（嵌套对象仍共享）。
+    """
+    return copy.deepcopy(ctx.record.runtime_state or {})

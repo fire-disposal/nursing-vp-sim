@@ -6,7 +6,7 @@ import logging
 
 from core.exceptions import ValidationError
 
-from .base import ToolContext, ToolHandler, ToolResult, get_tool_config
+from .base import ToolContext, ToolHandler, ToolResult, copy_runtime_state, get_tool_config
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class QuizHandler(ToolHandler):
         correct = target.get("answer", "")
         is_correct = answer.strip().upper() == correct.strip().upper()
 
-        rs = dict(ctx.record.runtime_state or {})
+        rs = copy_runtime_state(ctx)
         quiz_answers = rs.get("quiz_answers", [])
         if not isinstance(quiz_answers, list):
             quiz_answers = []

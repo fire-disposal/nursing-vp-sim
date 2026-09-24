@@ -3,12 +3,13 @@ import { IconListCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
-import { computeCovered } from "./tools/inquiryProgress";
+import { computeCovered, PROGRESS_BG, PROGRESS_TEXT, progressColor } from "./tools/inquiryProgress";
 
 export function InquiryProgressChip() {
 	const bus = useTrainingStore((s) => s.bus);
 	const recordDetail = useTrainingStore((s) => s.recordDetail);
 	const messages = useTrainingStore((s) => s.messages);
+	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
 
 	const inquiries: string[] = useMemo(() => {
 		return (recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
@@ -25,17 +26,18 @@ export function InquiryProgressChip() {
 
 	const covered = useMemo(() => computeCovered(inquiries, studentText), [inquiries, studentText]);
 
-	if (inquiries.length === 0) return null;
+	if (mode !== "guided" || inquiries.length === 0) return null;
 
 	const done = covered.size;
 	const total = inquiries.length;
+	const band = progressColor(Math.round((done / total) * 100));
 
 	return (
 		<Box
 			component="button"
 			type="button"
 			onClick={() => bus!.emit("tool:open", { id: "inquiry" })}
-			title={`问诊目标 ${done}/${total}，点击查看指引`}
+			title={`问诊任务清单 ${done}/${total}（关键词自检），点击查看`}
 			style={{
 				display: "flex",
 				alignItems: "center",
@@ -60,10 +62,18 @@ export function InquiryProgressChip() {
 			}}
 		>
 			<IconListCheck size={12} />
-			<Text component="span" size="11px" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
-				{done}/{total}
+			<Text
+				component="span"
+				size="11px"
+				c={PROGRESS_TEXT[band]}
+				fw={600}
+				style={{ fontVariantNumeric: "tabular-nums" }}
+			>
+				清单 {done}/{total}
 			</Text>
-			{done < total && <Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />}
+			{done < total && (
+				<Box w={6} h={6} style={{ borderRadius: 999, background: PROGRESS_BG[band] }} />
+			)}
 		</Box>
 	);
 }

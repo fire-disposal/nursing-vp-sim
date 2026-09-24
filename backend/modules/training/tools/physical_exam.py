@@ -7,7 +7,7 @@ from modules.training.capabilities import is_enabled
 from modules.training.tools.exam_emotion import apply_exam_emotion
 from modules.training.tools.physical_exam_rules import handle_operation
 
-from .base import ToolContext, ToolHandler, ToolResult
+from .base import ToolContext, ToolHandler, ToolResult, copy_runtime_state
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class PhysicalExamHandler(ToolHandler):
         record = ctx.record
         result = handle_operation(op_type, ctx.case_data)
 
-        rs = dict(record.runtime_state or {})
+        rs = copy_runtime_state(ctx)
         exam_results = rs.get("exam_results", [])
         if not isinstance(exam_results, list):
             exam_results = []
@@ -88,8 +88,12 @@ class PhysicalExamHandler(ToolHandler):
             "unit": result.get("unit", ""),
         }
         interpretation = result.get("interpretation")
-        if isinstance(interpretation, dict) and interpretation.get("status"):
-            entry["status"] = interpretation["status"]
+        if isinstance(interpretation, dict):
+            if interpretation.get("status"):
+                entry["status"] = interpretation["status"]
+            # 解读文案随结果冻结，重进训练时引导模式才能还原教学反馈
+            if interpretation.get("text"):
+                entry["interpretation"] = interpretation["text"]
         exam_results.append(entry)
         rs["exam_results"] = exam_results
 

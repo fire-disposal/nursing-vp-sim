@@ -34,8 +34,11 @@ describe("computeCovered", () => {
 	});
 });
 
-describe("progressColor", () => {
-	it(">=80 green", () => expect(progressColor(80)).toBe("success"));
-	it(">=40 <80 amber", () => expect(progressColor(50)).toBe("warning"));
-	it("<40 red", () => expect(progressColor(30)).toBe("danger"));
+describe("progressColor（任务清单分档）", () => {
+	it(">=80 绿，40-79 琥珀，<40 红", () => {
+		expect(progressColor(80)).toBe("success");
+		expect(progressColor(79)).toBe("warning");
+		expect(progressColor(40)).toBe("warning");
+		expect(progressColor(39)).toBe("danger");
+	});
 });

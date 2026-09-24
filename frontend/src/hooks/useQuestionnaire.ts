@@ -14,6 +14,7 @@ interface UseQuestionnaireReturn {
 	checkResponse: CheckResponse | null;
 	isLoading: boolean;
 	isSubmitting: boolean;
+	hasChecked: boolean;
 	shouldShow: boolean;
 	check: () => Promise<CheckResponse | null>;
 	submit: (
@@ -31,11 +32,13 @@ export function useQuestionnaire(
 	);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [hasChecked, setHasChecked] = useState(false);
 	const [dismissed, setDismissed] = useState(false);
 	const submittingRef = useRef(false);
 
 	const check = useCallback(async (): Promise<CheckResponse | null> => {
 		if (!caseId && !recordId) return null;
+		setHasChecked(false);
 		setIsLoading(true);
 		try {
 			const resp = await checkQuestionnaire({
@@ -49,6 +52,7 @@ export function useQuestionnaire(
 		} catch {
 			return null;
 		} finally {
+			setHasChecked(true);
 			setIsLoading(false);
 		}
 	}, [caseId, recordId, trigger]);
@@ -82,5 +86,5 @@ export function useQuestionnaire(
 
 	const shouldShow = !!(checkResponse?.has_pending && !dismissed);
 
-	return { checkResponse, isLoading, isSubmitting, shouldShow, check, submit, dismiss };
+	return { checkResponse, isLoading, isSubmitting, hasChecked, shouldShow, check, submit, dismiss };
 }

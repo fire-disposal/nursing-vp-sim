@@ -13,7 +13,10 @@ import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientAvatar } from "@/utils/avatar";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useIsMobile } from "@/hooks/useLayoutMode";
-import { useToolBridge } from "@/hooks/useToolBridge";
+import {
+	useToolBridge,
+	waitForPendingToolCommands,
+} from "@/hooks/useToolBridge";
 import { createMessageBus } from "./MessageBus";
 import {
 	useTrainingStore,
@@ -70,7 +73,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
 	const patientAccRef = useRef("");
 	const endingRef = useRef(false);
-	useToolBridge(busRef.current);
+	const toolBridgeReady = useToolBridge(busRef.current);
 
 	// ── Init store before rendering store-backed training children ──
 	const [readyRecordId, setReadyRecordId] = useState<string | null>(null);
@@ -124,6 +127,27 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		}
 	}, [patient]);
 
+	const flushNursingRecord = useCallback(async () => {
+		const store = getTrainingState();
+		if (
+			capabilities.nursing_record &&
+			store.nursingRecordDirty &&
+			store.nursingRecordDraft
+		) {
+			const snapshot = { ...store.nursingRecordDraft };
+			busRef.current.emit("tool:invoke", {
+				tool: "nursing_record",
+				action: "save",
+				params: { sheet_data: snapshot, status: "draft" },
+				recordId: recordNum,
+			});
+			await waitForPendingToolCommands(recordNum, "nursing_record");
+			store.markNursingRecordSaved(snapshot);
+			return;
+		}
+		await waitForPendingToolCommands(recordNum, "nursing_record");
+	}, [capabilities.nursing_record, recordNum]);
+
 	// ── 患者中止访谈（内生 GAMEOVER）──
 	// 服务端在同一轮里已完成 finalize 并触发评分，前端只做本地收尾与提示：
 	// 绝不能再调 /end（那会因「训练已结束」报错）。
@@ -140,10 +164,16 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const trainingStartedRef = useRef(false);
 	const sendMessage = useCallback(
 		async (text: string) => {
+			try {
+				await flushNursingRecord();
+			} catch {
+				toastError("护理记录保存失败，请保存后再继续问诊");
+				return;
+			}
 			trainingStartedRef.current = true;
 			const bus = busRef.current;
 			bus.emit("chat:beforeSend");
-			streamRef.current.send(text, {
+			await streamRef.current.send(text, {
 				onPatientChunk: (chunk: string) => {
 					patientAccRef.current += chunk;
 					bus.emit("stream:chunk", chunk);
@@ -159,15 +189,21 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
-		[handlePatientWalkout],
+		[flushNursingRecord, handlePatientWalkout, toastError],
 	);
 
 	const correctLastMessage = useCallback(
 		async (messageId: string | number, text: string) => {
+			try {
+				await flushNursingRecord();
+			} catch {
+				toastError("护理记录保存失败，请保存后再修正消息");
+				return;
+			}
 			const bus = busRef.current;
 			patientAccRef.current = "";
 			bus.emit("chat:beforeSend");
-			streamRef.current.correctLastMessage(messageId, text, {
+			await streamRef.current.correctLastMessage(messageId, text, {
 				onPatientChunk: (chunk: string) => {
 					patientAccRef.current += chunk;
 					bus.emit("stream:chunk", chunk);
@@ -183,7 +219,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
-		[handlePatientWalkout],
+		[flushNursingRecord, handlePatientWalkout, toastError],
 	);
 
 	const getProgress = useCallback(
@@ -200,22 +236,29 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		if (endingRef.current) return;
 		endingRef.current = true;
 		try {
-			busRef.current.emit("training:beforeEnd");
-			// Phase 2.5：工具已走 HTTP 请求/响应，结束训练无需等待在途 WS 工具结果
+			await flushNursingRecord();
 			await scoreRef.current.end();
 			getTrainingState().setTrainingEnded(true);
 			busRef.current.emit("training:ended");
-			// 结束训练后统一失效缓存：历史页/作业列表/通知即时反映最新状态，
-			// 避免 staleTime 窗口内显示过期"进行中"。
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student() });
 			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		} catch {
-			toastError("训练内容尚未保存，未开始结算，请重试");
+			toastError("护理记录或训练提交失败，请重试");
+			throw new Error("训练提交失败");
 		} finally {
 			endingRef.current = false;
 		}
-	}, [toastError, queryClient]);
+	}, [flushNursingRecord, toastError, queryClient]);
+
+	const leaveTraining = useCallback(async () => {
+		try {
+			await flushNursingRecord();
+		} catch {
+			toastError("护理记录保存失败，请重试后再离开");
+			throw new Error("护理记录保存失败");
+		}
+	}, [flushNursingRecord, toastError]);
 
 	const retryScoring = useCallback(async () => {
 		try {
@@ -318,7 +361,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const isShort = useShortViewport();
 	const isMobile = useIsMobile();
 
-	if (!patient || readyRecordId !== recordId) {
+	if (!patient || readyRecordId !== recordId || !toolBridgeReady) {
 		return <TrainingBootSkeleton />;
 	}
 
@@ -328,6 +371,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				<TrainingHeader
 					toggleTts={toggleTts}
 					endTraining={endTraining}
+					leaveTraining={leaveTraining}
 				/>
 				{/* 三区布局：患者区 | 对话区（工具区 = children）
 				    顶栏为 absolute 全宽 chrome——内容行按顶栏高度退避（isShort 同步 h-9/11/12）
@@ -370,7 +414,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 						>
 							<ChatArea
 								onSend={sendMessage}
-								endTraining={endTraining}
 								onCorrectLast={correctLastMessage}
 							/>
 						</ErrorBoundary>

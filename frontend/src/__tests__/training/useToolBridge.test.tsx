@@ -2,11 +2,19 @@ import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMessageBus } from "@/engine/MessageBus";
 import type { MessageBus } from "@/engine/types";
-import { useToolBridge } from "@/hooks/useToolBridge";
+import { useToolBridge, waitForPendingToolCommands } from "@/hooks/useToolBridge";
 
 const apiMock = vi.hoisted(() => ({
   postToolCommand: vi.fn(),
 }));
+
+const promiseConstructor = Promise as unknown as {
+  withResolvers<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason?: unknown) => void;
+  };
+};
 
 vi.mock("@/api/training", () => ({
   postToolCommand: apiMock.postToolCommand,
@@ -94,6 +102,59 @@ describe("useToolBridge (HTTP 指令面)", () => {
     expect(apiMock.postToolCommand).toHaveBeenCalledTimes(2);
     const second = apiMock.postToolCommand.mock.calls[1][1];
     expect(second.revision).toBe(5);
+  });
+
+  it("waits for a pending save before allowing submission to continue", async () => {
+    const bus = createMessageBus();
+    render(<Bridge bus={bus} />);
+    const save = promiseConstructor.withResolvers<{
+      ok: boolean;
+      data: Record<string, unknown>;
+      scene: null;
+      error: string;
+      revision: number;
+    }>();
+    apiMock.postToolCommand.mockReturnValue(save.promise);
+
+    bus.emit("tool:invoke", {
+      tool: "nursing_record",
+      action: "save",
+      params: { sheet: { subjective: "头晕" } },
+      recordId: 7,
+    });
+    let completed = false;
+    const barrier = waitForPendingToolCommands(7).then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+    expect(completed).toBe(false);
+
+    save.resolve({
+      ok: true,
+      data: { sheet_data: { subjective: "头晕" } },
+      scene: null,
+      error: "",
+      revision: 1,
+    });
+    await act(async () => {
+      await barrier;
+    });
+    expect(completed).toBe(true);
+  });
+
+  it("只让护理记录写入的失败中断屏障", async () => {
+    const bus = createMessageBus();
+    render(<Bridge bus={bus} />);
+
+    // 查体失败：面板自行提示，不应拦住交卷/离开
+    apiMock.postToolCommand.mockRejectedValueOnce(new Error("查体请求失败"));
+    bus.emit("tool:invoke", { tool: "physical_exam", action: "measure", params: { op_type: "hr" }, recordId: 7 });
+    await expect(waitForPendingToolCommands(7, "nursing_record")).resolves.toBeUndefined();
+
+    // 护理记录落盘失败：必须抛给交卷/离开调用方
+    apiMock.postToolCommand.mockRejectedValueOnce(new Error("护理记录写入失败"));
+    bus.emit("tool:invoke", { tool: "nursing_record", action: "save", params: {}, recordId: 7 });
+    await expect(waitForPendingToolCommands(7, "nursing_record")).rejects.toThrow("护理记录写入失败");
   });
 
   it("surfaces errors as tool:result ok=false", async () => {

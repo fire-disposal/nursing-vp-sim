@@ -6,16 +6,16 @@ interface UseTrainingTimerOptions {
 	initialRemainingSeconds: number | null;
 	/** 训练进行中才计时。 */
 	enabled: boolean;
-	/** 本地剩余归零时触发一次（温和提示，不强制交卷）。 */
+	/** 本地剩余归零时触发一次，调用方负责自动交卷。 */
 	onTimeUp: () => void;
 }
 
 /**
- * 训练倒计时（体验模式）。
+ * 训练倒计时。
  *
- * 以服务端 remaining_seconds 为起点本地递减——离开训练页期间服务端累计暂停
- * （pause/resume 端点），重新进入时 detail 返回新的剩余值，倒计时自动续期。
- * 到点仅触发温和提示，不强制交卷；训练结束由用户主动触发。
+ * 以服务端 remaining_seconds 为起点本地递减。引导/盲盒离页暂停，独立考核按墙钟
+ * 连续计时；必做训练前问卷单独冻结两种模式的倒计时。重新进入时由详情值校准。
+ * 本地归零后立即触发调用方的自动交卷流程。
  */
 export function useTrainingTimer({
 	initialRemainingSeconds,

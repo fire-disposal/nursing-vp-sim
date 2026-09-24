@@ -42,7 +42,6 @@
 | `/record/:id` | RecordDetail | 登录 | Layout | 记录详情 + 评分 |
 | `/qa` | QA | 登录 | Layout | 护理专业问答 |
 | `/stats` | StatsPage | 登录 | Layout | 训练统计图表 |
-| `/my-responses` | MyResponses | 登录 | Layout | 我的问卷应答 |
 | `/profile` | Profile | 登录 | Layout | 用户个人资料 |
 | `/admin` | Admin | score_review | Layout | 训练管理 (问答记录) |
 | `/admin/debug` | AdminDebugPage | score_review | Layout | 调试工坊 |
@@ -148,8 +147,8 @@
 
 - `h-dvh` 全屏，顶栏 `flex-wrap` 移动端自动换行
 - 移动端安全区 `env(safe-area-inset-top)` 适配刘海屏
-- 左侧可折叠患者信息面板 (300px，护理记录可编辑)
-- 右侧插件面板 (fixed drawer, 引擎驱动)
+- 左侧为可折叠患者信息面板，右侧为按 capability 装配的训练工具面板
+- 护理查体、护理记录等工具通过 HTTP 指令面读写服务端状态
 - 评分弹窗 `backdrop-blur` 毛玻璃效果
 
 ## 状态管理
@@ -166,7 +165,7 @@
 
 | 模块 | 职责 |
 |------|------|
-| `TrainingEngine.tsx` | 训练循环编排 — 初始化、暂停、结束、评分触发 |
+| `TrainingEngine.tsx` | 训练循环编排 — 初始化、模式计时、护理记录落盘屏障、结束与评分触发 |
 | `MessageBus.ts` | 发布/订阅消息总线，插件间解耦通信 |
 | `PanelContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) + 插件注册 |
 | `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
@@ -177,23 +176,24 @@
 ### 训练架构
 
 ```
-TrainingEngine
-├── PatientProvider (患者数据上下文)
-├── PluginContext (插件上下文 + 注册)
-│   ├── patient-info     — 患者信息面板
-│   ├── emotion          — 情绪状态面板
-│   ├── initiative       — 主动提问面板
-│   ├── inquiry          — 采集进度追踪
-│   ├── nursing-record   — 护理记录表单
-│   ├── physical-exam    — 体格检查结果
-│   ├── questionnaire    — 训练后问卷
-│   └── scoring-display  — 评分结果展示
-├── StreamManager (SSE 流)
-├── ScoreManager (评分)
-├── ChatArea (对话 UI)
-│   ├── ChatDisplay      — 消息气泡 (ChatBubble)
-│   └── ChatInput        — 输入 + 发送
-└── PanelHost (侧边面板)
+TrainingDataProvider (React Query 训练详情)
+└── TrainingEngine
+    ├── trainingStore (会话 UI 状态；重挂载时重绑 MessageBus)
+    ├── TrainingHeader (模式化计时 / 离开 / 交卷)
+    ├── PatientStage
+    ├── ChatArea
+    │   ├── WelcomeScreen
+    │   ├── ChatDisplay (消息 + 持久化查体结果)
+    │   └── ConversationComposer
+    ├── SceneRenderer
+    │   ├── inquiry          — 问诊任务清单（关键词自检），仅引导模式
+    │   ├── physical-exam    — 护理查体
+    │   ├── nursing-record   — SOAP/评价记录
+    │   └── quiz             — 随堂测验
+    ├── StreamManager (SSE 对话流)
+    └── ScoreManager (评分状态)
+
+QuestionnaireModal 由 TrainingEntry（训练前）或 RecordDetail（评分后）触发，不属于训练工具。
 ```
 
 ## 语音系统
@@ -206,22 +206,40 @@ TrainingEngine
 | 首条招呼 | 训练开始自动朗读患者首条消息 |
 | 流式朗读 | 按句子切分，句间自动停顿 |
 
-## 护理记录 (nursing-record 插件)
+## 护理记录 (nursing-record 工具)
 
-训练页左侧面板内嵌可编辑护理记录表单，由 nursing-record 插件驱动：
+右侧工具面板提供服务端持久化的护理评估记录：
 
-| 字段 | 说明 | 控件类型 |
-|------|------|----------|
-| 主诉 | 患者主要不适及持续时间 | Textarea |
-| 现病史 | 起病情况、症状特点、伴随症状、诊治经过 | Textarea |
-| 既往史 | 既往疾病、手术、过敏、输血史 | Textarea + CheckboxGroup |
-| 个人史 | 出生地、职业、生活习惯、婚育史 | Textarea + Select |
-| 家族史 | 家族成员健康及遗传病史 | Textarea |
-| 生命体征 | T/P/R/BP 等 | VitalSignItem (联动输入) |
+| 字段 | 说明 |
+|------|------|
+| 主观资料 (S) | 患者主诉、症状感受、现病史与既往史要点 |
+| 客观资料 (O) | 生命体征、查体结果与检验数据 |
+| 评估 (A) | 护理诊断与风险评估 |
+| 计划 (P) | 护理措施、预期目标与健康教育 |
+| 评价 (E) | 措施效果、病情变化与后续计划 |
 
-- 表单配置驱动 (`config.ts`)，字段类型支持 Input/Textarea/Select/Radio/CheckboxGroup/VitalSign
-- localStorage 按患者名称隔离存储
-- 输入防抖自动保存
+- 草稿由 Zustand 保存，工具重挂载不会丢失未落盘修改
+- 输入 3 秒后自动保存；发送消息、离开与交卷前通过工具命令屏障等待保存完成
+- 服务端版本冲突使用返回的 revision 重试一次；失败时阻止继续问诊或交卷
+- 重新进入训练时从 `nursing_record_sheet` 恢复；查体结果从 `exam_results` 恢复到对话区
+
+## 护理查体
+
+- 按身体部位分组展示检查项目；部位、检查和复查均使用可聚焦按钮
+- 顶部进度和部位计数标示已检查项目；结果、状态、异常汇总在当前面板内即时反馈
+- 同一时间只执行一个检查，避免重复提交；查体 HTTP 工具不依赖 WebSocket 连接状态
+- 所有模式展示原始结果与异常状态；仅引导模式展示教学解读
+- 重新进入训练时从 `exam_results` 恢复进度、结果与解读文案（考核/盲盒模式仍隐藏解读）
+
+
+## 训练模式与问卷
+
+- `guided` / `blind_box`：离开页面暂停倒计时；`assessment`：离开后继续墙钟计时
+- 必做训练前问卷会在场景挂载前冻结倒计时；完成后才进入训练
+- 独立考核隐藏问诊任务清单、精确情绪 HUD 与消息修正；查体操作仍可用，但不显示教学解读
+- 问诊任务清单（仅引导模式）保留勾选与完成度配色，判定只看关键词命中，可能漏判；
+  它不阻止交卷，也不参与实时结算
+- 评分完成后，学生结果页按训练记录触发训练后问卷；同一模板可对每次训练分别作答
 
 ## 韧性特性
 
