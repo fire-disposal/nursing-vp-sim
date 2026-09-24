@@ -188,3 +188,18 @@
 - **进步幅度**：成绩序列按时间平分前后两半，delta = 后半均分 − 前半均分，±2 分内判平稳；无数据学生排末位
 - **学生趋势** `GET /api/scoreboard/students/{user_id}/trend`：单学生逐次成绩/用时/病例/作业明细，前端 recharts 可视化（分数趋势折线 + 单次用时柱状 + 统计卡）
 - 权限沿用 `assignment_manage`，新页「成绩管理」挂载教学导航组
+
+## 2026.09 — 机房旧浏览器崩溃修复 & 取证口径
+
+**旧浏览器渲染崩溃修复（Chromium 92）** 机房镜像停在 Edge/Chrome 92，react-markdown 10 与
+recharts 调用 ES2022 `Object.hasOwn`（需 Chromium 93+）时抛 `TypeError`，被 ErrorBoundary 整页
+接管——机房会话 55% 请求来自该类浏览器，表现为「前端渲染坏了」。修复：`utils/polyfills.ts`
+垫 `Object.hasOwn` / `crypto.randomUUID`（入口首行引入）+ `build.target` 固定浏览器下限。
+
+**前端遥测跨 worker 聚合** 遥测此前是进程内缓冲，`--workers 2` 下计数按 worker 分裂
+（同一端点返回两套互斥计数）。改为每个 worker 写共享 JSONL 归档、快照合并增量与归档，
+并把上报里已有的 `ua` 透出到 `frontend_errors.groups`——环境问题（旧浏览器）与代码缺陷
+一眼可分。诊断归档挂 `ai_vp_diagnostics` 卷，跨发版保留。
+
+**患者走人评分入队丢失** `_end_by_patient_walkout` 在延迟执行的闭包里回读 `ctx.record.id`，
+worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入队。改为入队前捕获标量。
