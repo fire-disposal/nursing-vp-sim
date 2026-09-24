@@ -114,11 +114,17 @@ do_backup() {
   bk_context "" "$version"
 
   # pg_dump + gzip
+  #   排除 llm_call_logs 的**行数据**（保留建表语句，恢复后该表为空 → 不会有 schema 漂移）：
+  #   该表占未压缩 dump 的约 81%（实测 70.2MB / 86.3MB），是分析性 LLM 调用日志、
+  #   不是"后悔药"对象；业务数据（训练记录/评分/消息/图片/情绪事件）合计仅约 14MB。
+  #   需要日志时按需单独导出：
+  #     docker exec nursing-db pg_dump -U nursing -d nursing_vp --no-owner -t llm_call_logs | gzip > /tmp/logs.sql.gz
   local size=0
-  if docker exec "$CONTAINER" pg_dump -U nursing -d nursing_vp --no-owner 2>/dev/null | gzip > "$BACKUP_PATH"; then
+  if docker exec "$CONTAINER" pg_dump -U nursing -d nursing_vp --no-owner \
+       --exclude-table-data=public.llm_call_logs 2>/dev/null | gzip > "$BACKUP_PATH"; then
     size=$(du -h "$BACKUP_PATH" | cut -f1)
     local status="success"
-    echo "[OK] 备份完成: ${BACKUP_PATH} (${size})"
+    echo "[OK] 备份完成: ${BACKUP_PATH} (${size}，不含 llm_call_logs 数据)"
     bk_artifact "$BACKUP_PATH"
 
     # 写入 history（AI 可解析的结构化记录）

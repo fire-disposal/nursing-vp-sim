@@ -55,7 +55,13 @@ ssh yecaoyun "cd /opt/nursing-vp-sim && bash deploy/pre-deploy-backup.sh backup"
 | `backups/.pre-deploy-keep` 里的锚点 | 永不删除，与名次/时间无关 |
 | 6 小时内新建 | 防并发部署互踩 |
 
-长周期（30 天）由每 3 天的周期备份 `backups/prod/` 覆盖，所以这里不需要留很多份。
+长周期（30 天）由**每日**的周期备份 `backups/prod/` 覆盖（30 份 × ~2.6MB ≈ 80MB），所以这里不需要留很多份。
+
+**周期备份的内容口径（2026-09-25 起）**：`pg_dump --exclude-table-data=public.llm_call_logs`
+—— 排除 LLM 调用日志的**行数据**、保留建表语句（恢复后该表存在但为空，不会 schema 漂移）。
+原因：该表占未压缩 dump 的约 81%（实测 70.2MB / 86.3MB），是分析性日志、恢复价值低；
+业务数据（训练记录/评分/消息/图片/情绪事件）合计约 14MB，压缩后 ~2.6MB。
+需要日志时按需单独导出：`docker exec nursing-db pg_dump -U nursing -d nursing_vp --no-owner -t llm_call_logs | gzip > /tmp/logs.sql.gz`。
 
 ```bash
 # 看当前判定（谁留、为什么留）：最左是名次或 keep 原因
@@ -150,7 +156,7 @@ emoguard 15.19），不跨大版本借用导出工具。部署回滚仅回滚应
 
 | 目标 | 时间 | 宿主 crontab 命令 | 数据集 → 路径 | 保留 |
 |------|------|------|------|------|
-| Production DB（周期） | 每 3 天 04:00 | `cd /opt/server-ops && /usr/bin/python3 backup/cli.py run nursing-db --notify` | `nursing-db` → `backups/prod/`（`prod_*.sql.gz`） | 30 天 |
+| Production DB（周期） | 每日 04:00 | `cd /opt/server-ops && /usr/bin/python3 backup/cli.py run nursing-db --notify` | `nursing-db` → `backups/prod/`（`prod_*.sql.gz`） | 30 天（不含 `llm_call_logs` 行数据） |
 | 备份审计 | 每日 09:15 | `cd /opt/server-ops && /usr/bin/python3 backup/cli.py audit --notify` | 全部数据集（新鲜度/完整性/配平/未记账/预算） | — |
 
 部署前快照（`nursing-predeploy`，`backups/pre-deploy-*.sql.gz`）**不在这张表里**：它由部署
