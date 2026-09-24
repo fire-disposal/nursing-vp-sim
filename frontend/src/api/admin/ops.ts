@@ -3,6 +3,8 @@ import { api } from "@/api/client";
 
 export interface FrontendErrorEntry {
 	time: string;
+	first_seen?: string;
+	fingerprint?: string;
 	type: string;
 	message: string;
 	url: string;
@@ -10,13 +12,15 @@ export interface FrontendErrorEntry {
 	count: number;
 	source?: string;
 	component_stack?: string;
+	/** 出事端浏览器 UA（跨 worker 归档携带，用于区分机房旧浏览器等环境差异）。 */
+	ua?: string;
 }
 
 export interface FrontendErrors {
 	last_5min: number;
 	last_hour: number;
 	total_captured: number;
-	recent: FrontendErrorEntry[];
+	groups: FrontendErrorEntry[];
 }
 
 export interface RequestHotspot {

@@ -186,7 +186,7 @@ async def diagnose(
                     "last_hour": frontend_errors.get("last_hour", 0),
                     "total_captured": frontend_errors.get("total_captured", 0),
                 },
-                "groups": (frontend_errors.get("recent") or [])[:20],
+                "groups": (frontend_errors.get("groups") or [])[:20],
             },
             "llm": dashboard["llm"],
             "scoring": dashboard["scoring"],

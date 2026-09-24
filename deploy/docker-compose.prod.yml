@@ -38,6 +38,8 @@ services:
       - "127.0.0.1:9001:8000"
     volumes:
       - ai_vp_logs:/app/data/llm_logs
+      # 诊断归档（后端错误 + 前端遥测 JSONL）必须跨容器重建存活，否则每次发版都丢取证窗口。
+      - ai_vp_diagnostics:/app/data/diagnostics
     env_file:
       - .env
     environment:
@@ -85,3 +87,4 @@ services:
 volumes:
   ai_vp_pg_data:
   ai_vp_logs:
+  ai_vp_diagnostics:

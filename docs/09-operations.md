@@ -521,6 +521,16 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 | 前端 5min 错误 | > 0 |
 | 前端 1h 错误 | > 10 |
 
+**前端遥测口径（2026-09-24 起）**：后端以 `--workers 2` 运行，前端错误计数不再按 worker 分裂
+——每个 worker 把去重后的增量写入共享归档，快照时合并「本进程增量 + 归档」，因此
+`frontend_errors.count` 与 `groups` 是跨 worker 口径，且随容器重建保留（`ai_vp_diagnostics` 卷）。
+`groups[]` 现在带 `ua`（出事端浏览器）、`fingerprint`、`first_seen`，机房/旧浏览器类环境问题
+无需再翻 nginx 日志反查。归档路径与环境变量见 [`ops/diagnostics.md`](ops/diagnostics.md)。
+
+**前端浏览器下限**见 [`04-frontend.md`](04-frontend.md#浏览器下限与垫片)：机房镜像停在
+Chromium 92，低于该版本的浏览器若缺内置 API（如 `Object.hasOwn`）会在渲染期崩到
+ErrorBoundary，表现为「页面出错了」整页接管。
+
 ## 关键指标
 
 | 指标 | 检查方式 | 正常阈值 |

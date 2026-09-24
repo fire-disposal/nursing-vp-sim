@@ -321,7 +321,9 @@ class DiagnoseService:
 
         fe_buffer = getattr(self._app_ref.state, "frontend_error_buffer", None) if self._app_ref else None
         frontend_errors = (
-            fe_buffer.snapshot() if fe_buffer else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
+            fe_buffer.aggregate_snapshot()
+            if fe_buffer
+            else {"last_5min": 0, "last_hour": 0, "total_captured": 0, "groups": []}
         )
         snapshot = DiagnoseSnapshot(
             database=await self._db_status(),
