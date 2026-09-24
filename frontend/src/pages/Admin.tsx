@@ -2,7 +2,6 @@ import { Button, Group, Stack } from "@mantine/core";
 import { exportRecords } from "@/api";
 import { TeachingDashboard } from "@/pages/admin/dashboard/TeachingDashboard";
 import { useToast } from "@/components/Toast";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 export default function Admin() {
 	const toast = useToast();

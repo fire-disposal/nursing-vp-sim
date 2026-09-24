@@ -9,11 +9,11 @@
       // Mantine 颜色模式初始化（避免首屏闪烁）
       (() => {
         try {
-          var v = localStorage.getItem("mantine-color-scheme-value");
-          var resolved = v === "dark" ? "dark" : "light";
+          const v = localStorage.getItem("mantine-color-scheme-value");
+          const resolved = v === "dark" ? "dark" : "light";
           document.documentElement.setAttribute("data-mantine-color-scheme", resolved);
           document.documentElement.style.colorScheme = resolved;
-        } catch (e) {
+        } catch {
           /* noop */
         }
       })();
