@@ -15,6 +15,7 @@ import {
 	IconUser,
 	IconUserSearch,
 	IconUsers,
+	IconVersions,
 } from "@tabler/icons-react";
 import { lazy, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import type { Permission } from "@/utils/permissions";
@@ -24,6 +25,7 @@ const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
 const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
+const VersionsPage = lazy(() => import("@/pages/admin/VersionsPage"));
 const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
@@ -228,6 +230,13 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "score_review",
 		activity: "manage",
 		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true },
+	},
+	{
+		path: "/admin/versions",
+		element: <VersionsPage />,
+		permission: "api_manage",
+		activity: "manage",
+		nav: { label: "版本归因", icon: IconVersions, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/records",

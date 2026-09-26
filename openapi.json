@@ -2202,6 +2202,90 @@
         ]
       }
     },
+    "/api/admin/versions/attribution": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Attribution",
+        "description": "按指定维度聚合：记录数 / 已评分数 / 平均分 / 兜底率 / 首末出现。\n\n窗口按 ``training_records.start_time`` 截取；``unknown`` 桶代表\"该维度上身份不可知\"\n（历史记录缺快照或未评分），**不回填伪造**。",
+        "operationId": "attribution_api_admin_versions_attribution_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "prompt",
+                "rubric",
+                "mapping"
+              ],
+              "type": "string",
+              "description": "归因维度",
+              "default": "prompt",
+              "title": "By"
+            },
+            "description": "归因维度"
+          },
+          {
+            "name": "window_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 730,
+              "minimum": 1,
+              "description": "回看天数",
+              "default": 90,
+              "title": "Window Days"
+            },
+            "description": "回看天数"
+          },
+          {
+            "name": "include_failed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否纳入未评分记录（只看提示词使用量时有用）",
+              "default": true,
+              "title": "Include Failed"
+            },
+            "description": "是否纳入未评分记录（只看提示词使用量时有用）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Attribution Api Admin Versions Attribution Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/voice/config": {
       "get": {
         "tags": [

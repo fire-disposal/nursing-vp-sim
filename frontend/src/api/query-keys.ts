@@ -132,6 +132,11 @@ export const queryKeys = {
 		trend: (userId: number | null | undefined, params: Record<string, unknown>) =>
 			[...queryKeys.scoreboard.all, "trend", userId, params] as const,
 	},
+	versions: {
+		all: ["admin", "versions"] as const,
+		attribution: (by: string, windowDays: number) =>
+			[...queryKeys.versions.all, "attribution", by, windowDays] as const,
+	},
 	llmCallLogs: {
 		timeline: (recordId: number | null | undefined) => ["recordLogs", recordId] as const,
 		detail: (logId: number | null | undefined) => ["logDetail", logId] as const,

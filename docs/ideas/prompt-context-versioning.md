@@ -173,15 +173,20 @@ GET /admin/training-records/{id}/context → 单记录逐轮 ledger（供调试�
 
 | 切片 | 内容 | 依赖 | 回归 |
 |---|---|---|---|
-| P0（未阻塞） | 修复 SCR-7：存量记录补写快照时**只补缺失字段**，绝不覆盖已冻结的 `prompt_snapshot`；抽成可单测的纯函数 | 无 | 单测：仅有 rubric 缺失时 prompt 快照不变 |
-| P1（未阻塞） | `scores.prompt_version` → `prompt_schema_version` 迁移 + 模型/API/`SCORE_SNAPSHOT_FIELDS`/测试同步。**不新增任何身份列** | 无 | `db:check` + 迁移链 + 评分测试 + `api:update` |
-| P2（原阻塞项，现已解除） | 对话管线五阶段收敛为显式函数，删除单实现中间件包装；`ANALYSIS/PROMPT/LLM/PERSIST/SIDE_EFFECTS` 各自单一 owner | P0/P1 可并行 | 对话回合测试 + SSE 冒烟 |
+| P0 ✅ 已实施 | 修复 SCR-7：存量记录补写快照时**只补缺失字段**，绝不覆盖已冻结的 `prompt_snapshot`；抽成可单测的纯函数 | 无 | 单测：仅有 rubric 缺失时 prompt 快照不变 |
+| P1 ✅ 已实施 | `scores.prompt_version` → `prompt_schema_version` 迁移 + 模型/API/`SCORE_SNAPSHOT_FIELDS`/测试同步。**不新增任何身份列** | 无 | `db:check` + 迁移链 + 评分测试 + `api:update`（`f535d9cb`） |
+| P2 ✅ 已实施 | 对话管线五阶段收敛为显式函数（`runner.STAGES`），删除单实现中间件包装、枚举编号与 `pipeline/stages.py`；顺带修掉域包急切导入导致的循环 | P0/P1 | 16 条特征化契约测试 + 变异验证（`7add2c90`） |
+| **V1 ✅ 已实施**（本设计的产品价值先落地，且不依赖 P3/P4） | **归因纵切**：`prompt_identity.py` 按需派生身份（不落库）+ `GET /admin/versions/attribution`（按 prompt/rubric/mapping 维度聚合记录数/平均分/兜底率/首末出现）+ 管理页「版本归因」+ 导入卫生守护测试 | P2（身份派生不依赖它，但顺序上先做） | 8 条聚合单测 + 2 条页面测试 + 契约再生（1446 / 486 全绿） |
 | P3 | PROMPT 阶段产出 `ledger` + 策略身份（派生，不落库）；SIDE_EFFECTS 与 LLM 阶段消费同一份产物 | P2 | 回合测试：账本形状与取舍计数 |
 | P4 | 消费者落地才建列：`llm_call_logs` 身份列 + `training_records.prompt_id` 物化列（含「物化 == 派生」一致性测试） | P3 | 契约生成 + 一致性测试 |
-| P5 | 后端只读端点（目录/详情/策略/归因） | P4 | 契约生成 + 端点测试 |
-| P6 | 前端「提示词与上下文版本」页（`api_manage`）+ 记录调试页身份/ledger 区块 | P5 | 前端套件 + 手动冒烟 |
+| P5 | 剩余只读端点：产物目录 / 单记录逐轮 ledger（归因端点已在 V1 落地） | P4 | 契约生成 + 端点测试 |
+| P6 | 记录调试页身份/ledger 区块（版本页已在 V1 落地） | P5 | 前端套件 + 手动冒烟 |
 
-P0/P1 立即可以做；P2 起按顺序，P4 之前不建身份列（§四）。
+**V1 的关键取舍（值得记住）**：归因产品先用**既有数据**（冻结快照 + 分数行字段）现算身份，
+零新存储、零新写入者，因此没有"生产者无消费者"的问题；页面也因此立即可用。
+`unknown` 桶如实表示"该维度上历史记录不可追溯"，不回填。
+**上下文策略维度**（哪套预算/钉轮产出更好）属运行期事实，历史记录无法追溯 ——
+它必须等 P3 的捕获落地，届时在版本页加一列而不是伪造历史值。
 
 ## 七、明确不做
 

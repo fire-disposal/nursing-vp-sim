@@ -526,6 +526,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/versions/attribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attribution
+         * @description 按指定维度聚合：记录数 / 已评分数 / 平均分 / 兜底率 / 首末出现。
+         *
+         *     窗口按 ``training_records.start_time`` 截取；``unknown`` 桶代表"该维度上身份不可知"
+         *     （历史记录缺快照或未评分），**不回填伪造**。
+         */
+        get: operations["attribution_api_admin_versions_attribution_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/config": {
         parameters: {
             query?: never;
@@ -6910,6 +6933,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminStats"];
+                };
+            };
+        };
+    };
+    attribution_api_admin_versions_attribution_get: {
+        parameters: {
+            query?: {
+                /** @description 归因维度 */
+                by?: "prompt" | "rubric" | "mapping";
+                /** @description 回看天数 */
+                window_days?: number;
+                /** @description 是否纳入未评分记录（只看提示词使用量时有用） */
+                include_failed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
