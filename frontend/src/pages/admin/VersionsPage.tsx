@@ -22,6 +22,7 @@ const DIMENSION_LABELS: Record<AttributionDimension, string> = {
 	prompt: "提示词",
 	rubric: "评分标准",
 	mapping: "分数映射",
+	context: "上下文策略",
 };
 
 const WINDOWS = [
@@ -142,8 +143,9 @@ export default function VersionsPage() {
 
 			<Text size="xs" c="dimmed">
 				身份 = 产物原文的 sha256 前 12 位（提示词为 <code>{"{workflow}@{hash}"}</code>）。
-				身份按需派生、不落库；<code>unknown</code> 表示该维度上历史记录无法追溯，不做回填。
-				上下文策略身份属运行期事实，需捕获落地后才会出现在这里。
+				提示词身份按需派生（不落库）；评分标准与分数映射取自分数行既有字段；
+				上下文策略取自记录创建时冻结的 <code>context_policy_version</code>。
+				<code>unknown</code> 表示该维度上记录不可追溯（历史记录早于相应字段），不做回填。
 			</Text>
 		</Stack>
 	);

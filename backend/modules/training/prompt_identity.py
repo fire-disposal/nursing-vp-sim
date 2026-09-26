@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 
 _ID_LEN = 12
+_POLICY_LEN = 8
 
 
 def _digest(*parts: str) -> str:
@@ -44,3 +45,27 @@ def prompt_id_from_snapshot(snapshot: dict | None, workflow_id: str | None) -> s
     if not system and not dynamic:
         return None
     return compute_prompt_id(workflow_id, system, dynamic)
+
+
+def compute_context_policy_version() -> str:
+    """上下文装配策略身份：``ctx@{hash8}``。
+
+    覆盖**预算类常量**与结构性标记（槽位集合、示例段标记）——这些决定"每轮把什么放进
+    prompt、先裁谁"。常量以模块属性读取，因此改预算即改身份（有测试钉住）。
+
+    已知边界：只改装配**算法**而不动这些常量，身份不变。算法级改动应在改动里同步更新
+    被覆盖的标记（或在评审里明确这是身份盲区），不靠人工版本号兜底。
+    """
+    from modules.training.context import budget as budget_module
+    from modules.training.context.examples import EXAMPLES_MARKER
+    from modules.training.context.fragment import ContextSlot
+
+    budget_parts = (
+        f"history_budget={budget_module.HISTORY_BUDGET_TOKENS}",
+        f"patient_state_budget={budget_module.PATIENT_STATE_BUDGET_TOKENS}",
+        f"min_history_rounds={budget_module.MIN_HISTORY_ROUNDS}",
+        f"head_pinned_rounds={budget_module.HEAD_PINNED_ROUNDS}",
+        f"max_token_scale={budget_module.MAX_TOKEN_SCALE}",
+    )
+    slots = ",".join(slot.value for slot in ContextSlot)
+    return f"ctx@{_digest(*budget_parts, slots, EXAMPLES_MARKER)[:_POLICY_LEN]}"

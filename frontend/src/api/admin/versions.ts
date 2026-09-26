@@ -1,7 +1,7 @@
 import type { ApiPath } from "../api-path";
 import { api } from "../client";
 
-export type AttributionDimension = "prompt" | "rubric" | "mapping";
+export type AttributionDimension = "prompt" | "rubric" | "mapping" | "context";
 
 export interface AttributionItem {
 	identity: string;

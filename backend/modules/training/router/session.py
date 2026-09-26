@@ -37,6 +37,7 @@ from models import (
 from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
+from modules.training.prompt_identity import compute_context_policy_version
 from modules.training.workflows import (
     UnknownWorkflowError,
     WorkflowDefinition,
@@ -235,6 +236,7 @@ def _create_record(
     db.add(record)
     db.flush()
 
+    record.context_policy_version = compute_context_policy_version()
     record.case_snapshot = deepcopy(case_data)
     resolved_features = workflow.resolve_features(
         case_data,

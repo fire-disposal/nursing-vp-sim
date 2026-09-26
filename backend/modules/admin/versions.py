@@ -5,9 +5,10 @@
 
 * 提示词身份从 ``training_records.prompt_snapshot`` 现算（``prompt_identity``）；
 * rubric / 映射曲线身份本来就在 ``scores`` 上（``rubric_version`` / ``mapping_version``）；
-* 上下文策略身份是**运行期事实**，历史记录无法追溯 —— 不在这里伪造（§四 不变式 3）。
+* 上下文策略身份在 ``training_records.context_policy_version``（记录创建时冻结；该列之前
+  创建的记录为 NULL —— 策略是代码派生的，无法追溯，**不回填**，§四 不变式 3）。
 
-因此页面能立刻回答"提示词/rubric/映射"三类归因，而"上下文策略"要等捕获落地（P2）。
+四个维度因此都能查：提示词 / 评分标准 / 分数映射 / 上下文策略。
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ router = APIRouter()
 _Manager = Annotated[User, Depends(require_permission("api_manage"))]
 
 #: 归因维度：身份字段 → 该维度"没有身份"时的取值
-DIMENSIONS = ("prompt", "rubric", "mapping")
+DIMENSIONS = ("prompt", "rubric", "mapping", "context")
 _UNKNOWN = "unknown"
 
 #: 单次查询的记录上限：归因是运维读面，不能因为窗口过大把库拖垮
@@ -49,6 +50,9 @@ def _identity_for(dimension: str, record: TrainingRecord, score: Score | None) -
         return score.rubric_version
     if dimension == "mapping":
         return f"mapping@{score.mapping_version}" if score is not None else _UNKNOWN
+    if dimension == "context":
+        # 记录级冻结值；策略是代码派生的，历史记录（列存在前创建）为 NULL = 不可知
+        return record.context_policy_version or _UNKNOWN
     raise ValueError(f"未知归因维度: {dimension}")
 
 
@@ -116,7 +120,7 @@ def summarize(rows: list[tuple[TrainingRecord, Score | None]], dimension: str) -
 def attribution(
     current_user: _Manager,
     db: Annotated[Session, Depends(get_db)],
-    by: Annotated[Literal["prompt", "rubric", "mapping"], Query(description="归因维度")] = "prompt",
+    by: Annotated[Literal["prompt", "rubric", "mapping", "context"], Query(description="归因维度")] = "prompt",
     window_days: Annotated[int, Query(ge=1, le=730, description="回看天数")] = 90,
     include_failed: Annotated[bool, Query(description="是否纳入未评分记录（只看提示词使用量时有用）")] = True,
 ) -> dict[str, Any]:

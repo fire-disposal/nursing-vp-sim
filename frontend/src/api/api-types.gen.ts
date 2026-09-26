@@ -6941,7 +6941,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 归因维度 */
-                by?: "prompt" | "rubric" | "mapping";
+                by?: "prompt" | "rubric" | "mapping" | "context";
                 /** @description 回看天数 */
                 window_days?: number;
                 /** @description 是否纳入未评分记录（只看提示词使用量时有用） */

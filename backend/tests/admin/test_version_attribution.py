@@ -25,8 +25,10 @@ ID_A = compute_prompt_id("history_taking", "提示词 A", "动态 A")
 ID_B = compute_prompt_id("history_taking", "提示词 B", "动态 B")
 
 
-def _record(*, snapshot=None, workflow="history_taking", started=NOW):
-    return SimpleNamespace(prompt_snapshot=snapshot, workflow_id=workflow, start_time=started)
+def _record(*, snapshot=None, workflow="history_taking", started=NOW, policy=None):
+    return SimpleNamespace(
+        prompt_snapshot=snapshot, workflow_id=workflow, start_time=started, context_policy_version=policy
+    )
 
 
 def _score(*, effective=88.0, fallback=None, rubric="nursing_history_v1@1.0", mapping=1):
@@ -90,6 +92,18 @@ class TestOtherDimensions:
         rows = [(_record(), _score(mapping=0)), (_record(), _score(mapping=1))]
         items = summarize(rows, "mapping")
         assert {row["identity"] for row in items} == {"mapping@0", "mapping@1"}
+
+    def test_context_dimension_uses_frozen_policy(self):
+        rows = [
+            (_record(policy="ctx@60313cbc"), _score(effective=90.0)),
+            (_record(policy="ctx@60313cbc"), _score(effective=70.0)),
+            (_record(policy=None), _score()),  # 该列落地前的历史记录
+        ]
+        items = summarize(rows, "context")
+        by_identity = {row["identity"]: row for row in items}
+        assert by_identity["ctx@60313cbc"]["records"] == 2
+        assert by_identity["ctx@60313cbc"]["avg_score"] == 80.0
+        assert "unknown" in by_identity  # 历史记录不伪造策略身份
 
     def test_identity_keeps_workflows_apart(self):
         """身份形如 ``{workflow}@{hash}``：同样的提示词文本在不同 workflow 下是不同产物。"""

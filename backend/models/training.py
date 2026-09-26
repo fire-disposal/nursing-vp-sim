@@ -72,6 +72,9 @@ class TrainingRecord(Base):
     )
     prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     rubric_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    #: 本次训练使用的**上下文装配策略**身份（``ctx@{hash}``，由预算常量派生）。
+    #: 记录级冻结：策略是代码派生的，记录创建时定版；历史记录为 NULL = 不可知（不回填）。
+    context_policy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # 乐观并发号（工具/变更写操作原子自增，旧值 409）——**不是**内容版本，
     # 与 CaseRevision.revision_no（病例内容修订）同名不同义，见 docs/17 §2.2。
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))

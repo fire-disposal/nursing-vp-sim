@@ -2224,7 +2224,8 @@
               "enum": [
                 "prompt",
                 "rubric",
-                "mapping"
+                "mapping",
+                "context"
               ],
               "type": "string",
               "description": "归因维度",
