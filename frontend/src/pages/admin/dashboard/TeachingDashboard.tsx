@@ -7,7 +7,6 @@ import { queryKeys } from "@/api/query-keys";
 import { getRecords, getStats } from "@/api";
 import StatCard from "@/components/ui/stat-card";
 import useAuthStore from "@/stores/authStore";
-import type { RecordExtended } from "@/types/record";
 import { ActivityTimeline, type ActivityEvent } from "./ActivityTimeline";
 import { AssignmentOverview } from "./AssignmentOverview";
 
@@ -38,23 +37,23 @@ export function TeachingDashboard() {
     staleTime: 60_000,
   });
 
-  const records = (recordsData?.items ?? []) as RecordExtended[];
-  const assignments = (assignmentsData?.items ?? []) as AssignmentListItem[];
+  const records = recordsData?.items ?? [];
+  const assignments = assignmentsData?.items ?? [];
 
-  const completedRecords = records.filter((r: RecordExtended) => r.status === "completed");
-  const todayRecords = records.filter((r: RecordExtended) => {
+  const completedRecords = records.filter((r) => r.status === "completed");
+  const todayRecords = records.filter((r) => {
     const d = new Date(r.start_time);
     return d.toDateString() === new Date().toDateString();
   });
-  const completedWeek = records.filter((r: RecordExtended) => {
+  const completedWeek = records.filter((r) => {
     if (r.status !== "completed") return false;
     return new Date(r.start_time) >= new Date(Date.now() - 7 * 24 * 3600_000);
   });
 
   const totalStudents = stats?.total_students ?? 0;
-  const activeStudentCount = new Set(todayRecords.map((r: RecordExtended) => r.user_display_name)).size;
+  const activeStudentCount = new Set(todayRecords.map((r) => r.user_display_name)).size;
   const pendingReview = completedRecords.filter(
-    (r: RecordExtended) => !r.score_reviewed,
+    (r) => !r.score_reviewed,
   ).length;
   const avgScore = stats?.average_score;
   const avgDuration = stats?.avg_duration_min;
@@ -63,7 +62,7 @@ export function TeachingDashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
 
-  const recentEvents: ActivityEvent[] = records.slice(0, 8).map((r: RecordExtended) => ({
+  const recentEvents: ActivityEvent[] = records.slice(0, 8).map((r) => ({
     id: r.id,
     time: new Date(r.start_time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
     studentName: r.user_display_name ?? "未知",
