@@ -146,7 +146,7 @@ export default function StudentTrendDialog({
 			opened={open}
 			onClose={() => onOpenChange(false)}
 			title="成绩趋势"
-			size={760}
+			size={800}
 			centered
 			withinPortal
 		>

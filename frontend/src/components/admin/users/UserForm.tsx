@@ -168,7 +168,7 @@ export default function UserForm({
           onClose();
         }}
         title={`编辑用户: ${user?.display_name}`}
-        size={520}
+        size={560}
         centered
         withinPortal
       >

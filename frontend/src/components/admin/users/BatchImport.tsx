@@ -218,7 +218,7 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
       opened={open}
       onClose={handleClose}
       title={<><IconUsers size={20} /> 批量导入学生</>}
-      size={720}
+      size={800}
       centered
       withinPortal
     >

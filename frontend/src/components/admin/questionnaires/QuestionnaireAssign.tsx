@@ -59,7 +59,7 @@ export default function QuestionnaireAssign({
 			opened={open}
 			onClose={onClose}
 			title={`分配病例: ${templateTitle}`}
-			size={600}
+			size={680}
 			centered
 			withinPortal
 		>

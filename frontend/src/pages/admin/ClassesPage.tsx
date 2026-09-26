@@ -224,7 +224,7 @@ export default function ClassesPage() {
 					void requestCloseModal();
 				}}
 				title={editId ? "编辑班级" : "新建班级"}
-				size={520}
+				size={560}
 				centered
 				withinPortal
 			>

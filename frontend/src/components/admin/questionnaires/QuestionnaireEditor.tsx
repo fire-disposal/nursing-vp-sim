@@ -99,7 +99,7 @@ export default function QuestionnaireEditor({
 			opened={open}
 			onClose={onClose}
 			title={editingId ? "编辑问卷模板" : "新建问卷模板"}
-			size={700}
+			size={680}
 			centered
 			withinPortal
 		>

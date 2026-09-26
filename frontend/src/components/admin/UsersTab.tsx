@@ -532,7 +532,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 					opened
 					onClose={() => setResetPasswordDialog(null)}
 					title="密码已重置"
-					size={400}
+					size={420}
 					centered
 					withinPortal
 				>
@@ -676,7 +676,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 					opened
 					onClose={() => setShowBulkResetDialog(false)}
 					title="批量重置密码"
-					size={400}
+					size={420}
 					centered
 					withinPortal
 				>

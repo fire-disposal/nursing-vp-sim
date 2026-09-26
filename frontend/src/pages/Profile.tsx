@@ -287,7 +287,7 @@ export default function Profile() {
 				</Modal>
 
 				{/* ── Edit profile dialog ── */}
-				<Modal opened={editOpen} onClose={() => setEditOpen(false)} title="编辑资料" size={480} centered withinPortal>
+				<Modal opened={editOpen} onClose={() => setEditOpen(false)} title="编辑资料" size={560} centered withinPortal>
 						<FormMessageBanner type={saveMsg.includes("成功") ? "success" : "error"} message={saveMsg} />
 						<form onSubmit={profileForm.onSubmit(handleSave)}>
 							<Stack gap="md" mt="xs">
