@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Group, Modal, Select, Stack } from "@mantine/core";
+import {
+  PasswordInput, Box, Button, Group, Modal, Select, Stack } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 
 import { TextInput } from "@mantine/core";
@@ -174,6 +175,8 @@ export default function UserForm({
           <FormMessageBanner type="error" message={editUserMsg} />
           <form onSubmit={editForm.onSubmit(onEditSubmit)}>
             <Stack gap="md">
+              {/* 编辑态展示登录名（只读）：管理员核对账号时需要，此前编辑表单里看不到 */}
+              <TextInput label="用户名" value={user?.username ?? ""} readOnly variant="filled" />
               <TextInput label="姓名" withAsterisk {...editForm.getInputProps("display_name")} />
               <TextInput label="学号" {...editForm.getInputProps("student_id")} />
               <Select
@@ -189,10 +192,10 @@ export default function UserForm({
                 classes={classes}
                 disabled={isSaving}
               />
-              <TextInput
-                type="password"
+              <PasswordInput
                 label="新密码（留空不修改）"
                 placeholder="至少6位"
+                visibilityToggleFocusable
                 {...editForm.getInputProps("password")}
               />
               <FormMessageBanner type="error" message={resetError} />
@@ -251,7 +254,7 @@ export default function UserForm({
                 <TextInput label="用户名" withAsterisk {...regForm.getInputProps("username")} />
               </Box>
               <Box flex={1} miw={120}>
-                <TextInput
+                <PasswordInput
                   type="password"
                   label="密码" withAsterisk
                   placeholder="至少6位"

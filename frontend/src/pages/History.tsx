@@ -2,7 +2,7 @@ import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -10,6 +10,8 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import ErrorDisplay from "@/components/ui/error-display";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import { SearchInput } from "@/components/ui/search-input";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
@@ -48,6 +50,10 @@ export default function History() {
 
 	const status = searchParams.get("status") || "";
 	const date_from = searchParams.get("date_from") || "";
+	const search = searchParams.get("search") || "";
+	// 防抖搜索：输入即时反馈、200ms 后写入 URL 参数（避免每键一次请求，与 ClassesPage/RolesPage 一致）
+	const { searchInput, debouncedValue: debouncedSearch, handleSearchChange, setSearchInput } =
+		useDebouncedSearch(search);
 	const date_to = searchParams.get("date_to") || "";
 	const offset = parseInt(searchParams.get("offset") || "0", 10);
 
@@ -69,6 +75,7 @@ export default function History() {
 		const p: Record<string, unknown> = { offset, limit: LIMIT };
 		if (status) p.status = status;
 		if (date_from) p.date_from = date_from;
+		if (debouncedSearch) p.search = debouncedSearch;
 		if (date_to) p.date_to = date_to;
 		return p;
 	}, [offset, status, date_from, date_to]);
@@ -125,7 +132,14 @@ export default function History() {
 		abandonMutation.mutate(r.id);
 	};
 
+	useEffect(() => {
+		setParam("search", debouncedSearch);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- 只在防抖值变化时同步 URL
+	}, [debouncedSearch]);
+
 	const clearFilters = () => {
+		// 本地防抖输入不随 URL 变化复位，需显式清空（否则清除后输入框仍显示旧词）
+		setSearchInput("");
 		setSearchParams({}, { replace: true });
 	};
 
@@ -166,7 +180,14 @@ export default function History() {
 						/>
 					</>
 				}
-				hasActiveFilters={!!(status || date_from || date_to)}
+				search={
+					<SearchInput
+						value={searchInput}
+						onChange={handleSearchChange}
+						placeholder="搜索病例名称..."
+					/>
+				}
+				hasActiveFilters={!!(status || date_from || date_to || debouncedSearch)}
 				onClear={clearFilters}
 			/>
 

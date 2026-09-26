@@ -110,7 +110,8 @@ export default function QuestionnaireEditor({
 				<form onSubmit={onSave}>
 					<Stack gap="md">
 						<TextInput
-							label="标题 *"
+							label="标题"
+											withAsterisk
 							value={form.title}
 							onChange={(e) =>
 								setForm((f) => ({ ...f, title: e.currentTarget.value }))

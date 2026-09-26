@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Code, Group, Modal, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Button, Code, Group, Modal, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { PERMISSION_DEFS } from "@/config/permissions.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { type RoleCreateValues, roleCreateSchema } from "@/schemas/role";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 interface RoleItem {
 	id: number;
@@ -144,16 +145,19 @@ export default function RolesPage() {
 				}
 			/>
 
-			<Group gap={12} mb="md">
-				<Box maw={320} style={{ flex: 1 }}>
+			<FilterToolbar
+				compact
+				hasActiveFilters={Boolean(searchInput)}
+				onClear={() => handleSearchChange("")}
+				search={
 					<SearchInput
 						value={searchInput}
 						onChange={handleSearchChange}
 						placeholder="搜索角色..."
 						aria-label="搜索角色"
 					/>
-				</Box>
-			</Group>
+				}
+			/>
 
 			<Stack gap="sm">
 				{loading && roles.length === 0 ? (

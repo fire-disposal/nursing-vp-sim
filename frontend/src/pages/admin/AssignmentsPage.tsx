@@ -1,4 +1,5 @@
 import { Alert, Badge, Box, Button, Group, Modal, SegmentedControl, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconCircleX, IconEdit, IconEye, IconInfoCircle, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -30,6 +31,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 type Schemas = components["schemas"];
 type AssignmentListItem = Schemas["AssignmentListItem"];
@@ -415,31 +417,37 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					}
 				/>
 			)}
-			<Group gap={12} align="center" wrap="wrap" mb="md">
-				<Box maw={320} style={{ flex: 1 }}>
-					<SearchInput
-						value={search}
-						onChange={setSearch}
-						placeholder="搜索标题..."
-					/>
-				</Box>
-				<ClassFilter
-					classId={classId ? Number(classId) : undefined}
-					onChange={(params) => {
-						updateParam("class_id", params.class_id ? String(params.class_id) : "");
-					}}
-				/>
-				<Select
-					value={statusFilter || null}
-					onChange={(v) => updateParam("status", v ?? "")}
-					data={[
-						{ value: "", label: "全部状态" },
-						{ value: "active", label: "进行中" },
-						{ value: "ended", label: "已结束" },
-					]}
-					w={140}
-				/>
-			</Group>
+			<FilterToolbar
+				compact
+				summary={`共 ${filteredAssignments.length} 条`}
+				hasActiveFilters={Boolean(search || classId || statusFilter)}
+				onClear={() => {
+					setSearch("");
+					updateParam("class_id", "");
+					updateParam("status", "");
+				}}
+				search={<SearchInput value={search} onChange={setSearch} placeholder="搜索标题..." />}
+				filters={
+					<>
+						<ClassFilter
+							classId={classId ? Number(classId) : undefined}
+							onChange={(params) => {
+								updateParam("class_id", params.class_id ? String(params.class_id) : "");
+							}}
+						/>
+						<Select
+							value={statusFilter || null}
+							onChange={(v) => updateParam("status", v ?? "")}
+							data={[
+								{ value: "", label: "全部状态" },
+								{ value: "active", label: "进行中" },
+								{ value: "ended", label: "已结束" },
+							]}
+							w={140}
+						/>
+					</>
+				}
+			/>
 
 			<ResponsiveTable<AssignmentListItem>
 				columns={columns}
@@ -585,8 +593,20 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								</Text>
 							</Alert>
 							<SimpleGrid cols={2} spacing="sm">
-								<TextInput label="开始时间" withAsterisk type="datetime-local" {...form.getInputProps("startTime")} />
-								<TextInput label="截止时间" withAsterisk type="datetime-local" {...form.getInputProps("endTime")} />
+								<DateTimePicker
+								label="开始时间" withAsterisk
+								clearable
+								valueFormat="YYYY-MM-DD[T]HH:mm"
+								placeholder="选择日期时间"
+								{...form.getInputProps("startTime")}
+							/>
+								<DateTimePicker
+								label="截止时间" withAsterisk
+								clearable
+								valueFormat="YYYY-MM-DD[T]HH:mm"
+								placeholder="选择日期时间"
+								{...form.getInputProps("endTime")}
+							/>
 							</SimpleGrid>
 							{(() => {
 								const selected = cases.find((c) => c.id === form.values.caseId);

@@ -1,4 +1,5 @@
 import { ActionIcon, Badge, Button, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { schemaResolver, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
@@ -22,6 +23,7 @@ import {
 	notificationSchema,
 } from "@/schemas/notification";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 type SystemNotification = components["schemas"]["SystemNotificationResponse"];
 
@@ -148,24 +150,29 @@ export default function SystemNotificationsPage() {
 		<Stack gap="xl">
 			<PageHeader title="系统通知" subtitle="创建定时或即时全站通知" />
 			<Group justify="space-between" align="center" gap="sm" wrap="wrap">
-				<Group gap={8} wrap="wrap" align="center">
-					<SearchInput
-						value={searchText}
-						onChange={setSearchText}
-						placeholder="搜索标题..."
-					/>
-					<Select
-						value={levelFilter || null}
-						onChange={(v) => setLevelFilter(v ?? "")}
-						data={[
-							{ value: "", label: "全部级别" },
-							{ value: "info", label: "通知" },
-							{ value: "warning", label: "警告" },
-							{ value: "success", label: "成功" },
-						]}
-						w={140}
-					/>
-				</Group>
+				<FilterToolbar
+					compact
+					summary={`共 ${filtered.length} 条`}
+					hasActiveFilters={Boolean(searchText || levelFilter)}
+					onClear={() => {
+						setSearchText("");
+						setLevelFilter("");
+					}}
+					search={<SearchInput value={searchText} onChange={setSearchText} placeholder="搜索标题..." />}
+					filters={
+						<Select
+							value={levelFilter || null}
+							onChange={(v) => setLevelFilter(v ?? "")}
+							data={[
+								{ value: "", label: "全部级别" },
+								{ value: "info", label: "通知" },
+								{ value: "warning", label: "警告" },
+								{ value: "success", label: "成功" },
+							]}
+							w={140}
+						/>
+					}
+				/>
 				<Button onClick={openCreate} leftSection={<IconPlus size={16} />}>
 					新建通知
 				</Button>
@@ -258,9 +265,11 @@ export default function SystemNotificationsPage() {
 								]}
 								{...form.getInputProps("level")}
 							/>
-							<TextInput
+							<DateTimePicker
 								label="定时发布（留空即立即发布）"
-								type="datetime-local"
+								clearable
+								valueFormat="YYYY-MM-DD[T]HH:mm"
+								placeholder="选择日期时间"
 								{...form.getInputProps("published_at")}
 							/>
 							<Group justify="flex-end" mt="lg" gap="sm">

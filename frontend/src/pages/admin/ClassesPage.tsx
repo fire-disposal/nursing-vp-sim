@@ -22,6 +22,7 @@ import {
 import { type ClassFormValues, classFormSchema } from "@/schemas/class";
 import type { ClassItem } from "@/types/store";
 import { formatDate } from "@/utils/date";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 export default function ClassesPage() {
 	const navigate = useNavigate();
@@ -152,24 +153,27 @@ export default function ClassesPage() {
 				actions={<Button onClick={openCreate}>新建班级</Button>}
 			/>
 
-			<Group gap={12} align="center" wrap="wrap">
-				<Box maw={320} style={{ flex: 1 }}>
-					<SearchInput
-						value={searchInput}
-						onChange={handleSearchChange}
-						placeholder="搜索班级名称..."
+			<FilterToolbar
+				compact
+				summary={`共 ${filtered.length} 个班级`}
+				hasActiveFilters={Boolean(searchInput || cohortFilter)}
+				onClear={() => {
+					handleSearchChange("");
+					setCohortFilter("");
+				}}
+				search={<SearchInput value={searchInput} onChange={handleSearchChange} placeholder="搜索班级名称..." />}
+				filters={
+					<Select
+						value={cohortFilter || null}
+						onChange={(v) => setCohortFilter(v ?? "")}
+						placeholder="全部届别"
+						aria-label="届别筛选"
+						clearable
+						w={200}
+						data={cohortLabels.map((label) => ({ value: label, label }))}
 					/>
-				</Box>
-				<Select
-					value={cohortFilter || null}
-					onChange={(v) => setCohortFilter(v ?? "")}
-					placeholder="全部届别"
-					aria-label="届别筛选"
-					clearable
-					w={200}
-					data={cohortLabels.map((label) => ({ value: label, label }))}
-				/>
-			</Group>
+				}
+			/>
 
 			<Box mt="md">
 				{isError ? (

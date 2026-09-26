@@ -1,6 +1,7 @@
 import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
+import {
+	IconFilterOff, IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
@@ -293,8 +294,8 @@ export default function TeacherRecordsPage() {
 							checked={exclude_is_test}
 							onChange={(e) => setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")}
 						/>
-						<Button variant="outline" onClick={handleClearFilters}>
-							清除过滤
+						<Button variant="outline" onClick={handleClearFilters} leftSection={<IconFilterOff size={14} />}>
+							清除
 						</Button>
 					</Group>
 				</Paper>

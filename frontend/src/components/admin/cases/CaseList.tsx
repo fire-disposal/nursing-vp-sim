@@ -5,6 +5,7 @@ import { ACTIVITY_LABELS } from "@/config/activity-display";
 import type { components } from "@/api/api-types.gen";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 import { CASE_STATUS_FILTER_OPTIONS } from "./caseStatus";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 type CaseManageItem = components["schemas"]["CaseManageItem"];
 
@@ -88,7 +89,17 @@ export default function CaseList({
 				/>
 			</Group>
 
-			<Group gap={8} wrap="wrap">
+			<FilterToolbar
+				compact
+				hasActiveFilters={hasFilters}
+				onClear={() => {
+					// 名称搜索走独立回调，必须一起复位（否则清除后输入框仍有值）
+					onSearchChange("");
+					onFilterChange({ name: "", difficulty: "", status: "", is_open: "" });
+					onOffsetChange(0);
+				}}
+				filters={
+					<>
 				<Box w={130}>
 					<Select
 						data={[...CASE_STATUS_FILTER_OPTIONS]}
@@ -122,7 +133,9 @@ export default function CaseList({
 						aria-label="按学生可见筛选"
 					/>
 				</Box>
-			</Group>
+					</>
+				}
+			/>
 
 			{error && (
 				<Alert variant="light" color="red" icon={<IconAlertCircle size={16} />}>

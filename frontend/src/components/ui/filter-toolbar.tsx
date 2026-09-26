@@ -42,7 +42,10 @@ export function FilterToolbar({
 						{filters}
 					</Group>
 				)}
-				{search && (
+				{/* 清除按钮必须独立于 search 存在：此前它嵌在 {search && …} 内，
+				    导致没有搜索框的页面（多数管理列表页）永远拿不到"一键复位"
+				    —— 这是"只有 /admin/records 有清除"的根因（2026-09-26 实测）。 */}
+				{(search || (hasActiveFilters && onClear)) && (
 					<Group gap="xs" align="center" wrap="nowrap" style={{ marginLeft: "auto" }}>
 						{search}
 						{hasActiveFilters && onClear && (
