@@ -99,6 +99,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | AI 生成 A3+A4（取消/进度/用量/白名单） | `f5f1531d` | 前端 75 文件 493 通过；后端 1480 通过；实测：Stepper/计时/取消（8s 内无结果）/字段状态点；`api:update` 已重生成 openapi 与 TS 类型 |
 | 2026-09-26 | AI 生成 A2（暂存+差异+逐项接受） | 见下条提交 | 新增 `ai/staging.ts` + 4 单测；差异面板端到端实测（13 项待确认 → 部分接受 12 项 → 撤销可用）；4 个受影响测试按新契约更新（2 个 AI 测试重写 + 1 个防呆用例 + 2 个日期选择器交互改用测试替身） |
 | 2026-09-26 | 病例管理专项 + AI 生成 A0 | 见下条提交 | AI 面板配色对齐品牌（紫→青绿，实测 brand-0）；空骨架禁用「生成教学细节」+ 原因说明（实测 `disabled=true`）；深挖 10 条问题与 A1–A4 重建切片已入档 |
 | 2026-09-26 | CRUD 基础体验 + 表格列集 | 见下条提交 | `FilterToolbar` 推广至用户管理（补一键复位）、批量条换 `ActionBar`、登录换 `PasswordInput`；records 11→10 列/行高 57px、history 8→7 列、cases 名称列给足 |
@@ -241,8 +242,8 @@
 | **A1** | 抽出 `components/admin/cases/ai/useCaseAiGeneration.ts` + `AiGenerationPanel.tsx`（行为不变、纯重构）：状态机 `idle/describing/generating/reviewing/applying/error` | `CaseForm.tsx` 行数显著下降；AI 面板行为与现状一致（回归测试：生成/错误/防呆三态） |
 | **A2**（本轮已完成） | **暂存 + 差异预览**：生成结果进 staging，展示字段级 diff（当前 → 生成），逐项勾选「应用选中（N）」/「丢弃」，应用前自动 `PUSH_SNAPSHOT`（可撤销） | 生成后编辑态未变；接受后才写入 ✅ |
 | **A2 遗留** | 应用后的字段级 provenance 标记（哪些字段来自 AI）未做；差异面板目前只列本次生成涉及的路径 | — |
-| **A3** | **状态与进度**：字段状态点（空/已填/AI 生成/待应用）、`Stepper` 表达两步状态、生成计时 + 取消（AbortController） | 16 个字段按钮带状态；生成中可取消且请求中断 |
-| **A4** | **后端增强**：`/cases/generate` 返回 `usage`（tokens/耗时）与 `warnings`（阶段校验的可读清单）；支持 `fields` 白名单；取消时透传 `CancelledError` 不写日志告警 | 响应含 usage；取消后服务端无异常栈 |
+| **A3**（本轮已完成） | **状态与进度**：字段状态点（灰=空/绿=已填/橙=待应用）、Mantine `Stepper` 表达两步状态、生成计时 + 取消（AbortController） | 实测：Stepper 显示「待生成」；生成中「已用 1s」+ 取消；取消后 8s 内不出现结果（请求确被中断）；字段状态点随暂存变橙 ✅ |
+| **A4**（本轮已完成） | **后端增强**：`CallContext.usage` 输出；`/cases/generate` 返回 `elapsed_ms` / `usage`（跨自动修复轮累计）/ `warnings`；逐字段白名单 `KNOWN_GENERATION_FIELDS`；取消走 `CancelledError`（`except Exception` 不吞） | 10 条新单测（用量累计 + 白名单）通过；后端 1480 通过；前端渲染「上次生成：X s · N tokens · 修复提示」有契约测试 ✅（本地 harness 连线上后端，故线上要等部署后才显示真实值） |
 
 ### 7.4 病例管理其他待办（非 AI）
 
