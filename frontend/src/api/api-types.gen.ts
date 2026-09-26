@@ -4345,8 +4345,8 @@ export interface components {
             rubric_version?: string | null;
             /** Model Name */
             model_name?: string | null;
-            /** Prompt Version */
-            prompt_version?: number | null;
+            /** Prompt Schema Version */
+            prompt_schema_version?: number | null;
             /** Review Status */
             review_status?: string | null;
             /** Reviewed By Name */

@@ -128,7 +128,7 @@ SCORE_SNAPSHOT_FIELDS = (
     "suggestions",
     "rubric_version",
     "model_name",
-    "prompt_version",
+    "prompt_schema_version",
     "raw_total",
     "mapping_version",
     "fallback",
@@ -137,6 +137,37 @@ SCORE_SNAPSHOT_FIELDS = (
     "reviewed_at",
 )
 SCORE_REVIEW_SNAPSHOT_FIELDS = ("reviewed_by", "detail_scores", "total_score", "comment")
+
+
+def missing_snapshot_updates(record) -> dict:
+    """需要补写的**缺失**快照字段；已有值一律不动。
+
+    SCR-7（docs/review/tech-debt-audit-2026-09-14.md）：旧实现用
+    ``if not prompt_snapshot or not rubric_snapshot`` 触发，却在块内**无条件**重写两者 ——
+    只缺 rubric 的旧记录会被顺手改成"今天"的提示词，事后审计/回放/归因全部失真且无日志。
+    这里逐字段独立判定：冻结过的东西永不回写（docs/17 §2.4）。
+
+    返回 ``{字段名: 新值}``；两个快照都在时返回空 dict（且不解析 workflow）。
+    """
+    if record.prompt_snapshot and record.rubric_snapshot:
+        return {}
+
+    from modules.training.scoring.rubric import build_final_rubric
+
+    workflow = workflow_for_record(record)
+    updates: dict = {}
+    if not record.prompt_snapshot:
+        updates["prompt_snapshot"] = {
+            "schema_version": 2,
+            "segments": {
+                "system": workflow.prompts.system,
+                "dynamic": workflow.prompts.dynamic,
+            },
+        }
+    if not record.rubric_snapshot:
+        features = (record.practice_snapshot or {}).get("features", {})
+        updates["rubric_snapshot"] = build_final_rubric(workflow.rubric, features)
+    return updates
 
 
 def snapshot_score_for_rescore(score: Score, review: ScoreReview | None) -> dict:
@@ -310,26 +341,15 @@ async def run_scoring_background(
             db.commit()
             return
 
-        # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
-        if not record.prompt_snapshot or not record.rubric_snapshot:
-            try:
-                from modules.training.scoring.rubric import build_final_rubric
-
-                # 快照按**记录冻结的 workflow** 补写，不按代码常量
-                workflow = workflow_for_record(record)
-                record.prompt_snapshot = {
-                    "schema_version": 2,
-                    "purpose": "patient_chat",
-                    "segments": {
-                        "system": workflow.prompts.system,
-                        "dynamic": workflow.prompts.dynamic,
-                    },
-                }
-                features = (record.practice_snapshot or {}).get("features", {})
-                record.rubric_snapshot = build_final_rubric(workflow.rubric, features)
+        # 存量记录兼容：只补**缺失**的快照字段（新记录已在 _create_record 固化）
+        try:
+            updates = missing_snapshot_updates(record)
+            if updates:
+                for field, value in updates.items():
+                    setattr(record, field, value)
                 db.commit()
-            except AttributeError:
-                pass
+        except AttributeError:
+            pass
 
         if tracker:
             tracker.start(record_id)

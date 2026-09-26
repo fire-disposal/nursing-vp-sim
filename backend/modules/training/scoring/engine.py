@@ -627,7 +627,7 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
         model_name=get_model("scoring"),
-        prompt_version=snapshot.schema_version if snapshot else 1,
+        prompt_schema_version=snapshot.schema_version if snapshot else 1,
         # Phase 1 契约：raw_total/fallback/dim_total 落库（S2/S3/S4）
         raw_total=result.get("raw_total"),
         mapping_version=MAPPING_VERSION if result.get("raw_total") is not None else LEGACY_VERSION,

@@ -101,6 +101,8 @@ class CaseRevision(Base):
     case_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("cases.id", ondelete="CASCADE", name="fk_case_revisions_case_id")
     )
+    #: 病例**内容**修订号（1,2,3…）。与 ``training_records.revision``（乐观并发号）
+    #: 同名不同义，见 docs/17 §2.2。
     revision_no: Mapped[int] = mapped_column(Integer)
     #: 冻结的病例载荷（与 Case.case_data 落库形状一致：已剥离元数据键）
     content: Mapped[dict] = mapped_column(JSONB, default=dict)

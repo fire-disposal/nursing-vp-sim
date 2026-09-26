@@ -245,7 +245,6 @@ def _create_record(
     record.rubric_snapshot = build_final_rubric(workflow.rubric, resolved_features)
     record.prompt_snapshot = {
         "schema_version": 2,
-        "purpose": "patient_chat",
         "segments": {
             "system": workflow.prompts.system,
             "dynamic": workflow.prompts.dynamic,

@@ -13274,7 +13274,7 @@
             ],
             "title": "Model Name"
           },
-          "prompt_version": {
+          "prompt_schema_version": {
             "anyOf": [
               {
                 "type": "integer"
@@ -13283,7 +13283,7 @@
                 "type": "null"
               }
             ],
-            "title": "Prompt Version"
+            "title": "Prompt Schema Version"
           },
           "review_status": {
             "anyOf": [

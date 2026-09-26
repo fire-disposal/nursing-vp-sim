@@ -107,7 +107,7 @@ def _old_score() -> Score:
         suggestions="建议",
         rubric_version="nursing_history_v1@1.0",
         model_name="deepseek-chat",
-        prompt_version=2,
+        prompt_schema_version=2,
         raw_total=33.5,
         mapping_version=1,
         fallback=None,

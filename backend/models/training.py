@@ -72,7 +72,8 @@ class TrainingRecord(Base):
     )
     prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     rubric_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    # Phase 2.5：乐观并发版本号——工具/变更操作原子自增，旧版本请求 409
+    # 乐观并发号（工具/变更写操作原子自增，旧值 409）——**不是**内容版本，
+    # 与 CaseRevision.revision_no（病例内容修订）同名不同义，见 docs/17 §2.2。
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
@@ -123,7 +124,10 @@ class Score(Base):
     suggestions: Mapped[str | None] = mapped_column(Text, nullable=True)
     rubric_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
+    #: prompt_snapshot 的**形状**版本（v1 扁平 / v2 segments）。形状不是内容版本：
+    #: 改名是为了消除「prompt_version 被读成提示词内容第几版」的同名异义
+    #: （docs/review/tech-debt-audit-2026-09-14.md PIP-8）。
+    prompt_schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     # ── 评分契约（docs/16 §四/八）──

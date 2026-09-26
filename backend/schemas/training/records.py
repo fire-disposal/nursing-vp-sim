@@ -53,7 +53,8 @@ class ScoreItem(BaseModel):
     suggestions: str | None = None
     rubric_version: str | None = None
     model_name: str | None = None
-    prompt_version: int | None = None
+    #: prompt_snapshot 的**形状**版本（1=扁平 / 2=segments）。形状不是内容版本，见 docs/17。
+    prompt_schema_version: int | None = None
     review_status: str | None = None
     reviewed_by_name: str | None = None
     reviewed_at: datetime | None = None

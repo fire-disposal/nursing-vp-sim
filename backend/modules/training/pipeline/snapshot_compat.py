@@ -4,8 +4,10 @@ v1 (legacy, no schema_version):
     {"system": "...", "dynamic": "..."}
 
 v2 (current):
-    {"schema_version": 2, "purpose": "patient_chat",
-     "segments": {"system": "...", "dynamic": "..."}}
+    {"schema_version": 2, "segments": {"system": "...", "dynamic": "..."}}
+
+形状版本描述的是**布局**，不是内容：v1→v2 只是键位搬家，提示词内容没变。
+内容身份不在这里（见 docs/17 §2.3）。
 """
 
 from __future__ import annotations
@@ -16,7 +18,6 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class PromptSnapshot:
     schema_version: int
-    purpose: str
     system: str
     dynamic: str
 
@@ -35,7 +36,6 @@ def read_prompt_snapshot(raw: dict | None) -> PromptSnapshot | None:
         segments = raw.get("segments", {})
         return PromptSnapshot(
             schema_version=version,
-            purpose=raw.get("purpose", "patient_chat"),
             system=segments.get("system", ""),
             dynamic=segments.get("dynamic", ""),
         )
@@ -43,7 +43,6 @@ def read_prompt_snapshot(raw: dict | None) -> PromptSnapshot | None:
     # v1: flat keys
     return PromptSnapshot(
         schema_version=1,
-        purpose="patient_chat",
         system=raw.get("system", ""),
         dynamic=raw.get("dynamic", ""),
     )
