@@ -7,7 +7,8 @@ import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
-import BatchActionBar from "@/components/admin/users/BatchActionBar";
+import { ActionBar } from "@mantine/core";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
@@ -88,6 +89,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		classId: "",
 	});
 	const [isBulkBusy, setIsBulkBusy] = useState(false);
+
+	/** 一键复位全部筛选（FilterToolbar 的"清除"入口，2026-09-26 统一到该范式）。 */
+	const handleClearFilters = useCallback(() => {
+		setSearch("");
+		setRoleFilter("");
+		setClassParam(null);
+		setOffset(0);
+	}, []);
 	const [showBulkResetDialog, setShowBulkResetDialog] = useState(false);
 	const [bulkPassword, setBulkPassword] = useState("");
 	const [resetPasswordDialog, setResetPasswordDialog] = useState<{
@@ -361,39 +370,46 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			</Group>
 
 			<Paper p="md">
-				<Group gap={8} mb="md" wrap="wrap">
-					<SearchInput
-						value={search}
-						onChange={(v) => { setSearch(v); resetToFirstPage(); }}
-						placeholder="搜索用户名、姓名或学号..."
-					/>
-					<Select
-						value={roleFilter || null}
-						onChange={(v) => {
-							setRoleFilter(v ?? "");
-							resetToFirstPage();
-						}}
-						data={[
-							{ value: "", label: "全部角色" },
-							...roles.map((r) => ({
-								value: r.name,
-								label: r.display_name,
-							})),
-						]}
-						placeholder="全部角色"
-						size="sm"
-						clearable
-					/>
-					<ClassFilter
-						onChange={(next) => {
-							setClassParam(next);
-							resetToFirstPage();
-						}}
-					/>
-					<Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-						共 {total} 人
-					</Text>
-				</Group>
+				<FilterToolbar
+					compact
+					summary={`共 ${total} 人`}
+					hasActiveFilters={Boolean(search || roleFilter || classParam)}
+					onClear={handleClearFilters}
+					search={
+						<SearchInput
+							value={search}
+							onChange={(v) => { setSearch(v); resetToFirstPage(); }}
+							placeholder="搜索用户名、姓名或学号..."
+						/>
+					}
+					filters={
+						<>
+							<Select
+								value={roleFilter || null}
+								onChange={(v) => {
+									setRoleFilter(v ?? "");
+									resetToFirstPage();
+								}}
+								data={[
+									{ value: "", label: "全部角色" },
+									...roles.map((r) => ({
+										value: r.name,
+										label: r.display_name,
+									})),
+								]}
+								placeholder="全部角色"
+								size="sm"
+								clearable
+							/>
+							<ClassFilter
+								onChange={(next) => {
+									setClassParam(next);
+									resetToFirstPage();
+								}}
+							/>
+						</>
+					}
+				/>
 				{isLoading && users.length === 0 ? (
 					<Center py="xl">
 						<Loader size="sm" />
@@ -427,13 +443,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				)}
 			</Paper>
 
-			<BatchActionBar
-				selectedCount={selectedIds.size}
-				onClearSelection={deselectAll}
-				onAddToClass={openAddDialog}
-				onRemoveFromClass={openRemoveDialog}
-				onBulkResetPassword={handleBulkResetPasswordClick}
-			/>
+			<ActionBar opened={selectedIds.size > 0} onClose={deselectAll} shadow="md">
+				<Text size="sm" fw={500}>已选 {selectedIds.size} 人</Text>
+				<ActionBar.Divider />
+				<Button size="compact-sm" onClick={openAddDialog}>添加到班级</Button>
+				<Button size="compact-sm" variant="light" color="orange" onClick={openRemoveDialog}>从班级移除</Button>
+				<Button size="compact-sm" variant="light" color="gray" onClick={handleBulkResetPasswordClick}>批量重置密码</Button>
+				<ActionBar.CloseButton />
+			</ActionBar>
 
 			<UserForm
 				open={showUserForm && editingUser === null}

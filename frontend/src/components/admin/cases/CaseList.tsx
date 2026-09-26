@@ -142,10 +142,11 @@ export default function CaseList({
 				<Table highlightOnHover miw={720} horizontalSpacing="sm" verticalSpacing="xs">
 					<Table.Thead>
 						<Table.Tr>
-							<Table.Th><Text size="xs" c="dimmed" fw={600}>病例名称</Text></Table.Th>
-							<Table.Th><Text size="xs" c="dimmed" fw={600}>难度</Text></Table.Th>
-							<Table.Th><Text size="xs" c="dimmed" fw={600}>能力</Text></Table.Th>
-							<Table.Th><Text size="xs" c="dimmed" fw={600}>状态</Text></Table.Th>
+							{/* 列宽按实用性分配：名称给足、能力徽章组不换行不抢宽（实测原为 344px > 名称 280px） */}
+							<Table.Th style={{ minWidth: 260 }}><Text size="xs" c="dimmed" fw={600}>病例名称</Text></Table.Th>
+							<Table.Th style={{ width: 72, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>难度</Text></Table.Th>
+							<Table.Th style={{ width: 240, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>能力</Text></Table.Th>
+							<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></Table.Th>
 							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>学生可见</Text></Table.Th>
 							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></Table.Th>
 						</Table.Tr>

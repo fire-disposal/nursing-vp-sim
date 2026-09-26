@@ -322,30 +322,30 @@ export default function TeacherRecordsPage() {
 					</Paper>
 				) : (
 					<Paper withBorder style={{ overflow: "hidden" }}>
-						<div style={{ overflowX: "auto" }}>
+						<Table.ScrollContainer minWidth={1000}>
 							<Table>
 								<Table.Thead>
 									<Table.Tr>
-										<Table.Th>学生</Table.Th>
-										<Table.Th>学号</Table.Th>
-										<Table.Th>病例</Table.Th>
-										<Table.Th>类型</Table.Th>
-										<Table.Th>来源</Table.Th>
-										<Table.Th style={{ cursor: "pointer" }} onClick={() => handleSort("start_time")}>
+										<Table.Th style={{ width: 88, whiteSpace: "nowrap" }}>学生</Table.Th>
+										<Table.Th style={{ width: 122, whiteSpace: "nowrap" }}>学号</Table.Th>
+										<Table.Th style={{ minWidth: 170 }}>病例</Table.Th>
+										<Table.Th style={{ width: 84, whiteSpace: "nowrap" }}>来源</Table.Th>
+										{/* 「类型」列恒为「问诊」，零信息量，2026-09-26 删除（审计 UI-ADM-6/表格列集） */}
+										<Table.Th style={{ width: 132, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("start_time")}>
 											开始时间{sortIcon("start_time")}
 										</Table.Th>
 										<Table.Th
-											style={{ cursor: "pointer" }}
+											style={{ width: 76, cursor: "pointer", whiteSpace: "nowrap" }}
 											onClick={() => handleSort("duration")}
 										>
 											时长{sortIcon("duration")}
 										</Table.Th>
-										<Table.Th>状态</Table.Th>
-										<Table.Th style={{ cursor: "pointer" }} onClick={() => handleSort("score_total")}>
+										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }}>状态</Table.Th>
+										<Table.Th style={{ width: 72, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("score_total")}>
 											得分{sortIcon("score_total")}
 										</Table.Th>
-										<Table.Th>评分状态</Table.Th>
-										<Table.Th>操作</Table.Th>
+										<Table.Th style={{ width: 86, whiteSpace: "nowrap" }}>评分状态</Table.Th>
+										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}>操作</Table.Th>
 									</Table.Tr>
 								</Table.Thead>
 								<Table.Tbody>
@@ -353,12 +353,11 @@ export default function TeacherRecordsPage() {
 										const durMins = durationMinutes(r);
 										return (
 											<Table.Tr key={r.id}>
-												<Table.Td>{r.user_display_name}</Table.Td>
-												<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{r.user_student_id ?? ""}</Table.Td>
-												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
-												<Table.Td>
-													<Badge variant="light" color="gray">问诊</Badge>
+												<Table.Td style={{ whiteSpace: "nowrap" }}>{r.user_display_name}</Table.Td>
+												<Table.Td style={{ color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+													{r.user_student_id ?? ""}
 												</Table.Td>
+												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
 												<Table.Td>
 													{r.assignment_title ? (
 														<Badge variant="light" color="blue" size="xs">作业</Badge>
@@ -366,10 +365,10 @@ export default function TeacherRecordsPage() {
 														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 													)}
 												</Table.Td>
-												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
+												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
 													{new Date(r.start_time).toLocaleString("zh-CN")}
 												</Table.Td>
-												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", opacity: durMins != null ? 1 : 0.5 }}>
+												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", opacity: durMins != null ? 1 : 0.5 }}>
 													{durMins != null ? `${durMins} 分钟` : "进行中"}
 												</Table.Td>
 												<Table.Td>
@@ -417,8 +416,10 @@ export default function TeacherRecordsPage() {
 													)}
 												</Table.Td>
 												<Table.Td>
-													<Group gap={8} wrap="nowrap">
-														{r.scoring_status === "completed" && (
+													{/* 「待复核/修改复核」与「查看详情」此前都跳到 /admin/records/:id，属重复入口；
+													    合并为一个（可复核时用复核措辞），并去掉多余一个按钮的宽度（见表格列集优化）。 */}
+													<Group gap="xs" wrap="nowrap">
+														{r.scoring_status === "completed" ? (
 															<Button
 																variant={r.score_reviewed ? "light" : "filled"}
 																color={r.score_reviewed ? "green" : "brand"}
@@ -429,15 +430,16 @@ export default function TeacherRecordsPage() {
 																onClick={() => navigate(`/admin/records/${r.id}`)}
 															>
 																{r.score_reviewed ? "修改复核" : "待复核"}
+														</Button>
+														) : (
+															<Button
+																variant="transparent"
+																size="xs"
+																onClick={() => navigate(`/admin/records/${r.id}`)}
+															>
+																查看详情
 															</Button>
 														)}
-														<Button
-															variant="transparent"
-															size="xs"
-															onClick={() => navigate(`/admin/records/${r.id}`)}
-														>
-															查看详情
-														</Button>
 														{r.status === "in_progress" && (
 															<Button
 																variant="transparent"
@@ -463,7 +465,7 @@ export default function TeacherRecordsPage() {
 									})}
 								</Table.Tbody>
 							</Table>
-						</div>
+						</Table.ScrollContainer>
 					</Paper>
 				)}
 

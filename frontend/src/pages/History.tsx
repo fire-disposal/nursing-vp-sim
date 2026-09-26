@@ -214,7 +214,7 @@ export default function History() {
 															month: "numeric", day: "numeric",
 															hour: "2-digit", minute: "2-digit",
 														})}
-														{" · 问诊"}
+
 														{durMins != null ? ` · ${durMins} 分钟` : ""}
 													</Text>
 												</Box>
@@ -295,14 +295,14 @@ export default function History() {
 						<Table>
 							<Table.Thead>
 								<Table.Tr>
+									{/* 「类型」列恒为「问诊」，2026-09-26 按实用性删除（审计 UI-STU-2） */}
 									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>病例</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>类型</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>来源</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>开始时间</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>时长</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>状态</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>得分</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>操作</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>来源</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 168, whiteSpace: "nowrap" }}>开始时间</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 84, whiteSpace: "nowrap" }}>时长</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>状态</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 76 }}>得分</Table.Th>
+									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 120, whiteSpace: "nowrap" }}>操作</Table.Th>
 								</Table.Tr>
 							</Table.Thead>
 							<Table.Tbody>
@@ -311,9 +311,7 @@ export default function History() {
 									return (
 										<Table.Tr key={r.id} className="data-table-row">
 											<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
-											<Table.Td>
-												<Badge variant="light" color="gray">问诊</Badge>
-											</Table.Td>
+
 											<Table.Td style={{ fontSize: 12, ...DIM }}>
 												{r.assignment_title ? (
 													<Badge size="xs">作业</Badge>

@@ -3,7 +3,7 @@ import { schemaResolver, useForm } from "@mantine/form";
 import { IconBook2, IconChartBar, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
-import { TextInput } from "@mantine/core";
+import { PasswordInput, TextInput } from "@mantine/core";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
 import FormMessageBanner from "@/components/ui/form-message-banner";
@@ -177,12 +177,12 @@ export default function Login() {
 								disabled={isSubmitting}
 								{...form.getInputProps("username")}
 							/>
-							<TextInput
-								type="password"
+							<PasswordInput
 								placeholder="密码"
 								autoComplete="current-password"
 								size="lg"
 								disabled={isSubmitting}
+								visibilityToggleFocusable
 								{...form.getInputProps("password")}
 							/>
 							<Button type="submit" disabled={isSubmitting} size="lg" fullWidth mt="xs">
