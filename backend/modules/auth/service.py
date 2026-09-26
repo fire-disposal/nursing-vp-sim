@@ -5,7 +5,14 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.audit import ACTION_USER_CREATED, TARGET_TYPE_USER, record
+from core.audit import (
+    ACTION_AUTH_LOGIN_FAILED,
+    ACTION_AUTH_LOGIN_SUCCEEDED,
+    ACTION_USER_CREATED,
+    TARGET_TYPE_USER,
+    record,
+    record_detached,
+)
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
@@ -73,17 +80,45 @@ class AuthService:
             created_at=user.created_at,
         )
 
-    async def login(self, username: str, password: str) -> User:
+    async def login(self, username: str, password: str, *, request: Request | None = None) -> User:
         user = self.db.query(User).filter(User.username == username).first()
         if user is None or not await asyncio.to_thread(verify_password, password, user.password_hash):
             log.warning("登录失败: username=%s", username, extra={"action": "login_failed"})
+            # 登录失败是账户安全的第一信号 → 独立 session 留痕。
+            # 未知用户与密码错误记同一种 reason，避免审计表本身成为用户名枚举通道。
+            record_detached(
+                request,
+                action=ACTION_AUTH_LOGIN_FAILED,
+                target_type="session",
+                target_label=username[:120],
+                outcome="failure",
+                payload={"reason": "bad_credentials"},
+            )
             raise AuthError(detail="用户名或密码错误")
         if not user.is_active:
+            record_detached(
+                request,
+                action=ACTION_AUTH_LOGIN_FAILED,
+                target_type="session",
+                target_id=user.id,
+                target_label=user.username,
+                outcome="denied",
+                payload={"reason": "inactive"},
+            )
             raise AuthError(detail="账号已被禁用，请联系管理员", status_code=403)
         log.info(
             "登录成功: username=%s",
             username,
             extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"},
+        )
+        record_detached(
+            request,
+            action=ACTION_AUTH_LOGIN_SUCCEEDED,
+            target_type="session",
+            target_id=user.id,
+            target_label=user.username,
+            actor=user,
+            payload={},
         )
         return user
 

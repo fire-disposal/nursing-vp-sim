@@ -46,6 +46,8 @@ ACTION_SECRET_DELETED = "secret.deleted"
 ACTION_ACCESS_DENIED = "access.denied"
 ACTION_EXPORT_DOWNLOADED = "export.downloaded"
 ACTION_FEEDBACK_REPLIED = "feedback.replied"
+ACTION_AUTH_LOGIN_FAILED = "auth.login_failed"
+ACTION_AUTH_LOGIN_SUCCEEDED = "auth.login_succeeded"
 ACTION_CASE_PUBLISHED = "case.published"
 ACTION_CASE_PUBLISH_REJECTED = "case.publish_rejected"
 ACTION_CASE_ARCHIVED = "case.archived"
@@ -177,6 +179,8 @@ def record_detached(
 
 __all__ = [
     "ACTION_ACCESS_DENIED",
+    "ACTION_AUTH_LOGIN_FAILED",
+    "ACTION_AUTH_LOGIN_SUCCEEDED",
     "ACTION_CASE_ARCHIVED",
     "ACTION_CASE_DELETED",
     "ACTION_CASE_OPEN_CHANGED",

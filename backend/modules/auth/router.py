@@ -32,7 +32,7 @@ async def login(
     _: Annotated[None, Depends(login_rate_limit)],
 ):
     service = AuthService(db)
-    user = await service.login(req.username, req.password)
+    user = await service.login(req.username, req.password, request=request)
     await reset_login_limit(request)
     return service.build_token_response(user)
 
