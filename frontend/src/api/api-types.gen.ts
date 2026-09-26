@@ -2768,6 +2768,14 @@ export interface components {
             field_value?: unknown | null;
             /** Field */
             field?: string | null;
+            /** Usage */
+            usage?: {
+                [key: string]: unknown;
+            } | null;
+            /** Elapsed Ms */
+            elapsed_ms?: number | null;
+            /** Warnings */
+            warnings?: string[] | null;
         };
         /** CaseManageItem */
         CaseManageItem: {
@@ -9804,6 +9812,8 @@ export interface operations {
                 offset?: number;
                 /** @description 按学生姓名模糊搜索 */
                 student_name?: string | null;
+                /** @description 按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案） */
+                search?: string | null;
                 /** @description 按病例ID筛选 */
                 case_id?: number | null;
                 /** @description 按状态筛选(in_progress/completed) */

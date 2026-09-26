@@ -1,5 +1,5 @@
 import { IconCode, IconEye, IconForms, IconHistory, IconRotate, IconSparkles, IconWand } from "@tabler/icons-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { safeParse, z } from "zod";
 import { generateCase, getCaseDetail, publishReportOf } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
 
 import {
+	Stepper,
 	Checkbox, Alert, Badge, Box, Button, Divider, Grid, Group, Loader, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from "./CaseEditorState";
 import { CaseStatusBadge } from "./CaseStatusBadge";
@@ -18,6 +19,7 @@ import {
 	AI_PEDAGOGY_FIELDS,
 	ALL_FIELD_LABELS,
 	diffCaseData,
+	getCasePath,
 	summarizeValue,
 } from "./ai/staging";
 import CaseValidationReportView from "./CaseValidationReportView";
@@ -83,6 +85,14 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	// 生成结果先进暂存区，由教师逐项确认后再写入编辑态（此前直接整份覆盖，见审计 §7）
 	const [pendingAi, setPendingAi] = useState<{ changes: AiChange[] } | null>(null);
 	const [acceptedPaths, setAcceptedPaths] = useState<string[]>([]);
+	// A3：生成中可取消（AbortController）、显示已用时间与上次生成的耗时/token/修复提示
+	const abortRef = useRef<AbortController | null>(null);
+	const [aiElapsed, setAiElapsed] = useState(0);
+	const [lastMeta, setLastMeta] = useState<{
+		elapsedMs: number;
+		usage: Record<string, number> | null;
+		warnings: string[];
+	} | null>(null);
 	const [aiWorking, setAiWorking] = useState(""); // 当前生成动作文案
 	const [showPreview, setShowPreview] = useState(false);
 	const [showDraftRestore, setShowDraftRestore] = useState(false);
@@ -226,18 +236,28 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		}
 		setAiGenerating(true);
 		setAiWorking(label);
+		const controller = new AbortController();
+		abortRef.current = controller;
 		try {
 			const { data } = await generateCase(
 				buildPayload({
 					stage,
 					current_case_data: stage === "derivative" ? state.json : undefined,
 				}) as Parameters<typeof generateCase>[0],
+				{ signal: controller.signal },
 			);
+			setLastMeta({
+				elapsedMs: data.elapsed_ms ?? 0,
+				usage: (data.usage as Record<string, number> | null) ?? null,
+				warnings: data.warnings ?? [],
+			});
 			if (data.case_data) stageGenerated(data.case_data as Record<string, CaseJsonValue>, stage === "core" ? "已生成临床骨架" : "已生成教学细节");
 		} catch (err: unknown) {
+			if (isCancelled(err)) return;
 			const e = err as { response?: { data?: { detail?: string } } };
 			setAiError(e.response?.data?.detail || "AI 生成失败");
 		} finally {
+			abortRef.current = null;
 			setAiGenerating(false);
 			setAiWorking("");
 		}
@@ -247,13 +267,21 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		setAiError("");
 		setAiGenerating(true);
 		setAiWorking(`生成「${ALL_FIELD_LABELS[field] ?? field}」`);
+		const controller = new AbortController();
+		abortRef.current = controller;
 		try {
 			const { data } = await generateCase(
 				buildPayload({
 					field,
 					current_case_data: state.json,
 				}) as Parameters<typeof generateCase>[0],
+				{ signal: controller.signal },
 			);
+			setLastMeta({
+				elapsedMs: data.elapsed_ms ?? 0,
+				usage: (data.usage as Record<string, number> | null) ?? null,
+				warnings: data.warnings ?? [],
+			});
 			const label = ALL_FIELD_LABELS[field] ?? field;
 			// 复用 applyAcceptedChanges 构造"只改这一个字段"的候选 JSON，再走统一暂存
 			const afterJson = applyAcceptedChanges(
@@ -263,13 +291,17 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			);
 			stageGenerated(afterJson, `已生成「${label}」建议`);
 		} catch (err: unknown) {
+			if (isCancelled(err)) return;
 			const e = err as { response?: { data?: { detail?: string } } };
 			setAiError(`生成「${ALL_FIELD_LABELS[field] ?? field}」失败: ${e.response?.data?.detail || "AI 生成失败"}`);
 		} finally {
+			abortRef.current = null;
 			setAiGenerating(false);
 			setAiWorking("");
 		}
 	};
+
+	const isCancelled = (err: unknown) => (err as { code?: string } | null)?.code === "ERR_CANCELED";
 
 	/** 生成结果不直接落编辑态：算出差异后进暂存区等待确认。 */
 	const stageGenerated = (afterJson: Record<string, CaseJsonValue>, okMsg: string) => {
@@ -292,6 +324,24 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		});
 		toast.success(`已应用 ${acceptedPaths.length} 项（可用撤销回退）`);
 		setPendingAi(null);
+	};
+
+	/** 字段状态：待应用（在差异面板里）> 已填 > 空（A3 的字段状态点）。 */
+	const fieldDot = (path: string) => {
+		if (pendingAi?.changes.some((c) => c.path === path)) return "var(--mantine-color-orange-6)";
+		const value = getCasePath(state.json, path);
+		const empty =
+			value == null ||
+			value === "" ||
+			(Array.isArray(value) && value.length === 0) ||
+			(typeof value === "object" && Object.keys(value as object).length === 0);
+		return empty ? "var(--mantine-color-gray-4)" : "var(--mantine-color-green-6)";
+	};
+
+	const handleCancelAi = () => {
+		abortRef.current?.abort();
+		abortRef.current = null;
+		toast.success("已取消生成");
 	};
 
 	const handleUndo = () => {
@@ -336,6 +386,20 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	}, [state.json]);
 
 	const aiBusy = aiGenerating;
+
+	// 生成中计时（取消按钮旁显示）
+	useEffect(() => {
+		if (!aiBusy) return;
+		setAiElapsed(0);
+		const timer = setInterval(() => setAiElapsed((v) => v + 1), 1000);
+		return () => clearInterval(timer);
+	}, [aiBusy]);
+
+	/** 教学细节是否已具备（与后端派生阶段校验口径一致）。 */
+	const hasPedagogy = Boolean(
+		(state.json.required_inquiries as unknown[] | undefined)?.length ||
+			Object.keys(objField(state, "activities.physical_exam.config")).length > 0,
+	);
 	// 临床骨架是否已有内容：教学细节生成以骨架为上下文，空骨架产出质量差（2026-09-26 防呆）
 	const hasSkeleton = Boolean(
 		String(state.json.name ?? "").trim() &&
@@ -456,12 +520,17 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 				{showAiPanel && (
 					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-brand-0)" style={{ borderColor: "var(--mantine-color-brand-2)" }} >
-						<Group gap={6} wrap="wrap" mb="sm">
-							<Text size="xs" fw={600} c="brand">生成向导</Text>
-							<Badge variant="light" color={state.json.name || state.json.chief_complaint ? "green" : "gray"} size="xs">1 临床骨架</Badge>
-							<Text size="xs" c="dimmed" opacity={0.4}>→</Text>
-							<Badge variant="light" color={(state.json.required_inquiries as unknown[])?.length || Object.keys(objField(state, "activities.physical_exam.config")).length > 0 ? "green" : "gray"} size="xs">2 教学细节</Badge>
-						</Group>
+						{/* 两步向导：用 Stepper 表达"当前步/已完成"，而不是两个绿/灰徽章 */}
+						<Stepper
+							size="xs"
+							iconSize={22}
+							active={hasSkeleton ? 1 : 0}
+							allowNextStepsSelect={false}
+							mb="sm"
+						>
+							<Stepper.Step label="临床骨架" description={hasSkeleton ? "已具备" : "待生成"} />
+							<Stepper.Step label="教学细节" description={hasPedagogy ? "已具备" : "待生成"} />
+						</Stepper>
 
 						<SegmentedControl
 							size="xs"
@@ -506,7 +575,23 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 						{aiError && <Text size="xs" c="red" mb="xs">{aiError}</Text>}
 
+						{lastMeta && (
+							<Text size="xs" c="dimmed" mb="xs">
+								上次生成：{(lastMeta.elapsedMs / 1000).toFixed(1)}s
+								{lastMeta.usage?.total_tokens ? ` · ${lastMeta.usage.total_tokens} tokens` : ""}
+								{lastMeta.warnings.length > 0 ? ` · ${lastMeta.warnings.join("；")}` : ""}
+							</Text>
+						)}
+
 						{/* 两步按钮 */}
+						{aiBusy && (
+							<Group gap={8} align="center" mb="xs">
+								<Text size="xs" c="dimmed">生成中，已用 {aiElapsed}s</Text>
+								<Button size="compact-xs" variant="light" color="gray" onClick={handleCancelAi}>
+									取消
+								</Button>
+							</Group>
+						)}
 						<Group gap={8} wrap="wrap">
 							<Button size="sm" onClick={() => generateStage("core", "生成临床骨架")} disabled={aiBusy} leftSection={<IconSparkles size={14} />}>
 								{aiBusy && aiWorking === "生成临床骨架" ? "生成中…" : "生成临床骨架"}
@@ -529,7 +614,17 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Group gap={6} wrap="wrap">
 								<Text size="xs" c="brand" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
 								{AI_CLINICAL_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="light" color="brand" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button
+										key={f.key}
+										size="xs"
+										variant="light"
+										color="brand"
+										onClick={() => generateField(f.key)}
+										disabled={aiBusy}
+										leftSection={
+											<Box style={{ width: 6, height: 6, borderRadius: 999, background: fieldDot(f.key) }} />
+										}
+									>
 										{f.label}
 									</Button>
 								))}
@@ -537,7 +632,17 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Group gap={6} wrap="wrap">
 								<Text size="xs" c="brand" style={{ flexShrink: 0, width: 56 }}>教学字段</Text>
 								{AI_PEDAGOGY_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="light" color="brand" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button
+										key={f.key}
+										size="xs"
+										variant="light"
+										color="brand"
+										onClick={() => generateField(f.key)}
+										disabled={aiBusy}
+										leftSection={
+											<Box style={{ width: 6, height: 6, borderRadius: 999, background: fieldDot(f.key) }} />
+										}
+									>
 										{f.label}
 									</Button>
 								))}

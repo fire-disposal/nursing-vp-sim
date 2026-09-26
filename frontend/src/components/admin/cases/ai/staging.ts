@@ -59,7 +59,8 @@ export interface AiChange {
 
 type Json = Record<string, CaseJsonValue>;
 
-function getPath(obj: unknown, path: string): unknown {
+/** 读取编辑态 JSON 的某条路径（字段状态判定与差异面板共用）。 */
+export function getCasePath(obj: unknown, path: string): unknown {
 	let current: unknown = obj;
 	for (const k of path.split(".")) {
 		if (current == null || typeof current !== "object") return undefined;
@@ -89,9 +90,9 @@ function setPath(obj: Json, path: string, value: unknown): Json {
 export function diffCaseData(before: Json, after: Json): AiChange[] {
 	const changes: AiChange[] = [];
 	for (const field of CASE_AI_DIFF_FIELDS) {
-		const next = getPath(after, field.key);
+		const next = getCasePath(after, field.key);
 		if (next === undefined) continue;
-		const prev = getPath(before, field.key);
+		const prev = getCasePath(before, field.key);
 		if (JSON.stringify(prev ?? null) === JSON.stringify(next ?? null)) continue;
 		changes.push({ path: field.key, label: field.label, before: prev, after: next });
 	}

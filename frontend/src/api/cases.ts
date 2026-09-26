@@ -1,4 +1,5 @@
 import { casePublishGateErrorSchema } from "@/schemas/case";
+import type { AxiosRequestConfig } from "axios";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
@@ -63,10 +64,15 @@ export const deleteCase = (id: number | string) =>
 		CASE_DETAIL.replace("{case_id}", String(id)),
 	);
 
-export const generateCase = (data: Schemas["CaseGenerateRequest"]) =>
+export const generateCase = (
+	data: Schemas["CaseGenerateRequest"],
+	/** 允许透传 AbortSignal 等 axios 配置：生成耗时长，UI 需要能取消（见审计 §7 A3）。 */
+	config?: AxiosRequestConfig,
+) =>
 	api.post<Schemas["CaseGenerateResponse"]>(
 		"/cases/generate" satisfies ApiPath as string,
 		data,
+		config,
 	);
 
 export const toggleCaseOpen = (id: number | string, open: boolean) =>

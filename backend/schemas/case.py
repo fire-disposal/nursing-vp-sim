@@ -141,3 +141,10 @@ class CaseGenerateResponse(BaseModel):
     case_data: dict[str, Any] | None = None
     field_value: Any | None = None
     field: str | None = None
+
+    #: 本次生成消耗（跨自动修复轮次累计）；无用量信息时为 None
+    usage: dict[str, Any] | None = None
+    #: 端到端耗时（毫秒），含自动修复轮次
+    elapsed_ms: int | None = None
+    #: 过程提示（如「首次未过校验已自动修复」），供教师判断结果可信度
+    warnings: list[str] | None = None

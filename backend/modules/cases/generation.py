@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -134,23 +135,33 @@ async def _call_json(
     messages: list[dict],
     current_user: User,
     description: str,
-) -> dict:
+) -> tuple[dict, dict | None]:
+    """调用 LLM 取 JSON；同时回传本次 token 用量（由 CallContext 透出）。"""
+    ctx = CallContext(
+        purpose="case_generation",
+        user_id=current_user.id,
+        log_meta={"description": description[:200]},
+    )
     try:
-        return await llm_client.call_json(
+        result = await llm_client.call_json(
             messages,
             purpose="case_generation",
-            ctx=CallContext(
-                purpose="case_generation",
-                user_id=current_user.id,
-                log_meta={"description": description[:200]},
-            ),
+            ctx=ctx,
             **get_llm_config("case_generation"),
         )
+        return result, ctx.usage
     except (LLMParseError, LLMRateLimited, LLMConcurrencyExceeded, NoProviderAvailable):
         raise
     except Exception as e:
         log.exception("case_generation LLM call failed")
         raise LLMError(f"AI 生成失败: {e!s}")
+
+
+def _accumulate_usage(trace: dict, usage: dict | None) -> None:
+    """把单次调用的 usage 累加进 trace（跨自动修复轮次汇总，供 UI 显示成本）。"""
+    for key, value in (usage or {}).items():
+        if isinstance(value, (int, float)):
+            trace["usage"][key] = trace["usage"].get(key, 0) + value
 
 
 async def _generate_json_with_repair(
@@ -159,9 +170,15 @@ async def _generate_json_with_repair(
     validate: Callable[[dict], str | None],
     current_user: User,
     description: str,
+    trace: dict,
 ) -> dict:
-    """调用 LLM 生成 JSON，校验失败时带错误喂回一次修复。"""
-    result = await _call_json(llm_client, messages, current_user, description)
+    """调用 LLM 生成 JSON，校验失败时带错误喂回一次修复。
+
+    两轮（含修复轮）的 token 用量都累计进 ``trace['usage']``；修复轮会写一条
+    ``trace['warnings']``，让教师知道结果是被修正过的。
+    """
+    result, usage = await _call_json(llm_client, messages, current_user, description)
+    _accumulate_usage(trace, usage)
     error = validate(result)
     if error is None:
         return result
@@ -175,7 +192,9 @@ async def _generate_json_with_repair(
             "content": f"上次生成的 JSON 存在以下问题：{error}\n请重新生成，只输出修正后的完整 JSON，不要任何解释。",
         },
     ]
-    repaired = await _call_json(llm_client, repair_messages, current_user, description)
+    trace["warnings"].append(f"首次生成未通过校验（{error}），已自动修复一轮")
+    repaired, repair_usage = await _call_json(llm_client, repair_messages, current_user, description)
+    _accumulate_usage(trace, repair_usage)
     repair_error = validate(repaired)
     if repair_error is not None:
         raise ValidationError(detail=f"AI 生成内容不符合要求: {repair_error}")
@@ -213,6 +232,7 @@ async def _generate_stage(
     base_case: dict | None,
     current_user: User,
     llm_client: LLMClient,
+    trace: dict,
 ) -> dict:
     description = data.description or "生成一个护理病史采集训练病例"
     messages = _build_stage_messages(
@@ -223,7 +243,7 @@ async def _generate_stage(
         field_instruction="",
     )
     validate = _validate_core_stage if stage == "core" else _validate_derivative_stage
-    return await _generate_json_with_repair(llm_client, messages, validate, current_user, description)
+    return await _generate_json_with_repair(llm_client, messages, validate, current_user, description, trace)
 
 
 async def _generate_field(
@@ -231,6 +251,7 @@ async def _generate_field(
     reference_material: str,
     current_user: User,
     llm_client: LLMClient,
+    trace: dict,
 ) -> CaseGenerateResponse:
     field = data.field
     assert field  # caller guarantees
@@ -243,7 +264,8 @@ async def _generate_field(
         base_case=None,
         field_instruction=field_instruction,
     )
-    result = await _call_json(llm_client, messages, current_user, description)
+    result, usage = await _call_json(llm_client, messages, current_user, description)
+    _accumulate_usage(trace, usage)
     field_value = result.get("field_value") or result.get(field)
     if field_value is None:
         raise ValidationError(detail=f"未能从 AI 输出中提取字段「{field}」")
@@ -253,41 +275,65 @@ async def _generate_field(
 # ── 公共入口 ───────────────────────────────────────────────────────────────
 
 
-async def generate_case(
+async def _run_workflow(
     data: CaseGenerateRequest,
-    db: Session,
+    reference_material: str,
     current_user: User,
     llm_client: LLMClient,
+    trace: dict,
 ) -> CaseGenerateResponse:
-    """Run the LLM case‑generation workflow."""
-    if not data.description.strip():
-        raise ValidationError(detail="描述不能为空")
-
-    reference_material = _build_reference_material(db, data)
-
+    """按 field / stage 分派实际生成工作（不含计时与用量附加）。"""
     # 字段级生成：任意顶层字段单独生成
     if data.field:
-        return await _generate_field(data, reference_material, current_user, llm_client)
+        return await _generate_field(data, reference_material, current_user, llm_client, trace)
 
     stage = data.stage or "full"
 
     if stage == "core":
-        case_data = await _generate_stage("core", data, reference_material, None, current_user, llm_client)
+        case_data = await _generate_stage("core", data, reference_material, None, current_user, llm_client, trace)
         return CaseGenerateResponse(case_data=case_data)
 
     if stage == "derivative":
         base = data.current_case_data or {}
         if not base:
             raise ValidationError(detail="生成教学细节需要临床骨架作为上下文（当前病例为空）")
-        derivative = await _generate_stage("derivative", data, reference_material, base, current_user, llm_client)
+        derivative = await _generate_stage(
+            "derivative", data, reference_material, base, current_user, llm_client, trace
+        )
         return CaseGenerateResponse(case_data=_merge_derivative(base, derivative))
 
     # full：骨架 → 衍生 链式生成
-    core = await _generate_stage("core", data, reference_material, None, current_user, llm_client)
-    derivative = await _generate_stage("derivative", data, reference_material, core, current_user, llm_client)
+    core = await _generate_stage("core", data, reference_material, None, current_user, llm_client, trace)
+    derivative = await _generate_stage("derivative", data, reference_material, core, current_user, llm_client, trace)
     merged = _merge_derivative(core, derivative)
     try:
         validate_case_data(merged, strict=True)
     except PydanticValidationError as e:
         raise ValidationError(detail=f"病例数据验证失败: {e}")
     return CaseGenerateResponse(case_data=merged)
+
+
+async def generate_case(
+    data: CaseGenerateRequest,
+    db: Session,
+    current_user: User,
+    llm_client: LLMClient,
+) -> CaseGenerateResponse:
+    """Run the LLM case‑generation workflow.
+
+    统一附加端到端耗时、累计 token 用量与过程告警，供前端展示"这次生成花了多久/多少"
+    并提示结果是否经过自动修复（见审计 §7 A4）。
+    """
+    if not data.description.strip():
+        raise ValidationError(detail="描述不能为空")
+
+    reference_material = _build_reference_material(db, data)
+    trace: dict = {"usage": {}, "warnings": []}
+    started = time.perf_counter()
+
+    response = await _run_workflow(data, reference_material, current_user, llm_client, trace)
+
+    response.elapsed_ms = int((time.perf_counter() - started) * 1000)
+    response.usage = trace["usage"] or None
+    response.warnings = trace["warnings"] or None
+    return response

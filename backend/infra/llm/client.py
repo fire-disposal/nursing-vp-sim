@@ -35,6 +35,8 @@ class CallContext:
     record_id: int | None = None
     case_id: int | None = None
     log_meta: dict | None = None
+    #: 输出字段：调用完成后由客户端回填本次 token 用量，供调用方透出成本（如病例生成）。
+    usage: dict | None = None
 
 
 @dataclass
@@ -140,6 +142,7 @@ class LLMClient:
                 record_id=ctx.record_id,
                 case_id=ctx.case_id,
             )
+            ctx.usage = result.usage or None
             self._recorder.record_success(meta)
             return result.content
         except Exception:
@@ -252,6 +255,7 @@ class LLMClient:
         for k, v in (result.usage or {}).items():
             if isinstance(v, (int, float)):
                 cumulative_usage[k] = cumulative_usage.get(k, 0) + v
+        ctx.usage = cumulative_usage or None
         cumulative_cache_hit += result.cache_hit_tokens or 0
         cumulative_cache_miss += result.cache_miss_tokens or 0
         self._recorder.record_success(

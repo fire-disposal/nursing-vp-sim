@@ -148,6 +148,11 @@ _FIELD_TYPE_HINTS: dict[str, str] = {
 }
 
 
+#: 允许做「逐字段生成」的路径白名单（= 类型提示表的键）。路由据此拒绝未知路径：
+#: 旧行为对未知路径回退到通用提示词并照样把结果写进 case_data。
+KNOWN_GENERATION_FIELDS: frozenset[str] = frozenset(_FIELD_TYPE_HINTS)
+
+
 def build_field_instruction(field: str, current_case_data: dict | None) -> str:
     """构建字段级生成指令：类型提示 + 当前病例上下文。
 

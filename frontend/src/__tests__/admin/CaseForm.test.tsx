@@ -128,6 +128,26 @@ describe("CaseForm AI 两步向导", () => {
 		expect(screen.getByRole("button", { name: /撤销/ })).toBeTruthy();
 	});
 
+	it("展示上次生成的耗时、token 用量与自动修复提示", async () => {
+		mocks.generateCase.mockResolvedValueOnce({
+			data: {
+				case_data: { name: "腹痛待查", chief_complaint: "腹痛2天" },
+				elapsed_ms: 1234,
+				usage: { prompt_tokens: 1000, completion_tokens: 2000, total_tokens: 3000 },
+				warnings: ["首次生成未通过校验（缺少字段: name），已自动修复一轮"],
+			},
+		});
+		renderModal();
+		await userEvent.click(screen.getByRole("button", { name: /AI/ }));
+		await userEvent.type(screen.getByPlaceholderText(/描述你想生成的病例场景/), "腹痛待查");
+
+		await userEvent.click(screen.getByRole("button", { name: "生成临床骨架" }));
+
+		expect(await screen.findByText(/上次生成：1\.2s/)).toBeTruthy();
+		expect(screen.getByText(/3000 tokens/)).toBeTruthy();
+		expect(screen.getByText(/已自动修复一轮/)).toBeTruthy();
+	});
+
 	it("空骨架时禁用生成教学细节并说明原因", async () => {
 		renderModal();
 		await userEvent.click(screen.getByRole("button", { name: /AI/ }));

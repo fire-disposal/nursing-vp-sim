@@ -7343,6 +7343,24 @@
             "description": "按学生姓名模糊搜索"
           },
           {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案）",
+              "title": "Search"
+            },
+            "description": "按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案）"
+          },
+          {
             "name": "case_id",
             "in": "query",
             "required": false,
@@ -9728,6 +9746,43 @@
               }
             ],
             "title": "Field"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage"
+          },
+          "elapsed_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Ms"
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warnings"
           }
         },
         "type": "object",
