@@ -1,30 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ScoreManager } from "@/engine/ScoreManager";
+import { ScoreManager, endFailureMessage } from "@/engine/ScoreManager";
 
 vi.mock("@/api/client", () => ({
 	api: {
 		get: vi.fn(),
-		post: vi.fn(),
 	},
 }));
 
 vi.mock("@/api/training", () => ({
 	retryScoring: vi.fn(),
+	endTraining: vi.fn(),
 }));
 
 import { api } from "@/api/client";
-import { retryScoring } from "@/api/training";
+import { endTraining, retryScoring } from "@/api/training";
+import type { Mock } from "vitest";
 
 const mockGet = api.get as ReturnType<typeof vi.fn>;
-const mockPost = api.post as ReturnType<typeof vi.fn>;
 const mockRetry = retryScoring as ReturnType<typeof vi.fn>;
+const mockEnd = endTraining as unknown as Mock;
 
 describe("ScoreManager 相位防回退守卫", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		mockGet.mockReset();
-		mockPost.mockReset();
 		mockRetry.mockReset();
+		mockEnd.mockReset();
+		mockEnd.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -67,7 +69,6 @@ describe("ScoreManager 相位防回退守卫", () => {
 	});
 
 	it("轮询：不覆盖 WS 已推进的相位", async () => {
-		mockPost.mockResolvedValue({});
 		// 后端轮询返回的进度落后于 WS 推送
 		mockGet.mockResolvedValue({
 			data: {
@@ -78,6 +79,7 @@ describe("ScoreManager 相位防回退守卫", () => {
 
 		const m = new ScoreManager(1);
 		await m.end();
+		expect(mockEnd).toHaveBeenCalledWith(1, undefined);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(m.progress.phase).toBe("scoring");
 
@@ -93,7 +95,6 @@ describe("ScoreManager 相位防回退守卫", () => {
 	});
 
 	it("轮询：无后端进度时假进度不降级 WS 已推进的相位", async () => {
-		mockPost.mockResolvedValue({});
 		mockGet.mockResolvedValue({ data: { scoring_status: "processing" } });
 
 		const m = new ScoreManager(1);
@@ -110,7 +111,6 @@ describe("ScoreManager 相位防回退守卫", () => {
 	});
 
 	it("retry()：重新触发评分并重启轮询", async () => {
-		mockPost.mockResolvedValue({});
 		mockGet.mockResolvedValue({
 			data: { scoring_status: "failed", scoring_error: "LLM 超时" },
 		});
@@ -137,5 +137,39 @@ describe("ScoreManager 相位防回退守卫", () => {
 		expect(m.progress.phase).toBe("scoring");
 		expect(m.progress.percentage).toBe(25);
 		m.dispose();
+	});
+
+	it("end()：转发原子「提交护理评估并完成」请求体", async () => {
+		const m = new ScoreManager(1);
+
+		await m.end({ submit_nursing_record: true, nursing_record_sheet: { subjective: "头晕" } });
+
+		expect(mockEnd).toHaveBeenCalledWith(1, {
+			submit_nursing_record: true,
+			nursing_record_sheet: { subjective: "头晕" },
+		});
+		m.dispose();
+	});
+
+	it("end() 失败：把服务端可读原因（detail.message）写进进度，供 UI 展示", async () => {
+		mockEnd.mockRejectedValue({
+			response: { data: { detail: { message: "请先提交护理评估记录，再结束训练", code: "nursing_record_required" } } },
+		});
+		const m = new ScoreManager(1);
+
+		await expect(m.end({ submit_nursing_record: true })).rejects.toBeTruthy();
+
+		expect(m.progress.phase).toBe("failed");
+		expect(m.progress.message).toBe("请先提交护理评估记录，再结束训练");
+		m.dispose();
+	});
+
+	it("end() 失败原因解析：字符串 detail 用原文，异常形状退化为重试文案", () => {
+		expect(endFailureMessage({ response: { data: { detail: "训练已结束" } } })).toBe("训练已结束");
+		expect(endFailureMessage({ response: { data: { detail: { message: "评分正在进行中" } } } })).toBe(
+			"评分正在进行中",
+		);
+		expect(endFailureMessage(new Error("network"))).toBe("结束训练失败，请重试");
+		expect(endFailureMessage(null)).toBe("结束训练失败，请重试");
 	});
 });

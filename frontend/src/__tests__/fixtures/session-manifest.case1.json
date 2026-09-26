@@ -1,0 +1,136 @@
+{
+ "schema": "workflow-manifest",
+ "projection": "session",
+ "workflow": {
+  "id": "history_taking",
+  "label": "病史采集",
+  "ui": {
+   "workspace": "patient_interaction",
+   "primary_surface": "conversation"
+  }
+ },
+ "case": {
+  "case_id": 1,
+  "revision_id": null,
+  "revision_no": null
+ },
+ "session": {
+  "session_id": 42,
+  "status": "in_progress",
+  "revision": 7
+ },
+ "activities": [
+  {
+   "id": "physical_exam",
+   "label": "床旁检查",
+   "availability": {
+    "state": "available",
+    "reason_code": null
+   },
+   "commands": [
+    "measure"
+   ],
+   "ui": {
+    "renderer": "physical_exam",
+    "placement": "side_panel",
+    "order": 20
+   },
+   "evidence_kind": "exam_results",
+   "artifact_kind": null
+  },
+  {
+   "id": "nursing_record",
+   "label": "护理记录",
+   "availability": {
+    "state": "available",
+    "reason_code": null
+   },
+   "commands": [
+    "load",
+    "reopen",
+    "save",
+    "submit"
+   ],
+   "ui": {
+    "renderer": "nursing_record",
+    "placement": "side_panel",
+    "order": 10
+   },
+   "evidence_kind": "nursing_record",
+   "artifact_kind": "nursing_record"
+  },
+  {
+   "id": "quiz",
+   "label": "随堂测验",
+   "availability": {
+    "state": "unavailable",
+    "reason_code": "case_not_configured"
+   },
+   "commands": [
+    "load",
+    "submit"
+   ],
+   "ui": {
+    "renderer": "quiz",
+    "placement": "side_panel",
+    "order": 30
+   },
+   "evidence_kind": null,
+   "artifact_kind": null
+  },
+  {
+   "id": "nursing_diagnosis",
+   "label": "护理诊断",
+   "availability": {
+    "state": "unavailable",
+    "reason_code": "case_not_configured"
+   },
+   "commands": [
+    "load",
+    "save"
+   ],
+   "ui": {
+    "renderer": "nursing_diagnosis",
+    "placement": "side_panel",
+    "order": 40
+   },
+   "evidence_kind": null,
+   "artifact_kind": null
+  }
+ ],
+ "artifacts": {
+  "nursing_record": {
+   "required": true,
+   "state": "empty",
+   "submitted_at": null,
+   "updated_at": null
+  }
+ },
+ "completion": {
+  "eligible": false,
+  "conditions": [
+   {
+    "id": "nursing_record_submitted",
+    "label": "提交护理记录",
+    "satisfied": false
+   }
+  ],
+  "blockers": [
+   {
+    "code": "ARTIFACT_NOT_SUBMITTED",
+    "message": "请先提交护理记录，再结束训练",
+    "target": {
+     "type": "artifact",
+     "id": "nursing_record"
+    }
+   }
+  ]
+ },
+ "actions": [
+  {
+   "id": "complete_session",
+   "label": "结束训练",
+   "enabled": false
+  }
+ ]
+}

@@ -1,0 +1,179 @@
+{
+ "case1.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case10.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case2.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case3.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case4.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case5.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case6.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case7.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case8.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "case9.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ },
+ "diabetes_foot_quiz.json": {
+  "workflow": "history_taking",
+  "renderers": [
+   "nursing_diagnosis",
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "available": [
+   "nursing_record",
+   "physical_exam",
+   "quiz"
+  ],
+  "requiredArtifacts": [
+   "nursing_record"
+  ]
+ }
+}

@@ -22,6 +22,11 @@ class ResizeObserverMock {
 }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 
+// jsdom 未实现 scrollIntoView（CaseSelector 的列表定位需要）
+if (!Element.prototype.scrollIntoView) {
+	Element.prototype.scrollIntoView = () => {};
+}
+
 // Mantine 过渡/弹层依赖 requestAnimationFrame（jsdom 无 pretendToBeVisual 时不提供）
 globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0) as unknown as number;
 globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id);
