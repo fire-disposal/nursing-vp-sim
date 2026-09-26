@@ -131,6 +131,18 @@ def require_permission(permission: str):
         # → 顺手挂到 request.state，供审计（core/audit.py 的 _actor_from_request）与 403 留痕使用。
         request.state.audit_actor = current_user
         if not current_user.has_permission(permission):
+            # "有人尝试越权"是最需要留下的证据 → 独立 session 落库（业务若回滚也留痕）
+            from core.audit import ACTION_ACCESS_DENIED, record_detached
+
+            record_detached(
+                request,
+                action=ACTION_ACCESS_DENIED,
+                target_type="permission",
+                target_id=permission,
+                target_label=permission,
+                outcome="denied",
+                payload={"required_permission": permission},
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user
 

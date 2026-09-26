@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import case, func
@@ -15,7 +15,7 @@ from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.security import require_permission
 from core.statuses import LLMCallStatus
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from infra.ops_queries import cn_day_start, cn_month_start, day_range, llm_window, local_date
 from models import Case, LLMCallLog, TrainingRecord, User
 from schemas import LLMCallLogItem, LLMStatsResponse, PaginatedResponse
@@ -337,7 +337,12 @@ class LLMMonitorService:
         return entry
 
     def export_llm_logs(
-        self, fmt: str | None = None, date_from: str | None = None, date_to: str | None = None
+        self,
+        fmt: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        *,
+        request: Request | None = None,
     ) -> Response:
         file_format = fmt or "csv"
         entries = self._llm_export_query(date_from=date_from, date_to=date_to)
@@ -364,7 +369,18 @@ class LLMMonitorService:
             ColumnDef("响应字符数", key="response_chars", fmt=lambda v: str(v) if v else ""),
         ]
         ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        return export_response(entries, columns, f"llm_logs_{ts}", "LLM日志", file_format)
+        return export_response(
+            entries,
+            columns,
+            f"llm_logs_{ts}",
+            "LLM日志",
+            file_format,
+            audit=ExportAudit(
+                request=request,
+                target_label="LLM 日志",
+                filters={"date_from": date_from, "date_to": date_to},
+            ),
+        )
 
 
 router = APIRouter()
@@ -407,6 +423,7 @@ def get_llm_logs(
 
 @router.post("/llm-logs/export")
 def export_llm_logs_csv(
+    request: Request,
     db: DbSession,
     current_user: User = Depends(require_permission("llm_monitor")),
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
@@ -414,7 +431,7 @@ def export_llm_logs_csv(
     date_to: str | None = None,
 ):
     svc = LLMMonitorService(db)
-    return svc.export_llm_logs(fmt=format, date_from=date_from, date_to=date_to)
+    return svc.export_llm_logs(fmt=format, date_from=date_from, date_to=date_to, request=request)
 
 
 @router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)

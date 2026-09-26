@@ -16,6 +16,8 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "feedback_review",
         "export_data",
         "questionnaire_manage",
+        "audit_view",
+        "audit_export",
     ],
     "admin": [
         "user_manage",

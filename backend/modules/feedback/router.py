@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from core.config import FEEDBACK_BOT_NAME, FEEDBACK_BOT_TOKEN
 from core.database import get_db
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Feedback, User
 from modules.feedback.service import FeedbackFilters, FeedbackService
 from schemas import (
@@ -23,6 +23,16 @@ router = APIRouter(prefix="/api", tags=["反馈"])
 
 _AnyUser = Annotated[User, Depends(get_current_user)]
 _FeedbackReviewer = Annotated[User, Depends(require_permission("feedback_review"))]
+
+
+def _audit_filters(filters: Any) -> dict[str, Any]:
+    """把筛选 DTO 序列化进审计 payload：日后能还原"这次导出当时筛了什么"。"""
+    from dataclasses import asdict
+
+    try:
+        return asdict(filters)
+    except TypeError:
+        return {}
 
 
 @router.post("/feedback", response_model=FeedbackSubmitResponse)
@@ -113,6 +123,7 @@ def export_feedback(
     current_user: _FeedbackReviewer,
     db: DbSession,
     filters: Annotated[FeedbackFilters, Depends()],
+    request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     from core.config import MAX_EXPORT_ROWS
@@ -145,7 +156,9 @@ def export_feedback(
         ColumnDef("开发者回复", key="developer_reply"),
         ColumnDef("创建时间", value=lambda r: r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""),
     ]
-    return export_response(fb_list, columns, "用户反馈", "用户反馈", format)
+    audit = ExportAudit(request=request, target_label="系统反馈", filters=_audit_filters(filters))
+
+    return export_response(fb_list, columns, "用户反馈", "用户反馈", format, audit=audit)
 
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])

@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError as PydanticValidationError
@@ -31,7 +31,7 @@ from schemas import (
 
 log = logging.getLogger(__name__)
 
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -55,6 +55,16 @@ def _to_case_brief(c: Case) -> CaseBrief:
 
 
 # ── 学生端列表 ──
+
+
+def _audit_filters(filters: Any) -> dict[str, Any]:
+    """把筛选 DTO 序列化进审计 payload：日后能还原"这次导出当时筛了什么"。"""
+    from dataclasses import asdict
+
+    try:
+        return asdict(filters)
+    except TypeError:
+        return {}
 
 
 @router.get("", response_model=PaginatedResponse[CaseBrief])
@@ -231,6 +241,7 @@ def export_cases(
     current_user: _CaseManager,
     db: DbSession,
     filters: Annotated[CaseListFilters, Depends()],
+    request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     from core.config import MAX_EXPORT_ROWS
@@ -244,4 +255,6 @@ def export_cases(
         ColumnDef("状态", key="status"),
         ColumnDef("描述", key="description"),
     ]
-    return export_response(cases, columns, "病例列表", "病例列表", format)
+    audit = ExportAudit(request=request, target_label="病例列表", filters=_audit_filters(filters))
+
+    return export_response(cases, columns, "病例列表", "病例列表", format, audit=audit)

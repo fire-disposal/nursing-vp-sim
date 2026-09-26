@@ -10,6 +10,7 @@ import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import type { NavGroupKey, NavItem } from "./navigation";
+import { IconStethoscope } from "@tabler/icons-react";
 import { NAV_GROUPS } from "./navigation";
 
 function isActive(pathname: string, to: string, end?: boolean): boolean {
@@ -65,10 +66,16 @@ export default function SidebarNav({
 	userLinks,
 	adminLinks,
 	onNavigate,
+	groupUserLinks = false,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	onNavigate: () => void;
+	/**
+	 * 教师/管理端：把学生向条目（训练/记录/问答/我的）收进"我的训练"分组，
+	 * 避免它们与管理分组混在一起平铺。学生端传 false → 渲染保持不变。
+	 */
+	groupUserLinks?: boolean;
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
@@ -91,9 +98,17 @@ export default function SidebarNav({
 		<Box style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 			<ScrollArea style={{ flex: 1 }}>
 				<Box px="xs" py="xs">
-					{userLinks.map((link) => (
-						<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
-					))}
+					{groupUserLinks ? (
+						userLinks.length > 0 && (
+							<SideNavGroup
+								group={{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false }}
+								links={userLinks}
+								onNavigate={onNavigate}
+							/>
+						)
+					) : (
+						userLinks.map((link) => <SideNavLink key={link.to} link={link} onNavigate={onNavigate} />)
+					)}
 
 					{ungrouped.length > 0 && (
 						<>

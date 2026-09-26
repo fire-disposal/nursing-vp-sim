@@ -1,7 +1,7 @@
 import io
 import logging
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from core.config import MAX_EXPORT_ROWS
 from core.deps import CurrentUser, DbSession
 from core.exceptions import AuthError, NotFoundError
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Message, TrainingRecord, User
 
 log = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ router = APIRouter(prefix="/api/export", tags=["导出"])
 def export_records(
     current_user: CurrentUser,
     db: DbSession,
+    request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     records, msg_counts = RecordService(db).get_records_for_export(current_user)
@@ -93,7 +94,14 @@ def export_records(
         ColumnDef("改进建议", value=lambda r: r.score.suggestions if r.score else ""),
         ColumnDef("对话轮数", value=lambda r: str(msg_counts.get(r.id, 0))),
     ]
-    return export_response(records, columns, "training_records", "训练记录", format)
+    return export_response(
+        records,
+        columns,
+        "training_records",
+        "训练记录",
+        format,
+        audit=ExportAudit(request=request, target_label="训练记录"),
+    )
 
 
 @router.post("/record/{record_id}")

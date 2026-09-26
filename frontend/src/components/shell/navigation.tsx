@@ -1,4 +1,5 @@
 import {
+	IconFileSearch,
 	IconActivity,
 	IconBook2,
 	IconChartBar,
@@ -55,6 +56,7 @@ const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/admin/SystemNotificationsPage"),
 );
+const AuditLogsPage = lazy(() => import("@/pages/admin/AuditLogsPage"));
 const TeacherRecordsPage = lazy(
 	() => import("@/pages/admin/TeacherRecordsPage"),
 );
@@ -67,7 +69,7 @@ export type Activity = "practice" | "review" | "manage";
 
 export type NavSection = "user" | "admin";
 
-export type NavGroupKey = "teaching" | "people" | "system";
+export type NavGroupKey = "personal" | "teaching" | "content" | "people" | "system";
 
 export type NavIcon = ComponentType<{
 	size?: number;
@@ -85,9 +87,12 @@ export interface NavGroupDef {
 }
 
 export const NAV_GROUPS: NavGroupDef[] = [
+	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false },
+	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
 	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true },
+	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false },
 	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false },
-	{ key: "system", label: "系统", icon: IconActivity, defaultOpen: false },
+	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false },
 ];
 
 export interface NavMeta {
@@ -191,7 +196,7 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <AdminCases />,
 		permission: "case_manage",
 		activity: "manage",
-		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "teaching" },
+		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "content" },
 	},
 	{
 		path: "/admin/assignments",
@@ -227,7 +232,9 @@ export const APP_ROUTES: AppRoute[] = [
 	{
 		path: "/admin",
 		element: <Admin />,
-		permission: "score_review",
+		// 数据来自 /api/admin/stats（要求 stats_view）→ 导航门禁必须与之一致，
+		// 否则"只有 score_review"的角色能进页面但统计区 403（2026-09-26 审计 RB-5）
+		permission: "stats_view",
 		activity: "manage",
 		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true },
 	},
@@ -260,7 +267,7 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "问卷管理",
 			icon: IconClipboardList,
 			section: "admin",
-			group: "teaching",
+			group: "content",
 		},
 	},
 	{
@@ -268,7 +275,7 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <RubricPage />,
 		permission: "score_review",
 		activity: "manage",
-		nav: { label: "评分标准", icon: IconBook2, section: "admin", group: "teaching" },
+		nav: { label: "评分标准", icon: IconBook2, section: "admin", group: "content" },
 	},
 	{
 		path: "/admin/costs",
@@ -292,11 +299,20 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "系统通知", icon: IconSpeakerphone, section: "admin", group: "system" },
 	},
 	{
+		path: "/admin/audit-logs",
+		element: <AuditLogsPage />,
+		permission: "audit_view",
+		activity: "manage",
+		nav: { label: "审计日志", icon: IconFileSearch, section: "admin", group: "system" },
+	},
+	{
 		path: "/admin/feedback",
 		element: <AdminFeedback />,
 		permission: "feedback_review",
 		activity: "manage",
-		nav: { label: "用户反馈", icon: IconMessageCircle, section: "admin", group: "system" },
+		// 维护者口径：这类反馈**针对系统本身**（bug/建议/评分与内容错误）→ 归运维，
+		// 标签用"系统反馈"以消除"是否指教学反馈"的歧义
+		nav: { label: "系统反馈", icon: IconMessageCircle, section: "admin", group: "system" },
 	},
 ];
 

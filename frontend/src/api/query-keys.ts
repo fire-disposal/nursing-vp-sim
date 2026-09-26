@@ -64,6 +64,10 @@ export const queryKeys = {
 		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {
+		auditLogs: {
+			all: ["admin", "audit-logs"] as const,
+			list: (params: Record<string, unknown>) => [...["admin", "audit-logs"], params] as const,
+		},
 		users: {
 			all: ["admin", "users"] as const,
 			list: (params: Record<string, unknown>) =>

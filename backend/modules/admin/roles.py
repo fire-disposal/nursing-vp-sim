@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import func
@@ -17,7 +17,7 @@ from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.permissions import PERMISSION_KEYS
 from core.security import clear_permission_cache, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Role, RolePermission, User
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
 
@@ -231,6 +231,16 @@ def _grantable(current_user: User, db) -> set[str]:
     return set(load_role_permissions(db, current_user.role_id))
 
 
+def _audit_filters(filters: Any) -> dict[str, Any]:
+    """把筛选 DTO 序列化进审计 payload：日后能还原"这次导出当时筛了什么"。"""
+    from dataclasses import asdict
+
+    try:
+        return asdict(filters)
+    except TypeError:
+        return {}
+
+
 @router.get("", response_model=list[RoleResponse])
 def list_roles(
     current_user: _Manager,
@@ -271,6 +281,7 @@ def export_roles(
     current_user: _Manager,
     db: DbSession,
     filters: Annotated[RoleFilters, Depends()],
+    request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限（角色无分页，故在出口处截断）
@@ -279,7 +290,9 @@ def export_roles(
         ColumnDef("角色名", key="name"),
         ColumnDef("显示名", key="display_name"),
     ]
-    return export_response(roles, columns, "角色列表", "角色列表", format)
+    audit = ExportAudit(request=request, target_label="角色列表", filters=_audit_filters(filters))
+
+    return export_response(roles, columns, "角色列表", "角色列表", format, audit=audit)
 
 
 @router.delete("/{role_id}", response_model=DeleteResponse)

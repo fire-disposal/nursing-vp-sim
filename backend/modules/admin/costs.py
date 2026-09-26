@@ -5,7 +5,7 @@ import io
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
@@ -388,6 +388,7 @@ def get_user_cost_breakdown(current_user: _Manager, db: DbSession):
 def export_costs(
     current_user: _Manager,
     db: DbSession,
+    request: Request,
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
     service: str = Query(default=""),
@@ -396,6 +397,25 @@ def export_costs(
 ):
     svc = CostService(db)
     rows = svc.export_data(start_date, end_date, service, granularity)
+    # 自建响应（不经 infra.exporter）→ 直接写一条导出留痕
+    from core.audit import ACTION_EXPORT_DOWNLOADED, TARGET_TYPE_EXPORT, record_detached
+
+    record_detached(
+        request,
+        action=ACTION_EXPORT_DOWNLOADED,
+        target_type=TARGET_TYPE_EXPORT,
+        target_label="成本明细",
+        payload={
+            "rows": len(rows),
+            "format": export_format,
+            "filters": {
+                "start_date": start_date,
+                "end_date": end_date,
+                "service": service,
+                "granularity": granularity,
+            },
+        },
+    )
     if export_format == "csv":
         output = io.StringIO()
         writer = csv.DictWriter(output, fieldnames=["date", "service", "cost", "calls", "success", "error"])

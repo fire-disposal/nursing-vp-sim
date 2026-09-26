@@ -10,10 +10,10 @@ export default function FeedbackPage() {
 	return (
 		<>
 			<PageHeader
-				title="用户反馈"
-				subtitle="查看用户满意度评分与反馈详情"
+				title="系统反馈"
+				subtitle="用户对系统本身的问题与建议（bug、功能、评分与内容错误等）"
 				icon={IconMessageCircle}
-				actions={<ExportButton endpoint="/admin/feedback/export" filename="用户反馈" params={exportParams} />}
+				actions={<ExportButton endpoint="/admin/feedback/export" filename="系统反馈" params={exportParams} />}
 			/>
 			<FeedbackTab onExportParamsChange={setExportParams} />
 		</>

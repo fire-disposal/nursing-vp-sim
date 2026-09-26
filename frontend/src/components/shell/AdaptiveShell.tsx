@@ -7,12 +7,15 @@ import type { NavItem } from "./navigation";
 function ShellPicker({
 	userLinks,
 	adminLinks,
+	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
+	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
+	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
@@ -27,6 +30,7 @@ function ShellPicker({
 				<ManageShell
 					userLinks={userLinks}
 					adminLinks={adminLinks}
+					groupUserLinks={groupUserLinks}
 					onLogout={onLogout}
 					onAbout={onAbout}
 				>
@@ -45,12 +49,15 @@ function ShellPicker({
 export default function AdaptiveShell({
 	userLinks,
 	adminLinks,
+	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
+	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
+	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
@@ -60,6 +67,7 @@ export default function AdaptiveShell({
 			<ShellPicker
 				userLinks={userLinks}
 				adminLinks={adminLinks}
+				groupUserLinks={groupUserLinks}
 				onLogout={onLogout}
 				onAbout={onAbout}
 			>

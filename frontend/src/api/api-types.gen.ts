@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Audit Logs */
+        get: operations["list_audit_logs_api_admin_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/audit-logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Audit Logs */
+        post: operations["export_audit_logs_api_admin_audit_logs_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/classes": {
         parameters: {
             query?: never;
@@ -5691,6 +5725,97 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_audit_logs_api_admin_audit_logs_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                /** @description 按操作者 ID 过滤 */
+                actor_id?: number | null;
+                /** @description 动作，如 role.updated */
+                action?: string | null;
+                /** @description 目标类型，如 user/role */
+                target_type?: string | null;
+                /** @description 结果 */
+                outcome?: string | null;
+                /** @description 起始时间 ISO（含） */
+                date_from?: string | null;
+                /** @description 结束时间 ISO（含） */
+                date_to?: string | null;
+                /** @description 关键字（操作者/目标/动作/请求路径） */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_audit_logs_api_admin_audit_logs_export_post: {
+        parameters: {
+            query?: {
+                format?: string;
+                /** @description 按操作者 ID 过滤 */
+                actor_id?: number | null;
+                /** @description 动作，如 role.updated */
+                action?: string | null;
+                /** @description 目标类型，如 user/role */
+                target_type?: string | null;
+                /** @description 结果 */
+                outcome?: string | null;
+                /** @description 起始时间 ISO（含） */
+                date_from?: string | null;
+                /** @description 结束时间 ISO（含） */
+                date_to?: string | null;
+                /** @description 关键字（操作者/目标/动作/请求路径） */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_classes_api_admin_classes_get: {
         parameters: {
             query?: {
@@ -8166,9 +8291,7 @@ export interface operations {
     };
     metrics_api_metrics_get: {
         parameters: {
-            query?: {
-                token?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -8182,15 +8305,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

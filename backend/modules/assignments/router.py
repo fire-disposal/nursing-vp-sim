@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
@@ -12,7 +12,7 @@ from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
 from core.statuses import AssignmentLifecycle, AssignmentProgressStatus
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Assignment, AssignmentRecipient, TrainingRecord, User
 from modules.admin.class_memberships import student_class_ids
 from modules.assignments.progress import (
@@ -203,6 +203,7 @@ def export_assignment(
     assignment_id: str,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
 ):
     assignment = (
         db.query(Assignment)
@@ -238,7 +239,11 @@ def export_assignment(
 
     safe_title = assignment.title.replace(" ", "_")[:50]
     return export_response(
-        students_data, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv"
+        students_data,
+        columns,
+        filename=f"assignment_{safe_title}_{assignment.id[:8]}",
+        format="csv",
+        audit=ExportAudit(request=request, target_label=f"作业：{assignment.title}"),
     )
 
 

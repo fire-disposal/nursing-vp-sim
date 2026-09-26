@@ -176,6 +176,7 @@ export default function Layout() {
 			<AdaptiveShell
 				userLinks={userLinks}
 				adminLinks={adminLinks}
+				groupUserLinks={hasAdminPerm}
 				onLogout={handleLogout}
 				onAbout={() => setAboutOpen(true)}
 			>

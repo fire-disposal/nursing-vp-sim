@@ -3,12 +3,12 @@
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from core.statuses import QuestionnaireTrigger
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService
 from modules.questionnaires.service import QuestionnaireTemplateFilters, QuestionnaireTemplateService
@@ -199,6 +199,7 @@ def export_responses(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: DbSession,
+    request: Request,
 ):
     svc = QuestionnaireResponseService(db)
     t, responses, questions = svc.export_data(template_id)
@@ -221,4 +222,10 @@ def export_responses(
         columns.append(ColumnDef(header=qcontent, value=lambda r, qid=qid: ans_map_cache[r.id].get(qid, "")))
 
     safe_title = quote(t.title or f"问卷{template_id}")
-    return export_response(responses, columns, filename=f"questionnaire_{template_id}_{safe_title}", format="csv")
+    return export_response(
+        responses,
+        columns,
+        filename=f"questionnaire_{template_id}_{safe_title}",
+        format="csv",
+        audit=ExportAudit(request=request, target_label=f"问卷答卷 #{template_id}"),
+    )

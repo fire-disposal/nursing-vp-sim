@@ -25,7 +25,7 @@
 | 2 | **OBS-1** | 让已有 `extra={...}` 真正可见（logging formatter 带字段 + diagnose 采集），半天级可观测收益 | S | 无 | — |
 | 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1 | — · **已完成（本地，待发版）** |
 | 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — · **已完成（本地）：角色/权限、用户（改角色/启停/删/改密/批量）、注册、密钥** |
-| 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | 谁能看（默认仅 super_admin） |
+| 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | — · **已完成（本地，待发版）** |
 | 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — |
 | 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | 是否加 `replied_by` |
 | 8 | **RB-3/4** | RBAC 一致性：权限缓存跨 worker 陈旧（60s）、前端权限陈旧（最长 24h）、`/api/metrics` 无鉴权、缺的权限粒度 | M | A3（键位先定） | 缓存失效走 DB 版本号还是引入消息 |
@@ -116,6 +116,31 @@
 - **后端**：`audit_view`/`audit_export` 权限键（`core/roles.py` 给 super_admin 追加）；`admin/audit_logs.py` 列表 + 导出，**沿用 §6.4**：`@dataclass AuditLogFilters`（时间范围/操作者/action/target_type/outcome/keyword）+ `Depends()`；导出 `MAX_EXPORT_ROWS + 1`。
 - **前端**：`AuditLogsPage`（`FilterToolbar` + 一键复位 + 分页 + 导出按钮 `params={exportParams}`）、`navigation.tsx` 挂到"系统"组、`query-params.ts` 增加 `AuditLogParams`、`permissions.gen.ts` 重生成。
 - **验收**：`audit_view` 缺失时接口 403 且前端被 `RequirePermission` 拦；"筛 N 条 → 导出同集"；导出超限 400；**导出行为本身也落一行审计**（避免"看审计的动作不可审"）。
+
+### 2.5.1 A3 落地与顺带修的两处导航问题（2026-09-26）
+
+- 权限键：`audit_view`（审计日志查看）/`audit_export`（审计日志导出），按决策只授 `super_admin`；
+  存量库由 `data/f1b2c3d4e5a6_grant_audit_permissions.py` 只补这两项（幂等，不做全量 resync）。
+- 后端：`modules/admin/audit_logs.py` —— `AuditLogFilters`（操作者/动作/目标类型/结果/时间范围/关键字）
+  + `_filtered_query` + `list_filtered`；`GET /api/admin/audit-logs` 与
+  `POST /api/admin/audit-logs/export` 共用同一 DTO 与入口（导出仍是 `MAX_EXPORT_ROWS + 1` 交统一判定）。
+- 前端：`AuditLogsPage`（`useListFilters<AuditLogParams>` + `FilterToolbar` + 主题表头 + 导出按钮 `params={exportParams}`）；
+  动作/对象/结果都有中文标签；详情列用等宽码 + tooltip 展示 payload。
+- 判据（真库）：筛选各维度、时间范围与关键字、分页与 total、**列表与导出同集**（导出不得出现未命中的行）、
+  非法日期报 400。
+- **顺带修（导航口径）**：
+  1. 教学看板（`/admin`）导航门禁 `score_review` → `stats_view`：页面数据来自 `/api/admin/stats`（要求 `stats_view`），
+     否则"只有 score_review"的角色能进页面但统计区 403（RB-5 第 1 条）。
+  2. 侧边栏归组（两轮，以后者为准）：
+     - 一轮把 `用户反馈` 从"系统"移到"教学"；**维护者随即指出反馈处理属运维** → 已回退到运维组（本文档保留此往返记录，避免后人再改回去）。
+     - 同时"教学"分组过大（8 项）→ 按"日常 vs 配置"拆出 **教学资源**；最终五分组为：
+       `我的训练`（仅教师端的学生向条目）· `教学`（看板/作业/成绩/训练记录）· `教学资源`（病例库/问卷/评分标准）·
+       `人员`（班级/用户/角色）· `运维`（版本归因/成本管理/运维仪表盘/系统通知/系统反馈/审计日志）。
+       （另：入口与页面标题统一改名为 **"系统反馈"**，副标题写明"用户对系统本身的问题与建议"，
+       消除"是否指教学反馈"的歧义 —— 维护者明确这类反馈针对系统本身。）
+- **教师端侧边栏新增"我的训练"分组**：`SidebarNav` 增加 `groupUserLinks`，Layout 按 `isAdminPermissions` 传入 →
+  教师/管理端把学生向条目（训练/记录/问答/我的）收进独立分组；**学生端渲染不变**（平铺）。判据：
+  `__tests__/core/SidebarNav.test.tsx`（学生端无分组标题 / 教师端有"我的训练"且与管理分组不串味）。
 
 ### 2.6 A4 — 导出与越权留痕（S，覆盖面最广）
 

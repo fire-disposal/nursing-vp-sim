@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, or_
@@ -26,7 +26,7 @@ from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.security import hash_password, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
-from infra.exporter import ColumnDef, export_response
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import (
     MEMBER_ROLE_STUDENT,
     MEMBER_ROLE_TEACHER,
@@ -836,6 +836,16 @@ def _detail(v: StudentDetailView) -> StudentDetail:
     )
 
 
+def _audit_filters(filters: Any) -> dict[str, Any]:
+    """把筛选 DTO 序列化进审计 payload：日后能还原"这次导出当时筛了什么"。"""
+    from dataclasses import asdict
+
+    try:
+        return asdict(filters)
+    except TypeError:
+        return {}
+
+
 @router.get("/users", response_model=PaginatedResponse[UserBrief])
 def list_users(
     current_user: _Manager,
@@ -855,6 +865,7 @@ def export_users(
     current_user: _Manager,
     db: DbSession,
     filters: Annotated[UserFilters, Depends()],
+    request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
@@ -866,7 +877,9 @@ def export_users(
         ColumnDef("角色", value=lambda u: u.role.name if u.role else ""),
         ColumnDef("状态", value=lambda u: "启用" if u.is_active else "已停用"),
     ]
-    return export_response(users, columns, "用户列表", "用户列表", format)
+    audit = ExportAudit(request=request, target_label="用户列表", filters=_audit_filters(filters))
+
+    return export_response(users, columns, "用户列表", "用户列表", format, audit=audit)
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)
