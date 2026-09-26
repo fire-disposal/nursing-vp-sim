@@ -269,3 +269,51 @@ class TestPermissionCacheTtl:
             assert db.query_obj.queries == 2
         finally:
             security._PERM_CACHE_TTL = original_ttl
+
+
+class TestPermissionCacheWindow:
+    def test_ttl_is_short_enough_for_cross_worker_changes(self):
+        """RB-3：缓存是**进程内** dict，而生产跑 `--workers 2` —— 改权限只在写入方失效，
+        另一个 worker 只能等 TTL。TTL 回到分钟级 = "降权后另一个 worker 仍按旧权限放行"，
+        所以这里把上限钉住（数值可调小，不得调大回分钟级）。"""
+        from core.security import _PERM_CACHE_TTL
+
+        assert _PERM_CACHE_TTL <= 5, f"权限缓存 TTL 过大：{_PERM_CACHE_TTL}s（跨 worker 陈旧窗口）"
+
+
+class TestAuthMeExposesPermissions:
+    def test_get_me_fills_permissions_from_role(self):
+        """RB-4：`/auth/me` 必须带 permissions，否则前端降权/升权后最长 24h 仍按旧权限渲染。"""
+        from modules.auth.service import AuthService
+
+        user = _user(
+            username="u1",
+            role=SimpleNamespace(name="admin", display_name="管理员"),
+            display_name="用户一",
+            student_id=None,
+            gender=None,
+            avatar=None,
+            memberships=[],
+            created_at=datetime.now(UTC),
+        )
+        brief = AuthService(_PermDb(["user_manage", "stats_view"])).get_me(user)
+
+        assert brief.permissions == ["stats_view", "user_manage"]
+
+    def test_get_me_without_role_keeps_empty_permissions(self):
+        from modules.auth.service import AuthService
+
+        user = _user(
+            role_id=None,
+            username="u2",
+            role=None,
+            display_name="用户二",
+            student_id=None,
+            gender=None,
+            avatar=None,
+            memberships=[],
+            created_at=datetime.now(UTC),
+        )
+        brief = AuthService(_PermDb([])).get_me(user)
+
+        assert brief.permissions == []

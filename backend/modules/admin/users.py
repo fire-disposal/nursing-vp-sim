@@ -16,7 +16,16 @@ from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.security import hash_password, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
-from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Role, Score, TrainingRecord, User
+from models import (
+    MEMBER_ROLE_STUDENT,
+    MEMBER_ROLE_TEACHER,
+    Class,
+    ClassMembership,
+    Role,
+    Score,
+    TrainingRecord,
+    User,
+)
 from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
@@ -42,6 +51,9 @@ _DETAIL_RECENT_LIMIT = 20
 _DETAIL_DAYS = 30
 # core.roles.SYSTEM_PERMISSIONS 的键名：系统内置最高权限角色的名字
 _SUPER_ADMIN_ROLE = "super_admin"
+# ClassMembership.member_role 的取值白名单：该列是自由字符串，
+# 不校验就能写入任意值（数据质量洞，2026-09-26 审计 RB-9）
+_MEMBER_ROLES = frozenset({MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER})
 
 
 @dataclass
@@ -265,6 +277,11 @@ class UserService:
         self.db.refresh(user)
         return self._brief(user)
 
+    @staticmethod
+    def _assert_member_role(member_role: str) -> None:
+        if member_role not in _MEMBER_ROLES:
+            raise ValidationError(f"无效的成员角色：{member_role}")
+
     def _replace_memberships(self, user: User, desired_items: list[UserMembershipUpdate]) -> None:
         desired: dict[int, str] = {}
         for item in desired_items:
@@ -274,6 +291,7 @@ class UserService:
             cls = self.get_class(class_id)
             if not cls:
                 raise ValidationError(f"班级 {class_id} 不存在")
+            self._assert_member_role(item.member_role)
             desired[class_id] = item.member_role
 
         current = {m.class_id: m for m in user.memberships if m.class_id is not None}
@@ -299,9 +317,13 @@ class UserService:
         if not user:
             raise NotFoundError("用户不存在")
         if user.role is not None:
-            # 删除同样受角色范围与"最后一个超管"约束（此前完全无检查）
+            # 超级管理员账号**不可删除**（政策）：系统内如需收回权限用"停用"，
+            # 删除只留给普通账号。此前没有任何显式守卫，只是恰好被 llm/voice/qa 的外键
+            # 或 assignment.teacher_id RESTRICT 撞成 500 —— 不可预期且理由误导。
+            if user.role.name == _SUPER_ADMIN_ROLE:
+                raise ValidationError("超级管理员账号不可删除：如需收回权限请改用停用（数据保留、可恢复）")
+            # 删除同样受角色范围约束（此前完全无检查）
             self._assert_role_within_scope(current_user, user.role, action="删除账号")
-            self._assert_not_last_active_super_admin(user, action="删除")
         record_count = self.record_count(user_id)
         if record_count > 0:
             raise ValidationError(f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。")
@@ -529,6 +551,9 @@ class UserService:
     def bulk_assign_class(
         self, user_ids: list[int], class_id: int, member_role: str = MEMBER_ROLE_STUDENT
     ) -> BulkAssignClassResult:
+        # 契约层（UserMembershipUpdate）是 Literal[student|teacher]，但批量入口收的是裸 str：
+        # 不在此校验就能把任意字符串写进 ClassMembership.member_role（2026-09-26 审计 RB-9）。
+        self._assert_member_role(member_role)
         target_class = self.get_class(class_id)
         if not target_class:
             raise NotFoundError("班级不存在")

@@ -5410,6 +5410,8 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /** Permissions */
+            permissions?: string[];
         };
         /**
          * UserMembershipItem
@@ -8164,7 +8166,9 @@ export interface operations {
     };
     metrics_api_metrics_get: {
         parameters: {
-            query?: never;
+            query?: {
+                token?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8178,6 +8182,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

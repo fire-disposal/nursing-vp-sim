@@ -121,6 +121,9 @@ def health():
 
 @router.get("/api/metrics")
 def metrics(request: Request):
+    # 刻意不加应用层鉴权（2026-07-10 决策：Prometheus scrape 惯例 + 网络层负责，
+    # 见 deploy/nginx/snippets/block-scanners.conf）。审计研究 RB-8 曾建议加 token，
+    # 经核对与既有决策冲突 → 不改（2026-09-26 裁定）。
     snapshot = getattr(request.app.state, "metrics", None)
     if snapshot is None:
         return JSONResponse(status_code=503, content={"error": "metrics not initialized"})

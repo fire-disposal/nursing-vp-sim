@@ -15,7 +15,11 @@ security = HTTPBearer()
 
 # Process-level permission cache: role_id -> (expires_at_monotonic, frozenset[str])
 _permission_cache: dict[int, tuple[float, frozenset[str]]] = {}
-_PERM_CACHE_TTL = 60
+# TTL 取 2s：缓存是**进程内**的，而生产跑 --workers 2（Dockerfile.backend 的 --workers），
+# 改权限只会在写入的那个 worker 上被 clear_permission_cache 立即失效，另一个 worker 只能等 TTL。
+# 60s 意味着"降权后另一个 worker 最长 60s 仍按旧权限放行"；2s 把窗口压到可接受量级，
+# 同时仍挡住同一请求内的重复查询（2026-09-26 审计 RB-3）。
+_PERM_CACHE_TTL = 2
 
 
 def load_role_permissions(db: Session, role_id: int) -> frozenset[str]:

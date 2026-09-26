@@ -77,6 +77,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 								role_display_name: me.role_display_name || data.role,
 								memberships: me.memberships ?? [],
 							},
+							// /auth/me 现取权限：改权限后刷新页面即可生效（此前最长 24h 陈旧）
+							permissions: me.permissions?.length ? me.permissions : get().permissions,
 						});
 					}
 				} catch {
@@ -125,7 +127,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 						avatar: data.avatar ?? null,
 						memberships: data.memberships ?? [],
 					};
-					set({ user });
+					// 与登录路径一致：顺带刷新权限集合（/auth/me 现取）
+					set({ user, ...(data.permissions?.length ? { permissions: data.permissions } : {}) });
 				} catch (err: unknown) {
 					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）
 					const is401 = (

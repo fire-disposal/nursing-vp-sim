@@ -203,13 +203,21 @@ export default function RolesPage() {
 										</>
 									) : (
 										<>
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={() => startEdit(role)}
-											>
-												编辑权限
-											</Button>
+											{/* 系统角色的权限集合由代码定义（后端对 is_system 必然 403）→ 不再渲染按钮，
+											    否则用户点进去只能拿到"保存失败" */}
+											{!role.is_system ? (
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => startEdit(role)}
+												>
+													编辑权限
+												</Button>
+											) : (
+												<Text size="xs" c="dimmed">
+													系统角色权限固定
+												</Text>
+											)}
 											{!role.is_system && (
 												<Button
 													size="sm"

@@ -257,14 +257,16 @@ class TestHighPrivilegeAccountLifecycle:
         assert exc.value.status_code == 403
         assert db.get(User, target.id).is_active is True
 
-    def test_admin_cannot_delete_super_admin(self, db):
+    def test_super_admin_account_cannot_be_deleted_at_all(self, db):
+        """政策：超管账号不可删除（收回权限走停用）。此前无守卫，只是被外键撞成 500。"""
         actor = _make_user(db, "admin-del", "admin")
         target = _make_user(db, "root-del", "super_admin")
 
-        with pytest.raises(AuthError) as exc:
+        with pytest.raises(ValidationError) as exc:
             UserService(db).delete(target.id, actor)
 
-        assert exc.value.status_code == 403
+        assert exc.value.status_code == 400
+        assert "不可删除" in str(exc.value)
         assert db.get(User, target.id) is not None
 
     def test_cannot_deactivate_last_active_super_admin(self, db):
@@ -279,16 +281,30 @@ class TestHighPrivilegeAccountLifecycle:
         assert "最后一个启用中的超级管理员" in str(exc.value)
         assert db.get(User, target.id).is_active is True
 
-    def test_cannot_delete_last_active_super_admin(self, db):
+    def test_super_admin_not_deletable_even_with_peer_present(self, db):
+        """即使还有别的超管，也不允许删除某个超管账号（政策是无条件不可删）。"""
         _make_role_with_perms(db, "platform_admin2", SYSTEM_PERMISSIONS["super_admin"])
         actor = _make_user(db, "platform-actor2", "platform_admin2")
+        _make_user(db, "root-other", "super_admin")
         target = _make_user(db, "root-only2", "super_admin")
 
         with pytest.raises(ValidationError) as exc:
             UserService(db).delete(target.id, actor)
 
-        assert "最后一个启用中的超级管理员" in str(exc.value)
+        assert "不可删除" in str(exc.value)
         assert db.get(User, target.id) is not None
+
+    def test_bulk_assign_rejects_unknown_member_role(self, db):
+        """RB-9：``bulk_assign_class`` 收的是裸 ``str``（不像 UserMembershipUpdate 是 Literal），
+        必须有白名单，否则任意字符串会落进 ClassMembership.member_role。"""
+        _make_user(db, "student-role", "student")
+        cls = _make_class(db, "白名单班")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db).bulk_assign_class([], cls.id, member_role="root")
+
+        assert "无效的成员角色" in str(exc.value)
+        assert db.query(ClassMembership).filter(ClassMembership.class_id == cls.id).count() == 0
 
     def test_super_admin_can_deactivate_peer_while_oneself_active(self, db):
         # 正对照：还有别的启用超管时，超管之间停用/删除不应被兜底守卫挡住

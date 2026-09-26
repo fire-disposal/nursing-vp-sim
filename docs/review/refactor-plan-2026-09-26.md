@@ -107,6 +107,13 @@
 - 病例发布/归档/删除/`set_open`、评分复核与 force 重算（保留"旧分与旧复核将被删除"的 `before` 快照）、反馈回复（**是否新增 `feedbacks.replied_by` 待决策**）、问卷模板 CRUD 与病例绑定、班级与成员、系统通知。
 - **验收**：每域一条端到端 smoke：执行动作 → 查 `audit_logs` 得到预期 action 与关键字段。
 
+#### 2.7.1 裁定：`/api/metrics` 不加应用层鉴权（与 RB-8 建议冲突，按既有决策）
+
+审计研究 §RB-8 建议给 `/api/metrics` 加 token/RBAC 守卫。核对后**不改**：仓库 2026-07-10 已有显式决策
+（`docs/superpowers/specs/2026-07-10-tier1-bugfix-design.md:104`："Prometheus scrape 无认证是业界惯例，应用层不应对网络层安全做过度防御"），
+并有网络层落地（`deploy/nginx/snippets/block-scanners.conf:12` 单独给该 location 规则），运维手册
+（`docs/ops/single-instance-migration.md:47`）也依赖它可直接读取。**结论：保留现状**，把"不修"的理由写进代码注释与本文档，避免后续反复。
+
 ### 2.8 RB-3/4 — RBAC 一致性与粒度（M）
 
 - 权限缓存跨 worker 最长 60s 陈旧（`--workers 2`）、前端权限最长 24h 陈旧（`/auth/me` 不返回 permissions）、前后端门禁错配 3 处、系统角色上仍渲染"编辑权限"按钮、`/api/metrics` 无鉴权。

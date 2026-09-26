@@ -137,7 +137,11 @@ class AuthService:
         )
 
     def get_me(self, current_user: User) -> UserBrief:
-        return self._user_to_brief(current_user)
+        brief = self._user_to_brief(current_user)
+        # 权限集合由角色决定且可能刚被改动 → 每次 /auth/me 现取（load_role_permissions 自身有 2s 缓存）
+        if current_user.role_id is not None:
+            brief.permissions = sorted(load_role_permissions(self.db, current_user.role_id))
+        return brief
 
     def update_me(self, req: UserProfileUpdateRequest, current_user: User) -> UserBrief:
         if req.display_name is not None:

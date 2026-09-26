@@ -3,6 +3,10 @@ import logging.config
 import sys
 from typing import ClassVar
 
+# 业务代码通过 log.info(..., extra={...}) 传入的结构化字段，统一追加到日志行尾部。
+# 缺失时**不输出该键**：logging 默认 Formatter 遇到未提供的 %(key)s 会抛错，而 extra 是可选携带的。
+_TRACKED_EXTRA: tuple[str, ...] = ("request_id", "user_id", "user_role")
+
 
 class _ColoredFormatter(logging.Formatter):
     _RESET: ClassVar[str] = "\033[0m"
@@ -19,6 +23,9 @@ class _ColoredFormatter(logging.Formatter):
         lvl_color = self._COLORS.get(record.levelno, "")
         record.levelname = f"{lvl_color}{record.levelname:<8}{self._RESET}"
         record.name = f"{self._NAME_COLOR}{record.name}{self._RESET}"
+        record.extra_fields = " ".join(
+            f"{key}={value}" for key in _TRACKED_EXTRA if (value := getattr(record, key, None)) not in (None, "")
+        )
         return super().format(record)
 
 
@@ -30,7 +37,7 @@ def setup_logging():
             "formatters": {
                 "default": {
                     "()": "infra.logging_setup._ColoredFormatter",
-                    "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
+                    "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s %(extra_fields)s",
                     "datefmt": "%H:%M:%S",
                 },
             },
