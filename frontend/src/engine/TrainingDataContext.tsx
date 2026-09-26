@@ -1,13 +1,22 @@
 import { createContext, useContext, useMemo } from "react";
 import type { components } from "@/api/api-types.gen";
+import { type SessionManifest, parseSessionManifest } from "./manifest";
+import type { MessageCorrectionState } from "./training-record-types";
 import type { ChatMessage, PatientData } from "./types";
-import type { TrainingRecordDetail } from "./training-record-types";
 
 // ── Raw record from API (single source of truth) ──
 
 type TrainingRecord = components["schemas"]["TrainingRecordDetail"];
-const EMPTY_FEATURES: Record<string, boolean> = {};
 
+const EMPTY_FEATURES: Record<string, boolean> = {};
+const EMPTY_INQUIRIES: string[] = [];
+const EMPTY_EXAM_RESULTS: ExamResultEntry[] = [];
+const DEFAULT_META: RecordMeta = {
+  mode: "guided",
+  hideCaseInfo: false,
+  remainingSeconds: null,
+  requiredInquiries: EMPTY_INQUIRIES,
+};
 
 const TrainingDataCtx = createContext<TrainingRecord | null>(null);
 
@@ -25,8 +34,19 @@ export function TrainingDataProvider({
   );
 }
 
+/** 原始查询数据（RQ record detail）。派生 hook 全部只读它这一份，不复制到别处。 */
 export function useTrainingData(): TrainingRecord | null {
   return useContext(TrainingDataCtx);
+}
+
+// ── 窄化工具：服务端字段是 JSON（`[key: string]: unknown`），逐个收敛 ──
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function optionalNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 // ── Derived: PatientData ──
@@ -75,11 +95,118 @@ export function useRecordFeatures(): Record<string, boolean> {
   return useMemo(() => record?.features ?? EMPTY_FEATURES, [record]);
 }
 
-// ── Derived: time limit / countdown anchor ──
+// ── Derived: parsed session manifest ──
 
-export function useTimeLimit(): number {
+/**
+ * 服务端解析出的会话 manifest：Activity 可用性 / 产物 / 完成条件的唯一来源。
+ *
+ * 直接解析原始 record 的 `manifest` 字段，不在 store 里复制第二份
+ * （否则 RQ refetch 与本地副本会形成双真相）。
+ */
+export function useSessionManifest(): SessionManifest | null {
   const record = useTrainingData();
-  return record?.time_limit ?? 20;
+  return useMemo(() => parseSessionManifest(record?.manifest), [record]);
+}
+
+// ── Derived: record metadata（模式 / 盲盒 / 倒计时锚点 / 问诊清单） ──
+
+export interface RecordMeta {
+  mode: string;
+  hideCaseInfo: boolean;
+  remainingSeconds: number | null;
+  requiredInquiries: string[];
+}
+
+export function useRecordMeta(): RecordMeta {
+  const record = useTrainingData();
+  return useMemo(() => {
+    if (!record) return DEFAULT_META;
+    return {
+      mode: record.mode || "guided",
+      hideCaseInfo: record.hide_case_info === true,
+      remainingSeconds: optionalNumber(record.remaining_seconds),
+      requiredInquiries: record.required_inquiries ?? EMPTY_INQUIRIES,
+    };
+  }, [record]);
+}
+
+// ── Derived: message correction（服务端额度；乐观修正后的本地投影在 store） ──
+
+/** 服务端下发的修正额度快照（`record.message_correction`）。 */
+export function useMessageCorrection(): MessageCorrectionState | null {
+  const record = useTrainingData();
+  return useMemo(() => {
+    const raw = record?.message_correction;
+    if (!raw || typeof raw !== "object") return null;
+    const eligible = raw.eligible_last_message_id;
+    return {
+      used: optionalNumber(raw.used) ?? 0,
+      remaining: optionalNumber(raw.remaining) ?? 0,
+      eligible_last_message_id:
+        typeof eligible === "string" || typeof eligible === "number" ? eligible : null,
+    };
+  }, [record]);
+}
+
+// ── Derived: persisted physical-exam results ──
+
+export interface ExamResultEntry {
+  type: string;
+  label?: string;
+  value: string;
+  unit?: string;
+  status?: string;
+  interpretation?: string;
+}
+
+/** 已写入记录的查体结果（`record.exam_results`），窄化掉 `unknown` 值。 */
+export function useExamResults(): ExamResultEntry[] {
+  const record = useTrainingData();
+  return useMemo(() => {
+    const raw = record?.exam_results;
+    if (!Array.isArray(raw)) return EMPTY_EXAM_RESULTS;
+    const parsed: ExamResultEntry[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const item = entry as Record<string, unknown>;
+      const type = optionalString(item.type);
+      if (!type) continue;
+      parsed.push({
+        type,
+        label: optionalString(item.label),
+        value: item.value == null ? "" : String(item.value),
+        unit: optionalString(item.unit),
+        status: optionalString(item.status),
+        interpretation: optionalString(item.interpretation),
+      });
+    }
+    return parsed;
+  }, [record]);
+}
+
+// ── Derived: nursing-record seed（本地草稿的起点，草稿本身在 store） ──
+
+export interface NursingRecordSeed {
+  sheet: Record<string, string> | null;
+  submittedAt: string | null;
+}
+
+/** 服务端护理记录的快照：只用于初始化/刷新会话内的本地草稿。 */
+export function useNursingRecordSeed(): NursingRecordSeed {
+  const record = useTrainingData();
+  return useMemo(() => {
+    const raw = record?.nursing_record_sheet;
+    let sheet: Record<string, string> | null = null;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      sheet = {};
+      for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+          sheet[key] = String(value);
+        }
+      }
+    }
+    return { sheet, submittedAt: record?.nursing_record_submitted_at ?? null };
+  }, [record]);
 }
 
 // ── Derived: emotion/scene seed data (was _restoreRecord in TrainingEngine) ──
@@ -123,9 +250,4 @@ export function useEmotionSeed(): EmotionSeed | null {
 export function useRecordStatus(): string | undefined {
   const record = useTrainingData();
   return record?.status;
-}
-
-export function useRecordAsDetail(): TrainingRecordDetail | null {
-  const record = useTrainingData();
-  return record as TrainingRecordDetail | null;
 }

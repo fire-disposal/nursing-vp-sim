@@ -3,12 +3,15 @@
  *
  * 消费者用 selector 精确订阅，避免全量重渲染：
  *   useTrainingStore((s) => s.messages)   // only re-renders on messages change
- *   useTrainingStore((s) => s.patient)    // only re-renders on patient change
+ *   useTrainingStore((s) => s.emotion4D)  // only re-renders on emotion change
+ *
+ * 这里只放**会话瞬态**（流式消息 / 情绪 / 头像 / 护理记录本地草稿 / bus 等）。
+ * 服务端事实（patient / features / manifest / timeLimit / recordDetail）一律由
+ * `TrainingDataContext` 从 RQ 原始 record 派生，本 store 不复制。
  */
 import { create } from "zustand";
-import { type SessionManifest, parseSessionManifest } from "@/engine/manifest";
-import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import type { SessionRecordDetail } from "@/engine/training-record-types";
+import type { MessageCorrectionState } from "@/engine/training-record-types";
+import type { ChatMessage, MessageBus } from "@/engine/types";
 
 export type EmotionState =
 	| "withdrawn"
@@ -95,13 +98,8 @@ export type NursingRecordSheet = Record<string, string>;
 export interface TrainingStore {
 	bus: MessageBus | null;
 	recordId: string;
-	patient: PatientData | null;
-	/** 内置特性开关（emotion / patient_initiative / inquiry_progress）——Activity 可用性不在这里 */
-	features: Record<string, boolean>;
-	/** 服务端解析出的会话 manifest：可用性 / 产物 / 完成条件的唯一来源 */
-	manifest: SessionManifest | null;
-	timeLimitMinutes: number;
-	recordDetail: SessionRecordDetail | null;
+	/** 消息修正额度：服务端下发 + 乐观修正后立即生效的本地投影（不是 recordDetail 副本） */
+	messageCorrection: MessageCorrectionState | null;
 	messages: ChatMessage[];
 	sending: boolean;
 	ttsAutoPlay: boolean;
@@ -122,12 +120,14 @@ export interface TrainingStore {
 	init: (data: {
 		bus: MessageBus;
 		recordId: string;
-		patient: PatientData;
-		features: Record<string, boolean>;
-		timeLimitMinutes: number;
-		recordDetail: SessionRecordDetail | null;
 		initialMessages: ChatMessage[];
 		emotionSeed?: { trust: number; anxiety: number; irritation: number; cooperation: number; dominant_state?: string } | null;
+		/** 会话瞬态的窄化种子（本地草稿 / 修正额度）：只从原始 record 取，不整份复制 */
+		seed: {
+			nursingRecordSheet: NursingRecordSheet | null;
+			nursingRecordSubmittedAt: string | null;
+			messageCorrection: MessageCorrectionState | null;
+		};
 	}) => void;
 	reset: () => void;
 
@@ -161,11 +161,7 @@ export interface TrainingStore {
 const initialTrainingState = {
 	bus: null,
 	recordId: "",
-	patient: null,
-	features: {} as Record<string, boolean>,
-	manifest: null,
-	timeLimitMinutes: 30,
-	recordDetail: null,
+	messageCorrection: null as MessageCorrectionState | null,
 	messages: [] as ChatMessage[],
 	sending: false,
 	ttsAutoPlay: true,
@@ -188,34 +184,32 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 
 	init(data) {
 		const cur = get();
+		const serverSheet = data.seed.nursingRecordSheet;
+		const serverSubmittedAt = data.seed.nursingRecordSubmittedAt;
+		const serverCorrection = data.seed.messageCorrection;
 		// 同一记录的 RQ refetch / React 重挂载必须保留会话内消息，但也必须
 		// 重新绑定本次 TrainingEngine 的 bus；否则工具仍向已卸载引擎的 bus 发消息。
-		if (cur.recordId === data.recordId && cur.messages.length > 0) {
+		// 本地瞬态（未保存的草稿、乐观修正额度）优先于服务端快照，refetch 不得回退。
+		if (cur.recordId === data.recordId) {
+			// 修正额度以服务端为准（额度用尽 / 工具操作后失效必须立即看到），
+			// 但刚完成、refetch 尚未包含的乐观修正不能被更早发起的响应回退。
+			const localCorrection = cur.messageCorrection;
 			set({
 				bus: data.bus,
-				patient: data.patient,
-				features: data.features,
-				manifest: parseSessionManifest(data.recordDetail?.manifest),
-				timeLimitMinutes: data.timeLimitMinutes,
-				recordDetail: data.recordDetail,
+				messageCorrection:
+					localCorrection && localCorrection.used > (serverCorrection?.used ?? -1)
+						? localCorrection
+						: (serverCorrection ?? localCorrection),
 				nursingRecordDraft: cur.nursingRecordDirty
 					? cur.nursingRecordDraft
-					: ((data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ??
-						cur.nursingRecordDraft),
-				nursingRecordSubmittedAt:
-					(data.recordDetail?.nursing_record_submitted_at as string | null | undefined) ??
-					cur.nursingRecordSubmittedAt,
+					: (serverSheet ?? cur.nursingRecordDraft),
+				nursingRecordSubmittedAt: serverSubmittedAt ?? cur.nursingRecordSubmittedAt,
 			});
 			return;
 		}
 		set({
 			bus: data.bus,
 			recordId: data.recordId,
-			patient: data.patient,
-			features: data.features,
-			manifest: parseSessionManifest(data.recordDetail?.manifest),
-			timeLimitMinutes: data.timeLimitMinutes,
-			recordDetail: data.recordDetail,
 			messages: data.initialMessages,
 			sending: false,
 			trainingEnded: false,
@@ -228,11 +222,10 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			irritation: data.emotionSeed?.irritation ?? 50,
 			cooperation: data.emotionSeed?.cooperation ?? 50,
 			emotion4D: (data.emotionSeed?.dominant_state as Emotion4DLabel) ?? "neutral",
-			nursingRecordDraft:
-				(data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ?? null,
+			messageCorrection: data.seed.messageCorrection,
+			nursingRecordDraft: serverSheet,
 			nursingRecordDirty: false,
-			nursingRecordSubmittedAt:
-				(data.recordDetail?.nursing_record_submitted_at as string | null | undefined) ?? null,
+			nursingRecordSubmittedAt: serverSubmittedAt,
 		});
 	},
 
@@ -294,21 +287,11 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 				}
 				return m;
 			}),
-			recordDetail: s.recordDetail
-				? {
-						...s.recordDetail,
-						message_correction: {
-							...(s.recordDetail.message_correction ?? {}),
-							...(payload.corrections_used !== undefined
-								? { used: payload.corrections_used }
-								: {}),
-							...(payload.corrections_remaining !== undefined
-								? { remaining: payload.corrections_remaining }
-								: {}),
-							eligible_last_message_id: payload.student_id ?? null,
-						},
-					}
-				: s.recordDetail,
+			messageCorrection: {
+				used: payload.corrections_used ?? s.messageCorrection?.used ?? 0,
+				remaining: payload.corrections_remaining ?? s.messageCorrection?.remaining ?? 0,
+				eligible_last_message_id: payload.student_id ?? null,
+			},
 			sending: false,
 		}));
 	},

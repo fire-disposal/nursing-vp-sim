@@ -6,23 +6,22 @@ import {
 	getTrainingState,
 	useTrainingStore,
 } from "@/stores/trainingStore";
+import type { ChatMessage } from "@/engine/types";
 
-const PATIENT = {
-	name: "王建国",
-	age: 68,
-	gender: "male" as const,
-	caseTitle: "慢阻肺",
-};
-
-function makeInit(overrides: Record<string, unknown> = {}) {
+function makeInit(
+	overrides: Record<string, unknown> = {},
+	seedOverrides: Record<string, unknown> = {},
+) {
 	return {
 		bus: { on: () => () => {} } as never,
 		recordId: "rec-1",
-		patient: PATIENT,
-		features: { quiz: true },
-		timeLimitMinutes: 20,
-		recordDetail: null,
-		initialMessages: [],
+		initialMessages: [] as ChatMessage[],
+		seed: {
+			nursingRecordSheet: null,
+			nursingRecordSubmittedAt: null,
+			messageCorrection: null,
+			...seedOverrides,
+		},
 		...overrides,
 	};
 }
@@ -32,14 +31,33 @@ beforeEach(() => {
 });
 
 describe("init / reset", () => {
-	it("init populates state and defaults emotion", () => {
+	it("init populates session state and defaults emotion", () => {
 		useTrainingStore.getState().init(makeInit());
 		const s = getTrainingState();
 		expect(s.recordId).toBe("rec-1");
-		expect(s.patient).toEqual(PATIENT);
+		expect(s.messages).toEqual([]);
 		expect(s.emotion).toBe("neutral");
 		expect(s.trust).toBe(50);
 		expect(s.emotion4D).toBe("neutral");
+		expect(s.messageCorrection).toBeNull();
+	});
+
+	it("init 只吃窄化种子：本地草稿与修正额度就位，服务端事实不进 store", () => {
+		useTrainingStore.getState().init(
+			makeInit({}, {
+				nursingRecordSheet: { subjective: "头晕三天" },
+				nursingRecordSubmittedAt: "2026-09-25T02:00:00+00:00",
+				messageCorrection: { used: 0, remaining: 3, eligible_last_message_id: null },
+			}),
+		);
+		const s = getTrainingState();
+		expect(s.nursingRecordDraft).toEqual({ subjective: "头晕三天" });
+		expect(s.nursingRecordDirty).toBe(false);
+		expect(s.nursingRecordSubmittedAt).toBe("2026-09-25T02:00:00+00:00");
+		expect(s.messageCorrection).toEqual({ used: 0, remaining: 3, eligible_last_message_id: null });
+		expect("recordDetail" in s).toBe(false);
+		expect("manifest" in s).toBe(false);
+		expect("patient" in s).toBe(false);
 	});
 
 	it("rebinds the message bus without replaying same-record history", () => {
@@ -58,6 +76,90 @@ describe("init / reset", () => {
 		const state = getTrainingState();
 		expect(state.bus).toBe(nextBus);
 		expect(state.messages).toEqual(messages);
+	});
+
+	it("同一记录 refetch 不覆盖未保存的草稿与乐观修正额度", () => {
+		useTrainingStore.getState().init(
+			makeInit({}, {
+				nursingRecordSheet: { subjective: "服务端旧值" },
+				messageCorrection: { used: 0, remaining: 3, eligible_last_message_id: null },
+			}),
+		);
+		useTrainingStore.getState().updateNursingRecordField("subjective", "学生刚写的内容");
+		useTrainingStore.getState().addStudentMessage("原话");
+		const sid = getTrainingState().messages[0].id as string;
+		const snapshot = useTrainingStore.getState().beginCorrection(sid, "新话")!;
+		useTrainingStore
+			.getState()
+			.finalizeCorrection(snapshot, { student_id: 101, patient_id: 202, corrections_used: 1, corrections_remaining: 2 });
+
+		// refetch 带回服务端旧快照
+		useTrainingStore.getState().init(
+			makeInit({ bus: { on: () => () => {} } as never }, {
+				nursingRecordSheet: { subjective: "服务端旧值" },
+				messageCorrection: { used: 0, remaining: 3, eligible_last_message_id: null },
+			}),
+		);
+
+		const s = getTrainingState();
+		expect(s.nursingRecordDraft).toEqual({ subjective: "学生刚写的内容" });
+		expect(s.nursingRecordDirty).toBe(true);
+		expect(s.messageCorrection).toEqual({ used: 1, remaining: 2, eligible_last_message_id: 101 });
+	});
+
+	it("同一记录无对话时 refetch 仍不覆盖未保存草稿", () => {
+		useTrainingStore.getState().init(
+			makeInit({}, { nursingRecordSheet: { subjective: "服务端旧值" } }),
+		);
+		useTrainingStore.getState().updateNursingRecordField("subjective", "尚未问诊的本地草稿");
+
+		useTrainingStore.getState().init(
+			makeInit({}, { nursingRecordSheet: { subjective: "服务端新值" } }),
+		);
+
+		const state = getTrainingState();
+		expect(state.messages).toEqual([]);
+		expect(state.nursingRecordDraft).toEqual({ subjective: "尚未问诊的本地草稿" });
+		expect(state.nursingRecordDirty).toBe(true);
+	});
+
+	it("同一记录 refetch 采纳服务端更新的修正额度（工具操作后失效）", () => {
+		useTrainingStore.getState().init(
+			makeInit({}, {
+				messageCorrection: { used: 1, remaining: 2, eligible_last_message_id: 101 },
+			}),
+		);
+		useTrainingStore.getState().addStudentMessage("问诊");
+
+		useTrainingStore.getState().init(
+			makeInit({}, {
+				messageCorrection: { used: 1, remaining: 2, eligible_last_message_id: null },
+			}),
+		);
+
+		expect(getTrainingState().messageCorrection).toEqual({
+			used: 1,
+			remaining: 2,
+			eligible_last_message_id: null,
+		});
+	});
+
+	it("同一记录 refetch 用服务端草稿刷新未编辑的本地草稿", () => {
+		useTrainingStore.getState().init(
+			makeInit({}, { nursingRecordSheet: { subjective: "服务端旧值" } }),
+		);
+		useTrainingStore.getState().addStudentMessage("问诊");
+
+		useTrainingStore.getState().init(
+			makeInit({}, {
+				nursingRecordSheet: { subjective: "服务端新值" },
+				nursingRecordSubmittedAt: "2026-09-25T03:00:00+00:00",
+			}),
+		);
+
+		const s = getTrainingState();
+		expect(s.nursingRecordDraft).toEqual({ subjective: "服务端新值" });
+		expect(s.nursingRecordSubmittedAt).toBe("2026-09-25T03:00:00+00:00");
 	});
 
 	it("init applies v3 4D emotionSeed", () => {
@@ -85,7 +187,7 @@ describe("init / reset", () => {
 		useTrainingStore.getState().reset();
 		const s = getTrainingState();
 		expect(s.recordId).toBe("");
-		expect(s.patient).toBeNull();
+		expect(s.messageCorrection).toBeNull();
 		expect(s.messages).toEqual([]);
 		expect(s.trainingEnded).toBe(false);
 	});
@@ -171,9 +273,9 @@ describe("correction", () => {
 		expect(getTrainingState().messages[0].content).toBe("原话");
 	});
 
-	it("finalizeCorrection assigns server ids and updates recordDetail", () => {
+	it("finalizeCorrection assigns server ids and updates the local correction quota", () => {
 		useTrainingStore.setState({
-			recordDetail: { message_correction: { used: 0, remaining: 3, eligible_last_message_id: null } },
+			messageCorrection: { used: 0, remaining: 3, eligible_last_message_id: null },
 		});
 		useTrainingStore.getState().addStudentMessage("原话");
 		const sid = getTrainingState().messages[0].id as string;
@@ -185,7 +287,7 @@ describe("correction", () => {
 		expect(s.messages[0].id).toBe("101");
 		expect(s.messages[1].id).toBe("202");
 		expect(s.messages[1].streaming).toBe(false);
-		expect(s.recordDetail?.message_correction).toMatchObject({
+		expect(s.messageCorrection).toEqual({
 			used: 1,
 			remaining: 2,
 			eligible_last_message_id: 101,

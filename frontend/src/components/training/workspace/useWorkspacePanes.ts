@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { type ManifestActivity, type ManifestArtifact, availableActivities } from "@/engine/manifest";
-import { useTrainingStore } from "@/stores/trainingStore";
+import { useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { INQUIRY_PANEL_ID, QUIZ_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
 import { WIDE_ACTIVITY_RENDERERS } from "./renderers";
 
@@ -21,10 +21,9 @@ export interface WorkspacePane {
 }
 
 export function useWorkspacePanes(): WorkspacePane[] {
-	const manifest = useTrainingStore((state) => state.manifest);
-	const recordDetail = useTrainingStore((state) => state.recordDetail);
-	const mode = recordDetail?.mode ?? "guided";
-	const inquiryCount = recordDetail?.required_inquiries?.length ?? 0;
+	const manifest = useSessionManifest();
+	const { mode, requiredInquiries } = useRecordMeta();
+	const inquiryCount = requiredInquiries.length;
 
 	return useMemo(() => {
 		const panes: WorkspacePane[] = availableActivities(manifest).map((activity) => ({
@@ -58,7 +57,7 @@ export function useInitialActivityPanel() {
 
 /** 该 activity 的产物状态（`manifest.artifacts[artifact_kind]`）；无产物/未下发 → undefined。 */
 export function useActivityArtifact(activity: ManifestActivity | null): ManifestArtifact | undefined {
-	const manifest = useTrainingStore((state) => state.manifest);
+	const manifest = useSessionManifest();
 	if (!activity?.artifact_kind) return undefined;
 	return manifest?.artifacts[activity.artifact_kind];
 }

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { availableActivities } from "@/engine/manifest";
+import { useInitialMessages, useExamResults, usePatientData, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
@@ -22,26 +23,24 @@ export function ChatArea({
 	onCorrectLast,
 }: ChatAreaProps) {
   const messages = useTrainingStore(s => s.messages);
-  const patient = useTrainingStore(s => s.patient)!;
+  const patient = usePatientData()!;
   const sending = useTrainingStore(s => s.sending);
   const trainingEnded = useTrainingStore(s => s.trainingEnded);
   const bus = useTrainingStore(s => s.bus)!;
-  const manifest = useTrainingStore(s => s.manifest);
-  const recordDetail = useTrainingStore(s => s.recordDetail);
+  const manifest = useSessionManifest();
+  // 首帧空态判定也看服务端记录（历史学生发言 / 已采集查体），不复制进 store
+  const initialMessages = useInitialMessages();
+  const examResults = useExamResults();
   // 空态：本病例没有可用的床旁能力（也没有问诊清单）时，明确告知本次训练以对话为主
   const hasWorkspacePane = useWorkspacePanes().length > 0;
   const hasConversationActivity =
     messages.some(m => m.role === "student") ||
-    recordDetail?.messages?.some(m => m.role === "student") ||
-    (recordDetail?.exam_results?.length ?? 0) > 0;
-  const greeting = useMemo(() => {
-    const msgs = recordDetail?.messages;
-    if (msgs && msgs.length > 0) {
-      const firstPatient = msgs.find(m => m.role === "patient");
-      if (firstPatient) return firstPatient.content;
-    }
-    return undefined;
-  }, [recordDetail]);
+    initialMessages.some(m => m.role === "student") ||
+    examResults.length > 0;
+  const greeting = useMemo(
+    () => initialMessages.find(m => m.role === "patient")?.content,
+    [initialMessages],
+  );
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
   const isShort = useShortViewport();
 

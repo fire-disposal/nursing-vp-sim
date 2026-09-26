@@ -1,8 +1,8 @@
 import { IconCircle, IconCircleCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Box, Group, Text } from "@mantine/core";
+import { useRecordMeta } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
-import type { WorkspacePanelProps } from "@/components/training/workspace/contract";
 import type { ChatMessage } from "@/engine/types";
 import {
 	PROGRESS_BG,
@@ -13,13 +13,13 @@ import {
 } from "./inquiryProgress";
 
 
-export default function InquiryTool(props: WorkspacePanelProps) {
+/**
+ * 内置问诊清单面板（非 Activity）：清单来自原始 record 的 `required_inquiries`，
+ * 关键词命中只做学生自检，不参与完成判定。因此它不读 manifest，也不接面板 props。
+ */
+export default function InquiryTool() {
 	const messages = useTrainingStore((s) => s.messages);
-
-	const inquiries = useMemo(
-		() => props.recordDetail?.required_inquiries ?? [],
-		[props.recordDetail?.required_inquiries],
-	);
+	const { requiredInquiries: inquiries } = useRecordMeta();
 
 	const studentText = useMemo(
 		() =>

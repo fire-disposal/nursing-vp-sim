@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen } from "@/__tests__/render";
 import { beforeEach, describe, expect, it } from "vitest";
+import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
 import InquiryTool from "@/components/training/tools/InquiryTool";
 import { InquiryProgressChip } from "@/components/training/InquiryProgressChip";
 import { createMessageBus } from "@/engine/MessageBus";
@@ -12,10 +13,14 @@ const INQUIRIES = ["胸闷持续时间与诱因", "既往心脏病史", "吸烟�
 /** 只命中第一项（“胸闷” bigram）。 */
 const STUDENT_MESSAGE = { id: "m1", role: "student" as const, content: "请问胸闷多久了" };
 
-function setStore(mode: string, messages: Array<Record<string, unknown>>) {
+/** 面板只从原始 record 读病例事实（不再经 store 复制）。 */
+function recordWith(mode: string, requiredInquiries: string[] = INQUIRIES) {
+	return makeRecord({ mode, required_inquiries: requiredInquiries });
+}
+
+function setMessages(messages: Array<Record<string, unknown>>) {
 	useTrainingStore.setState({
 		bus: createMessageBus(),
-		recordDetail: { required_inquiries: INQUIRIES, mode } as never,
 		messages: messages as never,
 	});
 }
@@ -26,13 +31,12 @@ beforeEach(() => {
 
 describe("问诊任务清单", () => {
 	it("按关键词命中标记已覆盖项，并显示完成度", () => {
-		setStore("guided", [STUDENT_MESSAGE]);
+		setMessages([STUDENT_MESSAGE]);
 		render(
-			<InquiryTool
-				bus={createMessageBus()}
-				recordId="1"
-				recordDetail={{ required_inquiries: INQUIRIES, mode: "guided" } as never}
-			/>,
+			withTrainingData(
+				<InquiryTool />,
+				recordWith("guided"),
+			),
 		);
 
 		expect(screen.getByText("1/3")).toBeInTheDocument();
@@ -42,17 +46,20 @@ describe("问诊任务清单", () => {
 
 	it("病例未配置清单时给出空态而不是空列表", () => {
 		render(
-			<InquiryTool bus={createMessageBus()} recordId="1" recordDetail={{ required_inquiries: [] } as never} />,
+			withTrainingData(
+				<InquiryTool />,
+				recordWith("guided", []),
+			),
 		);
 
 		expect(screen.getByText("该病例未配置问诊清单")).toBeInTheDocument();
 	});
 
 	it("状态栏清单入口显示完成度，点击后打开清单面板", async () => {
-		setStore("guided", [STUDENT_MESSAGE]);
+		setMessages([STUDENT_MESSAGE]);
 		useWorkspaceStore.setState({ openPanelId: null });
 
-		render(<InquiryProgressChip />);
+		render(withTrainingData(<InquiryProgressChip />, recordWith("guided")));
 		const chip = screen.getByTitle(/问诊任务清单 1\/3/);
 		await userEvent.click(chip);
 
@@ -60,8 +67,8 @@ describe("问诊任务清单", () => {
 	});
 
 	it("独立考核不出现清单入口", () => {
-		setStore("assessment", [STUDENT_MESSAGE]);
-		render(<InquiryProgressChip />);
+		setMessages([STUDENT_MESSAGE]);
+		render(withTrainingData(<InquiryProgressChip />, recordWith("assessment")));
 
 		expect(screen.queryByTitle(/问诊任务清单/)).toBeNull();
 	});

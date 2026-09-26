@@ -31,12 +31,12 @@ import {
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
 	usePatientData,
-	useRecordFeatures,
+	useSessionManifest,
 	useInitialMessages,
-	useTimeLimit,
 	useEmotionSeed,
 	useRecordStatus,
-	useRecordAsDetail,
+	useMessageCorrection,
+	useNursingRecordSeed,
 } from "./TrainingDataContext";
 import { ScoreManager, endFailureMessage } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
@@ -65,14 +65,13 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 
 	// ── Read raw data from RQ-backed context (single source: TrainingEntry's query) ──
 	const patient = usePatientData();
-	const features = useRecordFeatures();
 	const initialMessages = useInitialMessages();
-	const timeLimit = useTimeLimit();
 	const emotionSeed = useEmotionSeed();
 	const recordStatus = useRecordStatus();
-	const recordDetail = useRecordAsDetail();
-	/** 服务端 manifest：Activity 可用性 / 完成条件的唯一来源（前端不再自算） */
-	const manifest = useTrainingStore((state) => state.manifest);
+	/** 服务端 manifest：Activity 可用性 / 完成条件的唯一来源（前端不再自算，也不进 store） */
+	const manifest = useSessionManifest();
+	const messageCorrection = useMessageCorrection();
+	const nursingRecordSeed = useNursingRecordSeed();
 	const nursingRecordAvailable =
 		manifest?.activities.some(
 			(activity) =>
@@ -100,17 +99,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		store.init({
 			bus: busRef.current,
 			recordId,
-			patient,
-			features,
-			timeLimitMinutes: timeLimit,
-			recordDetail,
 			initialMessages,
 			emotionSeed,
+			seed: {
+				nursingRecordSheet: nursingRecordSeed.sheet,
+				nursingRecordSubmittedAt: nursingRecordSeed.submittedAt,
+				messageCorrection,
+			},
 		});
 		setReadyRecordId(recordId);
 	}, [
-		recordId, patient, features, timeLimit,
-		recordDetail, initialMessages, emotionSeed,
+		recordId, patient, initialMessages, emotionSeed,
+		messageCorrection, nursingRecordSeed,
 	]);
 
 	// 换记录 = 换会话：清空上一个会话留下的工作区面板状态
@@ -260,12 +260,11 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			await flushNursingRecord();
 			// 完成前置一律读服务端 manifest：前端呈现原因，不自己判断能否结束
 			// （docs/15 §十五 陷阱 2：`eligible` / `blockers` 只有服务端一份）。
-			const current = useTrainingStore.getState().manifest;
-			const blockers = completionBlockers(current);
+			const blockers = completionBlockers(manifest);
 			if (blockers.length > 0) {
 				const [first] = blockers;
 				toastError(first.message || "完成条件尚未满足，请先处理后再结束训练");
-				const activity = blockerActivity(current, first);
+				const activity = blockerActivity(manifest, first);
 				if (activity) useWorkspaceStore.getState().openPanel(activity.id);
 				return;
 			}
@@ -274,7 +273,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			// 内容由工具面 `nursing_record.submit` 显式提交；这里只重申/校验冻结状态，
 			// 因此不回传 sheet（回传不同内容会被 409 拒绝）。
 			const needsNursingSubmit =
-				requiredArtifacts(current).includes(NURSING_RECORD_ARTIFACT_KIND);
+				requiredArtifacts(manifest).includes(NURSING_RECORD_ARTIFACT_KIND);
 			await scoreRef.current.end(
 				needsNursingSubmit ? { submit_nursing_record: true } : undefined,
 			);
@@ -289,7 +288,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		} finally {
 			endingRef.current = false;
 		}
-	}, [flushNursingRecord, toastError, queryClient]);
+	}, [flushNursingRecord, toastError, queryClient, manifest]);
 
 	const leaveTraining = useCallback(async () => {
 		try {

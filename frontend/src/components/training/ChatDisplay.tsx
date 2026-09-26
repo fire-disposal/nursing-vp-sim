@@ -7,6 +7,7 @@ import {
   getEmotionBorder,
   useTrainingStore,
 } from "@/stores/trainingStore";
+import { useExamResults, useRecordMeta } from "@/engine/TrainingDataContext";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
 import { getNurseAvatar, getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
@@ -37,31 +38,31 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const emotionBorder = useMemo(() => getEmotionBorder(emotion4D), [emotion4D]);
   const sending = useTrainingStore((s) => s.sending);
   const trainingEnded = useTrainingStore((s) => s.trainingEnded);
-  const correction = useTrainingStore((s) => s.recordDetail?.message_correction);
-  const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
-  const recordDetail = useTrainingStore((s) => s.recordDetail);
+  // 修正额度是会话瞬态（乐观修正后立即生效），刻意读 store 而不是服务端快照
+  const correction = useTrainingStore((s) => s.messageCorrection);
+  const { mode } = useRecordMeta();
+  const persistedEvidence = useExamResults();
   const eligibleLastMessageId = correction?.eligible_last_message_id;
   const correctionsRemaining = correction?.remaining ?? 0;
   const [examResults, setExamResults] = useState<ChatMessage[]>([]);
-  const persistedExamResults = useMemo<ChatMessage[]>(() => {
-    const rawResults = recordDetail?.exam_results;
-    if (!Array.isArray(rawResults)) return [];
-    return rawResults.flatMap((entry, index) => {
-      if (!entry || typeof entry !== "object") return [];
-      const type = "type" in entry ? entry.type : undefined;
-      if (typeof type !== "string") return [];
-      const data: Record<string, unknown> = {};
-      for (const key of ["label", "value", "unit", "status"] as const) {
-        if (key in entry) data[key] = entry[key];
-      }
-      return [{
-        id: `persisted-exam-${type}-${index}`,
+  const persistedExamResults = useMemo<ChatMessage[]>(
+    () =>
+      persistedEvidence.map((entry, index) => ({
+        id: `persisted-exam-${entry.type}-${index}`,
         role: "system" as const,
         content: "",
-        examResult: { type, data },
-      }];
-    });
-  }, [recordDetail?.exam_results]);
+        examResult: {
+          type: entry.type,
+          data: {
+            label: entry.label,
+            value: entry.value,
+            unit: entry.unit,
+            status: entry.status,
+          },
+        },
+      })),
+    [persistedEvidence],
+  );
   const displayedExamResults = useMemo(() => {
     const persistedCounts = new Map<string, number>();
     for (const message of persistedExamResults) {

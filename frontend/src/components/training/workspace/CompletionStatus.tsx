@@ -6,6 +6,7 @@ import {
 	completionBlockers,
 	completionConditions,
 } from "@/engine/manifest";
+import { useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
@@ -18,7 +19,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 /** blocker → 「去处理」动作：打开产出该产物的面板；无落点时不给按钮。 */
 function useBlockerHandler() {
-	const manifest = useTrainingStore((state) => state.manifest);
+	const manifest = useSessionManifest();
 	const openPanel = useWorkspaceStore((state) => state.openPanel);
 	return (blocker: ManifestBlocker) => {
 		const activity = blockerActivity(manifest, blocker);
@@ -31,7 +32,7 @@ function useBlockerHandler() {
  * 而不是等点「结束训练」才被拒绝。
  */
 export function CompletionStrip() {
-	const manifest = useTrainingStore((state) => state.manifest);
+	const manifest = useSessionManifest();
 	const trainingEnded = useTrainingStore((state) => state.trainingEnded);
 	const handleBlocker = useBlockerHandler();
 
@@ -79,7 +80,7 @@ export function CompletionStrip() {
 
 /** 结束确认弹窗里的完成清单：条件逐条 + 阻塞原因（含跳转）。 */
 export function CompletionChecklist() {
-	const manifest = useTrainingStore((state) => state.manifest);
+	const manifest = useSessionManifest();
 	const handleBlocker = useBlockerHandler();
 
 	const conditions = completionConditions(manifest);

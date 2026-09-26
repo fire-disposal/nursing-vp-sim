@@ -1,15 +1,23 @@
 import { act, render, screen } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
 import PhysicalExamTool from "@/components/training/tools/PhysicalExamTool";
 import { makeActivity } from "@/__tests__/fixtures/manifest";
-
-/** 面板只认 manifest 下发的 activity 定义（命令命名空间 = activity.id） */
-const activity = makeActivity("physical_exam");
+import type { TrainingRecordDetail } from "@/engine/training-record-types";
 
 type Handler = (payload: Record<string, unknown>) => void;
 
-function makeBus() {
+interface TestBus {
+	invoked: Array<Record<string, unknown>>;
+	emit(event: string, payload?: unknown): void;
+	on(event: string, h: Handler): () => void;
+	off(event: string, h: Handler): void;
+	listEvents(): string[];
+	fireResult(payload: Record<string, unknown>): void;
+}
+
+function makeBus(): TestBus {
 	const handlers = new Map<string, Set<Handler>>();
 	const invoked: Array<Record<string, unknown>> = [];
 	return {
@@ -29,6 +37,16 @@ function makeBus() {
 			handlers.get("tool:result")?.forEach((h) => { h(payload); });
 		},
 	};
+}
+
+/** 面板只认 manifest 下发的 activity 定义（命令命名空间 = activity.id） */
+const activity = makeActivity("physical_exam");
+
+/** 病例事实来自原始 record（`null` = 查询尚未返回）。 */
+function renderTool(bus: TestBus, record: TrainingRecordDetail | null = null) {
+	return render(
+		withTrainingData(<PhysicalExamTool activity={activity} recordId="1" bus={bus} />, record),
+	);
 }
 
 const HIGH_TEMP_RESULT = {
@@ -68,7 +86,7 @@ afterEach(() => {
 describe("PhysicalExamTool 解读与异常汇总", () => {
 	it("部位导航与检查动作可通过可访问按钮操作", async () => {
 		const bus = makeBus();
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		renderTool(bus);
 
 		expect(screen.getByRole("button", { name: "胸部" })).toHaveAttribute("aria-pressed", "true");
 		await userEvent.click(screen.getByRole("button", { name: "检查心率" }));
@@ -94,25 +112,21 @@ describe("PhysicalExamTool 解读与异常汇总", () => {
 				interpretation: "体温 39.0°C，高于参考范围（36.3-37.2°C）",
 			},
 		];
-		const { unmount } = render(
-			<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={{ mode: "guided", exam_results } as never} />,
-		);
+		const { unmount } = renderTool(bus, makeRecord({ mode: "guided", exam_results }));
 
 		expect(screen.getByText("94.0")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "复查心率" })).toBeInTheDocument();
 		expect(screen.getByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeInTheDocument();
 		unmount();
 
-		render(
-			<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={{ mode: "assessment", exam_results } as never} />,
-		);
+		renderTool(bus, makeRecord({ mode: "assessment", exam_results }));
 
 		expect(screen.getByText("异常发现")).toBeInTheDocument();
 		expect(screen.queryByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeNull();
 	});
 	it("高温测量：异常汇总 + 引导模式展示解读文案", () => {
 		const bus = makeBus();
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		renderTool(bus);
 		act(() => { bus.fireResult(HIGH_TEMP_RESULT); });
 
 		expect(screen.getByText("异常发现")).toBeTruthy();
@@ -120,20 +134,18 @@ describe("PhysicalExamTool 解读与异常汇总", () => {
 		expect(screen.getByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeTruthy();
 	});
 
-	it("考核模式（recordDetail.mode=assessment）隐藏解读文案但保留汇总", () => {
+	it("考核模式（record.mode=assessment）隐藏解读文案但保留汇总", () => {
 		const bus = makeBus();
-		const recordDetail = { mode: "assessment" } as never;
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={recordDetail} />);
+		renderTool(bus, makeRecord({ mode: "assessment" }));
 		act(() => { bus.fireResult(HIGH_TEMP_RESULT); });
 
 		expect(screen.getByText("异常发现")).toBeTruthy();
 		expect(screen.queryByText("体温 39.0°C，高于参考范围（36.3-37.2°C）")).toBeNull();
 	});
 
-	it("盲盒模式（recordDetail.mode=blind_box）同样隐藏解读但保留汇总", () => {
+	it("盲盒模式（record.mode=blind_box）同样隐藏解读但保留汇总", () => {
 		const bus = makeBus();
-		const recordDetail = { mode: "blind_box" } as never;
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={recordDetail} />);
+		renderTool(bus, makeRecord({ mode: "blind_box" }));
 		act(() => { bus.fireResult(HIGH_TEMP_RESULT); });
 
 		expect(screen.getByText("异常发现")).toBeTruthy();
@@ -142,7 +154,7 @@ describe("PhysicalExamTool 解读与异常汇总", () => {
 
 	it("正常测量：无异常汇总、无解读", () => {
 		const bus = makeBus();
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		renderTool(bus);
 		act(() => { bus.fireResult(NORMAL_HR_RESULT); });
 
 		expect(screen.queryByText("异常发现")).toBeNull();
@@ -151,7 +163,7 @@ describe("PhysicalExamTool 解读与异常汇总", () => {
 
 	it("测量值显示在结果条", () => {
 		const bus = makeBus();
-		render(<PhysicalExamTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		renderTool(bus);
 		act(() => { bus.fireResult(HIGH_TEMP_RESULT); });
 
 		expect(screen.getByText("39.0")).toBeTruthy();

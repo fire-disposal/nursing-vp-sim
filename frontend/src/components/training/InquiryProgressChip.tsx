@@ -2,19 +2,15 @@
 import { IconListCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
+import { useRecordMeta } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { INQUIRY_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
 import { computeCovered, PROGRESS_BG, PROGRESS_TEXT, progressColor } from "./tools/inquiryProgress";
 
 export function InquiryProgressChip() {
 	const openPanel = useWorkspaceStore((s) => s.openPanel);
-	const recordDetail = useTrainingStore((s) => s.recordDetail);
+	const { mode, requiredInquiries } = useRecordMeta();
 	const messages = useTrainingStore((s) => s.messages);
-	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
-
-	const inquiries: string[] = useMemo(() => {
-		return (recordDetail as { required_inquiries?: string[] })?.required_inquiries ?? [];
-	}, [recordDetail]);
 
 	const studentText = useMemo(
 		() =>
@@ -25,12 +21,15 @@ export function InquiryProgressChip() {
 		[messages],
 	);
 
-	const covered = useMemo(() => computeCovered(inquiries, studentText), [inquiries, studentText]);
+	const covered = useMemo(
+		() => computeCovered(requiredInquiries, studentText),
+		[requiredInquiries, studentText],
+	);
 
-	if (mode !== "guided" || inquiries.length === 0) return null;
+	if (mode !== "guided" || requiredInquiries.length === 0) return null;
 
 	const done = covered.size;
-	const total = inquiries.length;
+	const total = requiredInquiries.length;
 	const band = progressColor(Math.round((done / total) * 100));
 
 	return (

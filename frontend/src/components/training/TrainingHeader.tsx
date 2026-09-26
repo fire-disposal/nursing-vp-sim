@@ -9,6 +9,7 @@ import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { useToast } from "@/components/Toast";
 import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
 import { ACTION_COMPLETE_SESSION } from "@/engine/manifest";
+import { usePatientData, useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
@@ -46,9 +47,8 @@ export function TrainingHeader({
 	endTraining: onEnd,
 	leaveTraining: onLeave,
 }: TrainingHeaderProps) {
-	const patient = useTrainingStore(s => s.patient);
-	const mode = useTrainingStore(s => s.recordDetail?.mode);
-	const hideCaseInfo = useTrainingStore(s => s.recordDetail?.hide_case_info === true);
+	const patient = usePatientData();
+	const { mode, hideCaseInfo, remainingSeconds } = useRecordMeta();
 	const isAssessment = mode === "assessment";
 	const isHiddenCase = mode === "blind_box" || hideCaseInfo;
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
@@ -61,8 +61,8 @@ export function TrainingHeader({
 	const endingRef = useRef(false);
 	const [leaving, setLeaving] = useState(false);
 	const toast = useToast();
-	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds);
-	const manifest = useTrainingStore((s) => s.manifest);
+	const initialRemaining = remainingSeconds;
+	const manifest = useSessionManifest();
 	const completeAction = manifest?.actions.find((action) => action.id === ACTION_COMPLETE_SESSION);
 	// 能否结束只由服务端 action.enabled 决定（前端不重算完成条件）
 	const canComplete = completeAction?.enabled === true;

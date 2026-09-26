@@ -26,7 +26,6 @@ export function ActivityPanelHost({
 }) {
 	const bus = useTrainingStore((state) => state.bus);
 	const recordId = useTrainingStore((state) => state.recordId);
-	const recordDetail = useTrainingStore((state) => state.recordDetail);
 	const artifact = useActivityArtifact(pane.activity);
 	if (!bus) return null;
 
@@ -89,7 +88,6 @@ export function ActivityPanelHost({
 									activity={pane.activity}
 									bus={bus}
 									recordId={recordId}
-									recordDetail={recordDetail}
 								/>
 							) : (
 								<Stack align="center" gap={6} p="lg" c="dimmed" ta="center">
@@ -103,7 +101,7 @@ export function ActivityPanelHost({
 								</Stack>
 							)
 						) : (
-							<InquiryTool bus={bus} recordId={recordId} recordDetail={recordDetail} />
+							<InquiryTool />
 						)}
 					</Suspense>
 				</ErrorBoundary>

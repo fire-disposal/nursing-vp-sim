@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Box, Button, Group, Progress, ScrollArea, Stack, Text, ThemeIcon } from "@mantine/core";
 import type { ActivityPanelProps } from "@/components/training/workspace/contract";
+import { useExamResults, useRecordMeta } from "@/engine/TrainingDataContext";
 
 const MEASURE_TIMEOUT_MS = 10_000;
 
@@ -66,10 +67,12 @@ function isAbnormal(result: ExamResultState): boolean {
 	return result.status === "high" || result.status === "low";
 }
 
-export default function PhysicalExamTool({ activity, bus, recordId, recordDetail }: ActivityPanelProps) {
+export default function PhysicalExamTool({ activity, bus, recordId }: ActivityPanelProps) {
 	/** 命令命名空间来自 manifest 的 activity 定义 */
 	const command = activity.id;
 	const rid = Number(recordId);
+	const { mode } = useRecordMeta();
+	const examEvidence = useExamResults();
 	const [results, setResults] = useState<Record<string, ExamResultState>>({});
 	const [selectedRegionId, setSelectedRegionId] = useState("chest");
 	const [pendingOp, setPendingOp] = useState<string | null>(null);
@@ -78,24 +81,19 @@ export default function PhysicalExamTool({ activity, bus, recordId, recordDetail
 	const seededRef = useRef(false);
 
 	useEffect(() => {
-		if (seededRef.current || !recordDetail) return;
-		const prior = recordDetail.exam_results;
-		if (Array.isArray(prior)) {
-			const seeded: Record<string, ExamResultState> = {};
-			for (const raw of prior) {
-				if (!raw || typeof raw !== "object") continue;
-				const type = "type" in raw && typeof raw.type === "string" ? raw.type : null;
-				if (!type || !EXAMS[type]) continue;
-				const value = "value" in raw ? String(raw.value ?? "") : "";
-				const status = "status" in raw && typeof raw.status === "string" ? raw.status : undefined;
-				const interpretation =
-					"interpretation" in raw && typeof raw.interpretation === "string" ? raw.interpretation : undefined;
-				seeded[type] = { value, status, interpretation };
-			}
-			setResults(seeded);
-		}
+		if (seededRef.current) return;
 		seededRef.current = true;
-	}, [recordDetail]);
+		const seeded: Record<string, ExamResultState> = {};
+		for (const entry of examEvidence) {
+			if (!EXAMS[entry.type]) continue;
+			seeded[entry.type] = {
+				value: entry.value,
+				status: entry.status,
+				interpretation: entry.interpretation,
+			};
+		}
+		setResults(seeded);
+	}, [examEvidence]);
 
 	useEffect(() => {
 		const onToolResult = (payload: {
@@ -176,7 +174,7 @@ export default function PhysicalExamTool({ activity, bus, recordId, recordDetail
 		() => Object.entries(results).filter(([, result]) => isAbnormal(result)),
 		[results],
 	);
-	const isGuided = (recordDetail?.mode ?? "guided") === "guided";
+	const isGuided = mode === "guided";
 	const completion = Math.round((measuredIds.length / Object.keys(EXAMS).length) * 100);
 
 	return (

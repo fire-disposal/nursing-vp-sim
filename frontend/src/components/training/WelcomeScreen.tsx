@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Avatar, Badge, Box, Group, Stack, Text } from "@mantine/core";
 import { Card } from "@/components/ui/card";
+import { useRecordMeta } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { PatientData } from "@/engine/types";
 import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
@@ -19,7 +20,7 @@ interface WelcomeScreenProps {
  */
 export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: WelcomeScreenProps) {
 	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
-	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
+	const { mode } = useRecordMeta();
 	const showGuidance = mode === "guided";
 	const fallbackAvatar = getPatientAvatar({ name: patient.name, gender: patient.gender });
 	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);

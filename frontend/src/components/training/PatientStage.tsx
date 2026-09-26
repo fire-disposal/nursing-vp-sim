@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Stack, Text, Transition } from "@mantine/core";
 import { IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp } from "@tabler/icons-react";
+import { usePatientData, useRecordFeatures, useRecordMeta } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
@@ -19,16 +20,16 @@ export default function PatientStage() {
 	const [mobileOpen, setMobileOpen] = useState(true);
 	const [desktopOpen, setDesktopOpen] = useState(true);
 	const bus = useTrainingStore((s) => s.bus)!;
-	const features = useTrainingStore((s) => s.features);
+	const features = useRecordFeatures();
 	const recordId = Number(useTrainingStore((s) => s.recordId));
-	const patient = useTrainingStore((s) => s.patient);
+	const patient = usePatientData();
 	const emotion = useTrainingStore((s) => s.emotion);
 	const emotion4D = useTrainingStore((s) => s.emotion4D);
 	const trust = useTrainingStore((s) => s.trust);
 	const anxiety = useTrainingStore((s) => s.anxiety);
 	const irritation = useTrainingStore((s) => s.irritation);
 	const cooperation = useTrainingStore((s) => s.cooperation);
-	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
+	const { mode } = useRecordMeta();
 
 	const values = useMemo(
 		() => ({ trust, anxiety, irritation, cooperation }),

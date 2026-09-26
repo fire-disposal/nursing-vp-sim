@@ -21,12 +21,15 @@ export {
 	usePatientData,
 	useInitialMessages,
 	useRecordFeatures,
-	useTimeLimit,
+	useSessionManifest,
+	useRecordMeta,
+	useMessageCorrection,
+	useExamResults,
+	useNursingRecordSeed,
 	useEmotionSeed,
 	useRecordStatus,
-	useRecordAsDetail,
 } from "./TrainingDataContext";
 export { TrainingEngine } from "./TrainingEngine";
-export type { SessionRecordDetail, TrainingRecordDetail } from "./training-record-types";
+export type { MessageCorrectionState, SessionDetailFields, TrainingRecordDetail } from "./training-record-types";
 export type { BadgeInfo, ChatMessage, MessageBus, PatientData } from "./types";
 export type { ScoreData } from "@/types/score";

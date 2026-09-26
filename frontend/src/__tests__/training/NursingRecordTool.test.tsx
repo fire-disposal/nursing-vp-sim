@@ -40,13 +40,13 @@ describe("NursingRecordTool", () => {
 
 	it("mount 时发出 load 请求", () => {
 		const bus = makeBus();
-		render(<NursingRecordTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		render(<NursingRecordTool activity={activity} recordId="1" bus={bus} />);
 		expect(bus.invoked.some((p) => p.action === "load")).toBe(true);
 	});
 
 	it("load ok=false 时显示错误与重试", async () => {
 		const bus = makeBus();
-		render(<NursingRecordTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+		render(<NursingRecordTool activity={activity} recordId="1" bus={bus} />);
 		act(() => {
 			bus.fireResult({ tool: "nursing_record", action: "load", ok: false, data: {}, error: "本次训练未启用护理评估记录" });
 		});
@@ -59,7 +59,7 @@ describe("NursingRecordTool", () => {
 	describe("提交生命周期", () => {
 		function renderLoaded() {
 			const bus = makeBus();
-			render(<NursingRecordTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+			render(<NursingRecordTool activity={activity} recordId="1" bus={bus} />);
 			act(() => {
 				bus.fireResult({
 					tool: "nursing_record",
@@ -177,7 +177,7 @@ describe("NursingRecordTool", () => {
 
 		it.skip("8 秒无响应时显示超时错误", async () => {
 			const bus = makeBus();
-			render(<NursingRecordTool activity={activity} recordId="1" bus={bus} recordDetail={null} />);
+			render(<NursingRecordTool activity={activity} recordId="1" bus={bus} />);
 			await act(async () => { vi.advanceTimersByTime(8000); });
 			expect(screen.getByText(/加载超时/)).toBeTruthy();
 		});
