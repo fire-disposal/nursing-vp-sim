@@ -99,6 +99,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | CRUD 基础体验 + 表格列集 | 见下条提交 | `FilterToolbar` 推广至用户管理（补一键复位）、批量条换 `ActionBar`、登录换 `PasswordInput`；records 11→10 列/行高 57px、history 8→7 列、cases 名称列给足 |
 | 2026-09-26 | 依赖升级 + `@mantine/dates` | `3b74f894` / `c62c00eb` / `22c7e8c0` | Mantine → 9.6.3（7 包一致）；10 处原生日期框换 `DatePickerInput`（中文 locale 实测通过）；outline 变体对比度修复（`/admin/users` 45→0）；闸门全过 |
 | 2026-09-26 | S3+S4（第一波） | `106a73b3` | 四闸门全过；框套框 50/39/1 → **0**；拉伸留白 358px→134px；固定项数网格与筛选末格修正 |
 | 2026-09-26 | S1 | 见下条提交 | 四闸门全过；实测最小正文号 9px → **12px**，Badge 统一 12px，两档圆角显式化，126 处冗余 `Paper radius` 清除后视觉零变化 |
@@ -155,6 +156,49 @@
 - **`node_modules` 指向已失效的 pnpm store**（仓库迁址后路径变化）会让任何安装失败；`pnpm install --frozen-lockfile` 可只重链、不动 lockfile。
 - **共享浏览器 profile 下 `/login` 会因已有 token 直接跳走**，本地验证前先清 localStorage。
 
+
+---
+
+## 6. CRUD / 操作页基础体验专项（2026-09-26）
+
+> 触发：维护者要求针对纯操作页与 CRUD 页的**筛选、搜索、多选、二级页面**做完整性与对齐优化。下表为线上实测矩阵（1408×884，2026-09-26），是"对齐"的判断依据。
+
+### 6.1 实测矩阵
+
+| 页面 | 筛选控件 | 搜索 | 一键复位 | 多选 | 批量条 | 详情入口 | 表格列数 |
+|---|---|---|---|---|---|---|---|
+| `/admin/records` | 7（5 下拉） | 有 | **有** | 1 | — | 50（按钮） | 11 → **10** |
+| `/admin/users` | 3（+ 卡内复选） | 有 | **已补** | ✅ 50 复选 | ✅ 已换 `ActionBar` | **0**（点卡=编辑） | — （卡片网格） |
+| `/admin/cases` | 3 | 有 | 缺 | ✅ 11 行复选 | 缺 | 0（行内图标） | 6 |
+| `/admin/assignments` | 4 | 有 | 缺 | 缺 | — | 行内"详情" | 7 |
+| `/admin/classes` | 2 | 有 | 缺 | 缺 | — | 2 | 2 |
+| `/admin/feedback` | 2 | 有 | 缺 | 缺 | — | 行内 | — |
+| `/admin/questionnaires` | 3 | 有 | 缺 | 缺 | — | 行内 | 6 |
+| `/admin/system-notifications` | 2 | 有 | 缺 | 缺 | — | 行内 | — |
+| `/admin/roles` | 1 | 有 | 缺 | 缺 | — | 行内 | — |
+| `/admin/versions` | 1 | **无** | 缺 | 缺 | — | 只读 | 7 |
+| `/history`（学生） | 1（状态） | **无** | 缺 | 缺 | — | 48（按钮） | 8 → **7** |
+
+### 6.2 本轮已做
+
+| 项 | 做法 | 验收 |
+|---|---|---|
+| 筛选栏统一 | `/admin/users` 的手写筛选行改用 `FilterToolbar`（`summary | filters | search + 清除`），补上缺失的一键复位 | 该页"清除"生效；`FilterToolbar` 消费者由 1 → 2 |
+| 批量操作条 | 自研 `BatchActionBar` → Mantine `ActionBar`（官方 fixed/Portal 语义 + `CloseButton`） | 勾选后条在视口内（沿用 Q1 断言） |
+| 登录密码框 | `TextInput type="password"` → `PasswordInput` + `visibilityToggleFocusable`（可见性切换进入 Tab 序） | 登录页出现切换键；`tsc`/测试通过 |
+| 表格列集 | `/admin/records` 删「类型」（恒定"问诊"）、`/history` 删同列与移动端后缀；两表合并重复入口（"待复核"与"查看详情"同指一个详情页） | records 11→**10 列**、行高 68→**57px**、操作列 234→**150px**；history 8→**7 列** |
+| 列宽分配 | 主信息列给足、数字/时间列 nowrap：records 学生 59→88px、病例 155→201px；cases 名称 280→400px、能力列 344→240px（徽章组不再压过名称） | 实测无截断（`anyCellTruncated=false`） |
+| 表格滚动容器 | `/admin/records` 手写 `div overflow-x` → Mantine `Table.ScrollContainer` | 实测容器存在；窄屏不再整页横滚 |
+
+**已核实合理、不动**：`/admin/scoreboard` 11 列的列宽（67–156px）与数字右对齐已够用；`/admin/versions` 7 列身份/记录/评分列宽均衡。
+
+### 6.3 待办（按价值排序）
+
+1. **"一键复位"补齐剩余 8 页**（cases/assignments/classes/feedback/questionnaires/notifications/roles/versions/history）：统一走 `FilterToolbar`，每页提供 `hasActiveFilters` + `onClear`（users 已完成，可作模板）。
+2. **多选与批量扩展到其他实体**：cases（已有行复选，只需挂 `ActionBar`）；records/feedback/questionnaires 需先有后端批量端点（`UI-CRD-6` 已登记）。
+3. **搜索补齐**：`/admin/versions`、`/history` 无搜索框（history 50 行只能靠状态筛选）。
+4. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
+5. **`/admin/users` 详情入口缺失**（点卡片=编辑弹窗，无独立详情页入口，见 `UI-CRD-1`）。
 
 ## 4. 明确不做
 
