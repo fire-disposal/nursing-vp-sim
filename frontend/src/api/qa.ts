@@ -17,14 +17,6 @@ export const deleteQASession = (id: number | string) =>
 export const getQASessionMessages = (sessionId: number | string) =>
 	api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages` as ApiPath);
 
-export const getQAHistoryAll = (params: Record<string, unknown> = {}) =>
-	api.get<Schemas["PaginatedResponse_QASessionAdminItem_"]>("/qa/history/all" satisfies ApiPath as string, {
-		params,
-	});
-
-export const getQASessionMessagesAdmin = (sessionId: number | string) =>
-	api.get<Schemas["QAMessageItem"][]>(`/qa/history/all/${sessionId}/messages` as ApiPath);
-
 export const getSectionText = (source: string, section: string) =>
 	api.get<{ source: string; section: string; text: string }>(
 		"/qa/section-text" as string,

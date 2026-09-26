@@ -9,7 +9,7 @@
  *
  * 边界（docs/16 §四·4.2）：状态变更只认 HTTP/SSE 命令；WS 事件只用于
  * 「通知 + 失效查询缓存」（见 @/hooks/useScoringNotifications.ts），不构成第二份业务状态。
- * 每条连接鉴定用户身份后接入 backend RealtimeHub（见 backend/modules/training/router/ws.py）。
+ * 每条连接鉴定用户身份后接入 backend PgRealtimeHub（见 backend/modules/training/router/ws.py）。
  *
  * 自愈策略：指数退避 + 抖动，退避耗尽后转入 30s 周期探测（永不放弃）；
  * 监听 online / visibilitychange 即时重连；4001 刷新失败降级为普通退避。

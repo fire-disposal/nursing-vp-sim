@@ -22,7 +22,6 @@ export {
 	useInitialMessages,
 	useRecordFeatures,
 	useTimeLimit,
-	useStartTime,
 	useEmotionSeed,
 	useRecordStatus,
 	useRecordAsDetail,

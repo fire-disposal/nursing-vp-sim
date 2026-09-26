@@ -82,12 +82,6 @@ export function useTimeLimit(): number {
   return record?.time_limit ?? 20;
 }
 
-/** ISO 时间戳：训练创建时刻，倒计时锚点（与服务端同一语义）。 */
-export function useStartTime(): string | null {
-  const record = useTrainingData();
-  return record?.start_time ?? null;
-}
-
 // ── Derived: emotion/scene seed data (was _restoreRecord in TrainingEngine) ──
 
 /**

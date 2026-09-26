@@ -59,14 +59,6 @@ const EMOTION_BORDER: Record<EmotionState, string> = {
 	relaxed: "var(--mantine-color-blue-4)",
 	open: "var(--mantine-color-green-4)",
 };
-const EMOTION_COLOR: Record<EmotionState, string> = {
-	withdrawn: "var(--mantine-color-red-6)",
-	defensive: "var(--mantine-color-orange-6)",
-	anxious: "var(--mantine-color-violet-6)",
-	neutral: "var(--mantine-color-dimmed)",
-	relaxed: "var(--mantine-color-blue-6)",
-	open: "var(--mantine-color-green-6)",
-};
 
 const EMOTION_4D_BORDER: Record<string, string> = {
 	open_trusting: "var(--mantine-color-green-4)",
@@ -84,9 +76,6 @@ export function getEmotionBorder(emotion: string): string {
 	return EMOTION_4D_BORDER[emotion] || EMOTION_BORDER[emotion as EmotionState] || EMOTION_BORDER.neutral;
 }
 
-export function getEmotionColor(emotion: string): string {
-	return EMOTION_COLOR[emotion as EmotionState] || EMOTION_COLOR.neutral;
-}
 interface CorrectionSnapshot {
 	messages: ChatMessage[];
 	studentId: string | number;
