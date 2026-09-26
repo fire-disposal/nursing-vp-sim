@@ -40,6 +40,8 @@ log = logging.getLogger(__name__)
 
 _DETAIL_RECENT_LIMIT = 20
 _DETAIL_DAYS = 30
+# core.roles.SYSTEM_PERMISSIONS 的键名：系统内置最高权限角色的名字
+_SUPER_ADMIN_ROLE = "super_admin"
 
 
 @dataclass
@@ -188,6 +190,27 @@ class UserService:
                 status_code=403,
             )
 
+    def _assert_not_last_active_super_admin(self, user: User, *, action: str) -> None:
+        """禁止让系统失去最后一个**启用中**的 super_admin（2026-09-26 分析 RB-1）。
+
+        `seed.py` 在角色表非空时不再补种管理员，因此一旦最后一个超管被停用/删除，
+        改角色与改权限的能力只能直连数据库恢复 —— 这是合法的自毁路径。
+        """
+        if user.role is None or user.role.name != _SUPER_ADMIN_ROLE or not user.is_active:
+            return
+        remaining = (
+            self.db.query(sa_func.count(User.id))
+            .join(Role, Role.id == User.role_id)
+            .filter(
+                Role.name == _SUPER_ADMIN_ROLE,
+                User.is_active.is_(True),
+                User.id != user.id,
+            )
+            .scalar()
+        )
+        if not remaining:
+            raise ValidationError(f"不能{action}最后一个启用中的超级管理员：之后将无人能修改角色与权限")
+
     def update(self, user_id: int, req: UserUpdateRequest, current_user: User) -> UserBriefView:
         user = self.get_with_relations(user_id)
         if not user:
@@ -217,8 +240,19 @@ class UserService:
 
             if req.is_active is not None:
                 # 停用是软删：保留训练数据，只切断登录（见 auth.service 的 is_active 校验）
-                if current_user.id == user_id and not req.is_active:
-                    raise ValidationError("不能停用自己的账号")
+                if req.is_active != user.is_active:
+                    if current_user.id == user_id and not req.is_active:
+                        raise ValidationError("不能停用自己的账号")
+                    if current_user.id != user_id and user.role is not None:
+                        # 与"授予角色/重置密码"同口径：不能停用/启用权限高于自己的账号
+                        # （此前只挡了"不能停用自己"，任何持 user_manage 的角色都能停用超管）
+                        self._assert_role_within_scope(
+                            current_user,
+                            user.role,
+                            action="停用账号" if not req.is_active else "启用账号",
+                        )
+                    if not req.is_active:
+                        self._assert_not_last_active_super_admin(user, action="停用")
                 user.is_active = req.is_active
             if req.gender is not None:
                 user.gender = req.gender or None
@@ -258,12 +292,16 @@ class UserService:
                 membership.member_role = member_role
         self.db.flush()
 
-    def delete(self, user_id: int, current_user_id: int) -> str:
-        if user_id == current_user_id:
+    def delete(self, user_id: int, current_user: User) -> str:
+        if user_id == current_user.id:
             raise ValidationError("不能删除自己")
         user = self.db.get(User, user_id)
         if not user:
             raise NotFoundError("用户不存在")
+        if user.role is not None:
+            # 删除同样受角色范围与"最后一个超管"约束（此前完全无检查）
+            self._assert_role_within_scope(current_user, user.role, action="删除账号")
+            self._assert_not_last_active_super_admin(user, action="删除")
         record_count = self.record_count(user_id)
         if record_count > 0:
             raise ValidationError(f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。")
@@ -747,7 +785,7 @@ def get_user_detail(user_id: int, current_user: _Manager, db: DbSession):
 
 @router.delete("/users/{user_id}", response_model=DeleteResponse)
 def delete_user(user_id: int, current_user: _Manager, db: DbSession):
-    target_name = UserService(db).delete(user_id, current_user.id)
+    target_name = UserService(db).delete(user_id, current_user)
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},

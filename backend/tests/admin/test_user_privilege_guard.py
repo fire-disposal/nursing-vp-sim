@@ -224,3 +224,77 @@ class TestMembershipReplacement:
         view = UserService(db).update(target.id, UserUpdateRequest(display_name="改个名"), current_user=actor)
 
         assert [m.class_id for m in view.memberships] == [cls.id]
+
+
+def _make_role_with_perms(db: Session, name: str, perms: list[str]) -> Role:
+    """ "权限等同超管但不叫 super_admin"的第三方角色：用于把守卫逼到"最后一个超管"分支
+    （否则会被反越权的 403 先拦下，测不到兜底逻辑）。"""
+    role = Role(name=name, display_name=name, is_system=False)
+    db.add(role)
+    db.flush()
+    for perm in perms:
+        db.add(RolePermission(role_id=role.id, permission=perm))
+    db.commit()
+    db.refresh(role)
+    return role
+
+
+class TestHighPrivilegeAccountLifecycle:
+    """RB-1：停用/删除高权限账号必须与"授予角色/重置密码"同口径受守卫。
+
+    缺陷背景：``update`` 的 ``is_active`` 分支只判"不能停用自己"，``delete`` 完全无检查，
+    于是持 ``user_manage`` 的 ``admin`` 可以合法停用/删除 ``super_admin``；且全仓没有
+    "最后一个启用中的超管"兜底（``seed`` 在角色表非空时不再补种）。
+    """
+
+    def test_admin_cannot_deactivate_super_admin(self, db):
+        actor = _make_user(db, "admin-deact", "admin")
+        target = _make_user(db, "root-deact", "super_admin")
+
+        with pytest.raises(AuthError) as exc:
+            UserService(db).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
+
+        assert exc.value.status_code == 403
+        assert db.get(User, target.id).is_active is True
+
+    def test_admin_cannot_delete_super_admin(self, db):
+        actor = _make_user(db, "admin-del", "admin")
+        target = _make_user(db, "root-del", "super_admin")
+
+        with pytest.raises(AuthError) as exc:
+            UserService(db).delete(target.id, actor)
+
+        assert exc.value.status_code == 403
+        assert db.get(User, target.id) is not None
+
+    def test_cannot_deactivate_last_active_super_admin(self, db):
+        # 操作者权限等同超管（作用域检查会放行），目标就是唯一启用中的超管
+        _make_role_with_perms(db, "platform_admin", SYSTEM_PERMISSIONS["super_admin"])
+        actor = _make_user(db, "platform-actor", "platform_admin")
+        target = _make_user(db, "root-only", "super_admin")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
+
+        assert "最后一个启用中的超级管理员" in str(exc.value)
+        assert db.get(User, target.id).is_active is True
+
+    def test_cannot_delete_last_active_super_admin(self, db):
+        _make_role_with_perms(db, "platform_admin2", SYSTEM_PERMISSIONS["super_admin"])
+        actor = _make_user(db, "platform-actor2", "platform_admin2")
+        target = _make_user(db, "root-only2", "super_admin")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db).delete(target.id, actor)
+
+        assert "最后一个启用中的超级管理员" in str(exc.value)
+        assert db.get(User, target.id) is not None
+
+    def test_super_admin_can_deactivate_peer_while_oneself_active(self, db):
+        # 正对照：还有别的启用超管时，超管之间停用/删除不应被兜底守卫挡住
+        actor = _make_user(db, "root-a", "super_admin")
+        peer = _make_user(db, "root-b", "super_admin")
+
+        UserService(db).update(peer.id, UserUpdateRequest(is_active=False), current_user=actor)
+
+        assert db.get(User, peer.id).is_active is False

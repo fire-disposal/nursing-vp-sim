@@ -21,7 +21,7 @@
 
 | 顺序 | ID | 目标 | 成本 | 依赖 | 需决策 |
 |---|---|---|---|---|---|
-| 1 | **RB-1** | 权限面自毁路径封堵：停用/删除同样走 `_assert_role_within_scope` + "最后一个 super_admin" 守卫 | S | 无 | — |
+| 1 | **RB-1** | 权限面自毁路径封堵：停用/删除同样走 `_assert_role_within_scope` + "最后一个 super_admin" 守卫 | S | 无 | — · **已完成（本地，待发版）** |
 | 2 | **OBS-1** | 让已有 `extra={...}` 真正可见（logging formatter 带字段 + diagnose 采集），半天级可观测收益 | S | 无 | — |
 | 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1（共用 formatter/中间件） | 保留期（可先不定） |
 | 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — |
@@ -63,6 +63,15 @@
 - **验收（可观测）**：复用 `backend/tests/admin/test_user_privilege_guard.py` 夹具，新增四例——`admin` 停用 `super_admin` → 403；`admin` 删除 `super_admin` → 403；停用/删除**最后一个** `super_admin`（操作者是 `super_admin`）→ 400/403；`super_admin` 之间的合法操作仍成功。
 - **风险**：守卫若写在路由器层会绕过批量/脚本路径 → 写在 service 层（与 RB-1 分析结论一致）。
 - **不做**：不改角色模型、不引入审批流。
+- **落地（2026-09-26，本地提交）**：`UserService.update` 的 `is_active` 分支与 `delete` 都补了
+  ① 反越权 `_assert_role_within_scope`（与"授予角色/重置密码"同口径）、② `_assert_not_last_active_super_admin`
+  兜底；`delete(user_id, current_user)` 签名改为收 `current_user`（调用点仅路由一处）。
+- **验收证据**：`tests/admin/test_user_privilege_guard.py` 新增 `TestHighPrivilegeAccountLifecycle` 5 例
+  （admin 停用/删除超管 → 403；权限等同超管的第三方角色停用/删除**最后一个**启用超管 → 400；两超管并存时停用
+  其一 → 成功）。**修前失败已验证**：撤掉守卫后停用两例报 `DID NOT RAISE`（即漏洞真实存在）。
+- **守卫层次须说清**（避免误以为只有一层）：`admin → super_admin` 这条现实路径实际由**反越权**拦下（403）——
+  因为 `admin` 缺少 `role_manage`/`api_manage`；`_assert_not_last_active_super_admin` 是**兜底**，只在
+  "操作者通过其它角色持有等价权限"时才会成为唯一拦截层（测试用 `platform_admin` 角色构造）。
 
 ### 2.2 OBS-1 — 让已有结构化字段可见（S）
 
@@ -128,13 +137,17 @@
 
 ---
 
-## 4. 待决策清单（不定不动工）
+## 4. 决策记录（2026-09-26 已拍板）
 
-1. **审计保留期与归档形态**：保留 12 个月？按月分区还是导出归档？归档到对象存储还是本地磁盘？（影响 A1 表结构与 A6）
-2. **反馈回复人落列**：是否新增 `feedbacks.replied_by`（分析文档 A5 建议）？它能让"谁回复的"既在审计表也在业务表可查。
-3. **审计表是否独占分区/表空间**：导出与查询都重，是否与业务表隔离？
-4. **发版窗口**：RB-1（P0）与 OBS-1（半天级）是否立刻发一版？其余切片按 §0.1 顺序推进。
-5. **权限粒度补齐范围**：`audit_view`/`audit_export`/提示词与版本管理是否一并纳入本轮 RB-7。
+| # | 议题 | 决策 | 影响 |
+|---|---|---|---|
+| 1 | 发版窗口 | **暂不发版，继续攒**（本地提交即可；发版需显式许可） | 线上仍是 `2026.09.26-7`；排序 500 的修复与后续切片一起等一个发版窗口 |
+| 2 | 审计保留期与形态 | **保留 12 个月 + 按月归档**（整月分区 detach 后导出归档；只 detach 不 drop 未导出分区） | A1 建表即按月分区；A6 归档任务按此实现 |
+| 3 | 审计可见性 | **仅 super_admin**：新增 `audit_view` / `audit_export` 两个权限键 | A3 的键位与前端门禁确定；不引入审计员角色 |
+| 4 | 反馈回复人 | **新增 `feedbacks.replied_by` 列**（迁移 + 历史回填 NULL） | A5 增加一笔列迁移；审计行作为第二证据 |
+| 5 | 权限粒度范围 | **一并纳入本轮**：`audit_view`/`audit_export` + 提示词/版本管理写权限 + `/api/metrics` 鉴权 | RB-7 与 A3 同批，权限词表一次性改到位 |
+
+> 未决的次要项（可后补、不阻塞）：审计表是否独占分区/表空间；归档目标是本地磁盘还是对象存储；权限缓存失效走 DB 版本号还是引入轻量通知。
 
 ---
 
