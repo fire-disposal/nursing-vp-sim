@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .stages import PipelineStage, stage_order
+
+if TYPE_CHECKING:
+    from modules.training.profile import WorkflowDefinition
 
 log = logging.getLogger(__name__)
 
 _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
 
-def build_pipeline() -> tuple[list[Any], Any]:
+def build_pipeline(workflow: WorkflowDefinition | None = None) -> tuple[list[Any], Any]:
     """组装中间件链（按 stages 顺序）+ NoteCollector。
 
-    目前只有一条链（问诊 history_taking，与评分 rubric 同源）：类型字符串
-    （``TrainingRecord.training_type``）已退场（docs/15 §九），调用方不再需要传任何
-    分派参数——它曾经只是被透传、无人读，容易让读者以为存在多 profile 分派。
-    新增训练类型 = 新链 + 新 rubric，不要再往这里加"看起来能分派"的未用参数。
-    """
+    ``workflow`` 只决定 NoteCollector 种入哪些 ``note_sources``（其余中间件与 workflow 无关）。
+    运行期调用方传 ``workflows.workflow_for_record(record)``；缺省取唯一已登记的 workflow
+    （无记录上下文的装配点/测试）。``training_type`` 字符串分派已退场（docs/15 §九），
+    不要在这里加"看起来能分派"的未用参数。"""
     if not _CORE_MIDDLEWARE:
         from .middleware import (
             emotion_analysis,
@@ -43,10 +45,11 @@ def build_pipeline() -> tuple[list[Any], Any]:
 
     # --- assemble NoteCollector ---
     from modules.training.patient_ai.note_collector import NoteCollector
-    from modules.training.profile import HISTORY_TAKING
+    from modules.training.workflows import default_workflow
 
+    collected_from = workflow or default_workflow()
     collector = NoteCollector()
-    for src_cls in HISTORY_TAKING.note_sources:
+    for src_cls in collected_from.note_sources:
         collector.add(src_cls())
 
     return result, collector

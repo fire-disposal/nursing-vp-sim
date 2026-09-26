@@ -16,6 +16,8 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     record.user_id = 1
     record.case_id = 1
     record.practice_snapshot = {"features": {}}
+    # 记录冻结的 workflow（判别列，docs/15 §二）：测试替身也必须满足该契约
+    record.workflow_id = "history_taking"
 
     user = MagicMock()
     user.id = 1

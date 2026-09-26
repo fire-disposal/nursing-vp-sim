@@ -131,9 +131,9 @@ class WorkflowDefinition:
         return frozenset(name for name in sources if name)
 
 
-#: 目前只有一个生产 Workflow。``training_records.training_type`` 退场后，记录不再自带
-#: 「类型字符串」；第二个 Workflow（clinical_reasoning）接入共享骨架时，由入口/路由决定
-#: 用哪条闭包，而不是恢复按字段总分派（docs/15 §二、§九）。
+#: 目前只有一个生产 Workflow。``training_records.training_type`` 退场后，
+#: 「这次训练跑哪条闭包」由**病例 revision 决定、训练记录冻结**（``training_records.workflow_id``，
+#: 见 ``modules/training/workflows.py`` 的注册表与解析器）；本文件只负责**声明**一条闭包。
 HISTORY_TAKING = WorkflowDefinition(
     id="history_taking",
     label="病史采集",
@@ -149,20 +149,3 @@ HISTORY_TAKING = WorkflowDefinition(
     prompts=PromptCollection(system=PATIENT_SYSTEM, dynamic=PATIENT_DYNAMIC),
     rubric=get_base_rubric(),
 )
-
-
-def record_features(record) -> dict[str, bool]:
-    """训练记录上固化的能力投影（内置特性 + Activity 开关）。"""
-    return HISTORY_TAKING.resolve_features(
-        getattr(record, "case_snapshot", None) or {},
-        overrides=(getattr(record, "practice_snapshot", None) or {}).get("features"),
-    )
-
-
-def record_activity_available(record, activity_id: str) -> bool:
-    """运行时门 —— 该记录本次训练是否启用了某 Activity（病例声明 + 作业覆盖）。"""
-    return HISTORY_TAKING.is_enabled(
-        getattr(record, "case_snapshot", None) or {},
-        activity_id,
-        overrides=(getattr(record, "practice_snapshot", None) or {}).get("features"),
-    )

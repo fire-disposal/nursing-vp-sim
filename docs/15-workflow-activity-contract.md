@@ -404,6 +404,7 @@ Server Contract（manifest projections）
 | 3 病例生命周期 | **已完成（后端 + 管理端 UI）** | `cases.status`(draft/published/archived) + `case_revisions`(不可变) + `cases.current_revision_id`；`training_records`/`assignments.case_revision_id` 钉住版本；`case_data` 剥离 `name/difficulty/time_limit`（列成为唯一存储）；新端点 `GET /cases/{id}/validation`、`POST /publish`(error→422 + 字段级报告)、`POST /archive`、`GET /revisions`；`/cases` 学生目录只返回 `published && is_open`；`training_type` 三个接口字段与查询参数一并退场；迁移链 `b2c4d6e8f0a2 → e5a1b2c3d4f5 → e6b2c3d4e5f6 → e7c3d4e5f6a7`（含 data 回填与逐行报出的归档结论，downgrade 实测可逆）|
 | 4 Workflow/Activity 切换 | **steps 1–5 已完成；step 6 部分完成** | 后端：`activities.py`/`manifest.py`/`features.py`，`capabilities.py` 与 `gen_capabilities_ts.py` 删除，11 病例迁到 `activities.*`；前端：**一次切换**到 manifest 驱动工作区（纯 RendererMap + `ActivityRail`(桌面)/`ActivityBar`+Bottomsheet(移动) + `CompletionStrip`/`CompletionChecklist`），`registry.ts`/`getTools`/`capabilities.gen.ts`/`SceneRenderer`/`SceneToolbar`/`TrainingTool.ts`/`sceneStore`/`getProfiles` 全部删除，`package.json` 生成链移除 `cap:generate`；`/api/profiles` 端点删除（**step 6 剩余**：旧 `/tools` transport adapter 与字符串 dispatch 待新命令端点落地后移除）|
 | 5 Context 与对话可靠性 | **基础设施已落地；Invocation Audit 与第二 workflow 待做** | `ContextFragment`/`ContextAssembler` 统一选择、排序、裁剪、预算与槽位边界；对话回合采用事务 A（学生消息 + `pending` turn）/事务 B（患者回复 + 收尾）两阶段持久化；`request_id` 幂等、失败可审计、流式异常兜底、身份/隐藏主题守卫类型化追加；新增耐久性与装配测试覆盖。尚未接入 Invocation Audit/Evidence 的完整公共骨架，`clinical_reasoning` 仍未进入目录、作业、Artifact、评分与复盘。|
+| 5.0 Workflow 判别契约（临床推理 Slice 0） | **已完成** | 新增唯一 workflow 注册表/解析器 `modules/training/workflows.py`（当前只登记 `history_taking`）；`training_records.workflow_id`（NOT NULL，DDL `a9d0c1b2e3f4`，存量行回填 `history_taking`）成为冻结判别列，入口按**钉住的 CaseRevision** 解析写入、请求体无法选择；manifest / 会话详情 / 评分 / 终局 / 工具门 / 提示词 / NoteCollector 全部改读记录冻结值；学生目录 `CaseBrief.workflow` 暴露 id+label；病例门禁拒绝未登记声明。见 §十六。|
 
 ### 生命周期边界收敛（2026-09-26，切片 2/3/4 的收尾）
 
@@ -435,3 +436,50 @@ Server Contract（manifest projections）
 - 不建万能 Context God Object（统一装配权，不统一领域所有权）。
 - 不做 Git 式病例分支与 merge。
 - 不引入 Redis、事件溯源、通用 DSL。
+
+---
+
+## 十六、Workflow 判别契约与临床判断训练的下一步（2026-09-26）
+
+### 已确认的产品形态
+
+临床推理必须产品化，但**不是第二套聊天、也不是 RPG**。推荐形态是独立的
+「临床判断训练 Clinical Judgment Drill」：单次 15–20 分钟，学生在一条明确阶段链上完成
+**发现线索 → 聚焦评估 → 获取证据 → 判断 → 行动 → SBAR → 复评**，
+产出结构化推理产物并接受确定性评分与教师复核。
+
+**共享**：Session 身份、`CaseRevision`、`Assignment`/受众快照、`TrainingRecord`、
+Artifact/Evidence、`Score`/复核、教师查询与下钻框架。
+**独立**：阶段工作流、证据形状与评分 rubric（不与护理评估共享维度）、工作区 UI。
+
+### Slice 0（本切片，已落地）：workflow 判别只有一个 owner
+
+| 事实 | 唯一 owner |
+|---|---|
+| 这次训练该跑哪条 workflow | **病例 revision**：`CaseRevision.content["workflow"]`（字符串 id；注册表见 `modules/training/workflows.py`） |
+| 本次训练固化的 workflow | **训练记录**：`training_records.workflow_id`（NOT NULL；DDL `a9d0c1b2e3f4`，存量行由列默认值回填 `history_taking`） |
+| 运行期读取 | 一律 `workflows.workflow_for_record(record)`：manifest / 会话详情 / 完成判定 / 评分 rubric 回退 / 工具可用性门 / 患者提示词 / NoteCollector |
+
+契约细则：
+
+- **客户端不能选择 workflow**：`TrainingStartRequest` 不接受该字段（`extra=forbid` → 422），
+  记录值只来自入口钉住的 revision（`/start` = current revision，`/start-from-assignment` = 作业发布时钉住的 revision）。
+- **注册表里只能有真实闭包**：`history_taking` 是当前唯一登记项；`clinical_reasoning`
+  在它自己的学生活动、产物、证据落地前**不登记**，因此不会出现「路由/菜单指向一个不可用工作区」。
+- **未知 id 一律拒绝**：解析器（`UnknownWorkflowError`）与病例门禁（`validator._check_workflow`，
+  发布前 error）双层拒绝未登记声明，绝不静默回落到第一条闭包。
+- **声明随登记收紧**：只登记一条时病例可省略 `workflow`；一旦登记第二条，省略即解析失败 +
+  病例门禁 error —— 强制病例自己说明跑哪条闭包。
+- 投影：会话 projection 的 `manifest.workflow`（`id`/`label`/`ui`，前端据此选工作区）已由记录冻结值驱动；
+  学生目录 `GET /api/cases` 的 `CaseBrief.workflow` 暴露 id+label。作业投影没有 workflow 语义，不动。
+
+### 下一步：临床判断训练的三个切片（每个都必须独立可验收）
+
+| 切片 | 交付 | 验收 |
+|---|---|---|
+| **1 结构化五阶段推理产物** | 病例 revision 声明 `workflow: clinical_reasoning`；该 workflow 登记真实闭包（阶段状态机 + 允许 Activity 白名单）；学生产物 = 结构化推理结论（线索/评估/证据/判断/行动/SBAR），有 `draft → submitted` 生命周期并冻结 | 学生能从目录/作业进入、走完阶段链、提交后产物可回放；未提交不得进入正式评分；请求体无法改 workflow，记录判别值来自 revision |
+| **2 确定性证据与 rubric** | 独立评分域：证据来自 `TrainingAction` + 已提交推理产物 + 终局判定；确定性规则优先（能算的不用 LLM 判）；rubric 与该 workflow 绑定，不共享护理评估维度 | 同一份冻结证据重复评分结果一致；缺证据的维度不得凭空给分；`rubric_snapshot` 按记录 workflow 冻结 |
+| **3 教师证据时间线** | 教师侧按「行动 → 证据 → 判断 → 评分依据」下钻的时间线视图；复用既有复核队列/分数下钻框架 | 每个分数可点进对应证据；教师能看到学生阶段推进与关键决策点 |
+
+边界：这三步之前不动生产导航（不加 `clinical_reasoning` 路由/菜单/renderer），
+本切片只交付判别契约与读取收口。

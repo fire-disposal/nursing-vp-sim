@@ -10,7 +10,7 @@ from core.exceptions import AuthError, ConflictError, ValidationError
 from core.statuses import TrainingStatus
 from models import TrainingAction, TrainingRecord
 from modules.training.activities import ACTIVITY_BINDINGS, ActivityDefinition
-from modules.training.profile import HISTORY_TAKING
+from modules.training.workflows import workflow_for_record
 
 from .base import ToolContext, ToolResult
 from .registry import dispatch
@@ -125,7 +125,7 @@ def _authorize(ctx: ToolContext, activity_id: str, command: str) -> ActivityDefi
     if not is_read and ctx.record.status != TrainingStatus.IN_PROGRESS:
         raise ValidationError(detail="训练已结束，不能继续操作")
 
-    workflow = HISTORY_TAKING
+    workflow = workflow_for_record(ctx.record)
     enabled = workflow.is_enabled(
         ctx.case_data or {},
         activity_id,

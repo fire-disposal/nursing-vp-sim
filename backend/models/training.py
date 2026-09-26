@@ -55,6 +55,14 @@ class TrainingRecord(Base):
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
     case_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    #: 本次训练固化的 Workflow（docs/15 §二、§九）：训练开始时由**钉住的 CaseRevision** 解析
+    #: 写入（``modules/training/workflows.workflow_for_case_revision``），之后不再变；运行期
+    #: 一律 ``workflows.workflow_for_record(record)`` 读取，不再 import 任何 workflow 常量。
+    #: server_default 只服务判别列落地前的存量行回填（迁移 f5a6b7c8d9e0 之后新增；当时唯一
+    #: 现行 workflow 是 history_taking），与 ``is_test`` 同策。
+    workflow_id: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="history_taking", server_default=text("'history_taking'")
+    )
     #: 本次训练固化的病例版本（docs/15 §六）：复盘/评分按它来的版本解释 case_snapshot。
     #: 旧记录为 NULL（只有 case_snapshot，迁移前就固化了内容），新记录一律有值。
     case_revision_id: Mapped[int | None] = mapped_column(

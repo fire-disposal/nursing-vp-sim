@@ -72,7 +72,7 @@ FastAPI 可导航单体 ───── PostgreSQL
 
 ### 明确不进入第一闭环
 
-- `clinical_reasoning` 第二 Workflow 产品化；
+- `clinical_reasoning` 第二 Workflow 产品化（**不在第一闭环内**；已确认的形态与切片顺序见 §七 M2.5）；
 - 动态插件加载、插件市场、版本协商；
 - 通用 Context/Evidence 平台；
 - 全量语音电话产品化；
@@ -227,6 +227,28 @@ JSONB 负责：
 - 对话、床旁检查、护理评估、完成、评分、教师复核贯通；
 - 护理诊断并入护理评估 Artifact；
 - 学生和教师各有一条真实浏览器验收路径。
+
+### M2.5：第二闭环 —— 临床判断训练（Clinical Judgment Drill）
+
+已确认的产品形态：**独立的临床判断训练 Activity**，单次 15–20 分钟，阶段链为
+「发现线索 → 聚焦评估 → 获取证据 → 判断 → 行动 → SBAR → 复评」，产出结构化推理产物并接受
+确定性评分与教师复核。它不是第二套聊天、也不是 RPG：**共享** Session 身份、`CaseRevision`、
+`Assignment`/受众、`TrainingRecord`、Artifact/Evidence、`Score`/复核与教师查询框架；
+**独立**阶段工作流、证据形状、评分 rubric 与工作区 UI。
+
+切片顺序（每片独立可验收，未落地前不进生产导航）：
+
+1. **判别契约（Slice 0，已完成）**：`CaseRevision` 决定 workflow → `training_records.workflow_id`
+   冻结 → 运行期一律 `workflows.workflow_for_record(record)`；客户端不能选择 workflow；
+   病例门禁与解析器双层拒绝未登记 workflow。见 `docs/15 §十六`。
+2. **结构化五阶段推理产物**：`clinical_reasoning` 闭包登记 + 阶段状态机 + 结构化推理产物
+   （draft → submitted 冻结），进入 completion 与复盘。
+3. **确定性证据与 rubric**：证据取自 `TrainingAction` + 已提交产物 + 终局判定；能算的不用 LLM 判；
+   rubric 与该 workflow 绑定，不与护理评估共享维度。
+4. **教师证据时间线**：行动 → 证据 → 判断 → 评分依据可下钻，复用既有复核队列框架。
+
+约束：不新增第二套发布/受众/评分/复核体系；不复制一遍外围（第三个 workflow 出现时不应再复制）。
+仍然**不做**动态插件加载、插件市场、版本协商、通用 Context/Evidence 平台。
 
 ### M3：减法与可导航性
 

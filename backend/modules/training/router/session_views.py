@@ -31,11 +31,11 @@ from modules.training.manifest import (
     build_session_manifest,
 )
 from modules.training.pipeline.turn import TURN_KIND
-from modules.training.profile import HISTORY_TAKING
 from modules.training.session.finalize import terminal_reason
 from modules.training.timing import DEFAULT_TIME_LIMIT_MINUTES
 from modules.training.timing import remaining_seconds as compute_remaining_seconds
 from modules.training.tools.nursing_record import get_nursing_record
+from modules.training.workflows import workflow_for_record
 from schemas import (
     PaginatedResponse,
     PatientPublicInfo,
@@ -372,7 +372,8 @@ def get_record_detail(
 
     hidden_placeholder = _hidden_case(record)
     nursing_sheet, nursing_submitted_at = _load_nursing_record(db, record.id)
-    workflow = HISTORY_TAKING
+    # 本次训练的 workflow 以**记录冻结值**为准（manifest/features/可用性同源，docs/15 §二）
+    workflow = workflow_for_record(record)
     overrides = (record.practice_snapshot or {}).get("features")
     # 本次训练钉住的病例版本（旧记录为 NULL：内容只在 case_snapshot 里）
     case_revision = db.get(CaseRevision, record.case_revision_id) if record.case_revision_id else None

@@ -18,7 +18,6 @@ from core.datetime_utils import ensure_utc
 from core.statuses import ScoringStatus, TrainingStatus
 from models import Case, Message, TrainingRecord, TrainingSessionState
 
-from ..profile import HISTORY_TAKING, record_activity_available
 from ..scoring.lifecycle import acquire_scoring
 from ..tools.nursing_record import (
     NursingAssessmentRequiredError,
@@ -26,6 +25,7 @@ from ..tools.nursing_record import (
     is_submitted,
     missing_fields,
 )
+from ..workflows import record_activity_available, workflow_for_record
 from .state import patch_runtime_state
 
 log = logging.getLogger(__name__)
@@ -204,7 +204,7 @@ def finalize_training(
 def cleanup_session_runtime(record: TrainingRecord, app_state, db: Session) -> None:
     """Best-effort teardown of runtime caches (initiative/emotion). Never raises."""
     try:
-        features = HISTORY_TAKING.resolve_features(
+        features = workflow_for_record(record).resolve_features(
             record.case_snapshot or {},
             overrides=(record.practice_snapshot or {}).get("features"),
         )

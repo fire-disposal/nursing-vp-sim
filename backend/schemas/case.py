@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from schemas.case_schema import CaseDataSchema
-from schemas.common import _REQ_CFG, _RESP_CFG
+from schemas.common import _REQ_CFG, _RESP_CFG, WorkflowBrief
 
 
 class CaseBrief(BaseModel):
@@ -19,6 +19,9 @@ class CaseBrief(BaseModel):
     is_open: bool = False
     patient_summary: dict[str, Any] | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
+    #: 该病例（current revision）所属 workflow；学生目录据此展示/分组，训练入口仍由
+    #: 记录冻结的 workflow 驱动（docs/15 §二、§四·补 catalog 投影）
+    workflow: WorkflowBrief | None = None
 
 
 class CaseDetail(BaseModel):

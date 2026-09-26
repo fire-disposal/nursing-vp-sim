@@ -36,9 +36,9 @@ from core.rate_limits import check_chat_limit
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
 from models import Case, Message, TrainingAction, TrainingRecord, User
-from modules.training.profile import HISTORY_TAKING
 from modules.training.session.finalize import is_patient_walkout_ended
 from modules.training.timing import is_training_overdue
+from modules.training.workflows import workflow_for_record
 from schemas import ChatCorrectionRequest, ChatMessageRequest, ChatMessageResponse
 
 from ..pipeline import (
@@ -138,7 +138,7 @@ async def _build_context(
     )
     ctx.state[STATE_STREAM_MODE] = stream_mode
     ctx.state[STATE_TURN] = claim
-    ctx.state[STATE_FEATURES] = HISTORY_TAKING.resolve_features(
+    ctx.state[STATE_FEATURES] = workflow_for_record(ctx.record).resolve_features(
         ctx.case_data,
         overrides=(ctx.record.practice_snapshot or {}).get("features"),
     )
@@ -324,7 +324,7 @@ async def _build_correction_context(
     # 修正序号：情绪分析的 turn_id 需要与"被修正的那一轮"区分开，否则整轮被当作
     # 重复轮跳过，情绪停留在已被删除的那句话上（见 middleware/emotion_analysis）。
     ctx.state[STATE_CORRECTION_TURN] = correction_state["used"]
-    ctx.state[STATE_FEATURES] = HISTORY_TAKING.resolve_features(
+    ctx.state[STATE_FEATURES] = workflow_for_record(ctx.record).resolve_features(
         ctx.case_data,
         overrides=(ctx.record.practice_snapshot or {}).get("features"),
     )
@@ -353,7 +353,7 @@ async def send_message(
             operation={"replayed": True, **claim.replay_payload},
         )
 
-    pipe, collector = build_pipeline()
+    pipe, collector = build_pipeline(workflow_for_record(ctx.record))
     ctx.note_collector = collector
     await run_pipeline(ctx, pipe)
 
@@ -390,7 +390,7 @@ async def send_message_stream(
                 media_type="text/event-stream",
                 headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
             )
-        pipe, collector = build_pipeline()
+        pipe, collector = build_pipeline(workflow_for_record(ctx.record))
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()
@@ -435,7 +435,7 @@ async def correct_last_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
-        pipe, collector = build_pipeline()
+        pipe, collector = build_pipeline(workflow_for_record(ctx.record))
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()

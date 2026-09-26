@@ -23,6 +23,11 @@ from typing import Any
 
 from core.time_limits import MAX_TIME_LIMIT_MINUTES, MIN_TIME_LIMIT_MINUTES
 from modules.training.activities import ACTIVITY_BINDINGS, ACTIVITY_CONFIG_KEY, ACTIVITY_IDS
+from modules.training.workflows import (
+    CASE_WORKFLOW_FIELD,
+    declared_workflow_id,
+    registered_workflow_ids,
+)
 
 # ── 字段消费端清单（taxonomy manifest）───────────────────────────────────
 # 值 = 消费模块。新增病例字段时必须同步登记；不在清单内的字段 = 死字段。
@@ -48,6 +53,7 @@ CONSUMED_FIELDS: dict[str, str] = {
     "required_inquiries": "prompt + 评分",
     "example_dialogues": "few-shot (context/examples.py)",
     "activities": "Activity 声明（activities.<id>.config → ACTIVITY_BINDINGS / manifest）",
+    "workflow": "训练入口解析（modules/training/workflows：CaseRevision 决定 → 记录冻结 workflow_id）",
     "voice_override": "voice.service 病例音色覆盖",
     "hidden_info": "prompt (format_case_for_prompt)",
     "scene": "训练开始/复盘：case_data.scene → runtime_state.scene（router/session.py）+ prompt_builder 注入",
@@ -342,6 +348,47 @@ def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
         _check_activity_config(activity_id, declaration[ACTIVITY_CONFIG_KEY], field, issues)
 
 
+def _check_workflow(c: dict, issues: list[CaseIssue]) -> None:
+    """workflow 声明质量门禁（docs/15 §二）。
+
+    病例只能声明**已登记**的 workflow：声明了内核不认识的工作区 = 发布出去也进不去，
+    必须在发布前报错，而不是等学员开始训练时才解析失败（与 ``_check_activities`` 同策）。
+    只登记一个 workflow 时允许省略声明；登记第二个之后，省略即 error —— 病例必须自己
+    说明跑哪条闭包，否则解析会被拒绝（绝不猜成第一条）。
+    """
+    known = registered_workflow_ids()
+    allowed = ", ".join(known)
+    if CASE_WORKFLOW_FIELD not in c:
+        if len(known) > 1:
+            issues.append(
+                _e(
+                    "已登记多个 workflow，病例必须显式声明 workflow —— 否则解析时会被拒绝",
+                    CASE_WORKFLOW_FIELD,
+                    f'加 {{"workflow": "<id>"}}；允许的 id: {allowed}',
+                )
+            )
+        return
+
+    declared = declared_workflow_id(c)
+    if declared is None:
+        issues.append(
+            _e(
+                f"{CASE_WORKFLOW_FIELD} 必须是非空字符串（workflow id）",
+                CASE_WORKFLOW_FIELD,
+                f"允许的 id: {allowed}",
+            )
+        )
+        return
+    if declared not in known:
+        issues.append(
+            _e(
+                f"病例声明了未登记的 workflow '{declared}'——发布即失败，不允许「声明了但不可达」",
+                CASE_WORKFLOW_FIELD,
+                f"允许的 id: {allowed}",
+            )
+        )
+
+
 def _check_activity_config(activity_id: str, config: Any, field: str, issues: list[CaseIssue]) -> None:
     """各 Activity 的配置形状（消费端是 handler / 查体规则模块）。"""
     if activity_id == "physical_exam":
@@ -434,6 +481,7 @@ def validate_case(case_data: dict) -> CaseReport:
     """校验单个病例，返回报告（纯函数）。"""
     report = CaseReport(name=str(case_data.get("name", "?")))
     _check_activities(case_data, report.issues)
+    _check_workflow(case_data, report.issues)
     _check_time_anchors(case_data, report.issues)
     _check_symptom_negation(case_data, report.issues)
     _check_person_relation(case_data, report.issues)

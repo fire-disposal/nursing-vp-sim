@@ -2997,6 +2997,7 @@ export interface components {
             capabilities?: {
                 [key: string]: boolean;
             };
+            workflow?: components["schemas"]["WorkflowBrief"] | null;
         };
         /** CaseCreateRequest */
         CaseCreateRequest: {
@@ -6153,6 +6154,19 @@ export interface components {
             monthly_budget: number;
             /** Monthly Used */
             monthly_used: number;
+        };
+        /**
+         * WorkflowBrief
+         * @description Workflow 身份投影（id + label）。
+         *
+         *     供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，
+         *     不自行推导（manifest 里的完整投影见 ``workflow-manifest``，docs/15 §四）。
+         */
+        WorkflowBrief: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
         };
     };
     responses: never;

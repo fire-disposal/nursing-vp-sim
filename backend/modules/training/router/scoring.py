@@ -24,7 +24,6 @@ from infra.scoring_progress import ScoringProgressTracker
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
-from modules.training.profile import HISTORY_TAKING
 from modules.training.scoring.engine import evaluate_training
 from modules.training.session.finalize import (
     END_ORIGIN_USER,
@@ -40,6 +39,7 @@ from modules.training.tools.nursing_record import (
     NursingAssessmentError,
     submit_nursing_assessment,
 )
+from modules.training.workflows import workflow_for_record
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
@@ -311,7 +311,8 @@ async def _run_scoring_background(
             try:
                 from modules.training.scoring.rubric import build_final_rubric
 
-                workflow = HISTORY_TAKING
+                # 快照按**记录冻结的 workflow** 补写，不按代码常量
+                workflow = workflow_for_record(record)
                 record.prompt_snapshot = {
                     "schema_version": 2,
                     "purpose": "patient_chat",
@@ -493,14 +494,14 @@ async def end_training(
                 ) from exc
 
         # 要求评估的 workflow：未提交时拒绝完成（绝不把草稿偷偷标成 submitted）。
-        # 完成前置条件由 Workflow 的 CompletionPolicy 声明，不在端点里写死。
+        # 完成前置条件由**记录冻结的 workflow** 的 CompletionPolicy 声明，不在端点里写死。
         try:
             claimed, kind, case_data = finalize_training(
                 db,
                 record_id,
                 ended_at=now,
                 origin=END_ORIGIN_USER,
-                require_nursing_submission=bool(HISTORY_TAKING.completion.required_artifacts),
+                require_nursing_submission=bool(workflow_for_record(record).completion.required_artifacts),
             )
         except NursingAssessmentError as exc:
             db.rollback()

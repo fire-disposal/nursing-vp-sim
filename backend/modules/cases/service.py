@@ -28,7 +28,7 @@ from modules.cases.revisions import (
     require_editable,
 )
 from modules.cases.validator import CaseReport
-from modules.training.profile import HISTORY_TAKING
+from modules.training.workflows import workflow_for_case
 from schemas.case_schema import normalize_gender, strip_case_metadata, validate_case_data
 
 log = logging.getLogger(__name__)
@@ -101,8 +101,9 @@ class CaseService:
             time_limit=case.time_limit_minutes,
             difficulty=case.difficulty,
             patient_personality=_personality_label(personality),
-            # 能力由病例声明的 activities.* 解析（与学生端 /api/cases 同源），不读库里的存储字段
-            capabilities=HISTORY_TAKING.resolve_features(cd),
+            # 能力由病例声明的 activities.* 解析（与学生端 /api/cases 同源），按病例
+            # current revision 所属 workflow 解析，不读库里的存储字段、不读代码常量
+            capabilities=workflow_for_case(case).resolve_features(cd),
             is_open=case.is_open,
             created_at=case.created_at,
             training_count=training_count,

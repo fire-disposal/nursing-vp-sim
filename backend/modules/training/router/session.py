@@ -37,7 +37,10 @@ from models import (
 from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
-from modules.training.profile import HISTORY_TAKING
+from modules.training.workflows import (
+    WorkflowDefinition,
+    workflow_for_case_revision,
+)
 from schemas import (
     DeleteResponse,
     OkResponse,
@@ -136,11 +139,18 @@ def _create_record(
     case_data: dict,
     config: dict,
     *,
+    workflow: WorkflowDefinition,
     revision_id: int | None = None,
     assignment_id: str | None = None,
     is_overdue: bool = False,
     app_state=None,
 ):
+    """创建训练记录并**冻结**本次训练的 workflow（``workflow_id``）。
+
+    ``workflow`` 由调用方从**钉住的 CaseRevision** 解析（``workflow_for_case_revision``）；
+    请求体无法选择 workflow（``TrainingStartRequest`` 不接受该字段），因此记录的判别值
+    只有病例内容一个来源。
+    """
     declared = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes
     source = "assignment" if config.get("behavior", {}).get("time_limit_minutes") else "case"
     time_limit = resolve_time_limit_minutes(declared, source=source)
@@ -166,6 +176,7 @@ def _create_record(
         assignment_id=assignment_id,
         is_overdue=is_overdue,
         case_revision_id=revision_id,
+        workflow_id=workflow.id,
         status=TrainingStatus.IN_PROGRESS,
         time_limit=time_limit,
     )
@@ -180,7 +191,6 @@ def _create_record(
     db.flush()
 
     record.case_snapshot = deepcopy(case_data)
-    workflow = HISTORY_TAKING
     resolved_features = workflow.resolve_features(
         case_data,
         overrides=(record.practice_snapshot or {}).get("features"),
@@ -330,7 +340,8 @@ def start_training(
         )
 
     config = _build_config(req.features, req.time_limit_minutes)
-    # 学员训练按**已发布版本**的内容进行（docs/15 §六）：病例后续编辑不改变本次训练
+    # 学员训练按**已发布版本**的内容进行（docs/15 §六）：病例后续编辑不改变本次训练。
+    # workflow 也由这条 revision 决定（请求体不能选择 workflow）并冻结在记录上。
     revision = require_current_revision(db, case)
 
     record, greeting, session = _create_record(
@@ -339,6 +350,7 @@ def start_training(
         case,
         revision.content or {},
         config,
+        workflow=workflow_for_case_revision(revision),
         revision_id=revision.id,
         app_state=request.app.state,
     )
@@ -506,6 +518,7 @@ def start_training_from_assignment(
         case,
         revision.content or {},
         config,
+        workflow=workflow_for_case_revision(revision),
         revision_id=revision.id,
         assignment_id=assignment.id,
         is_overdue=is_overdue,
@@ -577,8 +590,10 @@ def start_blind_box_training(
         db,
         current_user.id,
         case,
-        case.case_data or {},
+        revision.content or {},
         config,
+        workflow=workflow_for_case_revision(revision),
+        revision_id=revision.id,
         app_state=request.app.state,
     )
 

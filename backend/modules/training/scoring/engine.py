@@ -16,7 +16,6 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
-from modules.training.profile import HISTORY_TAKING, record_activity_available
 from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -27,6 +26,7 @@ from modules.training.prompts.scoring import (
 )
 from modules.training.scoring.rubric_loader import get_rubric_version_id
 from modules.training.tools.nursing_record import FIELD_KEYS as NURSING_RECORD_FIELDS
+from modules.training.workflows import record_activity_available, workflow_for_record
 
 from .mapping import LEGACY_VERSION, MAPPING_VERSION
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
@@ -333,7 +333,8 @@ async def _load_record_and_messages(
 def _resolve_rubric(db: Session, record: TrainingRecord) -> dict:
     rubric = record.rubric_snapshot
     if not rubric:
-        base_rubric = HISTORY_TAKING.rubric
+        # 存量记录没有 rubric 快照：按**记录冻结的 workflow** 重建（不是按代码常量）
+        base_rubric = workflow_for_record(record).rubric
         from .rubric import build_final_rubric
 
         features = (record.practice_snapshot or {}).get("features", {})

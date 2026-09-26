@@ -99,6 +99,9 @@ class CaseDataSchema(JsonbModel):
 
     #: Activity 声明（docs/15 §四）：``activities.<id>.config``；结构规则见 modules/cases/validator
     activities: dict[str, Any] = {}
+    #: 该病例内容所属 workflow（docs/15 §二）：训练入口按它冻结到训练记录，请求体无法选择。
+    #: 只登记一个 workflow 时可省略（= history_taking）；登记第二个后病例门禁要求必填。
+    workflow: str = ""
     scene: dict[str, Any] = {}
     hidden_info: list[str] = []
 

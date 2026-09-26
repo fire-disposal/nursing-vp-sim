@@ -10,7 +10,7 @@ from models import Case, User
 from modules.cases.gate import build_validation_report, validate_case_row
 from modules.cases.generation import generate_case as _generate_case
 from modules.cases.service import CaseManageView, CaseService
-from modules.training.profile import HISTORY_TAKING
+from modules.training.workflows import workflow_for_case
 from schemas import (
     CaseBrief,
     CaseCreateRequest,
@@ -24,6 +24,7 @@ from schemas import (
     CaseValidationReport,
     DeleteResponse,
     PaginatedResponse,
+    WorkflowBrief,
 )
 
 log = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ _CaseManager = Annotated[User, Depends(require_permission("case_manage"))]
 
 
 def _to_case_brief(c: Case) -> CaseBrief:
+    workflow = workflow_for_case(c)
     return CaseBrief(
         id=c.id,
         name=c.name,
@@ -45,7 +47,8 @@ def _to_case_brief(c: Case) -> CaseBrief:
         time_limit_minutes=c.time_limit_minutes,
         is_open=c.is_open,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
-        capabilities=HISTORY_TAKING.resolve_features(c.case_data),
+        capabilities=workflow.resolve_features(c.case_data),
+        workflow=WorkflowBrief(id=workflow.id, label=workflow.label),
     )
 
 

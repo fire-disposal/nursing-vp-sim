@@ -23,11 +23,11 @@ from core.template import render_template
 from modules.training.context.assembler import ContextAssembler
 from modules.training.context.examples import build_example_pairs
 from modules.training.pipeline.prompt_context_builder import build_context_kwargs
-from modules.training.profile import HISTORY_TAKING
 from modules.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
+from modules.training.workflows import workflow_for_record
 
 from ..context import STATE_ASSEMBLER, STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
 from ..prompt_context import PromptContext
@@ -53,7 +53,8 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
-    workflow = HISTORY_TAKING
+    # 提示词模板取自**本次记录冻结的 workflow**（记录 = 唯一运行期 owner）
+    workflow = workflow_for_record(ctx.record)
 
     # Case-data kwargs — cached across turns (personality, background, …)
     cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
@@ -68,7 +69,7 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     try:
         session_prompt = render_template(str(workflow.prompts.dynamic), **prompt_ctx.as_dict())
     except Exception as e:
-        log.exception("动态模板渲染失败 workflow=history_taking: %s", e)
+        log.exception("动态模板渲染失败 workflow=%s: %s", workflow.id, e)
         session_prompt = ""
 
     fragments = await ctx.note_collector.collect(ctx) if ctx.note_collector else []
