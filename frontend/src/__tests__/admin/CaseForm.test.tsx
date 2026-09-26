@@ -92,7 +92,7 @@ afterEach(() => {
 });
 
 describe("CaseForm AI 两步向导", () => {
-	it("生成临床骨架：携带 stage=core 并填充表单", async () => {
+	it("生成临床骨架：携带 stage=core，结果先进暂存区、确认后才写入", async () => {
 		mocks.generateCase.mockResolvedValue({
 			data: {
 				case_data: {
@@ -117,34 +117,56 @@ describe("CaseForm AI 两步向导", () => {
 		const payload = mocks.generateCase.mock.calls[0][0] as { stage: string };
 		expect(payload.stage).toBe("core");
 
-		// 生成结果填充表单 → 撤销按钮出现
+		// 新契约（A2）：结果进暂存区，未点"应用选中"前不写入编辑态、也不产生快照
+		expect(await screen.findByText(/项待确认/)).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /撤销/ })).toBeNull();
+
+		await userEvent.click(screen.getByRole("button", { name: /应用选中/ }));
 		await waitFor(() => {
-			expect(mocks.toast.success).toHaveBeenCalledWith(expect.stringContaining("临床骨架"));
+			expect(mocks.toast.success).toHaveBeenCalledWith(expect.stringContaining("已应用"));
 		});
 		expect(screen.getByRole("button", { name: /撤销/ })).toBeTruthy();
 	});
 
-	it("生成教学细节：携带 stage=derivative 与当前病例上下文", async () => {
-		mocks.generateCase.mockResolvedValue({
+	it("空骨架时禁用生成教学细节并说明原因", async () => {
+		renderModal();
+		await userEvent.click(screen.getByRole("button", { name: /AI/ }));
+
+		const detailBtn = screen.getByRole("button", { name: "生成教学细节" });
+		expect(detailBtn).toBeDisabled();
+		expect(detailBtn.getAttribute("title")).toContain("临床骨架");
+		expect(mocks.generateCase).not.toHaveBeenCalled();
+	});
+
+	it("生成教学细节：先落地骨架，再携带 stage=derivative 与当前病例上下文", async () => {
+		// 第一阶段：骨架（含 name/chief_complaint，满足 hasSkeleton 条件）
+		mocks.generateCase.mockResolvedValueOnce({
 			data: {
 				case_data: {
-					hidden_info: ["吸烟30年"],
-					required_inquiries: ["吸烟史"],
+					name: "老年肺炎",
+					chief_complaint: "咳嗽伴发热3天",
+					present_illness: "3天前受凉后咳嗽",
+					patient_info: { name: "王大爷", age: 65, gender: "男" },
 				},
 			},
+		});
+		// 第二阶段：教学细节
+		mocks.generateCase.mockResolvedValueOnce({
+			data: { case_data: { hidden_info: ["吸烟30年"], required_inquiries: ["吸烟史"] } },
 		});
 		renderModal();
 
 		await userEvent.click(screen.getByRole("button", { name: /AI/ }));
 		await userEvent.type(screen.getByPlaceholderText(/描述你想生成的病例场景/), "老年肺炎");
+		await userEvent.click(screen.getByRole("button", { name: "生成临床骨架" }));
+		await userEvent.click(await screen.findByRole("button", { name: /应用选中/ }));
 
-		const detailBtn = screen.getByRole("button", { name: "生成教学细节" });
+		const detailBtn = await screen.findByRole("button", { name: "生成教学细节" });
+		await waitFor(() => expect(detailBtn).toBeEnabled());
 		await userEvent.click(detailBtn);
 
-		await waitFor(() => {
-			expect(mocks.generateCase).toHaveBeenCalledTimes(1);
-		});
-		const payload = mocks.generateCase.mock.calls[0][0] as { stage: string; current_case_data?: unknown };
+		await waitFor(() => expect(mocks.generateCase).toHaveBeenCalledTimes(2));
+		const payload = mocks.generateCase.mock.calls[1][0] as { stage: string; current_case_data?: unknown };
 		expect(payload.stage).toBe("derivative");
 		expect(payload.current_case_data).toBeTruthy();
 	});

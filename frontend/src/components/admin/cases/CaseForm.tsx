@@ -7,9 +7,19 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
 
-import { Alert, Badge, Box, Button, Divider, Grid, Group, Loader, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
+import {
+	Checkbox, Alert, Badge, Box, Button, Divider, Grid, Group, Loader, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from "./CaseEditorState";
 import { CaseStatusBadge } from "./CaseStatusBadge";
+import {
+	applyAcceptedChanges,
+	type AiChange,
+	AI_CLINICAL_FIELDS,
+	AI_PEDAGOGY_FIELDS,
+	ALL_FIELD_LABELS,
+	diffCaseData,
+	summarizeValue,
+} from "./ai/staging";
 import CaseValidationReportView from "./CaseValidationReportView";
 import { caseStatusLabel } from "./caseStatus";
 // 只保留"手写 JSON 时的字段提示"所需的两个名字：模板入口与表单区块已隐藏
@@ -46,34 +56,6 @@ function mergeDetail(detail: CaseDetail): Record<string, CaseJsonValue> {
 }
 
 /** 可逐字段 AI 生成的临床字段（field 模式，以当前病例为上下文）。 */
-const AI_CLINICAL_FIELDS: { key: string; label: string }[] = [
-	{ key: "chief_complaint", label: "主诉" },
-	{ key: "opening_line", label: "开场白" },
-	{ key: "present_illness", label: "现病史" },
-	{ key: "past_history", label: "既往史" },
-	{ key: "medication_history", label: "用药史" },
-	{ key: "allergy_history", label: "过敏史" },
-	{ key: "family_history", label: "家族史" },
-	{ key: "social_history", label: "生活史" },
-	{ key: "communication_style", label: "沟通风格" },
-	{ key: "personality", label: "人格" },
-	{ key: "patient_info", label: "患者信息" },
-];
-
-const AI_PEDAGOGY_FIELDS: { key: string; label: string }[] = [
-	{ key: "hidden_info", label: "隐藏信息" },
-	{ key: "required_inquiries", label: "必询要点" },
-	{ key: "deep_background", label: "深层背景" },
-	// 查体锚点的唯一落点是 Activity 声明（docs/15 §四）；旧的顶层 exam_anchors 已退场，
-	// AI 生成与表单编辑走同一条路径。
-	{ key: "activities.physical_exam.config", label: "查体锚点" },
-	{ key: "example_dialogues", label: "示例对话" },
-];
-
-const ALL_FIELD_LABELS: Record<string, string> = Object.fromEntries(
-	[...AI_CLINICAL_FIELDS, ...AI_PEDAGOGY_FIELDS].map((f) => [f.key, f.label]),
-);
-
 /** 草稿自动保存：按病例 id 隔离（新建用 "new"）。 */
 function draftKey(id: number | null): string {
 	return `case-draft:${id ?? "new"}`;
@@ -98,6 +80,9 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const [aiReferenceText, setAiReferenceText] = useState("");
 	const [aiGenerating, setAiGenerating] = useState(false);
 	const [aiError, setAiError] = useState("");
+	// 生成结果先进暂存区，由教师逐项确认后再写入编辑态（此前直接整份覆盖，见审计 §7）
+	const [pendingAi, setPendingAi] = useState<{ changes: AiChange[] } | null>(null);
+	const [acceptedPaths, setAcceptedPaths] = useState<string[]>([]);
 	const [aiWorking, setAiWorking] = useState(""); // 当前生成动作文案
 	const [showPreview, setShowPreview] = useState(false);
 	const [showDraftRestore, setShowDraftRestore] = useState(false);
@@ -222,17 +207,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		dispatch({ type: "SET_JSON", json });
 	};
 
-	const fillField = (field: string, value: unknown) => {
-		dispatch({ type: "PUSH_SNAPSHOT" });
-		let v: unknown = value;
-		if (field === "hidden_info" || field === "required_inquiries") {
-			if (Array.isArray(v)) v = v.filter(Boolean);
-			else if (typeof v === "string") v = (v as string).split("\n").filter(Boolean);
-			else v = [];
-		}
-		dispatch({ type: "SET_FIELD", path: field, value: v as CaseJsonValue });
-	};
-
 	const buildPayload = (extra: Record<string, unknown>) => {
 		const payload: Record<string, unknown> = {
 			mode: aiMode,
@@ -259,8 +233,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					current_case_data: stage === "derivative" ? state.json : undefined,
 				}) as Parameters<typeof generateCase>[0],
 			);
-			if (data.case_data) fillJson(data.case_data as Record<string, CaseJsonValue>);
-			toast.success(stage === "core" ? "临床骨架已生成，可继续生成教学细节" : "教学细节已生成");
+			if (data.case_data) stageGenerated(data.case_data as Record<string, CaseJsonValue>, stage === "core" ? "已生成临床骨架" : "已生成教学细节");
 		} catch (err: unknown) {
 			const e = err as { response?: { data?: { detail?: string } } };
 			setAiError(e.response?.data?.detail || "AI 生成失败");
@@ -281,8 +254,14 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					current_case_data: state.json,
 				}) as Parameters<typeof generateCase>[0],
 			);
-			fillField(field, data.field_value);
-			toast.success(`已生成「${ALL_FIELD_LABELS[field] ?? field}」建议`);
+			const label = ALL_FIELD_LABELS[field] ?? field;
+			// 复用 applyAcceptedChanges 构造"只改这一个字段"的候选 JSON，再走统一暂存
+			const afterJson = applyAcceptedChanges(
+				state.json,
+				[{ path: field, label, before: undefined, after: data.field_value }],
+				[field],
+			);
+			stageGenerated(afterJson, `已生成「${label}」建议`);
 		} catch (err: unknown) {
 			const e = err as { response?: { data?: { detail?: string } } };
 			setAiError(`生成「${ALL_FIELD_LABELS[field] ?? field}」失败: ${e.response?.data?.detail || "AI 生成失败"}`);
@@ -290,6 +269,29 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			setAiGenerating(false);
 			setAiWorking("");
 		}
+	};
+
+	/** 生成结果不直接落编辑态：算出差异后进暂存区等待确认。 */
+	const stageGenerated = (afterJson: Record<string, CaseJsonValue>, okMsg: string) => {
+		const changes = diffCaseData(state.json, afterJson);
+		if (changes.length === 0) {
+			toast.success(`${okMsg}（与当前内容一致，无需应用）`);
+			return;
+		}
+		setPendingAi({ changes });
+		setAcceptedPaths(changes.map((c) => c.path));
+		toast.success(`${okMsg}：${changes.length} 项变化待确认`);
+	};
+
+	const handleApplyAi = () => {
+		if (!pendingAi) return;
+		dispatch({ type: "PUSH_SNAPSHOT" });
+		dispatch({
+			type: "SET_JSON",
+			json: applyAcceptedChanges(state.json, pendingAi.changes, acceptedPaths),
+		});
+		toast.success(`已应用 ${acceptedPaths.length} 项（可用撤销回退）`);
+		setPendingAi(null);
 	};
 
 	const handleUndo = () => {
@@ -541,6 +543,60 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 								))}
 							</Group>
 						</Stack>
+
+						{pendingAi && (
+							<Stack gap="xs" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
+								<Group justify="space-between" align="center" wrap="wrap" gap="xs">
+									<Group gap={8} align="center">
+										<Badge variant="light" color="brand" size="sm">
+											{pendingAi.changes.length} 项待确认
+										</Badge>
+										<Text size="xs" c="dimmed">勾选要采纳的字段；未勾选的保持你当前的内容</Text>
+									</Group>
+									<Group gap={6}>
+										<Button size="compact-xs" variant="subtle" onClick={() => setAcceptedPaths(pendingAi.changes.map((c) => c.path))}>
+											全选
+										</Button>
+										<Button size="compact-xs" variant="subtle" onClick={() => setAcceptedPaths([])}>
+											全不选
+										</Button>
+										<Button size="compact-xs" variant="light" color="gray" onClick={() => setPendingAi(null)}>
+											丢弃
+										</Button>
+										<Button size="compact-xs" onClick={handleApplyAi} disabled={acceptedPaths.length === 0}>
+											应用选中（{acceptedPaths.length}）
+										</Button>
+									</Group>
+								</Group>
+								<Stack gap={6}>
+									{pendingAi.changes.map((c) => (
+										<Group key={c.path} gap={8} align="flex-start" wrap="nowrap">
+											<Checkbox
+												size="xs"
+												checked={acceptedPaths.includes(c.path)}
+												onChange={(e) =>
+													setAcceptedPaths(
+														e.currentTarget.checked
+															? [...acceptedPaths, c.path]
+															: acceptedPaths.filter((path) => path !== c.path),
+													)
+												}
+												aria-label={`采纳${c.label}`}
+											/>
+											<Box style={{ flex: 1, minWidth: 0 }}>
+												<Text size="xs" fw={600}>{c.label}</Text>
+												<Text size="xs" c="dimmed" style={{ wordBreak: "break-word" }}>
+													当前：{summarizeValue(c.before, 48)}
+												</Text>
+												<Text size="xs" style={{ wordBreak: "break-word" }}>
+													生成：{summarizeValue(c.after, 96)}
+												</Text>
+											</Box>
+										</Group>
+									))}
+								</Stack>
+							</Stack>
+						)}
 					</Paper>
 				)}
 

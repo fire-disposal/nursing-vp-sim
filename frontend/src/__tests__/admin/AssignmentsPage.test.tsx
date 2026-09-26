@@ -176,6 +176,20 @@ beforeEach(() => {
 	mocks.updateAssignment.mockResolvedValue({ data: {} });
 });
 
+/**
+ * DateTimePicker 用测试替身：本文件验证的是「受众模式 → 提交载荷」的业务逻辑，
+ * 日历弹层交互属于库行为（真实控件是 button + 隐藏 input，jsdom 下时序不稳）。
+ * 替身把 value/onChange 原样透传，保持与 valueFormat="YYYY-MM-DD[T]HH:mm" 相同的字符串契约。
+ */
+vi.mock("@mantine/dates", () => ({
+	DateTimePicker: ({ label, ...props }: { label?: string } & Record<string, unknown>) => (
+		<label>
+			{label}
+			<input aria-label={typeof label === "string" ? label : undefined} {...props} />
+		</label>
+	),
+}));
+
 describe("AssignmentsPage 受众", () => {
 	it("列表展示受众口径与人数", async () => {
 		renderPage();
