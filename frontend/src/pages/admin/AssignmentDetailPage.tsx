@@ -235,8 +235,7 @@ export default function AssignmentDetailPage() {
 								<Table.Th>姓名</Table.Th>
 								<Table.Th>状态</Table.Th>
 								<Table.Th>尝试次数</Table.Th>
-								<Table.Th>得分</Table.Th>
-								<Table.Th>评分状态</Table.Th>
+								<Table.Th>评分</Table.Th>
 								<Table.Th>完成时间</Table.Th>
 							</Table.Tr>
 						</Table.Thead>
@@ -264,6 +263,12 @@ export default function AssignmentDetailPage() {
 									<Table.Td>
 										{s.score_total != null ? (
 											<Text component="span" fw={700} inherit>{s.score_total}</Text>
+										) : s.scoring_status === "pending" || s.scoring_status === "processing" ? (
+											<Text component="span" size="xs" c="yellow.7" inherit>评分中</Text>
+										) : s.scoring_status === "failed" ? (
+											<Text component="span" size="xs" c="red" inherit>评分失败</Text>
+										) : s.scoring_status === "completed" ? (
+											<Text component="span" size="xs" c="dimmed" inherit>已评分</Text>
 										) : (
 											"-"
 										)}
@@ -272,11 +277,6 @@ export default function AssignmentDetailPage() {
 												共{s.attempt_count}次
 											</Text>
 										)}
-									</Table.Td>
-									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
-										{s.scoring_status === "completed"
-											? "已评分"
-											: s.scoring_status || "-"}
 									</Table.Td>
 									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 										{s.end_time

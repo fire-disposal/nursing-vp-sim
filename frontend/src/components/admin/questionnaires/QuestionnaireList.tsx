@@ -202,10 +202,6 @@ export default function QuestionnaireList({
 					}
 				/>
 
-				<Group justify="space-between" mb="md">
-					<Text size="sm" c="dimmed">共 {total} 条</Text>
-				</Group>
-
 				<DataTable
 					columns={columns}
 					rows={templates}

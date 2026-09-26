@@ -1,7 +1,7 @@
 import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	IconFilterOff, IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
+	IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
@@ -14,8 +14,9 @@ import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFil
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
@@ -211,27 +212,33 @@ export default function TeacherRecordsPage() {
 			/>
 
 			<Stack gap="md">
-				<Paper withBorder p="md">
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">班级</Text>
-							<ClassFilter
-								classId={class_id ? Number(class_id) : undefined}
-								onChange={handleClassFilterChange}
-							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">学生搜索</Text>
-							<TextInput
-								placeholder="搜索学生姓名或学号..."
-								aria-label="搜索学生姓名或学号"
-								value={searchInput}
-								onChange={(e) => handleSearchChange(e.target.value)}
-							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">病例</Text>
+				<FilterToolbar
+					compact
+					hasActiveFilters={Boolean(
+						debouncedStudent ||
+							case_id ||
+							status ||
+							review_status ||
+							class_id ||
+							date_from ||
+							date_to ||
+							!exclude_is_test,
+					)}
+					onClear={handleClearFilters}
+					search={
+						<SearchInput
+							value={searchInput}
+							onChange={handleSearchChange}
+							placeholder="搜索学生姓名..."
+						/>
+					}
+					filters={
+						<>
+							<ClassFilter onChange={handleClassFilterChange} />
 							<Select
+								size="sm"
+								w={150}
+								placeholder="全部病例"
 								value={case_id || null}
 								onChange={(v) => setParam("case_id", v ?? "")}
 								data={[
@@ -242,10 +249,10 @@ export default function TeacherRecordsPage() {
 									})),
 								]}
 							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">状态</Text>
 							<Select
+								size="sm"
+								w={110}
+								placeholder="全部状态"
 								value={status || null}
 								onChange={(v) => setParam("status", v ?? "")}
 								data={[
@@ -255,10 +262,10 @@ export default function TeacherRecordsPage() {
 									{ value: "abandoned", label: "已放弃" },
 								]}
 							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">复核</Text>
 							<Select
+								size="sm"
+								w={110}
+								placeholder="全部复核"
 								value={review_status || null}
 								onChange={(v) => setParam("review_status", v ?? "")}
 								data={[
@@ -267,38 +274,31 @@ export default function TeacherRecordsPage() {
 									{ value: "reviewed", label: "已复核" },
 								]}
 							/>
-						</Stack>
-						<DatePickerInput
-							label="开始日期(起)"
-							size="sm"
-							clearable
-							valueFormat="YYYY-MM-DD"
-							placeholder="不限"
-							value={date_from || null}
-							onChange={(v) => setParam("date_from", typeof v === "string" ? v : "")}
-						/>
-						<DatePickerInput
-							label="开始日期(止)"
-							size="sm"
-							clearable
-							valueFormat="YYYY-MM-DD"
-							placeholder="不限"
-							value={date_to || null}
-							onChange={(v) => setParam("date_to", typeof v === "string" ? v : "")}
-						/>
-					</SimpleGrid>
-
-					<Group justify="space-between" align="center" wrap="wrap" mt="sm">
-						<Checkbox
-							label="排除试跑"
-							checked={exclude_is_test}
-							onChange={(e) => setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")}
-						/>
-						<Button variant="outline" onClick={handleClearFilters} leftSection={<IconFilterOff size={14} />}>
-							清除
-						</Button>
-					</Group>
-				</Paper>
+							{/* 时间范围用一个 range 选择器：原先"开始日期(起)/(止)"两个框语义靠括号、网格末行还会错位 */}
+							<DatePickerInput
+								type="range"
+								size="sm"
+								clearable
+								w={250}
+								valueFormat="YYYY-MM-DD"
+								placeholder="训练时间：不限"
+								value={[date_from || null, date_to || null]}
+								onChange={([from, to]) => {
+									setParam("date_from", from ?? "");
+									setParam("date_to", to ?? "");
+								}}
+							/>
+							<Checkbox
+								size="sm"
+								label="排除试跑"
+								checked={exclude_is_test}
+								onChange={(e) =>
+									setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")
+								}
+							/>
+						</>
+					}
+				/>
 
 				{/* Stats bar */}
 				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
@@ -342,10 +342,9 @@ export default function TeacherRecordsPage() {
 											时长{sortIcon("duration")}
 										</Table.Th>
 										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }}>状态</Table.Th>
-										<Table.Th style={{ width: 72, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("score_total")}>
-											得分{sortIcon("score_total")}
+										<Table.Th style={{ width: 96, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("score_total")}>
+											评分{sortIcon("score_total")}
 										</Table.Th>
-										<Table.Th style={{ width: 86, whiteSpace: "nowrap" }}>评分状态</Table.Th>
 										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}>操作</Table.Th>
 									</Table.Tr>
 								</Table.Thead>
@@ -400,18 +399,9 @@ export default function TeacherRecordsPage() {
 														>
 															评分失败
 														</Text>
-													) : (
-														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
-													)}
-												</Table.Td>
-												<Table.Td>
-													{r.scoring_status === "completed" ? (
-														<Badge variant="light" color="green">已完成</Badge>
-													) : r.scoring_status === "pending" ||
-														r.scoring_status === "processing" ? (
-														<Badge variant="light" color="yellow">评分中</Badge>
-													) : r.scoring_status === "failed" ? (
-														<Badge variant="light" color="red">失败</Badge>
+													) : r.scoring_status === "completed" ? (
+														// 已评分但无分数（异常数据）：保留状态，不显示成空
+														<Text component="span" size="xs" c="dimmed">已评分</Text>
 													) : (
 														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
 													)}

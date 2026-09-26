@@ -198,6 +198,9 @@
 | **F3** 导出无视筛选（`UI-CRD-4`） | 四类导出与列表共用同一筛选 DTO/服务入口；前端 `useListFilters.exportParams` → `ExportButton` | 浏览器实测：用户页/病例页列表与导出筛选键一致，导出后筛选不被清空 |
 | **一键复位补齐** | cases/feedback/questionnaires/roles/users 全部走 `FilterToolbar` + 钩子 `reset()`；"有活跃筛选"由 `useListFilters.hasActiveFilters` 统一判定（默认值如 `include_inactive=false` 不算活跃） | 浏览器实测：反馈页选标签 → 出现「清除」→ 点击后按钮消失、输入框清空、列表回退全量 |
 | **筛选控件下拉化** | 反馈页 7 个标签按钮、`/my-feedback` 标签按钮行（窄屏要横向滚动）→ 统一为 `Select`（clearable + 占位符），与工具栏其它筛选同形 | 实测：反馈页选「BUG反馈」→ 请求带 `tag=bug`；按钮行消失、下拉就位 |
+| **训练记录筛选栏** | 手写 4 列网格 → `FilterToolbar`；两个 `DatePickerInput`（标签写成"开始日期(起)/(止)"、网格末行错位）→ 一个 **range 选择器**（`训练时间：不限`） | 浏览器实测：深链 `?date_from=…&date_to=…` 时请求带同参；筛选栏截图 ✓ |
+| **重复计数去重** | 问卷列表在工具栏 summary 之外还留了一份独立「共 N 条」→ 删除；记录页工具栏 summary 与 StatCard「筛选结果」重复 → 保留 StatCard | DOM 扫描 7 个列表页：计数类文本**无完全重复** |
+| **评分列去重** | `/admin/records` 与 `/admin/assignments/:id` 的「得分/分数」列本就渲染"评分中/评分失败"，再挂一列「评分状态」表示同一状态 → 合并为一列**评分**（分数或评分态），两表口径一致 | 实测：表头 学生…状态/**评分**/操作，行内 `87分` / `评分失败`（带错误 title）；`已评分` 边界保留 |
 | **查询实现统一**（见 §6.4） | 后端「筛选 DTO + `Depends()`」、导出取数一律 `MAX_EXPORT_ROWS + 1`、前端 `useListFilters` + 契约类型别名 | 后端 1483 通过 / 前端 496 通过 / `tsc`+`biome` 干净 / 构建通过 |
 
 **已核实合理、不动**：`/admin/scoreboard` 11 列的列宽（67–156px）与数字右对齐已够用；`/admin/versions` 7 列身份/记录/评分列宽均衡。
