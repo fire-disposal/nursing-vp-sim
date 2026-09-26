@@ -245,3 +245,29 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   空 must-act/cue 声明被拒 —— 每条 error 都指向作者可见的 JSON 路径并给出修复方向。
 - **目录投影**：`CaseBrief.workflow` 增加 `runtime_ready`，运行期未就绪的 workflow 不投影任何能力；
   学生目录展示 workflow label 但不提供可开始入口。见 `docs/15 §十六`。
+
+### 评分作业队列可见性（`/api/diagnose` 新增 `jobs` 块）
+
+- **块本身**：`jobs`（db/now）给出各 kind 的状态计数、最老 pending 等待秒数、过期租约数。`SCORING_EXECUTION=job`
+  时评分不走进程内 `TaskQueue`，`metrics.queue.task_queue` 恒为 0 —— 队列是否在跑、是否堆积此前在运维面
+  **不可见**。顶层键 15 → 16，块表与 job 模式口径同步进 `docs/ops/diagnostics.md`、`docs/09-operations.md`
+  与 `skill://ops-interfaces`；契约由顶层键集断言 + 部署冒烟（断言 `jobs.by_kind` 存在，防"旧代码在跑却判成功"）守卫。
+- **管理面**：admin 看板新增作业队列卡片（无数据 / 旧后端缺块均显式降级，不静默空白）。
+- **接口定位**：`/api/diagnose` 与 `/api/feedback/bot` 明确为**按需调用入口**，刻意不配周期性消费者或调度器；
+  与之并行的 `PiOps` 修复/发布流水线（工具包与 workflow）从仓库移除，接口与其载体解耦。
+
+### 评分重试链路修复（2026-09-26 生产校验发现）
+
+- **重试只作用于目标记录**：`acquire_scoring` 的 `WHERE id = :id AND {status_cond}` 缺括号，`AND` 优先级高于 `OR`
+  使 allow_retry 分支退化为 `(id = :id AND …) OR scoring_status IN ('completed','failed')` —— **重试一条记录会把
+  全库 completed/failed 记录一并置为 pending**；若此时后端重启，job 模式的启动重放会据此对全库真实记录发起
+  重评分（成本 + 覆盖成绩）。生产一次 `retry-scoring` 已复现：420 条被清扫按"已有 Score"静默还原，仅多出
+  1 条重复通知，未造成重评分。
+- **清扫按"本次尝试"衡量新鲜度**：`_sweep_stale_scoring_records` 原先只看 `end_time < now − 10min`，因此对
+  结束超过 10 分钟的记录重试**必然**被下一轮清扫打回 failed，排队作业随即空跑 —— 「可手动重试」在真实场景下
+  失效。改为按 `runtime_state.scoring_requested_at`（由 `acquire_scoring` 在同一语句内与 CAS 一起写入；
+  无标记的历史行回退旧口径）。
+- **未执行不得记成成功**：`run_scoring_background` 从静默 `return` 改为返回未执行原因，jobs 层据此抛
+  `ScoringNotExecuted` → job 记 failed + `last_error`。此前「一条 succeeded 的评分作业」与「库里没有任何分」
+  可以同时成立，队列读面（`jobs` 块）因此报假健康；记录已被其他执行者评完（`scoring_status=completed`）
+  仍视为目的达成，不算失败。
