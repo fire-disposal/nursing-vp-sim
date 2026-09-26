@@ -33,6 +33,16 @@ class _First:
         return self._session.resolve(self._model)
 
 
+class _ScalarResult:
+    """``patch_runtime_state`` 的行锁读回替身（``SELECT … FOR UPDATE`` → 记录本身）。"""
+
+    def __init__(self, value: object | None) -> None:
+        self._value = value
+
+    def scalar_one_or_none(self) -> object | None:
+        return self._value
+
+
 class _FakeSession:
     """``_handle_scoring_failure`` 的最小 Session 替身（无 DB）。"""
 
@@ -55,6 +65,9 @@ class _FakeSession:
 
     def query(self, model: object) -> _First:
         return _First(self, model)
+
+    def execute(self, statement: object, params: object | None = None) -> _ScalarResult:
+        return _ScalarResult(self.record)
 
     def add(self, obj: object) -> None:
         if isinstance(obj, Score):

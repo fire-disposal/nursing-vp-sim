@@ -249,7 +249,9 @@ class _FinalizeSession:
         return _CountingQuery(self, getattr(model, "__name__", ""))
 
     def execute(self, _statement, params=None):
-        return SimpleNamespace(scalar=lambda: 1)
+        # 两种用法：行锁读回（patch_runtime_state → .scalar_one_or_none()）与
+        # 条件自增（acquire_scoring → .scalar()）。替身两种形状都给。
+        return SimpleNamespace(scalar=lambda: 1, scalar_one_or_none=lambda: self.record)
 
     def refresh(self, _obj) -> None:
         self.refreshes += 1

@@ -26,6 +26,7 @@ from ..tools.nursing_record import (
     is_submitted,
     missing_fields,
 )
+from .state import patch_runtime_state
 
 log = logging.getLogger(__name__)
 
@@ -82,15 +83,19 @@ def mark_discarded(db: Session, record: TrainingRecord, *, ended_at: datetime | 
         log.warning("Emotion cleanup failed on discard: record_id=%d", record.id, exc_info=True)
 
 
-def mark_patient_walkout(record: TrainingRecord, *, at: datetime) -> None:
+def mark_patient_walkout(db: Session, record: TrainingRecord, *, at: datetime) -> None:
     """标记「患者主动中止访谈」。
 
     写入 runtime_state（而非另建字段）：该标记是 chat 准入守卫、前端提示与审计的
     唯一真值；真正的终结仍由 ``finalize_training`` 承担，标记只回答「为什么结束」。
+    经 ``patch_runtime_state``（行锁 + 重读 + 只改本键），不会抹掉本轮并发写入的
+    ``exam_results`` 等键。
     """
-    state = dict(record.runtime_state or {})
-    state[PATIENT_WALKOUT_KEY] = {"reason": PATIENT_WALKOUT_KEY, "at": at.isoformat()}
-    record.runtime_state = state
+    patch_runtime_state(
+        db,
+        record.id,
+        {PATIENT_WALKOUT_KEY: {"reason": PATIENT_WALKOUT_KEY, "at": at.isoformat()}},
+    )
 
 
 def is_patient_walkout_ended(record: TrainingRecord) -> bool:
@@ -98,16 +103,18 @@ def is_patient_walkout_ended(record: TrainingRecord) -> bool:
     return PATIENT_WALKOUT_KEY in (record.runtime_state or {})
 
 
-def mark_terminal_reason(record: TrainingRecord, *, reason: str, at: datetime) -> None:
+def mark_terminal_reason(db: Session, record: TrainingRecord, *, reason: str, at: datetime) -> None:
     """记录「本次训练为什么结束」—— 用户主动完成 ≠ 系统终止（超时/患者离开）。
 
     写入 runtime_state（而非另建字段）：不需要迁移，且与 ``PATIENT_WALKOUT_KEY``
     同源可审计。系统终止**不得**借此伪造「学生已提交评估」——提交状态只认
-    ``NursingRecord.submitted_at``。
+    ``NursingRecord.submitted_at``。经 ``patch_runtime_state`` 原子写入本键。
     """
-    state = dict(record.runtime_state or {})
-    state[TERMINAL_STATE_KEY] = {"reason": reason, "at": at.isoformat()}
-    record.runtime_state = state
+    patch_runtime_state(
+        db,
+        record.id,
+        {TERMINAL_STATE_KEY: {"reason": reason, "at": at.isoformat()}},
+    )
 
 
 def terminal_reason(record: TrainingRecord) -> str | None:
@@ -167,7 +174,7 @@ def finalize_training(
             return False, None, None
         db.refresh(record)  # pick up acquire_scoring's 'pending' so later clears are real changes
         mark_discarded(db, record, ended_at=ended)
-        mark_terminal_reason(record, reason=origin, at=ended)
+        mark_terminal_reason(db, record, reason=origin, at=ended)
         return True, TrainingStatus.DISCARDED, None
 
     # 用户主动完成 + 本次 workflow 要求护理评估 → 必须先有「已提交」的冻结版本。
@@ -190,7 +197,7 @@ def finalize_training(
     record.status = TrainingStatus.COMPLETED
     record.end_time = ended
     set_overdue_if_needed(record, db)
-    mark_terminal_reason(record, reason=origin, at=ended)
+    mark_terminal_reason(db, record, reason=origin, at=ended)
     return True, TrainingStatus.COMPLETED, case_data
 
 

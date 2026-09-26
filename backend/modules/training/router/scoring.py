@@ -35,6 +35,7 @@ from modules.training.session.finalize import (
     mark_discarded,
     student_message_count,
 )
+from modules.training.session.state import patch_runtime_state
 from modules.training.tools.nursing_record import (
     NursingAssessmentError,
     submit_nursing_assessment,
@@ -231,9 +232,9 @@ def _handle_scoring_failure(
                         db.flush()
                         if restored_review is not None:
                             db.add(restored_review)
-                        rs = dict(record.runtime_state or {})
-                        rs.pop("force_rescore_snapshot", None)
-                        record.runtime_state = rs
+                        # 只清自己拥有的键（session/state.py 的写入契约）：整列回写会
+                        # 抹掉这期间工具/对话写入的 runtime_state 键。
+                        patch_runtime_state(db, record_id, remove=["force_rescore_snapshot"])
                         # 有 Score ⇒ completed（本文件三次实现同一不变量的第三个）：
                         # 只恢复分不纠正状态，恢复出的旧分会在成绩管理/作业详情永久不可见。
                         record.scoring_status = ScoringStatus.COMPLETED
@@ -625,12 +626,11 @@ async def retry_scoring(
 
         if old_score:
             # S6 两阶段 force 重评：先快照旧分/旧复核，新评分失败时由
-            # _handle_scoring_failure 恢复（不再"先删后算"丢分）
+            # _handle_scoring_failure 恢复（不再"先删后算"丢分）。
+            # 经 patch_runtime_state 原子写入本键（session/state.py 的写入契约）。
             old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first()
             snapshot = _snapshot_score_for_rescore(old_score, old_review)
-            rs = dict(record.runtime_state or {})
-            rs["force_rescore_snapshot"] = snapshot
-            record.runtime_state = rs
+            patch_runtime_state(db, record_id, {"force_rescore_snapshot": snapshot})
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
 

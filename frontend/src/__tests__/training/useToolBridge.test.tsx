@@ -20,10 +20,6 @@ vi.mock("@/api/training", () => ({
   postToolCommand: apiMock.postToolCommand,
 }));
 
-vi.mock("@/hooks/useTrainingWS", () => ({
-  subscribeWSConnection: () => () => {},
-}));
-
 function Bridge({ bus }: { bus: MessageBus }) {
   useToolBridge(bus);
   return null;

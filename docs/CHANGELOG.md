@@ -226,3 +226,8 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - **陈旧度显式化**：`runtime.cache_ttl_seconds`/`cached_age_seconds`（快照最长 120s）
 - **删掉第二份契约**：`schemas/ops.py` 中未被引用且已漂移的 `Diagnose*`/`Metrics*`/`Ops*` pydantic 模型移除（只留 `HealthResponse`/`FallbackStateResponse`）
 - **同步消费方**：PiOps 诊断 prompt 改读 `llm.router`（此前降级证据根本进不了 prompt）、admin 看板、宿主日报兼容说明与本仓 5 份运维文档；告警文案修正（「LLM 5 分钟突发错误」实为后端 ERROR 日志突发）、p95 告警标注本进程口径
+
+### 运行时写入收敛（一个事实，一个 owner）
+
+- **`runtime_state` 单一写入契约**：新增 `modules/training/session/state.patch_runtime_state`（行锁 → `populate_existing` 重读 → 只改本键，`remove` 只删本键），对话修正计数、会话终结原因、评分重评快照全部改走它。此前这些写入都是「读已加载实例 → 整列回写」，而对话回合的事务 A 与 LLM 调用之间隔几十秒 —— 期间工具命令写入的 `exam_results`（学生查体结果）会被随后的整列回写静默抹掉（审计 PIP-15）。新增 `tests/training/test_runtime_state_contract.py` 守住四条不变式（其余键保留 / 以库内现值为基准 / 整键覆盖 / remove 只删本键），并用「旧写法丢 exam_results、新写法保留」的对照实验确认回归覆盖成立
+- **传输边界写死**：工具/活动状态只由 HTTP 命令面 `POST /api/training/{id}/tools` 写（`router/tools.py` 不再自称「旧协议适配层」）；对话回合只由 SSE 命令写；WS（`router/ws.py`）只推送评分/心跳事件，服务端不在该通道落任何业务行。前端相应删除无消费者的残余：`useToolBridge` 的空订阅、`training-ws:reconnected` 广播（全仓无监听者）、离线客户端命令队列（工具已走 HTTP，队列里只有被丢掉的 ping）与 `TrainingWS.send` 公开 API；`useToolBridge` / `useTrainingWS` / `api/sse.ts` / `docs/01-architecture.md` 的注释与文档改为描述真实边界

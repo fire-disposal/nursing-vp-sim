@@ -1,13 +1,14 @@
 /**
- * SSE 流式读取器 — 请求级流式响应（两车道模型之 SSE 车道）。
+ * SSE 流式读取器 — 请求级流式响应。
  *
  * SSE 处理"一次请求的流式响应"（LLM 聊天、QA），与 WS 分离。
  * 使用 fetch Response.body.getReader（非 EventSource），支持 401 刷新重试。
  *
- * ── 两车道模型 ──
- * HTTP  → 请求/响应：CRUD、登录、拉数据
- * SSE   → 请求流式响应：LLM 聊天逐字、QA/RAG（本文件）
- * WS    → 会话级双向实时：查体、评分、scene:state（@/hooks/useTrainingWS.ts）
+ * ── 传输边界（docs/16 §四·4.2） ──
+ * HTTP  → 请求/响应命令：CRUD、登录、拉数据、**工具/活动写操作**（/training/{id}/tools）
+ * SSE   → 请求流式响应：LLM 聊天逐字（聊天的唯一写入 owner）、QA/RAG（本文件）
+ * WS    → 服务端事件推送：评分进度 / 心跳；事件只用于通知 + 失效查询缓存
+ *         （@/hooks/useTrainingWS.ts），不承载业务命令与第二份业务状态
  */
 
 export interface InitiativeStateData {

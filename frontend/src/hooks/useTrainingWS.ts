@@ -1,12 +1,15 @@
 /**
- * 训练 WebSocket 单例 — 会话级双向实时通道（两车道模型之 WS 车道）。
+ * 训练 WebSocket 单例 — **仅服务端推送**（评分进度 / 心跳）。
  *
- * ┌── HTTP ──── 请求/响应：CRUD、登录、拉数据（不动）
- * ├── SSE ───── 请求流式响应：LLM 聊天、QA（@/api/sse.ts:readSSEStream）
- * └── WS ────── 会话级双向实时：查体、评分、scene:state、主动追问
+ * ┌── HTTP ──── 请求/响应命令：CRUD、登录、拉数据；**工具/活动写操作**
+ * │             （`POST /api/training/{id}/tools`，revision 乐观并发 + idem_key 幂等）
+ * ├── SSE ───── 请求流式响应：LLM 聊天（`POST /api/chat/{id}/message/stream`）
+ * │             与 QA（@/api/sse.ts:readSSEStream）—— 聊天的唯一写入 owner
+ * └── WS ────── 服务端事件推送；客户端只发心跳 ping，**不承载任何业务命令或状态写入**
  *
- * WS 负责"服务端主动推送 + 客户端命令"，每条连接鉴定用户身份后接入
- * backend RealtimeHub（见 backend/contexts/training/router/ws.py）。
+ * 边界（docs/16 §四·4.2）：状态变更只认 HTTP/SSE 命令；WS 事件只用于
+ * 「通知 + 失效查询缓存」（见 @/hooks/useScoringNotifications.ts），不构成第二份业务状态。
+ * 每条连接鉴定用户身份后接入 backend RealtimeHub（见 backend/modules/training/router/ws.py）。
  *
  * 自愈策略：指数退避 + 抖动，退避耗尽后转入 30s 周期探测（永不放弃）；
  * 监听 online / visibilitychange 即时重连；4001 刷新失败降级为普通退避。
@@ -19,13 +22,8 @@ export interface TrainingWSMessage {
 	[key: string]: unknown;
 }
 
-export interface TrainingWS {
-	send(msg: TrainingWSMessage): void;
-}
-
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
 const _connListeners = new Set<(connected: boolean) => void>();
-const _pending: TrainingWSMessage[] = [];
 let _ws: WebSocket | null = null;
 let _retryCount = 0;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -105,20 +103,14 @@ function _connect() {
 		setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0);
 	}
 
-	const wasReconnect = _retryCount > 0;
 	const ws = new WebSocket(buildWsUrl());
 	_ws = ws;
 	ws.onopen = () => {
 		_retryCount = 0;
 		_setConnected(true);
-		// 重连成功广播：训练视图可据此同步场景/状态
-		if (wasReconnect) {
-			try { window.dispatchEvent(new CustomEvent("training-ws:reconnected")); } catch { /* ignore */ }
-		}
-		while (_pending.length > 0) {
-			const msg = _pending.shift()!;
-			_send(msg);
-		}
+		// 重连后不重放任何客户端消息：本通道只收服务端事件，客户端无业务命令可补发。
+		// （旧实现在此 flush 离线命令队列并广播 training-ws:reconnected —— 两者都无消费者，
+		// 场景同步改走会话详情投影。）
 	};
 
 	ws.onmessage = (ev) => {
@@ -168,7 +160,7 @@ function _connect() {
 	};
 	const pingTimer = setInterval(() => {
 		if (_ws === ws && ws.readyState === WebSocket.OPEN) {
-			_send({ type: "ping" });
+			_sendPing();
 		}
 	}, 25_000);
 	const _origOnClose = ws.onclose;
@@ -177,13 +169,11 @@ function _connect() {
 		if (_origOnClose) _origOnClose.call(ws, ev);
 	};
 }
-function _send(msg: TrainingWSMessage) {
+
+/** 连接保活：本通道唯一的出站消息（无业务命令，因此断线时直接丢弃而非排队重放）。 */
+function _sendPing() {
 	if (_ws && _ws.readyState === WebSocket.OPEN) {
-		_ws.send(JSON.stringify(msg));
-	} else {
-		// 离线期命令累积上限：防无限增长（丢弃最旧）
-		if (_pending.length >= 50) _pending.shift();
-		_pending.push(msg);
+		_ws.send(JSON.stringify({ type: "ping" }));
 	}
 }
 
@@ -194,7 +184,7 @@ function _send(msg: TrainingWSMessage) {
 export function useTrainingWS(
 	onEvent?: (msg: TrainingWSMessage) => void,
 	enabled = true,
-): TrainingWS {
+): void {
 	const onEventRef = useRef(onEvent);
 	onEventRef.current = onEvent;
 
@@ -223,10 +213,7 @@ export function useTrainingWS(
 				_uninstallNetworkListeners();
 				if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
 				if (_ws) { const old = _ws; _ws = null; old.onclose = null; setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0); _setConnected(false); }
-				_pending.length = 0;
 			}
 		};
 	}, [enabled]);
-
-	return { send: _send };
 }

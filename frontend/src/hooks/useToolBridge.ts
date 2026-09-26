@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { postToolCommand } from "@/api/training";
 import type { ToolCommandResult } from "@/api/training";
 import type { MessageBus } from "@/engine/types";
-import { subscribeWSConnection } from "./useTrainingWS";
 
 /**
  * 工具指令面桥（Phase 2.5）— HTTP 请求/响应替代 WS tool 通道。
@@ -11,7 +10,10 @@ import { subscribeWSConnection } from "./useTrainingWS";
  * "tool:result" / "emotion:changed"。写操作串行执行，并通过
  * 完成屏障供交卷流程等待；乐观并发冲突会使用服务端版本号重试一次。
  *
- * 注：响应里的 `scene` 不再转发（工作区已改为 manifest 驱动，场景状态容器退场，
+ * 传输边界：**状态变更只走 HTTP 命令**（`POST /training/{id}/tools`，后端
+ * `tools/service.py` 独占写入 owner）。WebSocket 只承载服务端推送（评分/心跳），
+ * 不参与任何写入，因此本桥不订阅连接状态、也不把响应投影当第二份业务状态。
+ * 响应里的 `scene` 不再转发（工作区已改为 manifest 驱动，场景状态容器退场，
  * 无消费者的事件不再发布）。
  */
 
@@ -185,8 +187,6 @@ export function useToolBridge(bus: MessageBus) {
 		revisionRef.current = null;
 		queueRef.current = Promise.resolve();
 	}, [bus]);
-
-	useEffect(() => subscribeWSConnection(() => {}), []);
 
 	return ready;
 }

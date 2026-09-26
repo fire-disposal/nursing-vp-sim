@@ -56,7 +56,7 @@ async def test_enqueued_scoring_survives_detached_record(monkeypatch):
         "finalize_training",
         lambda db, record_id, ended_at=None, **kwargs: (True, TrainingStatus.COMPLETED, {"patient_info": {}}),
     )
-    monkeypatch.setattr(finalize_module, "mark_patient_walkout", lambda record, at=None: None)
+    monkeypatch.setattr(finalize_module, "mark_patient_walkout", lambda db, record, at=None: None)
     monkeypatch.setattr(finalize_module, "cleanup_session_runtime", lambda record, app, db: None)
 
     record = _DetachingRecord()

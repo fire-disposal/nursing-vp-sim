@@ -1,10 +1,17 @@
 """Chat router — thin dispatcher delegating to pipeline.
 
+**对话回合的唯一写入 owner**（docs/16 §四·4.2）：SSE（``/message/stream``）与非流式
+（``/message``）只是同一命令的两种 transport，二者共用 ``begin_turn`` → pipeline →
+``persister``，不会出现第二条写消息/写运行的路径。
+
 事务边界（docs/15 §五，见 ``pipeline/turn.py``）：
   1. 准入守卫 / 读消息窗口（只读）；
   2. **事务 A**：学生消息 + turn(pending) → commit（``begin_turn``，在任何 LLM 之前）；
   3. LLM / 流式推送：不持有数据库事务；
   4. **事务 B**：患者消息 + turn(completed|failed) → commit（``persister``）。
+
+``runtime_state`` 的写入（修正计数等）走 ``session/state.patch_runtime_state``：
+行锁 + 重读 + 只改本键，与 Activity 命令面同一把锁，互不覆盖。
 
 幂等：请求可带 ``request_id``（老客户端不带也会生成一个，保证每轮都有 turn 记录）。
 同一 ``(record_id, request_id)`` 重放：已完成的回合直接回放同一结果、失败回合回放

@@ -149,6 +149,11 @@ async def execute_tool_command(
 
     2.0 约束：TrainingAction 同时承担幂等（unique(record_id, request_id)）与域时间线；
     revision 原子条件自增，旧版本请求返回 409，避免 JSONB 无锁覆盖。
+
+    **写入 owner**：Activity 结果（TrainingAction + ``runtime_state`` 键 + NursingRecord
+    产物）只在此产生；handler 拿到的是行锁内的实例（``with_for_update``），因此整表写回
+    是安全的。非工具路径写 ``runtime_state`` 必须走 ``session.state.patch_runtime_state``
+    （同一把行锁），否则会把这里的写入整列覆盖掉。
     """
     if not idem_key or len(idem_key) > 64:
         raise ValidationError(detail="idem_key 缺失或过长")

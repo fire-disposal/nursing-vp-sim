@@ -1,19 +1,22 @@
-"""Training WebSocket — real-time event bus for training sessions.
-
-Bidirectional WebSocket connection carrying training tool invocations and
-server-pushed events (scoring, heartbeat).
+"""Training WebSocket — **仅服务端事件推送**（训练会话的通知通道）。
 
 Protocol (JSON messages):
 
   Client → Server:
-    { "type": "ping" }
+    { "type": "ping" }                          — 连接保活；本通道唯一的出站客户端消息
 
   Server → Client:
     { "type": "<scoring_event>", … }            — forwarded from RealtimeHub
     { "type": "heartbeat" }
 
-Phase 2.5：工具调用已迁 HTTP 指令面（POST /api/training/{id}/tools），
-本通道只承载服务端推送事件。
+写入边界（docs/16 §四·4.2「一个事实，一个 owner」）:
+
+  * **工具/活动命令** → ``POST /api/training/{record_id}/tools``（HTTP，唯一写入 owner）；
+  * **聊天回合** → ``POST /api/chat/{record_id}/message/stream``（SSE，唯一写入 owner）；
+  * **本通道** → 只推送服务端事件（评分进度 / 心跳）。客户端不得借此改状态，
+    服务端在此不落任何业务行 —— 前端收到事件只做「通知 + 失效查询缓存」。
+
+Phase 2.5：工具调用已迁 HTTP 指令面，本通道不再承载任何业务命令。
 """
 
 from __future__ import annotations

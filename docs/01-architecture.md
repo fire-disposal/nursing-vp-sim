@@ -100,6 +100,30 @@
 工具调用（查体、护理记录、问诊指引等）不经过对话管道，走 HTTP 指令面
 `POST /api/training/{record_id}/tools`：`revision` 乐观并发（旧版本 409）+ `idem_key` 幂等回放。
 
+### 运行时状态的写入契约（一个事实，一个 owner）
+
+`TrainingRecord.runtime_state` 是裸 JSONB，多个流程各写自己的键：
+
+| 键 | owner（唯一写入路径） |
+|---|---|
+| `exam_results` / `quiz_answers` / `nursing_diagnoses` | HTTP 工具指令面（`tools/service.py` 的行锁 + revision CAS 内） |
+| `scene` | 会话创建写初值（`router/session.py:_create_record`）+ 工具指令面写 vitals 增量 |
+| `message_correction` | 对话回合（`pipeline/middleware/persister.py`） |
+| `patient_walkout` / `terminal` | 会话终结（`session/finalize.py`） |
+| `force_rescore_snapshot` | 评分重评（`router/scoring.py`） |
+| `paused_*` / `questionnaire_paused_*` | 计时暂停（`router/session.py`） |
+
+不在工具行锁事务内的写入者必须调用 `session/state.patch_runtime_state`：**行锁 →
+重读（`populate_existing`）→ 只改自己的键**（对话修正、会话终结原因、评分重评快照已全部改走它）。
+禁止用「已加载实例 + 整列回写」——对话回合的事务 A 与 LLM 之间隔几十秒，期间工具写入的
+`exam_results` 会被整列回写静默抹掉（审计 PIP-15）。唯一例外是计时暂停
+（`paused_*` / `questionnaire_paused_*`，`router/session.py`）：它在同一请求内就地读写自己的键、
+不跨外部调用，因此不属于该缺陷类；若要收口需先补端点级测试。
+
+实时通道只做通知与流式，不改状态：WS（`/api/training/ws`）只推送评分/心跳事件，前端收到后
+只更新或失效 query cache（`useScoringNotifications`）；聊天写入只发生在 SSE 命令
+`POST /api/chat/{id}/message/stream` 的事务 A/B 内。
+
 ### 评分流程
 
 ```

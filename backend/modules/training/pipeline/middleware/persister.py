@@ -15,6 +15,7 @@ import logging
 
 from models import Message
 from modules.training.patient_ai.initiative import update_initiative_timer
+from modules.training.session.state import patch_runtime_state
 
 from ..context import (
     STATE_CORRECTION_TARGET,
@@ -112,15 +113,18 @@ def _persist_correction(ctx: PipelineContext) -> None:
     ctx.db.add(patient_msg)
     ctx.db.flush()
 
-    correction = _next_correction_state(
-        ctx.record.runtime_state or {},
-        old=old,
-        student_msg=student_msg,
-        patient_msg=patient_msg,
+    # runtime_state 的写入契约（session/state.py）：行锁 + 重读 + 只改自己的键 ——
+    # 本回合的 LLM 期间可能有 Activity command 写入 exam_results 等键，整列回写会抹掉它们。
+    merged = patch_runtime_state(
+        ctx.db,
+        ctx.record.id,
+        lambda current: {
+            "message_correction": _next_correction_state(
+                current, old=old, student_msg=student_msg, patient_msg=patient_msg
+            )
+        },
     )
-    runtime_state = dict(ctx.record.runtime_state or {})
-    runtime_state["message_correction"] = correction
-    ctx.record.runtime_state = runtime_state
+    correction = merged["message_correction"]
 
     ctx.db.commit()
     ctx.db.refresh(student_msg)

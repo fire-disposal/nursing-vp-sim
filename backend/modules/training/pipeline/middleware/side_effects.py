@@ -116,7 +116,7 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
 
     now = datetime.now(UTC)
     record_id = ctx.record.id
-    mark_patient_walkout(ctx.record, at=now)
+    mark_patient_walkout(ctx.db, ctx.record, at=now)
     # 走人标记先落库：即便随后终结抢锁失败，chat 准入守卫也必须看到「患者已中止」
     _commit_side_effect(ctx, action="patient_walkout_mark")
     claimed, kind, case_data = finalize_training(ctx.db, record_id, ended_at=now, origin=END_ORIGIN_PATIENT_WALKOUT)
