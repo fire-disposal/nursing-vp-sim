@@ -110,6 +110,42 @@ export const cssVariablesResolver = () => ({
 	variables: {},
 	light: {
 		"--mantine-color-dimmed": "var(--mantine-color-gray-7)",
+		// `variant="light"` 徽章/按钮的浅色配色默认是「color-1 底 + color-9 字」，
+		// 实测多数色系只有 2.7–4.9:1（yellow 2.69、orange 3.62、green 3.81、teal 4.33），
+		// 在 11px 字号下低于 AA。逐色系改为「color-0 底 + 按需压暗的 color-9 字」，
+		// 全部 ≥5.0:1（色值由运行时 token 按比例压暗求得，非手调）：
+		//   yellow  #e67700 → #a65600 (5.02) · green  #2b8a3e → #267937 (5.05)
+		//   orange  #d9480f → #bb3e0d (5.08) · teal   #087f5b → #087756 (5.18)
+		//   其余色系（gray/blue/red/grape/violet/indigo/brand）仅换浅底即 ≥5.0（4.93→5.48 等）。
+		"--mantine-color-gray-light": "var(--mantine-color-gray-0)",
+		"--mantine-color-blue-light": "var(--mantine-color-blue-0)",
+		"--mantine-color-red-light": "var(--mantine-color-red-0)",
+		"--mantine-color-yellow-light": "var(--mantine-color-yellow-0)",
+		"--mantine-color-green-light": "var(--mantine-color-green-0)",
+		"--mantine-color-orange-light": "var(--mantine-color-orange-0)",
+		"--mantine-color-teal-light": "var(--mantine-color-teal-0)",
+		"--mantine-color-grape-light": "var(--mantine-color-grape-0)",
+		"--mantine-color-violet-light": "var(--mantine-color-violet-0)",
+		"--mantine-color-indigo-light": "var(--mantine-color-indigo-0)",
+		"--mantine-color-brand-light": "var(--mantine-color-brand-0)",
+		"--mantine-color-yellow-light-color": "#a65600",
+		"--mantine-color-green-light-color": "#267937",
+		"--mantine-color-orange-light-color": "#bb3e0d",
+		"--mantine-color-teal-light-color": "#087756",
+		// `c="blue"` 这类**颜色名文字**映射到 `--mantine-color-{名}-text`，浅色下默认取鲜艳的
+		// -6/-7 档：yellow 2.13、green 2.75、orange 3.04、teal 3.12、red 3.84（白底）—— 远低于 AA。
+		// 统一改取 -9（个别再压暗到 ≥5.0），这样全站 `c="色名"` 文字一次到位，无需改调用点。
+		"--mantine-color-gray-text": "var(--mantine-color-gray-9)",
+		"--mantine-color-blue-text": "var(--mantine-color-blue-9)",
+		"--mantine-color-red-text": "var(--mantine-color-red-9)",
+		"--mantine-color-teal-text": "var(--mantine-color-teal-9)",
+		"--mantine-color-grape-text": "var(--mantine-color-grape-9)",
+		"--mantine-color-violet-text": "var(--mantine-color-violet-9)",
+		"--mantine-color-indigo-text": "var(--mantine-color-indigo-9)",
+		"--mantine-color-brand-text": "var(--mantine-color-brand-9)",
+		"--mantine-color-yellow-text": "#aa5800",
+		"--mantine-color-green-text": "#287f39",
+		"--mantine-color-orange-text": "#c3410e",
 	},
 	dark: {
 		"--mantine-color-dimmed": "var(--mantine-color-dark-2)",
