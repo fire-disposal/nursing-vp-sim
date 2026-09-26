@@ -369,7 +369,12 @@ jobs:
             # 部署窗口标记：监控在此期间跳过健康检查，避免每次发布都误报一次。
             # 契约见 server-ops 仓 README；trap 保证失败退出也会摘掉标记。
             touch /opt/server-ops/monitor/.deploying
-            trap 'rm -f /opt/server-ops/monitor/.deploying' EXIT
+            # 完成哨兵：本脚本经 ssh 'bash -s' 从 stdin 传入，一旦某个命令吞掉 stdin（例如
+            # `docker compose run` 未加 -T），bash 会读到 EOF 并以 **0** 退出 —— 2026-09-26 的
+            # 静默失败就是这样：迁移跑完、服务没切、流水线报成功。这里把"没跑到最后一行"
+            # 变成非零退出；与部署窗口标记共用同一个 trap（后设的 trap 会覆盖前者）。
+            DEPLOY_COMPLETED=no
+            trap 'rc=$?; rm -f /opt/server-ops/monitor/.deploying; [ "$DEPLOY_COMPLETED" = yes ] || { echo "::error::部署脚本未执行完（stdin 被吞？）——状态未知，需人工核对"; exit 1; }; exit $rc' EXIT
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             echo ">> Deploy v$VER"
 
@@ -493,6 +498,7 @@ jobs:
             tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
             # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
             bash deploy/prune-images.sh || echo "⚠ image prune skipped (non-fatal)"
+            DEPLOY_COMPLETED=yes
           DEPLOY
 
       - name: Smoke check /api/diagnose
