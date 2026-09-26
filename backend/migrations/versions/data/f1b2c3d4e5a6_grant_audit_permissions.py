@@ -33,16 +33,19 @@ _ROLE = "super_admin"
 def _grant() -> None:
     bind = op.get_bind()
     for perm in _NEW_PERMISSIONS:
+        # 注意：同一个命名参数不能既作 INSERT 的值又与 varchar 列比较 ——
+        # PG 会为同一参数推出两种类型（text vs character varying）而报 AmbiguousParameter。
+        # 故用两个参数名（内容相同）。
         bind.execute(
             sa.text(
                 "INSERT INTO role_permissions (role_id, permission) "
-                "SELECT r.id, :p FROM roles r "
+                "SELECT r.id, :p_insert FROM roles r "
                 "WHERE r.name = :n AND r.is_system = true "
                 "AND NOT EXISTS ("
-                "  SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission = :p"
+                "  SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission = :p_check"
                 ")"
             ),
-            {"n": _ROLE, "p": perm},
+            {"n": _ROLE, "p_insert": perm, "p_check": perm},
         )
 
 
