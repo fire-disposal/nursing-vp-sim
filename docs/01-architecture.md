@@ -33,10 +33,27 @@
 | 容器化 | Docker + docker compose | 前后端 + 数据库 + nginx |
 | CI/CD | GitHub Actions | `commit-format.yml`（PR 门禁）+ `deploy.yml`（tag 触发单实例部署，需 `production` 环境审批）/ `rollback.yml`（回滚） |
 
+### 浏览器下限与垫片
+
+支持下限：**Chromium/Edge 92+、Firefox 91+、Safari 15.4+**（学校机房镜像为 Chromium 92，2026-09-24 实测）。
+`vite.config.ts` 的 `build.target` 固定在该下限降级语法；**内置 API 只能靠 `src/utils/polyfills.ts` 垫片**
+（打包器不会补 API）：
+
+- `Object.hasOwn`：react-markdown（markdown chunk）与 recharts（charts chunk）依赖它。机房 Edge 92 缺该 API
+  → 渲染期 `TypeError` → ErrorBoundary 整页接管（线上事故根因）。
+- `crypto.randomUUID`：训练会话消息 id 依赖它（Firefox < 95 缺失）。
+
+垫片必须在 `main.tsx` 首行 import —— ESM 先求值被 import 的模块，只有独立模块才能早于
+React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（如 `structuredClone`、
+`Array.prototype.findLast`），需同步补垫片或抬高下限；`structuredClone` 目前只在 markdown 的
+`typeof` 守卫分支与 recharts 的 Error 深拷贝分支出现，未垫片。
+
 ## 项目结构
 
 后端结构以 [11-后端组织结构收敛](11-backend-organization-plan.md) 为现行定义（可导航单体：`core/` 内核 + `modules/` 业务域 + `infra/` 外部依赖，无 repository 分层）。
 前端结构与 2.0 约束见 [16-2.0 可维护单体目标](16-v2-maintainable-monolith-objectives.md)；目录细节不在本总览中重复维护，避免双源腐化。
+
+**前端路由与导航的唯一来源是代码**：`frontend/src/components/shell/navigation.tsx` 的 `APP_ROUTES`（路径 → 页面 → 权限 → 活动类型）与 `NAV_GROUPS`（分组/图标/标签）。文档里不再维护路由表（旧 `04-frontend.md` 的路由表已因缺项腐化并在 2026-09-26 删除）；当前 UI 现状、问题清单与整改批次见 [UI 审计清单](review/ui-audit-2026-09-26.md)。
 
 
 ## 布局系统
