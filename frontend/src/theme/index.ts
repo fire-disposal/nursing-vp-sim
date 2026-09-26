@@ -97,12 +97,23 @@ export const theme = createTheme({
 			defaultProps: { radius: "sm" },
 			styles: { root: { fontSize: "var(--mantine-font-size-xs)" } },
 		},
-		// 数据表格统一密度：紧凑、可扫读
+		// 数据表格统一密度 + 统一灰色表头（唯一来源：各页不要再自己写 thead 背景，
+		// 否则会出现"有些页白表头、有些页灰表头"）
 		Table: {
 			defaultProps: {
 				verticalSpacing: "sm",
 				horizontalSpacing: "sm",
 				fz: "sm",
+			},
+			styles: {
+				th: {
+					background: "var(--mantine-color-gray-1)",
+					color: "var(--mantine-color-dimmed)",
+					textTransform: "uppercase",
+					fontSize: "var(--mantine-font-size-xs)",
+					fontWeight: 700,
+					letterSpacing: "0.06em",
+				},
 			},
 		},
 	},

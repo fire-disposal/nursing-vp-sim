@@ -215,11 +215,13 @@ export default function TrainingSelect() {
 
 	// ── Training stats (home tab) ──
 	const { data: ranking } = useQuery({
-		queryKey: queryKeys.stats.ranking({}),
-		queryFn: () => getStudentRanking().then((r) => r.data),
+		// 榜单按分数降序，取满一页（200）才能覆盖到排名靠后的本人；口径与 /stats/ranking 一致
+		queryKey: queryKeys.stats.ranking({ limit: 200 }),
+		queryFn: () => getStudentRanking({ limit: 200 }).then((r) => r.data),
 		staleTime: 60_000,
 	});
-	const myStats = ranking?.items?.[0];
+	// 必须是"我"那一行：此前直接取 items[0]，等于把榜首同学的统计当成自己的
+	const myStats = ranking?.items?.find((r) => r.user_id === user?.id);
 	const { data: trends } = useQuery({
 		queryKey: queryKeys.stats.trends("month"),
 		queryFn: () => getTrends().then((r) => r.data),
@@ -599,7 +601,7 @@ export default function TrainingSelect() {
 								/>
 							</SimpleGrid>
 							{myStats && (
-								<SimpleGrid cols={{ base: 1, sm: 2, xl: 1 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+								<SimpleGrid cols={{ base: 1, xs: 2, xl: 4 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
 									<StatCard withBorder={false} icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
 									<StatCard withBorder={false} icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
 									<StatCard withBorder={false} icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
@@ -626,10 +628,13 @@ export default function TrainingSelect() {
 										))}
 									</Group>
 								) : (
-									<Paper px="sm" py="md" ta="center" withBorder style={{ borderStyle: "dashed" }}>
-										<Text size="xs" c="dimmed">
-											完成更多训练后显示趋势
-										</Text>
+									<Paper px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+										<Stack gap={4} align="center">
+											<IconChartBar size={18} style={{ color: "var(--mantine-color-gray-5)" }} />
+											<Text size="xs" c="dimmed">
+												完成更多训练后显示趋势
+											</Text>
+										</Stack>
 									</Paper>
 								)}
 							</Box>

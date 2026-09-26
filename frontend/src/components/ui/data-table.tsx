@@ -80,17 +80,12 @@ export default function DataTable<T>({
 								key={col.key}
 								className={col.headerClassName}
 								style={{
+									// 外观（灰底/大写/字号）由 theme.Table.styles.th 统一定义，这里只管行为
 									position: stickyHeader ? "sticky" : undefined,
 									top: 0,
 									zIndex: 10,
-									background: "var(--mantine-color-gray-0)",
-									color: "var(--mantine-color-dimmed)",
-									textTransform: "uppercase",
-									fontSize: "var(--mantine-font-size-xs)",
-									fontWeight: 700,
-									letterSpacing: "0.06em",
-									borderBottom: "1px solid var(--mantine-color-default-border)",
 									whiteSpace: "nowrap",
+									borderBottom: "1px solid var(--mantine-color-default-border)",
 								}}
 							>
 								{col.header}

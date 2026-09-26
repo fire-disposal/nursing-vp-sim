@@ -31,6 +31,7 @@ from modules.training.manifest import (
     build_session_manifest,
 )
 from modules.training.pipeline.turn import TURN_KIND
+from modules.training.record_sorting import record_sort_expressions
 from modules.training.session.finalize import terminal_reason
 from modules.training.timing import DEFAULT_TIME_LIMIT_MINUTES
 from modules.training.timing import remaining_seconds as compute_remaining_seconds
@@ -204,15 +205,9 @@ def get_records(
     )
 
     # 服务端排序（教师页按分数/时长排序需全局正确，不能只排当前页）
-    desc = order != "asc"
-    if sort_by == "score_total":
-        sort_col = func.coalesce(Score.reviewed_total, Score.total_score)
-    elif sort_by == "duration":
-        sort_col = TrainingRecord.end_time - TrainingRecord.start_time
-    else:
-        sort_col = TrainingRecord.start_time
-    # 空值（未评分/未结束）排最后
-    query = query.order_by(sort_col.is_(None), sort_col.desc() if desc else sort_col.asc())
+    # 表达式住在 record_sorting：评分列必须用相关子查询，否则会被 joinedload 的
+    # 匿名别名 scores_1 打脸（2026-09-26 线上 500）。空值（未评分/未结束）排最后。
+    query = query.order_by(*record_sort_expressions(sort_by, order))
 
     records, total = paginate(query, offset, limit)
 

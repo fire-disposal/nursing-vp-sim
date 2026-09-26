@@ -239,6 +239,25 @@ class UserService:
 - 参数类型从 OpenAPI 生成物取（`api/query-params.ts` 的 `ListQuery<path>` / `ExportParams<T>`）：后端改了筛选而前端没跟 → **类型错误**，而不是线上静默失效的死控件。
 - Tab 通过 `onExportParamsChange` 把 `exportParams` 交给页头的 `ExportButton`；`ClassFilter` 这类非受控筛选件用 `key` 重挂载来响应"清除"。
 
+#### 6.4.1 陷阱：joinedload 预取的实体不能在 filter/order_by 里裸引用（2026-09-26 线上 500）
+
+- **症状**：`/api/training/records?sort_by=score_total` 每次 500，
+  `psycopg.errors.UndefinedTable: invalid reference to FROM-clause entry for table "scores"`，
+  `HINT: Perhaps you meant to reference the table alias "scores_1"`。前端对 5xx 会重试 3 次，用户看到的是"点表头排序卡住"。
+- **成因**：该端点 `joinedload(TrainingRecord.score)` 预取评分；当 base 上先有别的 join（病例/班级/"
+  待复核"过滤都会）时，SQLAlchemy 把这份预取 join 匿名别名为 `scores_1`，而 `order_by(func.coalesce(Score.reviewed_total, Score.total_score))`
+  引用的是裸表名 `scores` → FROM 里没有它。
+- **安全写法**（二选一）：
+  1. 链上对该实体做**显式 join**（`query.join(Score, Score.record_id == TrainingRecord.id)`）——注意与既有条件 join 组合时可能重复 join；
+  2. 把引用放进**自带 FROM 的相关子查询**（推荐，与 join 组合完全解耦）：
+     `select(func.coalesce(Score.reviewed_total, Score.total_score)).where(Score.record_id == TrainingRecord.id).scalar_subquery()`。
+- **落地**：`backend/modules/training/record_sorting.py`（排序表达式集中一处）+ 免库回归
+  `backend/tests/training/test_record_sorting.py`（按线上装配编译 PG SQL，断言 ORDER BY 里是相关子查询；
+  退回旧写法该用例失败）。**全仓排查**：`joinedload` 与 `order_by` 同现的 17 处逐一核对，只有本处踩坑，
+  其余都是"排序基表自身列"或"已显式 join"（如 `class_memberships.py` 先 `join(User, …)` 再 `order_by(…, User.id)`）。
+  纯静态守卫（AST 扫链）试过一版：query 跨语句构建 + join 在条件分支里，链级分析抓不到真实形状，
+  变异验证证明其无效，故未保留（不留假守卫）。
+
 ### 6.5 新增待办（2026-09-26 记录）
 
 1. **列表接口在挂载时重复请求**：`/admin/users` **已修**——该查询是唯一没有 `staleTime` 的列表查询，壳过渡短暂再挂载时会二次取数；补 `staleTime: 60_000` 后实测由 2 次降为 1 次。`/admin/cases` 曾观测到 2 次同参 `GET`，但用 XHR 调用栈探针复测只出现 1 次（间歇性、根因未定），先记在此：已排除双根/双 `QueryClientProvider`（`main.tsx` 单根、`App.tsx` 单 Provider）与 axios 重试（仅对 5xx/网络错误重试）。

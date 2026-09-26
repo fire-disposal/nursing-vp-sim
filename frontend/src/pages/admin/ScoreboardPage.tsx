@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Group, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
+import { Badge, Box, Button, Group, Paper, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
 	IconAward,
@@ -9,7 +9,6 @@ import {
 	IconSearch,
 	IconTrendingUp,
 	IconUsers,
-	IconX,
 } from "@tabler/icons-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -23,10 +22,10 @@ import StudentTrendDialog, {
 	formatDuration,
 	type TrendScope,
 } from "@/components/admin/scoreboard/StudentTrendDialog";
-import { Card, CardContent } from "@/components/ui/card";
 import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import StatCard from "@/components/ui/stat-card";
 import type { DataTableColumn } from "@/components/ui/data-table";
 
@@ -113,8 +112,8 @@ function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined 
 	const medium = ((counts.medium ?? 0) / total) * 100;
 
 	return (
-		<Card>
-			<CardContent>
+		<Paper withBorder p="lg">
+			<Box>
 				<Group justify="space-between" align="center" wrap="wrap" gap={8} mb={8}>
 					<Text size="sm" fw={500}>好中差分层</Text>
 					<Group gap={12} wrap="wrap">
@@ -149,8 +148,8 @@ function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined 
 				<Text size="xs" c="dimmed" mt={8}>
 					分层阈值：平均分 ≥ 85 为好，60 ≤ 平均分 &lt; 85 为中，平均分 &lt; 60 为差
 				</Text>
-			</CardContent>
-		</Card>
+			</Box>
+		</Paper>
 	);
 }
 
@@ -159,9 +158,12 @@ interface FilterSelectProps {
 	value: string;
 	onChange: (v: string) => void;
 	data: { value: string; label: string }[];
+	/** 长列表（病例/班级/作业）开启键入过滤 */
+	searchable?: boolean;
+	width?: number;
 }
 
-function FilterSelect({ label, value, onChange, data }: FilterSelectProps) {
+function FilterSelect({ label, value, onChange, data, searchable, width }: FilterSelectProps) {
 	return (
 		<Group gap={8} align="center" wrap="nowrap">
 			<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{label}</Text>
@@ -169,8 +171,11 @@ function FilterSelect({ label, value, onChange, data }: FilterSelectProps) {
 				value={value || "all"}
 				onChange={(v) => onChange(v === "all" ? "" : (v ?? ""))}
 				data={data}
-				w={130}
+				w={width ?? 130}
 				size="xs"
+				// 病例/班级/作业都是会长的列表：允许键入过滤，否则下拉里翻几十上百项不可用
+				searchable={searchable}
+				nothingFoundMessage="无匹配项"
 			/>
 		</Group>
 	);
@@ -270,11 +275,32 @@ export default function ScoreboardPage() {
 	const assignments = (assignmentsData?.items ?? []) as {
 		id: string;
 		title: string;
+		case_name?: string | null;
 	}[];
 
 	const items = (data?.items ?? []) as ScoreboardRankingItem[];
 	const summary = data?.summary as ScoreboardSummary | undefined;
 	const total = data?.total ?? 0;
+
+	/** 一键复位：把筛选相关参数整体从 URL 上摘掉（与其它列表页同语义）。 */
+	const handleClearFilters = useCallback(() => {
+		const next = new URLSearchParams(searchParams);
+		for (const key of [
+			"case_id",
+			"class_id",
+			"assignment_id",
+			"assignment_status",
+			"include_free",
+			"tier",
+			"search",
+			"sort_by",
+			"offset",
+		]) {
+			next.delete(key);
+		}
+		setSearchParams(next, { replace: true });
+		setSearchInput("");
+	}, [searchParams, setSearchParams]);
 
 	const applySearch = () => {
 		updateParam("search", searchInput.trim());
@@ -362,11 +388,34 @@ export default function ScoreboardPage() {
 				icon={IconAward}
 			/>
 
-			<Card>
-				<CardContent>
-					<Group gap={16} wrap="wrap">
+			<FilterToolbar
+				compact
+				hasActiveFilters={Boolean(
+					caseId || classId || assignmentId || assignmentStatus || includeFree || tier || search || sortBy !== "avg_score",
+				)}
+				onClear={handleClearFilters}
+				search={
+					<Group gap={8} align="center" wrap="nowrap">
+						<TextInput
+							value={searchInput}
+							onChange={(e) => setSearchInput(e.currentTarget.value)}
+							onKeyDown={(e) => e.key === "Enter" && applySearch()}
+							placeholder="姓名/学号检索"
+							leftSection={<IconSearch size={14} />}
+							size="sm"
+							w={180}
+						/>
+						<Button variant="subtle" color="gray" size="sm" onClick={applySearch}>
+							检索
+						</Button>
+					</Group>
+				}
+				filters={
+					<>
 						<FilterSelect
 							label="病例范围"
+							searchable
+							width={180}
 							value={caseId}
 							onChange={(v) => updateParam("case_id", v)}
 							data={[
@@ -376,6 +425,8 @@ export default function ScoreboardPage() {
 						/>
 						<FilterSelect
 							label="班级"
+							searchable
+							width={160}
 							value={classId}
 							onChange={(v) => updateParam("class_id", v)}
 							data={[
@@ -388,11 +439,17 @@ export default function ScoreboardPage() {
 						/>
 						<FilterSelect
 							label="作业"
+							searchable
+							width={230}
 							value={assignmentId}
 							onChange={(v) => updateParam("assignment_id", v)}
 							data={[
 								{ value: "all", label: "全部作业" },
-								...assignments.map((a) => ({ value: a.id, label: a.title })),
+								// 同名作业跨病例很常见：带上病例名，方便检索与辨认
+								...assignments.map((a) => ({
+									value: a.id,
+									label: a.case_name ? `${a.title} · ${a.case_name}` : a.title,
+								})),
 							]}
 						/>
 						<FilterSelect
@@ -426,36 +483,9 @@ export default function ScoreboardPage() {
 							onChange={(v) => updateParam("tier", v)}
 							data={TIER_OPTIONS}
 						/>
-						<Group gap={8} align="center" wrap="nowrap">
-							<TextInput
-								value={searchInput}
-								onChange={(e) => setSearchInput(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && applySearch()}
-								placeholder="姓名/学号检索"
-								leftSection={<IconSearch size={14} />}
-								size="xs"
-								w={160}
-							/>
-							<Button variant="subtle" color="gray" size="sm" onClick={applySearch}>
-								检索
-							</Button>
-							{search && (
-								<Button
-									variant="subtle" color="gray"
-									w={44} h={44} p={0}
-									title="清除检索"
-									onClick={() => {
-										setSearchInput("");
-										updateParam("search", "");
-									}}
-								>
-									<IconX size={14} />
-								</Button>
-							)}
-						</Group>
-					</Group>
-				</CardContent>
-			</Card>
+					</>
+				}
+			/>
 
 			<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
 				<StatCard icon={IconBolt} value={summary?.record_count ?? "-"} label="计入训练次数" color="blue" />
@@ -476,9 +506,9 @@ export default function ScoreboardPage() {
 
 			<TierDistribution summary={summary} />
 
-			<Card>
-				<CardContent style={{ padding: 0 }}>
-					<ResponsiveTable
+			{/* 与其它列表页同形：Paper + 表格自身当唯一描边层（原先 Card + CardContent 多一层） */}
+			<Paper withBorder style={{ overflow: "hidden" }}>
+				<ResponsiveTable
 						columns={columns}
 						rows={items}
 						rowKey={(r) => r.user_id}
@@ -523,8 +553,7 @@ export default function ScoreboardPage() {
 							</Group>
 						)}
 					/>
-				</CardContent>
-			</Card>
+			</Paper>
 
 			<StudentTrendDialog
 				open={trendUserId != null}
