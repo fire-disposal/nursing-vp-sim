@@ -164,7 +164,7 @@ GET /admin/training-records/{id}/context → 单记录逐轮 ledger（供调试�
 
 | 切片 | 内容 | 回归 |
 |---|---|---|
-| S1 | `compute_prompt_id(snapshot)` / `compute_context_policy_version()` 纯函数 + 单测；`_create_record` 写入 `prompt_snapshot["prompt_id"]`（形状仍 v2） | 后端套件 + snapshot compat 测试 |
+| S1 ✅ 已实施（2026-09-26） | `prompt_identity.py`：`compute_prompt_id` / `prompt_id_from_snapshot` / `compute_scoring_prompt_id` / `compute_context_policy_version` / `context_fingerprint`（全部内容派生，无人工版本号）；`_create_record` 把 `prompt_id` 与模板原文一起冻结进 `prompt_snapshot`（形状不变，读取方忽略新键） | 24 条单测（稳定性/单字符敏感/字段拼接无歧义/形状无关/常量派生/指纹只取数值）+ 全量后端套件 1424 passed |
 | S2 | 迁移：三个记录列 + `Score` 两列 + 改名 `prompt_version→prompt_schema_version`；评分写入复制记录值 | `db:check` + 迁移链 + 评分测试 |
 | S3 | `LLMCallLog` 两列 + 写入（调用点已持有 record 上下文） | LLM 调用日志测试 |
 | S4 | 每轮 `ledger` 落 `TrainingAction(kind=chat_turn).result["context"]`（best-effort） | 对话回合测试 + 失败不阻断 |
