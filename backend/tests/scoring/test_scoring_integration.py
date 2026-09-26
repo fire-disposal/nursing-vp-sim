@@ -16,7 +16,6 @@ from core.template import render_template
 from modules.training.scoring.prompt_builder import (
     build_scoring_criteria,
     build_scoring_json_schema,
-    build_scoring_rubric,
 )
 from modules.training.scoring.rubric_loader import load_rubric
 
@@ -62,16 +61,18 @@ class TestScoringPromptSanity:
     """以 LLM 视角验证评分 prompt 结构是否正确"""
 
     def test_rubric_builds_without_error(self):
-        rubric = load_rubric()
-        text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
+        from modules.training.prompts.scoring import SCORING_SYSTEM
+
+        text = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
         assert len(text) > 1000
         assert "评分标准:" in text
         assert "沟通技能" in text
         assert "必须采集到的内容" in text
 
     def test_rubric_contains_required_sections(self):
-        rubric = load_rubric()
-        text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
+        from modules.training.prompts.scoring import SCORING_SYSTEM
+
+        text = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
         # 19 个条目全覆盖
         assert "学生与病人打招呼并问候" in text, "comm_01 缺失"
@@ -261,8 +262,9 @@ class TestScoringPromptSanity:
 
     def test_numeric_placeholders_not_quoted_in_json_template(self):
         """JSON 模板中的数字占位符不应有引号，避免 LLM 误解为字符串"""
-        rubric = load_rubric()
-        text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
+        from modules.training.prompts.scoring import SCORING_SYSTEM
+
+        text = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
         assert '"N_TOTAL_SCORE"' not in text, "sentinel 残留"
         assert '"N_DIM_SCORE"' not in text, "sentinel 残留"

@@ -109,21 +109,3 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
     lines.append(json_template)
 
     return "\n".join(lines)
-
-
-def build_scoring_rubric(rubric: dict | None = None, required_inquiries: list | None = None) -> str:
-    """[兼容] 构建完整评分 rubric（评分标准 + 必须采集清单 + JSON 模板）。
-    新代码请使用 build_scoring_criteria() + build_scoring_json_schema() + required_inquiries 分拆方案。"""
-    if rubric is None:
-        rubric = _get_default_rubric()
-    if required_inquiries is None:
-        required_inquiries = []
-
-    lines = [build_scoring_criteria(rubric)]
-    lines.append("")
-    lines.append("## 必须采集到的内容清单（参考）")
-    lines.append(json.dumps(required_inquiries, ensure_ascii=False, indent=2))
-    lines.append("")
-    lines.append(build_scoring_json_schema(rubric))
-
-    return "\n".join(lines)
