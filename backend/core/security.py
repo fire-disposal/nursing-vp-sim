@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, joinedload
 
@@ -124,8 +124,12 @@ def decode_token_allow_expired(
 
 def require_permission(permission: str):
     def checker(
+        request: Request,
         current_user: User = Depends(get_current_user),
     ) -> User:
+        # HTTP 中间件拿不到 Depends 解析出的 User，而这里是全仓唯一必然拿到 User 的 choke point
+        # → 顺手挂到 request.state，供审计（core/audit.py 的 _actor_from_request）与 403 留痕使用。
+        request.state.audit_actor = current_user
         if not current_user.has_permission(permission):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user

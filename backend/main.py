@@ -7,6 +7,7 @@ import textwrap
 import time
 from collections import Counter
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, Request
@@ -317,6 +318,20 @@ async def _request_timeout(request: Request, call_next):
     except TimeoutError:
         log.error("请求超时 %s %s (limit=%ds)", request.method, request.url.path, REQUEST_TIMEOUT_SECONDS)
         return JSONResponse(status_code=504, content={"detail": "请求处理超时"})
+
+
+@app.middleware("http")
+async def _request_id(request: Request, call_next):
+    """给每个请求一个 request_id：审计行与 access 日志据此双向关联。
+
+    此前 `modules/qa/router/endpoints.py` 已有读取 `request.state.request_id` 的代码，
+    但全仓没有赋值点 → 恒为 None（死读取）。客户端可传 X-Request-ID 做端到端串联。
+    """
+    rid = (request.headers.get("X-Request-ID") or "").strip()[:64] or uuid4().hex
+    request.state.request_id = rid
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = rid
+    return response
 
 
 app.add_middleware(

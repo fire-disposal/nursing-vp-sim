@@ -11,10 +11,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.database import Base
+from core.database import engine as pg_engine
 from core.exceptions import AuthError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
@@ -31,22 +31,38 @@ _TABLES = [
 ]
 
 
-@pytest.fixture
-def db():
-    # load_role_permissions 有进程级缓存（role_id → perms，60s TTL），
-    # 而每个 SQLite 实例的 role_id 都从 1 开始 —— 必须逐用例清理。
-    clear_permission_cache()
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine, tables=_TABLES)
-    with Session(engine) as session:
-        for name, perms in SYSTEM_PERMISSIONS.items():
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：直接用真库建表（幂等），不再用 SQLite 替身。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
+
+
+def _sync_system_roles(session: Session) -> None:
+    """把系统角色的权限对齐到 `core.roles.SYSTEM_PERMISSIONS`。
+
+    真库里同名角色可能早被迁移/其它测试种下、权限集与代码定义不一致（例如 admin 少了
+    teacher 的权限），只补"缺失的角色"是不够的。这里在 **savepoint 内**做全量对齐 →
+    teardown 回滚，不会改动真实库。
+    """
+    by_name = {role.name: role for role in session.query(Role).all()}
+    for name, perms in SYSTEM_PERMISSIONS.items():
+        role = by_name.get(name)
+        if role is None:
             role = Role(name=name, display_name=name, is_system=True)
             session.add(role)
             session.flush()
-            for perm in perms:
-                session.add(RolePermission(role_id=role.id, permission=perm))
-        session.commit()
-        yield session
+        session.query(RolePermission).filter(RolePermission.role_id == role.id).delete()
+        for perm in perms:
+            session.add(RolePermission(role_id=role.id, permission=perm))
+    session.flush()
+
+
+@pytest.fixture
+def db(pg_session):
+    # load_role_permissions 有进程级缓存（role_id → perms，2s TTL），逐用例清理
+    clear_permission_cache()
+    _sync_system_roles(pg_session)
+    yield pg_session
     clear_permission_cache()
 
 

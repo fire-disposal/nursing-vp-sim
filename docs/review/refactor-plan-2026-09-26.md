@@ -23,7 +23,7 @@
 |---|---|---|---|---|---|
 | 1 | **RB-1** | 权限面自毁路径封堵：停用/删除同样走 `_assert_role_within_scope` + "最后一个 super_admin" 守卫 | S | 无 | — · **已完成（本地，待发版）** |
 | 2 | **OBS-1** | 让已有 `extra={...}` 真正可见（logging formatter 带字段 + diagnose 采集），半天级可观测收益 | S | 无 | — |
-| 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1（共用 formatter/中间件） | 保留期（可先不定） |
+| 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1 | — · **已完成（本地，待发版）** |
 | 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — |
 | 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | 谁能看（默认仅 super_admin） |
 | 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — |
@@ -84,6 +84,25 @@
 - **设计**：见分析文档 §3.1（表与索引）、§3.2（写入路径：同事务 vs 独立 session）、§3.0（设计原则）。
 - **验收判据**：迁移往返干净且 `ddl/` 内无 `op.execute()`；`record()` 在业务事务内提交则落行、回滚则**不落行**；`record_detached()` 在业务回滚后仍落行；`request_id` 贯通；`audit_logs` 写入**不阻塞**业务（同步写但只插一行，不加锁竞争）。
 - **与既有约定**：审计列表将来必然是一个列表页 → 现在就按 §6.4 的 DTO 形态设计 action/target/outcome 等筛选键，避免二次改造。
+
+### 2.3.1 测试基础设施：**面向 PG**（2026-09-26 定）
+
+维护者明确：**本项目始终面向 PostgreSQL，不做跨库降级**。据此本轮做了三件事：
+
+1. `tests/conftest.py` 新增 `pg_session` 夹具：真库连接 + **savepoint 隔离**
+   （`Session(bind=conn, join_transaction_mode="create_savepoint")`，外层事务 teardown 回滚）
+   → 用例内部 `commit()` 只释放 savepoint，对库零残留，因此既不需要 SQLite 替身，也不需要手写清理。
+2. 本轮的 DB 判据全部改跑真库：`tests/core/test_audit_writer.py`（7 条：JSONB 列、DESC 表达式索引、
+   CHECK、`FK ON DELETE SET NULL`、同事务提交/回滚、独立 session 留痕）、
+   `tests/admin/test_user_privilege_guard.py`（17 条反越权，含 RB-1 政策）。
+   夹具在 savepoint 内把系统角色权限**对齐**到 `core.roles.SYSTEM_PERMISSIONS`
+   （真库里既有角色权限集可能与代码不一致），回滚即还原。
+3. `models/audit.py` 用 PG 原生类型（`BigInteger` / `JSONB` / `TIMESTAMPTZ`），
+   并为"拒绝/失败面板"加**部分索引**（`postgresql_where=outcome <> 'success'`）。
+
+**待办（U3）**：仓库仍有 **12 个测试文件**用 `sqlite://` 夹具（`tests/admin/test_class_memberships.py`、
+`tests/cases/*`、`tests/scoring/*` 等）。它们能跑但不符合"面向 PG"的口径（也是 `JSONB` 列
+在 SQLite 上必须打补丁的根源）。建议逐个迁到 `pg_session` + 真库建表，作为独立清理切片推进。
 
 ### 2.4 A2 — 高风险面接入（S）
 

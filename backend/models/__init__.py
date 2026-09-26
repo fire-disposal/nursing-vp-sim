@@ -6,6 +6,13 @@ from models.assignment import (
     Assignment,
     AssignmentRecipient,
 )
+from models.audit import (
+    AUDIT_OUTCOME_DENIED,
+    AUDIT_OUTCOME_FAILURE,
+    AUDIT_OUTCOME_SUCCESS,
+    AUDIT_OUTCOMES,
+    AuditLog,
+)
 from models.auth import Role, RolePermission, User
 from models.case import (
     CASE_STATUS_ARCHIVED,
@@ -64,6 +71,10 @@ __all__ = [
     "AUDIENCE_CLASS",
     "AUDIENCE_MODES",
     "AUDIENCE_SELECTED",
+    "AUDIT_OUTCOMES",
+    "AUDIT_OUTCOME_DENIED",
+    "AUDIT_OUTCOME_FAILURE",
+    "AUDIT_OUTCOME_SUCCESS",
     "CASE_STATUSES",
     "CASE_STATUS_ARCHIVED",
     "CASE_STATUS_DRAFT",
@@ -82,6 +93,7 @@ __all__ = [
     "ApiSecret",
     "Assignment",
     "AssignmentRecipient",
+    "AuditLog",
     "Case",
     "CaseQuestionnaire",
     "CaseRevision",

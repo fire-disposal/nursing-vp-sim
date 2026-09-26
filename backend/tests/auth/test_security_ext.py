@@ -241,17 +241,22 @@ class TestDecodeTokenAllowExpired:
         assert exc.value.status_code == 401
 
 
+def _stub_request():
+    """checker 会写 request.state.audit_actor（审计的 actor 来源），故需要带 state 的替身。"""
+    return SimpleNamespace(state=SimpleNamespace(audit_actor=None))
+
+
 class TestRequirePermission:
     def test_allows_user_with_permission(self):
         user = _user(_permissions_cache={"case_manage"})
         checker = require_permission("case_manage")
-        assert checker(current_user=user) is user
+        assert checker(request=_stub_request(), current_user=user) is user
 
     def test_forbids_user_without_permission(self):
         user = _user(_permissions_cache={"qa_access"})
         checker = require_permission("case_manage")
         with pytest.raises(HTTPException) as exc:
-            checker(current_user=user)
+            checker(request=_stub_request(), current_user=user)
         assert exc.value.status_code == 403
 
 
