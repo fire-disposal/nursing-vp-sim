@@ -29,7 +29,9 @@
 | 决策 | 推荐 | 影响切片 |
 |---|---|---|
 | 深色模式默认值 | 先维持 `light` 并把开关做诚实；浅色字面量替换 + 深色回归完成后转 `auto` | Q3、S2 |
-| 是否引入 `@mantine/dates` | 引入（替代原生 `<input type="date">` 的英文占位与无 i18n） | S1、S6 |
+| 是否引入 `@mantine/dates` | **已定案：引入**（2026-09-26 完成，提交 `3b74f894` / `c62c00eb`） | S1、S6 |
+| 是否迁移到 `@mantine/charts` | 待定：**新图用 Mantine Charts，存量 recharts 先做主题化**（整体迁移 L 级） | S6、F4 |
+| 自研件替换范围 | 已定方向：**默认迁 Mantine 原生**（维护者 2026-09-26 指示），清单见 S7 | S7 |
 | 用户"删除"语义 | 软删（`is_active=false`，默认从列表隐藏，可筛"已停用"）+ 硬删仅在无训练记录时允许 | F1 |
 | 评分标准（rubric）是否可写 | 暂缓：先只读展示 + 写明变更流程 | F4 |
 | 深色态主色档位（filled 按钮对比度） | 深色 `primaryShade` 5 → 7（`#247f6b`，白字 4.86:1，观感更沉），或保留 5 号并接受 filled 按钮 2.68:1 | S2 |
@@ -97,6 +99,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | 依赖升级 + `@mantine/dates` | `3b74f894` / `c62c00eb` / `22c7e8c0` | Mantine → 9.6.3（7 包一致）；10 处原生日期框换 `DatePickerInput`（中文 locale 实测通过）；outline 变体对比度修复（`/admin/users` 45→0）；闸门全过 |
 | 2026-09-26 | S3+S4（第一波） | `106a73b3` | 四闸门全过；框套框 50/39/1 → **0**；拉伸留白 358px→134px；固定项数网格与筛选末格修正 |
 | 2026-09-26 | S1 | 见下条提交 | 四闸门全过；实测最小正文号 9px → **12px**，Badge 统一 12px，两档圆角显式化，126 处冗余 `Paper radius` 清除后视觉零变化 |
 | 2026-09-26 | Q5 | `a3993d57` | 四闸门全过；实测浅色低对比 112→0（records）、91→0（users）、100→0（feedback）；阳性对照验证探针有效；深色残 5 处转为 S2 输入 |
@@ -115,6 +118,43 @@
 
 - **日期输入框的 `yyyy / mm / dd` 是浏览器 locale 现象，不是硬编码**：Chromium（zh locale）实测渲染为「年/月/日」，Firefox 英文 locale 下才是 `yyyy/mm/dd`（我此前的审计结论来自 Firefox 侧）。因此该项从「英文占位」降级为「跨浏览器不一致」；是否引入 `@mantine/dates`（可锁定 `valueFormat` 与 locale）仍由决策点决定。
 - **表格列宽挤压**：`/admin/records` 在 1408px 下「状态」徽章被截成「已…」，时长/开始时间/来源 列换行 —— 属 `Table` 列宽策略问题（非本轮改动引入），作为 **S6 表格与分页形态** 的输入证据记录。
+
+---
+
+## 5. Mantine 9.6 特性评估（2026-09-26）
+
+> 触发：升级到 9.6.3 时评估新特性是否值得实装；原则沿用维护者指示「**默认倾向 Mantine 原生**，只要不明显增加复杂度/风险」。
+
+| 9.6 特性 | 与本项目的关系 | 判断 | 成本 |
+|---|---|---|---|
+| **`ActionBar`**（core） | 直接替代我们手写的 `components/admin/users/BatchActionBar.tsx`（Affix + Paper + 关闭按钮）：官方组件自带 fixed/Portal 语义与关闭按钮，避免再踩「祖先包含块」那类坑 | **实装**（S7） | S |
+| **`PasswordInput.visibilityToggleFocusable`** | 登录页没有密码可见性切换（审计 UI-LOGIN-3）；换 `PasswordInput` 顺带让切换键进入 Tab 序（a11y） | **实装**（S7） | S |
+| **`@mantine/lightbox`**（新包） | 反馈截图预览现为自研 `previewUrl` 状态 + 简易弹层；Lightbox 自带缩放/缩略图/键盘/多图轮播 | **实装**（S7，需装新包） | S–M |
+| **`Stepper` 状态语义 + `labelPosition`** | 训练头部四步条是手写的、四步状态无区分（审计 UI-TRN-5）；`Stepper` 有 current/completed/error 与 aria 语义 | **实装**（S7，需把 manifest 完成状态映射为 step.status） | M |
+| `Notifications layout="stacked"` / `renderNotification` | 部署更新提示、反馈回复通知；`renderNotification` 可做「带操作按钮」的通知 | 候选（会改全局通知观感，需先定观感） | S |
+| Charts：`GaugeChart`/`WaffleChart`/`MatrixChart`/`CandlestickChart`、reference areas/dots、streamgraph、右 Y 轴 | 我们直接用 recharts（审计：图表 svg 无 aria、配色不随主题）。reference areas 适合「评分达标线」，Waffle/Matrix 适合成绩分布 | **决策点**：新图用 `@mantine/charts`，存量图先主题化（整体迁移 L 级、涉及 5+ 页） | L |
+| `@mantine/dropzone`（react-dropzone 20） | 反馈图片上传若仍为自写 file input，可换官方 Dropzone（校验/预览/拖拽） | 候选（随反馈上传改造一起评估） | S |
+| RichTextEditor 表格/Details、Schedule 系列、ColorInput/FloatingWindow/use-scroll-spy 增强 | 项目未使用这些组件 | 不需要 | — |
+
+### 5.1 自研件 → Mantine 原生替换清单（S7）
+
+| 自研 | Mantine 原生 | 收益 | 成本 |
+|---|---|---|---|
+| `components/ui/bottomsheet.tsx`（手写拖拽抽屉：无 `role="dialog"`/焦点陷阱，自实现 Escape 与滚动锁，审计 UI-DS-4） | `Drawer position="bottom"`（三级态由 size 状态驱动） | a11y 达标、少约 200 行维护 | M |
+| `components/ui/confirm.tsx`（20 个调用点） | `@mantine/modals` 的 `modals.openConfirmModal`（依赖已在） | 少一层包装、Promise 语义 | M |
+| `components/ui/data-table.tsx` / `responsive-table.tsx` | `Table` + `Table.ScrollContainer` + `Pagination` | 修整页横滚（UI-ADM-4）、去掉 `<Tr role="button">`（UI-A11Y-4） | M |
+| `components/ui/card.tsx` 的 `CardHeader/CardTitle/…` 子组件 | `Card.Section` + `Stack`/`Group` | 去掉无布局契约的中间层（UI-NEST-3） | S |
+| `components/ui/pagination.tsx` | Mantine `Pagination`（若已是包装则仅统一 a11y） | 尺寸/aria 一致 | S |
+| `components/admin/users/BatchActionBar.tsx` | `ActionBar` | 见上表 | S |
+
+> 实施顺序建议：先做 S（ActionBar / PasswordInput / card 子组件），再做 M（Drawer / confirm / data-table），避免同时改太多渲染路径。
+
+### 5.2 本轮踩坑（写给后来者）
+
+- **Mantine 的变体颜色在 JS 侧按 `primaryShade` 解析成字面量**，不是 CSS 变量引用：`theme.components.X.styles` 里覆盖 `--badge-color`/`--button-color` **无效**（`[data-variant]` 属性选择器优先级更高），覆盖 `--mantine-color-{c}-filled` 同样无效。要动 outline/filled 取色只有两条路：改 `primaryShade`（影响全局主色观感）或改调用点 variant/color。
+- **`node_modules` 指向已失效的 pnpm store**（仓库迁址后路径变化）会让任何安装失败；`pnpm install --frozen-lockfile` 可只重链、不动 lockfile。
+- **共享浏览器 profile 下 `/login` 会因已有 token 直接跳走**，本地验证前先清 localStorage。
+
 
 ## 4. 明确不做
 
