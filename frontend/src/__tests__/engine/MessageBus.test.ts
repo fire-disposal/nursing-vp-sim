@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMessageBus, TypedMessageBus } from "@/engine/MessageBus";
+import { createMessageBus } from "@/engine/MessageBus";
 
 describe("createMessageBus", () => {
 	it("delivers events to subscribers", () => {
@@ -75,24 +75,3 @@ describe("createMessageBus", () => {
 	});
 });
 
-describe("TypedMessageBus", () => {
-	it("delegates typed events to raw bus", () => {
-		const raw = createMessageBus();
-		const typed = new TypedMessageBus(raw);
-		const handler = vi.fn();
-		typed.on("emotion:changed", handler);
-		typed.emit("emotion:changed", { trust: 70 });
-		expect(handler).toHaveBeenCalledWith({ trust: 70 });
-	});
-
-	it("exposes listEvents and off", () => {
-		const raw = createMessageBus();
-		const typed = new TypedMessageBus(raw);
-		const handler = vi.fn();
-		typed.on("tts:start", handler);
-		typed.off("tts:start", handler);
-		typed.emit("tts:start", "text");
-		expect(handler).not.toHaveBeenCalled();
-		expect(typed.listEvents()).toEqual(["tts:start"]);
-	});
-});
