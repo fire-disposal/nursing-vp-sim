@@ -129,7 +129,7 @@ export default function CaseList({
 					<Group justify="space-between" gap={8} wrap="wrap">
 						<Text size="sm">加载病例列表失败，请检查网络后重试。</Text>
 						{onRetry && (
-							<Button size="xs" variant="outline" color="red" leftSection={<IconRefresh size={13} />} onClick={onRetry}>
+							<Button size="xs" variant="light" color="red" leftSection={<IconRefresh size={13} />} onClick={onRetry}>
 								重试
 							</Button>
 						)}

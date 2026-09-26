@@ -61,7 +61,7 @@ export default function MembershipTags({
 					{items.map((m) => (
 						<Badge
 							key={`${role}-${m.class_id ?? membershipLabel(m)}`}
-							variant={role === "teacher" ? "light" : "outline"}
+							variant={role === "teacher" ? "light" : "default"}
 							color={role === "teacher" ? "grape" : "blue"}
 							size={size}
 							style={direction === "row" ? undefined : { display: "block" }}

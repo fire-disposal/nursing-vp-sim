@@ -205,7 +205,7 @@ export default function ClassesPage() {
 									<Group gap={8}>
 										<Button variant="outline" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
 										<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
-										<Button variant="outline" size="sm" color="red" onClick={() => handleDelete(c)}>删除</Button>
+										<Button variant="light" size="sm" color="red" onClick={() => handleDelete(c)}>删除</Button>
 									</Group>
 								</Stack>
 							</Paper>

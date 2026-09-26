@@ -473,7 +473,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
 									<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
 									<Button variant="outline" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
-									<Button variant="outline" size="sm" color="red" onClick={() => handleDelete(a.id)}>删除</Button>
+									<Button variant="light" size="sm" color="red" onClick={() => handleDelete(a.id)}>删除</Button>
 								</SimpleGrid>
 							</Group>
 						</Stack>
