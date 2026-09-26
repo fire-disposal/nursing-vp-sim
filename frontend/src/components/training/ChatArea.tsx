@@ -1,11 +1,14 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
+import { availableActivities } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
 import { ConversationComposer } from "./ConversationComposer";
-import SceneToolbar from "./SceneToolbar";
+import ActivityBar from "./workspace/ActivityBar";
+import { CompletionStrip } from "./workspace/CompletionStatus";
+import { useWorkspacePanes } from "./workspace/useWorkspacePanes";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -23,8 +26,10 @@ export function ChatArea({
   const sending = useTrainingStore(s => s.sending);
   const trainingEnded = useTrainingStore(s => s.trainingEnded);
   const bus = useTrainingStore(s => s.bus)!;
-  const capabilities = useTrainingStore(s => s.capabilities);
+  const manifest = useTrainingStore(s => s.manifest);
   const recordDetail = useTrainingStore(s => s.recordDetail);
+  // 空态：本病例没有可用的床旁能力（也没有问诊清单）时，明确告知本次训练以对话为主
+  const hasWorkspacePane = useWorkspacePanes().length > 0;
   const hasConversationActivity =
     messages.some(m => m.role === "student") ||
     recordDetail?.messages?.some(m => m.role === "student") ||
@@ -74,32 +79,36 @@ export function ChatArea({
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0, y: -16 }}
 						transition={{ duration: 0.2 }}
-						style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}
+						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
-						<WelcomeScreen
-							patient={patient}
-							onQuickPrompt={onSend}
-							capabilities={capabilities}
-						/>
-						{greeting && (
-							<Box px="xs" mt="xs" mx="auto" w="100%" maw={768}>
-								<Group justify="flex-start">
-									<Box
-										maw="80%"
-										px="md"
-										py={10}
-										style={{
-											borderRadius: 16,
-											borderBottomLeftRadius: 4,
-											background: "var(--mantine-color-gray-1)",
-											lineHeight: 1.6,
-										}}
-									>
-										<Text size="sm">{greeting}</Text>
-									</Box>
-								</Group>
-							</Box>
-						)}
+						<Box style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
+							<WelcomeScreen
+								patient={patient}
+								onQuickPrompt={onSend}
+								activityLabels={availableActivities(manifest).map((activity) => activity.label)}
+							/>
+							{greeting && (
+								<Box px="xs" mt="xs" mx="auto" w="100%" maw={768}>
+									<Group justify="flex-start">
+										<Box
+											maw="80%"
+											px="md"
+											py={10}
+											style={{
+												borderRadius: 16,
+												borderBottomLeftRadius: 4,
+												background: "var(--mantine-color-gray-1)",
+												lineHeight: 1.6,
+											}}
+										>
+											<Text size="sm">{greeting}</Text>
+										</Box>
+									</Group>
+								</Box>
+							)}
+						</Box>
+						{/* 欢迎态也给出 manifest 能力入口：首条消息前即可打开随堂测验/床旁能力 */}
+						<ActivityBar />
 					</motion.div>
 				) : (
 					<motion.div
@@ -119,10 +128,16 @@ export function ChatArea({
 								onCorrectLast={onCorrectLast}
 							/>
 						</Box>
-						<SceneToolbar />
+						<ActivityBar />
 					</motion.div>
 				)}
 			</AnimatePresence>
+			<CompletionStrip />
+			{!hasWorkspacePane && (
+				<Text size="xs" c="dimmed" ta="center" py={6}>
+					本病例未配置床旁能力，本次训练以护患对话为主
+				</Text>
+			)}
 			<ConversationComposer onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 
 		</Stack>

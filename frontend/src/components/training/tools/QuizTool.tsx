@@ -2,8 +2,7 @@ import { IconAlertCircle, IconChevronDown, IconCircleCheck, IconCircleX, IconHel
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Box, Group, Text } from "@mantine/core";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
-import { subscribeWSConnection } from "@/hooks/useTrainingWS";
+import type { ActivityPanelProps } from "@/components/training/workspace/contract";
 
 interface QuizQuestion {
 	id: string;
@@ -51,8 +50,10 @@ function optionStyle(
 	};
 }
 
-export default function QuizTool(props: TrainingToolProps) {
-	const { bus, recordId } = props;
+export default function QuizTool(props: ActivityPanelProps) {
+	/** 命令命名空间来自 manifest 的 activity 定义 */
+	const { activity, bus, recordId } = props;
+	const command = activity.id;
 	const rid = Number(recordId);
 
 	const [quiz, setQuiz] = useState<QuizConfig | null>(null);
@@ -71,21 +72,24 @@ export default function QuizTool(props: TrainingToolProps) {
 	const answersRef = useRef(answers);
 	answersRef.current = answers;
 
+	// ── Load ──
+	// 工具调用走 HTTP 工具桥（useToolBridge 监听 bus "tool:invoke"），不再等待 WS 连接就绪。
+	// 挂载即发起一次；loadedRef 保证每个挂载实例只发一次（含 StrictMode 的副作用重放）。
+	const loadedRef = useRef(false);
 	useEffect(() => {
-		const unsub = subscribeWSConnection((connected) => {
-			if (connected) {
-				bus.emit("tool:invoke", { tool: "quiz", action: "load", params: {}, recordId: rid });
-				loadTimerRef.current = setTimeout(() => {
-					setLoading(false);
-					setLoadError("加载题目超时");
-				}, LOAD_TIMEOUT_MS);
-			}
-		});
+		if (!loadedRef.current) {
+			loadedRef.current = true;
+			bus.emit("tool:invoke", { tool: command, action: "load", params: {}, recordId: rid });
+		}
+		loadTimerRef.current = setTimeout(() => {
+			setLoading(false);
+			setLoadError("加载题目超时");
+		}, LOAD_TIMEOUT_MS);
 		return () => {
-			unsub();
 			if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+			loadTimerRef.current = null;
 		};
-	}, [bus, rid]);
+	}, [bus, command, rid]);
 
 	// ── Handle tool results ──
 	useEffect(() => {
@@ -96,7 +100,7 @@ export default function QuizTool(props: TrainingToolProps) {
 			data: Record<string, unknown>;
 			error?: string;
 		}) => {
-			if (payload.tool !== "quiz") return;
+			if (payload.tool !== command) return;
 
 			if (payload.action === "load") {
 				if (loadTimerRef.current) {
@@ -148,7 +152,7 @@ export default function QuizTool(props: TrainingToolProps) {
 			if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
 			if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
 		};
-	}, [bus]);
+	}, [bus, command]);
 
 	const selectOption = useCallback(
 		(questionId: string, key: string) => {
@@ -171,7 +175,7 @@ export default function QuizTool(props: TrainingToolProps) {
 					}));
 				}, SUBMIT_TIMEOUT_MS);
 				bus.emit("tool:invoke", {
-					tool: "quiz",
+					tool: command,
 					action: "submit",
 					params: { question_id: questionId, answer: key },
 					recordId: rid,
