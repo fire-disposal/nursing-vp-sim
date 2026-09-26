@@ -113,7 +113,6 @@ CREATE TABLE simulation_sessions (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
     case_version VARCHAR(32) NOT NULL DEFAULT 'mvpb-1',
-    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
     state JSON NOT NULL,
     created_at DATETIME,
     updated_at DATETIME
@@ -123,7 +122,11 @@ CREATE TABLE simulation_sessions (
 
 @pytest.fixture
 def real_engine(tmp_path):
-    """真 SQLAlchemy Session 的最小后盾：模型列用 JSONB，故手写 sqlite DDL。"""
+    """真 SQLAlchemy Session 的最小后盾：模型列用 JSONB，故手写 sqlite DDL。
+
+    DDL 里**没有** ``status`` 列 —— 结局状态的唯一 owner 是 ``state.case_status``。
+    若有人把列加回模型，这里的 INSERT 会立刻因缺列失败（回归护栏）。
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'simulations.sqlite'}")
     with engine.begin() as conn:
         conn.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -161,3 +164,51 @@ def test_stale_snapshot_must_lose_to_committed_revision(real_engine):
     finally:
         db_a.close()
         db_b.close()
+
+
+def test_provider_runs_after_commit_and_without_row_lock(real_engine):
+    """外部 provider 必须在事务 A 提交之后调用，且不持有会话行锁（docs/16 §4.5）。
+
+    证据用另一条连接给出：provider 执行期间，同一条会话行能被另一个事务正常加锁并
+    提交（若事务/行锁仍被 provider 持有，sqlite 会 "database is locked"）；随后事务 B
+    必须把回复追加到那次并发动作之后的最新 state 上，而不是覆盖它。
+    """
+    db = Session(real_engine)
+    other = Session(real_engine)
+    try:
+        sid = SimulationService(db).create(user_id=1).id
+        session = SimulationService(db).get_owned(sid, 1)
+        rev = _revision(session)
+        observed: dict = {}
+
+        def provider(summary: str) -> str:
+            observed["in_transaction"] = db.in_transaction()
+            # 另一事务在 provider 运行期间读到事务 A 已提交的 revision，并对同一行执行动作。
+            service = SimulationService(other)
+            committed = service.get_owned(sid, 1)
+            observed["committed_revision"] = _revision(committed)
+            messages, accepted, _ = service.act(
+                committed, "STATUS", None, expected_revision=observed["committed_revision"]
+            )
+            observed["concurrent"] = [(m.kind, m.text) for m in messages]
+            observed["concurrent_accepted"] = accepted
+            return "建议：继续监测尿量与生命体征。"
+
+        messages, accepted, _ = SimulationService(db).act(session, "CONSULT", None, consult_provider=provider)
+
+        assert accepted is True
+        assert observed["in_transaction"] is False  # 事务 A 已提交，provider 不在事务里
+        assert observed["committed_revision"] == rev + 1  # 推进后的 revision 已对外可见
+        assert observed["concurrent_accepted"] is True  # 行锁已释放：另一事务能提交
+        assert any("专家建议" in m.text for m in messages)
+
+        db.expire_all()
+        final = state_from_dict(SimulationService(db).get_owned(sid, 1).state)
+        # 回复与并发动作都留了下来：事务 B 基于最新 state 追加，没有覆盖 revision。
+        assert final.revision == rev + 2
+        assert any("专家建议" in m.text for m in final.public_log)
+        persisted = [(m.kind, m.text) for m in final.public_log]
+        assert all(item in persisted for item in observed["concurrent"])
+    finally:
+        db.close()
+        other.close()

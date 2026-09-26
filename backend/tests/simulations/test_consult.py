@@ -117,9 +117,10 @@ class _FakeDb:
 
 
 class _FakeSessionRow:
+    """替身：会话行只有 state（结局状态唯一 owner 是 state.case_status，无 status 列）。"""
+
     def __init__(self, state):
         self.id = 1
         self.user_id = 1
         self.case_version = "mvpb-1"
-        self.status = state.case_status
         self.state = state_to_dict(state)

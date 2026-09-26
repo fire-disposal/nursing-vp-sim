@@ -23,6 +23,11 @@ def _service() -> SimulationService:
     return SimulationService(cast("Session", _FakeSession()))
 
 
+def _case_status(session) -> str:
+    """结局状态唯一 owner 是 state.case_status —— 会话行没有 status 列。"""
+    return state_from_dict(session.state).case_status
+
+
 class _FakeTalk:
     def __init__(self, reply="嗯…就是伤口有点疼，别的也说不上来。"):
         self.reply = reply
@@ -170,11 +175,11 @@ def test_service_diagnosis_review_runs_once_on_case_end():
 
     # 推进到病例终结（出血病例多次 WAIT 至 failure）
     for _ in range(12):
-        if session.status != "ACTIVE":
+        if _case_status(session) != "ACTIVE":
             break
         service.act(session, "WAIT", None, diagnose_provider=fake)
 
-    assert session.status != "ACTIVE"
+    assert _case_status(session) != "ACTIVE"
     # 诊断评分只在终结时触发一次，且 prompt 同时含护士诊断与真实病情
     assert len(fake.calls) == 1
     assert "疑诊隐匿性出血" in fake.calls[0]
@@ -191,9 +196,9 @@ def test_service_diagnosis_review_skipped_without_diagnosis():
 
     # 未记录诊断直接终结：不应触发评分
     for _ in range(12):
-        if session.status != "ACTIVE":
+        if _case_status(session) != "ACTIVE":
             break
         service.act(session, "WAIT", None, diagnose_provider=fake)
 
-    assert session.status != "ACTIVE"
+    assert _case_status(session) != "ACTIVE"
     assert fake.calls == []

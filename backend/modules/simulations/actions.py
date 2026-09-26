@@ -579,7 +579,7 @@ def _do_talk(state, target, text, messages) -> bool:
     """与患者或家属对话：LLM 扮演对应角色，仅基于已知观察作答。
 
     The engine consumes the time and records the player's line; the actual
-    persona reply is produced at the LLM boundary (service._run_talk), so the
+    persona reply is produced at the LLM boundary (service._perform_call), so the
     engine stays pure and deterministic. An unconscious patient cannot talk —
     a real consequence of hypoperfusion or opioid overdose.
     """

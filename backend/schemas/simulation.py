@@ -106,6 +106,8 @@ class SimulationSnapshot(BaseModel):
     model_config = _RESP_CFG
     session_id: int
     revision: int
+    # 会话结局状态的唯一 owner（state.case_status，词表见 core.statuses.SimulationStatus）：
+    # 数据库里没有第二份 status 列，此字段就是落库真值的直出。
     case_status: str
     case_meta: CaseMeta
     cases: list[CaseMeta] = []  # 全部可选病例（含当前），前端据此渲染病例切换入口

@@ -11,6 +11,8 @@ action handlers live in ``actions.py`` (a distinct business stage); this module
 owns construction, the event loop, hidden disease course, and endings.
 """
 
+from core.statuses import SimulationStatus
+
 from .case import active_meds, case_of, clock_text, get_case, materialize_lab
 from .state import (
     ActionRecord,
@@ -26,9 +28,11 @@ from .state import (
     VitalsReading,
 )
 
-ACTIVE = "ACTIVE"
-SUCCESS = "SUCCESS"
-FAILURE = "FAILURE"
+# 结局状态词表的唯一定义在 core.statuses.SimulationStatus；本模块只做别名，
+# 让引擎内部的 ACTIVE/SUCCESS/FAILURE 与落库的 state.case_status 同源。
+ACTIVE = SimulationStatus.ACTIVE.value
+SUCCESS = SimulationStatus.SUCCESS.value
+FAILURE = SimulationStatus.FAILURE.value
 
 # Event types that hand control back to the player when they interrupt a wait.
 _INTERRUPT_TYPES = frozenset(

@@ -11,6 +11,7 @@ import asyncio
 from fastapi import APIRouter, Request
 
 from core.deps import CurrentUser, DbSession
+from core.statuses import SimulationStatus
 from infra.llm.client import CallContext
 from schemas.simulation import (
     ActionResultResponse,
@@ -135,7 +136,7 @@ def post_action(session_id: int, body: SimulationActionRequest, request: Request
         "session_id": session.id,
         "revision": state.revision,
         "accepted": accepted,
-        "case_ended": state.case_status != "ACTIVE",
+        "case_ended": state.case_status != SimulationStatus.ACTIVE.value,
         "messages": [m.__dict__ for m in messages],
         "snapshot": build_snapshot(session.id, state),
         "replayed": replayed,
