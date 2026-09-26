@@ -3,7 +3,7 @@
 // Usage: node .husky/_/auto-tag.mjs [--push] [--force]
 //   --push   create tag, push HEAD:master and the tag to origin
 //   --force  skip the redundancy gate (used when a deploy must happen even
-//            if origin/master matches the latest tag, e.g. PiOps merges)
+//            if origin/master matches the latest tag, e.g. a config/ops-only change)
 //
 // Cross-platform note: all git invocations go through execFileSync with
 // argument arrays (never shell-quoted strings), so behavior is identical
@@ -64,7 +64,7 @@ function cleanTag(tag) {
 
 // ── Redundancy gate (skipped with --force) ─────────────────────────────
 // Only when pushing: if origin/master has not changed since the newest tag,
-// a new tag would be redundant. PiOps merges force a deploy regardless.
+// a new tag would be redundant. 非代码类变更（配置/运维）需要发版时用 --force。
 if (doPush && !force) {
   const allSorted = git("tag", "--sort=-creatordate", "-l", "v*")
     .split("\n")
