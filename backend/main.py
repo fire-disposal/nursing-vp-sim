@@ -20,6 +20,7 @@ from core.config import (
     LLM_CONNECTION_POOL_SIZE,
     MAX_REQUEST_BYTES,
     REQUEST_TIMEOUT_SECONDS,
+    SCORING_EXECUTION,
     log_config,
     validate_config,
 )
@@ -135,8 +136,10 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
         if not pending:
             return
 
-        task_queue = getattr(app.state, "task_queue", None)
-        if task_queue is None:
+        # 就绪门槛按执行模式区分：inline 需要 TaskQueue；job 模式只需要能写 jobs 表
+        # （DB 在则必然可写），因此**不能**用 task_queue 是否就绪来判断 —— 那会让 job 模式
+        # 下重启后的在途评分永远不被重放。
+        if SCORING_EXECUTION == "inline" and getattr(app.state, "task_queue", None) is None:
             log.warning("TaskQueue not ready, %d pending scoring records will retry on next restart", len(pending))
             return
 

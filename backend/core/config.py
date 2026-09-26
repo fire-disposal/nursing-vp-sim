@@ -128,6 +128,23 @@ MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 SCORING_RETRY_GRACE_SECONDS = SCORING_TIMEOUT_SECONDS + 30
 CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30"))
 
+# ── 持久化 Job（docs/ideas/pipeline-and-job-separation.md）──
+# 评分在哪执行：``inline`` = 进程内 TaskQueue（现状）；``job`` = jobs 表 + 认领器。
+# 默认 inline：认领语义依赖 PostgreSQL 的 ``FOR UPDATE SKIP LOCKED``，本地测试无法验证，
+# 必须先在目标库上验证再切换（见设计的"切换与回滚"）。
+SCORING_EXECUTION = os.getenv("SCORING_EXECUTION", "inline").strip().lower()
+if SCORING_EXECUTION not in {"inline", "job"}:
+    raise ValueError(f"SCORING_EXECUTION 必须是 inline 或 job，当前为 {SCORING_EXECUTION!r}")
+# 租约必须长于一次评分的最坏耗时，否则"还在跑"的任务会被判死并重领 —— 与
+# SCORING_RETRY_GRACE_SECONDS 同策：派生，不手填（改超时自动跟随）。
+JOB_LEASE_SECONDS = int(os.getenv("JOB_LEASE_SECONDS", str(SCORING_TIMEOUT_SECONDS + 120)))
+JOB_HEARTBEAT_SECONDS = int(os.getenv("JOB_HEARTBEAT_SECONDS", "30"))
+JOB_MAX_ATTEMPTS = int(os.getenv("JOB_MAX_ATTEMPTS", "2"))
+JOB_POLL_INTERVAL_SECONDS = float(os.getenv("JOB_POLL_INTERVAL_SECONDS", "2"))
+# 失败重试退避基数：第 n 次失败等待 min(base * 2^(n-1), cap)
+JOB_RETRY_BACKOFF_SECONDS = int(os.getenv("JOB_RETRY_BACKOFF_SECONDS", "60"))
+JOB_RETRY_BACKOFF_CAP_SECONDS = int(os.getenv("JOB_RETRY_BACKOFF_CAP_SECONDS", "600"))
+
 MAX_EXPORT_ROWS = int(os.getenv("MAX_EXPORT_ROWS", "20000"))
 
 

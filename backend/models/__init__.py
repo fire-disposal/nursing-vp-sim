@@ -17,6 +17,17 @@ from models.case import (
 )
 from models.feedback import Feedback
 from models.feedback_image import FeedbackImage
+from models.job import (
+    JOB_ACTIVE_STATUSES,
+    JOB_KIND_SCORING,
+    JOB_KINDS,
+    JOB_STATUS_FAILED,
+    JOB_STATUS_PENDING,
+    JOB_STATUS_RUNNING,
+    JOB_STATUS_SUCCEEDED,
+    JOB_STATUSES,
+    Job,
+)
 from models.llm import ApiSecret, LLMCallLog
 from models.notification import Notification, SystemNotification
 from models.qa import QARecord, QASession
@@ -57,6 +68,14 @@ __all__ = [
     "CASE_STATUS_ARCHIVED",
     "CASE_STATUS_DRAFT",
     "CASE_STATUS_PUBLISHED",
+    "JOB_ACTIVE_STATUSES",
+    "JOB_KINDS",
+    "JOB_KIND_SCORING",
+    "JOB_STATUSES",
+    "JOB_STATUS_FAILED",
+    "JOB_STATUS_PENDING",
+    "JOB_STATUS_RUNNING",
+    "JOB_STATUS_SUCCEEDED",
     "MEMBER_ROLES",
     "MEMBER_ROLE_STUDENT",
     "MEMBER_ROLE_TEACHER",
@@ -70,6 +89,7 @@ __all__ = [
     "ClassMembership",
     "Feedback",
     "FeedbackImage",
+    "Job",
     "LLMCallLog",
     "Message",
     "Notification",

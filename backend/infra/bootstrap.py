@@ -22,6 +22,8 @@ from core.config import (
     LLM_LOG_OVERFLOW_MAX_SIZE_MB,
     LLM_LOG_QUEUE_MAX_BYTES,
     LLM_LOG_QUEUE_MAX_ENTRIES,
+    SCORING_EXECUTION,
+    SCORING_WORKERS,
 )
 from core.database import SessionLocal, engine
 from infra.diagnose import get_diagnose_service
@@ -86,7 +88,11 @@ async def shutdown(app):
     app_state = app.state
 
     await shutdown_background(app_state)
-    await app_state.task_queue.stop()
+    if getattr(app_state, "task_queue", None) is not None:
+        await app_state.task_queue.stop()
+    job_runner = getattr(app_state, "job_runner", None)
+    if job_runner is not None:
+        job_runner.cancel()
     if hasattr(app_state, "log_worker") and app_state.log_worker:
         await app_state.log_worker.stop()
     if hasattr(app_state, "realtime_hub") and app_state.realtime_hub:
@@ -104,10 +110,20 @@ async def shutdown(app):
 
 async def init_infra(app_state, llm_router):
     """Initialize task queue, runtime caches, metrics, diagnose, and realtime hub."""
-    task_queue = TaskQueue()
-    await task_queue.start()
+    # 评分执行位置（docs/ideas/pipeline-and-job-separation.md）：job 模式用 jobs 表的
+    # 认领器替代进程内 TaskQueue；两种模式互斥，绝不双跑（否则同一记录可能被评两次 ——
+    # 记录自身的 claim CAS 仍会拦，但那是第二道防线，不是设计意图）。
+    if SCORING_EXECUTION == "job":
+        from infra import jobs
+
+        task_queue = None
+        app_state.job_runner = asyncio.create_task(jobs.run_loop(app_state, role="inline"), name="job-runner")
+        log.info("评分执行：jobs 表认领器（slots=%d）", SCORING_WORKERS)
+    else:
+        task_queue = TaskQueue()
+        await task_queue.start()
+        log.info("Task queue: %d workers", task_queue.max_workers)
     app_state.task_queue = task_queue
-    log.info("Task queue: %d workers", task_queue.max_workers)
 
     app_state.initiative_cache = InitiativeCache()
     app_state.scoring_tracker = ScoringProgressTracker()

@@ -22,6 +22,7 @@ from enum import StrEnum
 from sqlalchemy.orm import Session
 
 from core.config import (
+    SCORING_EXECUTION,
     SCORING_RETRY_DELAY_SECONDS,
     SCORING_TIMEOUT_SECONDS,
 )
@@ -32,7 +33,7 @@ from infra.scoring_progress import ScoringProgressTracker
 
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
-from models import Message, Notification, Score, ScoreReview, TrainingRecord
+from models import JOB_KIND_SCORING, Message, Notification, Score, ScoreReview, TrainingRecord
 from modules.training.session.finalize import mark_discarded, student_message_count
 from modules.training.session.state import patch_runtime_state
 from modules.training.workflows import workflow_for_record
@@ -472,17 +473,24 @@ async def enqueue_scoring(
 ) -> None:
     """评分入队的**唯一边界**（启动重放 / ``/end`` / retry / 走人 / 结算共用）。
 
-    ``app_state`` 是 ``app.state``：``task_queue`` 必填，``llm_client`` 应由 bootstrap
-    写入，``scoring_tracker`` / ``realtime_hub`` 可选。``record_id``/``case_data`` 在此
-    被捕获为标量，闭包在 worker 阶段不回读 ORM 属性（走人路径的 DetachedInstanceError
-    回归）；运行期依赖仍在 worker 阶段从 ``app_state`` 读取，与合并前五个调用点一致
-    —— LLM 未就绪时是"任务入队后失败并等待清扫"，不是触发请求直接 500。
+    执行位置由 ``SCORING_EXECUTION`` 决定（docs/ideas/pipeline-and-job-separation.md）：
+
+    * ``inline``（默认）：入进程内 ``TaskQueue``，``app_state.task_queue`` 必填。``record_id``/
+      ``case_data`` 在此被捕获为标量，闭包在 worker 阶段不回读 ORM 属性（走人路径的
+      DetachedInstanceError 回归）；运行期依赖仍在 worker 阶段从 ``app_state`` 读取
+      —— LLM 未就绪时是"任务入队后失败并等待清扫"，不是触发请求直接 500。
+    * ``job``：只写一行 ``jobs``（记录已有挂起任务时是幂等 no-op）。输入不随行复制，
+      认领者按 ``record_id`` 派生 —— 同一事实不做第二份拷贝（docs/17 §四）。
 
     Raises:
-        RuntimeError: 进程尚未 bootstrap 出 TaskQueue（调用方各自先做就绪检查）。
-        QueueFullError: 队列在入队超时内未腾出槽位 —— 不做任何补救，由调用方按自己的
-            恢复策略处理（HTTP 回滚 503 / 走人交给结算清扫 / 结算重开记录 / 启动告警）。
+        RuntimeError: inline 模式下进程尚未 bootstrap 出 TaskQueue。
+        QueueFullError: inline 模式下队列在入队超时内未腾出槽位 —— 不做任何补救，由调用方
+            按自己的恢复策略处理（HTTP 回滚 503 / 走人交给结算清扫 / 结算重开记录 / 启动告警）。
     """
+    if SCORING_EXECUTION == "job":
+        await asyncio.to_thread(_enqueue_job_row, record_id, priority)
+        return
+
     task_queue = getattr(app_state, "task_queue", None)
     if task_queue is None:
         raise RuntimeError("评分队列未就绪：TaskQueue 尚未启动")
@@ -496,3 +504,20 @@ async def enqueue_scoring(
         ),
         priority=priority,
     )
+
+
+def _enqueue_job_row(record_id: int, priority: int) -> int | None:
+    """``SCORING_EXECUTION=job`` 的入队：写一行 jobs（同步，由调用方放进线程）。
+
+    幂等：该记录已有挂起/执行中的评分任务时返回 None（``uq_jobs_active_scoring`` 去重）。
+    这不是错误：记录自身的 ``scoring_status`` 才是执行期仲裁者，调用方要的结果
+    （"这条记录的评分已被安排"）已经成立。
+    """
+    from infra import jobs
+
+    with SessionLocal() as db:
+        job_id = jobs.enqueue(db, kind=JOB_KIND_SCORING, record_id=record_id, priority=priority)
+        db.commit()
+    if job_id is None:
+        log.info("评分任务已存在，跳过重复入队 record_id=%d", record_id)
+    return job_id
