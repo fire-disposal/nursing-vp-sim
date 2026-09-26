@@ -11,20 +11,13 @@ from core.statuses import QuestionnaireTrigger
 from infra.exporter import ColumnDef, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService
-from modules.questionnaires.service import (
-    QuestionnaireTemplateService,
-    QuestionView,
-    TemplateDetailView,
-    TemplateView,
-)
+from modules.questionnaires.service import QuestionnaireTemplateService
 from schemas import (
     CaseAssignmentRequest,
     DeleteResponse,
     OkResponse,
     PaginatedResponse,
-    QuestionnaireAnswerItem,
     QuestionnaireCheckResponse,
-    QuestionnaireQuestionResponse,
     QuestionnaireResponseItem,
     QuestionnaireStatsResponse,
     QuestionnaireSubmitRequest,
@@ -36,74 +29,6 @@ from schemas import (
 
 router = APIRouter(prefix="/api", tags=["问卷"])
 _Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]
-
-
-def _q_resp(view: QuestionView) -> QuestionnaireQuestionResponse:
-    return QuestionnaireQuestionResponse(
-        id=view.id,
-        template_id=view.template_id,
-        content=view.content,
-        question_type=view.question_type,
-        required=view.required,
-        sort_order=view.sort_order,
-        options=view.options,
-    )
-
-
-def _resp(view: TemplateView) -> QuestionnaireTemplateResponse:
-    return QuestionnaireTemplateResponse(
-        id=view.id,
-        title=view.title,
-        type=view.type,
-        description=view.description,
-        is_active=view.is_active,
-        question_count=view.question_count,
-        response_count=view.response_count,
-        created_at=view.created_at,
-        updated_at=view.updated_at,
-    )
-
-
-def _resp_detail(view: TemplateDetailView) -> QuestionnaireTemplateDetailResponse:
-    return QuestionnaireTemplateDetailResponse(
-        id=view.id,
-        title=view.title,
-        type=view.type,
-        description=view.description,
-        is_active=view.is_active,
-        question_count=view.question_count,
-        response_count=view.response_count,
-        created_at=view.created_at,
-        updated_at=view.updated_at,
-        questions=[_q_resp(q) for q in view.questions],
-        case_ids=view.case_ids,
-    )
-
-
-def _answer_resp(v) -> QuestionnaireAnswerItem:
-    return QuestionnaireAnswerItem(
-        question_id=v.question_id,
-        question_content=v.question_content,
-        question_type=v.question_type,
-        options=v.options,
-        answer_value=v.answer_value,
-    )
-
-
-def _resp_item(v) -> QuestionnaireResponseItem:
-    return QuestionnaireResponseItem(
-        id=v.id,
-        template_id=v.template_id,
-        template_title=v.template_title,
-        user_id=v.user_id,
-        user_name=v.user_name,
-        case_id=v.case_id,
-        record_id=v.record_id,
-        status=v.status,
-        answers=[_answer_resp(a) for a in v.answers],
-        completed_at=v.completed_at,
-        created_at=v.created_at,
-    )
 
 
 # ── Template CRUD ──
@@ -118,7 +43,12 @@ def list_templates(
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
     views, total = QuestionnaireTemplateService(db).list_all(type, offset, limit)
-    return PaginatedResponse(items=[_resp(v) for v in views], total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[QuestionnaireTemplateResponse.model_validate(v) for v in views],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post("/questionnaires/templates", response_model=QuestionnaireTemplateDetailResponse)
@@ -127,7 +57,7 @@ def create_template(
     current_user: _Manager,
     db: DbSession,
 ):
-    return _resp_detail(
+    return QuestionnaireTemplateDetailResponse.model_validate(
         QuestionnaireTemplateService(db).create(
             title=req.title,
             type_=req.type,
@@ -144,7 +74,7 @@ def get_template(
     current_user: _Manager,
     db: DbSession,
 ):
-    return _resp_detail(QuestionnaireTemplateService(db).get_detail(template_id))
+    return QuestionnaireTemplateDetailResponse.model_validate(QuestionnaireTemplateService(db).get_detail(template_id))
 
 
 @router.put("/questionnaires/templates/{template_id}", response_model=QuestionnaireTemplateDetailResponse)
@@ -154,7 +84,7 @@ def update_template(
     current_user: _Manager,
     db: DbSession,
 ):
-    return _resp_detail(
+    return QuestionnaireTemplateDetailResponse.model_validate(
         QuestionnaireTemplateService(db).update(
             template_id=template_id,
             title=req.title,
@@ -220,7 +150,7 @@ def submit_questionnaire(
     current_user: Annotated[User, Depends(get_current_user)],
     db: DbSession,
 ):
-    return _resp_item(
+    return QuestionnaireResponseItem.model_validate(
         QuestionnaireResponseService(db).submit(
             user_id=current_user.id,
             template_id=req.template_id,
@@ -244,7 +174,12 @@ def list_responses(
         offset=offset,
         limit=limit,
     )
-    return PaginatedResponse(items=[_resp_item(v) for v in items], total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[QuestionnaireResponseItem.model_validate(v) for v in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 # ── Stats & Export ──

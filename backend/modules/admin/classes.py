@@ -157,44 +157,34 @@ router = APIRouter(prefix="/classes", tags=["班级管理"])
 _Manager = Annotated[User, Depends(require_permission("grade_class_manage"))]
 
 
-def _resp(view: ClassView) -> ClassResponse:
-    return ClassResponse(
-        id=view.id,
-        name=view.name,
-        cohort_label=view.cohort_label,
-        student_count=view.student_count,
-        teacher_count=view.teacher_count,
-        assignment_count=view.assignment_count,
-        created_at=view.created_at,
-    )
-
-
 @router.get("", response_model=list[ClassResponse])
 def list_classes(
     current_user: _Manager,
     db: DbSession,
     cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None,
 ):
-    return [_resp(v) for v in ClassService(db).list_all(cohort_label=cohort_label)]
+    return [ClassResponse.model_validate(v) for v in ClassService(db).list_all(cohort_label=cohort_label)]
 
 
 @router.get("/{class_id}", response_model=ClassDetailResponse)
 def get_class(class_id: int, current_user: _Manager, db: DbSession):
     view = ClassService(db).get(class_id)
     return ClassDetailResponse(
-        **_resp(view).model_dump(),
+        **ClassResponse.model_validate(view).model_dump(),
         members=[member_item(m) for m in view.members],
     )
 
 
 @router.post("", response_model=ClassResponse)
 def create_class(body: ClassCreate, current_user: _Manager, db: DbSession):
-    return _resp(ClassService(db).create(body.name, body.cohort_label))
+    return ClassResponse.model_validate(ClassService(db).create(body.name, body.cohort_label))
 
 
 @router.put("/{class_id}", response_model=ClassResponse)
 def update_class(class_id: int, body: ClassUpdate, current_user: _Manager, db: DbSession):
-    return _resp(ClassService(db).update(class_id, name=body.name, cohort_label=body.cohort_label))
+    return ClassResponse.model_validate(
+        ClassService(db).update(class_id, name=body.name, cohort_label=body.cohort_label)
+    )
 
 
 @router.delete("/{class_id}", response_model=DeleteResponse)

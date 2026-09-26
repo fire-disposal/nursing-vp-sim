@@ -132,16 +132,12 @@ router = APIRouter(prefix="", tags=["API管理"])
 _Manager = Annotated[User, Depends(require_permission("api_manage"))]
 
 
-def _secret_resp(s: dict) -> ApiSecretResponse:
-    return ApiSecretResponse(**s)
-
-
 # ── ApiSecret CRUD ──
 
 
 @router.get("/secrets", response_model=list[ApiSecretResponse])
 def list_secrets(current_user: _Manager, db: DbSession):
-    return [_secret_resp(s) for s in ApiSecretService(db).list_for_admin()]
+    return ApiSecretService(db).list_for_admin()
 
 
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)

@@ -9,7 +9,7 @@ from core.security import require_permission
 from models import Case, User
 from modules.cases.gate import build_validation_report, validate_case_row
 from modules.cases.generation import generate_case as _generate_case
-from modules.cases.service import CaseManageView, CaseService
+from modules.cases.service import CaseService
 from modules.training.workflows import workflow_for_case
 from schemas import (
     CaseBrief,
@@ -49,28 +49,6 @@ def _to_case_brief(c: Case) -> CaseBrief:
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         capabilities=workflow.resolve_features(c.case_data),
         workflow=WorkflowBrief(id=workflow.id, label=workflow.label, runtime_ready=workflow.runtime_ready),
-    )
-
-
-def _to_manage_item(v: CaseManageView) -> CaseManageItem:
-    return CaseManageItem(
-        id=v.id,
-        name=v.name,
-        description=v.description,
-        status=v.status,
-        current_revision_id=v.current_revision_id,
-        current_revision_no=v.current_revision_no,
-        patient_name=v.patient_name,
-        patient_age=v.patient_age,
-        patient_gender=v.patient_gender,
-        chief_complaint=v.chief_complaint,
-        time_limit=v.time_limit,
-        difficulty=v.difficulty,
-        patient_personality=v.patient_personality,
-        capabilities=v.capabilities,
-        is_open=v.is_open,
-        created_at=v.created_at,
-        training_count=v.training_count,
     )
 
 
@@ -114,7 +92,7 @@ def list_cases_manage(
         offset, limit, name=name, difficulty=difficulty, status=status, is_open=is_open
     )
     return PaginatedResponse(
-        items=[_to_manage_item(v) for v in views],
+        items=[CaseManageItem.model_validate(v) for v in views],
         total=total,
         offset=offset,
         limit=limit,
@@ -160,7 +138,7 @@ def create_case(
         )
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
-    return _to_manage_item(view)
+    return CaseManageItem.model_validate(view)
 
 
 @router.put("/{case_id}", response_model=CaseManageItem)
@@ -175,7 +153,7 @@ def update_case(
         view = svc.update(case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else "")
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
-    return _to_manage_item(view)
+    return CaseManageItem.model_validate(view)
 
 
 @router.put("/{case_id}/open", response_model=CaseManageItem)
@@ -188,7 +166,7 @@ def toggle_case_open(
     svc = CaseService(db)
     case = svc.set_open(case_id, open)
     count = svc.training_count(case_id)
-    return _to_manage_item(svc._manage_view(case, count))
+    return CaseManageItem.model_validate(svc._manage_view(case, count))
 
 
 # ── 发布生命周期（docs/15 §六）──
@@ -206,14 +184,16 @@ def publish_case(case_id: int, db: DbSession, current_user: _CaseManager):
     """发布病例：门禁通过才落版本（error → 422 + 报告）。"""
     svc = CaseService(db)
     view, report = svc.publish(case_id, current_user.id, current_user.role.name if current_user.role else "")
-    return CasePublishResponse(case=_to_manage_item(view), report=build_validation_report(svc.get(case_id), report))
+    return CasePublishResponse(
+        case=CaseManageItem.model_validate(view), report=build_validation_report(svc.get(case_id), report)
+    )
 
 
 @router.post("/{case_id}/archive", response_model=CaseManageItem)
 def archive_case(case_id: int, db: DbSession, current_user: _CaseManager):
     """归档病例：只阻止新使用，历史 revision 与既有训练复盘不受影响。"""
     view = CaseService(db).archive(case_id, current_user.id, current_user.role.name if current_user.role else "")
-    return _to_manage_item(view)
+    return CaseManageItem.model_validate(view)
 
 
 @router.get("/{case_id}/revisions", response_model=list[CaseRevisionItem])

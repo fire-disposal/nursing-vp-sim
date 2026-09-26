@@ -170,29 +170,18 @@ def _grantable(current_user: User, db) -> set[str]:
     return set(load_role_permissions(db, current_user.role_id))
 
 
-def _resp(view) -> RoleResponse:
-    return RoleResponse(
-        id=view.id,
-        name=view.name,
-        display_name=view.display_name,
-        is_system=view.is_system,
-        permissions=view.permissions,
-        user_count=view.user_count,
-    )
-
-
 @router.get("", response_model=list[RoleResponse])
 def list_roles(
     current_user: _Manager,
     db: DbSession,
     search: Annotated[str, Query()] = "",
 ):
-    return [_resp(v) for v in RoleService(db).list_all(search=search)]
+    return [RoleResponse.model_validate(v) for v in RoleService(db).list_all(search=search)]
 
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
-    return _resp(
+    return RoleResponse.model_validate(
         RoleService(db).create(
             req.name,
             req.display_name,
@@ -204,7 +193,7 @@ def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
 
 @router.put("/{role_id}", response_model=RoleResponse)
 def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db: DbSession):
-    return _resp(
+    return RoleResponse.model_validate(
         RoleService(db).update(
             role_id,
             display_name=req.display_name,

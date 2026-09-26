@@ -109,24 +109,6 @@ router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 _AssignmentManager = Annotated[User, Depends(require_permission("assignment_manage"))]
 
 
-def _list_resp(view) -> AssignmentListItem:
-    return AssignmentListItem(
-        id=view.id,
-        title=view.title,
-        case_name=view.case_name,
-        class_name=view.class_name,
-        teacher_name=view.teacher_name,
-        start_time=view.start_time,
-        end_time=view.end_time,
-        audience_mode=view.audience_mode,
-        student_count=view.student_count,
-        completed_count=view.completed_count,
-        created_at=view.created_at,
-        is_closed=view.is_closed,
-        max_attempts=view.max_attempts,
-    )
-
-
 def _detail_resp(view) -> AssignmentDetail:
     """Serialize the service's sole detail view; schemas own field projection."""
     return AssignmentDetail.model_validate(view)
@@ -169,7 +151,9 @@ def list_assignments(
         offset=offset,
         limit=limit,
     )
-    return PaginatedResponse(items=[_list_resp(v) for v in items], total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[AssignmentListItem.model_validate(v) for v in items], total=total, offset=offset, limit=limit
+    )
 
 
 @router.get("/{assignment_id}", response_model=AssignmentDetail)
