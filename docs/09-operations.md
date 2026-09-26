@@ -17,8 +17,9 @@
 | `rollback.yml` | `workflow_dispatch`（手动） | 正式服定向回滚（同上） | `iomt.205716.xyz` |
 
 单实例部署：唯一目标为正式服 `iomt.205716.xyz`。旧双栈（staging + prod）流水线
-（`deploy-staging` / `deploy-production` / `rollback-production` / `piops-*`）已于 2026-09-14 归档到
-`.github/workflows/archive/`（子目录不激活，其中 `piops-auto-deploy` 刻意不恢复），迁移记录见
+（`deploy-staging` / `deploy-production` / `rollback-production`）以及 PiOps 自动修复/发布
+（`piops-*`）已于 2026-09-14 从仓库移除（**不在仓库内保留归档副本**：工作流目录只留 4 个活文件
+`backup-audit` / `commit-format` / `deploy` / `rollback`），迁移记录见
 `docs/ops/single-instance-migration.md`。
 
 ### 日常发布流程
@@ -507,6 +508,7 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 | `summary` | 汇总状态（healthy / degraded）与 alerts |
 | `runtime` | scope=process, window=now：`uptime_seconds`、`database{connected,pool_size,checked_out}`、诊断缓存时间 |
 | `sessions` | scope=db, window=now：`active` = 数据库中进行中的训练数 |
+| `jobs` | scope=db, window=now：持久化 Job（`SCORING_EXECUTION=job` 时评分的执行队列）——各状态计数 / 最老 pending 等待秒数 / 过期租约数；此时进程内 `metrics.queue.task_queue` 恒为 0，看队列只认这里 |
 | `llm` | scope=db, window=rolling_24h：24h 调用量/成功率/错误数/延迟/最近错误 |
 | `llm.router` | scope=process, window=now：LLM 降级/熔断/兜底/落库失败（**降级证据唯一规范位置**）|
 | `scoring` | scope=db, window=rolling_24h_by_record_end_time：success_rate / pending / in_progress / completed_24h / failed_24h |

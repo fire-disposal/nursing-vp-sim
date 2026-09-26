@@ -524,6 +524,11 @@ jobs:
               print('  alert:', a)
           if s.get('status') not in ('healthy', 'degraded'):
               sys.exit('::error::diagnose status 异常')
+          # 运维面契约：新增/改动的块必须在跑起来的版本里出现（只查存活会漏掉"旧代码在跑"）
+          jobs = d.get('jobs')
+          if not isinstance(jobs, dict) or 'by_kind' not in jobs:
+              sys.exit('::error::diagnose 缺少 jobs 块——运维面未随本次发布上线')
+          print('jobs =', jobs)
           "
 
       - name: Publish dev report (non-blocking)

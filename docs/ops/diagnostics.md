@@ -1,6 +1,10 @@
 # 诊断接口与错误档案
 
-`GET /api/diagnose` 是面向运维脚本和 Agent 的只读诊断入口。它继续使用 `DIAGNOSE_TOKEN`，并通过两个参数控制错误上下文：
+`GET /api/diagnose`（与 `/api/feedback/bot` 一样）是**按需调用的运维聚合入口**：一次请求拿到版本、健康、
+LLM/评分/作业/语音/业务全部机器可读状态，供运维 Agent/脚本按需调用、CI 部署冒烟与 admin 看板共用。
+
+**刻意不配周期性消费者或调度器** —— 用法就是"要用时按序调用查询"。历史上唯一自动消费它的 PiOps 载体
+已从仓库移除，且不设替代（不要为它引入后台自动化）。接口继续使用 `DIAGNOSE_TOKEN`，并通过两个参数控制错误上下文：
 
 ```text
 /api/diagnose?token=...&error_window_minutes=60&error_groups=20
@@ -8,6 +12,12 @@
 
 - `error_window_minutes`：错误查询窗口，1–1440 分钟，默认 60。
 - `error_groups`：最多返回的后端错误组，1–50，默认 20。
+
+## 契约守卫
+
+顶层键集合就是对外契约：**新增/删除块必须同时改**代码、`backend/tests/infra/test_diagnose_contract.py`
+（顶层键集断言）、本文件、`skill://ops-interfaces`、admin 看板类型与 `.github/workflows/deploy.yml` 的部署后冒烟
+（冒烟会断言新块真的在跑起来的版本里出现，防止"旧代码在跑却被判成功"）。
 
 ## 错误留存
 
@@ -51,11 +61,11 @@ FRONTEND_ERROR_ARCHIVE_BACKUPS=2
 
 ## 返回结构
 
-响应为 `schema_version: 3`。顶层键共 15 个（`summary` 的 `alerts` 与顶层 `alerts` 同源同值）：
+响应为 `schema_version: 3`。顶层键共 16 个（`summary` 的 `alerts` 与顶层 `alerts` 同源同值）：
 
 ```text
 schema_version  version  generated_at  summary  alerts
-runtime  sessions  errors  frontend_errors  llm  scoring  voice  voice_budget  business  metrics
+runtime  sessions  errors  frontend_errors  llm  scoring  jobs  voice  voice_budget  business  metrics
 ```
 
 顶层不再有集中的窗口块：每个块自带 `scope` / `window` 字段，口径跟着数据走。
@@ -92,6 +102,7 @@ admin 出口另有公开端点没有的 `feedback` 块（`scope: db` / `window: 
 | `frontend_errors` | `workers` | `rolling_<N>m` | 与 `errors` 同形 |
 | `llm` | `db` | `rolling_24h` | 24h 调用量 / 成功率 / 错误数 / 平均延迟 / 最近错误 |
 | `llm.router` | `process` | `now` | 降级 / 熔断 / 兜底 / 落库失败等进程侧状态 |
+| `jobs` | `db` | `now` | 持久化 Job 状态：`by_kind.{kind}.{pending,running,succeeded,failed}` / `oldest_pending_seconds` / `expired_leases`。`SCORING_EXECUTION=job` 时**评分队列只看这里**（进程内 `metrics.queue.task_queue` 恒为 0） |
 | `scoring` | `db` | `rolling_24h_by_record_end_time` | 另标 `in_progress_scope: process` / `in_progress_window: now`（in_progress 来自进程内 scoring_tracker） |
 | `voice` | `db` | `rolling_24h` | TTS / ASR 统计 |
 | `voice_budget` | `db` | `month_cn` | 语音月度预算 |

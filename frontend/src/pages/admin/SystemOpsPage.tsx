@@ -1,15 +1,13 @@
-import { Alert, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { Alert, Button, Checkbox, Group, Progress, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import { IconActivity, IconAlertTriangle, IconCircleCheck, IconClock, IconCpu, IconRefresh, IconServer } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox, Progress } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
-import { Table } from "@mantine/core";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm?.success_rate ?? 100;
@@ -145,6 +143,65 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 						{data.metrics?.version ?? "-"}
 					</Text>
 				</SimpleGrid>
+			</CardContent>
+		</Card>
+	);
+}
+
+function JobsCard({ data }: { data: DiagnoseResponse }) {
+	const jobs = data.jobs;
+	const kinds = Object.entries(jobs?.by_kind ?? {});
+	const oldest = jobs?.oldest_pending_seconds ?? 0;
+	const expired = jobs?.expired_leases ?? 0;
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>作业队列 (jobs)</CardTitle>
+			</CardHeader>
+			<CardContent>
+				{jobs == null ? (
+					<Text size="sm" c="dimmed">该版本未提供作业块</Text>
+				) : (
+					<Stack gap="xs">
+						{kinds.length === 0 ? (
+							<Text size="sm" c="dimmed">暂无作业记录</Text>
+						) : (
+							kinds.map(([kind, statuses]) => (
+								<Group key={kind} justify="space-between" gap="xs">
+									<Text size="sm" ff="monospace">{kind}</Text>
+									<Group gap="sm">
+										<Text size="sm" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+											pending {statuses.pending ?? 0}
+										</Text>
+										<Text size="sm" c="blue" style={{ fontVariantNumeric: "tabular-nums" }}>
+											running {statuses.running ?? 0}
+										</Text>
+										<Text
+											size="sm"
+											c={(statuses.failed ?? 0) > 0 ? "red" : "dimmed"}
+											style={{ fontVariantNumeric: "tabular-nums" }}
+										>
+											failed {statuses.failed ?? 0}
+										</Text>
+									</Group>
+								</Group>
+							))
+						)}
+						<Group justify="space-between">
+							<Text size="sm" c="dimmed">最老 pending 等待</Text>
+							<Text size="sm" fw={500} c={oldest > 300 ? "yellow" : "dimmed"} style={{ fontVariantNumeric: "tabular-nums" }}>
+								{oldest} s
+							</Text>
+						</Group>
+						<Group justify="space-between">
+							<Text size="sm" c="dimmed">过期租约</Text>
+							<Text size="sm" fw={500} c={expired > 0 ? "red" : "green"} style={{ fontVariantNumeric: "tabular-nums" }}>
+								{expired}
+							</Text>
+						</Group>
+					</Stack>
+				)}
 			</CardContent>
 		</Card>
 	);
@@ -403,7 +460,7 @@ export default function SystemOpsPage() {
 		<Stack gap="xl" mt="md">
 			<PageHeader
 				title="系统运维"
-				subtitle="LLM 状态 · 评分队列 · 语音预算 · 业务量 · 错误日志 · 会话统计"
+				subtitle="LLM 状态 · 评分队列 · 作业队列 · 语音预算 · 业务量 · 错误日志 · 会话统计"
 				actions={
 					<Group gap={8} align="center">
 						<Checkbox
@@ -424,6 +481,7 @@ export default function SystemOpsPage() {
 				<LLMDetailCard data={data} />
 				<ScoringSessionsCard data={data} />
 				<VoiceBudgetCard data={data} />
+				<JobsCard data={data} />
 				<BusinessCard data={data} />
 				<HttpFrontendCard data={data} />
 			</SimpleGrid>

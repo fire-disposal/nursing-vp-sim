@@ -129,6 +129,7 @@ async def admin_ops_dashboard(
             **data["scoring"],
         },
         "sessions": {"scope": SCOPE_DB, "window": WINDOW_NOW, **data["sessions"]},
+        "jobs": {"scope": SCOPE_DB, "window": WINDOW_NOW, **data["jobs"]},
         "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **data["voice"]},
         "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **data["voice_budget"]},
         "business": {"scope": SCOPE_DB, "window": WINDOW_DAY_CN, **data["business"]},

@@ -229,6 +229,11 @@ async def diagnose(
                 "in_progress_window": WINDOW_NOW,
                 **dashboard["scoring"],
             },
+            "jobs": {
+                "scope": SCOPE_DB,
+                "window": WINDOW_NOW,
+                **dashboard["jobs"],
+            },
             "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **dashboard["voice"]},
             "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **dashboard["voice_budget"]},
             "business": {"scope": SCOPE_DB, "window": WINDOW_DAY_CN, **dashboard["business"]},

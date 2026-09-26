@@ -128,6 +128,7 @@ def _payload(monkeypatch, *, frontend_last_5min: int) -> dict:
     context = {"total_events": 3, "unique_groups": 2, "truncated": False, "groups": []}
     dashboard = {
         "time": datetime.now(UTC).isoformat(),
+        "jobs": {"by_kind": {"scoring": {}}, "oldest_pending_seconds": 0, "expired_leases": 0},
         "llm": {
             "total_calls_24h": 0,
             "success_rate": 100.0,
@@ -186,6 +187,7 @@ def test_diagnose_payload_declares_scope_and_window(monkeypatch):
         "frontend_errors",
         "llm",
         "scoring",
+        "jobs",
         "voice",
         "voice_budget",
         "business",
@@ -198,6 +200,46 @@ def test_diagnose_payload_declares_scope_and_window(monkeypatch):
     assert payload["runtime"]["cache_ttl_seconds"] == diagnostics.CACHE_TTL_SECONDS
     assert "llm_router" not in payload["runtime"]  # 已移入 llm.router
     assert "active_sessions" not in payload["runtime"]  # 恒 0 死字段已删
+
+
+def test_diagnose_top_level_keys_are_exactly_documented(monkeypatch):
+    """顶层键集就是契约：新增/删除块必须同时改这里与 docs/ops/diagnostics.md、
+    `skill://ops-interfaces`、admin 看板与部署冒烟 —— 这条断言是"忘了同步消费方"的机器检查。
+    """
+    payload = _payload(monkeypatch, frontend_last_5min=0)
+
+    assert set(payload) == {
+        "schema_version",
+        "version",
+        "generated_at",
+        "summary",
+        "alerts",
+        "runtime",
+        "sessions",
+        "errors",
+        "frontend_errors",
+        "llm",
+        "scoring",
+        "jobs",
+        "voice",
+        "voice_budget",
+        "business",
+        "metrics",
+    }
+
+
+def test_jobs_block_reports_queue_state_and_expired_leases(monkeypatch):
+    """`SCORING_EXECUTION=job` 时评分不走进程内队列 → 队列可见性只在这里；
+    形状必须确定（无作业行时 by_kind.scoring == {}），过期租约要能一眼看到。
+    """
+    payload = _payload(monkeypatch, frontend_last_5min=0)
+
+    jobs = payload["jobs"]
+    assert jobs["scope"] == diagnostics.SCOPE_DB
+    assert jobs["window"] == diagnostics.WINDOW_NOW
+    assert "scoring" in jobs["by_kind"]
+    assert isinstance(jobs["oldest_pending_seconds"], int)
+    assert isinstance(jobs["expired_leases"], int)
 
     assert payload["sessions"] == {"scope": diagnostics.SCOPE_DB, "window": "now", "active": 3}
 

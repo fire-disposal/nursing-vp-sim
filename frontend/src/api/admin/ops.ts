@@ -60,6 +60,17 @@ export interface DiagnoseResponse {
 		failed_24h: number;
 		success_rate: number;
 	};
+	/** 持久化 Job 队列（`SCORING_EXECUTION=job` 时评分的执行路径）。 */
+	jobs?: {
+		scope: "db";
+		window: string;
+		/** kind → status → 计数（只出现库里存在过的组合）。 */
+		by_kind: Record<string, Record<string, number>>;
+		/** 最老 pending 作业已等待秒数；持续抬头=消费者跟不上。 */
+		oldest_pending_seconds: number;
+		/** running 且租约已过期（执行者消失、等待重领）的条数。 */
+		expired_leases: number;
+	};
 	voice: {
 		tts: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};

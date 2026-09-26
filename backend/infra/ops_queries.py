@@ -21,7 +21,7 @@ callers are responsible for auth, response shaping, and alert derivation.
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
@@ -280,6 +280,48 @@ def query_voice_budget(db: Session) -> dict:
     }
 
 
+def query_jobs(db: Session, now: datetime | None = None) -> dict:
+    """持久化 Job 的即时状态（scope=db / window=now）。
+
+    为什么必须在这一层可见：`SCORING_EXECUTION=job` 时评分不再走进程内 TaskQueue，
+    `metrics.queue.task_queue` 恒为 0 —— 队列可见性必须由这里提供，否则切到 job 模式后
+    运维面就"看不见评分是否在跑"。字段只取可行动信息：各状态计数、最老 pending 等待秒数、
+    租约已过期（执行者消失但尚未被重领）的条数。
+    """
+    if now is None:
+        now = datetime.now(UTC)
+    rows = db.execute(
+        text(
+            """
+            SELECT kind, status, count(*) AS n,
+                   coalesce(max(extract(epoch FROM :now_ts - available_at))
+                            FILTER (WHERE status = 'pending'), 0) AS oldest_pending_s,
+                   count(*) FILTER (WHERE status = 'running' AND lease_expires_at < :now_ts) AS expired_leases
+              FROM jobs
+             GROUP BY kind, status
+            """
+        ),
+        {"now_ts": now},
+    ).all()
+
+    by_kind: dict[str, dict[str, int]] = {}
+    oldest_pending = 0
+    expired = 0
+    for row in rows:
+        bucket = by_kind.setdefault(row.kind, {})
+        bucket[row.status] = int(row.n)
+        oldest_pending = max(oldest_pending, int(row.oldest_pending_s or 0))
+        expired += int(row.expired_leases or 0)
+
+    # 没有行时也要给出确定的形状，消费方（看板/冒烟）不必判空
+    by_kind.setdefault("scoring", {})
+    return {
+        "by_kind": by_kind,
+        "oldest_pending_seconds": oldest_pending,
+        "expired_leases": expired,
+    }
+
+
 def build_dashboard(db: Session, now: datetime | None = None) -> dict:
     """Core snapshot — used by both public diagnose and admin dashboard."""
     if now is None:
@@ -294,9 +336,11 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
     voice_budget = query_voice_budget(db)
 
     business = query_business(db, now)
+    jobs = query_jobs(db, now)
 
     return {
         "time": now.isoformat(),
+        "jobs": jobs,
         "llm": {
             "total_calls_24h": llm["total"],
             "success_rate": round(llm["success"] / max(llm["total"], 1) * 100, 1),
