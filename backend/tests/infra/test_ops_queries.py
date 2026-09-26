@@ -1,41 +1,49 @@
-"""Unit tests for alert derivation in ``infra.ops_queries.compute_alerts``."""
+"""Unit tests for alert derivation in ``infra.ops_queries.compute_alerts``.
+
+真库判据（**PostgreSQL**，`nursing_test`）：窗口查询直接跑在 ``llm_call_logs`` 真表上
+（``created_at`` 是 naïve-UTC 列，查询侧与写入侧都传 aware 值 → PG 做同样的会话时区
+折算，窗口边界与写入值口径一致）。夹具清空该表，保证 24h 窗口里只有用例自己写的行。
+"""
 
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session
+from sqlalchemy import text
 
+from core.database import Base
+from core.database import engine as pg_engine
 from core.statuses import LLMCallStatus
 from infra.ops_queries import compute_alerts, query_llm, query_llm_errors
+from models import LLMCallLog
 
-# LLM 调用明细表的最小 SQLite 结构（只含被测查询用到的列；JSONB 只出现在 meta，
-# 不影响这些聚合查询，故无需（也无法）在 SQLite 上建全量表）。
-_LLM_CALL_LOGS_DDL = """
-CREATE TABLE llm_call_logs (
-    id INTEGER PRIMARY KEY,
-    status VARCHAR(20) NOT NULL DEFAULT 'success',
-    latency_ms INTEGER,
-    error_type VARCHAR(80),
-    total_tokens INTEGER,
-    estimated_cost FLOAT,
-    created_at TIMESTAMP NOT NULL
+_TABLES = [LLMCallLog.__table__]
+
+#: ``purpose`` / ``provider_name`` / ``model`` / ``token_estimated`` / ``created_at``
+#: 在真表里都是 NOT NULL 且无库级默认值（ORM 侧默认值不参与裸插），故必须显式给值。
+_INSERT_ROW = text(
+    """
+INSERT INTO llm_call_logs (
+    id, status, latency_ms, error_type, total_tokens, estimated_cost, created_at,
+    purpose, provider_name, model, token_estimated
+) VALUES (
+    :id, :status, :latency_ms, :error_type, :total_tokens, :estimated_cost, :created_at,
+    'chat', 'deepseek', 'deepseek-chat', 1
 )
 """
-
-_INSERT_ROW = text(
-    "INSERT INTO llm_call_logs (id, status, latency_ms, error_type, total_tokens, estimated_cost, created_at) "
-    "VALUES (:id, :status, :latency_ms, :error_type, :total_tokens, :estimated_cost, :created_at)"
 )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），不再手写 SQLite DDL。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
 @pytest.fixture
-def db():
-    engine = create_engine("sqlite://")
-    with engine.begin() as conn:
-        conn.exec_driver_sql(_LLM_CALL_LOGS_DDL)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离 + 确定性空表（窗口计数断言依赖"只有本用例写的行"）。"""
+    pg_session.query(LLMCallLog).delete()
+    return pg_session
 
 
 def _add_call(db, row_id: int, status: str, *, error_type=None, at=None, cost=0.0, tokens=0):

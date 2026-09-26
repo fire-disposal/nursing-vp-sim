@@ -22,13 +22,14 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import sqlalchemy as sa
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Session
 
+from core.database import Base
+from core.database import engine as pg_engine
 from core.statuses import TrainingStatus
 from models import Assignment, Case, CaseRevision, Class, Role, TrainingRecord, User
 from models.school import legacy_grades_table
@@ -53,6 +54,9 @@ from modules.training.workflows import (
     workflow_for_record,
 )
 from schemas.training import TrainingStartRequest
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 _CASE_DATA = {
     "activities": {
@@ -86,36 +90,35 @@ def two_workflows(monkeypatch) -> None:
     monkeypatch.setitem(workflows.REGISTRY, _FAKE_WORKFLOW.id, _FAKE_WORKFLOW)
 
 
+#: TrainingRecord 的外键目标必须一起建（PG 会校验真 FK）
+_TABLES = [
+    legacy_grades_table,
+    Role.__table__,
+    User.__table__,
+    Class.__table__,
+    Case.__table__,
+    CaseRevision.__table__,
+    Assignment.__table__,
+    TrainingRecord.__table__,
+]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），JSONB 原样使用，不再降级为 JSON。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
+
+
 @pytest.fixture
-def db() -> Session:
-    """SQLite 上复制一份元数据（JSONB → JSON）跑真实 ORM/DDL 路径。"""
-    meta = sa.MetaData()
-    for table in (
-        legacy_grades_table,
-        Role.__table__,
-        User.__table__,
-        Class.__table__,
-        Case.__table__,
-        CaseRevision.__table__,
-        Assignment.__table__,
-        TrainingRecord.__table__,
-    ):
-        table.to_metadata(meta)
-    for table in meta.tables.values():
-        for column in table.columns:
-            if not isinstance(column.type, JSONB):
-                continue
-            column.type = sa.JSON()
-            if column.server_default is not None and "::jsonb" in str(column.server_default.arg):
-                column.server_default.arg = sa.text(str(column.server_default.arg).replace("::jsonb", ""))
-    engine = sa.create_engine("sqlite://")
-    meta.create_all(engine)
-    with Session(engine) as session:
-        yield session
+def db(pg_session) -> Session:
+    """savepoint 隔离 → 用例内部的 flush 只落在 savepoint 里，对库零残留。"""
+    return pg_session
 
 
 def _seed_student_and_case(db: Session) -> tuple[User, Case]:
-    role = Role(name="student", display_name="学生", is_system=True)
+    role = db.query(Role).filter(Role.name == "student").first() or Role(
+        name="student", display_name="学生", is_system=True
+    )
     db.add(role)
     db.flush()
     user = User(username="wf-student", password_hash="x", display_name="学生", role_id=role.id)

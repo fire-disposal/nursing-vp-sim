@@ -5,15 +5,18 @@
 - ``selected`` 模式 = 显式名单，且每个都必须仍是该班学生成员；
 - 发布之后班级成员变动**不**改动已发布作业的受众与分母；
 - 已有训练记录后受众被锁定。
+
+真库判据（**PostgreSQL**，`nursing_test`）：直接跑真实 ORM/service 路径（``JSONB`` 原样
+使用），受众快照与分母都从真表读。
 """
 
 from datetime import UTC, datetime
 
 import pytest
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
+from core.database import Base
+from core.database import engine as pg_engine
 from core.exceptions import NotFoundError, ValidationError
 from models import (
     Assignment,
@@ -33,7 +36,7 @@ from modules.admin.class_memberships import upsert_members
 from modules.assignments.router import StudentService
 from modules.assignments.service import AssignmentService
 
-_SOURCE_TABLES = [
+_TABLES = [
     legacy_grades_table,
     Role.__table__,
     User.__table__,
@@ -52,31 +55,16 @@ START = datetime(2020, 1, 1, tzinfo=UTC)
 END = datetime(2030, 1, 1, tzinfo=UTC)
 
 
-def _sqlite_metadata():
-    """SQLite 渲染不了 JSONB —— 复制一份 metadata 把 JSONB 降级为 JSON。
-
-    表名/列名不变，因此仍走真实 ORM 映射（SQL 只依赖表名与列名）。
-    ``'{}'::jsonb`` 这类 server_default 里的 PG 强制转换也要一并去掉。
-    """
-    meta = sa.MetaData()
-    for table in _SOURCE_TABLES:
-        table.to_metadata(meta)
-    for table in meta.tables.values():
-        for column in table.columns:
-            if not isinstance(column.type, JSONB):
-                continue
-            column.type = sa.JSON()
-            if column.server_default is not None and "::jsonb" in str(column.server_default.arg):
-                column.server_default.arg = sa.text(str(column.server_default.arg).replace("::jsonb", ""))
-    return meta
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），不用 SQLite 替身（JSONB 原样使用）。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
 @pytest.fixture
-def db():
-    engine = sa.create_engine("sqlite://")
-    _sqlite_metadata().create_all(engine)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离 → 用例内部的 commit 只释放 savepoint，对库零残留。"""
+    return pg_session
 
 
 def _user(db: Session, username: str, role: str = "student") -> User:

@@ -8,18 +8,34 @@
 
 缺陷背景（产品价值：操作可信）：此前动作请求体只有 action，无版本校验也无幂等键，
 重复提交会重复扣检查点或丢动作；而训练工具面早已有 revision CAS + request_id 幂等。
+
+真库并发判据（**PostgreSQL**，`nursing_test`）：行锁 + 重读 state 这段 fake session
+覆盖不到，因此用真实提交的独立 session（`SessionLocal`）跑 —— ``simulation_sessions``
+是真表（``state`` 为 JSONB），``user_id`` 是真外键，故夹具建一条真实 actor 行并在
+finally 清理（真实提交不受 savepoint 夹具回滚保护）。
 """
 
-from typing import cast
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+import sqlalchemy as sa
 
+from core.database import Base, SessionLocal
+from core.database import engine as pg_engine
 from core.exceptions import ConflictError
+from models import Role, SimulationSession, User
 from modules.simulations.service import SimulationService
 from modules.simulations.state import IDEM_KEY_LIMIT, state_from_dict
 from tests.simulations.test_api_flow import _FakeSession  # reuse the fake-DB harness
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+_TABLES = [Role.__table__, User.__table__, SimulationSession.__table__]
 
 
 def _service() -> SimulationService:
@@ -108,34 +124,55 @@ def test_idem_keys_are_bounded():
 
 # ── 真库并发：行锁 + 重读 state（fake session 覆盖不到这段） ──
 
-_SQLITE_DDL = """
-CREATE TABLE simulation_sessions (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    case_version VARCHAR(32) NOT NULL DEFAULT 'mvpb-1',
-    state JSON NOT NULL,
-    created_at DATETIME,
-    updated_at DATETIME
-)
-"""
+
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等）。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
+    # 结局状态的唯一 owner 是 ``state.case_status``：模型与真表都**不得**有 status 列
+    # （原 SQLite 夹具靠"手写 DDL 没有该列 → 插入报错"当护栏，这里改成直接判列）。
+    assert "status" not in SimulationSession.__table__.columns
+    with pg_engine.connect() as conn:
+        columns = {
+            row[0]
+            for row in conn.execute(
+                sa.text("SELECT column_name FROM information_schema.columns WHERE table_name = 'simulation_sessions'")
+            )
+        }
+    assert "status" not in columns
 
 
 @pytest.fixture
-def real_engine(tmp_path):
-    """真 SQLAlchemy Session 的最小后盾：模型列用 JSONB，故手写 sqlite DDL。
+def sim_actor() -> int:
+    """真实提交的 actor：``simulation_sessions.user_id`` 是真外键，且要跨 session 可见。"""
+    with SessionLocal() as db:
+        role = db.query(Role).filter(Role.name == "student").first() or Role(
+            name="student", display_name="学生", is_system=True
+        )
+        db.add(role)
+        db.flush()
+        user = User(
+            username=f"sim-actor-{uuid.uuid4().hex[:8]}",
+            password_hash="x",
+            role_id=role.id,
+            display_name="模拟并发操作者",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        db.add(user)
+        db.commit()
+        actor_id = user.id
 
-    DDL 里**没有** ``status`` 列 —— 结局状态的唯一 owner 是 ``state.case_status``。
-    若有人把列加回模型，这里的 INSERT 会立刻因缺列失败（回归护栏）。
-    """
-    engine = create_engine(f"sqlite:///{tmp_path / 'simulations.sqlite'}")
-    with engine.begin() as conn:
-        conn.exec_driver_sql("PRAGMA journal_mode=WAL")
-        conn.exec_driver_sql(_SQLITE_DDL)
-    yield engine
-    engine.dispose()
+    try:
+        yield actor_id
+    finally:
+        with SessionLocal() as cleanup:
+            cleanup.query(SimulationSession).filter(SimulationSession.user_id == actor_id).delete()
+            cleanup.query(User).filter(User.id == actor_id).delete()
+            cleanup.commit()
 
 
-def test_stale_snapshot_must_lose_to_committed_revision(real_engine):
+def test_stale_snapshot_must_lose_to_committed_revision(sim_actor):
     """两个请求从同一 revision 出发：先提交的赢，后提交者 409 而不是覆盖它。
 
     真实竞态窗口：请求 A 读出行后（旧 state 在内存里），请求 B 在另一事务里对
@@ -143,41 +180,42 @@ def test_stale_snapshot_must_lose_to_committed_revision(real_engine):
     拒绝，否则就是 lost update。fake session 测不出这段——行锁与 identity map
     重读只发生在真 Session 上。
     """
-    db_a, db_b = Session(real_engine), Session(real_engine)
+    db_a, db_b = SessionLocal(), SessionLocal()
     try:
-        sid = SimulationService(db_a).create(user_id=1).id
-        stale = SimulationService(db_a).get_owned(sid, 1)
+        sid = SimulationService(db_a).create(sim_actor).id
+        stale = SimulationService(db_a).get_owned(sid, sim_actor)
         assert _revision(stale) == 0
 
         # 请求 B：另一事务、同一行，接受一次动作并提交 → revision 1
-        winner = SimulationService(db_b).get_owned(sid, 1)
+        winner = SimulationService(db_b).get_owned(sid, sim_actor)
         _, accepted, replayed = SimulationService(db_b).act(winner, "STATUS", None, expected_revision=0)
         assert (accepted, replayed) == (True, False)
         db_b.expire_all()
-        assert _revision(SimulationService(db_b).get_owned(sid, 1)) == 1
+        assert _revision(SimulationService(db_b).get_owned(sid, sim_actor)) == 1
 
         # 请求 A：手里的快照已过期 → 409，且 B 的结果不被覆盖
         with pytest.raises(ConflictError):
             SimulationService(db_a).act(stale, "STATUS", None, expected_revision=0)
         db_b.expire_all()
-        assert _revision(SimulationService(db_b).get_owned(sid, 1)) == 1
+        assert _revision(SimulationService(db_b).get_owned(sid, sim_actor)) == 1
     finally:
         db_a.close()
         db_b.close()
 
 
-def test_provider_runs_after_commit_and_without_row_lock(real_engine):
+def test_provider_runs_after_commit_and_without_row_lock(sim_actor):
     """外部 provider 必须在事务 A 提交之后调用，且不持有会话行锁（docs/16 §4.5）。
 
     证据用另一条连接给出：provider 执行期间，同一条会话行能被另一个事务正常加锁并
-    提交（若事务/行锁仍被 provider 持有，sqlite 会 "database is locked"）；随后事务 B
-    必须把回复追加到那次并发动作之后的最新 state 上，而不是覆盖它。
+    提交（若事务/行锁仍被 provider 持有，另一事务的 ``SELECT … FOR UPDATE`` 会阻塞到
+    ``lock_timeout`` 报错）；随后事务 B 必须把回复追加到那次并发动作之后的最新
+    state 上，而不是覆盖它。
     """
-    db = Session(real_engine)
-    other = Session(real_engine)
+    db = SessionLocal()
+    other = SessionLocal()
     try:
-        sid = SimulationService(db).create(user_id=1).id
-        session = SimulationService(db).get_owned(sid, 1)
+        sid = SimulationService(db).create(sim_actor).id
+        session = SimulationService(db).get_owned(sid, sim_actor)
         rev = _revision(session)
         observed: dict = {}
 
@@ -185,7 +223,7 @@ def test_provider_runs_after_commit_and_without_row_lock(real_engine):
             observed["in_transaction"] = db.in_transaction()
             # 另一事务在 provider 运行期间读到事务 A 已提交的 revision，并对同一行执行动作。
             service = SimulationService(other)
-            committed = service.get_owned(sid, 1)
+            committed = service.get_owned(sid, sim_actor)
             observed["committed_revision"] = _revision(committed)
             messages, accepted, _ = service.act(
                 committed, "STATUS", None, expected_revision=observed["committed_revision"]
@@ -203,7 +241,7 @@ def test_provider_runs_after_commit_and_without_row_lock(real_engine):
         assert any("专家建议" in m.text for m in messages)
 
         db.expire_all()
-        final = state_from_dict(SimulationService(db).get_owned(sid, 1).state)
+        final = state_from_dict(SimulationService(db).get_owned(sid, sim_actor).state)
         # 回复与并发动作都留了下来：事务 B 基于最新 state 追加，没有覆盖 revision。
         assert final.revision == rev + 2
         assert any("专家建议" in m.text for m in final.public_log)

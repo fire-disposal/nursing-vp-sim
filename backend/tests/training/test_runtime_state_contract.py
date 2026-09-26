@@ -12,8 +12,8 @@
   3. 覆盖整键而非深合并（``message_correction`` 这类整体状态语义固定）；
   4. ``remove`` 只删自己的键。
 
-用 SQLite 上复制一份元数据（JSONB → JSON）跑真实 ORM 路径（与 ``test_case_lifecycle``
-同一手法）。
+真库判据（**PostgreSQL**，`nursing_test`）：直接跑真实 ORM 路径 —— ``runtime_state`` 是
+JSONB，``SELECT … FOR UPDATE`` 是真行锁。
 """
 
 from __future__ import annotations
@@ -21,12 +21,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Session
 
+from core.database import Base
+from core.database import engine as pg_engine
 from core.exceptions import NotFoundError
 from models import Assignment, Case, CaseRevision, Class, Message, Role, TrainingRecord, User
 from models.school import legacy_grades_table
@@ -46,8 +47,11 @@ from modules.training.session.finalize import (
 )
 from modules.training.session.state import patch_runtime_state
 
-#: TrainingRecord 的外键目标必须一起复制（SQLAlchemy 解析 FK 需要表在同一 MetaData 里）
-_SOURCE_TABLES = [
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+#: TrainingRecord 的外键目标必须一起建（PG 会校验真 FK）
+_TABLES = [
     legacy_grades_table,
     Message.__table__,
     Role.__table__,
@@ -60,32 +64,23 @@ _SOURCE_TABLES = [
 ]
 
 
-def _sqlite_metadata() -> sa.MetaData:
-    """SQLite 渲染不了 JSONB —— 复制元数据并把 JSONB 降级为 JSON（表名/列名不变）。"""
-    meta = sa.MetaData()
-    for table in _SOURCE_TABLES:
-        table.to_metadata(meta)
-    for table in meta.tables.values():
-        for column in table.columns:
-            if not isinstance(column.type, JSONB):
-                continue
-            column.type = sa.JSON()
-            if column.server_default is not None and "::jsonb" in str(column.server_default.arg):
-                column.server_default.arg = sa.text(str(column.server_default.arg).replace("::jsonb", ""))
-    return meta
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），JSONB 原样使用。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
 @pytest.fixture
-def db():
-    engine = sa.create_engine("sqlite://")
-    _sqlite_metadata().create_all(engine)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离 → 用例内部的 flush/commit 只落在 savepoint 里，对库零残留。"""
+    return pg_session
 
 
 def _record(db: Session, state: dict | None = None) -> TrainingRecord:
     """最小可落库的训练记录（工具/对话写入都发生在这张表上）。"""
-    role = Role(name="student", display_name="学生", is_system=True)
+    role = db.query(Role).filter(Role.name == "student").first() or Role(
+        name="student", display_name="学生", is_system=True
+    )
     db.add(role)
     db.flush()
     user = User(username="contract-student", password_hash="x", display_name="学生", role_id=role.id)
@@ -239,7 +234,7 @@ def test_correction_preserves_activity_state_written_during_the_turn(db):
     assert stored["exam_results"] == _EXAM_RESULTS, "修正回合抹掉了本轮的查体结果"
     assert stored["scene"] == _SCENE
     assert stored["message_correction"]["used"] == 1
-    # 旧的一对被替换成新的一对（修正语义不变）；按内容断言（SQLite 会复用被删行的 id）
+    # 旧的一对被替换成新的一对（修正语义不变）；按内容断言（不依赖行 id —— 修正走的是删除重插）
     rows = db.execute(sa.select(Message.role, Message.content).where(Message.record_id == record.id)).all()
     assert [(role, content) for role, content in rows] == [
         ("student", "我这两天头痛得厉害"),

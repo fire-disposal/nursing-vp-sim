@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 
 from core.exceptions import AuthError
 from core.security import hash_password
@@ -64,3 +65,17 @@ async def test_login_rejects_disabled_user_after_password_verification():
 
     with pytest.raises(AuthError, match="账号已被禁用"):
         await service.login("alice", "secret123")
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_login_audit():
+    """登录失败/成功会真提交审计行（core.audit.record_detached）→ 用完即清，保持测试库干净。"""
+    from core.database import SessionLocal
+    from models import AuditLog
+
+    with SessionLocal() as db:
+        max_id = db.query(sa.func.max(AuditLog.id)).scalar() or 0
+    yield
+    with SessionLocal() as db:
+        db.query(AuditLog).filter(AuditLog.id > max_id).delete(synchronize_session=False)
+        db.commit()

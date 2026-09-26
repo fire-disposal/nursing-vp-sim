@@ -10,6 +10,7 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import Pagination from "@/components/ui/pagination";
+import { useListFilters } from "@/hooks/useListFilters";
 import PageHeader from "@/components/ui/page-header";
 
 type Schemas = components["schemas"];
@@ -27,6 +28,21 @@ const TAG_LABELS: Record<string, string> = {
 };
 const LIMIT = 20;
 
+type MyFeedbackParams = { tag?: string; replied?: boolean };
+
+/** 回复状态的三态（全部/已回复/未回复）与后端布尔参数互转。 */
+function repliedToUi(replied: boolean | undefined): string {
+	if (replied === true) return "replied";
+	if (replied === false) return "unreplied";
+	return "";
+}
+
+function uiToReplied(value: string): boolean | undefined {
+	if (value === "replied") return true;
+	if (value === "unreplied") return false;
+	return undefined;
+}
+
 const TAG_OPTIONS = [
 	{ label: "全部", value: "" },
 	{ label: "BUG", value: "bug" },
@@ -38,19 +54,16 @@ const TAG_OPTIONS = [
 ];
 
 export default function MyFeedbackPage() {
-	const [offset, setOffset] = useState(0);
-	const [tagFilter, setTagFilter] = useState("");
-	const [replyFilter, setReplyFilter] = useState("");
-
-	// 服务端过滤：tag / replied 与分页 total 同源，避免"过滤后空页"脱节
-	const params: Record<string, unknown> = { offset, limit: LIMIT };
-	if (tagFilter) params.tag = tagFilter;
-	if (replyFilter === "replied") params.replied = true;
-	else if (replyFilter === "unreplied") params.replied = false;
+	// 与其它列表页同一套筛选范式（见 ui-improvement-plan §6.4）：筛选态一次构造出请求参数，
+	// 改筛选自动归零 offset，避免"过滤后停在空页"。
+	const list = useListFilters<MyFeedbackParams>(
+		{ tag: "", replied: undefined },
+		{ limit: LIMIT },
+	);
 
 	const { data, isLoading } = useQuery({
-		queryKey: queryKeys.admin.feedback.my(params),
-		queryFn: () => getMyFeedback(params).then((r) => r.data),
+		queryKey: queryKeys.admin.feedback.my(list.params),
+		queryFn: () => getMyFeedback(list.params).then((r) => r.data),
 		staleTime: 0,
 		placeholderData: keepPreviousData,
 	});
@@ -107,11 +120,8 @@ export default function MyFeedbackPage() {
 							clearable
 							w={130}
 							placeholder="全部标签"
-							value={tagFilter || null}
-							onChange={(v) => {
-								setTagFilter(v ?? "");
-								setOffset(0);
-							}}
+							value={list.values.tag || null}
+							onChange={(v) => list.setFilter("tag", v ?? "")}
 							data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
 								value: opt.value,
 								label: opt.label,
@@ -129,11 +139,8 @@ export default function MyFeedbackPage() {
 									{ value: "replied", label: "已回复" },
 									{ value: "unreplied", label: "未回复" },
 								]}
-								value={replyFilter}
-								onChange={(v) => {
-									setReplyFilter(v ?? "");
-									setOffset(0);
-								}}
+								value={repliedToUi(list.values.replied)}
+								onChange={(v) => list.setFilter("replied", uiToReplied(v ?? ""))}
 							/>
 						</Group>
 					</Group>
@@ -267,9 +274,9 @@ export default function MyFeedbackPage() {
 				{total > LIMIT && (
 					<Pagination
 						total={total}
-						offset={offset}
+						offset={list.offset}
 						limit={LIMIT}
-						onChange={setOffset}
+						onChange={list.setOffset}
 					/>
 				)}
 

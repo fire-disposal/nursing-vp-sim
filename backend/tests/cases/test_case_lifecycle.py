@@ -1,9 +1,9 @@
 """病例发布生命周期（docs/15 §六）：status + CaseRevision + 元数据单源 + 发布门禁。
 
-用 SQLite 上复制一份元数据（JSONB → JSON）跑真实 ORM/service 路径。发布门禁与 CI
-病例审计共用 modules/cases/validator.py，所以这里的 error 断言同时就是「非法配置
-发布即失败」的回归；已发布 revision 的不可变性、编辑产生新版本、归档只阻止新使用
-也都在此覆盖。
+真库判据（**PostgreSQL**，`nursing_test`）：直接跑真实 ORM/service 路径 —— `case_data`
+是 JSONB（含 ``'{}'::jsonb`` server_default），发布门禁与 CI 病例审计共用
+modules/cases/validator.py，所以这里的 error 断言同时就是「非法配置发布即失败」的回归；
+已发布 revision 的不可变性、编辑产生新版本、归档只阻止新使用也都在此覆盖。
 """
 
 from __future__ import annotations
@@ -12,12 +12,13 @@ import importlib.util
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Session
 
+from core.database import Base, SessionLocal
+from core.database import engine as pg_engine
 from core.exceptions import ConflictError
 from models import (
     CASE_STATUS_ARCHIVED,
@@ -25,6 +26,7 @@ from models import (
     CASE_STATUS_PUBLISHED,
     Assignment,
     AssignmentRecipient,
+    AuditLog,
     Case,
     CaseRevision,
     Class,
@@ -43,7 +45,10 @@ from modules.cases.service import CaseListFilters, CaseService
 from modules.training.manifest import build_session_manifest
 from modules.training.profile import HISTORY_TAKING
 
-_SOURCE_TABLES = [
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+_TABLES = [
     legacy_grades_table,
     Role.__table__,
     User.__table__,
@@ -73,27 +78,49 @@ def _payload(**overrides) -> dict:
     return {"name": "门禁测试病例", "difficulty": 1, "time_limit": 30, **_VALID_CONTENT, **overrides}
 
 
-def _sqlite_metadata() -> sa.MetaData:
-    """SQLite 渲染不了 JSONB —— 复制元数据并把 JSONB 降级为 JSON（表名/列名不变）。"""
-    meta = sa.MetaData()
-    for table in _SOURCE_TABLES:
-        table.to_metadata(meta)
-    for table in meta.tables.values():
-        for column in table.columns:
-            if not isinstance(column.type, JSONB):
-                continue
-            column.type = sa.JSON()
-            if column.server_default is not None and "::jsonb" in str(column.server_default.arg):
-                column.server_default.arg = sa.text(str(column.server_default.arg).replace("::jsonb", ""))
-    return meta
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），JSONB 原样使用，不再降级为 JSON。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
 @pytest.fixture
-def db():
-    engine = sa.create_engine("sqlite://")
-    _sqlite_metadata().create_all(engine)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离；用例的发布者 id（1/7）是 ``case_revisions.created_by`` 的**真外键**
+    目标，故先种出这两行（SQLite 默认不校验外键，旧夹具裸传 id 也能过）。
+
+    另有真实提交的**独立 session** 审计（``case.publish_rejected`` 必须扛住业务回滚，
+    见 core/audit.record_detached）：savepoint 回滚不掉，故按 id 起点在 teardown 清掉。
+    """
+    marker = pg_session.query(sa.func.max(AuditLog.id)).scalar() or 0
+    role = pg_session.query(Role).filter(Role.name == "teacher").first() or Role(
+        name="teacher", display_name="教师", is_system=True
+    )
+    pg_session.add(role)
+    pg_session.flush()
+    now = datetime.now(UTC)
+    for uid in (1, 7):
+        pg_session.add(
+            User(
+                id=uid,
+                username=f"case-lifecycle-user-{uid}",
+                password_hash="x",
+                role_id=role.id,
+                display_name=f"发布者{uid}",
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    pg_session.flush()
+    yield pg_session
+    _drop_detached_audit_since(marker)
+
+
+def _drop_detached_audit_since(marker: int) -> None:
+    """清掉本用例期间由独立 session 真实提交的审计行（共享测试库不留垃圾）。"""
+    with SessionLocal() as cleanup:
+        cleanup.query(AuditLog).filter(AuditLog.id > marker).delete(synchronize_session=False)
+        cleanup.commit()
 
 
 def _create(db: Session, **overrides) -> Case:
@@ -284,10 +311,9 @@ def _assignment(db: Session, case: Case, *, class_id: int = 1):
 
 
 def _school(db: Session) -> None:
-    now = datetime.now(UTC)
-    db.add(Role(id=1, name="teacher", display_name="教师", is_system=True))
-    db.add(User(id=1, username="t1", password_hash="x", role_id=1, display_name="t1", created_at=now, updated_at=now))
-    db.add(Class(id=1, name="1班", cohort_label="2026级"))
+    """作业用例要的 1 班；1 号教师（发布者）由 ``db`` 夹具种出。"""
+    if db.query(Class).filter(Class.id == 1).first() is None:
+        db.add(Class(id=1, name="1班", cohort_label="2026级"))
     db.commit()
 
 

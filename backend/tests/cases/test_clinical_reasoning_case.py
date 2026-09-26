@@ -11,6 +11,7 @@ docs/15 §十六：Clinical Judgment Drill 是独立 workflow，不是第二套�
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
@@ -18,21 +19,22 @@ import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Session
 
-from core.database import get_db
+from core.database import Base, SessionLocal, get_db
+from core.database import engine as pg_engine
 from core.security import get_current_user
 from main import app
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.orm import Session
 
 from models import (
     CASE_STATUS_DRAFT,
     CASE_STATUS_PUBLISHED,
     Assignment,
     AssignmentRecipient,
+    AuditLog,
     Case,
     CaseRevision,
     Class,
@@ -113,7 +115,7 @@ CLINICAL_CASE: dict = {
     },
 }
 
-_SOURCE_TABLES = [
+_TABLES = [
     legacy_grades_table,
     Role.__table__,
     User.__table__,
@@ -147,27 +149,47 @@ def _errors(report) -> dict[str, list[str]]:
     return grouped
 
 
-def _sqlite_metadata() -> sa.MetaData:
-    """SQLite 渲染不了 JSONB —— 复制元数据并把 JSONB 降级为 JSON（表名/列名不变）。"""
-    meta = sa.MetaData()
-    for table in _SOURCE_TABLES:
-        table.to_metadata(meta)
-    for table in meta.tables.values():
-        for column in table.columns:
-            if not isinstance(column.type, JSONB):
-                continue
-            column.type = sa.JSON()
-            if column.server_default is not None and "::jsonb" in str(column.server_default.arg):
-                column.server_default.arg = sa.text(str(column.server_default.arg).replace("::jsonb", ""))
-    return meta
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），JSONB 原样使用，不再降级为 JSON。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
 @pytest.fixture
-def db():
-    engine = sa.create_engine("sqlite://")
-    _sqlite_metadata().create_all(engine)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离；发布者 id=1 是 ``case_revisions.created_by`` 的真外键目标，
+    故在 savepoint 内种出该行（SQLite 默认不校验外键，旧夹具裸传 id 也能过）。
+
+    另有真实提交的**独立 session** 审计（``case.publish_rejected`` 必须扛住业务回滚，
+    见 core/audit.record_detached）：savepoint 回滚不掉，故按 id 起点在 teardown 清掉。
+    """
+    marker = pg_session.query(sa.func.max(AuditLog.id)).scalar() or 0
+    role = pg_session.query(Role).filter(Role.name == "admin").first() or Role(
+        name="admin", display_name="管理员", is_system=True
+    )
+    pg_session.add(role)
+    pg_session.flush()
+    pg_session.add(
+        User(
+            id=1,
+            username="clinical-author",
+            password_hash="x",
+            role_id=role.id,
+            display_name="临床病例作者",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+    )
+    pg_session.flush()
+    yield pg_session
+    _drop_detached_audit_since(marker)
+
+
+def _drop_detached_audit_since(marker: int) -> None:
+    """清掉本用例期间由独立 session 真实提交的审计行（共享测试库不留垃圾）。"""
+    with SessionLocal() as cleanup:
+        cleanup.query(AuditLog).filter(AuditLog.id > marker).delete(synchronize_session=False)
+        cleanup.commit()
 
 
 # ── 1. 类型化内容 schema ─────────────────────────────────────────────────

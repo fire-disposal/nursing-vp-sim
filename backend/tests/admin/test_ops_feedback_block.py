@@ -5,32 +5,66 @@
 1. 块自带 `scope` / `window`（与其它块同规则，口径词表见 docs/ops/diagnostics.md）；
 2. 反馈统计失败只能降级为 0/None，不能让整个 dashboard 500 —— 运维面板的首要
    职责是显示 LLM/评分/错误，反馈计数只是附带信息。
+
+真库判据（**PostgreSQL**，`nursing_test`）：`feedbacks.user_id`/`replied_by` 是真外键，
+因此夹具在 savepoint 内种一条作者行，并清空反馈表（断言"未回复 0 条"需要确定性空起点）。
 """
 
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.database import Base
-from models import Feedback
+from core.database import engine as pg_engine
+from models import Feedback, Role, User
 from modules.admin.ops import _feedback_block
 from modules.feedback.service import FeedbackService
 
+_TABLES = [Role.__table__, User.__table__, Feedback.__table__]
+
+_AUTHOR = "ops-feedback-author"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），不用 SQLite 替身。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
+
 
 @pytest.fixture
-def db():
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine, tables=[Feedback.__table__])
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    """savepoint 隔离 → 用例内部的 commit 只释放 savepoint，对库零残留。"""
+    role = pg_session.query(Role).filter(Role.name == "student").first() or Role(
+        name="student", display_name="学生", is_system=True
+    )
+    pg_session.add(role)
+    pg_session.flush()
+    pg_session.query(Feedback).delete()  # 断言"未回复 0 条"需要确定性的空表
+    pg_session.add(User(username=_AUTHOR, password_hash="x", role_id=role.id, display_name="反馈作者"))
+    pg_session.flush()
+    return pg_session
+
+
+def _author_id(db: Session) -> int:
+    return db.query(User.id).filter(User.username == _AUTHOR).one()[0]
 
 
 def _add(db: Session, fb_id: int, created_at: datetime, *, reply: str | None = None) -> None:
+    # ``feedbacks.created_at`` 是 naïve 列（timestamp without time zone，见 information_schema）。
+    # PG 会把 aware 值按**会话时区**折算（本机/生产库都是 Asia/Shanghai），读回时服务层
+    # ``ensure_utc()`` 按 UTC 解释 → 整个读路径偏 8 小时（`oldest_age_days` 4 天变 3.7 天）。
+    # 列的口径就是 UTC 墙钟时间，故这里显式写 naïve-UTC —— 与列类型无关，且与 SQLite 上的
+    # 实际存储（DATETIME 丢 tzinfo）一致。
     db.add(
         Feedback(
-            id=fb_id, user_id=42, rating=3, tag="bug", content="正文", developer_reply=reply, created_at=created_at
+            id=fb_id,
+            user_id=_author_id(db),
+            rating=3,
+            tag="bug",
+            content="正文",
+            developer_reply=reply,
+            created_at=created_at.replace(tzinfo=None),
         )
     )
     db.commit()
