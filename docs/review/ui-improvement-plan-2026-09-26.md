@@ -99,6 +99,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | 病例管理专项 + AI 生成 A0 | 见下条提交 | AI 面板配色对齐品牌（紫→青绿，实测 brand-0）；空骨架禁用「生成教学细节」+ 原因说明（实测 `disabled=true`）；深挖 10 条问题与 A1–A4 重建切片已入档 |
 | 2026-09-26 | CRUD 基础体验 + 表格列集 | 见下条提交 | `FilterToolbar` 推广至用户管理（补一键复位）、批量条换 `ActionBar`、登录换 `PasswordInput`；records 11→10 列/行高 57px、history 8→7 列、cases 名称列给足 |
 | 2026-09-26 | 依赖升级 + `@mantine/dates` | `3b74f894` / `c62c00eb` / `22c7e8c0` | Mantine → 9.6.3（7 包一致）；10 处原生日期框换 `DatePickerInput`（中文 locale 实测通过）；outline 变体对比度修复（`/admin/users` 45→0）；闸门全过 |
 | 2026-09-26 | S3+S4（第一波） | `106a73b3` | 四闸门全过；框套框 50/39/1 → **0**；拉伸留白 358px→134px；固定项数网格与筛选末格修正 |
@@ -199,6 +200,52 @@
 3. **搜索补齐**：`/admin/versions`、`/history` 无搜索框（history 50 行只能靠状态筛选）。
 4. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
 5. **`/admin/users` 详情入口缺失**（点卡片=编辑弹窗，无独立详情页入口，见 `UI-CRD-1`）。
+
+---
+
+## 7. 病例管理专项与 AI 生成重建（2026-09-26）
+
+> 触发：维护者要求深入分析病例管理相关功能，并**翻新重做 AI 辅助生成病例**。
+
+### 7.1 现状盘点（代码 + 线上实测）
+
+- 前端病例域 `components/admin/cases/**` 18 个文件 2509 行；核心是 `CaseForm.tsx`（**651 行**，含 AI 面板、表单/JSON 双模式、版本历史、保存/发布）。
+- 流程：`CasesPage → CasesTab`（列表 + 筛选）→ 编辑/新建**弹窗**（`CaseForm`）→ 表单或 JSON 模式编辑 → 保存时跑服务端门禁（`CaseValidationReportView`）→ 发布/归档/追加版本（`docs/15` 的病例版本契约）。
+- AI 生成：前端面板（两步向导 + 快速/参考模式 + 16 个逐字段按钮）→ `POST /api/cases/generate` → `modules/cases/generation.py`（293 行）：阶段校验、`activities` 逐项合并、`call_json(purpose="case_generation")`、**校验失败自动修复一轮**。
+
+### 7.2 深挖发现（按风险排序）
+
+| # | 问题 | 证据 | 影响 |
+|---|---|---|---|
+| 1 | **生成结果直接覆盖编辑态，无差异预览/确认/撤销** | `CaseForm.tsx:262` `fillJson(data.case_data)`（`generateStage`）；`generateField` 同路径 | 教师手写内容可能被一次生成覆盖且无法回退（核心风险） |
+| 2 | **无来源标记（provenance）** | 编辑态 JSON 不记录字段来源 | 事后无法审计"哪些内容是 AI 写的"，也无法回溯 |
+| 3 | **无进度/计时/取消** | 只有按钮文案变"生成中…"（`:504-510`）；`generateCase` 无 AbortController | LLM 30–120s 期间界面像卡住；关弹窗无法取消（白耗 token） |
+| 4 | **失败表达弱** | `setAiError(e.response?.data?.detail \|\| "AI 生成失败")`（`:266/:288`） | 教师只看到一行红字，不知道下一步做什么 |
+| 5 | **两步向导不是真 Stepper** | 状态用两个 Badge 的绿/灰（`:455-459`） | 无法表达"当前步/已完成/失败"；且原可空骨架直达第二阶段（**本轮已加防呆**） |
+| 6 | **紫色面板是全站唯一紫** | `bg=grape-0` / `c=grape`（10 处） | 与品牌青绿不一致（**本轮已改品牌色**） |
+| 7 | **16 个逐字段按钮平铺、无字段状态** | `:516-540` 两组按钮 | 看不出哪些字段还是空的；逐个试的成本高 |
+| 8 | **AI 逻辑内联在 651 行表单里** | `aiError/aiBusy/aiMode/generateStage/generateField` 全在 `CaseForm.tsx` | 难测难改，任何调整都碰主表单 |
+| 9 | 无成本可见 | 前端不显示本次生成的 tokens/耗时 | 教师无法判断"再生成一次"的代价 |
+| 10 | 生成后不提示"距可发布还差什么" | 生成后仅 toast 成功；门禁只在保存/发布时跑 | 教师需再点一次保存才知道不合格 |
+
+### 7.3 重建设计（切片 A0–A4）
+
+**目标**：把 AI 生成从"一键覆盖式黑箱"改成「**可控、可回退、可追溯的协作生成**」。
+
+| 切片 | 内容 | 验收 |
+|---|---|---|
+| **A0**（本轮已完成） | 配色对齐（紫→品牌青绿）；空骨架禁用"生成教学细节"并给出原因 | 面板背景 `rgb(238,250,246)`（brand-0）；新建病例时该按钮 `disabled=true` + title 说明 ✅ |
+| **A1** | 抽出 `components/admin/cases/ai/useCaseAiGeneration.ts` + `AiGenerationPanel.tsx`（行为不变、纯重构）：状态机 `idle/describing/generating/reviewing/applying/error` | `CaseForm.tsx` 行数显著下降；AI 面板行为与现状一致（回归测试：生成/错误/防呆三态） |
+| **A2** | **暂存 + 差异预览**：生成结果进 staging，展示字段级 diff（旧 → 新），逐项「接受/丢弃」，一次性应用 + 单步撤销 | 生成后编辑态未变；接受后才写入；撤销可回到生成前 |
+| **A3** | **状态与进度**：字段状态点（空/已填/AI 生成/待应用）、`Stepper` 表达两步状态、生成计时 + 取消（AbortController） | 16 个字段按钮带状态；生成中可取消且请求中断 |
+| **A4** | **后端增强**：`/cases/generate` 返回 `usage`（tokens/耗时）与 `warnings`（阶段校验的可读清单）；支持 `fields` 白名单；取消时透传 `CancelledError` 不写日志告警 | 响应含 usage；取消后服务端无异常栈 |
+
+### 7.4 病例管理其他待办（非 AI）
+
+1. 病例编辑是**大弹窗**，与 `/admin/records/:id`、`/admin/users/:userId` 等**整页二级页**范式不一致 → 并入 S5 统一（弹窗 vs 整页的判据：是否有多段内容 + 版本/预览等辅助信息）。
+2. 病例发布/归档**单向不可撤销**（`UI-CRD-6` 已记）→ 需后端反向端点或明确提示。
+3. 生成后未直接展示"距可发布还差什么" → A2 的应用前校验可复用 `CaseValidationReportView`。
+4. 病例列表的「学生可见」开关、能力徽章等在 C 端与 JSON 端展示不完全一致（列表列集已在 §6.2 优化）。
 
 ## 4. 明确不做
 

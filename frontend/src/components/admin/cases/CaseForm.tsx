@@ -334,6 +334,11 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	}, [state.json]);
 
 	const aiBusy = aiGenerating;
+	// 临床骨架是否已有内容：教学细节生成以骨架为上下文，空骨架产出质量差（2026-09-26 防呆）
+	const hasSkeleton = Boolean(
+		String(state.json.name ?? "").trim() &&
+			(String(state.json.chief_complaint ?? "").trim() || String(state.json.present_illness ?? "").trim()),
+	);
 
 	return (
 		<Modal
@@ -403,7 +408,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 					<Button
 						size="xs"
 						variant={showAiPanel ? "filled" : "outline"}
-						color="grape"
+						color="brand"
 						onClick={() => setShowAiPanel(!showAiPanel)}
 						leftSection={<IconWand size={13} />}
 					>
@@ -448,9 +453,9 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 				{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 				{showAiPanel && (
-					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-grape-0)" style={{ borderColor: "var(--mantine-color-grape-2)" }} >
+					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-brand-0)" style={{ borderColor: "var(--mantine-color-brand-2)" }} >
 						<Group gap={6} wrap="wrap" mb="sm">
-							<Text size="xs" fw={600} c="grape">生成向导</Text>
+							<Text size="xs" fw={600} c="brand">生成向导</Text>
 							<Badge variant="light" color={state.json.name || state.json.chief_complaint ? "green" : "gray"} size="xs">1 临床骨架</Badge>
 							<Text size="xs" c="dimmed" opacity={0.4}>→</Text>
 							<Badge variant="light" color={(state.json.required_inquiries as unknown[])?.length || Object.keys(objField(state, "activities.physical_exam.config")).length > 0 ? "green" : "gray"} size="xs">2 教学细节</Badge>
@@ -458,7 +463,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 						<SegmentedControl
 							size="xs"
-							color="grape"
+							color="brand"
 							mb="sm"
 							value={aiMode}
 							onChange={(v) => setAiMode(v as "quick" | "reference")}
@@ -504,26 +509,33 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Button size="sm" onClick={() => generateStage("core", "生成临床骨架")} disabled={aiBusy} leftSection={<IconSparkles size={14} />}>
 								{aiBusy && aiWorking === "生成临床骨架" ? "生成中…" : "生成临床骨架"}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() => generateStage("derivative", "生成教学细节")} disabled={aiBusy} leftSection={<IconSparkles size={14} />}>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => generateStage("derivative", "生成教学细节")}
+								disabled={aiBusy || !hasSkeleton}
+								title={hasSkeleton ? undefined : "请先生成或填写临床骨架（名称/主诉/现病史）——教学细节以骨架为上下文"}
+								leftSection={<IconSparkles size={14} />}
+							>
 								{aiBusy && aiWorking === "生成教学细节" ? "生成中…" : "生成教学细节"}
 							</Button>
 						</Group>
 
 						{/* 逐字段生成（分组） */}
-						<Stack gap={8} mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-grape-2)" }}>
+						<Stack gap={8} mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
 							<Text size="xs" c="dimmed">逐字段完善（以当前编辑内容为上下文，可反复生成）</Text>
 							<Group gap={6} wrap="wrap">
-								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
+								<Text size="xs" c="brand" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
 								{AI_CLINICAL_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="light" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button key={f.key} size="xs" variant="light" color="brand" onClick={() => generateField(f.key)} disabled={aiBusy}>
 										{f.label}
 									</Button>
 								))}
 							</Group>
 							<Group gap={6} wrap="wrap">
-								<Text size="xs" c="grape" style={{ flexShrink: 0, width: 56 }}>教学字段</Text>
+								<Text size="xs" c="brand" style={{ flexShrink: 0, width: 56 }}>教学字段</Text>
 								{AI_PEDAGOGY_FIELDS.map((f) => (
-									<Button key={f.key} size="xs" variant="light" color="grape" onClick={() => generateField(f.key)} disabled={aiBusy}>
+									<Button key={f.key} size="xs" variant="light" color="brand" onClick={() => generateField(f.key)} disabled={aiBusy}>
 										{f.label}
 									</Button>
 								))}
