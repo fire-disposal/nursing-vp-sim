@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
-from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
+from models import Class, ClassMembership, Role, Score, TrainingRecord, User
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassStudentItem,
@@ -144,7 +144,14 @@ class StatsService:
         )
 
         if class_id is not None:
-            base = base.filter(User.id.in_(self.db.query(UserClass.user_id).filter(UserClass.class_id == class_id)))
+            base = base.filter(
+                User.id.in_(
+                    self.db.query(ClassMembership.user_id).filter(
+                        ClassMembership.class_id == class_id,
+                        ClassMembership.member_role == "student",
+                    )
+                )
+            )
         base = base.group_by(User.id).order_by(User.id)
 
         items, total = paginate(base, offset, limit)
@@ -199,7 +206,14 @@ class StatsService:
         )
 
         if class_id is not None:
-            sub = sub.filter(User.id.in_(self.db.query(UserClass.user_id).filter(UserClass.class_id == class_id)))
+            sub = sub.filter(
+                User.id.in_(
+                    self.db.query(ClassMembership.user_id).filter(
+                        ClassMembership.class_id == class_id,
+                        ClassMembership.member_role == "student",
+                    )
+                )
+            )
         sub = sub.group_by(User.id).subquery()
 
         total = self.db.query(func.count()).select_from(sub).scalar()
@@ -236,7 +250,7 @@ class StatsService:
                 func.avg(grade_expr()).label("avg_score"),
                 func.max(TrainingRecord.start_time).label("last_start_time"),
             )
-            .join(UserClass, UserClass.user_id == User.id)
+            .join(ClassMembership, ClassMembership.user_id == User.id)
             .outerjoin(
                 TrainingRecord,
                 (TrainingRecord.user_id == User.id)
@@ -245,7 +259,10 @@ class StatsService:
             )
             # INV-3：兜底分不参与平均分，无有效成绩的学生仍保留（avg_score = None）
             .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
-            .filter(UserClass.class_id == class_id)
+            .filter(
+                ClassMembership.class_id == class_id,
+                ClassMembership.member_role == "student",
+            )
             .group_by(User.id)
             .order_by(User.display_name, User.id)
             .all()
@@ -264,18 +281,17 @@ class StatsService:
 
     def class_summary(
         self,
-        grade_id: int | None = None,
+        cohort_label: str | None = None,
         class_id: int | None = None,
     ) -> list[ClassSummaryItemSchema]:
-        q = self.db.query(Class, Grade.name.label("grade_name"))
-        q = q.join(Grade, Grade.id == Class.grade_id)
-        if grade_id is not None:
-            q = q.filter(Class.grade_id == grade_id)
+        q = self.db.query(Class)
+        if cohort_label is not None:
+            q = q.filter(Class.cohort_label == cohort_label)
         if class_id is not None:
             q = q.filter(Class.id == class_id)
-        classes = q.order_by(Grade.name, Class.name).all()
+        classes = q.order_by(Class.cohort_label, Class.name).all()
 
-        class_ids = [c.id for c, _ in classes]
+        class_ids = [c.id for c in classes]
 
         if not class_ids:
             return []
@@ -283,7 +299,7 @@ class StatsService:
         stats_rows = (
             self.db.query(
                 Class.id,
-                func.count(func.distinct(UserClass.user_id)).label("student_count"),
+                func.count(func.distinct(ClassMembership.user_id)).label("student_count"),
                 func.count(TrainingRecord.id).label("total_sessions"),
                 func.coalesce(
                     func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
@@ -291,10 +307,16 @@ class StatsService:
                 ).label("total_minutes"),
                 func.avg(grade_expr()).label("avg_score"),
             )
-            .outerjoin(UserClass, UserClass.class_id == Class.id)
+            .outerjoin(
+                ClassMembership,
+                and_(
+                    ClassMembership.class_id == Class.id,
+                    ClassMembership.member_role == "student",
+                ),
+            )
             .outerjoin(
                 TrainingRecord,
-                (TrainingRecord.user_id == UserClass.user_id)
+                (TrainingRecord.user_id == ClassMembership.user_id)
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_test == False),
             )
@@ -308,7 +330,7 @@ class StatsService:
         stats_map = {row.id: row for row in stats_rows}
 
         result = []
-        for cls, grade_name in classes:
+        for cls in classes:
             s = stats_map.get(cls.id)
             student_count = int(s.student_count) if s else 0
             total_sessions = int(s.total_sessions) if s else 0
@@ -320,7 +342,7 @@ class StatsService:
                 ClassSummaryItemSchema(
                     class_id=cls.id,
                     class_name=cls.name,
-                    grade_name=grade_name,
+                    cohort_label=cls.cohort_label,
                     student_count=student_count,
                     avg_score=avg_score,
                     completion_rate=round(float(completion_rate), 1),
@@ -381,12 +403,12 @@ def student_ranking(
 @router.get("/class-summary", response_model=list[ClassSummaryItemSchema])
 def class_summary(
     db: DbSession,
-    grade_id: Annotated[int | None, Query()] = None,
+    cohort_label: Annotated[str | None, Query(max_length=40)] = None,
     class_id: Annotated[int | None, Query()] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
     svc = StatsService(db)
-    return svc.class_summary(grade_id=grade_id, class_id=class_id)
+    return svc.class_summary(cohort_label=cohort_label, class_id=class_id)
 
 
 @router.get("/class-students", response_model=list[ClassStudentItem])

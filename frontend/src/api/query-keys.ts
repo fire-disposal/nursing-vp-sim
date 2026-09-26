@@ -11,6 +11,10 @@ export const queryKeys = {
 			all: ["cases", "manage"] as const,
 			list: (params: Record<string, unknown>) =>
 				[...queryKeys.cases.managed.all, params] as const,
+			validation: (id: number | string) =>
+				[...queryKeys.cases.managed.all, "validation", String(id)] as const,
+			revisions: (id: number | string) =>
+				[...queryKeys.cases.managed.all, "revisions", String(id)] as const,
 		},
 		student: () => [...queryKeys.cases.all, "student"] as const,
 		options: () => [...queryKeys.cases.all, "options"] as const,
@@ -23,9 +27,6 @@ export const queryKeys = {
 			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
 		classRecords: (classId: number | string) =>
 			[...queryKeys.training.all, "class", classId] as const,
-	},
-	profiles: {
-		all: ["profiles"] as const,
 	},
 	systemNotifications: {
 		all: ["system-notifications"] as const,
@@ -103,14 +104,16 @@ export const queryKeys = {
 				[...queryKeys.admin.llm.all, "logs", params] as const,
 		},
 	},
-	grades: {
-		all: ["grades"] as const,
-		classes: (gradeId?: number | null | undefined) =>
-			[...queryKeys.grades.all, "classes", gradeId] as const,
-		classDetail: (classId: number | string) =>
-			[...queryKeys.grades.all, "class", classId] as const,
-		classSummary: (classId: number | string) =>
-			[...queryKeys.grades.all, "classSummary", classId] as const,
+	classes: {
+		all: ["classes"] as const,
+		list: (cohortLabel?: string | null) =>
+			[...queryKeys.classes.all, "list", cohortLabel ?? null] as const,
+		detail: (classId: number | string) =>
+			[...queryKeys.classes.all, "detail", classId] as const,
+		members: (classId: number | string, params: Record<string, unknown>) =>
+			[...queryKeys.classes.all, "members", classId, params] as const,
+		summary: (classId: number | string) =>
+			[...queryKeys.classes.all, "summary", classId] as const,
 	},
 	rubric: {
 		all: ["rubrics"] as const,

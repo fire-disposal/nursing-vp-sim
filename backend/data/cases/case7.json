@@ -1,7 +1,7 @@
 {
   "name": "妊娠期血糖异常伴多饮多尿",
   "difficulty": 2,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "28岁初产妇，孕24周，因产检发现血糖升高就诊。请通过系统的护理病史采集，了解孕期体重变化、饮食运动习惯、既往孕产史和糖尿病危险因素。适合练习孕产妇健康评估和健康宣教沟通。",
   "patient_info": {
     "name": "陈雨晴",
@@ -62,19 +62,23 @@
       "answer": "没有过，每次体检都正常。怀孕后做糖筛还没到时间呢，要不是这次不舒服来查，我都不知道血糖高了。"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "36.5-37.0",
-        "heart_rate": "78-88",
-        "blood_pressure": "110/68-120/78",
-        "respiratory_rate": "16-20",
-        "spo2": "97-99"
-      },
-      "skin": {
-        "全身": "皮肤温暖干燥，未见异常色素沉着"
+      "config": {
+        "vital_signs": {
+          "temperature": "36.5-37.0",
+          "heart_rate": "78-88",
+          "blood_pressure": "110/68-120/78",
+          "respiratory_rate": "16-20",
+          "spo2": "97-99"
+        },
+        "skin": {
+          "全身": "皮肤温暖干燥，未见异常色素沉着"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

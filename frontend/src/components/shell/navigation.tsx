@@ -35,8 +35,8 @@ const Admin = lazy(() => import("@/pages/Admin"));
 const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
 const AdminUserDetail = lazy(() => import("@/pages/admin/UserDetailPage"));
 const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
-const AdminGradesClasses = lazy(
-	() => import("@/pages/admin/GradesClassesPage"),
+const AdminClasses = lazy(
+	() => import("@/pages/admin/ClassesPage"),
 );
 const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
 const AssignmentsPage = lazy(
@@ -178,8 +178,8 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "角色管理", icon: IconShield, section: "admin", group: "people" },
 	},
 	{
-		path: "/admin/grades-classes",
-		element: <AdminGradesClasses />,
+		path: "/admin/classes",
+		element: <AdminClasses />,
 		permission: "grade_class_manage",
 		activity: "manage",
 		nav: { label: "班级管理", icon: IconSchool, section: "admin", group: "people" },

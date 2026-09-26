@@ -6,6 +6,7 @@
  *   useTrainingStore((s) => s.patient)    // only re-renders on patient change
  */
 import { create } from "zustand";
+import { type SessionManifest, parseSessionManifest } from "@/engine/manifest";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import type { SessionRecordDetail } from "@/engine/training-record-types";
 
@@ -106,8 +107,10 @@ export interface TrainingStore {
 	bus: MessageBus | null;
 	recordId: string;
 	patient: PatientData | null;
-	trainingType: string;
-	capabilities: Record<string, boolean>;
+	/** 内置特性开关（emotion / patient_initiative / inquiry_progress）——Activity 可用性不在这里 */
+	features: Record<string, boolean>;
+	/** 服务端解析出的会话 manifest：可用性 / 产物 / 完成条件的唯一来源 */
+	manifest: SessionManifest | null;
 	timeLimitMinutes: number;
 	recordDetail: SessionRecordDetail | null;
 	messages: ChatMessage[];
@@ -124,13 +127,14 @@ export interface TrainingStore {
 	portraitUrl: string | null;
 	nursingRecordDraft: NursingRecordSheet | null;
 	nursingRecordDirty: boolean;
+	/** 提交时间戳（ISO）；非 null = 内容已冻结、进入评分证据、编辑器只读 */
+	nursingRecordSubmittedAt: string | null;
 
 	init: (data: {
 		bus: MessageBus;
 		recordId: string;
 		patient: PatientData;
-		trainingType: string;
-		capabilities: Record<string, boolean>;
+		features: Record<string, boolean>;
 		timeLimitMinutes: number;
 		recordDetail: SessionRecordDetail | null;
 		initialMessages: ChatMessage[];
@@ -156,18 +160,22 @@ export interface TrainingStore {
 	setTrustComfort: (trust: number, comfort: number) => void;
 	setEmotion4D: (trust: number, anxiety: number, irritation: number, cooperation: number, label: Emotion4DLabel) => void;
 	setPortraitUrl: (url: string | null) => void;
-	hydrateNursingRecord: (sheet: NursingRecordSheet) => void;
+	hydrateNursingRecord: (sheet: NursingRecordSheet, meta?: { submitted_at?: string | null }) => void;
 	updateNursingRecordField: (key: string, value: string) => void;
 	markNursingRecordSaved: (savedSheet: NursingRecordSheet) => void;
+	/** 提交成功：服务端冻结版本是唯一真值，直接覆盖本地草稿并进入只读态 */
+	markNursingRecordSubmitted: (submittedSheet: NursingRecordSheet, submittedAt: string | null) => void;
+	/** 重开草稿：解除冻结，学生可继续编辑 */
+	markNursingRecordReopened: () => void;
 }
 
 const initialTrainingState = {
 	bus: null,
 	recordId: "",
 	patient: null,
-	trainingType: "history_taking",
-	capabilities: {} as Record<string, boolean>,
-	timeLimitMinutes: 20,
+	features: {} as Record<string, boolean>,
+	manifest: null,
+	timeLimitMinutes: 30,
 	recordDetail: null,
 	messages: [] as ChatMessage[],
 	sending: false,
@@ -183,6 +191,7 @@ const initialTrainingState = {
 	portraitUrl: null as string | null,
 	nursingRecordDraft: null as NursingRecordSheet | null,
 	nursingRecordDirty: false,
+	nursingRecordSubmittedAt: null as string | null,
 };
 
 export const useTrainingStore = create<TrainingStore>()((set, get) => ({
@@ -196,14 +205,17 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			set({
 				bus: data.bus,
 				patient: data.patient,
-				trainingType: data.trainingType,
-				capabilities: data.capabilities,
+				features: data.features,
+				manifest: parseSessionManifest(data.recordDetail?.manifest),
 				timeLimitMinutes: data.timeLimitMinutes,
 				recordDetail: data.recordDetail,
 				nursingRecordDraft: cur.nursingRecordDirty
 					? cur.nursingRecordDraft
 					: ((data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ??
 						cur.nursingRecordDraft),
+				nursingRecordSubmittedAt:
+					(data.recordDetail?.nursing_record_submitted_at as string | null | undefined) ??
+					cur.nursingRecordSubmittedAt,
 			});
 			return;
 		}
@@ -211,8 +223,8 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			bus: data.bus,
 			recordId: data.recordId,
 			patient: data.patient,
-			trainingType: data.trainingType,
-			capabilities: data.capabilities,
+			features: data.features,
+			manifest: parseSessionManifest(data.recordDetail?.manifest),
 			timeLimitMinutes: data.timeLimitMinutes,
 			recordDetail: data.recordDetail,
 			messages: data.initialMessages,
@@ -230,6 +242,8 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			nursingRecordDraft:
 				(data.recordDetail?.nursing_record_sheet as NursingRecordSheet | null | undefined) ?? null,
 			nursingRecordDirty: false,
+			nursingRecordSubmittedAt:
+				(data.recordDetail?.nursing_record_submitted_at as string | null | undefined) ?? null,
 		});
 	},
 
@@ -392,12 +406,18 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 		});
 	},
 	setPortraitUrl(url) { set({ portraitUrl: url }); },
-	hydrateNursingRecord(sheet) {
-		set((s) =>
-			s.nursingRecordDirty || s.nursingRecordDraft
-				? {}
-				: { nursingRecordDraft: sheet, nursingRecordDirty: false },
-		);
+	hydrateNursingRecord(sheet, meta) {
+		set((s) => {
+			const next: Partial<TrainingStore> = {};
+			// 已提交（冻结）时服务端版本是唯一真值，本地草稿一律让位；
+			// 否则保留未保存的本地编辑（不吞掉学生正在输入的内容）。
+			if (meta?.submitted_at || !s.nursingRecordDirty) {
+				next.nursingRecordDraft = sheet;
+				next.nursingRecordDirty = false;
+			}
+			if (meta) next.nursingRecordSubmittedAt = meta.submitted_at ?? null;
+			return next;
+		});
 	},
 	updateNursingRecordField(key, value) {
 		set((s) => ({
@@ -410,6 +430,16 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			if (JSON.stringify(s.nursingRecordDraft ?? {}) !== JSON.stringify(savedSheet)) return {};
 			return { nursingRecordDirty: false };
 		});
+	},
+	markNursingRecordSubmitted(submittedSheet, submittedAt) {
+		set({
+			nursingRecordDraft: submittedSheet,
+			nursingRecordDirty: false,
+			nursingRecordSubmittedAt: submittedAt,
+		});
+	},
+	markNursingRecordReopened() {
+		set({ nursingRecordSubmittedAt: null });
 	},
 }));
 

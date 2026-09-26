@@ -11,9 +11,10 @@ import { Alert, Box, Button, Group, Modal, ScrollArea, Stack, Text } from "@mant
 import { RoleBadge } from "@/components/ui/role-badge";
 import { Textarea } from "@mantine/core";
 import { Table } from "@mantine/core";
+import type { ClassItem } from "@/types/store";
 import type { BatchUser, RoleOption } from "./types";
 
-const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "班级名称"];
+const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "届别", "班级名称"];
 const BOM = "\uFEFF";
 
 function parseCSVLine(line: string): string[] {
@@ -44,11 +45,13 @@ interface BatchImportProps {
   open: boolean;
   onClose: () => void;
   roles: RoleOption[];
+  /** 全部班级，用于把「届别 + 班级名」解析成确定的 class_id。 */
+  classes: ClassItem[];
   isImporting: boolean;
   onImport: (users: BatchUser[]) => void;
 }
 
-export default function BatchImport({ open, onClose, roles, isImporting, onImport }: BatchImportProps) {
+export default function BatchImport({ open, onClose, roles, classes, isImporting, onImport }: BatchImportProps) {
   const [batchText, setBatchText] = useState("");
   const [batchPreview, setBatchPreview] = useState<BatchUser[]>([]);
   const [batchParseError, setBatchParseError] = useState("");
@@ -64,6 +67,29 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
     if (isImporting) return;
     resetState();
     onClose();
+  }
+
+  /**
+   * 解析一行的班级归属。返回 `class_id`（已存在）或待创建班级的 `(cohort, name)`。
+   * 同名班级跨届别而该行未给出届别时报错——绝不静默挑一条。
+   */
+  function resolveClass(
+    className: string,
+    cohortLabel: string,
+  ): { classId: number | null; error?: string } {
+    const matches = classes.filter((c) => c.name === className);
+    if (cohortLabel) {
+      const exact = matches.find((c) => c.cohort_label === cohortLabel);
+      return { classId: exact ? exact.id : null };
+    }
+    const distinct = [...new Set(matches.map((c) => c.cohort_label))];
+    if (distinct.length > 1) {
+      return {
+        classId: null,
+        error: `班级名称「${className}」存在于多个届别（${distinct.join("、")}），请补充「届别」列`,
+      };
+    }
+    return { classId: matches[0]?.id ?? null };
   }
 
   function parseLines(lines: string[]) {
@@ -86,7 +112,8 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
       const parts = parseCSVLine(row);
 
-      let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, className: string | null = null, _classId: number | null = null;
+      let username = "", password = "", displayName = "", role = "student", studentId: string | null = null;
+      let className: string = "", cohortLabel = "";
       if (isHeader) {
         const colIdx = (h: string) => firstParts.indexOf(h);
         username = parts[colIdx("用户名")] || "";
@@ -94,22 +121,42 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
         displayName = parts[colIdx("姓名")] || "";
         role = parts[colIdx("角色")] || "student";
         studentId = parts[colIdx("学号")] || null;
-        className = parts[colIdx("班级名称")] || null;
+        cohortLabel = parts[colIdx("届别")] || "";
+        className = parts[colIdx("班级名称")] || "";
       } else {
         username = parts[0] || "";
         password = parts[1] || "";
         displayName = parts[2] || "";
         role = parts[3] || "student";
         studentId = parts[4] || null;
-        className = parts[5] || null;
+        cohortLabel = parts[5] || "";
+        className = parts[6] || "";
       }
 
-      const locator = isHeader ? `第${i+1}行` : `第${i+1}行(${username || "?"})`;
+      // 有表头时数据从第 2 行开始，行号与用户在 CSV 里看到的一致。
+      const rowNo = isHeader ? i + 2 : i + 1;
+      const locator = `第${rowNo}行(${username || "?"})`;
       if (!username || !password || !displayName) { errors.push(`${locator}: 用户名/密码/姓名不能为空`); continue; }
       if (password.length < 6) { errors.push(`${locator}: 密码长度不能少于6位`); continue; }
       if (role !== "student") { errors.push(`${locator}: 仅支持学生角色（当前: ${role}）`); continue; }
 
-      users.push({ username, password, display_name: displayName, role: "student", student_id: studentId, class_name: className, class_id: null });
+      let classId: number | null = null;
+      if (className) {
+        const resolved = resolveClass(className, cohortLabel);
+        if (resolved.error) { errors.push(`${locator}: ${resolved.error}`); continue; }
+        classId = resolved.classId;
+      }
+
+      users.push({
+        username,
+        password,
+        display_name: displayName,
+        role: "student",
+        student_id: studentId,
+        class_name: className || null,
+        cohort_label: cohortLabel || null,
+        class_id: classId,
+      });
     }
 
     if (errors.length > 0) {
@@ -144,8 +191,8 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
   function handleDownloadTemplate() {
     const csvContent = BOM + CSV_HEADERS.join(",") + "\n" +
-      "student01,123456,张同学,student,S2024001,护理1班\n" +
-      "student02,myp@ss,李同学,student,S2024002,护理1班\n";
+      "student01,123456,张同学,student,S2024001,2024级,护理1班\n" +
+      "student02,myp@ss,李同学,student,S2024002,2024级,护理1班\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -160,18 +207,25 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
     onImport(batchPreview);
   }
 
+  function classCell(u: BatchUser) {
+    if (!u.class_name) return "-";
+    const label = u.cohort_label ? `${u.cohort_label} ${u.class_name}` : u.class_name;
+    return u.class_id != null ? label : `${label}（将新建）`;
+  }
+
   return (
     <Modal
       opened={open}
       onClose={handleClose}
       title={<><IconUsers size={20} /> 批量导入学生</>}
-      size={650}
+      size={720}
       centered
       withinPortal
     >
         <Text size="xs" c="dimmed" mb="md">
           支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
-          仅限创建<strong>学生</strong>角色账号，班级名称不存在时自动创建。
+          仅限创建<strong>学生</strong>角色账号；班级不存在时自动创建。
+          同名班级存在于多个届别时，必须填写「届别」列消歧，否则该行报错丢弃。
         </Text>
         <Box mb="md">
           <Group gap={6} mb={8}>
@@ -180,14 +234,14 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
           </Group>
           <Textarea
             rows={5}
-            placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,护理1班`}
+            placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,2024级,护理1班`}
             value={batchText}
             onChange={(e) => { setBatchText(e.currentTarget.value); parseBatchText(e.currentTarget.value); }}
             disabled={isImporting}
             style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
           />
           <Text size="xs" c="dimmed" mt={4}>
-            列顺序：{CSV_HEADERS.join(" / ")}（班级名称可选）
+            列顺序：{CSV_HEADERS.join(" / ")}（届别与班级名称可选）
           </Text>
         </Box>
         <Group gap={12} mb="md" wrap="wrap">
@@ -250,7 +304,8 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
                       <Table.Td>{u.display_name}</Table.Td>
                       <Table.Td><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></Table.Td>
                       <Table.Td><Text size="sm" c="dimmed">{u.student_id || "-"}</Text></Table.Td>
-                      <Table.Td><Text size="sm" c="dimmed">{u.class_name || u.class_id || "-"}</Text></Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed">{u.cohort_label || "-"}</Text></Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed">{classCell(u)}</Text></Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>

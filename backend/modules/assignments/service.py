@@ -9,13 +9,25 @@ from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.statuses import ScoringStatus, TrainingStatus
 from core.unit_of_work import unit_of_work
-from models import Assignment, Case, TrainingRecord, User, UserClass
+from models import (
+    AUDIENCE_CLASS,
+    AUDIENCE_MODES,
+    AUDIENCE_SELECTED,
+    Assignment,
+    AssignmentRecipient,
+    Case,
+    Class,
+    TrainingRecord,
+    User,
+)
+from modules.admin.class_memberships import student_member_ids
 from modules.assignments.progress import (
     attempt_from_record,
     count_attempts,
     pick_representative,
     progress_status,
 )
+from modules.cases.revisions import require_publishable
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +62,7 @@ class AssignmentListView:
     teacher_name: str = ""
     is_closed: bool = False
     max_attempts: int | None = None
+    audience_mode: str = AUDIENCE_CLASS
 
 
 @dataclass
@@ -78,7 +91,8 @@ class AssignmentDetailView:
     class_name: str
     features: dict
     behavior: dict
-    student_ids: list[int] | None
+    audience_mode: str
+    recipient_ids: list[int]
     start_time: datetime
     end_time: datetime
     created_at: datetime
@@ -128,10 +142,18 @@ class AssignmentService:
             .correlate(Assignment)
             .scalar_subquery()
         )
+        # 分母 = 受众快照行数（发布即固化，班级成员变动不再改动它）
+        recipients_sub = (
+            self.db.query(func.count(AssignmentRecipient.user_id))
+            .filter(AssignmentRecipient.assignment_id == Assignment.id)
+            .correlate(Assignment)
+            .scalar_subquery()
+        )
 
         q = self.db.query(
             Assignment,
             completed_sub.label("completed_count"),
+            recipients_sub.label("student_count"),
         ).options(
             joinedload(Assignment.case),
             joinedload(Assignment.class_),
@@ -153,13 +175,12 @@ class AssignmentService:
         q = q.order_by(Assignment.created_at.desc())
         return paginate(q, offset, limit)
 
-    def get_students_in_class(self, class_id: int) -> list[User]:
-        return (
-            self.db.query(User)
-            .join(UserClass, UserClass.user_id == User.id)
-            .filter(UserClass.class_id == class_id)
-            .all()
-        )
+    def get_class_students(self, class_id: int) -> list[User]:
+        """本班**学生**成员（``member_role='student'``）—— 学生名单/受众候选口径。"""
+        ids = student_member_ids(self.db, class_id)
+        if not ids:
+            return []
+        return self.db.query(User).filter(User.id.in_(ids)).order_by(User.id).all()
 
     def get_records_for_assignment(self, assignment_id: str) -> list[TrainingRecord]:
         return (
@@ -180,16 +201,54 @@ class AssignmentService:
             .first()
         )
 
-    def _get_target_student_ids(self, assignment: Assignment) -> list[int]:
-        if assignment.student_ids:
-            return assignment.student_ids
-        students = self.get_students_in_class(assignment.class_id)
-        return [s.id for s in students]
+    # ── 受众（发布即固化的快照） ──
+
+    def resolve_recipients(self, class_id: int, audience_mode: str, user_ids: list[int] | None) -> list[int]:
+        """解析并校验受众名单（发布/改受众时调用一次，随后写入快照）。
+
+        - ``class``：取该班当前 student membership 快照；
+        - ``selected``：必须显式给出 ``user_ids``，且每个都必须**是本班学生成员**。
+        """
+        if audience_mode not in AUDIENCE_MODES:
+            raise ValidationError(f"受众模式必须是 {'/'.join(AUDIENCE_MODES)}")
+        if audience_mode == AUDIENCE_CLASS:
+            return student_member_ids(self.db, class_id)
+
+        wanted = list(dict.fromkeys(user_ids or []))
+        if not wanted:
+            raise ValidationError("指定受众时必须提供学生名单")
+        member_ids = set(student_member_ids(self.db, class_id))
+        invalid = [uid for uid in wanted if uid not in member_ids]
+        if invalid:
+            raise ValidationError(f"以下用户不是该班级的学生成员：{invalid}")
+        return wanted
+
+    def recipient_ids(self, assignment: Assignment) -> list[int]:
+        """已发布作业的受众快照（唯一读口径）。"""
+        rows = (
+            self.db.query(AssignmentRecipient.user_id)
+            .filter(AssignmentRecipient.assignment_id == assignment.id)
+            .order_by(AssignmentRecipient.user_id)
+            .all()
+        )
+        return [row[0] for row in rows]
+
+    def _replace_recipients(self, assignment: Assignment, user_ids: list[int]) -> None:
+        self.db.query(AssignmentRecipient).filter(AssignmentRecipient.assignment_id == assignment.id).delete(
+            synchronize_session=False
+        )
+        for uid in user_ids:
+            self.db.add(AssignmentRecipient(assignment_id=assignment.id, user_id=uid))
+        self.db.flush()
+
+    def _target_recipient_ids(self, assignment: Assignment) -> list[int]:
+        return self.recipient_ids(assignment)
 
     def _get_target_students(self, assignment: Assignment) -> list[User]:
-        if assignment.student_ids:
-            return self.db.query(User).filter(User.id.in_(assignment.student_ids)).all()
-        return self.get_students_in_class(assignment.class_id)
+        ids = self.recipient_ids(assignment)
+        if not ids:
+            return []
+        return self.db.query(User).filter(User.id.in_(ids)).order_by(User.id).all()
 
     def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
         students_in_class = self._get_target_students(assignment)
@@ -252,7 +311,8 @@ class AssignmentService:
             class_name=assignment.class_.name if assignment.class_ else "",
             features=assignment.features or {},
             behavior=assignment.behavior or {},
-            student_ids=assignment.student_ids,
+            audience_mode=assignment.audience_mode,
+            recipient_ids=sorted(s.user_id for s in student_items),
             start_time=assignment.start_time,
             end_time=assignment.end_time,
             created_at=assignment.created_at,
@@ -276,7 +336,8 @@ class AssignmentService:
         description: str | None,
         features: dict,
         behavior: dict,
-        student_ids: list[int] | None,
+        audience_mode: str,
+        recipient_user_ids: list[int] | None,
         start_time: datetime,
         end_time: datetime,
         teacher_id: int,
@@ -285,30 +346,46 @@ class AssignmentService:
         case = self.db.query(Case).filter(Case.id == case_id).first()
         if not case:
             raise NotFoundError("病例不存在")
+        # 未发布病例不得被作业使用（docs/15 §六）；发布时同时钉住版本，
+        # 作业期间病例编辑出新 revision 也不影响本作业的学员
+        require_publishable(case)
+        cls = self.db.query(Class).filter(Class.id == class_id).first()
+        if not cls:
+            raise NotFoundError("班级不存在")
 
         if end_time <= start_time:
             raise ValidationError("截止时间必须晚于开始时间")
 
+        # 发布时固化受众：此后班级成员变动不再改动这份快照（分母因此稳定）
+        resolved = self.resolve_recipients(class_id, audience_mode, recipient_user_ids)
+
         with unit_of_work(self.db, conflict_detail="创建失败，请重试"):
             assignment = Assignment(
                 case_id=case_id,
+                case_revision_id=case.current_revision_id,
                 class_id=class_id,
                 teacher_id=teacher_id,
                 title=title,
                 description=description,
                 features=features or {},
                 behavior=behavior or {},
-                student_ids=student_ids,
+                audience_mode=audience_mode,
                 start_time=start_time,
                 end_time=end_time,
                 max_attempts=max_attempts,
             )
             self.db.add(assignment)
             self.db.flush()
+            for uid in resolved:
+                self.db.add(AssignmentRecipient(assignment_id=assignment.id, user_id=uid))
         self.db.refresh(assignment)
 
         self._notify_students(assignment, case.name if case else "")
-        log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": teacher_id})
+        log.info(
+            f"Assignment created: id={assignment.id} title={assignment.title} "
+            f"audience={audience_mode} recipients={len(resolved)}",
+            extra={"user_id": teacher_id},
+        )
         return self._build_detail_view(assignment)
 
     def list_all(
@@ -321,17 +398,6 @@ class AssignmentService:
     ) -> tuple[list[AssignmentListView], int]:
         rows, total = self.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
 
-        class_ids = {r[0].class_id for r in rows}
-        class_sizes: dict[int, int] = {}
-        if class_ids:
-            count_rows = (
-                self.db.query(UserClass.class_id, func.count(UserClass.user_id))
-                .filter(UserClass.class_id.in_(class_ids))
-                .group_by(UserClass.class_id)
-                .all()
-            )
-            class_sizes = {r[0]: r[1] for r in count_rows}
-
         items = [
             AssignmentListView(
                 id=r[0].id,
@@ -341,11 +407,12 @@ class AssignmentService:
                 teacher_name=r[0].teacher.display_name if r[0].teacher else "",
                 start_time=r[0].start_time,
                 end_time=r[0].end_time,
-                student_count=len(r[0].student_ids) if r[0].student_ids else class_sizes.get(r[0].class_id, 0),
+                student_count=r[2] or 0,
                 completed_count=r[1],
                 created_at=r[0].created_at,
                 is_closed=r[0].is_closed,
                 max_attempts=r[0].max_attempts,
+                audience_mode=r[0].audience_mode,
             )
             for r in rows
         ]
@@ -369,7 +436,8 @@ class AssignmentService:
         description: str | None,
         features: dict | None,
         behavior: dict | None,
-        student_ids: list[int] | None,
+        audience_mode: str | None,
+        recipient_user_ids: list[int] | None,
         start_time: datetime | None,
         end_time: datetime | None,
         is_closed: bool | None = None,
@@ -382,17 +450,39 @@ class AssignmentService:
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
 
-        if case_id is not None or class_id is not None:
-            if self.has_any_records(assignment_id):
-                raise ValidationError("已有学生开始练习，不能更换病例或班级")
+        audience_touched = audience_mode is not None or recipient_user_ids is not None
+        class_changed = class_id is not None and class_id != assignment.class_id
+
+        if (case_id is not None or class_changed or audience_touched) and self.has_any_records(assignment_id):
+            raise ValidationError("已有学生开始练习，不能更换病例、班级或受众")
 
         if case_id is not None:
             case = self.db.query(Case).filter(Case.id == case_id).first()
             if not case:
                 raise NotFoundError("病例不存在")
+            require_publishable(case)
             assignment.case_id = case_id
-        if class_id is not None:
+            assignment.case_revision_id = case.current_revision_id
+        if class_changed:
+            cls = self.db.query(Class).filter(Class.id == class_id).first()
+            if not cls:
+                raise NotFoundError("班级不存在")
             assignment.class_id = class_id
+        if class_changed or audience_touched:
+            # 受众重新固化：显式给了 audience 就按它解析；只换班则沿用原模式在新班上重新取快照
+            mode = audience_mode if audience_mode is not None else assignment.audience_mode
+            if mode not in AUDIENCE_MODES:
+                raise ValidationError(f"受众模式必须是 {'/'.join(AUDIENCE_MODES)}")
+            if audience_touched:
+                resolved = self.resolve_recipients(
+                    assignment.class_id, mode, recipient_user_ids if mode == AUDIENCE_SELECTED else None
+                )
+            elif mode == AUDIENCE_SELECTED:
+                resolved = self.resolve_recipients(assignment.class_id, mode, self.recipient_ids(assignment))
+            else:
+                resolved = self.resolve_recipients(assignment.class_id, mode, None)
+            assignment.audience_mode = mode
+            self._replace_recipients(assignment, resolved)
         if title is not None:
             assignment.title = title
         if description is not None:
@@ -401,8 +491,6 @@ class AssignmentService:
             assignment.features = features
         if behavior is not None:
             assignment.behavior = behavior
-        if student_ids is not None:
-            assignment.student_ids = student_ids if len(student_ids) > 0 else None
         if start_time is not None:
             assignment.start_time = start_time
         if end_time is not None:
@@ -447,7 +535,7 @@ class AssignmentService:
         records = self.get_records_for_assignment(assignment_id)
         submitted_user_ids = {r.user_id for r in records if r.status == "completed"}
 
-        target_ids = self._get_target_student_ids(assignment)
+        target_ids = self._target_recipient_ids(assignment)
         not_submitted = [uid for uid in target_ids if uid not in submitted_user_ids]
 
         if not not_submitted:
@@ -465,14 +553,8 @@ class AssignmentService:
     def _notify_students(self, assignment: Assignment, case_name: str) -> None:
         from models.notification import Notification
 
-        target_ids = None
-        if assignment.student_ids:
-            target_ids = assignment.student_ids
-        else:
-            target_ids = [
-                row[0]
-                for row in self.db.query(UserClass.user_id).filter(UserClass.class_id == assignment.class_id).all()
-            ]
+        # 通知对象 = 发布时固化的受众快照（与本作业的分母同一份名单）
+        target_ids = self._target_recipient_ids(assignment)
 
         if not target_ids:
             return

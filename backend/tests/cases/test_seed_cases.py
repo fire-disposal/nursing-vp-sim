@@ -29,15 +29,28 @@ class _FakeQuery:
     def filter(self, *args, **kwargs) -> _FakeQuery:
         return self
 
+    def order_by(self, *args, **kwargs) -> _FakeQuery:
+        return self
+
     def all(self) -> list[Case]:
         return list(self._rows)
+
+    def first(self) -> Case | None:
+        return self._rows[0] if self._rows else None
+
+    def scalar(self):
+        # 版本号查询（func.max）：假库里没有既有版本 → None → 新版本号从 1 开始
+        return None
 
 
 class _FakeSession:
     def __init__(self, rows: list[Case]) -> None:
         self.rows = rows
-        self.added: list[Case] = []
+        self.added: list = []
         self.committed = False
+
+    def flush(self) -> None:
+        pass
 
     def query(self, *args, **kwargs) -> _FakeQuery:
         return _FakeQuery(self.rows)
@@ -67,22 +80,29 @@ def _seed_all_in_sync(fake_db: _FakeSession) -> dict[str, Case]:
     rows: dict[str, Case] = {}
     for fpath in sorted(CASES_DIR.glob("*.json")):
         d = json.loads(fpath.read_text(encoding="utf-8"))
-        row = Case(id=len(rows) + 1, name=d["name"], case_data=with_seed_bookmark(d))
+        row = Case(
+            id=len(rows) + 1,
+            name=d["name"],
+            description=d.get("description", ""),
+            difficulty=d.get("difficulty", 1),
+            time_limit_minutes=d.get("time_limit", 30),
+            case_data=with_seed_bookmark(d),
+        )
         fake_db.rows.append(row)
         rows[d["name"]] = row
     return rows
 
 
 def test_legacy_row_is_converged_to_repository_content(fake_db):
-    """旧库里被丢过 tools 的坏行（无指纹）必须被仓库版本覆盖。"""
+    """旧库里被丢过 activities 的坏行（无指纹）必须被仓库版本覆盖。"""
     rows = _seed_all_in_sync(fake_db)
     case1 = _load("case1")
     row = rows[case1["name"]]
-    row.case_data = {k: v for k, v in case1.items() if k != "tools"}
+    row.case_data = {k: v for k, v in case1.items() if k != "activities"}
 
     seed._seed_cases()
 
-    assert row.case_data["tools"] == case1["tools"]
+    assert row.case_data["activities"] == case1["activities"]
     assert is_locally_edited(row.case_data) is False
     assert fake_db.committed is True
 
@@ -113,6 +133,7 @@ def test_row_already_in_sync_is_not_rewritten(fake_db):
 def test_missing_builtin_cases_are_imported_with_fingerprint(fake_db):
     seed._seed_cases()
 
-    assert len(fake_db.added) == len(list(CASES_DIR.glob("*.json")))
-    assert all(has_bookmark(c.case_data) for c in fake_db.added)
+    cases = [obj for obj in fake_db.added if isinstance(obj, Case)]
+    assert len(cases) == len(list(CASES_DIR.glob("*.json")))
+    assert all(has_bookmark(c.case_data) for c in cases)
     assert fake_db.committed is True

@@ -3,6 +3,7 @@ import { Group, Stack, Text } from "@mantine/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@mantine/core";
 import { RoleBadge } from "@/components/ui/role-badge";
+import MembershipTags from "./MembershipTags";
 import type { UserBrief } from "./types";
 
 interface UserCardProps {
@@ -64,15 +65,13 @@ export default function UserCard({
 						<Text size="xs" c="dimmed" truncate>
 							{user.username}
 						</Text>
-						{(user.grade_name || user.class_name) && (
-							<Text size="xs" c="dimmed">
-								{user.grade_name && user.class_name
-									? `${user.grade_name} ${user.class_name}`
-									: user.class_name || user.grade_name}
-								{user.student_id && (
-									<span style={{ marginLeft: 8 }}>学号: {user.student_id}</span>
-								)}
-							</Text>
+						{(user.memberships?.length ?? 0) > 0 ? (
+							<MembershipTags memberships={user.memberships} />
+						) : (
+							<Text size="xs" c="dimmed">未加入班级</Text>
+						)}
+						{user.student_id && (
+							<Text size="xs" c="dimmed">学号: {user.student_id}</Text>
 						)}
 						<Text size="xs" c="dimmed">
 							{new Date(user.created_at).toLocaleDateString("zh-CN")}

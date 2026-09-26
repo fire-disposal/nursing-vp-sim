@@ -3,13 +3,33 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import ConflictError, NotFoundError
+from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
 from core.unit_of_work import unit_of_work
-from models import Case, TrainingRecord
-from modules.training.capabilities import detect_capabilities
-from schemas.case_schema import normalize_gender, validate_case_data
+from models import (
+    CASE_STATUS_ARCHIVED,
+    CASE_STATUS_DRAFT,
+    CASE_STATUS_PUBLISHED,
+    Assignment,
+    Case,
+    CaseRevision,
+    TrainingRecord,
+)
+from modules.cases.gate import (
+    CaseNotPublishableError,
+    validate_candidate,
+    validate_case_row,
+)
+from modules.cases.revisions import (
+    append_revision,
+    content_matches_current_revision,
+    require_editable,
+)
+from modules.cases.validator import CaseReport
+from modules.training.profile import HISTORY_TAKING
+from schemas.case_schema import normalize_gender, strip_case_metadata, validate_case_data
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +58,9 @@ class CaseManageView:
     id: int
     name: str
     description: str | None
-    training_type: str
+    status: str
+    current_revision_id: int | None
+    current_revision_no: int | None
     patient_name: str
     patient_age: int | None
     patient_gender: str
@@ -68,16 +90,19 @@ class CaseService:
             id=case.id,
             name=case.name,
             description=case.description,
-            training_type=case.training_type,
+            status=case.status,
+            current_revision_id=case.current_revision_id,
+            current_revision_no=case.current_revision_no,
             patient_name=info.get("name", ""),
             patient_age=info.get("age"),
             patient_gender=normalize_gender(str(info.get("gender") or "")) or "",
             chief_complaint=cd.get("chief_complaint", ""),
-            time_limit=cd.get("time_limit", 20),
-            difficulty=cd.get("difficulty", 1),
+            # 元数据单一读源：列（case_data 中的同名字段仅作写入输入，落库前即剥离）
+            time_limit=case.time_limit_minutes,
+            difficulty=case.difficulty,
             patient_personality=_personality_label(personality),
-            # 能力由 tools.* 派生（与学生端 /api/cases 同源），不读库里的存储字段
-            capabilities=detect_capabilities(cd) if cd else {},
+            # 能力由病例声明的 activities.* 解析（与学生端 /api/cases 同源），不读库里的存储字段
+            capabilities=HISTORY_TAKING.resolve_features(cd),
             is_open=case.is_open,
             created_at=case.created_at,
             training_count=training_count,
@@ -88,11 +113,11 @@ class CaseService:
         offset: int,
         limit: int,
         *,
-        training_type: str | None = None,
         difficulty: int | None = None,
         name: str | None = None,
     ) -> tuple[list[Case], int]:
-        q = self.db.query(Case).filter(Case.is_open == True, Case.training_type == "history_taking").order_by(Case.id)
+        """学生目录：只出现已发布且向学生开放的病例（docs/15 §六）。"""
+        q = self.db.query(Case).filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED).order_by(Case.id)
         if difficulty is not None:
             q = q.filter(Case.difficulty == difficulty)
         if name:
@@ -108,16 +133,19 @@ class CaseService:
         *,
         name: str | None = None,
         difficulty: int | None = None,
-        training_type: str | None = None,
+        status: str | None = None,
         is_open: bool | None = None,
     ) -> tuple[list[CaseManageView], int]:
-        q = self.db.query(Case).filter(Case.training_type == "history_taking").order_by(Case.created_at.desc())
+        """教师病例库。默认不含已归档病例（archived 只作为历史检索入口）。"""
+        # current_revision 供视图展示版本号：连带加载，避免逐行懒加载（N+1）
+        q = self.db.query(Case).options(joinedload(Case.current_revision)).order_by(Case.created_at.desc())
+        q = q.filter(Case.status == status) if status else q.filter(Case.status != CASE_STATUS_ARCHIVED)
         if is_open is not None:
             q = q.filter(Case.is_open == is_open)
         if name:
             q = q.filter(Case.name.ilike(f"%{name}%"))
         if difficulty is not None:
-            q = q.filter(Case.case_data["difficulty"].as_integer() == difficulty)
+            q = q.filter(Case.difficulty == difficulty)
         total = q.order_by(None).count()
         cases = q.offset(offset).limit(limit).all()
         case_ids = [c.id for c in cases]
@@ -135,21 +163,31 @@ class CaseService:
         return views, total
 
     def get(self, case_id: int) -> Case:
-        case = self.db.get(Case, case_id)
+        case = self.db.query(Case).options(joinedload(Case.current_revision)).filter(Case.id == case_id).first()
         if case is None:
             raise NotFoundError("病例不存在")
         return case
 
+    def revisions(self, case_id: int) -> list[CaseRevision]:
+        """病例的版本历史（新→旧）；内容不可变，仅供查看与回滚参照。"""
+        case = self.get(case_id)
+        return (
+            self.db.query(CaseRevision)
+            .filter(CaseRevision.case_id == case.id)
+            .order_by(CaseRevision.revision_no.desc())
+            .all()
+        )
+
     def create(self, case_data: dict, user_id: int, user_role: str, *, is_open: bool = True) -> CaseManageView:
-        training_type = "history_taking"
+        """新建病例 = draft：内容先落工作副本，发布（含门禁）产生第一个 revision。"""
         cd = validate_case_data(case_data, strict=True)
         case = Case(
             name=cd["name"],
             description=cd.get("description", ""),
-            case_data=cd,
-            training_type=training_type,
+            case_data=strip_case_metadata(cd),
+            status=CASE_STATUS_DRAFT,
             difficulty=cd.get("difficulty", 1),
-            time_limit_minutes=cd.get("time_limit", 20),
+            time_limit_minutes=cd.get("time_limit") or DEFAULT_TIME_LIMIT_MINUTES,
             is_open=is_open,
         )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
@@ -162,19 +200,35 @@ class CaseService:
         return self._manage_view(case, 0)
 
     def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
-        case = self.db.get(Case, case_id)
-        if case is None:
-            raise NotFoundError("病例不存在")
-        training_type = "history_taking"
+        """编辑工作副本。
+
+        已发布病例的编辑必须先过发布门禁（字段级 error 即 422，不落库），内容变化则追加
+        新 revision —— 旧训练永远按旧版复盘（docs/15 §六）。已归档病例内容冻结。
+        """
+        case = self.get(case_id)
+        require_editable(case)
         cd = validate_case_data(case_data, strict=True)
-        case.name = cd["name"]
-        case.description = cd.get("description", "")
-        case.case_data = cd
-        case.training_type = training_type
-        case.difficulty = cd.get("difficulty", 1)
-        case.time_limit_minutes = cd.get("time_limit", 20)
+        payload = strip_case_metadata(cd)
+        name = cd["name"]
+        # 元数据缺省 = 不改（避免一次编辑把 difficulty/time_limit 静默改回默认值）
+        difficulty = cd.get("difficulty", case.difficulty)
+        time_limit = cd.get("time_limit") or case.time_limit_minutes
+        content_changed = payload != strip_case_metadata(case.case_data or {})
+
+        if case.status == CASE_STATUS_PUBLISHED:
+            report = validate_candidate(payload, name=name, difficulty=difficulty, time_limit=time_limit)
+            if report.errors:
+                raise CaseNotPublishableError(case, report)
+
         with unit_of_work(self.db, conflict_detail="病例更新冲突"):
-            pass
+            case.name = name
+            case.description = cd.get("description", "")
+            case.case_data = payload
+            case.difficulty = difficulty
+            case.time_limit_minutes = time_limit
+            if case.status == CASE_STATUS_PUBLISHED and content_changed:
+                append_revision(self.db, case, user_id=user_id)
+            self.db.flush()
         log.info(
             f"病例编辑: case_id={case_id} case_name={case.name}",
             extra={"user_id": user_id, "user_role": user_role},
@@ -182,13 +236,51 @@ class CaseService:
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count)
 
+    def publish(self, case_id: int, user_id: int, user_role: str) -> tuple[CaseManageView, CaseReport]:
+        """发布门禁 + 版本落地（docs/15 §六）。
+
+        门禁复用 CI 病例审计的同一份校验器（modules/cases/validator.py）：有 error 即
+        拒绝发布（422 + 字段级报告），警告只随报告返回。内容与 current revision 一致
+        （例如元数据微调）时不产生多余版本。
+        """
+        case = self.get(case_id)
+        require_editable(case)
+        report = validate_case_row(case)
+        if report.errors:
+            log.warning(
+                "病例发布被门禁拒绝: case_id=%d errors=%d", case_id, len(report.errors), extra={"user_id": user_id}
+            )
+            raise CaseNotPublishableError(case, report)
+        with unit_of_work(self.db, conflict_detail="病例发布冲突"):
+            if not content_matches_current_revision(case):
+                revision = append_revision(self.db, case, user_id=user_id)
+                log.info(
+                    f"病例发布: case_id={case_id} revision_no={revision.revision_no}",
+                    extra={"user_id": user_id, "user_role": user_role},
+                )
+            else:
+                case.status = CASE_STATUS_PUBLISHED
+            self.db.flush()
+        count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
+        return self._manage_view(case, count), report
+
+    def archive(self, case_id: int, user_id: int, user_role: str) -> CaseManageView:
+        """归档：只阻止新使用（作业/训练），不删除历史 revision 与既有训练。"""
+        case = self.get(case_id)
+        with unit_of_work(self.db, conflict_detail="病例归档冲突"):
+            case.status = CASE_STATUS_ARCHIVED
+            self.db.flush()
+        log.info(f"病例归档: case_id={case_id}", extra={"user_id": user_id, "user_role": user_role})
+        return self._manage_view(case, self.training_count(case_id))
+
     def delete(self, case_id: int, user_id: int, user_role: str) -> None:
-        case = self.db.get(Case, case_id)
-        if case is None:
-            raise NotFoundError("病例不存在")
+        case = self.get(case_id)
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         if count > 0:
             raise ConflictError(detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。")
+        assignments = self.db.query(func.count(Assignment.id)).filter(Assignment.case_id == case_id).scalar() or 0
+        if assignments > 0:
+            raise ConflictError(detail=f"该病例已被 {assignments} 个作业引用，无法删除。请先删除相关作业。")
         case_name = case.name
         with unit_of_work(self.db, conflict_detail="病例删除冲突"):
             self.db.delete(case)
@@ -199,9 +291,14 @@ class CaseService:
         )
 
     def set_open(self, case_id: int, is_open: bool) -> Case:
-        case = self.db.get(Case, case_id)
-        if case is None:
-            raise NotFoundError("病例不存在")
+        """学生目录可见性开关（与 status 正交）。
+
+        未发布/已归档病例不能「向学生开放」—— 开放动作只有在 published 上才有意义，
+        否则会得到「已开放但学生看不到」的静默状态。
+        """
+        case = self.get(case_id)
+        if is_open and case.status != CASE_STATUS_PUBLISHED:
+            raise ConflictError(detail="病例尚未发布，无法向学生开放；请先发布")
         case.is_open = is_open
         with unit_of_work(self.db, conflict_detail="切换开放状态冲突"):
             self.db.flush()

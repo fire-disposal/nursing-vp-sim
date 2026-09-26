@@ -136,7 +136,16 @@ export default function AssignmentDetailPage() {
 				}
 			/>
 
-			<SimpleGrid cols={{ base: 2, md: 4, xl: 7 }} spacing="sm">
+			<SimpleGrid cols={{ base: 2, md: 4, xl: 8 }} spacing="sm">
+				<Paper withBorder radius="md" p="sm">
+					<Text size="xs" c="dimmed">受众</Text>
+					<Text size="lg" fw={700}>
+						{detail.audience_mode === "selected" ? "指定学生" : "全班"}
+					</Text>
+					<Text size="xs" c="dimmed">
+						{detail.recipient_ids?.length ?? detail.student_count} 人（发布时固化）
+					</Text>
+				</Paper>
 				<Paper withBorder radius="md" p="sm">
 					<Text size="xs" c="dimmed">总人数</Text>
 					<Text size="xl" fw={700}>{detail.student_count}</Text>

@@ -1,3 +1,4 @@
+import { casePublishGateErrorSchema } from "@/schemas/case";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
@@ -72,3 +73,30 @@ export const toggleCaseOpen = (id: number | string, open: boolean) =>
 	api.put<Schemas["CaseManageItem"]>(
 		`/cases/${id}/open?open=${open}`,
 	);
+
+// ── 生命周期（docs/15 §六）：发布门禁 / 版本 ────────────────────────────────
+
+/** 发布门禁预览：字段级 error/warning（与 CI 病例审计同一份规则）。 */
+export const getCaseValidation = (id: number | string) =>
+	api.get<Schemas["CaseValidationReport"]>(`/cases/${id}/validation`);
+
+/** 发布：门禁通过才落版本；有 error 时 422。 */
+export const publishCase = (id: number | string) =>
+	api.post<Schemas["CasePublishResponse"]>(`/cases/${id}/publish`);
+
+/** 归档：只阻止新使用，历史版本与既有训练保留。 */
+export const archiveCase = (id: number | string) =>
+	api.post<Schemas["CaseManageItem"]>(`/cases/${id}/archive`);
+
+/** 版本历史（新→旧）：已发布版本不可改，编辑产生新版本。 */
+export const getCaseRevisions = (id: number | string) =>
+	api.get<Schemas["CaseRevisionItem"][]>(`/cases/${id}/revisions`);
+
+/**
+ * 从发布/编辑失败（422）的异常里取出字段级门禁报告。
+ * 非门禁失败（网络、409、普通 422 校验）解析失败即返回 null，交由 apiError 通用展示。
+ */
+export function publishReportOf(err: unknown): Schemas["CaseValidationReport"] | null {
+	const parsed = casePublishGateErrorSchema.safeParse(err);
+	return parsed.success ? parsed.data.response.data.detail.report : null;
+}

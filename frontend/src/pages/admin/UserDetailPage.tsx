@@ -1,4 +1,4 @@
-import { Badge, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
 	IconActivity,
@@ -22,9 +22,11 @@ import {
 	YAxis,
 } from "recharts";
 import { getStudentDetail } from "@/api";
+import { getUsers } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import MembershipTags from "@/components/admin/users/MembershipTags";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
@@ -47,6 +49,15 @@ export default function UserDetailPage() {
 		enabled: !!userId,
 		staleTime: 2 * 60_000,
 	});
+
+	// 学生详情接口不含班级归属，按用户名精确回查用户简档（含全部 memberships）。
+	const { data: briefs, isError: briefFailed } = useQuery({
+		queryKey: queryKeys.admin.users.list({ search: student?.username, limit: 20 }),
+		queryFn: () => getUsers({ search: student!.username, limit: 20 }).then((r) => r.data),
+		enabled: !!student?.username,
+		staleTime: 2 * 60_000,
+	});
+	const memberships = briefs?.items.find((u) => u.id === Number(userId))?.memberships;
 
 	if (isLoading) {
 		return <Text ta="center" py={48} c="dimmed">加载中...</Text>;
@@ -71,6 +82,21 @@ export default function UserDetailPage() {
 				icon={IconUser}
 				backTo="/admin/users"
 			/>
+
+			<Paper withBorder radius="md" p="sm" mb="lg">
+				<Group gap={10} align="center" wrap="wrap">
+					<Text size="xs" c="dimmed" fw={600}>班级归属</Text>
+					{!student.username ? (
+						<Text size="xs" c="dimmed">无法确定用户名</Text>
+					) : memberships ? (
+						<MembershipTags memberships={memberships} size="sm" />
+					) : (
+						<Text size="xs" c="dimmed">
+							{briefFailed ? "归属信息暂不可用" : "加载中…"}
+						</Text>
+					)}
+				</Group>
+			</Paper>
 
 			<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm" mb="xl">
 				<StatCard icon={IconActivity} value={student.total_sessions} label="总训练次数" color="blue" />

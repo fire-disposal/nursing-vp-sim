@@ -1,7 +1,7 @@
 {
   "name": "产后情绪低落伴失眠",
   "difficulty": 1,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "32岁初产妇，产后6周，因持续情绪低落、失眠、对婴儿缺乏兴趣就诊。婆婆陪同，对情绪问题不理解。请通过系统的护理病史采集，评估产后抑郁症状、危险因素和社会支持情况。适合练习产后心理健康评估与非评判性沟通。",
   "patient_info": {
     "name": "林小惠",
@@ -61,19 +61,23 @@
       "answer": "婆婆帮着带孩子做饭，但她觉得我就是想太多...老公天天加班，回来孩子都睡了。我也不敢跟她们多说，怕被觉得矫情。"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "36.5-37.0",
-        "heart_rate": "72-82",
-        "blood_pressure": "108/68-118/78",
-        "respiratory_rate": "16-18",
-        "spo2": "98-100"
-      },
-      "skin": {
-        "全身": "皮肤温暖干燥，未见异常"
+      "config": {
+        "vital_signs": {
+          "temperature": "36.5-37.0",
+          "heart_rate": "72-82",
+          "blood_pressure": "108/68-118/78",
+          "respiratory_rate": "16-18",
+          "spo2": "98-100"
+        },
+        "skin": {
+          "全身": "皮肤温暖干燥，未见异常"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

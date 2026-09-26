@@ -11,13 +11,14 @@ import {
 	Text,
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
-import ClassFilter from "@/components/admin/ClassFilter";
+import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import { Checkbox } from "@mantine/core";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table } from "@mantine/core";
+import MembershipTags from "./MembershipTags";
 import type { RoleOption, UserBrief } from "./types";
 
 interface UserListProps {
@@ -32,10 +33,7 @@ interface UserListProps {
 	selectedIds: Set<number>;
 	onSearchChange: (value: string) => void;
 	onRoleFilterChange: (value: string) => void;
-	onClassFilterChange: (params: {
-		grade_id: number | null;
-		class_id: number | null;
-	}) => void;
+	onClassFilterChange: (params: ClassFilterParams) => void;
 	onOffsetChange: (offset: number) => void;
 	onEditUser: (user: UserBrief) => void;
 	onDeleteUser: (user: UserBrief) => void;
@@ -123,7 +121,7 @@ export default function UserList({
 									<Table.Th>用户名</Table.Th>
 									<Table.Th>姓名</Table.Th>
 									<Table.Th>角色</Table.Th>
-									<Table.Th>班级</Table.Th>
+									<Table.Th>班级归属</Table.Th>
 									<Table.Th>学号</Table.Th>
 									<Table.Th>注册时间</Table.Th>
 									<Table.Th>操作</Table.Th>
@@ -163,11 +161,7 @@ export default function UserList({
 											/>
 										</Table.Td>
 										<Table.Td>
-											<Text size="sm" c="dimmed">
-												{u.grade_name && u.class_name
-													? `${u.grade_name} ${u.class_name}`
-													: u.class_name || "-"}
-											</Text>
+											<MembershipTags memberships={u.memberships} />
 										</Table.Td>
 										<Table.Td>
 											<Text size="sm" c="dimmed">{u.student_id || "-"}</Text>

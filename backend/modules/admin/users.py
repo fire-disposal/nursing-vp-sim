@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import and_, or_
 from sqlalchemy import func as sa_func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
@@ -16,8 +16,8 @@ from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.security import hash_password, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, export_response
-from models import Class, Role, Score, TrainingRecord, User, UserClass
-from models.school import Grade
+from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Role, Score, TrainingRecord, User
+from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     AdminStats,
@@ -31,6 +31,8 @@ from schemas import (
     StudentDetail,
     StudentRecentRecord,
     UserBrief,
+    UserMembershipItem,
+    UserMembershipUpdate,
     UserUpdateRequest,
 )
 
@@ -38,6 +40,17 @@ log = logging.getLogger(__name__)
 
 _DETAIL_RECENT_LIMIT = 20
 _DETAIL_DAYS = 30
+
+
+@dataclass
+class MembershipView:
+    """用户所属班级（单用户多班级：列表/行内展示与筛选同源，都是这一集合）。"""
+
+    class_id: int
+    class_name: str
+    cohort_label: str
+    member_role: str
+    joined_at: datetime
 
 
 @dataclass
@@ -51,9 +64,7 @@ class UserBriefView:
     gender: str | None
     avatar: str | None
     created_at: datetime
-    class_id: int | None
-    class_name: str | None
-    grade_name: str | None
+    memberships: list[MembershipView]
 
 
 @dataclass
@@ -102,9 +113,6 @@ class UserService:
         self.db = db
 
     def _brief(self, user: User) -> UserBriefView:
-        ucs = user.user_classes
-        uc = ucs[0] if ucs else None
-        cls = uc.class_ if uc else None
         return UserBriefView(
             id=user.id,
             username=user.username,
@@ -115,10 +123,30 @@ class UserService:
             gender=user.gender,
             avatar=user.avatar,
             created_at=user.created_at,
-            class_id=cls.id if cls else None,
-            class_name=cls.name if cls else None,
-            grade_name=cls.grade.name if (cls and cls.grade) else None,
+            memberships=self.membership_views(user),
         )
+
+    @staticmethod
+    def membership_views(user: User) -> list[MembershipView]:
+        """用户全部成员关系（多班级）。``class_id`` 悬空的遗留行不展示。"""
+        views: list[MembershipView] = []
+        for m in user.memberships:
+            class_id = m.class_id
+            class_ = m.class_
+            # 悬空遗留行（class_id 可空 + ON DELETE SET NULL）不展示
+            if class_id is None or class_ is None:
+                continue
+            views.append(
+                MembershipView(
+                    class_id=class_id,
+                    class_name=class_.name,
+                    cohort_label=class_.cohort_label,
+                    member_role=m.member_role,
+                    joined_at=m.joined_at,
+                )
+            )
+        views.sort(key=lambda v: (v.cohort_label, v.class_name, v.class_id))
+        return views
 
     def list_all(
         self,
@@ -128,7 +156,7 @@ class UserService:
         search: str | None,
         role: str | None,
         class_id: int | None,
-        grade_id: int | None,
+        cohort_label: str | None,
     ) -> PaginatedUsersView:
         role_id: int | None = None
         if role:
@@ -140,7 +168,7 @@ class UserService:
             search=search,
             role_id=role_id,
             class_id=class_id,
-            grade_id=grade_id,
+            cohort_label=cohort_label,
         )
         return PaginatedUsersView(
             items=[self._brief(u) for u in users],
@@ -192,22 +220,39 @@ class UserService:
                 user.gender = req.gender or None
             if req.avatar is not None:
                 user.avatar = req.avatar or None
-            if req.class_id is not None:
-                if req.class_id != 0:
-                    cls = self.get_class(req.class_id)
-                    if not cls:
-                        raise ValidationError("班级不存在")
-                uc = self.get_user_class(user_id)
-                if req.class_id == 0:
-                    if uc:
-                        self.db.delete(uc)
-                else:
-                    if not uc:
-                        uc = UserClass(user_id=user_id)
-                        self.db.add(uc)
-                    uc.class_id = req.class_id
+            if req.memberships is not None:
+                # 单用户多班级：请求携带 memberships = 全量替换该用户的成员关系集合
+                # （不再有「只改第一条」或 class_id=0 清除哨兵）。
+                self._replace_memberships(user, req.memberships)
         self.db.refresh(user)
         return self._brief(user)
+
+    def _replace_memberships(self, user: User, desired_items: list[UserMembershipUpdate]) -> None:
+        desired: dict[int, str] = {}
+        for item in desired_items:
+            class_id = item.class_id
+            if class_id in desired:
+                raise ValidationError(f"班级 {class_id} 在成员列表中重复")
+            cls = self.get_class(class_id)
+            if not cls:
+                raise ValidationError(f"班级 {class_id} 不存在")
+            desired[class_id] = item.member_role
+
+        current = {m.class_id: m for m in user.memberships if m.class_id is not None}
+        # 悬空行（class_id IS NULL）顺手清掉：它们不代表任何班级
+        for m in user.memberships:
+            if m.class_id is None:
+                self.db.delete(m)
+        for class_id, membership in current.items():
+            if class_id not in desired:
+                self.db.delete(membership)
+        for class_id, member_role in desired.items():
+            membership = current.get(class_id)
+            if membership is None:
+                self.db.add(ClassMembership(user_id=user.id, class_id=class_id, member_role=member_role))
+            else:
+                membership.member_role = member_role
+        self.db.flush()
 
     def delete(self, user_id: int, current_user_id: int) -> str:
         if user_id == current_user_id:
@@ -334,37 +379,12 @@ class UserService:
         if len(users_data) > BATCH_USER_LIMIT:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
 
-        class_name_map: dict[str, int] = {}
-        for u in users_data:
-            cn = (u.get("class_name") or "").strip()
-            if cn and not u.get("class_id"):
-                if cn in class_name_map:
-                    u["class_id"] = class_name_map[cn]
-                else:
-                    existing = self.db.query(Class).filter(Class.name == cn).first()
-                    if existing:
-                        class_name_map[cn] = existing.id
-                        u["class_id"] = existing.id
-                    else:
-                        grade = self.db.query(Grade).filter(Grade.name == "默认").first()
-                        if not grade:
-                            grade = Grade(name="默认")
-                            self.db.add(grade)
-                            self.db.flush()
-                        cls = Class(name=cn, grade_id=grade.id)
-                        self.db.add(cls)
-                        self.db.flush()
-                        class_name_map[cn] = cls.id
-                        u["class_id"] = cls.id
-
-        class_ids = {u.get("class_id") for u in users_data if u.get("class_id")}
-        valid_class_ids = (
-            {c.id for c in self.db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
-        )
-
         created = 0
         skipped = 0
         errors: list[str] = []
+        # (cohort_label, class_name) → class_id：同名班级跨 cohort 时按 cohort 消歧
+        resolved: dict[tuple[str, str], int] = {}
+        class_by_id: dict[int, int] = {}
 
         for i, u in enumerate(users_data, 1):
             username = (u.get("username") or "").strip()
@@ -384,11 +404,6 @@ class UserService:
                 errors.append(f"第{i}行跳过 {username}: 用户名已存在")
                 skipped += 1
                 continue
-            class_id = u.get("class_id")
-            if class_id and class_id not in valid_class_ids:
-                errors.append(f"第{i}行跳过 {username}: 班级ID {class_id} 不存在")
-                skipped += 1
-                continue
             role_name = u.get("role", "")
             if role_name != "student":
                 errors.append(f"第{i}行跳过 {username}: 批量导入仅支持学生角色")
@@ -399,6 +414,13 @@ class UserService:
                 errors.append(f"第{i}行跳过 {username}: 角色 {role_name} 不存在")
                 skipped += 1
                 continue
+
+            class_id, class_error = self._resolve_import_class(u, resolved, class_by_id)
+            if class_error:
+                errors.append(f"第{i}行跳过 {username}: {class_error}")
+                skipped += 1
+                continue
+
             user = User(
                 username=username,
                 password_hash=hash_password(password),
@@ -409,7 +431,7 @@ class UserService:
             self.db.add(user)
             self.db.flush()
             if class_id:
-                self.db.add(UserClass(user_id=user.id, class_id=class_id))
+                self.db.add(ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT))
             created += 1
         try:
             self.db.commit()
@@ -419,33 +441,65 @@ class UserService:
             raise
         return BatchCreateResult(created=created, skipped=skipped, errors=errors)
 
-    def bulk_assign_class(self, user_ids: list[int], class_id: int) -> BulkAssignClassResult:
+    def _resolve_import_class(
+        self,
+        row: dict,
+        resolved: dict[tuple[str, str], int],
+        class_by_id: dict[int, int],
+    ) -> tuple[int | None, str | None]:
+        """导入行的班级解析：``class_id`` > (cohort_label, class_name) 精确匹配 > 新建。
+
+        班级名在同 cohort 内重复，或跨 cohort 有多条同名而请求又未给出 cohort_label 时，
+        报错而不是静默挑一个。
+        """
+        raw_id = row.get("class_id")
+        if raw_id:
+            if raw_id not in class_by_id:
+                if not self.get_class(raw_id):
+                    return None, f"班级ID {raw_id} 不存在"
+                class_by_id[raw_id] = raw_id
+            return raw_id, None
+
+        name = (row.get("class_name") or "").strip()
+        if not name:
+            return None, None
+        cohort_label = (row.get("cohort_label") or "").strip()
+        key = (cohort_label, name)
+        if key in resolved:
+            return resolved[key], None
+
+        q = self.db.query(Class).filter(Class.name == name)
+        if cohort_label:
+            q = q.filter(Class.cohort_label == cohort_label)
+        matches = q.limit(2).all()
+        if len(matches) > 1:
+            return None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
+        if matches:
+            resolved[key] = matches[0].id
+            return matches[0].id, None
+
+        cls = Class(name=name, cohort_label=cohort_label)
+        self.db.add(cls)
+        self.db.flush()
+        resolved[key] = cls.id
+        return cls.id, None
+
+    def bulk_assign_class(
+        self, user_ids: list[int], class_id: int, member_role: str = MEMBER_ROLE_STUDENT
+    ) -> BulkAssignClassResult:
         target_class = self.get_class(class_id)
         if not target_class:
             raise NotFoundError("班级不存在")
 
-        assigned = 0
-        skipped = 0
-        errors: list[str] = []
-
         with unit_of_work(self.db, conflict_detail="操作冲突，请重试"):
-            for uid in user_ids:
-                user_obj = self.db.get(User, uid)
-                if not user_obj:
-                    skipped += 1
-                    continue
-                try:
-                    uc = self.get_user_class(uid)
-                    if uc:
-                        uc.class_id = class_id
-                    else:
-                        self.db.add(UserClass(user_id=uid, class_id=class_id))
-                    assigned += 1
-                except Exception:
-                    log.warning("bulk assign failed for uid", exc_info=True)
-                    errors.append(f"用户 {uid} 分配失败")
+            added, updated, missing = upsert_members(self.db, class_id, user_ids, member_role=member_role)
 
-        return BulkAssignClassResult(assigned=assigned, skipped=skipped, errors=errors)
+        return BulkAssignClassResult(
+            assigned=added,
+            updated=updated,
+            skipped=len(missing),
+            errors=[f"用户 {uid} 不存在" for uid in missing],
+        )
 
     def get_by_username(self, username: str) -> User | None:
         return self.db.query(User).filter(User.username == username).first()
@@ -455,7 +509,7 @@ class UserService:
             self.db.query(User)
             .options(
                 joinedload(User.role),
-                joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade),
+                selectinload(User.memberships).joinedload(ClassMembership.class_),
             )
             .filter(User.id == user_id)
             .first()
@@ -469,9 +523,6 @@ class UserService:
 
     def get_class(self, class_id: int) -> Class | None:
         return self.db.query(Class).filter(Class.id == class_id).first()
-
-    def get_user_class(self, user_id: int) -> UserClass | None:
-        return self.db.query(UserClass).filter(UserClass.user_id == user_id).first()
 
     def create(self, **kwargs) -> User:
         user = User(**kwargs)
@@ -487,16 +538,15 @@ class UserService:
         search: str | None,
         role_id: int | None,
         class_id: int | None,
-        grade_id: int | None,
+        cohort_label: str | None,
     ) -> tuple[int, list[User]]:
         q = self.db.query(User)
-        if class_id is not None or grade_id is not None:
-            q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
-            if class_id is not None:
-                q = q.filter(UserClass.class_id == class_id)
-            elif grade_id is not None:
-                q = q.join(Class, Class.id == UserClass.class_id)
-                q = q.filter(Class.grade_id == grade_id)
+        # 成员语义：筛的是「是否属于该班/该 cohort」，展示的是 complete 的 memberships 集合，
+        # 因此不存在「筛进 A 班却显示 B 班」的口径错位。
+        if class_id is not None:
+            q = q.filter(User.memberships.any(ClassMembership.class_id == class_id))
+        elif cohort_label is not None:
+            q = q.filter(User.memberships.any(ClassMembership.class_.has(Class.cohort_label == cohort_label)))
         if search:
             term = f"%{search}%"
             q = q.filter(
@@ -512,7 +562,7 @@ class UserService:
         users = (
             q.options(
                 joinedload(User.role),
-                joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade),
+                selectinload(User.memberships).joinedload(ClassMembership.class_),
             )
             .order_by(User.created_at.desc())
             .offset(offset)
@@ -597,9 +647,16 @@ def _brief(v: UserBriefView) -> UserBrief:
         gender=v.gender,
         avatar=v.avatar,
         created_at=v.created_at,
-        class_id=v.class_id,
-        class_name=v.class_name,
-        grade_name=v.grade_name,
+        memberships=[
+            UserMembershipItem(
+                class_id=m.class_id,
+                class_name=m.class_name,
+                cohort_label=m.cohort_label,
+                member_role=m.member_role,
+                joined_at=m.joined_at,
+            )
+            for m in v.memberships
+        ],
     )
 
 
@@ -646,10 +703,15 @@ def list_users(
     search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None,
     role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None,
     class_id: Annotated[int | None, Query()] = None,
-    grade_id: Annotated[int | None, Query()] = None,
+    cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None,
 ):
     view = UserService(db).list_all(
-        offset=offset, limit=limit, search=search, role=role, class_id=class_id, grade_id=grade_id
+        offset=offset,
+        limit=limit,
+        search=search,
+        role=role,
+        class_id=class_id,
+        cohort_label=cohort_label,
     )
     return PaginatedResponse(
         items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit
@@ -709,9 +771,10 @@ def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: D
 
 @router.post("/users/bulk-assign-class", response_model=BulkAssignClassResult)
 def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: DbSession):
-    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id)
+    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id, req.member_role)
     log.info(
-        f"批量分配班级: assigned={result.assigned} skipped={result.skipped} class_id={req.class_id}",
+        f"批量分配班级: assigned={result.assigned} updated={result.updated} "
+        f"skipped={result.skipped} class_id={req.class_id} role={req.member_role}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return result

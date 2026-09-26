@@ -20,20 +20,22 @@
         ],
         "parameters": [
           {
-            "name": "grade_id",
+            "name": "cohort_label",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Grade Id"
-            }
+              "description": "届/年级标签精确过滤",
+              "title": "Cohort Label"
+            },
+            "description": "届/年级标签精确过滤"
           }
         ],
         "responses": {
@@ -110,6 +112,52 @@
       }
     },
     "/api/admin/classes/{class_id}": {
+      "get": {
+        "tags": [
+          "管理",
+          "班级管理"
+        ],
+        "summary": "Get Class",
+        "operationId": "get_class_api_admin_classes__class_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Class Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": [
           "管理",
@@ -186,6 +234,284 @@
             "schema": {
               "type": "integer",
               "title": "Class Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/classes/{class_id}/members": {
+      "get": {
+        "tags": [
+          "管理",
+          "班级成员"
+        ],
+        "summary": "List Class Members",
+        "operationId": "list_class_members_api_admin_classes__class_id__members_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Class Id"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "student|teacher",
+              "title": "Role"
+            },
+            "description": "student|teacher"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "搜索用户名/姓名/学号",
+              "title": "Search"
+            },
+            "description": "搜索用户名/姓名/学号"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_ClassMemberItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "管理",
+          "班级成员"
+        ],
+        "summary": "Add Class Members",
+        "operationId": "add_class_members_api_admin_classes__class_id__members_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Class Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassMemberAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMemberMutationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/classes/{class_id}/members/bulk-remove": {
+      "post": {
+        "tags": [
+          "管理",
+          "班级成员"
+        ],
+        "summary": "Remove Class Members",
+        "operationId": "remove_class_members_api_admin_classes__class_id__members_bulk_remove_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Class Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassMemberRemoveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMemberMutationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/classes/{class_id}/members/{user_id}": {
+      "delete": {
+        "tags": [
+          "管理",
+          "班级成员"
+        ],
+        "summary": "Remove Class Member",
+        "operationId": "remove_class_member_api_admin_classes__class_id__members__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "class_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Class Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
             }
           }
         ],
@@ -363,186 +689,6 @@
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/grades": {
-      "get": {
-        "tags": [
-          "管理",
-          "年级管理"
-        ],
-        "summary": "List Grades",
-        "operationId": "list_grades_api_admin_grades_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GradeResponse"
-                  },
-                  "type": "array",
-                  "title": "Response List Grades Api Admin Grades Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "管理",
-          "年级管理"
-        ],
-        "summary": "Create Grade",
-        "operationId": "create_grade_api_admin_grades_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GradeCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GradeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/grades/{grade_id}": {
-      "put": {
-        "tags": [
-          "管理",
-          "年级管理"
-        ],
-        "summary": "Update Grade",
-        "operationId": "update_grade_api_admin_grades__grade_id__put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "grade_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Grade Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GradeUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GradeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "管理",
-          "年级管理"
-        ],
-        "summary": "Delete Grade",
-        "operationId": "delete_grade_api_admin_grades__grade_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "grade_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Grade Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
               }
             }
           },
@@ -1950,20 +2096,22 @@
             }
           },
           {
-            "name": "grade_id",
+            "name": "cohort_label",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Grade Id"
-            }
+              "description": "届/年级标签精确过滤",
+              "title": "Cohort Label"
+            },
+            "description": "届/年级标签精确过滤"
           }
         ],
         "responses": {
@@ -3187,6 +3335,7 @@
           "病例"
         ],
         "summary": "List Cases",
+        "description": "学生目录：只返回已发布（published）且向学生开放的病例。",
         "operationId": "list_cases_api_cases_get",
         "security": [
           {
@@ -3216,24 +3365,6 @@
               "default": 50,
               "title": "Limit"
             }
-          },
-          {
-            "name": "training_type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "训练类型(history_taking)",
-              "title": "Training Type"
-            },
-            "description": "训练类型(history_taking)"
           },
           {
             "name": "difficulty",
@@ -3302,6 +3433,7 @@
           "病例"
         ],
         "summary": "Create Case",
+        "description": "新建病例（draft）：内容先落工作副本，发布（POST /{id}/publish）才产生版本。",
         "operationId": "create_case_api_cases_post",
         "security": [
           {
@@ -3417,7 +3549,7 @@
             "description": "困难程度 1=初级 2=中级 3=高级"
           },
           {
-            "name": "training_type",
+            "name": "status",
             "in": "query",
             "required": false,
             "schema": {
@@ -3429,10 +3561,10 @@
                   "type": "null"
                 }
               ],
-              "description": "训练类型(history_taking)",
-              "title": "Training Type"
+              "description": "生命周期筛选(draft/published/archived)；缺省不含归档",
+              "title": "Status"
             },
-            "description": "训练类型(history_taking)"
+            "description": "生命周期筛选(draft/published/archived)；缺省不含归档"
           },
           {
             "name": "is_open",
@@ -3711,6 +3843,202 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CaseManageItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/validation": {
+      "get": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "Get Case Validation",
+        "description": "发布门禁预览：字段级 error/warning（与 CI 病例审计同一份规则）。",
+        "operationId": "get_case_validation_api_cases__case_id__validation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseValidationReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/publish": {
+      "post": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "Publish Case",
+        "description": "发布病例：门禁通过才落版本（error → 422 + 报告）。",
+        "operationId": "publish_case_api_cases__case_id__publish_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasePublishResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/archive": {
+      "post": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "Archive Case",
+        "description": "归档病例：只阻止新使用，历史 revision 与既有训练复盘不受影响。",
+        "operationId": "archive_case_api_cases__case_id__archive_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseManageItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases/{case_id}/revisions": {
+      "get": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "List Case Revisions",
+        "description": "版本历史（新→旧）：已发布 revision 不可改，编辑产生新版本。",
+        "operationId": "list_case_revisions_api_cases__case_id__revisions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CaseRevisionItem"
+                  },
+                  "title": "Response List Case Revisions Api Cases  Case Id  Revisions Get"
                 }
               }
             }
@@ -7269,19 +7597,20 @@
         ],
         "parameters": [
           {
-            "name": "grade_id",
+            "name": "cohort_label",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "string",
+                  "maxLength": 40
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Grade Id"
+              "title": "Cohort Label"
             }
           },
           {
@@ -7943,24 +8272,6 @@
             }
           },
           {
-            "name": "training_type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "按训练类型筛选(history_taking)",
-              "title": "Training Type"
-            },
-            "description": "按训练类型筛选(history_taking)"
-          },
-          {
             "name": "user_id",
             "in": "query",
             "required": false,
@@ -8202,6 +8513,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EndTrainingRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8783,6 +9111,11 @@
           },
           "snapshot": {
             "$ref": "#/components/schemas/SimulationSnapshot"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed",
+            "default": false
           }
         },
         "type": "object",
@@ -9151,6 +9484,30 @@
         "type": "object",
         "title": "ApiSecretUpdate"
       },
+      "AssignmentAudience": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "class",
+              "selected"
+            ],
+            "title": "Mode",
+            "default": "class"
+          },
+          "user_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "User Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AssignmentAudience",
+        "description": "作业受众（发布/更新时提交）。\n\n``class`` = 发布时全班学生成员快照；``selected`` = 发布时显式名单（必须显式给出\n``user_ids``）。两种模式都在发布时固化到受众快照，之后班级成员变动不再影响它。"
+      },
       "AssignmentCreateRequest": {
         "properties": {
           "case_id": {
@@ -9191,19 +9548,8 @@
             "type": "object",
             "title": "Behavior"
           },
-          "student_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Student Ids"
+          "audience": {
+            "$ref": "#/components/schemas/AssignmentAudience"
           },
           "start_time": {
             "type": "string",
@@ -9289,19 +9635,18 @@
             "type": "object",
             "title": "Behavior"
           },
-          "student_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Student Ids"
+          "audience_mode": {
+            "type": "string",
+            "title": "Audience Mode",
+            "default": "class"
+          },
+          "recipient_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Recipient Ids",
+            "description": "发布时固化的受众快照"
           },
           "start_time": {
             "type": "string",
@@ -9442,6 +9787,11 @@
             "type": "string",
             "format": "date-time",
             "title": "End Time"
+          },
+          "audience_mode": {
+            "type": "string",
+            "title": "Audience Mode",
+            "default": "class"
           },
           "student_count": {
             "type": "integer",
@@ -9661,19 +10011,15 @@
             ],
             "title": "Behavior"
           },
-          "student_ids": {
+          "audience": {
             "anyOf": [
               {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
+                "$ref": "#/components/schemas/AssignmentAudience"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Student Ids"
+            ]
           },
           "start_time": {
             "anyOf": [
@@ -9811,6 +10157,19 @@
               }
             ],
             "title": "Class Name"
+          },
+          "cohort_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohort Label",
+            "description": "班级名歧义时用于消歧"
           }
         },
         "additionalProperties": false,
@@ -9881,6 +10240,15 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Class Id"
+          },
+          "member_role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "teacher"
+            ],
+            "title": "Member Role",
+            "default": "student"
           }
         },
         "additionalProperties": false,
@@ -9896,6 +10264,11 @@
           "assigned": {
             "type": "integer",
             "title": "Assigned"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
           },
           "skipped": {
             "type": "integer",
@@ -9970,15 +10343,15 @@
             ],
             "title": "Description"
           },
-          "training_type": {
+          "status": {
             "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
+            "title": "Status",
+            "default": "draft"
           },
           "time_limit_minutes": {
             "type": "integer",
             "title": "Time Limit Minutes",
-            "default": 20
+            "default": 30
           },
           "is_open": {
             "type": "boolean",
@@ -10062,6 +10435,48 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Case Data"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "draft"
+          },
+          "is_open": {
+            "type": "boolean",
+            "title": "Is Open",
+            "default": false
+          },
+          "difficulty": {
+            "type": "integer",
+            "title": "Difficulty",
+            "default": 1
+          },
+          "time_limit_minutes": {
+            "type": "integer",
+            "title": "Time Limit Minutes",
+            "default": 30
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "current_revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision No"
           }
         },
         "type": "object",
@@ -10079,11 +10494,6 @@
             "pattern": "^(quick|reference)$",
             "title": "Mode",
             "default": "quick"
-          },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
           },
           "description": {
             "type": "string",
@@ -10134,7 +10544,7 @@
               }
             ],
             "title": "Field",
-            "description": "生成/重生成单个顶层字段（如 present_illness、exam_anchors）"
+            "description": "生成/重生成单个顶层字段（如 present_illness、activities）"
           },
           "current_case_data": {
             "anyOf": [
@@ -10215,10 +10625,32 @@
             ],
             "title": "Description"
           },
-          "training_type": {
+          "status": {
             "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
+            "title": "Status",
+            "default": "draft"
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "current_revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision No"
           },
           "patient_name": {
             "type": "string",
@@ -10249,7 +10681,7 @@
           "time_limit": {
             "type": "integer",
             "title": "Time Limit",
-            "default": 20
+            "default": 30
           },
           "difficulty": {
             "type": "integer",
@@ -10321,6 +10753,75 @@
         ],
         "title": "CaseMeta"
       },
+      "CasePublishResponse": {
+        "properties": {
+          "case": {
+            "$ref": "#/components/schemas/CaseManageItem"
+          },
+          "report": {
+            "$ref": "#/components/schemas/CaseValidationReport"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case",
+          "report"
+        ],
+        "title": "CasePublishResponse"
+      },
+      "CaseRevisionItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "revision_no": {
+            "type": "integer",
+            "title": "Revision No"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "is_current": {
+            "type": "boolean",
+            "title": "Is Current",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "revision_no",
+          "created_at"
+        ],
+        "title": "CaseRevisionItem",
+        "description": "病例版本（不可变内容快照）—— 教师侧「版本」视图。"
+      },
       "CaseUpdateRequest": {
         "properties": {
           "case_data": {
@@ -10335,6 +10836,82 @@
           "case_data"
         ],
         "title": "CaseUpdateRequest"
+      },
+      "CaseValidationIssue": {
+        "properties": {
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "fix_hint": {
+            "type": "string",
+            "title": "Fix Hint",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "severity",
+          "message"
+        ],
+        "title": "CaseValidationIssue"
+      },
+      "CaseValidationReport": {
+        "properties": {
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name"
+          },
+          "publishable": {
+            "type": "boolean",
+            "title": "Publishable",
+            "default": false
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/CaseValidationIssue"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/CaseValidationIssue"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "infos": {
+            "items": {
+              "$ref": "#/components/schemas/CaseValidationIssue"
+            },
+            "type": "array",
+            "title": "Infos",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "case_name"
+        ],
+        "title": "CaseValidationReport",
+        "description": "发布门禁报告（复用 modules/cases/validator.py）。"
       },
       "ChangePasswordRequest": {
         "properties": {
@@ -10440,25 +11017,201 @@
       },
       "ClassCreate": {
         "properties": {
-          "grade_id": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Grade Id"
-          },
           "name": {
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
             "title": "Name"
+          },
+          "cohort_label": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Cohort Label",
+            "description": "届/年级标签，同一标签下班级名唯一",
+            "default": ""
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "grade_id",
           "name"
         ],
         "title": "ClassCreate"
+      },
+      "ClassDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "cohort_label": {
+            "type": "string",
+            "title": "Cohort Label",
+            "default": ""
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "teacher_count": {
+            "type": "integer",
+            "title": "Teacher Count",
+            "default": 0
+          },
+          "assignment_count": {
+            "type": "integer",
+            "title": "Assignment Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/ClassMemberItem"
+            },
+            "type": "array",
+            "title": "Members"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "ClassDetailResponse"
+      },
+      "ClassMemberAddRequest": {
+        "properties": {
+          "user_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "User Ids"
+          },
+          "member_role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "teacher"
+            ],
+            "title": "Member Role",
+            "default": "student"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_ids"
+        ],
+        "title": "ClassMemberAddRequest"
+      },
+      "ClassMemberItem": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "member_role": {
+            "type": "string",
+            "title": "Member Role"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "member_role",
+          "joined_at"
+        ],
+        "title": "ClassMemberItem"
+      },
+      "ClassMemberMutationResult": {
+        "properties": {
+          "added": {
+            "type": "integer",
+            "title": "Added",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed",
+            "default": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "default": 0
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "title": "ClassMemberMutationResult",
+        "description": "批量增删成员的落地结果。``updated`` = 已存在但角色被改写的成员数。"
+      },
+      "ClassMemberRemoveRequest": {
+        "properties": {
+          "user_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "User Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_ids"
+        ],
+        "title": "ClassMemberRemoveRequest"
       },
       "ClassResponse": {
         "properties": {
@@ -10466,22 +11219,28 @@
             "type": "integer",
             "title": "Id"
           },
-          "grade_id": {
-            "type": "integer",
-            "title": "Grade Id"
-          },
-          "grade_name": {
-            "type": "string",
-            "title": "Grade Name",
-            "default": ""
-          },
           "name": {
             "type": "string",
             "title": "Name"
           },
+          "cohort_label": {
+            "type": "string",
+            "title": "Cohort Label",
+            "default": ""
+          },
           "student_count": {
             "type": "integer",
             "title": "Student Count",
+            "default": 0
+          },
+          "teacher_count": {
+            "type": "integer",
+            "title": "Teacher Count",
+            "default": 0
+          },
+          "assignment_count": {
+            "type": "integer",
+            "title": "Assignment Count",
             "default": 0
           },
           "created_at": {
@@ -10493,7 +11252,6 @@
         "type": "object",
         "required": [
           "id",
-          "grade_id",
           "name",
           "created_at"
         ],
@@ -10567,9 +11325,10 @@
             "type": "string",
             "title": "Class Name"
           },
-          "grade_name": {
+          "cohort_label": {
             "type": "string",
-            "title": "Grade Name"
+            "title": "Cohort Label",
+            "default": ""
           },
           "student_count": {
             "type": "integer",
@@ -10606,8 +11365,7 @@
         "type": "object",
         "required": [
           "class_id",
-          "class_name",
-          "grade_name"
+          "class_name"
         ],
         "title": "ClassSummaryItemSchema"
       },
@@ -10626,17 +11384,17 @@
             ],
             "title": "Name"
           },
-          "grade_id": {
+          "cohort_label": {
             "anyOf": [
               {
-                "type": "integer",
-                "exclusiveMinimum": 0.0
+                "type": "string",
+                "maxLength": 40
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Grade Id"
+            "title": "Cohort Label"
           }
         },
         "additionalProperties": false,
@@ -10874,6 +11632,30 @@
           "total_sessions"
         ],
         "title": "DurationStats"
+      },
+      "EndTrainingRequest": {
+        "properties": {
+          "submit_nursing_record": {
+            "type": "boolean",
+            "title": "Submit Nursing Record",
+            "default": false
+          },
+          "nursing_record_sheet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nursing Record Sheet"
+          }
+        },
+        "type": "object",
+        "title": "EndTrainingRequest",
+        "description": "结束训练请求（全部可选，向后兼容无 body 调用）。\n\n``submit_nursing_record`` + ``nursing_record_sheet`` 构成**原子「提交并完成」**：\n服务端在同一事务里先落盘草稿、冻结提交版本，再校验完成前置条件并完成训练——\n学生看到的最后内容与被评分的内容必然一致。"
       },
       "ErrorItem": {
         "properties": {
@@ -11211,72 +11993,6 @@
           "created_at"
         ],
         "title": "FeedbackSubmitResponse"
-      },
-      "GradeCreate": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Name"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "GradeCreate"
-      },
-      "GradeResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "class_count": {
-            "type": "integer",
-            "title": "Class Count",
-            "default": 0
-          },
-          "student_count": {
-            "type": "integer",
-            "title": "Student Count",
-            "default": 0
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "created_at"
-        ],
-        "title": "GradeResponse"
-      },
-      "GradeUpdate": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Name"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "GradeUpdate"
       },
       "HTTPValidationError": {
         "properties": {
@@ -11963,6 +12679,37 @@
         ],
         "title": "PaginatedResponse[CaseManageItem]"
       },
+      "PaginatedResponse_ClassMemberItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClassMemberItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[ClassMemberItem]"
+      },
       "PaginatedResponse_FeedbackItem_": {
         "properties": {
           "items": {
@@ -12378,6 +13125,11 @@
               }
             ],
             "title": "Citations"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
           }
         },
         "type": "object",
@@ -14457,6 +15209,30 @@
         "properties": {
           "action": {
             "$ref": "#/components/schemas/SimulationActionIn"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "idem_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idem Key"
           }
         },
         "additionalProperties": false,
@@ -15760,11 +16536,6 @@
             "type": "string",
             "title": "Case Name"
           },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
-          },
           "user_id": {
             "type": "integer",
             "title": "User Id"
@@ -15949,7 +16720,7 @@
           "time_limit": {
             "type": "integer",
             "title": "Time Limit",
-            "default": 20
+            "default": 30
           },
           "remaining_seconds": {
             "anyOf": [
@@ -16003,11 +16774,6 @@
             "type": "string",
             "title": "Patient Gender",
             "default": ""
-          },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
           },
           "features": {
             "additionalProperties": {
@@ -16066,6 +16832,29 @@
             ],
             "title": "Nursing Record Sheet"
           },
+          "nursing_record_submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nursing Record Submitted At"
+          },
+          "terminal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Reason"
+          },
           "emotion": {
             "anyOf": [
               {
@@ -16111,6 +16900,18 @@
             "type": "boolean",
             "title": "Is Test",
             "default": false
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest"
           }
         },
         "type": "object",
@@ -16137,11 +16938,6 @@
             "title": "Status",
             "default": "in_progress"
           },
-          "training_type": {
-            "type": "string",
-            "title": "Training Type",
-            "default": "history_taking"
-          },
           "case_id": {
             "type": "integer",
             "title": "Case Id"
@@ -16161,7 +16957,7 @@
           "time_limit": {
             "type": "integer",
             "title": "Time Limit",
-            "default": 20
+            "default": 30
           },
           "remaining_seconds": {
             "type": "integer",
@@ -16449,6 +17245,33 @@
             ],
             "title": "Avatar"
           },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/UserMembershipItem"
+            },
+            "type": "array",
+            "title": "Memberships"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "role",
+          "role_display_name",
+          "display_name",
+          "student_id",
+          "created_at"
+        ],
+        "title": "UserBrief"
+      },
+      "UserMembershipItem": {
+        "properties": {
           "class_id": {
             "anyOf": [
               {
@@ -16471,7 +17294,7 @@
             ],
             "title": "Class Name"
           },
-          "grade_name": {
+          "cohort_label": {
             "anyOf": [
               {
                 "type": "string"
@@ -16480,25 +17303,54 @@
                 "type": "null"
               }
             ],
-            "title": "Grade Name"
+            "title": "Cohort Label"
           },
-          "created_at": {
+          "member_role": {
             "type": "string",
-            "format": "date-time",
-            "title": "Created At"
+            "title": "Member Role",
+            "default": "student"
+          },
+          "joined_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined At"
           }
         },
         "type": "object",
+        "title": "UserMembershipItem",
+        "description": "用户所属班级（单用户多班级：一个用户可有多条）。"
+      },
+      "UserMembershipUpdate": {
+        "properties": {
+          "class_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Class Id"
+          },
+          "member_role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "teacher"
+            ],
+            "title": "Member Role",
+            "default": "student"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
         "required": [
-          "id",
-          "username",
-          "role",
-          "role_display_name",
-          "display_name",
-          "student_id",
-          "created_at"
+          "class_id"
         ],
-        "title": "UserBrief"
+        "title": "UserMembershipUpdate",
+        "description": "用户编辑里的成员关系项 —— 提供 ``memberships`` 即为全量替换。"
       },
       "UserProfileUpdateRequest": {
         "properties": {
@@ -16579,16 +17431,20 @@
             ],
             "title": "Student Id"
           },
-          "class_id": {
+          "memberships": {
             "anyOf": [
               {
-                "type": "integer"
+                "items": {
+                  "$ref": "#/components/schemas/UserMembershipUpdate"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Class Id"
+            "title": "Memberships",
+            "description": "成员关系全量替换；省略该键 = 不修改"
           },
           "role": {
             "anyOf": [

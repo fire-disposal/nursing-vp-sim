@@ -1,12 +1,14 @@
 import { IconCheck, IconSearch, IconSelector } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Box, Divider, Group, Loader, Mark, Paper, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { caseStatusLabel } from "./caseStatus";
 
 export interface CaseOption {
 	id: number;
 	name: string;
 	difficulty?: number;
-	training_type?: string;
+	/** 生命周期：只应传入 published；非 published 会渲染为不可用提示。 */
+	status?: string;
 }
 
 interface CaseSelectorProps {
@@ -14,11 +16,9 @@ interface CaseSelectorProps {
 	value: number;
 	onChange: (id: number) => void;
 	loading?: boolean;
+	/** 无可选病例时的说明文案。 */
+	emptyHint?: string;
 }
-
-const TRAINING_TYPE_LABELS: Record<string, string> = {
-	history_taking: "病史采集",
-};
 
 const DIFFICULTY_LABELS: Record<number, string> = {
 	1: "初级",
@@ -31,6 +31,16 @@ const DIFFICULTY_COLORS: Record<number, "success" | "warning" | "danger"> = {
 	2: "warning",
 	3: "danger",
 };
+
+/** 生命周期徽章只在不可用时出现（已发布是常态，不必重复标注）。 */
+function UnavailableStatusBadge({ status }: { status?: string }) {
+	if (!status || status === "published") return null;
+	return (
+		<Badge variant="light" color="orange" size="xs">
+			{caseStatusLabel(status)}·不可用
+		</Badge>
+	);
+}
 
 function highlightMatch(text: string, query: string) {
 	if (!query.trim()) return <>{text}</>;
@@ -49,7 +59,7 @@ function highlightMatch(text: string, query: string) {
 	);
 }
 
-export default function CaseSelector({ cases, value, onChange, loading }: CaseSelectorProps) {
+export default function CaseSelector({ cases, value, onChange, loading, emptyHint }: CaseSelectorProps) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -64,10 +74,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 		const q = search.toLowerCase();
 		return cases.filter((c) => {
 			if (c.name.toLowerCase().includes(q)) return true;
-			if (c.training_type) {
-				const label = TRAINING_TYPE_LABELS[c.training_type] || c.training_type;
-				if (label.toLowerCase().includes(q)) return true;
-			}
+			if (c.status && caseStatusLabel(c.status).toLowerCase().includes(q)) return true;
 			if (c.difficulty != null) {
 				const label = DIFFICULTY_LABELS[c.difficulty] || String(c.difficulty);
 				if (label.toLowerCase().includes(q)) return true;
@@ -176,11 +183,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 										{DIFFICULTY_LABELS[selected.difficulty] ?? selected.difficulty}
 									</Badge>
 								)}
-								{selected.training_type && TRAINING_TYPE_LABELS[selected.training_type] && (
-									<Badge variant="neutral" size="xs">
-										{TRAINING_TYPE_LABELS[selected.training_type]}
-									</Badge>
-								)}
+								<UnavailableStatusBadge status={selected.status} />
 							</>
 						) : (
 							<Text size="sm" c="dimmed">选择病例...</Text>
@@ -212,7 +215,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 							</Group>
 						) : filtered.length === 0 ? (
 							<Text size="sm" c="dimmed" ta="center" px="md" py="lg">
-								{search ? "无匹配病例" : "暂无可选病例"}
+								{search ? "无匹配病例" : emptyHint ?? "暂无可选病例"}
 							</Text>
 						) : (
 							<Stack ref={listRef} gap={0} py={4}>
@@ -250,11 +253,7 @@ export default function CaseSelector({ cases, value, onChange, loading }: CaseSe
 													{DIFFICULTY_LABELS[c.difficulty] ?? c.difficulty}
 												</Badge>
 											)}
-											{c.training_type && TRAINING_TYPE_LABELS[c.training_type] && (
-												<Badge variant="neutral" size="xs">
-													{TRAINING_TYPE_LABELS[c.training_type]}
-												</Badge>
-											)}
+											<UnavailableStatusBadge status={c.status} />
 										</Group>
 									</UnstyledButton>
 								))}

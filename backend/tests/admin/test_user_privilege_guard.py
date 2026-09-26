@@ -15,20 +15,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from core.database import Base
-from core.exceptions import AuthError
+from core.exceptions import AuthError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
-from models import Class, Grade, Role, RolePermission, User, UserClass
+from models import Class, ClassMembership, Role, RolePermission, User
 from modules.admin.users import UserService
-from schemas import UserUpdateRequest
+from schemas import UserMembershipUpdate, UserUpdateRequest
 
 _TABLES = [
-    Grade.__table__,
     Class.__table__,
+    ClassMembership.__table__,
     Role.__table__,
     RolePermission.__table__,
     User.__table__,
-    UserClass.__table__,
 ]
 
 
@@ -121,3 +120,107 @@ class TestPasswordResetScope:
         UserService(db).update(target.id, UserUpdateRequest(password="newpass123"), current_user=actor)
 
         assert db.get(User, target.id).password_hash != before
+
+
+def _make_class(db: Session, name: str, cohort_label: str = "2026级") -> Class:
+    cls = Class(name=name, cohort_label=cohort_label)
+    db.add(cls)
+    db.commit()
+    db.refresh(cls)
+    return cls
+
+
+class TestMembershipReplacement:
+    """单用户多班级：``memberships`` 是**全量替换**集合。
+
+    缺陷背景：老实现用 ``class_id``（0 作清除哨兵）+ ``user_classes[0]``，用户编辑只能
+    改第一条成员关系，行内展示也可能显示与筛选不一致的那条。
+    """
+
+    def test_memberships_replaced_as_a_whole(self, db):
+        actor = _make_user(db, "root-actor3", "super_admin")
+        target = _make_user(db, "student-multi", "student")
+        first = _make_class(db, "1班")
+        second = _make_class(db, "2班")
+
+        UserService(db).update(
+            target.id,
+            UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=first.id)]),
+            current_user=actor,
+        )
+        view = UserService(db).update(
+            target.id,
+            UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=second.id, member_role="teacher")]),
+            current_user=actor,
+        )
+
+        assert [m.class_id for m in view.memberships] == [second.id]
+        assert view.memberships[0].class_name == "2班"
+        assert view.memberships[0].member_role == "teacher"
+        assert db.query(ClassMembership).filter(ClassMembership.user_id == target.id).count() == 1
+
+    def test_all_memberships_are_reported_not_just_the_first(self, db):
+        actor = _make_user(db, "root-actor4", "super_admin")
+        target = _make_user(db, "student-multi2", "student")
+        first = _make_class(db, "1班", "2027级")
+        second = _make_class(db, "2班", "2026级")
+
+        view = UserService(db).update(
+            target.id,
+            UserUpdateRequest(
+                memberships=[
+                    UserMembershipUpdate(class_id=first.id),
+                    UserMembershipUpdate(class_id=second.id),
+                ]
+            ),
+            current_user=actor,
+        )
+
+        # 排序按 (cohort_label, name)：2026级 在前
+        assert [(m.cohort_label, m.class_name) for m in view.memberships] == [
+            ("2026级", "2班"),
+            ("2027级", "1班"),
+        ]
+        assert db.query(ClassMembership).filter(ClassMembership.user_id == target.id).count() == 2
+
+    def test_unknown_class_is_rejected(self, db):
+        actor = _make_user(db, "root-actor5", "super_admin")
+        target = _make_user(db, "student-multi3", "student")
+
+        with pytest.raises(ValidationError):
+            UserService(db).update(
+                target.id,
+                UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=4242)]),
+                current_user=actor,
+            )
+
+    def test_duplicate_class_in_payload_is_rejected(self, db):
+        actor = _make_user(db, "root-actor6", "super_admin")
+        target = _make_user(db, "student-multi4", "student")
+        cls = _make_class(db, "3班")
+
+        with pytest.raises(ValidationError):
+            UserService(db).update(
+                target.id,
+                UserUpdateRequest(
+                    memberships=[
+                        UserMembershipUpdate(class_id=cls.id),
+                        UserMembershipUpdate(class_id=cls.id, member_role="teacher"),
+                    ]
+                ),
+                current_user=actor,
+            )
+
+    def test_omitting_memberships_leaves_them_untouched(self, db):
+        actor = _make_user(db, "root-actor7", "super_admin")
+        target = _make_user(db, "student-multi5", "student")
+        cls = _make_class(db, "4班")
+        UserService(db).update(
+            target.id,
+            UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=cls.id)]),
+            current_user=actor,
+        )
+
+        view = UserService(db).update(target.id, UserUpdateRequest(display_name="改个名"), current_user=actor)
+
+        assert [m.class_id for m in view.memberships] == [cls.id]

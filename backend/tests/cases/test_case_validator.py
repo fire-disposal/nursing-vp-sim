@@ -74,7 +74,7 @@ def test_fontanelle_removed():
 
 def test_fontanelle_detected():
     c = json.loads(json.dumps(_load("case6")))
-    c["tools"]["physical_exam"]["skin"] = {"全身": "皮肤潮红，弹性可，前囟平坦"}
+    c["activities"]["physical_exam"]["config"]["skin"] = {"全身": "皮肤潮红，弹性可，前囟平坦"}
     r = validate_case(c)
     assert any("前囟" in i.message for i in r.errors)
 
@@ -99,10 +99,19 @@ def test_example_count_too_few():
 
 def test_consumed_optional_fields_do_not_warn():
     c = _load("case1")
-    c["exam_anchors"] = {"vital_signs": {"temperature": "37℃"}}
     c["voice_override"] = "custom-speaker"
     r = validate_case(c)
-    assert not [i for i in r.warnings if i.field in {"exam_anchors", "voice_override"}]
+    assert not [i for i in r.warnings if i.field in {"activities", "voice_override"}]
+
+
+def test_legacy_tools_field_warns_after_migration():
+    """迁移后残留的旧形状（tools / exam_anchors）必须被审计点名。"""
+    c = json.loads(json.dumps(_load("case1")))
+    c["tools"] = {"physical_exam": {"vital_signs": {"temperature": "37℃"}}}
+    c["exam_anchors"] = {"vital_signs": {"temperature": "37℃"}}
+    r = validate_case(c)
+    warned = {i.field for i in r.warnings}
+    assert {"tools", "exam_anchors"} <= warned
 
 
 def test_unregistered_field_still_warns():
@@ -117,3 +126,59 @@ def test_retired_field_still_warns():
     c["capabilities"] = ["physical_exam"]
     r = validate_case(c)
     assert any(i.field == "capabilities" for i in r.warnings)
+
+
+# ── Activity 声明质量门禁（docs/15 §四/§十）──────────────────────────────
+
+
+def _activity_case(activities: object) -> dict:
+    c = json.loads(json.dumps(_load("case1")))
+    c["activities"] = activities
+    return c
+
+
+def test_unknown_activity_id_is_error():
+    """病例声明了内核不认识的 activity → 发布即失败，不允许静默不可达。"""
+    r = validate_case(_activity_case({"telepathy": {"config": {}}}))
+    assert any("内核不认识的 activity" in i.message for i in r.errors)
+
+
+def test_missing_config_is_error():
+    r = validate_case(_activity_case({"physical_exam": {}}))
+    assert any("缺少 config" in i.message for i in r.errors)
+
+
+def test_empty_physical_exam_config_is_error():
+    r = validate_case(_activity_case({"physical_exam": {"config": {}}}))
+    assert any("必须是非空对象" in i.message for i in r.errors)
+
+
+def test_physical_exam_config_without_any_source_is_error():
+    r = validate_case(_activity_case({"physical_exam": {"config": {"note": "无体征"}}}))
+    assert any("无法解析任何查体项" in i.message for i in r.errors)
+
+
+def test_quiz_without_questions_is_error():
+    r = validate_case(_activity_case({"quiz": {"config": {"title": "空测验", "questions": []}}}))
+    assert any("非空 questions" in i.message for i in r.errors)
+
+
+def test_declared_activities_pass():
+    c = _load("case1")
+    r = validate_case(c)
+    assert r.ok()
+    assert not [i for i in r.issues if i.field.startswith("activities")]
+
+
+def test_nursing_diagnosis_declaration_warns_not_productized():
+    """该 Activity 只写 runtime_state、无正式产物（docs/15 §三/§十）。"""
+    r = validate_case(_activity_case({"nursing_diagnosis": {"config": {"enabled": True}}}))
+    assert any("无正式产物" in i.message for i in r.warnings)
+    assert r.ok()
+
+
+def test_missing_activities_declaration_is_error():
+    c = json.loads(json.dumps(_load("case1")))
+    del c["activities"]
+    r = validate_case(c)
+    assert any("缺少 activities 声明" in i.message for i in r.errors)

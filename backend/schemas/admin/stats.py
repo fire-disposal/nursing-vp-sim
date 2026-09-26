@@ -48,7 +48,7 @@ class RankingItem(BaseModel):
 class ClassSummaryItemSchema(BaseModel):
     class_id: int
     class_name: str
-    grade_name: str
+    cohort_label: str = ""
     student_count: int = 0
     avg_score: float | None = None
     completion_rate: float = 0

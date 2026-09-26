@@ -1,9 +1,12 @@
 """Pydantic validation models for case_data JSONB.
 
-Validation only — never rewrites the payload: unknown keys (``tools.*``,
+Validation only — never rewrites the payload: unknown keys (``activities.*``,
 ``_seed_hash``…) pass through untouched, declared keys get coerced/validated.
 New data: strict validation (raises HTTP 422).
 Existing data: warn-only (strict=False), always passes through.
+
+元数据单源（docs/15 §六）：``name`` / ``difficulty`` / ``time_limit`` 只存在于 ``cases``
+列，``case_data`` 落库前由 :func:`strip_case_metadata` 剥离（读路径早已统一到列）。
 """
 
 from __future__ import annotations
@@ -15,8 +18,23 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from core.gender import normalize_gender  # noqa: F401 — re-export for existing callers
 from core.jsonb import JsonbModel
+from core.time_limits import (
+    DEFAULT_TIME_LIMIT_MINUTES,
+    MAX_TIME_LIMIT_MINUTES,
+    MIN_TIME_LIMIT_MINUTES,
+)
 
 log = logging.getLogger(__name__)
+
+#: 病例元数据键：只落在 ``cases`` 列，``case_data`` 不再重复保存（docs/15 §六）：
+#: name / difficulty / time_limit 读列；training_type 已整体退场（docs/15 §九）。
+CASE_METADATA_KEYS: tuple[str, ...] = ("name", "difficulty", "time_limit", "training_type")
+
+
+def strip_case_metadata(data: dict) -> dict:
+    """剥离元数据键后的 case_data 载荷（纯函数，不修改入参）。"""
+    return {k: v for k, v in data.items() if k not in CASE_METADATA_KEYS}
+
 
 # 嵌套声明模型与顶层 CaseDataSchema 同策：extra="allow"。
 # 写路径落库的是 model_dump() 的结果，校验器绝不能顺带改写数据 —— 在已声明
@@ -56,30 +74,6 @@ class PhaseTransition(BaseModel):
     auto_after_messages: int = 0
 
 
-class QuizOption(BaseModel):
-    model_config = _INNER_CFG
-
-    key: str
-    text: str
-
-
-class QuizQuestion(BaseModel):
-    model_config = _INNER_CFG
-
-    id: str
-    stem: str
-    options: list[QuizOption] = []
-    answer: str
-    explanation: str = ""
-
-
-class QuizConfig(BaseModel):
-    model_config = _INNER_CFG
-
-    title: str = "引导题目"
-    questions: list[QuizQuestion] = []
-
-
 class PhaseConfig(BaseModel):
     model_config = _INNER_CFG
 
@@ -93,13 +87,14 @@ class PhaseConfig(BaseModel):
 
 class CaseDataSchema(JsonbModel):
     # extra="allow"：写路径以 model_dump() 的结果落库（service.create/update），
-    # 校验器绝不能顺带改写数据 —— 未声明的配置（tools.physical_exam / tools.nursing_record、
-    # 种子指纹 _seed_hash 等）必须原样往返，否则教师一保存就丢掉工具配置。
+    # 校验器绝不能顺带改写数据 —— 未声明的配置（voice_override、各 Activity 自定义的
+    # config 子键、种子指纹 _seed_hash 等）必须原样往返，否则教师一保存就丢配置。
     model_config = ConfigDict(extra="allow")
 
+    # 元数据三键：写路径读进 cases 列后即剥离（CASE_METADATA_KEYS），不留在 case_data。
     name: str = Field(min_length=1, max_length=100)
     difficulty: int = Field(default=1, ge=1, le=3)
-    time_limit: int = Field(default=20, ge=5, le=120)
+    time_limit: int = Field(default=DEFAULT_TIME_LIMIT_MINUTES, ge=MIN_TIME_LIMIT_MINUTES, le=MAX_TIME_LIMIT_MINUTES)
     description: str = ""
 
     patient_info: PatientInfo | None = None
@@ -121,15 +116,14 @@ class CaseDataSchema(JsonbModel):
     phases: list[PhaseConfig] | None = None
     required_inquiries: list[str] = []
 
-    exam_anchors: dict[str, Any] = {}
+    #: Activity 声明（docs/15 §四）：``activities.<id>.config``；结构规则见 modules/cases/validator
+    activities: dict[str, Any] = {}
     scene: dict[str, Any] = {}
-    nursing_record: dict[str, Any] = {}
     hidden_info: list[str] = []
 
     # 同名患者跨病例去重声明（校验器要求）：如 quiz 变体指向 case2
     variant_of: str = ""
 
-    quiz: QuizConfig | None = None
     voice_type: str = ""
     voice_override: str = ""
 

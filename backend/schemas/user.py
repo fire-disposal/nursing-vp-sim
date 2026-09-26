@@ -1,10 +1,32 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
 
 _GENDER = Field(default=None, pattern=r"^(男|女)?$")
+
+MemberRole = Literal["student", "teacher"]
+
+
+class UserMembershipItem(BaseModel):
+    """用户所属班级（单用户多班级：一个用户可有多条）。"""
+
+    model_config = _RESP_CFG
+    class_id: int | None = None
+    class_name: str | None = None
+    cohort_label: str | None = None
+    member_role: str = "student"
+    joined_at: datetime | None = None
+
+
+class UserMembershipUpdate(BaseModel):
+    """用户编辑里的成员关系项 —— 提供 ``memberships`` 即为全量替换。"""
+
+    model_config = _REQ_CFG
+    class_id: int = Field(gt=0)
+    member_role: MemberRole = "student"
 
 
 class UserBrief(BaseModel):
@@ -17,9 +39,7 @@ class UserBrief(BaseModel):
     student_id: str | None
     gender: str | None = None
     avatar: str | None = None
-    class_id: int | None = None
-    class_name: str | None = None
-    grade_name: str | None = None
+    memberships: list[UserMembershipItem] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -35,7 +55,9 @@ class UserUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     display_name: str | None = None
     student_id: str | None = None
-    class_id: int | None = None
+    memberships: list[UserMembershipUpdate] | None = Field(
+        default=None, description="成员关系全量替换；省略该键 = 不修改"
+    )
     role: str | None = None
     password: str | None = Field(default=None, min_length=6)
     gender: str | None = _GENDER
@@ -96,6 +118,7 @@ class BatchUserItem(BaseModel):
     student_id: str | None = None
     class_id: int | None = None
     class_name: str | None = None
+    cohort_label: str | None = Field(default=None, max_length=40, description="班级名歧义时用于消歧")
 
 
 class RegisterResponse(BaseModel):

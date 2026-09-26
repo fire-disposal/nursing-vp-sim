@@ -16,7 +16,7 @@ USER = cast("User", SimpleNamespace(id=1))
 VALID_CORE = {
     "name": "肺炎患者的护理",
     "difficulty": 1,
-    "time_limit": 20,
+    "time_limit": 30,
     "description": "训练目标",
     "patient_info": {"name": "王大爷", "age": 65, "gender": "男"},
     "chief_complaint": "咳嗽伴发热3天",

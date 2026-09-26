@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from core.statuses import TrainingMode
 from schemas.common import _REQ_CFG, _RESP_CFG
@@ -23,6 +24,30 @@ def _check_behavior(v: dict | None) -> dict | None:
     return v
 
 
+class AssignmentAudience(BaseModel):
+    """作业受众（发布/更新时提交）。
+
+    ``class`` = 发布时全班学生成员快照；``selected`` = 发布时显式名单（必须显式给出
+    ``user_ids``）。两种模式都在发布时固化到受众快照，之后班级成员变动不再影响它。
+    """
+
+    model_config = _REQ_CFG
+    mode: Literal["class", "selected"] = "class"
+    user_ids: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check(self) -> "AssignmentAudience":
+        if len(set(self.user_ids)) != len(self.user_ids):
+            raise ValueError("audience.user_ids 不能包含重复用户")
+        if any(uid <= 0 for uid in self.user_ids):
+            raise ValueError("audience.user_ids 必须是正整数")
+        if self.mode == "selected" and not self.user_ids:
+            raise ValueError("audience.mode=selected 必须提供 user_ids")
+        if self.mode == "class" and self.user_ids:
+            raise ValueError("audience.mode=class 不接受 user_ids（全班由发布时成员快照决定）")
+        return self
+
+
 class AssignmentCreateRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
@@ -31,7 +56,7 @@ class AssignmentCreateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict = Field(default_factory=dict)
-    student_ids: list[int] | None = None
+    audience: AssignmentAudience = Field(default_factory=AssignmentAudience)
     start_time: datetime
     end_time: datetime
     max_attempts: int | None = Field(default=1, description="最大尝试次数；0 或 None 为不限制")
@@ -50,7 +75,7 @@ class AssignmentUpdateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     features: dict[str, bool] | None = None
     behavior: dict | None = None
-    student_ids: list[int] | None = None
+    audience: AssignmentAudience | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_closed: bool | None = None
@@ -74,6 +99,7 @@ class AssignmentListItem(BaseModel):
     teacher_name: str = ""
     start_time: datetime
     end_time: datetime
+    audience_mode: str = "class"
     student_count: int = 0
     completed_count: int = 0
     created_at: datetime
@@ -107,7 +133,8 @@ class AssignmentDetail(BaseModel):
     class_name: str = ""
     features: dict = Field(default_factory=dict)
     behavior: dict = Field(default_factory=dict)
-    student_ids: list[int] | None = None
+    audience_mode: str = "class"
+    recipient_ids: list[int] = Field(default_factory=list, description="发布时固化的受众快照")
     start_time: datetime
     end_time: datetime
     created_at: datetime

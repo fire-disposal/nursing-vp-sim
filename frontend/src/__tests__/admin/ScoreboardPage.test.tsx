@@ -25,7 +25,7 @@ vi.mock("@/api/cases", () => ({
 	getManageCases: mocks.getManageCases,
 }));
 
-vi.mock("@/api/grades-classes", () => ({
+vi.mock("@/api/classes", () => ({
 	getClasses: mocks.getClasses,
 }));
 

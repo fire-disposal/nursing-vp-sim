@@ -84,12 +84,24 @@ async def create_session(
     db.commit()
     cached = None if req.rag_enabled else get_cached_answer(req.question, current_user.id, db)
     if cached is not None:
-        assistant_msg = QARecord(session_id=session.id, user_id=current_user.id, role="assistant", content=cached)
+        cached_answer, cached_citations = cached
+        # 引用随答复一起复用：落库重新嵌入标记，响应带上引用卡片
+        assistant_msg = QARecord(
+            session_id=session.id,
+            user_id=current_user.id,
+            role="assistant",
+            content=embed_citations(cached_answer, cached_citations or []),
+        )
         db.add(assistant_msg)
         session.updated_at = func.now()
         db.commit()
         log.info(f"QA缓存命中: session_id={session.id}", extra={"user_id": current_user.id})
-        return QAAskResponse(session_id=session.id, answer=cached)
+        return QAAskResponse(
+            session_id=session.id,
+            answer=cached_answer,
+            citations=[Citation(source=c["source"], section=c["section"]) for c in cached_citations or []] or None,
+            cached=True,
+        )
     citations: list[dict[str, str]] = []
     try:
         qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))

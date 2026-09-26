@@ -19,14 +19,19 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+from core.time_limits import MAX_TIME_LIMIT_MINUTES, MIN_TIME_LIMIT_MINUTES
+from modules.training.activities import ACTIVITY_BINDINGS, ACTIVITY_CONFIG_KEY, ACTIVITY_IDS
 
 # ── 字段消费端清单（taxonomy manifest）───────────────────────────────────
 # 值 = 消费模块。新增病例字段时必须同步登记；不在清单内的字段 = 死字段。
 
 CONSUMED_FIELDS: dict[str, str] = {
-    "name": "case 列表/评分",
-    "difficulty": "训练列表",
-    "time_limit": "计时器 (D5: 生效值 max(30, ...))",
+    # 元数据三键：只在 cases 列保存（docs/15 §六），病例文件里的声明由 seed/写入侧落到列
+    "name": "cases.name（文件声明 → 列；case_data 落库前剥离）",
+    "difficulty": "cases.difficulty（同上；训练列表与难度校准读列）",
+    "time_limit": "cases.time_limit_minutes（唯一口径 core/time_limits.resolve_time_limit_minutes）",
     "description": "病例选择页",
     "patient_info": "prompt_context_builder",
     "chief_complaint": "prompt_context_builder",
@@ -42,18 +47,15 @@ CONSUMED_FIELDS: dict[str, str] = {
     "deep_background": "prompt + leak_guard",
     "required_inquiries": "prompt + 评分",
     "example_dialogues": "few-shot (context/examples.py)",
-    "tools": "查体/护理记录工具",
-    "exam_anchors": "capabilities + 查体/生命体征 + 病例生成",
+    "activities": "Activity 声明（activities.<id>.config → ACTIVITY_BINDINGS / manifest）",
     "voice_override": "voice.service 病例音色覆盖",
     "hidden_info": "prompt (format_case_for_prompt)",
-    "quiz": "引导式测验工具",
-    "nursing_record": "护理记录工具 (类型待收敛)",
     "scene": "前端 SceneRenderer",
     "variant_of": "校验器去重登记",
 }
 
 # Legacy/已移除消费端的字段——出现即告警（过细分残留）
-LEGACY_FIELDS = {"phases", "voice_type", "capabilities"}
+LEGACY_FIELDS = {"phases", "voice_type", "capabilities", "tools", "exam_anchors", "training_type"}
 
 # ── 规则常量 ──────────────────────────────────────────────────────────────
 
@@ -243,13 +245,13 @@ def _check_fontanelle(c: dict, issues: list[CaseIssue]) -> None:
         too_old = bool(age_num) and int(age_num.group(0)) >= 2
     if not too_old:
         return
-    skin = json_text(c.get("tools", {}).get("physical_exam", {}).get("skin", {}))
+    skin = json_text(_physical_exam_config(c).get("skin", {}))
     for term in FONTANELLE_TERMS:
         if term in skin:
             issues.append(
                 _e(
                     f"患者 {age} 岁，查体仍写'{term}'（前囟 12-18 月龄闭合）——医学硬伤",
-                    "tools.physical_exam.skin",
+                    "activities.physical_exam.config.skin",
                     "删除前囟描述，改'头颅无畸形'等适龄表述",
                 )
             )
@@ -298,14 +300,111 @@ def _check_dead_fields(c: dict, issues: list[CaseIssue]) -> None:
             )
 
 
-def _check_time_limit(c: dict, issues: list[CaseIssue]) -> None:
-    tl = c.get("time_limit")
-    if isinstance(tl, (int, float)) and tl < 30:
+def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
+    """Activity 声明质量门禁（docs/15 §四/§十）。
+
+    病例只能声明内核认识的 Activity；声明了但配置不可用 = 「配置了却不可达」，
+    必须在**发布前**报错，而不是在运行时静默变成一块死面板。
+    """
+    if "activities" not in c:
+        issues.append(
+            _e(
+                "缺少 activities 声明：该病例没有任何可用 Activity",
+                "activities",
+                "按 activities.<id>.config 声明（docs/15 §四），如 "
+                '{"activities": {"physical_exam": {"config": {...}}}}',
+            )
+        )
+        return
+
+    activities = c.get("activities")
+    if not isinstance(activities, dict) or not activities:
+        issues.append(_e("activities 必须是非空对象（id → {config: …}）", "activities"))
+        return
+
+    for activity_id, declaration in activities.items():
+        field = f"activities.{activity_id}"
+        if activity_id not in ACTIVITY_BINDINGS:
+            issues.append(
+                _e(
+                    f"病例声明了内核不认识的 activity '{activity_id}'——发布即失败，不允许「配置了但不可达」",
+                    field,
+                    f"允许的 id: {', '.join(ACTIVITY_IDS)}",
+                )
+            )
+            continue
+        if not isinstance(declaration, dict):
+            issues.append(_e(f"{field} 必须是对象（{{config: …}}）", field, "改为一层声明信封"))
+            continue
+        if ACTIVITY_CONFIG_KEY not in declaration:
+            issues.append(_e(f"{field} 缺少 config（Activity 的病例配置）", field))
+            continue
+        _check_activity_config(activity_id, declaration[ACTIVITY_CONFIG_KEY], field, issues)
+
+
+def _check_activity_config(activity_id: str, config: Any, field: str, issues: list[CaseIssue]) -> None:
+    """各 Activity 的配置形状（消费端是 handler / 查体规则模块）。"""
+    if activity_id == "physical_exam":
+        if not isinstance(config, dict) or not config:
+            issues.append(_e(f"{field}.config 必须是非空对象（查体锚点）", f"{field}.config"))
+            return
+        if not any(config.get(key) for key in ("vital_signs", "groups", "skin")):
+            issues.append(
+                _e(
+                    f"{field}.config 未包含 vital_signs / groups / skin，无法解析任何查体项",
+                    f"{field}.config",
+                    "至少声明 vital_signs（关键异常体征）",
+                )
+            )
+        return
+
+    if activity_id == "quiz":
+        questions = config.get("questions") if isinstance(config, dict) else None
+        if not isinstance(questions, list) or not questions:
+            issues.append(
+                _e(
+                    f"{field}.config 必须含非空 questions（否则面板弹出即空）",
+                    f"{field}.config",
+                    "补题目或删除该 activity 声明",
+                )
+            )
+        return
+
+    if activity_id == "nursing_record":
+        if not isinstance(config, (bool, dict)):
+            issues.append(_e(f"{field}.config 必须是对象或布尔（当前类型 {type(config).__name__}）", f"{field}.config"))
+        return
+
+    if activity_id == "nursing_diagnosis":
+        if not isinstance(config, dict):
+            issues.append(_e(f"{field}.config 必须是对象", f"{field}.config"))
         issues.append(
             _w(
-                f"time_limit={tl} 分钟 < 硬截止 30 分钟（D5）",
+                f"{field} 只写 runtime_state、无正式产物（docs/15 §三禁止），不得进入生产 manifest",
+                field,
+                "并入护理评估的结构化字段后删除该声明",
+            )
+        )
+
+
+def _check_time_limit(c: dict, issues: list[CaseIssue]) -> None:
+    tl = c.get("time_limit")
+    if not isinstance(tl, (int, float)):
+        return
+    if tl < MIN_TIME_LIMIT_MINUTES:
+        issues.append(
+            _e(
+                f"time_limit={tl} 分钟 < 下限 {MIN_TIME_LIMIT_MINUTES} 分钟",
                 "time_limit",
-                "生效值由代码 max(30, ...) 决定；数据建议同步改 30",
+                f"改为 {MIN_TIME_LIMIT_MINUTES}–{MAX_TIME_LIMIT_MINUTES} 之间的声明值；生效值不再由代码改写",
+            )
+        )
+    elif tl > MAX_TIME_LIMIT_MINUTES:
+        issues.append(
+            _e(
+                f"time_limit={tl} 分钟 > 上限 {MAX_TIME_LIMIT_MINUTES} 分钟",
+                "time_limit",
+                f"改为 {MIN_TIME_LIMIT_MINUTES}–{MAX_TIME_LIMIT_MINUTES} 之间的声明值",
             )
         )
 
@@ -322,9 +421,19 @@ def _check_difficulty_content(c: dict, issues: list[CaseIssue]) -> None:
         )
 
 
+def _physical_exam_config(c: dict) -> dict:
+    """病例声明的查体配置（未声明 / 形状不符 → 空配置）。"""
+    raw = c.get("activities")
+    declaration: dict = raw if isinstance(raw, dict) else {}
+    entry = declaration.get("physical_exam")
+    config = entry.get(ACTIVITY_CONFIG_KEY) if isinstance(entry, dict) else None
+    return config if isinstance(config, dict) else {}
+
+
 def validate_case(case_data: dict) -> CaseReport:
     """校验单个病例，返回报告（纯函数）。"""
     report = CaseReport(name=str(case_data.get("name", "?")))
+    _check_activities(case_data, report.issues)
     _check_time_anchors(case_data, report.issues)
     _check_symptom_negation(case_data, report.issues)
     _check_person_relation(case_data, report.issues)
@@ -364,18 +473,23 @@ def _check_duplicate_patients(reports: dict[str, CaseReport], cases: dict[str, d
 
 
 def _check_nursing_record_consistency(reports: dict[str, CaseReport], cases: dict[str, dict]) -> None:
-    """tools.nursing_record 类型全库统一（bool 或 dict 二选一，待字段粒度收敛决策）。"""
+    """``activities.nursing_record.config`` 类型全库统一（bool 或 dict 二选一）。"""
     kinds: dict[str, list[str]] = {}
     for fname, c in cases.items():
-        nr = c.get("tools", {}).get("nursing_record")
-        kinds.setdefault(type(nr).__name__, []).append(fname)
+        raw = c.get("activities")
+        declaration: dict = raw if isinstance(raw, dict) else {}
+        entry = declaration.get("nursing_record")
+        config = entry.get(ACTIVITY_CONFIG_KEY) if isinstance(entry, dict) else None
+        if config is None and entry is None:
+            continue
+        kinds.setdefault(type(config).__name__, []).append(fname)
     if len(kinds) > 1:
         desc = "; ".join(f"{k}({', '.join(v)})" for k, v in kinds.items())
         for fname in cases:
             reports[fname].issues.append(
                 _w(
-                    f"nursing_record 类型全库不统一：{desc}",
-                    "tools.nursing_record",
+                    f"nursing_record 配置类型全库不统一：{desc}",
+                    "activities.nursing_record.config",
                     "统一为 object（带 hints）或 bool（见字段粒度收敛决策）",
                 )
             )

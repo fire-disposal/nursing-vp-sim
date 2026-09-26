@@ -4,14 +4,16 @@ import { Button, Group, Paper, Text } from "@mantine/core";
 interface BatchActionBarProps {
 	selectedCount: number;
 	onClearSelection: () => void;
-	onBulkAssignClass: () => void;
+	onAddToClass: () => void;
+	onRemoveFromClass: () => void;
 	onBulkResetPassword: () => void;
 }
 
 export default function BatchActionBar({
 	selectedCount,
 	onClearSelection,
-	onBulkAssignClass,
+	onAddToClass,
+	onRemoveFromClass,
 	onBulkResetPassword,
 }: BatchActionBarProps) {
 	if (selectedCount === 0) return null;
@@ -28,15 +30,19 @@ export default function BatchActionBar({
 				left: "50%",
 				transform: "translateX(-50%)",
 				zIndex: 40,
+				maxWidth: "calc(100vw - 2rem)",
 				paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
 			}}
 		>
-			<Group gap="sm" wrap="nowrap">
+			<Group gap="sm" wrap="wrap">
 				<Text size="sm" fw={500} style={{ whiteSpace: "nowrap" }}>
 					已选 {selectedCount} 人
 				</Text>
-				<Button size="sm" onClick={onBulkAssignClass}>
-					批量分配班级
+				<Button size="sm" onClick={onAddToClass}>
+					添加到班级
+				</Button>
+				<Button size="sm" variant="light" color="orange" onClick={onRemoveFromClass}>
+					从班级移除
 				</Button>
 				<Button size="sm" variant="light" color="gray" onClick={onBulkResetPassword}>
 					批量重置密码
@@ -50,6 +56,7 @@ export default function BatchActionBar({
 					color="gray"
 					onClick={onClearSelection}
 					title="取消选择"
+					aria-label="取消选择"
 				>
 					<IconX size={16} />
 				</Button>

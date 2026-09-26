@@ -1,6 +1,8 @@
 """QA 问答系统 —— 缓存 + 历史构建
 
-QA Cache: 查询 qa_records 表去重，避免重复 LLM 调用
+QA Cache: 同一用户、完全相同的问句命中历史答复时复用，避免重复 LLM 调用。
+**复用时必须连同引用一起返回**——引用可追溯是产品承诺，丢掉引用会让界面
+失去来源卡片（早期实现只回传剥离引用后的纯文本，是缺陷）。
 build_qa_history: 从 DB 构建对话历史 messages（剔除 citations 标记）
 """
 
@@ -15,8 +17,12 @@ from .citations import clean_content, extract_citations
 log = logging.getLogger(__name__)
 
 
-def get_cached_answer(question: str, user_id: int, db: Session) -> str | None:
-    """检查同一问题是否已有回答（按用户隔离缓存，跨会话但同用户共享）。"""
+def get_cached_answer(question: str, user_id: int, db: Session) -> tuple[str, list[dict[str, str]] | None] | None:
+    """同一用户问过的完全相同的问句 → 返回 (clean_content, citations)。
+
+    按用户隔离、跨会话共享：命中即省一次 LLM 调用。引用必须一并返回，调用方
+    在落库时用 ``embed_citations`` 重新写回，保证复用的答复同样可追溯。
+    """
     normalized = question.strip()
     user_record = (
         db.query(QARecord)
@@ -37,8 +43,7 @@ def get_cached_answer(question: str, user_id: int, db: Session) -> str | None:
         .first()
     )
     if row:
-        clean, _ = extract_citations(row.content)
-        return clean
+        return extract_citations(row.content)
     return None
 
 

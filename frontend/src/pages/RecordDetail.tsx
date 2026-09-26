@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Container, Grid, Paper, Stack, Text, Title } from "@mantine/core";
+import { Alert, Box, Container, Grid, Stack, Text } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
@@ -10,6 +11,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
+import type { SessionDetailFields } from "@/engine/training-record-types";
 import { downloadRecordDetail } from "@/utils/export-record";
 import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "./record-detail/MessagePlayback";
@@ -17,6 +19,7 @@ import MessagePlayback from "./record-detail/MessagePlayback";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
 import ScoreResultSection from "./record-detail/ScoreResultSection";
 import { EmotionTrajectory } from "./record-detail/EmotionTrajectory";
+import NursingRecordSection from "./record-detail/NursingRecordSection";
 import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
 
 export default function RecordDetail() {
@@ -82,7 +85,19 @@ export default function RecordDetail() {
 	);
 
 	const messages = (record.messages as MessageData[] | undefined) ?? [];
-	const sheet = (record as { nursing_record_sheet?: Record<string, string> }).nursing_record_sheet;
+	// 生成类型尚未重生成（本次新增 nursing_record_submitted_at、terminal_reason）：
+	// 按会话字段视图读取，待 main 重生成后此处可退回直读。
+	const detail = record as typeof record & SessionDetailFields;
+	const sheet = detail.nursing_record_sheet as Record<string, string> | null | undefined;
+	const nursingSubmittedAt = detail.nursing_record_submitted_at ?? null;
+	const terminalReason = detail.terminal_reason ?? null;
+	// 系统终止 vs 学生主动完成：来源不同，复盘时的解读完全不同
+	const terminalNotice =
+		terminalReason === "timeout"
+			? "本次训练因超出时限由系统自动结束"
+			: terminalReason === "patient_walkout"
+				? "本次训练因患者主动中止访谈而结束"
+				: null;
 
 	const handleToggleExpand = (key: string) => {
 		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -114,7 +129,7 @@ export default function RecordDetail() {
 			/>
 
 			<RecordStatsBar
-				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; training_type?: string; user_display_name?: string; case_name?: string }}
+				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; user_display_name?: string; case_name?: string }}
 				duration={duration}
 				hasScore={hasScore}
 				recordScore={recordScore}
@@ -154,7 +169,14 @@ export default function RecordDetail() {
 							/>
 						)}
 						{id && <EmotionTrajectory recordId={id} />}
-						{sheet && <NursingRecordSection sheet={sheet} />}
+						{sheet && (
+							<NursingRecordSection sheet={sheet} submittedAt={nursingSubmittedAt} />
+						)}
+						{terminalNotice && (
+							<Alert variant="light" color="gray" p="xs" icon={<IconInfoCircle size={16} />}>
+								<Text size="xs" c="dimmed">{terminalNotice}</Text>
+							</Alert>
+						)}
 					</Stack>
 				</Grid.Col>
 			</Grid>
@@ -171,34 +193,5 @@ export default function RecordDetail() {
 				/>
 			)}
 		</>
-	);
-}
-
-const FIELD_LABELS: Record<string, string> = {
-	subjective: "主观资料 (S)", objective: "客观资料 (O)",
-	assessment: "评估 (A)", plan: "计划 (P)", evaluation: "评价 (E)",
-};
-
-function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
-	const fields = Object.entries(FIELD_LABELS).filter(([key]) => sheet[key]);
-	if (fields.length === 0) return null;
-	return (
-		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }} mt="md">
-			<Stack gap="sm">
-				<Title order={3} size="md">
-					护理记录
-				</Title>
-				{fields.map(([key, label]) => (
-					<Box key={key}>
-						<Text size="xs" c="dimmed" mb={4}>
-							{label}
-						</Text>
-						<Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-							{sheet[key]}
-						</Text>
-					</Box>
-				))}
-			</Stack>
-		</Paper>
 	);
 }

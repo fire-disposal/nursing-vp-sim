@@ -34,7 +34,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
-import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
+import { ACTIVITY_LABELS } from "@/config/activity-display";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import useAuthStore from "@/stores/authStore";
 
@@ -74,15 +74,13 @@ function Stars({ level }: { level?: number | null }) {
 
 function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 	if (!caps) return null;
-	const enabled = Object.entries(ALL_CAPABILITIES)
-		.filter(([, d]) => d.tier === "toggleable")
-		.filter(([k]) => caps[k]);
+	const enabled = Object.entries(ACTIVITY_LABELS).filter(([key]) => caps[key]);
 	if (enabled.length === 0) return null;
 	return (
 		<Group gap={4} wrap="wrap">
-			{enabled.map(([key, def]) => (
+			{enabled.map(([key, label]) => (
 				<Badge key={key} variant="light" color={CAP_COLORS[key] ?? "gray"} size="xs">
-					{def.label}
+					{label}
 				</Badge>
 			))}
 		</Group>

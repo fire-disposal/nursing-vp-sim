@@ -1,7 +1,7 @@
 {
   "name": "反复跌倒伴步态不稳",
   "difficulty": 1,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "78岁独居女性，因近半年反复跌倒3次就诊。请通过系统的护理病史采集，全面评估跌倒相关危险因素（内在因素、外在因素、环境因素），制定防跌倒护理计划。适合练习老年综合评估和慢病管理沟通。",
   "patient_info": {
     "name": "周桂芳",
@@ -62,19 +62,23 @@
       "answer": "哪有什么扶手，住了20年的老房子了。厕所地上经常有水的，我眼神不好有时候看不清。没事，我小心点就行，别给你们添麻烦。"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "36.2-36.8",
-        "heart_rate": "68-78",
-        "blood_pressure": "125/75-140/85",
-        "respiratory_rate": "14-18",
-        "spo2": "95-98"
-      },
-      "skin": {
-        "全身": "皮肤干燥，弹性减退，可见多处老年斑"
+      "config": {
+        "vital_signs": {
+          "temperature": "36.2-36.8",
+          "heart_rate": "68-78",
+          "blood_pressure": "125/75-140/85",
+          "respiratory_rate": "14-18",
+          "spo2": "95-98"
+        },
+        "skin": {
+          "全身": "皮肤干燥，弹性减退，可见多处老年斑"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

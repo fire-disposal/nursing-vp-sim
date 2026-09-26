@@ -29,12 +29,65 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Class */
+        get: operations["get_class_api_admin_classes__class_id__get"];
         /** Update Class */
         put: operations["update_class_api_admin_classes__class_id__put"];
         post?: never;
         /** Delete Class */
         delete: operations["delete_class_api_admin_classes__class_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/classes/{class_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Class Members */
+        get: operations["list_class_members_api_admin_classes__class_id__members_get"];
+        put?: never;
+        /** Add Class Members */
+        post: operations["add_class_members_api_admin_classes__class_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/classes/{class_id}/members/bulk-remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove Class Members */
+        post: operations["remove_class_members_api_admin_classes__class_id__members_bulk_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/classes/{class_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Class Member */
+        delete: operations["remove_class_member_api_admin_classes__class_id__members__user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -103,42 +156,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/grades": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Grades */
-        get: operations["list_grades_api_admin_grades_get"];
-        put?: never;
-        /** Create Grade */
-        post: operations["create_grade_api_admin_grades_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/grades/{grade_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Grade */
-        put: operations["update_grade_api_admin_grades__grade_id__put"];
-        post?: never;
-        /** Delete Grade */
-        delete: operations["delete_grade_api_admin_grades__grade_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -912,10 +929,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Cases */
+        /**
+         * List Cases
+         * @description 学生目录：只返回已发布（published）且向学生开放的病例。
+         */
         get: operations["list_cases_api_cases_get"];
         put?: never;
-        /** Create Case */
+        /**
+         * Create Case
+         * @description 新建病例（draft）：内容先落工作副本，发布（POST /{id}/publish）才产生版本。
+         */
         post: operations["create_case_api_cases_post"];
         delete?: never;
         options?: never;
@@ -986,6 +1009,86 @@ export interface paths {
         get?: never;
         /** Toggle Case Open */
         put: operations["toggle_case_open_api_cases__case_id__open_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Case Validation
+         * @description 发布门禁预览：字段级 error/warning（与 CI 病例审计同一份规则）。
+         */
+        get: operations["get_case_validation_api_cases__case_id__validation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Case
+         * @description 发布病例：门禁通过才落版本（error → 422 + 报告）。
+         */
+        post: operations["publish_case_api_cases__case_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Case
+         * @description 归档病例：只阻止新使用，历史 revision 与既有训练复盘不受影响。
+         */
+        post: operations["archive_case_api_cases__case_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{case_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Case Revisions
+         * @description 版本历史（新→旧）：已发布 revision 不可改，编辑产生新版本。
+         */
+        get: operations["list_case_revisions_api_cases__case_id__revisions_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2374,6 +2477,11 @@ export interface components {
              */
             messages: components["schemas"]["SimulationMessage"][];
             snapshot: components["schemas"]["SimulationSnapshot"];
+            /**
+             * Replayed
+             * @default false
+             */
+            replayed: boolean;
         };
         /** AdminStats */
         AdminStats: {
@@ -2512,6 +2620,23 @@ export interface components {
             /** Model Override */
             model_override?: string | null;
         };
+        /**
+         * AssignmentAudience
+         * @description 作业受众（发布/更新时提交）。
+         *
+         *     ``class`` = 发布时全班学生成员快照；``selected`` = 发布时显式名单（必须显式给出
+         *     ``user_ids``）。两种模式都在发布时固化到受众快照，之后班级成员变动不再影响它。
+         */
+        AssignmentAudience: {
+            /**
+             * Mode
+             * @default class
+             * @enum {string}
+             */
+            mode: "class" | "selected";
+            /** User Ids */
+            user_ids?: number[];
+        };
         /** AssignmentCreateRequest */
         AssignmentCreateRequest: {
             /** Case Id */
@@ -2530,8 +2655,7 @@ export interface components {
             behavior?: {
                 [key: string]: unknown;
             };
-            /** Student Ids */
-            student_ids?: number[] | null;
+            audience?: components["schemas"]["AssignmentAudience"];
             /**
              * Start Time
              * Format: date-time
@@ -2579,8 +2703,16 @@ export interface components {
             behavior?: {
                 [key: string]: unknown;
             };
-            /** Student Ids */
-            student_ids?: number[] | null;
+            /**
+             * Audience Mode
+             * @default class
+             */
+            audience_mode: string;
+            /**
+             * Recipient Ids
+             * @description 发布时固化的受众快照
+             */
+            recipient_ids?: number[];
             /**
              * Start Time
              * Format: date-time
@@ -2664,6 +2796,11 @@ export interface components {
              */
             end_time: string;
             /**
+             * Audience Mode
+             * @default class
+             */
+            audience_mode: string;
+            /**
              * Student Count
              * @default 0
              */
@@ -2738,8 +2875,7 @@ export interface components {
             behavior?: {
                 [key: string]: unknown;
             } | null;
-            /** Student Ids */
-            student_ids?: number[] | null;
+            audience?: components["schemas"]["AssignmentAudience"] | null;
             /** Start Time */
             start_time?: string | null;
             /** End Time */
@@ -2780,6 +2916,11 @@ export interface components {
             class_id?: number | null;
             /** Class Name */
             class_name?: string | null;
+            /**
+             * Cohort Label
+             * @description 班级名歧义时用于消歧
+             */
+            cohort_label?: string | null;
         };
         /** Body_submit_feedback_api_feedback_post */
         Body_submit_feedback_api_feedback_post: {
@@ -2804,11 +2945,22 @@ export interface components {
             user_ids: number[];
             /** Class Id */
             class_id: number;
+            /**
+             * Member Role
+             * @default student
+             * @enum {string}
+             */
+            member_role: "student" | "teacher";
         };
         /** BulkAssignClassResult */
         BulkAssignClassResult: {
             /** Assigned */
             assigned: number;
+            /**
+             * Updated
+             * @default 0
+             */
+            updated: number;
             /** Skipped */
             skipped: number;
             /** Errors */
@@ -2843,13 +2995,13 @@ export interface components {
             /** Description */
             description?: string | null;
             /**
-             * Training Type
-             * @default history_taking
+             * Status
+             * @default draft
              */
-            training_type: string;
+            status: string;
             /**
              * Time Limit Minutes
-             * @default 20
+             * @default 30
              */
             time_limit_minutes: number;
             /**
@@ -2894,6 +3046,30 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
+            /**
+             * Status
+             * @default draft
+             */
+            status: string;
+            /**
+             * Is Open
+             * @default false
+             */
+            is_open: boolean;
+            /**
+             * Difficulty
+             * @default 1
+             */
+            difficulty: number;
+            /**
+             * Time Limit Minutes
+             * @default 30
+             */
+            time_limit_minutes: number;
+            /** Current Revision Id */
+            current_revision_id?: number | null;
+            /** Current Revision No */
+            current_revision_no?: number | null;
         };
         /** CaseGenerateRequest */
         CaseGenerateRequest: {
@@ -2902,11 +3078,6 @@ export interface components {
              * @default quick
              */
             mode: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
             /** Description */
             description: string;
             /** Reference Case Ids */
@@ -2920,7 +3091,7 @@ export interface components {
             stage: string;
             /**
              * Field
-             * @description 生成/重生成单个顶层字段（如 present_illness、exam_anchors）
+             * @description 生成/重生成单个顶层字段（如 present_illness、activities）
              */
             field?: string | null;
             /** Current Case Data */
@@ -2948,10 +3119,14 @@ export interface components {
             /** Description */
             description?: string | null;
             /**
-             * Training Type
-             * @default history_taking
+             * Status
+             * @default draft
              */
-            training_type: string;
+            status: string;
+            /** Current Revision Id */
+            current_revision_id?: number | null;
+            /** Current Revision No */
+            current_revision_no?: number | null;
             /**
              * Patient Name
              * @default
@@ -2971,7 +3146,7 @@ export interface components {
             chief_complaint: string;
             /**
              * Time Limit
-             * @default 20
+             * @default 30
              */
             time_limit: number;
             /**
@@ -3021,12 +3196,88 @@ export interface components {
              */
             start_clock: string;
         };
+        /** CasePublishResponse */
+        CasePublishResponse: {
+            case: components["schemas"]["CaseManageItem"];
+            report: components["schemas"]["CaseValidationReport"];
+        };
+        /**
+         * CaseRevisionItem
+         * @description 病例版本（不可变内容快照）—— 教师侧「版本」视图。
+         */
+        CaseRevisionItem: {
+            /** Id */
+            id: number;
+            /** Revision No */
+            revision_no: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: number | null;
+            /** Published At */
+            published_at?: string | null;
+            /**
+             * Is Current
+             * @default false
+             */
+            is_current: boolean;
+        };
         /** CaseUpdateRequest */
         CaseUpdateRequest: {
             /** Case Data */
             case_data: {
                 [key: string]: unknown;
             };
+        };
+        /** CaseValidationIssue */
+        CaseValidationIssue: {
+            /** Severity */
+            severity: string;
+            /**
+             * Field
+             * @default
+             */
+            field: string;
+            /** Message */
+            message: string;
+            /**
+             * Fix Hint
+             * @default
+             */
+            fix_hint: string;
+        };
+        /**
+         * CaseValidationReport
+         * @description 发布门禁报告（复用 modules/cases/validator.py）。
+         */
+        CaseValidationReport: {
+            /** Case Id */
+            case_id: number;
+            /** Case Name */
+            case_name: string;
+            /**
+             * Publishable
+             * @default false
+             */
+            publishable: boolean;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: components["schemas"]["CaseValidationIssue"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["CaseValidationIssue"][];
+            /**
+             * Infos
+             * @default []
+             */
+            infos: components["schemas"]["CaseValidationIssue"][];
         };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
@@ -3065,29 +3316,137 @@ export interface components {
         };
         /** ClassCreate */
         ClassCreate: {
-            /** Grade Id */
-            grade_id: number;
             /** Name */
             name: string;
-        };
-        /** ClassResponse */
-        ClassResponse: {
-            /** Id */
-            id: number;
-            /** Grade Id */
-            grade_id: number;
             /**
-             * Grade Name
+             * Cohort Label
+             * @description 届/年级标签，同一标签下班级名唯一
              * @default
              */
-            grade_name: string;
+            cohort_label: string;
+        };
+        /** ClassDetailResponse */
+        ClassDetailResponse: {
+            /** Id */
+            id: number;
             /** Name */
             name: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
             /**
              * Student Count
              * @default 0
              */
             student_count: number;
+            /**
+             * Teacher Count
+             * @default 0
+             */
+            teacher_count: number;
+            /**
+             * Assignment Count
+             * @default 0
+             */
+            assignment_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Members */
+            members?: components["schemas"]["ClassMemberItem"][];
+        };
+        /** ClassMemberAddRequest */
+        ClassMemberAddRequest: {
+            /** User Ids */
+            user_ids: number[];
+            /**
+             * Member Role
+             * @default student
+             * @enum {string}
+             */
+            member_role: "student" | "teacher";
+        };
+        /** ClassMemberItem */
+        ClassMemberItem: {
+            /** User Id */
+            user_id: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Member Role */
+            member_role: string;
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+        };
+        /**
+         * ClassMemberMutationResult
+         * @description 批量增删成员的落地结果。``updated`` = 已存在但角色被改写的成员数。
+         */
+        ClassMemberMutationResult: {
+            /**
+             * Added
+             * @default 0
+             */
+            added: number;
+            /**
+             * Updated
+             * @default 0
+             */
+            updated: number;
+            /**
+             * Removed
+             * @default 0
+             */
+            removed: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+            /** Errors */
+            errors?: string[];
+        };
+        /** ClassMemberRemoveRequest */
+        ClassMemberRemoveRequest: {
+            /** User Ids */
+            user_ids: number[];
+        };
+        /** ClassResponse */
+        ClassResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
+            /**
+             * Student Count
+             * @default 0
+             */
+            student_count: number;
+            /**
+             * Teacher Count
+             * @default 0
+             */
+            teacher_count: number;
+            /**
+             * Assignment Count
+             * @default 0
+             */
+            assignment_count: number;
             /**
              * Created At
              * Format: date-time
@@ -3121,8 +3480,11 @@ export interface components {
             class_id: number;
             /** Class Name */
             class_name: string;
-            /** Grade Name */
-            grade_name: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
             /**
              * Student Count
              * @default 0
@@ -3150,8 +3512,8 @@ export interface components {
         ClassUpdate: {
             /** Name */
             name?: string | null;
-            /** Grade Id */
-            grade_id?: number | null;
+            /** Cohort Label */
+            cohort_label?: string | null;
         };
         /**
          * CommandSurfaceOut
@@ -3273,6 +3635,25 @@ export interface components {
             total_minutes: number;
             /** Total Sessions */
             total_sessions: number;
+        };
+        /**
+         * EndTrainingRequest
+         * @description 结束训练请求（全部可选，向后兼容无 body 调用）。
+         *
+         *     ``submit_nursing_record`` + ``nursing_record_sheet`` 构成**原子「提交并完成」**：
+         *     服务端在同一事务里先落盘草稿、冻结提交版本，再校验完成前置条件并完成训练——
+         *     学生看到的最后内容与被评分的内容必然一致。
+         */
+        EndTrainingRequest: {
+            /**
+             * Submit Nursing Record
+             * @default false
+             */
+            submit_nursing_record: boolean;
+            /** Nursing Record Sheet */
+            nursing_record_sheet?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ErrorItem */
         ErrorItem: {
@@ -3455,38 +3836,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** GradeCreate */
-        GradeCreate: {
-            /** Name */
-            name: string;
-        };
-        /** GradeResponse */
-        GradeResponse: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /**
-             * Class Count
-             * @default 0
-             */
-            class_count: number;
-            /**
-             * Student Count
-             * @default 0
-             */
-            student_count: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
-        /** GradeUpdate */
-        GradeUpdate: {
-            /** Name */
-            name: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3736,6 +4085,17 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PaginatedResponse[ClassMemberItem] */
+        PaginatedResponse_ClassMemberItem_: {
+            /** Items */
+            items: components["schemas"]["ClassMemberItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** PaginatedResponse[FeedbackItem] */
         PaginatedResponse_FeedbackItem_: {
             /** Items */
@@ -3896,6 +4256,11 @@ export interface components {
             answer: string;
             /** Citations */
             citations?: components["schemas"]["Citation"][] | null;
+            /**
+             * Cached
+             * @default false
+             */
+            cached: boolean;
         };
         /** QAMessageItem */
         QAMessageItem: {
@@ -4691,6 +5056,10 @@ export interface components {
         /** SimulationActionRequest */
         SimulationActionRequest: {
             action: components["schemas"]["SimulationActionIn"];
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Idem Key */
+            idem_key?: string | null;
         };
         /** SimulationMessage */
         SimulationMessage: {
@@ -5242,11 +5611,6 @@ export interface components {
             case_id: number;
             /** Case Name */
             case_name: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
             /** User Id */
             user_id: number;
             /** User Display Name */
@@ -5308,7 +5672,7 @@ export interface components {
             end_time: string | null;
             /**
              * Time Limit
-             * @default 20
+             * @default 30
              */
             time_limit: number;
             /** Remaining Seconds */
@@ -5332,11 +5696,6 @@ export interface components {
              * @default
              */
             patient_gender: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -5379,6 +5738,10 @@ export interface components {
             nursing_record_sheet?: {
                 [key: string]: unknown;
             } | null;
+            /** Nursing Record Submitted At */
+            nursing_record_submitted_at?: string | null;
+            /** Terminal Reason */
+            terminal_reason?: string | null;
             /** Emotion */
             emotion?: {
                 [key: string]: unknown;
@@ -5403,6 +5766,10 @@ export interface components {
              * @default false
              */
             is_test: boolean;
+            /** Manifest */
+            manifest?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * TrainingSessionData
@@ -5418,18 +5785,13 @@ export interface components {
              * @default in_progress
              */
             status: string;
-            /**
-             * Training Type
-             * @default history_taking
-             */
-            training_type: string;
             /** Case Id */
             case_id: number;
             /** Start Time */
             start_time?: string | null;
             /**
              * Time Limit
-             * @default 20
+             * @default 30
              */
             time_limit: number;
             /** Remaining Seconds */
@@ -5560,17 +5922,46 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
-            /** Class Id */
-            class_id?: number | null;
-            /** Class Name */
-            class_name?: string | null;
-            /** Grade Name */
-            grade_name?: string | null;
+            /** Memberships */
+            memberships?: components["schemas"]["UserMembershipItem"][];
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * UserMembershipItem
+         * @description 用户所属班级（单用户多班级：一个用户可有多条）。
+         */
+        UserMembershipItem: {
+            /** Class Id */
+            class_id?: number | null;
+            /** Class Name */
+            class_name?: string | null;
+            /** Cohort Label */
+            cohort_label?: string | null;
+            /**
+             * Member Role
+             * @default student
+             */
+            member_role: string;
+            /** Joined At */
+            joined_at?: string | null;
+        };
+        /**
+         * UserMembershipUpdate
+         * @description 用户编辑里的成员关系项 —— 提供 ``memberships`` 即为全量替换。
+         */
+        UserMembershipUpdate: {
+            /** Class Id */
+            class_id: number;
+            /**
+             * Member Role
+             * @default student
+             * @enum {string}
+             */
+            member_role: "student" | "teacher";
         };
         /** UserProfileUpdateRequest */
         UserProfileUpdateRequest: {
@@ -5589,8 +5980,11 @@ export interface components {
             display_name?: string | null;
             /** Student Id */
             student_id?: string | null;
-            /** Class Id */
-            class_id?: number | null;
+            /**
+             * Memberships
+             * @description 成员关系全量替换；省略该键 = 不修改
+             */
+            memberships?: components["schemas"]["UserMembershipUpdate"][] | null;
             /** Role */
             role?: string | null;
             /** Password */
@@ -5794,7 +6188,8 @@ export interface operations {
     list_classes_api_admin_classes_get: {
         parameters: {
             query?: {
-                grade_id?: number | null;
+                /** @description 届/年级标签精确过滤 */
+                cohort_label?: string | null;
             };
             header?: never;
             path?: never;
@@ -5855,6 +6250,37 @@ export interface operations {
             };
         };
     };
+    get_class_api_admin_classes__class_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_class_api_admin_classes__class_id__put: {
         parameters: {
             query?: never;
@@ -5896,6 +6322,146 @@ export interface operations {
             header?: never;
             path: {
                 class_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_class_members_api_admin_classes__class_id__members_get: {
+        parameters: {
+            query?: {
+                /** @description student|teacher */
+                role?: string | null;
+                /** @description 搜索用户名/姓名/学号 */
+                search?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                class_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_ClassMemberItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_class_members_api_admin_classes__class_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassMemberAddRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassMemberMutationResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_class_members_api_admin_classes__class_id__members_bulk_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassMemberRemoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassMemberMutationResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_class_member_api_admin_classes__class_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: number;
+                user_id: number;
             };
             cookie?: never;
         };
@@ -6003,125 +6569,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_grades_api_admin_grades_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GradeResponse"][];
-                };
-            };
-        };
-    };
-    create_grade_api_admin_grades_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GradeCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GradeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_grade_api_admin_grades__grade_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                grade_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GradeUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GradeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_grade_api_admin_grades__grade_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                grade_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6932,7 +7379,8 @@ export interface operations {
                 /** @description 角色筛选 student/teacher */
                 role?: string | null;
                 class_id?: number | null;
-                grade_id?: number | null;
+                /** @description 届/年级标签精确过滤 */
+                cohort_label?: string | null;
             };
             header?: never;
             path?: never;
@@ -7777,8 +8225,6 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                /** @description 训练类型(history_taking) */
-                training_type?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
                 /** @description 病例名称模糊搜索 */
@@ -7852,8 +8298,8 @@ export interface operations {
                 name?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
-                /** @description 训练类型(history_taking) */
-                training_type?: string | null;
+                /** @description 生命周期筛选(draft/published/archived)；缺省不含归档 */
+                status?: string | null;
                 /** @description 是否向学生开放 */
                 is_open?: boolean | null;
             };
@@ -8034,6 +8480,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseManageItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_case_validation_api_cases__case_id__validation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseValidationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_case_api_cases__case_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CasePublishResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_case_api_cases__case_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseManageItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_case_revisions_api_cases__case_id__revisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRevisionItem"][];
                 };
             };
             /** @description Validation Error */
@@ -9949,7 +10519,7 @@ export interface operations {
     class_summary_api_stats_class_summary_get: {
         parameters: {
             query?: {
-                grade_id?: number | null;
+                cohort_label?: string | null;
                 class_id?: number | null;
             };
             header?: never;
@@ -10300,8 +10870,6 @@ export interface operations {
                 /** @description 结束日期 ISO 格式 (含) */
                 date_to?: string | null;
                 class_id?: number | null;
-                /** @description 按训练类型筛选(history_taking) */
-                training_type?: string | null;
                 /** @description 按用户ID筛选（仅 score_review 权限生效） */
                 user_id?: number | null;
                 /** @description 排除试跑记录 */
@@ -10439,7 +11007,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EndTrainingRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

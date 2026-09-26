@@ -1,4 +1,4 @@
-"""教师端病例列表的 capabilities 必须由 tools.* 派生（与学生端 /api/cases 同源）。"""
+"""教师端病例列表的 capabilities 必须由病例声明的 activities.* 解析（与学生端 /api/cases 同源）。"""
 
 import json
 from datetime import UTC, datetime
@@ -16,13 +16,12 @@ def _case(name: str) -> Case:
         id=1,
         name=data["name"],
         description=data.get("description", ""),
-        training_type="history_taking",
         case_data=data,
         created_at=datetime.now(UTC),
     )
 
 
-def test_manage_view_capabilities_derive_from_tools():
+def test_manage_view_capabilities_derive_from_activities():
     view = CaseService(None)._manage_view(_case("case1"))
 
     assert view.capabilities["physical_exam"] is True
@@ -30,7 +29,7 @@ def test_manage_view_capabilities_derive_from_tools():
 
 
 def test_manage_view_ignores_stored_capabilities_field():
-    """库中遗留的 capabilities 存储字段不是真相 —— 真相是 tools.*。"""
+    """库中遗留的 capabilities 存储字段不是真相 —— 真相是病例声明的 activities.*。"""
     case = _case("case1")
     case.case_data = {**case.case_data, "capabilities": {"physical_exam": False}}
 

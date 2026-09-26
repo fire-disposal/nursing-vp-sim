@@ -4,6 +4,12 @@ export type Schemas = components["schemas"];
 export type UserBrief = Schemas["UserBrief"];
 export type BatchCreateResult = Schemas["BatchCreateResult"];
 
+/** 表单里的一行班级归属（提交时整体替换用户的 memberships）。 */
+export interface MembershipDraft {
+	class_id: string;
+	member_role: "student" | "teacher";
+}
+
 export interface BatchUser {
 	username: string;
 	password: string;
@@ -12,6 +18,7 @@ export interface BatchUser {
 	student_id: string | null;
 	class_id: number | null;
 	class_name?: string | null;
+	cohort_label?: string | null;
 }
 
 export interface UserFormValues {
@@ -20,7 +27,7 @@ export interface UserFormValues {
 	role: string;
 	display_name: string;
 	student_id: string;
-	class_id: string;
+	memberships: MembershipDraft[];
 }
 
 export interface EditUserFormValues {
@@ -28,7 +35,7 @@ export interface EditUserFormValues {
 	student_id: string;
 	role: string;
 	password: string;
-	class_id: string;
+	memberships: MembershipDraft[];
 }
 
 export interface RoleOption {

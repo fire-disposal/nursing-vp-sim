@@ -1,5 +1,5 @@
 """Admin module — admin-namespace endpoints (under ``/api/admin``) plus
-top-level teacher-facing routers (exports, stats, rubrics, profiles) that
+top-level teacher-facing routers (exports, stats, rubrics) that
 carry their own absolute prefixes and are registered at app root.
 """
 
@@ -7,9 +7,9 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
+from .class_memberships import router as _class_memberships
 from .classes import router as _classes
 from .costs import router as _costs
-from .grades import router as _grades
 from .llm_monitor import router as _llm_monitor
 from .ops import router as _ops
 from .roles import router as _roles
@@ -20,8 +20,8 @@ from .voice import router as _voice
 
 for r in (
     _classes,
+    _class_memberships,
     _costs,
-    _grades,
     _llm_monitor,
     _ops,
     _roles,
@@ -43,8 +43,7 @@ __all__ = [
 
 def get_top_level_routers():
     from .exports import router as exports_router
-    from .profiles import router as profiles_router
     from .rubrics import router as rubrics_router
     from .stats import router as stats_router
 
-    return exports_router, profiles_router, rubrics_router, stats_router
+    return exports_router, rubrics_router, stats_router

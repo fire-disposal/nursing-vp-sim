@@ -7,13 +7,14 @@ from core.exceptions import AuthError, ConflictError, ValidationError
 from core.login_strategies import get_strategy_registry
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
-from models import Class, Role, User, UserClass
+from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, Class, ClassMembership, Role, User
 from schemas import (
     OkResponse,
     RegisterRequest,
     RegisterResponse,
     TokenResponse,
     UserBrief,
+    UserMembershipItem,
     UserProfileUpdateRequest,
 )
 
@@ -45,9 +46,9 @@ class AuthService:
         )
 
     def _user_to_brief(self, user: User) -> UserBrief:
-        ucs = user.user_classes
-        first = ucs[0] if ucs else None
-        cls = first.class_ if first else None
+        # 单用户多班级：返回 memberships 数组，不再取第一条（多班学生「显示 B 班」的老毛病）
+        rows = [m for m in user.memberships if m.class_id is not None and m.class_ is not None]
+        rows.sort(key=lambda m: (m.class_.cohort_label, m.class_.name, m.class_id))
         return UserBrief(
             id=user.id,
             username=user.username,
@@ -57,9 +58,16 @@ class AuthService:
             student_id=user.student_id,
             gender=user.gender,
             avatar=user.avatar,
-            class_id=cls.id if cls else None,
-            class_name=cls.name if cls else None,
-            grade_name=cls.grade.name if (cls and cls.grade) else None,
+            memberships=[
+                UserMembershipItem(
+                    class_id=m.class_id,
+                    class_name=m.class_.name,
+                    cohort_label=m.class_.cohort_label,
+                    member_role=m.member_role,
+                    joined_at=m.joined_at,
+                )
+                for m in rows
+            ],
             created_at=user.created_at,
         )
 
@@ -107,7 +115,8 @@ class AuthService:
             self.db.add(user)
             self.db.flush()
             if req.class_id is not None:
-                self.db.add(UserClass(user_id=user.id, class_id=req.class_id))
+                member_role = MEMBER_ROLE_TEACHER if req.role == "teacher" else MEMBER_ROLE_STUDENT
+                self.db.add(ClassMembership(user_id=user.id, class_id=req.class_id, member_role=member_role))
         self.db.refresh(user)
         log.info(
             "用户注册: target_id=%d target_name=%s role=%s",

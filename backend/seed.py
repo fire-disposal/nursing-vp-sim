@@ -13,8 +13,19 @@ from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
-from models import ApiSecret, Case, Role, RolePermission, User, VoiceConfig
-from modules.cases.builtin_sync import has_bookmark, is_locally_edited, same_content, with_seed_bookmark
+from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
+from models import (
+    CASE_STATUS_ARCHIVED,
+    CASE_STATUS_PUBLISHED,
+    ApiSecret,
+    Case,
+    Role,
+    RolePermission,
+    User,
+    VoiceConfig,
+)
+from modules.cases.builtin_sync import is_locally_edited, with_seed_bookmark
+from modules.cases.revisions import append_revision, content_matches_current_revision
 
 log = logging.getLogger(__name__)
 
@@ -158,6 +169,31 @@ def _seed_data() -> None:
         db.close()
 
 
+def _apply_repository_case(row: Case, d: dict) -> None:
+    """把仓库病例的元数据与内容写进行（元数据只进列，内容剥离元数据后进 case_data）。
+
+    不动 ``is_open``：那是教师的「向学生开放」开关，内容更新不该替教师打开病例。
+    """
+    row.description = d.get("description", "")
+    row.difficulty = d.get("difficulty", 1)
+    row.time_limit_minutes = d.get("time_limit") or DEFAULT_TIME_LIMIT_MINUTES
+    row.case_data = with_seed_bookmark(d)
+
+
+def _sync_case_revision(db, row: Case) -> None:
+    """内置病例的版本语义：内容即版本。
+
+    内容与 current revision 一致时不产生新版本（元数据微调不需要新版本）；内容变了就
+    追加 revision（与教师编辑已发布病例同一规则）。已归档病例内容冻结，不复活、不追加。
+    """
+    if row.status == CASE_STATUS_ARCHIVED:
+        return
+    row.status = CASE_STATUS_PUBLISHED
+    if content_matches_current_revision(row):
+        return
+    append_revision(db, row)
+
+
 def _seed_cases() -> None:
     """Import / refresh built-in cases from data/cases/*.json.
 
@@ -166,6 +202,9 @@ def _seed_cases() -> None:
     from the repository file, so content fixes in data/cases/*.json reach
     databases initialised from an older revision. Rows a teacher has edited are
     left untouched and logged.
+
+    内置病例按「已发布」落库（部署即学生可用），并即时产生/推进 CaseRevision
+    （docs/15 §六）：仓库内容改动 = 一个新版本，旧训练按旧版本复盘。
     """
     cases_dir = _PROJECT_ROOT / "data" / "cases"
     entries: list[tuple[str, dict]] = []
@@ -186,37 +225,26 @@ def _seed_cases() -> None:
         for name, d in entries:
             row = rows.get(name)
             if row is None:
-                db.add(
-                    Case(
-                        name=name,
-                        description=d.get("description", ""),
-                        training_type=d.get("training_type", "history_taking"),
-                        difficulty=d.get("difficulty", 1),
-                        time_limit_minutes=d.get("time_limit", 20),
-                        is_open=True,
-                        case_data=with_seed_bookmark(d),
-                    )
-                )
+                row = Case(name=name, status=CASE_STATUS_PUBLISHED, is_open=True)
+                _apply_repository_case(row, d)
+                db.add(row)
+                db.flush()
+                _sync_case_revision(db, row)
                 imported += 1
                 continue
             existing = row.case_data or {}
-            if is_locally_edited(existing):
+            if is_locally_edited(existing) or row.status == CASE_STATUS_ARCHIVED:
                 kept += 1
-                log.warning("内置病例已被本地修改，保留库内内容（case_id=%s name=%s）", row.id, name)
+                log.warning("内置病例已被本地修改/归档，保留库内内容（case_id=%s name=%s）", row.id, name)
                 continue
-            if same_content(existing, d):
-                if not has_bookmark(existing):
-                    # 内容已是仓库版本（旧库刚被手工修好）——补指纹，让后续教师编辑可被识别
-                    row.case_data = with_seed_bookmark(d)
-                    updated += 1
-                continue
-            row.description = d.get("description", "")
-            row.training_type = d.get("training_type", "history_taking")
-            row.difficulty = d.get("difficulty", 1)
-            row.time_limit_minutes = d.get("time_limit", 20)
-            row.case_data = with_seed_bookmark(d)
-            updated += 1
-            log.warning("内置病例内容随版本更新（case_id=%s name=%s）", row.id, name)
+            # 未被教师改动的行以仓库文件为准：内容 + 元数据列 + 指纹都收敛
+            # （元数据只存在列上，列不收敛就会出现「库内 time_limit=20、文件=30」的僵局）
+            before = (row.description, row.difficulty, row.time_limit_minutes, dict(existing))
+            _apply_repository_case(row, d)
+            _sync_case_revision(db, row)
+            if (row.description, row.difficulty, row.time_limit_minutes, dict(row.case_data)) != before:
+                updated += 1
+                log.warning("内置病例随版本收敛（case_id=%s name=%s）", row.id, name)
         if imported or updated:
             try:
                 db.commit()

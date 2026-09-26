@@ -5,7 +5,6 @@ import type { ScoreData } from "@/types/score";
 interface RecordStatsBarRecord {
 	user_display_name?: string;
 	case_name?: string;
-	training_type?: string;
 }
 
 interface Props {

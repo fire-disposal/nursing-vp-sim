@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from modules.training.capabilities import detect_capabilities
+from modules.training.activities import activity_config
+from modules.training.profile import HISTORY_TAKING
 from schemas.case_schema import (
     CaseDataSchema,
     assert_valid_case_data,
@@ -25,7 +26,7 @@ class TestCaseDataSchema:
         data = {"name": "测试病例"}
         result = CaseDataSchema(**data)
         assert result.name == "测试病例"
-        assert result.time_limit == 20
+        assert result.time_limit == 30
         assert result.personality.health_literacy == "normal"
 
     def test_invalid_name_empty(self):
@@ -63,23 +64,24 @@ class TestCaseDataSchema:
         assert result.deep_background["手术史"] == "3年前胆囊切除"
 
 
-def test_strict_round_trip_preserves_tool_config():
-    """教师保存链路（strict 校验 → dump → 落库）不得丢掉查体/护理记录配置。"""
+def test_strict_round_trip_preserves_activity_config():
+    """教师保存链路（strict 校验 → dump → 落库）不得丢掉 Activity 声明。"""
     data = _load("case1")
     out = validate_case_data(data, strict=True)
 
-    assert out["tools"] == data["tools"]
-    assert out["tools"]["physical_exam"]["vital_signs"]["spo2"] == "91-94"
-    assert detect_capabilities(out)["physical_exam"] is True
-    assert detect_capabilities(out)["nursing_record"] is True
+    assert out["activities"] == data["activities"]
+    assert activity_config(out, "physical_exam")["vital_signs"]["spo2"] == "91-94"
+    flags = HISTORY_TAKING.resolve_features(out)
+    assert flags["physical_exam"] is True
+    assert flags["nursing_record"] is True
 
 
-def test_strict_round_trip_preserves_quiz_tool_config():
+def test_strict_round_trip_preserves_quiz_activity_config():
     data = _load("diabetes_foot_quiz")
     out = validate_case_data(data, strict=True)
 
-    assert out["tools"]["quiz"] == data["tools"]["quiz"]
-    assert detect_capabilities(out)["quiz"] is True
+    assert activity_config(out, "quiz") == activity_config(data, "quiz")
+    assert HISTORY_TAKING.resolve_features(out)["quiz"] is True
 
 
 def test_strict_round_trip_preserves_nested_unknown_keys():
@@ -99,20 +101,24 @@ def test_strict_round_trip_preserves_nested_unknown_keys():
 def test_strict_round_trip_preserves_nested_quiz_unknown_keys():
     data = {
         "name": "病例",
-        "quiz": {
-            "title": "引导题目",
-            "custom_flag": True,
-            "questions": [
-                {
-                    "id": "q1",
-                    "stem": "题干",
-                    "answer": "A",
-                    "tag": "难点",
-                    "options": [{"key": "A", "text": "甲", "score": 1}],
+        "activities": {
+            "quiz": {
+                "config": {
+                    "title": "引导题目",
+                    "custom_flag": True,
+                    "questions": [
+                        {
+                            "id": "q1",
+                            "stem": "题干",
+                            "answer": "A",
+                            "tag": "难点",
+                            "options": [{"key": "A", "text": "甲", "score": 1}],
+                        }
+                    ],
                 }
-            ],
+            }
         },
     }
     out = validate_case_data(data, strict=True)
 
-    assert out["quiz"] == data["quiz"]
+    assert out["activities"] == data["activities"]

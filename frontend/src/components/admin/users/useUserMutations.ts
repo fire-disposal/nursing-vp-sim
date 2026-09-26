@@ -11,9 +11,26 @@ export function useRegisterMutation() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (payload: Schemas["RegisterRequest"]) => register(payload),
+		mutationFn: async ({
+			payload,
+			memberships,
+		}: {
+			payload: Schemas["RegisterRequest"];
+			memberships: Schemas["UserMembershipUpdate"][];
+		}) => {
+			// 注册接口只接受单个 class_id：首个归属随注册提交，其余归属注册后全量替换。
+			const { data } = await register({
+				...payload,
+				class_id: memberships[0]?.class_id ?? undefined,
+			});
+			if (memberships.length > 1) {
+				await updateUser(data.id, { memberships });
+			}
+			return data;
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
 			toast.success("注册成功！");
 		},
 		onError: (err: unknown) => {
@@ -31,10 +48,11 @@ export function useUpdateUserMutation() {
 			data,
 		}: {
 			id: number | string;
-			data: Record<string, unknown>;
+			data: Schemas["UserUpdateRequest"];
 		}) => updateUser(id, data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
 			toast.success("用户已更新");
 		},
 		onError: (err: unknown) => {
@@ -66,6 +84,7 @@ export function useBatchCreateUsersMutation() {
 			batchCreateUsers(users).then((r) => r.data),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
 			if (data.created > 0) {
 				toast.success(`成功创建 ${data.created} 名用户`);
 			}

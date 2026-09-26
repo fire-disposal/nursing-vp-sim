@@ -1,7 +1,7 @@
 {
   "name": "小儿发热伴抽搐",
   "difficulty": 2,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "3岁幼儿，因发热1天、抽搐1次急诊就诊。年轻母亲高度紧张，信息零散。请通过系统的护理病史采集，了解抽搐特点、发热情况、既往史和家族史，评估病情严重程度。",
   "patient_info": {
     "name": "王小明",
@@ -61,19 +61,23 @@
       "answer": "你这么一说...他前一周确实有点流鼻涕，偶尔咳两声，但我以为是换季没在意。这也跟抽筋有关系吗？"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "38.5-39.5",
-        "heart_rate": "120-140",
-        "blood_pressure": "88/52-95/60",
-        "respiratory_rate": "28-38",
-        "spo2": "94-97"
-      },
-      "skin": {
-        "全身": "皮肤潮红，弹性可"
+      "config": {
+        "vital_signs": {
+          "temperature": "38.5-39.5",
+          "heart_rate": "120-140",
+          "blood_pressure": "88/52-95/60",
+          "respiratory_rate": "28-38",
+          "spo2": "94-97"
+        },
+        "skin": {
+          "全身": "皮肤潮红，弹性可"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

@@ -24,6 +24,13 @@ export function formatDateTime(value: DateInput): string {
 	return d ? d.toLocaleString("zh-CN") : "";
 }
 
+/** "06-25 14:30" — 紧凑时间戳，用于窄栏（工具面板/记录卡片）的提交时间展示。 */
+export function formatShortDateTime(value: DateInput): string {
+	const d = toValidDate(value);
+	if (!d) return "";
+	return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** ISO/Date → value for `<input type="datetime-local">` (local time, no seconds). */
 export function toDatetimeLocal(value: DateInput): string {
 	const d = toValidDate(value);

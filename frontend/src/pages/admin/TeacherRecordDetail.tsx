@@ -1,4 +1,4 @@
-import { Anchor, Box, Container, Flex, Paper, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Container, Flex, Stack } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconChartBar } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +8,7 @@ import { queryKeys } from "@/api/query-keys";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
+import type { SessionDetailFields } from "@/engine/training-record-types";
 import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -17,6 +18,7 @@ import { downloadRecordDetail } from "@/utils/export-record";
 import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "../record-detail/MessagePlayback";
 import MessagePlayback from "../record-detail/MessagePlayback";
+import NursingRecordSection from "../record-detail/NursingRecordSection";
 import RecordStatsBar from "../record-detail/RecordStatsBar";
 import ScoreResultSection from "../record-detail/ScoreResultSection";
 import ScoringPendingBanner from "../record-detail/ScoringPendingBanner";
@@ -147,6 +149,9 @@ export default function TeacherRecordDetail() {
 	const scoreMax = getScoreDenominator(recordScore);
 	const scoreReview = recordScore?.review ?? null;
 	const messages = (record.messages || []) as MessageData[];
+	// 生成类型尚未重生成（nursing_record_submitted_at 为本次新增）：按会话字段视图读取
+	const detail = record as typeof record & SessionDetailFields;
+	const nursingSubmittedAt = detail.nursing_record_submitted_at ?? null;
 
 	const handleToggleExpand = (key: string) => {
 		setExpanded((prev) => ({
@@ -180,7 +185,7 @@ export default function TeacherRecordDetail() {
 					backTo="/admin/records"
 				/>
 				<RecordStatsBar
-					record={record as { user_display_name?: string; case_name?: string; training_type?: string }}
+					record={record as { user_display_name?: string; case_name?: string }}
 					duration={duration}
 					hasScore={hasScore}
 					recordScore={recordScore}
@@ -202,7 +207,11 @@ export default function TeacherRecordDetail() {
 							<MessagePlayback messages={messages} highlightId={highlightMsgId} />
 
 							{record.nursing_record_sheet && Object.keys(record.nursing_record_sheet).length > 0 && (
-								<NursingRecordSection sheet={record.nursing_record_sheet as Record<string, string>} />
+								<NursingRecordSection
+									title="护理评估记录"
+									sheet={record.nursing_record_sheet as Record<string, string>}
+									submittedAt={nursingSubmittedAt}
+								/>
 							)}
 
 							{/* Mobile-only score preview: show "查看评分" link before the full section */}
@@ -254,34 +263,5 @@ export default function TeacherRecordDetail() {
 				/>
 			)}
 		</>
-	);
-}
-
-const FIELD_LABELS: Record<string, string> = {
-	subjective: "主观资料 (S)",
-	objective: "客观资料 (O)",
-	assessment: "评估 (A)",
-	plan: "计划 (P)",
-	evaluation: "评价 (E)",
-};
-
-function NursingRecordSection({ sheet }: { sheet: Record<string, string> }) {
-	const fields = Object.entries(FIELD_LABELS).filter(([key]) => sheet[key]);
-	if (fields.length === 0) return null;
-
-	return (
-		<Paper withBorder radius="md" p="md">
-			<Stack gap="sm">
-				<Text size="md" fw={600}>护理评估记录</Text>
-				<Stack gap="sm">
-					{fields.map(([key, label]) => (
-						<div key={key}>
-							<Text size="xs" fw={500} c="dimmed" mb={4}>{label}</Text>
-							<Text size="sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{sheet[key]}</Text>
-						</div>
-					))}
-				</Stack>
-			</Stack>
-		</Paper>
 	);
 }

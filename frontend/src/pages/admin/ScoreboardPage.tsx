@@ -15,7 +15,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getAssignments } from "@/api/assignments";
 import { getManageCases } from "@/api/cases";
-import { getClasses } from "@/api/grades-classes";
+import { getClasses } from "@/api/classes";
 import { queryKeys } from "@/api/query-keys";
 import { getScoreboardRanking } from "@/api/scoreboard";
 import type { components } from "@/api/api-types.gen";
@@ -252,7 +252,7 @@ export default function ScoreboardPage() {
 		staleTime: 5 * 60_000,
 	});
 	const { data: classesData } = useQuery({
-		queryKey: queryKeys.grades.classes(),
+		queryKey: queryKeys.classes.list(null),
 		queryFn: () => getClasses({}).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
@@ -266,7 +266,7 @@ export default function ScoreboardPage() {
 	});
 
 	const cases = (casesData?.items ?? []) as { id: number; name: string }[];
-	const classes = (classesData ?? []) as { id: number; name: string }[];
+	const classes = classesData ?? [];
 	const assignments = (assignmentsData?.items ?? []) as {
 		id: string;
 		title: string;
@@ -380,7 +380,10 @@ export default function ScoreboardPage() {
 							onChange={(v) => updateParam("class_id", v)}
 							data={[
 								{ value: "all", label: "全部班级" },
-								...classes.map((c) => ({ value: String(c.id), label: c.name })),
+								...classes.map((c) => ({
+									value: String(c.id),
+									label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+								})),
 							]}
 						/>
 						<FilterSelect

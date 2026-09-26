@@ -1,7 +1,7 @@
 {
   "name": "双膝关节疼痛伴晨僵",
   "difficulty": 2,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "中年女性，因双膝关节疼痛伴晨僵3个月就诊。请通过系统的护理病史采集，了解疼痛特点、功能影响、既往诊疗经过和相关危险因素。",
   "patient_info": {
     "name": "张美华",
@@ -61,19 +61,23 @@
       "answer": "对，早上最厉害，僵得弯不了，得活动个把小时才松快点。最近上楼梯都费劲了，下蹲也不行，走久了就疼。"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "36.5-37.0",
-        "heart_rate": "72-82",
-        "blood_pressure": "128/80-138/88",
-        "respiratory_rate": "16-18",
-        "spo2": "97-99"
-      },
-      "skin": {
-        "双膝": "双膝关节轻度肿胀，皮温略高"
+      "config": {
+        "vital_signs": {
+          "temperature": "36.5-37.0",
+          "heart_rate": "72-82",
+          "blood_pressure": "128/80-138/88",
+          "respiratory_rate": "16-18",
+          "spo2": "97-99"
+        },
+        "skin": {
+          "双膝": "双膝关节轻度肿胀，皮温略高"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

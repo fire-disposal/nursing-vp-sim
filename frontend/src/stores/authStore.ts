@@ -58,6 +58,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					display_name: data.display_name,
 					gender: data.gender ?? null,
 					avatar: data.avatar ?? null,
+					memberships: [],
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 
@@ -71,8 +72,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 							user: {
 								...current,
 								role_display_name: me.role_display_name || data.role,
-								grade: me.grade_name ?? current.grade ?? "",
-								className: me.class_name ?? current.className ?? "",
+								memberships: me.memberships ?? [],
 							},
 						});
 					}
@@ -116,10 +116,10 @@ const useAuthStore = create<ExtendedAuthState>()(
 						role: data.role,
 						role_display_name: data.role_display_name || data.role,
 						display_name: data.display_name,
+						student_id: data.student_id ?? null,
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
-						grade: data.grade_name ?? current?.grade ?? "",
-						className: data.class_name ?? current?.className ?? "",
+						memberships: data.memberships ?? [],
 					};
 					set({ user });
 				} catch (err: unknown) {

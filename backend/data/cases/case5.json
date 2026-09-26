@@ -1,7 +1,7 @@
 {
   "name": "胸痛伴心悸",
   "difficulty": 3,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "老年男性，因间断胸痛伴心悸1周就诊。信息分散型患者，轻视症状不愿多说，需护理学生通过耐心追问和系统性评估挖掘关键信息。适合练习心血管风险评估与胸痛鉴别。",
   "patient_info": {
     "name": "陈德昌",
@@ -63,19 +63,23 @@
       "answer": "有，好几年了。平时吃药断断续续的，忙起来就忘了……是不是跟这个有关系？"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "36.5-37.0",
-        "heart_rate": "88-105",
-        "blood_pressure": "135/85-150/95",
-        "respiratory_rate": "18-22",
-        "spo2": "96-99"
-      },
-      "skin": {
-        "全身": "皮肤温暖干燥，未见皮疹"
+      "config": {
+        "vital_signs": {
+          "temperature": "36.5-37.0",
+          "heart_rate": "88-105",
+          "blood_pressure": "135/85-150/95",
+          "respiratory_rate": "18-22",
+          "spo2": "96-99"
+        },
+        "skin": {
+          "全身": "皮肤温暖干燥，未见皮疹"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

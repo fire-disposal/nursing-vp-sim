@@ -1,22 +1,47 @@
-import { IconCode, IconEye, IconForms, IconRotate, IconSparkles, IconWand } from "@tabler/icons-react";
+import { IconCode, IconEye, IconForms, IconHistory, IconRotate, IconSparkles, IconWand } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { safeParse, z } from "zod";
-import { generateCase, getCaseDetail } from "@/api";
+import { generateCase, getCaseDetail, publishReportOf } from "@/api";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
+import { getApiErrorMessage } from "@/utils/error";
 
-import { Alert, Badge, Button, Grid, Group, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Badge, Box, Button, Divider, Grid, Group, Loader, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, useCaseEditor } from "./CaseEditorState";
+import { CaseStatusBadge } from "./CaseStatusBadge";
+import CaseValidationReportView from "./CaseValidationReportView";
+import { caseStatusLabel } from "./caseStatus";
 import { FormView } from "./FormView";
 import JsonView from "./JsonView";
-import { useCreateCase, useUpdateCase } from "./useCaseMutations";
+import { useCaseRevisions, useCreateCase, useUpdateCase } from "./useCaseMutations";
 
+type CaseManageItem = components["schemas"]["CaseManageItem"];
+type CaseDetail = components["schemas"]["CaseDetail"];
+type CaseValidationReport = components["schemas"]["CaseValidationReport"];
+
+/** 表单只校验元数据（docs/15 §六）：name/difficulty/time_limit 落病例列，不进 case_data。 */
 const caseFormSchema = z.object({
 	name: z.string().min(1, "病例名称不能为空"),
-	time_limit: z.number().int().min(1).max(180),
+	time_limit: z.number().int().min(30, "训练时限不得短于 30 分钟").max(180, "训练时限不得超过 180 分钟"),
 	difficulty: z.number().int().min(1).max(3),
-	training_type: z.enum(["history_taking"]),
 });
+
+/**
+ * 编辑器工作副本 = case_data + 病例列上的元数据。
+ * ``case_data`` 出参已不含 name/difficulty/time_limit（写路径读进列后剥离），
+ * 缺少它们会既过不了本地表单校验、也过不了后端 CaseDataSchema；这里合并回来，
+ * 保存时原样回传，由后端剥离落列。
+ */
+function mergeDetail(detail: CaseDetail): Record<string, CaseJsonValue> {
+	return {
+		...((detail.case_data ?? {}) as Record<string, CaseJsonValue>),
+		name: detail.name,
+		description: detail.description ?? "",
+		difficulty: detail.difficulty,
+		time_limit: detail.time_limit_minutes,
+	};
+}
 
 /** 可逐字段 AI 生成的临床字段（field 模式，以当前病例为上下文）。 */
 const AI_CLINICAL_FIELDS: { key: string; label: string }[] = [
@@ -50,12 +75,6 @@ function draftKey(id: number | null): string {
 	return `case-draft:${id ?? "new"}`;
 }
 
-interface CaseManageItem {
-	id: number;
-	name: string;
-	training_type: string;
-}
-
 interface Props {
 	open: boolean;
 	editingCase: CaseManageItem | null;
@@ -78,20 +97,33 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const [aiWorking, setAiWorking] = useState(""); // 当前生成动作文案
 	const [showPreview, setShowPreview] = useState(false);
 	const [showDraftRestore, setShowDraftRestore] = useState(false);
+	const [showRevisions, setShowRevisions] = useState(false);
+	/** 已加载病例的列级元数据（status/当前版本）—— 列表行可能过期，以详情为准。 */
+	const [detailMeta, setDetailMeta] = useState<{ status: string; revisionNo: number | null } | null>(null);
+	/** 保存被发布门禁拒绝时的字段级报告。 */
+	const [saveReport, setSaveReport] = useState<CaseValidationReport | null>(null);
 	const toast = useToast();
 	const { confirm } = useConfirm();
 
 	const createMutation = useCreateCase();
 	const updateMutation = useUpdateCase();
 
-	const trainingType = String(state.json.training_type || "history_taking");
 	const draft = draftKey(editingCase?.id ?? null);
+	const status = detailMeta?.status ?? editingCase?.status ?? "draft";
+	const revisionNo = detailMeta ? detailMeta.revisionNo : editingCase?.current_revision_no ?? null;
+	const archived = status === "archived";
+	const published = status === "published";
+	const revisionsQuery = useCaseRevisions(open && showRevisions && editingCase ? editingCase.id : null);
 
 	useEffect(() => {
 		if (!open) return;
 		const load = editingCase
-			? getCaseDetail(editingCase.id).then(({ data }) => (data.case_data || {}) as Record<string, CaseJsonValue>)
+			? getCaseDetail(editingCase.id).then(({ data }) => {
+					setDetailMeta({ status: data.status, revisionNo: data.current_revision_no ?? null });
+					return mergeDetail(data);
+				})
 			: Promise.resolve(getDefaultCaseJson());
+		setDetailMeta(null);
 		load
 			.then((cd) => {
 				dispatch({ type: "LOAD_CASE", json: cd });
@@ -125,17 +157,19 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		setAiWorking("");
 		setShowPreview(false);
 		setShowDraftRestore(false);
+		setShowRevisions(false);
+		setSaveReport(null);
 	}, [open, startWithAiPanel]);
 
 	const handleSave = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setCaseMsg("");
+		setSaveReport(null);
 		const data = state.json;
 		const result = safeParse(caseFormSchema, {
 			name: data.name,
-			time_limit: Number(data.time_limit ?? 20),
+			time_limit: Number(data.time_limit ?? 30),
 			difficulty: Number(data.difficulty ?? 1),
-			training_type: data.training_type ?? "history_taking",
 		});
 		if (!result.success) {
 			setCaseMsg(result.error.issues.map((i) => i.message).join("；"));
@@ -143,23 +177,38 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		}
 		try {
 			if (editingCase) {
+				const contentChanged = state.initialJson !== JSON.stringify(state.json);
 				await updateMutation.mutateAsync({
 					id: editingCase.id,
 					data: { case_data: data as Record<string, unknown> },
 				});
+				toast.success(
+					published
+						? contentChanged
+							? "已保存并产生新版本"
+							: "已保存（内容未变化，未产生新版本）"
+						: "已保存工作副本",
+				);
 			} else {
+				// 新建 = draft：不向学生开放，发布后由列表的「开放」动作决定可见性。
 				await createMutation.mutateAsync({
 					case_data: data as Record<string, unknown>,
-					is_open: Boolean(data.is_open),
+					is_open: false,
 				});
+				toast.success("已创建草稿：发布后才能用于作业与训练");
 			}
 			localStorage.removeItem(draft);
 			dispatch({ type: "MARK_CLEAN" });
 			onSaved();
 			onClose();
 		} catch (err: unknown) {
-			const e = err as { response?: { data?: { detail?: string } } };
-			setCaseMsg(e.response?.data?.detail || "保存失败");
+			const report = publishReportOf(err);
+			if (report) {
+				setSaveReport(report);
+				setCaseMsg(published ? "保存被发布门禁拒绝：修复下列问题后重试" : "保存失败");
+			} else {
+				setCaseMsg(getApiErrorMessage(err, "保存失败"));
+			}
 		}
 	};
 
@@ -183,7 +232,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const buildPayload = (extra: Record<string, unknown>) => {
 		const payload: Record<string, unknown> = {
 			mode: aiMode,
-			training_type: trainingType,
 			description: aiDescription || state.json.chief_complaint || state.json.description || "护理病史采集训练病例",
 			reference_case_ids: aiMode === "reference" ? aiReferenceCaseIds : undefined,
 			reference_text: aiMode === "reference" && aiReferenceText ? aiReferenceText : undefined,
@@ -292,10 +340,46 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			centered
 			withinPortal
 		>
+				{editingCase && (
+					<Group gap={8} mb="sm" wrap="wrap">
+						<CaseStatusBadge status={status} revisionNo={revisionNo} size="sm" />
+						<Button
+							type="button"
+							size="compact-xs"
+							variant="subtle"
+							color="gray"
+							leftSection={<IconHistory size={13} />}
+							onClick={() => setShowRevisions(true)}
+						>
+							版本历史
+						</Button>
+					</Group>
+				)}
+
+				{published && (
+					<Alert variant="light" color="blue" mb="md">
+						<Text size="sm">
+							该病例已发布{revisionNo != null ? `（当前 v${revisionNo}）` : ""}：保存内容变化会立即生效并产生新版本，
+							旧训练仍按各自版本复盘；保存前会先过发布门禁，未通过则不会落库。
+						</Text>
+					</Alert>
+				)}
+				{archived && (
+					<Alert variant="light" color="orange" mb="md">
+						<Text size="sm">该病例已归档，内容已冻结、不能再编辑（历史版本与既有训练保留）。</Text>
+					</Alert>
+				)}
+
 				{caseMsg && (
-					<Alert variant="light" color={caseMsg.includes("成功") ? "green" : "red"} mb="md">
+					<Alert variant="light" color="red" mb="md">
 						{caseMsg}
 					</Alert>
+				)}
+
+				{saveReport && (
+					<Paper withBorder p="sm" radius="md" mb="md">
+						<CaseValidationReportView report={saveReport} />
+					</Paper>
 				)}
 
 				{showDraftRestore && (
@@ -400,7 +484,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Stack gap={8} mb="xs">
 								<Text size="xs" c="dimmed">参考病例</Text>
 								<MultiSelect
-									data={availableCases.map((c) => ({ value: String(c.id), label: `${c.name} (${c.training_type})` }))}
+									data={availableCases.map((c) => ({ value: String(c.id), label: `${c.name}（${caseStatusLabel(c.status)}）` }))}
 									value={aiReferenceCaseIds.map(String)}
 									onChange={(v) => setAiReferenceCaseIds(v.map(Number))}
 									searchable
@@ -470,9 +554,9 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				<form onSubmit={handleSave}>
 					<Stack gap="md">
 						{state.mode === "json" ? (
-							<JsonView json={state.json} dispatch={dispatch} />
+							<JsonView json={state.json} dispatch={dispatch} readOnly={archived} />
 						) : (
-							<FormView state={state} dispatch={dispatch} />
+							<FormView state={state} dispatch={dispatch} disabled={archived} />
 						)}
 
 						<Group
@@ -482,12 +566,72 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							style={{ position: "sticky", bottom: 0, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-gray-3)" }}
 						>
 							<Button type="button" variant="outline" size="sm" onClick={handleClose}>取消</Button>
-							<Button type="submit" size="sm" disabled={createMutation.isPending || updateMutation.isPending}>
-								{editingCase ? (updateMutation.isPending ? "保存中…" : "保存") : (createMutation.isPending ? "创建中…" : "创建")}
+							<Button
+								type="submit"
+								size="sm"
+								disabled={archived || createMutation.isPending || updateMutation.isPending}
+								title={archived ? "已归档病例内容冻结，不可保存" : undefined}
+							>
+								{editingCase
+									? updateMutation.isPending
+										? "保存中…"
+										: published
+											? "保存为新版本"
+											: "保存"
+									: createMutation.isPending
+										? "创建中…"
+										: "创建草稿"}
 							</Button>
 						</Group>
 					</Stack>
 				</form>
+
+				{/* ── 版本历史（已发布病例的内容快照） ── */}
+				<Modal
+					opened={showRevisions}
+					onClose={() => setShowRevisions(false)}
+					title="版本历史"
+					size="md"
+					centered
+					withinPortal
+				>
+					<Stack gap="xs">
+						<Text size="xs" c="dimmed">
+							已发布版本不可修改；编辑已发布病例会追加新版本，旧训练仍按各自版本复盘。
+						</Text>
+						{revisionsQuery.isLoading ? (
+							<Group gap={8} py="sm">
+								<Loader size={14} />
+								<Text size="sm" c="dimmed">加载中…</Text>
+							</Group>
+						) : revisionsQuery.isError ? (
+							<Text size="sm" c="red">版本历史加载失败</Text>
+						) : (revisionsQuery.data?.length ?? 0) === 0 ? (
+							<Text size="sm" c="dimmed">该病例还没有已发布版本（发布后才会产生 v1）。</Text>
+						) : (
+							<Stack gap={0}>
+								{revisionsQuery.data?.map((r) => (
+									<Box key={r.id}>
+										<Group justify="space-between" gap={8} wrap="nowrap" py={6}>
+											<Group gap={6} wrap="nowrap">
+												<Badge variant={r.is_current ? "filled" : "light"} color={r.is_current ? "green" : "gray"} size="xs">
+													v{r.revision_no}
+												</Badge>
+												{r.is_current && <Text size="xs" c="dimmed">当前版本</Text>}
+											</Group>
+											<Text size="xs" c="dimmed">
+												{r.published_at
+													? `发布 ${new Date(r.published_at).toLocaleString()}`
+													: `创建 ${new Date(r.created_at).toLocaleString()}`}
+											</Text>
+										</Group>
+										<Divider />
+									</Box>
+								))}
+							</Stack>
+						)}
+					</Stack>
+				</Modal>
 		</Modal>
 	);
 }

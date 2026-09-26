@@ -1,7 +1,7 @@
 {
   "name": "右下腹痛",
   "difficulty": 3,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "青年男性，因右下腹痛18小时就诊。信息分散型患者，回答跳跃不按顺序，需通过追问获取完整病史。适合练习腹痛时间线梳理与关键信息挖掘。",
   "patient_info": {
     "name": "李明",
@@ -60,19 +60,23 @@
       "answer": "有点恶心，但没吐出来。什么东西都吃不下，一吃就恶心。"
     }
   ],
-  "tools": {
+  "activities": {
     "physical_exam": {
-      "vital_signs": {
-        "temperature": "37.5-38.2",
-        "heart_rate": "92-105",
-        "blood_pressure": "118/72-128/80",
-        "respiratory_rate": "18-22",
-        "spo2": "97-99"
-      },
-      "skin": {
-        "腹部": "腹部平坦，右下腹麦氏点压痛阳性"
+      "config": {
+        "vital_signs": {
+          "temperature": "37.5-38.2",
+          "heart_rate": "92-105",
+          "blood_pressure": "118/72-128/80",
+          "respiratory_rate": "18-22",
+          "spo2": "97-99"
+        },
+        "skin": {
+          "腹部": "腹部平坦，右下腹麦氏点压痛阳性"
+        }
       }
     },
-    "nursing_record": true
+    "nursing_record": {
+      "config": true
+    }
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assignmentSchema } from "@/schemas/assignment";
-import { gradeClassSchema } from "@/schemas/grade-class";
+import { classFormSchema } from "@/schemas/class";
 import { llmConfigSchema } from "@/schemas/llm-config";
 import { notificationSchema } from "@/schemas/notification";
 import { passwordChangeSchema, profileSchema } from "@/schemas/profile";
@@ -35,10 +35,32 @@ describe("assignmentSchema", () => {
 		maxAttempts: 1,
 		mode: "guided" as const,
 		hideCaseInfo: false,
+		audienceMode: "class" as const,
+		recipientIds: [] as number[],
 	};
 
 	it("accepts valid assignment", () => {
 		expect(assignmentSchema.safeParse(valid).success).toBe(true);
+	});
+
+	it("accepts a selected-student audience with recipients", () => {
+		expect(
+			assignmentSchema.safeParse({
+				...valid,
+				audienceMode: "selected",
+				recipientIds: [7, 9],
+			}).success,
+		).toBe(true);
+	});
+
+	it("rejects a selected-student audience without recipients", () => {
+		const r = assignmentSchema.safeParse({
+			...valid,
+			audienceMode: "selected",
+			recipientIds: [],
+		});
+		expect(r.success).toBe(false);
+		if (!r.success) expect(errorMsg(r, "recipientIds")).toContain("至少选择");
 	});
 
 	it("rejects empty title", () => {
@@ -180,6 +202,41 @@ describe("registerUserSchema", () => {
 		});
 		expect(r.success).toBe(false);
 	});
+
+	it("defaults memberships to empty and accepts per-class roles", () => {
+		const empty = registerUserSchema.safeParse({
+			username: "ok1",
+			password: "secret1",
+			role: "student",
+			display_name: "小明",
+		});
+		expect(empty.success).toBe(true);
+		if (empty.success) expect(empty.data.memberships).toEqual([]);
+
+		const multi = registerUserSchema.safeParse({
+			username: "ok1",
+			password: "secret1",
+			role: "student",
+			display_name: "小明",
+			memberships: [
+				{ class_id: "1", member_role: "student" },
+				{ class_id: "2", member_role: "teacher" },
+			],
+		});
+		expect(multi.success).toBe(true);
+		if (multi.success) expect(multi.data.memberships).toHaveLength(2);
+	});
+
+	it("rejects an unknown membership role", () => {
+		const r = registerUserSchema.safeParse({
+			username: "ok1",
+			password: "secret1",
+			role: "student",
+			display_name: "小明",
+			memberships: [{ class_id: "1", member_role: "admin" }],
+		});
+		expect(r.success).toBe(false);
+	});
 });
 
 describe("editUserSchema", () => {
@@ -193,13 +250,17 @@ describe("editUserSchema", () => {
 	});
 });
 
-describe("gradeClassSchema", () => {
-	it("accepts valid grade/class", () => {
-		expect(gradeClassSchema.safeParse({ name: "护理1班", gradeId: "g1" }).success).toBe(true);
+describe("classFormSchema", () => {
+	it("accepts a class with cohort label", () => {
+		expect(classFormSchema.safeParse({ name: "护理1班", cohortLabel: "2024级" }).success).toBe(true);
+	});
+
+	it("accepts an empty cohort label", () => {
+		expect(classFormSchema.safeParse({ name: "护理1班", cohortLabel: "" }).success).toBe(true);
 	});
 
 	it("rejects empty name", () => {
-		expect(gradeClassSchema.safeParse({ name: "", gradeId: "g1" }).success).toBe(false);
+		expect(classFormSchema.safeParse({ name: "", cohortLabel: "2024级" }).success).toBe(false);
 	});
 });
 

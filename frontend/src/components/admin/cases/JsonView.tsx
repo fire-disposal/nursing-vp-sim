@@ -6,9 +6,11 @@ import type { CaseDispatch, CaseJsonValue } from "./CaseEditorState";
 interface JsonViewProps {
 	json: Record<string, CaseJsonValue>;
 	dispatch: CaseDispatch;
+	/** 已归档病例内容冻结：只读查看。 */
+	readOnly?: boolean;
 }
 
-export default function JsonView({ json, dispatch }: JsonViewProps) {
+export default function JsonView({ json, dispatch, readOnly }: JsonViewProps) {
 	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
 	const jsonText = JSON.stringify(json, null, 2);
@@ -50,6 +52,7 @@ export default function JsonView({ json, dispatch }: JsonViewProps) {
 					tabSize: 2,
 					formatOnPaste: true,
 					automaticLayout: true,
+					readOnly: readOnly === true,
 				}}
 			/>
 		</Paper>

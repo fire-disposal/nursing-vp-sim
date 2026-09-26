@@ -11,7 +11,7 @@ from modules.cases.builtin_sync import (
     same_content,
     with_seed_bookmark,
 )
-from schemas.case_schema import validate_case_data
+from schemas.case_schema import strip_case_metadata, validate_case_data
 
 CASES_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "cases"
 
@@ -30,9 +30,9 @@ def test_teacher_edit_is_detected():
     assert is_locally_edited(payload) is True
 
 
-def test_teacher_edit_of_tool_config_is_detected():
+def test_teacher_edit_of_activity_config_is_detected():
     payload = with_seed_bookmark(_load("case1"))
-    payload["tools"]["physical_exam"]["vital_signs"]["spo2"] = "95-99"
+    payload["activities"]["physical_exam"]["config"]["vital_signs"]["spo2"] = "95-99"
     assert is_locally_edited(payload) is True
 
 
@@ -58,10 +58,13 @@ def test_content_differs_after_repository_fix():
 
 
 def test_bookmark_survives_case_crud_round_trip():
-    """写路径（strict 校验 → dump）必须保住指纹，否则教师一保存就会被 seed 覆盖。"""
-    payload = with_seed_bookmark(_load("case1"))
-    stored = validate_case_data(payload, strict=True)
+    """写路径（strict 校验 → 剥离元数据落库）必须保住指纹，否则教师一保存就会被 seed 覆盖。"""
+    file_data = _load("case1")
+    stored_payload = with_seed_bookmark(file_data)
+    # 编辑部回传的载荷带元数据键（name/difficulty/time_limit），落库前由写路径剥离
+    incoming = {**file_data, SEED_HASH_KEY: stored_payload[SEED_HASH_KEY]}
+    stored = strip_case_metadata(validate_case_data(incoming, strict=True))
 
-    assert stored[SEED_HASH_KEY] == payload[SEED_HASH_KEY]
+    assert stored[SEED_HASH_KEY] == stored_payload[SEED_HASH_KEY]
     assert is_locally_edited(stored) is False
-    assert same_content(stored, payload) is True
+    assert same_content(stored, file_data) is True

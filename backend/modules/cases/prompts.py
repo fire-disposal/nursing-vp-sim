@@ -45,7 +45,7 @@ CASE_GENERATION_CORE = (
 {
   "name": "病例名称（20字以内，基于主诉概括）",
   "difficulty": 1,
-  "time_limit": 20,
+  "time_limit": 30,
   "description": "训练目标描述（一句话）",
   "patient_info": {"name": "患者姓名（中文名）", "age": 0, "gender": "男/女"},
   "chief_complaint": "主诉（含部位、性质、持续时间、诱因）",

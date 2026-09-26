@@ -10,7 +10,7 @@ from core.database import Base
 from models._base import TimestampMixin
 
 if TYPE_CHECKING:
-    from models.school import UserClass
+    from models.school import ClassMembership
     from models.training import TrainingRecord
 
 
@@ -52,7 +52,7 @@ class User(Base, TimestampMixin):
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="user")
-    user_classes: Mapped[list[UserClass]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    memberships: Mapped[list[ClassMembership]] = relationship(back_populates="user", cascade="all, delete-orphan")
     role: Mapped[Role] = relationship()
 
     def has_permission(self, permission: str) -> bool:

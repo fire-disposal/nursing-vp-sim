@@ -45,7 +45,6 @@ const RECORD = {
 	time_limit: 20,
 	messages: [],
 	patient_gender: "男",
-	training_type: "history_taking",
 	patient_name: "王五",
 	patient_age: 60,
 	case_title: "慢阻肺",

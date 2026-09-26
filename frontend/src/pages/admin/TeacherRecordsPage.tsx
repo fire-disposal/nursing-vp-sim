@@ -9,7 +9,7 @@ import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { Checkbox } from "@mantine/core";
 import { queryKeys } from "@/api/query-keys";
-import ClassFilter from "@/components/admin/ClassFilter";
+import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
@@ -48,7 +48,6 @@ export default function TeacherRecordsPage() {
 	const case_id = searchParams.get("case_id") || "";
 	const status = searchParams.get("status") || "";
 	const review_status = searchParams.get("review_status") || "";
-	const training_type = searchParams.get("training_type") || "";
 	const date_from = searchParams.get("date_from") || "";
 	const date_to = searchParams.get("date_to") || "";
 	const exclude_is_test = searchParams.get("exclude_is_test") !== "false";
@@ -84,7 +83,6 @@ export default function TeacherRecordsPage() {
 		if (debouncedStudent) p.student_name = debouncedStudent;
 		if (case_id) p.case_id = Number(case_id);
 		if (status) p.status = status;
-		if (training_type) p.training_type = training_type;
 		if (date_from) p.date_from = date_from;
 		if (date_to) p.date_to = date_to;
 		if (class_id) p.class_id = Number(class_id);
@@ -95,7 +93,7 @@ export default function TeacherRecordsPage() {
 			p.order = sortDir;
 		}
 		return p;
-	}, [offset, debouncedStudent, case_id, status, review_status, training_type, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
+	}, [offset, debouncedStudent, case_id, status, review_status, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.training.records(params),
@@ -196,7 +194,7 @@ export default function TeacherRecordsPage() {
 	};
 
 	const handleClassFilterChange = useCallback(
-		(params: { grade_id: number | null; class_id: number | null }) => {
+		(params: ClassFilterParams) => {
 			setParam("class_id", params.class_id != null ? String(params.class_id) : "");
 		},
 		[setParam],
@@ -265,17 +263,6 @@ export default function TeacherRecordsPage() {
 									{ value: "", label: "全部" },
 									{ value: "pending", label: "待复核" },
 									{ value: "reviewed", label: "已复核" },
-								]}
-							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">类型</Text>
-							<Select
-								value={training_type || null}
-								onChange={(v) => setParam("training_type", v ?? "")}
-								data={[
-									{ value: "", label: "全部" },
-									{ value: "history_taking", label: "问诊" },
 								]}
 							/>
 						</Stack>

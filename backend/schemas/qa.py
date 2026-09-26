@@ -38,6 +38,8 @@ class QAAskResponse(BaseModel):
     session_id: int
     answer: str
     citations: list[Citation] | None = None
+    # True = 命中同一用户的历史答复（引用一并复用），前端可提示"来自历史提问"
+    cached: bool = False
 
 
 class QASessionAdminItem(BaseModel):

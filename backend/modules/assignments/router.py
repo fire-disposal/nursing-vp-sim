@@ -13,7 +13,8 @@ from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
 from core.statuses import AssignmentLifecycle, AssignmentProgressStatus
 from infra.exporter import ColumnDef, export_response
-from models import Assignment, TrainingRecord, User, UserClass
+from models import Assignment, AssignmentRecipient, TrainingRecord, User
+from modules.admin.class_memberships import student_class_ids
 from modules.assignments.progress import (
     attempt_from_record,
     count_attempts,
@@ -39,16 +40,20 @@ class StudentService:
         self.db = db
 
     def list_assignments(self, user_id: int) -> list[StudentAssignmentItem]:
-        user_class = self.db.query(UserClass).filter(UserClass.user_id == user_id).first()
-        if not user_class or not user_class.class_id:
+        # 学生侧可见性 = 当前仍是该班学生成员 ∩ 发布时固化的受众快照。
+        # 移出班级立即失去可见性；已发布作业的受众/分母本身不受成员变动影响。
+        class_ids = student_class_ids(self.db, user_id)
+        if not class_ids:
             return []
 
         now = datetime.now(UTC)
         assignments = (
             self.db.query(Assignment)
             .options(joinedload(Assignment.case))
+            .join(AssignmentRecipient, AssignmentRecipient.assignment_id == Assignment.id)
             .filter(
-                Assignment.class_id == user_class.class_id,
+                AssignmentRecipient.user_id == user_id,
+                Assignment.class_id.in_(class_ids),
                 Assignment.start_time <= now,
             )
             .order_by(Assignment.end_time.desc())
@@ -74,9 +79,6 @@ class StudentService:
 
         items: list[StudentAssignmentItem] = []
         for a in assignments:
-            if a.student_ids is not None and user_id not in a.student_ids:
-                continue
-
             attempts = [attempt_from_record(r) for r in records_by_assignment.get(a.id, [])]
             representative = pick_representative(attempts)
             closed = effective_status(a.is_closed, a.end_time, now) is AssignmentLifecycle.CLOSED
@@ -117,6 +119,7 @@ def _list_resp(view) -> AssignmentListItem:
         teacher_name=view.teacher_name,
         start_time=view.start_time,
         end_time=view.end_time,
+        audience_mode=view.audience_mode,
         student_count=view.student_count,
         completed_count=view.completed_count,
         created_at=view.created_at,
@@ -152,7 +155,8 @@ def _detail_resp(view) -> AssignmentDetail:
         class_name=view.class_name,
         features=view.features,
         behavior=view.behavior,
-        student_ids=view.student_ids,
+        audience_mode=view.audience_mode,
+        recipient_ids=view.recipient_ids,
         start_time=view.start_time,
         end_time=view.end_time,
         created_at=view.created_at,
@@ -179,7 +183,8 @@ def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentMan
             description=req.description,
             features=req.features,
             behavior=req.behavior,
-            student_ids=req.student_ids,
+            audience_mode=req.audience.mode,
+            recipient_user_ids=req.audience.user_ids,
             start_time=req.start_time,
             end_time=req.end_time,
             teacher_id=current_user.id,
@@ -229,7 +234,8 @@ def update_assignment(
             description=req.description,
             features=req.features,
             behavior=req.behavior,
-            student_ids=req.student_ids,
+            audience_mode=req.audience.mode if req.audience is not None else None,
+            recipient_user_ids=req.audience.user_ids if req.audience is not None else None,
             start_time=req.start_time,
             end_time=req.end_time,
             is_closed=req.is_closed,

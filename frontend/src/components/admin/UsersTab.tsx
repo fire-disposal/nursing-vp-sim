@@ -2,11 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
-import { getClasses } from "@/api";
+import { removeClassMembers } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import ClassFilter from "@/components/admin/ClassFilter";
+import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import BatchActionBar from "@/components/admin/users/BatchActionBar";
 import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
@@ -15,12 +15,12 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
-import { useClassesQuery, useGradesQuery } from "@/hooks/useGradesClasses";
-import type { ClassItem } from "@/types/store";
+import { useClassesQuery } from "@/hooks/useClasses";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
 	EditUserFormValues,
+	MembershipDraft,
 	UserBrief,
 	UserFormValues,
 } from "./users/types";
@@ -35,6 +35,32 @@ import {
 
 type Schemas = components["schemas"];
 
+const MEMBER_ROLE_DATA = [
+	{ value: "student", label: "学生" },
+	{ value: "teacher", label: "教师" },
+];
+
+/** 表单草稿 → 后端 memberships 全量替换载荷（丢弃空行与重复班级）。 */
+function toMembershipUpdates(
+	drafts: MembershipDraft[],
+): Schemas["UserMembershipUpdate"][] {
+	const seen = new Set<number>();
+	const items: Schemas["UserMembershipUpdate"][] = [];
+	for (const draft of drafts) {
+		if (!draft.class_id) continue;
+		const classId = Number(draft.class_id);
+		if (seen.has(classId)) continue;
+		seen.add(classId);
+		items.push({ class_id: classId, member_role: draft.member_role });
+	}
+	return items;
+}
+
+function classLabel(classId: string, classes: Schemas["ClassResponse"][]): string {
+	const found = classes.find((c) => String(c.id) === classId);
+	if (!found) return classId;
+	return found.cohort_label ? `${found.cohort_label} ${found.name}` : found.name;
+}
 
 interface UsersTabProps {
 	currentUserId?: number;
@@ -45,19 +71,23 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [offset, setOffset] = useState(0);
 	const [search, setSearch] = useState("");
 	const [roleFilter, setRoleFilter] = useState("");
-	const [classParam, setClassParam] = useState<{
-		grade_id: number | null;
-		class_id: number | null;
-	} | null>(null);
+	const [classParam, setClassParam] = useState<ClassFilterParams | null>(null);
 	const [showUserForm, setShowUserForm] = useState(false);
 	const [editingUser, setEditingUser] = useState<UserBrief | null>(null);
 	const [showBatchImport, setShowBatchImport] = useState(false);
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const [showBulkAssignDialog, setShowBulkAssignDialog] = useState(false);
-	const [bulkAssignClassId, setBulkAssignClassId] = useState<string>("");
-	const [assigning, setAssigning] = useState(false);
+	const [addDialog, setAddDialog] = useState<{
+		open: boolean;
+		classId: string;
+		memberRole: "student" | "teacher";
+	}>({ open: false, classId: "", memberRole: "student" });
+	const [removeDialog, setRemoveDialog] = useState<{ open: boolean; classId: string }>({
+		open: false,
+		classId: "",
+	});
+	const [isBulkBusy, setIsBulkBusy] = useState(false);
 	const [showBulkResetDialog, setShowBulkResetDialog] = useState(false);
 	const [bulkPassword, setBulkPassword] = useState("");
 	const [resetPasswordDialog, setResetPasswordDialog] = useState<{
@@ -69,14 +99,13 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const toast = useToast();
 	const queryClient = useQueryClient();
 	const userFormDirtyRef = useRef(false);
-	const { data: grades = [] } = useGradesQuery();
 	const { data: classes = [] } = useClassesQuery();
 
 	const params: Record<string, unknown> = { limit: LIMIT };
 	if (search) params.search = search;
 	if (roleFilter) params.role = roleFilter;
 	if (classParam?.class_id) params.class_id = classParam.class_id;
-	else if (classParam?.grade_id) params.grade_id = classParam.grade_id;
+	else if (classParam?.cohort_label) params.cohort_label = classParam.cohort_label;
 
 	const { data: userData, isLoading } = useUserList(offset, params);
 	const { data: roles = [] } = useRolesQuery();
@@ -88,16 +117,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const users = userData?.items ?? [];
 	const total = userData?.total ?? 0;
-
-	const getClassesForGrade = async (gradeId: string): Promise<ClassItem[]> => {
-		if (!gradeId) return [];
-		try {
-			const { data } = await getClasses({ grade_id: gradeId });
-			return data;
-		} catch {
-			return [];
-		}
-	};
 
 	const resetToFirstPage = () => setOffset(0);
 
@@ -114,41 +133,82 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		});
 	};
 
-	const handleBulkAssignClick = () => {
-		setShowBulkAssignDialog(true);
+	const openAddDialog = () =>
+		setAddDialog({ open: true, classId: "", memberRole: "student" });
+	const openRemoveDialog = () => setRemoveDialog({ open: true, classId: "" });
+
+	const handleAddConfirm = async () => {
+		if (!addDialog.classId) return;
+		const label = classLabel(addDialog.classId, classes);
+		const roleLabel = addDialog.memberRole === "teacher" ? "教师" : "学生";
+		const ok = await confirm({
+			title: "添加到班级",
+			message: `将选中的 ${selectedIds.size} 名用户以「${roleLabel}」身份加入「${label}」？\n\n已在该班的成员保持原角色不变，除非角色不同（会按本次选择更新）。`,
+		});
+		if (!ok) return;
+		setIsBulkBusy(true);
+		try {
+			const { data } = await bulkAssignClass(
+				[...selectedIds],
+				Number(addDialog.classId),
+				addDialog.memberRole,
+			);
+			const parts = [`新增 ${data.assigned} 人`];
+			if (data.updated > 0) parts.push(`更新角色 ${data.updated} 人`);
+			if (data.skipped > 0) parts.push(`跳过 ${data.skipped} 人`);
+			toast.success(parts.join("，"));
+			if (data.errors.length > 0) {
+				toast.warning(`部分失败：${data.errors.slice(0, 3).join("；")}`);
+			}
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
+			setSelectedIds(new Set());
+			setAddDialog({ open: false, classId: "", memberRole: "student" });
+			resetToFirstPage();
+		} catch (e: unknown) {
+			toast.apiError(e, "添加失败");
+		} finally {
+			setIsBulkBusy(false);
+		}
+	};
+
+	const handleRemoveConfirm = async () => {
+		if (!removeDialog.classId) return;
+		const label = classLabel(removeDialog.classId, classes);
+		const ok = await confirm({
+			title: "从班级移除",
+			message: `将选中的 ${selectedIds.size} 名用户从「${label}」移除？\n\n他们在其他班级的归属不受影响。`,
+			confirmLabel: "确定移除",
+			danger: true,
+		});
+		if (!ok) return;
+		setIsBulkBusy(true);
+		try {
+			const { data } = await removeClassMembers(
+				Number(removeDialog.classId),
+				[...selectedIds],
+			);
+			const parts = [`已移除 ${data.removed} 人`];
+			if (data.skipped > 0) parts.push(`未在该班 ${data.skipped} 人`);
+			toast.success(parts.join("，"));
+			if ((data.errors ?? []).length > 0) {
+				toast.warning(`部分失败：${(data.errors ?? []).slice(0, 3).join("；")}`);
+			}
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
+			setSelectedIds(new Set());
+			setRemoveDialog({ open: false, classId: "" });
+			resetToFirstPage();
+		} catch (e: unknown) {
+			toast.apiError(e, "移除失败");
+		} finally {
+			setIsBulkBusy(false);
+		}
 	};
 
 	const handleBulkResetPasswordClick = () => {
 		setBulkPassword("");
 		setShowBulkResetDialog(true);
-	};
-
-	const handleBulkAssignConfirm = async () => {
-		if (!bulkAssignClassId) return;
-		const ok = await confirm({
-			title: "批量分配班级",
-			message: `确定将 ${selectedIds.size} 名用户分配到所选班级吗？`,
-		});
-		if (!ok) return;
-		setAssigning(true);
-		try {
-			const { data } = await bulkAssignClass(
-				[...selectedIds],
-				Number(bulkAssignClassId),
-			);
-			toast.success(`已分配 ${data.assigned} 名用户`);
-			if (data.errors.length > 0) {
-				toast.warning(`部分失败: ${data.errors.join(", ")}`);
-			}
-			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
-			setSelectedIds(new Set());
-			setShowBulkAssignDialog(false);
-			resetToFirstPage();
-		} catch (e: unknown) {
-			toast.apiError(e, "分配失败");
-		} finally {
-			setAssigning(false);
-		}
 	};
 
 	const handleBulkResetConfirm = async () => {
@@ -204,30 +264,30 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			role: form.role,
 			display_name: form.display_name,
 			student_id: form.student_id || null,
-			class_id: form.class_id ? Number(form.class_id) : undefined,
 		};
-		registerMutation.mutate(payload, {
-			onSuccess: () => {
-				resetToFirstPage();
-				closeUserForm();
+		registerMutation.mutate(
+			{ payload, memberships: toMembershipUpdates(form.memberships) },
+			{
+				onSuccess: () => {
+					resetToFirstPage();
+					closeUserForm();
+				},
+				onError: (err: unknown) => {
+					const e = err as { response?: { data?: { detail?: string } } };
+					setRegMsg(e.response?.data?.detail || "注册失败");
+				},
 			},
-			onError: (err: unknown) => {
-				const e = err as { response?: { data?: { detail?: string } } };
-				setRegMsg(e.response?.data?.detail || "注册失败");
-			},
-		});
+		);
 	};
 
 	const handleSaveEdit = (form: EditUserFormValues) => {
-		const payload: Record<string, unknown> = {};
+		const payload: Schemas["UserUpdateRequest"] = {
+			memberships: toMembershipUpdates(form.memberships),
+		};
 		if (form.display_name) payload.display_name = form.display_name;
-		if (form.student_id) payload.student_id = form.student_id;
-		else payload.student_id = null;
+		payload.student_id = form.student_id || null;
 		if (form.role) payload.role = form.role;
 		if (form.password) payload.password = form.password;
-		if (form.class_id !== undefined && form.class_id !== "")
-			payload.class_id = Number(form.class_id);
-		else payload.class_id = null;
 		updateMutation.mutate(
 			{ id: editingUser!.id, data: payload },
 			{
@@ -262,8 +322,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		});
 	};
 
-	const handleBatchImport = (users: BatchUser[]) => {
-		batchImportMutation.mutate(users);
+	const handleBatchImport = (usersToImport: BatchUser[]) => {
+		batchImportMutation.mutate(usersToImport);
 	};
 
 	const handleResetPassword = async (password: string) => {
@@ -301,7 +361,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			</Group>
 
 			<Paper withBorder radius="md" p="md" shadow="sm">
-				<Group gap={8} mb="md">
+				<Group gap={8} mb="md" wrap="wrap">
 					<SearchInput
 						value={search}
 						onChange={(v) => { setSearch(v); resetToFirstPage(); }}
@@ -325,8 +385,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						clearable
 					/>
 					<ClassFilter
-						onChange={(params) => {
-							setClassParam(params);
+						onChange={(next) => {
+							setClassParam(next);
 							resetToFirstPage();
 						}}
 					/>
@@ -370,7 +430,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			<BatchActionBar
 				selectedCount={selectedIds.size}
 				onClearSelection={deselectAll}
-				onBulkAssignClass={handleBulkAssignClick}
+				onAddToClass={openAddDialog}
+				onRemoveFromClass={openRemoveDialog}
 				onBulkResetPassword={handleBulkResetPasswordClick}
 			/>
 
@@ -378,9 +439,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				open={showUserForm && editingUser === null}
 				user={null}
 				roles={roles}
-				grades={grades}
-				allClasses={classes}
-				getClassesForGrade={getClassesForGrade}
+				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
@@ -395,9 +454,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				open={showUserForm && editingUser !== null}
 				user={editingUser}
 				roles={roles}
-				grades={grades}
-				allClasses={classes}
-				getClassesForGrade={getClassesForGrade}
+				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
@@ -412,6 +469,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				open={showBatchImport}
 				onClose={() => setShowBatchImport(false)}
 				roles={roles}
+				classes={classes}
 				isImporting={batchImportMutation.isPending}
 				onImport={handleBatchImport}
 			/>
@@ -464,45 +522,101 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				</Modal>
 			)}
 
-			{showBulkAssignDialog && (
-				<Modal
-					opened
-					onClose={() => setShowBulkAssignDialog(false)}
-					title="批量分配班级"
-					size={400}
-					centered
-					withinPortal
-				>
-						<Stack gap="md">
-							<Text size="sm" c="dimmed">
-								为已选的 {selectedIds.size} 名用户分配班级：
-							</Text>
-							<Select
-								value={bulkAssignClassId || null}
-								onChange={(v) => setBulkAssignClassId(v ?? "")}
-								data={classes.map((c) => ({
-									value: String(c.id),
-									label: `${c.grade_name} ${c.name}`,
-								}))}
-								placeholder="选择班级…"
-							/>
-						</Stack>
-						<Group justify="flex-end" gap={8} mt="md">
-							<Button
-								variant="outline"
-								onClick={() => setShowBulkAssignDialog(false)}
-							>
-								取消
-							</Button>
-							<Button
-								disabled={!bulkAssignClassId || assigning}
-								onClick={handleBulkAssignConfirm}
-							>
-								{assigning ? "分配中…" : "确认分配"}
-							</Button>
-						</Group>
-				</Modal>
-			)}
+			<Modal
+				opened={addDialog.open}
+				onClose={() => setAddDialog((d) => ({ ...d, open: false }))}
+				title="添加到班级"
+				size={420}
+				centered
+				withinPortal
+			>
+					<Stack gap="md">
+						<Text size="sm" c="dimmed">
+							为已选的 {selectedIds.size} 名用户添加班级归属：
+						</Text>
+						<Select
+							label="班级" withAsterisk
+							value={addDialog.classId || null}
+							onChange={(v) => setAddDialog((d) => ({ ...d, classId: v ?? "" }))}
+							data={classes.map((c) => ({
+								value: String(c.id),
+								label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+							}))}
+							placeholder="选择班级…"
+							searchable
+						/>
+						<Select
+							label="身份"
+							value={addDialog.memberRole}
+							onChange={(v) =>
+								setAddDialog((d) => ({
+									...d,
+									memberRole: (v as "student" | "teacher") ?? "student",
+								}))
+							}
+							data={MEMBER_ROLE_DATA}
+							allowDeselect={false}
+						/>
+						<Text size="xs" c="dimmed">
+							已在班级中的成员会沿用原角色；若角色不同则按本次选择更新，角色冲突不会静默覆盖。
+						</Text>
+					</Stack>
+					<Group justify="flex-end" gap={8} mt="md">
+						<Button
+							variant="outline"
+							onClick={() => setAddDialog((d) => ({ ...d, open: false }))}
+						>
+							取消
+						</Button>
+						<Button
+							disabled={!addDialog.classId || isBulkBusy}
+							onClick={handleAddConfirm}
+						>
+							{isBulkBusy ? "处理中…" : "确认添加"}
+						</Button>
+					</Group>
+			</Modal>
+
+			<Modal
+				opened={removeDialog.open}
+				onClose={() => setRemoveDialog((d) => ({ ...d, open: false }))}
+				title="从班级移除"
+				size={420}
+				centered
+				withinPortal
+			>
+					<Stack gap="md">
+						<Text size="sm" c="dimmed">
+							将已选的 {selectedIds.size} 名用户从以下班级移除（其他班级归属不受影响）：
+						</Text>
+						<Select
+							label="班级" withAsterisk
+							value={removeDialog.classId || null}
+							onChange={(v) => setRemoveDialog((d) => ({ ...d, classId: v ?? "" }))}
+							data={classes.map((c) => ({
+								value: String(c.id),
+								label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+							}))}
+							placeholder="选择班级…"
+							searchable
+						/>
+					</Stack>
+					<Group justify="flex-end" gap={8} mt="md">
+						<Button
+							variant="outline"
+							onClick={() => setRemoveDialog((d) => ({ ...d, open: false }))}
+						>
+							取消
+						</Button>
+						<Button
+							color="red"
+							disabled={!removeDialog.classId || isBulkBusy}
+							onClick={handleRemoveConfirm}
+						>
+							{isBulkBusy ? "处理中…" : "确认移除"}
+						</Button>
+					</Group>
+			</Modal>
 
 			{showBulkResetDialog && (
 				<Modal

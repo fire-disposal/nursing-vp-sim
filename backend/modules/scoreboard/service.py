@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError
 from core.statuses import ScoringStatus, TrainingStatus
-from models import Assignment, Class, Score, TrainingRecord, User, UserClass
+from models import Assignment, Class, ClassMembership, Score, TrainingRecord, User
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas.scoreboard import (
     TIER_GOOD,
@@ -138,7 +138,10 @@ class ScoreboardService:
         if scope.class_id is not None:
             conditions.append(
                 TrainingRecord.user_id.in_(
-                    self.db.query(UserClass.user_id).filter(UserClass.class_id == scope.class_id)
+                    self.db.query(ClassMembership.user_id).filter(
+                        ClassMembership.class_id == scope.class_id,
+                        ClassMembership.member_role == "student",
+                    )
                 )
             )
         return conditions
@@ -227,7 +230,9 @@ class ScoreboardService:
             page_rows = q.offset(offset).limit(limit).all()
             progress_map = self._progress_for_users([r.user_id for r in page_rows], conditions)
 
-        items = self._build_items(page_rows, offset, progress_map)
+        items = self._build_items(
+            page_rows, offset, progress_map, class_names=self._display_class_names(page_rows, scope)
+        )
         summary = self._summary(conditions, now)
         return ScoreboardRankingResponse(
             summary=summary,
@@ -258,23 +263,42 @@ class ScoreboardService:
             by_user.setdefault(r.user_id, []).append((r.start_time, r.score))
         return {uid: compute_progress(seq) for uid, seq in by_user.items()}
 
+    def _display_class_names(self, page_rows: Sequence, scope: ScoreboardScope) -> dict[int, str]:
+        """学生 → 展示班名。
+
+        有 ``scope.class_id`` 时显示该班（作用域即语境）；
+        无作用域时取 class_id 最小的班级 —— 稳定可复现，不再让扫描顺序决定显示哪个班。
+        """
+        user_ids = [r.user_id for r in page_rows]
+        if not user_ids:
+            return {}
+        query = (
+            self.db.query(ClassMembership.user_id, Class.name, Class.id)
+            .join(Class, Class.id == ClassMembership.class_id)
+            .filter(
+                ClassMembership.user_id.in_(user_ids),
+                ClassMembership.member_role == "student",
+            )
+        )
+        if scope.class_id is not None:
+            query = query.filter(Class.id == scope.class_id)
+        names: dict[int, str] = {}
+        for uid, cname, class_id in query.order_by(ClassMembership.user_id, Class.id).all():
+            names.setdefault(uid, cname)
+        return names
+
     def _build_items(
         self,
         page_rows: Sequence,
         offset: int,
         progress_map: dict[int, tuple[float | None, str]],
+        class_names: dict[int, str] | None = None,
     ) -> list[ScoreboardRankingItem]:
         if not page_rows:
             return []
         user_ids = [r.user_id for r in page_rows]
         users = {u.id: u for u in self.db.query(User).filter(User.id.in_(user_ids)).all()}
-        class_names = {
-            row[0]: row[1]
-            for row in self.db.query(UserClass.user_id, Class.name)
-            .join(Class, Class.id == UserClass.class_id)
-            .filter(UserClass.user_id.in_(user_ids))
-            .all()
-        }
+        class_names = class_names if class_names is not None else {}
 
         items: list[ScoreboardRankingItem] = []
         for i, r in enumerate(page_rows):
@@ -373,12 +397,18 @@ class ScoreboardService:
             .all()
         )
 
-        class_name = (
+        # 有班级作用域时显示该班；否则显示该学生 class_id 最小的班级（稳定，不再随机）
+        class_name_query = (
             self.db.query(Class.name)
-            .join(UserClass, UserClass.class_id == Class.id)
-            .filter(UserClass.user_id == user_id)
-            .first()
+            .join(ClassMembership, ClassMembership.class_id == Class.id)
+            .filter(
+                ClassMembership.user_id == user_id,
+                ClassMembership.member_role == "student",
+            )
         )
+        if scope.class_id is not None:
+            class_name_query = class_name_query.filter(Class.id == scope.class_id)
+        class_name = class_name_query.order_by(Class.id).first()
 
         trend_records: list[StudentTrendRecord] = []
         for record, score in rows:
