@@ -326,11 +326,6 @@ app.add_middleware(
 )
 
 
-# Tool registration
-from modules.training.tools import register_all
-
-register_all()
-
 # Route registration
 from infra.diagnostics import router as _diagnostics
 from infra.telemetry import router as _telemetry
@@ -349,7 +344,7 @@ from modules.training import chat_router as _chat
 from modules.training import training_router as _training
 from modules.voice.router import router as _tts
 
-_exports, _profiles, _rubrics, _stats = get_top_level_routers()
+_exports, _rubrics, _stats = get_top_level_routers()
 for r in (
     _admin,
     _assignments,
@@ -360,7 +355,6 @@ for r in (
     _diagnostics,
     _exports,
     _feedback,
-    _profiles,
     _qa,
     _questionnaires,
     _rubrics,

@@ -194,8 +194,20 @@ jobs:
           # 与 `pnpm run check:backend` 口径一致，避免改迁移/测试文件时误红
           printf '%s\n' "$CHANGED" | xargs -d '\n' -r uv run ty check --force-exclude
 
+      - name: pytest (全量后端测试)
+        run: uv run python -m pytest -x -q
+
       - name: case-audit (病例数据健康门禁 — 0 error 才放行)
         run: uv run python ../scripts/case-audit.py --json
+
+      - name: permissions.gen.ts (check generated RBAC types are in sync)
+        run: |
+          uv run python scripts/gen_permissions_ts.py
+          if ! git diff --exit-code -- ../frontend/src/config/permissions.gen.ts; then
+            echo "::error::permissions.gen.ts is out of sync — run 'pnpm run api:update' and commit"
+            exit 1
+          fi
+          echo "✓ permissions.gen.ts is in sync"
 
       - name: api:spec (check openapi.json is in sync)
         run: |
