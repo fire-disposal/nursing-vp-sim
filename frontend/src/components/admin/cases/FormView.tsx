@@ -1,5 +1,4 @@
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
-import type { PhaseFormData } from "./caseFormTypes";
 import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
@@ -8,7 +7,6 @@ import { ClinicalSection } from "./ClinicalSection";
 import { ExamAnchorsEditor } from "./ExamAnchorsEditor";
 import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";
-import { PhasesEditor } from "./PhasesEditor";
 import { QuizEditor } from "./QuizEditor";
 import { NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput, Textarea } from "@mantine/core";
 
@@ -88,11 +86,6 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				<QuizEditor
 					value={objField(state, "activities.quiz.config", { title: "", questions: [] }) as never}
 					onChange={(v) => set("activities.quiz.config", v)}
-					disabled={disabled}
-				/>
-				<PhasesEditor
-					value={objField(state, "phases", [] as never) as unknown as Array<PhaseFormData>}
-					onChange={(v) => set("phases", v)}
 					disabled={disabled}
 				/>
 			</Stack>

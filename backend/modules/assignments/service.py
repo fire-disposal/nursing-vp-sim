@@ -27,7 +27,7 @@ from modules.assignments.progress import (
     pick_representative,
     progress_status,
 )
-from modules.cases.revisions import require_publishable
+from modules.cases.revisions import require_current_revision
 
 log = logging.getLogger(__name__)
 
@@ -346,9 +346,9 @@ class AssignmentService:
         case = self.db.query(Case).filter(Case.id == case_id).first()
         if not case:
             raise NotFoundError("病例不存在")
-        # 未发布病例不得被作业使用（docs/15 §六）；发布时同时钉住版本，
+        # 未发布病例不得被作业使用（docs/15 §六）；发布时同时钉住版本（列 NOT NULL），
         # 作业期间病例编辑出新 revision 也不影响本作业的学员
-        require_publishable(case)
+        revision = require_current_revision(self.db, case)
         cls = self.db.query(Class).filter(Class.id == class_id).first()
         if not cls:
             raise NotFoundError("班级不存在")
@@ -362,7 +362,7 @@ class AssignmentService:
         with unit_of_work(self.db, conflict_detail="创建失败，请重试"):
             assignment = Assignment(
                 case_id=case_id,
-                case_revision_id=case.current_revision_id,
+                case_revision_id=revision.id,
                 class_id=class_id,
                 teacher_id=teacher_id,
                 title=title,
@@ -460,9 +460,9 @@ class AssignmentService:
             case = self.db.query(Case).filter(Case.id == case_id).first()
             if not case:
                 raise NotFoundError("病例不存在")
-            require_publishable(case)
+            revision = require_current_revision(self.db, case)
             assignment.case_id = case_id
-            assignment.case_revision_id = case.current_revision_id
+            assignment.case_revision_id = revision.id
         if class_changed:
             cls = self.db.query(Class).filter(Class.id == class_id).first()
             if not cls:

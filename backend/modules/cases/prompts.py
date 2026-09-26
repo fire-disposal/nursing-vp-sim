@@ -91,15 +91,19 @@ CASE_GENERATION_DERIVATIVE = (
     "职业": "退休工人",
     "用药顾虑": "因经济原因自行减少药量"
   },
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "36.8",
-      "heart_rate": "76",
-      "blood_pressure": "125/82",
-      "respiratory_rate": "18",
-      "spo2": "98"
-    },
-    "skin": "皮肤温暖干燥，未见皮疹"
+  "activities": {
+    "physical_exam": {
+      "config": {
+        "vital_signs": {
+          "temperature": "36.8",
+          "heart_rate": "76",
+          "blood_pressure": "125/82",
+          "respiratory_rate": "18",
+          "spo2": "98"
+        },
+        "skin": "皮肤温暖干燥，未见皮疹"
+      }
+    }
   },
   "example_dialogues": [
     {"question": "护士的典型问题", "answer": "患者的口语化回答"}
@@ -111,11 +115,11 @@ CASE_GENERATION_DERIVATIVE = (
 - **hidden_info**：3-6 条，患者不便主动告知但影响诊疗的深层背景线索，每条一句话
 - **required_inquiries**：4-6 条，每条 5-15 字，覆盖该病例的核心病史采集点。hidden_info 与之对应——学生问到了问诊项才能发现隐藏信息
 - **deep_background**：3-6 条，每条一句话。LLM 内部上下文，患者不会主动透露
-- **exam_anchors**：护理查体时的预期发现。只需配置与病情匹配的**关键异常体征**（如发热病例给 "temperature": "38.5-39.2"）；其他体征留空，系统会自动按年龄默认值补全并做生理联动（发热→心率代偿↑等）。支持范围格式 "36.8-37.2"
+- **activities.physical_exam.config**：护理查体时的预期发现（**唯一合法落点**，不得输出顶层 exam_anchors 等旧字段）。只需配置与病情匹配的**关键异常体征**（如发热病例给 "temperature": "38.5-39.2"）；其他体征留空，系统会自动按年龄默认值补全并做生理联动（发热→心率代偿↑等）。支持范围格式 "36.8-37.2"
 - **example_dialogues**：2-3 组护患典型问答，口语化，体现个性
 
 ## 交叉一致性要求
-- **exam_anchors 必须与骨架匹配**：主诉咳嗽气促 → 呼吸频率/血氧偏离；发热 → 体温升高；疼痛 → pain_score 偏高。不得与骨架矛盾（如主诉无发热却给高体温）
+- **查体配置必须与骨架匹配**：主诉咳嗽气促 → 呼吸频率/血氧偏离；发热 → 体温升高；疼痛 → pain_score 偏高。不得与骨架矛盾（如主诉无发热却给高体温）
 - **required_inquiries 与 hidden_info 一一对应**：每一条隐藏信息都应能被某条必询项问出
 - **deep_background 补充骨架未覆盖的决策因素**：经济、依从性、社会支持等"""
     + _GENERATION_TAIL
@@ -128,7 +132,7 @@ _FIELD_TYPE_HINTS: dict[str, str] = {
     "hidden_info": "输出为字符串数组，3-6 条，每条一句话",
     "required_inquiries": "输出为字符串数组，4-6 条，每条 5-15 字",
     "deep_background": "输出为对象（键=主题，值=一句话描述），3-6 条",
-    "exam_anchors": "输出为对象，含 vital_signs（temperature/heart_rate/blood_pressure/respiratory_rate/spo2）与 skin；只需给关键异常体征",
+    "activities.physical_exam.config": "输出为对象，含 vital_signs（temperature/heart_rate/blood_pressure/respiratory_rate/spo2）与 skin；只需给关键异常体征（不得输出顶层 exam_anchors 旧字段）",
     "example_dialogues": "输出为数组，每项含 question/answer 两个字段，2-3 组",
     "personality": "输出为对象：health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）",
     "patient_info": "输出为对象：name（中文名）、age、gender（男/女）",
@@ -145,11 +149,16 @@ _FIELD_TYPE_HINTS: dict[str, str] = {
 
 
 def build_field_instruction(field: str, current_case_data: dict | None) -> str:
-    """构建字段级生成指令：类型提示 + 当前病例上下文。"""
+    """构建字段级生成指令：类型提示 + 当前病例上下文。
+
+    ``field`` 是 case_data 的 JSON 路径（可嵌套，如
+    ``activities.physical_exam.config``）；输出统一走 ``field_value`` 信封，
+    避免要求模型输出带点的字面量键。
+    """
     from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
 
     hint = _FIELD_TYPE_HINTS.get(field, "输出为该字段的合理 JSON 值")
-    inst = f'\n\n当前任务：只生成字段「{field}」。{hint}。输出 JSON 形如 {{"{field}": <值>}}。'
+    inst = f'\n\n当前任务：只生成字段「{field}」。{hint}。输出 JSON 形如 {{"field_value": <值>}}。'
     if current_case_data:
         inst += f"\n\n当前病例上下文：\n{format_case_for_prompt(current_case_data)}"
     return inst

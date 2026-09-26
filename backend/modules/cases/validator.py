@@ -50,7 +50,7 @@ CONSUMED_FIELDS: dict[str, str] = {
     "activities": "Activity 声明（activities.<id>.config → ACTIVITY_BINDINGS / manifest）",
     "voice_override": "voice.service 病例音色覆盖",
     "hidden_info": "prompt (format_case_for_prompt)",
-    "scene": "前端 SceneRenderer",
+    "scene": "训练开始/复盘：case_data.scene → runtime_state.scene（router/session.py）+ prompt_builder 注入",
     "variant_of": "校验器去重登记",
 }
 

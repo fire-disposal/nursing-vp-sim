@@ -18,7 +18,6 @@ interface Props {
 }
 
 export function ClinicalSection({ state, dispatch, disabled }: Props) {
-	const voiceType = stringField(state, "voice_type");
 	const voiceOverride = stringField(state, "voice_override");
 	const chiefComplaint = stringField(state, "chief_complaint");
 	const openingLine = stringField(state, "opening_line");
@@ -33,12 +32,6 @@ export function ClinicalSection({ state, dispatch, disabled }: Props) {
 
 			{/* ── Voice ── */}
 			<Group gap="sm" grow wrap="wrap" mb="md" pb="md" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }}>
-				<div>
-					<Text size="xs" fw={600} c="dimmed" mb={4}>
-						音色 ID <Text component="span" size="xs" fw={400}>（留空则按年龄性别自动分流）</Text>
-					</Text>
-					<TextInput value={voiceType} onChange={(e) => set("voice_type", e.currentTarget.value)} placeholder="zh_female_vv_uranus_bigtts" disabled={disabled} />
-				</div>
 				<div>
 					<Text size="xs" fw={600} c="dimmed" mb={4}>强制音色覆盖</Text>
 					<TextInput value={voiceOverride} onChange={(e) => set("voice_override", e.currentTarget.value)} placeholder="zh_male_wennuan_bigtts" disabled={disabled} />

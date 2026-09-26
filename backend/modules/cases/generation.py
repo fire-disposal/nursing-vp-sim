@@ -29,6 +29,7 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_llm_config
 from models import Case, User
 from modules.cases.prompts import build_field_instruction, build_system_prompt
+from modules.training.activities import ACTIVITY_CONFIG_KEY, CASE_ACTIVITIES_FIELD
 from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
 from schemas.case_schema import validate_case_data
@@ -76,6 +77,21 @@ def _validate_core_stage(data: dict) -> str | None:
     return None
 
 
+def _physical_exam_config(data: dict) -> object:
+    """AI 输出里的查体锚点 —— 唯一合法落点是 ``activities.physical_exam.config``。
+
+    旧顶层 ``exam_anchors`` 已退场（docs/15 §九）：新运行时只读 Activity 声明，
+    顶层字段写进去等于查体配置丢失。
+    """
+    activities = data.get(CASE_ACTIVITIES_FIELD)
+    if not isinstance(activities, dict):
+        return None
+    declaration = activities.get("physical_exam")
+    if not isinstance(declaration, dict):
+        return None
+    return declaration.get(ACTIVITY_CONFIG_KEY)
+
+
 def _validate_derivative_stage(data: dict) -> str | None:
     """教学衍生校验：列表字段数量与对象字段类型。返回错误描述或 None。"""
 
@@ -91,9 +107,23 @@ def _validate_derivative_stage(data: dict) -> str | None:
             return err
     if not isinstance(data.get("deep_background"), dict):
         return "deep_background 必须是对象（键=主题，值=一句话描述）"
-    if not isinstance(data.get("exam_anchors"), dict):
-        return "exam_anchors 必须是对象（含 vital_signs）"
+    if not isinstance(_physical_exam_config(data), dict):
+        return "activities.physical_exam.config 必须是对象（含 vital_signs；顶层 exam_anchors 已退场）"
     return None
+
+
+def _merge_derivative(base: dict, derivative: dict) -> dict:
+    """把衍生产物合并进骨架：``activities`` 按 activity 逐项合并，不整体覆盖。
+
+    derivative 阶段只生成 physical_exam 声明；整体覆盖会把骨架/教师已有的
+    quiz、nursing_record 声明一并抹掉。
+    """
+    merged = {**base, **derivative}
+    base_activities = base.get(CASE_ACTIVITIES_FIELD)
+    derived_activities = derivative.get(CASE_ACTIVITIES_FIELD)
+    if isinstance(base_activities, dict) and isinstance(derived_activities, dict):
+        merged[CASE_ACTIVITIES_FIELD] = {**base_activities, **derived_activities}
+    return merged
 
 
 # ── LLM 调用与修复循环 ─────────────────────────────────────────────────────
@@ -250,12 +280,12 @@ async def generate_case(
         if not base:
             raise ValidationError(detail="生成教学细节需要临床骨架作为上下文（当前病例为空）")
         derivative = await _generate_stage("derivative", data, reference_material, base, current_user, llm_client)
-        return CaseGenerateResponse(case_data={**base, **derivative})
+        return CaseGenerateResponse(case_data=_merge_derivative(base, derivative))
 
     # full：骨架 → 衍生 链式生成
     core = await _generate_stage("core", data, reference_material, None, current_user, llm_client)
     derivative = await _generate_stage("derivative", data, reference_material, core, current_user, llm_client)
-    merged = {**core, **derivative}
+    merged = _merge_derivative(core, derivative)
     try:
         validate_case_data(merged, strict=True)
     except PydanticValidationError as e:

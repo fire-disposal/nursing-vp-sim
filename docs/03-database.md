@@ -108,6 +108,10 @@ VoiceConfig / VoiceCallLog / RateLimitEntry / SystemNotification：独立表
 `cases.case_data` 只存临床与模拟数据，不再重复保存元数据；训练时限的唯一口径见
 `backend/core/time_limits.py`（声明即生效，越界在校验层拒绝，不做静默改写）。
 
+作业（`assignments`）的版本与受众各只有一个 owner：`case_revision_id`（**NOT NULL**，发布时钉住，
+学员永远按该版本训练与复盘）与受众快照 `assignment_recipients`（旧 `student_ids` 列已随
+ddl `f5a6b7c8d9e0` 删除）。
+
 | 表名 | 来源模型 |
 |------|----------|
 | `assignment_recipients` | `models/assignment.py` · AssignmentRecipient（受众快照） |

@@ -10345,11 +10345,6 @@
             ],
             "title": "Patient Summary"
           },
-          "profile_info": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Profile Info"
-          },
           "capabilities": {
             "additionalProperties": {
               "type": "boolean"
@@ -10512,14 +10507,14 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9_]*$"
+                "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Field",
-            "description": "生成/重生成单个顶层字段（如 present_illness、activities）"
+            "description": "生成/重生成单个字段（case_data 的 JSON 路径，可嵌套；如 present_illness、activities.physical_exam.config）"
           },
           "current_case_data": {
             "anyOf": [

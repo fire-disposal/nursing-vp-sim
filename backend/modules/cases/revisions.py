@@ -98,3 +98,15 @@ def revision_of(db: Session, revision_id: int | None, *, case: Case | None = Non
     if case is not None and revision.case_id != case.id:
         return None
     return revision
+
+
+def require_pinned_revision(db: Session, revision_id: int, *, case: Case) -> CaseRevision:
+    """作业/记录**钉住**的版本（docs/15 §六）：解析失败即拒绝，不回落到当前版本。
+
+    回落会让同一份已发布作业在不同时间跑在不同内容上（版本边界失效），所以这里
+    只有两种结果：拿到那条 revision，或者冲突报错。
+    """
+    revision = revision_of(db, revision_id, case=case)
+    if revision is None:
+        raise ConflictError(detail="该作业钉住的病例版本已不存在，不能开始训练")
+    return revision

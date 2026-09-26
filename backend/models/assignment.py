@@ -1,8 +1,8 @@
 """作业（练习发布）模型 —— 受众在发布时固化到 ``assignment_recipients``。
 
-历史沿革：受众曾是 ``assignments.student_ids``（JSONB，NULL=全班动态）。现在受众一律
-由「受众快照」决定（见 :class:`AssignmentRecipient`）；``student_ids`` 列只作为回滚源
-保留在库中（expand 步骤），ORM 层刻意不再映射 —— 新代码不得读写。
+历史沿革：受众曾是 ``assignments.student_ids``（JSONB，NULL=全班动态）。受众快照
+（:class:`AssignmentRecipient`）接管后该列只剩陈旧副本，已由 ddl 迁移 ``f5a6b7c8d9e0``
+从库中删除（contract 步骤，单向）；受众的唯一 owner 是受众快照。
 """
 
 from __future__ import annotations
@@ -41,13 +41,13 @@ class Assignment(Base, TimestampMixin):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
-    # 发布时钉住的病例版本（docs/15 §六）：作业期间病例被编辑出新 revision，本作业的
-    # 学员仍按发布时的版本训练与复盘。发布动作（AssignmentService.create）只接受
-    # published 病例，并写入其 current_revision_id。
-    case_revision_id: Mapped[int | None] = mapped_column(
+    # 发布时钉住的病例版本（docs/15 §六），**非空**：作业期间病例被编辑出新 revision，
+    # 本作业的学员仍按发布时的版本训练与复盘。发布动作（AssignmentService.create）只接受
+    # published 病例并写入其 current_revision_id；没有版本的作业行不存在（旧行的回填见
+    # 数据迁移 e6b2c3d4e5f6，NOT NULL 落地见 ddl 迁移 f5a6b7c8d9e0）。
+    case_revision_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("case_revisions.id", ondelete="RESTRICT", name="fk_assignments_case_revision_id"),
-        nullable=True,
     )
     # 发布范围（哪个班）
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id", ondelete="RESTRICT"))
@@ -57,7 +57,6 @@ class Assignment(Base, TimestampMixin):
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
     behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
     audience_mode: Mapped[str] = mapped_column(String(20), default=AUDIENCE_CLASS, server_default=text("'class'"))
-    # 遗留列 ``student_ids``（JSONB）仍是库中物理列，仅作为回滚源：ORM 不映射，勿读写。
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_closed: Mapped[bool] = mapped_column(default=False, server_default=text("false"))

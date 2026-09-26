@@ -36,7 +36,6 @@ _CaseManager = Annotated[User, Depends(require_permission("case_manage"))]
 
 
 def _to_case_brief(c: Case) -> CaseBrief:
-    profile_info = {"type": HISTORY_TAKING.id, "label": HISTORY_TAKING.label}
     return CaseBrief(
         id=c.id,
         name=c.name,
@@ -46,7 +45,6 @@ def _to_case_brief(c: Case) -> CaseBrief:
         time_limit_minutes=c.time_limit_minutes,
         is_open=c.is_open,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
-        profile_info=profile_info,
         capabilities=HISTORY_TAKING.resolve_features(c.case_data),
     )
 

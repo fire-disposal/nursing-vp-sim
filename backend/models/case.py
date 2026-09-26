@@ -80,9 +80,9 @@ class Case(Base, TimestampMixin):
 class CaseRevision(Base):
     """病例内容的不可变版本（docs/15 §六）。
 
-    内容为什么是单个 ``content`` JSONB 而不是 clinical_data / exam_anchors /
+    内容为什么是单个 ``content`` JSONB 而不是 clinical_data / 查体锚点 /
     activity_config 多列：病例载荷本来就是一份 JSON，查体锚点住在
-    ``activities.physical_exam.config.exam_anchors``，按 Activity 切成多列等于把同一份
+    ``activities.physical_exam.config``，按 Activity 切成多列等于把同一份
     数据复制成两份真相源，且每加一个 Activity 都要改表。revision 只负责**内容**；
     评分规则随记录冻结在 ``training_records.rubric_snapshot``（modules/training/scoring），
     不在这里再做一份。

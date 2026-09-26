@@ -7,8 +7,9 @@
 0. 旧形状能力声明先落到现行契约：``case_data.tools.<physical_exam|nursing_record|quiz>``
    与旧顶层 ``exam_anchors`` / ``nursing_record`` / ``quiz`` → ``activities.<id>.config``。
    新运行时只消费 ``activities.<id>.config``，不换轨等于把这些配置丢掉；映射与合并
-   优先级（``tools.*`` 覆盖同名键）是 ``backend/scripts/migrate_case_activities.py`` 的
-   冻结副本。无法无损映射（``tools`` 非对象 / 未知键 / ``nursing_diagnosis``）时**整条
+   优先级（``tools.*`` 覆盖同名键）是原 ``backend/scripts/migrate_case_activities.py`` 的
+   冻结副本（该一次性脚本已在迁移落地后删除）：单向换轨的唯一实现就是本文件。无法无损
+   映射（``tools`` 非对象 / 未知键 / ``nursing_diagnosis``）时**整条
    迁移在写入前报错停下**并列出病例 id，绝不静默丢配置；已有 ``activities`` 的行原样
    保留既有声明（重跑 / 部分迁移幂等），残留旧形状键只记 warning。downgrade **不**还原
    这个形状：顶层 ``exam_anchors`` 与 ``tools.physical_exam`` 合并后无法再拆回，换轨是
@@ -141,8 +142,8 @@ def _collect_legacy_configs(case_id: int, content: dict[str, Any]) -> dict[str, 
 def _migrate_case_activities(case_id: int, content: dict[str, Any]) -> dict[str, Any]:
     """把旧形状能力声明换成 ``activities.<id>.config``（纯函数，不改入参）。
 
-    ``backend/scripts/migrate_case_activities.py`` 的冻结副本（同一映射、同一合并优先级、
-    同一字段落位），外加迁移需要的报错口径：
+    原一次性转换脚本 ``backend/scripts/migrate_case_activities.py`` 的冻结副本（同一映射、
+    同一合并优先级、同一字段落位；脚本本身已随换轨完成删除），外加迁移需要的报错口径：
 
     * 已含 ``activities`` 的行原样返回 —— 重跑 / 部分迁移幂等，既有声明绝不被改写；残留的
       旧形状键保留在 payload 里（不丢数据）并记 warning；

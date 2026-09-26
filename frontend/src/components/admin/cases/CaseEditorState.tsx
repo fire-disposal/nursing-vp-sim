@@ -104,7 +104,6 @@ const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
 	allergy_history: "",
 	family_history: "",
 	social_history: "",
-	voice_type: "",
 	voice_override: "",
 	// Activity 声明容器（docs/15 §四）：`activities.<id>.config` 是能力的唯一开关，
 	// 空对象 = 尚未声明任何能力（发布门禁会要求至少一个，由能力勾选写入）。

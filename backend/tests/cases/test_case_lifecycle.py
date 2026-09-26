@@ -115,11 +115,27 @@ def test_create_is_draft_and_stores_metadata_in_columns_only(db):
     assert case.status == CASE_STATUS_DRAFT
     assert (case.name, case.difficulty, case.time_limit_minutes) == ("门禁测试病例", 1, 30)
     # case_data 里不再重复保存元数据键（docs/15 §六、§十五.3）
-    for key in ("name", "difficulty", "time_limit", "training_type"):
+    for key in ("name", "difficulty", "time_limit"):
         assert key not in case.case_data
     # 内容本身（含 Activity 声明）原样保留
     assert case.case_data["activities"] == _VALID_CONTENT["activities"]
     assert case.current_revision_id is None
+
+
+def test_retired_field_is_reported_not_silently_dropped(db):
+    """已退场字段（training_type）不再被剥掉：写路径不静默丢数据，发布门禁点名它。
+
+    对存量旧值的唯一解释路径是数据迁移 e6b2c3d4e5f6（单向）；应用侧遇到该字段
+    只报告不隐藏。
+    """
+    case = _create(db, training_type="history_taking")
+
+    assert case.case_data["training_type"] == "history_taking"
+
+    _, report = CaseService(db).publish(case.id, user_id=1, user_role="admin")
+
+    assert "training_type" in [i.field for i in report.warnings]
+    assert report.errors == []
 
 
 def test_metadata_only_edit_keeps_the_same_revision(db):
@@ -376,8 +392,9 @@ def test_session_manifest_of_legacy_record_has_no_revision():
 
 
 # ── e6 数据迁移的能力声明换轨（``tools.*`` → ``activities.<id>.config``）──────────
-# 迁移是历史文件，按路径加载（与 tests/cases/test_migrate_case_activities.py 同法），
-# 只验纯转换函数与升级里的指纹改写顺序 —— 升级本身在 alembic 里跑，不在这里起库。
+# 迁移是历史文件，按路径加载 —— 单向换轨的唯一实现就在这里（一次性转换脚本已在
+# 迁移落地后删除），只验纯转换函数与升级里的指纹改写顺序：升级本身在 alembic 里跑，
+# 不在这里起库。
 
 _MIGRATION_PATH = (
     Path(__file__).resolve().parents[2] / "migrations" / "versions" / "data" / "e6b2c3d4e5f6_backfill_case_revisions.py"

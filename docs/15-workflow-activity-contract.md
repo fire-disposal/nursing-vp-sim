@@ -154,17 +154,17 @@ flowchart LR
 ```text
 Case: id, name, description, difficulty, time_limit_minutes,
       status: draft | published | archived,
-      current_revision_id
-CaseRevision: id, case_id, revision_no, clinical_data, exam_anchors,
-      activity_config, rubric, created_by, created_at, published_at
-              （已发布 revision 不可修改）
+      current_revision_id, case_data(工作副本，仅教师编辑对象)
+CaseRevision: id, case_id, revision_no, content(冻结的病例载荷),
+      created_by, created_at, published_at
+              （已发布 revision 不可修改；单一 content JSONB，不再按 Activity 切列）
 ```
 
 - `status` 管产品生命周期；`CaseRevision` 管内容不可变与训练可复现。
-- Assignment 与 Session **必须引用明确 revision id**；编辑已发布病例 = 产生新 revision，旧训练永远按旧版复盘与评分。
+- Assignment 与 Session **必须引用明确 revision id**（`assignments.case_revision_id` 为 NOT NULL，发布时钉住）；编辑已发布病例 = 产生新 revision，旧训练永远按旧版复盘与评分。
 - `archived` 只阻止新使用，不删除历史 revision。
 - 不做 Git 式分支 / merge / semver。
-- 元数据（name/difficulty/time_limit）**只在 Case 列**，`case_data` 不再重复保存；当前双源读点仅两处可一次收口（`backend/modules/cases/service.py:120`、`backend/modules/cases/router.py:40`）。
+- 元数据（name/difficulty/time_limit）**只在 Case 列**，`case_data` 落库前剥离，不再重复保存（`schemas/case_schema.strip_case_metadata`）；已退场的 `training_type` 不在此列 —— 它没有任何列或消费端，遇到只被审计点名，不会被静默丢弃。
 - 病例发布前跑质量门禁（复用 `backend/modules/cases/validator.py`，当前 CRUD 未调用）：必填字段、隐藏信息是否误入公开投影、exam anchor 完整性、rubric 维度合法、时长合法、是否残留已退场字段。
 - 训练时限只允许一个口径：病例/作业声明值经校验层（越界即 422），**不得静默改写**（当前 `max(30, min(120, …))` 把教师填的 20/180 静默改成 30/120，见 `backend/modules/training/router/session.py:206-208`）。
 
@@ -385,7 +385,7 @@ Server Contract（manifest projections）
 | 步 | 改什么 | 结束时状态 | 验收 |
 |---|---|---|---|
 | 1 | 建 `ActivityDefinition` / 唯一 `ACTIVITY_BINDINGS`；旧 `tools/registry.py` 仍生产分发但指向**同一批 handler** | 行为不变，新契约可测试 | activity id 唯一；binding 集合与允许 id 集合一致 |
-| 2 | 写一次性转换器 `scripts/migrate_case_activities.py --check/--write`（`tools.X → activities.X.config`；`exam_anchors → activities.physical_exam.config.exam_anchors`） | 生产零变化，11 病例可验证无损转换 | 11/11 可转换；quiz=1；`nursing_diagnosis`=0；语义等价 |
+| 2 | 写一次性转换器 `scripts/migrate_case_activities.py --check/--write`（`tools.X → activities.X.config`；`exam_anchors → activities.physical_exam.config`）—— 已在换轨完成后删除，映射现在只作为冻结副本留在数据迁移 `e6b2c3d4e5f6` 里 | 生产零变化，11 病例可验证无损转换 | 11/11 可转换；quiz=1；`nursing_diagnosis`=0；语义等价 |
 | 3 | `--write` 迁病例 + 解析器只读 `activities`；删 `capabilities.py` 的病例派生职责；`session_views` 返回 resolved manifest | 后端只有 Activity 一个真相源；旧前端经 transport 仍可用 | 11 病例全部 resolve；`grep '"tools"' data/cases` 无命中 |
 | 4 | manifest 进 OpenAPI；建立**纯 RendererMap**（`ui.renderer → 组件`） | 前端可渲染但未切工作区 | 生成物同步；lint 禁止 renderer 读 `capabilities.gen.ts` |
 | 5 | **同 PR 切工作区**：`manifest.activities → ui.renderer → RendererMap`；删 `registry.ts` / `getTools` / `capabilities.gen.ts` / 生成步骤 | 前后端均只有 Activity 真相源 | `rg -e capabilities.gen -e getTools -e tools/registry frontend/src` 零命中；E2E 覆盖评估 draft/submitted、唯一 quiz 病例、无 quiz 病例、completion blocker |
@@ -404,6 +404,17 @@ Server Contract（manifest projections）
 | 3 病例生命周期 | **已完成（后端 + 管理端 UI）** | `cases.status`(draft/published/archived) + `case_revisions`(不可变) + `cases.current_revision_id`；`training_records`/`assignments.case_revision_id` 钉住版本；`case_data` 剥离 `name/difficulty/time_limit`（列成为唯一存储）；新端点 `GET /cases/{id}/validation`、`POST /publish`(error→422 + 字段级报告)、`POST /archive`、`GET /revisions`；`/cases` 学生目录只返回 `published && is_open`；`training_type` 三个接口字段与查询参数一并退场；迁移链 `b2c4d6e8f0a2 → e5a1b2c3d4f5 → e6b2c3d4e5f6 → e7c3d4e5f6a7`（含 data 回填与逐行报出的归档结论，downgrade 实测可逆）|
 | 4 Workflow/Activity 切换 | **steps 1–5 已完成；step 6 部分完成** | 后端：`activities.py`/`manifest.py`/`features.py`，`capabilities.py` 与 `gen_capabilities_ts.py` 删除，11 病例迁到 `activities.*`；前端：**一次切换**到 manifest 驱动工作区（纯 RendererMap + `ActivityRail`(桌面)/`ActivityBar`+Bottomsheet(移动) + `CompletionStrip`/`CompletionChecklist`），`registry.ts`/`getTools`/`capabilities.gen.ts`/`SceneRenderer`/`SceneToolbar`/`TrainingTool.ts`/`sceneStore`/`getProfiles` 全部删除，`package.json` 生成链移除 `cap:generate`；`/api/profiles` 端点删除（**step 6 剩余**：旧 `/tools` transport adapter 与字符串 dispatch 待新命令端点落地后移除）|
 | 5 Context 与对话可靠性 | **基础设施已落地；Invocation Audit 与第二 workflow 待做** | `ContextFragment`/`ContextAssembler` 统一选择、排序、裁剪、预算与槽位边界；对话回合采用事务 A（学生消息 + `pending` turn）/事务 B（患者回复 + 收尾）两阶段持久化；`request_id` 幂等、失败可审计、流式异常兜底、身份/隐藏主题守卫类型化追加；新增耐久性与装配测试覆盖。尚未接入 Invocation Audit/Evidence 的完整公共骨架，`clinical_reasoning` 仍未进入目录、作业、Artifact、评分与复盘。|
+
+### 生命周期边界收敛（2026-09-26，切片 2/3/4 的收尾）
+
+| 事实 | 唯一 owner（收敛后） | 已删除的第二来源 |
+|---|---|---|
+| 作业用哪一版病例 | `assignments.case_revision_id`（NOT NULL，发布时钉住；ddl `f5a6b7c8d9e0`） | 作业行缺版本时回落 `require_current_revision` 的兼容分支（`training/router/session.py`） |
+| 作业受众 | `assignment_recipients`（发布时快照） | `assignments.student_ids` 物理列（陈旧副本，随 `f5a6b7c8d9e0` 删除，downgrade 只重建空列） |
+| 查体锚点 | `activities.physical_exam.config` | AI 生成链输出的顶层 `exam_anchors`（`modules/cases/prompts.py`、`generation.py`、管理端「查体锚点」按钮）；`CaseDataSchema` 不再声明已退场的 `phases` / `voice_type`，`CaseBrief.profile_info`（旧 profiles 投影）与死类型 `CaseNameRequest` 一并移除 |
+| 已退场字段 `training_type` | 只有数据迁移 `e6b2c3d4e5f6` 解释存量值（单向、显式） | `CASE_METADATA_KEYS` 里的静默剥离分支 —— 现在遇到它按未知键原样往返，由病例审计（`validator.LEGACY_FIELDS`）点名 |
+
+一次性转换器 `scripts/migrate_case_activities.py` 与 `data/cases` 里的旧形状文件已归零，脚本（及其测试）删除；`tools.*` → `activities.<id>.config` 的映射只保留在数据迁移的冻结副本里。
 
 已完成部分的验证：后端 1315 测试通过、`ruff check` 与 `ty` 全绿；前端 71 个测试文件、472 个测试通过（1 skipped），TypeScript 与 Biome 全绿；迁移链单 head；真实 Postgres 运行期核对 14 项（多班级一致性、教师不计入学生口径、排名/趋势班级名确定性）；CI 增加后端 pytest 与 `permissions.gen.ts` 同步门禁；生成物幂等性已验证（连续两次 `api:update` 产物不变）。
 

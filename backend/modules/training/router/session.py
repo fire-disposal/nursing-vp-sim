@@ -35,7 +35,7 @@ from models import (
     VoiceCallLog,
 )
 from modules.assignments.progress import count_attempts, effective_status
-from modules.cases.revisions import require_current_revision, require_publishable, revision_of
+from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
 from modules.training.profile import HISTORY_TAKING
 from schemas import (
@@ -497,8 +497,9 @@ def start_training_from_assignment(
     # 归档病例不得用于**新的**训练（既有作业也拦，docs/15 §六：archived 只阻止新使用）；
     # 进行中的记录走上面的 existing 分支，不受影响。
     require_publishable(case)
-    # 作业钉住的病例版本（发布时固化）；历史作业行没有版本时回落到病例当前版本
-    revision = revision_of(db, assignment.case_revision_id, case=case) or require_current_revision(db, case)
+    # 作业钉住的病例版本（发布时固化，列已 NOT NULL）：解析不到就拒绝开始，
+    # 不回落病例当前版本 —— 否则同一作业会在不同时间跑在不同内容上。
+    revision = require_pinned_revision(db, assignment.case_revision_id, case=case)
     record, greeting, session = _create_record(
         db,
         current_user.id,

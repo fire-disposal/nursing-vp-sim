@@ -18,7 +18,6 @@ class CaseBrief(BaseModel):
     time_limit_minutes: int = 30
     is_open: bool = False
     patient_summary: dict[str, Any] | None = None
-    profile_info: dict[str, Any] = Field(default_factory=dict)
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -58,11 +57,6 @@ class CaseUpdateRequest(BaseModel):
     def validate_case_data_schema(cls, v: dict[str, Any]) -> dict[str, Any]:
         CaseDataSchema.model_validate(v)
         return v
-
-
-class CaseNameRequest(BaseModel):
-    model_config = _REQ_CFG
-    name: str = Field(min_length=1, max_length=100)
 
 
 class CaseManageItem(BaseModel):
@@ -133,8 +127,8 @@ class CaseGenerateRequest(BaseModel):
     stage: str = Field(default="full", pattern="^(full|core|derivative)$")
     field: str | None = Field(
         default=None,
-        pattern=r"^[a-z][a-z0-9_]*$",
-        description="生成/重生成单个顶层字段（如 present_illness、activities）",
+        pattern=r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$",
+        description="生成/重生成单个字段（case_data 的 JSON 路径，可嵌套；如 present_illness、activities.physical_exam.config）",
     )
     current_case_data: dict[str, Any] | None = None
 

@@ -2993,10 +2993,6 @@ export interface components {
             patient_summary?: {
                 [key: string]: unknown;
             } | null;
-            /** Profile Info */
-            profile_info?: {
-                [key: string]: unknown;
-            };
             /** Capabilities */
             capabilities?: {
                 [key: string]: boolean;
@@ -3071,7 +3067,7 @@ export interface components {
             stage: string;
             /**
              * Field
-             * @description 生成/重生成单个顶层字段（如 present_illness、activities）
+             * @description 生成/重生成单个字段（case_data 的 JSON 路径，可嵌套；如 present_illness、activities.physical_exam.config）
              */
             field?: string | null;
             /** Current Case Data */

@@ -8,7 +8,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
 
 import { Alert, Badge, Box, Button, Divider, Grid, Group, Loader, Modal, MultiSelect, Paper, SegmentedControl, Stack, Text, Textarea } from "@mantine/core";
-import { type CaseJsonValue, getDefaultCaseJson, useCaseEditor } from "./CaseEditorState";
+import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from "./CaseEditorState";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 import CaseValidationReportView from "./CaseValidationReportView";
 import { caseStatusLabel } from "./caseStatus";
@@ -62,7 +62,9 @@ const AI_PEDAGOGY_FIELDS: { key: string; label: string }[] = [
 	{ key: "hidden_info", label: "隐藏信息" },
 	{ key: "required_inquiries", label: "必询要点" },
 	{ key: "deep_background", label: "深层背景" },
-	{ key: "exam_anchors", label: "查体锚点" },
+	// 查体锚点的唯一落点是 Activity 声明（docs/15 §四）；旧的顶层 exam_anchors 已退场，
+	// AI 生成与表单编辑走同一条路径。
+	{ key: "activities.physical_exam.config", label: "查体锚点" },
 	{ key: "example_dialogues", label: "示例对话" },
 ];
 
@@ -456,7 +458,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Text size="xs" fw={600} c="grape">生成向导</Text>
 							<Badge variant="light" color={state.json.name || state.json.chief_complaint ? "green" : "gray"} size="xs">1 临床骨架</Badge>
 							<Text size="xs" c="dimmed" opacity={0.4}>→</Text>
-							<Badge variant="light" color={(state.json.required_inquiries as unknown[])?.length || state.json.exam_anchors ? "green" : "gray"} size="xs">2 教学细节</Badge>
+							<Badge variant="light" color={(state.json.required_inquiries as unknown[])?.length || Object.keys(objField(state, "activities.physical_exam.config")).length > 0 ? "green" : "gray"} size="xs">2 教学细节</Badge>
 						</Group>
 
 						<SegmentedControl

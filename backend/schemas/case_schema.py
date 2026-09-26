@@ -26,9 +26,12 @@ from core.time_limits import (
 
 log = logging.getLogger(__name__)
 
-#: 病例元数据键：只落在 ``cases`` 列，``case_data`` 不再重复保存（docs/15 §六）：
-#: name / difficulty / time_limit 读列；training_type 已整体退场（docs/15 §九）。
-CASE_METADATA_KEYS: tuple[str, ...] = ("name", "difficulty", "time_limit", "training_type")
+#: 病例元数据键：只落在 ``cases`` 列，``case_data`` 不再重复保存（docs/15 §六）。
+#: ``training_type`` 不在此列：该字段整体退场（列已 drop，docs/15 §九），不再是任何
+#: 东西的元数据。它若出现在入参里就按未知键原样往返，并由病例审计
+#: （``modules/cases/validator.LEGACY_FIELDS``）点名 —— 宁可被报告，也不静默丢弃。
+#: 对存量旧值的唯一解释路径是数据迁移 ``e6b2c3d4e5f6``（单向，冻结副本）。
+CASE_METADATA_KEYS: tuple[str, ...] = ("name", "difficulty", "time_limit")
 
 
 def strip_case_metadata(data: dict) -> dict:
@@ -64,27 +67,6 @@ class PersonalityConfig(BaseModel):
     compliance: Literal["resistant", "normal", "dependent"] = "normal"
 
 
-class PhaseTransition(BaseModel):
-    model_config = _INNER_CFG
-
-    auto: bool = False
-    manual_label: str | None = None
-    min_messages: int = 0
-    min_operations: int = 0
-    auto_after_messages: int = 0
-
-
-class PhaseConfig(BaseModel):
-    model_config = _INNER_CFG
-
-    id: str
-    name: str
-    order: int
-    operations: list[str] = []
-    prompt_profile: str = "patient_chat"
-    transition: PhaseTransition = PhaseTransition()
-
-
 class CaseDataSchema(JsonbModel):
     # extra="allow"：写路径以 model_dump() 的结果落库（service.create/update），
     # 校验器绝不能顺带改写数据 —— 未声明的配置（voice_override、各 Activity 自定义的
@@ -113,7 +95,6 @@ class CaseDataSchema(JsonbModel):
 
     deep_background: dict[str, str] = {}
 
-    phases: list[PhaseConfig] | None = None
     required_inquiries: list[str] = []
 
     #: Activity 声明（docs/15 §四）：``activities.<id>.config``；结构规则见 modules/cases/validator
@@ -124,7 +105,6 @@ class CaseDataSchema(JsonbModel):
     # 同名患者跨病例去重声明（校验器要求）：如 quiz 变体指向 case2
     variant_of: str = ""
 
-    voice_type: str = ""
     voice_override: str = ""
 
     example_dialogues: list[dict] = []
@@ -137,7 +117,7 @@ def validate_case_data(data: dict, *, strict: bool = False) -> dict:
     and coerced, plus every undeclared key verbatim (see ``extra="allow"``).
     Fields that were not supplied are NOT re-injected as defaults: validation
     must never rewrite the payload, and a save round-trip has to stay
-    content-identical (seed fingerprint, no ``phases``/``voice_*`` residue).
+    content-identical (seed fingerprint, no metadata residue).
     """
     try:
         validated = CaseDataSchema(**data)

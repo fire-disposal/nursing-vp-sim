@@ -6,6 +6,7 @@ from typing import Any, cast
 from infra.llm.client import LLMClient
 from models import User
 from modules.cases.generation import (
+    _merge_derivative,
     _validate_core_stage,
     _validate_derivative_stage,
 )
@@ -35,7 +36,7 @@ VALID_DERIVATIVE = {
     "hidden_info": ["吸烟30年", "独居"],
     "required_inquiries": ["吸烟史", "发热程度"],
     "deep_background": {"吸烟史": "吸烟30年每日1包"},
-    "exam_anchors": {"vital_signs": {"temperature": "38.5-39.2"}, "skin": "皮肤温暖"},
+    "activities": {"physical_exam": {"config": {"vital_signs": {"temperature": "38.5-39.2"}, "skin": "皮肤温暖"}}},
     "example_dialogues": [{"question": "您哪里不舒服？", "answer": "一直咳嗽"}],
 }
 
@@ -81,7 +82,7 @@ class TestStageValidation:
             "required_inquiries": [],
             "example_dialogues": [],
             "deep_background": {},
-            "exam_anchors": {},
+            "activities": {},
         }
         assert _validate_derivative_stage(bad)
         assert _validate_derivative_stage(VALID_DERIVATIVE) is None
@@ -93,8 +94,32 @@ class TestStageValidation:
                 "required_inquiries": ["b"],
                 "example_dialogues": [{"q": 1}],
                 "deep_background": "x",
-                "exam_anchors": [],
+                "activities": {"physical_exam": {"config": []}},
             }
         )
         assert err
         assert "deep_background" in err
+
+    def test_derivative_requires_canonical_physical_exam_config(self):
+        """查体锚点只认 activities.physical_exam.config；旧顶层 exam_anchors 不算数。"""
+        base = {**VALID_DERIVATIVE}
+        base.pop("activities")
+
+        assert "activities.physical_exam.config" in str(_validate_derivative_stage(base))
+        assert _validate_derivative_stage({**base, "exam_anchors": {"vital_signs": {"temperature": "38.5"}}})
+
+
+def test_derivative_merge_keeps_other_activity_declarations():
+    """衍生只声明查体：合并不得抹掉骨架/教师已有的 quiz、nursing_record 声明。"""
+    base = {
+        "chief_complaint": "咳嗽",
+        "activities": {"quiz": {"config": {"questions": [{"id": "q1"}]}}, "nursing_record": {"config": True}},
+    }
+    derivative = {"activities": {"physical_exam": {"config": {"vital_signs": {"temperature": "39"}}}}}
+
+    merged = _merge_derivative(base, derivative)
+
+    assert merged["activities"]["quiz"] == {"config": {"questions": [{"id": "q1"}]}}
+    assert merged["activities"]["nursing_record"] == {"config": True}
+    assert merged["activities"]["physical_exam"]["config"] == {"vital_signs": {"temperature": "39"}}
+    assert merged["chief_complaint"] == "咳嗽"
