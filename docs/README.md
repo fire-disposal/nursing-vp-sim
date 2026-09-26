@@ -31,6 +31,7 @@
 | [LLM 调用排查](ops/llm-troubleshooting.md) | LLM 无响应、评分失败、成本异常诊断 |
 | [数据库备份恢复](ops/backup-restore.md) | 手动备份/恢复/跨环境数据同步命令 |
 | [事故报告 2026-07-26](ops/incident-2026-07-26-timeout.md) | 评分超时事故复盘 |
+| [事故报告 2026-09-26](ops/incident-2026-09-26-deploy-silent-truncation.md) | 部署脚本被 stdin 吞掉 → 静默「成功」（迁移跑了、服务未切换） |
 | [反馈核查清单](ops/feedback-checklist-20260727.md) | 2026-07-27 用户反馈回复与测试方法 |
 
 ## 设计文档（历史归档）
