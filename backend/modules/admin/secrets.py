@@ -14,6 +14,13 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
+from core.audit import (
+    ACTION_SECRET_CREATED,
+    ACTION_SECRET_DELETED,
+    ACTION_SECRET_UPDATED,
+    TARGET_TYPE_SECRET,
+    record,
+)
 from core.deps import DbSession
 from core.exceptions import ConflictError, ValidationError
 from core.security import require_permission
@@ -70,7 +77,7 @@ class ApiSecretService:
             )
         return result
 
-    def create(self, data: dict) -> dict:
+    def create(self, data: dict, *, request: Request | None = None) -> dict:
         if data.get("base_url") and not re.match(r"^https?://", data["base_url"]):
             raise ValidationError("base_url 必须以 http:// 或 https:// 开头")
 
@@ -92,10 +99,20 @@ class ApiSecretService:
             )
             self.db.add(s)
             self.db.flush()
+            # 只记元信息（label/base_url/优先级等）：**密钥明文绝不进审计 payload**
+            record(
+                self.db,
+                action=ACTION_SECRET_CREATED,
+                target_type=TARGET_TYPE_SECRET,
+                target_id=s.id,
+                target_label=s.label,
+                request=request,
+                payload={"label": s.label, "base_url": s.base_url, "key_suffix": (raw_key or "")[-4:]},
+            )
         self.db.refresh(s)
         return {"id": s.id, "key_suffix": s.api_key[-4:] if s.api_key and len(s.api_key) >= 4 else "****"}
 
-    def update(self, secret_id: int, data: dict) -> None:
+    def update(self, secret_id: int, data: dict, *, request: Request | None = None) -> None:
         s = self.db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
         if not s:
             raise ValidationError("密钥不存在")
@@ -109,12 +126,24 @@ class ApiSecretService:
                 "priority",
                 "model_override",
             )
+            changed: dict[str, dict[str, object]] = {}
             for field in editable:
                 val = data.get(field)
-                if val is not None:
+                if val is not None and getattr(s, field) != val:
+                    changed[field] = {"before": getattr(s, field), "after": val}
                     setattr(s, field, val)
+            if changed:
+                record(
+                    self.db,
+                    action=ACTION_SECRET_UPDATED,
+                    target_type=TARGET_TYPE_SECRET,
+                    target_id=s.id,
+                    target_label=s.label,
+                    request=request,
+                    payload={"changes": changed},
+                )
 
-    def delete(self, secret_id: int) -> None:
+    def delete(self, secret_id: int, *, request: Request | None = None) -> None:
         s = self.db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
         if not s:
             raise ValidationError("密钥不存在")
@@ -122,6 +151,15 @@ class ApiSecretService:
         with unit_of_work(self.db, conflict_detail="删除密钥失败"):
             self.db.query(LLMCallLog).filter(LLMCallLog.secret_id == secret_id).update(
                 {LLMCallLog.secret_id: None}, synchronize_session=False
+            )
+            record(
+                self.db,
+                action=ACTION_SECRET_DELETED,
+                target_type=TARGET_TYPE_SECRET,
+                target_id=s.id,
+                target_label=s.label,
+                request=request,
+                payload={"label": s.label},
             )
             self.db.delete(s)
             self.db.flush()
@@ -141,8 +179,8 @@ def list_secrets(current_user: _Manager, db: DbSession):
 
 
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
-def create_secret(data: ApiSecretCreate, current_user: _Manager, db: DbSession):
-    return ApiSecretService(db).create(data.model_dump())
+def create_secret(data: ApiSecretCreate, current_user: _Manager, db: DbSession, request: Request):
+    return ApiSecretService(db).create(data.model_dump(), request=request)
 
 
 @router.put("/secrets/{secret_id}", response_model=OkResponse)
@@ -153,7 +191,7 @@ async def update_secret(
     current_user: _Manager,
     db: DbSession,
 ):
-    ApiSecretService(db).update(secret_id, data.model_dump(exclude_unset=True))
+    ApiSecretService(db).update(secret_id, data.model_dump(exclude_unset=True), request=request)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
@@ -165,7 +203,7 @@ async def delete_secret(
     current_user: _Manager,
     db: DbSession,
 ):
-    ApiSecretService(db).delete(secret_id)
+    ApiSecretService(db).delete(secret_id, request=request)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 

@@ -40,7 +40,9 @@ ACTION_USER_DELETED = "user.deleted"
 ACTION_USER_PASSWORD_RESET = "user.password_reset"
 ACTION_USER_BULK_IMPORTED = "user.bulk_imported"
 ACTION_USER_BULK_ASSIGNED = "user.bulk_assigned"
+ACTION_SECRET_CREATED = "secret.created"
 ACTION_SECRET_UPDATED = "secret.updated"
+ACTION_SECRET_DELETED = "secret.deleted"
 ACTION_ACCESS_DENIED = "access.denied"
 ACTION_EXPORT_DOWNLOADED = "export.downloaded"
 
@@ -171,6 +173,8 @@ __all__ = [
     "ACTION_ROLE_CREATED",
     "ACTION_ROLE_DELETED",
     "ACTION_ROLE_UPDATED",
+    "ACTION_SECRET_CREATED",
+    "ACTION_SECRET_DELETED",
     "ACTION_SECRET_UPDATED",
     "ACTION_USER_ACTIVATED",
     "ACTION_USER_BULK_ASSIGNED",
