@@ -3,7 +3,6 @@ import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
 import CapabilitiesEditor from "./CapabilitiesEditor";
-import { ClinicalSection } from "./ClinicalSection";
 import { ExamAnchorsEditor } from "./ExamAnchorsEditor";
 import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";
@@ -60,7 +59,6 @@ export function FormView({ state, dispatch, disabled }: Props) {
 			<PatientSection state={state} dispatch={dispatch} disabled={disabled} />
 			<PersonalitySection state={state} dispatch={dispatch} disabled={disabled} />
 
-			<ClinicalSection state={state} dispatch={dispatch} disabled={disabled} />
 			<Stack gap="md">
 				<CapabilitiesEditor state={state} dispatch={dispatch} disabled={disabled} />
 				<AiFieldsSection

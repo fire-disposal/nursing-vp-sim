@@ -28,7 +28,7 @@ from modules.cases.revisions import (
     require_editable,
 )
 from modules.cases.validator import CaseReport
-from modules.training.workflows import workflow_for_case
+from modules.training.workflows import case_is_startable, workflow_for_case
 from schemas.case_schema import normalize_gender, strip_case_metadata, validate_case_data
 
 log = logging.getLogger(__name__)
@@ -117,15 +117,22 @@ class CaseService:
         difficulty: int | None = None,
         name: str | None = None,
     ) -> tuple[list[Case], int]:
-        """学生目录：只出现已发布且向学生开放的病例（docs/15 §六）。"""
+        """学生目录：只出现**可开始训练**的已发布开放病例（docs/15 §六/§十六）。
+
+        学生工作区未交付的 workflow（``runtime_ready=False``）整类隐藏 —— 目录是产品面，
+        不是路线图；"可见但点不动"会把未交付的能力暴露给学生。
+
+        过滤放在 Python 侧（病例量级为数十）：workflow 的判定 owner 是
+        ``workflows.case_is_startable``，在 SQL 里重写一份 ``case_data->>'workflow'``
+        的等价条件会形成第二处判定、迟早漂移。
+        """
         q = self.db.query(Case).filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED).order_by(Case.id)
         if difficulty is not None:
             q = q.filter(Case.difficulty == difficulty)
         if name:
             q = q.filter(Case.name.ilike(f"%{name}%"))
-        total = q.order_by(None).count()
-        items = q.offset(offset).limit(limit).all()
-        return items, total
+        startable = [case for case in q.all() if case_is_startable(case)]
+        return startable[offset : offset + limit], len(startable)
 
     def list_manage(
         self,

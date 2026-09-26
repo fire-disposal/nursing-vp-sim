@@ -49,8 +49,8 @@ from modules.cases.router import _to_case_brief
 from modules.cases.service import CaseService
 from modules.cases.validator import CLINICAL_CONTENT_FIELDS, CLINICAL_REASONING_ID, validate_case
 from modules.training.profile import CLINICAL_REASONING, HISTORY_TAKING
-from modules.training.router.session import CODE_WORKFLOW_NOT_STARTABLE, _case_is_startable
-from modules.training.workflows import workflow_for_case
+from modules.training.router.session import CODE_WORKFLOW_NOT_STARTABLE
+from modules.training.workflows import case_is_startable, workflow_for_case
 from schemas.case_schema import assert_valid_case_data, validate_case_data
 
 #: 一份**结构完整**的临床判断病例：术后低氧，关键证据（SpO2）需要主动获取。
@@ -584,8 +584,8 @@ def test_start_endpoint_rejects_clinical_reasoning_without_creating_a_record():
 def test_blind_box_random_pool_excludes_workflows_without_a_runtime_surface():
     clinical = _published_case(_payload())
     clinical.id = 41
-    assert _case_is_startable(clinical) is False
+    assert case_is_startable(clinical) is False
 
     history = _published_case({"activities": {"nursing_record": {"config": True}}})
     history.id = 42
-    assert _case_is_startable(history) is True
+    assert case_is_startable(history) is True

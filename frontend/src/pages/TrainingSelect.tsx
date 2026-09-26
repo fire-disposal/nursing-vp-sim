@@ -87,20 +87,19 @@ function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 	);
 }
 
-/** 病例所属 workflow（服务端唯一来源）：label 由目录投影下发，前端不推导。 */
+/**
+ * 病例所属 workflow（服务端唯一来源）：label 由目录投影下发，前端不推导。
+ *
+ * 目录只列**可开始**的 workflow 病例（服务端过滤），因此这里不再有"尚未开放"形态 ——
+ * 未交付学生工作区的 workflow 整类不出现在目录里。
+ */
 function WorkflowBadge({ workflow }: { workflow: CaseBrief["workflow"] }) {
 	if (!workflow?.label) return null;
-	const pending = workflow.runtime_ready === false;
 	return (
 		<Group gap={4} wrap="wrap">
-			<Badge variant="light" color={pending ? "orange" : "teal"} size="xs">
+			<Badge variant="light" color="teal" size="xs">
 				{workflow.label}
 			</Badge>
-			{pending && (
-				<Badge variant="light" color="orange" size="xs">
-					尚未开放
-				</Badge>
-			)}
 		</Group>
 	);
 }
@@ -701,8 +700,6 @@ export default function TrainingSelect() {
 								{cases.map((c, idx) => {
 									const summary = getPatientSummary(c.patient_summary);
 									const inProgress = inProgressByCase.get(c.id);
-									// 工作区未交付：病例可在目录里被看到，但不提供可开始的入口（docs/15 §十六）
-									const workflowPending = c.workflow?.runtime_ready === false;
 									return (
 										<motion.div key={c.id}
 											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -729,13 +726,12 @@ export default function TrainingSelect() {
 													<Button
 														style={{ marginTop: "auto", width: "100%" }}
 														size="sm"
-														variant={workflowPending ? "light" : "filled"}
-														color={workflowPending ? "orange" : undefined}
+														variant="filled"
 														onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
-														disabled={startMutation.isPending || workflowPending}
-														title={workflowPending ? `${c.workflow?.label ?? "该工作区"}尚未开放：病例可查看，暂不能开始训练` : undefined}
+														disabled={startMutation.isPending}
+														title={undefined}
 													>
-														{workflowPending ? "尚未开放" : "开始训练"}
+														开始训练
 													</Button>
 												)}
 											</Paper>

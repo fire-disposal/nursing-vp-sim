@@ -116,6 +116,18 @@ def default_workflow() -> WorkflowDefinition:
     return REGISTRY[DEFAULT_WORKFLOW_ID]
 
 
+def case_is_startable(case: Case) -> bool:
+    """该病例（current revision）所属 workflow 是否**可开始训练**——唯一判定 owner。
+
+    消费方：学生目录（只列可开始的病例）、盲盒随机池。未登记的声明（数据层面异常）也一律
+    视为不可开始：既不该出现在产品面，也不该让调用方 500。
+    """
+    try:
+        return workflow_for_case(case).runtime_ready
+    except UnknownWorkflowError:
+        return False
+
+
 def declared_workflow_id(case_data: Mapping[str, Any] | None) -> str | None:
     """病例载荷声明的 workflow id；未声明或形状非法返回 ``None``（形状问题由病例门禁报出）。"""
     if not isinstance(case_data, Mapping):

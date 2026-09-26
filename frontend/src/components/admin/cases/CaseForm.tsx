@@ -12,11 +12,8 @@ import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from 
 import { CaseStatusBadge } from "./CaseStatusBadge";
 import CaseValidationReportView from "./CaseValidationReportView";
 import { caseStatusLabel } from "./caseStatus";
-import {
-	CLINICAL_REASONING_FIELD_HINTS,
-	CLINICAL_REASONING_WORKFLOW_ID,
-	withClinicalReasoningTemplate,
-} from "./clinicalReasoningTemplate";
+// 只保留"手写 JSON 时的字段提示"所需的两个名字：模板入口与表单区块已隐藏
+import { CLINICAL_REASONING_FIELD_HINTS, CLINICAL_REASONING_WORKFLOW_ID } from "./clinicalReasoningTemplate";
 import { FormView } from "./FormView";
 import JsonView from "./JsonView";
 import { useCaseRevisions, useCreateCase, useUpdateCase } from "./useCaseMutations";
@@ -301,19 +298,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 		toast.success("已撤销上一次 AI 填充");
 	};
 
-	/** 插入临床判断病例骨架（会替换内容面，保留元数据）——先确认，再进 JSON 视图。 */
-	const handleInsertClinicalTemplate = async () => {
-		const ok = await confirm({
-			title: "插入临床判断模板",
-			message: `会用一份可发布的「临床判断训练」病例骨架替换当前内容（保留名称/描述/难度/时限），并切到 JSON 视图继续编辑。workflow 将声明为 ${CLINICAL_REASONING_WORKFLOW_ID}。`,
-			confirmLabel: "插入模板",
-		});
-		if (!ok) return;
-		fillJson(withClinicalReasoningTemplate(state.json));
-		dispatch({ type: "SWITCH_MODE", mode: "json" });
-		toast.success("已插入临床判断病例骨架：改完内容后保存，保存/发布会给出字段级校验报告");
-	};
-
 	const handleRestoreDraft = () => {
 		const saved = localStorage.getItem(draft);
 		if (!saved) return;
@@ -448,17 +432,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 						leftSection={<IconEye size={13} />}
 					>
 						预览
-					</Button>
-
-					<Button
-						size="xs"
-						variant="outline"
-						color="gray"
-						onClick={() => { void handleInsertClinicalTemplate(); }}
-						title="插入一份可发布的临床判断训练（clinical_reasoning）病例骨架"
-						leftSection={<IconCode size={13} />}
-					>
-						临床判断模板
 					</Button>
 
 					<SegmentedControl

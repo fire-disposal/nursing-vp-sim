@@ -39,11 +39,10 @@ from modules.cases.revisions import require_current_revision, require_pinned_rev
 from modules.questionnaires.response_service import count_pending_required
 from modules.training.prompt_identity import compute_context_policy_version
 from modules.training.workflows import (
-    UnknownWorkflowError,
     WorkflowDefinition,
     WorkflowNotStartableError,
+    case_is_startable,
     require_startable,
-    workflow_for_case,
     workflow_for_case_revision,
 )
 from schemas import (
@@ -159,17 +158,6 @@ def _require_startable_workflow(workflow: WorkflowDefinition) -> WorkflowDefinit
                 "message": str(exc),
             },
         ) from exc
-
-
-def _case_is_startable(case: Case) -> bool:
-    """该病例（current revision）所属 workflow 是否可开始训练（盲盒随机池的过滤条件）。
-
-    未登记的声明（数据层面异常）也不可能开始 —— 不进随机池，且不因它让整个盲盒 500。
-    """
-    try:
-        return workflow_for_case(case).runtime_ready
-    except UnknownWorkflowError:
-        return False
 
 
 def _create_record(
@@ -588,7 +576,7 @@ def start_blind_box_training(
     candidates = (
         db.query(Case).filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED).order_by(func.random()).all()
     )
-    case = next((candidate for candidate in candidates if _case_is_startable(candidate)), None)
+    case = next((candidate for candidate in candidates if case_is_startable(candidate)), None)
     if case is None:
         raise HTTPException(status_code=400, detail="暂无可用的自主练习病例，请稍后再试")
     revision = require_current_revision(db, case)
