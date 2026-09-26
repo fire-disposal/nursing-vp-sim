@@ -49,7 +49,7 @@ function ForceLogoutListener() {
 }
 
 function TelemetryInit() {
-	const userId = useAuthStore((s) => s.user?.user_id ?? 0);
+	const userId = useAuthStore((s) => s.user?.id ?? 0);
 	useEffect(() => {
 		installGlobalTelemetry();
 	}, []);

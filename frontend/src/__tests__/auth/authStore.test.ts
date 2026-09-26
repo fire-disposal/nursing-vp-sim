@@ -27,23 +27,22 @@ describe("authStore", () => {
 		expect(state.token).toBeNull();
 	});
 
-	it("initializes user from localStorage", async () => {
-		const mockUser = {
-			user_id: 1,
-			role: "student" as const,
-			display_name: "Test",
-		};
+	it("migrates a v1 persisted user to the UserBrief id field", async () => {
 		localStorage.setItem(
 			"nursing-auth",
 			JSON.stringify({
-				state: { user: mockUser, token: "stored-token", permissions: [] },
+				state: {
+					user: { user_id: 1, role: "student", display_name: "Test" },
+					token: "stored-token",
+					permissions: [],
+				},
 				version: 1,
 			}),
 		);
 
 		const { default: useAuthStore } = await import("@/stores/authStore");
 		const state = useAuthStore.getState();
-		expect(state.user).toEqual(mockUser);
+		expect(state.user).toEqual({ id: 1, role: "student", display_name: "Test" });
 		expect(state.token).toBe("stored-token");
 	});
 
@@ -69,11 +68,12 @@ describe("authStore", () => {
 		const user = await useAuthStore.getState().login("user", "pass");
 
 		expect(user).toEqual({
-			user_id: 2,
+			id: 2,
 			username: "Student1",
 			role: "student",
 			display_name: "Student1",
 			role_display_name: "student",
+			student_id: null,
 			gender: null,
 			avatar: null,
 			memberships: [],

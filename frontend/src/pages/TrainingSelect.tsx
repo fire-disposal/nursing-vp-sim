@@ -151,17 +151,17 @@ export default function TrainingSelect() {
 	// 相比原来一次拉 50 条做客户端过滤，payload 更小且计数不再被 50 封顶截断。
 	const { data: inProgressData } = useQuery({
 		queryKey: queryKeys.training.records({ status: "in_progress", limit: 50 }),
-		queryFn: () => getRecords({ status: "in_progress", limit: 50, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		queryFn: () => getRecords({ status: "in_progress", limit: 50, exclude_is_test: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
 	});
 	const { data: completedData } = useQuery({
 		queryKey: queryKeys.training.records({ status: "completed", limit: 1 }),
-		queryFn: () => getRecords({ status: "completed", limit: 1, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		queryFn: () => getRecords({ status: "completed", limit: 1, exclude_is_test: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
 	});
 	const { data: recentData } = useQuery({
 		queryKey: queryKeys.training.records({ limit: 5 }),
-		queryFn: () => getRecords({ limit: 5, exclude_is_test: false, user_id: user?.user_id }).then((r) => r.data),
+		queryFn: () => getRecords({ limit: 5, exclude_is_test: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
 	});
 

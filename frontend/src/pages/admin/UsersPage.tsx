@@ -5,7 +5,7 @@ import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 
 export default function UsersPage() {
-	const userId = useAuthStore((s) => s.user?.user_id);
+	const userId = useAuthStore((s) => s.user?.id);
 	return (
 		<>
 			<PageHeader

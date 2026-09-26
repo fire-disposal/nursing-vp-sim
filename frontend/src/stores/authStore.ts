@@ -51,11 +51,12 @@ const useAuthStore = create<ExtendedAuthState>()(
 			login: async (username: string, password: string): Promise<User> => {
 				const { data } = await apiLogin(username, password);
 				const user: User = {
-					user_id: data.user_id,
+					id: data.user_id,
 					username: data.display_name || username,
 					role: data.role,
 					role_display_name: data.role,
 					display_name: data.display_name,
+					student_id: null,
 					gender: data.gender ?? null,
 					avatar: data.avatar ?? null,
 					memberships: [],
@@ -111,7 +112,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					const { data } = await getMe();
 					const current = get().user;
 					const user: User = {
-						user_id: data.id,
+						id: data.id,
 						username: data.username || current?.username || "",
 						role: data.role,
 						role_display_name: data.role_display_name || data.role,
@@ -155,12 +156,13 @@ const useAuthStore = create<ExtendedAuthState>()(
 				token: state.token,
 				permissions: state.permissions,
 			}),
-			version: 1,
+			version: 2,
 			migrate: (persisted) => {
-				const p = persisted as PersistedState & { user?: User & { id?: number } };
-				if (p.user?.id && !p.user.user_id) {
-					p.user.user_id = p.user.id;
-					delete p.user.id;
+				// v1 会话用户把 id 存成 user_id；v2 起统一用 `UserBrief` 的 `id`。
+				const p = persisted as PersistedState & { user?: (User & { user_id?: number }) | null };
+				if (p.user && p.user.user_id != null) {
+					p.user.id = p.user.user_id;
+					delete p.user.user_id;
 				}
 				return p as PersistedState;
 			},

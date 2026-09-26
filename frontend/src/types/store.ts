@@ -8,18 +8,13 @@ export type ClassMemberItem = components["schemas"]["ClassMemberItem"];
 export type UserMembershipItem = components["schemas"]["UserMembershipItem"];
 export type MemberRole = "student" | "teacher";
 
-export interface User {
-	user_id: number;
-	username?: string;
-	role: string;
-	role_display_name: string;
-	display_name: string;
-	student_id?: string | null;
-	gender?: string | null;
-	avatar?: string | null;
-	/** 完整班级归属集合，不存在主班级概念。 */
-	memberships: UserMembershipItem[];
-}
+/**
+ * 会话用户 —— `/auth/me` 的 `UserBrief` 投影（不再手写第二份同名结构）。
+ *
+ * 登录响应（`TokenResponse`）只给 userId/role/display_name/gender/avatar 子集，
+ * `refreshUser()` 之后由 `UserBrief` 补齐；`created_at` 不参与前端会话身份，故剔除。
+ */
+export type User = Omit<components["schemas"]["UserBrief"], "created_at">;
 
 export interface RoleItem {
 	id: number;
