@@ -1498,26 +1498,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/profiles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Profiles
-         * @description Return the registered training type with metadata.
-         */
-        get: operations["list_profiles_api_profiles_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/qa/sessions": {
         parameters: {
             query?: never;
@@ -3295,6 +3275,8 @@ export interface components {
         ChatMessageRequest: {
             /** Content */
             content: string;
+            /** Request Id */
+            request_id?: string | null;
         };
         /** ChatMessageResponse */
         ChatMessageResponse: {
@@ -9359,26 +9341,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_profiles_api_profiles_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };

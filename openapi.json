@@ -5420,31 +5420,6 @@
         }
       }
     },
-    "/api/profiles": {
-      "get": {
-        "tags": [
-          "训练类型"
-        ],
-        "summary": "List Profiles",
-        "description": "Return the registered training type with metadata.",
-        "operationId": "list_profiles_api_profiles_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/qa/sessions": {
       "post": {
         "tags": [
@@ -10958,6 +10933,18 @@
             "maxLength": 2000,
             "minLength": 1,
             "title": "Content"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
           }
         },
         "additionalProperties": false,
