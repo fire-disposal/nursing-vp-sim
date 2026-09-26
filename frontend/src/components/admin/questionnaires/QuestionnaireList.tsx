@@ -10,6 +10,7 @@ import {
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
 import { TYPE_LABEL, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 
 interface QuestionnaireListProps {
@@ -23,6 +24,8 @@ interface QuestionnaireListProps {
 	statusFilter: string;
 	onOffsetChange: (offset: number) => void;
 	onTypeFilterChange: (type: string) => void;
+	hasActiveFilters: boolean;
+	onClear: () => void;
 	onSearchChange: (search: string) => void;
 	onStatusFilterChange: (status: string) => void;
 	onCreate: () => void;
@@ -36,6 +39,8 @@ export default function QuestionnaireList({
 	templates,
 	isLoading,
 	total,
+	hasActiveFilters,
+	onClear,
 	offset,
 	limit,
 	typeFilter,
@@ -158,45 +163,44 @@ export default function QuestionnaireList({
 			</Group>
 
 			<Paper withBorder shadow="sm" p="md">
-				<Paper bg="var(--mantine-color-default-hover)" p="md" mb="md">
-					<Group align="flex-end" gap="md">
-						<Select
-							label="问卷类型"
-							data={TYPE_OPTIONS}
-							value={typeFilter || null}
-							onChange={(v) => {
-								onTypeFilterChange(v ?? "");
-								onOffsetChange(0);
-							}}
+				{/* 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式） */}
+				<FilterToolbar
+					compact
+					summary={`共 ${total} 条`}
+					hasActiveFilters={hasActiveFilters}
+					onClear={onClear}
+					search={
+						<SearchInput
+							value={searchText}
+							onChange={onSearchChange}
+							placeholder="搜索标题..."
 						/>
-						<Select
-							label="状态"
-							data={[
-								{ value: "", label: "全部" },
-								{ value: "active", label: "启用" },
-								{ value: "inactive", label: "禁用" },
-							]}
-							value={statusFilter || null}
-							onChange={(v) => {
-								onStatusFilterChange(v ?? "");
-								onOffsetChange(0);
-							}}
-						/>
-						<div>
-							<Text size="xs" fw={600} c="dimmed" mb={4}>
-								搜索
-							</Text>
-							<SearchInput
-								value={searchText}
-								onChange={(v) => {
-									onSearchChange(v);
-									onOffsetChange(0);
-								}}
-								placeholder="搜索标题..."
+					}
+					filters={
+						<>
+							<Select
+								size="sm"
+								placeholder="问卷类型"
+								data={TYPE_OPTIONS}
+								value={typeFilter || null}
+								onChange={(v) => onTypeFilterChange(v ?? "")}
+								w={130}
 							/>
-						</div>
-					</Group>
-				</Paper>
+							<Select
+								size="sm"
+								placeholder="状态"
+								data={[
+									{ value: "", label: "全部" },
+									{ value: "active", label: "启用" },
+									{ value: "inactive", label: "禁用" },
+								]}
+								value={statusFilter || null}
+								onChange={(v) => onStatusFilterChange(v ?? "")}
+								w={110}
+							/>
+						</>
+					}
+				/>
 
 				<Group justify="space-between" mb="md">
 					<Text size="sm" c="dimmed">共 {total} 条</Text>

@@ -266,6 +266,8 @@ export default function QuestionnairesTab() {
 				onOffsetChange={list.setOffset}
 				onTypeFilterChange={(v) => list.setFilter("type", v)}
 				onSearchChange={list.onSearchChange}
+				hasActiveFilters={list.hasActiveFilters}
+				onClear={list.reset}
 				onStatusFilterChange={(v) =>
 					list.setFilter("is_active", v === "" ? undefined : v === "active")
 				}

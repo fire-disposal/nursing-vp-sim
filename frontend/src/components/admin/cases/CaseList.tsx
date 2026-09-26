@@ -24,6 +24,8 @@ interface CaseListProps {
 	offset: number;
 	limit: number;
 	filters: CaseListFilters;
+	/** 是否存在活跃筛选（由 useListFilters.hasActiveFilters 统一判定，勿在此重复拼谓词） */
+	hasFilters: boolean;
 	searchInput: string;
 	loading?: boolean;
 	error?: boolean;
@@ -59,11 +61,10 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 
 export default function CaseList({
 	cases, total, offset, limit,
-	filters, searchInput, loading, error, pendingId,
+	filters, hasFilters, searchInput, loading, error, pendingId,
 	onSearchChange, onFilterChange, onOffsetChange, onRetry,
 	onAdd, onAIAdd, onEdit, onDelete, onToggleOpen, onPublish, onArchive,
 }: CaseListProps) {
-	const hasFilters = Boolean(filters.name || filters.difficulty || filters.status || filters.is_open);
 
 	return (
 		<Stack gap="md">

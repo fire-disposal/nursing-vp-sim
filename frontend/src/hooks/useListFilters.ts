@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * 列表筛选的唯一持有者：筛选值 → 请求参数只在这里构造一次。
@@ -26,18 +25,29 @@ export function useListFilters<TParams extends Record<string, unknown>>(
 	initial: TParams,
 	{ limit, searchKey, debounceMs = 300 }: UseListFiltersOptions,
 ) {
-	const { searchInput, debouncedValue, handleSearchChange, setSearchInput } = useDebouncedSearch(
-		searchKey ? String(initial[searchKey] ?? "") : "",
-		debounceMs,
-	);
+	// 自己管防抖（不用 useDebouncedSearch）：reset() 必须能同步清掉"输入框"与"已生效值"，
+	// 否则清除后请求仍会带旧搜索词。
+	const [searchInput, setSearchInput] = useState(searchKey ? String(initial[searchKey] ?? "") : "");
+	const [debouncedValue, setDebouncedValue] = useState(searchInput);
+	useEffect(() => {
+		if (!searchKey) return;
+		const timer = setTimeout(() => setDebouncedValue(searchInput), debounceMs);
+		return () => clearTimeout(timer);
+	}, [searchInput, searchKey, debounceMs]);
+
 	const [values, setValues] = useState<TParams>(initial);
 	const [offset, setOffset] = useState(0);
+	// 初始值只认首次：既作 reset() 的目标，也作"是否偏离初始态"的比较基准
+	const initialRef = useRef(initial);
 
 	// 搜索键以防抖后的值为准，其余筛选立即生效
 	const effective = useMemo(
 		() => (searchKey ? { ...values, [searchKey]: debouncedValue } : values),
 		[values, searchKey, debouncedValue],
 	);
+
+	/** 实际生效的筛选值（搜索键=防抖后的值）：要按"真正发出去了什么"派生 UI 时用它。 */
+	const activeValues = effective;
 
 	const params = useMemo(() => {
 		const out: Record<string, unknown> = { offset, limit };
@@ -52,32 +62,46 @@ export function useListFilters<TParams extends Record<string, unknown>>(
 		return rest;
 	}, [params]);
 
+	/** 有活跃筛选 = 至少一个键既非空、又偏离初始值（`include_inactive:false` 这类默认值不算）。 */
+	const hasActiveFilters = useMemo(
+		() =>
+			Object.entries(effective).some(
+				([key, value]) => !isBlank(value) && value !== initialRef.current[key],
+			),
+		[effective],
+	);
+
 	const setFilter = useCallback(
 		<K extends keyof TParams & string>(key: K, value: TParams[K]) => {
 			setOffset(0);
-			if (searchKey === key) setSearchInput(String(value ?? ""));
+			if (searchKey === key) {
+				setSearchInput(String(value ?? ""));
+				setDebouncedValue(String(value ?? "")); // 程序化改值不走防抖，立即生效
+			}
 			setValues((prev) => ({ ...prev, [key]: value }));
 		},
 		[searchKey, setSearchInput],
 	);
 
 	// 搜索框的 onChange 也必须归零 offset：否则在第 3 页输入搜索会落到过滤后的空页
-	const onSearchChange = useCallback(
-		(value: string) => {
-			setOffset(0);
-			handleSearchChange(value);
-		},
-		[handleSearchChange],
-	);
+	const onSearchChange = useCallback((value: string) => {
+		setOffset(0);
+		setSearchInput(value);
+	}, []);
 
 	const reset = useCallback(() => {
 		setOffset(0);
-		setValues(initial);
-		if (searchKey) setSearchInput(String(initial[searchKey] ?? ""));
-	}, [initial, searchKey, setSearchInput]);
+		setValues(initialRef.current);
+		if (searchKey) {
+			const value = String(initialRef.current[searchKey] ?? "");
+			setSearchInput(value);
+			setDebouncedValue(value);
+		}
+	}, [searchKey]);
 
 	return {
 		values,
+		activeValues,
 		searchInput,
 		onSearchChange,
 		setFilter,
@@ -86,5 +110,6 @@ export function useListFilters<TParams extends Record<string, unknown>>(
 		setOffset,
 		params,
 		exportParams,
+		hasActiveFilters,
 	};
 }

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Badge, Badge as MantineBadge, Box, Button, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Badge as MantineBadge, Box, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
 import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
@@ -101,24 +101,22 @@ export default function MyFeedbackPage() {
 					</SimpleGrid>
 
 					<Group justify="space-between" align="center" wrap="wrap" gap="sm">
-						<Group gap={6} wrap="nowrap" style={{ overflowX: "auto", flex: 1 }}>
-							{TAG_OPTIONS.map((opt) => (
-								<Button
-									key={opt.value}
-									type="button"
-									variant={tagFilter === opt.value ? "filled" : "light"} color={tagFilter === opt.value ? undefined : "gray"}
-									size="xs"
-									radius="md"
-									style={{ flexShrink: 0 }}
-									onClick={() => {
-										setTagFilter(opt.value);
-										setOffset(0);
-									}}
-								>
-									{opt.label}
-								</Button>
-							))}
-						</Group>
+						{/* 标签用下拉（原先 7 个按钮排一行，窄屏要横向滚动） */}
+						<Select
+							size="sm"
+							clearable
+							w={130}
+							placeholder="全部标签"
+							value={tagFilter || null}
+							onChange={(v) => {
+								setTagFilter(v ?? "");
+								setOffset(0);
+							}}
+							data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
+								value: opt.value,
+								label: opt.label,
+							}))}
+						/>
 						<Group gap="xs">
 							<Text size="xs" c="dimmed">
 								回复状态

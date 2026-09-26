@@ -48,6 +48,7 @@ import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
@@ -588,40 +589,38 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 				)}
 			</Box>
 
-			<Paper p="md" bg="var(--mantine-color-default-hover)" mb="md">
-				<Group gap="lg" align="flex-end" wrap="wrap" justify="space-between">
-					<Group gap={8} align="flex-end" wrap="wrap">
+			{/* 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式） */}
+			<FilterToolbar
+				summary={`共 ${total} 条反馈`}
+				hasActiveFilters={list.hasActiveFilters}
+				onClear={list.reset}
+				search={
+					<SearchInput
+						value={list.searchInput}
+						onChange={list.onSearchChange}
+						placeholder="搜索反馈内容..."
+					/>
+				}
+				filters={
+					<>
 						<DatePickerInput
-							label="开始日期"
 							size="sm"
 							clearable
 							valueFormat="YYYY-MM-DD"
-							placeholder="不限"
+							placeholder="开始日期"
 							value={list.values.date_from || null}
 							onChange={(v) => list.setFilter("date_from", typeof v === "string" ? v : "")}
+							w={130}
 						/>
-						<Text size="sm" c="dimmed" mb={6}>-</Text>
+						<Text size="sm" c="dimmed">-</Text>
 						<DatePickerInput
-							label="结束日期"
 							size="sm"
 							clearable
 							valueFormat="YYYY-MM-DD"
-							placeholder="不限"
+							placeholder="结束日期"
 							value={list.values.date_to || null}
 							onChange={(v) => list.setFilter("date_to", typeof v === "string" ? v : "")}
-						/>
-						{(list.values.date_from || list.values.date_to) && (
-							<Button variant="outline" size="sm" onClick={() => list.reset()}>
-								清除
-							</Button>
-						)}
-					</Group>
-
-					<Group gap={8} wrap="wrap">
-						<SearchInput
-							value={list.searchInput}
-							onChange={list.onSearchChange}
-							placeholder="搜索反馈内容..."
+							w={130}
 						/>
 						<Select
 							value={replyStatus || null}
@@ -635,28 +634,23 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 							]}
 							size="sm"
 							clearable
+							w={110}
 						/>
-					</Group>
-
-					<Group gap={8} wrap="wrap">
-						{TAG_OPTIONS.map((opt) => (
-							<Button
-								key={opt.value}
-								size="xs"
-								radius="md"
-								variant={list.values.tag === opt.value ? "filled" : "outline"}
-								onClick={() => list.setFilter("tag", opt.value)}
-							>
-								{opt.label}
-							</Button>
-						))}
-					</Group>
-				</Group>
-			</Paper>
-
-			<Text size="sm" c="dimmed" mb="md">
-				共 {total} 条反馈
-			</Text>
+						<Select
+							size="sm"
+							clearable
+							w={130}
+							placeholder="全部标签"
+							value={list.values.tag || null}
+							onChange={(v) => list.setFilter("tag", v ?? "")}
+							data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
+								value: opt.value,
+								label: opt.label,
+							}))}
+						/>
+					</>
+				}
+			/>
 
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" />

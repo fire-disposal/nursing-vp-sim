@@ -80,7 +80,6 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 	);
 	// ClassFilter 是非受控组件：清除筛选时用 key 重挂载，避免"筛选已清空、下拉还显示旧选择"
 	const [classFilterNonce, setClassFilterNonce] = useState(0);
-	const hasClassFilter = Boolean(list.values.class_id || list.values.cohort_label);
 	const setClassParam = useCallback(
 		(next: ClassFilterParams | null) => {
 			// 班级与届二选一：同时写两个键会互相打架，故置空另一个
@@ -407,7 +406,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 				<FilterToolbar
 					compact
 					summary={`共 ${total} 人`}
-					hasActiveFilters={Boolean(hasClassFilter || list.values.search || list.values.role || list.values.include_inactive)}
+					hasActiveFilters={list.hasActiveFilters}
 					onClear={handleClearFilters}
 					search={
 						<SearchInput

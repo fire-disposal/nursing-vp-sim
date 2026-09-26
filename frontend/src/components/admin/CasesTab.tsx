@@ -196,6 +196,7 @@ export default function CasesTab({ onExportParamsChange }: CasesTabProps) {
 				error={isError}
 				pendingId={pendingId}
 				onSearchChange={list.onSearchChange}
+				hasFilters={list.hasActiveFilters}
 				onFilterChange={handleFilterChange}
 				onOffsetChange={list.setOffset}
 				onRetry={() => { void refetch(); }}

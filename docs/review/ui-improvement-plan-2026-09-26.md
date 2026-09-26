@@ -196,6 +196,8 @@
 | 表格滚动容器 | `/admin/records` 手写 `div overflow-x` → Mantine `Table.ScrollContainer` | 实测容器存在；窄屏不再整页横滚 |
 | **F2** 问卷死筛选（`UI-CRD-2`） | 后端补 `search`/`is_active` 并收敛为 `QuestionnaireTemplateFilters`（`Depends()` + 服务层单一谓词） | 免库判据（编译成 PG SQL）通过；前端原本就传参，零改动生效 |
 | **F3** 导出无视筛选（`UI-CRD-4`） | 四类导出与列表共用同一筛选 DTO/服务入口；前端 `useListFilters.exportParams` → `ExportButton` | 浏览器实测：用户页/病例页列表与导出筛选键一致，导出后筛选不被清空 |
+| **一键复位补齐** | cases/feedback/questionnaires/roles/users 全部走 `FilterToolbar` + 钩子 `reset()`；"有活跃筛选"由 `useListFilters.hasActiveFilters` 统一判定（默认值如 `include_inactive=false` 不算活跃） | 浏览器实测：反馈页选标签 → 出现「清除」→ 点击后按钮消失、输入框清空、列表回退全量 |
+| **筛选控件下拉化** | 反馈页 7 个标签按钮、`/my-feedback` 标签按钮行（窄屏要横向滚动）→ 统一为 `Select`（clearable + 占位符），与工具栏其它筛选同形 | 实测：反馈页选「BUG反馈」→ 请求带 `tag=bug`；按钮行消失、下拉就位 |
 | **查询实现统一**（见 §6.4） | 后端「筛选 DTO + `Depends()`」、导出取数一律 `MAX_EXPORT_ROWS + 1`、前端 `useListFilters` + 契约类型别名 | 后端 1483 通过 / 前端 496 通过 / `tsc`+`biome` 干净 / 构建通过 |
 
 **已核实合理、不动**：`/admin/scoreboard` 11 列的列宽（67–156px）与数字右对齐已够用；`/admin/versions` 7 列身份/记录/评分列宽均衡。
@@ -237,9 +239,10 @@ class UserService:
 ### 6.5 新增待办（2026-09-26 记录）
 
 1. **列表接口在挂载时重复请求**：`/admin/users`、`/admin/cases` 首次进入各出现 **2 次同参** `GET`（疑似 `ShellTransition`/`Activity` 双实例或 queryKey 抖动）；导出后还会多一次"无筛选"请求（不影响 UI，但白打一次）。待定位根因。
-2. **`useListFilters` 的搜索归零已修但缺常驻回归**：`onSearchChange` 曾漏 `setOffset(0)`（子代理发现），现已在 hook 内统一；建议补一条"第 2 页输入搜索 → offset 归零"的单测。
+2. ~~`useListFilters` 的搜索归零~~ → **已修**（`onSearchChange` 现归零 offset）。**新增两条同源缺陷也已修**：① 防抖后的搜索值没暴露 → 各页 `hasActiveFilters` 恒假（现由钩子统一判定并暴露 `activeValues`）；② `useDebouncedSearch.setSearchInput` 只改输入框不改防抖值 → 「清除」后请求仍带旧搜索词（现钩子自管防抖，`reset()` 同步复位）。**仍缺常驻回归单测**：建议补"第 2 页输入搜索 → offset 归零"与"清除后请求不带旧搜索词"两条。
 3. **导出参数仍手写 `format`**：四个导出端点重复声明 `format` 参数，可考虑并入各自 DTO（与筛选键同源）。
-4. **其余域未纳入 DTO 对齐**：records/assignments/classes/versions/notifications 的列表筛选仍是散参数（本次只做了 users/cases/feedback/questionnaires/roles）。
+4. **其余域未纳入 DTO 对齐**：records/assignments/classes/versions/notifications 的列表筛选仍是散参数（本次只做了 users/cases/feedback/questionnaires/roles）；`/my-feedback`（学生端）也是手写 params，可一并迁移到 `useListFilters`。
+5. **版本页（`/admin/versions`）仍是手写筛选行**：无 `FilterToolbar`/一键复位；其"归因维度"用 `SegmentedControl`（属视图切换，保留）。
 
 ---
 
