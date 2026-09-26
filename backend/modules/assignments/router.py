@@ -27,7 +27,6 @@ from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
     AssignmentListItem,
-    AssignmentStudentItem,
     AssignmentUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
@@ -128,49 +127,9 @@ def _list_resp(view) -> AssignmentListItem:
     )
 
 
-def _student_resp(view) -> AssignmentStudentItem:
-    return AssignmentStudentItem(
-        user_id=view.user_id,
-        display_name=view.display_name,
-        student_id=view.student_id,
-        record_id=view.record_id,
-        status=view.status,
-        score_total=view.score_total,
-        scoring_status=view.scoring_status,
-        start_time=view.start_time,
-        end_time=view.end_time,
-        is_overdue=view.is_overdue,
-        attempt_count=view.attempt_count,
-    )
-
-
 def _detail_resp(view) -> AssignmentDetail:
-    return AssignmentDetail(
-        id=view.id,
-        title=view.title,
-        description=view.description,
-        case_id=view.case_id,
-        case_name=view.case_name,
-        class_id=view.class_id,
-        class_name=view.class_name,
-        features=view.features,
-        behavior=view.behavior,
-        audience_mode=view.audience_mode,
-        recipient_ids=view.recipient_ids,
-        start_time=view.start_time,
-        end_time=view.end_time,
-        created_at=view.created_at,
-        updated_at=view.updated_at,
-        student_count=view.student_count,
-        completed_count=view.completed_count,
-        scored_count=view.scored_count,
-        avg_score=view.avg_score,
-        max_score=view.max_score,
-        min_score=view.min_score,
-        completion_rate=view.completion_rate,
-        students=[_student_resp(s) for s in view.students],
-        max_attempts=view.max_attempts,
-    )
+    """Serialize the service's sole detail view; schemas own field projection."""
+    return AssignmentDetail.model_validate(view)
 
 
 @router.post("", response_model=AssignmentDetail)
