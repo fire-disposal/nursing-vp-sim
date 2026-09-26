@@ -52,15 +52,6 @@ export const submitQuestionnaire = (
 		data,
 	);
 
-export const getQuestionnaireResponses = (
-	templateId: number,
-	params?: Record<string, unknown>,
-) =>
-	api.get<Schemas["PaginatedResponse_QuestionnaireResponseItem_"]>(
-		`/questionnaires/responses/${templateId}`,
-		{ params },
-	);
-
 export const getQuestionnaireStats = (templateId: number) =>
 	api.get<Schemas["QuestionnaireStatsResponse"]>(
 		`/questionnaires/responses/${templateId}/stats`,

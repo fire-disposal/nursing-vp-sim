@@ -4,9 +4,6 @@ export const queryKeys = {
 		lists: () => [...queryKeys.cases.all, "list"] as const,
 		list: (params: Record<string, unknown>) =>
 			[...queryKeys.cases.lists(), params] as const,
-		details: () => [...queryKeys.cases.all, "detail"] as const,
-		detail: (id: number | string) =>
-			[...queryKeys.cases.details(), id] as const,
 		managed: {
 			all: ["cases", "manage"] as const,
 			list: (params: Record<string, unknown>) =>
@@ -17,7 +14,6 @@ export const queryKeys = {
 				[...queryKeys.cases.managed.all, "revisions", String(id)] as const,
 		},
 		student: () => [...queryKeys.cases.all, "student"] as const,
-		options: () => [...queryKeys.cases.all, "options"] as const,
 	},
 	training: {
 		all: ["training"] as const,
@@ -25,8 +21,6 @@ export const queryKeys = {
 			[...queryKeys.training.all, "records", params] as const,
 		detail: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
-		classRecords: (classId: number | string) =>
-			[...queryKeys.training.all, "class", classId] as const,
 	},
 	systemNotifications: {
 		all: ["system-notifications"] as const,
@@ -58,24 +52,15 @@ export const queryKeys = {
 	qa: {
 		all: ["qa"] as const,
 		sessions: () => [...queryKeys.qa.all, "sessions"] as const,
-		history: (params: Record<string, unknown>) =>
-			[...queryKeys.qa.all, "history", params] as const,
-		messages: (sessionId: number | string | null | undefined) =>
-			[...queryKeys.qa.all, "messages", sessionId] as const,
 	},
 	stats: {
 		all: ["stats"] as const,
-		duration: () => [...queryKeys.stats.all, "duration"] as const,
 		trends: (period: string) =>
 			[...queryKeys.stats.all, "trends", period] as const,
 		teacherSummary: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "teacherSummary", params] as const,
 		ranking: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "ranking", params] as const,
-		classSummary: (params: Record<string, unknown>) =>
-			[...queryKeys.stats.all, "classSummary", params] as const,
-		classStudents: (classId: number | string) =>
-			[...queryKeys.stats.all, "classStudents", classId] as const,
 		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {
@@ -118,21 +103,10 @@ export const queryKeys = {
 	rubric: {
 		all: ["rubrics"] as const,
 		current: () => [...queryKeys.rubric.all, "current"] as const,
-		active: () => [...queryKeys.rubric.all, "active"] as const,
 	},
 	apiManagement: {
-		all: ["admin", "api"] as const,
 		secrets: ["admin", "api", "secrets"] as const,
-		health: ["admin", "api", "health"] as const,
 		fallback: ["admin", "api", "fallback"] as const,
-	},
-	prompts: {
-		list: ["prompts"] as const,
-		byPurpose: (purpose: string | null | undefined) => ["prompts", purpose] as const,
-		activePreview: (purpose: string | null | undefined) =>
-			["prompts", "active", "preview", purpose] as const,
-		sampleVars: (purpose: string | null | undefined) =>
-			["prompts", "sampleVars", purpose] as const,
 	},
 	questionnaires: {
 		all: ["questionnaires"] as const,
@@ -142,22 +116,7 @@ export const queryKeys = {
 			[...queryKeys.questionnaires.all, "detail", id] as const,
 		stats: (templateId: number | null | undefined) =>
 			[...queryKeys.questionnaires.all, "stats", templateId] as const,
-		responses: (templateId: number, params?: Record<string, unknown>) =>
-			[
-				...queryKeys.questionnaires.all,
-				"responses",
-				templateId,
-				params,
-			] as const,
-		check: (params: {
-			case_id?: number;
-			record_id?: number;
-			trigger?: string;
-		}) => [...queryKeys.questionnaires.all, "check", params] as const,
-		myResponses: (params?: Record<string, unknown>) =>
-			[...queryKeys.questionnaires.all, "myResponses", params] as const,
 	},
-	sessionConfigs: ["sessionConfigs"] as const,
 	assignments: {
 		all: ["assignments"] as const,
 		list: (params?: Record<string, unknown>) =>

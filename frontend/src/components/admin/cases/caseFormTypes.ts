@@ -1,4 +1,4 @@
-// Type definitions and factory functions used by QuizEditor and DialoguesEditor.
+// Type definitions and factory functions used by QuizEditor.
 // The CaseForm itself now uses CaseEditorState (JSON path) — no longer depends on CaseFormData/parseCaseData/buildCaseData.
 
 export interface QuizFormData {
@@ -25,13 +25,4 @@ export function emptyQuizQuestion(): QuizQuestion {
 
 export function emptyQuizOption(): QuizOption {
 	return { key: "", text: "" };
-}
-
-export interface DialogPair {
-	question: string;
-	answer: string;
-}
-
-export function emptyDialogPair(): DialogPair {
-	return { question: "", answer: "" };
 }

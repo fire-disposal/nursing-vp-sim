@@ -14,7 +14,6 @@ beforeEach(() => {
 	localStorage.clear();
 	useUiPrefsStore.setState({
 		mobileHintDismissed: false,
-		quickPromptsCollapsed: false,
 		feedbackChartsOpen: false,
 	});
 });
@@ -22,23 +21,19 @@ beforeEach(() => {
 describe("uiPrefsStore", () => {
 	it("reads legacy boolean flags from localStorage at init", async () => {
 		localStorage.setItem("admin:mobileHintDismissed", "1");
-		localStorage.setItem("training:quickPromptsCollapsed", "1");
 		localStorage.setItem("admin:feedbackChartsOpen", "0");
 		const store = await freshStore();
 		const s = store.getState();
 		expect(s.mobileHintDismissed).toBe(true);
-		expect(s.quickPromptsCollapsed).toBe(true);
 		expect(s.feedbackChartsOpen).toBe(false);
 	});
 
 	it("setters update flags", () => {
 		const s = useUiPrefsStore.getState();
 		s.setMobileHintDismissed(true);
-		s.setQuickPromptsCollapsed(true);
 		s.setFeedbackChartsOpen(true);
 		const next = useUiPrefsStore.getState();
 		expect(next.mobileHintDismissed).toBe(true);
-		expect(next.quickPromptsCollapsed).toBe(true);
 		expect(next.feedbackChartsOpen).toBe(true);
 	});
 });
