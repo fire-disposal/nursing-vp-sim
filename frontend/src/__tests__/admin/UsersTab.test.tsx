@@ -9,14 +9,16 @@ const mocks = vi.hoisted(() => ({
 	getUsers: vi.fn(),
 	getRoles: vi.fn(),
 	getClasses: vi.fn(),
+	updateUser: vi.fn(),
+	deleteUser: vi.fn(),
 }));
 
 vi.mock("@/api/admin/users", () => ({
 	getUsers: mocks.getUsers,
 	getStats: vi.fn(),
-	updateUser: vi.fn(),
+	updateUser: mocks.updateUser,
 	batchCreateUsers: vi.fn(),
-	deleteUser: vi.fn(),
+	deleteUser: mocks.deleteUser,
 	bulkAssignClass: vi.fn(),
 	getStudentDetail: vi.fn(),
 }));
@@ -149,5 +151,49 @@ describe("UsersTab 多班级归属", () => {
 		);
 		expect(screen.getAllByText("2024级 护理1班").length).toBeGreaterThan(0);
 		expect(screen.getAllByText("2025级 护理2班").length).toBeGreaterThan(0);
+	});
+});
+
+describe("UsersTab 账号生命周期操作", () => {
+	it("删除用户需二次确认，确认后调用 deleteUser", async () => {
+		mocks.deleteUser.mockResolvedValue({ data: { ok: true, message: "已删除" } });
+		renderTab();
+		await userEvent.click(await screen.findByRole("button", { name: "删除 小明" }));
+
+		// 弹窗内断言：卡片上的 Tooltip 也含"删除用户"，全局查询会重复
+		const delConfirm = await screen.findByRole("button", { name: "确定删除" });
+		const delDialog = delConfirm.closest('[role="dialog"], [role="alertdialog"], .mantine-Modal-content') as HTMLElement;
+		expect(within(delDialog).getByText("删除用户")).toBeTruthy();
+		expect(within(delDialog).getByText(/此操作不可恢复/)).toBeTruthy();
+		await userEvent.click(delConfirm);
+
+		await waitFor(() => expect(mocks.deleteUser).toHaveBeenCalledWith(42));
+	});
+
+	it("停用账号需二次确认并提交 is_active=false；启用则不弹确认", async () => {
+		mocks.updateUser.mockResolvedValue({ data: MULTI_CLASS_USER });
+		renderTab();
+		await userEvent.click(await screen.findByRole("button", { name: "停用 小明 的账号" }));
+
+		const stopConfirm = await screen.findByRole("button", { name: "确定停用" });
+		const stopDialog = stopConfirm.closest('[role="dialog"], [role="alertdialog"], .mantine-Modal-content') as HTMLElement;
+		expect(within(stopDialog).getByText("停用账号")).toBeTruthy();
+		expect(within(stopDialog).getByText(/无法登录/)).toBeTruthy();
+		await userEvent.click(stopConfirm);
+
+		await waitFor(() =>
+			expect(mocks.updateUser).toHaveBeenCalledWith(42, { is_active: false }),
+		);
+	});
+
+	it("「显示已停用」把 include_inactive 带进请求", async () => {
+		renderTab();
+		await screen.findByText("小明");
+		await userEvent.click(screen.getByLabelText("显示已停用"));
+
+		await waitFor(() => {
+			const last = mocks.getUsers.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+			expect(last.include_inactive).toBe(true);
+		});
 	});
 });

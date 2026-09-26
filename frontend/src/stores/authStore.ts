@@ -58,6 +58,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 					display_name: data.display_name,
 					student_id: null,
 					gender: data.gender ?? null,
+					// 登录成功即账号为启用态（后端在鉴权层拒绝停用账号，见 auth.service）
+					is_active: true,
 					avatar: data.avatar ?? null,
 					memberships: [],
 				};
@@ -118,6 +120,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						role_display_name: data.role_display_name || data.role,
 						display_name: data.display_name,
 						student_id: data.student_id ?? null,
+						is_active: data.is_active ?? true,
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
 						memberships: data.memberships ?? [],

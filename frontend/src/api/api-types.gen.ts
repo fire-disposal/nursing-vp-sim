@@ -5405,6 +5405,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
         };
         /**
          * UserMembershipItem
@@ -5469,6 +5474,8 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -6704,6 +6711,8 @@ export interface operations {
                 class_id?: number | null;
                 /** @description 届/年级标签精确过滤 */
                 cohort_label?: string | null;
+                /** @description 是否包含已停用账号（默认隐藏） */
+                include_inactive?: boolean;
             };
             header?: never;
             path?: never;

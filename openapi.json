@@ -1860,6 +1860,18 @@
               "title": "Cohort Label"
             },
             "description": "届/年级标签精确过滤"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否包含已停用账号（默认隐藏）",
+              "default": false,
+              "title": "Include Inactive"
+            },
+            "description": "是否包含已停用账号（默认隐藏）"
           }
         ],
         "responses": {
@@ -16021,6 +16033,11 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
           }
         },
         "type": "object",
@@ -16257,6 +16274,17 @@
               }
             ],
             "title": "Avatar"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
           }
         },
         "additionalProperties": false,

@@ -77,6 +77,8 @@ describe("authStore", () => {
 			gender: null,
 			avatar: null,
 			memberships: [],
+			// 登录成功即启用态（后端在鉴权层拒绝停用账号登录，见 auth.service）
+			is_active: true,
 		});
 		const persisted = JSON.parse(
 			localStorage.getItem("nursing-auth") || "{}",

@@ -65,6 +65,8 @@ class UserBriefView:
     avatar: str | None
     created_at: datetime
     memberships: list[MembershipView]
+    #: 账号是否启用（停用 = 软删：不能登录，但保留全部训练数据）
+    is_active: bool
 
 
 @dataclass
@@ -124,6 +126,7 @@ class UserService:
             avatar=user.avatar,
             created_at=user.created_at,
             memberships=self.membership_views(user),
+            is_active=user.is_active,
         )
 
     @staticmethod
@@ -157,6 +160,7 @@ class UserService:
         role: str | None,
         class_id: int | None,
         cohort_label: str | None,
+        include_inactive: bool = False,
     ) -> PaginatedUsersView:
         role_id: int | None = None
         if role:
@@ -169,6 +173,7 @@ class UserService:
             role_id=role_id,
             class_id=class_id,
             cohort_label=cohort_label,
+            include_inactive=include_inactive,
         )
         return PaginatedUsersView(
             items=[self._brief(u) for u in users],
@@ -216,6 +221,11 @@ class UserService:
                     self._assert_role_within_scope(current_user, user.role, action="重置密码")
                 user.password_hash = hash_password(req.password)
 
+            if req.is_active is not None:
+                # 停用是软删：保留训练数据，只切断登录（见 auth.service 的 is_active 校验）
+                if current_user.id == user_id and not req.is_active:
+                    raise ValidationError("不能停用自己的账号")
+                user.is_active = req.is_active
             if req.gender is not None:
                 user.gender = req.gender or None
             if req.avatar is not None:
@@ -539,8 +549,11 @@ class UserService:
         role_id: int | None,
         class_id: int | None,
         cohort_label: str | None,
+        include_inactive: bool = False,
     ) -> tuple[int, list[User]]:
         q = self.db.query(User)
+        if not include_inactive:
+            q = q.filter(User.is_active.is_(True))
         # 成员语义：筛的是「是否属于该班/该 cohort」，展示的是 complete 的 memberships 集合，
         # 因此不存在「筛进 A 班却显示 B 班」的口径错位。
         if class_id is not None:
@@ -704,6 +717,7 @@ def list_users(
     role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None,
     class_id: Annotated[int | None, Query()] = None,
     cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None,
+    include_inactive: Annotated[bool, Query(description="是否包含已停用账号（默认隐藏）")] = False,
 ):
     view = UserService(db).list_all(
         offset=offset,
@@ -712,6 +726,7 @@ def list_users(
         role=role,
         class_id=class_id,
         cohort_label=cohort_label,
+        include_inactive=include_inactive,
     )
     return PaginatedResponse(
         items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit

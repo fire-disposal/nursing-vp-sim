@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import {
+	Checkbox, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
@@ -79,6 +80,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+	// 默认隐藏已停用账号（软删语义：停用只切断登录，训练数据保留）
+	const [includeInactive, setIncludeInactive] = useState(false);
 	const [addDialog, setAddDialog] = useState<{
 		open: boolean;
 		classId: string;
@@ -95,6 +98,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		setSearch("");
 		setRoleFilter("");
 		setClassParam(null);
+		setIncludeInactive(false);
 		setOffset(0);
 	}, []);
 	const [showBulkResetDialog, setShowBulkResetDialog] = useState(false);
@@ -115,6 +119,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	if (roleFilter) params.role = roleFilter;
 	if (classParam?.class_id) params.class_id = classParam.class_id;
 	else if (classParam?.cohort_label) params.cohort_label = classParam.cohort_label;
+	if (includeInactive) params.include_inactive = true;
 
 	const { data: userData, isLoading } = useUserList(offset, params);
 	const { data: roles = [] } = useRolesQuery();
@@ -312,7 +317,28 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		);
 	};
 
-	const _handleDeleteUser = async (u: UserBrief) => {
+	/** 停用/启用：停用会切断登录，属危险操作 → 先确认；启用无风险 → 直接执行。 */
+	const handleToggleActive = async (u: UserBrief) => {
+		if (u.is_active !== false) {
+			const ok = await confirm({
+				title: "停用账号",
+				message: `停用「${u.display_name}」（${u.username}）后该账号将无法登录，训练记录与班级归属保留，可随时重新启用。`,
+				confirmLabel: "确定停用",
+				danger: true,
+			});
+			if (!ok) return;
+		}
+		updateMutation.mutate(
+			{ id: u.id, data: { is_active: u.is_active === false } },
+			{
+				onSuccess: () =>
+					toast.success(u.is_active === false ? "账号已启用" : "账号已停用"),
+				onError: (err: unknown) => toast.apiError(err, "操作失败"),
+			},
+		);
+	};
+
+	const handleDeleteUser = async (u: UserBrief) => {
 		if (u.id === currentUserId) {
 			toast.warning("不能删除自己的账号");
 			return;
@@ -373,7 +399,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				<FilterToolbar
 					compact
 					summary={`共 ${total} 人`}
-					hasActiveFilters={Boolean(search || roleFilter || classParam)}
+					hasActiveFilters={Boolean(search || roleFilter || classParam || includeInactive)}
 					onClear={handleClearFilters}
 					search={
 						<SearchInput
@@ -407,6 +433,15 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									resetToFirstPage();
 								}}
 							/>
+							<Checkbox
+								size="sm"
+								label="显示已停用"
+								checked={includeInactive}
+								onChange={(e) => {
+									setIncludeInactive(e.currentTarget.checked);
+									resetToFirstPage();
+								}}
+							/>
 						</>
 					}
 				/>
@@ -429,7 +464,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									user={u}
 									selected={selectedIds.has(u.id)}
 									onSelect={handleToggleSelect}
-									onClick={openEditUser}
+									onEdit={openEditUser}
+									onDelete={handleDeleteUser}
+									onToggleActive={handleToggleActive}
 								/>
 							))}
 						</SimpleGrid>

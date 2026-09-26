@@ -41,6 +41,7 @@ class UserBrief(BaseModel):
     avatar: str | None = None
     memberships: list[UserMembershipItem] = Field(default_factory=list)
     created_at: datetime
+    is_active: bool = True
 
 
 class UserProfileUpdateRequest(BaseModel):
@@ -62,6 +63,8 @@ class UserUpdateRequest(BaseModel):
     password: str | None = Field(default=None, min_length=6)
     gender: str | None = _GENDER
     avatar: str | None = Field(default=None, max_length=255)
+    #: 启用/停用；停用是软删（保留训练数据，仅切断登录）
+    is_active: bool | None = None
 
 
 class StudentRecentRecord(BaseModel):
