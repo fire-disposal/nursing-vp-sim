@@ -14,7 +14,7 @@ from sqlalchemy.orm.exc import DetachedInstanceError
 import modules.training.scoring.runner as runner_module
 import modules.training.session.finalize as finalize_module
 from core.statuses import TrainingStatus
-from modules.training.pipeline import STATE_DONE_PAYLOAD, PipelineContext
+from modules.training.pipeline.context import STATE_DONE_PAYLOAD, PipelineContext
 from modules.training.pipeline.middleware.side_effects import _end_by_patient_walkout
 
 

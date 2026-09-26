@@ -25,7 +25,7 @@ from core.database import get_db
 from core.security import get_current_user
 from main import app
 from models import Message, TrainingAction, TrainingRecord
-from modules.training.pipeline import STATE_TURN
+from modules.training.pipeline.context import STATE_TURN
 from modules.training.pipeline.turn import (
     TURN_KIND,
     TurnClaim,

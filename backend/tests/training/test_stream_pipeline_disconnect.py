@@ -10,14 +10,14 @@ import json
 import pytest
 
 import modules.training.pipeline.runner as runner_mod
-from modules.training.pipeline import PipelineContext, stream_pipeline
 from modules.training.pipeline.context import (
     STATE_DONE_PAYLOAD,
     STATE_PIPELINE_TASK,
     STATE_SAVED_MESSAGES,
     STATE_STREAM_QUEUE,
+    PipelineContext,
 )
-from modules.training.pipeline.runner import abandoned_stream_count
+from modules.training.pipeline.runner import abandoned_stream_count, stream_pipeline
 
 
 class _PatientMessage:

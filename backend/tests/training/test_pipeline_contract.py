@@ -22,8 +22,7 @@ from typing import Any
 import pytest
 
 import modules.training.pipeline.runner as runner_mod
-from modules.training.pipeline import (
-    STAGES,
+from modules.training.pipeline.context import (
     STATE_ASSEMBLER,
     STATE_DONE_PAYLOAD,
     STATE_EMOTION_CHANGE,
@@ -33,10 +32,8 @@ from modules.training.pipeline import (
     STATE_SAVED_MESSAGES,
     STATE_TURN,
     PipelineContext,
-    run_pipeline,
-    stream_pipeline,
 )
-from modules.training.pipeline.runner import _error_frame
+from modules.training.pipeline.runner import STAGES, _error_frame, run_pipeline, stream_pipeline
 from modules.training.pipeline.turn import ERROR_PIPELINE, TurnClaim, TurnStatus
 
 #: 声明的阶段名顺序（由 ``runner.STAGES`` 派生）：探测桩据此装配。

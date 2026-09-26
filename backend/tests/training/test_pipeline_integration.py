@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from modules.training.pipeline import STATE_TURN, PipelineContext, build_note_collector, run_pipeline
+from modules.training.pipeline.builder import build_note_collector
+from modules.training.pipeline.context import STATE_TURN, PipelineContext
+from modules.training.pipeline.runner import run_pipeline
 from modules.training.pipeline.turn import TurnClaim, TurnStatus
 
 

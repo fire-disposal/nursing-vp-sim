@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from core.exceptions import NotFoundError
 from models import Assignment, Case, CaseRevision, Class, Message, Role, TrainingRecord, User
 from models.school import legacy_grades_table
-from modules.training.pipeline import (
+from modules.training.pipeline.context import (
     STATE_CORRECTION_TARGET,
     STATE_DONE_PAYLOAD,
     PipelineContext,

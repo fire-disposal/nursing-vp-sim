@@ -10,57 +10,11 @@
   5. SIDE_EFFECTS —— ``side_effects``: emotion/initiative 更新、SSE 事件、
                      correction 追踪（best-effort，失败只记日志）
 
-NoteCollector 的装配在 ``builder.build_note_collector``（只决定"有哪些上下文来源"，
-不参与阶段排序）。
+**本包不导入任何子模块**：``pipeline.context`` 被 ``patient_ai.notes`` 等深层模块在
+导入期引用，若包初始化顺带拉起 ``runner``（→ 五个中间件 → ``workflows`` → ``profile``），
+就会绕回仍在导入中的 ``profile`` 形成环。导入方走具体模块路径：
+
+* ``from modules.training.pipeline.runner import STAGES, run_pipeline, stream_pipeline``
+* ``from modules.training.pipeline.builder import build_note_collector``
+* ``from modules.training.pipeline.context import PipelineContext, STATE_*``
 """
-
-from .builder import build_note_collector
-from .context import (
-    STATE_ASSEMBLER,
-    STATE_CORRECTION_TARGET,
-    STATE_CORRECTION_TURN,
-    STATE_DONE_PAYLOAD,
-    STATE_EMOTION_CHANGE,
-    STATE_EMOTION_DOMINANT,
-    STATE_EMOTION_NOTE,
-    STATE_FEATURES,
-    STATE_LEAK_CORRECTION_COUNT,
-    STATE_PATIENT_CHAT_CFG,
-    STATE_PATIENT_CONTEXT_KWARGS,
-    STATE_PIPELINE_TASK,
-    STATE_SAVED_MESSAGES,
-    STATE_STREAM_MODE,
-    STATE_TURN,
-    MessageView,
-    PipelineContext,
-    message_views,
-)
-from .runner import STAGES, abandoned_stream_count, run_pipeline, stream_pipeline
-from .turn import TURN_KIND
-
-__all__ = [
-    "STAGES",
-    "STATE_ASSEMBLER",
-    "STATE_CORRECTION_TARGET",
-    "STATE_CORRECTION_TURN",
-    "STATE_DONE_PAYLOAD",
-    "STATE_EMOTION_CHANGE",
-    "STATE_EMOTION_DOMINANT",
-    "STATE_EMOTION_NOTE",
-    "STATE_FEATURES",
-    "STATE_LEAK_CORRECTION_COUNT",
-    "STATE_PATIENT_CHAT_CFG",
-    "STATE_PATIENT_CONTEXT_KWARGS",
-    "STATE_PIPELINE_TASK",
-    "STATE_SAVED_MESSAGES",
-    "STATE_STREAM_MODE",
-    "STATE_TURN",
-    "TURN_KIND",
-    "MessageView",
-    "PipelineContext",
-    "abandoned_stream_count",
-    "build_note_collector",
-    "message_views",
-    "run_pipeline",
-    "stream_pipeline",
-]

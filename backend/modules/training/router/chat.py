@@ -41,7 +41,8 @@ from modules.training.timing import is_training_overdue
 from modules.training.workflows import workflow_for_record
 from schemas import ChatCorrectionRequest, ChatMessageRequest, ChatMessageResponse
 
-from ..pipeline import (
+from ..pipeline.builder import build_note_collector
+from ..pipeline.context import (
     STATE_CORRECTION_TARGET,
     STATE_CORRECTION_TURN,
     STATE_FEATURES,
@@ -49,11 +50,9 @@ from ..pipeline import (
     STATE_STREAM_MODE,
     STATE_TURN,
     PipelineContext,
-    build_note_collector,
     message_views,
-    run_pipeline,
-    stream_pipeline,
 )
+from ..pipeline.runner import run_pipeline, stream_pipeline
 from ..pipeline.turn import (
     CODE_TURN_CONFLICT,
     CODE_TURN_IN_PROGRESS,

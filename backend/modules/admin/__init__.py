@@ -16,6 +16,7 @@ from .roles import router as _roles
 from .secrets import router as _secrets
 from .system_notifications import router as _system_notifications
 from .users import router as _users
+from .versions import router as _versions
 from .voice import router as _voice
 
 for r in (
@@ -28,6 +29,7 @@ for r in (
     _secrets,
     _system_notifications,
     _users,
+    _versions,
     _voice,
 ):
     router.include_router(r)

@@ -19,11 +19,11 @@ from modules.training.patient_ai.emotion.events import (
     EmotionAnalysisResult,
     EmotionEventType,
 )
-from modules.training.pipeline import PipelineContext
 from modules.training.pipeline.context import (
     STATE_CORRECTION_TURN,
     STATE_EMOTION_CHANGE,
     STATE_FEATURES,
+    PipelineContext,
 )
 
 EXISTING_TURN_ID = "5-11"  # 被修正的那一轮已经占用
