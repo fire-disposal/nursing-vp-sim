@@ -155,8 +155,9 @@
 
 | 工具 | 用途 |
 |------|------|
-| `@tanstack/react-query` | 服务端数据获取 + 缓存 + 自动刷新 (staleTime: 30s, gcTime: 10min) |
-| `zustand` | 客户端状态 — authStore (登录/用户 + 班级成员归属), trainingStore (会话瞬态), workspaceStore (工作区展开的面板)。**不保存服务端业务状态**（manifest/可用性/完成条件均来自 query cache） |
+| `@tanstack/react-query` | 服务端数据获取、缓存、失效刷新。病例、训练记录、manifest、评分和已提交 Artifact 的唯一 owner。 |
+| `zustand` | 客户端状态 — authStore (登录/用户 + 班级成员归属), trainingStore (流式消息、草稿、SSE/TTS/UI 瞬态), workspaceStore (工作区展开的面板)。不保存完整 API response。 |
+| `useMemo` | 仅将 RQ snapshot 纯投影为 patient、manifest、模式等视图；不持有或同步状态。 |
 | `sonner` | 全局 Toast 通知 |
 
 ## 训练引擎 (Engine System)
@@ -171,10 +172,10 @@
 | `workspace/ActivityRail.tsx` / `ActivityBar.tsx` | 桌面侧栏 / 移动能力条 + 底部面板 |
 | `workspace/CompletionStrip.tsx` / `CompletionChecklist` | 完成条件与阻塞项的可读呈现 |
 | `MessageBus.ts` | 仅承载**局部 UI 与流式事件**；事件只说明"发生了什么"，不作为状态保存位置 |
-| `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
-| `StreamManager.ts` | SSE 流式响应管理，处理 LLM 消息流 |
+| `TrainingDataContext.tsx` | 将 RQ 的原始训练详情只读传入训练子树，并提供 patient、manifest、模式等纯 selector；不镜像到 Store。 |
+| `StreamManager.ts` | SSE 流式响应管理：token 以 `requestAnimationFrame` 合并写入运行时消息，原始 chunk 仍即时送给 TTS 和滚动事件。 |
 | `ScoreManager.ts` | 评分流程管理 — 触发评分、轮询状态、获取结果 |
-| `tts/` | TTS 语音合成 — TTSManager 总控 + browser-tts Web Speech API 实现 |
+| `tts/` | 当前 SSE 患者回复的句级 TTS：火山 PCM 流优先、浏览器语音兜底；停止/失败都闭合同一播放会话。 |
 
 ### 训练架构
 
@@ -204,10 +205,11 @@ QuestionnaireModal 由 TrainingEntry（训练前）或 RecordDetail（评分后�
 | 功能 | 实现 |
 |------|------|
 | 语音输入 | Web Speech Recognition API，zh-CN |
-| 自动朗读 | Web Speech Synthesis API，年龄感知语速/音调/停顿 |
-| 默认状态 | 首次访问默认开启 (`localStorage` 无值时返回 true) |
-| 首条招呼 | 训练开始自动朗读患者首条消息 |
-| 流式朗读 | 按句子切分，句间自动停顿 |
+| 自动朗读 | 当前患者 SSE 回复的句级播放；火山 PCM 流优先，浏览器 Speech Synthesis 兜底 |
+| 默认状态 | 每次训练会话默认开启；关闭立即终止当前播放和未合成句子 |
+| 流式渲染 | `StreamManager` 每动画帧合并 token 写入，滚动也按帧合并；不会逐 token 触发 React 更新或同步滚动 |
+| 流式朗读 | 原始 SSE chunk 直接按句切分；正常完成和 SSE 中断均会排空已接收文本并发出终态事件 |
+| 历史消息 | 不自动重放首条或历史患者消息，避免首轮发送时与当前 SSE 回复重复朗读 |
 
 ## 护理记录 (nursing-record 工具)
 

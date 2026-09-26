@@ -24,10 +24,7 @@ import {
 	requiredArtifacts,
 } from "./manifest";
 import { createMessageBus } from "./MessageBus";
-import {
-	useTrainingStore,
-	getTrainingState,
-} from "@/stores/trainingStore";
+import { getTrainingState } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
 	usePatientData,
@@ -181,7 +178,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	}, [queryClient, toastWarning]);
 
 	// ── sendMessage (SSE orchestration + bus events) ──
-	const trainingStartedRef = useRef(false);
 	const sendMessage = useCallback(
 		async (text: string) => {
 			try {
@@ -190,7 +186,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				toastError("护理记录保存失败，请保存后再继续问诊");
 				return;
 			}
-			trainingStartedRef.current = true;
 			const bus = busRef.current;
 			bus.emit("chat:beforeSend");
 			await streamRef.current.send(text, {
@@ -382,26 +377,13 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		}
 	}, [recordStatus]);
 
-	// ── TTS toggle (keeps TTSManager in sync) ──
+	// ── TTS toggle (manager owns stop/AudioContext lifecycle) ──
 	const toggleTts = useCallback(() => {
 		const store = getTrainingState();
 		const next = !store.ttsAutoPlay;
 		store.setTtsAutoPlay(next);
 		ttsRef.current.setAutoPlay(next);
-		if (!next) ttsRef.current.stop();
 	}, []);
-
-	// ── TTS auto-play on first patient message ──
-	const firstGreetingRef = useRef(false);
-	const ttsAutoPlay = useTrainingStore((s) => s.ttsAutoPlay);
-	const messages = useTrainingStore((s) => s.messages);
-	useEffect(() => {
-		if (firstGreetingRef.current || !ttsAutoPlay || !trainingStartedRef.current) return;
-		const firstPatient = messages.find((m) => m.role === "patient");
-		if (!firstPatient) return;
-		firstGreetingRef.current = true;
-		ttsRef.current.speak(firstPatient.content);
-	}, [messages, ttsAutoPlay]);
 
 	const isShort = useShortViewport();
 	const isMobile = useIsMobile();

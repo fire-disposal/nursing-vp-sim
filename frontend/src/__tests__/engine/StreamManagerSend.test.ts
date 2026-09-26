@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StreamDonePayload } from "@/api/sse";
 import { StreamManager } from "@/engine/StreamManager";
 import { useTrainingStore } from "@/stores/trainingStore";
@@ -51,6 +51,10 @@ beforeEach(() => {
 	resetStore();
 });
 
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
+
 describe("StreamManager.send 主流程", () => {
 	it("happy path: chunks append, done finalizes, sending resets", async () => {
 		const cb = captureCallbacks();
@@ -75,6 +79,43 @@ describe("StreamManager.send 主流程", () => {
 		expect(onPatientChunk).toHaveBeenCalledTimes(2);
 		// done 负载必须原样转发：前端靠 end_reason 识别「患者中止访谈」并结束训练
 		expect(onPatientDone).toHaveBeenCalledWith(42, { ended: true, end_reason: "patient_walkout" });
+	});
+
+	it("batches token writes into one animation frame while retaining every chunk", async () => {
+		const frames: FrameRequestCallback[] = [];
+		vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+			frames.push(callback);
+			return frames.length;
+		});
+		vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+		let onChunk: (chunk: string) => void;
+		let onDone: (id?: number, payload?: StreamDonePayload) => void;
+		let releaseStream: () => void;
+		mockStream.mockImplementation(
+			async (_recordId, _content, nextChunk, nextDone) => {
+				onChunk = nextChunk;
+				onDone = nextDone;
+				await new Promise<void>((resolve) => {
+					releaseStream = resolve;
+				});
+			},
+		);
+
+		const manager = new StreamManager(1);
+		const promise = manager.send("提问");
+		onChunk!("你");
+		onChunk!("好");
+		onChunk!("。");
+
+		expect(useTrainingStore.getState().messages[1]?.content).toBe("");
+		expect(frames).toHaveLength(1);
+		frames[0]?.(0);
+		expect(useTrainingStore.getState().messages[1]?.content).toBe("你好。");
+
+		onDone!();
+		releaseStream!();
+		await promise;
 	});
 
 	it("stream error with partial content marks message with error", async () => {

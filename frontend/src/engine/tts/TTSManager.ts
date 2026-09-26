@@ -1,18 +1,17 @@
 import type { MessageBus } from "../types";
 import { createBrowserTTS } from "./browser-tts";
 import { PcmStreamPlayer } from "./pcm-player";
-import { cleanTTSText, MAX_TTS_LENGTH, SentenceSegmenter } from "./segmenter";
+import { MAX_TTS_LENGTH, SentenceSegmenter } from "./segmenter";
 import type { TTSManagerConfig, TTSProvider } from "./types";
 import { TTSCircuitOpenError, VolcTTSProvider } from "./VolcTTSProvider";
 
 /**
- * TTSManager — sentence-pipelined streaming playback.
+ * TTSManager — sentence-pipelined playback for the current patient SSE reply.
  *
- * Listens to LLM stream chunks, dispatches each sentence for synthesis the
- * moment its boundary arrives, and schedules PCM audio on Web Audio as chunks
- * stream in. Synthesis of sentence N+1 overlaps playback of sentence N.
- * Degrades to browser speech synthesis per-sentence on failure, and for the
- * whole reply when the backend circuit breaker is open.
+ * It receives raw LLM chunks, starts synthesis at sentence boundaries, and
+ * schedules PCM audio as its bytes arrive. A reply snapshots the auto-play
+ * setting at `chat:beforeSend`: turning it on affects the next reply, while
+ * turning it off immediately stops the current reply.
  */
 export class TTSManager {
 	private emotionProvider = new VolcTTSProvider();
@@ -32,6 +31,8 @@ export class TTSManager {
 	private replyStart = 0;
 	private firstChunkMs: number | null = null;
 	private started = false;
+	private replyFinished = false;
+	private replyAutoPlay = false;
 	private lastProvider = "volcengine-tts";
 
 	constructor(config?: TTSManagerConfig) {
@@ -49,7 +50,11 @@ export class TTSManager {
 
 	setAutoPlay(on: boolean): void {
 		this.autoPlay = on;
-		if (on) this.player.prime();
+		if (!on) {
+			this.stop();
+			return;
+		}
+		void this.player.prime().catch(() => undefined);
 	}
 
 	setRecordId(id: number): void {
@@ -60,19 +65,20 @@ export class TTSManager {
 		this.bus = bus;
 
 		const unsubChunk = bus.on("stream:chunk", (chunk?: string) => {
-			if (!this.autoPlay || !chunk) return;
+			if (!this.replyAutoPlay || !chunk) return;
 			for (const s of this.segmenter.push(chunk)) this.enqueue(s);
 		});
 
-		const unsubDone = bus.on("stream:done", () => {
-			this.streamDone = true;
-			if (!this.autoPlay) return;
-			for (const s of this.segmenter.flush()) this.enqueue(s);
-		});
+		const completeStream = this.completeStream.bind(this);
+		const unsubDone = bus.on("stream:done", completeStream);
+		// SSE 失败后仍会保留已显示的部分回复：将已收到文本收尾播放，
+		// 而不是让 initiative UI 永久停在 tts:start 状态。
+		const unsubError = bus.on("stream:error", completeStream);
 
 		const unsubBeforeSend = bus.on("chat:beforeSend", () => {
-			this.player.prime();
 			this.stop();
+			this.replyAutoPlay = this.autoPlay;
+			if (this.replyAutoPlay) void this.player.prime().catch(() => undefined);
 		});
 
 		const unsubEmotion = bus.on(
@@ -84,7 +90,7 @@ export class TTSManager {
 			},
 		);
 
-		this.unsubs = [unsubChunk, unsubDone, unsubBeforeSend, unsubEmotion];
+		this.unsubs = [unsubChunk, unsubDone, unsubError, unsubBeforeSend, unsubEmotion];
 	}
 
 	detach(): void {
@@ -95,24 +101,35 @@ export class TTSManager {
 		this.bus = null;
 	}
 
-	/** Manual replay path — routes through the same streaming pipeline. */
-	speak(text: string): void {
-		const cleaned = cleanTTSText(text).slice(0, MAX_TTS_LENGTH);
-		if (cleaned) this.enqueue(cleaned);
-	}
-
+	/**
+	 * Stop the active reply.  There is no standalone replay surface: every TTS
+	 * request is driven by the current streamed patient reply.
+	 */
 	stop(): void {
+		const hadPlayback = this.started;
 		this.queue.length = 0;
 		this.segmenter.reset();
 		this.streamDone = false;
+		this.replyAutoPlay = false;
 		this.replyDegraded = false;
+		this.replyFinished = false;
 		this.started = false;
 		this.abortCtl?.abort();
 		this.abortCtl = null;
 		this.player.stop();
 		this.fallbackProvider.stop();
 		try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+		if (hadPlayback) this.bus?.emit("tts:end", "");
 	}
+
+	/** Completes normal and failed SSE replies through the same drain path. */
+	private completeStream(): void {
+		this.streamDone = true;
+		if (!this.replyAutoPlay) return;
+		for (const sentence of this.segmenter.flush()) this.enqueue(sentence);
+		if (!this.processing && this.queue.length === 0) void this.finishReply();
+	}
+
 
 	private enqueue(sentence: string): void {
 		if (!sentence) return;
@@ -138,8 +155,11 @@ export class TTSManager {
 	}
 
 	private async finishReply(): Promise<void> {
+		if (this.replyFinished) return;
+		this.replyFinished = true;
 		await this.player.waitIdle();
 		if (!this.started) return;
+		this.started = false;
 		this.bus?.emit("tts:end", "");
 		this.bus?.emit("tts:provider-status", {
 			provider: this.lastProvider,
@@ -184,7 +204,7 @@ export class TTSManager {
 	}
 
 	private markStarted(sentence: string): void {
-		if (this.started) return;
+		if (!this.replyAutoPlay || this.started) return;
 		this.started = true;
 		this.bus?.emit("tts:start", sentence);
 	}
