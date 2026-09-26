@@ -24,7 +24,7 @@
 | 1 | **RB-1** | 权限面自毁路径封堵：停用/删除同样走 `_assert_role_within_scope` + "最后一个 super_admin" 守卫 | S | 无 | — · **已完成（本地，待发版）** |
 | 2 | **OBS-1** | 让已有 `extra={...}` 真正可见（logging formatter 带字段 + diagnose 采集），半天级可观测收益 | S | 无 | — |
 | 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1 | — · **已完成（本地，待发版）** |
-| 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — |
+| 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — · **角色/用户/注册已完成（本地）；密钥待接** |
 | 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | 谁能看（默认仅 super_admin） |
 | 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — |
 | 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | 是否加 `replied_by` |
@@ -100,6 +100,7 @@
 3. `models/audit.py` 用 PG 原生类型（`BigInteger` / `JSONB` / `TIMESTAMPTZ`），
    并为"拒绝/失败面板"加**部分索引**（`postgresql_where=outcome <> 'success'`）。
 
+**进度**：`test_class_memberships.py` 已随 A2 迁移（它走成员替换 → 会写审计，SQLite 夹具下报 no such table）。
 **待办（U3）**：仓库仍有 **12 个测试文件**用 `sqlite://` 夹具（`tests/admin/test_class_memberships.py`、
 `tests/cases/*`、`tests/scoring/*` 等）。它们能跑但不符合"面向 PG"的口径（也是 `JSONB` 列
 在 SQLite 上必须打补丁的根源）。建议逐个迁到 `pg_session` + 真库建表，作为独立清理切片推进。

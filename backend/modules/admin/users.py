@@ -5,11 +5,22 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, or_
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from core.audit import (
+    ACTION_USER_ACTIVATED,
+    ACTION_USER_BULK_ASSIGNED,
+    ACTION_USER_BULK_IMPORTED,
+    ACTION_USER_DEACTIVATED,
+    ACTION_USER_DELETED,
+    ACTION_USER_PASSWORD_RESET,
+    ACTION_USER_UPDATED,
+    TARGET_TYPE_USER,
+    record,
+)
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
@@ -223,10 +234,20 @@ class UserService:
         if not remaining:
             raise ValidationError(f"不能{action}最后一个启用中的超级管理员：之后将无人能修改角色与权限")
 
-    def update(self, user_id: int, req: UserUpdateRequest, current_user: User) -> UserBriefView:
+    def update(
+        self,
+        user_id: int,
+        req: UserUpdateRequest,
+        current_user: User,
+        *,
+        request: Request | None = None,
+    ) -> UserBriefView:
         user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
+        before_role = user.role.name if user.role else None
+        before_active = user.is_active
+        audit_events: list[tuple[str, dict]] = []
         with unit_of_work(self.db):
             if req.display_name is not None:
                 user.display_name = req.display_name
@@ -242,6 +263,7 @@ class UserService:
                 # 因此无法把任何账号提为 super_admin（否则等于绕过整个权限表）。
                 self._assert_role_within_scope(current_user, role_obj, action="授予角色")
                 user.role_id = role_obj.id
+                audit_events.append((ACTION_USER_UPDATED, {"role": {"before": before_role, "after": role_obj.name}}))
             if req.password is not None and req.password:
                 if len(req.password) < 6:
                     raise ValidationError("密码长度不能少于6位")
@@ -249,6 +271,7 @@ class UserService:
                 if user.role is not None and current_user.id != user_id:
                     self._assert_role_within_scope(current_user, user.role, action="重置密码")
                 user.password_hash = hash_password(req.password)
+                audit_events.append((ACTION_USER_PASSWORD_RESET, {"self_service": current_user.id == user_id}))
 
             if req.is_active is not None:
                 # 停用是软删：保留训练数据，只切断登录（见 auth.service 的 is_active 校验）
@@ -265,6 +288,12 @@ class UserService:
                         )
                     if not req.is_active:
                         self._assert_not_last_active_super_admin(user, action="停用")
+                    audit_events.append(
+                        (
+                            ACTION_USER_ACTIVATED if req.is_active else ACTION_USER_DEACTIVATED,
+                            {"is_active": {"before": before_active, "after": req.is_active}},
+                        )
+                    )
                 user.is_active = req.is_active
             if req.gender is not None:
                 user.gender = req.gender or None
@@ -274,6 +303,17 @@ class UserService:
                 # 单用户多班级：请求携带 memberships = 全量替换该用户的成员关系集合
                 # （不再有「只改第一条」或 class_id=0 清除哨兵）。
                 self._replace_memberships(user, req.memberships)
+            # 同事务落审计：没提交的变更不留痕；每次变更按"方面"各一行
+            for action, payload in audit_events:
+                record(
+                    self.db,
+                    action=action,
+                    target_type=TARGET_TYPE_USER,
+                    target_id=user.id,
+                    target_label=user.username,
+                    request=request,
+                    payload=payload,
+                )
         self.db.refresh(user)
         return self._brief(user)
 
@@ -310,7 +350,7 @@ class UserService:
                 membership.member_role = member_role
         self.db.flush()
 
-    def delete(self, user_id: int, current_user: User) -> str:
+    def delete(self, user_id: int, current_user: User, *, request: Request | None = None) -> str:
         if user_id == current_user.id:
             raise ValidationError("不能删除自己")
         user = self.db.get(User, user_id)
@@ -328,7 +368,17 @@ class UserService:
         if record_count > 0:
             raise ValidationError(f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。")
         target_name = user.username
+        target_role = user.role.name if user.role else None
         with unit_of_work(self.db):
+            record(
+                self.db,
+                action=ACTION_USER_DELETED,
+                target_type=TARGET_TYPE_USER,
+                target_id=user.id,
+                target_label=target_name,
+                request=request,
+                payload={"role": target_role},
+            )
             self.db.delete(user)
             self.db.flush()
         return target_name
@@ -439,7 +489,7 @@ class UserService:
             today_records=today_records,
         )
 
-    def batch_create(self, users_data: list[dict]) -> BatchCreateResult:
+    def batch_create(self, users_data: list[dict], *, request: Request | None = None) -> BatchCreateResult:
         if len(users_data) > BATCH_USER_LIMIT:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
 
@@ -497,6 +547,14 @@ class UserService:
             if class_id:
                 self.db.add(ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT))
             created += 1
+        # 汇总一行（不做逐行审计：批量导入是单个操作，行级明细在业务表里可查）
+        record(
+            self.db,
+            action=ACTION_USER_BULK_IMPORTED,
+            target_type=TARGET_TYPE_USER,
+            request=request,
+            payload={"created": created, "skipped": skipped, "requested": len(users_data)},
+        )
         try:
             self.db.commit()
         except Exception:
@@ -549,7 +607,12 @@ class UserService:
         return cls.id, None
 
     def bulk_assign_class(
-        self, user_ids: list[int], class_id: int, member_role: str = MEMBER_ROLE_STUDENT
+        self,
+        user_ids: list[int],
+        class_id: int,
+        member_role: str = MEMBER_ROLE_STUDENT,
+        *,
+        request: Request | None = None,
     ) -> BulkAssignClassResult:
         # 契约层（UserMembershipUpdate）是 Literal[student|teacher]，但批量入口收的是裸 str：
         # 不在此校验就能把任意字符串写进 ClassMembership.member_role（2026-09-26 审计 RB-9）。
@@ -560,6 +623,19 @@ class UserService:
 
         with unit_of_work(self.db, conflict_detail="操作冲突，请重试"):
             added, updated, missing = upsert_members(self.db, class_id, user_ids, member_role=member_role)
+            record(
+                self.db,
+                action=ACTION_USER_BULK_ASSIGNED,
+                target_type="class",
+                target_id=class_id,
+                target_label=target_class.name,
+                request=request,
+                payload={
+                    "member_role": member_role,
+                    "assigned": added + updated,
+                    "skipped": len(missing),
+                },
+            )
 
         return BulkAssignClassResult(
             assigned=added,
@@ -794,8 +870,14 @@ def export_users(
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)
-def update_user(user_id: int, req: UserUpdateRequest, current_user: _Manager, db: DbSession):
-    view = UserService(db).update(user_id, req, current_user=current_user)
+def update_user(
+    user_id: int,
+    req: UserUpdateRequest,
+    current_user: _Manager,
+    db: DbSession,
+    request: Request,
+):
+    view = UserService(db).update(user_id, req, current_user=current_user, request=request)
     log.info(
         f"用户更新: target_id={user_id} target_name={view.username}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -809,8 +891,8 @@ def get_user_detail(user_id: int, current_user: _Manager, db: DbSession):
 
 
 @router.delete("/users/{user_id}", response_model=DeleteResponse)
-def delete_user(user_id: int, current_user: _Manager, db: DbSession):
-    target_name = UserService(db).delete(user_id, current_user)
+def delete_user(user_id: int, current_user: _Manager, db: DbSession, request: Request):
+    target_name = UserService(db).delete(user_id, current_user, request=request)
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -819,8 +901,8 @@ def delete_user(user_id: int, current_user: _Manager, db: DbSession):
 
 
 @router.post("/users/batch", response_model=BatchCreateResult)
-def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession):
-    result = UserService(db).batch_create([u.model_dump() for u in users])
+def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession, request: Request):
+    result = UserService(db).batch_create([u.model_dump() for u in users], request=request)
     log.info(
         f"批量导入: created={result.created} skipped={result.skipped}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -829,8 +911,8 @@ def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: D
 
 
 @router.post("/users/bulk-assign-class", response_model=BulkAssignClassResult)
-def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: DbSession):
-    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id, req.member_role)
+def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: DbSession, request: Request):
+    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id, req.member_role, request=request)
     log.info(
         f"批量分配班级: assigned={result.assigned} updated={result.updated} "
         f"skipped={result.skipped} class_id={req.class_id} role={req.member_role}",

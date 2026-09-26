@@ -7,13 +7,13 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.database import Base
+from core.database import engine as pg_engine
 from core.exceptions import NotFoundError, ValidationError
-from models import Class, ClassMembership, Role, User
+from models import AuditLog, Class, ClassMembership, Role, User
 from models.school import legacy_grades_table
 from modules.admin.class_memberships import (
     ClassMembershipService,
@@ -34,15 +34,20 @@ _TABLES = [
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
+    AuditLog.__table__,
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _schema():
+    """本仓面向 PostgreSQL：真库建表（幂等），不用 SQLite 替身。"""
+    Base.metadata.create_all(pg_engine, tables=_TABLES)
+
+
 @pytest.fixture
-def db():
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine, tables=_TABLES)
-    with Session(engine) as session:
-        yield session
+def db(pg_session):
+    # 用例内部的 commit 只释放 savepoint → teardown 外层回滚，对库零残留
+    return pg_session
 
 
 def _role(db: Session, name: str) -> Role:

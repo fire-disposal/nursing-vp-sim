@@ -40,11 +40,12 @@ async def login(
 @router.post("/register", response_model=RegisterResponse)
 def register(
     req: RegisterRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: DbSession,
     _: Annotated[None, Depends(register_rate_limit)],
 ):
-    return AuthService(db).register(req, current_user)
+    return AuthService(db).register(req, current_user, request=request)
 
 
 @router.get("/me", response_model=UserBrief)

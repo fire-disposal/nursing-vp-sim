@@ -1,9 +1,16 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import func
 
+from core.audit import (
+    ACTION_ROLE_CREATED,
+    ACTION_ROLE_DELETED,
+    ACTION_ROLE_UPDATED,
+    TARGET_TYPE_ROLE,
+    record,
+)
 from core.config import MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
@@ -124,6 +131,7 @@ class RoleService:
         permissions: list[str],
         *,
         grantable: set[str] | None = None,
+        request: Request | None = None,
     ) -> RoleView:
         if self.name_exists(name):
             raise ValidationError("角色名已存在")
@@ -134,6 +142,16 @@ class RoleService:
             self.db.flush()
             for perm in permissions:
                 self.db.add(RolePermission(role_id=role.id, permission=perm))
+            # 权限变更必须留痕：它是"审计系统自身可信"的前提（2026-09-26 审计 RB-2）
+            record(
+                self.db,
+                action=ACTION_ROLE_CREATED,
+                target_type=TARGET_TYPE_ROLE,
+                target_id=role.id,
+                target_label=display_name,
+                request=request,
+                payload={"name": name, "permissions": sorted(permissions)},
+            )
         return self._view(role, list(permissions), 0)
 
     def update(
@@ -143,6 +161,7 @@ class RoleService:
         display_name: str | None = None,
         permissions: list[str] | None = None,
         grantable: set[str] | None = None,
+        request: Request | None = None,
     ) -> RoleView:
         role = self.db.get(Role, role_id)
         if role is None:
@@ -151,17 +170,32 @@ class RoleService:
             raise AuthError("系统角色不可修改", status_code=403)
         if permissions is not None:
             self._validate_permissions(permissions, grantable)
+        before_perms = sorted(self.get_permissions(role_id))
+        before_display = role.display_name
         with unit_of_work(self.db, conflict_detail="角色冲突"):
             if display_name is not None:
                 role.display_name = display_name
             if permissions is not None:
                 self.replace_permissions(role.id, permissions)
                 clear_permission_cache(role.id)
+            # before 在变更前读取（不依赖 ORM 脏状态），after 取本次请求的目标集合
+            payload: dict[str, object] = {"display_name": {"before": before_display, "after": role.display_name}}
+            if permissions is not None:
+                payload["permissions"] = {"before": before_perms, "after": sorted(permissions)}
+            record(
+                self.db,
+                action=ACTION_ROLE_UPDATED,
+                target_type=TARGET_TYPE_ROLE,
+                target_id=role.id,
+                target_label=role.display_name,
+                request=request,
+                payload=payload,
+            )
         perms = self.get_permissions(role.id)
         user_count = self.user_count(role.id)
         return self._view(role, perms, user_count)
 
-    def delete(self, role_id: int) -> str:
+    def delete(self, role_id: int, *, request: Request | None = None) -> str:
         role = self.db.get(Role, role_id)
         if role is None:
             raise NotFoundError("角色不存在")
@@ -171,7 +205,18 @@ class RoleService:
         if user_count > 0:
             raise ValidationError(f"该角色下还有 {user_count} 个用户，无法删除")
         name = role.name
+        display_name = role.display_name
+        removed_perms = sorted(self.get_permissions(role_id))
         with unit_of_work(self.db, conflict_detail="角色冲突"):
+            record(
+                self.db,
+                action=ACTION_ROLE_DELETED,
+                target_type=TARGET_TYPE_ROLE,
+                target_id=role_id,
+                target_label=display_name,
+                request=request,
+                payload={"name": name, "permissions": removed_perms},
+            )
             self.db.delete(role)
             self.db.flush()
         return name
@@ -196,25 +241,27 @@ def list_roles(
 
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
-def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
+def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession, request: Request):
     return RoleResponse.model_validate(
         RoleService(db).create(
             req.name,
             req.display_name,
             req.permissions,
             grantable=_grantable(current_user, db),
+            request=request,
         )
     )
 
 
 @router.put("/{role_id}", response_model=RoleResponse)
-def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db: DbSession):
+def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db: DbSession, request: Request):
     return RoleResponse.model_validate(
         RoleService(db).update(
             role_id,
             display_name=req.display_name,
             permissions=req.permissions,
             grantable=_grantable(current_user, db),
+            request=request,
         )
     )
 
@@ -236,6 +283,6 @@ def export_roles(
 
 
 @router.delete("/{role_id}", response_model=DeleteResponse)
-def delete_role(role_id: int, current_user: _Manager, db: DbSession):
-    name = RoleService(db).delete(role_id)
+def delete_role(role_id: int, current_user: _Manager, db: DbSession, request: Request):
+    name = RoleService(db).delete(role_id, request=request)
     return {"message": f"角色 '{name}' 已删除"}

@@ -1,9 +1,11 @@
 import asyncio
 import logging
 
+from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.audit import ACTION_USER_CREATED, TARGET_TYPE_USER, record
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
@@ -85,7 +87,7 @@ class AuthService:
         )
         return user
 
-    def register(self, req: RegisterRequest, current_user: User) -> RegisterResponse:
+    def register(self, req: RegisterRequest, current_user: User, *, request: Request | None = None) -> RegisterResponse:
         existing = self.db.query(User).filter(User.username == req.username).first()
         if existing:
             raise ConflictError(detail="用户名已存在")
@@ -96,6 +98,15 @@ class AuthService:
         role_obj = self.db.query(Role).filter(Role.name == req.role).first()
         if not role_obj:
             raise ValidationError(detail="角色不存在")
+
+        # 反越权（RB-9）：只能创建自身权限集合内的角色，否则等于相对自身的垂直提权
+        # （今天 user_manage 只属于 super_admin 故不可利用，但自定义角色一出现就会暴露）
+        grantable = set(load_role_permissions(self.db, current_user.role_id))
+        exceeded = sorted(set(load_role_permissions(self.db, role_obj.id)) - grantable)
+        if exceeded:
+            raise AuthError(
+                f"无权创建「{role_obj.display_name}」账号：目标角色包含你自身没有的权限 {exceeded}", status_code=403
+            )
 
         if req.class_id is not None:
             cls = self.db.query(Class).filter(Class.id == req.class_id).first()
@@ -116,6 +127,15 @@ class AuthService:
             if req.class_id is not None:
                 member_role = MEMBER_ROLE_TEACHER if req.role == "teacher" else MEMBER_ROLE_STUDENT
                 self.db.add(ClassMembership(user_id=user.id, class_id=req.class_id, member_role=member_role))
+            record(
+                self.db,
+                action=ACTION_USER_CREATED,
+                target_type=TARGET_TYPE_USER,
+                target_id=user.id,
+                target_label=user.username,
+                request=request,
+                payload={"role": req.role, "class_id": req.class_id},
+            )
         self.db.refresh(user)
         log.info(
             "用户注册: target_id=%d target_name=%s role=%s",
