@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Annotated
 
+from fastapi import Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -29,6 +31,22 @@ class FeedbackRow:
     created_at: datetime | None = None
     auto_fix_attempted: bool = False
     auto_fix_at: datetime | None = None
+
+
+@dataclass(slots=True)
+class FeedbackFilters:
+    """后台反馈列表 / 导出的筛选（唯一事实来源）。
+
+    以 `Depends()` 注入两个端点，拿到同一份参数定义：后端不会各自声明、
+    也不会出现"新增筛选只加了一边"的漂移。日期字符串在这里保持原样，
+    由服务层的 `_parse_date` 统一校验/转换。
+    """
+
+    tag: Annotated[str | None, Query()] = None
+    date_from: Annotated[str | None, Query()] = None
+    date_to: Annotated[str | None, Query()] = None
+    search: Annotated[str | None, Query(max_length=50)] = None
+    replied: Annotated[bool | None, Query()] = None
 
 
 class FeedbackService:
@@ -71,20 +89,18 @@ class FeedbackService:
                     )
             return fb
 
-    def list_admin(
-        self,
-        tag: str | None = None,
-        date_from: str | None = None,
-        date_to: str | None = None,
-        search: str | None = None,
-        replied: bool | None = None,
-        offset: int = 0,
-        limit: int = 20,
-    ) -> tuple[list[FeedbackRow], int]:
-        df = self._parse_date(date_from)
-        dt = self._parse_date(date_to)
+    def list_admin(self, filters: FeedbackFilters, *, offset: int, limit: int) -> tuple[list[FeedbackRow], int]:
+        """后台反馈列表与导出的**唯一入口**：筛选只认 `FeedbackFilters`，两端点不可能各筛各的。"""
+        date_from = self._parse_date(filters.date_from)
+        date_to = self._parse_date(filters.date_to)
 
-        q = self._query_admin_list(tag=tag, date_from=df, date_to=dt, search=search, replied=replied)
+        q = self._query_admin_list(
+            tag=filters.tag,
+            date_from=date_from,
+            date_to=date_to,
+            search=filters.search,
+            replied=filters.replied,
+        )
         q = q.add_columns(User.display_name.label("user_name")).join(User, Feedback.user_id == User.id)
 
         rows, total = paginate(q, offset, limit)

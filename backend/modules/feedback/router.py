@@ -10,7 +10,7 @@ from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from infra.exporter import ColumnDef, export_response
 from models import Feedback, User
-from modules.feedback.service import FeedbackService
+from modules.feedback.service import FeedbackFilters, FeedbackService
 from schemas import (
     FeedbackDailyItem,
     FeedbackItem,
@@ -82,17 +82,11 @@ def my_feedback(
 def admin_list_feedback(
     current_user: _FeedbackReviewer,
     db: DbSession,
-    tag: Annotated[str | None, Query()] = None,
-    date_from: Annotated[str | None, Query()] = None,
-    date_to: Annotated[str | None, Query()] = None,
-    search: Annotated[str | None, Query(max_length=50)] = None,
-    replied: Annotated[bool | None, Query()] = None,
+    filters: Annotated[FeedbackFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
-    items, total = FeedbackService(db).list_admin(
-        tag=tag, date_from=date_from, date_to=date_to, search=search, replied=replied, offset=offset, limit=limit
-    )
+    items, total = FeedbackService(db).list_admin(filters, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[_to_item(r) for r in items],
         total=total,
@@ -118,11 +112,13 @@ def reply_feedback(
 def export_feedback(
     current_user: _FeedbackReviewer,
     db: DbSession,
+    filters: Annotated[FeedbackFilters, Depends()],
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     from core.config import MAX_EXPORT_ROWS
 
-    fb_list = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
+    # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
+    fb_list, _total = FeedbackService(db).list_admin(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
 
     feedback_ids = [f.id for f in fb_list]
     if feedback_ids:

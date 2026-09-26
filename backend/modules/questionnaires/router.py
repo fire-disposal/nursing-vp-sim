@@ -11,7 +11,7 @@ from core.statuses import QuestionnaireTrigger
 from infra.exporter import ColumnDef, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService
-from modules.questionnaires.service import QuestionnaireTemplateService
+from modules.questionnaires.service import QuestionnaireTemplateFilters, QuestionnaireTemplateService
 from schemas import (
     CaseAssignmentRequest,
     DeleteResponse,
@@ -38,11 +38,11 @@ _Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]
 def list_templates(
     current_user: _Manager,
     db: DbSession,
-    type: Annotated[str | None, Query()] = None,
+    filters: Annotated[QuestionnaireTemplateFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
-    views, total = QuestionnaireTemplateService(db).list_all(type, offset, limit)
+    views, total = QuestionnaireTemplateService(db).list_all(filters, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[QuestionnaireTemplateResponse.model_validate(v) for v in views],
         total=total,

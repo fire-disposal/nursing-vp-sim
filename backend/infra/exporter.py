@@ -115,7 +115,13 @@ class XLSXExporter(Exporter[T]):
 def export_response(
     items: Sequence[T], columns: list[ColumnDef[T]], filename: str, title: str = "", format: str = "csv"
 ) -> Response:
-    """Build a FastAPI Response exporting *items* in the given *format* (csv|xlsx)."""
+    """Build a FastAPI Response exporting *items* in the given *format* (csv|xlsx).
+
+    **取数约定**（导出端点一律照此写，不要各写各的上限）：
+    - 调用方按 `core.config.MAX_EXPORT_ROWS + 1` 取数 —— 多取那条就是为了在这里命中判定；
+    - 超限由本函数统一 400（不静默截断），因此服务层不得再写死别的魔数上限；
+    - 真正天然有界的导出（单个作业的学生名单、单个模板的答卷）可不带上限，但在调用处注明理由。
+    """
     from core.config import MAX_EXPORT_ROWS
 
     if len(items) > MAX_EXPORT_ROWS:

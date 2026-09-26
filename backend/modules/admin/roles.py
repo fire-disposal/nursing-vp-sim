@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func
 
+from core.config import MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.permissions import PERMISSION_KEYS
@@ -27,6 +28,16 @@ class RoleView:
     user_count: int
 
 
+@dataclass(slots=True)
+class RoleFilters:
+    """角色列表 / 导出的筛选（唯一事实来源）。
+
+    以 `Depends()` 注入，两个端点拿到同一份参数定义，不会各筛各的。
+    """
+
+    search: Annotated[str, Query(description="角色名模糊搜索")] = ""
+
+
 class RoleService:
     def __init__(self, db: "Session"):
         self.db = db
@@ -41,18 +52,23 @@ class RoleService:
             user_count=user_count,
         )
 
-    def list_all(self, search: str = "") -> list[RoleView]:
-        roles = self.list_roles(search)
+    def list_all(self, filters: RoleFilters) -> list[RoleView]:
+        roles = self.list_filtered(filters)
         role_ids = [r.id for r in roles]
         perms_map = self.permissions_map(role_ids)
         counts = self.user_counts(role_ids)
         return [self._view(r, perms_map.get(r.id, []), counts.get(r.id, 0)) for r in roles]
 
-    def list_roles(self, search: str = "") -> list[Role]:
+    def _filtered_query(self, filters: RoleFilters):
+        """角色列表查询的谓词（过滤表达式只此一处）。"""
         q = self.db.query(Role)
-        if search:
-            q = q.filter(Role.display_name.ilike(f"%{search}%"))
-        return q.order_by(Role.id).all()
+        if filters.search:
+            q = q.filter(Role.display_name.ilike(f"%{filters.search}%"))
+        return q
+
+    def list_filtered(self, filters: RoleFilters) -> list[Role]:
+        """角色列表 / 导出的**唯一公开入口**（角色无分页）。"""
+        return self._filtered_query(filters).order_by(Role.id).all()
 
     def name_exists(self, name: str, exclude_id: int | None = None) -> bool:
         q = self.db.query(Role).filter(Role.name == name)
@@ -174,9 +190,9 @@ def _grantable(current_user: User, db) -> set[str]:
 def list_roles(
     current_user: _Manager,
     db: DbSession,
-    search: Annotated[str, Query()] = "",
+    filters: Annotated[RoleFilters, Depends()],
 ):
-    return [RoleResponse.model_validate(v) for v in RoleService(db).list_all(search=search)]
+    return [RoleResponse.model_validate(v) for v in RoleService(db).list_all(filters)]
 
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
@@ -207,11 +223,11 @@ def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db
 def export_roles(
     current_user: _Manager,
     db: DbSession,
+    filters: Annotated[RoleFilters, Depends()],
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    from models import Role
-
-    roles = db.query(Role).order_by(Role.id).all()
+    # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限（角色无分页，故在出口处截断）
+    roles = RoleService(db).list_filtered(filters)[: MAX_EXPORT_ROWS + 1]
     columns = [
         ColumnDef("角色名", key="name"),
         ColumnDef("显示名", key="display_name"),

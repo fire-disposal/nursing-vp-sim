@@ -6251,6 +6251,7 @@ export interface operations {
     list_roles_api_admin_roles_get: {
         parameters: {
             query?: {
+                /** @description 角色名模糊搜索 */
                 search?: string;
             };
             header?: never;
@@ -6382,6 +6383,8 @@ export interface operations {
         parameters: {
             query?: {
                 format?: string;
+                /** @description 角色名模糊搜索 */
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -6744,6 +6747,15 @@ export interface operations {
         parameters: {
             query?: {
                 format?: string;
+                /** @description 搜索用户名/姓名/学号 */
+                search?: string | null;
+                /** @description 角色筛选 student/teacher */
+                role?: string | null;
+                class_id?: number | null;
+                /** @description 届/年级标签精确过滤 */
+                cohort_label?: string | null;
+                /** @description 是否包含已停用账号（默认隐藏） */
+                include_inactive?: boolean;
             };
             header?: never;
             path?: never;
@@ -7907,6 +7919,14 @@ export interface operations {
         parameters: {
             query?: {
                 format?: string;
+                /** @description 病例名称模糊搜索 */
+                name?: string | null;
+                /** @description 困难程度 1=初级 2=中级 3=高级 */
+                difficulty?: number | null;
+                /** @description 生命周期筛选(draft/published/archived)；缺省不含归档 */
+                status?: string | null;
+                /** @description 是否向学生开放 */
+                is_open?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -8360,13 +8380,13 @@ export interface operations {
     admin_list_feedback_api_admin_feedback_get: {
         parameters: {
             query?: {
+                offset?: number;
+                limit?: number;
                 tag?: string | null;
                 date_from?: string | null;
                 date_to?: string | null;
                 search?: string | null;
                 replied?: boolean | null;
-                offset?: number;
-                limit?: number;
             };
             header?: never;
             path?: never;
@@ -8436,6 +8456,11 @@ export interface operations {
         parameters: {
             query?: {
                 format?: string;
+                tag?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                search?: string | null;
+                replied?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -8841,9 +8866,13 @@ export interface operations {
     list_templates_api_questionnaires_templates_get: {
         parameters: {
             query?: {
-                type?: string | null;
                 offset?: number;
                 limit?: number;
+                type?: string | null;
+                /** @description 标题模糊搜索 */
+                search?: string | null;
+                /** @description 启用状态筛选 */
+                is_active?: boolean | null;
             };
             header?: never;
             path?: never;

@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
 	Checkbox, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
@@ -18,6 +18,8 @@ import EmptyState from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { useClassesQuery } from "@/hooks/useClasses";
+import { useListFilters } from "@/hooks/useListFilters";
+import type { UserListParams } from "@/api/query-params";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -65,23 +67,34 @@ function classLabel(classId: string, classes: Schemas["ClassResponse"][]): strin
 }
 
 interface UsersTabProps {
+	/** 导出参数（与列表参数同源）→ 页头的导出按钮，避免"筛完再导仍是全量"。 */
+	onExportParamsChange?: (params: Record<string, unknown>) => void;
 	currentUserId?: number;
 }
 
-export default function UsersTab({ currentUserId }: UsersTabProps) {
-	const LIMIT = 50;
-	const [offset, setOffset] = useState(0);
-	const [search, setSearch] = useState("");
-	const [roleFilter, setRoleFilter] = useState("");
-	const [classParam, setClassParam] = useState<ClassFilterParams | null>(null);
+export default function UsersTab({ currentUserId, onExportParamsChange }: UsersTabProps) {
+	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
+	const list = useListFilters<UserListParams>(
+		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false },
+		{ limit: 50, searchKey: "search" },
+	);
+	// ClassFilter 是非受控组件：清除筛选时用 key 重挂载，避免"筛选已清空、下拉还显示旧选择"
+	const [classFilterNonce, setClassFilterNonce] = useState(0);
+	const hasClassFilter = Boolean(list.values.class_id || list.values.cohort_label);
+	const setClassParam = useCallback(
+		(next: ClassFilterParams | null) => {
+			// 班级与届二选一：同时写两个键会互相打架，故置空另一个
+			list.setFilter("class_id", next?.class_id ?? undefined);
+			list.setFilter("cohort_label", next?.class_id ? undefined : (next?.cohort_label ?? undefined));
+		},
+		[list],
+	);
 	const [showUserForm, setShowUserForm] = useState(false);
 	const [editingUser, setEditingUser] = useState<UserBrief | null>(null);
 	const [showBatchImport, setShowBatchImport] = useState(false);
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	// 默认隐藏已停用账号（软删语义：停用只切断登录，训练数据保留）
-	const [includeInactive, setIncludeInactive] = useState(false);
 	const [addDialog, setAddDialog] = useState<{
 		open: boolean;
 		classId: string;
@@ -93,14 +106,16 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	});
 	const [isBulkBusy, setIsBulkBusy] = useState(false);
 
+	// 导出参数与列表参数同源（useListFilters 构造），不再手工拼第二份
+	useEffect(() => {
+		onExportParamsChange?.(list.exportParams);
+	}, [list.exportParams, onExportParamsChange]);
+
 	/** 一键复位全部筛选（FilterToolbar 的"清除"入口，2026-09-26 统一到该范式）。 */
 	const handleClearFilters = useCallback(() => {
-		setSearch("");
-		setRoleFilter("");
-		setClassParam(null);
-		setIncludeInactive(false);
-		setOffset(0);
-	}, []);
+		list.reset();
+		setClassFilterNonce((n) => n + 1);
+	}, [list]);
 	const [showBulkResetDialog, setShowBulkResetDialog] = useState(false);
 	const [bulkPassword, setBulkPassword] = useState("");
 	const [resetPasswordDialog, setResetPasswordDialog] = useState<{
@@ -114,14 +129,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const userFormDirtyRef = useRef(false);
 	const { data: classes = [] } = useClassesQuery();
 
-	const params: Record<string, unknown> = { limit: LIMIT };
-	if (search) params.search = search;
-	if (roleFilter) params.role = roleFilter;
-	if (classParam?.class_id) params.class_id = classParam.class_id;
-	else if (classParam?.cohort_label) params.cohort_label = classParam.cohort_label;
-	if (includeInactive) params.include_inactive = true;
-
-	const { data: userData, isLoading } = useUserList(offset, params);
+	const { data: userData, isLoading } = useUserList(list.offset, list.params);
 	const { data: roles = [] } = useRolesQuery();
 
 	const registerMutation = useRegisterMutation();
@@ -132,7 +140,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const users = userData?.items ?? [];
 	const total = userData?.total ?? 0;
 
-	const resetToFirstPage = () => setOffset(0);
+	const resetToFirstPage = () => list.setOffset(0);
 
 	const deselectAll = useCallback(() => {
 		setSelectedIds(new Set());
@@ -399,23 +407,20 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				<FilterToolbar
 					compact
 					summary={`共 ${total} 人`}
-					hasActiveFilters={Boolean(search || roleFilter || classParam || includeInactive)}
+					hasActiveFilters={Boolean(hasClassFilter || list.values.search || list.values.role || list.values.include_inactive)}
 					onClear={handleClearFilters}
 					search={
 						<SearchInput
-							value={search}
-							onChange={(v) => { setSearch(v); resetToFirstPage(); }}
+							value={list.searchInput}
+							onChange={list.onSearchChange}
 							placeholder="搜索用户名、姓名或学号..."
 						/>
 					}
 					filters={
 						<>
 							<Select
-								value={roleFilter || null}
-								onChange={(v) => {
-									setRoleFilter(v ?? "");
-									resetToFirstPage();
-								}}
+								value={list.values.role || null}
+								onChange={(v) => list.setFilter("role", v ?? "")}
 								data={[
 									{ value: "", label: "全部角色" },
 									...roles.map((r) => ({
@@ -428,19 +433,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								clearable
 							/>
 							<ClassFilter
-								onChange={(next) => {
-									setClassParam(next);
-									resetToFirstPage();
-								}}
+								key={classFilterNonce}
+								onChange={(next) => setClassParam(next)}
 							/>
 							<Checkbox
 								size="sm"
 								label="显示已停用"
-								checked={includeInactive}
-								onChange={(e) => {
-									setIncludeInactive(e.currentTarget.checked);
-									resetToFirstPage();
-								}}
+								checked={list.values.include_inactive}
+								onChange={(e) => list.setFilter("include_inactive", e.currentTarget.checked)}
 							/>
 						</>
 					}
@@ -472,9 +472,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						</SimpleGrid>
 						<Pagination
 							total={total}
-							offset={offset}
-							limit={LIMIT}
-							onChange={setOffset}
+							offset={list.offset}
+							limit={50}
+							onChange={list.setOffset}
 						/>
 					</>
 				)}

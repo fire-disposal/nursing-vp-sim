@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getCases } from "@/api/cases";
+import type { QuestionnaireTemplateParams } from "@/api/query-params";
 import { queryKeys } from "@/api/query-keys";
 import {
 	getQuestionnaireStats,
@@ -27,6 +28,7 @@ import {
 	useSaveTemplateMutation,
 } from "@/components/admin/questionnaires/useQuestionnaireMutations";
 import { useConfirm } from "@/components/ui/confirm";
+import { useListFilters } from "@/hooks/useListFilters";
 
 export default function QuestionnairesTab() {
 	const [view, setView] = useState<ViewMode>("list");
@@ -37,10 +39,6 @@ export default function QuestionnairesTab() {
 	const [statsTemplate, setStatsTemplate] = useState<TemplateListItem | null>(
 		null,
 	);
-	const [typeFilter, setTypeFilter] = useState("");
-	const [searchText, setSearchText] = useState("");
-	const [statusFilter, setStatusFilter] = useState("");
-	const [offset, setOffset] = useState(0);
 	const [showAssign, setShowAssign] = useState(false);
 	const [assignTemplate, setAssignTemplate] = useState<TemplateListItem | null>(
 		null,
@@ -51,6 +49,11 @@ export default function QuestionnairesTab() {
 		trigger_event: "before_training",
 	});
 	const LIMIT = 20;
+	// 筛选的唯一持有者：type / search（防抖）/ is_active 与后端 QuestionnaireTemplateFilters 同源
+	const list = useListFilters<QuestionnaireTemplateParams>(
+		{ type: "", search: "", is_active: undefined },
+		{ limit: LIMIT, searchKey: "search" },
+	);
 
 	const { confirm } = useConfirm();
 
@@ -58,14 +61,9 @@ export default function QuestionnairesTab() {
 	const deleteMutation = useDeleteTemplateMutation();
 	const assignMutation = useAssignTemplateMutation();
 
-	const params: Record<string, unknown> = { offset, limit: LIMIT };
-	if (typeFilter) params.type = typeFilter;
-	if (searchText) params.search = searchText;
-	if (statusFilter) params.is_active = statusFilter === "active";
-
 	const { data: templatesData, isLoading } = useQuery({
-		queryKey: queryKeys.questionnaires.templates({ offset, typeFilter, searchText, statusFilter }),
-		queryFn: () => getQuestionnairesTemplates(params).then((r) => r.data),
+		queryKey: queryKeys.questionnaires.templates(list.params),
+		queryFn: () => getQuestionnairesTemplates(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,
 	});
@@ -254,15 +252,23 @@ export default function QuestionnairesTab() {
 				templates={templates}
 				isLoading={isLoading}
 				total={total}
-				offset={offset}
+				offset={list.offset}
 				limit={LIMIT}
-				typeFilter={typeFilter}
-				searchText={searchText}
-				statusFilter={statusFilter}
-				onOffsetChange={setOffset}
-				onTypeFilterChange={setTypeFilter}
-				onSearchChange={setSearchText}
-				onStatusFilterChange={setStatusFilter}
+				typeFilter={list.values.type ?? ""}
+				searchText={list.searchInput}
+				statusFilter={
+					list.values.is_active === undefined || list.values.is_active === null
+						? ""
+						: list.values.is_active
+							? "active"
+							: "inactive"
+				}
+				onOffsetChange={list.setOffset}
+				onTypeFilterChange={(v) => list.setFilter("type", v)}
+				onSearchChange={list.onSearchChange}
+				onStatusFilterChange={(v) =>
+					list.setFilter("is_active", v === "" ? undefined : v === "active")
+				}
 				onCreate={openNew}
 				onEdit={openEdit}
 				onDelete={handleDelete}

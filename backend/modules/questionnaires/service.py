@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import List
+from typing import Annotated, List
 
+from fastapi import Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -139,18 +140,39 @@ def _template_detail_view(
     )
 
 
+@dataclass(slots=True)
+class QuestionnaireTemplateFilters:
+    """问卷模板列表的筛选（唯一事实来源）。
+
+    以 `Depends()` 注入，端点不再自行声明筛选参数 —— 前端传的 search / is_active
+    不会再是死控件（见审计 UI-CRD-2）。
+    """
+
+    type: Annotated[str | None, Query()] = None
+    search: Annotated[str | None, Query(max_length=50, description="标题模糊搜索")] = None
+    is_active: Annotated[bool | None, Query(description="启用状态筛选")] = None
+
+
 class QuestionnaireTemplateService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _list_query(self, type_: str | None = None):
+    def _filtered_query(self, filters: QuestionnaireTemplateFilters):
+        """模板列表查询的谓词（过滤表达式只此一处）。"""
         q = self.db.query(QuestionnaireTemplate)
-        if type_:
-            q = q.filter(QuestionnaireTemplate.type == type_)
-        return q.order_by(QuestionnaireTemplate.updated_at.desc())
+        if filters.type:
+            q = q.filter(QuestionnaireTemplate.type == filters.type)
+        if filters.search:
+            q = q.filter(QuestionnaireTemplate.title.ilike(f"%{filters.search}%"))
+        if filters.is_active is not None:
+            q = q.filter(QuestionnaireTemplate.is_active.is_(filters.is_active))
+        return q
 
-    def list_filtered(self, type_: str | None, offset: int, limit: int) -> tuple[list[QuestionnaireTemplate], int]:
-        return paginate(self._list_query(type_), offset, limit)
+    def list_filtered(
+        self, filters: QuestionnaireTemplateFilters, *, offset: int, limit: int
+    ) -> tuple[list[QuestionnaireTemplate], int]:
+        q = self._filtered_query(filters).order_by(QuestionnaireTemplate.updated_at.desc())
+        return paginate(q, offset, limit)
 
     def response_counts(self, template_ids: list[int]) -> dict[int, int]:
         if not template_ids:
@@ -314,8 +336,10 @@ class QuestionnaireTemplateService:
                     )
                 )
 
-    def list_all(self, type_: str | None = None, offset: int = 0, limit: int = 20) -> tuple[List[TemplateView], int]:
-        rows, total = self.list_filtered(type_, offset, limit)
+    def list_all(
+        self, filters: QuestionnaireTemplateFilters, *, offset: int, limit: int
+    ) -> tuple[List[TemplateView], int]:
+        rows, total = self.list_filtered(filters, offset=offset, limit=limit)
         template_ids = [r.id for r in rows]
         counts = self.response_counts(template_ids)
         views = [_template_view(r, counts.get(r.id, 0)) for r in rows]

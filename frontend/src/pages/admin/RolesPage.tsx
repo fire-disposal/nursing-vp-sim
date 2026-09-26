@@ -3,6 +3,7 @@ import { schemaResolver, useForm } from "@mantine/form";
 import { IconDeviceFloppy, IconPlus, IconShield, IconTrash, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
+import type { RoleListParams } from "@/api/query-params";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
 import { Checkbox } from "@mantine/core";
@@ -12,7 +13,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { PERMISSION_DEFS } from "@/config/permissions.gen";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useListFilters } from "@/hooks/useListFilters";
 import { type RoleCreateValues, roleCreateSchema } from "@/schemas/role";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
@@ -34,7 +35,9 @@ export default function RolesPage() {
 	const [editPerms, setEditPerms] = useState<string[]>([]);
 	const [editDisplayName, setEditDisplayName] = useState("");
 	const [showCreate, setShowCreate] = useState(false);
-	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
+	// 角色列表不分页：分页键只留在 params 里，进请求与导出都用 exportParams（同源去分页）
+	const list = useListFilters<RoleListParams>({ search: "" }, { limit: 0, searchKey: "search" });
+	const search = String(list.exportParams.search ?? "");
 	const { confirm } = useConfirm();
 
 	const form = useForm<RoleCreateValues>({
@@ -132,7 +135,7 @@ export default function RolesPage() {
 				subtitle="管理用户角色与权限"
 				actions={
 					<Group gap="xs">
-						<ExportButton endpoint="/admin/roles/export" filename="角色列表" />
+						<ExportButton endpoint="/admin/roles/export" filename="角色列表" params={list.exportParams} />
 						<Button
 							onClick={() => {
 								form.reset();
@@ -147,12 +150,12 @@ export default function RolesPage() {
 
 			<FilterToolbar
 				compact
-				hasActiveFilters={Boolean(searchInput)}
-				onClear={() => handleSearchChange("")}
+				hasActiveFilters={Boolean(list.searchInput)}
+				onClear={() => list.reset()}
 				search={
 					<SearchInput
-						value={searchInput}
-						onChange={handleSearchChange}
+						value={list.searchInput}
+						onChange={list.onSearchChange}
 						placeholder="搜索角色..."
 						aria-label="搜索角色"
 					/>

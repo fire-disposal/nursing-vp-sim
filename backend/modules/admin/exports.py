@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from core.config import MAX_EXPORT_ROWS
 from core.deps import CurrentUser, DbSession
 from core.exceptions import AuthError, NotFoundError
 from infra.exporter import ColumnDef, export_response
@@ -27,7 +28,8 @@ class RecordService:
             selectinload(TrainingRecord.case),
             selectinload(TrainingRecord.score),
         )
-        records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100).all()
+        # 多取一条以便 export_response 统一判超限（此前无上限：全量训练记录进内存）
+        records = query.order_by(TrainingRecord.start_time.desc()).limit(MAX_EXPORT_ROWS + 1).all()
 
         record_ids = [r.id for r in records]
         msg_counts: dict[int, int] = {}

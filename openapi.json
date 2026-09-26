@@ -1076,9 +1076,11 @@
             "required": false,
             "schema": {
               "type": "string",
+              "description": "角色名模糊搜索",
               "default": "",
               "title": "Search"
-            }
+            },
+            "description": "角色名模糊搜索"
           }
         ],
         "responses": {
@@ -1282,6 +1284,18 @@
               "default": "csv",
               "title": "Format"
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "角色名模糊搜索",
+              "default": "",
+              "title": "Search"
+            },
+            "description": "角色名模糊搜索"
           }
         ],
         "responses": {
@@ -1921,6 +1935,88 @@
               "default": "csv",
               "title": "Format"
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "搜索用户名/姓名/学号",
+              "title": "Search"
+            },
+            "description": "搜索用户名/姓名/学号"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "角色筛选 student/teacher",
+              "title": "Role"
+            },
+            "description": "角色筛选 student/teacher"
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
+            }
+          },
+          {
+            "name": "cohort_label",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "届/年级标签精确过滤",
+              "title": "Cohort Label"
+            },
+            "description": "届/年级标签精确过滤"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否包含已停用账号（默认隐藏）",
+              "default": false,
+              "title": "Include Inactive"
+            },
+            "description": "是否包含已停用账号（默认隐藏）"
           }
         ],
         "responses": {
@@ -3809,6 +3905,80 @@
               "default": "csv",
               "title": "Format"
             }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "病例名称模糊搜索",
+              "title": "Name"
+            },
+            "description": "病例名称模糊搜索"
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "困难程度 1=初级 2=中级 3=高级",
+              "title": "Difficulty"
+            },
+            "description": "困难程度 1=初级 2=中级 3=高级"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "生命周期筛选(draft/published/archived)；缺省不含归档",
+              "title": "Status"
+            },
+            "description": "生命周期筛选(draft/published/archived)；缺省不含归档"
+          },
+          {
+            "name": "is_open",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "是否向学生开放",
+              "title": "Is Open"
+            },
+            "description": "是否向学生开放"
           }
         ],
         "responses": {
@@ -4519,6 +4689,29 @@
         ],
         "parameters": [
           {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
             "name": "tag",
             "in": "query",
             "required": false,
@@ -4597,29 +4790,6 @@
                 }
               ],
               "title": "Replied"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
             }
           }
         ],
@@ -4738,6 +4908,87 @@
               "pattern": "^(csv|xlsx)$",
               "default": "csv",
               "title": "Format"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "replied",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Replied"
             }
           }
         ],
@@ -5492,22 +5743,6 @@
         ],
         "parameters": [
           {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Type"
-            }
-          },
-          {
             "name": "offset",
             "in": "query",
             "required": false,
@@ -5529,6 +5764,59 @@
               "default": 20,
               "title": "Limit"
             }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标题模糊搜索",
+              "title": "Search"
+            },
+            "description": "标题模糊搜索"
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "启用状态筛选",
+              "title": "Is Active"
+            },
+            "description": "启用状态筛选"
           }
         ],
         "responses": {

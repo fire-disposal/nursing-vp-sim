@@ -110,6 +110,21 @@ class StudentDetailView:
     daily: list[dict]
 
 
+@dataclass(slots=True)
+class UserFilters:
+    """用户列表 / 导出的筛选（唯一事实来源）。
+
+    以 `Depends()` 注入，两个端点拿到同一份参数定义：
+    后端不会各自声明、也不会出现"新增筛选只加了一边"的漂移。
+    """
+
+    search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None
+    role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None
+    class_id: Annotated[int | None, Query()] = None
+    cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None
+    include_inactive: Annotated[bool, Query(description="是否包含已停用账号（默认隐藏）")] = False
+
+
 class UserService:
     def __init__(self, db: Session):
         self.db = db
@@ -151,30 +166,9 @@ class UserService:
         views.sort(key=lambda v: (v.cohort_label, v.class_name, v.class_id))
         return views
 
-    def list_all(
-        self,
-        *,
-        offset: int,
-        limit: int,
-        search: str | None,
-        role: str | None,
-        class_id: int | None,
-        cohort_label: str | None,
-        include_inactive: bool = False,
-    ) -> PaginatedUsersView:
-        role_id: int | None = None
-        if role:
-            role_obj = self.get_role_by_name(role)
-            role_id = role_obj.id if role_obj else -1
-        total, users = self.list_paginated(
-            offset=offset,
-            limit=limit,
-            search=search,
-            role_id=role_id,
-            class_id=class_id,
-            cohort_label=cohort_label,
-            include_inactive=include_inactive,
-        )
+    def list_all(self, filters: UserFilters, *, offset: int, limit: int) -> PaginatedUsersView:
+        """用户列表与导出的**唯一入口**：筛选只认 `UserFilters`，两端点不可能各筛各的。"""
+        total, users = self.list_filtered(filters, offset=offset, limit=limit)
         return PaginatedUsersView(
             items=[self._brief(u) for u in users],
             total=total,
@@ -540,28 +534,19 @@ class UserService:
         self.db.flush()
         return user
 
-    def list_paginated(
-        self,
-        *,
-        offset: int,
-        limit: int,
-        search: str | None,
-        role_id: int | None,
-        class_id: int | None,
-        cohort_label: str | None,
-        include_inactive: bool = False,
-    ) -> tuple[int, list[User]]:
+    def _filtered_query(self, filters: UserFilters):
+        """把筛选 DTO 翻成 SQL：筛选条件只在这里出现一次。"""
         q = self.db.query(User)
-        if not include_inactive:
+        if not filters.include_inactive:
             q = q.filter(User.is_active.is_(True))
         # 成员语义：筛的是「是否属于该班/该 cohort」，展示的是 complete 的 memberships 集合，
         # 因此不存在「筛进 A 班却显示 B 班」的口径错位。
-        if class_id is not None:
-            q = q.filter(User.memberships.any(ClassMembership.class_id == class_id))
-        elif cohort_label is not None:
-            q = q.filter(User.memberships.any(ClassMembership.class_.has(Class.cohort_label == cohort_label)))
-        if search:
-            term = f"%{search}%"
+        if filters.class_id is not None:
+            q = q.filter(User.memberships.any(ClassMembership.class_id == filters.class_id))
+        elif filters.cohort_label is not None:
+            q = q.filter(User.memberships.any(ClassMembership.class_.has(Class.cohort_label == filters.cohort_label)))
+        if filters.search:
+            term = f"%{filters.search}%"
             q = q.filter(
                 or_(
                     User.username.ilike(term),
@@ -569,8 +554,13 @@ class UserService:
                     User.student_id.ilike(term),
                 )
             )
-        if role_id is not None:
-            q = q.filter(User.role_id == role_id)
+        if filters.role:
+            role_obj = self.get_role_by_name(filters.role)
+            q = q.filter(User.role_id == (role_obj.id if role_obj else -1))
+        return q
+
+    def list_filtered(self, filters: UserFilters, *, offset: int, limit: int) -> tuple[int, list[User]]:
+        q = self._filtered_query(filters)
         total = q.count()
         users = (
             q.options(
@@ -711,23 +701,11 @@ def _detail(v: StudentDetailView) -> StudentDetail:
 def list_users(
     current_user: _Manager,
     db: DbSession,
+    filters: Annotated[UserFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None,
-    role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None,
-    class_id: Annotated[int | None, Query()] = None,
-    cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None,
-    include_inactive: Annotated[bool, Query(description="是否包含已停用账号（默认隐藏）")] = False,
 ):
-    view = UserService(db).list_all(
-        offset=offset,
-        limit=limit,
-        search=search,
-        role=role,
-        class_id=class_id,
-        cohort_label=cohort_label,
-        include_inactive=include_inactive,
-    )
+    view = UserService(db).list_all(filters, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit
     )
@@ -737,14 +715,17 @@ def list_users(
 def export_users(
     current_user: _Manager,
     db: DbSession,
+    filters: Annotated[UserFilters, Depends()],
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    users = db.query(User).order_by(User.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
+    # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
+    _total, users = UserService(db).list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
     columns = [
         ColumnDef("用户名", key="username"),
         ColumnDef("姓名", key="display_name"),
         ColumnDef("学号", key="student_id"),
         ColumnDef("角色", value=lambda u: u.role.name if u.role else ""),
+        ColumnDef("状态", value=lambda u: "启用" if u.is_active else "已停用"),
     ]
     return export_response(users, columns, "用户列表", "用户列表", format)
 

@@ -194,6 +194,9 @@
 | 表格列集 | `/admin/records` 删「类型」（恒定"问诊"）、`/history` 删同列与移动端后缀；两表合并重复入口（"待复核"与"查看详情"同指一个详情页） | records 11→**10 列**、行高 68→**57px**、操作列 234→**150px**；history 8→**7 列** |
 | 列宽分配 | 主信息列给足、数字/时间列 nowrap：records 学生 59→88px、病例 155→201px；cases 名称 280→400px、能力列 344→240px（徽章组不再压过名称） | 实测无截断（`anyCellTruncated=false`） |
 | 表格滚动容器 | `/admin/records` 手写 `div overflow-x` → Mantine `Table.ScrollContainer` | 实测容器存在；窄屏不再整页横滚 |
+| **F2** 问卷死筛选（`UI-CRD-2`） | 后端补 `search`/`is_active` 并收敛为 `QuestionnaireTemplateFilters`（`Depends()` + 服务层单一谓词） | 免库判据（编译成 PG SQL）通过；前端原本就传参，零改动生效 |
+| **F3** 导出无视筛选（`UI-CRD-4`） | 四类导出与列表共用同一筛选 DTO/服务入口；前端 `useListFilters.exportParams` → `ExportButton` | 浏览器实测：用户页/病例页列表与导出筛选键一致，导出后筛选不被清空 |
+| **查询实现统一**（见 §6.4） | 后端「筛选 DTO + `Depends()`」、导出取数一律 `MAX_EXPORT_ROWS + 1`、前端 `useListFilters` + 契约类型别名 | 后端 1483 通过 / 前端 496 通过 / `tsc`+`biome` 干净 / 构建通过 |
 
 **已核实合理、不动**：`/admin/scoreboard` 11 列的列宽（67–156px）与数字右对齐已够用；`/admin/versions` 7 列身份/记录/评分列宽均衡。
 
@@ -205,6 +208,38 @@
 4. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
 5. ~~`/admin/users` 详情入口缺失~~ → **已解决（F1）**：卡片姓名与「详情」图标均进入 `/admin/users/:id`。
 6. ~~用户卡是 `div onClick`，无 `role`/`tabindex`~~ → **已解决（F1）**：整卡点击已移除，改为卡片内显式动作按钮（`aria-label`）+ 姓名链接；复选框不再嵌套在可点击容器中。归档原文：用户卡是 `div onClick`，无 `role`/`tabindex`（`UserCard` → `openEditUser`）：键盘与读屏用户**无法进入编辑表单**，自动化也只能靠坐标点击（2026-09-26 实测：`observe()` 里不存在该卡片元素，坐标点击反复命中复选框）。修法：卡片改用 `UnstyledButton`/`component="button"`（或整卡包一层 link），与 `UI-A11Y-4` 同批处理。
+
+### 6.4 查询实现约定（2026-09-26 定案，新增代码一律照此）
+
+**后端：一个域一个筛选 DTO。**
+```python
+@dataclass(slots=True)
+class UserFilters:                      # 定义在服务类之前（注解在 def 时求值）
+    search: Annotated[str | None, Query(description="…")] = None
+    …
+
+@router.get("/users")                   # 列表与导出都这样注入，不再各自声明筛选参数
+def list_users(filters: Annotated[UserFilters, Depends()], …): …
+
+class UserService:
+    def _filtered_query(self, filters: UserFilters): …   # 谓词只写一次（私有接缝）
+    def list_filtered(self, filters, *, offset, limit): …  # 列表与导出的唯一入口
+```
+- 筛选键的**唯一事实来源**是 DTO：新增筛选不可能只加到一端（导出漏筛这类 bug 的结构性根因）。
+- 导出取数一律 `MAX_EXPORT_ROWS + 1`（`core.config`），超限由 `infra/exporter.py::export_response` 统一 400；**服务层不得再写别的上限魔数**（LLM 日志的 50000、训练记录的无上限都已收口）。
+- DTO 放服务模块而非 router：注解求值 + router 已 import service，避免循环导入（`users.py` 是 router+service 同文件所以无此问题）。
+
+**前端：一个页面一个 `useListFilters`。**
+- `hooks/useListFilters.ts` 持有筛选值 → `params`（列表）与 `exportParams`（去分页）**一次构造、两处使用**；空值不进请求，`false`/`0` 保留；改筛选（含搜索）自动 `offset` 归零。
+- 参数类型从 OpenAPI 生成物取（`api/query-params.ts` 的 `ListQuery<path>` / `ExportParams<T>`）：后端改了筛选而前端没跟 → **类型错误**，而不是线上静默失效的死控件。
+- Tab 通过 `onExportParamsChange` 把 `exportParams` 交给页头的 `ExportButton`；`ClassFilter` 这类非受控筛选件用 `key` 重挂载来响应"清除"。
+
+### 6.5 新增待办（2026-09-26 记录）
+
+1. **列表接口在挂载时重复请求**：`/admin/users`、`/admin/cases` 首次进入各出现 **2 次同参** `GET`（疑似 `ShellTransition`/`Activity` 双实例或 queryKey 抖动）；导出后还会多一次"无筛选"请求（不影响 UI，但白打一次）。待定位根因。
+2. **`useListFilters` 的搜索归零已修但缺常驻回归**：`onSearchChange` 曾漏 `setOffset(0)`（子代理发现），现已在 hook 内统一；建议补一条"第 2 页输入搜索 → offset 归零"的单测。
+3. **导出参数仍手写 `format`**：四个导出端点重复声明 `format` 参数，可考虑并入各自 DTO（与筛选键同源）。
+4. **其余域未纳入 DTO 对齐**：records/assignments/classes/versions/notifications 的列表筛选仍是散参数（本次只做了 users/cases/feedback/questionnaires/roles）。
 
 ---
 

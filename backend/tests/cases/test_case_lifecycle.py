@@ -39,7 +39,7 @@ from models.school import legacy_grades_table
 from modules.assignments.service import AssignmentService
 from modules.cases.gate import CaseNotPublishableError
 from modules.cases.revisions import require_current_revision, require_publishable
-from modules.cases.service import CaseService
+from modules.cases.service import CaseListFilters, CaseService
 from modules.training.manifest import build_session_manifest
 from modules.training.profile import HISTORY_TAKING
 
@@ -352,8 +352,8 @@ def test_manage_list_hides_archived_by_default(db):
     CaseService(db).archive(archived.id, user_id=1, user_role="admin")
     svc = CaseService(db)
 
-    default_views, default_total = svc.list_manage(0, 50)
-    archived_views, archived_total = svc.list_manage(0, 50, status=CASE_STATUS_ARCHIVED)
+    default_views, default_total = svc.list_manage(CaseListFilters(), offset=0, limit=50)
+    archived_views, archived_total = svc.list_manage(CaseListFilters(status=CASE_STATUS_ARCHIVED), offset=0, limit=50)
 
     assert [v.id for v in default_views] == [draft.id]
     assert default_total == 1

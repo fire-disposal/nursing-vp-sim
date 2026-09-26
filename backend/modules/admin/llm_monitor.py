@@ -10,6 +10,7 @@ from sqlalchemy import Integer as SAInteger
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from core.config import MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.security import require_permission
@@ -156,7 +157,9 @@ class LLMMonitorService:
     def _llm_get_by_id(self, log_id: int) -> LLMCallLog | None:
         return self.db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
 
-    def _llm_export_query(self, date_from: str | None, date_to: str | None, limit: int = 50000) -> list[LLMCallLog]:
+    def _llm_export_query(
+        self, date_from: str | None, date_to: str | None, limit: int = MAX_EXPORT_ROWS + 1
+    ) -> list[LLMCallLog]:
         q = self.db.query(LLMCallLog)
         since, until = day_range(date_from, date_to)
         if since is not None:

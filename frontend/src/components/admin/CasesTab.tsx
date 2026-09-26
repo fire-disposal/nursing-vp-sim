@@ -5,9 +5,10 @@ import { Button, Group, Loader, Modal, Stack, Text } from "@mantine/core";
 import { getCaseValidation, getManageCases, publishReportOf, toggleCaseOpen } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import type { CaseManageParams } from "@/api/query-params";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useListFilters } from "@/hooks/useListFilters";
 import CaseFormModal from "./cases/CaseForm";
 import CaseList, { type CaseListFilters } from "./cases/CaseList";
 import { CaseStatusBadge } from "./cases/CaseStatusBadge";
@@ -19,7 +20,8 @@ type CaseValidationReport = components["schemas"]["CaseValidationReport"];
 
 const LIMIT = 50;
 
-const EMPTY_FILTERS: CaseListFilters = { name: "", difficulty: "", status: "", is_open: "" };
+/** 筛选初始值：键与 /cases/manage/list 的 query 参数同源（difficulty/is_open 已是 number/boolean）。 */
+const INITIAL_FILTERS: CaseManageParams = { name: "", difficulty: null, status: "", is_open: null };
 
 /** 发布门禁弹窗状态：先取 validation，有 error 时只读展示并阻止发布。 */
 interface GateState {
@@ -28,31 +30,46 @@ interface GateState {
 	publishing: boolean;
 }
 
-export default function CasesTab() {
+interface CasesTabProps {
+	/** 导出参数（与列表参数同源）→ 页头的导出按钮，避免"筛完再导仍是全量"。 */
+	onExportParamsChange?: (params: Record<string, unknown>) => void;
+}
+
+export default function CasesTab({ onExportParamsChange }: CasesTabProps) {
+	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
+	const list = useListFilters<CaseManageParams>(INITIAL_FILTERS, { limit: LIMIT, searchKey: "name" });
 	const [showEditor, setShowEditor] = useState(false);
 	const queryClient = useQueryClient();
 	const toast = useToast();
 	const { confirm } = useConfirm();
 	const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
 	const [startWithAiPanel, setStartWithAiPanel] = useState(false);
-	const [offset, setOffset] = useState(0);
-	const [filters, setFilters] = useState<CaseListFilters>(EMPTY_FILTERS);
 	const [pendingId, setPendingId] = useState<number | null>(null);
 	const [gate, setGate] = useState<GateState | null>(null);
-	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch(
-		"",
-		300,
-	);
 
-	const params: Record<string, unknown> = { offset, limit: LIMIT };
-	if (filters.name) params.name = filters.name;
-	if (filters.difficulty) params.difficulty = Number(filters.difficulty);
-	if (filters.status) params.status = filters.status;
-	if (filters.is_open) params.is_open = filters.is_open === "true";
+	// 筛选只有一个持有者（useListFilters）：下拉是字符串语义，只在边界与 hook 的 number/boolean 互转
+	const filters: CaseListFilters = {
+		name: list.searchInput,
+		difficulty: list.values.difficulty == null ? "" : String(list.values.difficulty),
+		status: list.values.status ?? "",
+		is_open: list.values.is_open == null ? "" : String(list.values.is_open),
+	};
+
+	const handleFilterChange = (next: CaseListFilters) => {
+		list.setFilter("name", next.name);
+		list.setFilter("difficulty", next.difficulty ? Number(next.difficulty) : null);
+		list.setFilter("status", next.status);
+		list.setFilter("is_open", next.is_open ? next.is_open === "true" : null);
+	};
+
+	// 导出参数与列表参数同源（useListFilters 构造），不再手工拼第二份
+	useEffect(() => {
+		onExportParamsChange?.(list.exportParams);
+	}, [list.exportParams, onExportParamsChange]);
 
 	const { data: caseData, isError, isLoading, refetch } = useQuery({
-		queryKey: queryKeys.cases.managed.list(params),
-		queryFn: () => getManageCases(params).then((r) => r.data),
+		queryKey: queryKeys.cases.managed.list(list.params),
+		queryFn: () => getManageCases(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,
 	});
@@ -62,11 +79,6 @@ export default function CasesTab() {
 			toast.error("加载病例列表失败，请检查网络后重试");
 		}
 	}, [isError, toast.error]);
-
-	useEffect(() => {
-		setFilters((f) => ({ ...f, name: debouncedValue }));
-		setOffset(0);
-	}, [debouncedValue]);
 
 	const cases = caseData?.items ?? [];
 	const total = caseData?.total ?? 0;
@@ -171,26 +183,21 @@ export default function CasesTab() {
 		}
 	};
 
-	const handleFilterChange = (newFilters: CaseListFilters) => {
-		setFilters(newFilters);
-		setOffset(0);
-	};
-
 	return (
 		<>
 			<CaseList
 				cases={cases}
 				total={total}
-				offset={offset}
+				offset={list.offset}
 				limit={LIMIT}
 				filters={filters}
-				searchInput={searchInput}
+				searchInput={list.searchInput}
 				loading={isLoading}
 				error={isError}
 				pendingId={pendingId}
-				onSearchChange={handleSearchChange}
+				onSearchChange={list.onSearchChange}
 				onFilterChange={handleFilterChange}
-				onOffsetChange={setOffset}
+				onOffsetChange={list.setOffset}
 				onRetry={() => { void refetch(); }}
 				onAdd={handleAdd}
 				onAIAdd={handleAIAdd}

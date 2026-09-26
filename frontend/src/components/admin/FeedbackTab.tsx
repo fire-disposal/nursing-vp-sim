@@ -22,7 +22,7 @@ import {
 	IconChevronUp,
 	IconMessageCircle,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Bar,
 	BarChart,
@@ -40,6 +40,7 @@ import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { feedbackImageUrl, getFeedbackStats, getFeedbacks, replyFeedback } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import type { FeedbackAdminParams } from "@/api/query-params";
 import { useToast } from "@/components/Toast";
 import AuthImage from "@/components/ui/auth-image";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -50,7 +51,7 @@ import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useListFilters } from "@/hooks/useListFilters";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
@@ -518,29 +519,34 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 }
 
 
-export default function FeedbackTab() {
-	const [tag, setTag] = useState("");
-	const [dateFrom, setDateFrom] = useState("");
-	const [dateTo, setDateTo] = useState("");
-	const [offset, setOffset] = useState(0);
-	const { searchInput, debouncedValue: searchText, handleSearchChange } = useDebouncedSearch("", 300);
-	const [replyStatus, setReplyStatus] = useState("");
+interface FeedbackTabProps {
+	/** 把当前筛选回传页头（导出按钮据此带上同样的筛选，避免"筛完再导仍是全量"）。 */
+	onExportParamsChange?: (params: Record<string, unknown>) => void;
+}
+
+const LIMIT = 20;
+
+export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) {
+	// 列表筛选的唯一持有者：列表请求参数与导出参数同源（见 useListFilters）
+	const list = useListFilters<FeedbackAdminParams>(
+		{ tag: "", date_from: "", date_to: "", search: "", replied: undefined },
+		{ limit: LIMIT, searchKey: "search" },
+	);
 	const chartsOpen = useUiPrefsStore((s) => s.feedbackChartsOpen);
 	const setChartsOpen = useUiPrefsStore((s) => s.setFeedbackChartsOpen);
-	const LIMIT = 20;
 
-	// 服务端过滤：search / replied 与分页 total 同源，避免"过滤后空页"脱节
-	const params: Record<string, unknown> = { offset, limit: LIMIT };
-	if (tag) params.tag = tag;
-	if (dateFrom) params.date_from = dateFrom;
-	if (dateTo) params.date_to = dateTo;
-	if (searchText) params.search = searchText;
-	if (replyStatus === "replied") params.replied = true;
-	else if (replyStatus === "unreplied") params.replied = false;
+	// 回复状态在 UI 上是三态，进请求时映射为 replied: true / false / 不传
+	const replyStatus =
+		list.values.replied === true ? "replied" : list.values.replied === false ? "unreplied" : "";
+
+	// 把筛选回传页头（导出用）
+	useEffect(() => {
+		onExportParamsChange?.(list.exportParams);
+	}, [list.exportParams, onExportParamsChange]);
 
 	const { data: feedbacksData, isLoading, refetch } = useQuery({
-		queryKey: queryKeys.admin.feedback.list(params),
-		queryFn: () => getFeedbacks(params).then((r) => r.data),
+		queryKey: queryKeys.admin.feedback.list(list.params),
+		queryFn: () => getFeedbacks(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 2 * 60_000,
 	});
@@ -549,12 +555,6 @@ export default function FeedbackTab() {
 
 	const feedbacks = (feedbacksData?.items ?? []) as FeedbackItem[];
 	const total = feedbacksData?.total ?? 0;
-
-	const handleFilterChange = (key: "dateFrom" | "dateTo", value: string) => {
-		if (key === "dateFrom") setDateFrom(value);
-		else setDateTo(value);
-		setOffset(0);
-	};
 
 	const toggleCharts = () => {
 		setChartsOpen(!chartsOpen);
@@ -579,7 +579,11 @@ export default function FeedbackTab() {
 						<Box style={{ flex: "1 1 300px", minWidth: 0 }}>
 							<FeedbackChart />
 						</Box>
-						<RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
+						<RatingPieChart
+							tag={list.values.tag ?? ""}
+							dateFrom={list.values.date_from ?? ""}
+							dateTo={list.values.date_to ?? ""}
+						/>
 					</Group>
 				)}
 			</Box>
@@ -593,8 +597,8 @@ export default function FeedbackTab() {
 							clearable
 							valueFormat="YYYY-MM-DD"
 							placeholder="不限"
-							value={dateFrom || null}
-							onChange={(v) => handleFilterChange("dateFrom", typeof v === "string" ? v : "")}
+							value={list.values.date_from || null}
+							onChange={(v) => list.setFilter("date_from", typeof v === "string" ? v : "")}
 						/>
 						<Text size="sm" c="dimmed" mb={6}>-</Text>
 						<DatePickerInput
@@ -603,19 +607,11 @@ export default function FeedbackTab() {
 							clearable
 							valueFormat="YYYY-MM-DD"
 							placeholder="不限"
-							value={dateTo || null}
-							onChange={(v) => handleFilterChange("dateTo", typeof v === "string" ? v : "")}
+							value={list.values.date_to || null}
+							onChange={(v) => list.setFilter("date_to", typeof v === "string" ? v : "")}
 						/>
-						{(dateFrom || dateTo) && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => {
-									setDateFrom("");
-									setDateTo("");
-									setOffset(0);
-								}}
-							>
+						{(list.values.date_from || list.values.date_to) && (
+							<Button variant="outline" size="sm" onClick={() => list.reset()}>
 								清除
 							</Button>
 						)}
@@ -623,13 +619,15 @@ export default function FeedbackTab() {
 
 					<Group gap={8} wrap="wrap">
 						<SearchInput
-							value={searchInput}
-							onChange={(v) => { handleSearchChange(v); setOffset(0); }}
+							value={list.searchInput}
+							onChange={list.onSearchChange}
 							placeholder="搜索反馈内容..."
 						/>
 						<Select
 							value={replyStatus || null}
-							onChange={(v) => { setReplyStatus(v ?? ""); setOffset(0); }}
+							onChange={(v) =>
+								list.setFilter("replied", v === "replied" ? true : v === "unreplied" ? false : undefined)
+							}
 							data={[
 								{ value: "", label: "全部回复" },
 								{ value: "replied", label: "已回复" },
@@ -646,8 +644,8 @@ export default function FeedbackTab() {
 								key={opt.value}
 								size="xs"
 								radius="md"
-								variant={tag === opt.value ? "filled" : "outline"}
-								onClick={() => { setTag(opt.value); setOffset(0); }}
+								variant={list.values.tag === opt.value ? "filled" : "outline"}
+								onClick={() => list.setFilter("tag", opt.value)}
 							>
 								{opt.label}
 							</Button>
@@ -673,9 +671,9 @@ export default function FeedbackTab() {
 			)}
 			<Pagination
 				total={total}
-				offset={offset}
+				offset={list.offset}
 				limit={LIMIT}
-				onChange={setOffset}
+				onChange={list.setOffset}
 			/>
 		</Paper>
 	);

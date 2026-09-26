@@ -11,7 +11,7 @@ from models import Case, User
 from modules.cases.gate import build_validation_report, validate_case_row
 from modules.cases.generation import generate_case as _generate_case
 from modules.cases.prompts import KNOWN_GENERATION_FIELDS
-from modules.cases.service import CaseService
+from modules.cases.service import CaseListFilters, CaseService
 from modules.training.workflows import workflow_for_case
 from schemas import (
     CaseBrief,
@@ -83,16 +83,11 @@ def list_cases(
 def list_cases_manage(
     db: DbSession,
     current_user: _CaseManager,
+    filters: Annotated[CaseListFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
-    difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
-    status: Annotated[str | None, Query(description="生命周期筛选(draft/published/archived)；缺省不含归档")] = None,
-    is_open: Annotated[bool | None, Query(description="是否向学生开放")] = None,
 ):
-    views, total = CaseService(db).list_manage(
-        offset, limit, name=name, difficulty=difficulty, status=status, is_open=is_open
-    )
+    views, total = CaseService(db).list_manage(filters, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[CaseManageItem.model_validate(v) for v in views],
         total=total,
@@ -235,14 +230,18 @@ def delete_case(
 def export_cases(
     current_user: _CaseManager,
     db: DbSession,
+    filters: Annotated[CaseListFilters, Depends()],
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    from models import Case
+    from core.config import MAX_EXPORT_ROWS
 
-    cases = db.query(Case).order_by(Case.name).all()
+    # 与 /cases/manage/list 同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
+    cases, _total = CaseService(db).list_manage(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
     columns = [
         ColumnDef("病例名称", key="name"),
-        ColumnDef("描述", key="description"),
+        ColumnDef("难度", value=lambda c: {1: "初级", 2: "中级", 3: "高级"}.get(c.difficulty, "")),
+        ColumnDef("学生可见", value=lambda c: "是" if c.is_open else "否"),
         ColumnDef("状态", key="status"),
+        ColumnDef("描述", key="description"),
     ]
     return export_response(cases, columns, "病例列表", "病例列表", format)

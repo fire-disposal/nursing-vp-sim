@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated
 
+from fastapi import Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -74,6 +76,20 @@ class CaseManageView:
     training_count: int
 
 
+@dataclass(slots=True)
+class CaseListFilters:
+    """教师病例库列表 / 导出的筛选（唯一事实来源）。
+
+    以 `Depends()` 注入，两个端点拿到同一份参数定义：
+    后端不会各自声明、也不会出现"新增筛选只加了一边"的漂移。
+    """
+
+    name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None
+    difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None
+    status: Annotated[str | None, Query(description="生命周期筛选(draft/published/archived)；缺省不含归档")] = None
+    is_open: Annotated[bool | None, Query(description="是否向学生开放")] = None
+
+
 class CaseService:
     def __init__(self, db: Session):
         self.db = db
@@ -134,26 +150,17 @@ class CaseService:
         startable = [case for case in q.all() if case_is_startable(case)]
         return startable[offset : offset + limit], len(startable)
 
-    def list_manage(
-        self,
-        offset: int,
-        limit: int,
-        *,
-        name: str | None = None,
-        difficulty: int | None = None,
-        status: str | None = None,
-        is_open: bool | None = None,
-    ) -> tuple[list[CaseManageView], int]:
+    def list_manage(self, filters: CaseListFilters, *, offset: int, limit: int) -> tuple[list[CaseManageView], int]:
         """教师病例库。默认不含已归档病例（archived 只作为历史检索入口）。"""
         # current_revision 供视图展示版本号：连带加载，避免逐行懒加载（N+1）
         q = self.db.query(Case).options(joinedload(Case.current_revision)).order_by(Case.created_at.desc())
-        q = q.filter(Case.status == status) if status else q.filter(Case.status != CASE_STATUS_ARCHIVED)
-        if is_open is not None:
-            q = q.filter(Case.is_open == is_open)
-        if name:
-            q = q.filter(Case.name.ilike(f"%{name}%"))
-        if difficulty is not None:
-            q = q.filter(Case.difficulty == difficulty)
+        q = q.filter(Case.status == filters.status) if filters.status else q.filter(Case.status != CASE_STATUS_ARCHIVED)
+        if filters.is_open is not None:
+            q = q.filter(Case.is_open == filters.is_open)
+        if filters.name:
+            q = q.filter(Case.name.ilike(f"%{filters.name}%"))
+        if filters.difficulty is not None:
+            q = q.filter(Case.difficulty == filters.difficulty)
         total = q.order_by(None).count()
         cases = q.offset(offset).limit(limit).all()
         case_ids = [c.id for c in cases]
