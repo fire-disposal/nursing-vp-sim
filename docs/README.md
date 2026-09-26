@@ -13,6 +13,7 @@
 | [11-后端组织结构收敛](11-backend-organization-plan.md) | 可导航单体定案 · 目录职责 · 训练域边界 |
 | **[15-训练协约](15-workflow-activity-contract.md)** | Workflow/Activity、病例版本、成员与受众、上下文装配（当前实现基线） |
 | **[16-2.0可维护单体目标](16-v2-maintainable-monolith-objectives.md)** | 2.0 架构约束、最小产品闭环、技术栈取舍与发布切片 |
+| [17-训练域身份与状态概念契约](17-training-identity-and-state-contract.md) | 身份/形状/并发/快照/运行态的命名权威 · 已发现冲突与处置 · 命名规则 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 分支模型 · PR 规范 · 冲突处理 |
 
 ## 项目演进
