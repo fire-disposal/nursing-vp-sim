@@ -99,6 +99,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | AI 生成 A2（暂存+差异+逐项接受） | 见下条提交 | 新增 `ai/staging.ts` + 4 单测；差异面板端到端实测（13 项待确认 → 部分接受 12 项 → 撤销可用）；4 个受影响测试按新契约更新（2 个 AI 测试重写 + 1 个防呆用例 + 2 个日期选择器交互改用测试替身） |
 | 2026-09-26 | 病例管理专项 + AI 生成 A0 | 见下条提交 | AI 面板配色对齐品牌（紫→青绿，实测 brand-0）；空骨架禁用「生成教学细节」+ 原因说明（实测 `disabled=true`）；深挖 10 条问题与 A1–A4 重建切片已入档 |
 | 2026-09-26 | CRUD 基础体验 + 表格列集 | 见下条提交 | `FilterToolbar` 推广至用户管理（补一键复位）、批量条换 `ActionBar`、登录换 `PasswordInput`；records 11→10 列/行高 57px、history 8→7 列、cases 名称列给足 |
 | 2026-09-26 | 依赖升级 + `@mantine/dates` | `3b74f894` / `c62c00eb` / `22c7e8c0` | Mantine → 9.6.3（7 包一致）；10 处原生日期框换 `DatePickerInput`（中文 locale 实测通过）；outline 变体对比度修复（`/admin/users` 45→0）；闸门全过 |
@@ -200,6 +201,7 @@
 3. **搜索补齐**：`/admin/versions`、`/history` 无搜索框（history 50 行只能靠状态筛选）。
 4. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
 5. **`/admin/users` 详情入口缺失**（点卡片=编辑弹窗，无独立详情页入口，见 `UI-CRD-1`）。
+6. **用户卡是 `div onClick`，无 `role`/`tabindex`**（`UserCard` → `openEditUser`）：键盘与读屏用户**无法进入编辑表单**，自动化也只能靠坐标点击（2026-09-26 实测：`observe()` 里不存在该卡片元素，坐标点击反复命中复选框）。修法：卡片改用 `UnstyledButton`/`component="button"`（或整卡包一层 link），与 `UI-A11Y-4` 同批处理。
 
 ---
 
@@ -217,7 +219,8 @@
 
 | # | 问题 | 证据 | 影响 |
 |---|---|---|---|
-| 1 | **生成结果直接覆盖编辑态，无差异预览/确认/撤销** | `CaseForm.tsx:262` `fillJson(data.case_data)`（`generateStage`）；`generateField` 同路径 | 教师手写内容可能被一次生成覆盖且无法回退（核心风险） |
+| 1 | **生成结果直接覆盖编辑态，无字段级差异预览与逐项接受**（原表述写重了：编辑态**已有**最多 10 步快照 + `撤销` 按钮，`fillJson` 前会 `PUSH_SNAPSHOT`；真正缺的是"看到改了什么、只接受其中一部分"） | `CaseForm.tsx` `generateStage`/`generateField` 直接 `SET_JSON`/`SET_FIELD`；`CaseEditorState.tsx:150-157` 快照栈 | 教师手写内容会被一次生成整体覆盖，只能事后整份回退，无法部分采纳 |
+| 1b | **本轮已修（A2）**：生成 → 字段级差异 → 逐项勾选 → 应用选中（应用前自动快照） | `components/admin/cases/ai/staging.ts`（纯函数 + 4 条单测）＋ `CaseForm` 差异面板 | 实测：13 项待确认、未应用前无快照、应用后 toast「已应用 12 项（可用撤销回退）」＋撤销按钮出现；未勾选的「病例名称」未写入，并自动触发空骨架防呆 |
 | 2 | **无来源标记（provenance）** | 编辑态 JSON 不记录字段来源 | 事后无法审计"哪些内容是 AI 写的"，也无法回溯 |
 | 3 | **无进度/计时/取消** | 只有按钮文案变"生成中…"（`:504-510`）；`generateCase` 无 AbortController | LLM 30–120s 期间界面像卡住；关弹窗无法取消（白耗 token） |
 | 4 | **失败表达弱** | `setAiError(e.response?.data?.detail \|\| "AI 生成失败")`（`:266/:288`） | 教师只看到一行红字，不知道下一步做什么 |
@@ -236,7 +239,8 @@
 |---|---|---|
 | **A0**（本轮已完成） | 配色对齐（紫→品牌青绿）；空骨架禁用"生成教学细节"并给出原因 | 面板背景 `rgb(238,250,246)`（brand-0）；新建病例时该按钮 `disabled=true` + title 说明 ✅ |
 | **A1** | 抽出 `components/admin/cases/ai/useCaseAiGeneration.ts` + `AiGenerationPanel.tsx`（行为不变、纯重构）：状态机 `idle/describing/generating/reviewing/applying/error` | `CaseForm.tsx` 行数显著下降；AI 面板行为与现状一致（回归测试：生成/错误/防呆三态） |
-| **A2** | **暂存 + 差异预览**：生成结果进 staging，展示字段级 diff（旧 → 新），逐项「接受/丢弃」，一次性应用 + 单步撤销 | 生成后编辑态未变；接受后才写入；撤销可回到生成前 |
+| **A2**（本轮已完成） | **暂存 + 差异预览**：生成结果进 staging，展示字段级 diff（当前 → 生成），逐项勾选「应用选中（N）」/「丢弃」，应用前自动 `PUSH_SNAPSHOT`（可撤销） | 生成后编辑态未变；接受后才写入 ✅ |
+| **A2 遗留** | 应用后的字段级 provenance 标记（哪些字段来自 AI）未做；差异面板目前只列本次生成涉及的路径 | — |
 | **A3** | **状态与进度**：字段状态点（空/已填/AI 生成/待应用）、`Stepper` 表达两步状态、生成计时 + 取消（AbortController） | 16 个字段按钮带状态；生成中可取消且请求中断 |
 | **A4** | **后端增强**：`/cases/generate` 返回 `usage`（tokens/耗时）与 `warnings`（阶段校验的可读清单）；支持 `fields` 白名单；取消时透传 `CancelledError` 不写日志告警 | 响应含 usage；取消后服务端无异常栈 |
 
