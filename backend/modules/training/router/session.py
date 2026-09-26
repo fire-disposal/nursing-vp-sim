@@ -37,7 +37,6 @@ from models import (
 from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
-from modules.training.prompt_identity import compute_prompt_id
 from modules.training.workflows import (
     UnknownWorkflowError,
     WorkflowDefinition,
@@ -251,9 +250,6 @@ def _create_record(
             "system": workflow.prompts.system,
             "dynamic": workflow.prompts.dynamic,
         },
-        # 提示词内容身份（docs/ideas/prompt-context-versioning.md）：与模板原文一起冻结，
-        # 之后评分/日志/复盘只读，不重算。形状键（schema_version）与内容身份是两件事。
-        "prompt_id": compute_prompt_id(workflow.id, workflow.prompts.system, workflow.prompts.dynamic),
     }
 
     behavior_cfg = config.get("behavior") or {}

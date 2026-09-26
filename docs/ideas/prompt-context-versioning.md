@@ -54,45 +54,52 @@
 
 派生而非人工递增是刻意的：人工版本号会「忘了改」，hash 不会。文件自带 `version` 的 rubric 例外保留——它已是团队既有约定且被 `rubric_version` 消费。
 
-## 四、冻结与记录模型
+## 四、身份不落库：派生优先，物化需消费者
 
-身份只在**冻结时刻**算一次，之后只读；历史行一律可空，**不回填伪造**。
+**已撤回的形态（2026-09-26）**：最早的 S1 曾把 `prompt_id` 写进 `prompt_snapshot`。撤回理由是两条硬违规：
+
+1. **生产者无消费者**：`prompt_id` 写入后仓内零读取方 —— 与本次会话删除 `TrainingSessionData`、`RecordExtended`、死端点同一标准，属死重。
+2. **同行的派生副本**：`prompt_snapshot` 本身已含模板原文（`segments.system/dynamic`），身份 = hash(原文)。把 hash 与原文存在同一行意味着两者可互相漂移，是"同一事实两份真相"。
+
+**修正原则**：身份**按需派生**，不预先存储。
+
+* 记录行里已有模板原文 ⇒ 任意时刻都能重算 `prompt_id`，代价是 O(1) 次 sha256（约 4KB 文本）。
+* 只有出现**真实消费者**（跨版本聚合查询、索引需求）时，才把身份**物化**为列；物化是为索引服务的缓存，不是事实来源，并且必须带一条「物化值 == 派生值」的一致性测试。
+* 在消费者落地之前不建列、不写键、不引入身份模块。
 
 ```text
-记录创建（_create_record）
-  prompt_snapshot / rubric_snapshot / case_snapshot  ← 已有
-  + prompt_id / scoring_prompt_id / context_policy_version  ← 新增，随记录冻结
+现在（无消费者）：
+  prompt_snapshot  ──(按需 derive)──▶  prompt_id        # 不落库
 
-回合（每轮对话）
-  TrainingAction(kind=chat_turn).result["context"] = {policy, ledger, fingerprint}
-  ← best-effort，失败不阻断对话（与 side_effects 同级）
-
-评分
-  Score.prompt_id / scoring_prompt_id  ← 复制记录冻结值（不重算）
-  Score.rubric_version / mapping_version  ← 现状
-
-LLM 调用
-  LLMCallLog.prompt_id / context_fingerprint  ← 新增列，按版本可聚合
+消费者落地后（S4/S5 聚合与 UI）：
+  prompt_snapshot  ──(写入时物化)──▶  training_records.prompt_id  + 一致性测试
 ```
 
-数据变更（唯一迁移）：
+### 已批准、且不需要新存储的唯一改动
 
-| 对象 | 变更 |
-|---|---|
-| `training_records` | `+prompt_id str(64) NULL`、`+scoring_prompt_id str(64) NULL`、`+context_policy_version str(32) NULL` |
-| `scores` | `+prompt_id`、`+scoring_prompt_id`；`prompt_version` → `prompt_schema_version`（改名，语义不变） |
-| `llm_call_logs` | `+prompt_id str(64) NULL`、`+context_fingerprint str(40) NULL` |
-| `training_actions` | 无 DDL（复用 `result` JSONB） |
+`Score.prompt_version` → `prompt_schema_version`（你已裁决改名）。它修的是**会说谎的字段**：现在存的 `snapshot.schema_version`（1/2）被读成"提示词第几版"。改名用既有数据把语义摆正，不新增列、不新增概念。同批修复 SCR-7（存量记录补写快照时会覆盖已有 `prompt_snapshot`，见"风险"一节）。
 
-`context_fingerprint` = `sha256(context_policy_version + 规范化 ledger 计数)[:12]`，用于「同策略同取舍」的快速等值判断；完整 ledger 存审计表，不进日志表（避免双份 PII 与体积）。
+### 身份与管线阶段：同一阶段落地
+
+管线收敛与身份捕获是同一批工作，因为**捕获点就是阶段边界**（`pipeline/__init__.py` 已固定五阶段）：
+
+| 阶段 | 现有 owner | 身份/账本捕获点 |
+|---|---|---|
+| 1 ANALYSIS | `emotion_analysis` | — |
+| 2 PROMPT | `prompt_builder` + `ContextAssembler` | 产出 `ledger`（各段 token/取舍）与策略身份；**这里是 `context_policy_version` + 指纹的唯一产生点** |
+| 3 LLM | `llm_caller` | 把「本次调用用的提示词身份 + 上下文指纹」写进 `llm_call_logs`；**这里是调用归属的唯一产生点** |
+| 4 PERSIST | `persister` | —（记录创建时的冻结在 `_create_record`，属训练开始，不在回合管线内） |
+| 5 SIDE_EFFECTS | `side_effects` | 回合账本落审计表（best-effort）；**这里是回合级明细的唯一落点** |
+
+因此：**先收敛五阶段为显式函数、再在阶段内挂身份捕获**，顺序不能反——否则身份会被塞进中间件包装里，随收敛再次搬迁。
 
 ### 不变式
 
-1. 同一 `record_id` 内 `prompt_id` / `scoring_prompt_id` / `context_policy_version` 恒定；评分、复盘、日志**不得重算**。
-2. 历史记录这些列为 `NULL` = 不可知；只允许「用当时快照重算 hash」这一种回填，且必须标记来源；其余不得编造。
-3. `prompt_id` 只随**代码模板或 workflow 归属**变化，不随病例数据渲染变化。
+1. 身份与事实同源：能从冻结数据派生的，不额外存储；存储的必须可被派生值验证。
+2. 同一 `record_id` 的提示词身份恒定（记录创建时冻结模板原文即已保证）。
+3. 历史记录不伪造身份：派生不出来的（快照缺失）就是"不可知"，不回填。
 4. `rubric_version` / `mapping_version` 语义与取值规则不变。
-5. 身份字段只读、可空、不参与任何业务判定（不因版本不同而拒绝评分或展示）。
+5. 身份只用于观测与归因，不参与任何业务判定。
 
 ## 五、产品化：配套管理 UI
 
@@ -162,22 +169,27 @@ GET /admin/training-records/{id}/context → 单记录逐轮 ledger（供调试�
 
 ## 六、落地切片（每片可独立发布与回滚）
 
-| 切片 | 内容 | 回归 |
-|---|---|---|
-| S1 ✅ 已实施（2026-09-26） | `prompt_identity.py`：`compute_prompt_id` / `prompt_id_from_snapshot` / `compute_scoring_prompt_id` / `compute_context_policy_version` / `context_fingerprint`（全部内容派生，无人工版本号）；`_create_record` 把 `prompt_id` 与模板原文一起冻结进 `prompt_snapshot`（形状不变，读取方忽略新键） | 24 条单测（稳定性/单字符敏感/字段拼接无歧义/形状无关/常量派生/指纹只取数值）+ 全量后端套件 1424 passed |
-| S2 | 迁移：三个记录列 + `Score` 两列 + 改名 `prompt_version→prompt_schema_version`；评分写入复制记录值 | `db:check` + 迁移链 + 评分测试 |
-| S3 | `LLMCallLog` 两列 + 写入（调用点已持有 record 上下文） | LLM 调用日志测试 |
-| S4 | 每轮 `ledger` 落 `TrainingAction(kind=chat_turn).result["context"]`（best-effort） | 对话回合测试 + 失败不阻断 |
-| S5 | 后端五个只读端点 + 聚合查询 | API 契约生成 + 端点测试 |
-| S6 | 前端「提示词与上下文版本」页 + 记录调试页身份/ledger 区块 | 前端套件 + 手动冒烟 |
+前置：**管线收敛（五阶段显式化）先做**，因为身份捕获点就是阶段边界（§四）。收敛完成后再挂捕获，避免身份随中间件包装二次搬迁。
 
-S1→S2 之间必须一次发布内完成（S1 只写 JSONB 键，S2 才建列），避免半状态。
+| 切片 | 内容 | 依赖 | 回归 |
+|---|---|---|---|
+| P0（未阻塞） | 修复 SCR-7：存量记录补写快照时**只补缺失字段**，绝不覆盖已冻结的 `prompt_snapshot`；抽成可单测的纯函数 | 无 | 单测：仅有 rubric 缺失时 prompt 快照不变 |
+| P1（未阻塞） | `scores.prompt_version` → `prompt_schema_version` 迁移 + 模型/API/`SCORE_SNAPSHOT_FIELDS`/测试同步。**不新增任何身份列** | 无 | `db:check` + 迁移链 + 评分测试 + `api:update` |
+| P2（原阻塞项，现已解除） | 对话管线五阶段收敛为显式函数，删除单实现中间件包装；`ANALYSIS/PROMPT/LLM/PERSIST/SIDE_EFFECTS` 各自单一 owner | P0/P1 可并行 | 对话回合测试 + SSE 冒烟 |
+| P3 | PROMPT 阶段产出 `ledger` + 策略身份（派生，不落库）；SIDE_EFFECTS 与 LLM 阶段消费同一份产物 | P2 | 回合测试：账本形状与取舍计数 |
+| P4 | 消费者落地才建列：`llm_call_logs` 身份列 + `training_records.prompt_id` 物化列（含「物化 == 派生」一致性测试） | P3 | 契约生成 + 一致性测试 |
+| P5 | 后端只读端点（目录/详情/策略/归因） | P4 | 契约生成 + 端点测试 |
+| P6 | 前端「提示词与上下文版本」页（`api_manage`）+ 记录调试页身份/ledger 区块 | P5 | 前端套件 + 手动冒烟 |
+
+P0/P1 立即可以做；P2 起按顺序，P4 之前不建身份列（§四）。
 
 ## 七、明确不做
 
 - 不做在线编辑提示词 / 不重建 `prompt_templates`（延续「代码即版本」）。
 - 不做提示词 A/B 分流：无产品需求，且会引入第二套真相与分流状态。
+- 不做「实验性提示词覆盖」（已裁决）。
 - 不对**渲染结果**求 hash 作为 `prompt_id`（病例数据会污染身份）。
+- **不把身份预先写进 `prompt_snapshot`**（已撤回，见 §四）。
 - 不在 `llm_call_logs` 里再存一份 ledger 或原文（避免双份 PII / 体积）。
 - 不人工维护版本递增号（一律内容派生）。
 - 不因版本差异改变评分或展示行为（身份仅用于观测与归因）。
@@ -186,24 +198,31 @@ S1→S2 之间必须一次发布内完成（S1 只写 JSONB 键，S2 才建列�
 
 | 风险 | 说明 | 缓解 |
 |---|---|---|
-| 身份漂移 | 有人改了提示词却绕过计算点 | 计算点唯一（冻结处一处）+ 单测钉住；启动校验扩展为「记录写入必带身份」的断言 |
-| 历史不可知 | 存量记录三个新列为 NULL | 明确不改写；只允许用快照重算并标注来源，UI 显示「未知（历史记录）」 |
-| 聚合查询成本 | `GROUP BY prompt_id` 全表 | 记录列加索引；聚合限定时间窗（默认 90 天） |
-| ledger 体积 | 每轮一条审计行 | ledger 是计数与短枚举（有界），非全文；必要时按记录数分页清理 |
-| 改名破坏契约 | `prompt_version → prompt_schema_version` 影响 API/前端 | 见开放决策 3：可用「加新列 + 旧字段保留并标注」替代改名 |
+| 身份漂移 | 有人改了提示词却绕过计算点 | 派生点唯一（消费处一处）；物化后加「物化 == 派生」一致性测试 |
+| 历史不可知 | 存量记录无身份可派生（快照缺失） | 明确不回填；UI 显示「未知（历史记录）」 |
+| 聚合查询成本 | 全表 `GROUP BY` | 物化列 + 索引；聚合限定时间窗（默认 90 天） |
+| ledger 体积 | 每轮一条审计行 | ledger 是有界计数与短枚举，非全文 |
+| 改名破坏契约 | `prompt_schema_version` 影响 API/前端/强制重评快照 | 一次迁移内完成 + `api:update` + 前端类型再生 |
 
-## 九、开放决策（需产品/架构裁决）
+## 九、已裁决与仍开放
 
-1. **身份落列还是落 JSONB**：建议独立列（可索引、可聚合）；若想零 DDL 可先只写 `prompt_snapshot` 键，聚合退化为应用层。
-2. **ledger 落 `TrainingAction` 还是 `runtime_state`**：建议 `TrainingAction`（已有不可变审计语义与幂等唯一键）；`runtime_state` 是运行态，会被覆盖。
-3. **是否改名 `Score.prompt_version`**：改名语义最干净但动 API 与前端展示；保守方案是**保留旧字段**并在 API 文档标注「形状版本」+ 新增 `prompt_id`。倾向前者（同名异义比一次性改动更贵）。
-4. **权限**：新页面复用 `api_manage` 还是新增细粒度 `version_view`（教师只读、管理员可见）→ 取决于是否要让教师自查提示词版本。
-5. **是否需要「实验性覆盖」**：允许在受控范围内用 DB 覆盖某个 workflow 的提示词做验证。默认**不做**；若未来要做，必须带 draft/publish/rollback 与审计，且身份仍是 hash。
+已裁决（2026-09-26）：
+
+1. **`Score.prompt_version` 改名** 为 `prompt_schema_version`（语义干净优先）。
+2. **页面权限复用 `api_manage`**，不新增 `version_view`。
+3. **不做实验性提示词覆盖**（延续「代码即版本」）。
+4. **身份不预先落库**：派生优先；只有真实消费者出现才物化，且物化必须可被派生值验证。
+
+仍开放：
+
+1. **ledger 落 `TrainingAction` 还是 `runtime_state`**：倾向 `TrainingAction`（不可变审计语义 + 幂等唯一键，`runtime_state` 会被覆盖）。P3 落地前定。
+2. **物化列是否真的必要**：先做 P5 的聚合查询，若 90 天窗口内全表扫描可接受（记录量级见 `sessions.active`），可以**永不物化**，连 P4 都省掉。倾向先量再定。
 
 ## 十、验收标准（若转正为实施文档）
 
-1. 任意一条新记录都能回答：用了哪版提示词、哪版评分提示词、哪版上下文策略、哪版 rubric。
-2. 任意一次 LLM 调用可按 `prompt_id` 聚合成功率与延迟。
+1. 任意一条记录都能回答：用了哪版提示词、哪版评分提示词、哪版上下文策略、哪版 rubric。
+2. 任意一次 LLM 调用可按身份聚合成功率与延迟。
 3. 任意一轮对话可回放其 context ledger（各段 token、裁掉轮次、token scale）。
-4. 版本页能对比两个版本的分数分布，且能识别「代码已变更的历史版本」。
+4. 版本页能对比两个身份的分数分布，且能识别「代码已变更的历史版本」。
 5. 历史记录显示「未知」，且没有任何伪造身份。
+6. 管线五阶段各自单一 owner，无单实现中间件包装残留。
