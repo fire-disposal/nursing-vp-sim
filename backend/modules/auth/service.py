@@ -1,10 +1,10 @@
+import asyncio
 import logging
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, ConflictError, ValidationError
-from core.login_strategies import get_strategy_registry
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
 from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, Class, ClassMembership, Role, User
@@ -72,9 +72,8 @@ class AuthService:
         )
 
     async def login(self, username: str, password: str) -> User:
-        strategy = get_strategy_registry()["password"](self.db)
-        user = await strategy.authenticate({"username": username, "password": password})
-        if user is None:
+        user = self.db.query(User).filter(User.username == username).first()
+        if user is None or not await asyncio.to_thread(verify_password, password, user.password_hash):
             log.warning("登录失败: username=%s", username, extra={"action": "login_failed"})
             raise AuthError(detail="用户名或密码错误")
         if not user.is_active:
