@@ -34,10 +34,9 @@ from ..turn import (
 log = logging.getLogger(__name__)
 
 
-async def persister(ctx: PipelineContext, next_mw) -> None:
+async def persister(ctx: PipelineContext) -> None:
     if ctx.state.get(STATE_CORRECTION_TARGET):
         _persist_correction(ctx)
-        await next_mw()
         return
 
     claim = ctx.state.get(STATE_TURN)
@@ -46,14 +45,12 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         log.error("Chat turn claim missing; refusing to persist messages: record_id=%d", ctx.record.id)
         ctx.error = ctx.error or "对话回合状态缺失"
         ctx.error_code = ERROR_CLAIM_MISSING
-        await next_mw()
         return
 
     if ctx.error or ctx.should_shortcut:
         _persist_failure(ctx, claim)
     else:
         _persist_success(ctx, claim)
-    await next_mw()
 
 
 def _persist_success(ctx: PipelineContext, claim) -> None:

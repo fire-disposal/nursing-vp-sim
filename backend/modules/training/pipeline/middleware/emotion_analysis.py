@@ -39,15 +39,13 @@ from modules.training.pipeline.context import (
 log = logging.getLogger(__name__)
 
 
-async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
+async def emotion_analysis(ctx: PipelineContext) -> None:
     """Analyze student input, update 4D emotion state, prepare behavior note."""
     if ctx.should_shortcut:
-        await next_mw()
         return
 
     features = ctx.state.get(STATE_FEATURES) or {}
     if not features.get("emotion", False):
-        await next_mw()
         return
 
     app = ctx.app_state
@@ -139,5 +137,3 @@ async def emotion_analysis(ctx: PipelineContext, next_mw) -> None:
 
     except Exception:
         log.warning("Emotion analysis failed: record_id=%d", ctx.record.id, exc_info=True)
-
-    await next_mw()

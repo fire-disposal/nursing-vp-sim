@@ -569,15 +569,8 @@ class TestTurnSafetyNet:
         ctx = self._ctx(session, claim=None)
         ctx.student_input = "你好"
         ctx.llm_reply = "我很难受"
-        reached: list[str] = []
-
-        async def _next():
-            reached.append("next")
-
-        await persister(ctx, _next)
+        await persister(ctx)
 
         assert session.rows(Message) == []
         assert session.rows(TrainingAction) == []
         assert ctx.error_code == "chat.turn_claim_missing"
-        # 不阻断后续中间件（侧效果仍要跑），但错误已记账
-        assert reached == ["next"]

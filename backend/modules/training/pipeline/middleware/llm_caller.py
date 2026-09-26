@@ -72,9 +72,8 @@ def _fail(ctx: PipelineContext, *, error_code: str, message: str = LLM_UNAVAILAB
     ctx.should_shortcut = True
 
 
-async def llm_caller(ctx: PipelineContext, next_mw) -> None:
+async def llm_caller(ctx: PipelineContext) -> None:
     if ctx.should_shortcut:
-        await next_mw()
         return
 
     is_stream = ctx.state.get(STATE_STREAM_MODE, False)
@@ -83,8 +82,6 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
         await _call_stream(ctx)
     else:
         await _call_batch(ctx)
-
-    await next_mw()
 
 
 async def _call_batch(ctx: PipelineContext) -> None:

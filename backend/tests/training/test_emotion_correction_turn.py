@@ -80,10 +80,7 @@ async def _run(monkeypatch, ctx) -> _FakeRepo:
     monkeypatch.setattr(emotion_middleware, "EmotionRepository", lambda: repo)
     monkeypatch.setattr(emotion_middleware, "EmotionAnalyzer", _FakeAnalyzer)
 
-    async def _next() -> None:
-        return None
-
-    await emotion_middleware.emotion_analysis(ctx, _next)
+    await emotion_middleware.emotion_analysis(ctx)
     # 中间件吞掉异常（降级路径）：用它是否产出行为策略判断本轮确实算过
     assert STATE_EMOTION_CHANGE in ctx.state
     return repo

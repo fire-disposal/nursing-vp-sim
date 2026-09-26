@@ -22,48 +22,65 @@
 
 **结论性事实**：进程分离不需要"新建多进程架构"——系统本来就是 2 个进程 + DB 级仲裁；缺的只是**持久化任务**与**角色划分**。而事件循环隔离有生产事故背书。
 
-## 二、Part 1：管线五阶段显式化
+## 二、Part 1：管线五阶段显式化（✅ 已实施）
 
-### 2.1 现状与要删的东西
+### 2.1 落地形态
 
-现状：5 个中间件对象 + 一个把 fixed list 装起来的 builder + 一个 `next_mw` 链式驱动器 + 若干只为在包装之间传值而存在的 `STATE_*` 键。
-
-目标形态：
+顺序契约现在住在**源码里的一个元组**（`pipeline/runner.py`）：
 
 ```python
-async def run_turn(ctx: TurnContext) -> None:
-    """一轮对话的唯一编排：五阶段显式调用，顺序即契约。"""
-    await analyze_emotion(ctx)      # ANALYSIS    最佳努力
-    await build_prompt(ctx)         # PROMPT      产出 ledger + 身份
-    await call_llm(ctx)             # LLM         写调用日志（带身份）
-    await persist_turn(ctx)         # PERSIST     必须成功，失败即中止
-    await emit_side_effects(ctx)    # SIDE_EFFECTS 最佳努力
+STAGES: tuple[tuple[str, StageFn], ...] = (
+    ("analysis", emotion_analysis),
+    ("prompt", prompt_builder),
+    ("llm", llm_caller),
+    ("persist", persister),
+    ("side_effects", side_effects),
+)
+
+async def _run_stages(ctx) -> None:
+    for name, stage in STAGES:
+        if ctx.should_shortcut:
+            return          # 短路 = 不再进入后续阶段（与旧链式驱动逐字一致）
+        await stage(ctx)
+
+async def run_pipeline(ctx) -> None                    # 不再接收 middlewares
+async def stream_pipeline(ctx, *, release=None)        # 不再接收 middlewares
 ```
 
-要删：
+关键语义核实（决定线性化等价）：五个阶段里所有 `await next_mw()` 都是**分支末尾或函数末句**
+（`side_effects` 的调用更是末阶段的空操作），因此"链式驱动"与"顺序调用"逐字等价。
 
-| 删除项 | 理由 |
+已删除：
+
+| 删除项 | 结果 |
 |---|---|
-| `PipelineStage.GUARD` / `TRANSITION` 枚举成员 + 其 `_STAGE_ORDER` 编号 | 声明了但零实现零使用者（空桶）；枚举应只留下真实存在的阶段 |
-| `PipelineMiddleware` 协议与 `next_mw` 驱动器 | 只有一个实现（固定顺序），链式驱动让控制流不可读；短路需求改为 `return` / 显式 `ctx.short_circuit` 判定 |
-| `builder.build_pipeline()` 的列表装配 | 组装权从"运行时拼列表"变成"源码里的函数调用顺序"；顺序契约搬进函数体 + 一个顺序断言测试 |
-| 只为跨包装传值而存在的 `STATE_*` 键 | 阶段变函数后，同一作用域内的局部变量即可传递；仅跨阶段且需持久/可观测的（ledger、身份、turn 元数据）保留为 `ctx` 字段 |
-| `run_pipeline` 与 `stream_pipeline` 的双份驱动 | 合并为一个编排 + 一个"帧发射器"；流式与否是**发射器**的选择，不是管线的第二份实现 |
+| `PipelineStage.GUARD` / `TRANSITION` 空阶段 | 已删（`dae47400`）；枚举随后整体删除 |
+| `PipelineMiddleware` 协议 + `_make_next` 链式驱动器 | 已删；短路语义搬进 `_run_stages` 的进入前判定 |
+| `builder.build_pipeline()` 列表装配 | 改为 `builder.build_note_collector(workflow)`（只决定"有哪些上下文来源"） |
+| `pipeline/stages.py` 整个模块（枚举 + `_STAGE_ORDER` + `stage_order`） | 已删；顺序的唯一表达是 `STAGES` |
+| `run/stream` 的 middlewares 形参 | 已删；两条路径共用 `_run_stages`（双份驱动只剩帧发射差异） |
 
-保留（不能顺手删掉的东西）：
+保留（未动）：顺序语义、must-succeed vs best-effort、SSE 错误帧形状与稳定 `code`、断线不取消任务、
+幂等回放、`STATE_*` 跨阶段键（尚未收敛——它们是真跨阶段数据，不是包装传值）。
 
-1. **阶段顺序契约**（ANALYSIS→PROMPT→LLM→PERSIST→SIDE_EFFECTS）。
-2. **must-succeed vs best-effort 的区分**：`persist_turn` 失败必须中止请求；`emit_side_effects` 失败只记录。
-3. **SSE 错误帧形状**（含稳定 `code`）与断线不取消任务（整段生成后推送）的行为。
-4. **幂等回放**（`request_id` 命中既有回合直接回放）。
+### 2.2 顺带修掉的根因：域包初始化拉全应用
 
-### 2.2 风险与验证
+实施时暴露出一个被惰性导入掩盖的循环：`persister → patient_ai.initiative → session.cache →
+modules.training/__init__ → router → chat → pipeline → persister`。根因是
+`modules/training/__init__.py` **急切导入两个 router**，于是任何 `modules.training.<anything>`
+导入都会连带装配整个应用，把局部环放大成全局环。
 
-这是交互热路径，收敛必须**零行为变化**：
+处置：域包 `__init__` 只保留入口地图（文档），不再导入子模块；挂载方 `main.py` 改为
+`from modules.training.router import router` / `from modules.training.router.chat import router`。
+修完后 `persister` 的顶层导入自动恢复（无需函数内导入兜底）。**新增域包时不要重犯**：
+包初始化不得拉起整个应用。
 
-* 先只做机械收敛（顺序、状态、帧都不变），用现有回合/SSE 测试兜底；
-* 新增两条契约测试：①阶段顺序与短路（注入探测桩，断言调用次序与"短路后不再进入后续阶段"）；②PERSIST 失败时 SIDE_EFFECTS 不被执行、请求以错误帧结束。
-* 账本与身份捕获放在**收敛之后**单独一片（否则身份会随包装一起二次搬迁）。
+### 2.3 验证
+
+* 特征化测试先行：16 条用例覆盖阶段顺序、短路（不误判为错误帧）、PERSIST must-succeed vs
+  SIDE_EFFECTS best-effort、SSE 错误帧形状与稳定 `code`、`STATE_*` 前写后读的身份不变；
+  作者用 9 处临时变异证明"测试真的会失败"（`db40cd2f`）。
+* 重构后同一批不变量改用新 seam（monkeypatch `runner.STAGES`）表达，并做变异验证。
 
 ## 三、Part 2：持久化 Job 与进程角色分离
 

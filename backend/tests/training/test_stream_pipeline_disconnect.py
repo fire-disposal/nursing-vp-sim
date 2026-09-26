@@ -9,6 +9,7 @@ import json
 
 import pytest
 
+import modules.training.pipeline.runner as runner_mod
 from modules.training.pipeline import PipelineContext, stream_pipeline
 from modules.training.pipeline.context import (
     STATE_DONE_PAYLOAD,
@@ -32,14 +33,19 @@ def _ctx() -> PipelineContext:
     return PipelineContext(record=record, case_data={}, current_user=user, db=object(), app_state=object())
 
 
+def _single_stage(monkeypatch, name: str, stage) -> None:
+    """用单个假阶段替换整条管线（``runner.STAGES`` 是唯一的执行 seam）。"""
+    monkeypatch.setattr(runner_mod, "STAGES", ((name, stage),))
+
+
 @pytest.mark.asyncio
-async def test_early_close_lets_pipeline_finish_and_release():
+async def test_early_close_lets_pipeline_finish_and_release(monkeypatch):
     """客户端断线：任务不取消（成对落库）、release 仍被调用、断线被计数。"""
     ctx = _ctx()
     persisted: list[str] = []
     released: list[str] = []
 
-    async def middleware(ctx: PipelineContext, next_mw):
+    async def slow_stage(ctx: PipelineContext):
         # 模拟 llm_caller 的 collect-then-push：先推一段内容（此时生成器可能已被关闭），
         # 再慢慢跑完 persister。队列无界，消费者消失不会把任务卡死。
         await ctx.state[STATE_STREAM_QUEUE].put("早段")
@@ -48,11 +54,13 @@ async def test_early_close_lets_pipeline_finish_and_release():
         persisted.append("patient")
         await ctx.state[STATE_STREAM_QUEUE].put("晚段")
 
+    _single_stage(monkeypatch, "slow", slow_stage)
+
     async def release():
         released.append("closed")
 
     before = abandoned_stream_count()
-    agen = stream_pipeline(ctx, [middleware], release=release)
+    agen = stream_pipeline(ctx, release=release)
     first = await agen.__anext__()
     assert "早段" in first
 
@@ -67,20 +75,22 @@ async def test_early_close_lets_pipeline_finish_and_release():
 
 
 @pytest.mark.asyncio
-async def test_completed_stream_is_not_counted_abandoned_and_keeps_done_id():
+async def test_completed_stream_is_not_counted_abandoned_and_keeps_done_id(monkeypatch):
     """正常跑完：不计入被放弃，done 帧仍带 patient id（id 在 release 前已快照）。"""
     ctx = _ctx()
     released: list[str] = []
 
-    async def middleware(ctx: PipelineContext, next_mw):
+    async def fast_stage(ctx: PipelineContext):
         ctx.state[STATE_SAVED_MESSAGES] = [_PatientMessage()]
         ctx.state[STATE_DONE_PAYLOAD] = {"corrections_used": 1}
+
+    _single_stage(monkeypatch, "fast", fast_stage)
 
     async def release():
         released.append("closed")
 
     before = abandoned_stream_count()
-    frames = [frame async for frame in stream_pipeline(ctx, [middleware], release=release)]
+    frames = [frame async for frame in stream_pipeline(ctx, release=release)]
 
     assert released == ["closed"]
     assert abandoned_stream_count() == before

@@ -1,19 +1,20 @@
-"""Training Pipeline — composable middleware chain for message processing.
+"""Training Pipeline —— 一轮对话的显式五阶段编排。
 
-Pipeline order (fixed, per ``stages.PipelineStage``):
-  1. ANALYSIS     — ``emotion_analysis``: 4D emotion state + behavior note
-  2. PROMPT       — ``prompt_builder``: 取料 + ContextAssembler 装配 system/user prompt
-  3. LLM          — ``llm_caller``: call LLM, record call log (best-effort)
-  4. PERSIST      — ``persister``: 事务 B（患者消息 + turn 收尾；学生消息已在
+顺序契约住在 ``runner.STAGES``（源码顺序即执行顺序）：
+
+  1. ANALYSIS     —— ``emotion_analysis``: 4D 情绪状态 + behavior note
+  2. PROMPT       —— ``prompt_builder``: 取料 + ContextAssembler 装配 system/user prompt
+  3. LLM          —— ``llm_caller``: 调用 LLM，写调用日志（best-effort）
+  4. PERSIST      —— ``persister``: 事务 B（患者消息 + turn 收尾；学生消息已在
                      ``begin_turn`` 的事务 A 落库，见 turn.py）
-  5. SIDE_EFFECTS — ``side_effects``: emotion/initiative updates, SSE events,
-                     correction tracking (best-effort, failures are logged and dropped)
+  5. SIDE_EFFECTS —— ``side_effects``: emotion/initiative 更新、SSE 事件、
+                     correction 追踪（best-effort，失败只记日志）
 
-Assembly: ``build_pipeline()`` constructs the ordered middleware list + a
-``NoteCollector`` seeded from the workflow's ``note_sources``.
+NoteCollector 的装配在 ``builder.build_note_collector``（只决定"有哪些上下文来源"，
+不参与阶段排序）。
 """
 
-from .builder import build_pipeline
+from .builder import build_note_collector
 from .context import (
     STATE_ASSEMBLER,
     STATE_CORRECTION_TARGET,
@@ -34,10 +35,11 @@ from .context import (
     PipelineContext,
     message_views,
 )
-from .runner import run_pipeline, stream_pipeline
-from .stages import PipelineMiddleware, PipelineStage, stage_order
+from .runner import STAGES, abandoned_stream_count, run_pipeline, stream_pipeline
+from .turn import TURN_KIND
 
 __all__ = [
+    "STAGES",
     "STATE_ASSEMBLER",
     "STATE_CORRECTION_TARGET",
     "STATE_CORRECTION_TURN",
@@ -53,13 +55,12 @@ __all__ = [
     "STATE_SAVED_MESSAGES",
     "STATE_STREAM_MODE",
     "STATE_TURN",
+    "TURN_KIND",
     "MessageView",
     "PipelineContext",
-    "PipelineMiddleware",
-    "PipelineStage",
-    "build_pipeline",
+    "abandoned_stream_count",
+    "build_note_collector",
     "message_views",
     "run_pipeline",
-    "stage_order",
     "stream_pipeline",
 ]

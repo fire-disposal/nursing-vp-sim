@@ -22,8 +22,7 @@ from ..context import (
 log = logging.getLogger(__name__)
 
 
-async def side_effects(ctx: PipelineContext, next_mw) -> None:
-    await next_mw()
+async def side_effects(ctx: PipelineContext) -> None:
 
     if ctx.error or ctx.should_shortcut:
         return

@@ -49,7 +49,7 @@ from ..pipeline import (
     STATE_STREAM_MODE,
     STATE_TURN,
     PipelineContext,
-    build_pipeline,
+    build_note_collector,
     message_views,
     run_pipeline,
     stream_pipeline,
@@ -353,9 +353,9 @@ async def send_message(
             operation={"replayed": True, **claim.replay_payload},
         )
 
-    pipe, collector = build_pipeline(workflow_for_record(ctx.record))
+    collector = build_note_collector(workflow_for_record(ctx.record))
     ctx.note_collector = collector
-    await run_pipeline(ctx, pipe)
+    await run_pipeline(ctx)
 
     if ctx.error:
         raise HTTPException(status_code=500, detail=ctx.error)
@@ -390,7 +390,7 @@ async def send_message_stream(
                 media_type="text/event-stream",
                 headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
             )
-        pipe, collector = build_pipeline(workflow_for_record(ctx.record))
+        collector = build_note_collector(workflow_for_record(ctx.record))
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()
@@ -403,7 +403,7 @@ async def send_message_stream(
         # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
         # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
         try:
-            async for chunk in stream_pipeline(ctx, pipe, release=stack.aclose):
+            async for chunk in stream_pipeline(ctx, release=stack.aclose):
                 yield chunk
         finally:
             # 兜底：生成器从未被迭代（任务没启动）或任务已结束（session 已由任务释放）时
@@ -435,7 +435,7 @@ async def correct_last_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
-        pipe, collector = build_pipeline(workflow_for_record(ctx.record))
+        collector = build_note_collector(workflow_for_record(ctx.record))
         ctx.note_collector = collector
     except BaseException as exc:
         await stack.aclose()
@@ -448,7 +448,7 @@ async def correct_last_message_stream(
         # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
         # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
         try:
-            async for chunk in stream_pipeline(ctx, pipe, release=stack.aclose):
+            async for chunk in stream_pipeline(ctx, release=stack.aclose):
                 yield chunk
         finally:
             # 兜底：生成器从未被迭代（任务没启动）或任务已结束（session 已由任务释放）时

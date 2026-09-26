@@ -342,8 +342,8 @@ from modules.qa import router as _qa
 from modules.questionnaires.router import router as _questionnaires
 from modules.scoreboard import router as _scoreboard
 from modules.simulations import simulations_router as _simulations
-from modules.training import chat_router as _chat
-from modules.training import training_router as _training
+from modules.training.router import router as _training
+from modules.training.router.chat import router as _chat
 from modules.voice.router import router as _tts
 
 _exports, _rubrics, _stats = get_top_level_routers()

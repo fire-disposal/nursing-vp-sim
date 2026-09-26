@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from modules.training.pipeline import STATE_TURN, PipelineContext, build_pipeline, run_pipeline
+from modules.training.pipeline import STATE_TURN, PipelineContext, build_note_collector, run_pipeline
 from modules.training.pipeline.turn import TurnClaim, TurnStatus
 
 
@@ -71,8 +71,9 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
         status=str(TurnStatus.PENDING),
         student_message_id=1,
     )
-    history_pipe, _ = build_pipeline()
-    await run_pipeline(ctx, history_pipe)
+    # 上下文来源的装配与阶段排序解耦：router 侧装配好 collector 后挂到 ctx
+    ctx.note_collector = build_note_collector()
+    await run_pipeline(ctx)
 
     assert ctx.should_shortcut is False
     assert ctx.llm_messages is not None

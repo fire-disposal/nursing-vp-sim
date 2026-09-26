@@ -48,9 +48,8 @@ def _resolve_scene_text(ctx: PipelineContext) -> str | None:
     return format_scene_for_prompt(state)
 
 
-async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
+async def prompt_builder(ctx: PipelineContext) -> None:
     if ctx.should_shortcut:
-        await next_mw()
         return
 
     # 提示词模板取自**本次记录冻结的 workflow**（记录 = 唯一运行期 owner）
@@ -93,5 +92,3 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     )
     ctx.llm_messages = result.messages
     log.debug("context ledger: %s", result.ledger)
-
-    await next_mw()
