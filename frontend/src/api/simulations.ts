@@ -20,10 +20,15 @@ export const getSimulationSession = (sessionId: number) =>
 export const postSimulationAction = (
 	sessionId: number,
 	action: Schemas["SimulationActionIn"],
+	opts: { expectedRevision?: number; idemKey?: string } = {},
 ) =>
 	api
 		.post<Schemas["ActionResultResponse"]>(
 			`/simulations/sessions/${sessionId}/actions` as ApiPath,
-			{ action } satisfies Schemas["SimulationActionRequest"],
+			{
+				action,
+				expected_revision: opts.expectedRevision,
+				idem_key: opts.idemKey,
+			} satisfies Schemas["SimulationActionRequest"],
 		)
 		.then((r) => r.data);

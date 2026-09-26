@@ -6,13 +6,16 @@ clinical state, any unrevealed CBC values, and the internal ``sampled_severity``
 (MVP-B §4.4 / §9.1).
 """
 
+import logging
 from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
-from core.exceptions import NotFoundError
+from core.exceptions import ConflictError, NotFoundError
 from core.unit_of_work import unit_of_work
 from models.simulation import SimulationSession
+
+log = logging.getLogger(__name__)
 
 from .case import (
     CASE_VERSION,
@@ -24,7 +27,7 @@ from .case import (
 )
 from .engine import apply_action, build_consult_summary, new_session
 from .prompts import family_talk_system, patient_talk_system
-from .state import DomainMessage, SessionState, state_from_dict, state_to_dict
+from .state import IDEM_KEY_LIMIT, DomainMessage, SessionState, state_from_dict, state_to_dict
 
 ConsultProvider = Callable[[str], str]
 TalkProvider = Callable[[str, str, str], str]  # (system, known_summary, player_line) -> persona reply
@@ -127,6 +130,21 @@ class SimulationService:
             raise NotFoundError("模拟会话不存在")
         return session
 
+    def _lock_for_act(self, session: SimulationSession) -> SimulationSession:
+        """锁住会话行并重读 state，再交给 CAS/幂等/落库使用。
+
+        ``populate_existing`` 不可省：identity map 里已有该对象时，SQLAlchemy 默认
+        会丢弃锁查询的结果、继续用请求开头读到的旧属性，锁就成了摆设——两个
+        请求仍会各自基于同一 revision 提交。fake session（测试替身）没有行锁
+        语义，原样返回，既有测试语义不变。
+        """
+        if not isinstance(self.db, Session):
+            return session
+        locked = self.db.get(SimulationSession, session.id, with_for_update=True, populate_existing=True)
+        if locked is None:
+            raise NotFoundError("模拟会话不存在")
+        return locked
+
     def act(
         self,
         session: SimulationSession,
@@ -136,8 +154,30 @@ class SimulationService:
         consult_provider: ConsultProvider | None = None,
         talk_provider: TalkProvider | None = None,
         diagnose_provider: DiagnoseProvider | None = None,
-    ) -> tuple[list, bool]:
+        *,
+        expected_revision: int | None = None,
+        idem_key: str | None = None,
+    ) -> tuple[list, bool, bool]:
+        """应用一个动作，返回 ``(messages, accepted, replayed)``。
+
+        并发语义（与训练工具面同一套：乐观并发 + 幂等键）：
+        - 先对会话行加锁并重读 state，校验/应用/落库在同一把行锁内完成；
+        - ``idem_key`` 已应用过 → 不再推进状态，返回 ``replayed=True``，客户端用 snapshot 重绘；
+        - ``expected_revision`` 与当前 revision 不符 → 409（双击/双标签/重发不会静默叠加）；
+        - 接受的动作用于推进 ``revision``，使下一次 CAS 有意义。
+        """
+        session = self._lock_for_act(session)
         state = state_from_dict(session.state)
+
+        if idem_key is not None and idem_key in state.idem_keys:
+            log.info("模拟动作幂等重放: session_id=%s key=%s", session.id, idem_key)
+            return [], True, True
+
+        if expected_revision is not None and expected_revision != state.revision:
+            raise ConflictError(
+                detail=f"会话状态已变化（期望 revision={expected_revision}，当前={state.revision}），请刷新后重试"
+            )
+
         was_active = state.case_status == "ACTIVE"
         accepted, messages = apply_action(state, action_type, target, text)
         if accepted and action_type == "CONSULT":
@@ -146,11 +186,18 @@ class SimulationService:
             self._run_talk(state, messages, target, text, talk_provider)
         if was_active and state.case_status != "ACTIVE" and state.diagnosis:
             self._run_diagnosis_review(state, messages, diagnose_provider)
+        # revision 已由 engine.apply_action 在被接受时推进（状态版本），此处不再重复自增，
+        # 只负责把它作为乐观并发基准与幂等键的归属版本记录下来。
+        if idem_key is not None:
+            state.idem_keys[idem_key] = state.revision
+            while len(state.idem_keys) > IDEM_KEY_LIMIT:
+                state.idem_keys.pop(next(iter(state.idem_keys)), None)
+
         session.state = state_to_dict(state)
         session.status = state.case_status
         with unit_of_work(self.db, conflict_detail="保存模拟会话冲突"):
             self.db.flush()
-        return messages, accepted
+        return messages, accepted, False
 
     def _run_talk(
         self,

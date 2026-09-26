@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 def _act_through_service(s, provider):
     session = _FakeSessionRow(s)
     service = SimulationService(cast("Session", _FakeDb()))
-    messages, accepted = service.act(cast("SimulationSession", session), "CONSULT", None, consult_provider=provider)
+    messages, accepted, _ = service.act(cast("SimulationSession", session), "CONSULT", None, consult_provider=provider)
     updated = state_from_dict(session.state)
     return messages, accepted, updated
 

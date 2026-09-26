@@ -96,7 +96,12 @@ describe("SimulationConsole", () => {
 		await userEvent.type(input, "/assess vitals");
 		await userEvent.keyboard("{Enter}");
 		await waitFor(() => expect(mocks.post).toHaveBeenCalled());
-		expect(mocks.post).toHaveBeenCalledWith(1, { type: "ASSESS", target: "vitals" });
+		// 动作提交必须带乐观并发基准与幂等键（双击/重发不再静默叠加）
+		expect(mocks.post).toHaveBeenCalledWith(
+			1,
+			{ type: "ASSESS", target: "vitals" },
+			expect.objectContaining({ expectedRevision: expect.any(Number), idemKey: expect.any(String) }),
+		);
 		await waitFor(() => expect(screen.getByText("/assess vitals")).toBeInTheDocument());
 		expect(screen.getByText("[INPUT]")).toBeInTheDocument();
 		await waitFor(() => expect(screen.getByText(/生命体征/)).toBeInTheDocument());
@@ -167,10 +172,11 @@ describe("SimulationConsole", () => {
 		await userEvent.click(screen.getByRole("button", { name: /保存诊断/ }));
 
 		await waitFor(() =>
-			expect(mocks.post).toHaveBeenCalledWith(1, {
-				type: "DIAG",
-				target: "疑诊糖尿病酮症酸中毒",
-			}),
+			expect(mocks.post).toHaveBeenCalledWith(
+				1,
+				{ type: "DIAG", target: "疑诊糖尿病酮症酸中毒" },
+				expect.objectContaining({ expectedRevision: expect.any(Number), idemKey: expect.any(String) }),
+			),
 		);
 	});
 });

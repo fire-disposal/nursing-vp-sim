@@ -15,6 +15,10 @@ class SimulationActionIn(BaseModel):
 class SimulationActionRequest(BaseModel):
     model_config = _REQ_CFG
     action: SimulationActionIn
+    # 乐观并发：客户端带上快照里的 revision；不匹配即 409（双击/双标签/重发不再静默叠加）
+    expected_revision: int | None = Field(default=None, ge=0)
+    # 幂等键：同一 key 重复提交只应用一次（网络重试/按钮重放安全）
+    idem_key: str | None = Field(default=None, max_length=64)
 
 
 class SessionCreateRequest(BaseModel):
@@ -140,3 +144,5 @@ class ActionResultResponse(BaseModel):
     case_ended: bool
     messages: list[SimulationMessage] = []
     snapshot: SimulationSnapshot
+    # True = 该请求命中幂等键，未再次推进状态（客户端可直接用 snapshot 重绘）
+    replayed: bool = False

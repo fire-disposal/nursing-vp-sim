@@ -76,7 +76,7 @@ def test_service_talk_calls_persona_with_known_info_only():
         fake.calls.append((role, summary, line))
         return fake.reply
 
-    messages, accepted = service.act(
+    messages, accepted, _ = service.act(
         session,
         "TALK",
         "patient",
@@ -102,7 +102,7 @@ def test_service_talk_calls_persona_with_known_info_only():
 def test_service_talk_falls_back_when_llm_down():
     service = _service()
     session = service.create(1)
-    messages, accepted = service.act(
+    messages, accepted, _ = service.act(
         session,
         "TALK",
         "patient",
@@ -116,7 +116,7 @@ def test_service_talk_falls_back_when_llm_down():
 def test_service_talk_falls_back_when_provider_missing():
     service = _service()
     session = service.create(1)
-    messages, accepted = service.act(session, "TALK", "family", text="他怎么样？")
+    messages, accepted, _ = service.act(session, "TALK", "family", text="他怎么样？")
     assert accepted
     assert any("家属" in m.text and "不清楚" in m.text for m in messages) or any(
         "家属" in m.text and "不太清楚" in m.text for m in messages
@@ -164,7 +164,7 @@ def test_service_diagnosis_review_runs_once_on_case_end():
     session = service.create(1)
 
     # 记录诊断（不终结病例）
-    messages, accepted = service.act(session, "DIAG", "疑诊隐匿性出血")
+    messages, accepted, _ = service.act(session, "DIAG", "疑诊隐匿性出血")
     assert accepted
     assert any("已记录你的诊断" in m.text for m in messages)
 

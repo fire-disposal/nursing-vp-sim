@@ -119,7 +119,7 @@ def post_action(session_id: int, body: SimulationActionRequest, request: Request
     consult_provider = _consult_provider(request, user.id)
     talk_provider = _talk_provider(request, user.id)
     diagnose_provider = _diagnose_provider(request, user.id)
-    messages, accepted = service.act(
+    messages, accepted, replayed = service.act(
         session,
         body.action.type,
         body.action.target,
@@ -127,6 +127,8 @@ def post_action(session_id: int, body: SimulationActionRequest, request: Request
         consult_provider=consult_provider,
         talk_provider=talk_provider,
         diagnose_provider=diagnose_provider,
+        expected_revision=body.expected_revision,
+        idem_key=body.idem_key,
     )
     state = state_from_dict(session.state)
     return {
@@ -136,4 +138,5 @@ def post_action(session_id: int, body: SimulationActionRequest, request: Request
         "case_ended": state.case_status != "ACTIVE",
         "messages": [m.__dict__ for m in messages],
         "snapshot": build_snapshot(session.id, state),
+        "replayed": replayed,
     }

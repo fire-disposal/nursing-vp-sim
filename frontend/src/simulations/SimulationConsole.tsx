@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import {
@@ -182,7 +183,10 @@ export default function SimulationConsole() {
 		setBusy(true);
 		const sid = snapshot.session_id;
 		try {
-			const r = await postSimulationAction(sid, parsed.action);
+			const r = await postSimulationAction(sid, parsed.action, {
+				expectedRevision: snapshot.revision,
+				idemKey: crypto.randomUUID(),
+			});
 			setSnapshot(r.snapshot);
 			setTranscript((t) => [
 				...t,
@@ -196,8 +200,19 @@ export default function SimulationConsole() {
 					}),
 				),
 			]);
-		} catch {
-			push("动作提交失败，请重试。", "CRITICAL");
+		} catch (err) {
+			// 409 = 会话状态已被其他标签页/重发推进：刷新后让用户重试，而不是静默叠加
+			if (isAxiosError(err) && err.response?.status === 409) {
+				try {
+					const fresh = await getSimulationSession(sid);
+					setSnapshot(fresh);
+					push("会话状态已更新（可能在其他标签页操作过），已为你刷新，请确认后重试。", "WARNING");
+				} catch {
+					push("会话状态冲突，且刷新失败，请重新进入本局。", "CRITICAL");
+				}
+			} else {
+				push("动作提交失败，请重试。", "CRITICAL");
+			}
 		} finally {
 			setBusy(false);
 			inputRef.current?.focus();
@@ -208,10 +223,11 @@ export default function SimulationConsole() {
 		if (!snapshot || busy || !diagDraft.trim()) return;
 		setBusy(true);
 		try {
-			const r = await postSimulationAction(snapshot.session_id, {
-				type: "DIAG",
-				target: diagDraft.trim(),
-			});
+			const r = await postSimulationAction(
+				snapshot.session_id,
+				{ type: "DIAG", target: diagDraft.trim() },
+				{ expectedRevision: snapshot.revision, idemKey: crypto.randomUUID() },
+			);
 			setSnapshot(r.snapshot);
 			setTranscript((t) => [
 				...t,

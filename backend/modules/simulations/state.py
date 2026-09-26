@@ -171,6 +171,13 @@ class SessionState:
     drug_overdose: bool = False
     case_ended_at: int | None = None
     revision: int = 0
+    # 已应用的幂等键 → 当时的 revision。重复提交同一 key 不再推进状态。
+    # 有界（只保留最近 IDEM_KEY_LIMIT 个），避免状态无界增长。
+    idem_keys: dict[str, int] = field(default_factory=dict)
+
+
+# 幂等键有界保留数量：超出后按插入顺序丢弃最早的键。
+IDEM_KEY_LIMIT = 64
 
 
 def state_to_dict(s: SessionState) -> dict:
@@ -218,6 +225,7 @@ def state_from_dict(raw: dict) -> SessionState:
         drug_overdose=raw.get("drug_overdose", False),
         case_ended_at=raw.get("case_ended_at"),
         revision=raw.get("revision", 0),
+        idem_keys=dict(raw.get("idem_keys") or {}),
     )
     state.records = [ClinicalRecord(**r) for r in raw.get("records", [])]
     state.pending_tasks = [PendingTask(**p) for p in raw.get("pending_tasks", [])]
