@@ -10,7 +10,7 @@ import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";
 import { PhasesEditor } from "./PhasesEditor";
 import { QuizEditor } from "./QuizEditor";
-import { Checkbox, NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput, Textarea } from "@mantine/core";
 
 interface Props {
 	state: CaseEditorState;
@@ -26,9 +26,8 @@ export function FormView({ state, dispatch, disabled }: Props) {
 
 	const name = stringField(state, "name");
 	const difficulty = numField(state, "difficulty", 1);
-	const timeLimit = numField(state, "time_limit", 20);
+	const timeLimit = numField(state, "time_limit", 30);
 	const description = stringField(state, "description");
-	const isOpen = Boolean(state.json.is_open);
 
 	return (
 		<Stack gap="md">
@@ -51,14 +50,13 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					</div>
 					<div>
 						<Text size="xs" c="dimmed" mb={4}>时间限制（分钟）</Text>
-						<NumberInput value={timeLimit} onChange={(v) => set("time_limit", Number(v))} disabled={disabled} min={1} max={180} />
+						<NumberInput value={timeLimit} onChange={(v) => set("time_limit", Number(v))} disabled={disabled} min={30} max={180} />
 					</div>
 				</SimpleGrid>
 				<div style={{ marginTop: 12 }}>
 					<Text size="xs" c="dimmed" mb={4}>描述</Text>
 					<Textarea value={description} onChange={(e) => set("description", e.currentTarget.value)} disabled={disabled} placeholder="病例简述…" autosize minRows={2} />
 				</div>
-				<Checkbox checked={isOpen} onChange={(e) => set("is_open", e.currentTarget.checked)} disabled={disabled} label="是否开放" mt="md" />
 			</Paper>
 
 			<PatientSection state={state} dispatch={dispatch} disabled={disabled} />
@@ -66,7 +64,7 @@ export function FormView({ state, dispatch, disabled }: Props) {
 
 			<ClinicalSection state={state} dispatch={dispatch} disabled={disabled} />
 			<Stack gap="md">
-				<CapabilitiesEditor state={state} dispatch={dispatch} />
+				<CapabilitiesEditor state={state} dispatch={dispatch} disabled={disabled} />
 				<AiFieldsSection
 					hiddenInfo={arrayField(state, "hidden_info", []) as string[]}
 					requiredInquiries={arrayField(state, "required_inquiries", []) as string[]}
@@ -76,8 +74,8 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				/>
 
 				<ExamAnchorsEditor
-					value={objField(state, "tools.physical_exam") as Record<string, string>}
-					onChange={(v) => set("tools.physical_exam", v)}
+					value={objField(state, "activities.physical_exam.config.vital_signs") as Record<string, string>}
+					onChange={(v) => set("activities.physical_exam.config.vital_signs", v)}
 					disabled={disabled}
 				/>
 
@@ -88,8 +86,8 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				/>
 
 				<QuizEditor
-					value={objField(state, "tools.quiz", { title: "", questions: [] }) as never}
-					onChange={(v) => set("tools.quiz", v)}
+					value={objField(state, "activities.quiz.config", { title: "", questions: [] }) as never}
+					onChange={(v) => set("activities.quiz.config", v)}
 					disabled={disabled}
 				/>
 				<PhasesEditor

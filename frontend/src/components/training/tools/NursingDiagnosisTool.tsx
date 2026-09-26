@@ -2,7 +2,7 @@
 import { IconArrowDown, IconArrowUp, IconDeviceFloppy, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActionIcon, Box, Button, Group, Text } from "@mantine/core";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
+import type { ActivityPanelProps } from "@/components/training/workspace/contract";
 
 interface Diagnosis {
 	id: string;
@@ -12,7 +12,12 @@ interface Diagnosis {
 	priority: number;
 }
 
-export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProps) {
+/** 服务端只持久化诊断内容：保存时本地 id 被剥离（见 doSave），回读时需补回稳定 id。 */
+type PersistedDiagnosis = Omit<Diagnosis, "id"> & { id?: string };
+
+export default function NursingDiagnosisTool({ activity, bus, recordId }: ActivityPanelProps) {
+	/** 命令命名空间来自 manifest 的 activity 定义 */
+	const command = activity.id;
 	const rid = Number(recordId);
 	const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
 	const [stems, setStems] = useState<string[]>([]);
@@ -28,41 +33,49 @@ export default function NursingDiagnosisTool({ bus, recordId }: TrainingToolProp
 	useEffect(() => {
 		if (loadedRef.current) return;
 		loadedRef.current = true;
-		bus.emit("tool:invoke", { tool: "nursing_diagnosis", action: "load", params: {}, recordId: rid });
-	}, [rid, bus]);
+		bus.emit("tool:invoke", { tool: command, action: "load", params: {}, recordId: rid });
+	}, [rid, bus, command]);
 
 	useEffect(() => {
-		const handler = (msg: unknown) => {
-			const m = msg as { type: string; tool?: string; action?: string; ok?: boolean; data?: {
-				diagnoses?: Diagnosis[];
+		// `tool:result` 载荷没有 type 字段（见 useToolBridge）：事件名已由 bus 过滤，
+		// 这里只按 tool/action 收敛，避免误吞其他工具或动作的结果。
+		const handler = (payload: {
+			tool?: string;
+			action?: string;
+			ok?: boolean;
+			data?: {
+				diagnoses?: PersistedDiagnosis[];
 				stems?: string[];
 				factor_options?: string[];
 				characteristic_options?: string[];
-			} };
-			if (m.type !== "tool:result" || m.tool !== "nursing_diagnosis" || m.action !== "load") return;
-			if (m.ok && m.data) {
-				setDiagnoses(m.data.diagnoses ?? []);
-				setStems(m.data.stems ?? []);
-				setFactorOpts(m.data.factor_options ?? []);
-				setCharOpts(m.data.characteristic_options ?? []);
-				idCounter.current = (m.data.diagnoses?.length ?? 0);
+			};
+		}) => {
+			if (payload.tool !== command || payload.action !== "load") return;
+			if (payload.ok && payload.data) {
+				// 回读补 id：列表 key、编辑定位与删除都以 id 为准。
+				const rows = Array.isArray(payload.data.diagnoses) ? payload.data.diagnoses : [];
+				setDiagnoses(rows.map((d, i) => ({ ...d, id: d.id || `srv-${i + 1}` })));
+				setStems(payload.data.stems ?? []);
+				setFactorOpts(payload.data.factor_options ?? []);
+				setCharOpts(payload.data.characteristic_options ?? []);
+				idCounter.current = rows.length;
 			}
 			setLoading(false);
 		};
 		bus.on("tool:result", handler);
 		return () => { bus.off("tool:result", handler); };
-	}, [bus]);
+	}, [bus, command]);
 
 	// ── Save ──
 	const doSave = useCallback(() => {
 		setSaving(true);
 		bus.emit("tool:invoke", {
-			tool: "nursing_diagnosis", action: "save",
+			tool: command, action: "save",
 			params: { diagnoses: diagnoses.map(({ id, ...rest }) => rest) },
 			recordId: rid,
 		});
 		setTimeout(() => setSaving(false), 800);
-	}, [bus, rid, diagnoses]);
+	}, [bus, command, rid, diagnoses]);
 
 	// ── Edit form state ──
 	const emptyForm = { problem: "", related_factors: [] as string[], defining_characteristics: [] as string[] };
