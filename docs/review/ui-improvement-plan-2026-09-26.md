@@ -52,7 +52,7 @@
 
 | ID | 目标 | 覆盖审计条目 | 要点 | 状态 |
 |---|---|---|---|---|
-| **S1** | theme 成为唯一外观来源 | `UI-DS-3`、`UI-MAN-1` 第 1/2 步 | 补齐 `Paper/Table/Tabs/Select/TextInput/Modal/Drawer/Pagination/SimpleGrid/Tooltip` 等 `defaultProps`；radius/icon/type 三套 scale 写进 theme；`cssVariablesResolver` 定义深色安全语义变量 | 待办 |
+| **S1** | theme 成为唯一外观来源 | `UI-DS-3`、`UI-MAN-1` 第 1/2 步 | ① 两档圆角显式化（容器/按钮 `md`，控件/小件 `sm`）；② 徽章锁定 12px 字号下限；③ 字号离群收口（10px→11px、UI 文本 11px→12px）；④ `theme.other.uiScale` 记下比例尺；⑤ 清 126 处冗余 `<Paper radius="md">` | theme 成为唯一来源且行为不变 | **已完成** · 实测三页 `minTextFz=12px`（原本 `/admin/cases` 徽章 9px、`/admin/users` 9px）、Badge 统一 `4px/12px`、两档圆角 `8px`/`4px` 不变、codemod 后 Paper 仍 8px（视觉零变化）✅ |
 | **S2** | 浅色字面量清零 + 深色回归 | `UI-DS-1` | `gray.0/1/3`、`yellow.0`、`blue.1`、`#fff` 假设 → token/`light` 变体；完成后把 `defaultColorScheme` 转 `auto` 并补首屏引导脚本 | **待办**（Q5 已产出深色实测残项作为输入，见下） |
 
 **S2 的深色残项（Q5 实测，学生首页 `/training` 深色态共 5 处低对比）**：
@@ -97,10 +97,17 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | S1 | 见下条提交 | 四闸门全过；实测最小正文号 9px → **12px**，Badge 统一 12px，两档圆角显式化，126 处冗余 `Paper radius` 清除后视觉零变化 |
 | 2026-09-26 | Q5 | `a3993d57` | 四闸门全过；实测浅色低对比 112→0（records）、91→0（users）、100→0（feedback）；阳性对照验证探针有效；深色残 5 处转为 S2 输入 |
 | 2026-09-26 | Q1–Q4 | `3e29bc2f` / `ab532f0d` | 四闸门全过（build/tsc 干净、lint 无新增、487 通过）；实测：批量条回到视口内（top 2616→798）、交卷按钮两视口可见且有名（4.52:1）、主题首点生效、低对比 365→112 / 298→91 / 18→0 |
 
 ---
+
+## 3.1 S1 的边界与遗留
+
+- 已清：`<Paper radius="md">` 126 处（tehem 默认同值，属纯噪声）与全仓 <12px 的正文文本。
+- 未清（**有意**）：`Button/ActionIcon/Card/Modal/Notification` 上的 `radius="md"` 覆盖保留 —— 与 theme 默认同值、数量小，随触碰该文件时顺带清；强行全量 codemod 的收益不足以承担误伤（例如 `Badge/Tooltip` 的显式 `sm` 被误删会改变观感）。
+- 图表轴刻度统一 11px（`theme.other.uiScale.chartAxisTick`），圆形序号/选项标记类 pill 允许 11px；这两类不适用 12px 正文下限。
 
 ## 4. 明确不做
 
