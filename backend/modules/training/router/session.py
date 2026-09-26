@@ -317,36 +317,7 @@ def _create_record(
 
     db.commit()
 
-    # 构建会话数据 — 前端可直接缓存，跳过初始 GET /records/{id} 请求
-    session = {
-        "id": record.id,
-        "status": TrainingStatus.IN_PROGRESS,
-        "case_id": case.id,
-        "start_time": record.start_time.isoformat() if record.start_time else None,
-        "time_limit": time_limit,
-        "remaining_seconds": time_limit * 60,
-        "mode": normalize_training_mode((config.get("behavior") or {}).get("mode")),
-        "hide_case_info": hidden_case,
-        "patient_name": "患者" if hidden_case else public_patient_info["name"],
-        "patient_age": 0 if hidden_case else public_patient_info["age"],
-        "patient_gender": "" if hidden_case else public_patient_info["gender"],
-        "case_title": "" if hidden_case else case_data.get("title", "") or case.name,
-        "chief_complaint": "" if hidden_case else case_data.get("chief_complaint", ""),
-        "patient_info": ({"name": "患者", "age": 0, "gender": ""} if hidden_case else public_patient_info),
-        "features": resolved_features,
-        "messages": [
-            {
-                "id": greeting_msg.id,
-                "role": "patient",
-                "content": greeting,
-                "created_at": record.start_time.isoformat() if record.start_time else None,
-            }
-        ],
-        "scene": _public_scene(record),
-        "pending_questionnaires": 0,
-        "from_assignment": assignment_id is not None,
-    }
-    return record, greeting, session
+    return record, greeting
 
 
 @router.post("/start", response_model=TrainingStartResponse)
@@ -389,7 +360,7 @@ def start_training(
     # workflow 也由这条 revision 决定（请求体不能选择 workflow）并冻结在记录上。
     revision = require_current_revision(db, case)
 
-    record, greeting, session = _create_record(
+    record, greeting = _create_record(
         db,
         current_user.id,
         case,
@@ -409,14 +380,11 @@ def start_training(
         },
     )
     pending_questionnaires = count_pending_required(db, current_user.id, case.id)
-    session["pending_questionnaires"] = pending_questionnaires
-
     return TrainingStartResponse(
         record_id=record.id,
         greeting=greeting,
         case_name=case.name,
         pending_questionnaires=pending_questionnaires,
-        session=session,
     )
 
 
@@ -557,7 +525,7 @@ def start_training_from_assignment(
     # 作业钉住的病例版本（发布时固化，列已 NOT NULL）：解析不到就拒绝开始，
     # 不回落病例当前版本 —— 否则同一作业会在不同时间跑在不同内容上。
     revision = require_pinned_revision(db, assignment.case_revision_id, case=case)
-    record, greeting, session = _create_record(
+    record, greeting = _create_record(
         db,
         current_user.id,
         case,
@@ -578,7 +546,6 @@ def start_training_from_assignment(
         record_id=record.id,
         greeting=greeting,
         case_name="隐藏病例练习" if (assignment.behavior or {}).get("hide_case_info") else case.name,
-        session=session,
         pending_questionnaires=count_pending_required(db, current_user.id, case.id),
     )
 
@@ -631,7 +598,7 @@ def start_blind_box_training(
         "features": {},
         "behavior": {"mode": TrainingMode.BLIND_BOX.value},
     }
-    record, greeting, session = _create_record(
+    record, greeting = _create_record(
         db,
         current_user.id,
         case,
@@ -643,13 +610,11 @@ def start_blind_box_training(
     )
 
     pending_questionnaires = count_pending_required(db, current_user.id, case.id)
-    session["pending_questionnaires"] = pending_questionnaires
     return TrainingStartResponse(
         record_id=record.id,
         greeting=greeting,
         case_name="盲盒训练",
         pending_questionnaires=pending_questionnaires,
-        session=session,
     )
 
 

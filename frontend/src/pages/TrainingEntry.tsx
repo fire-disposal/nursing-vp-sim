@@ -23,7 +23,7 @@ export default function TrainingEntry() {
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
 		retry: 3,
-		staleTime: 5 * 60_000,  // 5min — 信任 startTraining 返回的 session 缓存数据
+		staleTime: 5 * 60_000,
 		// 训练进行中每 15s 轻量轮询：感知服务端状态变更（他端结束、remaining 校准）。
 		// 安全前提：trainingStore.init 幂等守卫保证轮询 refetch 不会冲掉会话内消息。
 		refetchInterval: (query) =>
@@ -31,7 +31,6 @@ export default function TrainingEntry() {
 	});
 
 	// 进入训练页：恢复引导/盲盒暂停时间；独立考核由服务端保持连续计时。
-	// 随后重取完整详情，避免 startTraining 的轻量 session 缺字段。
 	useEffect(() => {
 		if (!recordId) return;
 		questionnairePauseActiveRef.current = false;

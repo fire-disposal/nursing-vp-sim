@@ -241,7 +241,6 @@ export default function TrainingSelect() {
 		mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
 		onSuccess: (res) => {
 			const data: StartResponse = res.data;
-			if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
 			navigate(`/training/${data.record_id}`);
 		},
 		onError: (err: unknown) => {
@@ -263,7 +262,6 @@ export default function TrainingSelect() {
 		mutationFn: () => startBlindBox(),
 		onSuccess: (res) => {
 			const data: StartResponse = res.data;
-			if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
 			navigate(`/training/${data.record_id}`);
 		},
 		onError: (err: unknown) => {
@@ -290,7 +288,6 @@ export default function TrainingSelect() {
 			const res = await startAssignment(assignmentId);
 			const data = res.data as Record<string, unknown>;
 			if (typeof (data as { record_id?: number }).record_id === "number") {
-				if (data.session) queryClient.setQueryData(queryKeys.training.detail(String(data.record_id)), data.session);
 				navigate(`/training/${(data as { record_id: number }).record_id}`);
 			}
 		} catch (err: unknown) {
