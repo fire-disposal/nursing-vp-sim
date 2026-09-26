@@ -19,3 +19,4 @@
 | [患者上下文机制重构](context-mechanism-redesign.md) | 已转正（实施中） | 四域消息组装 + token 预算历史 + few-shot 示例段 + 隐藏主题泄漏守卫 |
 | [Seedance 视频情绪循环系统](seedance-emotion-loop-design.md) | 待评审（暂不实施） | 5 原型×2 变体通用 mood loop + 双缓冲边界调度；防素材膨胀 D1-D4 |
 | [提示词与上下文版本管理](prompt-context-versioning.md) | 待评审 | 产物粒度身份（提示词/评分提示词/上下文策略/rubric）+ 记录冻结 + 逐轮 ledger 落审计表；管理面只读目录与跨版本归因，不做在线编辑 |
+| [管线五阶段收敛 + Job/API 进程分离](pipeline-and-job-separation.md) | 待评审（**高优先级**） | 五阶段显式化（删中间件协议/驱动器/空阶段与双份驱动）+ 持久化 `jobs` 表（SKIP LOCKED 认领、租约心跳、退避）+ api/worker 同镜像不同角色；含内存实测与切换回滚路径 |
