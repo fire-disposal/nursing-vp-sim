@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import and_, func, literal, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
@@ -76,6 +76,11 @@ def _artifact_states(db: Session, record: TrainingRecord) -> dict[str, ArtifactS
     }
 
 
+#: 训练中隐藏病例身份时对外的占位文案；搜索框按同一套文案匹配（见下方 search 过滤）
+BLIND_BOX_PLACEHOLDER = "盲盒训练"
+HIDDEN_CASE_PLACEHOLDER = "隐藏病例练习"
+
+
 def _hidden_case(record: TrainingRecord) -> str | None:
     """训练期间隐藏病例身份的占位文案；未隐藏或已结束返回 None。
 
@@ -85,9 +90,9 @@ def _hidden_case(record: TrainingRecord) -> str | None:
     behavior = (record.practice_snapshot or {}).get("behavior", {}) or {}
     mode = normalize_training_mode(behavior.get("mode"))
     if mode == TrainingMode.BLIND_BOX.value:
-        placeholder = "盲盒训练"
+        placeholder = BLIND_BOX_PLACEHOLDER
     elif bool(behavior.get("hide_case_info")):
-        placeholder = "隐藏病例练习"
+        placeholder = HIDDEN_CASE_PLACEHOLDER
     else:
         return None
     return placeholder if record.status == TrainingStatus.IN_PROGRESS else None
@@ -100,6 +105,9 @@ def get_records(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     student_name: Annotated[str | None, Query(description="按学生姓名模糊搜索")] = None,
+    search: Annotated[
+        str | None, Query(description="按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案）")
+    ] = None,
     case_id: Annotated[int | None, Query(description="按病例ID筛选")] = None,
     status: Annotated[str | None, Query(description="按状态筛选(in_progress/completed)")] = None,
     review_status: Annotated[
@@ -130,6 +138,32 @@ def get_records(
                 ClassMembership.class_id == class_id,
                 ClassMembership.member_role == "student",
             )
+    if search:
+        # 只按"界面上可见的名称"匹配，避免盲盒（进行中隐藏病例身份）被搜索框反查出真实标题：
+        # 进行中且启用隐藏的记录，其可见名是占位文案；其余记录可见名即 Case.name。
+        pattern = f"%{search}%"
+        behavior = TrainingRecord.practice_snapshot["behavior"]
+        hidden_mode = or_(
+            behavior["mode"].astext == TrainingMode.BLIND_BOX.value,
+            func.coalesce(behavior["hide_case_info"].astext, "false") == "true",
+        )
+        hidden_in_progress = and_(
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
+            hidden_mode,
+        )
+        base = base.join(Case, Case.id == TrainingRecord.case_id).filter(
+            or_(
+                and_(~hidden_in_progress, Case.name.ilike(pattern)),
+                and_(
+                    hidden_in_progress,
+                    or_(
+                        literal(BLIND_BOX_PLACEHOLDER).ilike(pattern),
+                        literal(HIDDEN_CASE_PLACEHOLDER).ilike(pattern),
+                    ),
+                ),
+            )
+        )
+
     if exclude_is_test:
         base = base.filter(TrainingRecord.is_test == False)
 
