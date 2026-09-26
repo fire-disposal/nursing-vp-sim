@@ -282,17 +282,18 @@ export default function TeacherRecordsPage() {
 								onChange={(e) => setParam("date_to", e.target.value)}
 							/>
 						</Stack>
-						<Group gap={8} align="center" wrap="wrap" style={{ alignSelf: "end" }}>
-							<Checkbox
-								label="排除试跑"
-								checked={exclude_is_test}
-								onChange={(e) => setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")}
-							/>
-							<Button variant="outline" onClick={handleClearFilters}>
-								清除过滤
-							</Button>
-						</Group>
 					</SimpleGrid>
+
+					<Group justify="space-between" align="center" wrap="wrap" mt="sm">
+						<Checkbox
+							label="排除试跑"
+							checked={exclude_is_test}
+							onChange={(e) => setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")}
+						/>
+						<Button variant="outline" onClick={handleClearFilters}>
+							清除过滤
+						</Button>
+					</Group>
 				</Paper>
 
 				{/* Stats bar */}

@@ -183,7 +183,7 @@ export default function StudentTrendDialog({
 							)}
 						</Group>
 
-						<SimpleGrid cols={{ base: 2, sm: 5 }} spacing="md">
+						<SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
 							<Paper bg="var(--mantine-color-gray-1)" p="sm">
 								<Group gap={6} wrap="nowrap">
 									<IconBolt size={13} />

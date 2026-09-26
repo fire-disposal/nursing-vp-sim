@@ -269,7 +269,7 @@ export default function ClassDetailPage() {
 								</Group>
 								<Stack gap={8}>
 									{members.map((m) => (
-										<Paper key={m.user_id} withBorder p="sm">
+										<Paper key={m.user_id} p="sm">
 											<Group gap={12} wrap="nowrap" align="flex-start">
 												<Checkbox
 													mt={4}

@@ -59,7 +59,7 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 					{questions.map((q, qi) => {
 						const isOpen = expanded.has(q.id);
 						return (
-							<Paper key={q.id} withBorder>
+							<Paper key={q.id}>
 								<Button
 									variant="ghost"
 									fullWidth

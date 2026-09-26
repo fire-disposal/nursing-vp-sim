@@ -240,7 +240,7 @@ export default function MyFeedbackPage() {
 									)}
 
 									{fb.developer_reply && (
-										<Paper bg="blue.1" px="sm" py="xs" mt="md" style={{ border: "1px solid var(--mantine-color-blue-3)" }} >
+										<Paper bg="var(--mantine-color-blue-light)" px="sm" py="xs" mt="md">
 											<Group gap={6} mb={4}>
 												<IconMessageReply
 													size={13}

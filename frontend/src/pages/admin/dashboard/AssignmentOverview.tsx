@@ -39,7 +39,7 @@ export function AssignmentOverview({ assignments }: AssignmentOverviewProps) {
 									)
 								: 0;
 						return (
-							<Paper key={a.id} withBorder p="sm">
+							<Paper key={a.id} p="sm">
 								<Stack gap={8}>
 									<Group justify="space-between" align="flex-start" wrap="nowrap">
 										<div style={{ minWidth: 0 }}>

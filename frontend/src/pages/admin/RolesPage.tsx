@@ -229,7 +229,7 @@ export default function RolesPage() {
 											size="xs"
 										/>
 									</Group>
-									<SimpleGrid cols={3} spacing={8}>
+									<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={8}>
 										{PERMISSION_DEFS.map((p) => (
 											<Checkbox
 												key={p.key}

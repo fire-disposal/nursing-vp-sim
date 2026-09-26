@@ -188,7 +188,7 @@ export default function History() {
 								const durMins = recordDurMins(r);
 								const status = recordStatus(r);
 								return (
-									<Paper key={r.id} withBorder p="sm">
+									<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
 										<UnstyledButton
 											onClick={() => navigate(`/record/${r.id}`)}
 											style={{ width: "100%", textAlign: "left" }}

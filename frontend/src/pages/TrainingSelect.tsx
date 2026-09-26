@@ -470,7 +470,7 @@ export default function TrainingSelect() {
 						</Group>
 					</Paper>
 
-					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md" style={{ alignItems: "start" }}>
 						<Paper withBorder p="md">
 							<Group justify="space-between" gap="sm">
 								<Text size="sm" fw={600}>待完成作业</Text>
@@ -568,7 +568,7 @@ export default function TrainingSelect() {
 						</Paper>
 					</SimpleGrid>
 
-					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
+					<SimpleGrid cols={1} spacing="md">
 						{/* 训练概览 — 状态磁贴 + 统计 */}
 						<Paper withBorder p="md">
 							<Group gap="xs" mb="sm">
@@ -600,10 +600,10 @@ export default function TrainingSelect() {
 							</SimpleGrid>
 							{myStats && (
 								<SimpleGrid cols={{ base: 1, sm: 2, xl: 1 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
-									<StatCard icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
-									<StatCard icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
-									<StatCard icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
-									<StatCard icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
+									<StatCard withBorder={false} icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
+									<StatCard withBorder={false} icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
+									<StatCard withBorder={false} icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
+									<StatCard withBorder={false} icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
 								</SimpleGrid>
 							)}
 							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
@@ -612,9 +612,10 @@ export default function TrainingSelect() {
 									<Text size="sm" fw={500}>进步趋势</Text>
 								</Group>
 								{trendItems.length > 0 ? (
-									<SimpleGrid cols={4} spacing="xs">
+									// flex-wrap 而非固定列数：趋势条数随数据变化（2–8 条），固定 4 列会出现末行空列
+									<Group gap="xs" align="stretch">
 										{trendItems.slice(0, 8).map((item, index) => (
-											<Paper key={`${String(item.period_label ?? "period")}-${index}`} bg="gray.1" p={8} ta="center">
+											<Paper key={`${String(item.period_label ?? "period")}-${index}`} bg="var(--mantine-color-default-hover)" p={8} ta="center" style={{ flex: "1 1 84px", minWidth: 84 }}>
 												<Text size="sm" fw={600} className="tabular-nums">
 													{item.average_score != null ? String(item.average_score) : "--"}
 												</Text>
@@ -623,7 +624,7 @@ export default function TrainingSelect() {
 												</Text>
 											</Paper>
 										))}
-									</SimpleGrid>
+									</Group>
 								) : (
 									<Paper px="sm" py="md" ta="center" withBorder style={{ borderStyle: "dashed" }}>
 										<Text size="xs" c="dimmed">

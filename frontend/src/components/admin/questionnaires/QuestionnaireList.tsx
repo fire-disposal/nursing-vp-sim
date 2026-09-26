@@ -158,7 +158,7 @@ export default function QuestionnaireList({
 			</Group>
 
 			<Paper withBorder shadow="sm" p="md">
-				<Paper withBorder bg="var(--mantine-color-gray-1)" p="md" mb="md" >
+				<Paper bg="var(--mantine-color-default-hover)" p="md" mb="md">
 					<Group align="flex-end" gap="md">
 						<Select
 							label="问卷类型"

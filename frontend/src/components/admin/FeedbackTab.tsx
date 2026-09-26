@@ -203,8 +203,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					<Paper
 						p="sm"
 						mt={8}
-						bg="var(--mantine-color-blue-0)"
-						style={{ border: "1px solid var(--mantine-color-blue-3)" }}
+						bg="var(--mantine-color-blue-light)"
 					>
 						<Text size="sm" lh={1.6}>
 							<Text size="xs" fw={500} c="blue" component="span">
@@ -562,7 +561,7 @@ export default function FeedbackTab() {
 	};
 
 	return (
-		<Paper withBorder p="md" shadow="sm">
+		<Paper p="md">
 			<Box mb="md">
 				<Button
 					variant="subtle"
@@ -585,7 +584,7 @@ export default function FeedbackTab() {
 				)}
 			</Box>
 
-			<Paper withBorder p="md" bg="var(--mantine-color-gray-1)" mb="md">
+			<Paper p="md" bg="var(--mantine-color-default-hover)" mb="md">
 				<Group gap="lg" align="flex-end" wrap="wrap" justify="space-between">
 					<Group gap={8} align="flex-end" wrap="wrap">
 						<Stack gap={4}>

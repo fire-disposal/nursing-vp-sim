@@ -360,7 +360,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				</Button>
 			</Group>
 
-			<Paper withBorder p="md" shadow="sm">
+			<Paper p="md">
 				<Group gap={8} mb="md" wrap="wrap">
 					<SearchInput
 						value={search}
@@ -491,7 +491,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								</Text>{" "}
 								的密码已重置，请妥善保存：
 							</Text>
-							<Group gap={8} p="md" bg="var(--mantine-color-gray-1)" wrap="nowrap" style={{ borderRadius: "var(--mantine-radius-md)" }}>
+							<Group gap={8} p="md" bg="var(--mantine-color-default-hover)" wrap="nowrap" style={{ borderRadius: "var(--mantine-radius-md)" }}>
 								<Text ff="monospace" fw={700} size="lg" style={{ flex: 1, userSelect: "all" }}>
 									{resetPasswordDialog.password}
 								</Text>

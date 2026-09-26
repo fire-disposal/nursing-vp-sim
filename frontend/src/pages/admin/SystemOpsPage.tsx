@@ -56,7 +56,7 @@ function LLMDetailCard({ data }: { data: DiagnoseResponse }) {
 				<CardTitle>LLM 调用 (近 24h)</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<SimpleGrid cols={2} spacing="sm">
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
 					<Text size="sm" c="dimmed">总调用</Text>
 					<Text size="sm" ta="right" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
 						{data.llm?.total_calls_24h?.toLocaleString() ?? 0}
@@ -103,7 +103,7 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 				<CardTitle>评分 & 会话</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<SimpleGrid cols={2} spacing="sm">
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
 					<Text size="sm" c="dimmed">评分成功率</Text>
 					<Text
 						size="sm"
@@ -222,7 +222,7 @@ function VoiceBudgetCard({ data }: { data: DiagnoseResponse }) {
 				<CardTitle>语音与预算</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<SimpleGrid cols={2} spacing="sm">
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
 					<Text size="sm" c="dimmed">TTS 调用 (24h)</Text>
 					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
 						{(tts?.calls_24h ?? 0).toLocaleString()}
@@ -290,7 +290,7 @@ function BusinessCard({ data }: { data: DiagnoseResponse }) {
 				<CardTitle>业务量 (今日 · 北京)</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<SimpleGrid cols={2} spacing="sm">
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
 					<Text size="sm" c="dimmed">今日用户</Text>
 					<Text size="sm" ta="right" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
 						{(business?.today_users ?? 0).toLocaleString()}
@@ -359,7 +359,7 @@ function HttpFrontendCard({ data }: { data: DiagnoseResponse }) {
 				<CardTitle>HTTP & 前端遥测</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<SimpleGrid cols={2} spacing="sm">
+				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
 					<Text size="sm" c="dimmed">请求总数</Text>
 					<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>{requests?.total ?? 0}</Text>
 					<Text size="sm" c="dimmed">4xx</Text>
@@ -477,7 +477,7 @@ export default function SystemOpsPage() {
 
 			<StatGrid data={data} />
 
-			<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+			<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md" style={{ alignItems: "start" }}>
 				<LLMDetailCard data={data} />
 				<ScoringSessionsCard data={data} />
 				<VoiceBudgetCard data={data} />

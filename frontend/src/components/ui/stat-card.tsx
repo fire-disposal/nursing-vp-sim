@@ -18,6 +18,8 @@ interface StatCardProps {
 	trend?: number;
 	onClick?: () => void;
 	className?: string;
+	/** 嵌在不带边框的容器里时用 false，避免"框套框"（见审计 UI-NEST-1）。 */
+	withBorder?: boolean;
 }
 
 /**
@@ -32,9 +34,10 @@ export default function StatCard({
 	trend,
 	onClick,
 	className,
+	withBorder = true,
 }: StatCardProps) {
 	return (
-		<Paper withBorder p="md" className={className} style={{ display: "flex", alignItems: "center", gap: "0.875rem", cursor: onClick ? "pointer" : undefined, transition: "box-shadow 150ms ease, transform 150ms ease", ...(onClick ? { ":hover": { boxShadow: "var(--mantine-shadow-sm)", transform: "translateY(-1px)", }, } : {}), }} >
+		<Paper withBorder={withBorder} p="md" className={className} style={{ display: "flex", alignItems: "center", gap: "0.875rem", cursor: onClick ? "pointer" : undefined, transition: "box-shadow 150ms ease, transform 150ms ease", ...(onClick ? { ":hover": { boxShadow: "var(--mantine-shadow-sm)", transform: "translateY(-1px)", }, } : {}), }} >
 			{Icon && (
 				<ThemeIcon size={44} radius="md" variant="light" color={COLOR_MAP[color]}>
 					<Icon size={20} strokeWidth={1.8} />

@@ -50,7 +50,7 @@ function BudgetProgress({
 
 function StatGrid({ data }: { data: CostDashboardResponse }) {
 	return (
-		<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+		<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 			<StatCard
 				icon={IconCoin}
 				value={`¥${data.llm_today.total_cost.toFixed(2)}`}

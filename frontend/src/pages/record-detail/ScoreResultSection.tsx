@@ -137,7 +137,7 @@ export default function ScoreResultSection({
 				)}
 
 				{isReviewed && review?.review_comment && (
-					<Paper withBorder bg="gray.0" px="md" py="sm">
+					<Paper bg="var(--mantine-color-default-hover)" px="md" py="sm">
 						<Text size="sm">
 							<Text component="span" fw={600} c="dimmed">
 								复核备注：

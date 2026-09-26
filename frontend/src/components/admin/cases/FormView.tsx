@@ -31,7 +31,7 @@ export function FormView({ state, dispatch, disabled }: Props) {
 			{/* ── Basic Info ── */}
 			<Paper withBorder p="md">
 				<Text size="sm" fw={500} mb="md">基本信息</Text>
-				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 					<div>
 						<Text size="xs" c="dimmed" mb={4}>病例名称</Text>
 						<TextInput value={name} onChange={(e) => set("name", e.currentTarget.value)} disabled={disabled} placeholder="例：急性阑尾炎" />
