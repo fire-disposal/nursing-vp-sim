@@ -444,13 +444,19 @@ jobs:
             # 固定顺序 备份(上) → migrate → 起服务 → health。应用启动只校验 schema（不迁移），
             # 所以迁移没成功就绝不启动新服务；迁移失败即回退旧 revision 并以非零退出。
             echo ">> Ensure DB up (migration target)"
-            docker compose -f docker-compose.yml --env-file .env up -d db
+            # 传 IMAGE_VERSION 是为了消掉 compose 的 "variable is not set" 警告 ——
+            # 部署日志里的噪声会掩盖真实告警（db 自身镜像固定为 postgres:15）。
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d db
             for i in \$(seq 1 30); do
               [ "\$(docker inspect --format '{{.State.Health.Status}}' nursing-db 2>/dev/null || echo '')" = healthy ] && break
               sleep 2
             done
             echo ">> Migrate DB → alembic upgrade head ($VER image)"
-            if ! IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic upgrade head; then
+            # `-T`（--no-TTY）必须保留：本脚本经 ssh 'bash -s' 从 **stdin** 传入，
+            # 而 `docker compose run` 默认接管 stdin —— 它会吞掉脚本剩余部分，
+            # bash 随即读到 EOF 并以 0 退出：迁移跑完了、服务却从未切换，流水线却报成功。
+            # `</dev/null` 是第二道保险（即使将来去掉 -T 也不会再吞脚本）。
+            if ! IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env run --rm -T --no-deps backend alembic upgrade head </dev/null; then
               echo "::error::alembic upgrade head 失败——迁移未完成，不启动新服务"
               rollback_deploy "migration failed!"
               exit 1
@@ -473,7 +479,16 @@ jobs:
             done
             [ "\$OK" = true ] || { rollback_deploy "health check timeout."; exit 1; }
 
-            docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health && echo ">> v$VER ✓"
+            # 断言**跑起来的版本 == 本次发布的版本**。
+            # 只 `curl -sf` 是不够的：容器没被重建时它照样 200，于是"部署成功"可能是旧代码在跑
+            # （2026-09-26 真实发生过：迁移跑完、服务未切换、流水线报成功）。
+            RUNNING_VER="\$(docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health | sed -n 's/.*\"version\":\"\\([^\"]*\\)\".*/\\1/p')"
+            if [ "\$RUNNING_VER" != "$VER" ]; then
+              echo "::error::服务在跑 \$RUNNING_VER，期望 $VER —— 镜像未切换（旧代码 + 新 schema 是危险组合）"
+              rollback_deploy "version mismatch after deploy!"
+              exit 1
+            fi
+            echo ">> v$RUNNING_VER ✓（版本已断言）"
             echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/$OWNER/nursing-vp-sim-backend:$VER|ghcr.io/$OWNER/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
             tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
             # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
