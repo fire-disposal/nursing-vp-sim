@@ -374,7 +374,9 @@ jobs:
             # 静默失败就是这样：迁移跑完、服务没切、流水线报成功。这里把"没跑到最后一行"
             # 变成非零退出；与部署窗口标记共用同一个 trap（后设的 trap 会覆盖前者）。
             DEPLOY_COMPLETED=no
-            trap 'rc=$?; rm -f /opt/server-ops/monitor/.deploying; [ "$DEPLOY_COMPLETED" = yes ] || { echo "::error::部署脚本未执行完（stdin 被吞？）——状态未知，需人工核对"; exit 1; }; exit $rc' EXIT
+            # 注意：本 heredoc **不带引号**，body 里的 $VAR 一律由 runner 侧展开 ——
+            # 所有脚本局部变量都必须写成 \$VAR（\$rc / \$DEPLOY_COMPLETED / \$RUNNING_VER）。
+            trap 'rc=\$?; rm -f /opt/server-ops/monitor/.deploying; [ "\$DEPLOY_COMPLETED" = yes ] || { echo "::error::部署脚本未执行完（stdin 被吞？）——状态未知，需人工核对"; exit 1; }; exit \$rc' EXIT
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             echo ">> Deploy v$VER"
 
@@ -493,7 +495,7 @@ jobs:
               rollback_deploy "version mismatch after deploy!"
               exit 1
             fi
-            echo ">> v$RUNNING_VER ✓（版本已断言）"
+            echo ">> v\$RUNNING_VER ✓（版本已断言）"
             echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/$OWNER/nursing-vp-sim-backend:$VER|ghcr.io/$OWNER/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
             tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
             # Stability-aware prune: keep long-running (>=24h) + in-use + recent rollback buffer
