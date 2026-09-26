@@ -10,7 +10,7 @@ Architecture
   ``LISTEN``/``UNLISTEN``, one for queued ``NOTIFY`` writes.  Incoming payloads
   fan out to local subscriber queues via ``loop.call_soon_threadsafe``.
 
-This replaces the old process-local ``RealtimeHub`` and makes WebSocket event
+This replaces the earlier process-local in-memory hub and makes WebSocket event
 delivery safe with ``uvicorn --workers N`` (N > 1).
 """
 
@@ -68,7 +68,7 @@ class PgRealtimeHub:
         self._notify_dropped = 0
         self._running = False
 
-    # ── public API (preserves old RealtimeHub contract) ──────────────
+    # ── public API (stable contract for WS routers) ──────────────
 
     async def subscribe(self, user_id: int) -> asyncio.Queue[dict[str, Any]]:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=50)
@@ -287,7 +287,3 @@ class PgRealtimeHub:
             log.debug("Invalid NOTIFY payload on channel=%s", notify.channel)
             return
         loop.call_soon_threadsafe(self._publish_local, user_id, event)
-
-
-# Backwards-compatible alias so existing imports work unmodified.
-RealtimeHub = PgRealtimeHub

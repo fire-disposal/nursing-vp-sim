@@ -11,7 +11,6 @@ import logging
 import threading
 from contextlib import suppress
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import insert, text
 
@@ -26,18 +25,15 @@ from core.config import (
 )
 from core.database import SessionLocal, engine
 from infra.diagnose import get_diagnose_service
-from infra.llm import LogWorker, ProfileRouter
+from infra.llm import LogWorker
 from infra.llm.client import LLMClient
 from infra.metrics import MetricsSnapshot
 from infra.queue import TaskQueue
-from infra.realtime import RealtimeHub
+from infra.realtime import PgRealtimeHub
 from infra.scoring_progress import ScoringProgressTracker
 from models import Notification, SystemNotification, User
 from modules.training.session.cache import InitiativeCache
 from modules.training.session.settlement import settlement_loop
-
-if TYPE_CHECKING:
-    import httpx
 
 log = logging.getLogger(__name__)
 
@@ -58,12 +54,8 @@ def _active_trainings() -> int:
 
 NOTIFICATION_LOCK_KEY = 987654322
 
-_infra_client: httpx.AsyncClient | None = None
-_infra_router: ProfileRouter | None = None
-_infra_log_worker: LogWorker | None = None
+# 后台 loop 线程（start_background_loop 建立），shutdown 时由 stop_background_loop 停止。
 _main_loop: asyncio.AbstractEventLoop | None = None
-_background_thread: threading.Thread | None = None
-_loop_lock = threading.Lock()
 
 
 async def startup(app):
@@ -76,7 +68,7 @@ async def startup(app):
     init_tts(app_state)
 
     if hasattr(app_state, "log_worker") and app_state.log_worker is not None:
-        start_background_loop(app_state, app_state.httpx_client, app_state.llm_router, app_state.log_worker)
+        start_background_loop(app_state)
     await start_settlement(app_state, CLEANUP_INTERVAL_SECONDS)
 
     loop = asyncio.get_running_loop()
@@ -124,10 +116,10 @@ async def init_infra(app_state, llm_router):
     app_state.frontend_error_buffer = FrontendErrorBuffer()
 
     loop = asyncio.get_running_loop()
-    hub = RealtimeHub()
+    hub = PgRealtimeHub()
     hub.start(loop)
     app_state.realtime_hub = hub
-    log.info("RealtimeHub: PG LISTEN/NOTIFY listener started")
+    log.info("PgRealtimeHub: PG LISTEN/NOTIFY listener started")
 
     metrics = MetricsSnapshot()
     app_state.metrics = metrics
@@ -199,14 +191,15 @@ def init_tts(app_state):
         log.exception("TTS client init failed (non-fatal)")
 
 
-def start_background_loop(app_state, httpx_client, llm_router, log_worker):
+def start_background_loop(app_state):
     """Start a dedicated event loop thread for cross-thread background work."""
+    global _main_loop
     loop = asyncio.new_event_loop()
     thread = threading.Thread(target=loop.run_forever, daemon=False, name="bg-loop")
     thread.start()
     app_state._background_loop = loop
     app_state._background_thread = thread
-    set_training_infra(httpx_client, llm_router, log_worker, loop)
+    _main_loop = loop
     return loop
 
 
@@ -295,60 +288,12 @@ async def notification_publisher(interval: int = 60):
         await asyncio.to_thread(publish_pending_notifications)
 
 
-def set_training_infra(client, router_obj, log_worker, background_loop=None):
-    global _infra_client, _infra_router, _infra_log_worker, _main_loop
-    _infra_client = client
-    _infra_router = router_obj
-    _infra_log_worker = log_worker
-    if background_loop is not None:
-        _main_loop = background_loop
-
-
 def stop_background_loop():
-    global _main_loop, _background_thread
+    """Stop the background event loop thread started by ``start_background_loop``."""
+    global _main_loop
     if _main_loop is not None and not _main_loop.is_closed():
         _main_loop.call_soon_threadsafe(_main_loop.stop)
-    if _background_thread is not None and _background_thread.is_alive():
-        _background_thread.join(timeout=10)
     _main_loop = None
-    _background_thread = None
-
-
-def _get_client():
-    if _infra_client is None:
-        raise RuntimeError("Training infra not initialized")
-    return _infra_client
-
-
-def _get_router():
-    if _infra_router is None:
-        raise RuntimeError("Training infra not initialized")
-    return _infra_router
-
-
-def _get_log_worker():
-    if _infra_log_worker is None:
-        raise RuntimeError("Training infra not initialized")
-    return _infra_log_worker
-
-
-def _schedule_background(coro):
-    try:
-        loop = asyncio.get_running_loop()
-        return loop.create_task(coro)
-    except RuntimeError:
-        loop = _ensure_loop()
-        return asyncio.run_coroutine_threadsafe(coro, loop)
-
-
-def _ensure_loop():
-    global _main_loop, _background_thread
-    with _loop_lock:
-        if _main_loop is None or _main_loop.is_closed():
-            _main_loop = asyncio.new_event_loop()
-            _background_thread = threading.Thread(target=_main_loop.run_forever, daemon=False)
-            _background_thread.start()
-    return _main_loop
 
 
 def _handle_task_exception(loop, context):

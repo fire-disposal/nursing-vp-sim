@@ -6,7 +6,7 @@ Protocol (JSON messages):
     { "type": "ping" }                          — 连接保活；本通道唯一的出站客户端消息
 
   Server → Client:
-    { "type": "<scoring_event>", … }            — forwarded from RealtimeHub
+    { "type": "<scoring_event>", … }            — forwarded from PgRealtimeHub
     { "type": "heartbeat" }
 
 写入边界（docs/16 §四·4.2「一个事实，一个 owner」）:

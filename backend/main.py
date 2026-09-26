@@ -239,13 +239,6 @@ async def lifespan(app: FastAPI):
     await bootstrap_shutdown(app)
 
 
-def _handle_task_exception(loop, ctx):
-    msg = ctx.get("message", "")
-    exc = ctx.get("exception")
-    task_name = getattr(ctx.get("task"), "get_name", lambda: "?")() if ctx.get("task") else "?"
-    log.error("asyncio task 异常 %s: %s | %s", task_name, msg, exc)
-
-
 # ── Application ──
 
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)

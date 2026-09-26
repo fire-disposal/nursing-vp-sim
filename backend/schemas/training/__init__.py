@@ -1,11 +1,6 @@
 """Training schemas — re-exported from sub-modules for backward compatibility."""
 
-from schemas.training.emotion import (
-    EmotionStateResponse,
-    InitiativeStateResponse,
-    InitiativeTriggerResponse,
-)
-from schemas.training.exam import ExamOperationResponse, ExamOperationResult
+from schemas.training.emotion import InitiativeTriggerResponse
 from schemas.training.notification import TrainingNotificationItem
 from schemas.training.nursing import (
     NursingRecordError,
@@ -36,10 +31,6 @@ __all__ = [
     "ChatCorrectionRequest",
     "ChatMessageRequest",
     "ChatMessageResponse",
-    "EmotionStateResponse",
-    "ExamOperationResponse",
-    "ExamOperationResult",
-    "InitiativeStateResponse",
     "InitiativeTriggerResponse",
     "MessageCorrectionStatus",
     "MessageItem",
