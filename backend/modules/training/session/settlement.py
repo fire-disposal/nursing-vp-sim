@@ -8,7 +8,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, text
+from sqlalchemy import DateTime, cast, func, or_, text
 
 from core.database import SessionLocal
 from core.statuses import ScoringStatus, TrainingStatus
@@ -150,21 +150,28 @@ def _abandon_stale_records(db) -> None:
 
 
 def _sweep_stale_scoring_records(db) -> int:
-    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed.
+    """Mark scoring records stuck in pending/processing longer than STALE_SCORING_SWEEP_MINUTES as failed.
 
     分类走 ``scoring.runner.classify_stuck_records``（与启动恢复同一判定）；区别只在
     终态策略：本进程内超龄且无分的记录**不自动重跑**（避免故障期每 10 分钟循环烧
     LLM 预算），标 failed 并通知，由用户手动重试。
+
+    新鲜度按**本次尝试**（``runtime_state.scoring_requested_at``，由 ``acquire_scoring``
+    在同一语句内写入）衡量，而不是按 ``end_time``：否则对结束已久的记录重试时，
+    刚置的 pending 会被下一轮清扫立刻打回 failed，手动重试结构性失效。没有标记的
+    历史行回退到 ``end_time`` 口径。
     """
     from modules.training.scoring.runner import StuckRecordOutcome, classify_stuck_records
 
     cutoff = datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES)
+    requested_at = cast(TrainingRecord.runtime_state["scoring_requested_at"].astext, DateTime(timezone=True))
     stale = (
         db.query(TrainingRecord)
         .filter(
             TrainingRecord.scoring_status.in_([ScoringStatus.PENDING, ScoringStatus.PROCESSING]),
             TrainingRecord.end_time < cutoff,
             TrainingRecord.status == TrainingStatus.COMPLETED,
+            or_(requested_at.is_(None), requested_at < cutoff),
         )
         .all()
     )
