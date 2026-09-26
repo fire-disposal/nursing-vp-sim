@@ -2,6 +2,8 @@
 
 Entry points:
 - ``engine.evaluate_training``: LLM scoring execution.
+- ``runner``: scoring execution plumbing — the single enqueue boundary, background
+  task body, failure/snapshot recovery, and the stuck-record classifier.
 - ``lifecycle``: scoring locks and state transitions.
 - ``prompt_builder``: rubric -> prompt/schema text.
 - ``rubric``: final rubric composition.

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm.exc import DetachedInstanceError
 
-import modules.training.router.scoring as scoring_module
+import modules.training.scoring.runner as runner_module
 import modules.training.session.finalize as finalize_module
 from core.statuses import TrainingStatus
 from modules.training.pipeline import STATE_DONE_PAYLOAD, PipelineContext
@@ -50,7 +50,7 @@ async def test_enqueued_scoring_survives_detached_record(monkeypatch):
     async def _fake_scoring(record_id, case_data, **kwargs):
         scored.append(record_id)
 
-    monkeypatch.setattr(scoring_module, "_run_scoring_background", _fake_scoring)
+    monkeypatch.setattr(runner_module, "run_scoring_background", _fake_scoring)
     monkeypatch.setattr(
         finalize_module,
         "finalize_training",

@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.statuses import ScoringStatus, TrainingStatus
 from infra.queue import QueueFullError
 from infra.training_queries import STALE_HOURS, abandon_record, find_stale_records
-from models import Message, Notification, Score, TrainingRecord, TrainingSessionState
+from models import Notification, TrainingRecord, TrainingSessionState
 
 from .finalize import END_ORIGIN_TIMEOUT, NO_STUDENT_MESSAGES_REASON, finalize_training
 
@@ -104,20 +104,11 @@ async def _enqueue_scoring(record_id: int, case_data: dict | None, app_state) ->
         log.warning("Settlement: no task queue, cannot score record_id=%d", record_id)
         return
     try:
-        # Delayed import: the scoring router is heavy (FastAPI deps) and this
-        # module is imported by bootstrap before routers are ready.
-        from modules.training.router.scoring import _run_scoring_background
+        # Delayed import: the scoring runner pulls in the LLM scoring engine, and this
+        # module is imported by infra.bootstrap before the app is fully up.
+        from modules.training.scoring.runner import enqueue_scoring
 
-        await app_state.task_queue.enqueue(
-            lambda: _run_scoring_background(
-                record_id,
-                case_data or {},
-                llm_client=app_state.llm_client,
-                tracker=getattr(app_state, "scoring_tracker", None),
-                realtime_hub=app_state.realtime_hub,
-            ),
-            priority=5,
-        )
+        await enqueue_scoring(app_state, record_id, case_data)
     except QueueFullError:
         log.error("Settlement: queue full, reopening record_id=%d for next round", record_id)
         try:
@@ -159,7 +150,14 @@ def _abandon_stale_records(db) -> None:
 
 
 def _sweep_stale_scoring_records(db) -> int:
-    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed."""
+    """Mark scoring records stuck in pending/processing > STALE_SCORING_SWEEP_MINUTES as failed.
+
+    分类走 ``scoring.runner.classify_stuck_records``（与启动恢复同一判定）；区别只在
+    终态策略：本进程内超龄且无分的记录**不自动重跑**（避免故障期每 10 分钟循环烧
+    LLM 预算），标 failed 并通知，由用户手动重试。
+    """
+    from modules.training.scoring.runner import StuckRecordOutcome, classify_stuck_records
+
     cutoff = datetime.now(UTC) - timedelta(minutes=STALE_SCORING_SWEEP_MINUTES)
     stale = (
         db.query(TrainingRecord)
@@ -173,24 +171,13 @@ def _sweep_stale_scoring_records(db) -> int:
     if not stale:
         return 0
 
-    no_student_ids = {
-        r.id
-        for r in db.query(TrainingRecord.id).filter(
-            TrainingRecord.id.in_([r.id for r in stale]),
-            ~TrainingRecord.id.in_(
-                db.query(Message.record_id).filter(
-                    Message.record_id.in_([r.id for r in stale]),
-                    Message.role == "student",
-                )
-            ),
-        )
-    }
-    scored_ids = {r[0] for r in db.query(Score.record_id).filter(Score.record_id.in_([r.id for r in stale])).all()}
+    outcomes = classify_stuck_records(db, stale)
     for record in stale:
-        if record.id in no_student_ids:
+        outcome = outcomes[record.id]
+        if outcome == StuckRecordOutcome.DISCARDED:
             record.scoring_status = None
             record.scoring_error = NO_STUDENT_MESSAGES_REASON
-        elif record.id in scored_ids:
+        elif outcome == StuckRecordOutcome.COMPLETED:
             record.scoring_status = ScoringStatus.COMPLETED
             record.scoring_error = None
         else:

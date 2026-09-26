@@ -5,6 +5,7 @@ import logging
 import os
 import textwrap
 import time
+from collections import Counter
 from contextlib import asynccontextmanager
 
 import httpx
@@ -61,10 +62,21 @@ BANNER = textwrap.dedent(r"""\
 
 
 def _recover_stuck_scoring_records():
-    """Recover scoring records stuck in 'pending'/'processing' from a previous instance crash."""
+    """Recover scoring records stuck in 'pending'/'processing' from a previous instance crash.
+
+    分类走 ``scoring.runner.classify_stuck_records``（与结算清扫共用同一判定）：
+
+    - 已落 Score → ``completed``（不能把已有分标成 failed）；
+    - 无学生消息 → ``mark_discarded``（终态与旧「重新入队后由 worker 废弃」完全一致，
+      只是不再白占一个队列槽位）；
+    - 其余 → 置回 ``pending``，由 ``_re_enqueue_pending_scoring`` 重跑
+      （上个进程崩溃时内存队列里的任务从未执行）。
+    """
 
     from core.database import SessionLocal
-    from models import Score, TrainingRecord
+    from models import TrainingRecord
+    from modules.training.scoring.runner import StuckRecordOutcome, classify_stuck_records
+    from modules.training.session.finalize import mark_discarded
 
     db = SessionLocal()
     try:
@@ -76,23 +88,26 @@ def _recover_stuck_scoring_records():
             )
             .all()
         )
-        scored_ids = (
-            {r[0] for r in db.query(Score.record_id).filter(Score.record_id.in_([rec.id for rec in stuck])).all()}
-            if stuck
-            else set()
-        )
+        outcomes = classify_stuck_records(db, stuck)
         for rec in stuck:
-            if rec.id in scored_ids:
+            outcome = outcomes[rec.id]
+            if outcome == StuckRecordOutcome.COMPLETED:
                 rec.scoring_status = ScoringStatus.COMPLETED
                 rec.scoring_error = None
+            elif outcome == StuckRecordOutcome.DISCARDED:
+                mark_discarded(db, rec)
             else:
                 rec.scoring_status = ScoringStatus.PENDING
                 rec.scoring_error = None
         db.commit()
         if stuck:
+            counts = Counter(outcomes.values())
             log.info(
-                "恢复了 %d 条卡住的评分记录（已置为 pending，等待重试）",
+                "恢复了 %d 条卡住的评分记录（待重试 %d / 无学生消息废弃 %d / 补 completed %d）",
                 len(stuck),
+                counts[StuckRecordOutcome.UNSCORED],
+                counts[StuckRecordOutcome.DISCARDED],
+                counts[StuckRecordOutcome.COMPLETED],
                 extra={"count": len(stuck), "action": "scoring_recovery"},
             )
     except Exception:
@@ -105,6 +120,7 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
     """Re-enqueue scoring for records left in 'pending' state by startup recovery."""
     from core.database import SessionLocal
     from models import Case, TrainingRecord
+    from modules.training.scoring.runner import enqueue_scoring
 
     db = SessionLocal()
     try:
@@ -129,18 +145,7 @@ async def _re_enqueue_pending_scoring(app: FastAPI) -> None:
             case = db.query(Case).filter(Case.id == record.case_id).first()
             case_data = record.case_snapshot or (case.case_data if case else {})
             try:
-                from modules.training.router.scoring import _run_scoring_background
-
-                await task_queue.enqueue(
-                    lambda rid=record.id, cd=case_data: _run_scoring_background(
-                        rid,
-                        cd,
-                        llm_client=app.state.llm_client,
-                        tracker=getattr(app.state, "scoring_tracker", None),
-                        realtime_hub=app.state.realtime_hub,
-                    ),
-                    priority=5,
-                )
+                await enqueue_scoring(app.state, record.id, case_data)
                 enqueued += 1
             except Exception:
                 log.exception("Failed to re-enqueue scoring for record_id=%d", record.id)

@@ -110,7 +110,7 @@
 | `scene` | 会话创建写初值（`router/session.py:_create_record`）+ 工具指令面写 vitals 增量 |
 | `message_correction` | 对话回合（`pipeline/middleware/persister.py`） |
 | `patient_walkout` / `terminal` | 会话终结（`session/finalize.py`） |
-| `force_rescore_snapshot` | 评分重评（`router/scoring.py`） |
+| `force_rescore_snapshot` | 评分重评（`scoring/runner.py`） |
 | `paused_*` / `questionnaire_paused_*` | 计时暂停（`router/session.py`） |
 
 不在工具行锁事务内的写入者必须调用 `session/state.patch_runtime_state`：**行锁 →
@@ -136,4 +136,19 @@
   → 存入 scores 表（`training_records.scoring_status`: pending → processing → completed / failed）
   → 教师可创建 ScoreReview 复核；写回 `reviewed_total`（成绩口径 = COALESCE(reviewed_total, total_score)）
 ```
+
+评分的**执行**与**触发**分家：`router/scoring.py` 只做 HTTP 触发与查询，执行全在
+`scoring/runner.py`（含任务体、失败终态、force 重评快照恢复）：
+
+| 职责 | 唯一 owner |
+|---|---|
+| 入队边界（五个触发点共用：启动重放 / `/end` / `retry-scoring` / 患者走人 / 结算自动结算） | `scoring/runner.py:enqueue_scoring`（队列满抛 `QueueFullError`，恢复策略留在各调用方） |
+| 任务体与终态/通知 | `scoring/runner.py:run_scoring_background`、`handle_scoring_failure` |
+| 卡住记录分类（pending/processing → completed / discarded / unscored） | `scoring/runner.py:classify_stuck_records` |
+
+启动恢复（`main.py:_recover_stuck_scoring_records`）与结算超龄清扫
+（`session/settlement.py:_sweep_stale_scoring_records`）共用同一分类器，只在终态策略上
+保留差异：启动时内存队列已随进程消失，无分记录置回 `pending` 重跑；结算清扫面对的是
+本进程内 10 分钟无进展的任务，无分即标 `failed` 并通知，改由用户手动重试
+（避免故障期每 10 分钟循环烧 LLM 预算）。两侧都遵守「有 Score ⇒ completed」。
 

@@ -169,7 +169,7 @@ HistoryTakingScene (迁入, ~280 行) — 当前 engine 内容（SSE + TTS + pan
 ### snapshot 写入时机
 
 ```
-评分触发前（_run_scoring_background）
+评分触发前（`scoring/runner.py:run_scoring_background`）
   → 检查 record.prompt_snapshot 是否已存在
   → 不存在: get_profile(record.training_type) 读取当前 prompt/rubric
   → 冻结写入 TrainingRecord（JSONB）
@@ -354,7 +354,7 @@ profile: history_taking        profile: triage
 | 组件 | 变更目标 | 现存问题 |
 |------|----------|----------|
 | `score_engine.py` | 评分前快照 `profile.prompts` + `profile.rubric`→`TrainingRecord` | 当前读 `rubric_frozen` 字符串引用 |
-| `router/scoring.py` | `_run_scoring_background` 传入 training_type 参数 | 当前硬编码传 `pm` |
+| `scoring/runner.py` | `run_scoring_background` 传入 training_type 参数 | 当前硬编码传 `pm` |
 | 前端 `ScoringOverlay.tsx` | 无需改动（通用覆盖层） | — |
 | 前端 `ScoreCard.tsx` | 无需改动 | — |
 

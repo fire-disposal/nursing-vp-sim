@@ -18,7 +18,7 @@
 | ``scene`` | 会话创建写初值（``router/session.py:_create_record``）+ Activity command 写 vitals 增量 |
 | ``message_correction`` | 对话回合修正（``pipeline/middleware/persister.py``） |
 | ``patient_walkout`` / ``terminal`` | 会话终结（``session/finalize.py``） |
-| ``force_rescore_snapshot`` | 评分重评快照（``router/scoring.py``） |
+| ``force_rescore_snapshot`` | 评分重评快照（``scoring/runner.py``） |
 | ``paused_*`` / ``questionnaire_paused_*`` | 计时暂停（``router/session.py``） |
 """
 

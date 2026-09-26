@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-import modules.training.router.scoring as scoring_router
+import modules.training.scoring.runner as scoring_runner
 from core.statuses import ScoringStatus
 from models import Notification, Score, ScoreReview, TrainingRecord
 
@@ -21,16 +21,20 @@ REVIEWED_AT = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
 DETAIL: dict[str, Any] = {"沟通技能": {"score": 4, "max": 5, "items": [{"id": "c1", "score": 4, "max": 5}]}}
 
 
-class _First:
+class _Query:
     def __init__(self, session: _FakeSession, model: object) -> None:
         self._session = session
         self._model = model
 
-    def filter(self, *_criteria: object) -> _First:
+    def filter(self, *_criteria: object) -> _Query:
         return self
 
     def first(self) -> object | None:
         return self._session.resolve(self._model)
+
+    def all(self) -> list[object]:
+        # ``_scored_record_ids`` 批量查 ``Score.record_id``；本替身最多持有一个分。
+        return [] if self._session.score is None else [(self._session.score.record_id,)]
 
 
 class _ScalarResult:
@@ -44,7 +48,7 @@ class _ScalarResult:
 
 
 class _FakeSession:
-    """``_handle_scoring_failure`` 的最小 Session 替身（无 DB）。"""
+    """``scoring.runner.handle_scoring_failure`` 的最小 Session 替身（无 DB）。"""
 
     def __init__(self, record: TrainingRecord) -> None:
         self.record = record
@@ -63,8 +67,8 @@ class _FakeSession:
     def expire_all(self) -> None:
         pass
 
-    def query(self, model: object) -> _First:
-        return _First(self, model)
+    def query(self, model: object) -> _Query:
+        return _Query(self, model)
 
     def execute(self, statement: object, params: object | None = None) -> _ScalarResult:
         return _ScalarResult(self.record)
@@ -115,7 +119,7 @@ def _old_score() -> Score:
 
 def _record_with_snapshot() -> TrainingRecord:
     review = ScoreReview(id=3, score_id=1, reviewed_by=9, detail_scores=DETAIL, total_score=91.0, comment="复核通过")
-    snapshot = scoring_router._snapshot_score_for_rescore(_old_score(), review)
+    snapshot = scoring_runner.snapshot_score_for_rescore(_old_score(), review)
     return TrainingRecord(
         id=7,
         user_id=3,
@@ -129,9 +133,9 @@ def test_force_rescore_failure_restores_old_score_as_completed(monkeypatch):
     """新评分失败 → 旧分/旧复核恢复，且状态回到 completed（分才能在成绩管理处可见）。"""
     record = _record_with_snapshot()
     db = _FakeSession(record)
-    monkeypatch.setattr(scoring_router, "SessionLocal", lambda: db)
+    monkeypatch.setattr(scoring_runner, "SessionLocal", lambda: db)
 
-    scoring_router._handle_scoring_failure(7, "评分超时")
+    scoring_runner.handle_scoring_failure(7, "评分超时")
 
     assert record.scoring_status == ScoringStatus.COMPLETED
     assert record.scoring_error is None
@@ -156,15 +160,15 @@ def test_force_rescore_snapshot_covers_every_persisted_score_column():
     ``created_at`` 两侧都不复原：恢复出的行是"同一份内容重新落库"，时间戳记新行。
     """
     score_columns = {c.name for c in Score.__table__.columns} - {"id", "record_id", "created_at"}
-    assert set(scoring_router._SCORE_SNAPSHOT_FIELDS) == score_columns
+    assert set(scoring_runner.SCORE_SNAPSHOT_FIELDS) == score_columns
 
     review_columns = {c.name for c in ScoreReview.__table__.columns} - {"id", "score_id", "created_at"}
-    assert set(scoring_router._SCORE_REVIEW_SNAPSHOT_FIELDS) == review_columns
+    assert set(scoring_runner.SCORE_REVIEW_SNAPSHOT_FIELDS) == review_columns
 
 
 def test_restore_from_empty_snapshot_returns_none():
-    assert scoring_router._restore_score_from_snapshot({}, 7) is None
-    assert scoring_router._restore_score_from_snapshot({"review": {"comment": "x"}}, 7) is None
+    assert scoring_runner.restore_score_from_snapshot({}, 7) is None
+    assert scoring_runner.restore_score_from_snapshot({"review": {"comment": "x"}}, 7) is None
 
 
 def test_failure_without_snapshot_stays_failed_and_notifies(monkeypatch):
@@ -173,9 +177,9 @@ def test_failure_without_snapshot_stays_failed_and_notifies(monkeypatch):
         id=7, user_id=3, status="completed", scoring_status=ScoringStatus.PROCESSING, runtime_state={}
     )
     db = _FakeSession(record)
-    monkeypatch.setattr(scoring_router, "SessionLocal", lambda: db)
+    monkeypatch.setattr(scoring_runner, "SessionLocal", lambda: db)
 
-    scoring_router._handle_scoring_failure(7, "LLM 返回空")
+    scoring_runner.handle_scoring_failure(7, "LLM 返回空")
 
     assert record.scoring_status == ScoringStatus.FAILED
     assert record.scoring_error == "LLM 返回空"

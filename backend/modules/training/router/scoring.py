@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Annotated
@@ -8,23 +7,18 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.config import (
-    SCORING_RETRY_DELAY_SECONDS,
-    SCORING_RETRY_GRACE_SECONDS,
-    SCORING_TIMEOUT_SECONDS,
-)
-from core.database import SessionLocal, db_session, get_db
+from core.config import SCORING_RETRY_GRACE_SECONDS
+from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingStatus
-from infra.llm.client import LLMClient
 from infra.queue import QueueFullError
 from infra.scoring_progress import ScoringProgressTracker
-
-# NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
-# 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
-from modules.training.scoring.engine import evaluate_training
+from modules.training.scoring.runner import (
+    enqueue_scoring,
+    snapshot_score_for_rescore,
+)
 from modules.training.session.finalize import (
     END_ORIGIN_USER,
     NO_STUDENT_MESSAGES_MESSAGE,
@@ -44,112 +38,11 @@ from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
-from ..scoring.lifecycle import acquire_scoring, claim_scoring, release_scoring
+from ..scoring.lifecycle import acquire_scoring, release_scoring
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _resolve_terminal_status(db: Session, record_id: int, *, intended: str) -> str:
-    """若记录已存在有效 Score，则终态强制为 'completed'，避免孤儿 Score + failed。
-
-    intended 为调用方本想设置的终态（通常 'failed'）。仅当无 Score 时才沿用。
-    """
-    has_score = db.query(Score.id).filter(Score.record_id == record_id).first() is not None
-    if has_score:
-        return ScoringStatus.COMPLETED
-    return intended
-
-
-# force 重评快照的字段集合 —— 快照/恢复两侧的唯一真相。
-# 字段漏在任一侧都会静默丢数据（dim_total/reviewed_at 曾因此丢失）。
-_SCORE_SNAPSHOT_FIELDS = (
-    "total_score",
-    "detail_scores",
-    "strengths",
-    "weaknesses",
-    "missed_content",
-    "suggestions",
-    "rubric_version",
-    "model_name",
-    "prompt_version",
-    "raw_total",
-    "mapping_version",
-    "fallback",
-    "dim_total",
-    "reviewed_total",
-    "reviewed_at",
-)
-_SCORE_REVIEW_SNAPSHOT_FIELDS = ("reviewed_by", "detail_scores", "total_score", "comment")
-
-
-def _snapshot_score_for_rescore(score: Score, review: ScoreReview | None) -> dict:
-    """快照旧分/旧复核，供 force 重评失败时恢复。"""
-    return {
-        "score": {field: getattr(score, field) for field in _SCORE_SNAPSHOT_FIELDS},
-        "review": (
-            {field: getattr(review, field) for field in _SCORE_REVIEW_SNAPSHOT_FIELDS} if review is not None else None
-        ),
-    }
-
-
-def _restore_score_from_snapshot(snapshot: dict, record_id: int) -> tuple[Score, ScoreReview | None] | None:
-    """从快照重建 Score/ScoreReview；快照无分数时返回 None。"""
-    old = snapshot.get("score")
-    if not old:
-        return None
-    score = Score(record_id=record_id, **{field: old.get(field) for field in _SCORE_SNAPSHOT_FIELDS})
-    review_snapshot = snapshot.get("review")
-    review = (
-        ScoreReview(score=score, **{field: review_snapshot.get(field) for field in _SCORE_REVIEW_SNAPSHOT_FIELDS})
-        if review_snapshot
-        else None
-    )
-    return score, review
-
-
-# Generation counter to detect stale background scoring tasks.
-# Incremented in acquire_scoring whenever a new scoring session starts.
-# Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
-# 弃用进程内 generation dict（多 worker 下不安全）。
-# 每个任务在写入终态前校验 scoring_status 是否仍是 "processing"。
-
-
-def _create_notification(
-    db: Session,
-    *,
-    user_id: int,
-    record_id: int | None,
-    type: str,
-    title: str,
-    body: str,
-) -> None:
-    """Create a user notification in its own transaction. Never raises."""
-    try:
-        db.add(
-            Notification(
-                user_id=user_id,
-                record_id=record_id,
-                type=type,
-                title=title,
-                body=body,
-            )
-        )
-        db.flush()
-    except Exception:
-        db.rollback()
-        log.warning("Failed to create notification (type=%s)", type, exc_info=True)
-
-
-async def _publish_scoring_event(realtime_hub, user_id: int, event: str, payload: dict) -> None:
-    """Publish an SSE event, swallowing transport errors."""
-    if not realtime_hub:
-        return
-    try:
-        await realtime_hub.publish(user_id, event, payload)
-    except Exception:
-        log.warning("SSE publish failed (event=%s)", event, exc_info=True)
 
 
 @router.get("/{record_id}/scoring-status", response_model=ScoringStatusResponse)
@@ -199,244 +92,6 @@ def get_scoring_status(
         else None,
         "progress": progress,
     }
-
-
-def _handle_scoring_failure(
-    record_id: int,
-    error_msg: str,
-    tracker: ScoringProgressTracker | None = None,
-    realtime_hub=None,
-    user_id: int | None = None,
-) -> None:
-    """Shared error handling — updates DB status, creates notification, publishes SSE."""
-    try:
-        db = SessionLocal()
-        try:
-            db.expire_all()
-            record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record and record.scoring_status == ScoringStatus.PROCESSING:
-                terminal = _resolve_terminal_status(db, record_id, intended=ScoringStatus.FAILED)
-                record.scoring_status = terminal
-                record.scoring_error = None if terminal == ScoringStatus.COMPLETED else error_msg[:2000]
-                db.commit()
-                if terminal == ScoringStatus.COMPLETED:
-                    log.info("评分超时但已存在有效 Score，纠正为 completed", extra={"record_id": record_id})
-                    return
-                # S6 两阶段 force 重评：新评分失败 → 从 runtime_state 快照恢复旧分/旧复核
-                snapshot = dict(record.runtime_state or {}).get("force_rescore_snapshot")
-                if snapshot and not db.query(Score).filter(Score.record_id == record_id).first():
-                    rebuilt = _restore_score_from_snapshot(snapshot, record_id)
-                    if rebuilt is not None:
-                        restored, restored_review = rebuilt
-                        db.add(restored)
-                        db.flush()
-                        if restored_review is not None:
-                            db.add(restored_review)
-                        # 只清自己拥有的键（session/state.py 的写入契约）：整列回写会
-                        # 抹掉这期间工具/对话写入的 runtime_state 键。
-                        patch_runtime_state(db, record_id, remove=["force_rescore_snapshot"])
-                        # 有 Score ⇒ completed（本文件三次实现同一不变量的第三个）：
-                        # 只恢复分不纠正状态，恢复出的旧分会在成绩管理/作业详情永久不可见。
-                        record.scoring_status = ScoringStatus.COMPLETED
-                        record.scoring_error = None
-                        db.commit()
-                        log.warning("force rescore 失败，已恢复旧分", extra={"record_id": record_id})
-                        return
-                actual_user_id = user_id or record.user_id
-                _create_notification(
-                    db,
-                    user_id=actual_user_id,
-                    record_id=record.id,
-                    type="scoring_failed",
-                    title="评分失败",
-                    body=f"评分失败：{error_msg[:100] or '未知错误'}",
-                )
-                db.commit()
-                if realtime_hub:
-                    asyncio.ensure_future(  # noqa: RUF006
-                        _publish_scoring_event(
-                            realtime_hub,
-                            actual_user_id,
-                            "scoring_failed",
-                            {"record_id": record.id, "error": error_msg[:100] or "未知错误"},
-                        )
-                    )
-        finally:
-            db.close()
-    except Exception as inner:
-        log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
-
-
-async def _run_scoring_background(
-    record_id: int,
-    case_data: dict,
-    *,
-    llm_client: LLMClient,
-    tracker: ScoringProgressTracker | None = None,
-    realtime_hub=None,
-) -> None:
-    SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
-
-    db = SessionLocal()
-    log.info("[SCORING] START record_id=%d timeout=%ds", record_id, SCORING_GLOBAL_TIMEOUT)
-    try:
-        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        if not record:
-            log.warning("评分任务：记录不存在", extra={"record_id": record_id})
-            return
-        log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
-        # 原子性认领：仅当记录处于可执行态才继续。
-        # 'pending'  — end_training / retry_scoring / triage 经 acquire_scoring 获取；
-        # NULL       — settlement 自动结算路径（未走 acquire）。
-        # UPDATE 的 rowcount 保证并发重复入队时只有一个 worker 认领成功（幂等）。
-        claimed = claim_scoring(record_id, db)
-        db.commit()
-        if not claimed:
-            db.refresh(record)
-            log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
-            return
-
-        db.refresh(record)
-
-        # No student turn means there is no assessable nursing behavior.
-        # Treat it as discarded, not as failed scoring and not as a zero score.
-        if student_message_count(db, record_id) == 0:
-            log.info("评分跳过：无学生消息 record_id=%d", record_id)
-            mark_discarded(db, record)
-            db.commit()
-            return
-
-        # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
-        if not record.prompt_snapshot or not record.rubric_snapshot:
-            try:
-                from modules.training.scoring.rubric import build_final_rubric
-
-                # 快照按**记录冻结的 workflow** 补写，不按代码常量
-                workflow = workflow_for_record(record)
-                record.prompt_snapshot = {
-                    "schema_version": 2,
-                    "purpose": "patient_chat",
-                    "segments": {
-                        "system": workflow.prompts.system,
-                        "dynamic": workflow.prompts.dynamic,
-                    },
-                }
-                features = (record.practice_snapshot or {}).get("features", {})
-                record.rubric_snapshot = build_final_rubric(workflow.rubric, features)
-                db.commit()
-            except AttributeError:
-                pass
-
-        if tracker:
-            tracker.start(record_id)
-
-        async def _attempt_evaluate():
-            await asyncio.wait_for(
-                evaluate_training(
-                    record_id,
-                    case_data,
-                    db,
-                    llm_client=llm_client,
-                    tracker=tracker,
-                    realtime_hub=realtime_hub,
-                    user_id=record.user_id,
-                ),
-                timeout=SCORING_GLOBAL_TIMEOUT,
-            )
-
-        async def _attempt_with_retry():
-            """单次尝试 + 非超时失败重试一次。
-
-            整个序列（含 30s 重试间隔）受 SCORING_GLOBAL_TIMEOUT 约束：
-            任务总时长 ≤ SCORING_TIMEOUT_SECONDS < SCORING_RETRY_GRACE_SECONDS，
-            否则重试序列（2×180s+30s ≈ 390s）会超出 210s 重试守卫窗口，
-            出现"旧任务仍在跑却被 retry_scoring 抢占"的错配。
-            """
-            try:
-                await _attempt_evaluate()
-            except TimeoutError:
-                raise
-            except Exception as first_error:
-                log.warning(
-                    "[SCORING] retrying once record_id=%d after %s: %s",
-                    record_id,
-                    type(first_error).__name__,
-                    str(first_error)[:200],
-                )
-                if SCORING_RETRY_DELAY_SECONDS > 0:
-                    await asyncio.sleep(SCORING_RETRY_DELAY_SECONDS)
-                await _attempt_evaluate()
-
-        await asyncio.wait_for(_attempt_with_retry(), timeout=SCORING_GLOBAL_TIMEOUT)
-
-        # Re-fetch record.  Only skip completion if a *newer* retry was explicitly
-        # triggered (status='pending' via acquire_scoring).  If settlement sweep
-        # changed status to 'failed' during scoring, we must still set 'completed'
-        # because a Score was just saved — otherwise we get an orphan Score.
-        db.refresh(record)
-        if record.scoring_status == ScoringStatus.PENDING:
-            log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
-            return
-        if record.scoring_status != ScoringStatus.PROCESSING:
-            log.info("评分状态已变更（%s），跳过完成状态更新", record.scoring_status, extra={"record_id": record_id})
-            return
-
-        record.scoring_status = ScoringStatus.COMPLETED
-        record.scoring_error = None
-        if tracker:
-            tracker.update(record_id, ScoringStatus.COMPLETED, 100, "评分完成")
-        log.info("[SCORING] DONE record_id=%d", record_id)
-
-        score_obj = db.query(Score).filter(Score.record_id == record_id).first()
-        has_fallback = bool(score_obj and score_obj.fallback)
-        _create_notification(
-            db,
-            user_id=record.user_id,
-            record_id=record.id,
-            type="scoring_complete",
-            title="评分已完成",
-            body=("训练评分已完成（评分异常，已标记，请查看详情）" if has_fallback else "训练评分已完成，请查看详情"),
-        )
-        db.commit()
-
-        await _publish_scoring_event(
-            realtime_hub,
-            record.user_id,
-            "scoring_complete",
-            {
-                "record_id": record.id,
-                "total_score": score_obj.total_score if score_obj else None,
-                "fallback": bool(score_obj and score_obj.fallback),
-            },
-        )
-    except TimeoutError:
-        log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
-        # 实际触发点是最内层 LLM 客户端超时（profile timeout + 10s），
-        # 而非 SCORING_TIMEOUT_SECONDS 全局值——不写具体秒数避免误导。
-        _timeout_msg = "评分超时"
-        if tracker:
-            tracker.update(record_id, ScoringStatus.FAILED, 0, _timeout_msg)
-        _handle_scoring_failure(
-            record_id,
-            _timeout_msg,
-            tracker=tracker,
-            realtime_hub=realtime_hub,
-        )
-    except Exception as e:
-        msg = str(e)[:200]
-        log.exception("[SCORING] FAIL record_id=%d error=%s: %s", record_id, type(e).__name__, msg)
-        if tracker:
-            tracker.update(record_id, ScoringStatus.FAILED, 0, msg)
-        _handle_scoring_failure(
-            record_id,
-            str(e)[:2000] or type(e).__name__,
-            tracker=tracker,
-            realtime_hub=realtime_hub,
-        )
-    finally:
-        db.close()
-        if tracker:
-            tracker.cleanup(record_id)
 
 
 class EndTrainingRequest(BaseModel):
@@ -540,16 +195,7 @@ async def end_training(
         # kind == "completed" 保证 finalize_training 返回了 case_data
         assert case_data is not None
         try:
-            await request.app.state.task_queue.enqueue(
-                lambda: _run_scoring_background(
-                    record_id,
-                    case_data,
-                    llm_client=request.app.state.llm_client,
-                    tracker=getattr(request.app.state, "scoring_tracker", None),
-                    realtime_hub=request.app.state.realtime_hub,
-                ),
-                priority=5,
-            )
+            await enqueue_scoring(request.app.state, record_id, case_data)
         except QueueFullError:
             db.rollback()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
@@ -627,10 +273,10 @@ async def retry_scoring(
 
         if old_score:
             # S6 两阶段 force 重评：先快照旧分/旧复核，新评分失败时由
-            # _handle_scoring_failure 恢复（不再"先删后算"丢分）。
+            # scoring.runner.handle_scoring_failure 恢复（不再"先删后算"丢分）。
             # 经 patch_runtime_state 原子写入本键（session/state.py 的写入契约）。
             old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first()
-            snapshot = _snapshot_score_for_rescore(old_score, old_review)
+            snapshot = snapshot_score_for_rescore(old_score, old_review)
             patch_runtime_state(db, record_id, {"force_rescore_snapshot": snapshot})
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
@@ -639,16 +285,7 @@ async def retry_scoring(
         case_data = record.case_snapshot or (case.case_data if case else {})
 
         try:
-            await request.app.state.task_queue.enqueue(
-                lambda: _run_scoring_background(
-                    record_id,
-                    case_data,
-                    llm_client=request.app.state.llm_client,
-                    tracker=getattr(request.app.state, "scoring_tracker", None),
-                    realtime_hub=request.app.state.realtime_hub,
-                ),
-                priority=5,
-            )
+            await enqueue_scoring(request.app.state, record_id, case_data)
         except QueueFullError:
             db.rollback()
             release_scoring(record_id, db)

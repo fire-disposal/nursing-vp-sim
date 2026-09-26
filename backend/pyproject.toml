@@ -147,6 +147,8 @@ ignore = [
 "seed.py" = ["BLE001", "C901"]
 "tests/**" = ["BLE001", "C901"]
 # ── modules/ 存量豁免（逐文件，勿复制到新文件） ──
+# 评分执行自 router/scoring.py 迁至 scoring/runner.py（2026-09）：豁免随代码平移，
+# router/scoring.py 只剩 C901（已无 blind except）。
 "modules/admin/ops.py" = ["BLE001", "C901"]
 "modules/admin/secrets.py" = ["BLE001", "C901"]
 "modules/admin/users.py" = ["BLE001", "C901"]
@@ -169,12 +171,13 @@ ignore = [
 "modules/training/patient_ai/emotion/engine.py" = ["BLE001", "C901"]
 "modules/training/patient_ai/initiative.py" = ["BLE001", "C901"]
 "modules/training/patient_ai/note_source.py" = ["BLE001", "C901"]
-"modules/training/router/scoring.py" = ["BLE001", "C901"]
+"modules/training/router/scoring.py" = ["C901"]
 "modules/training/router/session.py" = ["BLE001", "C901"]
 "modules/training/router/session_views.py" = ["BLE001", "C901"]
 "modules/training/router/ws.py" = ["BLE001", "C901"]
 "modules/training/scoring/engine.py" = ["BLE001", "C901"]
 "modules/training/scoring/rubric_loader.py" = ["BLE001", "C901"]
+"modules/training/scoring/runner.py" = ["BLE001", "C901"]
 "modules/training/scoring/validation.py" = ["BLE001", "C901"]
 "modules/training/session/finalize.py" = ["BLE001", "C901"]
 "modules/training/session/state.py" = ["BLE001", "C901"]

@@ -106,7 +106,7 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     不再由 side_effects 兜底 ``ctx.db.commit()`` —— 正式产物（回合消息）的提交
     归 persister 的事务 B（docs/15 §八：侧效果与正式产物分离）。
     """
-    from modules.training.router.scoring import _run_scoring_background
+    from modules.training.scoring.runner import enqueue_scoring
     from modules.training.session.finalize import (
         END_ORIGIN_PATIENT_WALKOUT,
         cleanup_session_runtime,
@@ -128,18 +128,9 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
         return
 
     try:
-        # 闭包在 worker 阶段才执行，彼时 ctx.record 已随请求 session 脱离（DetachedInstanceError）：
-        # 只能捕获标量，不能在闭包里回读 ORM 属性。
-        await app.task_queue.enqueue(
-            lambda: _run_scoring_background(
-                record_id,
-                case_data,
-                llm_client=app.llm_client,
-                tracker=getattr(app, "scoring_tracker", None),
-                realtime_hub=app.realtime_hub,
-            ),
-            priority=5,
-        )
+        # 入队边界只捕获标量（record_id/case_data）：闭包在 worker 阶段才执行，
+        # 彼时 ctx.record 已随请求 session 脱离（DetachedInstanceError 回归）。
+        await enqueue_scoring(app, record_id, case_data)
     except QueueFullError:
         # 响应已在流式输出中，无法回 503：残留的 pending 交给 settlement 的卡死评分清扫
         log.error("Patient walkout: scoring queue full: record_id=%d", record_id)
