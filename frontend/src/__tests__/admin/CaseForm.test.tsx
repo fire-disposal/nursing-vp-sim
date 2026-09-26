@@ -38,6 +38,13 @@ vi.mock("@/components/ui/confirm", () => ({
 	useConfirm: () => ({ confirm: mocks.confirm }),
 }));
 
+// JSON 视图用 Monaco：jsdom 里没有 monaco 运行时，用只读节点替身让断言能读到 JSON 文本。
+vi.mock("@monaco-editor/react", () => ({
+	default: ({ value }: { value?: string }) => (
+		<div data-testid="json-editor">{value ?? ""}</div>
+	),
+}));
+
 const BASE_CASE_ITEM: CaseManageItem = {
 	id: 11,
 	name: "病例",
@@ -306,5 +313,38 @@ describe("CaseForm 生命周期", () => {
 
 		expect(await screen.findByText(/已归档，内容已冻结/)).toBeTruthy();
 		expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+	});
+});
+
+describe("临床判断病例作者面（docs/15 §十六）", () => {
+	it("插入模板：确认后切到 JSON、声明 clinical_reasoning 并列出期望字段", async () => {
+		renderModal();
+
+		await userEvent.click(screen.getByRole("button", { name: /临床判断模板/ }));
+
+		await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
+		const json = JSON.parse(screen.getByTestId("json-editor").textContent ?? "{}") as {
+			workflow?: string;
+			activities?: unknown;
+			rubric?: { anchors?: unknown[] };
+		};
+		expect(json.workflow).toBe("clinical_reasoning");
+		// 模板必须自洽：该 workflow 的 Activity 白名单为空，声明 activities 会被发布门禁拒绝
+		expect(json.activities).toBeUndefined();
+		expect(json.rubric?.anchors?.length).toBeGreaterThan(0);
+		// 期望字段逐条列出（作者不需要猜 schema）
+		expect(screen.getByText(/临床判断训练病例：JSON 里需要哪些字段/)).toBeTruthy();
+		expect(screen.getByText("findings")).toBeTruthy();
+	});
+
+	it("放弃确认则不改动工作副本", async () => {
+		mocks.confirm.mockResolvedValueOnce(false);
+		renderModal();
+
+		await userEvent.click(screen.getByRole("button", { name: /临床判断模板/ }));
+
+		await waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
+		expect(screen.queryByTestId("json-editor")).toBeNull();
+		expect(screen.getByPlaceholderText("例：急性阑尾炎")).toBeTruthy();
 	});
 });

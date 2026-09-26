@@ -23,11 +23,21 @@ from typing import Any
 
 from core.time_limits import MAX_TIME_LIMIT_MINUTES, MIN_TIME_LIMIT_MINUTES
 from modules.training.activities import ACTIVITY_BINDINGS, ACTIVITY_CONFIG_KEY, ACTIVITY_IDS
+from modules.training.profile import CLINICAL_REASONING
 from modules.training.workflows import (
     CASE_WORKFLOW_FIELD,
     declared_workflow_id,
     registered_workflow_ids,
+    startable_workflow_ids,
 )
+from schemas.case_schema import (
+    ClinicalFindingKind,
+    ClinicalRubricRule,
+    ClinicalTriggerKind,
+)
+
+#: 临床判断训练的 workflow id（内容规则与之绑定：见 :func:`_check_clinical_reasoning`）。
+CLINICAL_REASONING_ID = CLINICAL_REASONING.id
 
 # ── 字段消费端清单（taxonomy manifest）───────────────────────────────────
 # 值 = 消费模块。新增病例字段时必须同步登记；不在清单内的字段 = 死字段。
@@ -54,6 +64,14 @@ CONSUMED_FIELDS: dict[str, str] = {
     "example_dialogues": "few-shot (context/examples.py)",
     "activities": "Activity 声明（activities.<id>.config → ACTIVITY_BINDINGS / manifest）",
     "workflow": "训练入口解析（modules/training/workflows：CaseRevision 决定 → 记录冻结 workflow_id）",
+    # 临床判断训练（docs/15 §十六）：六个声明面只属于 clinical_reasoning 病例，
+    # 消费端 = 发布门禁（本模块 _check_clinical_reasoning）+ 后续切片的阶段链/证据/评分。
+    "scenario": "clinical_reasoning 病例场景（发布门禁 _check_clinical_reasoning）",
+    "findings": "clinical_reasoning 可获取证据目录（发布门禁 + Slice 2 证据获取）",
+    "initial": "clinical_reasoning 开场可见/隐藏证据（发布门禁 + Slice 2 开场状态）",
+    "progression": "clinical_reasoning 未处置状态变化（发布门禁 + Slice 2 回合推进）",
+    "objectives": "clinical_reasoning 训练目标 must_notice/must_act/must_communicate（发布门禁 + Slice 2 判定）",
+    "rubric": "clinical_reasoning 确定性锚点与权重（发布门禁 + Slice 2 评分域）",
     "voice_override": "voice.service 病例音色覆盖",
     "hidden_info": "prompt (format_case_for_prompt)",
     "scene": "训练开始/复盘：case_data.scene → runtime_state.scene（router/session.py）+ prompt_builder 注入",
@@ -349,20 +367,21 @@ def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
 
 
 def _check_workflow(c: dict, issues: list[CaseIssue]) -> None:
-    """workflow 声明质量门禁（docs/15 §二）。
+    """workflow 声明质量门禁（docs/15 §二、§十六）。
 
     病例只能声明**已登记**的 workflow：声明了内核不认识的工作区 = 发布出去也进不去，
     必须在发布前报错，而不是等学员开始训练时才解析失败（与 ``_check_activities`` 同策）。
-    只登记一个 workflow 时允许省略声明；登记第二个之后，省略即 error —— 病例必须自己
-    说明跑哪条闭包，否则解析会被拒绝（绝不猜成第一条）。
+    只有一条**可开始**的 workflow 时允许省略声明；登记第二条可开始的 workflow 之后，
+    省略即 error —— 病例必须自己说明跑哪条闭包，否则解析会被拒绝（绝不猜成第一条）。
     """
     known = registered_workflow_ids()
+    startable = startable_workflow_ids()
     allowed = ", ".join(known)
     if CASE_WORKFLOW_FIELD not in c:
-        if len(known) > 1:
+        if len(startable) > 1:
             issues.append(
                 _e(
-                    "已登记多个 workflow，病例必须显式声明 workflow —— 否则解析时会被拒绝",
+                    "已登记多个可开始的 workflow，病例必须显式声明 workflow —— 否则解析时会被拒绝",
                     CASE_WORKFLOW_FIELD,
                     f'加 {{"workflow": "<id>"}}；允许的 id: {allowed}',
                 )
@@ -434,6 +453,498 @@ def _check_activity_config(activity_id: str, config: Any, field: str, issues: li
         )
 
 
+# ── 临床判断训练病例门禁（docs/15 §十六）─────────────────────────────────
+# 只在病例声明 ``workflow: "clinical_reasoning"`` 时生效；不套用到问诊病例。
+# 每条 error 都指向作者可见的 JSON 路径（field）+ 可执行的修复方向（fix_hint）。
+
+#: 六个声明面（全顶层键）—— 只属于 ``clinical_reasoning`` 病例。
+CLINICAL_CONTENT_FIELDS: tuple[str, ...] = ("scenario", "findings", "initial", "progression", "objectives", "rubric")
+
+#: 目标三组：发现 / 行动 / 沟通。
+_OBJECTIVE_GROUPS: tuple[str, ...] = ("must_notice", "must_act", "must_communicate")
+
+_FINDING_KINDS: tuple[str, ...] = tuple(kind.value for kind in ClinicalFindingKind)
+_TRIGGER_KINDS: tuple[str, ...] = tuple(kind.value for kind in ClinicalTriggerKind)
+_RUBRIC_RULES: tuple[str, ...] = tuple(rule.value for rule in ClinicalRubricRule)
+
+_FINDING_REF_LABEL = "证据（findings[].id）"
+_OBJECTIVE_REF_LABEL = "目标（objectives.*[].id）"
+
+
+@dataclass
+class _ClinicalEntry:
+    """索引里的一条声明（值 + 作者可见路径）—— 报错必须指向作者自己写的那个位置。"""
+
+    value: dict
+    path: str
+
+
+@dataclass
+class _ClinicalContent:
+    """病例已声明的临床内容索引（各检查函数共用，避免逐个传参）。"""
+
+    findings: dict[str, _ClinicalEntry]
+    objectives: dict[str, _ClinicalEntry]
+    #: 目标 id → 所属组（must_notice / must_act / must_communicate）
+    groups: dict[str, str]
+
+
+def _non_empty_str(entry: dict, key: str, path: str, issues: list[CaseIssue], *, what: str) -> None:
+    value = entry.get(key)
+    if not isinstance(value, str) or not value.strip():
+        issues.append(_e(f"{path}.{key} 必须是非空字符串（{what}）", f"{path}.{key}"))
+
+
+def _clinical_id(entry: dict, path: str, index: dict[str, _ClinicalEntry], issues: list[CaseIssue]) -> str | None:
+    """把 ``entry["id"]`` 登记进索引；缺失/含空白/重复即报错并放弃该条。"""
+    raw = entry.get("id")
+    if not isinstance(raw, str) or not raw.strip():
+        issues.append(_e(f"{path}.id 必须是非空字符串（它是被 objective/rubric 引用的键）", f"{path}.id"))
+        return None
+    value = raw.strip()
+    if any(ch.isspace() for ch in value):
+        issues.append(_e(f"{path}.id 不能含空白 —— 引用键要能原样比对", f"{path}.id", "如 n.低氧 / n.hypoxemia"))
+        return None
+    if value in index:
+        issues.append(
+            _e(
+                f"{path}.id '{value}' 与 {index[value].path}.id 重复 —— 引用会产生歧义",
+                f"{path}.id",
+                "改成唯一 id",
+            )
+        )
+        return None
+    index[value] = _ClinicalEntry(entry, path)
+    return value
+
+
+def _checked_refs(
+    entry: dict,
+    key: str,
+    path: str,
+    known: dict[str, _ClinicalEntry],
+    issues: list[CaseIssue],
+    *,
+    what: str,
+) -> list[str]:
+    """读取一组引用 id；形状非法 / 指向不存在的 id 即报错（返回仍然可用的引用）。"""
+    raw = entry.get(key)
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(v, str) and v.strip() for v in raw):
+        issues.append(_e(f"{path}.{key} 必须是字符串数组（引用{what}）", f"{path}.{key}"))
+        return []
+    refs: list[str] = []
+    for j in range(len(raw)):
+        value = raw[j]
+        if not isinstance(value, str) or not value.strip():
+            issues.append(_e(f"{path}.{key}[{j}] 必须是非空字符串（引用{what}）", f"{path}.{key}[{j}]"))
+            continue
+        ref = value.strip()
+        if ref not in known:
+            issues.append(
+                _e(
+                    f"{path}.{key}[{j}] 引用了不存在的{what} '{ref}'",
+                    f"{path}.{key}[{j}]",
+                    f"可用 id: {', '.join(sorted(known)) or '（无）'}",
+                )
+            )
+            continue
+        refs.append(ref)
+    return refs
+
+
+def _obtainable_via(entry: dict) -> list[str]:
+    raw = entry.get("obtainable_via")
+    if not isinstance(raw, list):
+        return []
+    return [v.strip() for v in raw if isinstance(v, str) and v.strip()]
+
+
+def _declared_list(entry: dict, key: str) -> bool:
+    """该键是否**写了非空数组**（区分「没写」与「写了但引用不存在」——后者已由引用检查报出）。"""
+    raw = entry.get(key)
+    return isinstance(raw, list) and len(raw) > 0
+
+
+def _check_clinical_scenario(c: dict, issues: list[CaseIssue]) -> None:
+    scenario = c.get("scenario")
+    if not isinstance(scenario, dict):
+        issues.append(
+            _e(
+                "缺少 scenario —— 必须声明 title / setting / summary（场景与任务摘要）",
+                "scenario",
+                '例如 {"title": "术后低氧", "setting": "外科病房", "summary": "……", "learner_brief": "……"}',
+            )
+        )
+        return
+    for key, what in (("title", "病例标题"), ("setting", "场景（在哪、面对谁）"), ("summary", "场景摘要")):
+        _non_empty_str(scenario, key, "scenario", issues, what=what)
+
+
+def _check_clinical_findings(c: dict, issues: list[CaseIssue]) -> dict[str, _ClinicalEntry]:
+    """校验可获取证据目录，返回 ``id → 条目`` 索引。"""
+    index: dict[str, _ClinicalEntry] = {}
+    raw = c.get("findings")
+    if not isinstance(raw, list) or not raw:
+        issues.append(
+            _e(
+                "findings 必须是非空数组 —— 证据目录为空等于学生无据可判",
+                "findings",
+                '例如 {"findings": [{"id": "f.spo2", "label": "SpO2 88%", "kind": "vital_sign", '
+                '"critical": true, "obtainable_via": ["exam:vital_signs"]}]}',
+            )
+        )
+        return index
+    kinds = ", ".join(_FINDING_KINDS)
+    for i in range(len(raw)):
+        item = raw[i]
+        path = f"findings[{i}]"
+        if not isinstance(item, dict):
+            issues.append(_e(f"{path} 必须是对象（id/label/kind）", path))
+            continue
+        _clinical_id(item, path, index, issues)
+        _non_empty_str(item, "label", path, issues, what="证据在面板上的可读名")
+        kind = item.get("kind")
+        if not isinstance(kind, str) or kind not in _FINDING_KINDS:
+            issues.append(
+                _e(
+                    f"{path}.kind 必须是 {kinds} 之一（当前 {kind!r}）",
+                    f"{path}.kind",
+                    "kind 决定学生从哪条途径拿到它",
+                )
+            )
+        critical = item.get("critical")
+        if critical is not None and not isinstance(critical, bool):
+            issues.append(_e(f"{path}.critical 必须是布尔值", f"{path}.critical"))
+        if "obtainable_via" in item:
+            via = item.get("obtainable_via")
+            if not isinstance(via, list) or not all(isinstance(v, str) and v.strip() for v in via):
+                issues.append(_e(f"{path}.obtainable_via 必须是字符串数组（获取途径）", f"{path}.obtainable_via"))
+    return index
+
+
+def _check_clinical_initial(c: dict, content: _ClinicalContent, issues: list[CaseIssue]) -> None:
+    """开场状态：可见/隐藏互斥，且**每条证据都必须有获取方式**（否则永远拿不到）。"""
+    raw = c.get("initial")
+    if not isinstance(raw, dict):
+        issues.append(
+            _e(
+                "缺少 initial —— 必须声明开场哪些证据可见、哪些需要主动获取",
+                "initial",
+                '例如 {"visible_findings": ["f.spo2"], "hidden_findings": ["f.crp"]}',
+            )
+        )
+        return
+    visible = _checked_refs(raw, "visible_findings", "initial", content.findings, issues, what=_FINDING_REF_LABEL)
+    hidden = _checked_refs(raw, "hidden_findings", "initial", content.findings, issues, what=_FINDING_REF_LABEL)
+    for fid in sorted(set(visible) & set(hidden)):
+        issues.append(
+            _e(
+                f"证据 '{fid}' 同时出现在 initial.visible_findings 与 initial.hidden_findings —— 二者互斥",
+                "initial.hidden_findings",
+                "开场就看得见的留在 visible_findings；需要主动获取的放 hidden_findings",
+            )
+        )
+    for fid, entry in content.findings.items():
+        if fid in hidden:
+            if not _obtainable_via(entry.value):
+                issues.append(
+                    _e(
+                        f"隐藏证据 '{fid}' 的 obtainable_via 为空 —— 学生没有任何途径拿到它",
+                        f"{entry.path}.obtainable_via",
+                        '声明获取途径（如 ["lab:CBC"]），或改为 initial.visible_findings',
+                    )
+                )
+            continue
+        if fid in visible:
+            continue
+        label = "关键证据" if entry.value.get("critical") is True else "证据"
+        issues.append(
+            _e(
+                f"{label} '{fid}' 没有任何获取方式：既不在 initial.visible_findings，也不在 initial.hidden_findings —— 学生永远拿不到它",
+                entry.path,
+                "在 initial 里登记它：开场可见 → visible_findings；需主动获取 → hidden_findings（并声明 obtainable_via）",
+            )
+        )
+
+
+def _check_clinical_objectives(
+    c: dict, findings: dict[str, _ClinicalEntry], issues: list[CaseIssue]
+) -> tuple[dict[str, _ClinicalEntry], dict[str, str]]:
+    """校验三类目标，返回 ``id → 条目`` 与 ``id → 所属组`` 两个索引。"""
+    raw = c.get("objectives")
+    if not isinstance(raw, dict):
+        issues.append(
+            _e(
+                "缺少 objectives —— 必须声明 must_notice / must_act / must_communicate",
+                "objectives",
+                '例如 {"must_notice": [{"id": "n.1", "label": "识别低氧", "finding": "f.spo2"}], '
+                '"must_act": [{"id": "a.1", "label": "立即给氧", "action": "启动吸氧"}], '
+                '"must_communicate": [{"id": "c.1", "label": "报告医生", "cue": "SBAR 报告 SpO2 88%"}]}',
+            )
+        )
+        return {}, {}
+    index: dict[str, _ClinicalEntry] = {}
+    groups: dict[str, str] = {}
+    for group in _OBJECTIVE_GROUPS:
+        path0 = f"objectives.{group}"
+        items = raw.get(group)
+        if not isinstance(items, list) or not items:
+            issues.append(
+                _e(
+                    f"{path0} 必须是非空数组 —— 目标声明为空等于这个维度没有被考核",
+                    path0,
+                    "至少声明一条（确实不需要该维度应由产品决定，不由空数组静默跳过）",
+                )
+            )
+            continue
+        for i in range(len(items)):
+            item = items[i]
+            path = f"{path0}[{i}]"
+            if not isinstance(item, dict):
+                issues.append(_e(f"{path} 必须是对象（id/label/…）", path))
+                continue
+            oid = _clinical_id(item, path, index, issues)
+            if oid is not None:
+                groups[oid] = group
+            _non_empty_str(item, "label", path, issues, what="目标的可读名")
+            if group == "must_notice":
+                ref = item.get("finding")
+                ref_text = ref.strip() if isinstance(ref, str) else ref
+                if ref_text not in findings:
+                    issues.append(
+                        _e(
+                            f"{path}.finding 必须引用已声明的证据（当前 {ref!r} 不存在）",
+                            f"{path}.finding",
+                            f"可用 id: {', '.join(sorted(findings)) or '（无）'}",
+                        )
+                    )
+            elif group == "must_act":
+                _non_empty_str(item, "action", path, issues, what="学生必须完成的动作 —— 空声明无法判定")
+            else:
+                _non_empty_str(item, "cue", path, issues, what="必须传达的信息 —— 空声明无法判定")
+    return index, groups
+
+
+def _check_progression_trigger(trigger: Any, path: str, content: _ClinicalContent, issues: list[CaseIssue]) -> None:
+    """触发条件必须可判定：时间触发要有时间，条件触发要指向已声明的证据或目标。"""
+    kinds = ", ".join(_TRIGGER_KINDS)
+    if not isinstance(trigger, dict):
+        issues.append(
+            _e(
+                f"{path} 必须声明触发条件（kind + after_minutes 或 ref）",
+                path,
+                f'kind ∈ {kinds}；时间触发用 {{"kind": "time", "after_minutes": 5}}，'
+                '条件触发用 {"kind": "finding"|"objective", "ref": "<id>"}',
+            )
+        )
+        return
+    kind = trigger.get("kind")
+    if not isinstance(kind, str) or kind not in _TRIGGER_KINDS:
+        issues.append(_e(f"{path}.kind 必须是 {kinds} 之一（当前 {kind!r}）", f"{path}.kind"))
+        return
+    if kind == "time":
+        after = trigger.get("after_minutes")
+        if not isinstance(after, int) or isinstance(after, bool) or after < 1:
+            issues.append(
+                _e(
+                    f"{path}.after_minutes 必须是 ≥1 的整数分钟 —— time 触发没有时间就没有触发点",
+                    f"{path}.after_minutes",
+                )
+            )
+        return
+    known = content.findings if kind == "finding" else content.objectives
+    what = _FINDING_REF_LABEL if kind == "finding" else _OBJECTIVE_REF_LABEL
+    ref = trigger.get("ref")
+    ref_text = ref.strip() if isinstance(ref, str) else ref
+    if ref_text not in known:
+        issues.append(
+            _e(
+                f"{path}.ref 必须引用已声明的{what}（当前 {ref!r} 不存在）",
+                f"{path}.ref",
+                f"可用 id: {', '.join(sorted(known)) or '（无）'}",
+            )
+        )
+
+
+def _check_clinical_progression(c: dict, content: _ClinicalContent, issues: list[CaseIssue]) -> None:
+    """未处置的推进：触发条件必须可判定，且真的改变状态。"""
+    raw = c.get("progression")
+    if raw is None:
+        issues.append(
+            _w(
+                "未声明 progression：学生不作为时患者状态不变（若本病例确有恶化/时限压力，请补上）",
+                "progression",
+                '例如 [{"id": "p.1", "trigger": {"kind": "time", "after_minutes": 5}, '
+                '"state_changes": {"spo2": 84}, "description": "未吸氧 → 低氧加重"}]',
+            )
+        )
+        return
+    if not isinstance(raw, list):
+        issues.append(_e("progression 必须是数组（未处置的状态变化）", "progression"))
+        return
+    index: dict[str, _ClinicalEntry] = {}
+    for i in range(len(raw)):
+        item = raw[i]
+        path = f"progression[{i}]"
+        if not isinstance(item, dict):
+            issues.append(_e(f"{path} 必须是对象（id/trigger/state_changes）", path))
+            continue
+        _clinical_id(item, path, index, issues)
+        _check_progression_trigger(item.get("trigger"), f"{path}.trigger", content, issues)
+        changes = item.get("state_changes")
+        if not isinstance(changes, dict) or not changes:
+            issues.append(
+                _e(
+                    f"{path}.state_changes 必须是非空对象 —— 没有状态变化就不是推进",
+                    f"{path}.state_changes",
+                    '例如 {"spo2": 84, "consciousness": "drowsy"}',
+                )
+            )
+
+
+def _check_rubric_anchor(
+    anchor: Any,
+    path: str,
+    index: dict[str, _ClinicalEntry],
+    content: _ClinicalContent,
+    covered: set[str],
+    issues: list[CaseIssue],
+) -> None:
+    """单个锚点：id/label/rule/weight 合法，引用存在，且规则与引用类型一致。"""
+    if not isinstance(anchor, dict):
+        issues.append(_e(f"{path} 必须是对象（id/label/rule/weight）", path))
+        return
+    _clinical_id(anchor, path, index, issues)
+    _non_empty_str(anchor, "label", path, issues, what="锚点的可读名")
+    rule = anchor.get("rule")
+    if not isinstance(rule, str) or rule not in _RUBRIC_RULES:
+        issues.append(
+            _e(
+                f"{path}.rule 必须是 {', '.join(_RUBRIC_RULES)} 之一（当前 {rule!r}）",
+                f"{path}.rule",
+                "规则决定判定方式：能算的不用 LLM 判",
+            )
+        )
+    weight = anchor.get("weight")
+    if isinstance(weight, bool) or not isinstance(weight, (int, float)) or weight <= 0:
+        issues.append(_e(f"{path}.weight 必须是 > 0 的数字（相对权重）", f"{path}.weight"))
+    obj_refs = _checked_refs(anchor, "objectives", path, content.objectives, issues, what=_OBJECTIVE_REF_LABEL)
+    find_refs = _checked_refs(anchor, "findings", path, content.findings, issues, what=_FINDING_REF_LABEL)
+    covered.update(obj_refs)
+    # 引用「写了但不存在」由 _checked_refs 报出；这里只补「根本没写」的情况，不重复报。
+    if rule == "finding_observed":
+        if not find_refs and not _declared_list(anchor, "findings"):
+            issues.append(
+                _e(
+                    f"{path}.findings 不能为空：finding_observed 锚点必须引用它判定的证据",
+                    f"{path}.findings",
+                    f"引用 {_FINDING_REF_LABEL}，或把 rule 改成 objective_met",
+                )
+            )
+        return
+    if (
+        rule in {"objective_met", "action_taken", "communicated"}
+        and not obj_refs
+        and not _declared_list(anchor, "objectives")
+    ):
+        issues.append(
+            _e(
+                f"{path}.objectives 不能为空：{rule} 锚点必须引用它判定的目标",
+                f"{path}.objectives",
+                f"引用 {_OBJECTIVE_REF_LABEL}，或把 rule 改成 finding_observed",
+            )
+        )
+    if rule not in {"action_taken", "communicated"}:
+        return
+    expected = "must_act" if rule == "action_taken" else "must_communicate"
+    for ref in obj_refs:
+        if content.groups.get(ref) != expected:
+            issues.append(
+                _e(
+                    f"{path}.objectives 引用的 '{ref}' 属于 objectives.{content.groups.get(ref, '?')}，"
+                    f"与 rule={rule} 矛盾（该规则只判定 objectives.{expected}）",
+                    f"{path}.objectives",
+                    f"改用 objectives.{expected} 里的目标 id，或把 rule 改成 objective_met",
+                )
+            )
+
+
+def _check_clinical_rubric(c: dict, content: _ClinicalContent, issues: list[CaseIssue]) -> None:
+    """确定性锚点：引用必须存在、规则与引用类型必须一致、每个目标都要被锚点覆盖。"""
+    raw = c.get("rubric")
+    anchors = raw.get("anchors") if isinstance(raw, dict) else None
+    if not isinstance(anchors, list) or not anchors:
+        issues.append(
+            _e(
+                "rubric.anchors 必须是非空数组 —— 没有确定性锚点就没有可判分的依据",
+                "rubric.anchors",
+                '例如 {"rubric": {"anchors": [{"id": "r.1", "label": "识别低氧并及时给氧", '
+                '"rule": "objective_met", "weight": 2, "objectives": ["n.1", "a.1"]}]}}',
+            )
+        )
+        return
+    index: dict[str, _ClinicalEntry] = {}
+    covered: set[str] = set()
+    for i in range(len(anchors)):
+        _check_rubric_anchor(anchors[i], f"rubric.anchors[{i}]", index, content, covered, issues)
+    for oid, entry in content.objectives.items():
+        if oid not in covered:
+            issues.append(
+                _e(
+                    f"目标 '{oid}' 没有任何 rubric 锚点引用 —— 学生做到了也无人判分",
+                    entry.path,
+                    "在 rubric.anchors[].objectives 里引用它，或删除该目标",
+                )
+            )
+
+
+def _check_clinical_reasoning(c: dict, issues: list[CaseIssue]) -> None:
+    """``clinical_reasoning`` 病例的内容门禁（docs/15 §十六）。
+
+    规则都是**结构可判**的：证据可达性、引用完整性、目标与锚点互相覆盖。「关键证据拿不到」
+    「目标没有锚点」这类问题不能留到运行期才发现 —— 学生的判断会建立在不可能获取的证据上，
+    评分也会凭借空锚点给分。
+    """
+    if c.get("activities"):
+        issues.append(
+            _e(
+                "clinical_reasoning 的 Activity 白名单当前为空（学生工作区待接入）：病例不得声明 activities —— 配置了也没有入口",
+                "activities",
+                "删除 activities 声明；证据获取在后续切片由该 workflow 自带的阶段链声明",
+            )
+        )
+    _check_clinical_scenario(c, issues)
+    findings = _check_clinical_findings(c, issues)
+    objectives, groups = _check_clinical_objectives(c, findings, issues)
+    content = _ClinicalContent(findings=findings, objectives=objectives, groups=groups)
+    _check_clinical_initial(c, content, issues)
+    _check_clinical_progression(c, content, issues)
+    _check_clinical_rubric(c, content, issues)
+
+
+def _check_clinical_content_declaration(c: dict, issues: list[CaseIssue]) -> None:
+    """临床判断字段只属于 ``clinical_reasoning`` 病例。
+
+    这些键一旦出现而病例没有声明 ``workflow: "clinical_reasoning"``，病例会被解析成问诊
+    病例：学生会进入一条问诊工作区，而病例没有任何问诊内容（患者信息/示例对话），结果
+    是一条无法渲染、无法评分的训练。所以发布前必须点名，而不是等训练开始后才暴露。
+    """
+    present = [key for key in CLINICAL_CONTENT_FIELDS if key in c]
+    if not present:
+        return
+    declared = declared_workflow_id(c)
+    issues.append(
+        _e(
+            f"病例含临床判断字段（{', '.join(present)}），但 workflow 声明为 {declared or '（未声明）'} —— "
+            "这些字段不会被消费，学生进入的是问诊工作区",
+            CASE_WORKFLOW_FIELD,
+            f'加 {{"workflow": "{CLINICAL_REASONING_ID}"}}，或删除这些字段',
+        )
+    )
+
+
 def _check_time_limit(c: dict, issues: list[CaseIssue]) -> None:
     tl = c.get("time_limit")
     if not isinstance(tl, (int, float)):
@@ -478,19 +989,30 @@ def _physical_exam_config(c: dict) -> dict:
 
 
 def validate_case(case_data: dict) -> CaseReport:
-    """校验单个病例，返回报告（纯函数）。"""
+    """校验单个病例，返回报告（纯函数）。
+
+    规则按病例声明的 workflow 分流（docs/15 §十六）：``clinical_reasoning`` 病例走临床判断
+    门禁（证据可达性 / 引用完整性 / 锚点覆盖），其余病例（含未声明 —— 唯一**可开始**的
+    workflow 是 history_taking）走原有问诊规则。两套规则不互相套用：临床判断病例没有示例
+    对话与必询项，问诊病例没有证据目录。共用规则（时长、死字段、难度校准）对两者都生效。
+    """
     report = CaseReport(name=str(case_data.get("name", "?")))
-    _check_activities(case_data, report.issues)
-    _check_workflow(case_data, report.issues)
-    _check_time_anchors(case_data, report.issues)
-    _check_symptom_negation(case_data, report.issues)
-    _check_person_relation(case_data, report.issues)
-    _check_fontanelle(case_data, report.issues)
-    _check_example_count(case_data, report.issues)
-    _check_year_freshness(case_data, report.issues)
-    _check_dead_fields(case_data, report.issues)
-    _check_time_limit(case_data, report.issues)
-    _check_difficulty_content(case_data, report.issues)
+    issues = report.issues
+    _check_workflow(case_data, issues)
+    if declared_workflow_id(case_data) == CLINICAL_REASONING_ID:
+        _check_clinical_reasoning(case_data, issues)
+    else:
+        _check_clinical_content_declaration(case_data, issues)
+        _check_activities(case_data, issues)
+        _check_time_anchors(case_data, issues)
+        _check_symptom_negation(case_data, issues)
+        _check_person_relation(case_data, issues)
+        _check_fontanelle(case_data, issues)
+        _check_example_count(case_data, issues)
+        _check_year_freshness(case_data, issues)
+    _check_dead_fields(case_data, issues)
+    _check_time_limit(case_data, issues)
+    _check_difficulty_content(case_data, issues)
     return report
 
 

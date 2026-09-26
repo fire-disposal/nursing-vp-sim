@@ -231,3 +231,17 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 
 - **`runtime_state` 单一写入契约**：新增 `modules/training/session/state.patch_runtime_state`（行锁 → `populate_existing` 重读 → 只改本键，`remove` 只删本键），对话修正计数、会话终结原因、评分重评快照全部改走它。此前这些写入都是「读已加载实例 → 整列回写」，而对话回合的事务 A 与 LLM 调用之间隔几十秒 —— 期间工具命令写入的 `exam_results`（学生查体结果）会被随后的整列回写静默抹掉（审计 PIP-15）。新增 `tests/training/test_runtime_state_contract.py` 守住四条不变式（其余键保留 / 以库内现值为基准 / 整键覆盖 / remove 只删本键），并用「旧写法丢 exam_results、新写法保留」的对照实验确认回归覆盖成立
 - **传输边界写死**：工具/活动状态只由 HTTP 命令面 `POST /api/training/{id}/tools` 写（`router/tools.py` 不再自称「旧协议适配层」）；对话回合只由 SSE 命令写；WS（`router/ws.py`）只推送评分/心跳事件，服务端不在该通道落任何业务行。前端相应删除无消费者的残余：`useToolBridge` 的空订阅、`training-ws:reconnected` 广播（全仓无监听者）、离线客户端命令队列（工具已走 HTTP，队列里只有被丢掉的 ping）与 `TrainingWS.send` 公开 API；`useToolBridge` / `useTrainingWS` / `api/sse.ts` / `docs/01-architecture.md` 的注释与文档改为描述真实边界
+
+### 临床判断训练病例作者面（临床推理 Slice 1）
+
+- **`clinical_reasoning` 登记为「仅作者面就绪」的 workflow**：`WorkflowDefinition.runtime_ready`
+  区分「可编写/发布/编目」与「可开始训练」。该闭包不挂 Activity、不声明患者对话 prompt、不声明
+  评分 rubric；三个训练入口（自主练习/作业/盲盒）一律 409 `workflow_not_startable`，绝不落地一条
+  无法渲染的训练记录，盲盒的随机池也排除不可开始的病例。「病例必须声明 workflow」的收紧判据改为
+  **可开始**的闭包条数 —— 存量未声明病例保持兼容（登记 ≠ 可以开始）。
+- **病例六个声明面 + 发布门禁**：`scenario` / `findings` / `initial` / `progression` / `objectives` /
+  `rubric` 有类型化 schema（保存即 422，拼错子键不再静默失效）与发布门禁：关键证据必须可获取
+  （否证 = 永远拿不到）、引用必须存在（目标/证据/推进触发）、每个目标至少被一个确定性锚点覆盖、
+  空 must-act/cue 声明被拒 —— 每条 error 都指向作者可见的 JSON 路径并给出修复方向。
+- **目录投影**：`CaseBrief.workflow` 增加 `runtime_ready`，运行期未就绪的 workflow 不投影任何能力；
+  学生目录展示 workflow label 但不提供可开始入口。见 `docs/15 §十六`。

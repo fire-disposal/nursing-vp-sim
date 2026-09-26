@@ -48,7 +48,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
         is_open=c.is_open,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         capabilities=workflow.resolve_features(c.case_data),
-        workflow=WorkflowBrief(id=workflow.id, label=workflow.label),
+        workflow=WorkflowBrief(id=workflow.id, label=workflow.label, runtime_ready=workflow.runtime_ready),
     )
 
 

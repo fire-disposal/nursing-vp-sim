@@ -356,7 +356,7 @@ Server Contract（manifest projections）
 | 维度 | 要求 | 现状 |
 |---|---|---|
 | 入口 | 训练目录（catalog 投影）列出该 workflow；受保护路由 `/workflows/clinical_reasoning/sessions/{id}`；导航可达 | 无（`/simulation` 是公共路由且注释谎称免登录） |
-| 病例 | 转入 `CaseRevision`（workflow-specific schema；`authoring` 投影给出可配置项与校验），教师可发布/归档；4 个硬编码病例迁为内置 revision | 硬编码在 `simulations/case.py` |
+| 病例 | 转入 `CaseRevision`（workflow-specific schema；`authoring` 投影给出可配置项与校验），教师可发布/归档；4 个硬编码病例迁为内置 revision | **作者面已完成**（Slice 1）：`clinical_reasoning` 病例有类型化 schema + 发布门禁（可达性/引用完整性/锚点覆盖）+ 目录 label；4 个硬编码病例仍留在 `simulations/case.py`，待 Slice 2 迁为内置 revision |
 | 作业 | 复用 `Assignment` + `AssignmentRecipient` 受众快照（不新建第二套发布体系） | 无 |
 | 产物 | 推理结论（诊断 + 关键动作 + 结局）作为 `submitted` artifact，进入 completion | 无（仅会话状态） |
 | 评分 | 独立 rubric：证据来自 `action_log` + 诊断 + 结局；不共享护理评分维度 | 无 |
@@ -403,8 +403,9 @@ Server Contract（manifest projections）
 | 2 组织与作业闭环 | **已完成（后端 + 管理端 UI）** | `ClassMembership`（`member_role` + `UNIQUE(user_id,class_id)`）正式多班级；`Class.cohort_label`（Grade 退场）；`Assignment.audience_mode` + `AssignmentRecipient` 受众快照；`/auth/me` 与用户 API 返回 memberships 数组；班级详情 GET 补齐；成员批量增删；班级/排名/花名册统一按 `member_role='student'`；班级名取值确定性（有作用域用该班，无作用域取最小 `class_id`）；真实 Firefox + Postgres 隔离库验证多班归属、学生/教师口径分离及筛选后完整班级标签。|
 | 3 病例生命周期 | **已完成（后端 + 管理端 UI）** | `cases.status`(draft/published/archived) + `case_revisions`(不可变) + `cases.current_revision_id`；`training_records`/`assignments.case_revision_id` 钉住版本；`case_data` 剥离 `name/difficulty/time_limit`（列成为唯一存储）；新端点 `GET /cases/{id}/validation`、`POST /publish`(error→422 + 字段级报告)、`POST /archive`、`GET /revisions`；`/cases` 学生目录只返回 `published && is_open`；`training_type` 三个接口字段与查询参数一并退场；迁移链 `b2c4d6e8f0a2 → e5a1b2c3d4f5 → e6b2c3d4e5f6 → e7c3d4e5f6a7`（含 data 回填与逐行报出的归档结论，downgrade 实测可逆）|
 | 4 Workflow/Activity 切换 | **steps 1–5 已完成；step 6 部分完成** | 后端：`activities.py`/`manifest.py`/`features.py`，`capabilities.py` 与 `gen_capabilities_ts.py` 删除，11 病例迁到 `activities.*`；前端：**一次切换**到 manifest 驱动工作区（纯 RendererMap + `ActivityRail`(桌面)/`ActivityBar`+Bottomsheet(移动) + `CompletionStrip`/`CompletionChecklist`），`registry.ts`/`getTools`/`capabilities.gen.ts`/`SceneRenderer`/`SceneToolbar`/`TrainingTool.ts`/`sceneStore`/`getProfiles` 全部删除，`package.json` 生成链移除 `cap:generate`；`/api/profiles` 端点删除（**step 6 剩余**：旧 `/tools` transport adapter 与字符串 dispatch 待新命令端点落地后移除）|
-| 5 Context 与对话可靠性 | **基础设施已落地；Invocation Audit 与第二 workflow 待做** | `ContextFragment`/`ContextAssembler` 统一选择、排序、裁剪、预算与槽位边界；对话回合采用事务 A（学生消息 + `pending` turn）/事务 B（患者回复 + 收尾）两阶段持久化；`request_id` 幂等、失败可审计、流式异常兜底、身份/隐藏主题守卫类型化追加；新增耐久性与装配测试覆盖。尚未接入 Invocation Audit/Evidence 的完整公共骨架，`clinical_reasoning` 仍未进入目录、作业、Artifact、评分与复盘。|
-| 5.0 Workflow 判别契约（临床推理 Slice 0） | **已完成** | 新增唯一 workflow 注册表/解析器 `modules/training/workflows.py`（当前只登记 `history_taking`）；`training_records.workflow_id`（NOT NULL，DDL `a9d0c1b2e3f4`，存量行回填 `history_taking`）成为冻结判别列，入口按**钉住的 CaseRevision** 解析写入、请求体无法选择；manifest / 会话详情 / 评分 / 终局 / 工具门 / 提示词 / NoteCollector 全部改读记录冻结值；学生目录 `CaseBrief.workflow` 暴露 id+label；病例门禁拒绝未登记声明。见 §十六。|
+| 5 Context 与对话可靠性 | **基础设施已落地；Invocation Audit 与第二 workflow 待做** | `ContextFragment`/`ContextAssembler` 统一选择、排序、裁剪、预算与槽位边界；对话回合采用事务 A（学生消息 + `pending` turn）/事务 B（患者回复 + 收尾）两阶段持久化；`request_id` 幂等、失败可审计、流式异常兜底、身份/隐藏主题守卫类型化追加；新增耐久性与装配测试覆盖。尚未接入 Invocation Audit/Evidence 的完整公共骨架；`clinical_reasoning` 的作者面（病例 schema/发布门禁/目录 label）已由 5.1 落地，学生工作区、作业、Artifact、评分与复盘仍待做。|
+| 5.0 Workflow 判别契约（临床推理 Slice 0） | **已完成** | 新增唯一 workflow 注册表/解析器 `modules/training/workflows.py`（当时只登记 `history_taking`）；`training_records.workflow_id`（NOT NULL，DDL `a9d0c1b2e3f4`，存量行回填 `history_taking`）成为冻结判别列，入口按**钉住的 CaseRevision** 解析写入、请求体无法选择；manifest / 会话详情 / 评分 / 终局 / 工具门 / 提示词 / NoteCollector 全部改读记录冻结值；学生目录 `CaseBrief.workflow` 暴露 id+label；病例门禁拒绝未登记声明。见 §十六。|
+| 5.1 临床判断病例作者面（临床推理 Slice 1） | **已完成（后端 + 目录投影；学生工作区待 Slice 2）** | `clinical_reasoning` 登记为**仅作者面就绪**（`WorkflowDefinition.runtime_ready=False`：不挂 Activity、无患者 prompt、无评分 rubric）；病例最小配置六个面（`scenario`/`findings`/`initial`/`progression`/`objectives`/`rubric`）有类型化 schema（保存 422）与发布门禁（关键证据可达性、引用完整性、锚点覆盖，报 JSON 路径）；`CaseBrief.workflow` 增加 `runtime_ready`，未就绪不投影能力；三个 start 端点 + 盲盒随机池共用产品状态门（409 `workflow_not_startable`，不落地空记录）；收紧判据改为「可开始的 workflow 条数」（存量未声明病例保持兼容）。见 §十六。|
 
 ### 生命周期边界收敛（2026-09-26，切片 2/3/4 的收尾）
 
@@ -464,22 +465,119 @@ Artifact/Evidence、`Score`/复核、教师查询与下钻框架。
 
 - **客户端不能选择 workflow**：`TrainingStartRequest` 不接受该字段（`extra=forbid` → 422），
   记录值只来自入口钉住的 revision（`/start` = current revision，`/start-from-assignment` = 作业发布时钉住的 revision）。
-- **注册表里只能有真实闭包**：`history_taking` 是当前唯一登记项；`clinical_reasoning`
-  在它自己的学生活动、产物、证据落地前**不登记**，因此不会出现「路由/菜单指向一个不可用工作区」。
+- **注册表里只能有真实闭包**：登记表当前两项 —— `history_taking`（运行期就绪）与
+  `clinical_reasoning`（**仅作者面就绪**，`runtime_ready=False`）。后者的学生工作区、产物、
+  证据与评分尚未交付，因此它不可开始、不挂任何 Activity、不声明患者对话 prompt，也**不得**
+  出现在任何指向学生工作区的路由/菜单里。占位与实验能力仍然不得登记（docs/16 §三）。
 - **未知 id 一律拒绝**：解析器（`UnknownWorkflowError`）与病例门禁（`validator._check_workflow`，
   发布前 error）双层拒绝未登记声明，绝不静默回落到第一条闭包。
-- **声明随登记收紧**：只登记一条时病例可省略 `workflow`；一旦登记第二条，省略即解析失败 +
-  病例门禁 error —— 强制病例自己说明跑哪条闭包。
+- **声明随登记收紧（只按可开始的闭包计数）**：只有一条**可开始**的 workflow 时，病例可省略
+  `workflow`（回落无歧义）；一旦登记第二条**可开始**的 workflow，省略即解析失败 + 病例门禁
+  error —— 强制病例自己说明跑哪条闭包。不可开始的闭包不能被省略选中（它开不了训练），
+  但**它的病例必须显式声明自己**，否则内容会被当成问诊病例（发布门禁报 error，见下一节）。
 - 投影：会话 projection 的 `manifest.workflow`（`id`/`label`/`ui`，前端据此选工作区）已由记录冻结值驱动；
-  学生目录 `GET /api/cases` 的 `CaseBrief.workflow` 暴露 id+label。作业投影没有 workflow 语义，不动。
+  学生目录 `GET /api/cases` 的 `CaseBrief.workflow` 暴露 `id`/`label`/`runtime_ready`。作业投影没有 workflow 语义，不动。
 
-### 下一步：临床判断训练的三个切片（每个都必须独立可验收）
+### Slice 1（本切片，已落地）：`clinical_reasoning` 病例 authoring、发布门禁与目录投影
+
+交付的是**作者面**：病例能写、能过门禁、能发布、能进目录；学生入口一律 409。
+
+| 事实 | 唯一 owner |
+|---|---|
+| 这条闭包的产品状态 | `WorkflowDefinition.runtime_ready`（`clinical_reasoning=False`：可编写/发布/编目，不可开始） |
+| 病例内容**结构** | `schemas/case_schema.py` 的 `Clinical*` 模型（保存路径 422；`extra="forbid"`，拼错子键不静默失效） |
+| 病例内容**语义** | `modules/cases/validator.py::_check_clinical_reasoning`（发布门禁，报作者可见 JSON 路径 + 修复建议） |
+| 目录投影 | `GET /api/cases` 的 `CaseBrief.workflow`（`id` + `label` + `runtime_ready`；未就绪时不投影任何能力） |
+| 训练入口的产品状态门 | `modules/training/workflows.require_startable` → 三个 start 端点 409 `workflow_not_startable` |
+
+**病例最小配置（canonical schema）**——`workflow` 必填，其余六个面是全部内容：
+
+```json
+{
+  "workflow": "clinical_reasoning",
+  "scenario": {"title": "术后低氧", "setting": "外科病房 · 术后 6 小时", "summary": "…", "learner_brief": "…"},
+  "findings": [
+    {"id": "f.spo2", "label": "SpO2 88%（未吸氧）", "kind": "vital_sign", "critical": true,
+     "obtainable_via": ["exam:vital_signs"]}
+  ],
+  "initial": {"visible_findings": [], "hidden_findings": ["f.spo2"]},
+  "progression": [
+    {"id": "p.1", "trigger": {"kind": "time", "after_minutes": 5},
+     "state_changes": {"spo2": 84}, "description": "未吸氧 → 低氧加重"}
+  ],
+  "objectives": {
+    "must_notice": [{"id": "n.1", "label": "识别低氧", "finding": "f.spo2"}],
+    "must_act": [{"id": "a.1", "label": "立即给氧", "action": "启动吸氧并复评 SpO2"}],
+    "must_communicate": [{"id": "c.1", "label": "SBAR 报告医生", "cue": "SBAR 报告 SpO2 88% 与复评结果"}]
+  },
+  "rubric": {"anchors": [
+    {"id": "r.1", "label": "发现低氧", "rule": "objective_met", "weight": 2, "objectives": ["n.1"], "findings": ["f.spo2"]}
+  ]}
+}
+```
+
+闭集取值：`findings[].kind` ∈ `vital_sign|exam|lab|history|observation`；
+`progression[].trigger.kind` ∈ `time|finding|objective`；
+`rubric.anchors[].rule` ∈ `finding_observed|objective_met|action_taken|communicated`。
+`id` 是引用键：非空、不含空白、≤64 字符（允许中文）。
+
+发布门禁规则（每条 error 都带作者可见 JSON 路径）：
+
+1. `scenario` 必填且 `title`/`setting`/`summary` 非空；
+2. `findings` 非空、id 唯一、`label`/`kind` 合法；`critical` 必须能被拿到（见 3）；
+3. `initial.visible_findings` 与 `hidden_findings` 互斥；**每条证据都必须出现在二者之一**
+   （「关键证据拿不到」= error）；`hidden_findings` 的每条证据必须有非空 `obtainable_via`
+   （「隐藏但没有任何途径获取」= error）；
+4. `progression`：`time` 触发必须给 `after_minutes ≥ 1`；`finding`/`objective` 触发的 `ref`
+   必须指向已声明的 id；`state_changes` 非空（没有状态变化就不是推进）；未声明 `progression`
+   只报 warning（学生不作为时状态不变是合法设计，但必须被看见）；
+5. `objectives`：三组都非空；`must_notice[].finding` 指向证据；`must_act[].action` /
+   `must_communicate[].cue` 非空（空声明无法判定）；
+6. `rubric.anchors` 非空；`rule` 决定引用类型（`finding_observed` → `findings`，
+   `objective_met`/`action_taken`/`communicated` → `objectives`）；`action_taken` 只能引用
+   `must_act`、`communicated` 只能引用 `must_communicate`（矛盾引用 = error）；**每个目标至少被
+   一个锚点覆盖**（学生做到了也无人判分 = error）；`weight > 0`；
+7. 病例含临床判断字段但没声明 `workflow: "clinical_reasoning"` = error —— 否则它会被解析成
+   问诊病例，学生进入的是一条没有问诊内容、无法渲染的训练；
+8. `clinical_reasoning` 病例声明 `activities` = error（该 workflow 的 Activity 白名单当前为空，
+   配置了也没有入口）。
+
+**产品边界（本切片明确不做）**：不加学生路由/菜单/renderer，不建任何训练记录；不接入模拟引擎、
+证据获取与评分。`progression` 只是声明，没人推进它；`rubric` 只是声明，没人算分。目录只展示
+label 与「尚未开放」，不提供可开始的入口。
+
+**教师作者面**：病例编辑器的 JSON 视图 + 工具栏「临床判断模板」（一键插入上述可发布骨架：
+保留名称/描述/难度/时限，替换内容面）+ JSON 视图内的期望字段清单
+（`frontend/src/components/admin/cases/clinicalReasoningTemplate.ts`）；保存/发布时服务端门禁的
+字段级报告原地渲染（`CaseValidationReportView`，errors[].field 就是 JSON 路径）。刻意**不**做
+workflow IDE、也**不**在前端复刻一套校验 —— schema 与规则只有后端一个 owner。学生目录
+（`TrainingSelect`）展示 `CaseBrief.workflow.label`，`runtime_ready=false` 时显示「尚未开放」并
+禁用开始入口；服务端 409 的文案（`workflow_not_startable`）在自主/作业/盲盒三条入口原样透出。
+
+**Slice 2 接入契约**（把声明变成运行期的前置条件，避免踩到收紧陷阱）：
+
+1. **翻转 `runtime_ready=True` 之前，先把存量病例显式声明 `workflow`**：那一刻「未声明」会从
+   合法变成解析失败（收紧判据 = 可开始的 workflow 条数）。内置病例在仓库文件里显式声明即可
+   （seed 会收敛未被教师改动的行），教师病例需要一次性数据迁移——**包括 `case_revisions.content`
+   里已发布的快照**，否则老作业/老病例会在解析 revision 时失败。
+2. 病例 → 运行期的唯一入口仍是 `CaseRevision.content`；证据获取必须消费 `findings[].id` 与
+   `obtainable_via` 声明的同一批 id，不得在代码里另造一套 id 体系。
+3. `rubric.anchors[].rule` 是确定性判定：证据类来自证据获取记录，目标类来自 objective 的结构化
+   判定（能算的不用 LLM 判）；`rubric_snapshot` 按记录冻结的 workflow 写入。
+4. `time_limit` 沿用病例级全局口径（`core/time_limits.py`，30–180 分钟）。产品形态说的
+   「单次 15–20 分钟」是**会话时长策略**，由 Slice 2 在自己那条赛道决定；如确需 workflow 级上界，
+   改 `core/time_limits.py` 的单一口径，不在病例里另开字段（否则又是两套真相源）。
+5. 作业：`/start-from-assignment` 与自主训练、盲盒共用同一道产品状态门（盲盒的随机池已排除
+   不可开始的闭包）。**作业发布面当前不拦**「未就绪 workflow」的作业 —— 学生点击会得到 409；
+   是否在作业发布时也拒绝，留给 Slice 2 与作业域一起决定。
+
+### 下一步：临床判断训练剩余切片（每个都必须独立可验收）
 
 | 切片 | 交付 | 验收 |
 |---|---|---|
-| **1 结构化五阶段推理产物** | 病例 revision 声明 `workflow: clinical_reasoning`；该 workflow 登记真实闭包（阶段状态机 + 允许 Activity 白名单）；学生产物 = 结构化推理结论（线索/评估/证据/判断/行动/SBAR），有 `draft → submitted` 生命周期并冻结 | 学生能从目录/作业进入、走完阶段链、提交后产物可回放；未提交不得进入正式评分；请求体无法改 workflow，记录判别值来自 revision |
-| **2 确定性证据与 rubric** | 独立评分域：证据来自 `TrainingAction` + 已提交推理产物 + 终局判定；确定性规则优先（能算的不用 LLM 判）；rubric 与该 workflow 绑定，不共享护理评估维度 | 同一份冻结证据重复评分结果一致；缺证据的维度不得凭空给分；`rubric_snapshot` 按记录 workflow 冻结 |
-| **3 教师证据时间线** | 教师侧按「行动 → 证据 → 判断 → 评分依据」下钻的时间线视图；复用既有复核队列/分数下钻框架 | 每个分数可点进对应证据；教师能看到学生阶段推进与关键决策点 |
+| **2 学生工作区与结构化推理产物**（含翻转 `runtime_ready`） | 阶段状态机 + 证据获取（消费病例 `findings` 声明）+ 结构化推理产物（草稿 → 已提交冻结）+ 工作区 renderer；翻转产品状态前按上面的前置条件声明存量病例 | 学生能从目录/作业进入、走完阶段链、提交后产物可回放；未提交不得进入正式评分 |
+| **3 确定性证据与 rubric** | 独立评分域：证据来自 `TrainingAction` + 已提交产物 + 终局判定；消费病例 `rubric.anchors`；不共享护理评估维度 | 同一份冻结证据重复评分结果一致；缺证据的维度不得凭空给分；`rubric_snapshot` 按记录 workflow 冻结 |
+| **4 教师证据时间线** | 教师侧按「行动 → 证据 → 判断 → 评分依据」下钻，复用既有复核队列/分数下钻框架 | 每个分数可点进对应证据；教师能看到阶段推进与关键决策点 |
 
-边界：这三步之前不动生产导航（不加 `clinical_reasoning` 路由/菜单/renderer），
-本切片只交付判别契约与读取收口。
+边界：这些切片落地前不加 `clinical_reasoning` 路由/菜单/renderer，训练入口保持 409
+（`require_startable`）；目录可以展示病例与 label，但不提供可开始的入口。

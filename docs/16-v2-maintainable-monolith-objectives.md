@@ -241,11 +241,17 @@ JSONB 负责：
 1. **判别契约（Slice 0，已完成）**：`CaseRevision` 决定 workflow → `training_records.workflow_id`
    冻结 → 运行期一律 `workflows.workflow_for_record(record)`；客户端不能选择 workflow；
    病例门禁与解析器双层拒绝未登记 workflow。见 `docs/15 §十六`。
-2. **结构化五阶段推理产物**：`clinical_reasoning` 闭包登记 + 阶段状态机 + 结构化推理产物
-   （draft → submitted 冻结），进入 completion 与复盘。
-3. **确定性证据与 rubric**：证据取自 `TrainingAction` + 已提交产物 + 终局判定；能算的不用 LLM 判；
+2. **病例作者面（已完成）**：`clinical_reasoning` 闭包登记为**仅作者面就绪**
+   （`runtime_ready=False`：不挂 Activity、无患者 prompt、无评分 rubric）；病例六个声明面
+   （场景 / 证据目录 / 初始可见与隐藏 / 未处置推进 / 三类目标 / 确定性锚点）有类型化 schema
+   与发布门禁（关键证据可达性、引用完整性、锚点覆盖，报作者可见 JSON 路径）；目录展示 label
+   并标注未开放；训练入口 409 且不落地空记录。见 `docs/15 §十六`。
+3. **学生工作区与结构化推理产物**：翻转 `runtime_ready`（前置：存量病例显式声明 workflow，
+   含已发布 revision 快照）+ 阶段状态机 + 证据获取（消费病例 `findings` 声明）+
+   结构化推理产物（草稿 → 已提交冻结），进入 completion 与复盘。
+4. **确定性证据与 rubric**：证据取自 `TrainingAction` + 已提交产物 + 终局判定；能算的不用 LLM 判；
    rubric 与该 workflow 绑定，不与护理评估共享维度。
-4. **教师证据时间线**：行动 → 证据 → 判断 → 评分依据可下钻，复用既有复核队列框架。
+5. **教师证据时间线**：行动 → 证据 → 判断 → 评分依据可下钻，复用既有复核队列框架。
 
 约束：不新增第二套发布/受众/评分/复核体系；不复制一遍外围（第三个 workflow 出现时不应再复制）。
 仍然**不做**动态插件加载、插件市场、版本协商、通用 Context/Evidence 平台。

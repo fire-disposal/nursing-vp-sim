@@ -70,6 +70,11 @@ class WorkflowDefinition:
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
     rubric: dict
+    #: 产品状态：这条闭包**是否已有真实运行期入口**（学生工作区 + 真实产物/证据 +
+    #: 评分/复盘）。``False`` = 只能编写病例、过发布门禁、进目录，训练入口一律拒绝
+    #: （``workflows.require_startable`` → 409），绝不落地一条没有 renderer 的训练记录。
+    #: 摘掉这个标志的时机由**真实能力**决定，不由排期决定（同 docs/15 §三「禁止声明」）。
+    runtime_ready: bool = True
 
     # ── 解析（服务端唯一入口；前端不得重新推导，docs/15 §四）──────────────
 
@@ -105,7 +110,13 @@ class WorkflowDefinition:
         *,
         overrides: Mapping[str, Any] | None = None,
     ) -> dict[str, bool]:
-        """内置特性 + 本 Workflow 的 Activity 开关（训练记录上固化的能力投影）。"""
+        """内置特性 + 本 Workflow 的 Activity 开关（训练记录上固化的能力投影）。
+
+        运行期未就绪的 workflow 没有任何可投影的能力（``runtime_ready=False``）：它开不了
+        训练，目录/管理端就不该显示「这个病例支持情绪事件/主动追问」这类运行期承诺。
+        """
+        if not self.runtime_ready:
+            return {}
         return {
             **resolve_builtin_features(overrides),
             **resolve_activity_flags(case_data, allowed=self.activities, overrides=overrides),
@@ -148,4 +159,35 @@ HISTORY_TAKING = WorkflowDefinition(
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=PromptCollection(system=PATIENT_SYSTEM, dynamic=PATIENT_DYNAMIC),
     rubric=get_base_rubric(),
+)
+
+
+#: 第二条登记项：临床判断训练（Clinical Judgment Drill，docs/15 §十六）。
+#:
+#: 它是**真实闭包声明，但运行期尚未就绪**（``runtime_ready=False``）：本切片只交付
+#: 「病例怎么编写 / 发布门禁 / 目录投影」，学生工作区（阶段链条 + 证据获取 + 结构化
+#: 推理产物 + 确定性评分 + 复盘）属于后续切片。因此：
+#:
+#: - ``activities=()``：没有任何已就绪的 Activity —— 未接入的入口不进生产 manifest
+#:   （docs/15 §三「禁止声明」）；病例若声明 ``activities`` 会在发布门禁报 error。
+#: - ``prompts=PromptCollection()``：它不是第二套患者对话 —— 临床判断训练不共享
+#:   ``history_taking`` 的 LLM prompt（判据来自病例声明的确定性证据与 rubric）。
+#: - ``rubric={}``：评分域由**病例**声明的确定性锚点决定；不共享护理评估 rubric。
+#: - 训练入口（学生/作业/盲盒）一律 409 拒绝（``workflows.require_startable``），
+#:   直到下游交付真实 renderer/Activity 才翻转 ``runtime_ready``。
+CLINICAL_REASONING = WorkflowDefinition(
+    id="clinical_reasoning",
+    label="临床判断训练",
+    description="临床判断训练：发现线索 → 获取证据 → 判断 → 行动 → 沟通；工作区与确定性评分待接入，当前仅支持病例编写、发布与目录展示",
+    activities=(),
+    entry_modes=(),
+    artifact_kinds=(),
+    completion=CompletionPolicy(required_artifacts=()),
+    scoring_profile="clinical_reasoning.base",
+    context_profile="clinical_reasoning.session",
+    ui={},
+    note_sources=[],
+    prompts=PromptCollection(),
+    rubric={},
+    runtime_ready=False,
 )

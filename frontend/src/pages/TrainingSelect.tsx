@@ -87,6 +87,41 @@ function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
 	);
 }
 
+/** 病例所属 workflow（服务端唯一来源）：label 由目录投影下发，前端不推导。 */
+function WorkflowBadge({ workflow }: { workflow: CaseBrief["workflow"] }) {
+	if (!workflow?.label) return null;
+	const pending = workflow.runtime_ready === false;
+	return (
+		<Group gap={4} wrap="wrap">
+			<Badge variant="light" color={pending ? "orange" : "teal"} size="xs">
+				{workflow.label}
+			</Badge>
+			{pending && (
+				<Badge variant="light" color="orange" size="xs">
+					尚未开放
+				</Badge>
+			)}
+		</Group>
+	);
+}
+
+type StartErrorDetail = { code?: string; message?: string; record_id?: number; case_name?: string };
+
+/**
+ * 产品状态冲突（`workflow_not_startable`）：原样展示服务端文案。
+ *
+ * 这不是「开始失败」—— 病例与权限都没问题，只是该工作区尚未提供学生入口；
+ * 泛化成「请重试」会让学生一直重试一个永远不会成功的动作。
+ */
+function workflowNotStartableMessage(err: unknown): string | null {
+	const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
+	const detail = axiosErr.response?.data?.detail;
+	if (axiosErr.status === 409 && detail?.code === "workflow_not_startable") {
+		return detail.message ?? "该工作区尚未开放，暂时不能开始训练。";
+	}
+	return null;
+}
+
 export default function TrainingSelect() {
 	const [tab, setTab] = useState<"home" | "self" | "assignments">("home");
 	const [difficultyFilter, setDifficultyFilter] = useState(0);
@@ -210,10 +245,15 @@ export default function TrainingSelect() {
 			navigate(`/training/${data.record_id}`);
 		},
 		onError: (err: unknown) => {
-			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
 			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
 				const d = axiosErr.response.data.detail;
 				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			const notOpen = workflowNotStartableMessage(err);
+			if (notOpen) {
+				toast.error(notOpen);
 				return;
 			}
 			toast.error("开始训练失败，请重试");
@@ -227,7 +267,7 @@ export default function TrainingSelect() {
 			navigate(`/training/${data.record_id}`);
 		},
 		onError: (err: unknown) => {
-			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
 			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
 				const d = axiosErr.response.data.detail;
 				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
@@ -254,10 +294,15 @@ export default function TrainingSelect() {
 				navigate(`/training/${(data as { record_id: number }).record_id}`);
 			}
 		} catch (err: unknown) {
-			const axiosErr = err as { status?: number; response?: { data?: { detail?: { code?: string; record_id?: number; case_name?: string } } } };
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
 			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
 				const d = axiosErr.response.data.detail;
 				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			const notOpen = workflowNotStartableMessage(err);
+			if (notOpen) {
+				toast.error(notOpen);
 				return;
 			}
 			toast.apiError(err, "开始作业失败，请刷新后重试");
@@ -659,6 +704,8 @@ export default function TrainingSelect() {
 								{cases.map((c, idx) => {
 									const summary = getPatientSummary(c.patient_summary);
 									const inProgress = inProgressByCase.get(c.id);
+									// 工作区未交付：病例可在目录里被看到，但不提供可开始的入口（docs/15 §十六）
+									const workflowPending = c.workflow?.runtime_ready === false;
 									return (
 										<motion.div key={c.id}
 											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -675,13 +722,24 @@ export default function TrainingSelect() {
 													<Stars level={c.difficulty} />
 												</Group>
 												<CapBadges caps={c.capabilities} />
+												<WorkflowBadge workflow={c.workflow} />
 												{inProgress ? (
 													<Group gap="xs" style={{ marginTop: "auto" }}>
 														<Button style={{ flex: 1 }} size="sm" onClick={() => navigate(`/training/${inProgress.id}`)}><IconPlayerPlay size={14} />继续训练</Button>
 														<Button variant="outline" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
 													</Group>
 												) : (
-													<Button style={{ marginTop: "auto", width: "100%" }} size="sm" onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })} disabled={startMutation.isPending}>开始训练</Button>
+													<Button
+														style={{ marginTop: "auto", width: "100%" }}
+														size="sm"
+														variant={workflowPending ? "light" : "filled"}
+														color={workflowPending ? "orange" : undefined}
+														onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
+														disabled={startMutation.isPending || workflowPending}
+														title={workflowPending ? `${c.workflow?.label ?? "该工作区"}尚未开放：病例可查看，暂不能开始训练` : undefined}
+													>
+														{workflowPending ? "尚未开放" : "开始训练"}
+													</Button>
 												)}
 											</Paper>
 										</motion.div>

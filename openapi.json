@@ -17949,6 +17949,11 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "runtime_ready": {
+            "type": "boolean",
+            "title": "Runtime Ready",
+            "default": true
           }
         },
         "type": "object",
@@ -17957,7 +17962,7 @@
           "label"
         ],
         "title": "WorkflowBrief",
-        "description": "Workflow 身份投影（id + label）。\n\n供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，\n不自行推导（manifest 里的完整投影见 ``workflow-manifest``，docs/15 §四）。"
+        "description": "Workflow 身份投影（id + label + 产品状态）。\n\n供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，\n不自行推导（manifest 里的完整投影见 ``workflow-manifest``，docs/15 §四）。\n\n``runtime_ready=False``：该 workflow 已登记、病例可编写可发布可进目录，但**还没有\n学生工作区**（docs/15 §十六）—— 前端不得提供「开始训练」，服务端也会 409 拒绝。"
       }
     },
     "securitySchemes": {

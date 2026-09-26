@@ -1,17 +1,20 @@
-"""Workflow 判别契约 —— 病例决定 / 记录冻结 / 读取一律走解析器（docs/15 §二、§九）。
+"""Workflow 判别契约 —— 病例决定 / 记录冻结 / 读取一律走解析器（docs/15 §二、§九、§十六）。
 
-本切片（临床判断训练 Slice 0）只做「契约缝」：登记 ``history_taking`` 一条真实闭包，
-把「这次训练跑哪条 workflow」从代码常量搬到**病例 revision 决定 → 训练记录冻结**
-（``training_records.workflow_id``，NOT NULL）。
+Slice 0 把「这次训练跑哪条 workflow」从代码常量搬到**病例 revision 决定 → 训练记录冻结**
+（``training_records.workflow_id``，NOT NULL）；Slice 1 登记了第二条闭包
+``clinical_reasoning``，但它是**仅作者面就绪**（``runtime_ready=False``）—— 可编写/发布/编目，
+不能开始训练。
 
-守住四件事：
+守住五件事：
 
 1. **冻结语义**：运行期读取跟随记录的 ``workflow_id``，不跟随代码常量（登记第二条
    workflow 后，老记录仍然跑它自己那条闭包）；
-2. **未知 workflow 拒绝**：未登记的 id、以及「登记了多条但病例/记录没说明」一律报错，
-   绝不静默回落到第一条（否则新 workflow 的病例会跑成问诊）；
-3. **history_taking 回归**：现有问诊路径的 features / manifest / 病例门禁输出逐字节不变；
-4. **迁移契约**：判别列 NOT NULL、存量行回填 ``history_taking``、迁移链单 head。
+2. **未知 workflow 拒绝**：未登记的 id、以及「登记了多条**可开始**的闭包但病例/记录没说明」
+   一律报错，绝不静默回落到第一条（否则新 workflow 的病例会跑成问诊）；
+3. **产品状态门**：运行期未就绪的闭包可以解析（编写/发布/目录要用），但
+   ``require_startable`` 一律拒绝开始 —— 登记 ≠ 可以开始；
+4. **history_taking 回归**：现有问诊路径的 features / manifest / 病例门禁输出逐字节不变；
+5. **迁移契约**：判别列 NOT NULL、存量行回填 ``history_taking``、迁移链单 head。
 """
 
 from __future__ import annotations
@@ -32,15 +35,18 @@ from models.school import legacy_grades_table
 from modules.cases.validator import validate_case
 from modules.training import workflows
 from modules.training.manifest import build_session_manifest
-from modules.training.profile import HISTORY_TAKING, CompletionPolicy
+from modules.training.profile import CLINICAL_REASONING, HISTORY_TAKING, CompletionPolicy
 from modules.training.workflows import (
     CASE_WORKFLOW_FIELD,
     DEFAULT_WORKFLOW_ID,
     UnknownWorkflowError,
+    WorkflowNotStartableError,
     declared_workflow_id,
     get_workflow,
     record_activity_available,
     registered_workflow_ids,
+    require_startable,
+    startable_workflow_ids,
     workflow_for_case,
     workflow_for_case_data,
     workflow_for_case_revision,
@@ -63,7 +69,8 @@ _CASE_WITH_QUIZ = {
     }
 }
 
-#: 未来的第二条闭包（本切片不登记）：只用于验证「读取跟随记录」而不引入生产入口
+#: 未来的第三条**可开始**闭包（本切片不登记）：只用于验证「读取跟随记录」与
+#: 「登记第二条可开始的闭包后必须显式声明」而不引入生产入口
 _FAKE_WORKFLOW = replace(
     HISTORY_TAKING,
     id="reasoning_drill",
@@ -122,23 +129,52 @@ def _seed_student_and_case(db: Session) -> tuple[User, Case]:
 
 
 class TestRegistry:
-    def test_production_registry_has_only_history_taking(self):
-        """没有第二个**真实**闭包之前，注册表里不能出现任何占位 workflow。"""
-        assert registered_workflow_ids() == ("history_taking",)
-        assert "clinical_reasoning" not in workflows.REGISTRY
+    def test_production_registry_registers_clinical_reasoning_without_runtime_surface(self):
+        """``clinical_reasoning`` 已登记，但**没有运行期入口**：可编写/发布/编目，不能开始。
+
+        这条断言守的是产品状态：登记 ≠ 可以开始（docs/15 §十六）。缺了 ``runtime_ready``
+        或给它 ``activities``/``prompts``，就等于谎称学生工作区已经存在。
+        """
+        assert registered_workflow_ids() == ("history_taking", "clinical_reasoning")
+        assert workflows.REGISTRY["clinical_reasoning"] is CLINICAL_REASONING
+
+        drill = workflows.REGISTRY["clinical_reasoning"]
+        assert drill.runtime_ready is False
+        assert HISTORY_TAKING.runtime_ready is True
+        assert startable_workflow_ids() == ("history_taking",)
+        # 没有已就绪的 Activity / 产物 / 患者对话 prompt / 护理评分 rubric
+        assert drill.activities == ()
+        assert drill.artifact_kinds == ()
+        assert drill.completion.required_artifacts == ()
+        assert drill.prompts.system == ""
+        assert drill.prompts.dynamic == ""
+        assert drill.rubric == {}
+        assert drill.note_sources == []
 
     def test_registry_entries_are_enumerable_and_self_consistent(self):
         assert set(workflows.REGISTRY) == set(registered_workflow_ids())
         for workflow_id, definition in workflows.REGISTRY.items():
             assert definition.id == workflow_id
             assert definition.label
+        # 可开始集合是登记表的子集，且只由 runtime_ready 决定
+        assert set(startable_workflow_ids()) <= set(registered_workflow_ids())
+        assert set(startable_workflow_ids()) == {
+            workflow_id for workflow_id, definition in workflows.REGISTRY.items() if definition.runtime_ready
+        }
+
+    def test_require_startable_rejects_workflows_without_a_runtime_surface(self):
+        assert require_startable(HISTORY_TAKING) is HISTORY_TAKING
+        with pytest.raises(WorkflowNotStartableError) as excinfo:
+            require_startable(CLINICAL_REASONING)
+        assert excinfo.value.workflow_id == "clinical_reasoning"
+        assert "临床判断训练" in str(excinfo.value)
 
 
 class TestUnknownWorkflowRejected:
     def test_unregistered_id_is_rejected(self):
         with pytest.raises(UnknownWorkflowError) as excinfo:
-            get_workflow("clinical_reasoning")
-        assert excinfo.value.workflow_id == "clinical_reasoning"
+            get_workflow("reasoning_drill")
+        assert excinfo.value.workflow_id == "reasoning_drill"
         assert "history_taking" in str(excinfo.value)
 
     @pytest.mark.parametrize("value", [None, "", "  ", 123, {"id": "history_taking"}, ["history_taking"]])
@@ -148,23 +184,45 @@ class TestUnknownWorkflowRejected:
 
     def test_case_declaring_unregistered_workflow_is_rejected(self):
         with pytest.raises(UnknownWorkflowError):
-            workflow_for_case_data({"workflow": "clinical_reasoning"})
+            workflow_for_case_data({"workflow": "reasoning_drill"})
 
     def test_record_with_unregistered_frozen_workflow_is_rejected(self):
-        record = TrainingRecord(workflow_id="clinical_reasoning", case_snapshot=_CASE_DATA)
+        record = TrainingRecord(workflow_id="reasoning_drill", case_snapshot=_CASE_DATA)
         with pytest.raises(UnknownWorkflowError):
             workflow_for_record(record)
 
-    def test_undeclared_case_is_rejected_once_second_workflow_exists(self, two_workflows):
-        """登记第二条后，病例不再允许「不声明」——否则会静默跑成第一条。"""
+    def test_undeclared_case_is_rejected_once_second_startable_workflow_exists(self, two_workflows):
+        """登记第二条**可开始**的 workflow 后，病例不再允许「不声明」——否则会静默跑成第一条。"""
         with pytest.raises(UnknownWorkflowError):
             workflow_for_case_data({})
         with pytest.raises(UnknownWorkflowError):
             workflow_for_case_data({"workflow": 123})
 
-    def test_record_without_frozen_id_is_rejected_once_second_workflow_exists(self, two_workflows):
+    def test_record_without_frozen_id_is_rejected_once_second_startable_workflow_exists(self, two_workflows):
         with pytest.raises(UnknownWorkflowError):
             workflow_for_record(TrainingRecord(case_snapshot=_CASE_DATA))
+
+    def test_registered_but_not_startable_workflow_does_not_tighten_declaration(self):
+        """``clinical_reasoning`` 已登记，但只有一条**可开始**的闭包 —— 省略声明仍然合法。
+
+        收紧判据是「可开始的 workflow 有几条」，不是「登记了几条」：不可开始的闭包不可能被
+        省略选中（它根本开不了训练）。这条规则一变，全库存量病例会在一夜之间解析失败。
+        """
+        assert len(registered_workflow_ids()) > 1
+        assert startable_workflow_ids() == ("history_taking",)
+        assert workflow_for_case_data(dict(_CASE_DATA)) is HISTORY_TAKING
+        assert workflow_for_case_data({}) is HISTORY_TAKING
+
+    def test_declared_clinical_reasoning_resolves_for_authoring_paths(self):
+        """声明 clinical_reasoning 的病例可解析（编写/发布/目录要用），但不可开始。"""
+        workflow = workflow_for_case_data({"workflow": "clinical_reasoning"})
+        assert workflow is CLINICAL_REASONING
+        with pytest.raises(WorkflowNotStartableError):
+            require_startable(workflow)
+        # 解析成功 ≠ 记录可冻结：训练入口在解析后立刻过 require_startable（见 router/session）
+        record = TrainingRecord(workflow_id="clinical_reasoning", case_snapshot=_CASE_DATA)
+        with pytest.raises(WorkflowNotStartableError):
+            require_startable(workflow_for_record(record))
 
 
 class TestCaseRevisionDecides:
@@ -276,10 +334,10 @@ class TestHistoryTakingRegression:
             assert [i for i in report.errors if i.field == CASE_WORKFLOW_FIELD] == []
 
     def test_case_gate_rejects_unregistered_workflow(self):
-        report = validate_case({"name": "契约病例", **_CASE_DATA, "workflow": "clinical_reasoning"})
+        report = validate_case({"name": "契约病例", **_CASE_DATA, "workflow": "reasoning_drill"})
         errors = [i for i in report.errors if i.field == CASE_WORKFLOW_FIELD]
         assert len(errors) == 1
-        assert "clinical_reasoning" in errors[0].message
+        assert "reasoning_drill" in errors[0].message
         assert "history_taking" in errors[0].fix_hint
 
     def test_case_gate_rejects_empty_workflow_declaration(self):

@@ -38,7 +38,11 @@ from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
 from modules.training.workflows import (
+    UnknownWorkflowError,
     WorkflowDefinition,
+    WorkflowNotStartableError,
+    require_startable,
+    workflow_for_case,
     workflow_for_case_revision,
 )
 from schemas import (
@@ -132,6 +136,41 @@ def _load_nursing_record(db: Session, record_id: int) -> tuple[dict | None, date
     return sheet, nr.submitted_at
 
 
+#: 训练入口产品状态冲突的机器可读码（前端据此显示「即将开放」而不是「开始失败」）。
+CODE_WORKFLOW_NOT_STARTABLE = "workflow_not_startable"
+
+
+def _require_startable_workflow(workflow: WorkflowDefinition) -> WorkflowDefinition:
+    """训练入口的产品状态门（docs/15 §十六）。
+
+    403/422 都不对：病例、权限、版本都没问题，冲突在于**产品状态** —— 这条闭包的学生
+    工作区还没交付，所以是 409 + 机器可读 code + workflow 身份。绝不「先建一条记录再看」：
+    空记录会永远无法渲染、无法评分，还占掉「同一时刻只能有一条进行中训练」的名额。
+    """
+    try:
+        return require_startable(workflow)
+    except WorkflowNotStartableError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": CODE_WORKFLOW_NOT_STARTABLE,
+                "workflow": {"id": exc.workflow_id, "label": exc.label},
+                "message": str(exc),
+            },
+        ) from exc
+
+
+def _case_is_startable(case: Case) -> bool:
+    """该病例（current revision）所属 workflow 是否可开始训练（盲盒随机池的过滤条件）。
+
+    未登记的声明（数据层面异常）也不可能开始 —— 不进随机池，且不因它让整个盲盒 500。
+    """
+    try:
+        return workflow_for_case(case).runtime_ready
+    except UnknownWorkflowError:
+        return False
+
+
 def _create_record(
     db: Session,
     user_id: int,
@@ -150,7 +189,13 @@ def _create_record(
     ``workflow`` 由调用方从**钉住的 CaseRevision** 解析（``workflow_for_case_revision``）；
     请求体无法选择 workflow（``TrainingStartRequest`` 不接受该字段），因此记录的判别值
     只有病例内容一个来源。
+
+    **产品状态门在这里执行**（:func:`_require_startable_workflow`）：本函数是全仓唯一的
+    ``TrainingRecord(...)`` 构造点，三个训练入口（自主 / 作业 / 盲盒）都经过它 —— 守卫放在
+    这里，就不存在「新增入口忘了拦」的第二种可能。运行期未就绪的 workflow 一律 409，
+    绝不落地一条永远无法渲染的记录。
     """
+    workflow = _require_startable_workflow(workflow)
     declared = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes
     source = "assignment" if config.get("behavior", {}).get("time_limit_minutes") else "case"
     time_limit = resolve_time_limit_minutes(declared, source=source)
@@ -570,13 +615,13 @@ def start_blind_box_training(
             },
         )
 
-    case = (
-        db.query(Case)
-        .filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED)
-        .order_by(func.random())
-        .first()
+    # 随机池只含**可开始**的病例：抽到一条没有学生工作区的 workflow（如 clinical_reasoning）
+    # 会让盲盒偶发 409 —— 随机入口只能从真能开始的集合里抽（docs/15 §十六）。
+    candidates = (
+        db.query(Case).filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED).order_by(func.random()).all()
     )
-    if not case:
+    case = next((candidate for candidate in candidates if _case_is_startable(candidate)), None)
+    if case is None:
         raise HTTPException(status_code=400, detail="暂无可用的自主练习病例，请稍后再试")
     revision = require_current_revision(db, case)
 
