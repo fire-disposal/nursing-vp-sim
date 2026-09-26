@@ -47,6 +47,15 @@ log = logging.getLogger(__name__)
 SCORING_PRIORITY = 5
 
 
+class ScoringNotExecuted(RuntimeError):
+    """本次作业没有执行评分（记录不存在 / 状态不可执行）。
+
+    由 job 执行器接住并记为失败：``run_scoring_background`` 正常返回被当作
+    ``succeeded``，会让"队列里有一条成功的评分作业"与"库里没有分"同时成立 ——
+    运维面（``jobs`` 块）据此会误报健康。
+    """
+
+
 # ── 卡住记录分类（启动恢复 / 结算清扫的唯一判定） ──
 
 
@@ -310,7 +319,14 @@ async def run_scoring_background(
     llm_client: LLMClient,
     tracker: ScoringProgressTracker | None = None,
     realtime_hub=None,
-) -> None:
+) -> str | None:
+    """评分任务体。返回 ``None`` = 本次已执行（含"无学生消息→discard"的终态处置）；
+    返回字符串 = **未执行**的原因（记录不存在 / 状态非可执行态）。
+
+    为什么要返回原因而不是静默 return：job 执行器把"正常返回"记为 ``succeeded``，
+    于是「作业成功但没有任何评分」会在运维面上表现为健康 —— 队列读面（``jobs`` 块）
+    拿不到真实结论。jobs 层据本返回值把未执行判为失败。
+    """
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
     db = SessionLocal()
@@ -319,7 +335,7 @@ async def run_scoring_background(
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
             log.warning("评分任务：记录不存在", extra={"record_id": record_id})
-            return
+            return f"记录 {record_id} 不存在"
         log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
         # 原子性认领：仅当记录处于可执行态才继续。
         # 'pending'  — end_training / retry_scoring / triage 经 acquire_scoring 获取；
@@ -329,8 +345,13 @@ async def run_scoring_background(
         db.commit()
         if not claimed:
             db.refresh(record)
-            log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
-            return
+            status = record.scoring_status
+            if status == ScoringStatus.COMPLETED:
+                # 已被其他执行者评完：本条 job 的目的已达成，不是失败。
+                log.info("评分已由其他执行者完成，本条跳过", extra={"record_id": record_id})
+                return None
+            log.warning("评分状态非可执行态 (%s)，跳过执行", status, extra={"record_id": record_id})
+            return f"记录非可执行态（scoring_status={status}）"
 
         db.refresh(record)
 
@@ -340,7 +361,7 @@ async def run_scoring_background(
             log.info("评分跳过：无学生消息 record_id=%d", record_id)
             mark_discarded(db, record)
             db.commit()
-            return
+            return None
 
         # 存量记录兼容：只补**缺失**的快照字段（新记录已在 _create_record 固化）
         try:
@@ -401,10 +422,10 @@ async def run_scoring_background(
         db.refresh(record)
         if record.scoring_status == ScoringStatus.PENDING:
             log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
-            return
+            return None
         if record.scoring_status != ScoringStatus.PROCESSING:
             log.info("评分状态已变更（%s），跳过完成状态更新", record.scoring_status, extra={"record_id": record_id})
-            return
+            return None
 
         record.scoring_status = ScoringStatus.COMPLETED
         record.scoring_error = None

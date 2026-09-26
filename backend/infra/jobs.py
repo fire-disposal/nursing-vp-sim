@@ -223,7 +223,7 @@ async def _run_sync(fn, *args, **kwargs):
 
 async def _execute_scoring(app_state, job: dict[str, Any]) -> None:
     """执行一条评分 job：输入由记录派生（payload 不存副本，见 docs/17 §四）。"""
-    from modules.training.scoring.runner import run_scoring_background
+    from modules.training.scoring.runner import ScoringNotExecuted, run_scoring_background
 
     record_id = job["record_id"]
     if record_id is None:
@@ -240,13 +240,18 @@ async def _execute_scoring(app_state, job: dict[str, Any]) -> None:
             return record.case_snapshot or (case.case_data if case else {}) or {}
 
     case_data = await asyncio.to_thread(_case_data)
-    await run_scoring_background(
+    skip_reason = await run_scoring_background(
         record_id,
         case_data,
         llm_client=app_state.llm_client,
         tracker=getattr(app_state, "scoring_tracker", None),
         realtime_hub=getattr(app_state, "realtime_hub", None),
     )
+    if skip_reason:
+        # 未执行 ≠ 成功：异常是执行器既有的失败记账通道（``_execute_claimed``），
+        # 不抛就会把这条 job 记成 succeeded —— 队列读面于是显示"评分作业成功"
+        # 而 scores 里没有分。
+        raise ScoringNotExecuted(skip_reason)
 
 
 _EXECUTORS = {JOB_KIND_SCORING: _execute_scoring}
