@@ -24,7 +24,10 @@ _URL = DATABASE_URL
 if _URL.startswith("postgresql://") and "+" not in _URL.split("://")[0]:
     _URL = _URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-_SESSION_OPTIONS = "-c statement_timeout=120000 -c lock_timeout=3000"
+# 会话时区显式固定为上海：库里的墙钟语义、运维面板的"今天/最老一条"、
+# 以及 cast/format 出来的文本都与产品受众一致，不依赖宿主机或 compose 的 TZ
+# （2026-09-26 时区对齐，见 docs/ops/timezone-alignment.md）。
+_SESSION_OPTIONS = "-c statement_timeout=120000 -c lock_timeout=3000 -c timezone=Asia/Shanghai"
 
 
 engine = create_engine(

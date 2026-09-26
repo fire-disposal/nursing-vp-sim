@@ -28,6 +28,26 @@ export function shanghaiHour(at: DateInput = new Date()): number {
 	return Number(hour ?? String(d.getHours()));
 }
 
+/**
+ * 上海日历下的日期键 `YYYY-MM-DD`（可加/减天数）。
+ *
+ * 用途：按天聚合的请求参数与图表标签（如"本周"的周一…周日）。**日期运算在 UTC 上做**，
+ * 因此与浏览器时区彻底无关 —— 海外用户不会因为本地区时差把"本周"算错一天。
+ */
+export function shanghaiDateKey(base: DateInput = new Date(), offsetDays = 0): string {
+	const d = toValidDate(base) ?? new Date();
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: APP_TIME_ZONE,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).formatToParts(d);
+	const get = (t: string) => Number(parts.find((x) => x.type === t)?.value ?? "0");
+	const utcMidnight = Date.UTC(get("year"), get("month") - 1, get("day")) + offsetDays * 86_400_000;
+	const shifted = new Date(utcMidnight);
+	return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
+}
+
 /** "2026/6/25" — zh-CN date only. Empty string for invalid/empty input. */
 export function formatDate(value: DateInput): string {
 	const d = toValidDate(value);

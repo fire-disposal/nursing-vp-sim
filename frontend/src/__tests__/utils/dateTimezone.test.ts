@@ -6,7 +6,7 @@
  * 断言输出仍是上海时间 —— 若有人把 timeZone 选项去掉，本判据立刻失败。
  */
 import { describe, expect, it } from "vitest";
-import { APP_TIME_ZONE, formatDate, formatDateTime } from "@/utils/date";
+import { APP_TIME_ZONE, formatDate, formatDateTime, shanghaiDateKey, shanghaiHour } from "@/utils/date";
 
 describe("时间显示统一按上海时区", () => {
 	it("常量就是 Asia/Shanghai", () => {
@@ -32,5 +32,20 @@ describe("时间显示统一按上海时区", () => {
 	it("空值/非法值不抛错", () => {
 		expect(formatDateTime(null)).toBe("");
 		expect(formatDate("not-a-date")).toBe("");
+	});
+
+	it("日期键按上海日历：UTC 17:00 已是上海次日", () => {
+		// 若实现用本地时区（TZ=UTC 下），这里会得到 2026-09-26
+		expect(shanghaiDateKey("2026-09-26T17:00:00Z")).toBe("2026-09-27");
+	});
+
+	it("日期键可加减天数（周视图用）", () => {
+		const base = "2026-09-26T03:00:00Z"; // 上海 11:00，同一天
+		expect(shanghaiDateKey(base, -5)).toBe("2026-09-21");
+		expect(shanghaiDateKey(base, 1)).toBe("2026-09-27");
+	});
+
+	it("上海小时：UTC 17:00 → 次日 01 点", () => {
+		expect(shanghaiHour(new Date("2026-09-26T17:00:00Z"))).toBe(1);
 	});
 });

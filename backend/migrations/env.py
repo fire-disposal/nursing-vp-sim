@@ -39,6 +39,10 @@ def run_migrations_online():
             config.get_section(config.config_ini_section, {}),
             prefix="sqlalchemy.",
             poolclass=pool.NullPool,
+            # 迁移连接与应用同口径：显式固定时区（DDL/数据迁移里的 now()、AT TIME ZONE
+            # 解释必须与应用一致），并给锁超时 —— 拿不到 ACCESS EXCLUSIVE 锁时快速失败，
+            # 而不是把生产挂住（2026-09-26 时区对齐；单条迁移需要更长锁时可自行 SET 覆盖）。
+            connect_args={"options": "-c timezone=Asia/Shanghai -c lock_timeout=10000"},
         )
     else:
         from core.database import engine

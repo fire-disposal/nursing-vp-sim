@@ -1,4 +1,4 @@
-import { APP_TIME_ZONE } from "@/utils/date";
+import { APP_TIME_ZONE, shanghaiDateKey } from "@/utils/date";
 import { useQuery } from "@tanstack/react-query";
 import {
 	ActionIcon,
@@ -275,24 +275,17 @@ function FeedbackChart() {
 				? "上周"
 				: `${-weekOffset}周前`;
 
-	const now = new Date();
-	const dayOfWeek = now.getDay();
-	const monday = new Date(now);
-	monday.setDate(
-		now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7,
-	);
-	monday.setHours(0, 0, 0, 0);
-
-	const pad = (n: number) => String(n).padStart(2, "0");
-	const fmtDate = (d: Date) =>
-		`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	// "本周"按**上海日历**算：日期键在 UTC 上做运算（见 shanghaiDateKey），
+	// 否则海外用户的本地区时差会把周界挪一天，统计与标签都对不上。
+	const todayKey = shanghaiDateKey(); // YYYY-MM-DD（上海）
+	const [ty, tm, td] = todayKey.split("-").map(Number);
+	const weekdayFromMonday = (new Date(Date.UTC(ty, tm - 1, td)).getUTCDay() + 6) % 7;
+	const mondayOffset = -weekdayFromMonday + weekOffset * 7;
 
 	const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 	const dateKeys: string[] = [];
 	for (let i = 0; i < 7; i++) {
-		const d = new Date(monday);
-		d.setDate(monday.getDate() + i);
-		dateKeys.push(fmtDate(d));
+		dateKeys.push(shanghaiDateKey(new Date(Date.UTC(ty, tm - 1, td)), mondayOffset + i));
 	}
 
 	const { data, isLoading } = useQuery({

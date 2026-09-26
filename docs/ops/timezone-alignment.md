@@ -71,12 +71,26 @@ SELECT count(*) FROM information_schema.columns WHERE data_type = 'timestamp wit
 SELECT id, created_at, created_at AT TIME ZONE 'Asia/Shanghai' AS as_shanghai FROM feedbacks ORDER BY id DESC LIMIT 5;
 ```
 
-## 五、剩余待办
+## 五、本轮已做彻底的项（2026-09-26 第二轮）
 
-1. **应用侧会话时区显式固定**：目前依赖 compose 的 `TZ/Asia/Shanghai`；建议在 engine 上
-   `connect_args={"options": "-c timezone=Asia/Shanghai"}`，让行为不依赖宿主机时区（本次未做，避免与部署配置双写）。
-2. 前端显示统一按上海：所有 `toLocaleString("zh-CN")` 改为带 `timeZone: "Asia/Shanghai"`，
-   否则用户在其它时区会看到本地时间（本次已处理主要展示点，见 §六）。
-3. 迁移的锁风险：大表加 `SET lock_timeout` + 分批（当前规模不必）。
-4. 若日后新增列，**模型必须显式写 `DateTime(timezone=True)`**；`tests/core/test_timestamp_roundtrip.py`
-   会在回归时立刻发现遗漏。
+1. **会话时区显式固定**（不依赖宿主机/compose）：`core/database.py::_SESSION_OPTIONS` 增加
+   `-c timezone=Asia/Shanghai`（engine 的 `connect_args.options`）；Alembic 的生产连接
+   （`migrations/env.py`）同样固定时区，并加 `-c lock_timeout=10000` —— 拿不到 ACCESS EXCLUSIVE
+   锁时快速失败，而不是把生产挂住。
+2. **前端显示全部按上海**：`utils/date.ts` 导出 `APP_TIME_ZONE`；21 个文件 28 处 + 问候语
+   `shanghaiHour()` + 反馈页"本周"日期键 `shanghaiDateKey()`（日期运算在 UTC 上做，与浏览器时区无关）；
+   病例版本时间走 `formatDateTime`。
+   **有意保留**：`AssignmentsPage` 与 `utils/date.ts::toDatetimeLocal` 处理 `<input type="datetime-local">`
+   的本地语义（输入控件必须按用户本地时间解释）；`xxx.toLocaleString()` 作用于**数字**时是千分位，与日期无关。
+3. **守卫做成源码级 + 库层动态**（`tests/core/test_timezone_conventions.py`，4 条）：
+   - 模型层：`Mapped[datetime...]` 必须显式 `DateTime(timezone=True)`（支持跨行声明）；
+   - 库层：**动态扫 information_schema**（不写死表名）—— 任何表再有 naïve 时间列立刻红；
+   - 会话时区必须是 Asia/Shanghai；
+   - 源码层：不得出现 `datetime.now()` / `utcnow()`（naïve 构造）。
+   变异验证：去掉某模型的时区、把某列改回 naïve、两种情况下守卫各自失败。
+4. 往返判据 `tests/core/test_timestamp_roundtrip.py` 与 `docs/ops/...` 的定位 SQL 保留。
+
+## 六、仍留（非阻塞）
+
+- 历史大表迁移若需更长锁：在单条迁移里自行 `SET lock_timeout`（当前默认 10s 已够用）。
+- 其它非时间类的审计/UI 待办见 `docs/review/refactor-plan-2026-09-26.md` §0.1。
