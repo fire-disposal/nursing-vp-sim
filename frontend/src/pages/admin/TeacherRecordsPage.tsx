@@ -18,6 +18,7 @@ import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -266,22 +267,24 @@ export default function TeacherRecordsPage() {
 								]}
 							/>
 						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">开始日期(起)</Text>
-							<TextInput
-								type="date"
-								value={date_from}
-								onChange={(e) => setParam("date_from", e.target.value)}
-							/>
-						</Stack>
-						<Stack gap={6}>
-							<Text size="xs" fw={500} c="dimmed">开始日期(止)</Text>
-							<TextInput
-								type="date"
-								value={date_to}
-								onChange={(e) => setParam("date_to", e.target.value)}
-							/>
-						</Stack>
+						<DatePickerInput
+							label="开始日期(起)"
+							size="sm"
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_from || null}
+							onChange={(v) => setParam("date_from", typeof v === "string" ? v : "")}
+						/>
+						<DatePickerInput
+							label="开始日期(止)"
+							size="sm"
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_to || null}
+							onChange={(v) => setParam("date_to", typeof v === "string" ? v : "")}
+						/>
 					</SimpleGrid>
 
 					<Group justify="space-between" align="center" wrap="wrap" mt="sm">

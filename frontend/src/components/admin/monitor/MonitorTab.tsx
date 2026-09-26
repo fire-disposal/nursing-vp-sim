@@ -21,7 +21,6 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	TextInput,
 } from "@mantine/core";
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -32,6 +31,7 @@ import CallLogTimeline from "./CallLogTimeline";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import { Table } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
 
 type Schemas = components["schemas"];
@@ -439,17 +439,25 @@ export default function MonitorTab() {
 										{ value: "timeout", label: "超时" },
 									]}
 								/>
-								<TextInput
+								<DatePickerInput
 									size="xs"
-									type="date"
-									value={filters.date_from}
-									onChange={(e) => updateParam("date_from", e.currentTarget.value)}
+									clearable
+									valueFormat="YYYY-MM-DD"
+									aria-label="开始日期"
+									placeholder="开始日期"
+									w={140}
+									value={filters.date_from || null}
+									onChange={(v) => updateParam("date_from", typeof v === "string" ? v : "")}
 								/>
-								<TextInput
+								<DatePickerInput
 									size="xs"
-									type="date"
-									value={filters.date_to}
-									onChange={(e) => updateParam("date_to", e.currentTarget.value)}
+									clearable
+									valueFormat="YYYY-MM-DD"
+									aria-label="结束日期"
+									placeholder="结束日期"
+									w={140}
+									value={filters.date_to || null}
+									onChange={(v) => updateParam("date_to", typeof v === "string" ? v : "")}
 								/>
 							</Group>
 							<Button

@@ -14,8 +14,8 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { TextInput } from "@mantine/core";
 import { Table } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -144,21 +144,25 @@ export default function History() {
 								allowDeselect={false}
 							/>
 						</Box>
-						<TextInput
-							type="date"
-							size="sm"
-							w={140}
+						<DatePickerInput
 							label="从"
-							value={date_from}
-							onChange={(e) => setParam("date_from", e.target.value)}
-						/>
-						<TextInput
-							type="date"
 							size="sm"
 							w={140}
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_from || null}
+							onChange={(v) => setParam("date_from", typeof v === "string" ? v : "")}
+						/>
+						<DatePickerInput
 							label="至"
-							value={date_to}
-							onChange={(e) => setParam("date_to", e.target.value)}
+							size="sm"
+							w={140}
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_to || null}
+							onChange={(v) => setParam("date_to", typeof v === "string" ? v : "")}
 						/>
 					</>
 				}

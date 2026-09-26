@@ -6,11 +6,11 @@ import { fetchCostExport } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
-import { TextInput } from "@mantine/core";
 
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Divider } from "@mantine/core";
 import { Table } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 
 export default function CostExportTab() {
 	const [startDate, setStartDate] = useState("");
@@ -69,24 +69,22 @@ export default function CostExportTab() {
 				<CardContent>
 					<Stack gap="md">
 						<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-							<Stack gap={6}>
-								<label htmlFor="startDate">开始日期</label>
-								<TextInput
-									id="startDate"
-									type="date"
-									value={startDate}
-									onChange={(e) => setStartDate(e.target.value)}
-								/>
-							</Stack>
-							<Stack gap={6}>
-								<label htmlFor="endDate">结束日期</label>
-								<TextInput
-									id="endDate"
-									type="date"
-									value={endDate}
-									onChange={(e) => setEndDate(e.target.value)}
-								/>
-							</Stack>
+							<DatePickerInput
+								label="开始日期"
+								clearable
+								valueFormat="YYYY-MM-DD"
+								placeholder="不限"
+								value={startDate || null}
+								onChange={(v) => setStartDate(typeof v === "string" ? v : "")}
+							/>
+							<DatePickerInput
+								label="结束日期"
+								clearable
+								valueFormat="YYYY-MM-DD"
+								placeholder="不限"
+								value={endDate || null}
+								onChange={(v) => setEndDate(typeof v === "string" ? v : "")}
+							/>
 							<Stack gap={6}>
 								<label htmlFor="service">服务类型</label>
 								<Select

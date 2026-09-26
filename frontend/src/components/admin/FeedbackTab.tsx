@@ -11,7 +11,6 @@ import {
 	Select,
 	Stack,
 	Text,
-	TextInput,
 	UnstyledButton,
 } from "@mantine/core";
 import {
@@ -50,6 +49,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 type Schemas = components["schemas"];
@@ -587,25 +587,25 @@ export default function FeedbackTab() {
 			<Paper p="md" bg="var(--mantine-color-default-hover)" mb="md">
 				<Group gap="lg" align="flex-end" wrap="wrap" justify="space-between">
 					<Group gap={8} align="flex-end" wrap="wrap">
-						<Stack gap={4}>
-							<Text size="xs" c="dimmed">开始日期</Text>
-							<TextInput
-								type="date"
-								size="sm"
-								value={dateFrom}
-								onChange={(e) => handleFilterChange("dateFrom", e.currentTarget.value)}
-							/>
-						</Stack>
+						<DatePickerInput
+							label="开始日期"
+							size="sm"
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={dateFrom || null}
+							onChange={(v) => handleFilterChange("dateFrom", typeof v === "string" ? v : "")}
+						/>
 						<Text size="sm" c="dimmed" mb={6}>-</Text>
-						<Stack gap={4}>
-							<Text size="xs" c="dimmed">结束日期</Text>
-							<TextInput
-								type="date"
-								size="sm"
-								value={dateTo}
-								onChange={(e) => handleFilterChange("dateTo", e.currentTarget.value)}
-							/>
-						</Stack>
+						<DatePickerInput
+							label="结束日期"
+							size="sm"
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={dateTo || null}
+							onChange={(v) => handleFilterChange("dateTo", typeof v === "string" ? v : "")}
+						/>
 						{(dateFrom || dateTo) && (
 							<Button
 								variant="outline"

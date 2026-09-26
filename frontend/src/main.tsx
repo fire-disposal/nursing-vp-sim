@@ -3,7 +3,10 @@ import "./utils/polyfills";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/spotlight/styles.css";
+import "@mantine/dates/styles.css";
 import { MantineProvider } from "@mantine/core";
+import { DatesProvider } from "@mantine/dates";
+import "dayjs/locale/zh-cn";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -23,7 +26,9 @@ function Root() {
 			defaultColorScheme="light"
 			cssVariablesResolver={cssVariablesResolver}
 		>
-			<App />
+			<DatesProvider settings={{ locale: "zh-cn", firstDayOfWeek: 1 }}>
+				<App />
+			</DatesProvider>
 		</MantineProvider>
 	);
 }
