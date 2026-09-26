@@ -170,7 +170,27 @@ RETURNING *;
   * `/api/diagnose` 增加 `worker` 块（`last_beat_age_seconds`、`active_leases`、`expired_leases`），让**运维入口仍是 diagnose 一处**（与 `.omp/skills/ops-interfaces` 的契约一致）。
 * `/api/diagnose` 与 `/admin/ops/dashboard` 增加 `jobs` 块：按 kind 的 pending/running/failed 计数、最老 pending 年龄、租约过期数。
 
-### 3.5 什么留在进程内（明确不做）
+### 3.5 认领语义已在真实库验证（2026-09-26）
+
+本地无库，`FOR UPDATE SKIP LOCKED`、`make_interval`、部分唯一索引都无法用单元测试覆盖。
+`backend/scripts/jobs_claim_probe.sh` 在**真实 Postgres** 上跑一次性 schema（结束即 DROP，
+不碰应用表），7 项断言全部通过：
+
+| 断言 | 结果 |
+|---|---|
+| 同一记录不得同时有两条活动评分任务（部分唯一索引 + `ON CONFLICT DO NOTHING`） | PASS |
+| 并发认领：A 持有未提交事务时，B 的认领返回 0 行（无重复认领） | PASS |
+| 租约过期：未耗尽尝试 → 退回 `pending`（可重领） | PASS |
+| 租约过期：尝试耗尽 → 终态 `failed`（不再重领） | PASS |
+| 失败退避：未耗尽 → `pending` 且 `available_at` 在未来 | PASS |
+| 失败退避：耗尽 → 终态 `failed` | PASS |
+| `available_at` 未到 → 不认领 | PASS |
+
+任何改动认领 SQL 的提交都应先跑这个探针（它是该组件唯一能验证语义的手段）。
+**尚未做的**：在宿主切换 `SCORING_EXECUTION=job`（需要一次发布窗口，把迁移
+`c8e2a3b4d5f6` 与代码一起上线），以及容器拆分的启停决策（按宿主余量数据定）。
+
+### 3.6 什么留在进程内（明确不做）
 
 * 对话 SSE 与工具命令**不进 job**：它们需要请求上下文（流式 token、断线、幂等键），且已有事务 A/B 边界。job 只承载"可离线完成、可重试、无交互"的工作。
 * `metrics`、`realtime_hub`、`diagnose` 采样留在 api（进程口径语义）。
