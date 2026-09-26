@@ -19,7 +19,7 @@
 | 1 | 类型与构建 | `cd frontend && pnpm build`（含 `tsc --noEmit`） | 干净 |
 | 2 | Lint | `cd frontend && pnpm lint` | 2 warnings，不得新增 |
 | 3 | 单测 | `cd frontend && pnpm test` | 74 文件 / 487 通过 / 1 skip |
-| 4 | 视觉回归 | 本地 `dist` + `/api` 反代线上（harness：静态服务 + 反代，必须 HTTP/1.1，否则分块响应被当字面内容），只读页面浅/深两态各复核一次；触及布局的切片另跑几何探针（网格行形状、控件坐标） | — |
+| 4 | 视觉回归 | 本地 `dist` + `/api` 反代线上（harness：静态服务 + 反代线上，必须 HTTP/1.1，否则分块响应被当字面内容；脚本在证据包 `round2/verify-harness.py`），只读页面浅/深两态各复核一次；触及布局的切片另跑几何探针（网格行形状、控件坐标） | — |
 | 5 | 语义回归 | 触及 a11y 的切片用 DOM 断言（`aria-label`/`label for`/`role`/触控尺寸），不靠肉眼 | — |
 
 **禁止**：直接改 master、发 tag、覆盖审计清单里的既有结论（新证据只追加）。
@@ -32,6 +32,7 @@
 | 是否引入 `@mantine/dates` | 引入（替代原生 `<input type="date">` 的英文占位与无 i18n） | S1、S6 |
 | 用户"删除"语义 | 软删（`is_active=false`，默认从列表隐藏，可筛"已停用"）+ 硬删仅在无训练记录时允许 | F1 |
 | 评分标准（rubric）是否可写 | 暂缓：先只读展示 + 写明变更流程 | F4 |
+| 深色态主色档位（filled 按钮对比度） | 深色 `primaryShade` 5 → 7（`#247f6b`，白字 4.86:1，观感更沉），或保留 5 号并接受 filled 按钮 2.68:1 | S2 |
 
 ---
 
@@ -45,14 +46,21 @@
 | **Q2** | 训练"结束训练"按钮在桌面端可读、可访问、文案一致（`UI-TRN-1`，P0） | `components/training/TrainingHeader.tsx` | 去掉 `hiddenFrom="xs"`（标签常显）；可见文案与 `aria-label` 共用同一变量；状态语义进 aria 而非只靠 `title` | 1408px 与 484px 两视口下 `innerText` 与 `aria-label` 均含"结束训练" | **已完成** · 两视口实测 `innerText=结束训练`、`aria=结束训练，完成条件尚未满足`；红色 4.52:1（曾试橙色 3.62:1 不合规，已回退并记注释）✅ |
 | **Q3** | 主题开关诚实且首点生效（`UI-DS-2`） | `components/ui/mode-toggle.tsx` | 删除本地 `mode` 影子状态，图标与 `aria-label` 直接来自 `useMantineColorScheme().colorScheme` | 点击一次即切换 `data-mantine-color-scheme`，且 `aria-label` 同步变化 | **已完成** · 实测首点 `light → dark` 生效，aria 同步为"当前深色模式…"；深色 dimmed 仍为 `#94a3b8` 未被压暗 ✅ |
 | **Q4** | 次级文字与品牌色达 WCAG AA（`UI-A11Y-1`） | `theme/index.ts`、`main.tsx` | `cssVariablesResolver` 按浅/深分别给 `--mantine-color-dimmed`；`primaryShade.light` 6→7（品牌色两种用法都 ≥4.8:1） | 同一探针复测低对比计数 | **已完成（原目标部分达成）** · `/admin/records` 365→**112**、`/admin/users` 298→**91**、`/training` 18→**0**；剩余集中为徽章类，拆为 Q5 ✅ |
-| **Q5** | 徽章与彩色小字的 AA 收口（承接 Q4 残留） | `theme/index.ts`、各页面着色 | 经 `cssVariablesResolver` 为在用色系定义 `-light`/`-light-color` 对（或统一改 `outline` 变体）；9px 小字抬到 ≥11px | `/admin/records` 低对比 ≤20 处 | **待办** · 当前分布：78 个 11px 绿徽章（green-9 on green-1 = 3.81）+ 39 个 16px `blue-7` 数字（4.2） |
+| **Q5** | 徽章与彩色小字的 AA 收口（承接 Q4 残留） | `theme/index.ts` | ① `variant="light"` 改「color-0 底 + 按需压暗的字」；② `--mantine-color-{名}-text` 从鲜艳 -6/-7 档改取 -9（个别压暗）——后者一次性覆盖全站 `c="色名"` 文字，无需改调用点 | 同一探针复测低对比计数 | **已完成** · `/admin/records` 112→**0**、`/admin/users` 91→**0**、`/admin/feedback` 100→**0**（阳性对照已注入 #cccccc 文本确认探针有效，非假阴性）✅ |
 
 ### 阶段 S —— 结构对齐（Mantine 原生，消除"拼装感"）
 
 | ID | 目标 | 覆盖审计条目 | 要点 | 状态 |
 |---|---|---|---|---|
 | **S1** | theme 成为唯一外观来源 | `UI-DS-3`、`UI-MAN-1` 第 1/2 步 | 补齐 `Paper/Table/Tabs/Select/TextInput/Modal/Drawer/Pagination/SimpleGrid/Tooltip` 等 `defaultProps`；radius/icon/type 三套 scale 写进 theme；`cssVariablesResolver` 定义深色安全语义变量 | 待办 |
-| **S2** | 浅色字面量清零 + 深色回归 | `UI-DS-1` | `gray.0/1/3`、`yellow.0`、`blue.1`、`#fff` 假设 → token/`light` 变体；完成后把 `defaultColorScheme` 转 `auto` 并补首屏引导脚本 | 待办 |
+| **S2** | 浅色字面量清零 + 深色回归 | `UI-DS-1` | `gray.0/1/3`、`yellow.0`、`blue.1`、`#fff` 假设 → token/`light` 变体；完成后把 `defaultColorScheme` 转 `auto` 并补首屏引导脚本 | **待办**（Q5 已产出深色实测残项作为输入，见下） |
+
+**S2 的深色残项（Q5 实测，学生首页 `/training` 深色态共 5 处低对比）**：
+1. `进行中` 12px dimmed 文字压在硬编码 `yellow.0` 行上 → 2.42:1；
+2. `已完成` 12px dimmed 压在 `green.0` 底上 → 2.39:1；
+3. `待做作业` 12px dimmed 压在 `red.0` 底上 → 2.40:1；
+4. 统计数字 20px 白字压在 `green.0` 底上 → 1.15:1（浅底未随深色反转）；
+5. 主色 filled 按钮 `选择病例`：深色 `primaryShade=5`（#3cb094）上白字 **2.68:1** —— Mantine `autoContrast` 对中间调选白字而非黑字（黑字可达 5.59:1），需在「保持鲜艳 accent」与「AA」之间取舍，见决策点表。 |
 | **S3** | 面板与卡片层级收敛 | `UI-NEST-1/2/3` | 一层描边容器；内层用 `Card.Section`/`Stack`；`ui/card.tsx` 子组件删除；`responsive-table` 的 `bare` 策略统一 | 待办 |
 | **S4** | 网格与留白规则 | `UI-LAY-2/3/4` | `SimpleGrid` 响应式 `cols` + `align="start"`；3 项用 `sm:3`；筛选区末格移出网格 | 待办 |
 | **S5** | 控件位置与页头规范 | `UI-POS-1/2` | `PageHeader.actions` = 主操作 filled；导出/批量 outline 靠左于主操作；列表页"筛选在上、工具行在下"；"共 N 条"固定位 | 待办 |
@@ -89,7 +97,8 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
-| 2026-09-26 | Q1–Q4 | 见 `git log --grep=ui/improve` | 四闸门全过（build/tsc 干净、lint 无新增、487 通过）；实测：批量条回到视口内（top 2616→798）、交卷按钮两视口可见且有名（4.52:1）、主题首点生效、低对比 365→112 / 298→91 / 18→0 |
+| 2026-09-26 | Q5 | `a3993d57` | 四闸门全过；实测浅色低对比 112→0（records）、91→0（users）、100→0（feedback）；阳性对照验证探针有效；深色残 5 处转为 S2 输入 |
+| 2026-09-26 | Q1–Q4 | `3e29bc2f` / `ab532f0d` | 四闸门全过（build/tsc 干净、lint 无新增、487 通过）；实测：批量条回到视口内（top 2616→798）、交卷按钮两视口可见且有名（4.52:1）、主题首点生效、低对比 365→112 / 298→91 / 18→0 |
 
 ---
 
