@@ -66,6 +66,9 @@ export function TrainingHeader({
 	const completeAction = manifest?.actions.find((action) => action.id === ACTION_COMPLETE_SESSION);
 	// 能否结束只由服务端 action.enabled 决定（前端不重算完成条件）
 	const canComplete = completeAction?.enabled === true;
+	// 交卷按钮的唯一文案来源：manifest 声明优先、回退"结束训练"。可见文案与 aria-label 共用，
+	// 避免两处措辞漂移（2026-09-26 前该按钮在桌面端只显示图标、无 aria-label，见 UI-TRN-1）。
+	const completeEndLabel = completeAction?.label ?? "结束训练";
 
 	const {
 		remaining,
@@ -208,16 +211,25 @@ export function TrainingHeader({
 						{ttsAutoPlay ? <IconVolume2 size={isShort ? 14 : 16} /> : <IconEarOff size={isShort ? 14 : 16} />}
 					</ActionIcon>
 					<Button
+						// 两态都用 danger 色：这个按钮无论完成条件是否满足，都进入"结束训练"流程
+						// （未满足时先展示还缺什么），属于终结性动作。曾试过阻塞态改 warning 橙，
+						// 实测 orange-9 on orange-1 = 3.62:1 低于 AA，而 red-9 on red-1 = 5.13:1 达标，
+						// 故保持红色；"条件未满足"由 aria-label 与主区阻塞提示承担，不靠颜色。
 						variant="light"
 						color="red"
 						size={isShort ? "xs" : "sm"}
 						px={isShort ? 8 : undefined}
 						onClick={handleEndClick}
 						title={canComplete ? "结束训练并查看评分" : "查看完成条件"}
+						aria-label={
+							canComplete
+								? `${completeEndLabel}（查看评分）`
+								: `${completeEndLabel}，完成条件尚未满足`
+						}
 					>
 						<IconClipboardCheck size={14} />
-						<Text component="span" hiddenFrom="xs" fw={600}>
-							{completeAction?.label ?? "结束训练"}
+						<Text component="span" fw={600}>
+							{completeEndLabel}
 						</Text>
 					</Button>
 				</Group>

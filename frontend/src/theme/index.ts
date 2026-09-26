@@ -27,8 +27,10 @@ export const theme = createTheme({
 	respectReducedMotion: true,
 	defaultRadius: "sm",
 	primaryColor: "brand",
-	// 亮色用 6 号（沉稳），暗色用 5 号（提亮）
-	primaryShade: { light: 6, dark: 5 },
+	// 亮色用 7 号（而非 6 号）：6 号 #2c9a82 作白底文字或白字按钮底色只有 ≈3.5:1，
+	// 低于 WCAG AA 正文 4.5:1（审计 UI-A11Y-1 实测）；7 号 #247f6b ≈4.9:1，两种用法都合规。
+	// 暗色保持 5 号（在深底上更亮），autoContrast 继续负责 filled 变体的黑白文字。
+	primaryShade: { light: 7, dark: 5 },
 	// 亮/暗主色自动适配文字对比（filled 变体自动黑白文字）
 	autoContrast: true,
 
@@ -93,5 +95,23 @@ export const theme = createTheme({
 				fz: "sm",
 			},
 		},
+	},
+});
+
+/**
+ * 语义变量覆盖（Mantine 官方的浅/深色通路，替代逐文件改色）。
+ *
+ * `--mantine-color-dimmed` 默认浅色取 gray-6 `#868e96`：白底实测 3.32:1，低于 AA 正文 4.5:1，
+ * 而它承载的正是页头副标题、表格时间/时长、导航项描述等 11–14px 文本 —— 审计 UI-A11Y-1
+ * 在 `/admin/records` 实测 365 处、`/admin/users` 298 处命中。浅色改取 gray-7 `#495057`（7.0:1）；
+ * 深色维持 slate-400 观感（`dark-2` 在 `#111827` 上 ≈7.3:1），不为了修浅色而压暗深色。
+ */
+export const cssVariablesResolver = () => ({
+	variables: {},
+	light: {
+		"--mantine-color-dimmed": "var(--mantine-color-gray-7)",
+	},
+	dark: {
+		"--mantine-color-dimmed": "var(--mantine-color-dark-2)",
 	},
 });

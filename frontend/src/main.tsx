@@ -7,7 +7,7 @@ import { MantineProvider } from "@mantine/core";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { theme } from "./theme";
+import { cssVariablesResolver, theme } from "./theme";
 import { installChunkRecovery } from "./utils/chunk-recovery";
 import "./styles/global.css";
 
@@ -18,7 +18,11 @@ installChunkRecovery();
 
 function Root() {
 	return (
-		<MantineProvider theme={theme} defaultColorScheme="light">
+		<MantineProvider
+			theme={theme}
+			defaultColorScheme="light"
+			cssVariablesResolver={cssVariablesResolver}
+		>
 			<App />
 		</MantineProvider>
 	);
