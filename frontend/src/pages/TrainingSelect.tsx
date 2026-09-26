@@ -1,3 +1,4 @@
+import { shanghaiHour } from "@/utils/date";
 import { APP_TIME_ZONE } from "@/utils/date";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -311,7 +312,7 @@ export default function TrainingSelect() {
 	const cases = casesData?.items ?? [];
 	const total = casesData?.total ?? 0;
 
-	const hour = new Date().getHours();
+	const hour = shanghaiHour();
 	const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
 	const recentRecords = records;
 	const primaryInProgress = inProgressRecords[0];

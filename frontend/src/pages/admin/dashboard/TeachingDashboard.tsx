@@ -1,3 +1,4 @@
+import { shanghaiHour } from "@/utils/date";
 import { APP_TIME_ZONE } from "@/utils/date";
 import { Group, Paper, Progress, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
@@ -60,7 +61,7 @@ export function TeachingDashboard() {
   const avgDuration = stats?.avg_duration_min;
   const completionRate = totalStudents > 0 ? Math.round((completedWeek.length / totalStudents) * 100) : 0;
 
-  const hour = new Date().getHours();
+  const hour = shanghaiHour();
   const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
 
   const recentEvents: ActivityEvent[] = records.slice(0, 8).map((r) => ({

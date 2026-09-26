@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/utils/date";
 import { IconCode, IconEye, IconForms, IconHistory, IconRotate, IconSparkles, IconWand } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { safeParse, z } from "zod";
@@ -808,8 +809,8 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 											</Group>
 											<Text size="xs" c="dimmed">
 												{r.published_at
-													? `发布 ${new Date(r.published_at).toLocaleString()}`
-													: `创建 ${new Date(r.created_at).toLocaleString()}`}
+													? `发布 ${formatDateTime(r.published_at)}`
+													: `创建 ${formatDateTime(r.created_at)}`}
 											</Text>
 										</Group>
 										<Divider />

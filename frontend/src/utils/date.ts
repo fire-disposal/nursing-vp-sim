@@ -19,6 +19,15 @@ function pad(n: number): string {
 	return String(n).padStart(2, "0");
 }
 
+/** 上海时区下的当前小时（0–23）：问候语等"按小时"的判断也要跟着时区，否则海外用户会看到"晚上好"却是上午。 */
+export function shanghaiHour(at: DateInput = new Date()): number {
+	const d = toValidDate(at) ?? new Date();
+	const hour = new Intl.DateTimeFormat("en-GB", { timeZone: APP_TIME_ZONE, hour: "2-digit", hour12: false })
+		.formatToParts(d)
+		.find((x) => x.type === "hour")?.value;
+	return Number(hour ?? String(d.getHours()));
+}
+
 /** "2026/6/25" — zh-CN date only. Empty string for invalid/empty input. */
 export function formatDate(value: DateInput): string {
 	const d = toValidDate(value);
