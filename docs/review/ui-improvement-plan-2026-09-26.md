@@ -61,8 +61,8 @@
 3. `待做作业` 12px dimmed 压在 `red.0` 底上 → 2.40:1；
 4. 统计数字 20px 白字压在 `green.0` 底上 → 1.15:1（浅底未随深色反转）；
 5. 主色 filled 按钮 `选择病例`：深色 `primaryShade=5`（#3cb094）上白字 **2.68:1** —— Mantine `autoContrast` 对中间调选白字而非黑字（黑字可达 5.59:1），需在「保持鲜艳 accent」与「AA」之间取舍，见决策点表。 |
-| **S3** | 面板与卡片层级收敛 | `UI-NEST-1/2/3` | 一层描边容器；内层用 `Card.Section`/`Stack`；`ui/card.tsx` 子组件删除；`responsive-table` 的 `bare` 策略统一 | 待办 |
-| **S4** | 网格与留白规则 | `UI-LAY-2/3/4` | `SimpleGrid` 响应式 `cols` + `align="start"`；3 项用 `sm:3`；筛选区末格移出网格 | 待办 |
+| **S3** | 面板与卡片层级收敛 | `UI-NEST-1/2/3` | 一条规则：**同层只保留一层描边** —— 内层浮框改「无边框 + `--mantine-color-default-hover` 底色」，外层留唯一描边；虚线空态框保留（表达「空位」而非「面板」） | 边框口径下「框套框」计数 = 0 | **第一波已完成** · 实测框套框：`/admin/users` 50→0、`/admin/feedback` 39→0、`/my-feedback` 1→0，`/admin/records`、`/admin/costs`、`/admin/classes`、`/record/:id`、`/admin` 均 0；`/training` 保留 1 处刻意虚线空态 ✅　**第二波待做**：`cost/VoiceTokenCard` 的三层自绘边框、其余手绘 `1px solid` 中嵌在面板内的部分 |
+| **S4** | 网格与留白规则 | `UI-LAY-2/3/4` | ①固定项数网格的档位与项数对齐；②条数随数据的磁贴改 flex-wrap；③内容量差异大的行改 `alignItems: start`；④筛选区末格移出网格 | 固定项数网格无末行空缺；行内无拉伸留白 | **已完成** · 训练首页左卡 358px→**134px**、单子项两列网格改单列、趋势磁贴改 flex-wrap、3 张 KPI 与 3 字段表单改 `lg:3`、角色 14 项与 SystemOps 5 处静态 `cols={2}` 改响应式、`/admin/records` 错位末格拆为对齐工具行 ✅ |
 | **S5** | 控件位置与页头规范 | `UI-POS-1/2` | `PageHeader.actions` = 主操作 filled；导出/批量 outline 靠左于主操作；列表页"筛选在上、工具行在下"；"共 N 条"固定位 | 待办 |
 | **S6** | 表格与分页形态 | `UI-ADM-4/5`、`UI-POS-2` | 全部表格走 `DataTable`/`ResponsiveTable` + `Table.ScrollContainer`；分页默认 50、常驻（sticky/Affix）；日期控件换 `@mantine/dates` | 待办 |
 
@@ -97,6 +97,7 @@
 | 日期 | 切片 | 提交 | 验收结果 |
 |---|---|---|---|
 | 2026-09-26 | 计划建立 | — | 基线：`pnpm build`/`tsc` 干净、biome 2 warnings、vitest 74 文件 487 通过 1 skip |
+| 2026-09-26 | S3+S4（第一波） | `106a73b3` | 四闸门全过；框套框 50/39/1 → **0**；拉伸留白 358px→134px；固定项数网格与筛选末格修正 |
 | 2026-09-26 | S1 | 见下条提交 | 四闸门全过；实测最小正文号 9px → **12px**，Badge 统一 12px，两档圆角显式化，126 处冗余 `Paper radius` 清除后视觉零变化 |
 | 2026-09-26 | Q5 | `a3993d57` | 四闸门全过；实测浅色低对比 112→0（records）、91→0（users）、100→0（feedback）；阳性对照验证探针有效；深色残 5 处转为 S2 输入 |
 | 2026-09-26 | Q1–Q4 | `3e29bc2f` / `ab532f0d` | 四闸门全过（build/tsc 干净、lint 无新增、487 通过）；实测：批量条回到视口内（top 2616→798）、交卷按钮两视口可见且有名（4.52:1）、主题首点生效、低对比 365→112 / 298→91 / 18→0 |
@@ -108,6 +109,12 @@
 - 已清：`<Paper radius="md">` 126 处（tehem 默认同值，属纯噪声）与全仓 <12px 的正文文本。
 - 未清（**有意**）：`Button/ActionIcon/Card/Modal/Notification` 上的 `radius="md"` 覆盖保留 —— 与 theme 默认同值、数量小，随触碰该文件时顺带清；强行全量 codemod 的收益不足以承担误伤（例如 `Badge/Tooltip` 的显式 `sm` 被误删会改变观感）。
 - 图表轴刻度统一 11px（`theme.other.uiScale.chartAxisTick`），圆形序号/选项标记类 pill 允许 11px；这两类不适用 12px 正文下限。
+
+
+### 3.2 实施中核实/更正的两条
+
+- **日期输入框的 `yyyy / mm / dd` 是浏览器 locale 现象，不是硬编码**：Chromium（zh locale）实测渲染为「年/月/日」，Firefox 英文 locale 下才是 `yyyy/mm/dd`（我此前的审计结论来自 Firefox 侧）。因此该项从「英文占位」降级为「跨浏览器不一致」；是否引入 `@mantine/dates`（可锁定 `valueFormat` 与 locale）仍由决策点决定。
+- **表格列宽挤压**：`/admin/records` 在 1408px 下「状态」徽章被截成「已…」，时长/开始时间/来源 列换行 —— 属 `Table` 列宽策略问题（非本轮改动引入），作为 **S6 表格与分页形态** 的输入证据记录。
 
 ## 4. 明确不做
 
