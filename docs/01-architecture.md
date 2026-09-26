@@ -9,7 +9,7 @@
 | 后端框架 | Python FastAPI | 异步高性能Web框架，lifespan 生命周期 |
 | 前端框架 | React 19 + TypeScript + Vite | SPA单页应用 |
 | 前端路由 | react-router-dom v7 | 客户端路由 |
-| 状态管理 | Zustand | 客户端状态（authStore / trainingStore / sceneStore / uiPrefsStore / feedbackStore）；服务端状态走 TanStack Query |
+| 状态管理 | Zustand | 客户端状态（authStore / trainingStore / workspaceStore 工作区局部 UI / uiPrefsStore / feedbackStore）；**服务端状态（含 manifest、活动可用性、完成条件）一律走 TanStack Query** |
 | 数据请求 | TanStack Query | 服务端状态缓存 + 自动刷新 |
 | UI组件 | Mantine v9（core/form/hooks/modals/notifications/spotlight） | 唯一设计系统组件库：主题 token + 内联样式，无原子化 CSS 依赖 |
 | HTTP客户端 | axios (前端) / httpx (后端) | 前端 30s 超时 + 幂等请求指数退避重试（≤3 次）；后端共享单个 `httpx.AsyncClient` 连接池 |
@@ -18,7 +18,7 @@
 | 密码哈希 | bcrypt | 安全密码存储 |
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义） | 优先级加权路由、熔断、健康检查 |
 | LLM 可靠性 | 每 purpose 一份 profile（`infra/llm/profile.py`）：超时 / 重试 / 并发 / 输出上限 | 例：patient_chat 30s·2 次、scoring 120s·3 次·16k 输出；并发信号量 200–500；全局超时预算分摊 |
-| 加密 | 无（API Key 明文存 `api_secrets`） | 旧的对称加密方案已由迁移 `137329b7b43c` 移除；密钥加密与轮换明确不做（`refactor-infra.md` §6 未做项） |
+| 加密 | 无（API Key 明文存 `api_secrets`） | 旧的对称加密方案已由迁移 `137329b7b43c` 移除；2.0 目标与取舍见 `docs/16` |
 | 语音 | 火山引擎 ASR + TTS | 服务端语音识别 + 情感语音合成 |
 | 图表 | recharts (ComposedChart) | 关联训练统计（双Y轴：次数+时长、次数+得分） |
 | 图标 | @tabler/icons-react | 统一 SVG 图标库 |
@@ -36,7 +36,7 @@
 ## 项目结构
 
 后端结构以 [11-后端组织结构收敛](11-backend-organization-plan.md) 为现行定义（可导航单体：`core/` 内核 + `modules/` 业务域 + `infra/` 外部依赖，无 repository 分层）。
-前端结构以 [13-前端组织范式建议](13-frontend-organization-plan.md) 为准。目录细节不再在本总览中重复维护，避免双源腐化。
+前端结构与 2.0 约束见 [16-2.0 可维护单体目标](16-v2-maintainable-monolith-objectives.md)；目录细节不在本总览中重复维护，避免双源腐化。
 
 
 ## 布局系统
@@ -48,13 +48,18 @@
 | **Sidebar (AppShell/Layout)** | Dashboard、Practice选择、QA、统计、历史、管理后台 | 响应式侧边栏 + 主内容区 |
 | **TrainingEngine 全屏** | 训练对话页 | 全屏训练界面 + 插件面板 (患者信息、问诊进度、体格检查、护理记录等) |
 
-TrainingEngine 采用插件化架构：功能面板注册在 `frontend/src/components/training/tools/registry.ts`（按训练类型分组：`inquiry` / `physical-exam` / `nursing-diagnosis` / `nursing-record` / `quiz`），每个面板带 `capability` 开关，由后端解析出的能力集（`engine/capabilities.gen.ts`）过滤后按 priority 装配，可并行运行。
+训练能力以 **Workflow / Activity 两层协约**承载（决策见 `docs/15-workflow-activity-contract.md`）：
+后端 `modules/training/activities.py` 是唯一登记表，`modules/training/manifest.py` 解析出会话 manifest
+（`activities[].availability`、`artifacts`、`completion.eligible/conditions/blockers`、`actions[].enabled`）；
+前端只消费 manifest，`components/training/workspace/renderers.ts` 是一张**纯映射**（`ui.renderer → 组件`），
+**不判断**某个病例有没有某能力——可用性与能否结束一律由服务端决定。旧的 `tools/registry.ts` 与
+`engine/capabilities.gen.ts` 已删除。
 
 ## 架构设计原则
 
 1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，使用标准HTTP状态码 + JSON。查询走 TanStack Query（`frontend/src/hooks/`），写操作用 `useApiMutation`（统一 toast + 缓存失效），401 由 axios 拦截器单飞刷新并排队重放
 2. **可导航单体（后端）**：业务按产品领域划分 `modules/`，普通模块 router/service 直持 Session，训练域为唯一复杂领域岛；不做有界上下文/repository 分层（详见 [11-后端组织结构收敛](11-backend-organization-plan.md)）
-3. **插件化架构**：前端面板走工具注册表（`components/training/tools/registry.ts`，capability 开关 + priority 排序），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）；两侧都可独立增删一插件而不改调用方
+3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足 `docs/15 §十` 的准入质量门槛，不在前端另建能力真相源
 4. **管道架构 (Pipeline)**：每轮对话按固定阶（`pipeline/stages.py` 的 `PipelineStage`）执行：`guard → transition → analysis → prompt → llm → persist → side_effects`。当前已装配 `emotion_analysis` / `prompt_builder` / `llm_caller` / `persister` / `side_effects`；`guard`、`transition` 是已声明、待用的扩展点（阶段定义与装配的唯一事实源见 `pipeline/__init__.py`）
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
 6. **角色权限控制 (RBAC)**：Role → RolePermission 模型，API层和前端路由层双重守卫
@@ -67,7 +72,7 @@ TrainingEngine 采用插件化架构：功能面板注册在 `frontend/src/compo
 ```
 用户浏览器 → React 前端 (TrainingEngine)
     ↓ SSE：POST /api/chat/{id}/message/stream
-工具面板 ← MessageBus ← StreamManager ← FastAPI 后端
+活动面板 ← manifest/query cache（服务端真相源）；MessageBus 仅承载局部 UI 与流式事件
     ↑                                        ↓
   HTTP 工具指令面                          管道中间件链（按 PipelineStage 执行）
   POST /api/training/{id}/tools           emotion_analysis → prompt_builder
@@ -89,7 +94,7 @@ TrainingEngine 采用插件化架构：功能面板注册在 `frontend/src/compo
   → llm_caller: 调用 LLM API（流式响应，落 llm_call_logs）
   → persister: 单个事务内保存消息 + runtime_state（必须成功，失败即中止请求）
   → side_effects: 情绪/主动性更新、护理记录更新、体检发现、SSE 事件（最佳努力）
-  → 流式返回给前端 StreamManager → MessageBus → UI 更新
+  → 流式返回给前端 StreamManager →（局部 UI 事件；业务状态仍以 query cache 为准）→ UI 更新
 ```
 
 工具调用（查体、护理记录、问诊指引等）不经过对话管道，走 HTTP 指令面

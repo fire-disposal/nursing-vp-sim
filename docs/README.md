@@ -10,9 +10,9 @@
 | [04-前端设计](04-frontend.md) | 组件架构 · 页面路由 · 状态管理 |
 | [05-LLM 与评分](05-llm-design.md) | Prompt 体系 · Provider 路由 · 评分流程 |
 | [09-运维指南](09-operations.md) | 部署 · 备份 · 监控 · 应急预案 |
-| **[10-训练系统路线](10-training-system-roadmap.md)** | 近期产品边界 · 数据模型收敛 · 上下文工程 · 工具与评分演进 |
 | [11-后端组织结构收敛](11-backend-organization-plan.md) | 可导航单体定案 · 目录职责 · 训练域边界 |
-| [13-前端组织范式建议](13-frontend-organization-plan.md) | 类型单源 · 域聚合 · 导入纪律（建议稿，待评审） |
+| **[15-训练协约](15-workflow-activity-contract.md)** | Workflow/Activity、病例版本、成员与受众、上下文装配（当前实现基线） |
+| **[16-2.0可维护单体目标](16-v2-maintainable-monolith-objectives.md)** | 2.0 架构约束、最小产品闭环、技术栈取舍与发布切片 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 分支模型 · PR 规范 · 冲突处理 |
 
 ## 项目演进

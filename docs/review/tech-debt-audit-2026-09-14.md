@@ -13,7 +13,7 @@
 **合并时工作区不干净**：合并当时 `git status` 有大量未提交修改（并行修复产物，含未跟踪的 `backend/modules/training/patient_ai/emotion/hostility.py`、`scripts/score-health.sql`、`scripts/cost-health.sql`、`docs/review/release-checklist.md`）。本文只描述审计基线时的代码事实，并把这几个未跟踪文件作为「代码事实」记在对应条目里，不推断修复进度。
 
 **覆盖范围**：`backend/{core,models,schemas,modules,infra,migrations,data,scripts,tests}`、`frontend/src`、仓库结构（`backend/` 顶层、`scripts/`、`docs/`、根脚本与 CI/hook）。
-**明确未覆盖**：内存/连接生命周期与部署观测加固（源报告标注为「另任务」；存在独立审计 `OpsHardeningAudit`、`BackendLifecycleAudit`、`FrontendLifecycleAudit`、`BackendStateAudit`，本文不合并）；`docs/review/refactor-guide.md` 已登记的 **Phase 4 生理引擎临床校准**（P1/P2，2026-08-15 决策跳过）与 **defect-list P5/P6**（simulations 产品边界、`asyncio.run` 跨事件循环）本轮无源报告复审，仅在此列出不展开；运行期/生产数据类问题统一收敛到末节。
+**明确未覆盖**：内存/连接生命周期与部署观测加固（源报告标注为「另任务」；存在独立审计 `OpsHardeningAudit`、`BackendLifecycleAudit`、`FrontendLifecycleAudit`、`BackendStateAudit`，本文不合并）；旧版重构计划中的 **Phase 4 生理引擎临床校准**（P1/P2，2026-08-15 决策跳过）与 **defect-list P5/P6**（simulations 产品边界、`asyncio.run` 跨事件循环）本轮无源报告复审，仅在此列出不展开；旧计划文档已在 2.0 收敛时删除，相关文件名只作为历史审计标签保留；运行期/生产数据类问题统一收敛到末节。
 
 **报告来源清单**
 
@@ -30,7 +30,7 @@
 | `agent://LlmClientAudit` | LLM/上下文审计 | 调用层成本/预算/缓存/工具循环 |
 | `agent://PatientAbusePath` | 补充来源 | 「辱骂过度容忍」链路缺口（R3 的唯一出处） |
 | `agent://NextStepsInventory` | 补充来源 | 旧文档声明 vs 代码实况（用于「旧文档是否已登记」对照） |
-| `docs/review/defect-list.md`（S/T/C/P/I/U 系列）、`refactor-{cases,scoring,pipeline,tools,infra,frontend,guide}.md`、`redesign-frontend.md`、`docs/10-…roadmap.md`、`docs/11-…plan.md`、`docs/13-…plan.md`、`TODO.md` | 旧文档 | 仅作「已登记」标记的判据，不重复其结论 |
+| `docs/review/defect-list.md`（S/T/C/P/I/U 系列）、已删除的旧重构计划与 `TODO.md` | 旧文档 | 仅作「已登记」标记的历史判据，不是当前实施入口；当前目标以 `docs/16-v2-maintainable-monolith-objectives.md` 为准 |
 
 **合并规则**
 1. 同一问题被多份报告提到 → 合并为一条并标「跨域」。

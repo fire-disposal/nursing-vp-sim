@@ -367,6 +367,9 @@ infra 不得决定学生是否能看病例、训练是否完成、工具是否�
 - MEWS/triage 工具 → 删除。
 - `training_type` 分支逻辑 → 删除。
 - `Grade`/`UserClass` → 保留（为学校管理功能服务）。
+  > **已更新（2026-09-25）**：`Grade` 实体已退场（名称迁为 `Class.cohort_label`），
+  > `UserClass` 正式化为 `ClassMembership`（多班级 + `member_role`）——见
+  > [`docs/15-训练协约`](15-workflow-activity-contract.md) §七。
 - runtime Exam LLM 痕迹 → 删除。
 
 ### Phase 3 — 建立 `modules/` 过渡层 ✅

@@ -9,27 +9,50 @@ from sqlalchemy.exc import IntegrityError
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.statuses import TrainingStatus
 from models import TrainingAction, TrainingRecord
+from modules.training.activities import ACTIVITY_BINDINGS, ActivityDefinition
+from modules.training.profile import HISTORY_TAKING
 
 from .base import ToolContext, ToolResult
-from .registry import dispatch, registry
+from .registry import dispatch
 
 log = logging.getLogger(__name__)
 
 _READ_ACTIONS = frozenset({"load"})
 
-# 错误动作的审计 kind 后缀——保证评分读 TrainingAction(kind=tool_name) 时
+# 错误动作的审计 kind 后缀——保证评分读 TrainingAction(kind=activity_id) 时
 # 不会被错误结果污染（错误路径与成功路径同表不同 kind）
 _ERROR_KIND_SUFFIX = ":error"
 
 
 def parse_cmd(cmd: str) -> tuple[str, str]:
-    """把 "physical_exam.measure" 拆成 (tool, action)。纯函数，可测试。"""
+    """把 "physical_exam.measure" 拆成 (activity_id, command)。纯函数，可测试。"""
     if not cmd or "." not in cmd:
         raise ValidationError(detail=f"指令格式无效: {cmd!r}（应为 tool.action）")
-    tool, action = cmd.split(".", 1)
-    if not tool or not action:
+    activity_id, command = cmd.split(".", 1)
+    if not activity_id or not command:
         raise ValidationError(detail=f"指令格式无效: {cmd!r}（应为 tool.action）")
-    return tool, action
+    return activity_id, command
+
+
+def _validate_params(binding: ActivityDefinition, params: dict) -> dict:
+    """按 Activity 声明的 ``inputs_schema`` 校验结构。
+
+    强类型只落在**结构**上（键名与类型）：必填语义与业务文案仍由 handler 抛中文
+    错误，保证「单一文案源」，同时结构错误不再逃到域逻辑深处。
+    """
+    model = binding.inputs_schema
+    try:
+        validated = model.model_validate(params)
+    except Exception as exc:  # pydantic ValidationError → 统一 400 契约
+        raise ValidationError(detail=f"参数不合法: {_schema_error_names(exc)}") from exc
+    return dict(validated.model_dump())
+
+
+def _schema_error_names(exc: Exception) -> str:
+    errors = getattr(exc, "errors", None)
+    if not callable(errors):
+        return str(exc)
+    return "、".join(str(item.get("loc", ("?",))[-1]) for item in errors())
 
 
 def _deserialize_result(payload: dict[str, Any]) -> ToolResult:
@@ -60,7 +83,14 @@ def _cached_action(ctx: ToolContext, request_id: str) -> tuple[ToolResult | None
         return None, None
     stored = row.result or {}
     if row.kind.endswith(_ERROR_KIND_SUFFIX):
-        payload = {"ok": False, "data": {}, "scene": None, "error": stored.get("error", "操作失败")}
+        # 业务错误的 data（如 {"code": …}）与其 error 一起回放：客户端重试后
+        # 仍需 machine-readable 的错误码，不能只留一句中文文案。
+        payload = {
+            "ok": False,
+            "data": stored.get("data") or {},
+            "scene": None,
+            "error": stored.get("error", "操作失败"),
+        }
         return _deserialize_result(payload), row.kind
     return (
         _deserialize_result(
@@ -75,22 +105,35 @@ def _cached_action(ctx: ToolContext, request_id: str) -> tuple[ToolResult | None
     )
 
 
-def _authorize(ctx: ToolContext, tool_name: str, action: str) -> None:
-    if tool_name not in registry:
-        raise ValidationError(detail=f"未知训练工具: {tool_name}")
+def _authorize(ctx: ToolContext, activity_id: str, command: str) -> ActivityDefinition:
+    """授权 + 生命周期 + Activity 可用性闸门（唯一收口处）。
+
+    可用性来自服务端解析（病例声明 ∩ Workflow 白名单 ∩ 作业覆盖），
+    不再读 ``case.tools`` 或旧 capability 表。
+    """
+    binding = ACTIVITY_BINDINGS.get(activity_id)
+    if binding is None:
+        raise ValidationError(detail=f"未知训练工具: {activity_id}")
+    if command not in binding.commands:
+        raise ValidationError(detail=f"未知操作: {command}")
 
     is_owner = ctx.record.user_id == ctx.current_user.id
-    is_read = action in _READ_ACTIONS
+    is_read = command in _READ_ACTIONS
     can_review = ctx.current_user.has_permission("score_review")
     if not is_owner and not (is_read and can_review):
         raise AuthError(detail="无权访问此训练记录", status_code=403)
     if not is_read and ctx.record.status != TrainingStatus.IN_PROGRESS:
         raise ValidationError(detail="训练已结束，不能继续操作")
 
-    from modules.training.capabilities import is_enabled
-
-    if not is_enabled(ctx.record, tool_name):
-        raise ValidationError(detail=f"本次训练未启用工具: {tool_name}")
+    workflow = HISTORY_TAKING
+    enabled = workflow.is_enabled(
+        ctx.case_data or {},
+        activity_id,
+        overrides=(ctx.record.practice_snapshot or {}).get("features"),
+    )
+    if not enabled:
+        raise ValidationError(detail=f"本次训练未启用工具: {activity_id}")
+    return binding
 
 
 async def execute_tool_command(
@@ -104,41 +147,40 @@ async def execute_tool_command(
 ) -> ToolResult:
     """工具指令面（HTTP）：授权 → revision 乐观并发 → 幂等回放 → 执行 → 单审计表。
 
-    Phase 2.5（refactor-tools.md）：
-    - TrainingAction 同时承担幂等（unique(record_id, request_id)）与域时间线；
-    - revision 原子条件自增：`UPDATE ... SET revision=revision+1 WHERE id=:id AND revision=:exp`，
-      旧版本请求在此被拒（409 由端点抛出），结构上消灭 JSONB 无锁覆盖（T5）。
+    2.0 约束：TrainingAction 同时承担幂等（unique(record_id, request_id)）与域时间线；
+    revision 原子条件自增，旧版本请求返回 409，避免 JSONB 无锁覆盖。
     """
     if not idem_key or len(idem_key) > 64:
         raise ValidationError(detail="idem_key 缺失或过长")
-    tool_name, action = parse_cmd(cmd)
+    activity_id, command = parse_cmd(cmd)
     if not isinstance(params, dict):
         raise ValidationError(detail="params 必须是对象")
 
-    _authorize(ctx, tool_name, action)
-    if action in _READ_ACTIONS:
-        return await dispatch(tool_name, action, params, ctx)
+    binding = _authorize(ctx, activity_id, command)
+    params = _validate_params(binding, params)
+    if command in _READ_ACTIONS:
+        return await dispatch(activity_id, command, params, ctx)
 
     # 行锁 + revision 条件更新（读动作不 bump）
     locked = ctx.db.query(TrainingRecord).filter(TrainingRecord.id == record_id).with_for_update().first()
     if locked is None:
         raise ValidationError(detail="训练记录不存在")
     ctx.record = locked
-    _authorize(ctx, tool_name, action)
+    _authorize(ctx, activity_id, command)
 
     if revision is not None and locked.revision != revision:
         raise ConflictError(detail=f"并发冲突：revision 已过期（当前 {locked.revision}，请求 {revision}）")
 
     return await _claim_and_dispatch(
-        record_id, idem_key, tool_name, action, params, ctx, expected_revision=locked.revision
+        record_id, idem_key, activity_id, command, params, ctx, expected_revision=locked.revision
     )
 
 
 async def _claim_and_dispatch(
     record_id: int,
     idem_key: str,
-    tool_name: str,
-    action: str,
+    activity_id: str,
+    command: str,
     params: dict,
     ctx: ToolContext,
     *,
@@ -149,14 +191,14 @@ async def _claim_and_dispatch(
     if cached is not None:
         log.info(
             "Training tool command deduplicated",
-            extra={"record_id": record_id, "cmd": f"{tool_name}.{action}", "idem_key": idem_key},
+            extra={"record_id": record_id, "cmd": f"{activity_id}.{command}", "idem_key": idem_key},
         )
         return cached
 
     placeholder = TrainingAction(
         record_id=record_id,
         request_id=idem_key,
-        kind=f"{tool_name}_pending",
+        kind=f"{activity_id}_pending",
         input=params,
         result={},
     )
@@ -170,7 +212,7 @@ async def _claim_and_dispatch(
             return cached
         raise ConflictError(detail="重复指令请求仍在处理中")
 
-    result = await dispatch(tool_name, action, params, ctx)
+    result = await dispatch(activity_id, command, params, ctx)
     # 原子推进 revision（成功与失败都算一次尝试，前端据此续发）
     new_revision = ctx.db.execute(
         text(
@@ -184,19 +226,20 @@ async def _claim_and_dispatch(
         raise ConflictError(detail="并发冲突：revision 已过期")
 
     if result.ok:
-        placeholder.kind = tool_name
+        placeholder.kind = activity_id
         # data 与 scene 一起落库：幂等回放要还原完整响应（见 _cached_action）。
         # scoring/engine.py 读该行时取 result["data"]（旧行仍是裸 data dict）。
         placeholder.result = {"data": result.data, "scene": result.scene}
     else:
-        placeholder.kind = f"{tool_name}{_ERROR_KIND_SUFFIX}"
-        placeholder.result = {"error": result.error} if result.error else {}
+        placeholder.kind = f"{activity_id}{_ERROR_KIND_SUFFIX}"
+        # data 一并落库（业务错误码要能幂等回放，见 _cached_action）
+        placeholder.result = {"data": result.data, "error": result.error}
     ctx.db.commit()
     log.info(
-        "Training tool command %s: record_id=%d cmd=%s ok=%s",
+        "Activity command %s: record_id=%d cmd=%s ok=%s",
         "completed" if result.ok else "returned error",
         record_id,
-        f"{tool_name}.{action}",
+        f"{activity_id}.{command}",
         result.ok,
     )
     return result

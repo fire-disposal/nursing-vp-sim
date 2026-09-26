@@ -27,7 +27,7 @@ const avatars: Record<string, string> = {
  * 图片放在 realistic/ 目录，用 import.meta.glob 动态加载：
  *   - 图片尚未放入时 glob 为空，自动回退到按年龄/性别默认头像，构建不受影响；
  *   - PNG 一旦放入即被自动加载，无需改动代码。
- * 资源命名遵循 docs/realistic-patient-avatar-plan.md §4.2。
+ *   - 资源命名遵循病例头像的当前产品约定；生成或替换头像不改变训练逻辑。
  */
 const realisticAvatarModules = import.meta.glob<{ default: string }>(
 	"../assets/avatars/realistic/*.png",

@@ -27,7 +27,7 @@
 
 ## 项目结构
 
-前端按层目录组织（`api/` 数据访问 · `components/` UI · `engine/` 训练逻辑岛 · `pages/` 路由页）。结构快照与收敛建议见 [13-前端组织范式建议](13-frontend-organization-plan.md)，目录细节不在此维护。
+前端按层目录组织（`api/` 数据访问 · `components/` UI · `engine/` 训练逻辑岛 · `pages/` 路由页）。2.0 的维护约束见 [16-2.0 可维护单体目标](16-v2-maintainable-monolith-objectives.md)，目录细节不在此维护。
 
 ## 路由设计
 
@@ -51,7 +51,7 @@
 | `/admin/practices` | PracticesPage | case_manage | Layout | 练习管理 |
 | `/admin/users` | UsersPage | user_manage | Layout | 用户管理 |
 | `/admin/users/:userId` | UserDetailPage | user_manage | Layout | 用户详情 |
-| `/admin/grades-classes` | GradesClassesPage | grade_class_manage | Layout | 年级班级管理 |
+| `/admin/classes` | ClassesPage | grade_class_manage | Layout | 班级管理（按届别组织，含花名册/成员批量增删） |
 | `/admin/feedback` | FeedbackPage | feedback_review | Layout | 反馈管理 |
 | `/admin/roles` | RolesPage | role_manage | Layout | 角色管理 |
 | `/admin/questionnaires` | AdminQuestionnaires | questionnaire_manage | Layout | 问卷管理 |
@@ -147,7 +147,7 @@
 
 - `h-dvh` 全屏，顶栏 `flex-wrap` 移动端自动换行
 - 移动端安全区 `env(safe-area-inset-top)` 适配刘海屏
-- 左侧为可折叠患者信息面板，右侧为按 capability 装配的训练工具面板
+- 左侧为患者区，右侧为**按 manifest 装配**的活动面板（桌面侧栏 / 移动底部面板）
 - 护理查体、护理记录等工具通过 HTTP 指令面读写服务端状态
 - 评分弹窗 `backdrop-blur` 毛玻璃效果
 
@@ -156,18 +156,21 @@
 | 工具 | 用途 |
 |------|------|
 | `@tanstack/react-query` | 服务端数据获取 + 缓存 + 自动刷新 (staleTime: 30s, gcTime: 10min) |
-| `zustand` | 客户端状态 — authStore (登录/用户), gradesClassesStore (年级班级 CRUD) |
+| `zustand` | 客户端状态 — authStore (登录/用户 + 班级成员归属), trainingStore (会话瞬态), workspaceStore (工作区展开的面板)。**不保存服务端业务状态**（manifest/可用性/完成条件均来自 query cache） |
 | `sonner` | 全局 Toast 通知 |
 
 ## 训练引擎 (Engine System)
 
-引擎系统替代了原单体 ChatTraining 中的职责耦合，采用插件化架构：
+引擎系统替代了原单体 ChatTraining 中的职责耦合，采用 **manifest 驱动的工作区**（`docs/15`）：
 
 | 模块 | 职责 |
 |------|------|
-| `TrainingEngine.tsx` | 训练循环编排 — 初始化、模式计时、护理记录落盘屏障、结束与评分触发 |
-| `MessageBus.ts` | 发布/订阅消息总线，插件间解耦通信 |
-| `PanelContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) + 插件注册 |
+| `TrainingEngine.tsx` | 训练循环编排 — 初始化、模式计时、结束与评分触发（完成前置读 `manifest.completion.blockers`） |
+| `engine/manifest.ts` | manifest 读取层（窄化服务端载荷；**不做任何能力推断**） |
+| `workspace/renderers.ts` | 纯 RendererMap（`ui.renderer → 组件`）；可用性来自服务端 |
+| `workspace/ActivityRail.tsx` / `ActivityBar.tsx` | 桌面侧栏 / 移动能力条 + 底部面板 |
+| `workspace/CompletionStrip.tsx` / `CompletionChecklist` | 完成条件与阻塞项的可读呈现 |
+| `MessageBus.ts` | 仅承载**局部 UI 与流式事件**；事件只说明"发生了什么"，不作为状态保存位置 |
 | `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
 | `StreamManager.ts` | SSE 流式响应管理，处理 LLM 消息流 |
 | `ScoreManager.ts` | 评分流程管理 — 触发评分、轮询状态、获取结果 |
@@ -178,18 +181,18 @@
 ```
 TrainingDataProvider (React Query 训练详情)
 └── TrainingEngine
-    ├── trainingStore (会话 UI 状态；重挂载时重绑 MessageBus)
+    ├── trainingStore (会话瞬态) + workspaceStore (展开的面板)
     ├── TrainingHeader (模式化计时 / 离开 / 交卷)
     ├── PatientStage
     ├── ChatArea
     │   ├── WelcomeScreen
     │   ├── ChatDisplay (消息 + 持久化查体结果)
     │   └── ConversationComposer
-    ├── SceneRenderer
-    │   ├── inquiry          — 问诊任务清单（关键词自检），仅引导模式
-    │   ├── physical-exam    — 护理查体
-    │   ├── nursing-record   — SOAP/评价记录
-    │   └── quiz             — 随堂测验
+    ├── ActivityRail (桌面) / ActivityBar + Bottomsheet (移动)
+    │   ├── "inquiry"          — 问诊任务清单（内置面板，仅引导模式）
+    │   ├── "physical_exam"    — 床旁检查
+    │   ├── "nursing_record"   — 护理评估（ADPIE；草稿/提交/重开）
+    │   └── "quiz"             — 随堂测验（仅声明了该活动的病例可见）
     ├── StreamManager (SSE 对话流)
     └── ScoreManager (评分状态)
 

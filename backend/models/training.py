@@ -34,6 +34,7 @@ class TrainingRecord(Base):
         Index("ix_tr_status", "status"),
         Index("ix_tr_start_time", "start_time"),
         Index("ix_tr_case_id", "case_id"),
+        Index("ix_tr_case_revision", "case_revision_id"),
         CheckConstraint(
             "status IN ('in_progress', 'completed', 'abandoned', 'discarded')",
             name="ck_training_records_status",
@@ -54,7 +55,13 @@ class TrainingRecord(Base):
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
     case_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
+    #: 本次训练固化的病例版本（docs/15 §六）：复盘/评分按它来的版本解释 case_snapshot。
+    #: 旧记录为 NULL（只有 case_snapshot，迁移前就固化了内容），新记录一律有值。
+    case_revision_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("case_revisions.id", ondelete="RESTRICT", name="fk_training_records_case_revision_id"),
+        nullable=True,
+    )
     prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     rubric_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Phase 2.5：乐观并发版本号——工具/变更操作原子自增，旧版本请求 409
@@ -111,7 +118,7 @@ class Score(Base):
     prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
-    # ── Phase 1 评分契约（refactor-scoring.md §2）──
+    # ── 评分契约（docs/16 §四/八）──
     # raw_total: Σ条目原始分（0..raw_max），NULL = 旧口径历史分（不可逆）
     # mapping_version: 映射曲线版本（0=旧口径，1=现行线性映射）
     # fallback: {kind, note, attempts} 兜底/降级标记——非 NULL 时必须 UI 呈现且不进排行榜

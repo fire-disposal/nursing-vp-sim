@@ -22,6 +22,9 @@
 
 ## ER 关系
 
+> 下面第一块是**历史快照**（含已删除的 `Practice`/`Note`/`Grade`/`UserClass` 形态），仅供回溯；
+> 当前模型以第二块为准。
+
 ```
 Role (1) ──→ (N) RolePermission
 Role (1) ──→ (N) User
@@ -61,9 +64,12 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 Role (1) ──→ (N) RolePermission
 Role (1) ──→ (N) User
 
-Grade (1) ──→ (N) Class ──→ (N) UserClass ←── (N) User
+Class (1) ──→ (N) ClassMembership ←── (N) User     # 表名 user_class；member_role = student | teacher，UNIQUE(user_id, class_id)
 
-Case (1) ──→ (N) Assignment ──→ (N) TrainingRecord
+Case (1) ──→ (N) CaseRevision                       # 已发布内容不可变（docs/15 §六）
+CaseRevision (1) ──→ (N) Assignment ──→ (N) TrainingRecord
+CaseRevision (1) ──→ (N) TrainingRecord             # 训练钉住当时版本
+Assignment (1) ──→ (N) AssignmentRecipient ←── (N) User   # 发布时固化的受众快照
 
 TrainingRecord (1) ──→ (N) Message
 TrainingRecord (1) ──→ (N) TrainingAction          # 审计链（工具调用/评分/状态事件）
@@ -98,13 +104,18 @@ VoiceConfig / VoiceCallLog / RateLimitEntry / SystemNotification：独立表
 
 列级定义以 `backend/models/` 与 `backend/migrations/` 为唯一来源，此处仅维护表清单，避免双源腐化。
 
+病例**元数据只在列**（`name`/`description`/`difficulty`/`time_limit_minutes`/`status`/`current_revision_id`）；
+`cases.case_data` 只存临床与模拟数据，不再重复保存元数据；训练时限的唯一口径见
+`backend/core/time_limits.py`（声明即生效，越界在校验层拒绝，不做静默改写）。
+
 | 表名 | 来源模型 |
 |------|----------|
+| `assignment_recipients` | `models/assignment.py` · AssignmentRecipient（受众快照） |
 | `case_questionnaires` | `models/questionnaire.py` · CaseQuestionnaire |
-| `classes` | `models/school.py` · Class |
+| `case_revisions` | `models/case.py` · CaseRevision（不可变内容版本） |
+| `classes` | `models/school.py` · Class（含 `cohort_label`） |
 | `feedback_images` | `models/feedback_image.py` · FeedbackImage |
 | `feedbacks` | `models/feedback.py` · Feedback |
-| `grades` | `models/school.py` · Grade |
 | `llm_call_logs` | `models/llm.py` · LLMCallLog |
 | `messages` | `models/training.py` · Message |
 | `notifications` | `models/notification.py` · Notification |
@@ -125,7 +136,7 @@ VoiceConfig / VoiceCallLog / RateLimitEntry / SystemNotification：独立表
 | `training_session_emotion_state` | `models/training.py` · TrainingSessionEmotionState |
 | `training_session_state` | `models/training.py` · TrainingSessionState |
 | `training_tool_requests` | `models/training.py` · TrainingToolRequest |
-| `user_class` | `models/school.py` · UserClass |
+| `user_class` | `models/school.py` · ClassMembership（多班级成员 + `member_role`） |
 | `users` | `models/auth.py` · User |
 | `voice_call_logs` | `models/voice.py` · VoiceCallLog |
 | `voice_configs` | `models/voice.py` · VoiceConfig |

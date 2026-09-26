@@ -1,6 +1,6 @@
 # 发布检查单（切生产前置）
 
-> 交付物来源：`refactor-infra.md` §6.3。**5 项全绿才准切生产**；任一项非绿 → 停下修，不许"先发再补"。
+> 交付物来源：`docs/16-v2-maintainable-monolith-objectives.md` §七/§八。**5 项全绿才准切生产**；任一项非绿 → 停下修，不许"先发再补"。
 > 生产发布由人执行（AGENTS.md 红线不破）：推 master → staging 验证本单 → 切 tag → 手动 workflow_dispatch。
 
 适用环境：staging = `test.205716.xyz`，prod = `iomt.205716.xyz`（见 `docs/09-operations.md`）。
@@ -47,7 +47,7 @@ pnpm run health:cost
 
 ## 3. 冒烟清单（手动 3 分钟，staging）
 
-按 `refactor-frontend.md` 既有清单（U 类每次合入 staging 后跑一遍）：
+按 `docs/16-v2-maintainable-monolith-objectives.md` 的核心训练冒烟清单（每次合入 staging 后跑一遍）：
 
 开始训练 → 对话 3 轮 → 查体 2 项 → 结束 → 看评分 → 教师复核 → 结果页导出。
 
