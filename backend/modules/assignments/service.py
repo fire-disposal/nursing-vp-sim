@@ -241,9 +241,6 @@ class AssignmentService:
             self.db.add(AssignmentRecipient(assignment_id=assignment.id, user_id=uid))
         self.db.flush()
 
-    def _target_recipient_ids(self, assignment: Assignment) -> list[int]:
-        return self.recipient_ids(assignment)
-
     def _get_target_students(self, assignment: Assignment) -> list[User]:
         ids = self.recipient_ids(assignment)
         if not ids:
@@ -535,7 +532,7 @@ class AssignmentService:
         records = self.get_records_for_assignment(assignment_id)
         submitted_user_ids = {r.user_id for r in records if r.status == "completed"}
 
-        target_ids = self._target_recipient_ids(assignment)
+        target_ids = self.recipient_ids(assignment)
         not_submitted = [uid for uid in target_ids if uid not in submitted_user_ids]
 
         if not not_submitted:
@@ -554,7 +551,7 @@ class AssignmentService:
         from models.notification import Notification
 
         # 通知对象 = 发布时固化的受众快照（与本作业的分母同一份名单）
-        target_ids = self._target_recipient_ids(assignment)
+        target_ids = self.recipient_ids(assignment)
 
         if not target_ids:
             return
