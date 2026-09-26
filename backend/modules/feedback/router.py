@@ -17,7 +17,6 @@ from schemas import (
     FeedbackReplyRequest,
     FeedbackSubmitResponse,
     PaginatedResponse,
-    StorageStatsResponse,
 )
 
 router = APIRouter(prefix="/api", tags=["反馈"])
@@ -113,14 +112,6 @@ def reply_feedback(
     admin_name = current_user.display_name or current_user.username
     fb = FeedbackService(db).reply(feedback_id, req.reply, admin_name, overwrite=overwrite)
     return _to_item_from_model(fb)
-
-
-@router.get("/admin/feedback/storage-stats", response_model=StorageStatsResponse)
-def feedback_storage_stats(
-    current_user: _FeedbackReviewer,
-    db: DbSession,
-):
-    return FeedbackService(db).storage_stats()
 
 
 @router.post("/admin/feedback/export")

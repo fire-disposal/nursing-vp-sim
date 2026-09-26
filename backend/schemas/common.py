@@ -36,15 +36,6 @@ class DeleteResponse(BaseModel):
     message: str = "删除成功"
 
 
-class MessageResponse(BaseModel):
-    message: str
-
-
 class OkResponse(BaseModel):
     ok: bool = True
     message: str | None = None
-
-
-class ToggleStatusResponse(BaseModel):
-    ok: bool = True
-    status: str

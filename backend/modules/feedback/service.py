@@ -258,15 +258,6 @@ class FeedbackService:
             self.db.query(func.count(FeedbackImage.id)).filter(FeedbackImage.feedback_id == feedback_id).scalar()
         ) or 0
 
-    def storage_stats(self) -> dict:
-        total_images = self.db.query(func.count(FeedbackImage.id)).scalar() or 0
-        total_bytes = self.db.query(func.coalesce(func.sum(FeedbackImage.file_size), 0)).scalar() or 0
-        return {
-            "total_images": total_images,
-            "total_bytes": total_bytes,
-            "total_mb": round(total_bytes / (1024 * 1024), 2),
-        }
-
     def unreplied_summary(self, now: datetime | None = None) -> dict:
         """未回复反馈概览 —— 供运维面板显示「未回复用户反馈 N 条」。
 

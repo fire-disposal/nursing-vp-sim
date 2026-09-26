@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 from core.deps import DbSession
-from core.exceptions import ConflictError, NotFoundError, ValidationError
+from core.exceptions import ConflictError, ValidationError
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
 from infra.llm import get_env_fallback_state
@@ -26,11 +26,9 @@ from schemas import (
     ApiSecretUpdate,
     DeleteResponse,
     FallbackStateResponse,
-    HealthCheckItem,
     OkResponse,
     SecretCreateResponse,
     TestAllResultsResponse,
-    TestResultItem,
 )
 
 log = logging.getLogger(__name__)
@@ -199,15 +197,6 @@ async def _test_secret(secret, client: httpx.AsyncClient, timeout: float = 10) -
         return {"base_url": base_url, "ok": False, "error": str(e)[:200]}
 
 
-@router.post("/secrets/{secret_id}/test", response_model=TestResultItem)
-async def test_secret_endpoint(secret_id: int, current_user: _Manager, db: DbSession):
-    secret = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
-    if not secret:
-        raise NotFoundError("密钥不存在")
-    async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
-        return await _test_secret(secret, client)
-
-
 @router.post("/secrets/test-all", response_model=TestAllResultsResponse)
 async def test_all_secrets(current_user: _Manager, db: DbSession):
     secrets = db.query(ApiSecret).all()
@@ -216,63 +205,9 @@ async def test_all_secrets(current_user: _Manager, db: DbSession):
     return {"results": results}
 
 
-@router.get("/health", response_model=list[HealthCheckItem])
-async def health_check(current_user: _Manager, db: DbSession):
-    secrets = db.query(ApiSecret).all()
-    async with httpx.AsyncClient(timeout=httpx.Timeout(5)) as client:
-        results = []
-        for s in secrets:
-            r = await _test_secret(s, client, timeout=5)
-            results.append(
-                {
-                    "base_url": r["base_url"],
-                    "status": "ok" if r.get("ok") else "error",
-                    "latency_ms": r.get("latency_ms"),
-                    "error": r.get("error"),
-                }
-            )
-    return results
-
-
 # ── Env Fallback ──
 
 
 @router.get("/fallback", response_model=FallbackStateResponse)
 async def get_env_fallback(current_user: _Manager):
     return await get_env_fallback_state()
-
-
-@router.post("/fallback/test", response_model=TestResultItem)
-async def test_env_fallback(current_user: _Manager):
-    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-
-    if not DEEPSEEK_API_KEY:
-        return {
-            "base_url": DEEPSEEK_BASE_URL,
-            "ok": False,
-            "error": "DEEPSEEK_API_KEY 未设置",
-        }
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
-            t0 = time.monotonic()
-            resp = await client.get(
-                f"{DEEPSEEK_BASE_URL}/v1/models",
-                headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
-            )
-            return {
-                "base_url": DEEPSEEK_BASE_URL,
-                "ok": resp.status_code < 400,
-                "status_code": resp.status_code,
-                "latency_ms": int((time.monotonic() - t0) * 1000),
-            }
-    except Exception as e:
-        return {"base_url": DEEPSEEK_BASE_URL, "ok": False, "error": str(e)[:200]}
-
-
-# ── Router Reload ──
-
-
-@router.post("/reload", response_model=OkResponse)
-async def reload_router(request: Request, current_user: _Manager):
-    await request.app.state.llm_router.load_from_db()
-    return {"ok": True}

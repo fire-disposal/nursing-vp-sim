@@ -42,18 +42,6 @@ class QAAskResponse(BaseModel):
     cached: bool = False
 
 
-class QASessionAdminItem(BaseModel):
-    model_config = _RESP_CFG
-    id: int
-    user_id: int
-    student_name: str = ""
-    student_code: str = ""
-    title: str
-    message_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-
 class SectionTextResponse(BaseModel):
     source: str
     section: str

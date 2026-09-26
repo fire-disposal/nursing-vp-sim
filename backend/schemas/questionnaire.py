@@ -15,15 +15,6 @@ class QuestionnaireQuestionCreate(BaseModel):
     options: list[str] | None = None
 
 
-class QuestionnaireQuestionUpdate(BaseModel):
-    model_config = _REQ_CFG
-    content: str | None = Field(default=None, max_length=2000)
-    question_type: str | None = Field(default=None, max_length=20)
-    required: bool | None = None
-    sort_order: int | None = None
-    options: list[str] | None = None
-
-
 class QuestionnaireQuestionResponse(BaseModel):
     model_config = _RESP_CFG
     id: int

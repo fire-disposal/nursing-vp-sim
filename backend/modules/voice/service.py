@@ -77,7 +77,7 @@ def load_tts_state(app_state, db: Session) -> None:
 
     Single source of truth shared by startup (``main.py``) and the admin
     reload after a config save. Setting ``tts_config`` here is what keeps the
-    ``/api/tts/synthesize`` router usable after a cold start — without it the
+    ``/api/tts/stream`` router usable after a cold start — without it the
     router treats an empty config as "TTS 未配置" and always 404s.
     """
     from models import VoiceConfig

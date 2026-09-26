@@ -12,7 +12,6 @@ from infra.exporter import ColumnDef, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService
 from modules.questionnaires.service import (
-    QuestionnaireQuestionService,
     QuestionnaireTemplateService,
     QuestionView,
     TemplateDetailView,
@@ -25,9 +24,7 @@ from schemas import (
     PaginatedResponse,
     QuestionnaireAnswerItem,
     QuestionnaireCheckResponse,
-    QuestionnaireQuestionCreate,
     QuestionnaireQuestionResponse,
-    QuestionnaireQuestionUpdate,
     QuestionnaireResponseItem,
     QuestionnaireStatsResponse,
     QuestionnaireSubmitRequest,
@@ -195,63 +192,6 @@ def assign_cases(
     return {"ok": True}
 
 
-# ── Question CRUD (per template) ──
-
-
-@router.post("/questionnaires/templates/{template_id}/questions", response_model=QuestionnaireQuestionResponse)
-def add_question(
-    template_id: int,
-    req: QuestionnaireQuestionCreate,
-    current_user: _Manager,
-    db: DbSession,
-):
-    return _q_resp(
-        QuestionnaireQuestionService(db).create(
-            template_id=template_id,
-            sort_order=req.sort_order,
-            content=req.content,
-            question_type=req.question_type,
-            required=req.required,
-            options=req.options,
-        )
-    )
-
-
-@router.put(
-    "/questionnaires/templates/{template_id}/questions/{question_id}",
-    response_model=QuestionnaireQuestionResponse,
-)
-def update_question(
-    template_id: int,
-    question_id: int,
-    req: QuestionnaireQuestionUpdate,
-    current_user: _Manager,
-    db: DbSession,
-):
-    return _q_resp(
-        QuestionnaireQuestionService(db).update(
-            template_id=template_id,
-            question_id=question_id,
-            content=req.content,
-            question_type=req.question_type,
-            required=req.required,
-            sort_order=req.sort_order,
-            options=req.options,
-        )
-    )
-
-
-@router.delete("/questionnaires/templates/{template_id}/questions/{question_id}", response_model=DeleteResponse)
-def delete_question(
-    template_id: int,
-    question_id: int,
-    current_user: _Manager,
-    db: DbSession,
-):
-    QuestionnaireQuestionService(db).delete(template_id, question_id)
-    return {"ok": True}
-
-
 # ── Response submit & list ──
 
 
@@ -289,21 +229,6 @@ def submit_questionnaire(
             answers_data=[a.model_dump() for a in req.answers],
         )
     )
-
-
-@router.get("/questionnaires/my-responses", response_model=PaginatedResponse[QuestionnaireResponseItem])
-def my_responses(
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: DbSession,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=200)] = 20,
-):
-    items, total = QuestionnaireResponseService(db).list_my_responses(
-        user_id=current_user.id,
-        offset=offset,
-        limit=limit,
-    )
-    return PaginatedResponse(items=[_resp_item(v) for v in items], total=total, offset=offset, limit=limit)
 
 
 @router.get("/questionnaires/responses/{template_id}", response_model=PaginatedResponse[QuestionnaireResponseItem])

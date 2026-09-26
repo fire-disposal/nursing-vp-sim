@@ -141,15 +141,6 @@ class QuestionnaireResponseService:
             q = q.filter(QuestionnaireResponse.record_id == record_id)
         return q.first()
 
-    def _list_by_user(self, user_id: int, offset: int, limit: int) -> tuple[list[QuestionnaireResponse], int]:
-        q = (
-            self.db.query(QuestionnaireResponse)
-            .options(joinedload(QuestionnaireResponse.template))
-            .filter(QuestionnaireResponse.user_id == user_id)
-            .order_by(QuestionnaireResponse.created_at.desc())
-        )
-        return paginate(q, offset, limit)
-
     def _list_by_template(self, template_id: int, offset: int, limit: int) -> tuple[list[QuestionnaireResponse], int]:
         q = (
             self.db.query(QuestionnaireResponse)
@@ -374,15 +365,6 @@ class QuestionnaireResponseService:
 
         self.db.refresh(response)
         return self._build_response_item(response)
-
-    def list_my_responses(self, user_id: int, offset: int, limit: int) -> tuple[list[ResponseView], int]:
-        rows, total = self._list_by_user(user_id, offset, limit)
-        response_ids = [r.id for r in rows]
-        template_ids = list({r.template_id for r in rows})
-        answers_map = self._load_answers(response_ids)
-        questions_map = self._load_questions(template_ids)
-        items = [self._build_response_item(r, answers_map, questions_map) for r in rows]
-        return items, total
 
     def list_responses(self, template_id: int, offset: int, limit: int) -> tuple[list[ResponseView], int]:
         t = self._get_template(template_id)

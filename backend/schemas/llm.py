@@ -56,13 +56,6 @@ class SecretCreateResponse(BaseModel):
     key_suffix: str
 
 
-class HealthCheckItem(BaseModel):
-    base_url: str
-    status: str
-    latency_ms: int | None = None
-    error: str | None = None
-
-
 class TestResultItem(BaseModel):
     base_url: str
     ok: bool

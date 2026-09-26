@@ -13,9 +13,7 @@ from core.security import get_current_user, require_permission
 from models import Class, ClassMembership, Role, Score, TrainingRecord, User
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
-    ClassStudentItem,
     ClassSummaryItemSchema,
-    DurationStats,
     PaginatedResponse,
     RankingItem,
     TeacherSummaryItem,
@@ -35,30 +33,6 @@ class StatsService:
         if period == "month":
             return now - timedelta(days=30)
         return datetime(2000, 1, 1, tzinfo=UTC)
-
-    def get_duration_stats(self, current_user: User, period: str) -> DurationStats:
-        since = self._period_since(period)
-
-        base = self.db.query(
-            func.date(TrainingRecord.start_time).label("d"),
-            func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label("minutes"),
-            func.count().label("sessions"),
-        ).filter(
-            TrainingRecord.status == "completed",
-            TrainingRecord.start_time >= since,
-            TrainingRecord.is_test == False,
-        )
-
-        if not current_user.has_permission("stats_view"):
-            base = base.filter(TrainingRecord.user_id == current_user.id)
-
-        rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
-
-        daily = [{"date": str(r.d), "minutes": round(float(r.minutes or 0), 1)} for r in rows]
-        total_minutes = round(sum(r.minutes or 0 for r in rows))
-        total_sessions = sum(r.sessions for r in rows)
-
-        return DurationStats(daily=daily, total_minutes=total_minutes, total_sessions=total_sessions)
 
     def get_trends(self, current_user: User, period: str) -> TrendStats:
         since = self._period_since(period)
@@ -236,49 +210,6 @@ class StatsService:
         ]
         return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
-    def class_students(
-        self,
-        class_id: int,
-    ) -> list[ClassStudentItem]:
-        """班级学生维度聚合 — 取代前端拉 200 条原始记录做客户端聚合。"""
-        rows = (
-            self.db.query(
-                User.id.label("user_id"),
-                User.display_name,
-                User.student_id,
-                func.count(TrainingRecord.id).label("total_sessions"),
-                func.avg(grade_expr()).label("avg_score"),
-                func.max(TrainingRecord.start_time).label("last_start_time"),
-            )
-            .join(ClassMembership, ClassMembership.user_id == User.id)
-            .outerjoin(
-                TrainingRecord,
-                (TrainingRecord.user_id == User.id)
-                & (TrainingRecord.status == "completed")
-                & (TrainingRecord.is_test == False),
-            )
-            # INV-3：兜底分不参与平均分，无有效成绩的学生仍保留（avg_score = None）
-            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
-            .filter(
-                ClassMembership.class_id == class_id,
-                ClassMembership.member_role == "student",
-            )
-            .group_by(User.id)
-            .order_by(User.display_name, User.id)
-            .all()
-        )
-        return [
-            ClassStudentItem(
-                user_id=r.user_id,
-                display_name=r.display_name,
-                student_id=r.student_id,
-                total_sessions=int(r.total_sessions or 0),
-                avg_score=round(float(r.avg_score), 1) if r.avg_score is not None else None,
-                last_start_time=r.last_start_time,
-            )
-            for r in rows
-        ]
-
     def class_summary(
         self,
         cohort_label: str | None = None,
@@ -356,16 +287,6 @@ class StatsService:
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 
 
-@router.get("/duration", response_model=DurationStats)
-def get_duration_stats(
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: DbSession,
-    period: Annotated[str, Query(description="统计周期: week / month / all")] = "month",
-):
-    svc = StatsService(db)
-    return svc.get_duration_stats(current_user, period)
-
-
 @router.get("/trends", response_model=TrendStats)
 def get_trends(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -409,13 +330,3 @@ def class_summary(
 ):
     svc = StatsService(db)
     return svc.class_summary(cohort_label=cohort_label, class_id=class_id)
-
-
-@router.get("/class-students", response_model=list[ClassStudentItem])
-def class_students(
-    db: DbSession,
-    class_id: Annotated[int, Query(description="班级ID")],
-    _current_user: User = Depends(require_permission("stats_view")),
-):
-    svc = StatsService(db)
-    return svc.class_students(class_id=class_id)

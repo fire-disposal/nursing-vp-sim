@@ -522,31 +522,6 @@ class AssignmentService:
 
         return {"message": "练习发布已删除"}
 
-    def send_reminder(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> dict:
-        assignment = self.get_with_relations(assignment_id)
-        if not assignment:
-            raise NotFoundError("练习发布不存在")
-        if not skip_ownership and assignment.teacher_id != teacher_id:
-            raise AuthError("无权操作", status_code=403)
-
-        records = self.get_records_for_assignment(assignment_id)
-        submitted_user_ids = {r.user_id for r in records if r.status == "completed"}
-
-        target_ids = self.recipient_ids(assignment)
-        not_submitted = [uid for uid in target_ids if uid not in submitted_user_ids]
-
-        if not not_submitted:
-            return {"message": "所有学生已提交", "reminded": 0}
-
-        self._push_notifications(
-            not_submitted,
-            "reminder",
-            f"催交：{assignment.title}",
-            f"病例：{assignment.case.name if assignment.case else ''}\n截止时间：{assignment.end_time.strftime('%m-%d %H:%M')}",
-        )
-
-        return {"message": f"已提醒 {len(not_submitted)} 位学生", "reminded": len(not_submitted)}
-
     def _notify_students(self, assignment: Assignment, case_name: str) -> None:
         from models.notification import Notification
 
@@ -568,12 +543,4 @@ class AssignmentService:
                     created_at=now,
                 )
             )
-        self.db.commit()
-
-    def _push_notifications(self, user_ids: list[int], type_: str, title: str, body: str) -> None:
-        from models.notification import Notification
-
-        now = datetime.now(UTC)
-        for uid in user_ids:
-            self.db.add(Notification(user_id=uid, type=type_, title=title, body=body, created_at=now))
         self.db.commit()

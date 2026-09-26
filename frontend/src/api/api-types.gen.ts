@@ -229,23 +229,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/records/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export Records Excel */
-        post: operations["export_records_excel_api_admin_records_export_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/ops/diagnose": {
         parameters: {
             query?: never;
@@ -272,40 +255,6 @@ export interface paths {
         };
         /** Admin Ops Dashboard */
         get: operations["admin_ops_dashboard_api_admin_ops_dashboard_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/ops/errors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Ops Errors */
-        get: operations["admin_ops_errors_api_admin_ops_errors_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/ops/report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Ops Report */
-        get: operations["admin_ops_report_api_admin_ops_report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -403,23 +352,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/secrets/{secret_id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test Secret Endpoint */
-        post: operations["test_secret_endpoint_api_admin_secrets__secret_id__test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/secrets/test-all": {
         parameters: {
             query?: never;
@@ -437,23 +369,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health Check */
-        get: operations["health_check_api_admin_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/fallback": {
         parameters: {
             query?: never;
@@ -465,40 +380,6 @@ export interface paths {
         get: operations["get_env_fallback_api_admin_fallback_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/fallback/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test Env Fallback */
-        post: operations["test_env_fallback_api_admin_fallback_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/reload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reload Router */
-        post: operations["reload_router_api_admin_reload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -697,40 +578,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/voice/config/test-synthesize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test Synthesize */
-        post: operations["test_synthesize_api_admin_voice_config_test_synthesize_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/voice/config/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Export Voice Config */
-        get: operations["export_voice_config_api_admin_voice_config_export_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/assignments": {
         parameters: {
             query?: never;
@@ -763,23 +610,6 @@ export interface paths {
         post?: never;
         /** Delete Assignment */
         delete: operations["delete_assignment_api_assignments__assignment_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assignments/{assignment_id}/remind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Remind Assignment */
-        post: operations["remind_assignment_api_assignments__assignment_id__remind_post"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1199,23 +1029,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/deploy-status/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Deploy Status Stream */
-        get: operations["deploy_status_stream_api_deploy_status_stream_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1386,23 +1199,6 @@ export interface paths {
         get?: never;
         /** Reply Feedback */
         put: operations["reply_feedback_api_admin_feedback__feedback_id__reply_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/feedback/storage-stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Feedback Storage Stats */
-        get: operations["feedback_storage_stats_api_admin_feedback_storage_stats_get"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1606,40 +1402,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/qa/history/all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get All Qa History */
-        get: operations["get_all_qa_history_api_qa_history_all_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/qa/history/all/{session_id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Session Messages Admin */
-        get: operations["get_session_messages_admin_api_qa_history_all__session_id__messages_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/questionnaires/templates": {
         parameters: {
             query?: never;
@@ -1694,41 +1456,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/questionnaires/templates/{template_id}/questions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add Question */
-        post: operations["add_question_api_questionnaires_templates__template_id__questions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/questionnaires/templates/{template_id}/questions/{question_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Question */
-        put: operations["update_question_api_questionnaires_templates__template_id__questions__question_id__put"];
-        post?: never;
-        /** Delete Question */
-        delete: operations["delete_question_api_questionnaires_templates__template_id__questions__question_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/questionnaires/check": {
         parameters: {
             query?: never;
@@ -1757,23 +1484,6 @@ export interface paths {
         put?: never;
         /** Submit Questionnaire */
         post: operations["submit_questionnaire_api_questionnaires_responses_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/questionnaires/my-responses": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** My Responses */
-        get: operations["my_responses_api_questionnaires_my_responses_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1933,23 +1643,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/stats/duration": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Duration Stats */
-        get: operations["get_duration_stats_api_stats_duration_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/stats/trends": {
         parameters: {
             query?: never;
@@ -2010,23 +1703,6 @@ export interface paths {
         };
         /** Class Summary */
         get: operations["class_summary_api_stats_class_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/stats/class-students": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Class Students */
-        get: operations["class_students_api_stats_class_students_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2394,23 +2070,6 @@ export interface paths {
         put?: never;
         /** Post Tool Command */
         post: operations["post_tool_command_api_training__record_id__tools_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tts/synthesize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Synthesize */
-        post: operations["synthesize_api_tts_synthesize_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3432,27 +3091,6 @@ export interface components {
              */
             created_at: string;
         };
-        /**
-         * ClassStudentItem
-         * @description 班级学生训练聚合（只读）
-         */
-        ClassStudentItem: {
-            /** User Id */
-            user_id: number;
-            /** Display Name */
-            display_name: string;
-            /** Student Id */
-            student_id?: string | null;
-            /**
-             * Total Sessions
-             * @default 0
-             */
-            total_sessions: number;
-            /** Avg Score */
-            avg_score?: number | null;
-            /** Last Start Time */
-            last_start_time?: string | null;
-        };
         /** ClassSummaryItemSchema */
         ClassSummaryItemSchema: {
             /** Class Id */
@@ -3603,17 +3241,6 @@ export interface components {
             output_ml: number;
             /** Abnormal */
             abnormal: boolean;
-        };
-        /** DurationStats */
-        DurationStats: {
-            /** Daily */
-            daily: {
-                [key: string]: unknown;
-            }[];
-            /** Total Minutes */
-            total_minutes: number;
-            /** Total Sessions */
-            total_sessions: number;
         };
         /**
          * EndTrainingRequest
@@ -3820,17 +3447,6 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
-        };
-        /** HealthCheckItem */
-        HealthCheckItem: {
-            /** Base Url */
-            base_url: string;
-            /** Status */
-            status: string;
-            /** Latency Ms */
-            latency_ms?: number | null;
-            /** Error */
-            error?: string | null;
         };
         /** HealthResponse */
         HealthResponse: {
@@ -4097,17 +3713,6 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** PaginatedResponse[QASessionAdminItem] */
-        PaginatedResponse_QASessionAdminItem_: {
-            /** Items */
-            items: components["schemas"]["QASessionAdminItem"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
         /** PaginatedResponse[QuestionnaireResponseItem] */
         PaginatedResponse_QuestionnaireResponseItem_: {
             /** Items */
@@ -4256,40 +3861,6 @@ export interface components {
             created_at: string;
             /** Citations */
             citations?: components["schemas"]["Citation"][] | null;
-        };
-        /** QASessionAdminItem */
-        QASessionAdminItem: {
-            /** Id */
-            id: number;
-            /** User Id */
-            user_id: number;
-            /**
-             * Student Name
-             * @default
-             */
-            student_name: string;
-            /**
-             * Student Code
-             * @default
-             */
-            student_code: string;
-            /** Title */
-            title: string;
-            /**
-             * Message Count
-             * @default 0
-             */
-            message_count: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
         };
         /** QASessionCreate */
         QASessionCreate: {
@@ -4449,19 +4020,6 @@ export interface components {
              * @default 0
              */
             sort_order: number;
-            /** Options */
-            options?: string[] | null;
-        };
-        /** QuestionnaireQuestionUpdate */
-        QuestionnaireQuestionUpdate: {
-            /** Content */
-            content?: string | null;
-            /** Question Type */
-            question_type?: string | null;
-            /** Required */
-            required?: boolean | null;
-            /** Sort Order */
-            sort_order?: number | null;
             /** Options */
             options?: string[] | null;
         };
@@ -5150,15 +4708,6 @@ export interface components {
             treat_budget: number;
             /** Case Ended At */
             case_ended_at?: number | null;
-        };
-        /** StorageStatsResponse */
-        StorageStatsResponse: {
-            /** Total Images */
-            total_images: number;
-            /** Total Bytes */
-            total_bytes: number;
-            /** Total Mb */
-            total_mb: number;
         };
         /**
          * StudentAssignmentItem
@@ -6621,37 +6170,6 @@ export interface operations {
             };
         };
     };
-    export_records_excel_api_admin_records_export_post: {
-        parameters: {
-            query?: {
-                format?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     admin_ops_diagnose_api_admin_ops_diagnose_get: {
         parameters: {
             query?: never;
@@ -6673,58 +6191,6 @@ export interface operations {
         };
     };
     admin_ops_dashboard_api_admin_ops_dashboard_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    admin_ops_errors_api_admin_ops_errors_get: {
-        parameters: {
-            query?: {
-                /** @description 返回条数 */
-                n?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_ops_report_api_admin_ops_report_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -7024,37 +6490,6 @@ export interface operations {
             };
         };
     };
-    test_secret_endpoint_api_admin_secrets__secret_id__test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                secret_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestResultItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     test_all_secrets_api_admin_secrets_test_all_post: {
         parameters: {
             query?: never;
@@ -7075,26 +6510,6 @@ export interface operations {
             };
         };
     };
-    health_check_api_admin_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthCheckItem"][];
-                };
-            };
-        };
-    };
     get_env_fallback_api_admin_fallback_get: {
         parameters: {
             query?: never;
@@ -7111,46 +6526,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FallbackStateResponse"];
-                };
-            };
-        };
-    };
-    test_env_fallback_api_admin_fallback_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestResultItem"];
-                };
-            };
-        };
-    };
-    reload_router_api_admin_reload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
         };
@@ -7645,59 +7020,6 @@ export interface operations {
             };
         };
     };
-    test_synthesize_api_admin_voice_config_test_synthesize_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoiceTestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_voice_config_api_admin_voice_config_export_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     list_assignments_api_assignments_get: {
         parameters: {
             query?: {
@@ -7850,37 +7172,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remind_assignment_api_assignments__assignment_id__remind_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assignment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -8753,26 +8044,6 @@ export interface operations {
             };
         };
     };
-    deploy_status_stream_api_deploy_status_stream_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -9079,26 +8350,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    feedback_storage_stats_api_admin_feedback_storage_stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StorageStatsResponse"];
                 };
             };
         };
@@ -9509,71 +8760,6 @@ export interface operations {
             };
         };
     };
-    get_all_qa_history_api_qa_history_all_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-                /** @description 搜索学生姓名/学号/会话标题 */
-                search?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_QASessionAdminItem_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_session_messages_admin_api_qa_history_all__session_id__messages_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QAMessageItem"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_templates_api_questionnaires_templates_get: {
         parameters: {
             query?: {
@@ -9772,109 +8958,6 @@ export interface operations {
             };
         };
     };
-    add_question_api_questionnaires_templates__template_id__questions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuestionnaireQuestionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionnaireQuestionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_question_api_questionnaires_templates__template_id__questions__question_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: number;
-                question_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuestionnaireQuestionUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionnaireQuestionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_question_api_questionnaires_templates__template_id__questions__question_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: number;
-                question_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     check_questionnaire_api_questionnaires_check_get: {
         parameters: {
             query?: {
@@ -9929,38 +9012,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionnaireResponseItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    my_responses_api_questionnaires_my_responses_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_QuestionnaireResponseItem_"];
                 };
             };
             /** @description Validation Error */
@@ -10283,38 +9334,6 @@ export interface operations {
             };
         };
     };
-    get_duration_stats_api_stats_duration_get: {
-        parameters: {
-            query?: {
-                /** @description 统计周期: week / month / all */
-                period?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DurationStats"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_trends_api_stats_trends_get: {
         parameters: {
             query?: {
@@ -10432,38 +9451,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassSummaryItemSchema"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    class_students_api_stats_class_students_get: {
-        parameters: {
-            query: {
-                /** @description 班级ID */
-                class_id: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClassStudentItem"][];
                 };
             };
             /** @description Validation Error */
@@ -11168,40 +10155,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ToolCommandResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    synthesize_api_tts_synthesize_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TTSSynthesizeRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "audio/mpeg": string;
-                    "audio/pcm": string;
                 };
             };
             /** @description Validation Error */

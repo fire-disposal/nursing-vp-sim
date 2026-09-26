@@ -211,12 +211,6 @@ def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: 
     return AssignmentService(db).delete(assignment_id, current_user.id, skip_ownership=is_admin)
 
 
-@router.post("/{assignment_id}/remind")
-def remind_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
-    is_admin = current_user.has_permission("user_manage")
-    return AssignmentService(db).send_reminder(assignment_id, current_user.id, skip_ownership=is_admin)
-
-
 # ── Export ──
 
 

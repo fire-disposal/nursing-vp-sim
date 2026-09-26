@@ -1,14 +1,13 @@
 """Admin voice config — router + service."""
 
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal, get_db
@@ -206,45 +205,6 @@ class VoiceConfigService:
 
         return _fallback_speaker(vc), STREAM_SAMPLE_RATE, _gen()
 
-    async def synthesize_test(self, text: str) -> tuple[bytes, str, str]:
-        vc = self._get_active()
-        if not vc:
-            raise NotFoundError("未找到激活的语音配置")
-        api_key = self._decrypt_key(vc)
-
-        tts_req = TTSRequest(
-            text=text[:200],
-            speaker=_fallback_speaker(vc),
-            fmt=vc.tts_format,
-            sample_rate=vc.tts_sample_rate,
-        )
-        client = VolcBidirectionalTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
-        try:
-            audio = await client.synthesize(tts_req)
-        finally:
-            await client.close()
-
-        media_map = {"mp3": "audio/mpeg", "wav": "audio/wav", "pcm": "audio/pcm", "ogg_opus": "audio/ogg"}
-        fmt = vc.tts_format or "mp3"
-        return audio, media_map.get(fmt, "audio/mpeg"), fmt
-
-    def export_config(self) -> dict:
-        vc = self._get_active()
-        if not vc:
-            raise NotFoundError("未找到激活的语音配置")
-        return {
-            "provider": vc.provider,
-            "tts_resource_id": vc.tts_resource_id,
-            "tts_speaker": _fallback_speaker(vc),
-            "tts_model": vc.tts_model,
-            "tts_sample_rate": vc.tts_sample_rate,
-            "tts_format": vc.tts_format,
-            "tts_timeout": vc.tts_timeout,
-            "monthly_budget": vc.monthly_budget,
-            "speaker_library": vc.speaker_library,
-            "exported_at": datetime.now(UTC).isoformat(),
-        }
-
 
 router = APIRouter(prefix="/voice", tags=["语音管理"])
 
@@ -296,31 +256,4 @@ async def test_stream(
         gen,
         media_type="audio/l16",
         headers={"X-Sample-Rate": str(sample_rate), "X-Speaker": speaker},
-    )
-
-
-@router.post("/config/test-synthesize")
-async def test_synthesize(
-    request: Request,
-    current_user: _Manager,
-    body: VoiceTestRequest,
-    db: Annotated[Session, Depends(get_db)],
-):
-    text = body.text[:200]
-    svc = VoiceConfigService(db)
-    audio, media_type, ext = await svc.synthesize_test(text)
-    return Response(
-        content=audio,
-        media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename=test.{ext}"},
-    )
-
-
-@router.get("/config/export")
-def export_voice_config(current_user: _Manager, db: Annotated[Session, Depends(get_db)]):
-    payload = VoiceConfigService(db).export_config()
-    return Response(
-        content=json.dumps(payload, ensure_ascii=False, indent=2, default=str),
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=voice_config.json"},
     )

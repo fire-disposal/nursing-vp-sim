@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from core.deps import DbSession
 from core.exceptions import NotFoundError
@@ -20,8 +20,6 @@ from models import Case, LLMCallLog, TrainingRecord, User
 from schemas import LLMCallLogItem, LLMStatsResponse, PaginatedResponse
 
 log = logging.getLogger(__name__)
-
-EXCEL_EXPORT_ROW_LIMIT = 10000
 
 
 class LLMMonitorService:
@@ -365,33 +363,6 @@ class LLMMonitorService:
         ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         return export_response(entries, columns, f"llm_logs_{ts}", "LLM日志", file_format)
 
-    def export_records(self, fmt: str | None = None) -> Response:
-        file_format = fmt or "xlsx"
-        query = (
-            self.db.query(TrainingRecord)
-            .join(User, TrainingRecord.user_id == User.id)
-            .options(
-                selectinload(TrainingRecord.user), selectinload(TrainingRecord.case), selectinload(TrainingRecord.score)
-            )
-            .order_by(TrainingRecord.start_time.desc())
-            .limit(EXCEL_EXPORT_ROW_LIMIT)
-            .yield_per(100)
-        )
-        records = list(query)
-
-        columns = [
-            ColumnDef("记录ID", key="id", fmt=str),
-            ColumnDef("学生", value=lambda r: r.user.display_name if r.user else ""),
-            ColumnDef("病例", value=lambda r: r.case.name if r.case else ""),
-            ColumnDef("状态", key="status"),
-            ColumnDef("评分状态", key="scoring_status"),
-            ColumnDef("总分", value=lambda r: r.score.effective_total if r.score else None),
-            ColumnDef("开始时间", value=lambda r: str(r.start_time) if r.start_time else ""),
-            ColumnDef("结束时间", value=lambda r: str(r.end_time) if r.end_time else ""),
-        ]
-        filename = f"训练记录导出_{datetime.now(UTC).strftime('%Y%m%d_%H%M')}"
-        return export_response(records, columns, filename, "训练记录", file_format)
-
 
 router = APIRouter()
 
@@ -451,13 +422,3 @@ def get_llm_log_detail(
 ):
     svc = LLMMonitorService(db)
     return svc.get_llm_log_detail(log_id)
-
-
-@router.post("/records/export")
-def export_records_excel(
-    db: DbSession,
-    current_user: Annotated[User, Depends(require_permission("export_data"))],
-    format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
-):
-    svc = LLMMonitorService(db)
-    return svc.export_records(fmt=format)

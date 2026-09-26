@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from core.config import APP_VERSION, DEPLOY_WARNING_TOKEN, DIAGNOSE_TOKEN
@@ -92,25 +92,6 @@ def clear_deploy_warning(token: str = Query("")):
 @router.get("/api/deploy-status")
 def get_deploy_status():
     return _deploy_warning or {"active": False}
-
-
-@router.get("/api/deploy-status/stream")
-async def deploy_status_stream(request: Request):
-    import asyncio
-
-    async def generate():
-        last = None
-        while True:
-            if await request.is_disconnected():
-                break
-            current = _deploy_warning
-            if current != last:
-                last = current
-                payload = current or {"active": False}
-                yield f"data: {__import__('json').dumps(payload)}\n\n"
-            await asyncio.sleep(1)
-
-    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 def _check_token(token: str) -> None:

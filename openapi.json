@@ -1008,53 +1008,6 @@
         }
       }
     },
-    "/api/admin/records/export": {
-      "post": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Export Records Excel",
-        "operationId": "export_records_excel_api_admin_records_export_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(csv|xlsx)$",
-              "default": "xlsx",
-              "title": "Format"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/ops/diagnose": {
       "get": {
         "tags": [
@@ -1086,78 +1039,6 @@
         ],
         "summary": "Admin Ops Dashboard",
         "operationId": "admin_ops_dashboard_api_admin_ops_dashboard_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/ops/errors": {
-      "get": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Admin Ops Errors",
-        "operationId": "admin_ops_errors_api_admin_ops_errors_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "n",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "description": "返回条数",
-              "default": 20,
-              "title": "N"
-            },
-            "description": "返回条数"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/ops/report": {
-      "get": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Admin Ops Report",
-        "operationId": "admin_ops_report_api_admin_ops_report_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1605,54 +1486,6 @@
         }
       }
     },
-    "/api/admin/secrets/{secret_id}/test": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Test Secret Endpoint",
-        "operationId": "test_secret_endpoint_api_admin_secrets__secret_id__test_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "secret_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Secret Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TestResultItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/secrets/test-all": {
       "post": {
         "tags": [
@@ -1680,37 +1513,6 @@
         ]
       }
     },
-    "/api/admin/health": {
-      "get": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Health Check",
-        "operationId": "health_check_api_admin_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HealthCheckItem"
-                  },
-                  "type": "array",
-                  "title": "Response Health Check Api Admin Health Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/fallback": {
       "get": {
         "tags": [
@@ -1726,60 +1528,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FallbackStateResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/fallback/test": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Test Env Fallback",
-        "operationId": "test_env_fallback_api_admin_fallback_test_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TestResultItem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/reload": {
-      "post": {
-        "tags": [
-          "管理",
-          "API管理"
-        ],
-        "summary": "Reload Router",
-        "operationId": "reload_router_api_admin_reload_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
                 }
               }
             }
@@ -2598,76 +2346,6 @@
         ]
       }
     },
-    "/api/admin/voice/config/test-synthesize": {
-      "post": {
-        "tags": [
-          "管理",
-          "语音管理"
-        ],
-        "summary": "Test Synthesize",
-        "operationId": "test_synthesize_api_admin_voice_config_test_synthesize_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VoiceTestRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/voice/config/export": {
-      "get": {
-        "tags": [
-          "管理",
-          "语音管理"
-        ],
-        "summary": "Export Voice Config",
-        "operationId": "export_voice_config_api_admin_voice_config_export_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/assignments": {
       "post": {
         "tags": [
@@ -2938,51 +2616,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/DeleteResponse"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/assignments/{assignment_id}/remind": {
-      "post": {
-        "tags": [
-          "练习发布"
-        ],
-        "summary": "Remind Assignment",
-        "operationId": "remind_assignment_api_assignments__assignment_id__remind_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "assignment_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Assignment Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -4383,25 +4016,6 @@
         }
       }
     },
-    "/api/deploy-status/stream": {
-      "get": {
-        "tags": [
-          "ops"
-        ],
-        "summary": "Deploy Status Stream",
-        "operationId": "deploy_status_stream_api_deploy_status_stream_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/health": {
       "get": {
         "tags": [
@@ -5003,32 +4617,6 @@
             }
           }
         }
-      }
-    },
-    "/api/admin/feedback/storage-stats": {
-      "get": {
-        "tags": [
-          "反馈"
-        ],
-        "summary": "Feedback Storage Stats",
-        "operationId": "feedback_storage_stats_api_admin_feedback_storage_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StorageStatsResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/admin/feedback/export": {
@@ -5793,136 +5381,6 @@
         }
       }
     },
-    "/api/qa/history/all": {
-      "get": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Get All Qa History",
-        "operationId": "get_all_qa_history_api_qa_history_all_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "搜索学生姓名/学号/会话标题",
-              "title": "Search"
-            },
-            "description": "搜索学生姓名/学号/会话标题"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_QASessionAdminItem_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/qa/history/all/{session_id}/messages": {
-      "get": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Get Session Messages Admin",
-        "operationId": "get_session_messages_admin_api_qa_history_all__session_id__messages_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/QAMessageItem"
-                  },
-                  "title": "Response Get Session Messages Admin Api Qa History All  Session Id  Messages Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/questionnaires/templates": {
       "get": {
         "tags": [
@@ -6248,183 +5706,6 @@
         }
       }
     },
-    "/api/questionnaires/templates/{template_id}/questions": {
-      "post": {
-        "tags": [
-          "问卷"
-        ],
-        "summary": "Add Question",
-        "operationId": "add_question_api_questionnaires_templates__template_id__questions_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "template_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Template Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionnaireQuestionCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuestionnaireQuestionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/questionnaires/templates/{template_id}/questions/{question_id}": {
-      "put": {
-        "tags": [
-          "问卷"
-        ],
-        "summary": "Update Question",
-        "operationId": "update_question_api_questionnaires_templates__template_id__questions__question_id__put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "template_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Template Id"
-            }
-          },
-          {
-            "name": "question_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Question Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionnaireQuestionUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuestionnaireQuestionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "问卷"
-        ],
-        "summary": "Delete Question",
-        "operationId": "delete_question_api_questionnaires_templates__template_id__questions__question_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "template_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Template Id"
-            }
-          },
-          {
-            "name": "question_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Question Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/questionnaires/check": {
       "get": {
         "tags": [
@@ -6557,67 +5838,6 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/api/questionnaires/my-responses": {
-      "get": {
-        "tags": [
-          "问卷"
-        ],
-        "summary": "My Responses",
-        "operationId": "my_responses_api_questionnaires_my_responses_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_QuestionnaireResponseItem_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/questionnaires/responses/{template_id}": {
@@ -7304,56 +6524,6 @@
         }
       }
     },
-    "/api/stats/duration": {
-      "get": {
-        "tags": [
-          "统计"
-        ],
-        "summary": "Get Duration Stats",
-        "operationId": "get_duration_stats_api_stats_duration_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "period",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "统计周期: week / month / all",
-              "default": "month",
-              "title": "Period"
-            },
-            "description": "统计周期: week / month / all"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DurationStats"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/stats/trends": {
       "get": {
         "tags": [
@@ -7616,59 +6786,6 @@
                     "$ref": "#/components/schemas/ClassSummaryItemSchema"
                   },
                   "title": "Response Class Summary Api Stats Class Summary Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/stats/class-students": {
-      "get": {
-        "tags": [
-          "统计"
-        ],
-        "summary": "Class Students",
-        "operationId": "class_students_api_stats_class_students_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "class_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "description": "班级ID",
-              "title": "Class Id"
-            },
-            "description": "班级ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ClassStudentItem"
-                  },
-                  "title": "Response Class Students Api Stats Class Students Get"
                 }
               }
             }
@@ -8952,59 +8069,6 @@
             }
           }
         }
-      }
-    },
-    "/api/tts/synthesize": {
-      "post": {
-        "tags": [
-          "TTS"
-        ],
-        "summary": "Synthesize",
-        "operationId": "synthesize_api_tts_synthesize_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TTSSynthesizeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "audio/mpeg": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "audio/pcm": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/tts/stream": {
@@ -11249,64 +10313,6 @@
         ],
         "title": "ClassResponse"
       },
-      "ClassStudentItem": {
-        "properties": {
-          "user_id": {
-            "type": "integer",
-            "title": "User Id"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "student_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Student Id"
-          },
-          "total_sessions": {
-            "type": "integer",
-            "title": "Total Sessions",
-            "default": 0
-          },
-          "avg_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avg Score"
-          },
-          "last_start_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Start Time"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_id",
-          "display_name"
-        ],
-        "title": "ClassStudentItem",
-        "description": "班级学生训练聚合（只读）"
-      },
       "ClassSummaryItemSchema": {
         "properties": {
           "class_id": {
@@ -11597,33 +10603,6 @@
           "abnormal"
         ],
         "title": "DrainReadingOut"
-      },
-      "DurationStats": {
-        "properties": {
-          "daily": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Daily"
-          },
-          "total_minutes": {
-            "type": "integer",
-            "title": "Total Minutes"
-          },
-          "total_sessions": {
-            "type": "integer",
-            "title": "Total Sessions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "daily",
-          "total_minutes",
-          "total_sessions"
-        ],
-        "title": "DurationStats"
       },
       "EndTrainingRequest": {
         "properties": {
@@ -11998,46 +10977,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "HealthCheckItem": {
-        "properties": {
-          "base_url": {
-            "type": "string",
-            "title": "Base Url"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "latency_ms": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latency Ms"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          }
-        },
-        "type": "object",
-        "required": [
-          "base_url",
-          "status"
-        ],
-        "title": "HealthCheckItem"
       },
       "HealthResponse": {
         "properties": {
@@ -12764,37 +11703,6 @@
         ],
         "title": "PaginatedResponse[LLMCallLogItem]"
       },
-      "PaginatedResponse_QASessionAdminItem_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/QASessionAdminItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "offset",
-          "limit"
-        ],
-        "title": "PaginatedResponse[QASessionAdminItem]"
-      },
       "PaginatedResponse_QuestionnaireResponseItem_": {
         "properties": {
           "items": {
@@ -13173,56 +12081,6 @@
           "created_at"
         ],
         "title": "QAMessageItem"
-      },
-      "QASessionAdminItem": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "user_id": {
-            "type": "integer",
-            "title": "User Id"
-          },
-          "student_name": {
-            "type": "string",
-            "title": "Student Name",
-            "default": ""
-          },
-          "student_code": {
-            "type": "string",
-            "title": "Student Code",
-            "default": ""
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "message_count": {
-            "type": "integer",
-            "title": "Message Count",
-            "default": 0
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "user_id",
-          "title",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "QASessionAdminItem"
       },
       "QASessionCreate": {
         "properties": {
@@ -13613,73 +12471,6 @@
         ],
         "title": "QuestionnaireQuestionSync",
         "description": "Question payload for template update — id present = update existing, absent = create new."
-      },
-      "QuestionnaireQuestionUpdate": {
-        "properties": {
-          "content": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          },
-          "question_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Question Type"
-          },
-          "required": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Required"
-          },
-          "sort_order": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Order"
-          },
-          "options": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Options"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "QuestionnaireQuestionUpdate"
       },
       "QuestionnaireResponseItem": {
         "properties": {
@@ -15435,29 +14226,6 @@
           "reported"
         ],
         "title": "SimulationSnapshot"
-      },
-      "StorageStatsResponse": {
-        "properties": {
-          "total_images": {
-            "type": "integer",
-            "title": "Total Images"
-          },
-          "total_bytes": {
-            "type": "integer",
-            "title": "Total Bytes"
-          },
-          "total_mb": {
-            "type": "number",
-            "title": "Total Mb"
-          }
-        },
-        "type": "object",
-        "required": [
-          "total_images",
-          "total_bytes",
-          "total_mb"
-        ],
-        "title": "StorageStatsResponse"
       },
       "StudentAssignmentItem": {
         "properties": {

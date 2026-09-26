@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from core.deps import DbSession
 from core.exceptions import NotFoundError
@@ -12,7 +12,7 @@ from core.rate_limits import check_tts_limit
 from core.security import get_current_user
 from infra.tts.circuit import CircuitOpenError
 from models import User
-from modules.voice.service import TTSCapability, TTSConnectionProvider, TTSService
+from modules.voice.service import TTSConnectionProvider, TTSService
 from schemas.voice import TTSSynthesizeRequest
 
 log = logging.getLogger(__name__)
@@ -38,63 +38,6 @@ def _require_record_id(record_id: int | None) -> int:
     if record_id is None:
         raise HTTPException(status_code=400, detail="record_id 不能为空")
     return record_id
-
-
-@router.post(
-    "/synthesize",
-    response_class=Response,
-    responses={
-        200: {
-            "content": {
-                "audio/mpeg": {"schema": {"type": "string", "format": "binary"}},
-                "audio/pcm": {"schema": {"type": "string", "format": "binary"}},
-            }
-        }
-    },
-)
-async def synthesize(
-    req: TTSSynthesizeRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: DbSession,
-    request: Request,
-) -> Response:
-    await check_tts_limit(current_user.id, request)
-
-    record_id = _require_record_id(req.record_id)
-    client: TTSCapability | None = request.app.state.tts_client
-    emotion_state = _resolve_emotion(request, record_id, db)
-    db.rollback()  # 只读情绪查询结束后立即释放连接事务；TTS 流式期间不持有快照
-
-    cfg = getattr(request.app.state, "tts_config", {})
-    if not cfg:
-        raise NotFoundError("TTS 未配置，请先在管理面板添加语音配置")
-
-    try:
-        audio, emotion, speaker, latency_ms, media_type = await TTSService(db).synthesize(
-            record_id=record_id,
-            text=req.text,
-            voice_type=req.voice_type,
-            user_id=current_user.id,
-            client=client,
-            emotion_state=emotion_state,
-            tts_format=cfg["format"],
-            tts_sample_rate=cfg["sample_rate"],
-            speaker_library=cfg.get("speaker_library"),
-        )
-    except CircuitOpenError:
-        raise HTTPException(status_code=503, detail="TTS 服务暂时不可用，已切换浏览器端语音")
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
-
-    return Response(
-        content=audio,
-        media_type=media_type,
-        headers={
-            "X-TTS-Emotion": emotion,
-            "X-TTS-Voice": speaker,
-            "X-TTS-Latency-Ms": str(latency_ms),
-        },
-    )
 
 
 @router.post(

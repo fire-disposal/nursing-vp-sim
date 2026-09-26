@@ -9,7 +9,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -144,67 +144,5 @@ async def admin_ops_dashboard(
         "errors": errors_structured,
         # 与公开端点同形（scope/window/window_by_count/count/groups）。
         "frontend_errors": frontend_errors_block(frontend_errors, window_label=TELEMETRY_WINDOW_LABEL),
-        "alerts": alerts,
-    }
-
-
-@router.get("/ops/errors")
-async def admin_ops_errors(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    n: int = Query(20, description="返回条数"),
-):
-    try:
-        diag_svc = get_diagnose_service()
-        diagnostic = await diag_svc.get_diagnose()
-        errors = diagnostic.get("errors") or {}
-        return {
-            "scope": "workers",
-            "window_by_count": ERROR_COUNT_WINDOWS,
-            "count": {
-                "last_5min": errors.get("last_5min", 0),
-                "last_hour": errors.get("last_hour", 0),
-                "total_captured": errors.get("total_captured", 0),
-                "unique_24h": errors.get("unique_24h", 0),
-            },
-            "recent": (errors.get("recent") or [])[:n],
-        }
-    except Exception:
-        log.warning("ops errors query failed", exc_info=True)
-        return {"count": {}, "recent": []}
-
-
-@router.get("/ops/report")
-async def admin_ops_report(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-    request: Request,
-):
-    dashboard = await admin_ops_dashboard(current_user, db, request)
-    alerts = compute_alerts(dashboard)
-
-    return {
-        "summary": {
-            "time": dashboard.get("time"),
-            "uptime_hours": dashboard.get("uptime_hours", 0),
-            "status": "degraded" if alerts else "healthy",
-        },
-        "llm": {
-            "total_calls_24h": dashboard.get("llm", {}).get("total_calls_24h", 0),
-            "success_rate": dashboard.get("llm", {}).get("success_rate", 100),
-            "error_count_24h": dashboard.get("llm", {}).get("error_count_24h", 0),
-            "avg_latency_ms": dashboard.get("llm", {}).get("avg_latency_ms", 0),
-            "top_errors": dashboard.get("llm", {}).get("recent_errors", []),
-        },
-        "scoring": {
-            "pending": dashboard.get("scoring", {}).get("pending", 0),
-            "in_progress": dashboard.get("scoring", {}).get("in_progress", 0),
-            "completed_24h": dashboard.get("scoring", {}).get("completed_24h", 0),
-            "failed_24h": dashboard.get("scoring", {}).get("failed_24h", 0),
-            "success_rate": dashboard.get("scoring", {}).get("success_rate", 100),
-        },
-        "sessions": {"active": dashboard.get("sessions", {}).get("active", 0)},
-        "notifications": {"unread": 0},
-        "voice": dashboard.get("voice", {}),
-        "voice_budget": dashboard.get("voice_budget", {}),
         "alerts": alerts,
     }

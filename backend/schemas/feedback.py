@@ -5,13 +5,6 @@ from pydantic import BaseModel, Field
 from schemas.common import _REQ_CFG, _RESP_CFG
 
 
-class FeedbackSubmit(BaseModel):
-    model_config = _REQ_CFG
-    rating: int = Field(default=3, ge=1, le=5)
-    tag: str = Field(default="", max_length=20)
-    content: str | None = None
-
-
 class FeedbackSubmitResponse(BaseModel):
     id: int
     image_count: int = 0
@@ -39,12 +32,6 @@ class FeedbackItem(BaseModel):
 class FeedbackReplyRequest(BaseModel):
     model_config = _REQ_CFG
     reply: str = Field(min_length=1, max_length=2000)
-
-
-class StorageStatsResponse(BaseModel):
-    total_images: int
-    total_bytes: int
-    total_mb: float
 
 
 class FeedbackDailyItem(BaseModel):

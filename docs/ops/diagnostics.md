@@ -61,9 +61,11 @@ runtime  sessions  errors  frontend_errors  llm  scoring  voice  voice_budget  b
 顶层不再有集中的窗口块：每个块自带 `scope` / `window` 字段，口径跟着数据走。
 `summary.status` 有 alerts 即 `degraded`，否则 `healthy`（发布冒烟依赖此语义）。
 
-admin 出口 `/admin/ops/dashboard`、`/admin/ops/errors` 与公开端点**同规则**：各块同样自带
+admin 出口 `/admin/ops/dashboard` 与 `/admin/ops/diagnose` 与公开端点**同规则**：各块同样自带
 `scope` / `window`（`errors` / `frontend_errors` 的形状与公开端点逐字一致，由同一 builder 产出），
 且不再返回恒为 `ok` 的 `health` 字段——页面按 `alerts` 判运行状态、版本取 `metrics.version`。
+错误明细不再有独立的 admin 端点：运维取数走 `/admin/ops/dashboard` 的 `errors` /
+`frontend_errors` 块，或 `/admin/ops/diagnose` 的完整快照。
 
 admin 出口另有公开端点没有的 `feedback` 块（`scope: db` / `window: now`）：
 `unanswered` / `oldest_created_at` / `oldest_age_days`，取代宿主日报的「未回复用户反馈 N 条」。
