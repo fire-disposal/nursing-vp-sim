@@ -66,65 +66,64 @@ async def db_session():
         session.close()
 
 
-def init_db() -> None:
+class SchemaNotReadyError(RuntimeError):
+    """Database schema is missing or not at the expected Alembic head."""
+
+
+def verify_schema() -> None:
+    """Assert the database schema is at the single expected Alembic head.
+
+    Startup **never migrates**. Production releases run ``alembic upgrade head``
+    as an explicit deploy step after the new image is available and before
+    services start (see ``.github/workflows/deploy.yml``, ``deploy/rollback.sh``
+    and ``docs/09-operations.md``). Verifying here instead of upgrading means a
+    missing/stale schema fails fast and loudly, and multiple workers never race
+    for a migration lock.
+
+    ``create_all`` is only reachable with ``TESTING=1`` (set by
+    ``backend/tests/conftest.py``); it is never a production fallback.
+    """
     import os
-    import sys
 
-    import models  # noqa: F401
+    if os.getenv("TESTING") == "1":
+        import models  # noqa: F401
 
-    if os.getenv("SKIP_MIGRATION"):
         Base.metadata.create_all(bind=engine)
-        log.info("数据库迁移跳过 (SKIP_MIGRATION=1)，使用 create_all")
+        log.info("TESTING=1：schema 由 create_all 提供，跳过 head 校验")
         return
 
-    from alembic import command
     from alembic.config import Config
     from alembic.script import ScriptDirectory
     from sqlalchemy import text
 
     alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
     if not alembic_ini.exists():
-        log.warning("alembic.ini 不存在，跳过迁移，使用 create_all")
-        Base.metadata.create_all(bind=engine)
-        return
-
-    alembic_cfg = Config(alembic_ini)
-
-    script = ScriptDirectory.from_config(alembic_cfg)
-    heads = script.get_heads()
-    if len(heads) > 1:
-        log.error(
-            "Alembic 存在 %d 个 head: %s。请先执行 alembic merge heads 合并。",
-            len(heads),
-            heads,
+        raise SchemaNotReadyError(
+            f"alembic.ini 不存在（{alembic_ini}），无法校验数据库 schema。"
+            "应用启动不会建表：生产发布必须先执行 `alembic upgrade head`。"
         )
-        sys.exit(1)
+
+    heads = ScriptDirectory.from_config(Config(alembic_ini)).get_heads()
+    if len(heads) != 1:
+        raise SchemaNotReadyError(
+            f"Alembic 迁移链有 {len(heads)} 个 head: {heads}。先执行 `alembic merge heads` 合并，再发布。"
+        )
+    expected = heads[0]
 
     try:
-        command.upgrade(alembic_cfg, "head")
+        with engine.connect() as conn:
+            current = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
     except Exception as e:
-        msg = str(e)
-        if "No such revision" in msg or "Can't locate revision" in msg:
-            with engine.connect() as conn:
-                try:
-                    db_rev = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-                except Exception:
-                    db_rev = "?"
-            log.error(
-                "数据库当前版本 %s 在当前分支的迁移链中不存在。\n"
-                "常见原因：切分支后目标分支的迁移 hash 与当前 DB 版本不一致。\n"
-                "修复步骤：\n"
-                "  1. 切回原分支，执行: alembic downgrade -1 (重复直到与目标分支有共同祖先)\n"
-                "  2. 切回本分支，执行: alembic stamp <祖先版本>; alembic upgrade head\n"
-                "  3. 或直接在 psql 中手动修改 alembic_version 表对齐版本号\n"
-                "原始错误: %s",
-                db_rev,
-                e,
-            )
-            sys.exit(1)
-        raise
+        raise SchemaNotReadyError(
+            "数据库 schema 未初始化（读不到 alembic_version 表）。"
+            "应用启动不会自动迁移：请先执行 `alembic upgrade head`。"
+        ) from e
 
-    head = script.get_current_head()
-    with engine.connect() as conn:
-        current = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-    log.info("数据库迁移完成: %s (head=%s)", current, head)
+    if current != expected:
+        raise SchemaNotReadyError(
+            f"数据库 schema 未对齐：当前 {current or '(空)'}，期望 {expected}。"
+            "应用启动不会自动迁移：请先执行 `alembic upgrade head`"
+            "（部署流水线已内建该步骤）。"
+        )
+
+    log.info("数据库 schema 校验通过: head=%s", expected)

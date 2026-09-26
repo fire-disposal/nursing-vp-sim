@@ -22,7 +22,7 @@ from core.config import (
     log_config,
     validate_config,
 )
-from core.database import init_db
+from core.database import verify_schema
 from core.exceptions import (
     AuthError,
     ConflictError,
@@ -198,7 +198,8 @@ async def lifespan(app: FastAPI):
 
     _validate_prompt_templates(log)
 
-    init_db()
+    # 启动只校验 schema：迁移是部署阶段的显式步骤（deploy.yml），见 docs/16 §4.3。
+    verify_schema()
     if os.getenv("SKIP_SEED") == "1":
         log.info("Seeds: 跳过（SKIP_SEED=1）")
     else:

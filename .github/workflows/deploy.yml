@@ -8,9 +8,11 @@ name: Deploy (single instance)
 #       必须由环境审批承担红线，见 archive/README.md）。
 #   2. 迁移门禁：单 head + ddl/data 目录契约（保留自 deploy-staging.yml）。
 #   3. 部署前数据库备份，失败即停（保留自 deploy-production.yml，fail-closed）。
-#   4. 健康检查 + 自动回滚（含 alembic 回退旧 revision）（保留自 deploy-staging.yml）。
-#   5. 版本历史文件 + 稳定性感知镜像清理 + 部署横幅 + 钉钉通知 + 开发报告发布。
-#   6. 部署后 /api/diagnose 冒烟（新增：让"部署成功"有业务侧证据）。
+#   4. 显式迁移：备份成功、新镜像拉取后，用新镜像跑 `alembic upgrade head`；
+#      失败即停且不启动新服务。应用启动只校验 schema，不再自动迁移（docs/16 §4.3）。
+#   5. 健康检查 + 自动回滚（含 alembic 回退旧 revision）（保留自 deploy-staging.yml）。
+#   6. 版本历史文件 + 稳定性感知镜像清理 + 部署横幅 + 钉钉通知 + 开发报告发布。
+#   7. 部署后 /api/diagnose 冒烟（新增：让"部署成功"有业务侧证据）。
 #
 # 触发：推送 vYYYY.MM.DD-N tag（由 `pnpm run tag` 产生），或手动 dispatch 指定历史版本。
 
@@ -400,20 +402,60 @@ jobs:
             echo ">> Current: \${OLD_IMG:-none} (db=\${OLD_DB_REV:-unknown})"
 
             rollback_deploy() {
-              echo "  ✗ \$1 Rolling back..."
+              echo "  ✗ \$1"
+              local ok=yes
               if [ -n "\$OLD_DB_REV" ]; then
-                echo "  >> attempting alembic downgrade to \$OLD_DB_REV before rolling back image..."
-                docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic downgrade "\$OLD_DB_REV" 2>/dev/null \
-                  || echo "  ⚠ downgrade to \$OLD_DB_REV failed; restore backup manually: \$BAK"
+                echo "  >> alembic downgrade → \$OLD_DB_REV"
+                IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic downgrade "\$OLD_DB_REV" \
+                  || { echo "::error::alembic downgrade 到 \$OLD_DB_REV 失败——数据库状态未知，需人工恢复: \$BAK"; ok=no; }
               else
-                echo "  ⚠ previous DB revision unknown; skipping automatic migration downgrade"
+                echo "  ⚠ 无部署前 DB revision，跳过自动迁移回退（需人工核对数据库）"
+                ok=no
               fi
               if [ -n "\$OLD_IMG" ]; then
-                OLD_VER=\$(echo "\$OLD_IMG" | rev | cut -d: -f1 | rev)
-                IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
-                echo "  ⚠ rolled back to \$OLD_VER"
+                local old_ver
+                old_ver=\$(echo "\$OLD_IMG" | rev | cut -d: -f1 | rev)
+                if IMAGE_VERSION=\$old_ver docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans; then
+                  local hok=no
+                  for i in \$(seq 1 30); do
+                    S=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+                    [ "\$S" = healthy ] && { hok=yes; break; }
+                    [ "\$S" = unhealthy ] && break
+                    sleep 2
+                  done
+                  if [ "\$hok" = yes ]; then
+                    echo "  ⚠ 已回滚到 \$old_ver 并确认健康"
+                  else
+                    echo "::error::已切回 \$old_ver 镜像但健康检查未通过——需人工介入"
+                    ok=no
+                  fi
+                else
+                  echo "::error::回滚镜像 \$old_ver 启动失败——需人工介入"
+                  ok=no
+                fi
+              else
+                echo "::error::无旧镜像记录，无法回滚镜像——需人工介入"
+                ok=no
               fi
+              [ "\$ok" = yes ] || echo "::error::自动回滚未完成，先按上述提示人工恢复（部署前备份: \$BAK）再重试"
             }
+
+            # —— Schema 迁移：部署阶段显式执行 ——
+            # 固定顺序 备份(上) → migrate → 起服务 → health。应用启动只校验 schema（不迁移），
+            # 所以迁移没成功就绝不启动新服务；迁移失败即回退旧 revision 并以非零退出。
+            echo ">> Ensure DB up (migration target)"
+            docker compose -f docker-compose.yml --env-file .env up -d db
+            for i in \$(seq 1 30); do
+              [ "\$(docker inspect --format '{{.State.Health.Status}}' nursing-db 2>/dev/null || echo '')" = healthy ] && break
+              sleep 2
+            done
+            echo ">> Migrate DB → alembic upgrade head ($VER image)"
+            if ! IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic upgrade head; then
+              echo "::error::alembic upgrade head 失败——迁移未完成，不启动新服务"
+              rollback_deploy "migration failed!"
+              exit 1
+            fi
+            echo "  ✓ schema at head"
 
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 

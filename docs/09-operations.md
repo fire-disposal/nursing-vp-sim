@@ -35,12 +35,20 @@ PR 创建 → commit-format.yml 门禁
      ▼ deploy.yml（推送 v* tag 触发；也可手动 dispatch 指定历史版本）
      │  （`production` 未配 Required reviewers → 无审批等待，直接进入部署）
      │
-  校验迁移/镜像 → 下发 nginx 配置（暂存 → 备份 → 安装 → `nginx -t` → reload，任一步失败即恢复原配置并中止）→ 备份DB（失败即停） → 记录当前 Alembic revision → 拉镜像 → 部署 → 健康检查
+  校验迁移/镜像 → 下发 nginx 配置（暂存 → 备份 → 安装 → `nginx -t` → reload，任一步失败即恢复原配置并中止）
+    → 备份DB（失败即停） → 拉镜像 → 记录当前 Alembic revision
+    → 迁移：新镜像一次性容器执行 `alembic upgrade head`（失败即停，不启动新服务）
+    → 启动服务 → 健康检查
                    ├─ healthy  → /api/diagnose 冒烟 → 完成
-                   └─ unhealthy/timeout → DB 回滚到部署前 revision → 回滚旧镜像
+                   └─ 迁移/healthy/timeout 失败 → DB 回滚到部署前 revision → 回滚旧镜像
 ```
 
-部署失败的自动回滚以“部署前 Alembic revision”为目标，而不是固定 `downgrade -1`。若精确迁移回滚失败，production 以部署前 `pg_dump` 备份作为最终兜底。
+部署顺序固定为 **备份 → 迁移 → 启动服务 → health/diagnose**。应用启动只校验 schema，不再自动迁移；
+若启动时 schema 缺失或落后于代码 head，后端会直接启动失败（fail-closed），不会边跑边改表。
+
+部署失败的自动回滚以“部署前 Alembic revision”为目标，而不是固定 `downgrade -1`。回滚只有在旧镜像
+重新健康后才算完成，否则以 `::error::` 明确报出“需人工介入”，不会假装回滚成功。若精确迁移回滚失败，
+production 以部署前 `pg_dump` 备份作为最终兜底。
 
 ### 部署前检查清单
 
@@ -56,8 +64,10 @@ PR 创建 → commit-format.yml 门禁
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
 2. 同步 compose、rollback、backup、monitor、nginx 配置到服务器
-3. 拉取镜像并启动
-4. 执行健康检查
+3. 备份数据库（pre-deploy，失败即停）
+4. 拉取镜像，并用新镜像一次性容器执行 `alembic upgrade head`
+5. 启动服务
+6. 执行健康检查 + `/api/diagnose` 冒烟
 
 **首次部署前必须手动编辑 `/opt/nursing-vp-sim/.env`：**
 - `POSTGRES_PASSWORD=<强随机密码>`
@@ -71,6 +81,9 @@ PR 创建 → commit-format.yml 门禁
 
 ```bash
 cd /opt/nursing-vp-sim
+# 1) 迁移：显式、先于启动（应用启动只校验 schema，不会自动迁移）
+IMAGE_VERSION=2026.09.14-2 docker compose -f docker-compose.yml --env-file .env run --rm --no-deps backend alembic upgrade head
+# 2) 启动
 IMAGE_VERSION=2026.09.14-2 docker compose -f docker-compose.yml --env-file .env up -d
 ```
 
@@ -255,7 +268,13 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 
 ### 迁移规范
 
-后端启动时自动执行 Alembic 迁移。pre-commit hook（`check-migration-autogen.js`）强制：
+生产迁移由部署阶段显式执行：`deploy.yml` 在备份成功、新镜像就绪后，用新镜像一次性容器跑
+`alembic upgrade head`，失败即停且不启动新服务；手动部署同样先迁移再 `up -d`（见上）。
+**应用启动只校验 schema 是否处于唯一 Alembic head**（`core/database.py:verify_schema`），
+缺失或落后即启动失败（fail-closed），不会自动迁移，也不回退 `create_all`（`create_all` 仅
+`TESTING=1` 的测试路径可用）。
+
+pre-commit hook（`check-migration-autogen.js`）强制：
 - autogenerate 文件不含 `op.execute()`
 - 数据迁移须标注 `# Manual override reason: data_only`
 - 空迁移不允许提交

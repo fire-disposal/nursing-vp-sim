@@ -7,5 +7,6 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 # 防 SessionLocal 间接查询（如 ProfileRouter 的 DB 刷新）落到 .env 的真实开发库
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DB_URL", "postgresql://postgres:postgres@localhost:5432/nursing_test")
 os.environ["SKIP_SEED"] = "1"
-os.environ["SKIP_MIGRATION"] = "1"
+# TESTING=1 是 verify_schema() 唯一的 create_all 逃生舱（见 core/database.py）；
+# 生产启动只校验 alembic head，不建表也不迁移。
 os.environ["TESTING"] = "1"
