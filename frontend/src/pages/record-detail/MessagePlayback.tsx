@@ -36,13 +36,7 @@ export default function MessagePlayback({ messages, highlightId }: Props) {
 	}, [highlightId]);
 
 	return (
-		<Paper
-			withBorder
-			radius="md"
-			p={{ base: "md", sm: "lg" }}
-			h="100%"
-			style={{ display: "flex", flexDirection: "column" }}
-		>
+		<Paper withBorder p={{ base: "md", sm: "lg" }} h="100%" style={{ display: "flex", flexDirection: "column" }} >
 			<Text size="sm" fw={700} mb="sm" style={{ display: "flex", alignItems: "center", gap: 8 }}>
 				<IconMessageCircle size={18} />
 				对话回放（{messages.length} 条消息）

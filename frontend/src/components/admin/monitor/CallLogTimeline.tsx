@@ -67,7 +67,7 @@ export default function CallLogTimeline({
 	);
 
 	return (
-		<Paper withBorder radius="md" p="md">
+		<Paper withBorder p="md">
 			<Group justify="space-between" mb="md" wrap="wrap">
 				<Group gap={8}>
 					<Button

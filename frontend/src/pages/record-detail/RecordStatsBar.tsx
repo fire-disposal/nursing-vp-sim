@@ -24,7 +24,7 @@ export default function RecordStatsBar({
 }: Props) {
 	return (
 		<SimpleGrid cols={{ base: 2, lg: 4 }} spacing={{ base: "sm", sm: "md" }}>
-			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="brand">
 						<IconUser size={18} />
@@ -40,7 +40,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="light" color="brand">
 						<IconFileText size={18} />
@@ -61,7 +61,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="yellow">
 						<IconClock size={18} />
@@ -77,7 +77,7 @@ export default function RecordStatsBar({
 				</Group>
 			</Paper>
 
-			<Paper withBorder radius="md" p={{ base: "sm", sm: "md" }}>
+			<Paper withBorder p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
 					<ThemeIcon size={40} radius="md" variant="filled" color="green">
 						<IconChartBar size={18} />

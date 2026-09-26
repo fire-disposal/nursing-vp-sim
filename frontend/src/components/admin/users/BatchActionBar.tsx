@@ -34,16 +34,7 @@ export default function BatchActionBar({
 			style={{ pointerEvents: "none" }}
 		>
 			<Box px="md" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-				<Paper
-					withBorder
-					radius="md"
-					shadow="md"
-					p="md"
-					mx="auto"
-					w="fit-content"
-					maw="calc(100vw - 2rem)"
-					style={{ pointerEvents: "auto" }}
-				>
+				<Paper withBorder shadow="md" p="md" mx="auto" w="fit-content" maw="calc(100vw - 2rem)" style={{ pointerEvents: "auto" }} >
 					<Group gap="sm" wrap="wrap" justify="center">
 						<Text size="sm" fw={500} style={{ whiteSpace: "nowrap" }}>
 							已选 {selectedCount} 人

@@ -86,7 +86,7 @@ export default function DataTable<T>({
 									background: "var(--mantine-color-gray-0)",
 									color: "var(--mantine-color-dimmed)",
 									textTransform: "uppercase",
-									fontSize: "0.6875rem",
+									fontSize: "var(--mantine-font-size-xs)",
 									fontWeight: 700,
 									letterSpacing: "0.06em",
 									borderBottom: "1px solid var(--mantine-color-default-border)",
@@ -145,7 +145,7 @@ export default function DataTable<T>({
 				{body}
 			</Box>
 		) : (
-			<Paper withBorder radius="md" shadow="sm" p="md" className={className}>
+			<Paper withBorder shadow="sm" p="md" className={className}>
 				{body}
 			</Paper>
 		);
@@ -156,7 +156,7 @@ export default function DataTable<T>({
 		return bare ? (
 			<Box className={className}>{body}</Box>
 		) : (
-			<Paper withBorder radius="md" shadow="sm" className={className}>
+			<Paper withBorder shadow="sm" className={className}>
 				{body}
 			</Paper>
 		);
@@ -165,7 +165,7 @@ export default function DataTable<T>({
 	return bare ? (
 		<Box className={className}>{table}</Box>
 	) : (
-		<Paper withBorder radius="md" shadow="sm" style={{ overflow: "hidden" }} className={className}>
+		<Paper withBorder shadow="sm" style={{ overflow: "hidden" }} className={className}>
 			{table}
 		</Paper>
 	);

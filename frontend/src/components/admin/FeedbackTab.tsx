@@ -132,7 +132,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 
 	return (
 		<>
-			<Paper withBorder radius="md" p="sm">
+			<Paper withBorder p="sm">
 				<Group justify="space-between" mb={4}>
 					<Group gap={8}>
 						<Badge
@@ -374,12 +374,12 @@ function FeedbackChart() {
 					<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
 					<XAxis
 						dataKey="name"
-						tick={{ fontSize: 10 }}
+						tick={{ fontSize: 11 }}
 						stroke="var(--mantine-color-dimmed)"
 					/>
 					<YAxis
 						allowDecimals={false}
-						tick={{ fontSize: 10 }}
+						tick={{ fontSize: 11 }}
 						stroke="var(--mantine-color-dimmed)"
 						width={24}
 					/>
@@ -562,7 +562,7 @@ export default function FeedbackTab() {
 	};
 
 	return (
-		<Paper withBorder radius="md" p="md" shadow="sm">
+		<Paper withBorder p="md" shadow="sm">
 			<Box mb="md">
 				<Button
 					variant="subtle"
@@ -585,7 +585,7 @@ export default function FeedbackTab() {
 				)}
 			</Box>
 
-			<Paper withBorder radius="md" p="md" bg="var(--mantine-color-gray-1)" mb="md">
+			<Paper withBorder p="md" bg="var(--mantine-color-gray-1)" mb="md">
 				<Group gap="lg" align="flex-end" wrap="wrap" justify="space-between">
 					<Group gap={8} align="flex-end" wrap="wrap">
 						<Stack gap={4}>

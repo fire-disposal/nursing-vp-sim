@@ -137,7 +137,7 @@ export default function AssignmentDetailPage() {
 			/>
 
 			<SimpleGrid cols={{ base: 2, md: 4, xl: 8 }} spacing="sm">
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">受众</Text>
 					<Text size="lg" fw={700}>
 						{detail.audience_mode === "selected" ? "指定学生" : "全班"}
@@ -146,27 +146,27 @@ export default function AssignmentDetailPage() {
 						{detail.recipient_ids?.length ?? detail.student_count} 人（发布时固化）
 					</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">总人数</Text>
 					<Text size="xl" fw={700}>{detail.student_count}</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">已完成</Text>
 					<Text size="xl" fw={700} c="green">{detail.completed_count}</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">未开始</Text>
 					<Text size="xl" fw={700} c="dimmed">{notStartedCount}</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">已逾期</Text>
 					<Text size="xl" fw={700} c="red">{overdueCount}</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">已评分</Text>
 					<Text size="xl" fw={700} c="blue">{detail.scored_count}</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">完成率</Text>
 					<Text size="xl" fw={700}>
 						{detail.completion_rate != null
@@ -174,7 +174,7 @@ export default function AssignmentDetailPage() {
 							: "-"}
 					</Text>
 				</Paper>
-				<Paper withBorder radius="md" p="sm">
+				<Paper withBorder p="sm">
 					<Text size="xs" c="dimmed">均分/最高</Text>
 					<Text size="lg" fw={700}>{detail.avg_score != null ? detail.avg_score : "-"}</Text>
 					<Text size="xs" c="dimmed">最高 {detail.max_score ?? "-"} / 最低 {detail.min_score ?? "-"}</Text>

@@ -158,7 +158,7 @@ export default function NotificationInboxPage() {
 				) : isLoading ? (
 					<Stack gap="xs">
 						{[...Array(5)].map((_, i) => (
-							<Paper key={i} withBorder radius="md" p="md">
+							<Paper key={i} withBorder p="md">
 								<Skeleton height={16} width="75%" mb="xs" />
 								<Skeleton height={12} width="50%" />
 							</Paper>
@@ -167,12 +167,7 @@ export default function NotificationInboxPage() {
 				) : items.length > 0 ? (
 					<Stack gap={4}>
 						{items.map((n) => (
-							<Paper
-								key={n.id}
-								withBorder
-								radius="md"
-								p="md"
-								onClick={() => handleClick(n)}
+							<Paper key={n.id} withBorder p="md" onClick={() => handleClick(n)}
 								style={{
 									cursor: "pointer",
 									textAlign: "left",

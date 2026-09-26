@@ -36,7 +36,7 @@ export default function JsonView({ json, dispatch, readOnly }: JsonViewProps) {
 	);
 
 	return (
-		<Paper withBorder radius="md" style={{ height: "calc(100vh - 280px)", minHeight: 360, overflow: "hidden" }}>
+		<Paper withBorder style={{ height: "calc(100vh - 280px)", minHeight: 360, overflow: "hidden" }}>
 			<Editor
 				height="100%"
 				defaultLanguage="json"

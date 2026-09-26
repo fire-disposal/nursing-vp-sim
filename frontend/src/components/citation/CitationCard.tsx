@@ -35,7 +35,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 
 	return (
 		<>
-			<Paper mt="sm" withBorder radius="md" style={{ overflow: "hidden" }}>
+			<Paper mt="sm" withBorder style={{ overflow: "hidden" }}>
 				<UnstyledButton
 					w="100%"
 					px="sm"

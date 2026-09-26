@@ -87,7 +87,7 @@ export default function QuestionnaireAssign({
 								</Button>
 							</Group>
 						</Group>
-						<Paper withBorder p="sm" radius="md">
+						<Paper withBorder p="sm">
 							<ScrollArea h={300}>
 								<Stack gap="xs">
 									{allCases.length === 0 ? (

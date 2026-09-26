@@ -32,7 +32,7 @@ export function ExamAnchorsEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="xs">查体锚点</Text>
 			<Text size="xs" c="dimmed" mb="md">定义各检查项的正常范围值。支持范围格式如 "36.8-37.2"</Text>
 			{entries.length > 0 && (

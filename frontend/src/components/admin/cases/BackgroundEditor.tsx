@@ -32,7 +32,7 @@ export function BackgroundEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="xs">隐藏背景</Text>
 			<Text size="xs" c="dimmed" mb="md">LLM 内部上下文，患者不会主动透露的数据。如吸烟史、职业暴露等</Text>
 			{entries.length > 0 && (

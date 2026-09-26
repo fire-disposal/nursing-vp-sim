@@ -83,7 +83,7 @@ export default function UserDetailPage() {
 				backTo="/admin/users"
 			/>
 
-			<Paper withBorder radius="md" p="sm" mb="lg">
+			<Paper withBorder p="sm" mb="lg">
 				<Group gap={10} align="center" wrap="wrap">
 					<Text size="xs" c="dimmed" fw={600}>班级归属</Text>
 					{!student.username ? (

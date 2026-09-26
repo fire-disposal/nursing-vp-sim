@@ -92,7 +92,7 @@ export function BottomTabBar() {
 							}}
 						/>
 						<Text
-							fz={11}
+							fz={12}
 							fw={isActive ? 700 : 500}
 							c={isActive ? "brand.6" : "dimmed"}
 							style={{ lineHeight: 1, transition: "color 150ms ease" }}

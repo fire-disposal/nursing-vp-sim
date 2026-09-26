@@ -76,13 +76,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 								{this.state.showDetails ? "收起错误详情" : "查看错误详情"}
 							</Button>
 							{this.state.showDetails && (
-								<Paper
-									withBorder
-									p="md"
-									radius="md"
-									component="pre"
-									style={{ maxHeight: 256, maxWidth: 600, overflow: "auto", textAlign: "left" }}
-								>
+								<Paper withBorder p="md" component="pre" style={{ maxHeight: 256, maxWidth: 600, overflow: "auto", textAlign: "left" }} >
 									<Text size="xs" c="dimmed" component="code">
 										{this.state.error.message}
 										{"\n\n"}

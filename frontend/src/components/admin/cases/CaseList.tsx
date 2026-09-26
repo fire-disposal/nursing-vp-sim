@@ -138,7 +138,7 @@ export default function CaseList({
 			)}
 
 			{/* Table */}
-			<Paper withBorder radius="md" style={{ overflow: "auto" }}>
+			<Paper withBorder style={{ overflow: "auto" }}>
 				<Table highlightOnHover miw={720} horizontalSpacing="sm" verticalSpacing="xs">
 					<Table.Thead>
 						<Table.Tr>

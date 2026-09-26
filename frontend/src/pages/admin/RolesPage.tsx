@@ -166,7 +166,7 @@ export default function RolesPage() {
 					/>
 				) : (
 					roles.map((role) => (
-						<Paper key={role.id} withBorder radius="md" p="md">
+						<Paper key={role.id} withBorder p="md">
 							<Group justify="space-between" align="flex-start" wrap="wrap" mb={8}>
 								<Group gap={8} align="center" wrap="wrap">
 									<Text fw={600}>{role.display_name}</Text>

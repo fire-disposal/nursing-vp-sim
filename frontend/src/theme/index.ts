@@ -78,15 +78,25 @@ export const theme = createTheme({
 	},
 
 	components: {
-		// 交互控件圆角收敛为 md：临床界面友好而非锋利
+		// ── 两档圆角（2026-09-26 显式化）──
+		// 容器/按钮层 = md(8px)；控件/小件层 = sm(4px)。此前只有容器层显式声明，
+		// 控件层实际靠 defaultRadius:"sm" 隐式继承，读代码看不出规则（审计 UI-DS-3）。
+		// 规则：新增组件若不写 radius，默认落在「控件层」= sm；属于容器层的必须在此声明。
 		Button: { defaultProps: { radius: "md" } },
 		ActionIcon: { defaultProps: { radius: "md" } },
-		Badge: { defaultProps: { radius: "sm" } },
 		Modal: { defaultProps: { radius: "md" } },
 		Notification: { defaultProps: { radius: "md" } },
-		Tooltip: { defaultProps: { radius: "sm" } },
 		Card: { defaultProps: { withBorder: true, radius: "md" } },
 		Paper: { defaultProps: { radius: "md" } },
+		SegmentedControl: { defaultProps: { radius: "sm" } },
+		Chip: { defaultProps: { radius: "sm" } },
+		Tooltip: { defaultProps: { radius: "sm" } },
+		// 徽章：字号下限 12px（原实现随 size 落到 9–11px，审计 UI-DS-3/A11Y 均有命中）。
+		// size 仍控制高度与内边距，这里只锁字号。
+		Badge: {
+			defaultProps: { radius: "sm" },
+			styles: { root: { fontSize: "var(--mantine-font-size-xs)" } },
+		},
 		// 数据表格统一密度：紧凑、可扫读
 		Table: {
 			defaultProps: {
@@ -94,6 +104,16 @@ export const theme = createTheme({
 				horizontalSpacing: "sm",
 				fz: "sm",
 			},
+		},
+	},
+
+	// 供代码/评审引用的比例尺（非运行时开关，避免散落魔法数字）。
+	other: {
+		uiScale: {
+			radius: { container: "md", control: "sm" },
+			icon: { sm: 14, md: 16, lg: 18 },
+			font: { body: "var(--mantine-font-size-sm)", marker: 11, floor: 12 },
+			chartAxisTick: 11,
 		},
 	},
 });

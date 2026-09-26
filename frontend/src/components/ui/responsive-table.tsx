@@ -58,7 +58,7 @@ export default function ResponsiveTable<T>({
 	const loadingFallback = (
 		<Stack gap="xs" p="xs" hiddenFrom="md" className={cardListClassName}>
 			{[0, 1, 2].map((i) => (
-				<Paper key={i} withBorder radius="md" p="sm">
+				<Paper key={i} withBorder p="sm">
 					<Skeleton height={16} width="66%" mb={8} />
 					<Skeleton height={12} width="50%" />
 				</Paper>
@@ -70,7 +70,7 @@ export default function ResponsiveTable<T>({
 		bare ? (
 			<Box className={className}>{inner}</Box>
 		) : (
-			<Paper withBorder radius="md" shadow="sm" style={{ overflow: "hidden" }} className={className}>
+			<Paper withBorder shadow="sm" style={{ overflow: "hidden" }} className={className}>
 				{inner}
 			</Paper>
 		);

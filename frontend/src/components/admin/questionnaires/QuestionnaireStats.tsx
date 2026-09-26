@@ -50,7 +50,7 @@ export default function QuestionnaireStats({
 	};
 
 	return (
-		<Paper withBorder shadow="sm" p="md" radius="md">
+		<Paper withBorder shadow="sm" p="md">
 			<Group justify="space-between" mb="md">
 				<div>
 					<Button variant="subtle" color="gray" size="sm" onClick={onBack} mb="xs">
@@ -69,13 +69,7 @@ export default function QuestionnaireStats({
 			) : stats ? (
 				<Stack gap="xl">
 					<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-						<Paper
-							withBorder
-							bg="var(--mantine-color-gray-1)"
-							p="md"
-							radius="md"
-							ta="center"
-						>
+						<Paper withBorder bg="var(--mantine-color-gray-1)" p="md" ta="center" >
 							<Text size="xl" fw={700} c="blue">
 								{stats.total_assigned}
 							</Text>
@@ -83,13 +77,7 @@ export default function QuestionnaireStats({
 								总分配数
 							</Text>
 						</Paper>
-						<Paper
-							withBorder
-							bg="var(--mantine-color-gray-1)"
-							p="md"
-							radius="md"
-							ta="center"
-						>
+						<Paper withBorder bg="var(--mantine-color-gray-1)" p="md" ta="center" >
 							<Text size="xl" fw={700} c="green">
 								{stats.total_completed}
 							</Text>
@@ -97,13 +85,7 @@ export default function QuestionnaireStats({
 								已完成
 							</Text>
 						</Paper>
-						<Paper
-							withBorder
-							bg="var(--mantine-color-gray-1)"
-							p="md"
-							radius="md"
-							ta="center"
-						>
+						<Paper withBorder bg="var(--mantine-color-gray-1)" p="md" ta="center" >
 							<Text size="xl" fw={700} c="yellow">
 								{(stats.completion_rate * 100).toFixed(1)}%
 							</Text>
@@ -123,7 +105,7 @@ export default function QuestionnaireStats({
 						) : (
 							<Stack gap="md">
 								{stats.questions.map((q) => (
-									<Paper key={q.question_id} withBorder p="md" radius="md">
+									<Paper key={q.question_id} withBorder p="md">
 										<Group gap={8} mb="sm">
 											<Badge variant="light" color="blue">
 												{QUESTION_TYPE_LABELS[q.question_type] ||

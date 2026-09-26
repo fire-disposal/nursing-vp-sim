@@ -95,7 +95,7 @@ export function TeachingDashboard() {
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, md: 3 }} spacing="sm">
-        <Paper withBorder radius="md" p="md">
+        <Paper withBorder p="md">
           <Stack gap={4} justify="center" style={{ height: "100%" }}>
             <Text size="xs" c="dimmed" mb={4}>本周训练完成率</Text>
             <Group align="flex-end" gap={6}>
@@ -105,7 +105,7 @@ export function TeachingDashboard() {
             <Progress value={completionRate} size="sm" radius="md" mt={8} />
           </Stack>
         </Paper>
-        <Paper withBorder radius="md" p="md">
+        <Paper withBorder p="md">
           <Stack gap={4} justify="center" style={{ height: "100%" }}>
             <Text size="xs" c="dimmed" mb={4}>平均训练时长</Text>
             <Group align="flex-end" gap={6}>
@@ -114,7 +114,7 @@ export function TeachingDashboard() {
             </Group>
           </Stack>
         </Paper>
-        <Paper withBorder radius="md" p="md">
+        <Paper withBorder p="md">
           <Stack gap={4} justify="center" style={{ height: "100%" }}>
             <Text size="xs" c="dimmed" mb={4}>总学生 / 总训练</Text>
             <Group align="flex-end" gap={6}>
@@ -127,7 +127,7 @@ export function TeachingDashboard() {
 
       <AssignmentOverview assignments={assignments} />
 
-      <Paper withBorder radius="md" p="md">
+      <Paper withBorder p="md">
         <Group gap={8} mb={8}>
           <IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
           <Text size="sm" fw={500}>最近训练动态</Text>

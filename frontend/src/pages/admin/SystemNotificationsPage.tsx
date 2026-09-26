@@ -177,7 +177,7 @@ export default function SystemNotificationsPage() {
 			) : (
 				<Stack gap="sm">
 					{filtered.map((n) => (
-						<Paper key={n.id} withBorder radius="md" p="md">
+						<Paper key={n.id} withBorder p="md">
 							<Group align="flex-start" gap={16} wrap="nowrap">
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<Group gap={8} align="center" wrap="wrap">

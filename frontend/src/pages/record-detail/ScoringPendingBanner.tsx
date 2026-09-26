@@ -36,13 +36,7 @@ export default function ScoringPendingBanner({
 			: "评分尚未生成";
 
 	return (
-		<Paper
-			withBorder
-			radius="md"
-			bg="yellow.0"
-			p={{ base: "md", sm: "lg" }}
-			style={{ borderColor: "var(--mantine-color-yellow-4)" }}
-		>
+		<Paper withBorder bg="yellow.0" p={{ base: "md", sm: "lg" }} style={{ borderColor: "var(--mantine-color-yellow-4)" }} >
 			<Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
 				<Box style={{ flex: 1, minWidth: 240 }}>
 					<Title order={3} size="sm" c="yellow.9">

@@ -176,11 +176,11 @@ export default function History() {
 					onRetry={() => refetch()}
 				/>
 			) : records.length === 0 ? (
-				<Paper withBorder radius="md">
+				<Paper withBorder>
 					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
 				</Paper>
 			) : (
-				<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+				<Paper withBorder style={{ overflow: "hidden" }}>
 					{/* Mobile: card list */}
 					<Box hiddenFrom="md" p="xs">
 						<Stack gap="xs">
@@ -188,7 +188,7 @@ export default function History() {
 								const durMins = recordDurMins(r);
 								const status = recordStatus(r);
 								return (
-									<Paper key={r.id} withBorder radius="md" p="sm">
+									<Paper key={r.id} withBorder p="sm">
 										<UnstyledButton
 											onClick={() => navigate(`/record/${r.id}`)}
 											style={{ width: "100%", textAlign: "left" }}
@@ -408,7 +408,7 @@ export default function History() {
 				</Paper>
 			)}
 
-			<Paper withBorder radius="md" px="md" py="sm">
+			<Paper withBorder px="md" py="sm">
 				<Pagination
 					total={total}
 					offset={offset}

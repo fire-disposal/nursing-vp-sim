@@ -360,7 +360,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				</Button>
 			</Group>
 
-			<Paper withBorder radius="md" p="md" shadow="sm">
+			<Paper withBorder p="md" shadow="sm">
 				<Group gap={8} mb="md" wrap="wrap">
 					<SearchInput
 						value={search}

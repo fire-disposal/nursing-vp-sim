@@ -80,7 +80,7 @@ export default function ScoreResultSection({
 	const hasFallback = recordScore.fallback != null;
 
 	return (
-		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }}>
+		<Paper withBorder p={{ base: "md", sm: "lg" }}>
 			<Stack gap="md">
 				<Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
 					<Group gap={10} wrap="wrap">
@@ -137,7 +137,7 @@ export default function ScoreResultSection({
 				)}
 
 				{isReviewed && review?.review_comment && (
-					<Paper withBorder radius="md" bg="gray.0" px="md" py="sm">
+					<Paper withBorder bg="gray.0" px="md" py="sm">
 						<Text size="sm">
 							<Text component="span" fw={600} c="dimmed">
 								复核备注：

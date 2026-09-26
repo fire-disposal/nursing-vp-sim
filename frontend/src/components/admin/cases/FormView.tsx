@@ -29,7 +29,7 @@ export function FormView({ state, dispatch, disabled }: Props) {
 	return (
 		<Stack gap="md">
 			{/* ── Basic Info ── */}
-			<Paper withBorder p="md" radius="md">
+			<Paper withBorder p="md">
 				<Text size="sm" fw={500} mb="md">基本信息</Text>
 				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
 					<div>

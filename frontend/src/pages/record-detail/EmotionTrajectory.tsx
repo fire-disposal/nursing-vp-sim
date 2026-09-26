@@ -71,7 +71,7 @@ export function EmotionTrajectory({ recordId }: Props) {
 	if (isLoading) return null;
 	if (isError) {
 		return (
-			<Paper withBorder radius="md" p="md">
+			<Paper withBorder p="md">
 				<Text size="sm" c="red">
 					情绪轨迹加载失败，请稍后刷新重试
 				</Text>
@@ -81,7 +81,7 @@ export function EmotionTrajectory({ recordId }: Props) {
 	if (!chartData.length) return null;
 
 	return (
-		<Paper withBorder radius="md" p="md">
+		<Paper withBorder p="md">
 			<Stack gap="xs">
 				<Text size="sm" fw={700} style={{ display: "flex", alignItems: "center", gap: 8 }}>
 					<IconActivity size={18} />
@@ -91,8 +91,8 @@ export function EmotionTrajectory({ recordId }: Props) {
 					<ResponsiveContainer width="100%" height="100%">
 						<LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -22 }}>
 							<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-2)" />
-							<XAxis dataKey="index" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-							<YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+							<XAxis dataKey="index" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+							<YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
 							<Tooltip
 								content={({ active, payload }) => {
 									if (!active || !payload?.length) return null;

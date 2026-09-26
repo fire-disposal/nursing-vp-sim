@@ -168,7 +168,7 @@ export default function NotificationBell() {
 							justifyContent: "center",
 							width: 16,
 							height: 16,
-							fontSize: 10,
+							fontSize: 11,
 							fontWeight: 700,
 							color: "white",
 							background: "var(--mantine-color-red-6)",

@@ -349,7 +349,7 @@ export default function TrainingSelect() {
 			{tab === "home" && (
 				<Stack gap="lg">
 					{recentNotifs.length > 0 && (
-						<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+						<Paper withBorder style={{ overflow: "hidden" }}>
 							<Group
 								justify="space-between"
 								gap="sm"
@@ -407,22 +407,7 @@ export default function TrainingSelect() {
 					)}
 
 					{/* 训练主卡：问候 + 主行动 */}
-					<Paper
-						withBorder
-						radius="md"
-						p={{ base: "lg", sm: "xl" }}
-						style={{
-							position: "relative",
-							overflow: "hidden",
-							minHeight: 220,
-							display: "flex",
-							flexDirection: "column",
-							justifyContent: "space-between",
-							gap: 32,
-							background:
-								"linear-gradient(135deg, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 55%)",
-						}}
-					>
+					<Paper withBorder p={{ base: "lg", sm: "xl" }} style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32, background: "linear-gradient(135deg, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 55%)", }} >
 						{/* 装饰性听诊器水印 */}
 						<Box
 							style={{
@@ -486,7 +471,7 @@ export default function TrainingSelect() {
 					</Paper>
 
 					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-						<Paper withBorder radius="md" p="md">
+						<Paper withBorder p="md">
 							<Group justify="space-between" gap="sm">
 								<Text size="sm" fw={600}>待完成作业</Text>
 								<Button variant="subtle" color="gray" size="xs" onClick={() => setTab("assignments")}>
@@ -496,7 +481,7 @@ export default function TrainingSelect() {
 							{pendingAssignments.length > 0 ? (
 								<Stack gap="xs" mt="sm">
 									{pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
-										<Paper key={a.id} withBorder radius="md" p="sm">
+										<Paper key={a.id} withBorder p="sm">
 											<Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
 												<Box style={{ minWidth: 0 }}>
 													<Text size="sm" fw={500} truncate>{a.title}</Text>
@@ -512,7 +497,7 @@ export default function TrainingSelect() {
 									))}
 								</Stack>
 							) : (
-								<Paper radius="md" mt="md" p="md" withBorder style={{ borderStyle: "dashed" }}>
+								<Paper mt="md" p="md" withBorder style={{ borderStyle: "dashed" }}>
 									<Text size="sm" c="dimmed">
 										暂无待完成作业，可以自主选择病例训练。
 									</Text>
@@ -520,13 +505,13 @@ export default function TrainingSelect() {
 							)}
 						</Paper>
 
-						<Paper withBorder radius="md" p="md">
+						<Paper withBorder p="md">
 							<Group gap="xs" mb="sm">
 								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
 								<Text size="sm" fw={500}>最近训练</Text>
 							</Group>
 							{primaryInProgress && (
-								<Paper radius="md" mb="sm" px="sm" py="xs" bg="yellow.0" style={{ border: "1px solid var(--mantine-color-yellow-3)" }}>
+								<Paper mb="sm" px="sm" py="xs" bg="yellow.0" style={{ border: "1px solid var(--mantine-color-yellow-3)" }}>
 									<Group justify="space-between" gap="sm" wrap="nowrap">
 										<Box style={{ minWidth: 0 }}>
 											<Group gap={6} wrap="nowrap">
@@ -574,7 +559,7 @@ export default function TrainingSelect() {
 									))}
 								</Stack>
 							) : (
-								<Paper radius="md" px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+								<Paper px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
 									<Text size="sm" c="dimmed">
 										还没有训练记录。先从一个病例开始。
 									</Text>
@@ -585,7 +570,7 @@ export default function TrainingSelect() {
 
 					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md">
 						{/* 训练概览 — 状态磁贴 + 统计 */}
-						<Paper withBorder radius="md" p="md">
+						<Paper withBorder p="md">
 							<Group gap="xs" mb="sm">
 								<IconTarget size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
 								<Text size="sm" fw={500}>训练概览</Text>
@@ -629,7 +614,7 @@ export default function TrainingSelect() {
 								{trendItems.length > 0 ? (
 									<SimpleGrid cols={4} spacing="xs">
 										{trendItems.slice(0, 8).map((item, index) => (
-											<Paper key={`${String(item.period_label ?? "period")}-${index}`} radius="md" bg="gray.1" p={8} ta="center">
+											<Paper key={`${String(item.period_label ?? "period")}-${index}`} bg="gray.1" p={8} ta="center">
 												<Text size="sm" fw={600} className="tabular-nums">
 													{item.average_score != null ? String(item.average_score) : "--"}
 												</Text>
@@ -640,7 +625,7 @@ export default function TrainingSelect() {
 										))}
 									</SimpleGrid>
 								) : (
-									<Paper radius="md" px="sm" py="md" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+									<Paper px="sm" py="md" ta="center" withBorder style={{ borderStyle: "dashed" }}>
 										<Text size="xs" c="dimmed">
 											完成更多训练后显示趋势
 										</Text>
@@ -665,7 +650,7 @@ export default function TrainingSelect() {
 							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
 						</Box>
 					</Group>
-					<Paper radius="md" withBorder px="md" py="sm" bg="brand.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-3)" }}>
+					<Paper withBorder px="md" py="sm" bg="brand.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-3)" }}>
 						<Group justify="space-between" gap="sm" wrap="wrap">
 							<Box style={{ minWidth: 0 }}>
 								<Group gap={6} wrap="nowrap">
@@ -704,7 +689,7 @@ export default function TrainingSelect() {
 										<motion.div key={c.id}
 											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
 											transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
-											<Paper withBorder radius="md" p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", transition: "box-shadow 150ms ease, transform 150ms ease" }} className="case-card">
+											<Paper withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", transition: "box-shadow 150ms ease, transform 150ms ease" }} className="case-card">
 												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
 													<Box style={{ minWidth: 0, flex: 1 }}>
 														<Text size="sm" fw={600} truncate>{c.name}</Text>
@@ -778,13 +763,7 @@ export default function TrainingSelect() {
 							};
 
 							return (
-								<Paper
-									key={a.id}
-									withBorder
-									radius="md"
-									p="md"
-									style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}
-								>
+								<Paper key={a.id} withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }} >
 									<Box>
 										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
 											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>

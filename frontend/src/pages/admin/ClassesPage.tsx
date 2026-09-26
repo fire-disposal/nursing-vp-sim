@@ -193,7 +193,7 @@ export default function ClassesPage() {
 								: "创建第一个班级后这里会显示"
 						}
 						renderCard={(c) => (
-							<Paper withBorder radius="md" p="sm">
+							<Paper withBorder p="sm">
 								<Stack gap={8}>
 									<Group justify="space-between" wrap="nowrap" gap={8}>
 										<Text size="sm" fw={500} truncate>{c.name}</Text>

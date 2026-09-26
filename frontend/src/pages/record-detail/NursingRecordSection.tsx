@@ -33,7 +33,7 @@ export default function NursingRecordSection({
 	const submitted = !!submittedAt;
 
 	return (
-		<Paper withBorder radius="md" p={{ base: "md", sm: "lg" }}>
+		<Paper withBorder p={{ base: "md", sm: "lg" }}>
 			<Stack gap="sm">
 				<Group justify="space-between" gap="xs" wrap="wrap">
 					<Text size="md" fw={600}>

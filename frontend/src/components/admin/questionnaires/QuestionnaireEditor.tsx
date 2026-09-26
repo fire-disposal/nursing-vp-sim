@@ -162,7 +162,7 @@ export default function QuestionnaireEditor({
 							placeholder="问卷说明（可选）"
 						/>
 
-						<Paper withBorder p="md" radius="md">
+						<Paper withBorder p="md">
 							<Group justify="space-between" mb="sm">
 								<Text size="sm" fw={600}>
 									题目列表 ({form.questions.length})
@@ -184,13 +184,7 @@ export default function QuestionnaireEditor({
 							) : (
 								<Stack gap="sm">
 									{form.questions.map((q, i) => (
-										<Paper
-											key={i}
-											withBorder
-											p="sm"
-											radius="md"
-											bg="var(--mantine-color-gray-0)"
-										>
+										<Paper key={i} withBorder p="sm" bg="var(--mantine-color-gray-0)" >
 											<Group justify="space-between" mb="xs">
 												<Text size="xs" fw={600} c="dimmed">
 													第 {i + 1} 题

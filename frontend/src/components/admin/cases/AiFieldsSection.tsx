@@ -67,7 +67,7 @@ function TagEditor({ value, onChange, placeholder, disabled }: { value: string[]
 
 export function AiFieldsSection({ hiddenInfo, requiredInquiries, onHiddenInfoChange, onRequiredInquiriesChange, disabled }: Props) {
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="xs">AI 辅助字段</Text>
 			<Text size="xs" c="dimmed" mb="md">这些字段可由 AI 生成，也可手动编辑</Text>
 			<Stack gap="md">

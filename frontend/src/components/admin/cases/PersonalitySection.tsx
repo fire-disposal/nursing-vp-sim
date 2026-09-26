@@ -61,7 +61,7 @@ export function PersonalitySection({ state, dispatch, disabled }: Props) {
 	}
 
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="xs">人格配置</Text>
 			<Text size="xs" c="dimmed" mb="md">影响患者的情绪反应基线、对话风格和信任建立速度</Text>
 			<SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">

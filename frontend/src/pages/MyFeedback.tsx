@@ -72,9 +72,9 @@ export default function MyFeedbackPage() {
 					icon={IconMessageCircle}
 				/>
 
-				<Paper withBorder radius="md" p="md">
+				<Paper withBorder p="md">
 					<SimpleGrid cols={3} spacing="xs" mb="md">
-						<Paper radius="md" bg="gray.1" px="sm" py="xs" ta="center">
+						<Paper bg="gray.1" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
 								{total}
 							</Text>
@@ -82,7 +82,7 @@ export default function MyFeedbackPage() {
 								累计反馈
 							</Text>
 						</Paper>
-						<Paper radius="md" bg="blue.1" px="sm" py="xs" ta="center">
+						<Paper bg="blue.1" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600} c="blue">
 								{repliedCount}
 							</Text>
@@ -90,7 +90,7 @@ export default function MyFeedbackPage() {
 								本页已回复
 							</Text>
 						</Paper>
-						<Paper radius="md" bg="gray.1" px="sm" py="xs" ta="center">
+						<Paper bg="gray.1" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
 								{pendingCount}
 							</Text>
@@ -161,7 +161,7 @@ export default function MyFeedbackPage() {
 								Math.min(RATING_LABELS.length - 1, fb.rating - 1),
 							);
 							return (
-								<Paper key={fb.id} withBorder radius="md" p="md">
+								<Paper key={fb.id} withBorder p="md">
 									<Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
 										<Group gap="xs" wrap="wrap">
 											<MantineBadge
@@ -240,14 +240,7 @@ export default function MyFeedbackPage() {
 									)}
 
 									{fb.developer_reply && (
-										<Paper
-											radius="md"
-											bg="blue.1"
-											px="sm"
-											py="xs"
-											mt="md"
-											style={{ border: "1px solid var(--mantine-color-blue-3)" }}
-										>
+										<Paper bg="blue.1" px="sm" py="xs" mt="md" style={{ border: "1px solid var(--mantine-color-blue-3)" }} >
 											<Group gap={6} mb={4}>
 												<IconMessageReply
 													size={13}

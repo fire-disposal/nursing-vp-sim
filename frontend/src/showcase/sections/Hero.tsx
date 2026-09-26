@@ -138,13 +138,7 @@ export default function Hero() {
 						</Group>
 					</Stack>
 					<Box ref={panel} pos="relative" pt={{ base: 0, lg: 32 }}>
-						<Paper
-							withBorder
-							radius="md"
-							p={{ base: "lg", md: "xl" }}
-							pos="relative"
-							style={{ overflow: "hidden" }}
-						>
+						<Paper withBorder p={{ base: "lg", md: "xl" }} pos="relative" style={{ overflow: "hidden" }} >
 							<LiveChatSimulation />
 						</Paper>
 					</Box>

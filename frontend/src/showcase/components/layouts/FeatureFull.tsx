@@ -36,7 +36,7 @@ export default function FeatureFull({
 				</Stack>
 				<SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
 					{points.map((p) => (
-						<Paper key={p} withBorder radius="md" p="md">
+						<Paper key={p} withBorder p="md">
 							<Text size="sm" c="dimmed">
 								{p}
 							</Text>

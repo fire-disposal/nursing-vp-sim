@@ -25,7 +25,7 @@ function visualFor(h: Highlight) {
 	if (h.id === "voice") return <VoicePlayback />;
 	if (h.id === "rag")
 		return (
-			<Paper withBorder radius="md" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+			<Paper withBorder p="lg" pos="relative" style={{ overflow: "hidden" }}>
 				<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
 					<Stack gap={4}>
 						<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
@@ -127,12 +127,7 @@ function StickyHighlight({ h }: { h: Highlight }) {
 	const Icon = h.icon;
 	return (
 		<Box ref={root} py="lg">
-			<Paper
-				ref={card}
-				withBorder
-				radius="md"
-				style={{ overflow: "hidden" }}
-			>
+			<Paper ref={card} withBorder style={{ overflow: "hidden" }} >
 				<Stack gap="xl" p={{ base: "lg", md: "xl", lg: "3rem" }}>
 					<Group gap={20}>
 						<ThemeIcon size={56} radius="md" variant="filled">

@@ -18,7 +18,7 @@ export function PatientSection({ state, dispatch, disabled }: Props) {
 	}
 
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="md">患者信息</Text>
 			<Group gap="sm" grow wrap="wrap">
 				<div style={{ flexGrow: 2 }}>

@@ -30,7 +30,7 @@ export function FilterToolbar({
 	compact,
 }: FilterToolbarProps) {
 	return (
-		<Paper withBorder radius="md" p={compact ? "xs" : "sm"}>
+		<Paper withBorder p={compact ? "xs" : "sm"}>
 			<Group gap="sm" align="center" wrap="wrap">
 				{summary && (
 					<Text size="xs" c="dimmed" className="tabular-nums">

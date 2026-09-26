@@ -52,7 +52,7 @@ export default function ProcessPipeline() {
 	const stage = useMemo(() => STAGES[active], [active]);
 
 	return (
-		<Paper withBorder radius="md" p="lg" pos="relative" style={{ overflow: "hidden" }}>
+		<Paper withBorder p="lg" pos="relative" style={{ overflow: "hidden" }}>
 			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
 				<Stack gap={4}>
 					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
@@ -119,14 +119,7 @@ export default function ProcessPipeline() {
 				})}
 			</SimpleGrid>
 
-			<Paper
-				withBorder
-				radius="md"
-				p="lg"
-				mt="lg"
-				pos="relative"
-				style={{ zIndex: 10, background: "var(--mantine-color-gray-0)" }}
-			>
+			<Paper withBorder p="lg" mt="lg" pos="relative" style={{ zIndex: 10, background: "var(--mantine-color-gray-0)" }} >
 				<Group justify="space-between" gap="md">
 					<Stack gap={4}>
 						<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>
@@ -147,13 +140,7 @@ export default function ProcessPipeline() {
 				</Group>
 				<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm" mt="md">
 					{stage.subDetails.map((text, index) => (
-						<Paper
-							key={text}
-							withBorder
-							radius="md"
-							p="md"
-							style={{ background: "var(--mantine-color-gray-0)" }}
-						>
+						<Paper key={text} withBorder p="md" style={{ background: "var(--mantine-color-gray-0)" }} >
 							<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.25em" }}>
 								0{index + 1}
 							</Text>

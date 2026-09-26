@@ -201,7 +201,7 @@ export default function VoiceTokenCard() {
 								size="xs"
 								onClick={doCheck}
 								disabled={checking}
-								style={{ fontSize: 10, textDecoration: "underline", color: "var(--mantine-color-dimmed)" }}
+								style={{ fontSize: 12, textDecoration: "underline", color: "var(--mantine-color-dimmed)" }}
 							>
 								刷新
 							</Button>

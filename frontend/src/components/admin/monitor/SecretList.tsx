@@ -29,7 +29,7 @@ export default function SecretList({
 	onDelete,
 }: SecretListProps) {
 	return (
-		<Paper withBorder radius="md" p={0} style={{ overflow: "hidden" }}>
+		<Paper withBorder p={0} style={{ overflow: "hidden" }}>
 			<Table>
 				<Table.Tbody>
 					{envFallback?.available !== undefined && (

@@ -34,27 +34,7 @@ export default function StatCard({
 	className,
 }: StatCardProps) {
 	return (
-		<Paper
-			withBorder
-			radius="md"
-			p="md"
-			className={className}
-			style={{
-				display: "flex",
-				alignItems: "center",
-				gap: "0.875rem",
-				cursor: onClick ? "pointer" : undefined,
-				transition: "box-shadow 150ms ease, transform 150ms ease",
-				...(onClick
-					? {
-							":hover": {
-								boxShadow: "var(--mantine-shadow-sm)",
-								transform: "translateY(-1px)",
-							},
-						}
-					: {}),
-			}}
-		>
+		<Paper withBorder p="md" className={className} style={{ display: "flex", alignItems: "center", gap: "0.875rem", cursor: onClick ? "pointer" : undefined, transition: "box-shadow 150ms ease, transform 150ms ease", ...(onClick ? { ":hover": { boxShadow: "var(--mantine-shadow-sm)", transform: "translateY(-1px)", }, } : {}), }} >
 			{Icon && (
 				<ThemeIcon size={44} radius="md" variant="light" color={COLOR_MAP[color]}>
 					<Icon size={20} strokeWidth={1.8} />

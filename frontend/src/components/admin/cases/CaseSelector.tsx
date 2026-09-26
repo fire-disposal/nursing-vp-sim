@@ -194,7 +194,7 @@ export default function CaseSelector({ cases, value, onChange, loading, emptyHin
 			</UnstyledButton>
 
 			{open && (
-				<Paper withBorder shadow="md" radius="md" style={{ position: "absolute", zIndex: 50, marginTop: 4, width: "100%" }}>
+				<Paper withBorder shadow="md" style={{ position: "absolute", zIndex: 50, marginTop: 4, width: "100%" }}>
 					<TextInput
 						ref={inputRef}
 						variant="unstyled"

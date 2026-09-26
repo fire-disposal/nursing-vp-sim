@@ -332,7 +332,7 @@ export default function QuizTool(props: ActivityPanelProps) {
 													display: "flex",
 													alignItems: "center",
 													justifyContent: "center",
-													fontSize: 10,
+													fontSize: 11,
 													fontWeight: 600,
 													background: isAnswer
 														? "var(--mantine-color-green-5)"
@@ -390,7 +390,7 @@ export default function QuizTool(props: ActivityPanelProps) {
 											alignItems: "center",
 											gap: 4,
 											marginTop: 8,
-											fontSize: 10,
+											fontSize: 11,
 											color: "var(--mantine-color-dimmed)",
 											background: "transparent",
 											border: "none",

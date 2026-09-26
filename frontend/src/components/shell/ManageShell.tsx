@@ -114,7 +114,7 @@ export default function ManageShell({
 							aria-label="关于系统"
 							visibleFrom="sm"
 							style={{
-								fontSize: 11,
+								fontSize: 12,
 								color: "var(--mantine-color-dimmed)",
 								fontVariantNumeric: "tabular-nums",
 								padding: "2px 6px",

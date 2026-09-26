@@ -46,7 +46,7 @@ export function InquiryProgressChip() {
 				borderRadius: 6,
 				border: "1px solid var(--mantine-color-default-border)",
 				background: "var(--mantine-color-body)",
-				fontSize: 11,
+				fontSize: 12,
 				color: "var(--mantine-color-dimmed)",
 				cursor: "pointer",
 				flexShrink: 0,

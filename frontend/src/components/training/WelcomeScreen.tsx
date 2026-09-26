@@ -103,7 +103,7 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 										display: "inline-flex",
 										alignItems: "center",
 										justifyContent: "center",
-										fontSize: 10,
+										fontSize: 11,
 										fontWeight: 700,
 										fontVariantNumeric: "tabular-nums",
 									}}

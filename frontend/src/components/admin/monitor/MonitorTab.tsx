@@ -151,7 +151,7 @@ export default function MonitorTab() {
 
 	if (statsLoading) {
 		return (
-			<Paper withBorder radius="md" p="xl" ta="center">
+			<Paper withBorder p="xl" ta="center">
 				<Stack align="center" gap="xs">
 					<IconActivity size={36} style={{ color: "var(--mantine-color-dimmed)" }} />
 					<Text c="dimmed">正在加载监控数据...</Text>
@@ -213,7 +213,7 @@ export default function MonitorTab() {
 				</Text>
 				<SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
 					{statCards.map((s, i) => (
-						<Paper key={i} withBorder radius="md" p="md" ta="center">
+						<Paper key={i} withBorder p="md" ta="center">
 							<Text size="xs" c="dimmed" mb={6}>
 								{s.label}
 							</Text>
@@ -239,7 +239,7 @@ export default function MonitorTab() {
 			</Stack>
 
 			{stats.by_provider?.length > 0 && (
-				<Paper withBorder radius="md" p="md" mb="md">
+				<Paper withBorder p="md" mb="md">
 					<Group gap={6} mb="md">
 						<IconChartBar size={14} />
 						<Text size="sm" fw={600} c="dimmed">
@@ -284,7 +284,7 @@ export default function MonitorTab() {
 			)}
 
 			{stats.daily.length > 0 && (
-				<Paper withBorder radius="md" p="md" mb="md">
+				<Paper withBorder p="md" mb="md">
 					<Group gap={6} mb="md">
 						<IconTrendingUp size={16} />
 						<Text fw={600} c="dimmed">
@@ -358,7 +358,7 @@ export default function MonitorTab() {
 
 			<Grid mb="md">
 				<Grid.Col span={{ base: 12, md: 4 }}>
-					<Paper withBorder radius="md" p="md">
+					<Paper withBorder p="md">
 						<Group gap={6} mb="md">
 							<IconActivity size={14} />
 							<Text size="sm" fw={600} c="dimmed">
@@ -407,7 +407,7 @@ export default function MonitorTab() {
 				</Grid.Col>
 
 				<Grid.Col span={{ base: 12, md: 8 }}>
-					<Paper withBorder radius="md" p="md">
+					<Paper withBorder p="md">
 						<Group gap={6} mb="md">
 							<IconServer size={14} />
 							<Text size="sm" fw={600} c="dimmed">

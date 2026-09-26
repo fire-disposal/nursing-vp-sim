@@ -167,12 +167,12 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 									<Text size="sm" fw={500} truncate>{d.problem}</Text>
 									<Group gap={4} mt={6} wrap="wrap">
 										{d.related_factors.map(f => (
-											<Box key={f} px={6} py={2} style={{ fontSize: 10, borderRadius: 4, background: "var(--mantine-color-blue-0)", color: "var(--mantine-color-blue-9)" }}>
+											<Box key={f} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-blue-0)", color: "var(--mantine-color-blue-9)" }}>
 												{f}
 											</Box>
 										))}
 										{d.defining_characteristics.map(c => (
-											<Box key={c} px={6} py={2} style={{ fontSize: 10, borderRadius: 4, background: "var(--mantine-color-yellow-0)", color: "var(--mantine-color-yellow-9)" }}>
+											<Box key={c} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-yellow-0)", color: "var(--mantine-color-yellow-9)" }}>
 												{c}
 											</Box>
 										))}
@@ -230,7 +230,7 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 									px={8}
 									py={2}
 									style={{
-										fontSize: 10,
+										fontSize: 11,
 										borderRadius: 999,
 										border: "1px solid var(--mantine-color-default-border)",
 										cursor: "pointer",
@@ -257,7 +257,7 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 									px={8}
 									py={2}
 									style={{
-										fontSize: 10,
+										fontSize: 11,
 										borderRadius: 999,
 										border: "1px solid var(--mantine-color-default-border)",
 										cursor: "pointer",

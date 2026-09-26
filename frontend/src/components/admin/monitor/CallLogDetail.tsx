@@ -57,7 +57,7 @@ function Block({
 			<Text size="xs" fw={600} c="dimmed" mb={6} tt="uppercase">
 				{label}
 			</Text>
-			<Paper withBorder radius="md" p="sm" bg="var(--mantine-color-gray-1)">
+			<Paper withBorder p="sm" bg="var(--mantine-color-gray-1)">
 				<ScrollArea.Autosize mah={384}>
 					<Text
 						size="xs"
@@ -130,7 +130,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 							<Title order={2}>调用详情 #{log.id}</Title>
 						</Group>
 
-						<Paper withBorder radius="md" p="md" mb="md">
+						<Paper withBorder p="md" mb="md">
 							<Stack gap={0}>
 								<MetaRow
 									icon={IconClock}

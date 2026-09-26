@@ -46,7 +46,7 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 	};
 
 	return (
-		<Paper withBorder p="md" radius="md">
+		<Paper withBorder p="md">
 			<Text size="sm" fw={600} mb="xs">引导题目</Text>
 			<Text size="xs" c="dimmed" mb="md">训练中穿插的选择题，帮助学生聚焦关键知识点。不参与评分</Text>
 			<div style={{ marginBottom: 12 }}>
@@ -59,7 +59,7 @@ export function QuizEditor({ value, onChange, disabled }: Props) {
 					{questions.map((q, qi) => {
 						const isOpen = expanded.has(q.id);
 						return (
-							<Paper key={q.id} withBorder radius="md">
+							<Paper key={q.id} withBorder>
 								<Button
 									variant="ghost"
 									fullWidth

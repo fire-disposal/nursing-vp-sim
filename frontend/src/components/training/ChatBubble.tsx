@@ -246,7 +246,7 @@ export const ChatBubble = memo(function ChatBubble({
 							gap: 4,
 							borderRadius: 999,
 							padding: "2px 8px",
-							fontSize: 11,
+							fontSize: 12,
 							color: "var(--mantine-color-dimmed)",
 							background: "transparent",
 							border: "none",

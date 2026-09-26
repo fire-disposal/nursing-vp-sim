@@ -24,7 +24,7 @@ export function ChartTooltip({
 	if (!active || !payload?.length) return null;
 
 	return (
-		<Paper shadow="sm" radius="md" px="md" py="sm" withBorder>
+		<Paper shadow="sm" px="md" py="sm" withBorder>
 			{label && (
 				<Text size="xs" c="dimmed" mb={4}>
 					{label}

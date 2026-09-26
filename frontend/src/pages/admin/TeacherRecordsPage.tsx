@@ -209,7 +209,7 @@ export default function TeacherRecordsPage() {
 			/>
 
 			<Stack gap="md">
-				<Paper withBorder radius="md" p="md">
+				<Paper withBorder p="md">
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 						<Stack gap={6}>
 							<Text size="xs" fw={500} c="dimmed">班级</Text>
@@ -313,11 +313,11 @@ export default function TeacherRecordsPage() {
 						onRetry={() => refetch()}
 					/>
 				) : sortedRecords.length === 0 ? (
-					<Paper withBorder radius="md">
+					<Paper withBorder>
 						<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
 					</Paper>
 				) : (
-					<Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+					<Paper withBorder style={{ overflow: "hidden" }}>
 						<div style={{ overflowX: "auto" }}>
 							<Table>
 								<Table.Thead>
@@ -463,7 +463,7 @@ export default function TeacherRecordsPage() {
 					</Paper>
 				)}
 
-				<Paper withBorder radius="md" px="md" py="sm">
+				<Paper withBorder px="md" py="sm">
 					<Pagination
 						total={total}
 						offset={offset}

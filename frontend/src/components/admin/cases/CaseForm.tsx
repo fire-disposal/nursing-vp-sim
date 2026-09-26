@@ -381,7 +381,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				)}
 
 				{saveReport && (
-					<Paper withBorder p="sm" radius="md" mb="md">
+					<Paper withBorder p="sm" mb="md">
 						<CaseValidationReportView report={saveReport} />
 					</Paper>
 				)}
@@ -448,14 +448,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 				{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 				{showAiPanel && (
-					<Paper
-						withBorder
-						p="md"
-						radius="md"
-						mb="md"
-						bg="var(--mantine-color-grape-0)"
-						style={{ borderColor: "var(--mantine-color-grape-2)" }}
-					>
+					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-grape-0)" style={{ borderColor: "var(--mantine-color-grape-2)" }} >
 						<Group gap={6} wrap="wrap" mb="sm">
 							<Text size="xs" fw={600} c="grape">生成向导</Text>
 							<Badge variant="light" color={state.json.name || state.json.chief_complaint ? "green" : "gray"} size="xs">1 临床骨架</Badge>
@@ -541,7 +534,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 				{/* ── 病例预览（只读学生视角） ── */}
 				{showPreview && (
-					<Paper withBorder p="md" radius="md" mb="md">
+					<Paper withBorder p="md" mb="md">
 						<Text size="xs" fw={600} mb="xs">病例预览</Text>
 						<Grid gap="xs">
 							<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">名称：</Text>{String(state.json.name ?? "") || "—"}</Text></Grid.Col>

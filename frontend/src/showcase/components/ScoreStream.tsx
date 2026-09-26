@@ -116,13 +116,7 @@ export default function ScoreStream() {
 	const scoreProgress = phase === "complete" ? 100 : Math.round(percentage);
 
 	return (
-		<Paper
-			withBorder
-			radius="md"
-			p="lg"
-			pos="relative"
-			style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }}
-		>
+		<Paper withBorder p="lg" pos="relative" style={{ minHeight: 460, display: "flex", flexDirection: "column", overflow: "hidden" }} >
 			<Group justify="space-between" gap="md" pos="relative" style={{ zIndex: 10 }}>
 				<Stack gap={4}>
 					<Text size="xs" fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.3em" }}>

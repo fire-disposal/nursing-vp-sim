@@ -153,7 +153,7 @@ export function ScoringOverlay({
 							component="button"
 							type="button"
 							onClick={() => setShowThought((v) => !v)}
-							style={{ fontSize: 10, color: "var(--mantine-color-dimmed)", background: "transparent", border: "none", cursor: "pointer" }}
+							style={{ fontSize: 11, color: "var(--mantine-color-dimmed)", background: "transparent", border: "none", cursor: "pointer" }}
 						>
 							{showThought ? "▲ 收起" : "▼ 展开"} AI 实时分析
 						</Box>
@@ -163,7 +163,7 @@ export function ScoringOverlay({
 									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ scoring_dims</Text>
 									<Box
 										ref={scoreScrollRef}
-										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
+										style={{ maxHeight: 128, overflowY: "auto", fontSize: 11, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
 									>
 										{progress.score_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.score_thought}</Text> : <Group gap={6} wrap="nowrap"><Loader size={10} type="dots" color="gray" /><Text component="span" size="xs" c="dimmed">等待评分维度分析...</Text></Group>}
 									</Box>
@@ -172,7 +172,7 @@ export function ScoringOverlay({
 									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ feedback_gen</Text>
 									<Box
 										ref={feedbackScrollRef}
-										style={{ maxHeight: 128, overflowY: "auto", fontSize: 10, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
+										style={{ maxHeight: 128, overflowY: "auto", fontSize: 11, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
 									>
 										{progress.feedback_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.feedback_thought}</Text> : <Group gap={6} wrap="nowrap"><Loader size={10} type="dots" color="gray" /><Text component="span" size="xs" c="dimmed">等待反馈生成...</Text></Group>}
 									</Box>
