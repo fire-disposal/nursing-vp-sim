@@ -7,6 +7,8 @@ import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { useToast } from "@/components/Toast";
+import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
+import { ACTION_COMPLETE_SESSION } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
@@ -60,6 +62,10 @@ export function TrainingHeader({
 	const [leaving, setLeaving] = useState(false);
 	const toast = useToast();
 	const initialRemaining = useTrainingStore((s) => s.recordDetail?.remaining_seconds);
+	const manifest = useTrainingStore((s) => s.manifest);
+	const completeAction = manifest?.actions.find((action) => action.id === ACTION_COMPLETE_SESSION);
+	// 能否结束只由服务端 action.enabled 决定（前端不重算完成条件）
+	const canComplete = completeAction?.enabled === true;
 
 	const {
 		remaining,
@@ -207,19 +213,27 @@ export function TrainingHeader({
 						size={isShort ? "xs" : "sm"}
 						px={isShort ? 8 : undefined}
 						onClick={handleEndClick}
-						title="完成训练并查看评分"
+						title={canComplete ? "结束训练并查看评分" : "查看完成条件"}
 					>
 						<IconClipboardCheck size={14} />
 						<Text component="span" hiddenFrom="xs" fw={600}>
-							完成训练
+							{completeAction?.label ?? "结束训练"}
 						</Text>
 					</Button>
 				</Group>
 			</Box>
-			<Modal opened={endConfirmOpen} onClose={() => setEndConfirmOpen(false)} title="结束训练" size={360} centered withinPortal>
-				<Text size="sm" c="dimmed" mb="xl">
-					已发送 {studentMsgCount} 条消息，确定要结束本次训练吗？结束后系统将自动生成评分。
+			<Modal opened={endConfirmOpen} onClose={() => setEndConfirmOpen(false)} title="结束训练" size={420} centered withinPortal>
+				<Text size="sm" c="dimmed" mb="md">
+					已发送 {studentMsgCount} 条消息。结束后系统将自动生成评分。
 				</Text>
+				<Box mb="md">
+					<CompletionChecklist />
+				</Box>
+				{!canComplete && (
+					<Text size="xs" c="orange" mb="sm">
+						以上完成条件尚未满足，请先处理后再结束训练。
+					</Text>
+				)}
 				<Group justify="flex-end" gap={8}>
 					<Button
 						variant="outline"
@@ -228,7 +242,7 @@ export function TrainingHeader({
 					>
 						取消
 					</Button>
-					<Button variant="filled" size="sm" onClick={executeEnd}>
+					<Button variant="filled" size="sm" onClick={executeEnd} disabled={!canComplete}>
 						确认结束
 					</Button>
 				</Group>

@@ -11,7 +11,6 @@ class TrainingRecordBrief(BaseModel):
     id: int
     case_id: int
     case_name: str
-    training_type: str = "history_taking"
     user_id: int
     user_display_name: str
     user_student_id: str | None
@@ -85,7 +84,7 @@ class TrainingRecordDetail(BaseModel):
     scoring_error: str | None = None
     start_time: datetime
     end_time: datetime | None
-    time_limit: int = 20
+    time_limit: int = 30
     remaining_seconds: int | None = None
     mode: str = "guided"
     hide_case_info: bool = False
@@ -93,7 +92,6 @@ class TrainingRecordDetail(BaseModel):
     score: ScoreItem | None = None
     patient_info: PatientPublicInfo | None = None
     patient_gender: str = ""
-    training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
     patient_name: str = ""
     patient_age: int = 0
@@ -103,9 +101,16 @@ class TrainingRecordDetail(BaseModel):
     pending_questionnaires: int = 0
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
     nursing_record_sheet: dict[str, Any] | None = None
+    #: 提交时间戳：非空 = 内容已冻结并进入评分；空 = 未提交（不进评分证据）
+    nursing_record_submitted_at: datetime | None = None
+    #: 本次训练的终端原因：user_end / timeout / patient_walkout（None = 仍在进行）
+    terminal_reason: str | None = None
     emotion: dict[str, Any] | None = None
     initiative_count: int = 0
     message_correction: dict[str, Any] = Field(default_factory=dict)
     scene: dict[str, Any] | None = None
     required_inquiries: list[str] = Field(default_factory=list)
     is_test: bool = False
+    #: 服务端解析的 manifest（projection=session）：activities/artifacts/completion/actions
+    #: 一律以它为准，前端不得重新推导（docs/15 §四）
+    manifest: dict[str, Any] | None = None

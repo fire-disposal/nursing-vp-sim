@@ -11,7 +11,8 @@ import { Box, Group, Text } from "@mantine/core";
 
 interface EmotionIndicatorProps {
 	bus: MessageBus;
-	capabilities: Record<string, boolean>;
+	/** 内置特性开关（emotion / patient_initiative）——不是 Activity 能力表 */
+	features: Record<string, boolean>;
 	recordId: number;
 	compact?: boolean;
 	/** 右侧注入位（如问诊进度 chip），与情绪栏共用一条状态栏 */
@@ -81,7 +82,7 @@ const EMOTION_4D_DOT: Record<string, string> = {
 	neutral: "var(--mantine-color-gray-6)",
 };
 
-export function EmotionIndicator({ bus, capabilities, recordId, compact, trailing }: EmotionIndicatorProps) {
+export function EmotionIndicator({ bus, features, recordId, compact, trailing }: EmotionIndicatorProps) {
 	const emotion = useTrainingStore((s) => s.emotion);
 	const trust = useTrainingStore((s) => s.trust);
 	const anxiety = useTrainingStore((s) => s.anxiety);
@@ -193,7 +194,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 
 	useEffect(() => { return () => stopTicker(); }, [stopTicker]);
 
-	const showInitiative = capabilities.patient_initiative && !maxReachedRef.current;
+	const showInitiative = features.patient_initiative && !maxReachedRef.current;
 
 	useEffect(() => {
 		const unsub = bus.on(
@@ -216,7 +217,7 @@ export function EmotionIndicator({ bus, capabilities, recordId, compact, trailin
 		}
 	}, [emotion, emotion4D]);
 
-	if (!capabilities.emotion) return null;
+	if (!features.emotion) return null;
 	// 全局对齐：v3 后端只发 4D（emotion4D 为 live 标签）；v2 emotion 兜底（legacy）
 	const use4D = emotion4D !== "neutral" || emotion === "neutral";
 	const displayLabel = use4D ? (EMOTION_4D_LABELS[emotion4D] ?? EMOTION_LABELS[emotion]) : EMOTION_LABELS[emotion];

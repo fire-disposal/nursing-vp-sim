@@ -18,6 +18,10 @@ export interface SessionDetailFields {
 		remaining?: number;
 		eligible_last_message_id?: string | number | null;
 	};
+	/** 提交时间戳：非空 = 内容已冻结并进入评分；空 = 未提交（不参与评分） */
+	nursing_record_submitted_at?: string | null;
+	/** 终端原因：user_end / timeout / patient_walkout */
+	terminal_reason?: string | null;
 }
 
 /** store 侧 recordDetail 视图：生成类型全字段可选 + 会话可变字段精化 */

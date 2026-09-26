@@ -1,4 +1,3 @@
-import type { SceneState } from "./scene-state";
 import type { MessageBus } from "./types";
 import type { ScoreData } from "@/types/score";
 
@@ -19,7 +18,6 @@ export interface BusEvents {
 			dominant_state?: string;
 		},
 	];
-	"scene:state": [Partial<SceneState>];
 	"initiative:state": [
 		{
 			elapsed_seconds?: number;

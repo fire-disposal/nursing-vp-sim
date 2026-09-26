@@ -54,7 +54,8 @@ class TestDeriveExamEmotionEvents:
         """
         from modules.training.tools.physical_exam_rules import handle_operation
 
-        value = handle_operation("pain", {"exam_anchors": {"vital_signs": {"pain_score": "4-6"}}})["value"]
+        case = {"activities": {"physical_exam": {"config": {"vital_signs": {"pain_score": "4-6"}}}}}
+        value = handle_operation("pain", case)["value"]
         events = derive_exam_emotion_events("pain", value, 1)
         assert _types(events) == [EmotionEventType.PAINFUL_EXAM]
         assert events[0].confidence == 0.7

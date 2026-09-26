@@ -17,9 +17,13 @@ from core.statuses import (
     TrainingStatus,
     normalize_training_mode,
 )
+from core.time_limits import resolve_time_limit_minutes
 from models import (
+    CASE_STATUS_PUBLISHED,
     Assignment,
+    AssignmentRecipient,
     Case,
+    ClassMembership,
     LLMCallLog,
     Message,
     NursingRecord,
@@ -28,13 +32,12 @@ from models import (
     TrainingRecord,
     TrainingSessionState,
     User,
-    UserClass,
     VoiceCallLog,
 )
 from modules.assignments.progress import count_attempts, effective_status
+from modules.cases.revisions import require_current_revision, require_publishable, revision_of
 from modules.questionnaires.response_service import count_pending_required
-from modules.training.capabilities import detect_capabilities
-from modules.training.profile import PROFILE
+from modules.training.profile import HISTORY_TAKING
 from schemas import (
     DeleteResponse,
     OkResponse,
@@ -113,81 +116,17 @@ def _public_scene(record: TrainingRecord) -> dict | None:
     return scene
 
 
-def _extract_vitals(case_data: dict, training_type: str) -> dict:
-    """Extract initial vital signs from tools.physical_exam.
+def _load_nursing_record(db: Session, record_id: int) -> tuple[dict | None, datetime | None]:
+    """护理评估展示态：``(sheet, submitted_at)``。
 
-    Resolution order: tools.physical_exam.vital_signs → exam_anchors.vital_signs → vitals.
-    Range strings are resolved to midpoint numeric values.
+    ``sheet`` 为 None 表示没有可展示内容；``submitted_at`` 是提交状态的唯一真值——
+    「有草稿但未提交」必须与「已提交（该版本参与评分）」在前端可区分。
     """
-    tools = (case_data or {}).get("tools", {}) if isinstance(case_data, dict) else {}
-    anchors = tools.get("physical_exam") if isinstance(tools.get("physical_exam"), dict) else None
-    if not anchors:
-        anchors = case_data.get("exam_anchors", {})
-
-    vital_signs = (anchors or {}).get("vital_signs") or {}
-    if isinstance(vital_signs, dict) and vital_signs:
-        return _resolve_vital_signs(vital_signs)
-
-    # Backward compat: triage flat vitals dict
-    vitals = case_data.get("vitals", {}) if isinstance(case_data, dict) else {}
-    return dict(vitals) if isinstance(vitals, dict) else {}
-
-
-def _resolve_vital_signs(vital_signs: dict) -> dict:
-    result: dict[str, float | int | None] = {}
-    temp = vital_signs.get("temperature")
-    if temp:
-        result["temp"] = _resolve_vital_num(str(temp))
-    hr = vital_signs.get("heart_rate")
-    if hr:
-        result["hr"] = int(_resolve_vital_num(str(hr)))
-    bp = vital_signs.get("blood_pressure")
-    if bp:
-        try:
-            left, _right = str(bp).split("-", 1)
-            s, d = left.split("/")
-            result["bp_sys"] = int(float(s))
-            result["bp_dia"] = int(float(d))
-        except (ValueError, IndexError):
-            pass
-    rr = vital_signs.get("respiratory_rate")
-    if rr:
-        result["rr"] = int(_resolve_vital_num(str(rr)))
-    spo2 = vital_signs.get("spo2")
-    if spo2:
-        result["spo2"] = _resolve_vital_num(str(spo2))
-    pain = vital_signs.get("pain_score")
-    if pain is not None:
-        try:
-            result["pain"] = int(float(str(pain).split("-")[0].strip()))
-        except (ValueError, IndexError):
-            pass
-    return result
-
-
-def _resolve_vital_num(raw: str) -> float:
-    """Resolve a range string like ``"36.8-37.2"`` → midpoint ``36.9``."""
-    raw = raw.strip()
-    if "-" in raw:
-        try:
-            lo, hi = raw.split("-", 1)
-            return (float(lo) + float(hi)) / 2
-        except (ValueError, IndexError):
-            pass
-    try:
-        return float(raw)
-    except ValueError:
-        return 0.0
-
-
-def _load_nursing_sheet(db: Session, record_id: int) -> dict | None:
-    """Load the saved nursing record sheet for display on record detail."""
     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
-    if not nr or not nr.sheet_data:
-        return None
-    if isinstance(nr.sheet_data, dict):
-        return dict(nr.sheet_data)
-    return None
+    if nr is None:
+        return None, None
+    sheet = dict(nr.sheet_data) if isinstance(nr.sheet_data, dict) and nr.sheet_data else None
+    return sheet, nr.submitted_at
 
 
 def _create_record(
@@ -197,18 +136,28 @@ def _create_record(
     case_data: dict,
     config: dict,
     *,
+    revision_id: int | None = None,
     assignment_id: str | None = None,
     is_overdue: bool = False,
     app_state=None,
 ):
-    training_type = "history_taking"
-
-    time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
-    # D5 硬截止：生效值不得短于 30 分钟（病例可声明更长）
-    time_limit = max(30, min(120, int(time_limit)))
+    declared = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes
+    source = "assignment" if config.get("behavior", {}).get("time_limit_minutes") else "case"
+    time_limit = resolve_time_limit_minutes(declared, source=source)
 
     config["features"] = config.get("features") or {}
-    validate_case_data(case_data, strict=False)
+    # 形状校验（warn-only）：冻结内容已在发布/种子时过过校验，且元数据只在列上
+    # （case_data 里没有 name/difficulty/time_limit），所以拼回列值再校验，避免
+    # 「元数据缺失」这种假警报。
+    validate_case_data(
+        {
+            **case_data,
+            "name": case.name,
+            "difficulty": case.difficulty,
+            "time_limit": case.time_limit_minutes,
+        },
+        strict=False,
+    )
 
     record = TrainingRecord(
         user_id=user_id,
@@ -216,7 +165,7 @@ def _create_record(
         practice_snapshot=config or None,
         assignment_id=assignment_id,
         is_overdue=is_overdue,
-        training_type=training_type,
+        case_revision_id=revision_id,
         status=TrainingStatus.IN_PROGRESS,
         time_limit=time_limit,
     )
@@ -231,21 +180,20 @@ def _create_record(
     db.flush()
 
     record.case_snapshot = deepcopy(case_data)
-    profile = PROFILE
-    resolved_features = detect_capabilities(
-        case_data=case_data,
-        training_type=training_type,
+    workflow = HISTORY_TAKING
+    resolved_features = workflow.resolve_features(
+        case_data,
         overrides=(record.practice_snapshot or {}).get("features"),
     )
     from modules.training.scoring.rubric import build_final_rubric
 
-    record.rubric_snapshot = build_final_rubric(profile.rubric, resolved_features)
+    record.rubric_snapshot = build_final_rubric(workflow.rubric, resolved_features)
     record.prompt_snapshot = {
         "schema_version": 2,
         "purpose": "patient_chat",
         "segments": {
-            "system": profile.prompts.system,
-            "dynamic": profile.prompts.dynamic,
+            "system": workflow.prompts.system,
+            "dynamic": workflow.prompts.dynamic,
         },
     }
 
@@ -318,7 +266,6 @@ def _create_record(
     session = {
         "id": record.id,
         "status": TrainingStatus.IN_PROGRESS,
-        "training_type": training_type,
         "case_id": case.id,
         "start_time": record.start_time.isoformat() if record.start_time else None,
         "time_limit": time_limit,
@@ -383,13 +330,16 @@ def start_training(
         )
 
     config = _build_config(req.features, req.time_limit_minutes)
+    # 学员训练按**已发布版本**的内容进行（docs/15 §六）：病例后续编辑不改变本次训练
+    revision = require_current_revision(db, case)
 
     record, greeting, session = _create_record(
         db,
         current_user.id,
         case,
-        case.case_data or {},
+        revision.content or {},
         config,
+        revision_id=revision.id,
         app_state=request.app.state,
     )
 
@@ -437,19 +387,30 @@ def start_training_from_assignment(
 
     is_overdue = lifecycle is AssignmentLifecycle.ENDED
 
-    user_class = (
-        db.query(UserClass)
+    # 班级门槛按成员语义（student membership），不再依赖"任意一条关联"
+    in_class = (
+        db.query(ClassMembership)
         .filter(
-            UserClass.user_id == current_user.id,
-            UserClass.class_id == assignment.class_id,
+            ClassMembership.user_id == current_user.id,
+            ClassMembership.class_id == assignment.class_id,
+            ClassMembership.member_role == "student",
         )
         .first()
     )
-    if not user_class:
+    if not in_class:
         raise AuthError(detail="你不在该练习的目标班级中", status_code=403)
 
-    if assignment.student_ids is not None and current_user.id not in assignment.student_ids:
-        raise AuthError(detail="你不在该作业的指定学生名单中", status_code=403)
+    # 受众只认发布时固化的 recipient 快照（全班/指定学生统一走同一张表）
+    recipient = (
+        db.query(AssignmentRecipient)
+        .filter(
+            AssignmentRecipient.assignment_id == assignment.id,
+            AssignmentRecipient.user_id == current_user.id,
+        )
+        .first()
+    )
+    if recipient is None:
+        raise AuthError(detail="该作业未发布给你", status_code=403)
 
     attempt_count = count_attempts(
         row[0]
@@ -505,7 +466,8 @@ def start_training_from_assignment(
             # 超期作业的进行中记录不再放行继续（作业截止是教师语义，与训练时长无关）
             raise HTTPException(status_code=400, detail="该作业已过截止时间")
         case = assignment.case
-        case_data = case.case_data if case else {}
+        # 进行中的记录自带冻结内容（case_snapshot），问候语不得读病例的最新工作副本
+        case_data = existing.case_snapshot or (case.case_data if case else {})
         patient_info = case_data.get("patient_info", {})
         patient_name = patient_info.get("name", "患者")
         greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
@@ -532,12 +494,18 @@ def start_training_from_assignment(
         "behavior": assignment.behavior or {},
     }
 
+    # 归档病例不得用于**新的**训练（既有作业也拦，docs/15 §六：archived 只阻止新使用）；
+    # 进行中的记录走上面的 existing 分支，不受影响。
+    require_publishable(case)
+    # 作业钉住的病例版本（发布时固化）；历史作业行没有版本时回落到病例当前版本
+    revision = revision_of(db, assignment.case_revision_id, case=case) or require_current_revision(db, case)
     record, greeting, session = _create_record(
         db,
         current_user.id,
         case,
-        case.case_data or {},
+        revision.content or {},
         config,
+        revision_id=revision.id,
         assignment_id=assignment.id,
         is_overdue=is_overdue,
         app_state=request.app.state,
@@ -588,9 +556,15 @@ def start_blind_box_training(
             },
         )
 
-    case = db.query(Case).filter(Case.is_open == True).order_by(func.random()).first()
+    case = (
+        db.query(Case)
+        .filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED)
+        .order_by(func.random())
+        .first()
+    )
     if not case:
         raise HTTPException(status_code=400, detail="暂无可用的自主练习病例，请稍后再试")
+    revision = require_current_revision(db, case)
 
     config = {
         "id": 0,

@@ -32,7 +32,8 @@ class TestEmotionNoteSource:
         note = "【患者当前互动策略】\n- 语气：平稳、正常交流"
         ctx = FakeContext(state={STATE_EMOTION_NOTE: note})
         result = await src.collect(ctx)
-        assert result == note
+        assert result.text == note
+        assert result.source == "emotion"
 
     async def test_returns_none_when_no_cached_note(self):
         src = EmotionNoteSource()
@@ -48,7 +49,8 @@ class TestIdentityGuardSource:
         ctx = FakeContext(messages=[msg])
         result = await src.collect(ctx)
         assert result is not None
-        assert "注意" in result
+        assert "注意" in result.text
+        assert result.source == "identity_guard"
 
     async def test_no_trigger_on_normal_reply(self):
         src = IdentityGuardSource()
@@ -82,13 +84,13 @@ class TestOperationNoteSource:
         )
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert "体温测量" in result
-        assert "血压测量" in result
-        assert "体温计置于腋下" in result
-        assert "袖带绑在左上臂" in result
+        assert "体温测量" in result.text
+        assert "血压测量" in result.text
+        assert "体温计置于腋下" in result.text
+        assert "袖带绑在左上臂" in result.text
         # 反馈 id=30 修复：测量值随注记告知患者，患者对自身发烧/剧痛才有言语反应
-        assert "测得 36.5℃" in result
-        assert "测得 120/80mmHg" in result
+        assert "测得 36.5℃" in result.text
+        assert "测得 120/80mmHg" in result.text
 
     async def test_returns_none_when_no_results(self):
         src = OperationNoteSource()
@@ -107,10 +109,10 @@ class TestOperationNoteSource:
         record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert "体温测量（重复了2次）" in result or "体温测量" in result
-        assert "血压测量" in result
+        assert "体温测量（重复了2次）" in result.text or "体温测量" in result.text
+        assert "血压测量" in result.text
         # No excessive threshold yet — only 3+ triggers the warning
-        assert "不适" not in result
+        assert "不适" not in result.text
 
     async def test_excessive_repetition_triggers_discomfort(self):
         src = OperationNoteSource()
@@ -122,8 +124,8 @@ class TestOperationNoteSource:
         record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert "反复测量了3次" in result
-        assert "不适" in result or "质疑" in result or "困惑" in result
+        assert "反复测量了3次" in result.text
+        assert "不适" in result.text or "质疑" in result.text or "困惑" in result.text
 
     async def test_unknown_type_skipped(self):
         src = OperationNoteSource()

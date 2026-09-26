@@ -9,14 +9,15 @@ import { getQuickPrompts } from "./quick-prompts";
 interface WelcomeScreenProps {
 	patient: PatientData;
 	onQuickPrompt?: (text: string) => void;
-	capabilities?: Record<string, boolean>;
+	/** 本次训练可用的 Activity 标签（来自 manifest，服务端下发） */
+	activityLabels?: string[];
 }
 
 /**
  * WelcomeScreen — 问诊开场：患者卡片 + 训练流程 + 建议开场。
  * 以"接诊第一眼"呈现患者信息，帮助学生快速进入角色。
  */
-export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: WelcomeScreenProps) {
+export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: WelcomeScreenProps) {
 	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
 	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
 	const showGuidance = mode === "guided";
@@ -27,13 +28,10 @@ export function WelcomeScreen({ patient, onQuickPrompt, capabilities = {} }: Wel
 	const ageLabel = patient.age ? `${patient.age}岁` : "";
 	const subInfo = [genderLabel, ageLabel].filter(Boolean).join(" · ");
 
-	const flowSteps = useMemo(() => {
-		const steps = ["问诊采集"];
-		if (capabilities.physical_exam) steps.push("护理查体");
-		if (capabilities.nursing_record) steps.push("护理记录");
-		steps.push("结束评分");
-		return steps;
-	}, [capabilities]);
+	const flowSteps = useMemo(
+		() => ["问诊采集", ...activityLabels, "结束评分"],
+		[activityLabels],
+	);
 
 	const quickPrompts = useMemo(
 		() => getQuickPrompts(patient),

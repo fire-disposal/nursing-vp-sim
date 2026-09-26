@@ -17,23 +17,28 @@ import {
 	useToolBridge,
 	waitForPendingToolCommands,
 } from "@/hooks/useToolBridge";
+import {
+	ACTIVITY_STATE_AVAILABLE,
+	blockerActivity,
+	completionBlockers,
+	requiredArtifacts,
+} from "./manifest";
 import { createMessageBus } from "./MessageBus";
 import {
 	useTrainingStore,
 	getTrainingState,
 } from "@/stores/trainingStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
 	usePatientData,
-	useTrainingType,
-	useRecordCapabilities,
+	useRecordFeatures,
 	useInitialMessages,
 	useTimeLimit,
 	useEmotionSeed,
-	useSceneSeed,
 	useRecordStatus,
 	useRecordAsDetail,
 } from "./TrainingDataContext";
-import { ScoreManager } from "./ScoreManager";
+import { ScoreManager, endFailureMessage } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
 import { EMOTION_LABELS, type Emotion4DLabel, type EmotionState } from "@/stores/trainingStore";
@@ -41,6 +46,9 @@ interface TrainingEngineProps {
 	recordId: string;
 	children: ReactNode;
 }
+
+/** `/end` 的原子「提交并完成」只针对护理评估产物（transport 契约；是否必交由 manifest 声明） */
+const NURSING_RECORD_ARTIFACT_KIND = "nursing_record";
 
 function TrainingBootSkeleton() {
 	return (
@@ -57,14 +65,20 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 
 	// ── Read raw data from RQ-backed context (single source: TrainingEntry's query) ──
 	const patient = usePatientData();
-	const trainingType = useTrainingType();
-	const capabilities = useRecordCapabilities();
+	const features = useRecordFeatures();
 	const initialMessages = useInitialMessages();
 	const timeLimit = useTimeLimit();
 	const emotionSeed = useEmotionSeed();
-	const sceneSeed = useSceneSeed();
 	const recordStatus = useRecordStatus();
 	const recordDetail = useRecordAsDetail();
+	/** 服务端 manifest：Activity 可用性 / 完成条件的唯一来源（前端不再自算） */
+	const manifest = useTrainingStore((state) => state.manifest);
+	const nursingRecordAvailable =
+		manifest?.activities.some(
+			(activity) =>
+				activity.id === NURSING_RECORD_ARTIFACT_KIND &&
+				activity.availability.state === ACTIVITY_STATE_AVAILABLE,
+		) ?? false;
 
 	// ── Services (refs — not in store) ──
 	const busRef = useRef(createMessageBus());
@@ -87,8 +101,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			bus: busRef.current,
 			recordId,
 			patient,
-			trainingType,
-			capabilities,
+			features,
 			timeLimitMinutes: timeLimit,
 			recordDetail,
 			initialMessages,
@@ -96,9 +109,14 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		});
 		setReadyRecordId(recordId);
 	}, [
-		recordId, patient, trainingType, capabilities, timeLimit,
+		recordId, patient, features, timeLimit,
 		recordDetail, initialMessages, emotionSeed,
 	]);
+
+	// 换记录 = 换会话：清空上一个会话留下的工作区面板状态
+	useEffect(() => {
+		useWorkspaceStore.getState().resetWorkspace();
+	}, [recordId]);
 
 	// ── TTS attach ──
 	useEffect(() => {
@@ -130,7 +148,9 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const flushNursingRecord = useCallback(async () => {
 		const store = getTrainingState();
 		if (
-			capabilities.nursing_record &&
+			nursingRecordAvailable &&
+			// 已提交 = 内容冻结：再发草稿保存只会撞 409，不应阻断交卷/发消息
+			!store.nursingRecordSubmittedAt &&
 			store.nursingRecordDirty &&
 			store.nursingRecordDraft
 		) {
@@ -138,7 +158,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			busRef.current.emit("tool:invoke", {
 				tool: "nursing_record",
 				action: "save",
-				params: { sheet_data: snapshot, status: "draft" },
+				params: { sheet_data: snapshot },
 				recordId: recordNum,
 			});
 			await waitForPendingToolCommands(recordNum, "nursing_record");
@@ -146,7 +166,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			return;
 		}
 		await waitForPendingToolCommands(recordNum, "nursing_record");
-	}, [capabilities.nursing_record, recordNum]);
+	}, [nursingRecordAvailable, recordNum]);
 
 	// ── 患者中止访谈（内生 GAMEOVER）──
 	// 服务端在同一轮里已完成 finalize 并触发评分，前端只做本地收尾与提示：
@@ -236,16 +256,36 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		if (endingRef.current) return;
 		endingRef.current = true;
 		try {
+			// 先落盘草稿：即使随后被完成前置拦下，学生写的内容也不会丢
 			await flushNursingRecord();
-			await scoreRef.current.end();
+			// 完成前置一律读服务端 manifest：前端呈现原因，不自己判断能否结束
+			// （docs/15 §十五 陷阱 2：`eligible` / `blockers` 只有服务端一份）。
+			const current = useTrainingStore.getState().manifest;
+			const blockers = completionBlockers(current);
+			if (blockers.length > 0) {
+				const [first] = blockers;
+				toastError(first.message || "完成条件尚未满足，请先处理后再结束训练");
+				const activity = blockerActivity(current, first);
+				if (activity) useWorkspaceStore.getState().openPanel(activity.id);
+				return;
+			}
+			// 原子「提交并完成」：服务端在同一事务里确认护理评估处于 submitted
+			// 再完成训练——校验失败返回 409 + 可读原因（不会把草稿偷偷标成已提交）。
+			// 内容由工具面 `nursing_record.submit` 显式提交；这里只重申/校验冻结状态，
+			// 因此不回传 sheet（回传不同内容会被 409 拒绝）。
+			const needsNursingSubmit =
+				requiredArtifacts(current).includes(NURSING_RECORD_ARTIFACT_KIND);
+			await scoreRef.current.end(
+				needsNursingSubmit ? { submit_nursing_record: true } : undefined,
+			);
 			getTrainingState().setTrainingEnded(true);
 			busRef.current.emit("training:ended");
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.student() });
 			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-		} catch {
-			toastError("护理记录或训练提交失败，请重试");
-			throw new Error("训练提交失败");
+		} catch (err) {
+			toastError(endFailureMessage(err));
+			throw err instanceof Error ? err : new Error("训练提交失败");
 		} finally {
 			endingRef.current = false;
 		}
@@ -323,12 +363,18 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		emotionSeededRef.current = true;
 	}, [emotionSeed]);
 
-	const sceneSeededRef = useRef(false);
+	// ── 产物状态变化 → manifest（完成条件/blockers）重新解析 ──
 	useEffect(() => {
-		if (sceneSeededRef.current || !sceneSeed) return;
-		busRef.current.emit("scene:state", sceneSeed);
-		sceneSeededRef.current = true;
-	}, [sceneSeed]);
+		const unsubscribe = busRef.current.on(
+			"tool:result",
+			(payload: { tool: string; action: string; ok: boolean }) => {
+				if (!payload.ok || payload.tool !== NURSING_RECORD_ARTIFACT_KIND) return;
+				if (payload.action !== "submit" && payload.action !== "reopen") return;
+				void queryClient.invalidateQueries({ queryKey: queryKeys.training.detail(recordId) });
+			},
+		);
+		return unsubscribe;
+	}, [queryClient, recordId]);
 
 	// ── Check completed status ──
 	useEffect(() => {

@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getRecordDetail, pauseTraining, resumeTraining } from "../api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 import { TrainingDataProvider } from "@/engine/TrainingDataContext";
+import { parseSessionManifest } from "@/engine/manifest";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
@@ -130,9 +131,27 @@ export default function TrainingEntry() {
 	if (!record) return <Text p="md">记录不存在</Text>;
 	if (!qHasChecked) return <TrainingSkeleton />;
 
-	const type = record.training_type || "history_taking";
-	const SceneComponent = TRAINING_SCENES[type];
-	if (!SceneComponent) return <Text p="md">未知训练类型: {type}</Text>;
+	// 工作区由服务端 manifest 的 workflow 决定
+	const manifest = parseSessionManifest(record.manifest);
+	// 首帧可能来自 startTraining 的轻量 session 缓存（不含 manifest）：继续等完整详情
+	if (!manifest) return <TrainingSkeleton />;
+
+	const SceneComponent = TRAINING_SCENES[manifest.workflow.id];
+	if (!SceneComponent) {
+		return (
+			<Center style={{ minHeight: "60vh" }}>
+				<Stack align="center" gap="sm" p="xl" ta="center">
+					<Text fw={500}>该训练工作区尚未在此版本提供</Text>
+					<Text size="xs" c="dimmed">
+						工作区：{manifest.workflow.label || manifest.workflow.id}
+					</Text>
+					<Button variant="outline" mt={4} onClick={() => refetch()}>
+						重新加载
+					</Button>
+				</Stack>
+			</Center>
+		);
+	}
 
 	const requiredQuestionnaireOpen = qShouldShow && checkResponse?.is_required === true;
 

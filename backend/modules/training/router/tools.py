@@ -1,8 +1,13 @@
-"""工具指令面 HTTP 端点（Phase 2.5）。
+"""旧工具指令面的 HTTP transport adapter（Phase 2.5 协议，保留期）。
 
 POST /api/training/{record_id}/tools
   body: { cmd: "physical_exam.measure", params: {...}, idem_key: "...", revision: <int|null> }
   → { ok, data, scene, error, revision }
+
+**它只是旧协议到 Activity command 的适配层**：``cmd`` 拆成
+``(activity_id, command)`` 后交 ``ACTIVITY_BINDINGS`` 分发（见
+``modules/training/tools/service.py``），可用性由服务端解析的 Activity 声明决定 ——
+这里（以及整条链路）不再读 ``case.tools`` 或旧 capability 表（docs/15 §四/§九）。
 
 - revision 乐观并发：旧版本 409（附当前 revision），结构上消灭 JSONB 无锁覆盖（T5）；
 - idem_key 幂等：TrainingAction unique(record_id, request_id) 回放；

@@ -14,11 +14,6 @@ import pytest
 from core.exceptions import AuthError, ValidationError
 from models import TrainingAction, TrainingRecord
 from modules.training.tools.base import ToolContext
-from modules.training.tools.nursing_diagnosis import NursingDiagnosisHandler
-from modules.training.tools.nursing_record import NursingRecordHandler
-from modules.training.tools.physical_exam import PhysicalExamHandler
-from modules.training.tools.quiz import QuizHandler
-from modules.training.tools.registry import registry
 from modules.training.tools.service import execute_tool_command, parse_cmd
 from tests._fakes import UpdateCapableFakeSession, _UpdateQuery
 
@@ -90,12 +85,13 @@ class _ToolSession(UpdateCapableFakeSession):
 
 
 def _case_data(*, enabled: bool = True) -> dict:
-    tools = (
+    """病例声明：``activities.<id>.config``（无声明 → 未启用，见 docs/15 §四）。"""
+    activities = (
         {
-            "physical_exam": {"groups": [], "vital_signs": {"pain_score": "4-6"}},
-            "nursing_record": {"enabled": True},
-            "quiz": {"questions": [{"id": "q1", "stem": "题干", "options": ["A"], "answer": "A"}]},
-            "nursing_diagnosis": {"enabled": True},
+            "physical_exam": {"config": {"groups": [], "vital_signs": {"pain_score": "4-6"}}},
+            "nursing_record": {"config": {"enabled": True}},
+            "quiz": {"config": {"questions": [{"id": "q1", "stem": "题干", "options": ["A"], "answer": "A"}]}},
+            "nursing_diagnosis": {"config": {"enabled": True}},
         }
         if enabled
         else {}
@@ -103,7 +99,7 @@ def _case_data(*, enabled: bool = True) -> dict:
     return {
         "patient_info": {"name": "王建国", "age": 68, "gender": "男"},
         "chief_complaint": "喘不上气",
-        "tools": tools,
+        "activities": activities,
     }
 
 
@@ -126,17 +122,12 @@ def _env(*, owner_id: int = 10, user_id: int = 10, can_review: bool = False, ena
         case_snapshot=case_data,
         practice_snapshot={},
         runtime_state=None,
-        training_type="history_taking",
     )
     db = _ToolSession(revision=0)
     db.add(record)
     record_user = SimpleNamespace(
         id=user_id, has_permission=lambda permission: permission == "score_review" and can_review
     )
-    registry.setdefault("physical_exam", PhysicalExamHandler())
-    registry.setdefault("nursing_record", NursingRecordHandler())
-    registry.setdefault("quiz", QuizHandler())
-    registry.setdefault("nursing_diagnosis", NursingDiagnosisHandler())
     return ToolContext(record=record, case_data=case_data, current_user=record_user, db=db), db
 
 

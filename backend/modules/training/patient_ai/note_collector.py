@@ -1,7 +1,8 @@
-"""NoteCollector — 每轮状态注记收集（供 PatientState 消息合成）。
+"""NoteCollector — 每轮状态注记收集（供 PatientState 槽位装配）。
 
 四域重构后不再是 "author_note"，而是 per-turn 状态消息（情绪策略/操作注记）
-的来源：prompt_builder 把 collect() 结果交给 build_patient_state。
+的来源。这里只做**收集**：来源异常不影响本轮其余来源；选择/排序/裁剪/预算
+全部交给 ``context.assembler.ContextAssembler``（docs/15 §八：装配权集中一处）。
 """
 
 from __future__ import annotations
@@ -10,21 +11,12 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from modules.training.context.fragment import ContextFragment
     from modules.training.pipeline.context import PipelineContext
 
 from .note_source import NoteSource
 
 log = logging.getLogger(__name__)
-
-from infra.llm.token_counter import estimate_tokens
-
-MAX_AUTHOR_NOTE_TOKENS = 300
-
-
-def _truncate_tokens(text: str, max_tokens: int) -> str:
-    # CJK ~0.6 token/char → ~1.67 char/token，用 1.5 保守估算
-    max_chars = int(max_tokens * 1.5)
-    return text[:max_chars] + "\u2026" if len(text) > max_chars else text
 
 
 class NoteCollector:
@@ -34,31 +26,18 @@ class NoteCollector:
     def add(self, source: NoteSource) -> None:
         self._sources.append(source)
 
-    async def collect(self, ctx: PipelineContext) -> str:
-        notes: list[tuple[int, str, str]] = []
+    @property
+    def sources(self) -> list[NoteSource]:
+        return list(self._sources)
+
+    async def collect(self, ctx: PipelineContext) -> list[ContextFragment]:
+        fragments: list[ContextFragment] = []
         for src in self._sources:
             try:
-                text = await src.collect(ctx)
-                if text and text.strip():
-                    notes.append((src.priority, src.name, text.strip()))
+                fragment = await src.collect(ctx)
             except Exception:
                 log.exception("NoteSource %s failed", src.name)
-        notes.sort(key=lambda x: x[0])
-        return self._budget_join(notes)
-
-    def _budget_join(self, notes: list[tuple[int, str, str]]) -> str:
-        budget = MAX_AUTHOR_NOTE_TOKENS
-        selected: list[str] = []
-        dropped: list[str] = []
-        for _, _name, text in notes:
-            cost = estimate_tokens(text)
-            if cost > budget:
-                if not selected:
-                    selected.append(_truncate_tokens(text, budget))
-                dropped.append(_name)
                 continue
-            selected.append(text)
-            budget -= cost
-        if dropped:
-            log.warning("NoteCollector dropped sources due to budget: %s", dropped)
-        return "\u3010" + " | ".join(selected) + "\u3011" if selected else ""
+            if fragment is not None:
+                fragments.append(fragment)
+        return fragments

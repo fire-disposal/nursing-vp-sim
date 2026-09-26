@@ -6,7 +6,7 @@ import type { TrainingRecordDetail } from "./training-record-types";
 // ── Raw record from API (single source of truth) ──
 
 type TrainingRecord = components["schemas"]["TrainingRecordDetail"];
-const EMPTY_CAPABILITIES: Record<string, boolean> = {};
+const EMPTY_FEATURES: Record<string, boolean> = {};
 
 
 const TrainingDataCtx = createContext<TrainingRecord | null>(null);
@@ -62,18 +62,17 @@ export function useInitialMessages(): ChatMessage[] {
   }, [record]);
 }
 
-// ── Derived: capabilities ──
+// ── Derived: builtin features ──
 
-export function useRecordCapabilities(): Record<string, boolean> {
+/**
+ * 内置特性开关（emotion / patient_initiative / inquiry_progress）。
+ *
+ * **不是**能力表：Activity 的可用性一律读 `manifest.activities[].availability`，
+ * 这里只服务于内核内置的 UI 行为（情绪指示器、主动追问提示）。
+ */
+export function useRecordFeatures(): Record<string, boolean> {
   const record = useTrainingData();
-  return useMemo(() => record?.features ?? EMPTY_CAPABILITIES, [record]);
-}
-
-// ── Derived: training type ──
-
-export function useTrainingType(): string {
-  const record = useTrainingData();
-  return record?.training_type || "history_taking";
+  return useMemo(() => record?.features ?? EMPTY_FEATURES, [record]);
 }
 
 // ── Derived: time limit / countdown anchor ──
@@ -125,16 +124,6 @@ export function useEmotionSeed(): EmotionSeed | null {
 		}
 		return null;
 	}, [record]);
-}
-
-export function useSceneSeed(): Record<string, unknown> | null {
-  const record = useTrainingData();
-  return useMemo(() => {
-    if (!record) return null;
-    const sc = (record as unknown as { scene?: Record<string, unknown> }).scene;
-    if (sc && Object.keys(sc).length > 0) return sc;
-    return null;
-  }, [record]);
 }
 
 export function useRecordStatus(): string | undefined {

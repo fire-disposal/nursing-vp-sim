@@ -3,7 +3,7 @@
 import logging
 
 from core.exceptions import ValidationError
-from modules.training.capabilities import is_enabled
+from modules.training.features import is_feature_enabled
 from modules.training.tools.exam_emotion import apply_exam_emotion
 from modules.training.tools.physical_exam_rules import handle_operation
 
@@ -111,7 +111,7 @@ class PhysicalExamHandler(ToolHandler):
 
         # 查体 → 情绪桥接（feedback id=30）：异常值/重复测量产生确定性情绪事件。
         # 与查体结果同一事务提交；无事件或情绪禁用时返回 None，不影响查体结果。
-        if is_enabled(record, "emotion"):
+        if is_feature_enabled(record, "emotion"):
             same_op_count = sum(1 for item in exam_results if str(item.get("type")) == op_type)
             emotion_patch = apply_exam_emotion(
                 record.id,

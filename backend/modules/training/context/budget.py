@@ -29,6 +29,9 @@ from .history_compaction import summarize_rounds
 
 # 历史区 token 预算：固定开销（静态/会话/状态/示例）之外的余量全给历史。
 HISTORY_BUDGET_TOKENS = 2000
+# PER-TURN 患者状态槽位的总预算：情绪策略 + 操作注记 + 场景状态共用。
+# 该槽位是"患者此刻的事实"，是每轮变化的短文本，不是资料区。
+PATIENT_STATE_BUDGET_TOKENS = 300
 # 尾部保护集：最近 N 轮（N*2 条消息）无条件保留，防止预算吃光关键近期上下文。
 MIN_HISTORY_ROUNDS = 4
 # 头部钉住轮数：开场（主诉相关）的 N 轮永不进入裁剪，跨轮逐字节稳定。

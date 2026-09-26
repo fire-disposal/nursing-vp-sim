@@ -1,6 +1,6 @@
 """操作处理器 — 配置驱动的查体/测量操作
 
-从 case_data.tools.physical_exam 读取配置（向后兼容 case_data.exam_anchors）。
+病例配置从 ``activities.physical_exam.config`` 读取（docs/15 §四：能力的唯一声明处）。
 支持两种格式：
 1. 新格式：含 groups 结构（前端直接消费）
 2. 旧格式：自动从 vital_signs/skin/pain_score 推导
@@ -16,6 +16,19 @@ from typing import Any
 from core.exceptions import ValidationError
 
 log = logging.getLogger(__name__)
+
+
+def _activity_anchors(case_data: dict) -> dict:
+    """病例为 ``physical_exam`` 声明的查体配置（未声明/形状不符 → 空配置）。
+
+    函数内导入：``activities`` 装配 handler 时导入本模块，模块级反向导入会成环。
+    """
+    from modules.training.activities import activity_config
+
+    config = activity_config(case_data, "physical_exam")
+    return config if isinstance(config, dict) else {}
+
+
 # ── 操作定义表（所有标准操作始终可用，未配置时回落默认值）──────────
 
 _LEGACY_OP_DEFS: dict[str, dict] = {
@@ -186,12 +199,7 @@ def _apply_offsets(op_type: str, base: str, offsets: dict[str, float]) -> str:
 
 def _resolve_physiology(case_data: dict) -> dict[str, str]:
     """解析全部体征：已配置的尊重原值，未配置的取年龄默认值并叠加代偿偏移。"""
-    tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
-    anchors = (
-        tools.get("physical_exam")
-        if isinstance(tools.get("physical_exam"), dict)
-        else case_data.get("exam_anchors", {})
-    )
+    anchors = _activity_anchors(case_data)
     op_defs = _collect_op_defs(anchors)
     group = _get_age_group(case_data)
 
@@ -265,15 +273,10 @@ def _interpret_measurement(op_type: str, value: str, label: str, case_data: dict
 def handle_operation(op_type: str, case_data: dict) -> dict:
     """执行一项查体/测量操作。
 
-    所有标准操作始终可用：优先从 exam_anchors 读取配置值，缺失时
-    根据患者年龄返回临床合理默认值。
+    所有标准操作始终可用：优先从病例声明的 ``activities.physical_exam.config``
+    读取配置值，缺失时根据患者年龄返回临床合理默认值。
     """
-    tools = case_data.get("tools", {}) if isinstance(case_data, dict) else {}
-    anchors = (
-        tools.get("physical_exam")
-        if isinstance(tools.get("physical_exam"), dict)
-        else case_data.get("exam_anchors", {})
-    )
+    anchors = _activity_anchors(case_data)
     op_defs = _collect_op_defs(anchors)
     op_def = op_defs.get(op_type)
     if not op_def:
@@ -335,7 +338,7 @@ def _resolve_value(op_type: str, op_def: dict, anchors: dict, case_data: dict) -
 
 
 def _try_from_config(path: tuple[str, ...], anchors: dict, case_data: dict) -> str | None:
-    """Try to resolve from exam_anchors. Returns None if not configured."""
+    """Try to resolve from the declared physical_exam config. Returns None if not configured."""
     if not path:
         return None
 

@@ -1,4 +1,8 @@
-"""NoteSource — per-round context injection sources."""
+"""NoteSource — per-round context injection sources.
+
+来源只**生产类型化片段**（``ContextFragment``）：优先级/上限由来源声明，
+排序/裁剪/预算/落位由 ``ContextAssembler`` 决定（docs/15 §八）。
+"""
 
 from __future__ import annotations
 
@@ -6,19 +10,45 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from modules.training.context.fragment import ContextFragment, ContextSlot
+
 if TYPE_CHECKING:
     from modules.training.pipeline.context import PipelineContext
 
 log = logging.getLogger(__name__)
 
 
+def declared_name(source_cls: type[NoteSource]) -> str:
+    """来源的类级声明名（不走 property 描述符：类上取到的会是 property 对象）。
+
+    用来推导「本轮被声明的可注入来源」——声明来自 Workflow/Activity，
+    不来自实例自报，否则任何对象都能自我授权。
+    """
+    for klass in source_cls.__mro__:
+        raw = klass.__dict__.get("name")
+        if isinstance(raw, str) and raw:
+            return raw
+    return ""
+
+
 class NoteSource(ABC):
     name: str = ""
     priority: int = 0
+    #: 本源单个片段的 token 上限（装配器据此裁剪；槽位总预算另算）
     max_tokens: int = 100
 
     @abstractmethod
-    async def collect(self, ctx: PipelineContext) -> str | None: ...
+    async def collect(self, ctx: PipelineContext) -> ContextFragment | None: ...
+
+    def fragment(self, text: str, *, slot: ContextSlot = ContextSlot.PATIENT_STATE) -> ContextFragment:
+        """把本源产出的文本包成类型化片段（来源/优先级/上限由声明决定）。"""
+        return ContextFragment(
+            source=self.name,
+            slot=slot,
+            text=text,
+            priority=self.priority,
+            max_tokens=self.max_tokens,
+        )
 
 
 _OPS_EXPERIENCE_DESCRIPTIONS: dict[str, str] = {
@@ -44,7 +74,7 @@ class OperationNoteSource(NoteSource):
     priority = 30
     max_tokens = 250
 
-    async def collect(self, ctx: PipelineContext) -> str | None:
+    async def collect(self, ctx: PipelineContext) -> ContextFragment | None:
         rs = ctx.record.runtime_state or {}
         ops = rs.get("exam_results", [])
         if not isinstance(ops, list) or not ops:
@@ -108,4 +138,4 @@ class OperationNoteSource(NoteSource):
         elif total >= 5:
             lines.append("\n护士的操作较多，你可能有些困惑，但仍保持配合。")
 
-        return "\n".join(lines)
+        return self.fragment("\n".join(lines))

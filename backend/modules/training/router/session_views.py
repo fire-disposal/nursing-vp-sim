@@ -14,17 +14,28 @@ from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize
 from models import (
     Assignment,
     Case,
+    CaseRevision,
+    ClassMembership,
     Score,
     ScoreReview,
     TrainingAction,
     TrainingRecord,
     TrainingSessionState,
     User,
-    UserClass,
 )
 from modules.questionnaires.response_service import count_pending_required
-from modules.training.capabilities import detect_capabilities
+from modules.training.manifest import (
+    ARTIFACT_DRAFT,
+    ARTIFACT_SUBMITTED,
+    ArtifactState,
+    build_session_manifest,
+)
+from modules.training.pipeline.turn import TURN_KIND
+from modules.training.profile import HISTORY_TAKING
+from modules.training.session.finalize import terminal_reason
+from modules.training.timing import DEFAULT_TIME_LIMIT_MINUTES
 from modules.training.timing import remaining_seconds as compute_remaining_seconds
+from modules.training.tools.nursing_record import get_nursing_record
 from schemas import (
     PaginatedResponse,
     PatientPublicInfo,
@@ -36,7 +47,7 @@ from schemas import (
 from schemas.case_schema import normalize_gender
 
 from .session import (
-    _load_nursing_sheet,
+    _load_nursing_record,
     _public_patient_info,
     _public_scene,
 )
@@ -44,6 +55,25 @@ from .session import (
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _artifact_states(db: Session, record: TrainingRecord) -> dict[str, ArtifactState]:
+    """持久化产物状态（draft/submitted）—— manifest 的唯一输入，前端不得自行推断。
+
+    目前只有护理记录一种产物（``nursing_records`` 一训练一行、``submitted_at`` 是提交真值）；
+    「病例是否启用该产物」由 manifest 自己解析，这里只报状态。
+    """
+    nr = get_nursing_record(db, record.id)
+    if nr is None:
+        return {}
+    return {
+        "nursing_record": ArtifactState(
+            kind="nursing_record",
+            state=ARTIFACT_SUBMITTED if nr.submitted_at else ARTIFACT_DRAFT,
+            submitted_at=nr.submitted_at.isoformat() if nr.submitted_at else None,
+            updated_at=nr.updated_at.isoformat() if nr.updated_at else None,
+        )
+    }
 
 
 def _hidden_case(record: TrainingRecord) -> str | None:
@@ -78,7 +108,6 @@ def get_records(
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
-    training_type: Annotated[str | None, Query(description="按训练类型筛选(history_taking)")] = None,
     user_id: Annotated[int | None, Query(description="按用户ID筛选（仅 score_review 权限生效）")] = None,
     exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
     sort_by: Annotated[str, Query(description="排序字段：start_time/score_total/duration")] = "start_time",
@@ -97,10 +126,10 @@ def get_records(
         if case_id is not None:
             base = base.filter(TrainingRecord.case_id == case_id)
         if class_id is not None:
-            base = base.join(UserClass, UserClass.user_id == TrainingRecord.user_id).filter(
-                UserClass.class_id == class_id
+            base = base.join(ClassMembership, ClassMembership.user_id == TrainingRecord.user_id).filter(
+                ClassMembership.class_id == class_id,
+                ClassMembership.member_role == "student",
             )
-    base = base.filter(TrainingRecord.training_type == "history_taking")
     if exclude_is_test:
         base = base.filter(TrainingRecord.is_test == False)
 
@@ -166,7 +195,6 @@ def get_records(
             id=r.id,
             case_id=r.case_id,
             case_name=_hidden_case(r) or (r.case.name if r.case else ""),
-            training_type=r.training_type or "history_taking",
             user_id=r.user_id,
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
@@ -290,7 +318,7 @@ def get_record_detail(
     pending_questionnaires = count_pending_required(db, record.user_id, case.id) if case is not None else 0
 
     case_data = record.case_snapshot or (case.case_data or {} if case else {})
-    time_limit = record.time_limit or 20
+    time_limit = record.time_limit or DEFAULT_TIME_LIMIT_MINUTES
     remaining_seconds = compute_remaining_seconds(record)
     patient_info = _public_patient_info(case_data)
     case_title = case_data.get("title", "") or (case.name if case else "")
@@ -332,6 +360,8 @@ def get_record_detail(
                 db.query(TrainingAction.id)
                 .filter(
                     TrainingAction.record_id == record.id,
+                    # 回合本身（kind=chat_turn）不是"工具操作"（在学生发言前登记）
+                    TrainingAction.kind != TURN_KIND,
                     TrainingAction.kind != "load",
                     TrainingAction.created_at > student.created_at,
                 )
@@ -341,6 +371,11 @@ def get_record_detail(
                 eligible_last_message_id = student.id
 
     hidden_placeholder = _hidden_case(record)
+    nursing_sheet, nursing_submitted_at = _load_nursing_record(db, record.id)
+    workflow = HISTORY_TAKING
+    overrides = (record.practice_snapshot or {}).get("features")
+    # 本次训练钉住的病例版本（旧记录为 NULL：内容只在 case_snapshot 里）
+    case_revision = db.get(CaseRevision, record.case_revision_id) if record.case_revision_id else None
     # 隐藏时全量匿名（姓名/年龄/性别/主诉），避免 PatientInfoTool 等消费点泄露患者特征
     redacted_patient_info = {"name": "患者", "age": 0, "gender": ""}
     return TrainingRecordDetail(
@@ -361,11 +396,18 @@ def get_record_detail(
         score=score_obj,
         patient_info=PatientPublicInfo.model_validate(redacted_patient_info if hidden_placeholder else patient_info),
         patient_gender="" if hidden_placeholder else normalize_gender(str(patient_info.get("gender") or "")) or "",
-        training_type=record.training_type or "history_taking",
-        features=detect_capabilities(
+        features=workflow.resolve_features(case_data, overrides=overrides),
+        manifest=build_session_manifest(
+            session_id=record.id,
+            status=record.status,
+            revision=record.revision,
             case_data=case_data,
-            training_type=record.training_type or "history_taking",
-            overrides=(record.practice_snapshot or {}).get("features"),
+            workflow=workflow,
+            case_id=record.case_id,
+            case_revision_id=record.case_revision_id,
+            case_revision_no=case_revision.revision_no if case_revision else None,
+            overrides=overrides,
+            artifacts=_artifact_states(db, record),
         ),
         patient_name="患者" if hidden_placeholder else patient_info["name"],
         patient_age=0 if hidden_placeholder else patient_info["age"],
@@ -375,7 +417,9 @@ def get_record_detail(
         pending_questionnaires=pending_questionnaires,
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
         scene=_public_scene(record),
-        nursing_record_sheet=_load_nursing_sheet(db, record.id),
+        nursing_record_sheet=nursing_sheet,
+        nursing_record_submitted_at=nursing_submitted_at,
+        terminal_reason=terminal_reason(record),
         emotion=emotion,
         initiative_count=initiative_count,
         message_correction={

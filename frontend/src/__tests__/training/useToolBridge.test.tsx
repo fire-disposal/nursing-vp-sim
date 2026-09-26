@@ -57,7 +57,7 @@ describe("useToolBridge (HTTP 指令面)", () => {
     expect(body.idem_key).toBeTruthy();
   });
 
-  it("emits tool:result and scene:state for components (contract unchanged)", async () => {
+  it("emits tool:result for components (contract unchanged)", async () => {
     const bus = createMessageBus();
     const results: Array<Record<string, unknown>> = [];
     bus.on("tool:result", (r: Record<string, unknown>) => results.push(r));

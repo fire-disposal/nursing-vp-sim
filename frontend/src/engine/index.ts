@@ -1,14 +1,33 @@
 export { createMessageBus } from "./MessageBus";
-export { notifyProgress, ScoreManager } from "./ScoreManager";
-export { TrainingDataProvider, useTrainingData, usePatientData, useInitialMessages, useRecordCapabilities, useTrainingType, useTimeLimit, useStartTime, useEmotionSeed, useSceneSeed, useRecordStatus, useRecordAsDetail } from "./TrainingDataContext";
-export { TrainingEngine } from "./TrainingEngine";
-export type { TrainingTool, TrainingToolProps } from "./TrainingTool";
-export type { SessionRecordDetail, TrainingRecordDetail } from "./training-record-types";
+export {
+	parseSessionManifest,
+	availableActivities,
+	blockerActivity,
+	completionBlockers,
+	completionConditions,
+	requiredArtifacts,
+} from "./manifest";
 export type {
-	BadgeInfo,
-	ChatMessage,
-	MessageBus,
-	PanelContext,
-	PatientData,
-} from "./types";
+	ManifestActivity,
+	ManifestArtifact,
+	ManifestBlocker,
+	ManifestCondition,
+	SessionManifest,
+} from "./manifest";
+export { notifyProgress, ScoreManager } from "./ScoreManager";
+export {
+	TrainingDataProvider,
+	useTrainingData,
+	usePatientData,
+	useInitialMessages,
+	useRecordFeatures,
+	useTimeLimit,
+	useStartTime,
+	useEmotionSeed,
+	useRecordStatus,
+	useRecordAsDetail,
+} from "./TrainingDataContext";
+export { TrainingEngine } from "./TrainingEngine";
+export type { SessionRecordDetail, TrainingRecordDetail } from "./training-record-types";
+export type { BadgeInfo, ChatMessage, MessageBus, PatientData } from "./types";
 export type { ScoreData } from "@/types/score";

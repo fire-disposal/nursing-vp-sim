@@ -1,6 +1,6 @@
 import { Box, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { SceneRenderer } from "@/components/training/SceneRenderer";
+import { ActivityRail } from "@/components/training/workspace/ActivityRail";
 import { TrainingEngine } from "@/engine";
 
 export default function HistoryTakingScene({ recordId }: { recordId: string }) {
@@ -23,7 +23,7 @@ export default function HistoryTakingScene({ recordId }: { recordId: string }) {
 				}
 			>
 				<TrainingEngine recordId={recordId}>
-					<SceneRenderer />
+					<ActivityRail />
 				</TrainingEngine>
 			</ErrorBoundary>
 		</Box>

@@ -7,7 +7,12 @@ from schemas.training.emotion import (
 )
 from schemas.training.exam import ExamOperationResponse, ExamOperationResult
 from schemas.training.notification import TrainingNotificationItem
-from schemas.training.nursing import NursingRecordResponse, NursingRecordSave
+from schemas.training.nursing import (
+    NursingRecordError,
+    NursingRecordResponse,
+    NursingRecordSave,
+    NursingRecordSubmit,
+)
 from schemas.training.records import (
     MessageItem,
     PatientPublicInfo,
@@ -38,8 +43,10 @@ __all__ = [
     "InitiativeTriggerResponse",
     "MessageCorrectionStatus",
     "MessageItem",
+    "NursingRecordError",
     "NursingRecordResponse",
     "NursingRecordSave",
+    "NursingRecordSubmit",
     "PatientPublicInfo",
     "ScoreItem",
     "ScoreReviewItem",

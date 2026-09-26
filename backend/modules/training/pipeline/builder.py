@@ -15,10 +15,10 @@ _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 def build_pipeline() -> tuple[list[Any], Any]:
     """组装中间件链（按 stages 顺序）+ NoteCollector。
 
-    目前只有一条链（问诊 history_taking，与评分 rubric 同源）：TrainingRecord.training_type
-    由建单路径（session.py）硬编码为该值，因此本函数不接收该参数——它曾经只是被透传、
-    无人读，容易让读者以为存在多 profile 分派。新增训练类型 = 新链 + 新 rubric，
-    不要再往这里加"看起来能分派"的未用参数。
+    目前只有一条链（问诊 history_taking，与评分 rubric 同源）：类型字符串
+    （``TrainingRecord.training_type``）已退场（docs/15 §九），调用方不再需要传任何
+    分派参数——它曾经只是被透传、无人读，容易让读者以为存在多 profile 分派。
+    新增训练类型 = 新链 + 新 rubric，不要再往这里加"看起来能分派"的未用参数。
     """
     if not _CORE_MIDDLEWARE:
         from .middleware import (
@@ -43,10 +43,10 @@ def build_pipeline() -> tuple[list[Any], Any]:
 
     # --- assemble NoteCollector ---
     from modules.training.patient_ai.note_collector import NoteCollector
-    from modules.training.profile import PROFILE
+    from modules.training.profile import HISTORY_TAKING
 
     collector = NoteCollector()
-    for src_cls in PROFILE.note_sources:
+    for src_cls in HISTORY_TAKING.note_sources:
         collector.add(src_cls())
 
     return result, collector

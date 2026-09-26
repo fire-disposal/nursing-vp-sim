@@ -95,21 +95,20 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         except Exception:
             log.exception("Patient walkout finalization failed: record_id=%d", ctx.record.id)
 
-    try:
-        ctx.db.commit()
-    except Exception:
-        ctx.db.rollback()
-        log.warning("Side effects commit failed: record_id=%d", ctx.record.id, exc_info=True)
-
 
 async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     """患者中止访谈 → 终结会话（复用 /end 的幂等路径：finalize + 入队评分）。
 
     在 SIDE_EFFECTS 阶段执行：此时 persister 已提交本轮 student+patient 消息，
     因此评分读到的转录包含患者最后一句话（这才是「走人」的完整体现）。
+
+    提交边界：本函数只提交**自己写的东西**（走人标记、终结状态、运行时清理），
+    不再由 side_effects 兜底 ``ctx.db.commit()`` —— 正式产物（回合消息）的提交
+    归 persister 的事务 B（docs/15 §八：侧效果与正式产物分离）。
     """
     from modules.training.router.scoring import _run_scoring_background
     from modules.training.session.finalize import (
+        END_ORIGIN_PATIENT_WALKOUT,
         cleanup_session_runtime,
         finalize_training,
         mark_patient_walkout,
@@ -118,11 +117,14 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     now = datetime.now(UTC)
     record_id = ctx.record.id
     mark_patient_walkout(ctx.record, at=now)
-    claimed, kind, case_data = finalize_training(ctx.db, record_id, ended_at=now)
+    # 走人标记先落库：即便随后终结抢锁失败，chat 准入守卫也必须看到「患者已中止」
+    _commit_side_effect(ctx, action="patient_walkout_mark")
+    claimed, kind, case_data = finalize_training(ctx.db, record_id, ended_at=now, origin=END_ORIGIN_PATIENT_WALKOUT)
     if not claimed:
         log.warning("Patient walkout: record not finalizable (already ending?): record_id=%d", record_id)
         return
     if kind != TrainingStatus.COMPLETED or case_data is None:
+        _commit_side_effect(ctx, action="patient_walkout_finalize")
         return
 
     try:
@@ -148,8 +150,21 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
         "end_reason": "patient_walkout",
     }
     cleanup_session_runtime(ctx.record, app, ctx.db)
+    _commit_side_effect(ctx, action="patient_walkout")
     log.info(
         "训练因患者中止访谈结束: record_id=%d",
         record_id,
         extra={"user_id": ctx.current_user.id, "action": "training_patient_walkout"},
     )
+
+
+def _commit_side_effect(ctx: PipelineContext, *, action: str) -> None:
+    """侧效果的提交边界（best-effort，失败只记日志：不得回滚正式产物）。"""
+    try:
+        ctx.db.commit()
+    except Exception:
+        try:
+            ctx.db.rollback()
+        except Exception:
+            log.warning("Rollback failed after side effect error: %s", action, exc_info=True)
+        log.warning("Side effect commit failed: %s record_id=%d", action, ctx.record.id, exc_info=True)

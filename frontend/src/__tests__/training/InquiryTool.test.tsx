@@ -5,6 +5,7 @@ import InquiryTool from "@/components/training/tools/InquiryTool";
 import { InquiryProgressChip } from "@/components/training/InquiryProgressChip";
 import { createMessageBus } from "@/engine/MessageBus";
 import { useTrainingStore } from "@/stores/trainingStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 const INQUIRIES = ["胸闷持续时间与诱因", "既往心脏病史", "吸烟史"];
 
@@ -49,16 +50,13 @@ describe("问诊任务清单", () => {
 
 	it("状态栏清单入口显示完成度，点击后打开清单面板", async () => {
 		setStore("guided", [STUDENT_MESSAGE]);
-		let opened: Record<string, unknown> | null = null;
-		useTrainingStore.getState().bus?.on("tool:open", (payload: Record<string, unknown>) => {
-			opened = payload;
-		});
+		useWorkspaceStore.setState({ openPanelId: null });
 
 		render(<InquiryProgressChip />);
 		const chip = screen.getByTitle(/问诊任务清单 1\/3/);
 		await userEvent.click(chip);
 
-		expect(opened).toEqual({ id: "inquiry" });
+		expect(useWorkspaceStore.getState().openPanelId).toBe("inquiry");
 	});
 
 	it("独立考核不出现清单入口", () => {

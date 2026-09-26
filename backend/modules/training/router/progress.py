@@ -11,7 +11,7 @@ from core.database import get_db
 from core.security import get_current_user
 from infra.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
-from modules.training.capabilities import is_enabled
+from modules.training.features import is_feature_enabled
 from modules.training.patient_ai.emotion import EmotionRepository
 from modules.training.patient_ai.initiative import (
     apply_initiative_penalty,
@@ -53,7 +53,7 @@ async def trigger_initiative(
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
 
-    if not is_enabled(record, "patient_initiative"):
+    if not is_feature_enabled(record, "patient_initiative"):
         return {"triggered": False, "message": None}
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
@@ -82,7 +82,7 @@ async def trigger_initiative(
         request.app.state.llm_client,
         vector,
         personality,
-        case_data.get("name", "未知病例"),
+        case.name,
         student_msg=student_msg,
         context_tail=context_tail,
         patient_context=build_patient_context(case_data),

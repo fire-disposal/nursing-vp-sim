@@ -16,7 +16,7 @@ from infra.queue import QueueFullError
 from infra.training_queries import STALE_HOURS, abandon_record, find_stale_records
 from models import Message, Notification, Score, TrainingRecord, TrainingSessionState
 
-from .finalize import NO_STUDENT_MESSAGES_REASON, finalize_training
+from .finalize import END_ORIGIN_TIMEOUT, NO_STUDENT_MESSAGES_REASON, finalize_training
 
 log = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def _settle_expired_records(db) -> list[tuple[int, dict | None]]:
     pending: list[tuple[int, dict | None]] = []
     for record in expired:
         try:
-            claimed, kind, case_data = finalize_training(db, record.id, ended_at=now)
+            claimed, kind, case_data = finalize_training(db, record.id, ended_at=now, origin=END_ORIGIN_TIMEOUT)
             if claimed and kind == TrainingStatus.COMPLETED:
                 pending.append((record.id, case_data))
             db.commit()

@@ -6,9 +6,20 @@ import logging
 
 from core.exceptions import ValidationError
 
-from .base import ToolContext, ToolHandler, ToolResult, copy_runtime_state, get_tool_config
+from .base import ToolContext, ToolHandler, ToolResult, copy_runtime_state
 
 log = logging.getLogger(__name__)
+
+
+def _quiz_config(case_data: dict) -> dict | None:
+    """quiz 的病例配置：``activities.quiz.config``。
+
+    函数内导入：``activities`` 在装配期导入本模块的 handler，模块级反向导入会成环。
+    """
+    from modules.training.activities import activity_config
+
+    config = activity_config(case_data, "quiz")
+    return config if isinstance(config, dict) else None
 
 
 class QuizHandler(ToolHandler):
@@ -27,7 +38,7 @@ class QuizHandler(ToolHandler):
         return self._submit(question_id, answer, ctx)
 
     def _load(self, ctx: ToolContext) -> ToolResult:
-        quiz_config = get_tool_config(ctx.case_data, "quiz")
+        quiz_config = _quiz_config(ctx.case_data)
         if not quiz_config:
             return ToolResult(ok=True, data={"quiz": None})
         questions = quiz_config.get("questions", [])
@@ -45,7 +56,7 @@ class QuizHandler(ToolHandler):
         )
 
     def _submit(self, question_id: str, answer: str, ctx: ToolContext) -> ToolResult:
-        quiz_config = get_tool_config(ctx.case_data, "quiz")
+        quiz_config = _quiz_config(ctx.case_data)
         if not quiz_config:
             return ToolResult(ok=False, error="无 quiz 配置")
         questions = quiz_config.get("questions", [])

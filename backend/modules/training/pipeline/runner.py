@@ -12,6 +12,7 @@ from .context import (
     STATE_STREAM_QUEUE,
     PipelineContext,
 )
+from .turn import ERROR_PIPELINE, finalize_pending_turn
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ def _snapshot_done_id(ctx: PipelineContext) -> None:
             return
 
 
+def _error_frame(ctx: PipelineContext) -> str:
+    """SSE 错误帧：``error`` 保持既有形状，新增稳定 ``code``（可新增字段，兼容）。"""
+    payload: dict = {"error": (ctx.error or "生成失败")[:200]}
+    if ctx.error_code:
+        payload["code"] = ctx.error_code
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
 def _make_next(ctx: PipelineContext, middlewares: list[PipelineMiddleware]):
     index = 0
 
@@ -65,6 +74,10 @@ async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddlewar
     except Exception as e:
         log.exception("Pipeline error: record_id=%d", ctx.record.id)
         ctx.error = str(e)
+        ctx.error_code = ctx.error_code or ERROR_PIPELINE
+    finally:
+        # 链异常时 persister 可能没跑到：回合兜底收尾，绝不静默留在 pending
+        await finalize_pending_turn(ctx)
 
 
 async def stream_pipeline(
@@ -93,7 +106,14 @@ async def stream_pipeline(
     async def _run():
         try:
             await _make_next(ctx, middlewares)()
+        except Exception as e:
+            # 异常在此落地（不吞）：先记 ctx.error/错误码，供回合收尾与错误帧使用
+            log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
+            ctx.error = ctx.error or str(e)
+            ctx.error_code = ctx.error_code or ERROR_PIPELINE
         finally:
+            # 回合兜底收尾必须在释放 DB session 之前（persister 没跑到时靠它标记 failed）
+            await finalize_pending_turn(ctx)
             _snapshot_done_id(ctx)
             if release is not None:
                 await release()
@@ -119,17 +139,16 @@ async def stream_pipeline(
             except asyncio.QueueEmpty:
                 break
 
-        # 传播 pipeline 异常
+        # 传播 pipeline 异常（_run 已捕获并落到 ctx.error，这里是最后一道兜底）
         try:
             await task
         except Exception as e:
             log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
-            ctx.error = str(e)
-            yield f"data: {json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
-            return
+            ctx.error = ctx.error or str(e)
+            ctx.error_code = ctx.error_code or ERROR_PIPELINE
 
         if ctx.error:
-            yield f"data: {json.dumps({'error': ctx.error}, ensure_ascii=False)}\n\n"
+            yield _error_frame(ctx)
             return
 
         for event in ctx.system_events:

@@ -97,17 +97,22 @@ class TestGetDefault:
         assert "未见" in _get_default("skin", {})
 
 
+def _cfg(config: dict) -> dict:
+    """病例声明形状：``{"activities": {"physical_exam": {"config": …}}}``（docs/15 §四）。"""
+    return {"activities": {"physical_exam": {"config": config}}}
+
+
 class TestHandleOperation:
-    def test_vital_from_exam_anchors(self):
-        """Temperature resolved from exam_anchors.vital_signs."""
-        case = {"exam_anchors": {"vital_signs": {"temperature": "36.8-37.2"}}}
+    def test_vital_from_activity_config(self):
+        """Temperature resolved from the case-declared physical_exam config."""
+        case = {**_cfg({"vital_signs": {"temperature": "36.8-37.2"}})}
         result = handle_operation("temp", case)
         assert result["value"] == "37.0"
 
     def test_vital_fallback_to_age_default(self):
-        """HR falls back to age-appropriate default when not in exam_anchors."""
+        """HR falls back to age-appropriate default when not configured in the case."""
         case = {
-            "exam_anchors": {"vital_signs": {}},  # no heart_rate
+            **_cfg({"vital_signs": {}}),  # no heart_rate
             "patient_info": {"age": 30},
         }
         result = handle_operation("hr", case)
@@ -116,23 +121,23 @@ class TestHandleOperation:
 
     def test_skin_from_dict(self):
         """Skin inspection reads first value from nested dict."""
-        case = {"exam_anchors": {"skin": {"right_foot": "右足底溃烂创面", "left_foot": ""}}}
+        case = {**_cfg({"skin": {"right_foot": "右足底溃烂创面", "left_foot": ""}})}
         result = handle_operation("skin", case)
         assert "溃烂" in result["value"]
 
     def test_skin_fallback(self):
         """Skin falls back to default when not configured."""
-        case = {"exam_anchors": {"vital_signs": {}}}
+        case = {**_cfg({"vital_signs": {}})}
         result = handle_operation("skin", case)
         assert "未见" in result["value"]
 
     def test_pain_range_normalized_to_midpoint(self):
-        """Pain resolved from exam_anchors.vital_signs.pain_score — range 串必须归一化。
+        """Pain resolved from physical_exam config vital_signs.pain_score — range 串必须归一化。
 
         旧实现直接返回 "4-6"，下游 _vitals_patch/情绪桥接 float() 抛错 → 场景体征与
         情绪事件双双静默丢失；恒真断言（"4" in v or "6" in v or v != "0"）固化了它。
         """
-        case = {"exam_anchors": {"vital_signs": {"pain_score": "4-6"}}}
+        case = {**_cfg({"vital_signs": {"pain_score": "4-6"}})}
         result = handle_operation("pain", case)
         assert float(result["value"]) == 5.0
 
@@ -147,32 +152,34 @@ class TestHandleOperation:
             assert float(value) >= 0, f"{path.name}: pain={value!r}"
 
     def test_pain_from_top_level(self):
-        """Pain resolved from exam_anchors.pain_score (top-level)."""
-        case = {"exam_anchors": {"pain_score": 3}}
+        """Pain resolved from physical_exam config pain_score (top-level)."""
+        case = {**_cfg({"pain_score": 3})}
         result = handle_operation("pain", case)
         assert result["value"] == "3"
 
     def test_pain_fallback(self):
         """Pain falls back to 0 when not configured."""
-        case = {"exam_anchors": {"vital_signs": {}}}
+        case = {**_cfg({"vital_signs": {}})}
         result = handle_operation("pain", case)
         assert result["value"] == "0"
 
     def test_groups_format(self):
         """Groups format resolves vital signs correctly."""
         case = {
-            "exam_anchors": {
-                "groups": [
-                    {
-                        "ops": [
-                            {"id": "temp", "label": "体温", "unit": "°C", "source": "vital_signs.temperature"},
-                            {"id": "custom_op", "label": "自定义", "unit": "", "source": "skin"},
-                        ]
-                    }
-                ],
-                "vital_signs": {"temperature": "37.0"},
-                "skin": "皮肤正常",
-            }
+            **_cfg(
+                {
+                    "groups": [
+                        {
+                            "ops": [
+                                {"id": "temp", "label": "体温", "unit": "°C", "source": "vital_signs.temperature"},
+                                {"id": "custom_op", "label": "自定义", "unit": "", "source": "skin"},
+                            ]
+                        }
+                    ],
+                    "vital_signs": {"temperature": "37.0"},
+                    "skin": "皮肤正常",
+                }
+            )
         }
         result = handle_operation("temp", case)
         assert result["value"] == "37.0"
@@ -183,16 +190,18 @@ class TestHandleOperation:
     def test_groups_fallback_to_default(self):
         """Groups-defined op falls back to default when source not configured."""
         case = {
-            "exam_anchors": {
-                "groups": [
-                    {
-                        "ops": [
-                            {"id": "temp", "label": "体温", "unit": "°C", "source": "vital_signs.temperature"},
-                        ]
-                    }
-                ],
-                "patient_info": {"age": 5},
-            }
+            **_cfg(
+                {
+                    "groups": [
+                        {
+                            "ops": [
+                                {"id": "temp", "label": "体温", "unit": "°C", "source": "vital_signs.temperature"},
+                            ]
+                        }
+                    ],
+                    "patient_info": {"age": 5},
+                }
+            )
         }
         result = handle_operation("temp", case)
         val = float(result["value"])
@@ -204,42 +213,42 @@ class TestPhysiologyLinkage:
     """联动网络：未配置体征按已配置体征的偏离做代偿偏移（确定性）。"""
 
     def test_fever_lifts_unconfigured_hr(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"temperature": "39.0"}})}
         # adult hr 默认中点 80；(39.0-37.2)*12 ≈ 22 → 102
         assert handle_operation("hr", case)["value"] == "102"
 
     def test_fever_respects_configured_hr(self):
         case = {
             "patient_info": {"age": 40},
-            "exam_anchors": {"vital_signs": {"temperature": "39.0", "heart_rate": "76"}},
+            **_cfg({"vital_signs": {"temperature": "39.0", "heart_rate": "76"}}),
         }
         assert handle_operation("hr", case)["value"] == "76"
 
     def test_low_bp_raises_hr(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"blood_pressure": "90/60"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"blood_pressure": "90/60"}})}
         # adult 收缩压低限 110，低于 10+ → hr +25 → 105
         assert handle_operation("hr", case)["value"] == "105"
 
     def test_low_spo2_raises_rr(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"spo2": "90"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"spo2": "90"}})}
         # adult rr 默认中点 16；(95-90) → 21
         assert handle_operation("rr", case)["value"] == "21"
 
     def test_severe_pain_raises_hr_and_bp(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"pain_score": "8"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"pain_score": "8"}})}
         assert handle_operation("hr", case)["value"] == "90"  # 80 + 10（应激）
         assert handle_operation("bp", case)["value"] == "128/82"  # 120/78 + 8/4
 
     def test_normal_config_no_offset(self):
         case = {
             "patient_info": {"age": 40},
-            "exam_anchors": {"vital_signs": {"temperature": "36.8", "heart_rate": "76"}},
+            **_cfg({"vital_signs": {"temperature": "36.8", "heart_rate": "76"}}),
         }
         assert handle_operation("hr", case)["value"] == "76"
         assert handle_operation("rr", case)["value"] == "16"  # 无偏移 → 默认中点
 
     def test_deterministic_same_input_same_output(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"temperature": "39.0"}})}
         assert handle_operation("hr", case)["value"] == handle_operation("hr", case)["value"]
 
 
@@ -247,7 +256,7 @@ class TestInterpretation:
     """解读提示：status + 非答案式教学文案（前端按模式门控显示）。"""
 
     def test_high_temp_interpretation(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"temperature": "39.0"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"temperature": "39.0"}})}
         interp = handle_operation("temp", case)["interpretation"]
         assert interp["status"] == "high"
         assert "高于参考范围" in interp["text"]
@@ -259,7 +268,7 @@ class TestInterpretation:
         assert "参考范围" in interp["text"]
 
     def test_bp_interpretation(self):
-        case = {"patient_info": {"age": 40}, "exam_anchors": {"vital_signs": {"blood_pressure": "150/95"}}}
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"blood_pressure": "150/95"}})}
         interp = handle_operation("bp", case)["interpretation"]
         assert interp["status"] == "high"
 
@@ -269,5 +278,5 @@ class TestInterpretation:
 
     def test_elderly_range_applied(self):
         # 老年 spo2 参考下限 93：94% 属于正常
-        case = {"patient_info": {"age": 70}, "exam_anchors": {"vital_signs": {"spo2": "94"}}}
+        case = {"patient_info": {"age": 70}, **_cfg({"vital_signs": {"spo2": "94"}})}
         assert handle_operation("spo2", case)["interpretation"]["status"] == "normal"

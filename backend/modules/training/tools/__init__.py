@@ -1,16 +1,20 @@
-"""Training tools — the only entry point for tool execution.
+"""Training activities — domain handlers behind the Activity contract.
 
-No tool is reachable except through ``dispatch(action, params, ctx)``.
-Registration is explicit in ``register_all()``; there is no auto-discovery
-or plugin scanning.
+The handler table is a projection of ``modules.training.activities.ACTIVITY_BINDINGS``
+(one instantiation per activity, no auto-discovery, no plugin scanning); commands are
+reachable only through ``modules.training.tools.service.execute_tool_command``.
 
-Tool contracts (centralised, one place each):
-  - unknown tool / unknown ``action`` (handler's ``actions`` whitelist) →
+This package intentionally re-exports nothing: importing a submodule must not drag the
+whole handler graph (``tools.physical_exam`` imports the Activity contract, so a
+package-level ``from .registry import ...`` here would close an import cycle).
+
+Contracts (centralised, one place each):
+  - unknown activity / unknown ``command`` (handler's ``actions`` whitelist) →
     ``ValidationError`` (HTTP 400), never an audited "success";
   - ``record.user_id == ctx.current_user.id`` (auth — only own record),
-    ``record.status == "in_progress"`` (lifecycle gate) and
-    ``is_enabled(record, tool_name)`` (capability gate) are enforced once in
-    ``service._authorize`` — handlers contain domain logic only;
+    ``record.status == "in_progress"`` (lifecycle gate) and the server-resolved
+    Activity availability (case declaration ∩ workflow whitelist ∩ overrides)
+    are enforced once in ``service._authorize`` — handlers contain domain logic only;
   - all mutations happen inside the request-scoped DB session; no
     multi-transaction or detached commit in tool code;
   - ``runtime_state`` is a bare JSONB column with no change tracking: a handler
@@ -21,22 +25,3 @@ Tool contracts (centralised, one place each):
   - idempotency: ``service.execute_tool_command`` replays the stored
     ``{data, scene}`` payload for a repeated ``idem_key``.
 """
-
-from .base import ToolContext, ToolHandler, ToolResult
-from .registry import dispatch, register, registry
-
-
-def register_all():
-    """Auto-discover and register all tool handlers."""
-    from .nursing_diagnosis import NursingDiagnosisHandler
-    from .nursing_record import NursingRecordHandler
-    from .physical_exam import PhysicalExamHandler
-    from .quiz import QuizHandler
-
-    register(PhysicalExamHandler())
-    register(NursingRecordHandler())
-    register(QuizHandler())
-    register(NursingDiagnosisHandler())
-
-
-__all__ = ["ToolContext", "ToolHandler", "ToolResult", "dispatch", "register", "register_all", "registry"]

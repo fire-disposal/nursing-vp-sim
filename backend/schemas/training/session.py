@@ -22,10 +22,9 @@ class TrainingSessionData(BaseModel):
     model_config = _RESP_CFG
     id: int
     status: str = "in_progress"
-    training_type: str = "history_taking"
     case_id: int
     start_time: datetime | None = None
-    time_limit: int = 20
+    time_limit: int = 30
     remaining_seconds: int
     mode: str = "guided"
     hide_case_info: bool = False
@@ -54,6 +53,9 @@ class TrainingStartResponse(BaseModel):
 class ChatMessageRequest(BaseModel):
     model_config = _REQ_CFG
     content: str = Field(min_length=1, max_length=2000)
+    # 幂等键（可选）：客户端每次用户动作生成一个；重试复用同一个即可避免重复插入
+    # 学生消息并回放同一回合结果。缺省时服务端生成一个（老客户端兼容）。
+    request_id: str | None = Field(default=None, max_length=64)
 
 
 class ChatCorrectionRequest(BaseModel):

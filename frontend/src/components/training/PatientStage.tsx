@@ -19,7 +19,7 @@ export default function PatientStage() {
 	const [mobileOpen, setMobileOpen] = useState(true);
 	const [desktopOpen, setDesktopOpen] = useState(true);
 	const bus = useTrainingStore((s) => s.bus)!;
-	const capabilities = useTrainingStore((s) => s.capabilities);
+	const features = useTrainingStore((s) => s.features);
 	const recordId = Number(useTrainingStore((s) => s.recordId));
 	const patient = useTrainingStore((s) => s.patient);
 	const emotion = useTrainingStore((s) => s.emotion);
@@ -134,7 +134,7 @@ export default function PatientStage() {
 						{mode !== "assessment" && (
 							<EmotionIndicator
 								bus={bus}
-								capabilities={capabilities}
+								features={features}
 								recordId={recordId}
 								trailing={<InquiryProgressChip />}
 							/>

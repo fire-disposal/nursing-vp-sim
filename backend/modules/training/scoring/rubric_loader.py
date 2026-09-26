@@ -3,7 +3,7 @@
 - ``load_rubric()``：读取基准 rubric，mtime 变化时自动重载（教师改文件即生效）。
 - ``get_base_rubric()``：基准 rubric 的深拷贝，供需要持有/可能修改的调用方。
 
-``rubric.json`` 是唯一的基准真相（`profile.PROFILE.rubric` 也由它构造）；
+``rubric.json`` 是唯一的基准真相（`profile.HISTORY_TAKING.rubric` 也由它构造）；
 评分实际口径 = ``rubric.build_final_rubric()``（按病例能力追加可选维度），
 记录创建时固化进 ``record.rubric_snapshot``，评分只读快照。
 """

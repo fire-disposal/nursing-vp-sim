@@ -1,17 +1,25 @@
-import type { TrainingTypeInfo } from "@/components/training/types";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
 
 type Schemas = components["schemas"];
 
-export const getProfiles = () =>
-  api.get<{ items: TrainingTypeInfo[] }>("/profiles" satisfies ApiPath as string).then((r) => r.data.items);
+/**
+ * `POST /training/{id}/end` 请求体：原子「提交护理评估并完成」。
+ *
+ * `submit_nursing_record` 打开服务端的提交+校验：同一事务里先落盘
+ * `nursing_record_sheet`（可选）并冻结提交版本，再校验完成前置条件。
+ * 前置条件不满足时服务端返回 409，`detail` 携带 `{message, code, missing_fields}`。
+ */
+export interface EndTrainingBody {
+	submit_nursing_record?: boolean;
+	nursing_record_sheet?: Record<string, string> | null;
+}
 
-export const endTraining = (recordId: number | string, signal?: AbortSignal) =>
+export const endTraining = (recordId: number | string, body?: EndTrainingBody | null, signal?: AbortSignal) =>
 	api.post<Schemas["ScoringTriggerResponse"]>(
 		`/training/${recordId}/end` as ApiPath,
-		null,
+		body ?? null,
 		{ signal },
 	);
 
@@ -31,7 +39,6 @@ export interface GetRecordsParams {
 	student_name?: string;
 	case_id?: number;
 	class_id?: number;
-	training_type?: string;
 	exclude_is_test?: boolean;
 	user_id?: number;
 }

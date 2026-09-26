@@ -39,28 +39,8 @@ export interface MessageBus {
 	listEvents(): string[];
 }
 
-export interface PanelContext {
-	recordId: string;
-	bus: MessageBus;
-	patient: PatientData;
-	messages: ChatMessage[];
-	loading: boolean;
-	tts: {
-		isAutoPlay: boolean;
-		setAutoPlay: (v: boolean) => void;
-	};
-	sendMessage: (text: string) => void;
-	endTraining: () => Promise<void>;
-}
-
 export interface BadgeInfo {
 	text: string;
 	variant: "default" | "destructive";
-}
-
-export interface PanelTabProps {
-	ctx: PanelContext;
-	capabilities: Record<string, boolean>;
-	isCollapsed: boolean;
 }
 

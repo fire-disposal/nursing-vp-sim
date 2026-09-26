@@ -16,7 +16,7 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingRecord
 from modules.training.pipeline.prompt_context import PromptContext
-from modules.training.profile import PROFILE
+from modules.training.profile import HISTORY_TAKING, record_activity_available
 from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -26,6 +26,7 @@ from modules.training.prompts.scoring import (
     SCORING_USER,
 )
 from modules.training.scoring.rubric_loader import get_rubric_version_id
+from modules.training.tools.nursing_record import FIELD_KEYS as NURSING_RECORD_FIELDS
 
 from .mapping import LEGACY_VERSION, MAPPING_VERSION
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
@@ -65,6 +66,8 @@ PER_STAGE_TIMEOUT_SEC = 150
 SCORING_BUDGET_MARGIN_SECONDS = 15
 # 评分输入消息上界（内测期体验优先：保留充足上下文，仅在极端超长对话时兜底）
 SCORING_MAX_MESSAGES = 400
+# 护理诊断注入条数上界（防止异常数据把评分提示词撑爆）
+_NURSING_DIAGNOSIS_MAX = 8
 
 log = logging.getLogger(__name__)
 
@@ -330,7 +333,7 @@ async def _load_record_and_messages(
 def _resolve_rubric(db: Session, record: TrainingRecord) -> dict:
     rubric = record.rubric_snapshot
     if not rubric:
-        base_rubric = PROFILE.rubric
+        base_rubric = HISTORY_TAKING.rubric
         from .rubric import build_final_rubric
 
         features = (record.practice_snapshot or {}).get("features", {})
@@ -355,20 +358,63 @@ def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str
     return scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text
 
 
+def _format_nursing_diagnoses(record: TrainingRecord) -> str:
+    """结构化护理诊断（nursing_diagnosis 工具产物）→ 评分文本证据。
+
+    形态由前端工具面决定：``{problem, related_factors[], defining_characteristics[], priority}``，
+    数组顺序即优先级。
+    """
+    diagnoses = (getattr(record, "runtime_state", None) or {}).get("nursing_diagnoses") or []
+    if not isinstance(diagnoses, list):
+        return ""
+    lines: list[str] = []
+    for idx, item in enumerate(diagnoses[:_NURSING_DIAGNOSIS_MAX], start=1):
+        if not isinstance(item, dict):
+            continue
+        problem = str(item.get("problem") or "").strip()
+        if not problem:
+            continue
+        factors = [str(f) for f in (item.get("related_factors") or []) if str(f).strip()]
+        characteristics = [str(c) for c in (item.get("defining_characteristics") or []) if str(c).strip()]
+        lines.append(
+            f"{idx}. {problem}｜相关因素：{'、'.join(factors) or '未填写'}"
+            f"｜定义特征：{'、'.join(characteristics) or '未填写'}"
+        )
+    return "\n".join(lines)
+
+
 def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
-    """护理记录评分注入：nursing_record 能力开启时，读取学生填写的 sheet_data 并格式化。"""
-    features = (record.practice_snapshot or {}).get("features", {})
-    if not features.get("nursing_record"):
+    """护理评估评分注入：**只读已提交（冻结）的版本** —— 未提交草稿一律不进评分证据。
+
+    提交状态只看 ``NursingRecord.submitted_at``：``finalize`` 不再把草稿自动标为
+    submitted，因此「零评估也能完成训练」在数据层面被堵死（未提交 → 该维度无证据）。
+
+    同时并入结构化护理诊断（``nursing_diagnosis`` 工具产物，按优先级排序）：
+    它是记录的一部分，且训练结束后工具面已被生命周期挡住，内容同样冻结。
+    """
+    record_enabled = record_activity_available(record, "nursing_record")
+    diagnoses_enabled = record_activity_available(record, "nursing_diagnosis")
+    if not (record_enabled or diagnoses_enabled):
         return ""
-    nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
-    if not nr or not nr.sheet_data:
-        return ""
-    parts = []
-    for field_name in ("subjective", "objective", "assessment", "plan", "evaluation"):
-        val = nr.sheet_data.get(field_name, "")
-        if val:
-            parts.append(f"{field_name.upper()}: {val}")
-    return "\n\n".join(parts)
+
+    text = ""
+    if record_enabled:
+        nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
+        # 未提交（submitted_at 为空）→ 不是冻结版本，不得进入正式评分输入
+        if nr is not None and nr.submitted_at is not None:
+            sheet = nr.sheet_data or {}
+            parts = []
+            for field_name in NURSING_RECORD_FIELDS:
+                val = sheet.get(field_name, "")
+                if val:
+                    parts.append(f"{field_name.upper()}: {val}")
+            text = "\n\n".join(parts)
+
+    diagnoses_text = _format_nursing_diagnoses(record) if diagnoses_enabled else ""
+    if diagnoses_text:
+        section = f"护理诊断（结构化，按优先级排序）：\n{diagnoses_text}"
+        text = f"{text}\n\n{section}" if text else section
+    return text
 
 
 def _build_history_messages(
@@ -402,7 +448,9 @@ def _build_history_messages(
     )
 
     if nursing_record_text:
-        scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
+        scoring_criteria_text = (
+            f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录（已冻结版本）\n{nursing_record_text}"
+        )
 
     pc = PromptContext()
     pc.register(

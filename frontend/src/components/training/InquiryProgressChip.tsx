@@ -3,10 +3,11 @@ import { IconListCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
+import { INQUIRY_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
 import { computeCovered, PROGRESS_BG, PROGRESS_TEXT, progressColor } from "./tools/inquiryProgress";
 
 export function InquiryProgressChip() {
-	const bus = useTrainingStore((s) => s.bus);
+	const openPanel = useWorkspaceStore((s) => s.openPanel);
 	const recordDetail = useTrainingStore((s) => s.recordDetail);
 	const messages = useTrainingStore((s) => s.messages);
 	const mode = useTrainingStore((s) => s.recordDetail?.mode ?? "guided");
@@ -36,7 +37,7 @@ export function InquiryProgressChip() {
 		<Box
 			component="button"
 			type="button"
-			onClick={() => bus!.emit("tool:open", { id: "inquiry" })}
+			onClick={() => openPanel(INQUIRY_PANEL_ID)}
 			title={`问诊任务清单 ${done}/${total}（关键词自检），点击查看`}
 			style={{
 				display: "flex",

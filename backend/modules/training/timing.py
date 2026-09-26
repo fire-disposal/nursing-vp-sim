@@ -9,11 +9,23 @@ from datetime import UTC, datetime, timedelta
 
 from core.datetime_utils import ensure_utc
 from core.statuses import TrainingMode, TrainingStatus, normalize_training_mode
+from core.time_limits import (  # 唯一口径在 core；此处转出供训练域既有导入使用
+    DEFAULT_TIME_LIMIT_MINUTES,
+    MAX_TIME_LIMIT_MINUTES,
+    MIN_TIME_LIMIT_MINUTES,
+    resolve_time_limit_minutes,
+)
 from models import TrainingRecord
 
-# D5: 硬截止生效下限 30 分钟（病例/配置声明的更长时间仍生效，但不得短于 30）
-DEFAULT_TIME_LIMIT_MINUTES = 30
-MIN_TIME_LIMIT_MINUTES = 30
+__all__ = [
+    "DEFAULT_TIME_LIMIT_MINUTES",
+    "MAX_TIME_LIMIT_MINUTES",
+    "MIN_TIME_LIMIT_MINUTES",
+    "is_training_overdue",
+    "remaining_seconds",
+    "resolve_time_limit_minutes",
+    "training_deadline",
+]
 
 
 def _pause_extension(record: TrainingRecord, now: datetime) -> timedelta:

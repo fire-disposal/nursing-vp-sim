@@ -2,7 +2,7 @@ import { IconCircle, IconCircleCheck } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Box, Group, Text } from "@mantine/core";
 import { useTrainingStore } from "@/stores/trainingStore";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
+import type { WorkspacePanelProps } from "@/components/training/workspace/contract";
 import type { ChatMessage } from "@/engine/types";
 import {
 	PROGRESS_BG,
@@ -13,7 +13,7 @@ import {
 } from "./inquiryProgress";
 
 
-export default function InquiryTool(props: TrainingToolProps) {
+export default function InquiryTool(props: WorkspacePanelProps) {
 	const messages = useTrainingStore((s) => s.messages);
 
 	const inquiries = useMemo(

@@ -6,7 +6,7 @@ import { useTrainingStore } from "@/stores/trainingStore";
 const mockBus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() } as never;
 
 beforeEach(() => {
-	useTrainingStore.setState({ bus: mockBus, recordId: "1", capabilities: {} });
+	useTrainingStore.setState({ bus: mockBus, recordId: "1", features: {} });
 });
 
 afterEach(() => {

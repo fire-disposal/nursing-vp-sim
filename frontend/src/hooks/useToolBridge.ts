@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { postToolCommand } from "@/api/training";
+import type { ToolCommandResult } from "@/api/training";
 import type { MessageBus } from "@/engine/types";
 import { subscribeWSConnection } from "./useTrainingWS";
 
@@ -7,8 +8,11 @@ import { subscribeWSConnection } from "./useTrainingWS";
  * 工具指令面桥（Phase 2.5）— HTTP 请求/响应替代 WS tool 通道。
  *
  * 组件契约不变：监听 bus "tool:invoke"，完成后面向 bus 发出
- * "tool:result" / "scene:state" / "emotion:changed"。写操作串行执行，并通过
+ * "tool:result" / "emotion:changed"。写操作串行执行，并通过
  * 完成屏障供交卷流程等待；乐观并发冲突会使用服务端版本号重试一次。
+ *
+ * 注：响应里的 `scene` 不再转发（工作区已改为 manifest 驱动，场景状态容器退场，
+ * 无消费者的事件不再发布）。
  */
 
 interface PendingCommand {
@@ -103,6 +107,9 @@ export function useToolBridge(bus: MessageBus) {
 			const idemKey = crypto.randomUUID();
 
 			const execute = async () => {
+				// 业务错误的 data（如 {"code": "nursing_record_submitted"}）必须一并透出：
+				// 上层卡片靠它区分「已提交冲突 / 内容为空 / 未提交」而不是匹配中文文案。
+				let responseData: Record<string, unknown> = {};
 				const invoke = () =>
 					postToolCommand(payload.recordId, {
 						cmd,
@@ -111,7 +118,7 @@ export function useToolBridge(bus: MessageBus) {
 						revision: revisionRef.current,
 					});
 				try {
-					let res: Awaited<ReturnType<typeof invoke>>;
+					let res: ToolCommandResult;
 					try {
 						res = await invoke();
 					} catch (err) {
@@ -124,6 +131,8 @@ export function useToolBridge(bus: MessageBus) {
 					}
 
 					revisionRef.current = res.revision;
+					responseData =
+						res.data && typeof res.data === "object" ? (res.data as Record<string, unknown>) : {};
 					if (!res.ok) {
 						throw new Error(res.error || "工具操作失败，请重试");
 					}
@@ -134,9 +143,6 @@ export function useToolBridge(bus: MessageBus) {
 						ok: true,
 						data: res.data ?? {},
 					});
-					if (res.scene && typeof res.scene === "object") {
-						bus.emit("scene:state", res.scene as Record<string, unknown>);
-					}
 					const emotion =
 						res.data && typeof res.data === "object"
 							? (res.data as Record<string, unknown>).emotion
@@ -158,7 +164,7 @@ export function useToolBridge(bus: MessageBus) {
 						tool: payload.tool,
 						action: payload.action,
 						ok: false,
-						data: {},
+						data: responseData,
 						error: message,
 					});
 					throw new Error(message);

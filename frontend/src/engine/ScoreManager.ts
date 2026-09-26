@@ -1,10 +1,11 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/client";
-import { retryScoring } from "@/api/training";
+import { endTraining, retryScoring } from "@/api/training";
+import type { EndTrainingBody } from "@/api/training";
 import type { MessageBus, ScorePhase, ScoringProgress } from "./types";
 import type { ScoreData } from "@/types/score";
 
-/** 相位顺序 — 用于拒绝乱序/回退的进度更新（WS 推送与 HTTP 轮询共用） */
+/** Phase order — 用于拒绝乱序/回退的进度更新（WS 推送与 HTTP 轮询共用） */
 const PHASE_ORDER: Record<string, number> = {
 	loading: 0,
 	scoring: 1,
@@ -12,6 +13,34 @@ const PHASE_ORDER: Record<string, number> = {
 	saving: 3,
 	completed: 4,
 };
+
+/**
+ * `POST /training/{id}/end` 的请求体由 api 层定义（`EndTrainingBody`）——
+ * 完成前置条件（已提交的护理评估）在同一事务里校验，失败原因见 `endFailureMessage`。
+ */
+export type EndTrainingOptions = EndTrainingBody;
+
+/** `/end` 失败原因：优先服务端 detail（string 或 `{message}`），退化为「请重试」文案。 */
+export function endFailureMessage(error: unknown): string {
+	const fallback = "结束训练失败，请重试";
+	if (!error || typeof error !== "object" || !("response" in error)) return fallback;
+	const response = error.response;
+	if (!response || typeof response !== "object" || !("data" in response)) return fallback;
+	const data = response.data;
+	if (!data || typeof data !== "object" || !("detail" in data)) return fallback;
+	const detail = data.detail;
+	if (typeof detail === "string" && detail) return detail;
+	if (
+		detail &&
+		typeof detail === "object" &&
+		"message" in detail &&
+		typeof detail.message === "string" &&
+		detail.message
+	) {
+		return detail.message;
+	}
+	return fallback;
+}
 
 const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
 
@@ -70,17 +99,26 @@ export class ScoreManager {
 		this.bus.emit("score:ready", this._score);
 	}
 
-	async end(): Promise<void> {
+	/**
+	 * 结束训练：``options`` 让服务端在**同一事务**里先提交护理评估再完成训练
+	 * （原子「提交并完成」）。返回的业务错误原因会写进 progress.message，
+	 * 调用方与悬浮层都能看到「为什么被拒」。
+	 */
+	async end(options?: EndTrainingOptions): Promise<void> {
 		if (!this.recordId) return;
 		if (this._polling || this._progress.phase === "completed") return;
 		this._polling = true;
 		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
 		this.notify();
 		try {
-			await api.post(`/training/${this.recordId}/end`);
+			await endTraining(this.recordId, options);
 		} catch (e) {
 			this._polling = false;
-			this._progress = { phase: "failed", percentage: 0, message: "结束训练失败，请重试" };
+			this._progress = {
+				phase: "failed",
+				percentage: 0,
+				message: endFailureMessage(e),
+			};
 			this.notify();
 			throw e;
 		}

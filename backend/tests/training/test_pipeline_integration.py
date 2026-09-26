@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from modules.training.pipeline import PipelineContext, build_pipeline, run_pipeline
+from modules.training.pipeline import STATE_TURN, PipelineContext, build_pipeline, run_pipeline
+from modules.training.pipeline.turn import TurnClaim, TurnStatus
 
 
 @pytest.mark.asyncio
@@ -14,7 +15,6 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     record.id = 1
     record.user_id = 1
     record.case_id = 1
-    record.training_type = "history_taking"
     record.practice_snapshot = {"features": {}}
 
     user = MagicMock()
@@ -61,11 +61,22 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
         student_input="你好，你哪里不舒服？",
         messages=[],
     )
-    # Run up to prompt_builder only (skip LLM call)
+    # 回合句柄由 router 的事务 A 建立（见 pipeline/turn.py）：persister 只做事务 B
+    ctx.state[STATE_TURN] = TurnClaim(
+        turn_id=7,
+        record_id=record.id,
+        request_id="t-1",
+        status=str(TurnStatus.PENDING),
+        student_message_id=1,
+    )
     history_pipe, _ = build_pipeline()
-    middlewares = [m for m in history_pipe if m.__name__ not in ("_llm_caller",)]
-    await run_pipeline(ctx, middlewares)
+    await run_pipeline(ctx, history_pipe)
 
     assert ctx.should_shortcut is False
     assert ctx.llm_messages is not None
     assert len(ctx.llm_messages) > 0
+    # 事务 B：患者消息落库 + 回合 completed；学生消息不在这里插（事务 A 已写）
+    roles = [getattr(call.args[0], "role", None) for call in db.add.call_args_list]
+    assert "patient" in roles
+    assert "student" not in roles
+    assert ctx.state[STATE_TURN].status == TurnStatus.COMPLETED

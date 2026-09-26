@@ -7,7 +7,7 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Box, Button, Group, Progress, ScrollArea, Stack, Text, ThemeIcon } from "@mantine/core";
-import type { TrainingToolProps } from "@/engine/TrainingTool";
+import type { ActivityPanelProps } from "@/components/training/workspace/contract";
 
 const MEASURE_TIMEOUT_MS = 10_000;
 
@@ -66,7 +66,9 @@ function isAbnormal(result: ExamResultState): boolean {
 	return result.status === "high" || result.status === "low";
 }
 
-export default function PhysicalExamTool({ bus, recordId, recordDetail }: TrainingToolProps) {
+export default function PhysicalExamTool({ activity, bus, recordId, recordDetail }: ActivityPanelProps) {
+	/** 命令命名空间来自 manifest 的 activity 定义 */
+	const command = activity.id;
 	const rid = Number(recordId);
 	const [results, setResults] = useState<Record<string, ExamResultState>>({});
 	const [selectedRegionId, setSelectedRegionId] = useState("chest");
@@ -103,7 +105,7 @@ export default function PhysicalExamTool({ bus, recordId, recordDetail }: Traini
 			data: Record<string, unknown>;
 			error?: string;
 		}) => {
-			if (payload.tool !== "physical_exam" || payload.action !== "measure") return;
+			if (payload.tool !== command || payload.action !== "measure") return;
 			const data = payload.data as {
 				op_type?: string;
 				result?: {
@@ -142,7 +144,7 @@ export default function PhysicalExamTool({ bus, recordId, recordDetail }: Traini
 			unsubscribe();
 			clearTimeout(measureTimerRef.current);
 		};
-	}, [bus]);
+	}, [bus, command]);
 
 	const interact = useCallback(
 		(opId: string) => {
@@ -159,13 +161,13 @@ export default function PhysicalExamTool({ bus, recordId, recordDetail }: Traini
 				setOpErrors((current) => ({ ...current, [opId]: "检查超时，请重试" }));
 			}, MEASURE_TIMEOUT_MS);
 			bus.emit("tool:invoke", {
-				tool: "physical_exam",
+				tool: command,
 				action: "measure",
 				params: { op_type: opId },
 				recordId: rid,
 			});
 		},
-		[bus, pendingOp, rid],
+		[bus, command, pendingOp, rid],
 	);
 
 	const selectedRegion = REGIONS.find((region) => region.id === selectedRegionId) ?? REGIONS[0];

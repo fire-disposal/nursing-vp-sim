@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -23,14 +24,20 @@ from infra.scoring_progress import ScoringProgressTracker
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
+from modules.training.profile import HISTORY_TAKING
 from modules.training.scoring.engine import evaluate_training
 from modules.training.session.finalize import (
+    END_ORIGIN_USER,
     NO_STUDENT_MESSAGES_MESSAGE,
     NO_STUDENT_MESSAGES_REASON,
     cleanup_session_runtime,
     finalize_training,
     mark_discarded,
     student_message_count,
+)
+from modules.training.tools.nursing_record import (
+    NursingAssessmentError,
+    submit_nursing_assessment,
 )
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse, PaginatedResponse
@@ -301,19 +308,19 @@ async def _run_scoring_background(
         # 存量记录兼容：评分时补写 snapshot（新记录已在 _create_record 固化）
         if not record.prompt_snapshot or not record.rubric_snapshot:
             try:
-                from modules.training.profile import PROFILE
                 from modules.training.scoring.rubric import build_final_rubric
 
+                workflow = HISTORY_TAKING
                 record.prompt_snapshot = {
                     "schema_version": 2,
                     "purpose": "patient_chat",
                     "segments": {
-                        "system": PROFILE.prompts.system,
-                        "dynamic": PROFILE.prompts.dynamic,
+                        "system": workflow.prompts.system,
+                        "dynamic": workflow.prompts.dynamic,
                     },
                 }
                 features = (record.practice_snapshot or {}).get("features", {})
-                record.rubric_snapshot = build_final_rubric(PROFILE.rubric, features)
+                record.rubric_snapshot = build_final_rubric(workflow.rubric, features)
                 db.commit()
             except AttributeError:
                 pass
@@ -430,11 +437,24 @@ async def _run_scoring_background(
             tracker.cleanup(record_id)
 
 
+class EndTrainingRequest(BaseModel):
+    """结束训练请求（全部可选，向后兼容无 body 调用）。
+
+    ``submit_nursing_record`` + ``nursing_record_sheet`` 构成**原子「提交并完成」**：
+    服务端在同一事务里先落盘草稿、冻结提交版本，再校验完成前置条件并完成训练——
+    学生看到的最后内容与被评分的内容必然一致。
+    """
+
+    submit_nursing_record: bool = False
+    nursing_record_sheet: dict | None = None
+
+
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
 async def end_training(
     record_id: int,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
+    body: EndTrainingRequest | None = None,
 ):
     async with db_session() as db:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).with_for_update().first()
@@ -447,7 +467,50 @@ async def end_training(
         if record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-        claimed, kind, case_data = finalize_training(db, record_id, ended_at=datetime.now(UTC))
+        now = datetime.now(UTC)
+
+        # 原子「提交护理评估并完成」：提交与完成同一事务边界。
+        # 幂等：已提交且内容一致时是 no-op；内容不同则 409（冻结版本不可覆盖）。
+        if body is not None and body.submit_nursing_record:
+            try:
+                submit_nursing_assessment(
+                    db,
+                    record_id=record_id,
+                    user_id=current_user.id,
+                    sheet_data=body.nursing_record_sheet,
+                    at=now,
+                )
+            except NursingAssessmentError as exc:
+                db.rollback()
+                raise HTTPException(
+                    status_code=exc.status_code,
+                    detail={
+                        "message": exc.message,
+                        "code": exc.code,
+                        "missing_fields": exc.missing_fields,
+                    },
+                ) from exc
+
+        # 要求评估的 workflow：未提交时拒绝完成（绝不把草稿偷偷标成 submitted）。
+        # 完成前置条件由 Workflow 的 CompletionPolicy 声明，不在端点里写死。
+        try:
+            claimed, kind, case_data = finalize_training(
+                db,
+                record_id,
+                ended_at=now,
+                origin=END_ORIGIN_USER,
+                require_nursing_submission=bool(HISTORY_TAKING.completion.required_artifacts),
+            )
+        except NursingAssessmentError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={
+                    "message": exc.message,
+                    "code": exc.code,
+                    "missing_fields": exc.missing_fields,
+                },
+            ) from exc
         if not claimed:
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
@@ -508,6 +571,7 @@ async def end_training(
             "record_id": record_id,
             "scoring_status": ScoringStatus.PENDING,
             "record_status": TrainingStatus.COMPLETED,
+            "terminal_reason": END_ORIGIN_USER,
         }
 
 
