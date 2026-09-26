@@ -45,11 +45,19 @@ ACTION_SECRET_UPDATED = "secret.updated"
 ACTION_SECRET_DELETED = "secret.deleted"
 ACTION_ACCESS_DENIED = "access.denied"
 ACTION_EXPORT_DOWNLOADED = "export.downloaded"
+ACTION_FEEDBACK_REPLIED = "feedback.replied"
+ACTION_CASE_PUBLISHED = "case.published"
+ACTION_CASE_PUBLISH_REJECTED = "case.publish_rejected"
+ACTION_CASE_ARCHIVED = "case.archived"
+ACTION_CASE_DELETED = "case.deleted"
+ACTION_CASE_OPEN_CHANGED = "case.open_changed"
 
 TARGET_TYPE_USER = "user"
 TARGET_TYPE_ROLE = "role"
 TARGET_TYPE_SECRET = "secret"
 TARGET_TYPE_EXPORT = "export"
+TARGET_TYPE_FEEDBACK = "feedback"
+TARGET_TYPE_CASE = "case"
 
 
 def _actor_fields(actor: User | None) -> dict[str, Any]:
@@ -169,7 +177,13 @@ def record_detached(
 
 __all__ = [
     "ACTION_ACCESS_DENIED",
+    "ACTION_CASE_ARCHIVED",
+    "ACTION_CASE_DELETED",
+    "ACTION_CASE_OPEN_CHANGED",
+    "ACTION_CASE_PUBLISHED",
+    "ACTION_CASE_PUBLISH_REJECTED",
     "ACTION_EXPORT_DOWNLOADED",
+    "ACTION_FEEDBACK_REPLIED",
     "ACTION_ROLE_CREATED",
     "ACTION_ROLE_DELETED",
     "ACTION_ROLE_UPDATED",
@@ -187,7 +201,9 @@ __all__ = [
     "AUDIT_OUTCOME_DENIED",
     "AUDIT_OUTCOME_FAILURE",
     "AUDIT_OUTCOME_SUCCESS",
+    "TARGET_TYPE_CASE",
     "TARGET_TYPE_EXPORT",
+    "TARGET_TYPE_FEEDBACK",
     "TARGET_TYPE_ROLE",
     "TARGET_TYPE_SECRET",
     "TARGET_TYPE_USER",

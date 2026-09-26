@@ -172,6 +172,7 @@ def update_case(
 def toggle_case_open(
     case_id: int,
     db: DbSession,
+    request: Request,
     current_user: _CaseManager,
     open: bool = Query(..., description="是否向学生开放"),
 ):
@@ -192,19 +193,23 @@ def get_case_validation(case_id: int, db: DbSession, current_user: _CaseManager)
 
 
 @router.post("/{case_id}/publish", response_model=CasePublishResponse)
-def publish_case(case_id: int, db: DbSession, current_user: _CaseManager):
+def publish_case(case_id: int, db: DbSession, current_user: _CaseManager, request: Request):
     """发布病例：门禁通过才落版本（error → 422 + 报告）。"""
     svc = CaseService(db)
-    view, report = svc.publish(case_id, current_user.id, current_user.role.name if current_user.role else "")
+    view, report = svc.publish(
+        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
+    )
     return CasePublishResponse(
         case=CaseManageItem.model_validate(view), report=build_validation_report(svc.get(case_id), report)
     )
 
 
 @router.post("/{case_id}/archive", response_model=CaseManageItem)
-def archive_case(case_id: int, db: DbSession, current_user: _CaseManager):
+def archive_case(case_id: int, db: DbSession, current_user: _CaseManager, request: Request):
     """归档病例：只阻止新使用，历史 revision 与既有训练复盘不受影响。"""
-    view = CaseService(db).archive(case_id, current_user.id, current_user.role.name if current_user.role else "")
+    view = CaseService(db).archive(
+        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
+    )
     return CaseManageItem.model_validate(view)
 
 
@@ -230,9 +235,12 @@ def list_case_revisions(case_id: int, db: DbSession, current_user: _CaseManager)
 def delete_case(
     case_id: int,
     db: DbSession,
+    request: Request,
     current_user: _CaseManager,
 ):
-    CaseService(db).delete(case_id, current_user.id, current_user.role.name if current_user.role else "")
+    CaseService(db).delete(
+        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
+    )
     return {"message": "病例已删除"}
 
 

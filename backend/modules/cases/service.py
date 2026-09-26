@@ -3,10 +3,20 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Query
+from fastapi import Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.audit import (
+    ACTION_CASE_ARCHIVED,
+    ACTION_CASE_DELETED,
+    ACTION_CASE_OPEN_CHANGED,
+    ACTION_CASE_PUBLISH_REJECTED,
+    ACTION_CASE_PUBLISHED,
+    TARGET_TYPE_CASE,
+    record,
+    record_detached,
+)
 from core.exceptions import ConflictError, NotFoundError
 from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
 from core.unit_of_work import unit_of_work
@@ -251,7 +261,9 @@ class CaseService:
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count)
 
-    def publish(self, case_id: int, user_id: int, user_role: str) -> tuple[CaseManageView, CaseReport]:
+    def publish(
+        self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None
+    ) -> tuple[CaseManageView, CaseReport]:
         """发布门禁 + 版本落地（docs/15 §六）。
 
         门禁复用 CI 病例审计的同一份校验器（modules/cases/validator.py）：有 error 即
@@ -265,7 +277,24 @@ class CaseService:
             log.warning(
                 "病例发布被门禁拒绝: case_id=%d errors=%d", case_id, len(report.errors), extra={"user_id": user_id}
             )
+            # 门禁拒绝也是事件：独立 session 留痕（业务侧抛错回滚，审计必须留住）
+            record_detached(
+                request,
+                action=ACTION_CASE_PUBLISH_REJECTED,
+                target_type=TARGET_TYPE_CASE,
+                target_id=case_id,
+                target_label=case.name,
+                payload={
+                    # 只记定位信息（字段 + 摘要），报告全文随 422 返回
+                    "errors": [
+                        {"field": getattr(e, "field", ""), "message": str(getattr(e, "message", e))[:120]}
+                        for e in report.errors
+                    ][:20],
+                    "error_count": len(report.errors),
+                },
+            )
             raise CaseNotPublishableError(case, report)
+        before_status = case.status
         with unit_of_work(self.db, conflict_detail="病例发布冲突"):
             if not content_matches_current_revision(case):
                 revision = append_revision(self.db, case, user_id=user_id)
@@ -273,22 +302,43 @@ class CaseService:
                     f"病例发布: case_id={case_id} revision_no={revision.revision_no}",
                     extra={"user_id": user_id, "user_role": user_role},
                 )
+                revision_no = revision.revision_no
             else:
                 case.status = CASE_STATUS_PUBLISHED
+                revision_no = None
+            record(
+                self.db,
+                action=ACTION_CASE_PUBLISHED,
+                target_type=TARGET_TYPE_CASE,
+                target_id=case_id,
+                target_label=case.name,
+                request=request,
+                payload={"status": {"before": before_status, "after": case.status}, "revision_no": revision_no},
+            )
             self.db.flush()
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count), report
 
-    def archive(self, case_id: int, user_id: int, user_role: str) -> CaseManageView:
+    def archive(self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None) -> CaseManageView:
         """归档：只阻止新使用（作业/训练），不删除历史 revision 与既有训练。"""
         case = self.get(case_id)
+        before_status = case.status
         with unit_of_work(self.db, conflict_detail="病例归档冲突"):
             case.status = CASE_STATUS_ARCHIVED
+            record(
+                self.db,
+                action=ACTION_CASE_ARCHIVED,
+                target_type=TARGET_TYPE_CASE,
+                target_id=case_id,
+                target_label=case.name,
+                request=request,
+                payload={"status": {"before": before_status, "after": CASE_STATUS_ARCHIVED}},
+            )
             self.db.flush()
         log.info(f"病例归档: case_id={case_id}", extra={"user_id": user_id, "user_role": user_role})
         return self._manage_view(case, self.training_count(case_id))
 
-    def delete(self, case_id: int, user_id: int, user_role: str) -> None:
+    def delete(self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None) -> None:
         case = self.get(case_id)
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         if count > 0:
@@ -297,7 +347,17 @@ class CaseService:
         if assignments > 0:
             raise ConflictError(detail=f"该病例已被 {assignments} 个作业引用，无法删除。请先删除相关作业。")
         case_name = case.name
+        case_status = case.status
         with unit_of_work(self.db, conflict_detail="病例删除冲突"):
+            record(
+                self.db,
+                action=ACTION_CASE_DELETED,
+                target_type=TARGET_TYPE_CASE,
+                target_id=case_id,
+                target_label=case_name,
+                request=request,
+                payload={"status": case_status},
+            )
             self.db.delete(case)
             self.db.flush()
         log.info(
@@ -305,7 +365,7 @@ class CaseService:
             extra={"user_id": user_id, "user_role": user_role},
         )
 
-    def set_open(self, case_id: int, is_open: bool) -> Case:
+    def set_open(self, case_id: int, is_open: bool, *, request: Request | None = None) -> Case:
         """学生目录可见性开关（与 status 正交）。
 
         未发布/已归档病例不能「向学生开放」—— 开放动作只有在 published 上才有意义，
@@ -314,7 +374,17 @@ class CaseService:
         case = self.get(case_id)
         if is_open and case.status != CASE_STATUS_PUBLISHED:
             raise ConflictError(detail="病例尚未发布，无法向学生开放；请先发布")
+        before_open = case.is_open
         case.is_open = is_open
         with unit_of_work(self.db, conflict_detail="切换开放状态冲突"):
+            record(
+                self.db,
+                action=ACTION_CASE_OPEN_CHANGED,
+                target_type=TARGET_TYPE_CASE,
+                target_id=case_id,
+                target_label=case.name,
+                request=request,
+                payload={"is_open": {"before": before_open, "after": is_open}},
+            )
             self.db.flush()
         return case

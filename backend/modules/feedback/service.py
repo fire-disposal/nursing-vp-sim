@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Query
+from fastapi import Query, Request
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from core.audit import ACTION_FEEDBACK_REPLIED, TARGET_TYPE_FEEDBACK, record
 from core.config import APP_VERSION
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -213,14 +214,34 @@ class FeedbackService:
         ]
         return items, total
 
-    def reply(self, feedback_id: int, reply_text: str, admin_name: str, overwrite: bool = False) -> Feedback:
+    def reply(
+        self,
+        feedback_id: int,
+        reply_text: str,
+        admin_name: str,
+        overwrite: bool = False,
+        *,
+        replier_id: int | None = None,
+        request: Request | None = None,
+    ) -> Feedback:
         """开发者回复（人工路径）—— 与 bot 路径共用 ``_write_reply`` 的覆盖守卫。"""
         fb = self.db.query(Feedback).filter(Feedback.id == feedback_id).first()
         if not fb:
             raise NotFoundError("反馈不存在")
-        return self._write_reply(fb, reply_text, admin_name, allow_overwrite=overwrite)
+        return self._write_reply(
+            fb, reply_text, admin_name, allow_overwrite=overwrite, replier_id=replier_id, request=request
+        )
 
-    def _write_reply(self, fb: Feedback, reply_text: str, admin_name: str, *, allow_overwrite: bool) -> Feedback:
+    def _write_reply(
+        self,
+        fb: Feedback,
+        reply_text: str,
+        admin_name: str,
+        *,
+        allow_overwrite: bool,
+        replier_id: int | None = None,
+        request: Request | None = None,
+    ) -> Feedback:
         """开发者回复的唯一写入口 —— 已有回复时默认拒绝，防静默覆盖。
 
         覆盖（``allow_overwrite=True``）只替换回复正文，不重置首条 ``replied_at``，
@@ -234,6 +255,23 @@ class FeedbackService:
             fb.developer_reply = reply_text
             if is_first_reply:
                 fb.replied_at = datetime.now(UTC)
+            # 回复人落业务表（覆盖时记最新回复人；首条 replied_at 不重置）
+            if replier_id is not None:
+                fb.replied_by = replier_id
+            record(
+                self.db,
+                action=ACTION_FEEDBACK_REPLIED,
+                target_type=TARGET_TYPE_FEEDBACK,
+                target_id=fb.id,
+                target_label=f"反馈 #{fb.id}",
+                request=request,
+                payload={
+                    "overwrite": not is_first_reply,
+                    # 回复正文可能含个人信息 → 只记长度，正文留在反馈表里
+                    "reply_length": len(reply_text),
+                    "replied_by": replier_id,
+                },
+            )
 
             self.db.add(
                 Notification(

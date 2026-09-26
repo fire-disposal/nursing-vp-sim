@@ -35,9 +35,13 @@ class Feedback(Base):
     version: Mapped[str] = mapped_column(String(20), default="")
     developer_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
     replied_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # 回复人（决策 2026-09-26：谁回复的既在审计里、也在业务表里可查）。
+    # ON DELETE SET NULL：删管理员账号不连带抹掉"这条反馈被回复过"的事实。
+    replied_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     auto_fix_attempted: Mapped[bool] = mapped_column(default=False)
     auto_fix_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
-    user: Mapped[User] = relationship()
+    # 显式 foreign_keys：replied_by 也是指向 users 的外键，不指定则关系判定二义
+    user: Mapped[User] = relationship(foreign_keys=[user_id])
     images: Mapped[list] = relationship("FeedbackImage", cascade="all, delete-orphan")

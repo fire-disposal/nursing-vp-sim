@@ -27,7 +27,7 @@
 | 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — · **已完成（本地）：角色/权限、用户（改角色/启停/删/改密/批量）、注册、密钥** |
 | 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | — · **已完成（本地，待发版）** |
 | 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — |
-| 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | 是否加 `replied_by` |
+| 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | — · **反馈回复 + 病例生命周期已完成（本地）；评分复核/问卷/班级待接** |
 | 8 | **RB-3/4** | RBAC 一致性：权限缓存跨 worker 陈旧（60s）、前端权限陈旧（最长 24h）、`/api/metrics` 无鉴权、缺的权限粒度 | M | A3（键位先定） | 缓存失效走 DB 版本号还是引入消息 |
 | 9 | **A6** | 保留与合规：分区/归档、DB 级 append-only、登录失败与账号锁定、备份包含审计表 | L | A1–A5 | 保留期、归档目标 |
 | 10 | **U1** | UI/查询一致性收尾：剩余页面（versions / my-feedback 等）迁移到 `useListFilters` + `FilterToolbar`；补齐 records/assignments 等域的筛选 DTO | M | 无 | — |
@@ -158,6 +158,18 @@
 （`docs/superpowers/specs/2026-07-10-tier1-bugfix-design.md:104`："Prometheus scrape 无认证是业界惯例，应用层不应对网络层安全做过度防御"），
 并有网络层落地（`deploy/nginx/snippets/block-scanners.conf:12` 单独给该 location 规则），运维手册
 （`docs/ops/single-instance-migration.md:47`）也依赖它可直接读取。**结论：保留现状**，把"不修"的理由写进代码注释与本文档，避免后续反复。
+
+### 2.7.2 A5 已完成部分（2026-09-26）
+
+- **反馈回复**：新增 `feedbacks.replied_by`（迁移 `ddl/f2c3d4e5f6a7`，FK ON DELETE SET NULL；历史行保持 NULL
+  不猜测）+ 回复写入回复人 + 一行 `feedback.replied` 审计；**回复正文不入审计**（只记长度，PII 最小化）；
+  模型侧 `Feedback.user` 关系补 `foreign_keys=[user_id]`（新增 FK 会让关系二义）。判据：
+  `tests/admin/test_feedback_reply_audit.py`（首次回复/覆盖两条，断言业务列 + 审计行 + 正文不入库）。
+- **病例生命周期**：`publish`（含 `case.publish_rejected` 走独立 session —— 门禁拒绝也是事件）、
+  `archive`、`delete`、`set_open` 各一行审计并带 before/after；拒绝路径（未发布不能开放）**不留痕**。
+  判据：`tests/admin/test_case_lifecycle_audit.py` 4 条。
+- 备注：产品侧新增审计写入会让"仍用 SQLite 夹具"的测试报 `no such table: audit_logs` —— 这正是 U3 要清掉的债，
+  迁移完成后即消失（见 §2.3.1）。
 
 ### 2.8 RB-3/4 — RBAC 一致性与粒度（M）
 

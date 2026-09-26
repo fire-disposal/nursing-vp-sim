@@ -111,10 +111,18 @@ def reply_feedback(
     req: FeedbackReplyRequest,
     current_user: _FeedbackReviewer,
     db: DbSession,
+    request: Request,
     overwrite: Annotated[bool, Query(description="已有回复时是否覆盖（默认拒绝）")] = False,
 ):
     admin_name = current_user.display_name or current_user.username
-    fb = FeedbackService(db).reply(feedback_id, req.reply, admin_name, overwrite=overwrite)
+    fb = FeedbackService(db).reply(
+        feedback_id,
+        req.reply,
+        admin_name,
+        overwrite=overwrite,
+        replier_id=current_user.id,
+        request=request,
+    )
     return _to_item_from_model(fb)
 
 
