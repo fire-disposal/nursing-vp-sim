@@ -238,8 +238,8 @@ class UserService:
 
 ### 6.5 新增待办（2026-09-26 记录）
 
-1. **列表接口在挂载时重复请求**：`/admin/users`、`/admin/cases` 首次进入各出现 **2 次同参** `GET`（疑似 `ShellTransition`/`Activity` 双实例或 queryKey 抖动）；导出后还会多一次"无筛选"请求（不影响 UI，但白打一次）。待定位根因。
-2. ~~`useListFilters` 的搜索归零~~ → **已修**（`onSearchChange` 现归零 offset）。**新增两条同源缺陷也已修**：① 防抖后的搜索值没暴露 → 各页 `hasActiveFilters` 恒假（现由钩子统一判定并暴露 `activeValues`）；② `useDebouncedSearch.setSearchInput` 只改输入框不改防抖值 → 「清除」后请求仍带旧搜索词（现钩子自管防抖，`reset()` 同步复位）。**仍缺常驻回归单测**：建议补"第 2 页输入搜索 → offset 归零"与"清除后请求不带旧搜索词"两条。
+1. **列表接口在挂载时重复请求**：`/admin/users` **已修**——该查询是唯一没有 `staleTime` 的列表查询，壳过渡短暂再挂载时会二次取数；补 `staleTime: 60_000` 后实测由 2 次降为 1 次。`/admin/cases` 曾观测到 2 次同参 `GET`，但用 XHR 调用栈探针复测只出现 1 次（间歇性、根因未定），先记在此：已排除双根/双 `QueryClientProvider`（`main.tsx` 单根、`App.tsx` 单 Provider）与 axios 重试（仅对 5xx/网络错误重试）。
+2. ~~`useListFilters` 的搜索归零~~ → **已修**（`onSearchChange` 现归零 offset）。**新增两条同源缺陷也已修**：① 防抖后的搜索值没暴露 → 各页 `hasActiveFilters` 恒假（现由钩子统一判定并暴露 `activeValues`）；② `useDebouncedSearch.setSearchInput` 只改输入框不改防抖值 → 「清除」后请求仍带旧搜索词（现钩子自管防抖，`reset()` 同步复位）。**常驻回归已补**：`frontend/src/__tests__/hooks/useListFilters.test.ts`（6 条，覆盖"空值不进请求 / 改筛选归零 offset / 搜索防抖 / 清除同步复位防抖值 / hasActiveFilters 以偏离初始值判定 / exportParams 与 params 同源"）。回归有效性已验证：把修复退回后其中 2 条确实失败。
 3. **导出参数仍手写 `format`**：四个导出端点重复声明 `format` 参数，可考虑并入各自 DTO（与筛选键同源）。
 4. **其余域未纳入 DTO 对齐**：records/assignments/classes/versions/notifications 的列表筛选仍是散参数（本次只做了 users/cases/feedback/questionnaires/roles）；`/my-feedback`（学生端）也是手写 params，可一并迁移到 `useListFilters`。
 5. **版本页（`/admin/versions`）仍是手写筛选行**：无 `FilterToolbar`/一键复位；其"归因维度"用 `SegmentedControl`（属视图切换，保留）。
