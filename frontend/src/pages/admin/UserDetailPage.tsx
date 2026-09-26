@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Badge, Button, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -78,7 +79,7 @@ export default function UserDetailPage() {
 		<Stack gap="lg">
 			<PageHeader
 				title={student.display_name}
-				subtitle={`学生详情 · 学号: ${student.student_id || "-"} · 注册: ${new Date(student.created_at).toLocaleDateString("zh-CN")}`}
+				subtitle={`学生详情 · 学号: ${student.student_id || "-"} · 注册: ${new Date(student.created_at).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE })}`}
 				icon={IconUser}
 				backTo="/admin/users"
 			/>
@@ -206,7 +207,7 @@ export default function UserDetailPage() {
 											{r.score_total != null ? `${r.score_total}分` : "未评分"}
 										</Table.Td>
 										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>
-											{new Date(r.start_time).toLocaleString("zh-CN")}
+											{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 										</Table.Td>
 										<Table.Td>
 											<Button

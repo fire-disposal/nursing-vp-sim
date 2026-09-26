@@ -107,7 +107,7 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(10))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     record: Mapped[TrainingRecord] = relationship(back_populates="messages")
 
@@ -131,7 +131,7 @@ class Score(Base):
     #: 改名是为了消除「prompt_version 被读成提示词内容第几版」的同名异义
     #: （docs/review/tech-debt-audit-2026-09-14.md PIP-8）。
     prompt_schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     # ── 评分契约（docs/16 §四/八）──
     # raw_total: Σ条目原始分（0..raw_max），NULL = 旧口径历史分（不可逆）
@@ -169,7 +169,7 @@ class ScoreReview(Base):
     detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     total_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     score: Mapped[Score] = relationship(back_populates="reviews")
     reviewer: Mapped[User | None] = relationship()
@@ -212,7 +212,7 @@ class TrainingAction(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     input: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
 
 class TrainingSessionState(Base):
@@ -225,8 +225,8 @@ class TrainingSessionState(Base):
     initiative_timer: Mapped[float | None] = mapped_column(Float, nullable=True)
     initiative_last_trigger: Mapped[float | None] = mapped_column(Float, nullable=True)
     initiative_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("'0'"))
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc)
 
     record: Mapped[TrainingRecord] = relationship(back_populates="session_state")
 

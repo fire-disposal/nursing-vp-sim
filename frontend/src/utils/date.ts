@@ -1,4 +1,11 @@
-/** Shared date formatting — single source of truth for zh-CN display. */
+/**
+ * Shared date formatting — single source of truth for zh-CN display.
+ *
+ * **时区固定为上海**：后端一律以 UTC 存（timestamptz），但受众在学校；
+ * 若按浏览器本地时区渲染，出差/海外用户会看到与自己认知不一致的时间
+ * （2026-09-26 时区对齐，见 docs/ops/timezone-alignment.md）。
+ */
+export const APP_TIME_ZONE = "Asia/Shanghai";
 
 type DateInput = string | number | Date | null | undefined;
 
@@ -15,20 +22,29 @@ function pad(n: number): string {
 /** "2026/6/25" — zh-CN date only. Empty string for invalid/empty input. */
 export function formatDate(value: DateInput): string {
 	const d = toValidDate(value);
-	return d ? d.toLocaleDateString("zh-CN") : "";
+	return d ? d.toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE }) : "";
 }
 
 /** "2026/6/25 14:30:00" — zh-CN date + time. Empty string for invalid/empty input. */
 export function formatDateTime(value: DateInput): string {
 	const d = toValidDate(value);
-	return d ? d.toLocaleString("zh-CN") : "";
+	return d ? d.toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE }) : "";
 }
 
-/** "06-25 14:30" — 紧凑时间戳，用于窄栏（工具面板/记录卡片）的提交时间展示。 */
+/** "06-25 14:30" — 紧凑时间戳（按上海时区），用于窄栏的提交时间展示。 */
 export function formatShortDateTime(value: DateInput): string {
 	const d = toValidDate(value);
 	if (!d) return "";
-	return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	const parts = new Intl.DateTimeFormat("zh-CN", {
+		timeZone: APP_TIME_ZONE,
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	}).formatToParts(d);
+	const get = (type: string) => parts.find((x) => x.type === type)?.value ?? "00";
+	return `${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
 /** ISO/Date → value for `<input type="datetime-local">` (local time, no seconds). */

@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Button, Group, Paper, Progress, Stack, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
@@ -55,8 +56,7 @@ export function AssignmentOverview({ assignments }: AssignmentOverviewProps) {
 															·{" "}
 															{new Date(
 																a.end_time,
-															).toLocaleDateString("zh-CN", {
-																month: "numeric",
+															).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric",
 																day: "numeric",
 															})}{" "}
 															到期

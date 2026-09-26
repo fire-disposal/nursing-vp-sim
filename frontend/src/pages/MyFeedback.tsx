@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Badge as MantineBadge, Box, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
@@ -193,7 +194,7 @@ export default function MyFeedbackPage() {
 											</Badge>
 										</Group>
 										<Text size="xs" c="dimmed">
-											{new Date(fb.created_at).toLocaleString("zh-CN")}
+											{new Date(fb.created_at).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 											{fb.version && (
 												<Text component="span" ml={8} opacity={0.6}>
 													v{fb.version}
@@ -256,7 +257,7 @@ export default function MyFeedbackPage() {
 												</Text>
 												{fb.replied_at && (
 													<Text size="xs" c="dimmed">
-														{new Date(fb.replied_at).toLocaleString("zh-CN")}
+														{new Date(fb.replied_at).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 													</Text>
 												)}
 											</Group>

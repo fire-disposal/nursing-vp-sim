@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -49,7 +49,7 @@ class User(Base, TimestampMixin):
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
-    last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="user")
     memberships: Mapped[list[ClassMembership]] = relationship(back_populates="user", cascade="all, delete-orphan")

@@ -66,7 +66,7 @@ class Class(Base):
     cohort_label: Mapped[str] = mapped_column(String(40), default="", server_default=text("''"))
     # 遗留列（nullable）：本轮只保留不迁移，新代码不写入；downgrade 时用于还原旧结构。
     grade_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     memberships: Mapped[list[ClassMembership]] = relationship(back_populates="class_", cascade="all, delete-orphan")
 
@@ -88,7 +88,7 @@ class ClassMembership(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     class_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
     member_role: Mapped[str] = mapped_column(String(20), default=MEMBER_ROLE_STUDENT, server_default=text("'student'"))
-    joined_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     user: Mapped[User] = relationship(back_populates="memberships")
     class_: Mapped[Class] = relationship(back_populates="memberships")

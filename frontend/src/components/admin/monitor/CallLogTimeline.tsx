@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, Box, Button, Group, Paper, Text } from "@mantine/core";
 import {
@@ -26,8 +27,7 @@ function safeTime(iso: string | null | undefined): string {
 	if (!iso) return "—";
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return iso;
-	return d.toLocaleTimeString("zh-CN", {
-		hour: "2-digit",
+	return d.toLocaleTimeString("zh-CN", { timeZone: APP_TIME_ZONE, hour: "2-digit",
 		minute: "2-digit",
 		second: "2-digit",
 	});

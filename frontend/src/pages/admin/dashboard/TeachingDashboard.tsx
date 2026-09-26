@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Group, Paper, Progress, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconChartBar, IconClipboardList, IconTarget, IconTrendingUp, IconUsers } from "@tabler/icons-react";
@@ -64,7 +65,7 @@ export function TeachingDashboard() {
 
   const recentEvents: ActivityEvent[] = records.slice(0, 8).map((r) => ({
     id: r.id,
-    time: new Date(r.start_time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+    time: new Date(r.start_time).toLocaleTimeString("zh-CN", { timeZone: APP_TIME_ZONE, hour: "2-digit", minute: "2-digit" }),
     studentName: r.user_display_name ?? "未知",
     action: r.status === "completed" ? `完成了 ${r.case_name ?? "训练"}` : "开始了训练",
     meta: r.score_total != null ? `${r.score_total}分` : undefined,
@@ -78,7 +79,7 @@ export function TeachingDashboard() {
           {greeting}，{user?.display_name || "老师"}
         </Title>
         <Text size="sm" c="dimmed" mt={4}>
-          本周截至 {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}
+          本周截至 {new Date().toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "long", day: "numeric" })}
         </Text>
       </div>
 

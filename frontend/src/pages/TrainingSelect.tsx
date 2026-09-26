@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconAlertTriangle,
@@ -488,7 +489,7 @@ export default function TrainingSelect() {
 												<Box style={{ minWidth: 0 }}>
 													<Text size="sm" fw={500} truncate>{a.title}</Text>
 													<Text size="xs" c="dimmed" mt={4}>
-														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })} 截止` : ""}
+														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
 													</Text>
 												</Box>
 												<Button size="sm" onClick={() => handleStartAssignment(a.id)}>
@@ -546,7 +547,7 @@ export default function TrainingSelect() {
 												<Box style={{ minWidth: 0, flex: 1 }}>
 													<Text size="sm" fw={500} truncate>{r.case_name}</Text>
 													<Text size="xs" c="dimmed" mt={2}>
-														{new Date(r.start_time).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊
+														{new Date(r.start_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊
 													</Text>
 												</Box>
 												<Box style={{ flexShrink: 0, marginLeft: 12 }}>

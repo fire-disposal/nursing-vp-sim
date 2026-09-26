@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -366,7 +367,7 @@ export default function TeacherRecordsPage() {
 													)}
 												</Table.Td>
 												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-													{new Date(r.start_time).toLocaleString("zh-CN")}
+													{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 												</Table.Td>
 												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", opacity: durMins != null ? 1 : 0.5 }}>
 													{durMins != null ? `${durMins} 分钟` : "进行中"}

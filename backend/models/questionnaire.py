@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -85,8 +86,8 @@ class QuestionnaireResponse(Base):
         Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     template: Mapped[QuestionnaireTemplate] = relationship()
     user: Mapped[User] = relationship()

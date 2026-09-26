@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -26,7 +27,7 @@ class ApiSecret(Base, TimestampMixin):
     base_url: Mapped[str] = mapped_column(String(200), default="")
     status: Mapped[str] = mapped_column(String(20), default="active")
     degraded_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    degraded_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    degraded_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
     price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
     monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
@@ -34,10 +35,10 @@ class ApiSecret(Base, TimestampMixin):
     total_tokens_today: Mapped[int] = mapped_column(BigInteger, default=0)
     total_cost_today: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
     monthly_cost_used: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
-    stats_date: Mapped[datetime | None] = mapped_column(nullable=True)
+    stats_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
-    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     model_override: Mapped[str | None] = mapped_column(String(80), nullable=True, default=None)
 
@@ -76,4 +77,4 @@ class LLMCallLog(Base):
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cache_hit_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cache_miss_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, default=_now_utc)

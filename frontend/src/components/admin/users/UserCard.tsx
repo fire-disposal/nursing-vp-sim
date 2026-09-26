@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { ActionIcon, Badge, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconBan, IconCheck, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
@@ -98,7 +99,7 @@ export default function UserCard({
 						)}
 						<Group justify="space-between" align="center" gap={8} mt={6} wrap="nowrap">
 							<Text size="xs" c="dimmed">
-								{new Date(user.created_at).toLocaleDateString("zh-CN")}
+								{new Date(user.created_at).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE })}
 							</Text>
 							<Group gap={4} wrap="nowrap">
 								<Tooltip label="查看详情">

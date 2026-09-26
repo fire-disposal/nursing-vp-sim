@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { useQuery } from "@tanstack/react-query";
 import {
 	Alert,
@@ -34,7 +35,7 @@ function safeDate(iso: string | null | undefined): string {
 	if (!iso) return "—";
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return iso;
-	return d.toLocaleString("zh-CN");
+	return d.toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE });
 }
 
 type IconType = ComponentType<{

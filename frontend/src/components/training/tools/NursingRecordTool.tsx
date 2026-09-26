@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 // Save（lucide）在 tabler 无同名图标，语义上取 IconDeviceFloppy（软盘保存）。
 import {
 	IconAlertCircle,
@@ -172,7 +173,7 @@ export default function NursingRecordTool({ activity, recordId, bus }: ActivityP
 					markSaved(savedSheet);
 					setSaveStatus("saved");
 					setLastSavedAt(
-						new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+						new Date().toLocaleTimeString("zh-CN", { timeZone: APP_TIME_ZONE, hour: "2-digit", minute: "2-digit" }),
 					);
 					return;
 				}

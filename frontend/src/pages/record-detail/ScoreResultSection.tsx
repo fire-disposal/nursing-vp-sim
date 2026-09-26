@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import {
 	Badge,
 	Box,
@@ -103,7 +104,7 @@ export default function ScoreResultSection({
 							<Text size="xs" c="dimmed">
 								复核人: {review.reviewed_by_name}
 								{review.reviewed_at &&
-									` · ${new Date(review.reviewed_at).toLocaleDateString("zh-CN")}`}
+									` · ${new Date(review.reviewed_at).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE })}`}
 							</Text>
 						)}
 					</Group>

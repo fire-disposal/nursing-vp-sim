@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconBook2,
@@ -699,8 +700,7 @@ function getRequestErrorMessage(error: unknown): string {
 }
 
 function formatSessionDate(value: string) {
-	return new Date(value).toLocaleDateString("zh-CN", {
-		month: "2-digit",
+	return new Date(value).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "2-digit",
 		day: "2-digit",
 	});
 }

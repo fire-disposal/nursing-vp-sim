@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
@@ -231,8 +232,7 @@ export default function History() {
 														)}
 													</Group>
 													<Text size="xs" c="dimmed" mt={2}>
-														{new Date(r.start_time).toLocaleString("zh-CN", {
-															month: "numeric", day: "numeric",
+														{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric",
 															hour: "2-digit", minute: "2-digit",
 														})}
 
@@ -343,7 +343,7 @@ export default function History() {
 												)}
 											</Table.Td>
 											<Table.Td style={{ fontSize: 12, ...DIM }}>
-												{new Date(r.start_time).toLocaleString("zh-CN")}
+												{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 											</Table.Td>
 											<Table.Td style={{ fontSize: 12, ...DIM }}>
 												{durMins != null ? `${durMins} 分钟` : "进行中"}

@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Badge, Group, Paper, SegmentedControl, Select, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -34,7 +35,7 @@ const WINDOWS = [
 
 function formatDate(iso: string | null): string {
 	if (!iso) return "—";
-	return new Date(iso).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+	return new Date(iso).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 export default function VersionsPage() {

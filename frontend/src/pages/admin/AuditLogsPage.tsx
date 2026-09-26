@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Badge, Box, Code, Paper, Select, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -52,7 +53,7 @@ const TARGET_LABELS: Record<string, string> = {
 function fmtTime(value: string | null): string {
 	if (!value) return "—";
 	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? value : d.toLocaleString("zh-CN", { hour12: false });
+	return Number.isNaN(d.getTime()) ? value : d.toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, hour12: false });
 }
 
 /**

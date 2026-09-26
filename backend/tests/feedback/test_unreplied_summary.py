@@ -51,11 +51,8 @@ def _author_id(db: Session) -> int:
 
 
 def _add(db: Session, fb_id: int, created_at: datetime, *, reply: str | None = None) -> None:
-    # ``feedbacks.created_at`` 是 naïve 列（timestamp without time zone，见 information_schema）。
-    # PG 会把 aware 值按**会话时区**折算（本机/生产库都是 Asia/Shanghai），读回时服务层
-    # ``ensure_utc()`` 按 UTC 解释 → 读路径整体偏 8 小时（3 天变 2.7 天，isoformat 也偏）。
-    # 列的口径就是 UTC 墙钟时间，故这里显式写 naïve-UTC —— 与列类型无关，且与 SQLite 上的
-    # 实际存储（DATETIME 丢 tzinfo）一致。
+    # ``feedbacks.created_at`` 自 2026-09-26 起是 timestamptz（迁移 f4e5f6a7b8c9，
+    # 见 docs/ops/timezone-alignment.md）：直接写 aware-UTC 即可，往返不偏移。
     db.add(
         Feedback(
             id=fb_id,
@@ -64,7 +61,7 @@ def _add(db: Session, fb_id: int, created_at: datetime, *, reply: str | None = N
             tag="bug",
             content="正文不得出现在运维面板",
             developer_reply=reply,
-            created_at=created_at.replace(tzinfo=None),
+            created_at=created_at,
         )
     )
     db.commit()

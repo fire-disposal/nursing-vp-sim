@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import {
 	Badge,
 	Box,
@@ -57,7 +58,7 @@ const ROLE_LABEL: Record<MemberRole, string> = {
 
 function formatJoined(value: string): string {
 	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("zh-CN");
+	return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE });
 }
 
 export default function ClassDetailPage() {

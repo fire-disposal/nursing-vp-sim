@@ -208,7 +208,16 @@
 | U3 其余 12 个 SQLite 测试夹具迁 PG | **已完成（本地，151 条用例；全量 1532 通过、0 个 sqlite 夹具残留）**；并挖出一条产品缺陷 → 见 §2.12 |
 | U1 my-feedback 迁 `useListFilters` | 已完成（本地）；versions 等页面待做 |
 
-### 2.12 U3 迁移挖出的**产品缺陷**（SQLite 夹具长期掩盖，待发版后优先处理）
+### 2.12 U3 迁移挖出的**产品缺陷**（SQLite 夹具长期掩盖）—— **已修（本地，随本批复）**
+
+> 修法：`ddl/f4e5f6a7b8c9_align_timestamps_to_timestamptz` 把 25 个 naïve 列改成 `timestamptz`，
+> 用 `USING <col> AT TIME ZONE 'Asia/Shanghai'` 换算（**存量值就是上海墙钟**，因为写入一律 aware + 会话时区上海）；
+> 同时补齐 10 个模型的 `DateTime(timezone=True)`（库/模型漂移的另一半）；
+> 判据 `tests/core/test_timestamp_roundtrip.py`（会话时区 / 无 naïve 列 / 往返一致）；前端显示统一按上海
+> （`utils/date.ts::APP_TIME_ZONE` + 21 个文件 28 处，判据 `__tests__/utils/dateTimezone.test.ts`，
+> 在 `TZ=UTC` 下通过、去掉 timeZone 即失败）。运维定位与修正步骤见 `docs/ops/timezone-alignment.md`。
+
+
 
 把最后 12 个测试文件迁到 PG 后，暴露出一个**真实的数据口径 bug**（不是测试问题）：
 

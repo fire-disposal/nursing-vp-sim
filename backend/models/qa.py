@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -34,7 +34,7 @@ class QARecord(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     role: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, default=_now_utc)
 
     user: Mapped[User] = relationship()
     session: Mapped[QASession] = relationship(back_populates="records")

@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { Anchor, Badge, Box, Button, Group, Paper, Progress, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconArrowLeft, IconCopy, IconDownload } from "@tabler/icons-react";
@@ -280,7 +281,7 @@ export default function AssignmentDetailPage() {
 									</Table.Td>
 									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>
 										{s.end_time
-											? new Date(s.end_time).toLocaleString("zh-CN")
+											? new Date(s.end_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })
 											: "-"}
 										{s.status === "completed" && s.is_overdue && (
 											<Text component="span" size="xs" c="red" ml={4} inherit>逾期提交</Text>

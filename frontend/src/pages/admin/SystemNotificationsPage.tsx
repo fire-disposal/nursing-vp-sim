@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { ActionIcon, Badge, Button, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { schemaResolver, useForm } from "@mantine/form";
@@ -42,7 +43,7 @@ const LEVEL_COLORS: Record<string, string> = {
 function toLocalDateTime(s: string | null | undefined): string {
 	if (!s) return "";
 	const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`;
-	return new Date(iso).toLocaleString("zh-CN");
+	return new Date(iso).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE });
 }
 
 const DEFAULT_VALUES: NotificationValues = {

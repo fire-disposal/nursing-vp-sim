@@ -1,3 +1,4 @@
+import { APP_TIME_ZONE } from "@/utils/date";
 import { useQuery } from "@tanstack/react-query";
 import {
 	ActionIcon,
@@ -183,7 +184,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 				)}
 				<Group gap={8} mb={4}>
 					<Text size="xs" c="dimmed">
-						{new Date(fb.created_at).toLocaleString("zh-CN")}
+						{new Date(fb.created_at).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 					</Text>
 					{fb.version && (
 						<Text size="xs" c="dimmed" opacity={0.5}>
@@ -195,7 +196,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 							variant="light"
 							color="green"
 							size="xs"
-							title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN")}` : ""}
+							title={fb.auto_fix_at ? `尝试时间: ${new Date(fb.auto_fix_at).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}` : ""}
 						>
 							已尝试自动修复
 						</Badge>
