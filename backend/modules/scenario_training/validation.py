@@ -56,6 +56,7 @@ def validate_pack(pack: ScenarioPack) -> list[str]:
     problems += _check_facts(pack, index)
     problems += _check_judgment(pack, index)
     problems += _check_failure(pack, index)
+    problems += _check_anchors(pack, index)
     return problems
 
 
@@ -274,6 +275,29 @@ def _check_rule_params(point: Any, index: _Index) -> list[str]:
                 problems.append(f"criterion {point.id}: 未知动作 {item}")
     if "accept_custom" in point.params and not isinstance(point.params["accept_custom"], list):
         problems.append(f"criterion {point.id}: accept_custom 必须是列表")
+    return problems
+
+
+def _check_anchors(pack: ScenarioPack, index: _Index) -> list[str]:
+    """叙事锚点：id 唯一；`requires`/`blocked_by`/`unlocks` 只能引用本包已登记的事实与动作。
+
+    判据语言只有一套（与 `effects`/affordance 同一注册表）——锚点不引入第二套。
+    """
+    problems = _duplicates("anchor", [anchor.id for anchor in pack.anchors])
+    known = index.facts | index.affordances
+    for anchor in pack.anchors:
+        where = f"anchor {anchor.id}"
+        if not anchor.cue.strip():
+            problems.append(f"{where}: 缺 cue（世界必须以叙事内手段呈现它）")
+        if anchor.deadline_turns < 0:
+            problems.append(f"{where}: deadline_turns 不得为负（{anchor.deadline_turns}）")
+        for field_name in ("requires", "blocked_by"):
+            for ref in getattr(anchor, field_name):
+                if ref not in known:
+                    problems.append(f"{where}: {field_name} 引用未登记的事实/动作 {ref}")
+        for ref in anchor.unlocks:
+            if ref not in index.affordances:
+                problems.append(f"{where}: unlocks 引用未登记的动作 {ref}")
     return problems
 
 

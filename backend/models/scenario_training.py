@@ -40,6 +40,9 @@ EVENT_KINDS = (
     "action_attributed",
     "dm_step",
     "dm_turn",
+    "anchor_satisfied",
+    "anchor_blocked",
+    "anchor_proposal_rejected",
     "effects_applied",
     "cues_revealed",
     "entity_line",
@@ -174,8 +177,9 @@ class StEvent(Base):
         Index("ix_st_events_session_kind", "session_id", "kind"),
         CheckConstraint(
             "kind IN ("
-            "'session_opened', 'student_action', 'action_attributed', 'dm_step', 'dm_turn', 'effects_applied', "
-            "'cues_revealed', 'entity_line', 'judge_result', 'session_closed'"
+            "'session_opened', 'student_action', 'action_attributed', 'dm_step', 'dm_turn', "
+            "'anchor_satisfied', 'anchor_blocked', 'anchor_proposal_rejected', "
+            "'effects_applied', 'cues_revealed', 'entity_line', 'judge_result', 'session_closed'"
             ")",
             name="ck_st_events_kind",
         ),

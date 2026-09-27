@@ -32,6 +32,7 @@ from . import pack_loader
 from .dm.runner import iter_dm_stream
 from .judge.rules import dims_snapshot
 from .pack_loader import PackInvalid, PackNotFound
+from .runtime.anchors import compute_anchors
 from .runtime.session import (
     SessionClosed,
     StudentAction,
@@ -310,6 +311,7 @@ async def submit_stream(
                 beats,
                 user_id=current_user.id,
                 on_step=dm_step_reporter(db, session.id),
+                anchors=compute_anchors(pack, load_events(db, session.id)),
             ):
                 if item["kind"] == "blocks":
                     yield send({"kind": "blocks", "blocks": item["blocks"]})

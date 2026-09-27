@@ -510,6 +510,54 @@
       }
     ]
   },
+  "anchors": [
+    {
+      "id": "a_see_the_plug",
+      "stage": "airway",
+      "goal": "把低氧归因到左侧气道堵塞：先测量与听诊，而不是继续吸痰",
+      "cue": "监护仪的血氧还在往下走；患者坐起前倾、话越说越短；听诊时左侧呼吸音几乎听不到",
+      "requires": [
+        "measure_spo2",
+        "auscultate"
+      ],
+      "unlocks": [
+        "bag_valve",
+        "reposition"
+      ],
+      "blocked_by": [],
+      "deadline_turns": 2
+    },
+    {
+      "id": "a_control_airway",
+      "stage": "airway",
+      "goal": "气道打不开时升级处置：加压给氧＋呼叫医生准备插管，而不是反复吸痰",
+      "cue": "吸痰管回抽只有少量血性黏痰、越吸患者越躁；医生到场后给出加压给氧与插管的指示",
+      "requires": [
+        "bag_valve",
+        "call_doctor"
+      ],
+      "unlocks": [
+        "document"
+      ],
+      "blocked_by": [],
+      "deadline_turns": 2
+    },
+    {
+      "id": "a_reassess_after",
+      "stage": "after",
+      "goal": "气道建立后复评与收尾：体位引流排痰＋记录处置与病情变化",
+      "cue": "加压给氧后左侧呼吸音部分恢复、血氧回升；吸痰管回抽不再带血",
+      "requires": [
+        "reposition",
+        "document"
+      ],
+      "unlocks": [],
+      "blocked_by": [
+        "bag_valve"
+      ],
+      "deadline_turns": 3
+    }
+  ],
   "failure": "irreversible",
   "assets": [
     {

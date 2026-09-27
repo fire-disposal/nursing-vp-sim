@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 
+from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.devices import build_devices
 from ..runtime.world import ActionRecord, World, visible_affordances
 from ..schema import ScenarioPack
@@ -49,6 +50,8 @@ _SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发
    notes           [{text, section?, supersedes?}] 钉在线索板上的**简短**结论（≤20 字）
    images          [{asset_id, caption}]         引用「可用图片」里的 id（配一句 caption）
    image_request   {prompt, caption?}            仅在提示允许时使用（见「可用图片」）。
+   anchor_satisfied string                       你认为某个锚点已达成 → 填它的 id（引擎只采纳与重算一致的）
+   anchor_blocked   {id, reason}                 你认为某个锚点被卡住 → 填它的 id 与缺的那一步
 
 # 形状要求（为了能被解析与判读）
 - `options` 只能取「可做动作」里的 affordance_id，或一条自由发问（type=ask）；**不得**与未揭示的线索同义；
@@ -57,6 +60,9 @@ _SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发
   不值得考虑就别列。
 - `interpretation` 只在学生**自由表达**（没点按钮）时用：把他这句话映射到「可做动作」里最贴切的那个 id；
   映射不出就**留空**——不要硬凑、不要编造归属（学生自己点了某个动作时，以他点的为准）。
+- `anchor_satisfied` / `anchor_blocked` 是**提议**：只在「锚点」一节所列的推进任务确实达成/被卡住时填。
+  引擎会自己重算一遍，不一致就作废（下回合会告诉你）。不要为了让某个锚点"看起来完成"而替学生做事、
+  也不要提前演出还没轮到的锚点信号（那一节里的禁令是硬的）。
 - `notes` 在"真的确立了一件事"时写：一条只讲一个新事实，**不要复述旁白、不要写剧情**；
   发现先前记错了，用 `supersedes` 指向那条条目订立正（旧条目保留但被划掉）。
 - 需要让学生**看见画面**时，用 `images` 引用「可用图片」里的 asset_id；不要自己编 URL 或描述图片文件本身。
@@ -128,6 +134,44 @@ def _notes_lines(world: World) -> list[str]:
     return ["", "# 你之前的便条（只有你能看见）", _lines(notes)] if notes else []
 
 
+def _joined(values: tuple[str, ...]) -> str:
+    return "、".join(values) if values else "（无）"
+
+
+def _anchor_block(report: AnchorReport | None) -> list[str]:
+    """锚点一节 = DM 的任务列表（结构化短句）。
+
+    **不声明 anchors 的 pack → 空列表**（提示词逐字节不变，一切照旧）；
+    `pending` 锚点的 `cue` 在这里只以**禁令**出现、且只列 id——线索文本一个字都不提前抖出。
+    """
+    if report is None or not report.states:
+        return []
+    lines = ["", "# 锚点（本回合要推进的任务；只给你看，学生看不到这一节）"]
+    active = report.active
+    if active is None:
+        lines.append("- 当前没有可推进的锚点（其余都已达成或被卡住）。")
+    else:
+        lines.append(f"- 当前推进：{active.id}（阶段 {active.stage}）")
+        lines.append(f"  目标（教学意图，不写给学生）：{active.goal}")
+        lines.append(f"  世界必须呈现的信号：{active.cue}")
+        lines.append(f"  前置已满足：{_joined(active.satisfied_requires)}")
+        lines.append(f"  前置未满足（**不得**替学生完成）：{_joined(active.missing_requires)}")
+        if active.unlocks:
+            lines.append(f"  达成后开放：{_joined(active.unlocks)}")
+        if active.nudge:
+            lines.append(f"  {active.nudge}")
+    blocked = report.of(AnchorStatus.BLOCKED)
+    if blocked:
+        lines.append("- 已被卡住（用叙事内手段表现「此路不通」，不要替学生绕过去）：")
+        lines.extend(f"  {state.id}：缺 {state.reason}" for state in blocked)
+    pending = report.of(AnchorStatus.PENDING)
+    if pending:
+        ids = "、".join(state.id for state in pending)
+        lines.append(f"- 禁令：仍待推进的锚点（{ids}）的信号本回合**不得**以任何形式出现——不得提前抖出、不得暗示。")
+    lines.extend(f"- {reminder}" for reminder in report.reminders)
+    return lines
+
+
 def build_dm_messages(
     pack: ScenarioPack,
     world: World,
@@ -136,10 +180,12 @@ def build_dm_messages(
     *,
     opening: bool = False,
     max_steps: int = 0,
+    anchors: AnchorReport | None = None,
 ) -> list[dict[str, str]]:
     """组装 DM 的 system + user。`opening` 用于开场回合；`max_steps > 0` 时写入「工具」一节。
 
     纠偏（重试）不在这里：多步循环是**累积同一段对话**的，纠偏由 `retry_messages` 就地追加。
+    `anchors` = 本回合的锚点状态（由事件流重算）；缺省/空报告时**不写**「锚点」一节。
     """
     available = [
         f"{affordance.id}（{affordance.type.value}）{affordance.label}"
@@ -196,6 +242,7 @@ def build_dm_messages(
             "",
             "## 可做动作（本回合**已解锁**；options 与 interpretation 只能取这里的 id）",
             _lines(available),
+            *_anchor_block(anchors),
             "",
             "## 可用图片（需要让学生看见画面时，用 images 引用这里的 asset_id）",
             _lines([f"{asset.id}｜{asset.title}｜适合：{asset.suggest_when}" for asset in pack.assets]),

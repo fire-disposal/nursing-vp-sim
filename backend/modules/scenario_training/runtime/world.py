@@ -246,13 +246,18 @@ def facts_observed(pack: ScenarioPack, world: World) -> set[str]:
     return observed
 
 
+def fold_event(world: World, event: dict[str, Any]) -> None:
+    """把**一条**事件折进世界（`world_from_events` 与逐回合前缀重放共用同一份折法）。"""
+    folder = _FOLDERS.get(str(event.get("kind")))
+    if folder is not None:
+        folder(world, event.get("payload") or {})
+
+
 def world_from_events(pack: ScenarioPack, events: list[dict[str, Any]]) -> World:
     """从事件流重建世界（回放：判读、经历页、坏实验复盘都靠它）。"""
     world = initial_world(pack)
     for event in events:
-        folder = _FOLDERS.get(str(event.get("kind")))
-        if folder is not None:
-            folder(world, event.get("payload") or {})
+        fold_event(world, event)
     return world
 
 

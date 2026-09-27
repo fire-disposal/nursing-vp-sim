@@ -302,6 +302,30 @@ class Player(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# 任务：叙事锚点（DM 的「任务列表」，docs/21 §4.0）
+# --------------------------------------------------------------------------- #
+
+
+class NarrativeAnchor(BaseModel):
+    """叙事锚点：场景推进路上的一个关键节点（**不是分数**）。
+
+    它是 DM 的**任务列表**（docs/21 §4.0）：状态由平台每回合从事件流重算（`runtime/anchors.py`），
+    不新增真源；`requires` / `blocked_by` / `unlocks` 只能引用**已登记**的事实与动作 id。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    stage: str  # 阶段名：锚点按阶段分组，同时只推进一个阶段
+    goal: str  # 教学意图（只给 DM 与教师回放看，学生看不到）
+    cue: str  # 世界必须呈现的信号（只能用叙事内手段表达）
+    requires: list[str] = Field(default_factory=list)  # 前置：这些事实/动作已发生
+    unlocks: list[str] = Field(default_factory=list)  # 达成后开放的动作
+    blocked_by: list[str] = Field(default_factory=list)  # 缺哪一步就卡住（世界要诚实抵抗）
+    deadline_turns: int  # 超过 N 回合未达成 → 引擎催办（有预算）
+
+
+# --------------------------------------------------------------------------- #
 # 判读：只声明观察
 # --------------------------------------------------------------------------- #
 
@@ -475,6 +499,9 @@ class ScenarioPack(BaseModel):
     dims: list[DimSpec] = Field(default_factory=list)
 
     presentation: Presentation = Field(default_factory=Presentation)
+
+    # 叙事锚点：DM 的任务列表（每回合由事件流重算；不声明 = 该病例不启用编排，一切照旧）
+    anchors: list[NarrativeAnchor] = Field(default_factory=list)
 
     # 场景资源包内可展示的预定义资源（图片）；DM 只能引用这里声明过的 id
     assets: list[Asset] = Field(default_factory=list)

@@ -20,6 +20,7 @@ DM 有想象力，但改动必须声明式。
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from infra.llm import safe_parse_json
 from infra.llm.parsing import TruncatedJSONError
 
+from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.world import World, facts_observed, visible_affordances
 from ..schema import AffordanceType, Effect, ScenarioPack
 
@@ -124,6 +126,18 @@ class DMInterpretation(BaseModel):
     affordance_id: str | None = None
 
 
+class DMAnchorBlock(BaseModel):
+    """DM 提议某个锚点**被卡住**：缺哪一步（`reason` 是它自己的说法，引擎只认重算的状态）。
+
+    字段缺失按空处理（与 `DMTurn` 同一口径）：坏提案由裁决层拒绝并纠偏，不在这里抛。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = ""
+    reason: str = ""
+
+
 class DMToolCall(BaseModel):
     """DM 在产出信封**之前**的一次环境读取（多步循环，见 docs/21 §四）。"""
 
@@ -150,6 +164,9 @@ class DMTurn(BaseModel):
     options: list[DMOption] = Field(default_factory=list)
     images: list[DMImage] = Field(default_factory=list)  # 展示 pack 内的预定义图片
     image_request: DMImageRequest | None = None  # 预留：请求绘画者 AI 生成（需 pack 允许）
+    # 叙事锚点：DM 只能**提议**（docs/21 §4.0）——引擎只采纳与重算一致者，其余丢弃并纠偏
+    anchor_satisfied: str = ""  # 提议"这个锚点已达成的 id"
+    anchor_blocked: DMAnchorBlock | None = None  # 提议"这个锚点被卡住（含原因）"
 
 
 class TurnCheck(BaseModel):
@@ -431,3 +448,59 @@ def validate_turn(pack: ScenarioPack, turn: DMTurn, world: World | None = None) 
         }
     )
     return TurnCheck(turn=clean, problems=problems, dropped=dropped)
+
+
+@dataclass(frozen=True)
+class AnchorProposalCheck:
+    """锚点提案的裁决：要落的事件（kind, payload）与问题清单。"""
+
+    events: tuple[tuple[str, dict[str, Any]], ...] = ()
+    problems: tuple[str, ...] = ()
+
+
+def validate_anchor_proposals(
+    pack: ScenarioPack,
+    report: AnchorReport,
+    turn: DMTurn,
+    *,
+    turn_no: int,
+) -> AnchorProposalCheck:
+    """DM 的锚点提案：**只采纳与重算一致者**（docs/21 §4.0 的 `todo` 口径）。
+
+    状态由事件流重算而来，所以"采纳"= 记一条达成/阻塞事件（真源仍是事件流 × 声明）；
+    不一致 → 提案整条丢弃 + 落 `anchor_proposal_rejected` + 下回合注入纠偏
+    （纠偏由 `runtime/anchors.py` 的 `AnchorReport.reminders` 生成）。
+
+    与重算一致 = 重算状态下确已 `satisfied` / 确已 `blocked`；未声明的 id 一律拒绝。
+    `anchor_blocked` 的 `reason` 记 DM 的说法；它没写就记引擎重算出的那个缺失步骤。
+    """
+    proposals: list[tuple[str, str, str]] = []  # (proposal 名, 锚点 id, DM 给的原因)
+    if satisfied_id := turn.anchor_satisfied.strip():
+        proposals.append(("anchor_satisfied", satisfied_id, ""))
+    if turn.anchor_blocked is not None:
+        blocked = turn.anchor_blocked
+        proposals.append(("anchor_blocked", blocked.id.strip(), blocked.reason.strip()))
+    if not proposals:
+        return AnchorProposalCheck()
+
+    states = {state.id: state for state in report.states}
+    events: list[tuple[str, dict[str, Any]]] = []
+    problems: list[str] = []
+    for proposal, anchor_id, dm_reason in proposals:
+        state = states.get(anchor_id)
+        actual = state.status.value if state is not None else "undeclared"
+        wanted = AnchorStatus.SATISFIED if proposal == "anchor_satisfied" else AnchorStatus.BLOCKED
+        if state is not None and state.status is wanted:
+            payload: dict[str, Any] = {"turn": turn_no, "anchor_id": anchor_id}
+            if proposal == "anchor_blocked":
+                payload["reason"] = dm_reason or state.reason
+            events.append((proposal, payload))
+            continue
+        problems.append(f"anchor_proposal_rejected:{proposal}:{anchor_id}:{actual}")
+        events.append(
+            (
+                "anchor_proposal_rejected",
+                {"turn": turn_no, "anchor_id": anchor_id, "proposal": proposal, "actual": actual},
+            )
+        )
+    return AnchorProposalCheck(events=tuple(events), problems=tuple(problems))

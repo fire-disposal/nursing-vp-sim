@@ -209,6 +209,24 @@
 - **可观测**：`/api/diagnose` 的 `scenario` 分区新增 `dm_steps_24h` 与 `dm_avg_steps_24h`。
 - **成本**（真实采样）：提示词 +15%；每回合 1~5 次调用，实测每步约 ¥0.0003、回合约 ¥0.002~0.005；`SCENARIO_DM_MAX_STEPS=0` 可退回单步价位。
 
+### 情境训练 · 叙事锚点：DM 的任务列表（2026-09-28，引擎侧）
+
+**取向**：动词表不重要，重要的是给 DM 一个**类 agent 的内部操作环境**；锚点就是这个环境里它的**任务列表**——机制形状照 `todo` 工具（显式状态机 / 单一活动项 / blocked 带原因 / 失败注入提醒）。契约见 [docs/21 §4.0](21-dm-operating-environment.md)。
+
+- **声明**：`ScenarioPack.anchors`（`NarrativeAnchor`：`id / stage / goal / cue / requires / unlocks / blocked_by / deadline_turns`），可选段——**不声明的病例一切照旧**（提示词逐字节不变，测试用字符面量守卫）。
+  加载期校验沿用既有检查器风格：id 唯一、`cue` 非空、`deadline_turns >= 0`、`requires`/`blocked_by`/`unlocks` 只能引用**已登记**的事实键与 affordance id（与 `effects` 同一套注册表，不新造判据语言）。
+- **状态重算**：新增 `runtime/anchors.py`（纯函数：**事件流 × 声明**）。`pending / active / satisfied / blocked(reason) / abandoned`；规范化后同时最多一个 `active`（声明序保留第一个）、无可满足项时允许全体 blocked、blocked 不自动提升；
+  `satisfied` 由"事实已采集 / 动作已用过"推出，两项判据都只增，故只增不改；`blocked_by` 是世界的诚实抵抗（缺的那一步做了才解除）。
+  `active_since` 由逐回合前缀重放推导——催办与"被催办后达成"因此都可复算。
+- **注入**（`dm/prompt.py` 新增「# 锚点」一节，结构化短句）：唯一 `active` 的 `goal` + `cue`、`requires` 已满足/未满足清单（未满足的**不得**替学生完成）、`blocked` 的原因；
+  **防泄露**：仍 `pending` 的锚点只以 id 进"禁令"，其 `cue` 一个字都不进提示词（守卫测试直接断言注入串不含它；`active` 的必须写全）。
+- **催办**：`active` 超过 `deadline_turns` 回合未达成 → 按升级阶梯注入（`NUDGE_BUDGET=3`：温和 → 明确 → 强制，用尽即静默、不重复同一句），同回合附"尚未做的前置"。
+- **提案裁决**：DM 可在信封里提 `anchor_satisfied` / `anchor_blocked{id, reason}`；引擎**只采纳与重算一致者**——一致则落 `anchor_satisfied` / `anchor_blocked` 事件，不一致则整条丢弃 + 落 `anchor_proposal_rejected` + 下回合注入纠偏（`todo` 口径）。
+- **事件**：`st_events.kind` 封闭词表新增三类，迁移 `e9f1a2b3c4d5`（`drop_constraint` + `create_check_constraint`；downgrade 只回退约束、不删数据，docstring 给出操作者需手动执行的那行 SQL）。
+- **样板锚点**：pack `sputum-ineffective` 声明 3 个（先测量与听诊以把低氧归因到单侧堵塞 → 加压给氧＋呼叫医生升级处置 → 气道建立后体位引流与记录复评；第三个以 `blocked_by: ["bag_valve"]` 表达"气道没打开之前拍背排痰没用"）。**content_sha 已变，需重装包**。
+- **本批不含**：教师侧锚点面板（只保证事件与状态可回放）；`unlocks` 只讲给 DM、尚未据此改变学生可做集；`abandoned` 暂无产生路径；判读口径未动（锚点只作过程证据，不另算一套分）。
+- **验证**：后端 `tests/scenario_training` 181 项全绿（其中 13 项为本批新增守卫：规范化 / 达成只增不改 / 防泄露 / 催办预算 / 提案拒绝与纠偏 / 兼容字符面量 / 声明校验）。
+
 ### 情境训练学生控制台重做（2026-09-28，UI/文案/缺陷）
 
 **主题对接（`frontend/src/scenario/scenario.css` 全量重写）** 删掉自带的固定深色调色板，

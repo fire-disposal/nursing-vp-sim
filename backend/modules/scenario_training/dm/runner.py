@@ -24,6 +24,7 @@ from core.exceptions import LLMBudgetExceeded, LLMParseError, LLMRateLimited, No
 from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_llm_config
 
+from ..runtime.anchors import AnchorReport
 from ..runtime.world import ActionRecord, World
 from ..schema import ScenarioPack
 from .contract import (
@@ -162,11 +163,15 @@ async def run_dm(
     opening: bool = False,
     max_steps: int | None = None,
     on_step: ProgressCallback | None = None,
+    anchors: AnchorReport | None = None,
 ) -> tuple[DMTurn, list[str]]:
-    """`action=None` + `opening=True` = 开场回合：DM 先立场景，再等学生动手。"""
+    """`action=None` + `opening=True` = 开场回合：DM 先立场景，再等学生动手。
+
+    `anchors` = 本回合的锚点状态（由调用方从事件流重算，见 `runtime/anchors.py`）。
+    """
     problems: list[str] = []
     budget = SCENARIO_DM_MAX_STEPS if max_steps is None else max_steps
-    messages = build_dm_messages(pack, world, action, beats, opening=opening, max_steps=budget)
+    messages = build_dm_messages(pack, world, action, beats, opening=opening, max_steps=budget, anchors=anchors)
     steps = 0
     attempt = 0
     while attempt < _MAX_ATTEMPTS:
@@ -257,6 +262,7 @@ async def iter_dm_stream(
     opening: bool = False,
     max_steps: int | None = None,
     on_step: ProgressCallback | None = None,
+    anchors: AnchorReport | None = None,
 ):
     """**流式**跑一回合：先按块推（叙述完整就推叙述、台词完整就推台词），最后给出权威回合。
 
@@ -267,7 +273,7 @@ async def iter_dm_stream(
     流式中途失败 → 退回非流式 `run_dm`（结果与旧路径一致，绝不半途而废）。
     """
     budget = SCENARIO_DM_MAX_STEPS if max_steps is None else max_steps
-    messages = build_dm_messages(pack, world, action, beats, opening=opening, max_steps=budget)
+    messages = build_dm_messages(pack, world, action, beats, opening=opening, max_steps=budget, anchors=anchors)
     steps = 0
     while True:
         ctx = _ctx(purpose, user_id, pack, world, steps=steps, attempt=1, stream=True)
@@ -315,6 +321,7 @@ async def iter_dm_stream(
             opening=opening,
             max_steps=0,
             on_step=on_step,
+            anchors=anchors,
         )
         yield {"kind": "turn", "turn": turn, "problems": [*problems, failure]}
         return

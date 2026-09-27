@@ -64,6 +64,11 @@
 
 ### 4.0 锚点的包声明契约（实施时的确切接口）
 
+> **实施状态（2026-09-28）：引擎侧已落地**（本批不含界面）。声明与校验：`schema.NarrativeAnchor` + `validation._check_anchors`（id 唯一；`requires`/`blocked_by`/`unlocks` 只引用已登记的事实/动作；`cue` 非空；`deadline_turns >= 0`）。
+> 状态重算的**唯一实现**是 `runtime/anchors.py::compute_anchors(pack, events)`（纯函数；逐回合前缀重放推导"首次成为 active 的回合"，催办与纠偏都由它给出）；
+> 注入是 `dm/prompt.py` 的「# 锚点」一节（`build_dm_messages(anchors=…)`；缺省或空报告时**一个字都不写**）；提案裁决是 `dm/contract.py::validate_anchor_proposals`，事件由 `runtime/session.py::_record_anchor_proposals` 落库。
+> 样板：pack `sputum-ineffective` 声明 3 个锚点。**尚未做**：① `unlocks` 目前只讲给 DM 听（未据此改变学生的可做集）；② 教师侧锚点面板（本批只保证事件与状态可回放）；③ `abandoned` 暂无产生路径。
+
 pack 的 `presentation` 之外新增一个可选段（不声明 = 该病例不启用编排）：
 
 ```jsonc

@@ -29,11 +29,12 @@ from ..assets import (
     generated_asset_id,
     store_generated_asset,
 )
-from ..dm.contract import DMImageRequest, DMInterpretation, DMTurn, validate_turn
+from ..dm.contract import DMImageRequest, DMInterpretation, DMTurn, validate_anchor_proposals, validate_turn
 from ..dm.entity import run_entity
 from ..dm.runner import run_dm
 from ..judge.rules import dims_snapshot, evaluate, score_report, summarize
 from ..schema import ScenarioPack
+from .anchors import compute_anchors
 from .view import build_view
 from .world import (
     ActionRecord,
@@ -272,6 +273,21 @@ def _remember_dm_turn(world: World, check: Any) -> list[dict[str, Any]]:
     return stamped
 
 
+def _record_anchor_proposals(
+    db: Session, session_id: int, pack: ScenarioPack, dm_turn: DMTurn, *, turn: int
+) -> list[str]:
+    """裁决 DM 的锚点提案并落事件；返回问题清单（会进 `dm_turn` 事件与回声串）。
+
+    重算在**本回合末尾**（学生动作与 DM 的效果都已入流）——提案与它比，不一致就整条丢弃。
+    """
+    proposals = validate_anchor_proposals(
+        pack, compute_anchors(pack, load_events(db, session_id)), dm_turn, turn_no=turn
+    )
+    for kind, payload in proposals.events:
+        append_event(db, session_id, kind, payload)
+    return list(proposals.problems)
+
+
 async def _emit_dm_step(db: Session, session_id: int, payload: dict[str, Any]) -> None:
     """多步循环的每一步都落一条 `dm_step`（教师回放可见、学生不可见；步数进 `/api/diagnose`）。"""
     append_event(db, session_id, "dm_step", payload)
@@ -302,6 +318,7 @@ async def opening_turn(
         user_id=user_id,
         opening=True,
         on_step=dm_step_reporter(db, session.id),
+        anchors=compute_anchors(pack, load_events(db, session.id)),
     )
     check = validate_turn(pack, dm_turn, world)
     problems = [*dm_problems, *check.problems]
@@ -313,6 +330,9 @@ async def opening_turn(
     shown = await _shown_images(image_provider, db, session, pack, world, check, problems)
     _record_deltas(db, session.id, applied, revealed, ad_hoc=noticed, images=shown)
     stamped_notes = _remember_dm_turn(world, check)
+
+    # 锚点提案：引擎只采纳与事件流重算一致者（不一致 → 拒绝 + 落事件 + 下回合纠偏）
+    problems.extend(_record_anchor_proposals(db, session.id, pack, check.turn, turn=0))
 
     append_event(
         db,
@@ -386,7 +406,14 @@ async def submit_action(
         turn_result, dm_problems = dm_turn, list(dm_problems or [])
     else:
         turn_result, dm_problems = await run_dm(
-            llm, pack, world, record, beats, user_id=user_id, on_step=dm_step_reporter(db, session.id)
+            llm,
+            pack,
+            world,
+            record,
+            beats,
+            user_id=user_id,
+            on_step=dm_step_reporter(db, session.id),
+            anchors=compute_anchors(pack, load_events(db, session.id)),
         )
     check = validate_turn(pack, turn_result, world)
     problems = [*action_problems, *dm_problems, *check.problems]
@@ -412,6 +439,9 @@ async def submit_action(
     _record_deltas(db, session.id, dm_applied, dm_revealed, ad_hoc=new_noticed, images=shown)
 
     stamped_notes = _remember_dm_turn(world, check)
+
+    # 3c) 锚点提案：引擎只采纳与事件流重算一致者（不一致 → 拒绝 + 落事件 + 下回合纠偏）
+    problems.extend(_record_anchor_proposals(db, session.id, pack, check.turn, turn=turn))
 
     append_event(
         db,
