@@ -1,0 +1,680 @@
+{
+  "pack_schema_version": 1,
+  "key": "night-call-decision",
+  "title": "夜班电话：用几项数据决定下一步",
+  "state": "experimental",
+  "one_line": "凌晨 02:10，值班室电话把你叫醒——病区护士在电话那头等你下决定，你看不到病人。",
+  "player": {
+    "role": "值班医生",
+    "can": [
+      "ask",
+      "act",
+      "document",
+      "summon"
+    ]
+  },
+  "setting": {
+    "place": "值班室（电话另一头是内科病区）",
+    "time_hint": "凌晨 02:10",
+    "resources": [
+      "值班手机",
+      "院内系统",
+      "床旁超声（需呼叫）"
+    ],
+    "cues": [
+      {
+        "id": "c_phone",
+        "text": "护士语速很快：「体温 37.8，心率 118，血压 92/58，一晚上尿很少。」",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_waiting",
+        "text": "她等着你下决定；电话那头有监护仪的报警声。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_history",
+        "text": "追问既往：糖尿病、高血压；最近一周没怎么吃东西。",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_abdomen",
+        "text": "护士说：「肚子胀，右下腹按下去更疼，松手也疼。」",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_urine",
+        "text": "尿量：一整夜 100 ml，颜色很深。",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_results",
+        "text": "回报：乳酸 4.2 mmol/L、白细胞 16.8；床旁超声见右下腹游离液体。",
+        "visible_from_start": false
+      }
+    ]
+  },
+  "actors": [
+    {
+      "id": "nurse",
+      "role": "病区护士（电话另一头）",
+      "presence": "remote",
+      "demand": "neutral",
+      "knowledge": {
+        "已测": "体温 37.8、脉搏 118、血压 92/58、尿量少",
+        "主诉": "右下腹痛、腹胀",
+        "观察": "神志清、皮肤湿冷"
+      },
+      "style": "报数干脆、随时准备执行；你反复问同一件事她会直接说「我刚报过了」",
+      "goals": [
+        "尽快拿到明确医嘱"
+      ]
+    },
+    {
+      "id": "patient",
+      "role": "患者（病区内，你看不到）",
+      "presence": "inaccessible",
+      "demand": "quiet",
+      "knowledge": {
+        "自述": "肚子疼，怕是要紧"
+      },
+      "style": "（不在通话中）",
+      "goals": []
+    },
+    {
+      "id": "consultant",
+      "role": "二线/外科医生",
+      "presence": "callable",
+      "demand": "neutral",
+      "knowledge": {
+        "现场": "要你把数据和判断讲清楚、给出明确请求"
+      },
+      "style": "要求结论明确",
+      "goals": [
+        "接住这个病人"
+      ]
+    }
+  ],
+  "state_keys": {
+    "scene.bp_sys": 92,
+    "scene.lactate": 0,
+    "scene.plan_set": false,
+    "scene.consultant_in": false,
+    "nurse.patience": 3
+  },
+  "truth": [
+    "这是外科急腹症合并早期循环不稳，需要尽快确诊并升级到外科",
+    "关键下一步是化验（乳酸/血常规）与床旁超声，并把二线叫起来"
+  ],
+  "affordances": [
+    {
+      "id": "ask_vitals",
+      "type": "ask",
+      "label": "让护士复述并补测生命体征",
+      "effects": [
+        {
+          "target": "nurse",
+          "key": "patience",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "ask_abdomen",
+      "type": "ask",
+      "label": "问腹部体征与疼痛部位",
+      "reveals": [
+        "c_abdomen"
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "ask_urine",
+      "type": "ask",
+      "label": "问尿量与出入量",
+      "reveals": [
+        "c_urine"
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "ask_history",
+      "type": "ask",
+      "label": "问既往史与近期进食",
+      "reveals": [
+        "c_history"
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "order_tests",
+      "type": "act",
+      "label": "下医嘱：查什么（可多选）",
+      "select": "multi",
+      "params": {
+        "options": [
+          {
+            "id": "lactate",
+            "label": "急查乳酸＋血常规"
+          },
+          {
+            "id": "ultrasound",
+            "label": "床旁超声"
+          },
+          {
+            "id": "ecg",
+            "label": "心电图"
+          },
+          {
+            "id": "catheter",
+            "label": "留置导尿、记每小时尿量"
+          }
+        ]
+      },
+      "reveals": [
+        "c_results"
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "plan_set",
+          "op": "set",
+          "value": true
+        },
+        {
+          "target": "scene",
+          "key": "lactate",
+          "op": "set",
+          "value": 4.2
+        }
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "hold_observation",
+      "type": "act",
+      "label": "先留观复测，明早交班再说",
+      "effects": [
+        {
+          "target": "nurse",
+          "key": "patience",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "order_support",
+      "type": "act",
+      "label": "先补液并交代观察要点（血压/尿量/意识）",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "incr",
+          "value": 2
+        }
+      ],
+      "perceptible_by": [
+        "nurse"
+      ]
+    },
+    {
+      "id": "order_escalate",
+      "type": "summon",
+      "label": "叫二线/外科起床接手",
+      "visible_when": {
+        "all": [
+          {
+            "kind": "state_cmp",
+            "key": "scene.consultant_in",
+            "op": "==",
+            "value": false
+          }
+        ]
+      },
+      "effects": [
+        {
+          "target": "scene",
+          "key": "consultant_in",
+          "op": "set",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "document",
+      "type": "document",
+      "label": "记病程：数据、判断、已下医嘱",
+      "params": {
+        "fields": [
+          "关键数据",
+          "我的判断",
+          "已下医嘱",
+          "观察要点"
+        ]
+      }
+    }
+  ],
+  "reactions": [
+    {
+      "id": "r_results_back",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "order_tests"
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "say",
+      "intent": "她很快回报化验与超声结果，并问「要不要叫外科」",
+      "once": true
+    },
+    {
+      "id": "r_hold_cost",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "hold_observation"
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "escalate",
+      "intent": "电话那头沉默了两秒：「……那我先看着，早上交班再说。」随后报警声变密，她说血压又掉了",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 4
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_nurse_pressed",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "order_tests",
+            "turns": 3
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "escalate",
+      "intent": "她声音更急了：「医生？血压又掉了，我先补着液，你快点定。」",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 4
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "r_consultant_in",
+      "when": {
+        "all": [
+          {
+            "kind": "state_cmp",
+            "key": "scene.consultant_in",
+            "op": "==",
+            "value": true
+          }
+        ]
+      },
+      "by": "consultant",
+      "does": "say",
+      "intent": "二线在电话里要你把数据与判断讲清楚，并问「你要我做什么」",
+      "once": false
+    },
+    {
+      "id": "r_repeat_data",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "ask_vitals",
+            "count": 2
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "say",
+      "intent": "她直接说：「这些我刚报过了，你先告诉我要做什么。」",
+      "effects": [
+        {
+          "target": "nurse",
+          "key": "patience",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_nurse_relays_patient",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "ask_abdomen"
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "say",
+      "intent": "护士把听筒往病人那边递了一下：「他跟你说一句——」病人在背景里含混地说「疼，从半夜就开始疼，一阵一阵的」",
+      "once": true
+    },
+    {
+      "id": "r_nurse_reports_again",
+      "when": {
+        "all": [
+          {
+            "kind": "turn_gte",
+            "count": 3
+          }
+        ]
+      },
+      "by": "nurse",
+      "does": "say",
+      "intent": "她主动补充：皮肤还是湿冷的，刚才把被子掀开的时候他打了个寒战",
+      "once": true
+    }
+  ],
+  "facts": [
+    {
+      "id": "f_vitals",
+      "intent": "心率快、血压偏低、尿少——已经有循环不稳的迹象",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [],
+      "cue_ids": [
+        "c_phone"
+      ]
+    },
+    {
+      "id": "f_peritonitis",
+      "intent": "右下腹压痛伴反跳痛，提示腹膜炎",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "腹膜炎",
+        "反跳痛"
+      ],
+      "cue_ids": [
+        "c_abdomen"
+      ],
+      "affordance_ids": [
+        "ask_abdomen"
+      ]
+    },
+    {
+      "id": "f_lactate",
+      "intent": "乳酸升高与影像见游离液体，提示需要外科介入",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "乳酸 4.2",
+        "游离液体"
+      ],
+      "cue_ids": [
+        "c_results"
+      ],
+      "affordance_ids": [
+        "order_tests"
+      ]
+    },
+    {
+      "id": "f_urine",
+      "intent": "尿量显著减少",
+      "kind": "measured",
+      "critical": false,
+      "banned_phrases": [
+        "100 ml"
+      ],
+      "cue_ids": [
+        "c_urine"
+      ],
+      "affordance_ids": [
+        "ask_urine"
+      ]
+    }
+  ],
+  "dims": [
+    {
+      "id": "d_observation",
+      "label": "信息完整度",
+      "agg": "coverage",
+      "source": "facts",
+      "params": {}
+    },
+    {
+      "id": "d_actions",
+      "label": "医嘱数",
+      "agg": "count",
+      "source": "actions",
+      "params": {}
+    },
+    {
+      "id": "d_next_test",
+      "label": "拿到关键检查的延迟",
+      "agg": "latency",
+      "source": "actions",
+      "params": {
+        "affordances": [
+          "order_tests"
+        ]
+      }
+    },
+    {
+      "id": "d_bp",
+      "label": "血压变化",
+      "agg": "slope",
+      "source": "state",
+      "params": {
+        "key": "scene.bp_sys"
+      }
+    }
+  ],
+  "presentation": {
+    "hud": [
+      {
+        "slot": "现场线索",
+        "source": "cue"
+      },
+      {
+        "slot": "可做动作",
+        "source": "affordance"
+      }
+    ],
+    "panels": [
+      "timeline",
+      "coverage"
+    ],
+    "devices": [
+      {
+        "id": "duty_phone",
+        "kind": "phone",
+        "title": "值班手机",
+        "channels": [
+          {
+            "ref": "scene.lactate",
+            "label": "乳酸",
+            "unit": "mmol/L",
+            "decimals": 1,
+            "visible_when": {
+              "all": [
+                {
+                  "kind": "action_used",
+                  "affordance_id": "order_tests"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "board": [
+      {
+        "id": "board_heard",
+        "title": "电话里听到的",
+        "source": "cue"
+      },
+      {
+        "id": "board_confirmed",
+        "title": "已确认的",
+        "source": "fact"
+      },
+      {
+        "id": "board_done",
+        "title": "已下医嘱",
+        "source": "action"
+      },
+      {
+        "id": "board_notes",
+        "title": "线索板",
+        "source": "note"
+      }
+    ],
+    "nudges": [
+      {
+        "when": {
+          "all": [
+            {
+              "kind": "turns_without_action",
+              "affordance_id": "order_tests",
+              "turns": 2
+            }
+          ]
+        },
+        "direction": "电话里看不到病人：先决定要拿到哪几项能改变判断的证据"
+      }
+    ]
+  },
+  "failure": "recoverable",
+  "hidden_from_player": [
+    "患者不在你的视野内",
+    "你只能通过电话决策"
+  ],
+  "image_generation": "disabled",
+  "rubric": [
+    {
+      "id": "dp_gather",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "ask_abdomen",
+          "ask_urine",
+          "ask_history"
+        ],
+        "min": 2,
+        "accept_custom": [
+          "反跳痛",
+          "尿量",
+          "既往",
+          "进食"
+        ]
+      },
+      "anchors": {
+        "strong": "问了腹部体征并至少核到另一项",
+        "adequate": "问到了其中一项",
+        "missed": "只复述护士已经报过的数字"
+      },
+      "title": "在电话里问到了哪些关键信息（而不是只重复已有数据）",
+      "weight": 25
+    },
+    {
+      "id": "dp_next_test",
+      "rule": "option_choice",
+      "params": {
+        "affordances": [
+          "order_tests",
+          "hold_observation"
+        ],
+        "correct": [
+          "lactate",
+          "ultrasound"
+        ],
+        "acceptable": [
+          "ecg",
+          "catheter"
+        ],
+        "accept_custom": [
+          "乳酸",
+          "血常规",
+          "超声",
+          "游离液体",
+          "急腹症",
+          "外科"
+        ]
+      },
+      "anchors": {
+        "strong": "要了乳酸/血常规或床旁超声；或自输入点出需要外科介入",
+        "adequate": "要了心电图或尿量等次要项，但没抓关键",
+        "missed": "选择先留观复测、明早再说"
+      },
+      "title": "下一步检查与处置选了什么",
+      "weight": 30
+    },
+    {
+      "id": "dp_escalate",
+      "rule": "require_within",
+      "params": {
+        "affordances": [
+          "order_escalate"
+        ],
+        "within_turns": 4
+      },
+      "anchors": {
+        "strong": "四轮内叫了二线/外科",
+        "adequate": "更晚才叫",
+        "missed": "始终没有升级"
+      },
+      "title": "是否把二线/外科叫起来",
+      "weight": 30
+    },
+    {
+      "id": "dp_plan",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "order_support",
+          "document"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "交代了补液/观察要点或写入病程",
+        "adequate": "只做了其中一件",
+        "missed": "只下检查、没有后续交代"
+      },
+      "title": "是否同时给出支持性处置与观察要点",
+      "weight": 15
+    }
+  ]
+}

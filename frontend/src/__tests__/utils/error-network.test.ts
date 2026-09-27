@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getApiErrorMessage } from "@/utils/error";
+import { getApiErrorDetail, getApiErrorMessage } from "@/utils/error";
 import { waitForOnline } from "@/utils/network";
 
 describe("getApiErrorMessage", () => {
@@ -19,7 +19,7 @@ describe("getApiErrorMessage", () => {
 				},
 			},
 		};
-		expect(getApiErrorMessage(err)).toBe("username: 不能为空; password: 至少6位");
+		expect(getApiErrorMessage(err)).toBe("username: 不能为空；password: 至少6位");
 	});
 
 	it("drops body from loc paths", () => {
@@ -29,9 +29,58 @@ describe("getApiErrorMessage", () => {
 		expect(getApiErrorMessage(err)).toBe("整体错误");
 	});
 
-	it("falls back to message when no response detail", () => {
+	it("英文的框架 message 不再原样露给学生（没有服务端文案就回退到人话）", () => {
 		const err = { message: "Network Error" };
-		expect(getApiErrorMessage(err)).toBe("Network Error");
+		expect(getApiErrorMessage(err)).toBe("操作失败");
+		expect(getApiErrorMessage(err, "提交失败")).toBe("提交失败");
+	});
+
+	it("被序列化过的 JSON detail 不当文案用：能解出 message 就用它，解不出就按状态给人话", () => {
+		const wrapped = {
+			response: { status: 422, data: { detail: '{"detail":"包结构不合法"}' } },
+		};
+		expect(getApiErrorMessage(wrapped)).toBe("包结构不合法");
+
+		const rawJson = {
+			response: { status: 422, data: { detail: '{"problems":["缺少 key"]}' } },
+		};
+		expect(getApiErrorMessage(rawJson)).toBe("提交的内容不合法，请检查后重试");
+	});
+
+	it("拿不到文案时按状态码给人话（学生面认得出发生了什么）", () => {
+		const byStatus = (status: number) =>
+			getApiErrorMessage({ response: { status, data: {} } });
+		expect(byStatus(404)).toContain("没有找到");
+		expect(byStatus(403)).toBe("没有访问权限");
+		expect(byStatus(401)).toBe("登录状态已失效，请重新登录");
+		expect(byStatus(409)).toContain("冲突");
+		expect(byStatus(422)).toContain("不合法");
+		expect(byStatus(500)).toContain("服务端出错");
+	});
+
+	it("离线（网络中断）给人话而不是浏览器原文", () => {
+		expect(getApiErrorMessage({ code: "ECONNREFUSED", message: "connect ECONNREFUSED" })).toBe(
+			"网络已断开，请检查连接后重试",
+		);
+	});
+
+	it("校验明细走管理侧那个函数（人话 + 逐条 problems），学生侧那个不列明细", () => {
+		const err = {
+			response: {
+				status: 422,
+				data: {
+					detail: {
+						message: "包未通过校验",
+						problems: ["缺少 key", "affordance 未定义", "state_keys 未知", "a", "b", "c"],
+					},
+				},
+			},
+		};
+		expect(getApiErrorMessage(err)).toBe("包未通过校验");
+		const detail = getApiErrorDetail(err);
+		expect(detail).toContain("包未通过校验：缺少 key；affordance 未定义");
+		// 上限之后省略，不把整页明细灌进 toast
+		expect(detail.endsWith("；…")).toBe(true);
 	});
 
 	it("uses fallback for unknown shapes", () => {

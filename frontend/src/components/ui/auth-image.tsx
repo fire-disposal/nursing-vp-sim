@@ -1,5 +1,5 @@
 import { Skeleton } from "@mantine/core";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 
 interface AuthImageProps {
@@ -7,21 +7,45 @@ interface AuthImageProps {
 	alt?: string;
 	className?: string;
 	style?: CSSProperties;
+	/**
+	 * 加载状态回调（可选）：调用方据此**在失败时不留占位**（例如场景缩略图条）。
+	 * 只在状态真的变化时回调，不参与渲染。
+	 */
+	onStatus?: (status: AuthImageStatus) => void;
 }
+
+export type AuthImageStatus = "loading" | "loaded" | "error";
 
 /**
  * Loads an image from an API endpoint that requires auth (Bearer token).
  * Fetches via axios (which injects Authorization header), then renders via blob URL.
  */
-export default function AuthImage({ src, alt = "", className, style }: AuthImageProps) {
+export default function AuthImage({
+	src,
+	alt = "",
+	className,
+	style,
+	onStatus,
+}: AuthImageProps) {
+	const statusRef = useRef<AuthImageStatus | null>(null);
 	const [blobUrl, setBlobUrl] = useState<string | null>(null);
 	const [error, setError] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const prevSrcRef = useRef(src);
 	const mountedRef = useRef(true);
 
+	const report = useCallback(
+		(status: AuthImageStatus) => {
+			if (statusRef.current === status) return;
+			statusRef.current = status;
+			onStatus?.(status);
+		},
+		[onStatus],
+	);
+
 	const load = useCallback(async () => {
 		setLoading(true);
+		report("loading");
 		try {
 			const res = await api.get(src, { responseType: "blob" });
 			if (!mountedRef.current) return;
@@ -30,12 +54,16 @@ export default function AuthImage({ src, alt = "", className, style }: AuthImage
 				if (prev) URL.revokeObjectURL(prev);
 				return url;
 			});
+			report("loaded");
 		} catch {
-			if (mountedRef.current) setError(true);
+			if (mountedRef.current) {
+				setError(true);
+				report("error");
+			}
 		} finally {
 			if (mountedRef.current) setLoading(false);
 		}
-	}, [src]);
+	}, [src, report]);
 
 	useEffect(() => {
 		mountedRef.current = true;

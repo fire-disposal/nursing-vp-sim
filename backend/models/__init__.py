@@ -46,6 +46,7 @@ from models.questionnaire import (
     QuestionnaireTemplate,
 )
 from models.rate_limit import RateLimitEntry
+from models.scenario_training import StAsset, StEvent, StGeneratedAsset, StPack, StPackRevision, StSession
 from models.school import (
     MEMBER_ROLE_STUDENT,
     MEMBER_ROLE_TEACHER,
@@ -118,6 +119,12 @@ __all__ = [
     "Score",
     "ScoreReview",
     "SimulationSession",
+    "StAsset",
+    "StEvent",
+    "StGeneratedAsset",
+    "StPack",
+    "StPackRevision",
+    "StSession",
     "SystemNotification",
     "TimestampMixin",
     "TrainingAction",

@@ -1,10 +1,10 @@
 import {
-	IconFileSearch,
 	IconActivity,
 	IconBook2,
 	IconChartBar,
 	IconClipboardList,
 	IconCoins,
+	IconFileSearch,
 	IconFileText,
 	IconMessageCircle,
 	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
@@ -18,7 +18,7 @@ import {
 	IconUsers,
 	IconVersions,
 } from "@tabler/icons-react";
-import { lazy, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { type ComponentType, type CSSProperties, lazy, type ReactNode } from "react";
 import type { Permission } from "@/utils/permissions";
 
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
@@ -64,6 +64,10 @@ const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 const AdminQuestionnaires = lazy(
 	() => import("@/pages/admin/AdminQuestionnaires"),
 );
+// 情境训练（实验特性）：深色场景控制台，隐藏路由 /scenario，不进导航
+const ScenarioConsole = lazy(() => import("@/scenario/ScenarioConsole"));
+// 情境训练 · 管理侧：同样只靠 URL 直达（权限在页面内按块判：内容 case_manage / 数据 stats_view）
+const ScenarioAdminPage = lazy(() => import("@/scenario/admin/ScenarioAdminPage"));
 
 export type Activity = "practice" | "review" | "manage";
 
@@ -162,6 +166,13 @@ export const APP_ROUTES: AppRoute[] = [
 			section: "user",
 		},
 	},
+	// 情境训练（实验特性，docs/20）：**只靠 URL 直达**——不写 `nav` 字段，
+	// 也就不出现在 `NAV_ITEMS`/侧栏/底部 Tab 里；权限由后端开关兜底（关闭即 404）。
+	{ path: "/scenario", element: <ScenarioConsole />, activity: "manage" },
+	// 情境训练管理侧：**不写 `nav`**（不进侧栏/底部 Tab）。也**不写路由级 `permission`**：
+	// 一个路由只能声明一个权限，而本页需要两个不同的键（内容 case_manage / 数据 stats_view），
+	// 页面内部按块判权限并渲染 403——路由级只判一个会让另一半权限的人被误挡。
+	{ path: "/scenario-admin", element: <ScenarioAdminPage />, activity: "manage" },
 
 	// ── Admin area ──
 	{

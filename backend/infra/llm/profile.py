@@ -92,6 +92,25 @@ PROFILES: dict[str, LLMProfile] = {
         semaphore=100,
         response_format={"type": "json_object"},
     ),
+    # 情境训练（experimental，docs/20）：DM 回合生成（叙述 + 台词 + 结构化尾部）
+    "st_dm": LLMProfile(
+        model="deepseek-v4-flash",
+        timeout=90,
+        max_tokens=4096,
+        temperature=0.75,
+        max_retries=2,
+        response_format={"type": "json_object"},
+        semaphore=100,
+    ),
+    # 情境训练：预留的「独立患者实体」——pack 里 actor.entity="dedicated" 时由它代言台词
+    "st_patient": LLMProfile(
+        model="deepseek-v4-flash",
+        timeout=45,
+        max_tokens=1024,
+        temperature=0.85,
+        max_retries=2,
+        semaphore=200,
+    ),
 }
 
 # Default profile for unknown purposes — uses flash, conservative settings

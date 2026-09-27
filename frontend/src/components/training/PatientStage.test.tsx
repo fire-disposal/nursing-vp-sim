@@ -1,10 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
-import PatientStage from "./PatientStage";
+import { cleanup, fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import type { TrainingRecordDetail } from "@/engine/training-record-types";
 import { useTrainingStore } from "@/stores/trainingStore";
+import PatientStage from "./PatientStage";
 
 const mockBus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() } as never;
 
@@ -53,24 +53,6 @@ describe("PatientStage（患者上下文）", () => {
 
 		// 列本身仍在（没有"收起"状态）
 		expect(container.querySelector("[data-patient-stage]")).not.toBeNull();
-	});
-
-	it("只显示已测到的体征；没测过就不出现", () => {
-		const { container, unmount } = renderStage(makeRecord({ patient_name: "王建国" }));
-		expect(screen.queryByText("已测体征")).toBeNull();
-		unmount();
-
-		renderStage(
-			makeRecord({
-				patient_name: "王建国",
-				exam_results: [
-					{ type: "hr", label: "心率", value: "94", unit: "次/分", status: "normal", interpretation: "" },
-				],
-			}),
-		);
-		expect(screen.getByText("已测体征")).toBeInTheDocument();
-		expect(screen.getByText(/94/)).toBeInTheDocument();
-		expect(container).toBeDefined();
 	});
 
 	it("没有患者数据（匿名）也能渲染，不崩", () => {

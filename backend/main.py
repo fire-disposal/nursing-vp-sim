@@ -355,6 +355,7 @@ from modules.cases.router import router as _cases
 from modules.feedback.router import router as _feedback
 from modules.qa import router as _qa
 from modules.questionnaires.router import router as _questionnaires
+from modules.scenario_training.router import router as _scenario
 from modules.scoreboard import router as _scoreboard
 from modules.simulations import simulations_router as _simulations
 from modules.training.router import router as _training
@@ -375,6 +376,7 @@ for r in (
     _qa,
     _questionnaires,
     _rubrics,
+    _scenario,
     _scoreboard,
     _simulations,
     _stats,

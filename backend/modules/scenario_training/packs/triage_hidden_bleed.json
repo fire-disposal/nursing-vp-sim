@@ -1,0 +1,665 @@
+{
+  "pack_schema_version": 1,
+  "key": "triage-hidden-bleed",
+  "title": "预检分诊：说「腰闪了」的那个人",
+  "state": "experimental",
+  "one_line": "他扶着墙走进预检台，说自己只是搬东西闪了腰，想开点膏药就回家。",
+  "player": {
+    "role": "预检分诊护士",
+    "can": [
+      "ask",
+      "observe",
+      "measure",
+      "act",
+      "document",
+      "summon"
+    ]
+  },
+  "setting": {
+    "place": "急诊预检台",
+    "time_hint": "傍晚 18:40",
+    "resources": [
+      "分诊系统",
+      "血压计与监护",
+      "平车",
+      "抢救区呼叫铃"
+    ],
+    "cues": [
+      {
+        "id": "c_grip",
+        "text": "他扶着分诊台边缘站着，不太敢直起腰。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_pale",
+        "text": "脸色发白、额角出汗，说话比刚进门时慢了半拍。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_story",
+        "text": "他说：「搬箱子闪了一下腰，给我开点膏药，我得回去接孩子。」",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_vitals",
+        "text": "脉搏 118、血压 92/58、四肢发凉。",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_shoulder",
+        "text": "追问搬箱子那一刻，他说「一下就疼起来了，左肩膀也酸」。",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_guarding",
+        "text": "他没有明显的腰部压痛点，反而左侧一碰就躲。",
+        "visible_from_start": false
+      },
+      {
+        "id": "c_shock",
+        "text": "抢救区医生接手：「先按内出血走，床旁超声马上到。」",
+        "visible_from_start": false
+      }
+    ]
+  },
+  "actors": [
+    {
+      "id": "patient",
+      "role": "患者（中年男性）",
+      "presence": "on_site",
+      "demand": "quiet",
+      "knowledge": {
+        "主诉": "搬箱子闪了腰",
+        "需求": "开点膏药回家接孩子",
+        "实情": "突发左上腹疼伴左肩酸，现在有点头晕"
+      },
+      "style": "忍着、不爱麻烦人，倾向把话说小；被问到具体经过时才会补出关键信息",
+      "goals": [
+        "快点回家"
+      ]
+    },
+    {
+      "id": "colleague",
+      "role": "分诊台同事",
+      "presence": "on_site",
+      "demand": "neutral",
+      "knowledge": {
+        "立场": "通道不能堵，倾向按病人自述分流"
+      },
+      "style": "务实；你给出理由她就会配合",
+      "goals": [
+        "别堵住通道"
+      ]
+    },
+    {
+      "id": "doctor",
+      "role": "抢救区医生",
+      "presence": "callable",
+      "demand": "neutral",
+      "knowledge": {
+        "现场": "要你给出主诉、生命体征、以及为什么送红区"
+      },
+      "style": "干脆",
+      "goals": [
+        "抢时间"
+      ]
+    }
+  ],
+  "state_keys": {
+    "scene.pulse": 118,
+    "scene.bp_sys": 92,
+    "scene.consciousness": 3,
+    "scene.triage_zone": "none",
+    "scene.doctor_present": false,
+    "patient.comfort": 2
+  },
+  "truth": [
+    "他极可能是腹腔内出血，主诉『闪了腰』是误归因",
+    "正确处置是立即送抢救区并呼叫医生，而不是骨科或开药回家"
+  ],
+  "affordances": [
+    {
+      "id": "measure_vitals",
+      "type": "measure",
+      "label": "测生命体征",
+      "reveals": [
+        "c_vitals"
+      ],
+      "params": {
+        "unit": "次·分⁻¹ / mmHg"
+      }
+    },
+    {
+      "id": "ask_trauma",
+      "type": "ask",
+      "label": "追问受伤那一刻的经过",
+      "reveals": [
+        "c_shoulder"
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "observe_abdomen",
+      "type": "observe",
+      "label": "看他捂的位置、轻轻触一下左侧",
+      "reveals": [
+        "c_guarding"
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "triage_red",
+      "type": "act",
+      "label": "立即送抢救区（红区）并呼叫医生",
+      "confirm": true,
+      "reveals": [
+        "c_shock"
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "triage_zone",
+          "op": "set",
+          "value": "red"
+        },
+        {
+          "target": "scene",
+          "key": "doctor_present",
+          "op": "set",
+          "value": true
+        }
+      ],
+      "perceptible_by": [
+        "patient",
+        "colleague"
+      ]
+    },
+    {
+      "id": "triage_yellow",
+      "type": "act",
+      "label": "分诊到急诊黄区留观",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "triage_zone",
+          "op": "set",
+          "value": "yellow"
+        }
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "triage_ortho",
+      "type": "act",
+      "label": "分诊到骨科门诊",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "triage_zone",
+          "op": "set",
+          "value": "ortho"
+        }
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "triage_home",
+      "type": "act",
+      "label": "开膏药回家观察",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "triage_zone",
+          "op": "set",
+          "value": "home"
+        }
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "document",
+      "type": "document",
+      "label": "记录分诊判断与依据",
+      "params": {
+        "fields": [
+          "主诉",
+          "我核到的体征",
+          "分诊等级",
+          "依据"
+        ]
+      }
+    }
+  ],
+  "reactions": [
+    {
+      "id": "r_red_good",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "triage_red"
+          }
+        ]
+      },
+      "by": "doctor",
+      "does": "say",
+      "intent": "抢救区医生接手，一边推平车一边说按内出血走，床旁超声马上到",
+      "once": true
+    },
+    {
+      "id": "r_ortho_delay",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "triage_ortho"
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "escalate",
+      "intent": "骨科候诊区排了四十分钟，他靠在椅子上慢慢往下滑，被旁边的人扶住",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "consciousness",
+          "op": "decr",
+          "value": 1
+        },
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 6
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_home_bad",
+      "when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "triage_home"
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "escalate",
+      "intent": "他拿着膏药处方走出急诊门口，在台阶上蹲下去，被人搀回来时已经叫不太醒",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "consciousness",
+          "op": "decr",
+          "value": 2
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_hesitate",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "triage_red",
+            "turns": 3
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "escalate",
+      "intent": "他在分诊台前站的时间越来越长，汗把衣领浸透，说话开始颠三倒四",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "consciousness",
+          "op": "decr",
+          "value": 1
+        },
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 4
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "r_vitals_taken",
+      "when": {
+        "all": [
+          {
+            "kind": "cue_revealed",
+            "cue_id": "c_vitals"
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他小声说「我是不是有点晕」，下意识扶住了分诊台",
+      "once": true
+    },
+    {
+      "id": "r_patient_fades",
+      "when": {
+        "all": [
+          {
+            "kind": "turn_gte",
+            "count": 2
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他说话比刚才慢，句子中间要停一下：「我……没事，就是腰这儿，一阵一阵地疼」，扶着台子的手往下滑了一点",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "comfort",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_colleague_pressures",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "measure_vitals",
+            "turns": 2
+          }
+        ]
+      },
+      "by": "colleague",
+      "does": "say",
+      "intent": "同事压着嗓子催：「后面推车的都过不去了——你到底给他测不测？」",
+      "once": false
+    }
+  ],
+  "facts": [
+    {
+      "id": "f_shock_signs",
+      "intent": "脉搏细速与血压偏低提示循环不稳",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "92/58",
+        "休克",
+        "循环不稳"
+      ],
+      "cue_ids": [
+        "c_vitals"
+      ],
+      "affordance_ids": [
+        "measure_vitals"
+      ]
+    },
+    {
+      "id": "f_shoulder_pain",
+      "intent": "突发腹侧疼痛伴肩部放射，提示腹内出血可能",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "内出血",
+        "脾破裂",
+        "放射痛"
+      ],
+      "cue_ids": [
+        "c_shoulder"
+      ],
+      "affordance_ids": [
+        "ask_trauma"
+      ]
+    },
+    {
+      "id": "f_abdomen_guarding",
+      "intent": "左侧回避触碰，与『闪腰』的解释不符",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "拒按",
+        "腹膜炎",
+        "不符"
+      ],
+      "cue_ids": [
+        "c_guarding"
+      ],
+      "affordance_ids": [
+        "observe_abdomen"
+      ]
+    },
+    {
+      "id": "f_self_story",
+      "intent": "患者自述只是搬东西闪了腰",
+      "kind": "reported",
+      "critical": false,
+      "banned_phrases": [],
+      "cue_ids": [
+        "c_story"
+      ]
+    }
+  ],
+  "dims": [
+    {
+      "id": "d_observation",
+      "label": "核实体征的覆盖",
+      "agg": "coverage",
+      "source": "facts",
+      "params": {}
+    },
+    {
+      "id": "d_actions",
+      "label": "动作数",
+      "agg": "count",
+      "source": "actions",
+      "params": {}
+    },
+    {
+      "id": "d_verify",
+      "label": "开始核实体征的延迟",
+      "agg": "latency",
+      "source": "actions",
+      "params": {
+        "affordances": [
+          "measure_vitals",
+          "ask_trauma",
+          "observe_abdomen"
+        ]
+      }
+    },
+    {
+      "id": "d_bp",
+      "label": "血压变化",
+      "agg": "slope",
+      "source": "state",
+      "params": {
+        "key": "scene.bp_sys"
+      }
+    }
+  ],
+  "presentation": {
+    "hud": [
+      {
+        "slot": "现场线索",
+        "source": "cue"
+      },
+      {
+        "slot": "可做动作",
+        "source": "affordance"
+      }
+    ],
+    "panels": [
+      "timeline",
+      "emotion",
+      "coverage"
+    ],
+    "board": [
+      {
+        "id": "board_scene",
+        "title": "现场看到的",
+        "source": "cue"
+      },
+      {
+        "id": "board_readings",
+        "title": "读数",
+        "source": "state",
+        "refs": [
+          "scene.bp_sys",
+          "scene.pulse"
+        ],
+        "labels": {
+          "scene.bp_sys": "收缩压（mmHg）",
+          "scene.pulse": "脉搏（次/分）"
+        },
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_vitals"
+            }
+          ]
+        }
+      },
+      {
+        "id": "board_confirmed",
+        "title": "已确认的",
+        "source": "fact"
+      },
+      {
+        "id": "board_done",
+        "title": "已处置",
+        "source": "action"
+      },
+      {
+        "id": "board_notes",
+        "title": "线索板",
+        "source": "note"
+      }
+    ],
+    "nudges": [
+      {
+        "when": {
+          "all": [
+            {
+              "kind": "turns_without_action",
+              "affordance_id": "measure_vitals",
+              "turns": 2
+            }
+          ]
+        },
+        "direction": "病人自己说哪里疼，不等于问题就在那里；先看看他整体怎么样"
+      }
+    ]
+  },
+  "failure": "irreversible",
+  "failure_when": {
+    "all": [
+      {
+        "kind": "state_cmp",
+        "key": "scene.consciousness",
+        "op": "<=",
+        "value": 1
+      }
+    ]
+  },
+  "hidden_from_player": [
+    "他极可能是腹内出血",
+    "『闪了腰』是误归因"
+  ],
+  "image_generation": "disabled",
+  "rubric": [
+    {
+      "id": "dp_zone",
+      "rule": "option_choice",
+      "params": {
+        "affordances": [
+          "triage_red",
+          "triage_yellow",
+          "triage_ortho",
+          "triage_home"
+        ],
+        "correct": [
+          "triage_red"
+        ],
+        "acceptable": [
+          "triage_yellow"
+        ],
+        "accept_custom": [
+          "红区",
+          "抢救",
+          "内出血",
+          "出血",
+          "休克",
+          "超声"
+        ]
+      },
+      "anchors": {
+        "strong": "直接送红区；或自输入写明疑似腹内出血/循环不稳",
+        "adequate": "先留观黄区，但仍留在急诊视线内",
+        "missed": "按骨科/开药回家处理"
+      },
+      "title": "把他分到哪儿",
+      "weight": 50
+    },
+    {
+      "id": "dp_see_hidden",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "measure_vitals",
+          "ask_trauma",
+          "observe_abdomen"
+        ],
+        "min": 2,
+        "accept_custom": [
+          "血压",
+          "脉搏",
+          "肩膀",
+          "不敢直腰",
+          "触痛"
+        ]
+      },
+      "anchors": {
+        "strong": "量了生命体征并追问/查看，「闪腰」这个解释被推翻",
+        "adequate": "做了其中一项，开始起疑",
+        "missed": "完全按他自己的说法分流"
+      },
+      "title": "是否在分区前先核实体征（而不是照主诉分流）",
+      "weight": 30
+    },
+    {
+      "id": "dp_document",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "document"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "记录了主诉、我核到的体征、等级与依据",
+        "adequate": "有记录但缺依据",
+        "missed": "未记录"
+      },
+      "title": "是否记录分诊等级与依据",
+      "weight": 20
+    }
+  ]
+}

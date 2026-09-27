@@ -1,0 +1,695 @@
+{
+  "pack_schema_version": 1,
+  "key": "two-beds-priority",
+  "title": "两床同铃：会叫的能等，不叫的危重",
+  "state": "experimental",
+  "one_line": "夜班，两床同时按铃：一个喊得整条走廊都听见，一个只说了句「有点闷」。",
+  "player": {
+    "role": "夜班护士",
+    "can": [
+      "ask",
+      "observe",
+      "measure",
+      "act",
+      "document",
+      "summon"
+    ]
+  },
+  "setting": {
+    "place": "呼吸内科病房（夜班）",
+    "time_hint": "凌晨 03:40",
+    "resources": [
+      "监护仪",
+      "氧气装置",
+      "无创呼吸机",
+      "镇痛泵",
+      "呼叫铃"
+    ],
+    "cues": [
+      {
+        "id": "c_a_ringing",
+        "text": "A 床的呼叫铃一直在响，隔着走廊都能听见他在喊。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_b_dark",
+        "text": "B 床那侧只亮着床头监护仪的冷光，人没出声。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_family_outside",
+        "text": "A 床家属攥着水杯站在走廊里来回踱步。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_a_stable",
+        "text": "A 床伤口敷料干燥，生命体征平稳——疼是真疼，但不像要出事。"
+      },
+      {
+        "id": "c_b_barely_answers",
+        "text": "B 床老人应了一声，声音又轻又慢，像是费了很大力气。"
+      },
+      {
+        "id": "c_b_low_sat",
+        "text": "B 床指夹血氧 88%，呼吸浅快、鼻翼翕动。"
+      },
+      {
+        "id": "c_b_confused",
+        "text": "B 床答话开始不对劲：说自己在老家，还问什么时候能回去。"
+      }
+    ]
+  },
+  "actors": [
+    {
+      "id": "bed_a",
+      "role": "A 床患者（术后第 1 天）",
+      "presence": "on_site",
+      "demand": "loud",
+      "knowledge": {
+        "主诉": "疼！疼得睡不着，你们是不是不管我了",
+        "既往": "术后第 1 天，生命体征平稳",
+        "自述": "我就想有人来看看我"
+      },
+      "style": "嗓门大、情绪外露，会反复按铃、在走廊里喊，但一被认真对待就明显缓和",
+      "goals": [
+        "被看见",
+        "把疼处理好"
+      ]
+    },
+    {
+      "id": "bed_b",
+      "role": "B 床患者（慢阻肺）",
+      "presence": "on_site",
+      "demand": "quiet",
+      "knowledge": {
+        "主诉": "有点闷，喘不太上来",
+        "既往": "慢阻肺，长期吸烟",
+        "自述": "不麻烦你们，我缓缓就好"
+      },
+      "style": "忍耐、话少；越难受越不出声，血氧下降后开始答非所问",
+      "goals": [
+        "不麻烦别人"
+      ]
+    },
+    {
+      "id": "family_a",
+      "role": "A 床家属",
+      "presence": "on_site",
+      "demand": "loud",
+      "knowledge": {
+        "立场": "看到病人喊，觉得护士不管"
+      },
+      "style": "语气冲、爱插话、会跟着质问",
+      "goals": [
+        "让病人舒服点"
+      ]
+    },
+    {
+      "id": "doctor",
+      "role": "值班医生",
+      "presence": "callable",
+      "demand": "neutral",
+      "knowledge": {
+        "现场": "需要护士给出两床的客观情况与处置先后"
+      },
+      "style": "干脆，先问最要紧的那一床",
+      "goals": [
+        "先保住真正危重的那位"
+      ]
+    }
+  ],
+  "state_keys": {
+    "scene.bed_b_sat": 88,
+    "scene.bed_b_consciousness": 3,
+    "scene.a_pain": 5,
+    "scene.doctor_present": false,
+    "bed_a.comfort": 2,
+    "bed_b.comfort": 2
+  },
+  "truth": [
+    "B 床正在静默低氧并出现意识改变，比 A 床危险得多",
+    "A 床的疼是真的，但可以等待；他要的是被看见，而不是优先抢救"
+  ],
+  "affordances": [
+    {
+      "id": "visit_a",
+      "type": "act",
+      "label": "先去 A 床看看",
+      "effects": [
+        {
+          "target": "bed_a",
+          "key": "comfort",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "bed_a",
+        "family_a"
+      ]
+    },
+    {
+      "id": "visit_b",
+      "type": "act",
+      "label": "到 B 床看看",
+      "reveals": [
+        "c_b_barely_answers",
+        "c_b_confused"
+      ],
+      "effects": [
+        {
+          "target": "bed_b",
+          "key": "comfort",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "bed_b"
+      ]
+    },
+    {
+      "id": "measure_a",
+      "type": "measure",
+      "label": "测 A 床生命体征",
+      "reveals": [
+        "c_a_stable"
+      ],
+      "params": {
+        "unit": "mmHg / 次·分⁻¹"
+      }
+    },
+    {
+      "id": "measure_b",
+      "type": "measure",
+      "label": "测 B 床血氧与呼吸",
+      "reveals": [
+        "c_b_low_sat"
+      ],
+      "params": {
+        "unit": "%"
+      }
+    },
+    {
+      "id": "reassure_a",
+      "type": "act",
+      "label": "向 A 床和家属解释、回应他",
+      "effects": [
+        {
+          "target": "bed_a",
+          "key": "comfort",
+          "op": "incr",
+          "value": 2
+        }
+      ],
+      "perceptible_by": [
+        "bed_a",
+        "family_a"
+      ]
+    },
+    {
+      "id": "analgesia_a",
+      "type": "act",
+      "label": "按医嘱给 A 床镇痛",
+      "confirm": true,
+      "effects": [
+        {
+          "target": "scene",
+          "key": "a_pain",
+          "op": "decr",
+          "value": 3
+        },
+        {
+          "target": "bed_a",
+          "key": "comfort",
+          "op": "incr",
+          "value": 2
+        }
+      ],
+      "perceptible_by": [
+        "bed_a"
+      ]
+    },
+    {
+      "id": "oxygen_b",
+      "type": "act",
+      "label": "给 B 床吸氧 / 接无创通气",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bed_b_sat",
+          "op": "incr",
+          "value": 5
+        }
+      ],
+      "perceptible_by": [
+        "bed_b"
+      ]
+    },
+    {
+      "id": "call_doctor",
+      "type": "summon",
+      "label": "呼叫值班医生",
+      "visible_when": {
+        "all": [
+          {
+            "kind": "state_cmp",
+            "key": "scene.doctor_present",
+            "op": "==",
+            "value": false
+          }
+        ]
+      },
+      "effects": [
+        {
+          "target": "scene",
+          "key": "doctor_present",
+          "op": "set",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "document",
+      "type": "document",
+      "label": "记录两床情况与处置顺序",
+      "params": {
+        "fields": [
+          "时间",
+          "A 床",
+          "B 床",
+          "我的处置顺序"
+        ]
+      }
+    }
+  ],
+  "reactions": [
+    {
+      "id": "r_a_calls_again",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "reassure_a",
+            "turns": 2
+          }
+        ]
+      },
+      "by": "bed_a",
+      "does": "escalate",
+      "intent": "A 床的铃声更急了，家属开始在走廊上质问「你们到底管不管」",
+      "effects": [
+        {
+          "target": "bed_a",
+          "key": "comfort",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "r_b_step_1",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "visit_b",
+            "turns": 2
+          }
+        ]
+      },
+      "by": "bed_b",
+      "does": "escalate",
+      "intent": "B 床的呼吸越来越浅，监护仪的低氧报警被走廊里的喊声盖住",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bed_b_sat",
+          "op": "decr",
+          "value": 2
+        },
+        {
+          "target": "scene",
+          "key": "bed_b_consciousness",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "r_b_step_2",
+      "when": {
+        "all": [
+          {
+            "kind": "turns_without_action",
+            "affordance_id": "visit_b",
+            "turns": 4
+          }
+        ]
+      },
+      "by": "bed_b",
+      "does": "escalate",
+      "intent": "B 床已经不再应答，只有监护仪在响",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bed_b_sat",
+          "op": "decr",
+          "value": 3
+        },
+        {
+          "target": "scene",
+          "key": "bed_b_consciousness",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "r_b_answer_matters",
+      "when": {
+        "all": [
+          {
+            "kind": "cue_revealed",
+            "cue_id": "c_b_low_sat"
+          }
+        ]
+      },
+      "by": "bed_b",
+      "does": "say",
+      "intent": "老人轻声说「我没事，你先去忙那个喊的」——他仍在替别人着想",
+      "once": true
+    },
+    {
+      "id": "r_doctor_arrives",
+      "when": {
+        "all": [
+          {
+            "kind": "state_cmp",
+            "key": "scene.doctor_present",
+            "op": "==",
+            "value": true
+          }
+        ]
+      },
+      "by": "doctor",
+      "does": "say",
+      "intent": "医生直接问两床的客观情况与处置先后，并指出「安静的那个更危险」",
+      "once": false
+    }
+  ],
+  "facts": [
+    {
+      "id": "f_b_low_sat",
+      "intent": "B 床在吸氧下血氧仍低、呼吸浅快",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "血氧 88",
+        "低氧血症"
+      ],
+      "cue_ids": [
+        "c_b_low_sat"
+      ],
+      "affordance_ids": [
+        "measure_b"
+      ]
+    },
+    {
+      "id": "f_b_mental_change",
+      "intent": "B 床出现意识改变（答非所问、定向力下降）",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "意识模糊",
+        "谵妄",
+        "定向力"
+      ],
+      "cue_ids": [
+        "c_b_confused"
+      ],
+      "affordance_ids": [
+        "visit_b"
+      ]
+    },
+    {
+      "id": "f_a_stable",
+      "intent": "A 床生命体征平稳、疼痛可处理但可等待",
+      "kind": "measured",
+      "critical": false,
+      "banned_phrases": [
+        "生命体征平稳"
+      ],
+      "cue_ids": [
+        "c_a_stable"
+      ],
+      "affordance_ids": [
+        "measure_a"
+      ]
+    }
+  ],
+  "dims": [
+    {
+      "id": "d_observation",
+      "label": "两床观察覆盖",
+      "agg": "coverage",
+      "source": "facts",
+      "params": {}
+    },
+    {
+      "id": "d_actions",
+      "label": "处置动作数",
+      "agg": "count",
+      "source": "actions",
+      "params": {}
+    },
+    {
+      "id": "d_redirect",
+      "label": "转向危重那床的延迟",
+      "agg": "latency",
+      "source": "actions",
+      "params": {
+        "affordances": [
+          "visit_b",
+          "measure_b"
+        ]
+      }
+    },
+    {
+      "id": "d_b_sat",
+      "label": "B 床血氧变化",
+      "agg": "slope",
+      "source": "state",
+      "params": {
+        "key": "scene.bed_b_sat"
+      }
+    }
+  ],
+  "presentation": {
+    "hud": [
+      {
+        "slot": "现场线索",
+        "source": "cue"
+      },
+      {
+        "slot": "可做动作",
+        "source": "affordance"
+      }
+    ],
+    "panels": [
+      "timeline",
+      "emotion",
+      "coverage"
+    ],
+    "devices": [
+      {
+        "id": "monitor_b",
+        "kind": "monitor",
+        "title": "B 床监护仪",
+        "sound": "beep",
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_b_low_sat"
+            }
+          ]
+        },
+        "channels": [
+          {
+            "ref": "scene.bed_b_sat",
+            "label": "血氧",
+            "unit": "%",
+            "normal": [
+              95,
+              100
+            ],
+            "critical": [
+              0,
+              90
+            ]
+          }
+        ]
+      }
+    ],
+    "board": [
+      {
+        "id": "board_scene",
+        "title": "现场看到的",
+        "source": "cue"
+      },
+      {
+        "id": "board_confirmed",
+        "title": "已确认的",
+        "source": "fact"
+      },
+      {
+        "id": "board_done",
+        "title": "已处置",
+        "source": "action"
+      },
+      {
+        "id": "board_notes",
+        "title": "线索板",
+        "source": "note"
+      }
+    ],
+    "nudges": [
+      {
+        "when": {
+          "all": [
+            {
+              "kind": "turns_without_action",
+              "affordance_id": "visit_b",
+              "turns": 2
+            }
+          ]
+        },
+        "direction": "响的那个不一定是最危险的：安静的那床，你已经多久没看了？"
+      }
+    ]
+  },
+  "failure": "irreversible",
+  "failure_when": {
+    "all": [
+      {
+        "kind": "state_cmp",
+        "key": "scene.bed_b_consciousness",
+        "op": "<=",
+        "value": 1
+      }
+    ]
+  },
+  "hidden_from_player": [
+    "B 床正在静默低氧并出现意识改变",
+    "呼声音量与危险程度无关"
+  ],
+  "image_generation": "disabled",
+  "rubric": [
+    {
+      "id": "dp_priority",
+      "rule": "action_order",
+      "params": {
+        "first": [
+          "visit_b",
+          "measure_b"
+        ],
+        "then": [
+          "visit_a",
+          "measure_a",
+          "reassure_a",
+          "analgesia_a"
+        ]
+      },
+      "anchors": {
+        "strong": "先快速确认 A 床能让得开，随即直奔 B 床（或直接先 B）",
+        "adequate": "先应了 A 床，但在很短时间里转向 B 床",
+        "missed": "在 A 床连续处理情绪/疼痛，把 B 床留在黑暗里"
+      },
+      "title": "两床同时按铃时，先处理谁",
+      "weight": 30
+    },
+    {
+      "id": "dp_recognize_b",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "visit_b",
+          "measure_b"
+        ],
+        "min": 2,
+        "accept_custom": [
+          "安静",
+          "不出声",
+          "血氧",
+          "意识",
+          "闷",
+          "呼吸浅"
+        ]
+      },
+      "anchors": {
+        "strong": "到床边看并测了血氧/呼吸，指出问题在安静的这床",
+        "adequate": "做了其中之一，意识到 B 床不对劲",
+        "missed": "完全按呼声音量分配注意力"
+      },
+      "title": "是否识别 B 床的静默危重（低氧 + 意识改变）",
+      "weight": 25
+    },
+    {
+      "id": "dp_stabilize_b",
+      "rule": "require_within",
+      "params": {
+        "affordances": [
+          "oxygen_b",
+          "call_doctor"
+        ],
+        "within_turns": 4
+      },
+      "anchors": {
+        "strong": "四轮内既给了氧又喊了医生",
+        "adequate": "四轮内做到其中之一",
+        "missed": "始终没有对 B 床做处置升级"
+      },
+      "title": "是否及时对 B 床处置（吸氧/无创通气、呼叫医生）",
+      "weight": 25
+    },
+    {
+      "id": "dp_manage_a",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "reassure_a",
+          "analgesia_a"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "既回应了 A 床，也在其后处理了 B 床的危重",
+        "adequate": "回应过 A 床",
+        "missed": "完全没管 A 床的诉求"
+      },
+      "title": "可等待的那一床是否也被正确管理（而不是被忽略或被过度占用）",
+      "weight": 10
+    },
+    {
+      "id": "dp_document",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "document"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "记录了两床观察、处置顺序与理由",
+        "adequate": "有记录但缺顺序/理由",
+        "missed": "未记录"
+      },
+      "title": "是否记录两床情况与处置先后",
+      "weight": 10
+    }
+  ]
+}

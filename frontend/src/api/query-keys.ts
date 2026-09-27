@@ -145,4 +145,25 @@ export const queryKeys = {
 		timeline: (recordId: number | null | undefined) => ["recordLogs", recordId] as const,
 		detail: (logId: number | null | undefined) => ["logDetail", logId] as const,
 	},
+	// 情境训练（实验特性，隐藏路由 /scenario 与 /scenario-admin）。
+	scenario: {
+		all: ["scenario"] as const,
+		packs: () => [...queryKeys.scenario.all, "packs"] as const,
+		session: (sessionId: number | null | undefined) =>
+			[...queryKeys.scenario.all, "session", sessionId ?? null] as const,
+		/** 我的情境历史（学生侧）。 */
+		mySessions: () => [...queryKeys.scenario.all, "my-sessions"] as const,
+		admin: {
+			all: ["scenario", "admin"] as const,
+			packs: () => [...queryKeys.scenario.admin.all, "packs"] as const,
+			sessions: (params: Record<string, unknown>) =>
+				[...queryKeys.scenario.admin.all, "sessions", params] as const,
+			session: (sessionId: number | null | undefined) =>
+				[...queryKeys.scenario.admin.all, "session", sessionId ?? null] as const,
+			stats: () => [...queryKeys.scenario.admin.all, "stats"] as const,
+			/** 生成物：分页/筛选都进 key（换页即换请求，不共用缓存）。 */
+			generated: (params: Record<string, unknown>) =>
+				[...queryKeys.scenario.admin.all, "generated", params] as const,
+		},
+	},
 } as const;

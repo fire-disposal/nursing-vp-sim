@@ -42,6 +42,14 @@ LOGIN_LOCKOUT_ENABLED = os.getenv("LOGIN_LOCKOUT_ENABLED", "false").lower() == "
 LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
 LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
 
+# 情境训练（experimental，docs/20）：本仓实验性特性，与正式训练**资源隔离**、默认关闭。
+# 关闭时 /api/scenario/** 一律 404，对老系统与学生界面零可见；开启后仅需登录即可访问
+# （实验期不新增权限键；转为公开测试时再补权限）。
+SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lower() == "true"
+
+# 场景图片字节一律入库（`st_assets` / `st_generated_assets`），不再有磁盘缓存目录：
+# 曾用 `SCENARIO_IMAGE_CACHE_DIR` 落盘，容器重建即丢、管理端也看不见——已删除。
+
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
 

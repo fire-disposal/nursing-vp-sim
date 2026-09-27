@@ -46,6 +46,8 @@ services:
       DATABASE_URL: postgresql://nursing:${POSTGRES_PASSWORD}@db:5432/nursing_vp
       CORS_ORIGINS: ${CORS_ORIGINS}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      # 情境训练开关默认关闭，转公开测试时在服务器 .env 置 true；场景图片字节存库，无文件目录。
+      SCENARIO_TRAINING_ENABLED: ${SCENARIO_TRAINING_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

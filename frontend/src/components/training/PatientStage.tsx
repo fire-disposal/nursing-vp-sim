@@ -1,13 +1,13 @@
 import { Badge, Box, Group, Modal, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconPhoto } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
-import { useExamResults, usePatientData, useRecordFeatures, useTrainingData } from "@/engine/TrainingDataContext";
+import { usePatientData, useRecordFeatures, useTrainingData } from "@/engine/TrainingDataContext";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
-import PatientPresenter from "./presentation/PatientPresenter";
 import { buildPatientPresentation } from "./presentation/build";
+import PatientPresenter from "./presentation/PatientPresenter";
 
 /** 桌面上下文列宽度：够读，不抢对话区 */
 const CONTEXT_COLUMN_WIDTH = 248;
@@ -27,29 +27,21 @@ const ACCENT_BY_EMOTION: Record<string, string> = {
 	open: "green.5",
 };
 
-/** 体征状态 → Mantine 色（与服务端 `interpretation.status` 同一语义：高/低 = 需注意） */
-const VITAL_STATUS_COLOR: Record<string, string> = {
-	high: "orange.6",
-	low: "orange.6",
-	normal: "green.6",
-};
-
 /**
  * PatientStage — **患者上下文**（训练三区布局的一级区域，观察对象）。
  *
  * 需求出发，而不是"一张占半屏的大图"：
  *
- * - 对话是主工作面，患者是**背景信息**：桌面 216px 常驻列（头像 / 姓名·年龄·性别 / 主诉 /
- *   已测体征 / 情绪），不展开、不折叠、不挤压对话列；
+ * - 对话是主工作面，患者是**背景信息**：桌面 216px 常驻列（头像 / 姓名·年龄·性别 / 主诉 / 情绪），
+ *   不展开、不折叠、不挤压对话列；
  * - 手机（< 768px）：一条患者条（头像 + 姓名 + 主诉 + 情绪），纵向空间全留给对话；
  * - **大图按需**：点头像/患者条打开浮层看患者形象——观察训练需要的表情与体态在那里，不在常驻区；
- * - 只显示**学生自己采集到的**体征（`useExamResults`）：未测量前不展示任何体征值，
- *   患者的生命体征是要"查"出来的信息，不是开局就摊在屏幕上的答案。
+ * - **此处不汇总体征**（2026-09-27 裁定：老问诊侧不再用监护仪）：学生查到的体征在记录区
+ *   （`ExamResultCard`）逐项展示，患者的生命体征要"查"出来，不在常驻区预支答案。
  */
 export default function PatientStage() {
 	const mobile = useIsMobile();
 	const patient = usePatientData();
-	const examResults = useExamResults();
 	const features = useRecordFeatures();
 	const record = useTrainingData();
 	const recordId = Number(useTrainingStore((s) => s.recordId));
@@ -101,7 +93,8 @@ export default function PatientStage() {
 				.filter(Boolean)
 				.join(" · ")
 		: "";
-	const vitals = examResults.filter((entry) => entry.value !== "");
+	// 旧「已测体征」监护仪式汇总已下线（2026-09-27 裁定：老问诊侧不再用监护仪）。
+	// 查体结果仍在 ExamResultCard 逐项展示，信息不丢失；数据（scene.vitals）原样保留。
 
 	const portrait = (
 		<Modal opened={portraitOpen} onClose={() => setPortraitOpen(false)} title={name} size={380} centered withinPortal>
@@ -295,24 +288,6 @@ export default function PatientStage() {
 							{speaking ? " · 正在说话" : ""}
 						</Text>
 					</Group>
-				)}
-
-				{/* 已测体征：只有学生真的测过才出现（没测 = 不知道，不预支答案） */}
-				{vitals.length > 0 && (
-					<Stack gap={2}>
-						<Text size="sm" fw={600} c="dimmed">
-							已测体征
-						</Text>
-						{vitals.map((entry) => (
-							<Group key={entry.type} gap={6} wrap="nowrap">
-								<Box w={6} h={6} bg={VITAL_STATUS_COLOR[entry.status ?? "normal"] ?? "gray.5"} style={{ borderRadius: 999, flexShrink: 0 }} />
-								<Text size="xs" truncate style={{ fontVariantNumeric: "tabular-nums" }}>
-									{entry.label || entry.type} {entry.value}
-									{entry.unit ?? ""}
-								</Text>
-							</Group>
-						))}
-					</Stack>
 				)}
 
 				{bus && (

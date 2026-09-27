@@ -19,6 +19,7 @@ dependencies = [
     "uvicorn>=0.48.0",
     "websockets>=13.0",
     "tokenizers>=0.22",
+    "pillow>=12.3.0",
 ]
 
 [[tool.uv.index]]

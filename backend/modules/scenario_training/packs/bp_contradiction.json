@@ -1,0 +1,565 @@
+{
+  "pack_schema_version": 1,
+  "key": "bp-contradiction",
+  "title": "入院检查：量出来像高血压，患者坚决否认",
+  "state": "experimental",
+  "one_line": "一次「经典」入院检查：患者说他身体好得很，血压计不这么认为。",
+  "player": {
+    "role": "入院责任护士",
+    "can": [
+      "ask",
+      "observe",
+      "measure",
+      "act",
+      "document"
+    ]
+  },
+  "setting": {
+    "place": "内科病房（入院当日）",
+    "time_hint": "上午 09:20",
+    "resources": [
+      "血压计",
+      "床头柜",
+      "既往就诊记录",
+      "入院评估单"
+    ],
+    "cues": [
+      {
+        "id": "c_denial",
+        "text": "他反复说「我没有高血压，我身体好得很」，语气很坚决。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_impatient",
+        "text": "他答话时眼睛看着窗外，手指敲着床边。",
+        "visible_from_start": true
+      },
+      {
+        "id": "c_bp_high",
+        "text": "血压计读数 168/98 mmHg，左右臂差别不大。"
+      },
+      {
+        "id": "c_bp_retake",
+        "text": "换另一侧复测 166/96 mmHg，仍然偏高。"
+      },
+      {
+        "id": "c_pills",
+        "text": "床头抽屉里有半板白色小药片；他说「就那种小小白药片，降压的？我不清楚」。"
+      },
+      {
+        "id": "c_record",
+        "text": "既往就诊记录里有一次 165/95 mmHg 的记载，但诊断一栏写着「待查」。"
+      }
+    ]
+  },
+  "actors": [
+    {
+      "id": "patient",
+      "role": "患者（中年男性）",
+      "presence": "on_site",
+      "demand": "neutral",
+      "knowledge": {
+        "主诉": "我没什么病，就是来做个检查",
+        "自述": "我没有高血压，别给我记这个",
+        "抽屉": "半板白色小药片（他自己也说不清是什么）"
+      },
+      "style": "不认为自己有病；被直接追问「有没有高血压」时回避、否认甚至不耐烦；被问到具体用药或旧记录时会含糊但会松口",
+      "goals": [
+        "证明自己身体没问题",
+        "尽快把检查做完"
+      ]
+    }
+  ],
+  "state_keys": {
+    "scene.bp_sys": 168,
+    "scene.bp_dia": 98,
+    "patient.trust": 2,
+    "patient.guarded": 0
+  },
+  "truth": [
+    "他很可能在被漏诊或已自行停药的高血压，需要靠第三方证据（用药、旧记录、复测）确认，而不是靠他承认"
+  ],
+  "affordances": [
+    {
+      "id": "measure_bp",
+      "type": "measure",
+      "label": "按规范测血压",
+      "reveals": [
+        "c_bp_high"
+      ],
+      "params": {
+        "unit": "mmHg",
+        "normal": [
+          90,
+          140
+        ]
+      }
+    },
+    {
+      "id": "measure_bp_again",
+      "type": "measure",
+      "label": "换另一侧/静息后复测",
+      "reveals": [
+        "c_bp_retake"
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 2
+        }
+      ],
+      "params": {
+        "unit": "mmHg"
+      }
+    },
+    {
+      "id": "ask_history",
+      "type": "ask",
+      "label": "问他有没有高血压、平时血压多少",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "guarded",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "ask_meds",
+      "type": "ask",
+      "label": "问他平时吃什么药、谁来开药",
+      "reveals": [
+        "c_pills"
+      ],
+      "effects": [
+        {
+          "target": "patient",
+          "key": "trust",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "perceptible_by": [
+        "patient"
+      ]
+    },
+    {
+      "id": "ask_record",
+      "type": "observe",
+      "label": "查看既往就诊记录",
+      "reveals": [
+        "c_record"
+      ],
+      "perceptible_by": []
+    },
+    {
+      "id": "document",
+      "type": "document",
+      "label": "把体征与陈述的不一致写入入院记录",
+      "params": {
+        "fields": [
+          "测量值",
+          "他怎么说",
+          "我核对到的证据",
+          "下一步"
+        ]
+      }
+    }
+  ],
+  "reactions": [
+    {
+      "id": "r_deny_again",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "ask_history",
+            "count": 1
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他立刻否认：「我跟你说过我没有高血压，你们怎么老要给我安个病？」",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "guarded",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_annoyed",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "ask_history",
+            "count": 2
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "withhold",
+      "intent": "他不接这个话了，转口问「什么时候能回家」，之后回答明显变短",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "trust",
+          "op": "decr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_meds_slip",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "ask_meds",
+            "count": 1
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他含糊地说抽屉里那半板药是家里人让他吃的，「说是降压的？我也不清楚」",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "trust",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_record_found",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "ask_record",
+            "count": 1
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他看到你在翻旧记录，语气软了一点：「那次医生也说过有点高，让我复查，我没去。」",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "trust",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "r_retake",
+      "when": {
+        "all": [
+          {
+            "kind": "action_count_gte",
+            "affordance_id": "measure_bp_again",
+            "count": 1
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他看着两次读数都不低，第一次不再立刻反驳，只是沉默了一下",
+      "once": true
+    },
+    {
+      "id": "r_patient_reacts_to_reading",
+      "when": {
+        "all": [
+          {
+            "kind": "cue_revealed",
+            "cue_id": "c_bp_high"
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他把袖子放下来：「多少？……高吗？」语气里带着一点不服，又补了一句「我平时真的没事」",
+      "once": true
+    },
+    {
+      "id": "r_nurse_note",
+      "when": {
+        "all": [
+          {
+            "kind": "cue_revealed",
+            "cue_id": "c_pills"
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "他盯着那半板药看了一会儿，声音低下去：「……家里人让我吃的，说不吃不行。」",
+      "once": true
+    }
+  ],
+  "facts": [
+    {
+      "id": "f_bp_high",
+      "intent": "测得血压明显高于正常范围",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [
+        "168",
+        "偏高"
+      ],
+      "cue_ids": [
+        "c_bp_high"
+      ],
+      "affordance_ids": [
+        "measure_bp"
+      ]
+    },
+    {
+      "id": "f_denial",
+      "intent": "患者本人坚决否认既往高血压",
+      "kind": "reported",
+      "critical": true,
+      "banned_phrases": [],
+      "cue_ids": [
+        "c_denial"
+      ]
+    },
+    {
+      "id": "f_third_route",
+      "intent": "用不依赖患者承认的第三方证据核对",
+      "kind": "measured",
+      "critical": true,
+      "banned_phrases": [],
+      "cue_ids": [
+        "c_pills",
+        "c_record",
+        "c_bp_retake"
+      ],
+      "affordance_ids": [
+        "ask_meds",
+        "ask_record",
+        "measure_bp_again"
+      ]
+    }
+  ],
+  "dims": [
+    {
+      "id": "d_observation",
+      "label": "采集完整度",
+      "agg": "coverage",
+      "source": "facts",
+      "params": {}
+    },
+    {
+      "id": "d_actions",
+      "label": "动作数",
+      "agg": "count",
+      "source": "actions",
+      "params": {}
+    },
+    {
+      "id": "d_verify",
+      "label": "开始求证的延迟",
+      "agg": "latency",
+      "source": "actions",
+      "params": {
+        "affordances": [
+          "ask_meds",
+          "ask_record",
+          "measure_bp_again"
+        ]
+      }
+    },
+    {
+      "id": "d_bp",
+      "label": "血压变化",
+      "agg": "slope",
+      "source": "state",
+      "params": {
+        "key": "scene.bp_sys"
+      }
+    }
+  ],
+  "presentation": {
+    "hud": [
+      {
+        "slot": "血压（收缩压）",
+        "source": "state",
+        "ref": "scene.bp_sys"
+      },
+      {
+        "slot": "现场线索",
+        "source": "cue"
+      },
+      {
+        "slot": "可做动作",
+        "source": "affordance"
+      }
+    ],
+    "panels": [
+      "timeline",
+      "emotion",
+      "coverage"
+    ],
+    "board": [
+      {
+        "id": "board_scene",
+        "title": "现场看到的",
+        "source": "cue"
+      },
+      {
+        "id": "board_readings",
+        "title": "读数",
+        "source": "state",
+        "refs": [
+          "scene.bp_sys"
+        ],
+        "labels": {
+          "scene.bp_sys": "收缩压（mmHg）"
+        },
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_bp_high"
+            }
+          ]
+        }
+      },
+      {
+        "id": "board_confirmed",
+        "title": "已确认的",
+        "source": "fact"
+      },
+      {
+        "id": "board_done",
+        "title": "已处置",
+        "source": "action"
+      },
+      {
+        "id": "board_notes",
+        "title": "线索板",
+        "source": "note"
+      }
+    ],
+    "nudges": [
+      {
+        "when": {
+          "all": [
+            {
+              "kind": "action_count_gte",
+              "affordance_id": "ask_history",
+              "count": 2
+            }
+          ]
+        },
+        "direction": "他越问越设防：换个不依赖他承认的路径试试"
+      }
+    ]
+  },
+  "failure": "recoverable",
+  "hidden_from_player": [
+    "他可能在被漏诊或已自行停药的高血压"
+  ],
+  "image_generation": "disabled",
+  "rubric": [
+    {
+      "id": "dp_conflict",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "measure_bp",
+          "ask_history",
+          "ask_meds",
+          "ask_record"
+        ],
+        "min": 3,
+        "accept_custom": [
+          "矛盾",
+          "不一致",
+          "否认",
+          "瞒",
+          "不是没有",
+          "两种说法"
+        ]
+      },
+      "anchors": {
+        "strong": "量到了、也核对了第三方证据，明确指出两者不一致",
+        "adequate": "量到了并问过，但把「他说没有」当成结论",
+        "missed": "照清单记成「无高血压史」"
+      },
+      "title": "是否识别并处理「体征与陈述不一致」这个矛盾",
+      "weight": 40
+    },
+    {
+      "id": "dp_no_dismiss",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "ask_meds",
+          "ask_record",
+          "measure_bp_again"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "主动找了不依赖他承认的证据",
+        "adequate": "复测了一次，但没有追证据",
+        "missed": "只以他的口头陈述为准"
+      },
+      "title": "是否用第三条路求证（用药 / 旧记录 / 复测）",
+      "weight": 30
+    },
+    {
+      "id": "dp_trust",
+      "rule": "avoid_repeat",
+      "params": {
+        "affordance_id": "ask_history",
+        "max": 1
+      },
+      "anchors": {
+        "strong": "问过一次就换路径求证",
+        "adequate": "问了两次但随后调整了方式",
+        "missed": "反复逼问，把他问得更设防"
+      },
+      "title": "追问是否合分寸（没有反复逼问同一件事）",
+      "weight": 15
+    },
+    {
+      "id": "dp_document",
+      "rule": "action_set_covers",
+      "params": {
+        "affordances": [
+          "document"
+        ],
+        "min": 1
+      },
+      "anchors": {
+        "strong": "记录了测量值、他的说法、核对到的证据与下一步",
+        "adequate": "有记录但缺证据或下一步",
+        "missed": "未记录"
+      },
+      "title": "是否把不一致与下一步写进入院记录",
+      "weight": 15
+    }
+  ]
+}
