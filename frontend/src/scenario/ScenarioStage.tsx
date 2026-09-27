@@ -80,6 +80,8 @@ function AssetThumb({
  * （说话人分色因此不会牺牲正文对比度）。
  * 学生自己（`role === "student"`）**右对齐**、只靠 1px 边与底色跟旁白/台词分层——
  * 不加头像、不写"你"：他就是这一侧的人，不需要再自我介绍。
+ * `pending`（前端标记，后端不返回）= 学生刚提交、权威视图还没到的那一句：**同一个结构与 class**，
+ * 只多一个极轻的待定态（见 `scenario.css`），不加"发送中…"这类世界里不存在的话。
  */
 export function ScenarioLine({
 	message,
@@ -90,7 +92,11 @@ export function ScenarioLine({
 }) {
 	if (message.role === "student") {
 		return (
-			<div className="sc-line" data-role="student">
+			<div
+				className="sc-line"
+				data-role="student"
+				data-pending={message.pending === true ? "true" : undefined}
+			>
 				<div className="sc-line-main">
 					<div className="sc-line-text">{message.text}</div>
 				</div>

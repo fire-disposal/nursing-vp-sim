@@ -579,6 +579,15 @@
 	background: var(--sc-hover);
 }
 
+/*
+ * 待定（乐观）学生条目：学生刚提交、权威 view 还没到——结构与 class 跟正式气泡**完全一致**，
+ * 只降一点不透明度，接管时属性一撤就回到正式形态（不换节点、不重播入场动画 = 不闪）。
+ * 不加"发送中…"这类文字：世界里没有这句话。
+ */
+.sc-line[data-role="student"][data-pending="true"] .sc-line-main {
+	opacity: 0.72;
+}
+
 @keyframes sc-line-in {
 	from {
 		opacity: 0;

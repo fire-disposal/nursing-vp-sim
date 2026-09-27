@@ -29,6 +29,40 @@ export interface ScenarioStreamDraft {
 	notes?: unknown[];
 }
 
+/**
+ * 待定（乐观）学生条目：学生刚提交、权威 `view` 还没到的那一句。
+ *
+ * 它**不是**会话状态的一部分：只活在"`view` 未到"的窗口里，`view` 一到就整体退场
+ * （对话流以 `view.messages` 为准重绘），所以它永远不会跟正式消息同时出现。
+ */
+export interface PendingStudentLine {
+	/**
+	 * 与后端口径一致的那一句：`action.text or 可读标签`（取法见 `ScenarioConsole.submit`，
+	 * 与 `runtime/view.py` 的 `_messages` 逐字对应）。两边同口径，接管时才是同一句。
+	 */
+	text: string;
+	/** 预期回合号（`view.session.turn + 1`）："同回合 + 同文案"去重判据用的就是它。 */
+	turn: number;
+}
+
+/**
+ * 权威视图里是否已经有这条待定条目的正式身（**同回合 + 同文案**）——防重复的判据。
+ *
+ * 命中 = 正式消息已经顶上来了，待定的那条立即不渲染。
+ * 没命中也不留幽灵：`view` 到达时调用方整体清掉待定条目（以 `view.messages` 为准重绘）。
+ */
+export function hasStudentLine(
+	view: ScenarioView,
+	line: PendingStudentLine,
+): boolean {
+	return view.messages.some(
+		(message) =>
+			message.role === "student" &&
+			message.turn === line.turn &&
+			message.text === line.text,
+	);
+}
+
 /** 同一个 key 再次出现 = 更新（后端只推变化，但允许修正）。 */
 export function mergeBlocks(
 	draft: ScenarioStreamDraft,
@@ -130,13 +164,16 @@ function withDraftNotes(board: ScenarioBoard, notes: unknown[]): ScenarioBoard {
 }
 
 /**
- * 当前视图 + 草稿 → 用于渲染的视图。
+ * 当前视图 + 草稿 + **待定学生条目** → 用于渲染的视图。
  *
- * **不改变会话状态**：只在展示层追加"已经写完的块"。`view` 到达时草稿被丢弃。
+ * **不改变会话状态**：只在展示层追加"已经写完的块"与"还没落地的学生条目"。
+ * 待定条目排在这一回合**最前**——回合内顺序是 学生 → 旁白 → 台词（他先做，世界才回应，
+ * 与后端 `_messages` 的排序同口径）。`view` 到达时草稿与待定条目一起由调用方丢掉。
  */
 export function draftView(
 	view: ScenarioView,
 	draft: ScenarioStreamDraft | null,
+	pending: PendingStudentLine | null = null,
 ): ScenarioView {
 	const merged = draft ?? {};
 	const added: ScenarioMessage[] = [];
@@ -149,6 +186,11 @@ export function draftView(
 	}
 
 	const assets = view.images ?? [];
+	// 待定条目的回合号是**预测**的（`view.session.turn + 1`，与后端 `world.turn + 1` 同口径）：
+	// 猜对了，正式消息接管时连 DOM 节点都不用换；猜错了也只是回到"以 view.messages 为准"。
+	const lead: ScenarioMessage[] = pending
+		? [{ role: "student", text: pending.text, turn: pending.turn, pending: true }]
+		: [];
 	const images = (merged.images ?? [])
 		.map((raw) => toImage(raw, assets))
 		.filter((image): image is ScenarioImage => image !== null);
@@ -159,7 +201,10 @@ export function draftView(
 
 	return {
 		...view,
-		messages: added.length > 0 ? [...view.messages, ...added] : view.messages,
+		messages:
+			lead.length + added.length > 0
+				? [...view.messages, ...lead, ...added]
+				: view.messages,
 		options: merged.options ? options : view.options,
 		images: images.length > 0 ? [...assets, ...images] : view.images,
 		board:

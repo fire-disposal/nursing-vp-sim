@@ -42,6 +42,11 @@ export interface ScenarioMessage {
 	/** `dm` = DM 代言；`entity` = 独立角色实体自己说的话。 */
 	origin?: string;
 	turn?: number;
+	/**
+	 * **前端自定义字段，后端不返回**：这条是"待定"条目——学生刚提交、权威视图还没到，
+	 * 先按正式样式顶上；`view` 一到就被同回合同文案的正式消息接管（见 `scenario/stream.ts`）。
+	 */
+	pending?: boolean;
 }
 
 export interface ScenarioOption {

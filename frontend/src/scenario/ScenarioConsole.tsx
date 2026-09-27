@@ -33,7 +33,13 @@ import { studentFallbackNotice } from "./problems";
 import ScenarioReportView from "./ScenarioReportView";
 import ScenarioSidePanel from "./ScenarioSidePanel";
 import ScenarioStage from "./ScenarioStage";
-import { draftView, mergeBlocks, type ScenarioStreamDraft } from "./stream";
+import {
+	draftView,
+	hasStudentLine,
+	mergeBlocks,
+	type PendingStudentLine,
+	type ScenarioStreamDraft,
+} from "./stream";
 import "./scenario.css";
 import { sessionRowMeta } from "./sessions";
 
@@ -103,10 +109,25 @@ export default function ScenarioConsole() {
 	const [ended, setEnded] = useState(false);
 	/** 流式草稿：已写完但还没落地的块（权威 view 一到就丢）。 */
 	const [draft, setDraft] = useState<ScenarioStreamDraft | null>(null);
+	/**
+	 * 待定学生条目（乐观）：提交瞬间就进对话流，权威 `view` 一到即被正式消息整体接管。
+	 * 只活"view 未到"的窗口（见 `stream.ts`），所以永远不会与正式消息同时出现。
+	 */
+	const [pendingStudent, setPendingStudent] =
+		useState<PendingStudentLine | null>(null);
 	const [streaming, setStreaming] = useState(false);
 	const [streamFailed, setStreamFailed] = useState<string | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
-	const lastActionRef = useRef<ScenarioActionInput | null>(null);
+	/**
+	 * 最近一次提交的**回滚档案**：失败时按它撤下待定气泡、把输入框还原，
+	 * 「重试」也用它原样再来一次（不必从头猜标签与文案）。
+	 */
+	const lastSubmitRef = useRef<{
+		action: ScenarioActionInput;
+		label: string;
+		/** 这次提交从自由输入框里拿走的那一句；按钮/表单动作没有"框里那一份" → null。 */
+		restoreText: string | null;
+	} | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [freeText, setFreeText] = useState("");
@@ -174,8 +195,9 @@ export default function ScenarioConsole() {
 			setView(data.view);
 			setReport(null);
 			setEnded(false);
-			// 新一局不许带上一局的残留：草稿与"流式中断"提示都清掉
+			// 新一局不许带上一局的残留：草稿、待定气泡与"流式中断"提示都清掉
 			setDraft(null);
+			setPendingStudent(null);
 			setStreamFailed(null);
 			setFreeText("");
 			historyQuery.refetch();
@@ -201,6 +223,7 @@ export default function ScenarioConsole() {
 			setReport(data.report);
 			setEnded(data.status !== "active");
 			setDraft(null);
+			setPendingStudent(null);
 			setStreamFailed(null);
 			setFreeText("");
 		} catch (err) {
@@ -215,10 +238,14 @@ export default function ScenarioConsole() {
 	/**
 	 * 回合落地：视图换成权威结果，并处理两件"人"的事——
 	 * 只在**刚提交的那份文本**没被改过时清空输入（H3），以及把焦点送回输入框并播报回合（M4）。
+	 *
+	 * 待定学生条目在这里退场：对话流以 `view.messages` 为准重绘（后端已把他的动作作为
+	 * `role="student"` 条目带了回来），因此**不会**出现"待定的 + 正式的"两条。
 	 */
 	const applyTurnResult = (nextView: ScenarioView) => {
 		setView(nextView);
 		setDraft(null);
+		setPendingStudent(null);
 		const submitted = submittedTextRef.current;
 		// 学生可能已经在等的时候接着打字了：只有原样未改的那份才丢
 		setFreeText((current) => (current === submitted ? "" : current));
@@ -237,9 +264,54 @@ export default function ScenarioConsole() {
 		applyTurnResult(data.view);
 	};
 
-	const submit = async (action: ScenarioActionInput) => {
+	/**
+	 * 回滚一条"还没落地"的提交：撤下待定气泡，并把自由通道的原话还回输入框。
+	 *
+	 * 「还回哪一句」由回滚档案里的 `restoreText` 决定：按钮/表单动作没有"框里那一份"，
+	 * 把它们塞回输入框等于替学生写话，所以只有自由通道才还原。
+	 * 且只在框还空着时还——学生已经在打下一句了就别动他的字。
+	 */
+	const rollbackPending = () => {
+		setPendingStudent(null);
+		const restore = lastSubmitRef.current?.restoreText ?? null;
+		if (restore === null) return;
+		setFreeText((current) => (current === "" ? restore : current));
+	};
+
+	/**
+	 * 提交一个动作。
+	 *
+	 * - `label` = 该动作的**可读标签**（DM 选项的 label / affordance 的 label）；
+	 *   气泡文案取 `action.text or label`——与后端 `runtime/view.py` 的 `action.text or
+	 *   action.label(pack)` 逐字同口径，接管时才不会换词。
+	 * - `restoreText` 非空 = 这一份来自自由输入框：框里那一句在提交瞬间变成气泡，先把框清空，
+	 *   失败时再还回去（见 `rollbackPending`）。
+	 *
+	 * 提交**瞬间**就把这句话作为待定气泡放进对话流（不等权威 `view`）：
+	 * 此前他要盯着"正在生成…"看几秒，流里没有自己那句话，交互上像发进了虚空。
+	 */
+	const submit = async (
+		action: ScenarioActionInput,
+		label = "",
+		restoreText: string | null = null,
+	) => {
 		if (sessionId === null || busy) return;
-		lastActionRef.current = action;
+		// 「重试」时框里可能还着那一句（照旧拿走），也可能学生已经另写了新的一句——
+		// 后者不动他的字，也不把这一份算作"欠他一次还原"。
+		const ownsBox =
+			restoreText !== null && (freeText === "" || freeText === restoreText);
+		lastSubmitRef.current = {
+			action,
+			label,
+			restoreText: ownsBox ? restoreText : null,
+		};
+		if (ownsBox) setFreeText("");
+		const line = action.text || label;
+		// 回合号是**预测**的（后端 `world.turn + 1`）：预测只用于"同回合 + 同文案"去重，
+		// 猜错也只是退回"以 view.messages 为准"的整体替换，不会留下幽灵气泡。
+		setPendingStudent(
+			line === "" ? null : { text: line, turn: (view?.session.turn ?? 0) + 1 },
+		);
 		submittedTextRef.current = action.text ?? null;
 		setBusy(true);
 		setActionError(null);
@@ -260,18 +332,22 @@ export default function ScenarioConsole() {
 						return;
 					}
 					if (event.kind === "view") {
-						// 权威结果：它覆盖一切（草稿丢掉）
+						// 权威结果：它覆盖一切（草稿与待定条目都丢掉）
 						settled = true;
 						applyTurnResult(event.view);
 						return;
 					}
-					// error：保留已渲染的内容，给重试入口
+					// error：保留已渲染的内容，给重试入口；他那一句没落地 → 撤下并还回输入框
 					settled = true;
 					setStreamFailed(event.message);
+					rollbackPending();
 				},
 				controller.signal,
 			);
-			if (!settled) setStreamFailed("本回合没有拿到完整结果，可以重试。");
+			if (!settled) {
+				setStreamFailed("本回合没有拿到完整结果，可以重试。");
+				rollbackPending();
+			}
 		} catch (err) {
 			if (err instanceof ScenarioStreamUnavailable) {
 				// 流式这条路走不通 → 自动退回非流式（不得比今天更差）
@@ -280,6 +356,7 @@ export default function ScenarioConsole() {
 				} catch (fallbackErr) {
 					const message = absorbError(fallbackErr, "提交动作失败");
 					if (message) setActionError(message);
+					rollbackPending();
 				}
 			} else if (err instanceof ScenarioHttpError) {
 				const message = absorbError(
@@ -287,9 +364,11 @@ export default function ScenarioConsole() {
 					"提交动作失败",
 				);
 				if (message) setActionError(message);
+				rollbackPending();
 			} else if (!controller.signal.aborted) {
 				const message = absorbError(err, "提交动作失败");
 				if (message) setActionError(message);
+				rollbackPending();
 			}
 		} finally {
 			abortRef.current = null;
@@ -340,6 +419,7 @@ export default function ScenarioConsole() {
 		setEnded(false);
 		setActionError(null);
 		setDraft(null);
+		setPendingStudent(null);
 		setStreamFailed(null);
 		historyQuery.refetch();
 	};
@@ -426,8 +506,17 @@ export default function ScenarioConsole() {
 		);
 	}
 
-	// 渲染用视图：权威视图叠加"已经写完的块"（草稿），权威 view 一到草稿即被丢弃
-	const shownView = view === null ? null : draftView(view, draft);
+	// 渲染用视图：权威视图叠加"已经写完的块"（草稿）与"还没落地的学生条目"（待定）。
+	// 权威 view 一到，草稿与待定条目一起被丢掉（`applyTurnResult`）——展示永远不是真相。
+	// 防重复：若权威视图里已经有同回合同文案的正式消息（后端把他的动作带回来了），
+	// 待定的那条立刻不渲染，不必等下一次状态更新。
+	const shownPending =
+		pendingStudent !== null &&
+		view !== null &&
+		!hasStudentLine(view, pendingStudent)
+			? pendingStudent
+			: null;
+	const shownView = view === null ? null : draftView(view, draft, shownPending);
 	const fallbackNotice =
 		shownView === null ? null : studentFallbackNotice(shownView.problems);
 
@@ -453,7 +542,8 @@ export default function ScenarioConsole() {
 			});
 			if (!ok) return;
 		}
-		submit(action);
+		// `label` 与后端 `action.label(pack)` 同口径：气泡文案与权威消息才会是同一句
+		submit(action, label);
 	};
 
 	/** DM 的选项：落在表单型动作上就展开表单（不替学生把选项定死），其余直接提交。 */
@@ -480,7 +570,14 @@ export default function ScenarioConsole() {
 	/** 唯一的提交入口：选项条、表单、自由通道都走这里；提交即收起表单。 */
 	const submitAction = (action: ScenarioActionInput) => {
 		setOpenAffordanceId(null);
-		submit(action);
+		// 只有自由输入条会给出"没有表单归属"的动作（表单动作的 `affordance_id` 恒非空）：
+		// 框里那一句作为 `restoreText` 交出去——它在提交瞬间变成气泡，失败时再还回框里。
+		// 表单/按钮动作不动输入框（那是学生自己的草稿），所以不给 `restoreText`。
+		if (action.affordance_id == null) {
+			submit(action, "", action.text ?? null);
+			return;
+		}
+		submit(action, openAffordance?.label ?? "");
 	};
 
 	const panels = shownView === null ? null : resolvePanels(shownView.panels);
@@ -658,8 +755,10 @@ export default function ScenarioConsole() {
 										className="sc-btn"
 										disabled={busy}
 										onClick={() => {
-											const last = lastActionRef.current;
-											if (last) void submit(last);
+											const last = lastSubmitRef.current;
+											if (last) {
+												void submit(last.action, last.label, last.restoreText);
+											}
 										}}
 									>
 										重试
