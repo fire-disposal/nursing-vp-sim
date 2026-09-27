@@ -499,6 +499,21 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### U0 候选清单（2026-09-27）
+
+- `scripts/u0-candidate-manifest.py`：把"冻结的那一版到底是什么"从**既有字段**导出——提交/脏树、
+  `APP_VERSION`/`EXPERIMENT_BATCH`、病例 revision 与内容指纹、问卷模板指纹、模式、模型 profile、
+  患者 prompt 身份、rubric/映射身份、上下文策略身份（冻结值与当前代码并列）。缺项写 `null` 并计入
+  `gaps`，**以退出码 1 结束**：清单打出来不等于冻结成立。
+- 顺带纠正一个自己造的分叉：`u0-configure-sus.py` 原先自带一份题目指纹算法（少 `sort_order`/`options`），
+  与服务端审计用的 `_questions_digest` **不是同一个值**。现改为直接调用服务端实现，并同时打印
+  "本地定义指纹 / 服务端实况指纹 / 是否一致"；不一致时以退出码 2 结束。
+- 验证（本地验证栈，只读）：清单取到 `病例 revision=2 / case@5d63a7b532fe / questions@beb5445de770 /
+  prompt=history_taking@896ef4afc603 / ctx 冻结==当前代码 ctx@f1664bd1 / 评分来源 模型=deepseek-v4-flash
+  rubric=nursing_history_v1@1.0 映射=1 原始分=24`；问卷指纹三方一致（脚本本地 / 接口实况 /
+  服务端 `_stored_questions_digest` 读库）。清单如实报出 2 项缺项（病例无 blueprint、
+  `EXPERIMENT_BATCH` 未设置）。
+
 ### U0 病例补齐场景并发布新 revision（2026-09-27）
 
 - U0 的病例 `case1`（`咳嗽咳痰伴呼吸困难`）此前只有 `patient_info/activities`，**没有 `scene`**——患者 LLM

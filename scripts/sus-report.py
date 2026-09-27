@@ -36,17 +36,32 @@ SUS_ITEM_COUNT = 10
 REFERENCE_LINE = 68.0
 
 
-def request(api_base: str, method: str, path: str, *, token: str | None = None, body: dict | None = None):
-    data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+def request(
+    api_base: str,
+    method: str,
+    path: str,
+    *,
+    token: str | None = None,
+    body: dict | None = None,
+):
+    data = (
+        json.dumps(body, ensure_ascii=False).encode("utf-8")
+        if body is not None
+        else None
+    )
     headers = {"content-type": "application/json"}
     if token:
         headers["authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(f"{api_base}{path}", data=data, headers=headers, method=method)  # noqa: S310
+    req = urllib.request.Request(
+        f"{api_base}{path}", data=data, headers=headers, method=method
+    )  # noqa: S310
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310
             return resp.read()
     except urllib.error.HTTPError as exc:
-        raise SystemExit(f"{method} {path} → HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:300]}") from exc
+        raise SystemExit(
+            f"{method} {path} → HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:300]}"
+        ) from exc
 
 
 def sus_score(values: list[int]) -> float:
@@ -69,31 +84,62 @@ def main() -> None:
     parser.add_argument("--out", default=None, help="逐人分数 CSV 的输出路径")
     args = parser.parse_args()
 
-    login = json.loads(request(args.api_base, "POST", "/auth/login", body={"username": args.username, "password": args.password}))
+    login = json.loads(
+        request(
+            args.api_base,
+            "POST",
+            "/auth/login",
+            body={"username": args.username, "password": args.password},
+        )
+    )
     token = login.get("access_token") or login.get("token")
     if not token:
         raise SystemExit("登录未返回 token")
 
     template_id = args.template_id
     if template_id is None:
-        listing = json.loads(request(args.api_base, "GET", "/questionnaires/templates", token=token))
+        listing = json.loads(
+            request(args.api_base, "GET", "/questionnaires/templates", token=token)
+        )
         rows = listing.get("items") if isinstance(listing, dict) else listing
-        match = next((r for r in rows or [] if str(r.get("title", "")).strip() == args.title), None)
+        match = next(
+            (r for r in rows or [] if str(r.get("title", "")).strip() == args.title),
+            None,
+        )
         if not match:
             raise SystemExit(f"找不到模板：{args.title}")
         template_id = int(match["id"])
 
-    detail = json.loads(request(args.api_base, "GET", f"/questionnaires/templates/{template_id}", token=token))
+    detail = json.loads(
+        request(
+            args.api_base,
+            "GET",
+            f"/questionnaires/templates/{template_id}",
+            token=token,
+        )
+    )
     questions = detail.get("questions") or []
-    likert = [q for q in questions if q.get("question_type") in {"likert_5", "satisfaction_5"}]
+    likert = [
+        q for q in questions if q.get("question_type") in {"likert_5", "satisfaction_5"}
+    ]
     open_items = [q for q in questions if q not in likert]
     if len(likert) != SUS_ITEM_COUNT:
-        raise SystemExit(f"该模板有 {len(likert)} 道量表题，SUS 需要 {SUS_ITEM_COUNT} 道（顺序即极性）")
+        raise SystemExit(
+            f"该模板有 {len(likert)} 道量表题，SUS 需要 {SUS_ITEM_COUNT} 道（顺序即极性）"
+        )
 
-    raw = request(args.api_base, "POST", f"/questionnaires/responses/{template_id}/export", token=token)
+    raw = request(
+        args.api_base,
+        "POST",
+        f"/questionnaires/responses/{template_id}/export",
+        token=token,
+    )
     rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))))
     if not rows:
-        print("没有作答（导出为空）。模板 id=%s，题目 %d 道" % (template_id, len(questions)))
+        print(
+            "没有作答（导出为空）。模板 id=%s，题目 %d 道"
+            % (template_id, len(questions))
+        )
         return
 
     scores: list[float] = []
@@ -130,12 +176,15 @@ def main() -> None:
                 "median": round(statistics.median(scores), 1),
                 "min": min(scores),
                 "max": max(scores),
-                f"gte_{int(REFERENCE_LINE)}_rate": round(sum(1 for s in scores if s >= REFERENCE_LINE) / len(scores), 3),
+                f"gte_{int(REFERENCE_LINE)}_rate": round(
+                    sum(1 for s in scores if s >= REFERENCE_LINE) / len(scores), 3
+                ),
             },
             ensure_ascii=False,
         )
         + f"   （≥{int(REFERENCE_LINE)} 是惯用参考线，不是校准阈值）"
     )
+
     #: 逐题归一化贡献（0~4，高=该题体验好）。排序必须按归一化值，否则负向题低分会被误读成"最差"。
     def contribution(index: int) -> float:
         mean = statistics.mean(per_item[index])

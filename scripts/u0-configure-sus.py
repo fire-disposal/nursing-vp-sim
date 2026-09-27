@@ -29,11 +29,11 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 TEMPLATE_TITLE = "系统可用性量表（SUS）+ 开放题 · U0"
 
@@ -61,9 +61,20 @@ QUESTION_TYPE_LIKERT = "likert_5"
 QUESTION_TYPE_TEXT = "short_text"
 
 
-def request(api_base: str, method: str, path: str, *, token: str | None = None, body: dict | None = None) -> object:
+def request(
+    api_base: str,
+    method: str,
+    path: str,
+    *,
+    token: str | None = None,
+    body: dict | None = None,
+) -> object:
     url = f"{api_base}{path}"
-    data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+    data = (
+        json.dumps(body, ensure_ascii=False).encode("utf-8")
+        if body is not None
+        else None
+    )
     headers = {"content-type": "application/json"}
     if token:
         headers["authorization"] = f"Bearer {token}"
@@ -77,15 +88,18 @@ def request(api_base: str, method: str, path: str, *, token: str | None = None, 
         raise SystemExit(f"{method} {path} → HTTP {exc.code}: {detail}") from exc
 
 
-def questions_digest(items: list[dict]) -> str:
-    """题目内容指纹：与顺序、题干、题型、必答性相关（服务端口径的本地复算）。"""
-    blob = json.dumps(
-        [{"c": q["content"], "t": q["question_type"], "r": bool(q["required"])} for q in items],
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
+def _server_questions_digest():
+    """服务端的题目指纹函数（**唯一实现**，审计载荷用的就是它）。
+
+    脚本不再自己写一份等价算法：两份哈希迟早会因为字段增减而说不到一起，而"候选用的哪一版问卷"
+    正是靠这个值对齐的。后端不在 sys.path 时直接报错，不静默退回本地实现。
+    """
+    backend_dir = Path(__file__).resolve().parent.parent / "backend"
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+    from modules.questionnaires.service import _questions_digest  # noqa: PLC0415 — 脚本按需引入，避免 import 期就依赖后端环境
+
+    return _questions_digest
 
 
 def build_questions() -> list[dict]:
@@ -140,7 +154,9 @@ def main() -> None:
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
     parser.add_argument("--title", default=TEMPLATE_TITLE)
-    parser.add_argument("--case-name", action="append", default=[], help="要绑定的病例名（可重复）")
+    parser.add_argument(
+        "--case-name", action="append", default=[], help="要绑定的病例名（可重复）"
+    )
     parser.add_argument("--trigger", default="after_scoring")
     parser.add_argument("--required", action="store_true", help="把问卷设为必答")
     parser.add_argument("--dry-run", action="store_true")
@@ -150,17 +166,27 @@ def main() -> None:
         args.case_name = ["咳嗽咳痰伴呼吸困难"]
 
     questions = build_questions()
-    digest = questions_digest(questions)
-    print(f"题目：{len(questions)} 条（SUS {len(SUS_ITEMS)} + 开放 {len(OPEN_ITEMS)}），指纹 questions@{digest}")
+    digest_fn = _server_questions_digest()
+    digest = digest_fn(questions)
+    print(
+        f"题目：{len(questions)} 条（SUS {len(SUS_ITEMS)} + 开放 {len(OPEN_ITEMS)}），指纹 questions@{digest}"
+    )
 
-    login = request(args.api_base, "POST", "/auth/login", body={"username": args.username, "password": args.password})
+    login = request(
+        args.api_base,
+        "POST",
+        "/auth/login",
+        body={"username": args.username, "password": args.password},
+    )
     token = login.get("access_token") or login.get("token")
     if not token:
         raise SystemExit("登录未返回 token")
 
     existing = find_template(args.api_base, token, args.title)
     if existing:
-        print(f"模板已存在：id={existing.get('id')} title={existing.get('title')!r}（复用，不覆盖题目）")
+        print(
+            f"模板已存在：id={existing.get('id')} title={existing.get('title')!r}（复用，不覆盖题目）"
+        )
         template_id = int(existing["id"])
     elif args.dry_run:
         print("[dry-run] 将创建模板：", args.title)
@@ -183,7 +209,9 @@ def main() -> None:
         print(f"已创建模板：id={template_id}")
 
     case_ids = [resolve_case_id(args.api_base, token, name) for name in args.case_name]
-    print(f"绑定：cases={list(zip(args.case_name, case_ids, strict=True))} trigger={args.trigger} required={args.required}")
+    print(
+        f"绑定：cases={list(zip(args.case_name, case_ids, strict=True))} trigger={args.trigger} required={args.required}"
+    )
     if args.dry_run:
         print("[dry-run] 未写入绑定")
         return
@@ -193,24 +221,53 @@ def main() -> None:
         "PUT",
         f"/questionnaires/templates/{template_id}/case-assignments",
         token=token,
-        body={"case_ids": case_ids, "is_required": bool(args.required), "trigger_event": args.trigger},
+        body={
+            "case_ids": case_ids,
+            "is_required": bool(args.required),
+            "trigger_event": args.trigger,
+        },
     )
 
-    detail = request(args.api_base, "GET", f"/questionnaires/templates/{template_id}", token=token)
+    detail = request(
+        args.api_base, "GET", f"/questionnaires/templates/{template_id}", token=token
+    )
+    server_questions = detail.get("questions") or []
+    server_digest = digest_fn(
+        [
+            {
+                "content": q.get("content"),
+                "question_type": q.get("question_type"),
+                "required": q.get("required"),
+                "sort_order": q.get("sort_order"),
+                "options": q.get("options"),
+            }
+            for q in server_questions
+        ]
+    )
+    same = server_digest == digest
     print(
         "完成：",
         json.dumps(
             {
                 "template_id": template_id,
                 "title": detail.get("title"),
-                "questions": len(detail.get("questions") or []),
-                "digest_local": f"questions@{digest}",
+                "questions": len(server_questions),
+                "digest_local_definition": f"questions@{digest}",
+                "digest_server_stored": f"questions@{server_digest}",
+                "digest_match": same,
                 "case_ids": detail.get("case_ids"),
                 "updated_at": detail.get("updated_at"),
             },
             ensure_ascii=False,
         ),
     )
+    if not same:
+        print(
+            "警告：服务端题目与本地定义指纹不一致 —— 库里的问卷不是本脚本定义的那一份，"
+            "候选清单不得据此声明问卷身份。",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
