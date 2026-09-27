@@ -8,7 +8,6 @@ import { useTrainingStore } from "@/stores/trainingStore";
 import { ChatDisplay } from "./ChatDisplay";
 import { ConversationComposer } from "./ConversationComposer";
 import ActivityBar from "./workspace/ActivityBar";
-import { CompletionStrip } from "./workspace/CompletionStatus";
 import { useWorkspacePanes } from "./workspace/useWorkspacePanes";
 import { useTrainingConnection } from "@/hooks/useNetworkStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -165,7 +164,6 @@ export function ChatArea({
 					</motion.div>
 				)}
 			</AnimatePresence>
-			<CompletionStrip />
 			<ConnectionNotice />
 			{!hasWorkspacePane && (
 				<Text size="xs" c="dimmed" ta="center" py={6}>

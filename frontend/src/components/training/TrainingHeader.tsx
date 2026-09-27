@@ -1,7 +1,7 @@
 import { IconArrowLeft, IconClipboardCheck, IconClock, IconEarOff, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ActionIcon, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { ActionIcon, Badge, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
@@ -9,7 +9,8 @@ import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { pauseTraining } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
-import { ACTION_COMPLETE_SESSION } from "@/engine/manifest";
+import { InquiryProgressChip } from "@/components/training/InquiryProgressChip";
+import { ACTION_COMPLETE_SESSION, completionBlockers } from "@/engine/manifest";
 import { usePatientData, useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
@@ -79,6 +80,8 @@ export function TrainingHeader({
 	// 交卷按钮的唯一文案来源：manifest 声明优先、回退"结束训练"。可见文案与 aria-label 共用，
 	// 避免两处措辞漂移（2026-09-26 前该按钮在桌面端只显示图标、无 aria-label，见 UI-TRN-1）。
 	const completeEndLabel = completeAction?.label ?? "结束训练";
+	// 还缺几项才能交卷：数字只在未满足时出现，点按钮看逐条原因
+	const blockerCount = completionBlockers(manifest).length;
 	// 降级时按钮文案说明**当前实际用的是什么**，而不是只描述开/关（否则学生以为听到了服务端语音）
 	const ttsToggleLabel = ttsDegradedProvider
 		? `服务端语音暂不可用，已降级为「${ttsDegradedProvider}」朗读（点击${ttsAutoPlay ? "关闭" : "开启"}朗读）`
@@ -231,6 +234,8 @@ export function TrainingHeader({
 						</Group>
 					)}
 
+					{/* 采集进度：与计时、交卷同一条状态线（不再散落在患者卡里） */}
+					<InquiryProgressChip />
 					<Group
 						gap={6}
 						px={8}
@@ -288,6 +293,11 @@ export function TrainingHeader({
 						<Text component="span" fw={600}>
 							{completeEndLabel}
 						</Text>
+						{!canComplete && blockerCount > 0 && (
+							<Badge size="xs" variant="filled" color="orange" radius="xl" px={6}>
+								{blockerCount}
+							</Badge>
+						)}
 					</Button>
 				</Group>
 			</Box>

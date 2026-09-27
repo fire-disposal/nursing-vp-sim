@@ -72,12 +72,14 @@ describe("对话列布局与首帧开场", () => {
 		expect(column.style.paddingTop).toBe("");
 	});
 
-	it("首帧直接给出 manifest 驱动的开场（必交产物与缺什么）", () => {
+	it("首帧给出 manifest 驱动的任务卡；对话列不再重复门禁，输入框是显式控件", () => {
 		render(withTrainingData(<ChatArea onSend={vi.fn()} onCorrectLast={vi.fn()} />, session()));
 
+		// 任务卡：必交与缺什么
 		expect(screen.getByText("必交")).toBeInTheDocument();
-		expect(screen.getByText("还缺什么")).toBeInTheDocument();
-		// 开场与对话区上方的完成条同口径：同一句服务端 blocker 文案在两处出现
-		expect(screen.getAllByText("请先提交护理记录，再结束训练")).toHaveLength(2);
+		// blocker 文案在对话列里只出现一次 —— 完成度条已从对话列移除，门禁的唯一去处是完成清单
+		expect(screen.getAllByText("请先提交护理记录，再结束训练")).toHaveLength(1);
+		// 输入框是 Mantine Textarea（有边框、有焦点环、有可读标签），不是漂在页脚上的一行字
+		expect(screen.getByLabelText("对话输入")).toBeInTheDocument();
 	});
 });

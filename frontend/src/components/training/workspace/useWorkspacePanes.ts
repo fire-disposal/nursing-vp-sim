@@ -50,6 +50,16 @@ export function useWorkspacePanes(): WorkspacePane[] {
 }
 
 /**
+ * 工作区按钮要显示的入口（侧栏 / 竖屏能力条）。
+ *
+ * 问诊清单/引导提示的入口在**患者卡的进度 chip**（`InquiryProgressChip`）上，工作区再放一个同名
+ * 入口只是把同一件事说两遍；面板本身仍从 `useWorkspacePanes()` 解析，因此 chip 照常能打开它。
+ */
+export function useDockPanes(): WorkspacePane[] {
+	return useWorkspacePanes().filter((pane) => pane.id !== INQUIRY_PANEL_ID);
+}
+
+/**
  * 首次进入若病例挂载了随堂测验，默认展开测验面板（保持原有到达性）。
  *
  * 只生效一次：学生手动收起后不再重开（状态在 workspaceStore 里，两个断点的

@@ -82,11 +82,9 @@ function bigFace(container: HTMLElement): HTMLImageElement | undefined {
 	});
 }
 
-/** 患者区里任何绝对/固定定位的子元素都会盖到对话区头上 —— 紧凑形态必须没有。 */
-function overlayChildren(stage: HTMLElement): HTMLElement[] {
-	return Array.from(stage.querySelectorAll<HTMLElement>("*")).filter(
-		(el) => el.style.position === "absolute" || el.style.position === "fixed",
-	);
+/** `fixed` 定位的子元素会脱离文档流盖到对话区头上 —— 患者区（条/列）必须没有。 */
+function fixedChildren(stage: HTMLElement): HTMLElement[] {
+	return Array.from(stage.querySelectorAll<HTMLElement>("*")).filter((el) => el.style.position === "fixed");
 }
 
 beforeEach(() => {
@@ -100,82 +98,55 @@ afterEach(() => {
 	setViewport(1024, 768);
 });
 
-describe("紧凑患者区：竖屏手机（390x844）", () => {
-	it("收为紧凑头，大图默认不挂载 —— 开场卡不再被四层堆叠挤出视口", () => {
+describe("患者条：竖屏手机（390x844）", () => {
+	it("一条 56px 患者条（姓名 + 主诉 + 情绪），大图不挂载", () => {
 		setViewport(390, 844);
 		const { container } = renderWithWelcomeCard();
 		const stage = patientStage(container);
-		const welcomeHost = screen.getByTestId("welcome-host");
 
 		expect(stage).toHaveAttribute("data-patient-mode", "compact");
-		expect(stage).toHaveStyle({ width: "100%", position: "relative" });
-		// 大图内容默认不挂载（原来占掉绝大部分高度的那块）
-		expect(container.querySelector("[data-patient-stage-content]")).toBeNull();
-		expect(bigFace(container)).toBeUndefined();
-		// 第一次进来就知道患者是谁、为什么来（姓名 + 主诉一行）
 		expect(stage).toHaveTextContent("王建国");
 		expect(stage).toHaveTextContent("主诉：喘不上气");
-		expect(screen.getByLabelText("展开患者区")).toBeInTheDocument();
-		// 情绪是持续观察项：竖屏紧凑形态下常驻，不因收起大图而丢失
+		// 情绪是持续观察项：患者条上常驻
 		expect(stage).toHaveTextContent("正常交流");
-
-		// 开场卡就在患者区之后的文档流里，且患者区没有覆盖层
-		expect(stage.compareDocumentPosition(welcomeHost) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(welcomeHost).toBeVisible();
-		expect(overlayChildren(stage)).toEqual([]);
+		// 大图（fill / 160px 大脸）默认不挂载：纵向空间全留给对话
+		expect(bigFace(container)).toBeUndefined();
+		// 患者条不产生覆盖层：开场卡与对话区不会被盖住
+		expect(stage.compareDocumentPosition(screen.getByTestId("welcome-host")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(fixedChildren(stage)).toEqual([]);
 	});
 
-	it("点开紧凑头仍能看到大图（收起 ≠ 删除）", async () => {
+	it("点患者条打开大图浮层（收起 ≠ 删除）", async () => {
 		setViewport(390, 844);
 		const { container } = renderWithWelcomeCard();
 
-		fireEvent.click(screen.getByLabelText("展开患者区"));
-		await waitFor(() => expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull());
-		expect(bigFace(container)).toBeDefined();
-		expect(screen.getByLabelText("折叠患者区")).toBeInTheDocument();
+		fireEvent.click(container.querySelector("[data-patient-stage-head]") as HTMLElement);
+
+		await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+		expect(bigFace(screen.getByRole("dialog"))).toBeDefined();
+		expect(screen.getByRole("dialog")).toHaveTextContent("王建国");
 	});
 });
 
-describe("紧凑患者区：横屏手机（844x390）", () => {
-	it("收为 88px 窄条（头像 + 姓名 + 把手竖排），给开场卡正文让出宽度", () => {
+describe("患者上下文列：≥ 768px（含横屏手机 844x390）", () => {
+	it("横屏手机：216px 常驻列 + 常驻大图，且不引入覆盖层", () => {
 		setViewport(844, 390);
 		const { container } = renderWithWelcomeCard();
 		const stage = patientStage(container);
 
-		expect(stage).toHaveAttribute("data-patient-mode", "compact");
-		expect(stage).toHaveStyle({ width: "88px" });
-		expect(container.querySelector("[data-patient-stage-content]")).toBeNull();
-		expect(container.querySelector("[data-patient-stage-head]")).toHaveStyle({ flexDirection: "column" });
-		expect(screen.getByLabelText("展开患者区")).toBeInTheDocument();
-		// 窄条形态同样不产生覆盖层：开场卡（对话区那一列）不会被盖住
-		const welcomeHost = screen.getByTestId("welcome-host");
-		expect(stage.compareDocumentPosition(welcomeHost) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(welcomeHost).toBeVisible();
-		expect(overlayChildren(stage)).toEqual([]);
-	});
-
-	it("展开后才占 280px 并显示大图", async () => {
-		setViewport(844, 390);
-		const { container } = renderWithWelcomeCard();
-		const stage = patientStage(container);
-
-		fireEvent.click(screen.getByLabelText("展开患者区"));
-		// 先等内容挂载（Transition 换态在 effect 里），再断言宽度与大图，避免竞态假阴性
-		await waitFor(() => expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull());
-		expect(stage).toHaveStyle({ width: "280px" });
+		expect(stage).toHaveAttribute("data-patient-mode", "full");
+		expect(stage).toHaveStyle({ width: "216px" });
 		expect(bigFace(container)).toBeDefined();
+		expect(fixedChildren(stage)).toEqual([]);
 	});
-});
 
-describe("宽屏仍是完整形态（1440x900 不回归）", () => {
-	it("280px 方框 + 常驻大图", () => {
+	it("桌面 1440x900 是同一形态（同一个组件，不再分叉两套布局）", () => {
 		setViewport(1440, 900);
 		const { container } = renderWithWelcomeCard();
 		const stage = patientStage(container);
 
 		expect(stage).toHaveAttribute("data-patient-mode", "full");
-		expect(stage).toHaveStyle({ width: "280px" });
-		expect(container.querySelector("[data-patient-stage-content]")).not.toBeNull();
+		expect(stage).toHaveStyle({ width: "216px" });
 		expect(bigFace(container)).toBeDefined();
 	});
 });
@@ -186,14 +157,14 @@ describe("触摸目标 ≥44px", () => {
 		setViewport(390, 844);
 		render(withTrainingData(<ActivityBar />, session()));
 		const button = within(screen.getByLabelText("训练能力条")).getByRole("button", { name: /护理记录/ });
-		expect(button).toHaveStyle({ minHeight: "44px" });
+		expect(button).toHaveStyle({ height: "44px" });
 	});
 
 	it("侧栏图标按钮（横屏/宽屏）", () => {
 		setViewport(1440, 900);
 		render(withTrainingData(<ActivityRail />, session()));
 		const button = screen.getByLabelText("护理记录（草稿未提交）");
-		expect(button).toHaveStyle({ minWidth: "44px", minHeight: "44px" });
+		expect(button).toHaveStyle({ height: "60px" });
 	});
 });
 

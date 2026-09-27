@@ -1,4 +1,4 @@
-import { Box, Group, Text } from "@mantine/core";
+import { Badge, Box, Group, Text, UnstyledButton } from "@mantine/core";
 import Bottomsheet from "@/components/ui/bottomsheet";
 import { useWorkspaceHost } from "@/hooks/useLayoutMode";
 import { ACTIVITY_ICONS, DEFAULT_ACTIVITY_ICON } from "@/config/activity-display";
@@ -8,6 +8,7 @@ import { activityStatus } from "./ActivityStatusBadge";
 import {
 	type WorkspacePane,
 	useActivityArtifact,
+	useDockPanes,
 	useInitialActivityPanel,
 	useWorkspacePanes,
 } from "./useWorkspacePanes";
@@ -21,6 +22,7 @@ import {
  */
 export default function ActivityBar() {
 	const panes = useWorkspacePanes();
+	const dockPanes = useDockPanes();
 	const openPanelId = useWorkspaceStore((state) => state.openPanelId);
 	const togglePanel = useWorkspaceStore((state) => state.togglePanel);
 	const closePanel = useWorkspaceStore((state) => state.closePanel);
@@ -28,7 +30,7 @@ export default function ActivityBar() {
 	useInitialActivityPanel();
 
 	// 只有竖屏（手机版）用底部抽屉；横屏改为右侧栏，避免把本就不高的视口再切一半
-	if (host !== "sheet" || panes.length === 0) return null;
+	if (host !== "sheet" || dockPanes.length === 0) return null;
 	const active = panes.find((pane) => pane.id === openPanelId) ?? null;
 
 	return (
@@ -47,7 +49,7 @@ export default function ActivityBar() {
 					overflowX: "auto",
 				}}
 			>
-				{panes.map((pane) => (
+				{dockPanes.map((pane) => (
 					<ActivityBarButton
 						key={pane.id}
 						pane={pane}
@@ -72,36 +74,31 @@ function ActivityBarButton({ pane, active, onClick }: { pane: WorkspacePane; act
 	const Icon = ACTIVITY_ICONS[pane.id] ?? DEFAULT_ACTIVITY_ICON;
 
 	return (
-		<Box
-			component="button"
-			type="button"
+		<UnstyledButton
 			onClick={onClick}
 			aria-pressed={active}
+			/* 触摸目标 ≥44px（拇指最容易误触的就是这排能力入口） */
+			px="sm"
 			style={{
-				display: "flex",
-				alignItems: "center",
-				gap: 6,
+				/* 触摸目标 ≥44px：用 px 写死，不随主题字号缩放 */
+				height: 44,
 				flexShrink: 0,
-				/* 触摸目标 ≥44px（拇指最容易误触的就是这排能力入口） */
-				minHeight: 44,
-				padding: "6px 10px",
-				borderRadius: 8,
-				cursor: "pointer",
+				borderRadius: "var(--mantine-radius-md)",
 				border: `1px solid var(--mantine-color-${active ? "brand-outline" : "default-border"})`,
 				background: active ? "var(--mantine-color-brand-light)" : "var(--mantine-color-body)",
 			}}
 		>
-			<Icon size={16} />
-			<Group gap={4} wrap="nowrap">
-				<Text size="xs" fw={500}>
+			<Group gap={6} wrap="nowrap">
+				<Icon size={16} />
+				<Text size="sm" fw={500}>
 					{pane.label}
 				</Text>
 				{status && (
-					<Text size="10px" c={status.color === "green" ? "green" : "orange"} fw={500}>
+					<Badge size="xs" variant="light" color={status.color}>
 						{status.label}
-					</Text>
+					</Badge>
 				)}
 			</Group>
-		</Box>
+		</UnstyledButton>
 	);
 }

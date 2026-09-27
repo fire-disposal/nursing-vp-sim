@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeActivity, makeManifest } from "@/__tests__/fixtures/manifest";
 import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
-import { cleanup, fireEvent, render, screen } from "@/__tests__/render";
+import { cleanup, fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import { ActivityRail } from "@/components/training/workspace/ActivityRail";
-import { CompletionChecklist, CompletionStrip } from "@/components/training/workspace/CompletionStatus";
+import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
 import type { SessionManifest } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -56,7 +56,7 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 		expect(screen.queryByLabelText(/随堂测验/)).toBeNull();
 	});
 
-	it("点击导航项展开面板，未注册 renderer 时显式报错而不是静默消失", () => {
+	it("点击导航项展开面板，未注册 renderer 时显式报错而不是静默消失", async () => {
 		const manifest = makeManifest({
 			activities: [
 				makeActivity("mystery", { label: "未知能力", ui: { renderer: "not_registered", placement: "side_panel", order: 10 } }),
@@ -67,7 +67,8 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 		fireEvent.click(screen.getByLabelText("未知能力"));
 
 		expect(useWorkspaceStore.getState().openPanelId).toBe("mystery");
-		expect(screen.getByText("未知能力暂无可用的界面组件")).toBeInTheDocument();
+		// 面板现在挂在 Mantine Drawer 里（右侧侧滑、覆盖对话区），有挂载过渡 → 等它出现
+		await waitFor(() => expect(screen.getByText("未知能力暂无可用的界面组件")).toBeInTheDocument());
 	});
 
 	it("没有任何可用 activity 时不占位（对话区保持全宽）", () => {
@@ -78,7 +79,7 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 		expect(container.querySelector("nav")).toBeNull();
 	});
 
-	it("产物状态在侧栏可见，不只在 tooltip 里（草稿/未填写）", () => {
+	it("产物状态在侧栏以状态点 + 可读名呈现（不再压一行 9px 小字）", () => {
 		const manifest = makeManifest({
 			activities: [
 				makeActivity("nursing_record", {
@@ -100,72 +101,23 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 
 		render(withTrainingData(<ActivityRail />, setSession(manifest)));
 
-		expect(screen.getByText("草稿")).toBeInTheDocument();
-		expect(screen.getByText("未填写")).toBeInTheDocument();
+		// 状态必须**可见且可读**：角标点给出"要不要管"，accessibility name 给出具体状态；
+		// 图标下不再压一行 9px 微字（内容与 tooltip 完全重复且几乎不可读）
+		expect(screen.getByLabelText("护理记录（草稿未提交）")).toBeInTheDocument();
+		expect(screen.getByLabelText("护理诊断（未填写）")).toBeInTheDocument();
+		expect(screen.queryByText("草稿")).toBeNull();
+		expect(screen.queryByText("未填写")).toBeNull();
 	});
 
-	it("引导提示存在时内置面板叫「引导提示」，否则沿用「问诊清单」", () => {
+	it("问诊清单不在侧栏重复：入口归患者卡的进度 chip", () => {
+		// 面板仍由 useWorkspacePanes 提供（chip 用同一 id 打开），但侧栏按钮只列本次训练的能力
 		const manifest = makeManifest({ activities: [] });
 		const extras = { guided_hints: [{ clue_id: "c1", domain: "诱因", significance: "决定处置优先级" }] };
 
-		const withHints = render(withTrainingData(<ActivityRail />, setSession(manifest, extras)));
-		expect(screen.getByLabelText("引导提示")).toBeInTheDocument();
-		withHints.unmount();
+		render(withTrainingData(<ActivityRail />, setSession(manifest, extras)));
 
-		render(
-			withTrainingData(
-				<ActivityRail />,
-				setSession(manifest, { required_inquiries: ["胸闷持续时间与诱因"] }),
-			),
-		);
-		expect(screen.getByLabelText("问诊清单")).toBeInTheDocument();
-	});
-});
-
-describe("CompletionStrip（只用服务端 completion）", () => {
-	it("原样展示服务端 blocker，并可跳到对应面板", () => {
-		const manifest = makeManifest({
-			activities: [
-				makeActivity("nursing_record", {
-					label: "护理记录",
-					artifact_kind: "nursing_record",
-					ui: { renderer: "nursing_record", placement: "side_panel", order: 10 },
-				}),
-			],
-			artifacts: { nursing_record: { required: true, state: "empty", submitted_at: null, updated_at: null } },
-			completion: {
-				eligible: false,
-				conditions: [{ id: "nursing_record_submitted", label: "提交护理记录", satisfied: false }],
-				blockers: [
-					{
-						code: "ARTIFACT_NOT_SUBMITTED",
-						message: "请先提交护理记录，再结束训练",
-						target: { type: "artifact", id: "nursing_record" },
-					},
-				],
-			},
-			actions: [{ id: "complete_session", label: "结束训练", enabled: false }],
-		});
-
-		render(withTrainingData(<CompletionStrip />, setSession(manifest)));
-
-		expect(screen.getByText("请先提交护理记录，再结束训练")).toBeInTheDocument();
-		fireEvent.click(screen.getByText("去处理"));
-		expect(useWorkspaceStore.getState().openPanelId).toBe("nursing_record");
-	});
-
-	it("服务端 eligible 时给出可结束提示", () => {
-		const manifest = makeManifest({
-			completion: {
-				eligible: true,
-				conditions: [{ id: "nursing_record_submitted", label: "提交护理记录", satisfied: true }],
-				blockers: [],
-			},
-		});
-
-		render(withTrainingData(<CompletionStrip />, setSession(manifest)));
-
-		expect(screen.getByText("完成条件已满足，可结束训练")).toBeInTheDocument();
+		expect(screen.queryByLabelText("引导提示")).toBeNull();
+		expect(screen.queryByLabelText("问诊清单")).toBeNull();
 	});
 });
 

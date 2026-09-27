@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, Group, Text, Textarea, Tooltip } from "@mantine/core";
 import { IconBroadcast, IconLoader2, IconSend } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
@@ -103,19 +103,8 @@ export function ConversationComposer({
 		onSend(trimmed);
 		setText("");
 		setMode("text");
-		setTimeout(() => {
-			const el = inputRef.current;
-			if (el) el.style.height = "auto";
-		}, 0);
 		inputRef.current?.focus();
 	}, [text, onSend, disabled, loading]);
-
-	const handleInput = useCallback(() => {
-		const el = inputRef.current;
-		if (!el) return;
-		el.style.height = "auto";
-		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -155,70 +144,63 @@ export function ConversationComposer({
 			style={{ borderColor: "var(--mantine-color-default-border)", background: "var(--mantine-color-body)" }}
 			pb="env(safe-area-inset-bottom)"
 		>
-			<Group
-				align="flex-end"
-				gap={8}
-				px="md"
-				py="sm"
-				wrap="nowrap"
-				style={{ maxWidth: 768, margin: "0 auto" }}
-			>
-				<Tooltip label={micTooltip}>
-					<ActionIcon
-						variant={micVariant}
-						color={micColor}
-						size="lg"
-						disabled={micDisabled}
-						onPointerDown={handleMicDown}
-						onPointerUp={handleMicUp}
-						onPointerLeave={handleMicUp}
-						onPointerCancel={handleMicUp}
-						aria-label="语音输入"
-						style={micStyle}
-					>
-						<IconBroadcast size={18} />
-					</ActionIcon>
-				</Tooltip>
-				<Box flex={1} miw={0}>
-					<textarea
-						ref={inputRef}
-						value={text}
-						onChange={handleChange}
-						onInput={handleInput}
-						onKeyDown={handleKeyDown}
-						placeholder={placeholder}
-						disabled={disabled || loading || trainingEnded}
-						rows={1}
-						aria-label="对话输入"
-						style={{
-							width: "100%",
-							resize: "none",
-							border: "none",
-							outline: "none",
-							background: "transparent",
-							fontSize: 14,
-							lineHeight: 1.5,
-							maxHeight: 120,
-							color: "var(--mantine-color-text)",
-						}}
-					/>
-				</Box>
-				{loading ? (
-					<ActionIcon variant="subtle" size="lg" disabled aria-label="回复中">
-						<IconLoader2 size={18} className="animate-spin" />
-					</ActionIcon>
-				) : (
-					<ActionIcon
-						variant="filled"
-						color="brand"
-						size="lg"
-						disabled={!text.trim() || disabled || trainingEnded}
-						onClick={handleSend}
-						aria-label="发送"
-					>
-						<IconSend size={18} />
-					</ActionIcon>
-				)}
+			<Group align="flex-end" gap={8} px="md" py="sm" wrap="nowrap" style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
+				<Textarea
+					ref={inputRef}
+					flex={1}
+					miw={0}
+					value={text}
+					onChange={handleChange}
+					onKeyDown={handleKeyDown}
+					placeholder={placeholder}
+					disabled={disabled || loading || trainingEnded}
+					autosize
+					minRows={1}
+					maxRows={5}
+					radius="md"
+					aria-label="对话输入"
+					leftSection={
+						<Tooltip label={micTooltip}>
+							<ActionIcon
+								variant={micVariant}
+								color={micColor}
+								size="md"
+								radius="sm"
+								disabled={micDisabled}
+								onPointerDown={handleMicDown}
+								onPointerUp={handleMicUp}
+								onPointerLeave={handleMicUp}
+								onPointerCancel={handleMicUp}
+								aria-label="语音输入"
+								style={micStyle}
+							>
+								<IconBroadcast size={17} />
+							</ActionIcon>
+						</Tooltip>
+					}
+					leftSectionPointerEvents="all"
+					leftSectionWidth={48}
+					rightSection={
+						loading ? (
+							<ActionIcon variant="subtle" size="md" radius="sm" disabled aria-label="回复中">
+								<IconLoader2 size={17} className="animate-spin" />
+							</ActionIcon>
+						) : (
+							<ActionIcon
+								variant="filled"
+								color="brand"
+								size="md"
+								radius="sm"
+								disabled={!text.trim() || disabled || trainingEnded}
+								onClick={handleSend}
+								aria-label="发送"
+							>
+								<IconSend size={17} />
+							</ActionIcon>
+						)
+					}
+					rightSectionWidth={48}
+				/>
 			</Group>
 			{showVoiceStatus ? (
 				<Text
