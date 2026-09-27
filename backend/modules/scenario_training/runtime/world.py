@@ -27,11 +27,29 @@ class ActionRecord:
     text: str | None = None
     selected: list[str] = field(default_factory=list)
     custom_text: str | None = None
+    # 学生**先声明再说话**（2026-09-28）：这句是"对某个在场者说"时记下他的 id；
+    # 「自定义行动」没有收信人 → None。2026-09-28 之前的事件流没有这个键 → 缺省 None（回放逐字兼容）。
+    target_actor_id: str | None = None
 
     def label(self, pack: ScenarioPack) -> str:
         if self.affordance_id and (aff := pack.affordance(self.affordance_id)):
             return aff.label
         return self.text or self.custom_text or self.type
+
+
+# 学生在**自由通道**里能声明的两种意图（`runtime.StudentAction.type`）：对在场者说话 / 自定义行动。
+# 按钮与选项走 affordance（自带 id 与类型），不属于"声明"，所以不进这个集合。
+_DECLARED_TYPES = frozenset({"say", "act"})
+
+
+def student_declaration(action: ActionRecord) -> str | None:
+    """学生这条是**声明过的对话**还是**自定义行动**；未声明（旧客户端 / 按钮 / 选项）→ None。
+
+    提示词按它决定"以对话回应"还是"以行动后果回应"，气泡按它区分形态——两处同一个判据。
+    """
+    if action.affordance_id is None and action.type in _DECLARED_TYPES:
+        return action.type
+    return None
 
 
 @dataclass

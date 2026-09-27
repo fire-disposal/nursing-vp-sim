@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
 	listScenarioPacks: vi.fn(),
@@ -115,8 +116,9 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 	await screen.findByLabelText("动作区");
 }
 
-/** 新模型下提交一个动作：自由输入条是唯一入口（Enter 发送）。 */
+/** 新模型下提交一个动作：先声明「自定义行动」，再写内容（Enter 发送）。 */
 async function submitAction(user: UserEvent, text = "给他吸痰") {
+	await chooseCustomAction(user);
 	await user.type(screen.getByLabelText("你要做什么"), text);
 	await user.keyboard("{Enter}");
 }
@@ -334,7 +336,7 @@ describe("块级增量渲染", () => {
 
 		await waitFor(() => {
 			expect(mocks.postScenarioAction).toHaveBeenCalledWith(51, {
-				type: "ask",
+				type: "act",
 				text: "给他吸痰",
 			});
 		});

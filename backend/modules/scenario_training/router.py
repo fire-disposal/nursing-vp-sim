@@ -46,7 +46,7 @@ from .runtime.session import (
 )
 from .runtime.view import build_view
 from .runtime.world import ActionRecord, apply_effects, due_reactions, reveal_cues
-from .schema import Asset, PackState, ScenarioPack
+from .schema import Asset, PackState, Presence, ScenarioPack
 from .validation import validate_pack
 
 _ContentManager = Depends(require_permission("case_manage"))
@@ -89,11 +89,20 @@ class OpenSessionRequest(BaseModel):
 
 
 class ActionRequest(BaseModel):
+    """学生的一次发言/动作。
+
+    `type` 由学生**先声明**：`say` = 对某个在场者说话（带 `target_actor_id`）/ `act` = 自定义行动 /
+    `ask` = 旧客户端与 DM 选项的既有形态（不声明，行为与今天一致）。
+    """
+
     affordance_id: str | None = None
     type: str = "ask"
     text: str | None = Field(default=None, max_length=2000)
     selected: list[str] = Field(default_factory=list)
     custom_text: str | None = Field(default=None, max_length=2000)
+    # 对在场者说话的收信人；「自定义行动」不带。必须是该 pack 已声明且**搭得上话**的 actor id
+    # （见 `_require_target_actor`：未声明或不在场 → 422，不静默丢弃）。
+    target_actor_id: str | None = None
 
 
 class PackPatchRequest(BaseModel):
@@ -109,6 +118,27 @@ def _load_pack(db: DbSession, revision_id: int) -> ScenarioPack:
         raise HTTPException(status_code=404, detail="情境包修订不存在") from exc
     except PackInvalid as exc:
         raise HTTPException(status_code=422, detail={"message": "情境包未通过校验", "problems": exc.problems}) from exc
+
+
+def _require_target_actor(pack: ScenarioPack, target_actor_id: str | None) -> None:
+    """学生声明的收信人必须**对得上这个 pack 的在场者**：未声明或搭不上话 → 422（不静默丢弃）。
+
+    判据与前端 chip 的过滤同一条：`presence == "inaccessible"`（看得见、碰不着）不是可搭话的对象。
+    `problems` 与 pack 校验失败同形，前端因此能把它当人话显示。
+    """
+    if target_actor_id is None:
+        return
+    actor = pack.actor(target_actor_id)
+    if actor is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "这个情境里没有这个人", "problems": [f"unknown_target_actor:{target_actor_id}"]},
+        )
+    if actor.presence is Presence.INACCESSIBLE:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "这个人此刻搭不上话", "problems": [f"unreachable_target_actor:{target_actor_id}"]},
+        )
 
 
 def _latest(db: DbSession, pack_key: str) -> tuple[StPack, StPackRevision]:
@@ -228,12 +258,14 @@ async def submit(
     await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
+    _require_target_actor(pack, payload.target_actor_id)
     action = StudentAction(
         affordance_id=payload.affordance_id,
         type=payload.type,
         text=payload.text,
         selected=payload.selected,
         custom_text=payload.custom_text,
+        target_actor_id=payload.target_actor_id,
     )
     try:
         with unit_of_work(db, conflict_detail="提交动作失败"):
@@ -266,12 +298,14 @@ async def submit_stream(
     await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
+    _require_target_actor(pack, payload.target_actor_id)
     action = StudentAction(
         affordance_id=payload.affordance_id,
         type=payload.type,
         text=payload.text,
         selected=payload.selected,
         custom_text=payload.custom_text,
+        target_actor_id=payload.target_actor_id,
     )
     llm = request.app.state.llm_client
     image_provider = assets_mod.get_image_provider(request.app.state)
@@ -302,6 +336,7 @@ async def submit_stream(
                 text=action.text,
                 selected=list(action.selected),
                 custom_text=action.custom_text,
+                target_actor_id=action.target_actor_id,
             )
             async for item in iter_dm_stream(
                 llm,

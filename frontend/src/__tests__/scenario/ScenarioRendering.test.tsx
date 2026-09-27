@@ -6,6 +6,7 @@ import { render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioBoard, ScenarioView } from "@/api/scenario";
 import { STUDENT_FALLBACK_NOTICE } from "@/scenario/problems";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
 	listScenarioPacks: vi.fn(),
@@ -514,17 +515,21 @@ describe("学生侧渲染：学生自己的话", () => {
 			view: makeView({
 				session: { id: 12, status: "active", turn: 4, lost: false },
 				messages: [
-					{ role: "student", text: "我先看看瞳孔。", turn: 4 },
+					{ role: "student", text: "我先看看瞳孔。", turn: 4, declaration: "act" },
 					{ role: "scene", text: "瞳孔等大等圆，对光反射在。", turn: 4 },
 				],
 			}),
 		});
 
+		await chooseCustomAction(user);
 		await user.type(screen.getByLabelText("你要做什么"), "我先看看瞳孔。");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
 		const bubble = (await screen.findByText("我先看看瞳孔。")).closest(".sc-line");
 		expect(bubble).toHaveAttribute("data-role", "student");
+		// 声明只体现在形态上：行动气泡带一个极小的标记，不写"执行："这类平台口吻
+		expect(bubble).toHaveAttribute("data-declaration", "act");
+		expect(bubble?.textContent).not.toContain("执行");
 		const scene = screen.getByText("瞳孔等大等圆，对光反射在。").closest(".sc-line");
 		expect(scene).not.toBeNull();
 		// 他先做，世界才回应
@@ -544,6 +549,7 @@ describe("学生侧渲染：会话已结束（409）", () => {
 			message: "Request failed with status code 409",
 			response: { status: 409, data: { detail: "该情境已结束" } },
 		});
+		await chooseCustomAction(user);
 		await user.type(screen.getByLabelText("你要做什么"), "给他吸氧");
 		await user.keyboard("{Enter}");
 
@@ -580,7 +586,8 @@ describe("学生侧渲染：长内容与无面板", () => {
 		// 没有线索、时间线又未声明 → 侧栏整块不渲染（不写空态说明句）
 		expect(screen.queryByLabelText("经历面板")).toBeNull();
 		expect(screen.queryByLabelText("经历量化")).toBeNull();
-		expect(document.querySelector(".sc-situation")).toBeNull();
+		// 资源不是对话流下缘的孤立名词行：它在场景带那一行里（且 panels 未声明 coverage → 不写）
+		expect(screen.queryByText(/手边有/)).toBeNull();
 		// 但场景与动作区照旧
 		expect(screen.getByLabelText("场景画面")).toBeInTheDocument();
 		expect(screen.getByLabelText("动作区")).toBeInTheDocument();
@@ -610,8 +617,8 @@ describe("学生侧渲染：长内容与无面板", () => {
 		expect(side).not.toBeNull();
 		expect(within(side).getByText("看尿袋")).toBeInTheDocument();
 		expect(within(side).queryAllByRole("tab")).toHaveLength(0);
-		// 现场
-		expect(document.querySelector(".sc-situation")?.textContent).toContain("电话");
+		// 现场：资源并进场景带那一行，读起来是一句事实陈述（不再另起一行挂名词）
+		expect(document.querySelector(".sc-stage-head")?.textContent).toContain("手边有：电话、病历本");
 		// 经历量化
 		expect(screen.getByLabelText("经历量化")).toBeInTheDocument();
 	});

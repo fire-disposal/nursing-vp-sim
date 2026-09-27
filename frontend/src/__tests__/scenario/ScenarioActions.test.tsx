@@ -5,6 +5,8 @@ import { render, screen } from "@/__tests__/render";
 import type { ScenarioAffordance, ScenarioView } from "@/api/scenario";
 import ActionBar, {
 	type ActionBarProps,
+	CUSTOM_ACTION_LABEL,
+	type ScenarioIntent,
 	ScenarioOptionStrip,
 } from "@/scenario/ActionBar";
 import { OTHER_ENTRY_LABEL } from "@/scenario/AffordanceForm";
@@ -78,9 +80,10 @@ function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 	};
 }
 
-/** 输入框是页面持有的受控状态，测试里用一个小 harness 顶上（不假装自己是页面）。 */
+/** 输入框与**声明**都是页面持有的受控状态，测试里用一个小 harness 顶上（不假装自己是页面）。 */
 function Bar({ view, ...rest }: Partial<ActionBarProps> & { view: ScenarioView }) {
 	const [freeText, setFreeText] = useState(rest.freeText ?? "");
+	const [intent, setIntent] = useState<ScenarioIntent | null>(rest.intent ?? null);
 	return (
 		<ActionBar
 			busy={false}
@@ -90,6 +93,8 @@ function Bar({ view, ...rest }: Partial<ActionBarProps> & { view: ScenarioView }
 			view={view}
 			freeText={freeText}
 			onFreeTextChange={setFreeText}
+			intent={intent}
+			onIntentChange={setIntent}
 		/>
 	);
 }
@@ -155,32 +160,135 @@ describe("DM 提示条：气泡流里最多三条", () => {
 	});
 });
 
+describe("先声明、再说话：chip 是发送的前提", () => {
+	it("在场者与「自定义行动」都做成 chip；搭不上话的人不在这排里", () => {
+		render(
+			<Bar
+				view={makeView({
+					actors: [
+						{ id: "patient", role: "患者", presence: "on_site", present: true },
+						{ id: "doctor", role: "值班医生", presence: "callable", present: false },
+						{ id: "behind_glass", role: "隔离间里的病人", presence: "inaccessible", present: false },
+					],
+				})}
+			/>,
+		);
+
+		const chips = document.querySelectorAll(".sc-intents .sc-intent");
+		// 三名在场者里只有搭得上话的两个 + 「自定义行动」
+		expect(chips).toHaveLength(3);
+		expect(screen.getByRole("button", { name: /患者/ })).toBeInTheDocument();
+		// 提示词沿用在场者条的既有换算（可呼叫 / 搭话）
+		expect(screen.getByRole("button", { name: /值班医生\s*可呼叫/ })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /隔离间里的病人/ })).toBeNull();
+	});
+
+	it("没选声明就发不出去：按钮停着，Enter 也不送", async () => {
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+		render(<Bar view={makeView()} onSubmit={onSubmit} />);
+
+		await user.type(freeArea(), "给患者吸氧");
+		expect(screen.getByRole("button", { name: "发送" })).toBeDisabled();
+		await user.keyboard("{Enter}");
+		await user.click(screen.getByRole("button", { name: "发送" }));
+		expect(onSubmit).not.toHaveBeenCalled();
+	});
+
+	it("「自定义行动」= type=act，不带收信人", async () => {
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+		render(<Bar view={makeView()} onSubmit={onSubmit} />);
+
+		await user.click(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL }));
+		expect(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await user.type(freeArea(), "给他吸痰");
+		await user.click(screen.getByRole("button", { name: "发送" }));
+		expect(onSubmit).toHaveBeenCalledWith({ type: "act", text: "给他吸痰" });
+	});
+
+	it("对在场者说话 = type=say + 收信人（选了谁就发给谁）", async () => {
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+		render(
+			<Bar
+				view={makeView({
+					actors: [
+						{ id: "patient", role: "患者", presence: "on_site", present: true },
+						{ id: "doctor", role: "值班医生", presence: "callable", present: false },
+					],
+				})}
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: /值班医生/ }));
+		await user.type(freeArea(), "你那边能上来一趟吗？");
+		await user.click(screen.getByRole("button", { name: "发送" }));
+		expect(onSubmit).toHaveBeenCalledWith({
+			type: "say",
+			text: "你那边能上来一趟吗？",
+			target_actor_id: "doctor",
+		});
+	});
+
+	it("chip 单选：改选另一个在场者时前一个松开", async () => {
+		const user = userEvent.setup();
+		render(
+			<Bar
+				view={makeView({
+					actors: [
+						{ id: "patient", role: "患者", presence: "on_site", present: true },
+						{ id: "doctor", role: "值班医生", presence: "callable", present: false },
+					],
+				})}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: /患者/ }));
+		await user.click(screen.getByRole("button", { name: /值班医生/ }));
+
+		expect(screen.getByRole("button", { name: /患者/ })).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+		expect(screen.getByRole("button", { name: /值班医生/ })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+	});
+
+	it("点 chip 只选声明并把焦点送进输入框，不替学生写字", async () => {
+		const user = userEvent.setup();
+		render(<Bar view={makeView()} />);
+
+		await user.click(screen.getByRole("button", { name: /患者/ }));
+		expect(freeArea()).toHaveValue("");
+		expect(freeArea()).toHaveFocus();
+		expect(document.querySelector(".sc-composer")?.textContent).not.toContain("说：");
+	});
+});
+
 describe("自由表达：输入框是主控件", () => {
-	it("常驻一个可增长的多行输入框（rows=2、2000 字上限），发送走 type=ask", async () => {
+	it("一行起步、2000 字上限，选中声明后回车发送", async () => {
 		const user = userEvent.setup();
 		const onSubmit = vi.fn();
 		render(<Bar view={makeView()} onSubmit={onSubmit} />);
 
 		const area = freeArea();
 		expect(area.tagName).toBe("TEXTAREA");
-		expect(area).toHaveAttribute("rows", "2");
+		expect(area).toHaveAttribute("rows", "1");
 		expect(area).toHaveAttribute("maxlength", "2000");
-		expect(area).toHaveAttribute("placeholder", "你要做什么？");
 
-		await user.type(area, "给患者吸氧");
-		await user.click(screen.getByRole("button", { name: "发送" }));
-		expect(onSubmit).toHaveBeenCalledWith({ type: "ask", text: "给患者吸氧" });
-	});
-
-	it("Enter 发送；Shift+Enter 换行、不发送（组合键不拦默认行为）", async () => {
-		const user = userEvent.setup();
-		const onSubmit = vi.fn();
-		render(<Bar view={makeView()} onSubmit={onSubmit} />);
-
-		await user.type(freeArea(), "先量个血压");
+		await user.click(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL }));
+		await user.type(area, "先量个血压");
 		await user.keyboard("{Enter}");
 		expect(onSubmit).toHaveBeenCalledTimes(1);
-		expect(onSubmit).toHaveBeenCalledWith({ type: "ask", text: "先量个血压" });
+		expect(onSubmit).toHaveBeenCalledWith({ type: "act", text: "先量个血压" });
 
 		await user.type(freeArea(), "{Shift>}{Enter}{/Shift}");
 		expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -193,6 +301,7 @@ describe("自由表达：输入框是主控件", () => {
 		const onSubmit = vi.fn();
 		render(<Bar view={makeView()} onSubmit={onSubmit} />);
 
+		await user.click(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL }));
 		expect(screen.getByRole("button", { name: "发送" })).toBeDisabled();
 		await user.type(freeArea(), "   ");
 		await user.keyboard("{Enter}");
@@ -200,12 +309,12 @@ describe("自由表达：输入框是主控件", () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
-	it("free_input=false 的封闭文书型情境连输入行都不给", () => {
+	it("free_input=false 的封闭文书型情境连输入组都不给", () => {
 		render(<Bar view={makeView({ free_input: false })} />);
 
 		expect(screen.queryByLabelText("你要做什么")).toBeNull();
 		expect(screen.queryByRole("button", { name: "发送" })).toBeNull();
-		expect(document.querySelector(".sc-actions-row")).toBeNull();
+		expect(document.querySelector(".sc-composer")).toBeNull();
 	});
 
 	it("free_input 缺省（undefined）算开着：后端默认就是能自由表达", () => {
@@ -217,12 +326,21 @@ describe("自由表达：输入框是主控件", () => {
 		expect(freeArea()).toBeInTheDocument();
 	});
 
-	it("busy 时输入框与发送键都停下（回合跑着的时候不许再叠一条）", async () => {
+	it("busy 时输入框、chip 与发送键都停下（回合跑着的时候不许再叠一条）", async () => {
 		const user = userEvent.setup();
 		const onSubmit = vi.fn();
-		render(<Bar view={makeView()} busy onSubmit={onSubmit} freeText="吸痰" />);
+		render(
+			<Bar
+				view={makeView()}
+				busy
+				onSubmit={onSubmit}
+				freeText="吸痰"
+				intent={{ kind: "act" }}
+			/>,
+		);
 
 		expect(freeArea()).toBeDisabled();
+		expect(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL })).toBeDisabled();
 		const send = screen.getByRole("button", { name: "发送" });
 		expect(send).toBeDisabled();
 		await user.click(send);
@@ -264,10 +382,10 @@ describe("动作表单：只有 DM 提示能把它带出来", () => {
 		const form = document.querySelector(".sc-form");
 		expect(form).not.toBeNull();
 		if (form === null) throw new Error("表单没渲染");
-		// 表单在前、输入行在后：先回答提示，再自己写
+		// 表单在前、输入组在后：先回答提示，再自己写
 		expect(
 			form.compareDocumentPosition(
-				document.querySelector(".sc-actions-row") as Node,
+				document.querySelector(".sc-composer") as Node,
 			) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
 
@@ -332,9 +450,14 @@ describe("动作表单：只有 DM 提示能把它带出来", () => {
 		);
 
 		await user.click(await screen.findByRole("radio", { name: "走廊加床" }));
+		await user.click(screen.getByRole("button", { name: /患者/ }));
 		await user.type(freeArea(), "再加一床被子");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
-		expect(onSubmit).toHaveBeenCalledWith({ type: "ask", text: "再加一床被子" });
+		expect(onSubmit).toHaveBeenCalledWith({
+			type: "say",
+			text: "再加一床被子",
+			target_actor_id: "patient",
+		});
 	});
 });

@@ -14,7 +14,6 @@ import {
 	listScenarioPacks,
 	postScenarioAction,
 	type ScenarioActionInput,
-	type ScenarioActor,
 	ScenarioHttpError,
 	type ScenarioOption,
 	type ScenarioPackSummary,
@@ -26,7 +25,7 @@ import {
 import { toast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
-import ActionBar, { ScenarioOptionStrip } from "./ActionBar";
+import ActionBar, { type ScenarioIntent, ScenarioOptionStrip } from "./ActionBar";
 import { ScenarioProgress } from "./DimCard";
 import { resolvePanels } from "./panels";
 import { studentFallbackNotice } from "./problems";
@@ -39,6 +38,7 @@ import {
 	mergeBlocks,
 	type PendingStudentLine,
 	type ScenarioStreamDraft,
+	studentDeclaration,
 } from "./stream";
 import "./scenario.css";
 import { sessionRowMeta } from "./sessions";
@@ -131,6 +131,11 @@ export default function ScenarioConsole() {
 	const [busy, setBusy] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [freeText, setFreeText] = useState("");
+	/**
+	 * 本回合的**声明**（对在场者说 / 自定义行动）：没选就不发送。
+	 * 由页面持有（输入条与提交都要它），并在开局/重入/离开时归零——新一局的第一句话必须重新声明。
+	 */
+	const [intent, setIntent] = useState<ScenarioIntent | null>(null);
 	/** 展开中的 affordance 表单（选项条与输入条共用同一份流程状态）。 */
 	const [openAffordanceId, setOpenAffordanceId] = useState<string | null>(null);
 	/** 「我的情境经历」是否已展开全部（默认只显示 `HISTORY_PREVIEW` 条）。 */
@@ -200,6 +205,7 @@ export default function ScenarioConsole() {
 			setPendingStudent(null);
 			setStreamFailed(null);
 			setFreeText("");
+			setIntent(null);
 			historyQuery.refetch();
 		} catch (err) {
 			const message = absorbError(err, "开启情境失败");
@@ -226,6 +232,7 @@ export default function ScenarioConsole() {
 			setPendingStudent(null);
 			setStreamFailed(null);
 			setFreeText("");
+			setIntent(null);
 		} catch (err) {
 			const message = absorbError(err, "读取这次情境失败");
 			if (message) toast.error(message);
@@ -309,8 +316,11 @@ export default function ScenarioConsole() {
 		const line = action.text || label;
 		// 回合号是**预测**的（后端 `world.turn + 1`）：预测只用于"同回合 + 同文案"去重，
 		// 猜错也只是退回"以 view.messages 为准"的整体替换，不会留下幽灵气泡。
+		const declaration = studentDeclaration(action);
 		setPendingStudent(
-			line === "" ? null : { text: line, turn: (view?.session.turn ?? 0) + 1 },
+			line === ""
+				? null
+				: { text: line, turn: (view?.session.turn ?? 0) + 1, declaration },
 		);
 		submittedTextRef.current = action.text ?? null;
 		setBusy(true);
@@ -421,16 +431,8 @@ export default function ScenarioConsole() {
 		setDraft(null);
 		setPendingStudent(null);
 		setStreamFailed(null);
+		setIntent(null);
 		historyQuery.refetch();
-	};
-
-	/** 点在场者 = 搭话；不在场但叫得来人走同一条自由通道（预填，不替学生说话）。 */
-	const talkTo = (_actor: ScenarioActor) => {
-		if (!view || view.free_input === false) return;
-		// 点在场者 = **把焦点送进输入框**，不替学生组织句子：
-		// 合成「对X说：」这类句式（还带括号注解）会让学生看到一段自己没写的文本，
-		// 而且一眼就是平台拼的。要说什么，学生自己写。
-		setFocusToken((token) => token + 1);
 	};
 
 	// 唯一等于"功能未开启"的事实：pack 列表本身 404（命名空间整体不可用）
@@ -733,9 +735,9 @@ export default function ScenarioConsole() {
 						<div className="sc-column">
 							<ScenarioStage
 								view={shownView}
-								onTalkTo={talkTo}
 								streaming={streaming}
-								showSituation={panels?.coverage === true}
+								showResources={panels?.coverage === true}
+								actorStrip="unaddressable"
 								optionSlot={
 									shownView.options.length > 0 ? (
 										<ScenarioOptionStrip
@@ -793,6 +795,8 @@ export default function ScenarioConsole() {
 									errorMessage={actionError}
 									openAffordance={openAffordance}
 									onCloseForm={() => setOpenAffordanceId(null)}
+									intent={intent}
+									onIntentChange={setIntent}
 								/>
 							)}
 						</div>

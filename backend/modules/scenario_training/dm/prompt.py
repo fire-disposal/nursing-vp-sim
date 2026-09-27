@@ -13,7 +13,7 @@ import json
 
 from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.devices import build_devices
-from ..runtime.world import ActionRecord, World, visible_affordances
+from ..runtime.world import ActionRecord, World, student_declaration, visible_affordances
 from ..schema import AffordanceType, EffectOp, ScenarioPack
 from .tools import TOOL_SPECS, notes_block
 
@@ -238,6 +238,37 @@ def _anchor_block(report: AnchorReport | None) -> list[str]:
     return lines
 
 
+def _student_turn(action: ActionRecord, pack: ScenarioPack) -> tuple[str, str]:
+    """本回合"学生做了什么"那一句 + **回应方式**指引（他声明的是对话还是行动）。
+
+    学生在自由通道里**先声明再说话**（`student_declaration`）：对在场者说 → 让人物回话；
+    自定义行动 → 按世界后果回应。未声明（旧客户端 / 按钮 / 选项）时与旧版提示**逐字一致**。
+    """
+    declaration = student_declaration(action)
+    said = action.text or action.custom_text or ""
+    quoted = f"「{said}」" if said else ""
+    if declaration == "say":
+        target = pack.actor(action.target_actor_id) if action.target_actor_id else None
+        who = f"「{target.role}」" if target is not None else "在场的某个人"
+        return (
+            f"学生对{who}说：{quoted or '（没说出内容）'}",
+            "他这句话是**对着那个人说的**：由他本人当场回话（以对话回应），不要把它当成一次操作，也不要替他写成旁白。",
+        )
+    if declaration == "act":
+        return (
+            f"学生要做一个行动：{quoted or '（没写具体内容）'}",
+            "他这句是**要动手做一件事**：按世界后果回应（做了什么、世界因此怎么变、在场者如何反应），"
+            "不要把它当成一句问话。",
+        )
+    # 未声明（旧客户端 / 按钮 / 选项）：与原实现逐字一致
+    text = action.label(pack)
+    if action.text:
+        text = f"{text}——学生说：「{action.text}」"
+    if action.custom_text:
+        text = f"{text}——学生自己写的：「{action.custom_text}」"
+    return text, ""
+
+
 def build_dm_messages(
     pack: ScenarioPack,
     world: World,
@@ -259,11 +290,7 @@ def build_dm_messages(
     ]
     beats_text = _lines([f"{beat['by']} 应当{beat['does']}：{beat['intent']}" for beat in beats], "（无）")
 
-    action_text = "（开场，学生还没做任何事）" if action is None else action.label(pack)
-    if action is not None and action.text:
-        action_text = f"{action_text}——学生说：「{action.text}」"
-    if action is not None and action.custom_text:
-        action_text = f"{action_text}——学生自己写的：「{action.custom_text}」"
+    action_text, reply_hint = ("（开场，学生还没做任何事）", "") if action is None else _student_turn(action, pack)
 
     turn_block = (
         [
@@ -275,6 +302,7 @@ def build_dm_messages(
         else [
             f"# 本回合（第 {world.turn} 回合）",
             f"学生做了：{action_text}",
+            *([reply_hint] if reply_hint else []),
             "如果他这次是**自由表达**（没点动作按钮），把「他实际做的这件事」对应到「可做动作」里最贴切的那个 id，",
             '写进信封：`"interpretation": {"affordance_id": "那个 id"}`；确实对应不上就写 `{"affordance_id": null}`。',
             "（他点的是动作按钮时，这一条不用管。）",

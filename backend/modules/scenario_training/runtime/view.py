@@ -11,7 +11,7 @@ from typing import Any
 from ..schema import ScenarioPack
 from .board import build_board
 from .devices import build_devices
-from .world import World, is_lost, visible_affordances
+from .world import World, is_lost, student_declaration, visible_affordances
 
 
 def _hud(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
@@ -91,7 +91,20 @@ def _messages(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
         text = action.text or action.label(pack)
         if not text:
             continue
-        ordered.append((action.turn, 0, {"role": "student", "text": text, "turn": action.turn}))
+        ordered.append(
+            (
+                action.turn,
+                0,
+                {
+                    "role": "student",
+                    "text": text,
+                    "turn": action.turn,
+                    # 学生声明过的意图（say = 对某个人说 / act = 自定义行动）；未声明 → None。
+                    # 前端只按它区分气泡形态（说话 vs 行动），不显示"你说：""执行："这类平台口吻。
+                    "declaration": student_declaration(action),
+                },
+            )
+        )
     for index, narration in enumerate(world.narrations):
         turn = narration.get("turn")
         resolved = int(turn) if turn is not None else index + 1

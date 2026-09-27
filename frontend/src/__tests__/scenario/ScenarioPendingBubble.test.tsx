@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { chooseCustomAction } from "./intent";
 
 /**
  * 学生自己的气泡：**提交瞬间入流**（待定/乐观），权威 `view` 到达后由正式消息无缝接管。
@@ -118,8 +119,9 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 	await screen.findByLabelText("动作区");
 }
 
-/** 自由表达：Enter 发送（与既有 `ScenarioStream.test.tsx` 同一条路径）。 */
+/** 自由表达：先声明「自定义行动」，再写内容并回车（与既有 `ScenarioStream.test.tsx` 同一条路径）。 */
 async function submitFree(user: UserEvent, text: string) {
+	await chooseCustomAction(user);
 	await user.type(screen.getByLabelText("你要做什么"), text);
 	await user.keyboard("{Enter}");
 }

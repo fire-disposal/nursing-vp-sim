@@ -405,20 +405,28 @@
 	);
 }
 
+/*
+ * 场景带那一行 = **一句事实陈述**：地点 · 时间 · 手边有什么。
+ * 左对齐 + 允许折行（窄屏不撑高）：不再把时间甩到最右边、把资源另起一行挂成名词列表。
+ */
 .sc-stage-head {
 	position: absolute;
 	top: 0;
 	left: 0;
 	right: 0;
 	display: flex;
-	justify-content: space-between;
-	gap: var(--sc-3);
+	/* 一句话，**始终一行**：太长就在末尾收成省略号（全量在 `title` 里），
+	   不折行、不占第二行高度——场景带那一行是背景信息，不是清单。 */
+	flex-wrap: nowrap;
+	align-items: baseline;
+	gap: 0 var(--sc-1);
 	padding: var(--sc-2) var(--sc-3);
 	font-size: var(--sc-fs-meta);
 	color: rgba(255, 255, 255, 0.92);
+	min-width: 0;
+	overflow: hidden;
 }
 
-/* 没有图时：那一行退回普通信息行（跟随主题），不留图带、不造假图 */
 .sc-stage-head[data-plain="true"] {
 	position: static;
 	color: var(--sc-dim);
@@ -426,15 +434,51 @@
 }
 
 .sc-stage-place {
+	flex: 0 1 auto;
+	min-width: 0;
 	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .sc-stage-time {
+	flex: 0 1 auto;
+	min-width: 0;
 	color: rgba(255, 255, 255, 0.72);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .sc-stage-head[data-plain="true"] .sc-stage-time {
 	color: var(--sc-dim);
+}
+
+/* 分隔符跟着**前一项**（不参与收缩） */
+.sc-stage-sep {
+	flex: none;
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.sc-stage-head[data-plain="true"] .sc-stage-sep {
+	color: var(--sc-dim);
+}
+
+/* 手边有什么：与时间同级的小字（放不下就在这一行里收成省略号，全量在 `title` 里） */
+.sc-stage-res {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 没有图时：那一行退回普通信息行（跟随主题），不留图带、不造假图 */
+.sc-stage-head[data-plain="true"] {
+	position: static;
+	color: var(--sc-dim);
+	border-bottom: 1px solid var(--sc-line);
 }
 
 .sc-stage-body {
@@ -577,6 +621,22 @@
 	border: 1px solid var(--sc-line);
 	border-radius: var(--sc-radius);
 	background: var(--sc-hover);
+	/* 声明标记（说话 / 行动）与正文同一行起头：标记不换行、不参与折行 */
+	display: flex;
+	align-items: flex-start;
+	gap: var(--sc-1);
+}
+
+/*
+ * 学生先在输入条旁声明"这是对谁说的 / 我要做一件事"，气泡上只留一个**极小**的标记：
+ * 引号 = 说话，手 = 行动（与 chip 的图标同源）。不写"你说：""执行："这类平台口吻。
+ */
+.sc-decl {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	height: calc(var(--sc-fs-body) * var(--sc-lh-body));
+	color: var(--sc-dim);
 }
 
 /*
@@ -651,10 +711,13 @@
 	color: var(--sc-dim);
 }
 
-/* ── 在场者条：一条分隔线 + 一行条目（不是卡片） ── */
+/* ── 在场者条：一条分隔线 + 一行只读条目（不是卡片） ──
+   学生控制台里可搭话的人已经做成输入条旁的 chip，这条线上留下的是"看得见、此刻说不上话"的人；
+   管理侧回放没有输入条，这里就是全部名册。两种情形都**不可点**。 */
 .sc-actors {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--sc-1);
 	padding: var(--sc-2) var(--sc-3);
 	border-top: 1px solid var(--sc-line);
@@ -662,26 +725,12 @@
 
 .sc-actor {
 	display: inline-flex;
-	align-items: baseline;
+	align-items: center;
 	gap: var(--sc-1);
-	min-height: var(--sc-control-h);
+	min-height: var(--sc-h-sm);
 	padding: 0 var(--sc-2);
-	border: 1px solid transparent;
-	background: transparent;
-	color: var(--sc-text);
-	font: inherit;
-	font-size: var(--sc-fs-sm);
-	cursor: pointer;
-}
-
-.sc-actor:hover:not([data-static="true"]) {
-	background: var(--sc-hover);
-	border-color: var(--sc-line);
-}
-
-.sc-actor[data-static="true"] {
-	cursor: default;
 	color: var(--sc-dim);
+	font-size: var(--sc-fs-sm);
 }
 
 /* 四种在场形态一眼可分：在场（实线亮）/ 电话那头（蓝）/ 叫得动（虚线暖）/ 不在视野（灰，无按钮） */
@@ -710,15 +759,6 @@
 	flex: none;
 	align-self: center;
 	background: var(--sc-accent);
-}
-
-/* ── 现场：一行叙事内文本（地点/时间在图带上，这里只补资源） ── */
-.sc-situation {
-	padding: calc(var(--sc-2) - 2px) var(--sc-3);
-	border-top: 1px solid var(--sc-line);
-	font-size: var(--sc-fs-meta);
-	color: var(--sc-dim);
-	overflow-wrap: anywhere;
 }
 
 /* ── 资源缩略图条 ── */
@@ -1091,7 +1131,8 @@
 	cursor: not-allowed;
 }
 
-/* ── 底部输入条：一条分隔线 + 一行控件（不是卡片） ── */
+/* ── 底部动作区：先声明（chip）、再写内容、最后发送 —— **一组控件**，不是三块 ──
+   圆角与边框在**容器**上，chip / 输入 / 发送之间用 1px 分隔（沿用 --sc-line 那条唯一的线）。 */
 .sc-actions {
 	display: flex;
 	flex-direction: column;
@@ -1101,22 +1142,170 @@
 	min-width: 0;
 }
 
-.sc-actions-row {
+.sc-composer {
 	display: flex;
-	align-items: flex-end;
-	gap: var(--sc-2);
+	align-items: stretch;
+	min-width: 0;
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius);
+	background: var(--sc-raised);
+	transition: border-color 90ms ease;
+}
+
+/* 焦点环给整组：输入框自己不再画一遍边框（一组只有一个焦点指示） */
+.sc-composer:focus-within {
+	border-color: var(--sc-accent);
+}
+
+/* ── 意图 chip：单选。在场者（对谁说）+「自定义行动」── */
+.sc-intents {
+	display: flex;
+	align-items: center;
+	flex: 0 1 auto;
+	gap: 2px;
+	padding: 2px;
+	/* fieldset 的 UA 默认（4 面 2px groove + min-inline-size）先清掉：这一组只留一条 1px 分隔 */
+	margin: 0;
+	min-width: 0;
+	border: 0;
+	border-right: 1px solid var(--sc-line);
+	max-width: 55%;
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+}
+
+.sc-intent {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sc-1);
+	min-height: var(--sc-h-sm);
+	padding: 0 var(--sc-2);
+	border: 1px solid transparent;
+	border-radius: var(--sc-radius);
+	background: transparent;
+	color: var(--sc-dim);
+	font: inherit;
+	font-size: var(--sc-fs-sm);
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 90ms ease, border-color 90ms ease;
+}
+
+/* 未选中：hover 明确"可点"（底色 + 边框一起动） */
+.sc-intent:hover:not(:disabled) {
+	background: var(--sc-hover);
+	border-color: var(--sc-line);
+	color: var(--sc-text);
+}
+
+/* 选中：底色 + 边框（不加发光、不加阴影） */
+.sc-intent[aria-pressed="true"] {
+	background: var(--sc-accent-soft);
+	border-color: var(--sc-accent);
+	color: var(--sc-accent-text);
+	font-weight: 600;
+}
+
+.sc-intent:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.sc-intent-dot {
+	width: 6px;
+	height: 6px;
+	flex: none;
+	background: currentColor;
+}
+
+/* 与在场者条同一套形状语言：在场（实心）/ 电话那头（蓝）/ 叫得动（暖）/ 其余（灰） */
+.sc-intent[data-presence="remote"] .sc-intent-dot {
+	background: var(--mantine-color-blue-text);
+}
+
+.sc-intent[data-presence="callable"] .sc-intent-dot {
+	background: var(--sc-warn);
+}
+
+.sc-intent-hint {
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+.sc-intent[aria-pressed="true"] .sc-intent-hint {
+	color: inherit;
+	opacity: 0.75;
+}
+
+/* ── 输入 + 发送：同一行，输入长高时向上生长（上限 4 行 = 下面的 max-height，再多自己滚） ── */
+.sc-composer-input {
+	display: flex;
+	align-items: stretch;
+	flex: 1 1 auto;
 	min-width: 0;
 }
 
-/* 自由表达是主控件：多行、焦点后自然生长（不靠 JS 量高度） */
-.sc-actions-row .sc-textarea {
-	width: auto;
+.sc-composer .sc-textarea {
 	flex: 1 1 auto;
-	min-height: 4.2em;
+	min-width: 0;
+	min-height: var(--sc-h);
+	max-height: calc(4 * var(--sc-fs-body) * var(--sc-lh-body) + var(--sc-2));
+	padding: var(--sc-1) var(--sc-2);
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	overflow-y: auto;
+	resize: none;
 }
 
-.sc-actions-row .sc-textarea:focus {
-	min-height: 6em;
+.sc-composer .sc-textarea:focus {
+	outline: none;
+	border-color: transparent;
+	box-shadow: none;
+}
+
+.sc-composer .sc-send {
+	flex: none;
+	align-self: stretch;
+	min-height: var(--sc-h);
+	padding: 0 var(--sc-3);
+	border: 0;
+	border-left: 1px solid var(--sc-line);
+	border-radius: 0;
+	background: transparent;
+}
+
+.sc-composer .sc-send:hover:not(:disabled) {
+	border-left-color: var(--sc-line);
+	background: var(--sc-accent-soft);
+}
+
+.sc-composer .sc-send:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+/* 回合跑着的时候：停着是"在等"，不是"还不能发"（两种禁用态一眼可分，不写解释文字） */
+.sc-composer[data-busy="true"] .sc-send:disabled {
+	cursor: progress;
+}
+
+/* 窄屏：chip 行独占一行（可横向滚动），输入与发送仍在同一行里 —— 不垂直堆成三层 */
+@media (max-width: 760px) {
+	.sc-composer {
+		flex-wrap: wrap;
+	}
+
+	.sc-intents {
+		flex: 1 1 100%;
+		max-width: none;
+		border-right: 0;
+		border-bottom: 1px solid var(--sc-line);
+	}
+
+	.sc-composer-input {
+		flex: 1 1 100%;
+	}
 }
 
 /* ── 通用按钮：控件层圆角，高度统一 ── */
@@ -1145,15 +1334,9 @@
 	cursor: not-allowed;
 }
 
-/* 主行动（发送/结算等）：底色强调，形态不变 */
-.sc-btn[data-kind="send"] {
-	border-color: var(--sc-accent);
+/* 主行动就是发送键：底色强调（`.sc-send` 的形态见 .sc-composer 一节） */
+.sc-composer .sc-send {
 	color: var(--sc-accent-text);
-}
-
-.sc-btn[data-kind="send"]:hover:not(:disabled),
-.sc-btn[data-kind="send"]:not(:disabled):active {
-	background: var(--sc-accent-soft);
 }
 
 .sc-ghost-btn {
@@ -2006,5 +2189,11 @@ button.sc-panel-head:hover {
 	.sc-line,
 	.sc-board-entry {
 		animation: none;
+	}
+
+	/* 本次新增的两处过渡（输入组的边框、chip 的底色）在减弱动态下一律不生效 */
+	.sc-composer,
+	.sc-intent {
+		transition: none;
 	}
 }

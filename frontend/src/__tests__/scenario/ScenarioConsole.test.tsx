@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
+import { CUSTOM_ACTION_LABEL } from "@/scenario/ActionBar";
 import { OTHER_ENTRY_LABEL } from "@/scenario/AffordanceForm";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 
@@ -299,17 +300,35 @@ describe("情境训练控制台", () => {
 		});
 	});
 
-	it("自由通道以 type=ask 提交 text", async () => {
+	it("先声明再说话：选中在场者 chip → type=say + 收信人", async () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
+		await user.click(screen.getByRole("button", { name: /患者/ }));
 		await user.type(screen.getByLabelText("你要做什么"), "现在最难受的是什么？");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
 		await waitFor(() => {
 			expect(mocks.postScenarioAction).toHaveBeenCalledWith(12, {
-				type: "ask",
+				type: "say",
 				text: "现在最难受的是什么？",
+				target_actor_id: "patient",
+			});
+		});
+	});
+
+	it("「自定义行动」→ type=act，不带收信人", async () => {
+		const user = userEvent.setup();
+		await enterSession(user);
+
+		await user.click(screen.getByRole("button", { name: CUSTOM_ACTION_LABEL }));
+		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
+		await user.click(screen.getByRole("button", { name: "发送" }));
+
+		await waitFor(() => {
+			expect(mocks.postScenarioAction).toHaveBeenCalledWith(12, {
+				type: "act",
+				text: "给他吸痰",
 			});
 		});
 	});
@@ -340,12 +359,16 @@ describe("情境训练控制台", () => {
 		expect(declaredLine?.querySelector(".sc-avatar")?.textContent).toBe("患");
 		expect(declaredLine?.dataset.ephemeral).toBe("false");
 
-		// 在场者条只来自 view.actors：临时角色不得被塞进去
-		const strip = document.querySelector(".sc-actors") as HTMLElement;
-		expect(strip).not.toBeNull();
-		expect(within(strip).queryByText("走廊里的护工")).not.toBeInTheDocument();
-		expect(within(strip).getAllByRole("button")).toHaveLength(2);
-		expect(within(strip).getByText("患者")).toBeInTheDocument();
+		// chip 只来自 view.actors：临时角色不得被塞进去
+		const chips = document.querySelector(".sc-intents") as HTMLElement;
+		expect(chips).not.toBeNull();
+		expect(within(chips).queryByText("走廊里的护工")).not.toBeInTheDocument();
+		expect(within(chips).getByText("患者")).toBeInTheDocument();
+		expect(within(chips).getByText("值班医生")).toBeInTheDocument();
+		// 两名可搭话的在场者 + 「自定义行动」
+		expect(within(chips).getAllByRole("button")).toHaveLength(3);
+		// 名册里的人都在 chip 里：舞台那条只读线上不该再重复一遍
+		expect(document.querySelector(".sc-actors")).toBeNull();
 	});
 
 	it("view.panels 决定面板开关（未声明的收窄，dims 随情绪/覆盖面板走）", async () => {
@@ -360,10 +383,10 @@ describe("情境训练控制台", () => {
 		});
 		await enterSession(user);
 
-		// coverage → 现场降级为场景里的一行（就在画面里，不在侧栏）
-		const situation = document.querySelector(".sc-situation");
-		expect(situation).not.toBeNull();
-		expect(situation?.textContent).toContain("负压吸引器");
+		// coverage → 手边有什么并进场景带那一行（读起来是一句事实陈述，不再是孤立名词列表）
+		const head = document.querySelector(".sc-stage-head") as HTMLElement;
+		expect(head).not.toBeNull();
+		expect(head.textContent).toContain("手边有：负压吸引器");
 		// timeline 未声明 + 没有线索 → 侧栏不渲染空壳
 		expect(screen.queryByLabelText("经历面板")).toBeNull();
 		// dims 是情绪/覆盖共用的量化投影：coverage 在 → 顶栏细进度仍展示

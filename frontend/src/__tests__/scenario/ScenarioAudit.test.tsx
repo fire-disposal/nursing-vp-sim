@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
 	listScenarioPacks: vi.fn(),
@@ -276,6 +277,7 @@ describe("H2：校验失败不把后端原文吐给学生", () => {
 		await user.click(await screen.findByText(PACK.title));
 		await screen.findByLabelText("动作区");
 
+		await chooseCustomAction(user);
 		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
 		await user.keyboard("{Enter}");
 
@@ -298,6 +300,7 @@ describe("H3：回合进行中的输入（停下 / 落地后清空）", () => {
 		await screen.findByLabelText("动作区");
 
 		const area = await screen.findByLabelText("你要做什么");
+		await chooseCustomAction(user);
 		await user.type(area, "第一句：现在最难受的是什么？");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 		await waitFor(() => {
@@ -324,6 +327,7 @@ describe("H3：回合进行中的输入（停下 / 落地后清空）", () => {
 		await user.click(await screen.findByText(PACK.title));
 		await screen.findByLabelText("动作区");
 
+		await chooseCustomAction(user);
 		await user.type(await screen.findByLabelText("你要做什么"), "就问一句");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
@@ -382,6 +386,7 @@ describe("M4：回合结束后焦点回到自由通道", () => {
 		await user.click(await screen.findByText(PACK.title));
 		await screen.findByLabelText("动作区");
 
+		await chooseCustomAction(user);
 		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
 		await user.keyboard("{Enter}");
 
@@ -469,6 +474,7 @@ describe("L1/L7：建议上限与失败播报", () => {
 		await user.click(await screen.findByText(PACK.title));
 		await screen.findByLabelText("动作区");
 
+		await chooseCustomAction(user);
 		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
 		await user.keyboard("{Enter}");
 		const alerts = await screen.findAllByRole("alert");

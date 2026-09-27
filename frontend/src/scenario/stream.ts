@@ -1,4 +1,5 @@
 import type {
+	ScenarioActionInput,
 	ScenarioBoard,
 	ScenarioBoardEntry,
 	ScenarioImage,
@@ -43,6 +44,19 @@ export interface PendingStudentLine {
 	text: string;
 	/** 预期回合号（`view.session.turn + 1`）："同回合 + 同文案"去重判据用的就是它。 */
 	turn: number;
+	/** 学生声明过的意图（说话 / 行动）：待定气泡与正式气泡形态必须一致，接管时才不跳变。 */
+	declaration: ScenarioMessage["declaration"];
+}
+
+/**
+ * 学生**先声明**的意图 → 后端 `student_declaration` 的同一条判据（两处镜像，见 `runtime/world.py`）：
+ * 自由通道（没有 affordance）里的 `say` / `act` 才算声明，按钮与选项走的不是声明。
+ */
+export function studentDeclaration(
+	action: ScenarioActionInput,
+): ScenarioMessage["declaration"] {
+	if (action.affordance_id != null) return null;
+	return action.type === "say" || action.type === "act" ? action.type : null;
 }
 
 /**
@@ -189,7 +203,15 @@ export function draftView(
 	// 待定条目的回合号是**预测**的（`view.session.turn + 1`，与后端 `world.turn + 1` 同口径）：
 	// 猜对了，正式消息接管时连 DOM 节点都不用换；猜错了也只是回到"以 view.messages 为准"。
 	const lead: ScenarioMessage[] = pending
-		? [{ role: "student", text: pending.text, turn: pending.turn, pending: true }]
+		? [
+				{
+					role: "student",
+					text: pending.text,
+					turn: pending.turn,
+					pending: true,
+					declaration: pending.declaration,
+				},
+			]
 		: [];
 	const images = (merged.images ?? [])
 		.map((raw) => toImage(raw, assets))

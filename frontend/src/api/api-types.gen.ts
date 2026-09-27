@@ -2507,7 +2507,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActionRequest */
+        /**
+         * ActionRequest
+         * @description 学生的一次发言/动作。
+         *
+         *     `type` 由学生**先声明**：`say` = 对某个在场者说话（带 `target_actor_id`）/ `act` = 自定义行动 /
+         *     `ask` = 旧客户端与 DM 选项的既有形态（不声明，行为与今天一致）。
+         */
         ActionRequest: {
             /** Affordance Id */
             affordance_id?: string | null;
@@ -2522,6 +2528,8 @@ export interface components {
             selected?: string[];
             /** Custom Text */
             custom_text?: string | null;
+            /** Target Actor Id */
+            target_actor_id?: string | null;
         };
         /** AdminStats */
         AdminStats: {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
 	listScenarioPacks: vi.fn(),
@@ -132,7 +133,8 @@ async function act(user: UserEvent, view: ScenarioView) {
 		problems: [],
 		view,
 	});
-	// 新模型只有自由输入条一个入口（Enter 发送）
+	// 新模型只有自由输入条一个入口：先声明意图（Enter 发送）
+	await chooseCustomAction(user);
 	await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
 	await user.keyboard("{Enter}");
 	await screen.findByText(`第 ${view.messages.length - 1} 条旁白：${"很长的一行".repeat(20)}`);

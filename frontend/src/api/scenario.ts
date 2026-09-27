@@ -47,6 +47,12 @@ export interface ScenarioMessage {
 	 * 先按正式样式顶上；`view` 一到就被同回合同文案的正式消息接管（见 `scenario/stream.ts`）。
 	 */
 	pending?: boolean;
+	/**
+	 * 学生这条是**声明过的对话**还是**自定义行动**（后端 `runtime.world.student_declaration`）：
+	 * `say` = 对某个在场者说 / `act` = 自定义行动 / `null` = 未声明（旧客户端、按钮、选项）。
+	 * 只用来区分气泡形态，不写"你说：""执行："这类平台口吻。
+	 */
+	declaration?: "say" | "act" | null;
 }
 
 export interface ScenarioOption {
@@ -319,10 +325,16 @@ export interface ScenarioCloseResponse {
 /** 学生做的一件事：`text` = 自由发问；`selected`/`custom_text` = 选择型动作与自输入。 */
 export interface ScenarioActionInput {
 	affordance_id?: string | null;
+	/**
+	 * 学生**先声明**的意图：`say` = 对某个在场者说话（必须带 `target_actor_id`）/
+	 * `act` = 自定义行动 / `ask` = 旧形态（不声明）。后端按它决定 DM 以对话还是以行动后果回应。
+	 */
 	type: string;
 	text?: string | null;
 	selected?: string[];
 	custom_text?: string | null;
+	/** `type === "say"` 时的收信人；必须是 pack 已声明且搭得上话的 actor id（否则 422）。 */
+	target_actor_id?: string | null;
 }
 
 /** `GET /scenario/sessions`（我的情境历史）与 `/admin/sessions` 列表行。 */

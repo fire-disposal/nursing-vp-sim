@@ -53,13 +53,18 @@ class SessionClosed(RuntimeError):
 
 @dataclass
 class StudentAction:
-    """学生做的一件事。`text` 用于自由发问；`selected`/`custom_text` 用于选择型动作。"""
+    """学生做的一件事。`text` 用于自由发问；`selected`/`custom_text` 用于选择型动作。
+
+    `type` 在自由通道里由学生**先声明**（`say` = 对某个人说 / `act` = 自定义行动），
+    对在场者说话时带上 `target_actor_id`（合法性由 router 在入口校验：未声明或不在场 → 422）。
+    """
 
     affordance_id: str | None = None
     type: str = "ask"
     text: str | None = None
     selected: list[str] = field(default_factory=list)
     custom_text: str | None = None
+    target_actor_id: str | None = None
 
 
 @dataclass
@@ -382,6 +387,7 @@ async def submit_action(
         text=action.text,
         selected=selected,
         custom_text=action.custom_text,
+        target_actor_id=action.target_actor_id,
     )
     world.turn = turn
     world.actions.append(record)

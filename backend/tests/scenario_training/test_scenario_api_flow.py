@@ -300,6 +300,116 @@ def test_student_actions_are_messages_of_their_own(client, pg_session, installed
     assert last_student < min(same_turn_scene), rows
 
 
+# ── 先声明再说话：对在场者说（say） / 自定义行动（act） ────────────────────
+#
+# 2026-09-28 用户要求：学生发言前必须声明"这句话是对谁说的"还是"我要做一件事"。
+# 声明进记录（`ActionRecord.target_actor_id`）与事件流，并写进 DM 提示词——DM 因此知道
+# 该以**对话**回应还是以**行动后果**回应；旧客户端（不传声明）行为一字不变。
+
+
+def test_declared_say_records_the_target_and_reaches_the_dm_prompt(client, pg_session, installed_pack) -> None:
+    """对在场者说话：收信人进记录与事件载荷，DM 提示词里看得见"学生对谁说"。"""
+    from main import app
+
+    session_id = _open(client, [_clean_turn(), _clean_turn()])
+    view = _act(client, session_id, type="say", target_actor_id="patient", text="你哪里不舒服？")["view"]
+
+    # 记录：旧字段语义不变，只新增 `target_actor_id`
+    action = _payloads(pg_session, session_id, "student_action")[-1]["action"]
+    assert (action["type"], action["text"], action["target_actor_id"]) == ("say", "你哪里不舒服？", "patient")
+
+    # DM 提示词：这一回合的输入带上声明，且指明以对话回应
+    prompt = _last_prompt(app)
+    assert "学生对「患者」说：「你哪里不舒服？」" in prompt
+    assert "对着那个人说的" in prompt
+
+    # 气泡形态的判据随消息一起下去（说话 ≠ 行动）
+    student = [message for message in view["messages"] if message["role"] == "student"][-1]
+    assert student["declaration"] == "say"
+
+
+def test_custom_action_is_declared_as_an_act(client, pg_session, installed_pack) -> None:
+    """自定义行动：没有收信人，DM 按世界后果回应（不是把它当一句问话）。"""
+    from main import app
+
+    session_id = _open(client, [_clean_turn(), _clean_turn()])
+    view = _act(client, session_id, type="act", text="给他吸痰")["view"]
+
+    action = _payloads(pg_session, session_id, "student_action")[-1]["action"]
+    assert (action["type"], action["target_actor_id"]) == ("act", None)
+
+    prompt = _last_prompt(app)
+    assert "学生要做一个行动：「给他吸痰」" in prompt
+    assert "要动手做一件事" in prompt
+
+    student = [message for message in view["messages"] if message["role"] == "student"][-1]
+    assert student["declaration"] == "act"
+
+
+def test_legacy_client_without_a_declaration_is_unchanged(client, pg_session, installed_pack) -> None:
+    """旧客户端（不传新字段）：`type` 缺省 `ask`、无收信人、提示词里没有声明句式。"""
+    from main import app
+
+    session_id = _open(client, [_clean_turn(), _clean_turn()])
+    view = _act(client, session_id, text="现在最难受的是什么？")["view"]
+
+    action = _payloads(pg_session, session_id, "student_action")[-1]["action"]
+    assert (action["type"], action["target_actor_id"]) == ("ask", None)
+
+    prompt = _last_prompt(app)
+    assert "学生对「" not in prompt
+    assert "要做一个行动" not in prompt
+    assert "学生做了：现在最难受的是什么？——学生说：「现在最难受的是什么？」" in prompt
+
+    student = [message for message in view["messages"] if message["role"] == "student"][-1]
+    assert student["declaration"] is None
+
+
+def test_unknown_target_actor_is_rejected_with_a_readable_reason(client, pg_session, installed_pack) -> None:
+    """未声明的收信人 → 422（不静默丢弃），理由可读、与 pack 校验失败同形。"""
+    session_id = _open(client, [_clean_turn()])
+    rejected = client.post(
+        f"/api/scenario/sessions/{session_id}/actions",
+        json={"type": "say", "target_actor_id": "ghost", "text": "喂"},
+    )
+    assert rejected.status_code == 422, rejected.text
+    detail = rejected.json()["detail"]
+    assert detail["problems"] == ["unknown_target_actor:ghost"]
+    assert detail["message"]
+    # 流式那条入口同一条判据（学生控制台默认走它）
+    streamed = client.post(
+        f"/api/scenario/sessions/{session_id}/actions/stream",
+        json={"type": "say", "target_actor_id": "ghost", "text": "喂"},
+    )
+    assert streamed.status_code == 422, streamed.text
+    assert streamed.json()["detail"]["problems"] == ["unknown_target_actor:ghost"]
+    # 同一个会话照旧可用（拒绝的只是这一条）
+    assert _act(client, session_id, type="act", text="给他吸痰")
+
+
+def test_unreachable_target_actor_is_rejected(client, pg_session) -> None:
+    """看得见、搭不上话的人（`inaccessible`）不是可搭话的对象：与前端 chip 的过滤同一条判据。"""
+    from main import app
+
+    pack = pack_loader.load_pack_file("night-call-decision")
+    pack_loader.install(pg_session, pack)
+    app.state.llm_client = _FakeLLM(_clean_turn())
+    opened = client.post("/api/scenario/sessions", json={"pack_key": "night-call-decision"})
+    assert opened.status_code == 200, opened.text
+    session_id = opened.json()["session_id"]
+
+    rejected = client.post(
+        f"/api/scenario/sessions/{session_id}/actions",
+        json={"type": "say", "target_actor_id": "patient", "text": "喂"},
+    )
+    assert rejected.status_code == 422, rejected.text
+    assert rejected.json()["detail"]["problems"] == ["unreachable_target_actor:patient"]
+
+    # 电话那头的人（remote）与叫得动的人（callable）都能搭话
+    for actor_id in ("nurse", "consultant"):
+        assert _act(client, session_id, type="say", target_actor_id=actor_id, text="喂")["view"]
+
+
 def _clean_turn(**extra: Any) -> dict[str, Any]:
     """一个**不违规**的 DM 回合（本组只关心归属，不想被泄底/自输入的 problem 干扰）。"""
     return {"narration": "监护仪的数字没动。", "lines": [{"actor": "patient", "text": "……"}], **extra}
@@ -310,8 +420,10 @@ class _ScriptedLLM:
 
     def __init__(self, turns: list[dict[str, Any]]) -> None:
         self.turns = list(turns)
+        self.calls: list[list[dict[str, str]]] = []
 
     async def call(self, messages: list[dict[str, str]], **_: Any) -> str:
+        self.calls.append(messages)
         return json.dumps(self.turns.pop(0) if self.turns else {}, ensure_ascii=False)
 
 
@@ -325,14 +437,19 @@ def _student_timeline(view: dict[str, Any]) -> list[str]:
     return [item["label"] for item in view["timeline"] if item["kind"] == "student"]
 
 
-def _attributions(pg_session: Any, session_id: int) -> list[dict[str, Any]]:
-    """事件流里的回填记录（按 seq 排；回填是状态写入，必须留痕）。"""
+def _payloads(pg_session: Any, session_id: int, kind: str) -> list[dict[str, Any]]:
+    """某类事件的载荷（按 seq 排）——诊断/回填/动作记录都从同一个读口取。"""
     from sqlalchemy import select
 
     from models.scenario_training import StEvent
 
     rows = pg_session.execute(select(StEvent).where(StEvent.session_id == session_id).order_by(StEvent.seq)).scalars()
-    return [row.payload for row in rows if row.kind == "action_attributed"]
+    return [row.payload for row in rows if row.kind == kind]
+
+
+def _last_prompt(app: Any) -> str:
+    """最近一次 DM 调用的**用户消息**（"本回合学生做了什么"写在这里）。"""
+    return app.state.llm_client.calls[-1][-1]["content"]
 
 
 def _open(client, turns: list[dict[str, Any]]) -> int:
@@ -375,7 +492,7 @@ def test_free_expression_is_attributed_to_declared_action(client, pg_session, in
     assert "首用于第2回合" in escalation["detail"]
 
     # 回填留痕：一条事件一条归属，标明来源（回放/统计靠它）
-    assert _attributions(pg_session, session_id) == [
+    assert _payloads(pg_session, session_id, "action_attributed") == [
         {"turn": 1, "affordance_id": "suction", "source": "dm"},
         {"turn": 2, "affordance_id": "bag_valve", "source": "dm"},
     ]
@@ -411,7 +528,7 @@ def test_interpretation_to_locked_or_undeclared_action_is_ignored(client, pg_ses
     assert "unknown_affordance:cure_everything" in unknown["problems"]
     assert _board_done(unknown["view"]) == ["听诊双肺"]
 
-    assert _attributions(pg_session, session_id) == []  # 越权映射不落痕
+    assert _payloads(pg_session, session_id, "action_attributed") == []  # 越权映射不落痕
 
 
 def test_unmapped_free_expression_stays_unattributed(client, pg_session, installed_pack) -> None:
@@ -422,7 +539,7 @@ def test_unmapped_free_expression_stays_unattributed(client, pg_session, install
     assert body["problems"] == []
     assert _board_done(body["view"]) == []
     assert _student_timeline(body["view"]) == ["他以前有什么病史？"]  # 自由文本原样呈现
-    assert _attributions(pg_session, session_id) == []
+    assert _payloads(pg_session, session_id, "action_attributed") == []
 
 
 def test_student_choice_is_not_overridden_by_interpretation(client, pg_session, installed_pack) -> None:
@@ -432,7 +549,7 @@ def test_student_choice_is_not_overridden_by_interpretation(client, pg_session, 
     body = _act(client, session_id, affordance_id="measure_spo2")
     assert body["problems"] == []
     assert _board_done(body["view"]) == ["测血氧"]
-    assert _attributions(pg_session, session_id) == []
+    assert _payloads(pg_session, session_id, "action_attributed") == []
 
     report = client.post(f"/api/scenario/sessions/{session_id}/close").json()["report"]
     repeat = next(row for row in report["criteria"] if row["id"] == "dp_no_repeat")
@@ -465,7 +582,9 @@ def test_streamed_turn_attributes_free_expression(client, pg_session, installed_
 
     assert events[-1]["kind"] == "view"
     assert _board_done(events[-1]["view"]) == ["吸痰"]
-    assert _attributions(pg_session, session_id) == [{"turn": 1, "affordance_id": "suction", "source": "dm"}]
+    assert _payloads(pg_session, session_id, "action_attributed") == [
+        {"turn": 1, "affordance_id": "suction", "source": "dm"}
+    ]
 
 
 # ── DM 的受限多步循环：先读环境，再产出信封（docs/21 §四） ──────────────────
@@ -611,4 +730,6 @@ def test_streamed_multi_step_turn_commits_steps_and_state_together(client, pg_se
     assert events[-1]["kind"] == "view"
     assert _board_done(events[-1]["view"]) == ["吸痰"]
     assert [row["tool"] for row in _steps(pg_session, session_id)] == ["world.state"]
-    assert _attributions(pg_session, session_id) == [{"turn": 1, "affordance_id": "suction", "source": "dm"}]
+    assert _payloads(pg_session, session_id, "action_attributed") == [
+        {"turn": 1, "affordance_id": "suction", "source": "dm"}
+    ]

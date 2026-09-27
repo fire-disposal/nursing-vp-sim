@@ -9953,10 +9953,22 @@
               }
             ],
             "title": "Custom Text"
+          },
+          "target_actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Actor Id"
           }
         },
         "type": "object",
-        "title": "ActionRequest"
+        "title": "ActionRequest",
+        "description": "学生的一次发言/动作。\n\n`type` 由学生**先声明**：`say` = 对某个在场者说话（带 `target_actor_id`）/ `act` = 自定义行动 /\n`ask` = 旧客户端与 DM 选项的既有形态（不声明，行为与今天一致）。"
       },
       "AdminStats": {
         "properties": {
