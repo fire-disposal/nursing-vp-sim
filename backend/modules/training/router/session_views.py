@@ -1,7 +1,9 @@
+import json
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, func, literal, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -513,4 +515,67 @@ def get_record_detail(
         practice_options=options,
         review_focus=focus,
         review_focus_note=review_focus_note(focus),
+    )
+
+
+@router.get("/records/{record_id}/experience")
+def export_record_experience(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """体验记录导出（JSON 下载）：一次训练的**自包含档案**，供研究者/教师复盘。
+
+    装配逻辑住在 ``modules.training.experience_export``（纯函数、无 IO）——本端点只做
+    鉴权与取数。可见性同详情/情绪轨迹：记录本人，或具备 ``score_review`` 权限。
+    """
+    from models import TrainingSessionEmotionEvent
+    from modules.training.experience_export import build_experience_record
+
+    record = (
+        db.query(TrainingRecord)
+        .options(
+            joinedload(TrainingRecord.case),
+            joinedload(TrainingRecord.user),
+            joinedload(TrainingRecord.score),
+            joinedload(TrainingRecord.messages),
+        )
+        .filter(TrainingRecord.id == record_id)
+        .first()
+    )
+    if not record:
+        raise NotFoundError(detail="记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail="无权导出此记录", status_code=403)
+
+    actions = (
+        db.query(TrainingAction)
+        .filter(TrainingAction.record_id == record_id)
+        .order_by(TrainingAction.created_at.asc(), TrainingAction.id.asc())
+        .all()
+    )
+    emotion_events = (
+        db.query(TrainingSessionEmotionEvent)
+        .filter(TrainingSessionEmotionEvent.record_id == record_id)
+        .order_by(TrainingSessionEmotionEvent.created_at.asc(), TrainingSessionEmotionEvent.id.asc())
+        .all()
+    )
+    case_revision = db.get(CaseRevision, record.case_revision_id) if record.case_revision_id else None
+    payload = build_experience_record(
+        record,
+        list(record.messages or []),
+        record.score,
+        emotion_events,
+        actions,
+        # 病例展示名走与详情页同一规则：进行中的盲盒/隐藏病例用占位文案，不因导出而泄露
+        case_name=_hidden_case(record) or (record.case.name if record.case else ""),
+        case_revision_no=case_revision.revision_no if case_revision else None,
+        nursing_record=get_nursing_record(db, record_id),
+        rubric=_resolve_rubric(db, record),
+    )
+    payload["generated_at"] = datetime.now(UTC).isoformat()
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="experience-record-{record.id}.json"'},
     )
