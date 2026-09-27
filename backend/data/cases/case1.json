@@ -9,6 +9,29 @@
     "gender": "男"
   },
   "chief_complaint": "咳嗽、咳痰加重伴呼吸困难3天",
+  "scene": {
+    "environment": {
+      "type": "ward",
+      "time_of_day": "morning",
+      "equipment": ["氧气装置"],
+      "noise_level": "quiet"
+    },
+    "patient": {
+      "position": "semi-recumbent",
+      "consciousness": "alert",
+      "visible_symptoms": ["呼吸费力", "咳嗽咳痰", "口唇轻度发绀"],
+      "expression": "紧张"
+    },
+    "vitals": {
+      "hr": 94,
+      "bp_sys": 143,
+      "bp_dia": 86,
+      "rr": 25,
+      "spo2": 92,
+      "temp": 37.5
+    },
+    "phase": "initial_assessment"
+  },
   "opening_line": "护士你好，我这两天喘不上来气，咳嗽也厉害了，痰也多了，实在是受不了了。",
   "present_illness": "患者3天前受凉后出现咳嗽加重，咳黄色黏痰，量约30-50ml/日，伴胸闷、气短，活动后加重，上2层楼即感明显气促。夜间不能平卧，需垫高枕头。无胸痛，无咯血。近3天食欲减退，睡眠差。曾自行服用头孢拉定2天，效果不佳。",
   "past_history": "有COPD病史8年，每年急性加重1-2次，曾在当地医院住院治疗。有高血压病史5年。否认糖尿病、冠心病史。",
