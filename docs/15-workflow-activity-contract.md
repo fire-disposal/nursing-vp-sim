@@ -70,8 +70,11 @@
 
 患者消息由唯一纯入口 `backend/modules/training/context/compiler.py::compile_patient_prompt` 编译：
 槽位校验 / 选择 / 排序 / 裁剪 / 预算 / 落位都在那里，本中间件只取料。策略数值（历史与患者状态预算、
-保底轮、钉轮）的唯一 owner 是 `context/budget.py::ContextPolicy`；改动装配**行为**必须同步升
-`compiler.COMPILER_SCHEMA`，否则策略身份不会变化（`prompt_identity.compute_context_policy_version`）。
+保底轮、钉轮）的唯一 owner 是 `context/budget.py::ContextPolicy`。
+
+身份归属要分清：**模板原文**变化（如改写患者契约）自动体现为 `prompt_id`（由冻结原文派生）；
+**装配算法/布局**变化不属于任何字段，必须在同一提交里升 `compiler.COMPILER_SCHEMA`，否则
+`prompt_identity.compute_context_policy_version` 不会变化。
 
 活动提供其拥有的事实，不直接拼第二份 system prompt，不创建通用 Context God Object。病例事实、学生可见信息、
 患者应知信息和评分依据的消费范围不同。现有病例蓝图已沿这些边界接入；参考答案与评分锚点不能进入学生可见的

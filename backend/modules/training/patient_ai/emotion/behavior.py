@@ -106,7 +106,7 @@ def _resolve_tone(state: EmotionVector) -> str:
         return "紧张且戒备，回答容易犹豫"
 
     if state.trust <= 0.30 and state.cooperation <= 0.35:
-        return "疏离、简短，问一句答一句，不主动多说"
+        return "疏离、克制，不愿多谈，不主动多说"
 
     if state.trust >= 0.75 and state.irritation <= 0.25:
         return "自然、开放，愿意主动补充相关细节"
@@ -133,13 +133,13 @@ def _resolve_response_style(state: EmotionVector) -> str:
     else:
         parts.append("回答简短、只答被问到的内容，不主动展开，语气冷淡；被问到的事实仍如实回答")
 
-    # 回答长度
+    # 回答长度：只说相对详略，不给固定句数——篇幅由人格、病情与学生问法决定
     if verbosity >= 0.7:
-        parts.append("回答较为详细，通常 2～4 句")
+        parts.append("回答会展开，愿意把感受和来龙去脉讲清楚")
     elif verbosity >= 0.4:
-        parts.append("通常回答 1～3 句")
+        parts.append("该简的简、该细的细，不刻意拉长也不刻意压短")
     else:
-        parts.append("回答尽量简短，通常 1 句以内")
+        parts.append("话明显更少，能一带而过就不多说")
 
     # 主动性
     initiative = clamp01(0.10 + state.trust * 0.45 + state.anxiety * 0.15 - state.irritation * 0.30)
