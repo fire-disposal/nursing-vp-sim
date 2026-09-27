@@ -11,7 +11,7 @@ type Rec = {
 		| ((e: { results: ArrayLike<{ isFinal: boolean; length: number; [i: number]: { transcript: string } }> }) => void)
 		| null;
 	onend: (() => void) | null;
-	onerror: (() => void) | null;
+	onerror: ((e?: { error?: string }) => void) | null;
 };
 
 function makeRec(): Rec {
@@ -72,5 +72,25 @@ describe("webSpeechAsrProvider", () => {
 
 		rec.onerror?.();
 		expect(onError).toHaveBeenCalled();
+	});
+
+	it("透传 continuous 选项；错误码原样上报（持续聆听要区分 not-allowed 与 no-speech）", () => {
+		const rec = makeRec();
+		const session = webSpeechAsrProvider.createSession({ continuous: true, interimResults: true });
+		session.start();
+		expect(rec.continuous).toBe(true);
+		expect(rec.interimResults).toBe(true);
+
+		const onError = vi.fn();
+		session.onerror = onError;
+		rec.onerror?.({ error: "not-allowed" });
+		expect(onError).toHaveBeenCalledWith("not-allowed");
+
+		rec.onerror?.({ error: "no-speech" });
+		expect(onError).toHaveBeenLastCalledWith("no-speech");
+
+		// 无码事件仍有一个稳定兜底值（调用方不必猜 undefined）
+		rec.onerror?.();
+		expect(onError).toHaveBeenLastCalledWith("recognition_failed");
 	});
 });

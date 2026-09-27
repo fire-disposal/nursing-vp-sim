@@ -207,3 +207,51 @@ describe("StreamManager.send 主流程", () => {
 		await promise;
 	});
 });
+
+describe("StreamManager.interrupt（打断 barge-in）", () => {
+	it("中止在途回复、冻结患者已说出的部分（不标错误），学生的打断消息不被并发保护丢弃", async () => {
+		const cb = captureCallbacks();
+		const manager = new StreamManager(1);
+		const promise = manager.send("我哪里不舒服？", {});
+		cb.onChunk("你");
+		cb.onChunk("好");
+		expect(useTrainingStore.getState().sending).toBe(true);
+
+		manager.interrupt();
+
+		expect(cb.signal.aborted).toBe(true);
+		expect(useTrainingStore.getState().sending).toBe(false);
+		const [student, patient] = useTrainingStore.getState().messages;
+		expect(student.content).toBe("我哪里不舒服？");
+		// 学生听得见的那半句必须留下，且不能永远停在"正在输入"、也不能变成错误
+		expect(patient.content).toBe("你好");
+		expect(patient.streaming).toBe(false);
+		expect(patient.streamError).toBeUndefined();
+		await promise;
+
+		// 打断消息必须真能进入发送链：send() 在 sending=true 时会静默丢弃
+		const cb2 = captureCallbacks();
+		await manager.send("等一下，我先问别的", {});
+
+		const messages = useTrainingStore.getState().messages;
+		expect(cb2.signal.aborted).toBe(false);
+		expect(messages).toHaveLength(4);
+		expect(messages[2].content).toBe("等一下，我先问别的");
+	});
+
+	it("一个字都还没说出口就打断 → 撤掉空占位，不留空气泡", async () => {
+		const cb = captureCallbacks();
+		const manager = new StreamManager(1);
+		const promise = manager.send("我哪里不舒服？", {});
+		expect(useTrainingStore.getState().messages).toHaveLength(2);
+
+		manager.interrupt();
+
+		const messages = useTrainingStore.getState().messages;
+		expect(messages).toHaveLength(1);
+		expect(messages[0].role).toBe("student");
+		expect(useTrainingStore.getState().sending).toBe(false);
+		await promise;
+		expect(cb.signal.aborted).toBe(true);
+	});
+});

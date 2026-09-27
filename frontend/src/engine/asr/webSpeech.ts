@@ -45,7 +45,9 @@ export const webSpeechAsrProvider: AsrProvider = {
 			session.onresult?.({ transcript: acc, final: allFinal });
 		};
 		rec.onend = () => session.onend?.();
-		rec.onerror = () => session.onerror?.("recognition_failed");
+		// 错误码必须原样透传：持续聆听要根据 not-allowed / audio-capture（降级按住说话）
+		// 与 no-speech / aborted（连续聆听的正常噪声）做不同处置。
+		rec.onerror = (e) => session.onerror?.((e as SpeechRecognitionErrorEvent)?.error || "recognition_failed");
 
 		return session;
 	},

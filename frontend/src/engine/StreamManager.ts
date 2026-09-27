@@ -25,6 +25,8 @@ export interface StreamCallbacks {
 export class StreamManager {
 	private recordId: number | null;
 	private abortController: AbortController | null = null;
+	/** 在途患者回复的占位消息 id —— 打断时据此冻结「已说出的部分」。 */
+	private activePlaceholderId: string | null = null;
 	// 流式批量写入：rAF 合并 store 更新（避免每 token 一次全量重渲染），
 	// TTS/滚动仍逐 chunk 消费 bus 事件，合成延迟不受影响。
 	private chunkBuffer = new Map<string, string>();
@@ -76,6 +78,30 @@ export class StreamManager {
 		getTrainingState().setSending(false);
 	}
 
+	/**
+	 * 打断（barge-in）：学生开口时中止在途的患者回复。
+	 *
+	 * 与 `abort()`（离页/换记录：整段丢弃）不同，打断保留患者**已说出**的部分并冻结为
+	 * 已完成的发言——学生听得见/看得见的那半句不会被凭空抹掉，也不标成错误
+	 * （旧行为把它留成 `streaming: true`，患者头像会永远停在「正在输入」）。
+	 * 一个字都还没说出口就打断（占位消息仍为空）时直接撤掉占位，不留一个空气泡。
+	 * `send()` 在 `sending=true` 时会静默丢弃新消息，所以这里必须先清发送态，
+	 * 否则学生的打断消息进不了发送链。
+	 */
+	interrupt(): void {
+		this.flushChunks();
+		const placeholderId = this.activePlaceholderId;
+		this.activePlaceholderId = null;
+		this.abortController?.abort();
+		this.abortController = null;
+		const store = getTrainingState();
+		store.setSending(false);
+		if (!placeholderId) return;
+		const partial = store.messages.find((m) => m.id === placeholderId);
+		if (partial?.content.trim()) store.finalizeMessage(placeholderId);
+		else store.setMessages(store.messages.filter((m) => m.id !== placeholderId));
+	}
+
 	dispose(): void {
 		this.abort();
 	}
@@ -95,6 +121,7 @@ export class StreamManager {
 		store.setSending(true);
 
 		const { studentId, placeholderId } = store.addStudentMessage(content);
+		this.activePlaceholderId = placeholderId;
 
 		const controller = new AbortController();
 		this.abortController = controller;
@@ -138,6 +165,7 @@ export class StreamManager {
 			callbacks.onError?.((err as Error)?.message || "发送失败");
 		} finally {
 			this.flushChunks();
+			if (this.activePlaceholderId === placeholderId) this.activePlaceholderId = null;
 			if (this.abortController === controller) {
 				this.abortController = null;
 				getTrainingState().setSending(false);
@@ -165,6 +193,7 @@ export class StreamManager {
 		store.setSending(true);
 		const controller = new AbortController();
 		this.abortController = controller;
+		this.activePlaceholderId = snapshot.placeholderId;
 
 		try {
 			await correctLastMessageStream(
@@ -193,6 +222,7 @@ export class StreamManager {
 			callbacks.onError?.((err as Error)?.message || "修正失败");
 		} finally {
 			this.flushChunks();
+			if (this.activePlaceholderId === snapshot.placeholderId) this.activePlaceholderId = null;
 			if (this.abortController === controller) {
 				this.abortController = null;
 				getTrainingState().setSending(false);

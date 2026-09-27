@@ -53,11 +53,14 @@ export function ConnectionNotice() {
 interface ChatAreaProps {
 	onSend: (text: string) => void;
 	onCorrectLast: (messageId: string | number, text: string) => void;
+	/** 打断出口：学生开口而患者仍在说话/回复时调用（由训练装配层停播 + 取消在途生成）。 */
+	onBargeIn?: () => void;
 }
 
 export function ChatArea({
 	onSend,
 	onCorrectLast,
+	onBargeIn,
 }: ChatAreaProps) {
   const messages = useTrainingStore(s => s.messages);
   const patient = usePatientData()!;
@@ -195,7 +198,14 @@ export function ChatArea({
 					</Stack>
 				</Alert>
 			)}
-			<ConversationComposer onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
+			<ConversationComposer
+				onSend={onSend}
+				disabled={sending || trainingEnded}
+				loading={sending}
+				trainingEnded={trainingEnded}
+				bus={bus}
+				onBargeIn={onBargeIn}
+			/>
 
 		</Stack>
 	);

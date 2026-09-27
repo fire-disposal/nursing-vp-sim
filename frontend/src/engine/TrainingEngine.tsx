@@ -402,6 +402,15 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		ttsRef.current.setAutoPlay(next);
 	}, []);
 
+	// ── 打断（barge-in）：学生开口时止血 ──
+	// 停播归 TTSManager（它的 AbortController 取消在途 TTS 生成），中止在途 SSE 归 StreamManager
+	// （同时把患者已说出的部分冻结，并清掉发送态——否则学生的打断消息会被 `send()` 当作并发发送丢弃）。
+	// 两个资源各自仍只有一个 owner，因此不新增 bus 事件。
+	const handleBargeIn = useCallback(() => {
+		ttsRef.current.stop();
+		streamRef.current.interrupt();
+	}, []);
+
 	const isShort = useShortViewport();
 	const isMobile = useIsMobile();
 
@@ -459,6 +468,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 							<ChatArea
 								onSend={sendMessage}
 								onCorrectLast={correctLastMessage}
+								onBargeIn={handleBargeIn}
 							/>
 						</ErrorBoundary>
 					</Flex>
