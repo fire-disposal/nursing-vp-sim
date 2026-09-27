@@ -35,7 +35,16 @@ SCENARIO_TRAINING_ENABLED=true          # 缺省/缺失 = 关闭
 ```
 
 - 关闭时：整个 `/api/scenario/**` **404**，学生页显示「情境训练当前未开启」——不是白屏、不泄漏功能存在。
-- 生效方式：改 `.env` 后 `docker compose up -d backend`（重建容器，秒级）。**改开关不需要发版**。
+- 生效方式：改 `.env` 后**必须带版本号**重建 backend（秒级，不需要发版）：
+
+```bash
+ssh yecaoyun 'cd /opt/nursing-vp-sim && IMAGE_VERSION=<当前版本> docker compose -f docker-compose.yml --env-file .env up -d backend'
+# 当前版本看这里：curl -s https://iomt.205716.xyz/api/health
+```
+
+  ⚠️ **不要**直接 `docker compose up -d backend`：`IMAGE_VERSION` 只由流水线显式传入（`deploy.yml` 里就是
+  `IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env …`），漏掉它会得到
+  `invalid reference format`（镜像 tag 为空）。这是**手工操作的常见坑**，不是流水线问题。
 - 开关关闭时学生入口照旧可见（导航不感知开关），点进去给「情境训练当前未开启…请联系管理员」。
 - 生成图**不落盘**（`st_generated_assets` 存字节，`SCENARIO_IMAGE_CACHE_DIR` 已删），故无卷依赖。
 
