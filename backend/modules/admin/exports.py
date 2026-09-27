@@ -11,6 +11,7 @@ from core.deps import CurrentUser, DbSession
 from core.exceptions import AuthError, NotFoundError
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Message, TrainingRecord, User
+from modules.training.scoring.grade_policy import SOURCE_LABELS, score_source
 
 log = logging.getLogger(__name__)
 
@@ -79,12 +80,37 @@ def export_records(
         ColumnDef("学生姓名", value=lambda r: r.user.display_name if r.user else ""),
         ColumnDef("学号", value=lambda r: r.user.student_id if r.user else ""),
         ColumnDef("病例名称", value=lambda r: r.case.name if r.case else ""),
+        # 实验批次（多批次实验的分组键；未标记为空）
+        ColumnDef(
+            "实验批次",
+            value=lambda r: (
+                str((((r.practice_snapshot or {}).get("experiment") or {}).get("batch")) or "")
+                + (
+                    f"/{((r.practice_snapshot or {}).get('experiment') or {}).get('arm')}"
+                    if ((r.practice_snapshot or {}).get("experiment") or {}).get("arm")
+                    else ""
+                )
+            ),
+        ),
         ColumnDef("状态", key="status"),
         ColumnDef("开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
         ColumnDef("结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
         ColumnDef(
             "总分",
             value=lambda r: str(r.score.effective_total) if r.score and r.score.effective_total is not None else "",
+        ),
+        # 成绩来源（AI 初评/教师复核/系统降级）随导出可见：降级分不进统计，导出也不能
+        # 把它呈现成正常成绩（docs/19 §4.2 第 7 条）。
+        ColumnDef(
+            "成绩来源",
+            value=lambda r: (
+                SOURCE_LABELS.get(
+                    score_source(reviewed_total=r.score.reviewed_total, fallback=r.score.fallback),
+                    "",
+                )
+                if r.score
+                else ""
+            ),
         ),
         ColumnDef("优点", value=lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
         ColumnDef("不足", value=lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
@@ -136,7 +162,14 @@ def export_record_detail(
         lines.append("【评分结果】")
         lines.append("-" * 40)
         lines.append(f"总分：{score.effective_total}")
-        lines.append(f"分项得分：{score.detail_scores}")
+        lines.append(
+            "成绩来源："
+            + SOURCE_LABELS.get(
+                score_source(reviewed_total=score.reviewed_total, fallback=score.fallback),
+                "",
+            )
+        )
+        lines.append(f"分项得分（展示刻度）：{score.detail_scores}")
         lines.append(f"优点：{score.strengths}")
         lines.append(f"不足：{score.weaknesses}")
         lines.append(f"漏问内容：{score.missed_content}")

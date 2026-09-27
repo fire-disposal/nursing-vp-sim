@@ -55,8 +55,10 @@ export class ScoreManager {
 	private recordId: number | null;
 	private bus: MessageBus | null;
 	private _score: ScoreData | null = null;
-	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "" };
+	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "", indeterminate: true };
 	private _polling = false;
+	/** 是否已收到后端给出的真实进度百分比 —— 未收到时进度为不定态（不编造数字） */
+	private _hasRealProgress = false;
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private listeners: Array<() => void> = [];
 	private _visibilityHandler: (() => void) | null = null;
@@ -108,7 +110,7 @@ export class ScoreManager {
 		if (!this.recordId) return;
 		if (this._polling || this._progress.phase === "completed") return;
 		this._polling = true;
-		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
+		this._progress = { phase: "loading", percentage: 0, message: "正在结束训练...", indeterminate: true };
 		this.notify();
 		try {
 			await endTraining(this.recordId, options);
@@ -118,11 +120,12 @@ export class ScoreManager {
 				phase: "failed",
 				percentage: 0,
 				message: endFailureMessage(e),
+				indeterminate: false,
 			};
 			this.notify();
 			throw e;
 		}
-		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
+		this._progress = { phase: "loading", percentage: 0, message: "评分已触发，等待后台处理...", indeterminate: true };
 		this.notify();
 		this.startPolling();
 	}
@@ -144,7 +147,7 @@ export class ScoreManager {
 				return;
 			}
 			if (retries >= maxRetries) {
-				this._progress = { phase: "failed", percentage: 0, message: "评分超时" };
+				this._progress = { phase: "failed", percentage: 0, message: "评分超时", indeterminate: false };
 				this.stopPolling();
 				this.notify();
 				return;
@@ -169,13 +172,14 @@ export class ScoreManager {
 						phase: "failed",
 						percentage: 0,
 						message: data.scoring_error || "评分失败",
+						indeterminate: false,
 					};
 					this.stopPolling();
 					this.notify();
 					return;
 				}
 				if (data.scoring_status === "completed") {
-					this._progress = { phase: "completed", percentage: 100, message: "评分完成" };
+					this._progress = { phase: "completed", percentage: 100, message: "评分完成", indeterminate: false };
 					this.stopPolling();
 					try {
 						const detail = await api.get(`/training/records/${this.recordId}`);
@@ -201,10 +205,12 @@ export class ScoreManager {
 						? (p.phase as ScorePhase)
 						: null;
 					if (!this._isRegressive(phase, p.percentage ?? 0)) {
+						this._hasRealProgress = true;
 						this._progress = {
 							phase,
 							percentage: p.percentage ?? 0,
 							message: p.message ?? "",
+							indeterminate: false,
 							thought: p.thought || this._sseThought,
 							score_thought: p.score_thought || this._progress.score_thought || "",
 							feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
@@ -218,18 +224,25 @@ export class ScoreManager {
 							feedback_thought: p.feedback_thought || this._progress.feedback_thought || "",
 						};
 					}
-				} else {
-					this._applyFakeProgress(Math.min(95, 10 + retries * 1.5));
+				} else if (!this._hasRealProgress) {
+					// 后端没有进度可给：只说"处理中"，百分比保持不定态（前端不编造数字）。
+					// 一旦收到过真实进度（轮询或 WS）就不再回落到这句话，避免覆盖已知相位。
+					this._progress = {
+						phase: "processing",
+						percentage: 0,
+						message: "评分处理中...",
+						indeterminate: true,
+					};
 				}
 				this.notify();
 			} catch {
 				if (retries >= maxRetries - 5) {
-					this._progress = { phase: "failed", percentage: 0, message: "评分状态查询失败" };
+					this._progress = { phase: "failed", percentage: 0, message: "评分状态查询失败", indeterminate: false };
 					this.stopPolling();
 					this.notify();
 					return;
 				}
-				this._applyFakeProgress(Math.min(95, 10 + retries * 1.5));
+				// 查询失败不推进任何进度：等下一次轮询，避免用失败次数硬凑进度条
 				this.notify();
 			}
 		};
@@ -263,7 +276,8 @@ export class ScoreManager {
 		this._registeredHandler = null;
 		this.listeners = [];
 		this._score = null;
-		this._progress = { phase: null, percentage: 0, message: "" };
+		this._progress = { phase: null, percentage: 0, message: "", indeterminate: true };
+		this._hasRealProgress = false;
 		this._visibilityHandler = null;
 		this._sseThought = "";
 	}
@@ -271,7 +285,8 @@ export class ScoreManager {
 	reset(): void {
 		this.stopPolling();
 		this._score = null;
-		this._progress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "" };
+		this._progress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "", indeterminate: true };
+		this._hasRealProgress = false;
 		this._sseThought = "";
 		this._retryBackoffMs = 2000;
 		this._lastRetryTime = 0;
@@ -286,18 +301,6 @@ export class ScoreManager {
 			this._registeredHandler = this.onProgress.bind(this);
 			_sseHandlers.set(id, this._registeredHandler);
 		}
-	}
-
-	/** 无后端进度时的假进度 — 若 WS 已推进到有效相位则不降级为 processing */
-	private _applyFakeProgress(pct: number): void {
-		const current = this._progress.phase;
-		if (current && current !== "processing" && current !== "failed" && current !== "completed") {
-			if (pct > this._progress.percentage) {
-				this._progress = { ...this._progress, percentage: pct };
-			}
-			return;
-		}
-		this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
 	}
 
 	/**
@@ -316,7 +319,6 @@ export class ScoreManager {
 		return newOrder === currentOrder && percentage < this._progress.percentage;
 	}
 
-	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。 */
 	/** 重新触发评分（后端 retry-scoring 端点）并重启轮询。失败后 UI 一键重试使用。
 	 *  内置指数退避：首次 2s，每次失败翻倍，最大 30s，成功后重置。 */
 	async retry(): Promise<void> {
@@ -333,7 +335,8 @@ export class ScoreManager {
 		this.stopPolling();
 		this._polling = true;
 		this._score = null;
-		this._progress = { phase: "loading", percentage: 5, message: "正在重新触发评分..." };
+		this._progress = { phase: "loading", percentage: 0, message: "正在重新触发评分...", indeterminate: true };
+		this._hasRealProgress = false;
 		this.notify();
 		try {
 			await retryScoring(this.recordId);
@@ -342,11 +345,11 @@ export class ScoreManager {
 			this._polling = false;
 			this._lastRetryTime = Date.now();
 			this._retryBackoffMs = Math.min(this._retryBackoffMs * 2, 30000);
-			this._progress = { phase: "failed", percentage: 0, message: "重新触发评分失败，请稍后重试" };
+			this._progress = { phase: "failed", percentage: 0, message: "重新触发评分失败，请稍后重试", indeterminate: false };
 			this.notify();
 			throw e;
 		}
-		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
+		this._progress = { phase: "loading", percentage: 0, message: "评分已触发，等待后台处理...", indeterminate: true };
 		this.notify();
 		this.startPolling();
 	}
@@ -378,6 +381,8 @@ export class ScoreManager {
 			merged.percentage = data.percent;
 			merged.message = data.message;
 			merged.thought = this._sseThought;
+			merged.indeterminate = false;
+			this._hasRealProgress = true;
 		}
 
 		this._progress = merged as ScoringProgress;

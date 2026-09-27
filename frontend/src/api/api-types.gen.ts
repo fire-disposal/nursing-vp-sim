@@ -1848,6 +1848,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/start-practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Practice Training
+         * @description 复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。
+         *
+         *     自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；
+         *     反过来，作业次数限制也不会因为"重练"被绕过 —— 想拿作业成绩仍然只能走作业入口。
+         *     目标病例、钉住的 revision 与"内容是否已更新"都由服务端解析并留痕。
+         */
+        post: operations["start_practice_training_api_training_start_practice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/training/records/{record_id}/pause": {
         parameters: {
             query?: never;
@@ -4439,6 +4463,24 @@ export interface components {
             } | null;
             /** Reviewed Total */
             reviewed_total?: number | null;
+            /** Raw Detail Scores */
+            raw_detail_scores?: {
+                [key: string]: unknown;
+            } | null;
+            /** Score Meta */
+            score_meta?: {
+                [key: string]: unknown;
+            } | null;
+            /** Effective Total */
+            effective_total?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Grade */
+            grade?: {
+                [key: string]: unknown;
+            } | null;
+            /** Feedback Note */
+            feedback_note?: string | null;
         };
         /** ScoreReviewItem */
         ScoreReviewItem: {
@@ -4476,6 +4518,10 @@ export interface components {
             original_detail_scores?: {
                 [key: string]: unknown;
             } | null;
+            /** Original Raw Detail Scores */
+            original_raw_detail_scores?: {
+                [key: string]: unknown;
+            } | null;
             /** Review Detail Scores */
             review_detail_scores?: {
                 [key: string]: unknown;
@@ -4484,6 +4530,20 @@ export interface components {
             review_total_score?: number | null;
             /** Review Comment */
             review_comment?: string | null;
+            /** Applicable Raw Max */
+            applicable_raw_max?: number | null;
+            /**
+             * Raw Scale
+             * @default 2
+             */
+            raw_scale: number;
+            /** Review Basis */
+            review_basis?: string | null;
+            /**
+             * Not Applicable Items
+             * @default []
+             */
+            not_applicable_items: string[];
         };
         /**
          * ScoreboardRankingItem
@@ -4555,6 +4615,10 @@ export interface components {
              * @default 0
              */
             limit: number;
+            /** Policy */
+            policy?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ScoreboardSummary
@@ -4587,6 +4651,14 @@ export interface components {
             /** Thresholds */
             thresholds?: {
                 [key: string]: number;
+            };
+            /** Policy */
+            policy?: {
+                [key: string]: unknown;
+            };
+            /** Comparability */
+            comparability?: {
+                [key: string]: unknown;
             };
         };
         /** ScoringStatusResponse */
@@ -4775,6 +4847,18 @@ export interface components {
             case_ended_at?: number | null;
         };
         /**
+         * StartPracticeRequest
+         * @description 复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。
+         *
+         *     目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。
+         */
+        StartPracticeRequest: {
+            /** Source Record Id */
+            source_record_id: number;
+            /** Kind */
+            kind: string;
+        };
+        /**
          * StudentAssignmentItem
          * @description 学生作业卡片 —— status 取值见 core.statuses.AssignmentProgressStatus。
          *
@@ -4951,6 +5035,11 @@ export interface components {
             start_time: string;
             /** End Time */
             end_time?: string | null;
+            /**
+             * Comparability Label
+             * @default
+             */
+            comparability_label: string;
         };
         /**
          * StudentTrendResponse
@@ -4995,6 +5084,14 @@ export interface components {
             progress_trend: string;
             /** Records */
             records?: components["schemas"]["StudentTrendRecord"][];
+            /** Policy */
+            policy?: {
+                [key: string]: unknown;
+            };
+            /** Comparability */
+            comparability?: {
+                [key: string]: unknown;
+            };
         };
         /** SystemNotificationCreateRequest */
         SystemNotificationCreateRequest: {
@@ -5230,6 +5327,13 @@ export interface components {
             end_time: string | null;
             /** Score Total */
             score_total?: number | null;
+            /** Score Source */
+            score_source?: string | null;
+            /**
+             * Score Degraded
+             * @default false
+             */
+            score_degraded: boolean;
             /**
              * Is Test
              * @default false
@@ -5354,6 +5458,10 @@ export interface components {
             } | null;
             /** Required Inquiries */
             required_inquiries?: string[];
+            /** Guided Hints */
+            guided_hints?: {
+                [key: string]: unknown;
+            }[];
             /**
              * Is Test
              * @default false
@@ -5363,6 +5471,23 @@ export interface components {
             manifest?: {
                 [key: string]: unknown;
             } | null;
+            /** Practice */
+            practice?: {
+                [key: string]: unknown;
+            };
+            /** Practice Options */
+            practice_options?: {
+                [key: string]: unknown;
+            };
+            /** Review Focus */
+            review_focus?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Review Focus Note
+             * @default
+             */
+            review_focus_note: string;
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -5391,6 +5516,10 @@ export interface components {
              * @default 0
              */
             pending_questionnaires: number;
+            /** Practice */
+            practice?: {
+                [key: string]: unknown;
+            };
         };
         /** TrendStats */
         TrendStats: {
@@ -9809,6 +9938,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrainingStartResponse"];
+                };
+            };
+        };
+    };
+    start_practice_training_api_training_start_practice_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartPracticeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingStartResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

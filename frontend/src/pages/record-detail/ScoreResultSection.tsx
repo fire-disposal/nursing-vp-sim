@@ -23,8 +23,17 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { CollapsibleSection, ScoreItem } from "@/components/record-review";
-import type { DetailScoreCategory, ScoreData, ScoreReviewData } from "@/types/score";
+import { CollapsibleSection } from "@/components/record-review";
+import type {
+	DetailScoreCategory,
+	RawDetailScoreCategory,
+	ScoreData,
+	ScoreReviewData,
+} from "@/types/score";
+import { getEffectiveTotal, resolveScoreSource, SCORE_SOURCE_LABELS } from "@/utils/score";
+import FallbackNotice from "./FallbackNotice";
+import GradeNotice from "./GradeNotice";
+import ItemJudgementRow from "./ItemJudgementRow";
 
 interface ReviewData {
 	review_status?: string | null;
@@ -44,11 +53,14 @@ interface Props {
 	/** 教师端专属：打开复核编辑器。学生页不传 → 不渲染该按钮（避免空实现假按钮）。 */
 	onReviewClick?: () => void;
 	onExport: () => void;
-	/** 证据点击回调（工作台：证据 ↔ 对话气泡联动） */
-	onEvidenceClick?: (evidence: string) => void;
+	/** 证据 → 对话回放联动：按服务端解析出的 message id 直接高亮 */
+	onMessageClick?: (messageId: number | string) => void;
 	scoreMax: number;
+	/** 展示层维度（教师页会合并复核层，带 `_reviewed` 标记） */
 	categories: [string, DetailScoreCategory][];
 	hasDetailItems: boolean;
+	/** 原始层维度：有则逐项判定用原始量尺渲染（学生结果页） */
+	rawCategories?: [string, RawDetailScoreCategory][];
 }
 
 function progressColor(pct: number): string {
@@ -67,18 +79,36 @@ export default function ScoreResultSection({
 	onToggleExpand,
 	onReviewClick,
 	onExport,
-	onEvidenceClick,
+	onMessageClick,
 	scoreMax,
 	categories,
 	hasDetailItems,
+	rawCategories,
 }: Props) {
 	const [showAiOriginal, setShowAiOriginal] = useState(false);
 
-	const displayTotal = recordScore.reviewed_total ?? scoreReview?.total_score ?? recordScore.total_score;
-	const hasReviewOverride =
-		(scoreReview?.total_score != null && scoreReview.total_score !== recordScore.total_score) ||
-		(recordScore.reviewed_total != null && recordScore.reviewed_total !== recordScore.total_score);
-	const hasFallback = recordScore.fallback != null;
+	const effectiveTotal = getEffectiveTotal(recordScore);
+	const source = resolveScoreSource(recordScore);
+	const reviewTotal = recordScore.reviewed_total ?? scoreReview?.total_score ?? null;
+	// 空反馈的解释：为什么 weaknesses/missed_content 为空（服务端给的话术）
+	const feedbackNote = recordScore.feedback_note ?? recordScore.score_meta?.feedback_note ?? null;
+	const reviewerName = review?.reviewed_by_name ?? recordScore.reviewed_by_name ?? null;
+	const reviewedAt = review?.reviewed_at ?? recordScore.reviewed_at ?? null;
+	const reviewComment = review?.review_comment ?? recordScore.review_comment ?? null;
+	const hasReviewScore = isReviewed || reviewTotal != null;
+
+	const emptyNotice = (label: string) => (
+		<Stack gap={4}>
+			<Text size="sm" c="dimmed" fs="italic">
+				{label}
+			</Text>
+			{feedbackNote && (
+				<Text size="xs" c="dimmed">
+					{feedbackNote}
+				</Text>
+			)}
+		</Stack>
+	);
 
 	return (
 		<Paper withBorder p={{ base: "md", sm: "lg" }}>
@@ -95,17 +125,10 @@ export default function ScoreResultSection({
 						) : (
 							<Badge variant="light" color="brand">AI 初评</Badge>
 						)}
-						{hasFallback && (
+						{recordScore.fallback != null && (
 							<Badge variant="light" color="red">
-								<IconAlertTriangle size={12} /> 评分异常（系统故障）
+								<IconAlertTriangle size={12} /> 系统降级
 							</Badge>
-						)}
-						{isReviewed && review?.reviewed_by_name && (
-							<Text size="xs" c="dimmed">
-								复核人: {review.reviewed_by_name}
-								{review.reviewed_at &&
-									` · ${new Date(review.reviewed_at).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE })}`}
-							</Text>
 						)}
 					</Group>
 					<Group gap="xs" wrap="wrap">
@@ -122,43 +145,84 @@ export default function ScoreResultSection({
 					</Group>
 				</Group>
 
-				<Group align="baseline" gap={8}>
+				{/* 系统降级：先说清这次结果是怎么来的，再谈分数 */}
+				<FallbackNotice fallback={recordScore.fallback} />
+
+				{/* 有效成绩：分数旁边必须写明这个分是谁给的 */}
+				<Group align="baseline" gap={8} wrap="wrap">
 					<Text size="40px" fw={800} c="brand" lh={1} className="tabular-nums">
-						{displayTotal}
+						{effectiveTotal ?? "—"}
 					</Text>
 					<Text size="md" c="dimmed">
 						/ {scoreMax} 分
 					</Text>
+					<Badge variant="light" color={source === "fallback" ? "red" : source === "review" ? "green" : "brand"}>
+						有效成绩来源：{SCORE_SOURCE_LABELS[source]}
+					</Badge>
 				</Group>
 
-				{hasReviewOverride && (
+				{/* AI 初评 与 教师复核 分开呈现，谁也没覆盖谁 */}
+				{hasReviewScore && (
+					<Group gap="xl" wrap="wrap">
+						<Stack gap={0}>
+							<Text size="xs" c="dimmed">
+								AI 初评
+							</Text>
+							<Text size="lg" fw={700} className="tabular-nums">
+								{recordScore.total_score ?? "—"}
+								<Text component="span" size="xs" c="dimmed">
+									{" "}/ {scoreMax}
+								</Text>
+							</Text>
+						</Stack>
+						{reviewTotal != null && (
+							<Stack gap={0}>
+								<Text size="xs" c="dimmed">
+									教师复核
+								</Text>
+								<Text size="lg" fw={700} className="tabular-nums">
+									{reviewTotal}
+									<Text component="span" size="xs" c="dimmed">
+										{" "}/ {scoreMax}
+									</Text>
+								</Text>
+							</Stack>
+						)}
+					</Group>
+				)}
+
+				{/* 数值分层与能力等第可用性：全部来自服务端政策 */}
+				<GradeNotice grade={recordScore.grade} />
+
+				{isReviewed && (reviewerName || reviewedAt) && (
 					<Text size="xs" c="dimmed">
-						AI 原始评分: {recordScore.total_score}/{scoreMax}
+						复核人: {reviewerName || "—"}
+						{reviewedAt && ` · ${new Date(reviewedAt).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}`}
 					</Text>
 				)}
 
-				{isReviewed && review?.review_comment && (
+				{isReviewed && reviewComment && (
 					<Paper bg="var(--mantine-color-default-hover)" px="md" py="sm">
 						<Text size="sm">
 							<Text component="span" fw={600} c="dimmed">
-								复核备注：
+								教师复核备注：
 							</Text>
-							{review.review_comment}
+							{reviewComment}
 						</Text>
 					</Paper>
 				)}
 
 				{hasDetailItems && (
 					<Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+						<Text size="xs" c="dimmed">
+							逐维度得分为数值参考（展示分 {scoreMax} 分制），逐项判定按原始量尺给出，均不代表能力等第。
+						</Text>
 						{categories.map(([catName, catData]) => {
-							if (!Array.isArray(catData.items) || catData.items.length === 0)
-								return null;
-							const pct =
-								catData.max > 0
-									? Math.round((catData.score / catData.max) * 100)
-									: 0;
-							const isReviewedDim =
-								(catData as unknown as Record<string, unknown>)._reviewed === true;
+							if (!Array.isArray(catData.items) || catData.items.length === 0) return null;
+							const rawCat = rawCategories?.find(([name]) => name === catName)?.[1];
+							const rawItems = rawCat?.items?.length ? rawCat.items : null;
+							const pct = catData.max > 0 ? Math.round((catData.score / catData.max) * 100) : 0;
+							const isReviewedDim = catData._reviewed === true;
 							return (
 								<Stack key={catName} gap="xs">
 									<Group justify="space-between">
@@ -182,8 +246,12 @@ export default function ScoreResultSection({
 									</Group>
 									<Progress value={pct} color={progressColor(pct)} size="sm" radius="md" />
 									<Stack gap={2} mt={4}>
-										{catData.items.map((item, i) => (
-											<ScoreItem key={item.id || i} item={item} onEvidenceClick={onEvidenceClick} />
+										{(rawItems ?? catData.items).map((item, i) => (
+											<ItemJudgementRow
+												key={item.id != null ? String(item.id) : i}
+												item={item}
+												onMessageClick={onMessageClick}
+											/>
 										))}
 									</Stack>
 								</Stack>
@@ -212,16 +280,10 @@ export default function ScoreResultSection({
 									{recordScore.detail_scores && (
 										<Stack gap="xs">
 											{Object.entries(recordScore.detail_scores).map(
-												([dimName, dimData]) => {
-													if (!dimData || typeof dimData !== "object")
+												([dimName, d]) => {
+													if (!d || !Array.isArray(d.items) || d.items.length === 0)
 														return null;
-													const d = dimData as DetailScoreCategory;
-													if (!Array.isArray(d.items) || d.items.length === 0)
-														return null;
-													const aiPct =
-														d.max > 0
-															? Math.round((d.score / d.max) * 100)
-															: 0;
+													const aiPct = d.max > 0 ? Math.round((d.score / d.max) * 100) : 0;
 													return (
 														<Stack key={dimName} gap={4}>
 															<Group justify="space-between">
@@ -276,9 +338,7 @@ export default function ScoreResultSection({
 							))}
 						</Stack>
 					) : (
-						<Text size="sm" c="dimmed" fs="italic" opacity={0.5}>
-							AI 未生成此部分内容，可重新评分获取完整报告
-						</Text>
+						emptyNotice("本次无明确亮点")
 					)}
 				</CollapsibleSection>
 
@@ -309,9 +369,7 @@ export default function ScoreResultSection({
 							))}
 						</Stack>
 					) : (
-						<Text size="sm" c="dimmed" fs="italic" opacity={0.5}>
-							AI 未生成此部分内容，可重新评分获取完整报告
-						</Text>
+						emptyNotice("本次无明确不足")
 					)}
 				</CollapsibleSection>
 
@@ -336,9 +394,7 @@ export default function ScoreResultSection({
 							))}
 						</Stack>
 					) : (
-						<Text size="sm" c="dimmed" fs="italic" opacity={0.5}>
-							AI 未生成此部分内容，可重新评分获取完整报告
-						</Text>
+						emptyNotice("本次无漏问")
 					)}
 				</CollapsibleSection>
 
@@ -353,9 +409,7 @@ export default function ScoreResultSection({
 							{recordScore.suggestions}
 						</Text>
 					) : (
-						<Text size="sm" c="dimmed" fs="italic" opacity={0.5}>
-							AI 未生成改进建议，可重新评分获取完整报告
-						</Text>
+						emptyNotice("本次无改进建议")
 					)}
 				</CollapsibleSection>
 			</Stack>

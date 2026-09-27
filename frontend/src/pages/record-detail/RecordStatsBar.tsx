@@ -1,6 +1,7 @@
 import { Badge, Box, Group, Paper, SimpleGrid, Text, ThemeIcon } from "@mantine/core";
 import { IconChartBar, IconClock, IconFileText, IconUser } from "@tabler/icons-react";
 import type { ScoreData } from "@/types/score";
+import { getEffectiveTotal } from "@/utils/score";
 
 interface RecordStatsBarRecord {
 	user_display_name?: string;
@@ -79,12 +80,13 @@ export default function RecordStatsBar({
 
 			<Paper withBorder p={{ base: "sm", sm: "md" }}>
 				<Group gap="sm" wrap="nowrap">
-					<ThemeIcon size={40} radius="md" variant="filled" color="green">
+					{/* 固定中性色：图标不得对分数做"好/差"暗示（等第由服务端政策给出，见 GradeNotice） */}
+					<ThemeIcon size={40} radius="md" variant="filled" color="brand">
 						<IconChartBar size={18} />
 					</ThemeIcon>
 					<Box style={{ minWidth: 0 }}>
 						<Text size="xl" fw={700}>
-							{recordScore?.total_score ?? "-"}
+							{getEffectiveTotal(recordScore) ?? "-"}
 						</Text>
 						<Text size="xs" c="dimmed">
 							{hasScore ? `得分 / ${scoreMax}` : "得分"}

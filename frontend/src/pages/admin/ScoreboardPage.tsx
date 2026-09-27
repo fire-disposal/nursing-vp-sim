@@ -27,6 +27,8 @@ import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import StatCard from "@/components/ui/stat-card";
+import type { GradePolicy } from "@/types/score";
+import { bandLabel, capabilityNotice, numericBandSummary, toGradePolicy } from "@/utils/grade-bands";
 import type { DataTableColumn } from "@/components/ui/data-table";
 
 type ScoreboardRankingItem = components["schemas"]["ScoreboardRankingItem"];
@@ -42,18 +44,27 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
 	{ value: "progress", label: "进步幅度" },
 ];
 
-const TIER_OPTIONS: { value: string; label: string }[] = [
-	{ value: "all", label: "全部层次" },
-	{ value: "good", label: "好" },
-	{ value: "medium", label: "中" },
-	{ value: "poor", label: "差" },
-];
-
-const TIER_BADGE: Record<string, { label: string; color: "green" | "yellow" | "red" }> = {
-	good: { label: "好", color: "green" },
-	medium: { label: "中", color: "yellow" },
-	poor: { label: "差", color: "red" },
+const TIER_COLORS: Record<string, "green" | "yellow" | "red"> = {
+	good: "green",
+	medium: "yellow",
+	poor: "red",
 };
+
+/**
+ * 数值分段 → 展示标签。标签与阈值**都来自服务端等第政策**（`policy.numeric_bands`）；
+ * 服务端没给标签时退回 band id 的固定中文对照（含「数值参考」前缀，不含数字）。
+ * 页面不出现「好中差」这类像能力结论的措辞，也不在客户端算阈值（docs/19 §4.2 第 8/9 条）。
+ */
+function tierCell(tier: string, policy: GradePolicy | null) {
+	const label = bandLabel(tier, policy);
+	if (!label) return <Text size="xs" c="dimmed">—</Text>;
+	return (
+		<Badge variant="light" color={TIER_COLORS[tier] ?? "gray"}>
+			{label}
+		</Badge>
+	);
+}
+
 
 function rankBadge(rank: number) {
 	if (rank === 1)
@@ -63,12 +74,6 @@ function rankBadge(rank: number) {
 	if (rank === 3)
 		return <ThemeIcon size={24} radius="md" variant="light" color="orange" fw={700}>3</ThemeIcon>;
 	return <Text size="sm" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>{rank}</Text>;
-}
-
-function tierCell(tier: string) {
-	const def = TIER_BADGE[tier];
-	if (!def) return <Text size="xs" c="dimmed">—</Text>;
-	return <Badge variant="light" color={def.color}>{def.label}</Badge>;
 }
 
 function progressCell(item: ScoreboardRankingItem) {
@@ -88,15 +93,7 @@ function progressCell(item: ScoreboardRankingItem) {
 }
 
 function avgScoreCell(item: ScoreboardRankingItem) {
-	const tier = item.tier;
-	const color =
-		tier === "good"
-			? "green"
-			: tier === "medium"
-				? "yellow"
-				: tier === "poor"
-					? "red"
-					: undefined;
+	const color = item.tier ? TIER_COLORS[item.tier] : undefined;
 	return (
 		<Text component="span" fw={600} c={color} style={{ fontVariantNumeric: "tabular-nums" }}>
 			{item.avg_score ?? "-"}
@@ -104,30 +101,53 @@ function avgScoreCell(item: ScoreboardRankingItem) {
 	);
 }
 
-function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined }) {
+function TierDistribution({
+	summary,
+	policy,
+}: {
+	summary: ScoreboardSummary | undefined;
+	policy: GradePolicy | null;
+}) {
 	const counts = summary?.tier_counts ?? {};
-	const total = (counts.good ?? 0) + (counts.medium ?? 0) + (counts.poor ?? 0);
-	if (!total) return null;
-	const good = ((counts.good ?? 0) / total) * 100;
-	const medium = ((counts.medium ?? 0) / total) * 100;
+	// 分段名称与阈值只认服务端政策：没有 policy 就不画（不自己起名、不自己算阈值）
+	const bands = policy?.numeric_bands ?? [];
+	const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+	if (!policy || bands.length === 0 || total === 0) return null;
+
+	const segments = bands.map((band) => ({
+		key: band.band,
+		label: band.label,
+		count: counts[band.band] ?? 0,
+	}));
+	// 服务端只列出有下限的分段（如 good/medium），其余记录归入最低一段：按阈值描述，不起名
+	const listed = segments.reduce((sum, segment) => sum + segment.count, 0);
+	const restCount = Math.max(0, total - listed);
+	const restLabel = `低于 ${bands[bands.length - 1].min} 分`;
+	const colors = ["var(--mantine-color-green-6)", "var(--mantine-color-yellow-6)", "var(--mantine-color-red-6)"];
+	const notice = capabilityNotice(policy);
 
 	return (
 		<Paper withBorder p="lg">
 			<Box>
 				<Group justify="space-between" align="center" wrap="wrap" gap={8} mb={8}>
-					<Text size="sm" fw={500}>好中差分层</Text>
+					<Text size="sm" fw={500}>数值分段分布</Text>
 					<Group gap={12} wrap="wrap">
+						{segments.map((segment, index) => (
+							<Group key={segment.key} gap={4} align="center" wrap="nowrap">
+								<Box
+									bg={colors[index % colors.length]}
+									style={{ width: 8, height: 8, borderRadius: "50%" }}
+								/>
+								<Text size="xs" c="dimmed">
+									{segment.label} {segment.count}
+								</Text>
+							</Group>
+						))}
 						<Group gap={4} align="center" wrap="nowrap">
-							<Box bg="green.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
-							<Text size="xs" c="dimmed">好 {counts.good ?? 0}</Text>
-						</Group>
-						<Group gap={4} align="center" wrap="nowrap">
-							<Box bg="yellow.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
-							<Text size="xs" c="dimmed">中 {counts.medium ?? 0}</Text>
-						</Group>
-						<Group gap={4} align="center" wrap="nowrap">
-							<Box bg="red.6" style={{ width: 8, height: 8, borderRadius: "50%" }} />
-							<Text size="xs" c="dimmed">差 {counts.poor ?? 0}</Text>
+							<Box bg="var(--mantine-color-gray-5)" style={{ width: 8, height: 8, borderRadius: "50%" }} />
+							<Text size="xs" c="dimmed">
+								{restLabel} {restCount}
+							</Text>
 						</Group>
 					</Group>
 				</Group>
@@ -141,13 +161,28 @@ function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined 
 						background: "var(--mantine-color-default-hover)",
 					}}
 				>
-					<Box style={{ height: "100%", width: `${good}%`, background: "var(--mantine-color-green-6)" }} />
-					<Box style={{ height: "100%", width: `${medium}%`, background: "var(--mantine-color-yellow-6)" }} />
-					<Box style={{ height: "100%", flex: 1, background: "var(--mantine-color-red-6)" }} />
+					{segments.map((segment, index) => (
+						<Box
+							key={segment.key}
+							style={{
+								height: "100%",
+								width: `${(segment.count / total) * 100}%`,
+								background: colors[index % colors.length],
+							}}
+						/>
+					))}
+					<Box style={{ height: "100%", flex: 1, background: "var(--mantine-color-gray-5)" }} />
 				</Box>
 				<Text size="xs" c="dimmed" mt={8}>
-					分层阈值：平均分 ≥ 85 为好，60 ≤ 平均分 &lt; 85 为中，平均分 &lt; 60 为差
+					{numericBandSummary(policy) ?? "数值分段阈值由服务端等第政策给出。"}
+					{policy.numeric_band_description ? `（${policy.numeric_band_description}）` : ""}
 				</Text>
+				{notice && (
+					<Text size="xs" c="dimmed" mt={4}>
+						{notice.label}
+						{notice.note ? `：${notice.note}` : ""}
+					</Text>
+				)}
 			</Box>
 		</Paper>
 	);
@@ -281,6 +316,19 @@ export default function ScoreboardPage() {
 	const items = (data?.items ?? []) as ScoreboardRankingItem[];
 	const summary = data?.summary as ScoreboardSummary | undefined;
 	const total = data?.total ?? 0;
+	// 数值分段的标签与阈值由服务端等第政策给出（响应里 policy 与 summary.policy 同一份）
+	const policy = useMemo(
+		() => toGradePolicy(data?.policy ?? summary?.policy),
+		[data?.policy, summary?.policy],
+	);
+	// 分段筛选项的 value/label 都来自服务端 policy；没有政策就不渲染该筛选（不自己造分段名）
+	const tierFilterOptions = useMemo(
+		() => [
+			{ value: "all", label: "全部数值分段" },
+			...(policy?.numeric_bands ?? []).map((band) => ({ value: band.band, label: band.label })),
+		],
+		[policy],
+	);
 
 	/** 一键复位：把筛选相关参数整体从 URL 上摘掉（与其它列表页同语义）。 */
 	const handleClearFilters = useCallback(() => {
@@ -358,7 +406,7 @@ export default function ScoreboardPage() {
 			header: "病例数",
 			render: (r) => rightText(r.case_count),
 		},
-		{ key: "tier", header: "层次", render: (r) => tierCell(r.tier) },
+		{ key: "tier", header: "数值分段", render: (r) => tierCell(r.tier, policy) },
 		{
 			key: "progress",
 			header: "进步幅度",
@@ -384,7 +432,7 @@ export default function ScoreboardPage() {
 		<Stack gap="md">
 			<PageHeader
 				title="成绩管理"
-				subtitle="学生平均成绩排名 · 好中差分档 · 进步幅度"
+				subtitle="学生平均成绩排名 · 数值分段（非能力等第）· 进步幅度"
 				icon={IconAward}
 			/>
 
@@ -477,12 +525,14 @@ export default function ScoreboardPage() {
 							onChange={(v) => updateParam("sort_by", v)}
 							data={SORT_OPTIONS}
 						/>
-						<FilterSelect
-							label="层次"
-							value={tier}
-							onChange={(v) => updateParam("tier", v)}
-							data={TIER_OPTIONS}
-						/>
+						{policy && (
+							<FilterSelect
+								label="数值分段"
+								value={tier}
+								onChange={(v) => updateParam("tier", v)}
+								data={tierFilterOptions}
+							/>
+						)}
 					</>
 				}
 			/>
@@ -504,7 +554,7 @@ export default function ScoreboardPage() {
 				/>
 			</SimpleGrid>
 
-			<TierDistribution summary={summary} />
+			<TierDistribution summary={summary} policy={policy} />
 
 			{/* 与其它列表页同形：Paper + 表格自身当唯一描边层（原先 Card + CardContent 多一层） */}
 			<Paper withBorder style={{ overflow: "hidden" }}>
@@ -540,7 +590,7 @@ export default function ScoreboardPage() {
 								</Group>
 								<Group gap={8} align="center" wrap="nowrap" style={{ flexShrink: 0 }}>
 									{avgScoreCell(r)}
-									{tierCell(r.tier)}
+									{tierCell(r.tier, policy)}
 									<Button
 										variant="subtle" color="gray"
 										w={44} h={44} p={0}

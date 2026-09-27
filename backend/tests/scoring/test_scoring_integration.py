@@ -54,6 +54,10 @@ def _make_scoring_kwargs():
         "scoring_criteria": build_scoring_criteria(rubric),
         "required_inquiries": _MOCK_REQUIRED_INQUIRIES_TEXT,
         "scoring_json_schema": build_scoring_json_schema(rubric),
+        # 任务边界与已记录证据都是评分输入的一部分（docs/19 §4.2 第 1/2 条）
+        "task_boundary": "## 本次任务边界\n- 本次训练学生没有实施干预并观察效果的机会",
+        "exam_results": "学生未执行任何查体操作",
+        "nursing_record": "学生未提交护理评估记录",
     }
 
 
@@ -92,7 +96,7 @@ class TestScoringPromptSanity:
     def test_render_user_prompt_no_double_braces(self):
         from modules.training.prompts.scoring import SCORING_USER
 
-        user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
+        user = render_template(SCORING_USER, **_make_scoring_kwargs(), conversation_text=_MOCK_CONVERSATION)
 
         assert "{{" not in user, "发现双左大括号"
         assert "}}" not in user, "发现双右大括号"
@@ -291,7 +295,7 @@ class TestScoringFlowEndToEnd:
         )
 
         system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
-        user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
+        user = render_template(SCORING_USER, **_make_scoring_kwargs(), conversation_text=_MOCK_CONVERSATION)
 
         assert len(system) > 500, "System prompt 过短"
         assert len(user) > 50, "User prompt 过短"
@@ -382,6 +386,9 @@ class TestScoringFlowEndToEnd:
             ),
             "scoring_json_schema": build_scoring_json_schema(rubric),
             "conversation_text": _MOCK_CONVERSATION,
+            "task_boundary": "## 本次任务边界",
+            "exam_results": "学生未执行任何查体操作",
+            "nursing_record": "学生未提交护理评估记录",
         }
         assert sample, "scoring sample vars 为空"
 

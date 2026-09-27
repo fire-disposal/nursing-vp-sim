@@ -22,6 +22,7 @@ from schemas.training.session import (
     ChatMessageRequest,
     ChatMessageResponse,
     MessageCorrectionStatus,
+    StartPracticeRequest,
     TrainingStartRequest,
     TrainingStartResponse,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "ScoreReviewItem",
     "ScoringStatusResponse",
     "ScoringTriggerResponse",
+    "StartPracticeRequest",
     "TrainingNotificationItem",
     "TrainingRecordBrief",
     "TrainingRecordDetail",

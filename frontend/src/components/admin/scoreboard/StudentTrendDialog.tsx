@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Box, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Alert, Badge, Box, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import {
 	IconBolt,
 	IconClock,
+	IconInfoCircle,
 	IconMedal,
 	IconTrendingUp,
 	IconTrophy,
@@ -25,6 +26,12 @@ import { queryKeys } from "@/api/query-keys";
 import EmptyState from "@/components/ui/empty-state";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
+import {
+	capabilityNotice,
+	numericBandSummary,
+	toComparability,
+	toGradePolicy,
+} from "@/utils/grade-bands";
 
 type StudentTrendResponse = components["schemas"]["StudentTrendResponse"];
 
@@ -84,20 +91,11 @@ function trendBadge(trend: string, delta: number | null | undefined) {
 	);
 }
 
-/** 分层与后端一致：good ≥ 85，medium ≥ 60，poor < 60（0-100 分制）。 */
-const TIER_TEXT_COLOR: Record<string, string> = {
-	good: "green",
-	medium: "yellow",
-	poor: "red",
-	none: "dimmed",
-};
-
-function tierOf(score: number | null | undefined): string {
-	if (score == null) return "none";
-	if (score >= 85) return "good";
-	if (score >= 60) return "medium";
-	return "poor";
-}
+/**
+ * 数值分层与能力等第**不在页面上计算**（docs/19 §4.2 第 8 条）：标签与阈值由服务端
+ * 等第政策给出（趋势响应的 `policy` 块），页面对平均分只做数值展示，不按 85/60 自己分档。
+ * 跨可比组时服务端不返回 `progress_delta/progress_trend`，页面也不得自行下「进步/退步」结论。
+ */
 
 export default function StudentTrendDialog({
 	open,
@@ -132,10 +130,15 @@ export default function StudentTrendDialog({
 
 	const trend = data as StudentTrendResponse | null | undefined;
 	const trendRecords = trend?.records ?? [];
+	const policy = toGradePolicy(trend?.policy);
+	const capability = capabilityNotice(policy);
+	const comparability = toComparability(trend?.comparability);
+	// single_group=false：记录跨可比组 → 不展示跨组「进步/退步」结论（服务端此时不给 delta）
+	const crossGroup = comparability != null && !comparability.singleGroup;
 	const chartData =
 		trendRecords.map((r, i) => ({
 			name: `第${i + 1}次`,
-			label: `第${i + 1}次 · ${r.case_name || `病例#${r.case_id}`}`,
+			label: `第${i + 1}次 · ${r.case_name || `病例#${r.case_id}`}${r.comparability_label ? ` · ${r.comparability_label}` : ""}`,
 			score: r.score,
 			minutes: Math.round(r.duration_seconds / 60),
 			assignment: r.assignment_title ?? "自主训练",
@@ -176,12 +179,39 @@ export default function StudentTrendDialog({
 									{new Set(trendRecords.map((r) => r.case_id)).size} 个病例
 								</Text>
 							</Stack>
-							{trend.progress_delta != null && (
+							{!crossGroup && trend.progress_delta != null && (
 								<Badge variant="light" color="gray" leftSection={<IconTrendingUp size={14} />}>
 									进步幅度：{trendBadge(trend.progress_trend, trend.progress_delta)}
 								</Badge>
 							)}
 						</Group>
+
+						{crossGroup && (
+							<Alert
+								variant="light"
+								color="yellow"
+								icon={<IconInfoCircle size={16} />}
+								title="记录跨可比组，未计算进步幅度"
+							>
+								<Text size="xs">
+									不同任务/量尺/辅助条件的记录不构成可比组，前后均分之差不作为「进步/退步」结论（服务端此时不返回该值）。
+								</Text>
+								{comparability.groups.length > 0 && (
+									<Text size="xs" mt={4}>
+										可比组：
+										{comparability.groups.map((g) => `${g.label}（${g.count} 条）`).join("；")}
+									</Text>
+								)}
+							</Alert>
+						)}
+
+						{(numericBandSummary(policy) || capability) && (
+							<Text size="xs" c="dimmed">
+								{numericBandSummary(policy)}
+								{policy?.numeric_band_description ? `（${policy.numeric_band_description}）` : ""}
+								{capability ? ` ${capability.label}${capability.note ? `：${capability.note}` : ""}` : ""}
+							</Text>
+						)}
 
 						<SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
 							<Paper bg="var(--mantine-color-default-hover)" p="sm">
@@ -205,13 +235,13 @@ export default function StudentTrendDialog({
 							<Paper bg="var(--mantine-color-default-hover)" p="sm">
 								<Group gap={6} wrap="nowrap">
 									<IconMedal size={13} />
-									<Text size="xs" c="dimmed">平均分</Text>
+									<Text size="xs" c="dimmed">平均分（数值参考）</Text>
 								</Group>
 								<Text
 									mt={4}
 									size="lg"
 									fw={700}
-									c={TIER_TEXT_COLOR[tierOf(trend.avg_score)]}
+									title="数值参考，不代表能力等第"
 								>
 									{trend.avg_score ?? "-"}
 								</Text>
@@ -231,7 +261,13 @@ export default function StudentTrendDialog({
 									<Text size="xs" c="dimmed">进步幅度</Text>
 								</Group>
 								<Box mt={4} style={{ fontSize: "var(--mantine-font-size-lg)", fontWeight: 700 }}>
-									{trendBadge(trend.progress_trend, trend.progress_delta)}
+									{crossGroup ? (
+										<Text inherit size="sm" c="dimmed">
+											跨可比组，不计算
+										</Text>
+									) : (
+										trendBadge(trend.progress_trend, trend.progress_delta)
+									)}
 								</Box>
 							</Paper>
 						</SimpleGrid>

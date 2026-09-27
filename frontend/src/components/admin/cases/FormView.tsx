@@ -2,6 +2,7 @@ import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
 import { BackgroundEditor } from "./BackgroundEditor";
+import BlueprintEditor from "./BlueprintEditor";
 import CapabilitiesEditor from "./CapabilitiesEditor";
 import { ExamAnchorsEditor } from "./ExamAnchorsEditor";
 import { PatientSection } from "./PatientSection";
@@ -68,6 +69,9 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					onRequiredInquiriesChange={(v) => set("required_inquiries", v)}
 					disabled={disabled}
 				/>
+
+				{/* 教学蓝图（docs/19 §3.2）：缺失时不写入任何键，须由作者显式启用 */}
+				<BlueprintEditor state={state} dispatch={dispatch} disabled={disabled} />
 
 				<ExamAnchorsEditor
 					value={objField(state, "activities.physical_exam.config.vital_signs") as Record<string, string>}

@@ -56,7 +56,9 @@ export function ConversationComposer({
 					? "该你说话了"
 					: "");
 
-	const showVoiceStatus = mode === "voice" && voice.phase !== "idle";
+	// notice 全部产生于失败/回退路径（不支持、识别失败、启动失败、发送失败），此时 phase 恰好是
+	// idle —— 旧条件 `phase !== "idle"` 让这些提示永远不渲染，语音故障被静默吞掉（docs/19 E6）。
+	const showVoiceStatus = mode === "voice" && (voice.phase !== "idle" || voice.notice !== null);
 
 	// 浏览器不支持语音输入：灰色按钮仍可点，点击后弹出简洁提示（tooltip 兜底）。
 	const unsupported = !voice.supported;

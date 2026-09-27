@@ -1,4 +1,13 @@
-"""评分校验工具 —— 类型转换 + 字段验证 + 百分制换算"""
+"""评分校验工具 —— 类型转换 + 字段验证 + 原始量尺与展示投影。
+
+本批次（docs/19 §4.2）的三个不变量在这里落地：
+
+* **原始精度**：条目分与条目上限按 rubric 原始刻度（0-``raw_scale``）保存与判定，
+  展示换算（×factor、取整）只发生在最后一步，且只作用于展示投影层；
+* **适用性**：只有病例声明的条目可以是 ``not_applicable``（score=None），其余条目必须
+  有分数 —— 模型无法用"没答上来"缩小分母；
+* **反馈可为空**：字段缺失或类型错误才触发重试；空数组/空串是合法结果，不再强迫补全。
+"""
 
 import logging
 
@@ -7,56 +16,72 @@ from .mapping import apply_score_mapping, display_factor
 log = logging.getLogger(__name__)
 
 # ── 校验阈值 ──
-MIN_EVIDENCE_CHARS = 10
-MIN_REASON_CHARS = 5
-EVIDENCE_COVERAGE_THRESHOLD = 0.5  # 至少 50% 的得分项需要提供证据
+EVIDENCE_COVERAGE_THRESHOLD = 0.5  # 报告用：至少 50% 的条目带证据（不阻断评分）
 COERCE_MAX_DEPTH = 10
 
+STATUS_SCORED = "scored"
+STATUS_NOT_APPLICABLE = "not_applicable"
+STATUS_UNSCORED_BY_MODEL = "unscored_by_model"
 
-def _check_feedback_empty(result: dict) -> list[str]:
-    missing = []
-    for field in ("strengths", "weaknesses", "missed_content"):
-        if not isinstance(result.get(field), list) or len(result.get(field, [])) == 0:
-            missing.append(field)
-    if not isinstance(result.get("suggestions"), str) or not result.get("suggestions", "").strip():
-        missing.append("suggestions")
+FEEDBACK_LIST_FIELDS = ("strengths", "weaknesses", "missed_content")
+
+
+# ── 反馈字段：只判「缺失/类型错误」，空值是合法结果 ──
+
+
+def _missing_feedback_fields(result: dict) -> list[str]:
+    """返回缺失或类型非法的反馈字段标签；**空数组/空串不算缺失**。
+
+    这是「取消凑反馈」的判定处（docs/19 §4.2 第 5 条）：没有明确不足是真实结果，
+    不得因为它触发补全重试把「无不足」变成编造的不足。
+    """
+    missing: list[str] = []
+    for field in FEEDBACK_LIST_FIELDS:
+        if field not in result:
+            missing.append(f"{field}(缺失)")
+        elif not isinstance(result[field], list):
+            missing.append(f"{field}(类型错误)")
+    if "suggestions" not in result:
+        missing.append("suggestions(缺失)")
+    elif not isinstance(result["suggestions"], str):
+        missing.append("suggestions(类型错误)")
     return missing
 
 
 def _merge_feedback(first: dict, second: dict, missing: list[str]) -> dict:
+    """用第二轮结果补齐第一轮缺失/非法字段（空数组同样接受）。"""
     merged = dict(first)
     for field in missing:
-        val = second.get(field)
-        if field in ("strengths", "weaknesses", "missed_content"):
-            if isinstance(val, list) and len(val) > 0:
-                merged[field] = val
-        elif field == "suggestions" and isinstance(val, str) and val.strip():
-            merged[field] = val
+        name = field.split("(")[0]
+        val = second.get(name)
+        if name in FEEDBACK_LIST_FIELDS:
+            if isinstance(val, list):
+                merged[name] = val
+        elif name == "suggestions" and isinstance(val, str):
+            merged[name] = val
     return merged
 
 
-def _inject_rubric_max(result: dict, rubric: dict) -> None:
-    """Inject `max` from rubric into each dimension & item.
+def _normalize_feedback_fields(result: dict) -> list[str]:
+    """反馈字段类型归一化（唯一判定处）。返回缺失/非法字段标签，供日志使用；不抛异常。"""
+    defaults: dict[str, object] = {**{f: [] for f in FEEDBACK_LIST_FIELDS}, "suggestions": ""}
+    for field, default in defaults.items():
+        if field in result and not isinstance(result[field], type(default)):
+            result[field] = default
 
-    The LLM only outputs `score` — `max` is a structural constant
-    defined in the rubric, not something the LLM should determine.
-    """
-    raw_scale = rubric.get("raw_scale", 3)
-    dimensions = {d["id"]: d for d in rubric.get("dimensions", [])}
-    detail = result.get("detail_scores", {})
-    for dim_name, dim_data in detail.items():
-        if not isinstance(dim_data, dict):
-            continue
-        # Find matching rubric dimension by name fallback
-        rd = next((d for d in dimensions.values() if d["name"] == dim_name), None)
-        if rd:
-            dim_data["max"] = rd["max"]
-        else:
-            dim_data.setdefault("max", sum(raw_scale for _ in dim_data.get("items", [])) or raw_scale)
+    problems: list[str] = []
+    for field, expected in (*((f, list) for f in FEEDBACK_LIST_FIELDS), ("suggestions", str)):
+        value = result.get(field)
+        if value is None:
+            problems.append(f"{field}(缺失)")
+            result[field] = [] if expected is list else ""
+        elif not isinstance(value, expected):
+            problems.append(f"{field}(类型错误)")
+            result[field] = [] if expected is list else ""
+    return problems
 
-        for item in dim_data.get("items", []):
-            if isinstance(item, dict):
-                item["max"] = raw_scale
+
+# ── 数值与结构 ──
 
 
 def _coerce_numeric_fields(obj: dict, depth: int = 0):
@@ -79,6 +104,117 @@ def _coerce_numeric_fields(obj: dict, depth: int = 0):
                     _coerce_numeric_fields(item, depth + 1)
 
 
+def _inject_rubric_max(result: dict, rubric: dict) -> None:
+    """把 rubric 的结构常量注入条目：条目上限恒为 ``raw_scale``（原始刻度）。"""
+    raw_scale = rubric.get("raw_scale", 3)
+    detail = result.get("detail_scores", {})
+    for dim_name, dim_data in detail.items():
+        if not isinstance(dim_data, dict):
+            continue
+        rd = next((d for d in rubric.get("dimensions", []) if d["name"] == dim_name), None)
+        if rd:
+            dim_data["max"] = rd["max"]
+        else:
+            dim_data.setdefault("max", sum(raw_scale for _ in dim_data.get("items", [])) or raw_scale)
+        for item in dim_data.get("items", []):
+            if isinstance(item, dict):
+                item["max"] = raw_scale
+
+
+def _clamp_scores(detail_scores: dict, raw_scale: int) -> None:
+    if raw_scale <= 0:
+        return
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        dim_max = dim_data.get("max", 0)
+        if isinstance(dim_data.get("score"), (int, float)):
+            dim_data["score"] = max(0.0, min(float(dim_data["score"]), float(dim_max)))
+        for item in dim_data.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            if item.get("score") is None:
+                continue
+            item["score"] = max(0.0, min(float(item.get("score", 0)), float(raw_scale)))
+
+
+def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 2) -> float:
+    """总分 = Σ条目分（原始刻度）。``score=None`` 的条目不参与（不适用或未判）。"""
+    if raw_scale <= 0:
+        return 0.0
+    total = 0.0
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            s = item.get("score")
+            if not isinstance(s, (int, float)):
+                continue
+            total += max(0.0, min(float(s), float(raw_scale)))
+    return round(total, 1)
+
+
+def _apply_item_status(detail_scores: dict, not_applicable: frozenset[str]) -> tuple[list[str], list[str]]:
+    """按病例声明标注每个条目的状态（唯一判定处）。
+
+    返回 ``(declared_not_applicable, unscored_by_model)``：
+
+    * ``declared_not_applicable`` —— 病例声明不适用且确实出现在结果里的条目 id（不含入分母）
+    * ``unscored_by_model`` —— 未声明不适用却没有分数的条目：这是模型/系统问题，必须显式
+      标记（记录级 fallback），**不得**当成学生得 0 分进入统计
+    """
+    declared: list[str] = []
+    unscored: list[str] = []
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id") or "")
+            has_score = isinstance(item.get("score"), (int, float))
+            if item_id and item_id in not_applicable:
+                item["score"] = None
+                item["status"] = STATUS_NOT_APPLICABLE
+                declared.append(item_id)
+            elif has_score:
+                item["status"] = STATUS_SCORED
+            else:
+                item["status"] = STATUS_UNSCORED_BY_MODEL
+                unscored.append(f"{dim_data.get('id') or ''}:{item_id or item.get('name') or '?'}")
+    return declared, unscored
+
+
+def _recalc_dim_max(detail_scores: dict, raw_scale: int) -> None:
+    """维度上限 = 该维度**适用**条目数 × ``raw_scale``（不适用条目不计入分母）。"""
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        applicable = sum(
+            1
+            for item in dim_data.get("items", []) or []
+            if isinstance(item, dict) and item.get("status") != STATUS_NOT_APPLICABLE
+        )
+        dim_data["max"] = raw_scale * applicable
+
+
+def applicable_raw_max(detail_scores: dict, raw_scale: int) -> float:
+    """本次评分适用的原始满分（分母）。不适用条目不计入，模型未判条目仍计入。"""
+    total = 0.0
+    for dim_data in detail_scores.values():
+        if not isinstance(dim_data, dict):
+            continue
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            if item.get("status") == STATUS_NOT_APPLICABLE:
+                continue
+            total += float(raw_scale)
+    return total
+
+
 def _validate_scoring_essentials(result: dict):
     """第一阶段校验：仅检查 total_score 和 detail_scores 核心字段。"""
     if "total_score" not in result:
@@ -94,104 +230,187 @@ def _validate_scoring_essentials(result: dict):
 
 
 def _validate_feedback_fields(result: dict):
-    """第二阶段校验：仅检查四个反馈字段。"""
-    empty = _check_feedback_empty(result)
-    if empty:
-        raise ValueError(f"反馈字段不完整: {', '.join([f'{f}(为空)' for f in empty])}")
+    """第二阶段校验：只判缺失/类型非法（空反馈合法，不触发重试）。"""
+    missing = _missing_feedback_fields(result)
+    if missing:
+        raise ValueError(f"反馈字段不完整: {', '.join(missing)}")
 
 
-def _validate_items_content(detail_scores: dict) -> list[str]:
-    errors = []
+def _validate_items_content(detail_scores: dict, not_applicable: frozenset[str] = frozenset()) -> list[str]:
+    """条目内容校验：得分要有可核对的证据，失分要说明判定依据。
+
+    不再设字数下限 —— 简洁有效的表达不得因为短而被判无效（docs/19 §4.2 第 3 条）。
+    """
+    errors: list[str] = []
     for dim_name, dim_data in detail_scores.items():
         if not isinstance(dim_data, dict):
             continue
         for item in dim_data.get("items", []):
             if not isinstance(item, dict):
                 continue
-            item_score = item.get("score", 0)
-            if isinstance(item_score, str):
-                raw_score = item_score
-                try:
-                    item_score = float(item_score)
-                except ValueError:
-                    log.warning(
-                        "评分条目 score 字符串无法转换: dim=%s item=%s value=%r",
-                        dim_name,
-                        item.get("name", "?"),
-                        raw_score[:100],
-                    )
-                    item_score = 0
-            if not isinstance(item_score, (int, float)):
-                log.warning(
-                    "评分条目 score 类型异常(强制清零): dim=%s item=%s type=%s",
-                    dim_name,
-                    item.get("name", "?"),
-                    type(item_score).__name__,
-                )
-                item_score = 0
-            ev = (item.get("evidence") or "").strip()
-            rea = (item.get("reason") or "").strip()
-            # Only require detailed evidence/reason if the student scored points
-            if item_score > 0:
-                if len(ev) < MIN_EVIDENCE_CHARS:
-                    errors.append(f"{dim_name}.{item.get('name', '?')}: evidence 过短 ({len(ev)}字)")
-                if len(rea) < MIN_REASON_CHARS:
-                    errors.append(f"{dim_name}.{item.get('name', '?')}: reason 过短 ({len(rea)}字)")
+            label = f"{dim_name}.{item.get('name') or item.get('id') or '?'}"
+            item_id = str(item.get("id") or "")
+            score = item.get("score")
+            if score is None:
+                if item_id not in not_applicable:
+                    errors.append(f"{label}: 缺少 score（只有病例声明不适用的条目才可为 null）")
+                continue
+            if not isinstance(score, (int, float)):
+                errors.append(f"{label}: score 类型非法({type(score).__name__})")
+                continue
+            evidence = str(item.get("evidence") or "").strip()
+            reason = str(item.get("reason") or "").strip()
+            if score > 0 and not evidence:
+                errors.append(f"{label}: 得分缺少证据引用")
+            if score <= 0 and not reason:
+                errors.append(f"{label}: 未得分缺少判定依据(reason)")
     return errors
 
 
-def _normalize_feedback_fields(result: dict) -> list[str]:
-    """反馈字段类型归一化（唯一判定处）。
+def _filter_hallucinated_dimensions(detail_scores: dict, rubric_dim_names: set[str]) -> dict:
+    removed = [k for k in detail_scores if k not in rubric_dim_names]
+    if removed:
+        log.warning("hallucinated_dimensions_removed", extra={"dimensions": removed})
+    return {k: v for k, v in detail_scores.items() if k in rubric_dim_names}
 
-    返回缺失/非法字段标签列表，供日志使用；不抛异常——反馈缺失不影响评分维度。
+
+def rubric_item_index(rubric: dict) -> dict[str, dict[str, str]]:
+    """``{维度名: {条目 id: 条目名}}`` —— 本次评分**应当**覆盖的条目集合（冻结 rubric）。"""
+    index: dict[str, dict[str, str]] = {}
+    for dim in rubric.get("dimensions", []) or []:
+        if not isinstance(dim, dict):
+            continue
+        index[str(dim.get("name") or "")] = {
+            str(item.get("id") or ""): str(item.get("name") or "")
+            for item in dim.get("items", []) or []
+            if isinstance(item, dict) and item.get("id")
+        }
+    return index
+
+
+def _filter_hallucinated_items(detail_scores: dict, rubric: dict) -> list[str]:
+    """剔除维度内**不在 rubric 里**的条目；返回被剔除的 ``维度/条目`` 标签。
+
+    这些条目会让分母超过该病例声明的原始满分（凭空抬分或抬分母），必须丢弃而不是计分。
     """
-    type_defaults = {
-        "strengths": [],
-        "weaknesses": [],
-        "missed_content": [],
-        "suggestions": "",
-    }
-    for field, default in type_defaults.items():
-        if field in result and not isinstance(result[field], type(default)):
-            result[field] = default
-
-    empty_feedback = []
-    for field, expected_type in [
-        ("strengths", list),
-        ("weaknesses", list),
-        ("missed_content", list),
-        ("suggestions", str),
-    ]:
-        value = result.get(field)
-        is_list_type = expected_type is list
-        if value is None:
-            empty_feedback.append(f"{field}(缺失)")
-            result[field] = [] if is_list_type else ""
-        elif not isinstance(value, expected_type):
-            empty_feedback.append(f"{field}(类型错误)")
-            result[field] = [] if is_list_type else ""
-        elif (is_list_type and len(value) == 0) or (not is_list_type and not value.strip()):
-            empty_feedback.append(f"{field}(为空)")
-    return empty_feedback
+    index = rubric_item_index(rubric)
+    removed: list[str] = []
+    for dim_name, dim_data in detail_scores.items():
+        if not isinstance(dim_data, dict):
+            continue
+        valid = index.get(str(dim_name))
+        if valid is None:
+            continue
+        kept = []
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id") or "")
+            if item_id in valid:
+                kept.append(item)
+            else:
+                removed.append(f"{dim_name}/{item_id or item.get('name') or '?'}")
+        dim_data["items"] = kept
+    if removed:
+        log.warning("hallucinated_items_removed", extra={"items": removed})
+    return removed
 
 
-def _validate_scoring_result(result: dict, rubric: dict | None = None):
-    """最终校验：全字段完整性检查。"""
+def _inject_missing_dimensions(
+    detail_scores: dict, rubric: dict, not_applicable: frozenset[str] = frozenset()
+) -> list[str]:
+    """为缺失维度注入条目；返回被注入的维度名列表（供 fallback 标记，S4）。
+
+    注入的条目状态是 ``unscored_by_model``（score=None），不是 0 分：模型没答上来不等于学生没做，
+    0 分会让学生与教师把"系统漏答"读成"学生表现差"，而且会压低分母。调用方据注入结果标记
+    fallback（该记录不进统计）。
+    """
+    raw_scale = rubric.get("raw_scale", 3)
+    injected: list[str] = []
+    for dim in rubric.get("dimensions", []):
+        dim_name = dim["name"]
+        if dim_name in detail_scores:
+            continue
+        items = []
+        for it in dim.get("items", []):
+            na = it["id"] in not_applicable
+            items.append(
+                {
+                    "id": it["id"],
+                    "name": it["name"],
+                    "score": None,
+                    "max": raw_scale,
+                    "status": STATUS_NOT_APPLICABLE if na else STATUS_UNSCORED_BY_MODEL,
+                    "evidence": "",
+                    "reason": "模型未返回该条目",
+                }
+            )
+        detail_scores[dim_name] = {
+            "id": dim.get("id", ""),
+            "score": 0,
+            "max": dim.get("max", 0),
+            "items": items,
+            "_injected": True,
+        }
+        injected.append(dim_name)
+        log.warning("missing_dimension_injected", extra={"dimension": dim_name})
+    return injected
+
+
+def _backfill_missing_items(
+    detail_scores: dict, rubric: dict, not_applicable: frozenset[str] = frozenset()
+) -> list[str]:
+    """维度存在但条目缺失时补齐（``unscored_by_model``）——**分母必须来自冻结 rubric**。
+
+    否则模型漏答的条目会同时从分子与分母消失，"漏答"反而变成更高的展示分（docs/19 §3.2 第 4 条）。
+    返回被补齐的 ``维度/条目`` 标签，供调用方标记 fallback。
+    """
+    raw_scale = rubric.get("raw_scale", 3)
+    index = rubric_item_index(rubric)
+    backfilled: list[str] = []
+    for dim_name, dim_data in detail_scores.items():
+        if not isinstance(dim_data, dict):
+            continue
+        expected = index.get(str(dim_name))
+        if not expected:
+            continue
+        present = {str(item.get("id") or "") for item in dim_data.get("items", []) or [] if isinstance(item, dict)}
+        items = list(dim_data.get("items", []) or [])
+        for item_id, item_name in expected.items():
+            if item_id in present:
+                continue
+            items.append(
+                {
+                    "id": item_id,
+                    "name": item_name,
+                    "score": None,
+                    "max": raw_scale,
+                    "status": STATUS_NOT_APPLICABLE if item_id in not_applicable else STATUS_UNSCORED_BY_MODEL,
+                    "evidence": "",
+                    "reason": "模型未返回该条目",
+                }
+            )
+            backfilled.append(f"{dim_name}/{item_id}")
+        dim_data["items"] = items
+    if backfilled:
+        log.warning("missing_items_backfilled", extra={"items": backfilled})
+    return backfilled
+
+
+def _validate_scoring_result(result: dict, rubric: dict | None = None, not_applicable: frozenset[str] = frozenset()):
+    """最终校验：全字段完整性检查（条目内容问题降级为警告 + 日志）。"""
     _validate_scoring_essentials(result)
 
-    item_errors = _validate_items_content(result.get("detail_scores", {}))
+    item_errors = _validate_items_content(result.get("detail_scores", {}), not_applicable)
     if item_errors:
         log.warning(
             "评分条目内容校验不通过（降为警告，不阻断评分）",
-            extra={"item_errors": item_errors, "detail_scores": result.get("detail_scores", {})},
+            extra={"item_errors": item_errors},
         )
 
     empty_feedback = _normalize_feedback_fields(result)
     if empty_feedback:
-        log.warning(
-            "反馈字段不完整（评分维度不受影响）",
-            extra={"missing_feedback": empty_feedback},
-        )
+        log.warning("反馈字段缺失或类型非法（评分维度不受影响）", extra={"missing_feedback": empty_feedback})
 
     if rubric:
         total_items = 0
@@ -210,11 +429,11 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
             )
 
 
-def _convert_to_100_scale(result: dict, raw_max: int):
-    """展示换算（落库前调用）：total_score 与 detail_scores 转为展示刻度。
+def _convert_to_100_scale(result: dict, raw_max: float):
+    """展示换算（落库前调用）：把**原始刻度**投影到展示刻度。
 
-    Phase 1 契约：raw_total/dim_total 在换算前已由 postprocess 快照（保持 raw）；
-    此处只做展示化，供前端直接消费（与旧版展示形态一致，前端零改动）。
+    ``raw_max`` 是**本次评分适用的原始满分**（不适用条目已排除）。展示层的维度上限之和
+    仍恒为 100，因此既有消费方（分母、颜色）无需改变口径。
     """
     if raw_max <= 0:
         return
@@ -230,60 +449,19 @@ def _convert_to_100_scale(result: dict, raw_max: int):
             dim_data["max"] = round(dim_data.get("max", 0) * factor)
             for item in dim_data.get("items", []):
                 if isinstance(item, dict):
+                    if item.get("score") is None:
+                        item["max"] = round(item.get("max", 0) * factor)
+                        continue
                     item["score"] = round(item.get("score", 0) * factor)
                     item["max"] = round(item.get("max", 0) * factor)
 
 
-def _filter_hallucinated_dimensions(detail_scores: dict, rubric_dim_names: set[str]) -> dict:
-    removed = [k for k in detail_scores if k not in rubric_dim_names]
-    if removed:
-        log.warning("hallucinated_dimensions_removed", extra={"dimensions": removed})
-    return {k: v for k, v in detail_scores.items() if k in rubric_dim_names}
+def raw_view_from_display(detail_scores: dict, raw_max: int, raw_scale: int = 2) -> dict:
+    """旧记录（无 ``raw_detail_scores``）的原始条目视图：展示刻度 ÷ 因子 还原。
 
-
-def _clamp_scores(detail_scores: dict, raw_scale: int) -> None:
-    if raw_scale <= 0:
-        return
-    for dim_data in detail_scores.values():
-        if not isinstance(dim_data, dict):
-            continue
-        dim_max = dim_data.get("max", 0)
-        if "score" in dim_data:
-            dim_data["score"] = max(0.0, min(float(dim_data["score"]), float(dim_max)))
-        for item in dim_data.get("items", []):
-            if isinstance(item, dict):
-                item["score"] = max(0.0, min(float(item.get("score", 0)), float(raw_scale)))
-
-
-def _recalc_total_from_dimensions(detail_scores: dict, raw_scale: int = 2) -> float:
-    """Phase 1 (S2)：总分 = Σ条目分。维度分仅自评展示，不参与总分。
-
-    旧实现用 dim.score（LLM 维度自评）归一化——条目分成为装饰且与总分无
-    算术关系；本实现改为逐条目累加（每项钳制在 [0, raw_scale]），
-    保证"总分 == Σ条目分"可审计。
+    只为解释历史数据保留的分支：新记录一律直接读原始层（docs/19 §4.4）。
     """
-    if raw_scale <= 0:
-        return 0.0
-    total = 0.0
-    for dim_data in detail_scores.values():
-        if not isinstance(dim_data, dict):
-            continue
-        for item in dim_data.get("items", []) or []:
-            if not isinstance(item, dict):
-                continue
-            s = item.get("score", 0)
-            if not isinstance(s, (int, float)):
-                continue
-            total += max(0.0, min(float(s), float(raw_scale)))
-    return round(total, 1)
-
-
-def display_to_raw(detail_scores: dict, factor: float) -> dict:
-    """把展示刻度（item max = round(raw_scale*factor)）还原为 raw 刻度（0-2）。
-
-    教师复核在前端编辑的是展示刻度（0-5/项），提交后必须先还原为 raw
-    再聚合——否则复核总分会按展示刻度放大（S1 根因）。
-    """
+    factor = display_factor(raw_max)
     out: dict = {}
     if factor <= 0:
         factor = 1.0
@@ -300,33 +478,63 @@ def display_to_raw(detail_scores: dict, factor: float) -> dict:
             ni = dict(it)
             if isinstance(ni.get("score"), (int, float)):
                 ni["score"] = round(ni["score"] / factor)
+            ni.setdefault("max", raw_scale)
+            ni.setdefault("status", STATUS_SCORED)
             items.append(ni)
         nd["items"] = items
+        nd["max"] = raw_scale * len(items)
         out[name] = nd
     return out
 
 
-def review_total_from_detail(detail_scores: dict, raw_max: int, raw_scale: int = 2) -> int:
-    """复核总分：展示刻度 → raw → Σ条目 → 展示分。恒 ∈ [0, 100]。"""
-    raw = display_to_raw(detail_scores, display_factor(raw_max))
-    total = _recalc_total_from_dimensions(raw, raw_scale)
-    return apply_score_mapping(total, raw_max)
+def review_total_from_raw(detail_raw: dict, applicable_raw_max_value: float, raw_scale: int = 2) -> int:
+    """复核总分：原始条目 → Σ → 展示分。恒 ∈ [0, 100]。
+
+    教师复核编辑的是**原始条目**（不改条目直接提交 → Σ 不变 → 总分不变）。
+    """
+    total = _recalc_total_from_dimensions(detail_raw, raw_scale)
+    return apply_score_mapping(total, applicable_raw_max_value)
 
 
-def _inject_missing_dimensions(detail_scores: dict, rubric: dict) -> list[str]:
-    """为缺失维度注入 0 分条目；返回被注入的维度名列表（供 fallback 标记，S4）。"""
-    raw_scale = rubric.get("raw_scale", 3)
-    injected: list[str] = []
-    for dim in rubric.get("dimensions", []):
-        dim_name = dim["name"]
-        if dim_name not in detail_scores:
-            items = [{"id": it["id"], "name": it["name"], "score": 0, "max": raw_scale} for it in dim.get("items", [])]
-            detail_scores[dim_name] = {
-                "score": 0,
-                "max": dim.get("max", 0),
-                "items": items,
-                "_injected": True,
-            }
-            injected.append(dim_name)
-            log.warning("missing_dimension_injected", extra={"dimension": dim_name})
-    return injected
+def sanitize_review_raw(
+    detail_raw: dict,
+    rubric: dict,
+    not_applicable: frozenset[str] = frozenset(),
+) -> dict:
+    """把教师提交的原始条目收敛到该 rubric 的条目集合与量尺内。
+
+    复核是**成绩写入**，因此这里不沿用"宽容归一"：未知维度/条目直接丢弃（不能凭空
+    增大分母或总分），分值钳制到 ``[0, raw_scale]``，病例声明不适用的条目强制为 None。
+    """
+    raw_scale = rubric.get("raw_scale", 2)
+    valid: dict[str, dict[str, str]] = {
+        dim["name"]: {it["id"]: it.get("name", "") for it in dim.get("items", [])}
+        for dim in rubric.get("dimensions", [])
+    }
+    out: dict = {}
+    for dim_name, dim_data in (detail_raw or {}).items():
+        if dim_name not in valid or not isinstance(dim_data, dict):
+            continue
+        items = []
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id") or "")
+            if item_id not in valid[dim_name]:
+                continue
+            if item_id in not_applicable:
+                items.append({"id": item_id, "name": valid[dim_name][item_id], "score": None, "max": raw_scale})
+                continue
+            score = item.get("score")
+            if not isinstance(score, (int, float)):
+                score = 0
+            items.append(
+                {
+                    "id": item_id,
+                    "name": valid[dim_name][item_id],
+                    "score": max(0.0, min(float(score), float(raw_scale))),
+                    "max": raw_scale,
+                }
+            )
+        out[dim_name] = {"score": sum(it["score"] for it in items if it["score"] is not None), "items": items}
+    return out

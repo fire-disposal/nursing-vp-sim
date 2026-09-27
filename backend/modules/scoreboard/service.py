@@ -8,8 +8,8 @@
 - 分数口径（复核分优先 + 排除兜底分）由
   ``modules.training.scoring.grade_scope`` 统一定义，本模块只消费不重写。
 - 排名按「学生平均分」降序；平均用时取 ``end_time - start_time`` 秒。
-- 好/中/差分层基于平均分固定阈值（与前端 SCORE_COLOR 一致）：
-  good ≥ 85，medium ≥ 60，poor < 60。
+- 好/中/差分层是**数值分段**：阈值与标签由 ``modules/training/scoring/grade_policy``
+  唯一给出（good ≥ 85，medium ≥ 60）；它不等于经校准的能力等第，响应随附 policy 块。
 - 进步幅度：按时间把该学生的成绩记录平分为前后两半，
   delta = 后半程均分 − 前半程均分；|delta| < 2 视为平稳。
 """
@@ -28,11 +28,17 @@ from sqlalchemy.orm import Session, joinedload
 from core.exceptions import NotFoundError
 from core.statuses import ScoringStatus, TrainingStatus
 from models import Assignment, Class, ClassMembership, Score, TrainingRecord, User
+from modules.training.scoring.comparability import build_comparability, comparability_key, key_label
+from modules.training.scoring.grade_policy import (
+    NUMERIC_BANDS,
+    PROGRESS_TREND_THRESHOLD,
+    numeric_band,
+    policy_descriptor,
+)
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas.scoreboard import (
     TIER_GOOD,
     TIER_MEDIUM,
-    TIER_NONE,
     TIER_POOR,
     TREND_DOWN,
     TREND_FLAT,
@@ -47,12 +53,10 @@ from schemas.scoreboard import (
 
 log = logging.getLogger(__name__)
 
-# 分层阈值（0-100 分制）
-GOOD_MIN = 85.0
-MEDIUM_MIN = 60.0
-
-# 进步幅度判定阈值（±2 分内视为平稳）
-PROGRESS_TREND_THRESHOLD = 2.0
+# 分层阈值来自等第政策（唯一来源），不在本模块重写：
+# NUMERIC_BANDS = (("good", 85.0), ("medium", 60.0))，无成绩 = none。
+_GOOD_MIN = NUMERIC_BANDS[0][1]
+_MEDIUM_MIN = NUMERIC_BANDS[1][1]
 
 # 排序字段白名单 → 分组子查询列
 _SORT_COLUMNS: dict[str, str] = {
@@ -80,14 +84,8 @@ class ScoreboardScope:
 
 
 def tier_for_score(score: float | None) -> str:
-    """按平均分分档：good ≥ 85，medium ≥ 60，poor < 60。"""
-    if score is None:
-        return TIER_NONE
-    if score >= GOOD_MIN:
-        return TIER_GOOD
-    if score >= MEDIUM_MIN:
-        return TIER_MEDIUM
-    return TIER_POOR
+    """数值分段（委托等第政策）：good ≥ 85，medium ≥ 60，其余 poor；无成绩 = none。"""
+    return numeric_band(score)
 
 
 def compute_progress(rows: Sequence[tuple[datetime, float]]) -> tuple[float | None, str]:
@@ -201,11 +199,11 @@ class ScoreboardService:
                 )
             )
         if tier == TIER_GOOD:
-            q = q.filter(sub.c.avg_score >= GOOD_MIN)
+            q = q.filter(sub.c.avg_score >= _GOOD_MIN)
         elif tier == TIER_MEDIUM:
-            q = q.filter(sub.c.avg_score >= MEDIUM_MIN, sub.c.avg_score < GOOD_MIN)
+            q = q.filter(sub.c.avg_score >= _MEDIUM_MIN, sub.c.avg_score < _GOOD_MIN)
         elif tier == TIER_POOR:
-            q = q.filter(sub.c.avg_score < MEDIUM_MIN)
+            q = q.filter(sub.c.avg_score < _MEDIUM_MIN)
 
         total = q.order_by(None).count()
 
@@ -240,6 +238,7 @@ class ScoreboardService:
             total=total,
             offset=offset,
             limit=limit,
+            policy=policy_descriptor(),
         )
 
     def _progress_for_users(self, user_ids: list[int], conditions: list) -> dict[int, tuple[float | None, str]]:
@@ -324,6 +323,35 @@ class ScoreboardService:
             )
         return items
 
+    def _comparability(self, conditions: list) -> dict:
+        """当前筛选范围的可比性块（量尺/规则身份是否一致）。
+
+        展示分是线性换算的结果，跨量尺求和并不代表可比（docs/19 §4.4）——所以聚合必须
+        带出"这些记录可比吗"，而不是只给一个均分。
+        """
+        rows = (
+            self.db.query(
+                TrainingRecord.case_id,
+                Score.rubric_version,
+                Score.score_meta,
+                TrainingRecord.practice_snapshot,
+            )
+            .join(Score, Score.record_id == TrainingRecord.id)
+            .outerjoin(Assignment, Assignment.id == TrainingRecord.assignment_id)
+            .filter(*conditions, *grade_conditions())
+            .all()
+        )
+        keys = [
+            comparability_key(
+                score_meta=score_meta,
+                rubric_version=rubric_version,
+                case_id=case_id,
+                mode=((practice_snapshot or {}).get("behavior") or {}).get("mode"),
+            )
+            for case_id, rubric_version, score_meta, practice_snapshot in rows
+        ]
+        return build_comparability(keys)
+
     def _summary(self, conditions: list, now: datetime) -> ScoreboardSummary:
         sub = self._stats_query(conditions).subquery()
         row = (
@@ -340,8 +368,8 @@ class ScoreboardService:
         tier_rows = (
             self.db.query(
                 case(
-                    (sub.c.avg_score >= GOOD_MIN, TIER_GOOD),
-                    (sub.c.avg_score >= MEDIUM_MIN, TIER_MEDIUM),
+                    (sub.c.avg_score >= _GOOD_MIN, TIER_GOOD),
+                    (sub.c.avg_score >= _MEDIUM_MIN, TIER_MEDIUM),
                     else_=TIER_POOR,
                 ).label("tier"),
                 func.count().label("cnt"),
@@ -370,7 +398,9 @@ class ScoreboardService:
             avg_score=round(float(row.avg_score), 1) if row.avg_score is not None else None,
             avg_duration_seconds=round(float(row.avg_duration)) if row.avg_duration is not None else None,
             tier_counts=tier_counts,
-            thresholds={"good_min": GOOD_MIN, "poor_max": MEDIUM_MIN},
+            thresholds={"good_min": _GOOD_MIN, "poor_max": _MEDIUM_MIN},
+            policy=policy_descriptor(),
+            comparability=self._comparability(conditions),
         )
 
     # ── 学生趋势 ──
@@ -410,8 +440,19 @@ class ScoreboardService:
             class_name_query = class_name_query.filter(Class.id == scope.class_id)
         class_name = class_name_query.order_by(Class.id).first()
 
+        keys = [
+            comparability_key(
+                score_meta=record.score.score_meta if record.score else None,
+                rubric_version=record.score.rubric_version if record.score else None,
+                case_id=record.case_id,
+                mode=(dict(record.practice_snapshot or {}).get("behavior") or {}).get("mode"),
+            )
+            for record, _score in rows
+        ]
+        comparability = build_comparability(keys)
+
         trend_records: list[StudentTrendRecord] = []
-        for record, score in rows:
+        for (record, score), key in zip(rows, keys, strict=False):
             duration = 0
             if record.start_time and record.end_time:
                 duration = max(0, int((record.end_time - record.start_time).total_seconds()))
@@ -426,11 +467,20 @@ class ScoreboardService:
                     duration_seconds=duration,
                     start_time=record.start_time,
                     end_time=record.end_time,
+                    comparability_label=key_label(key),
                 )
             )
 
         scores = [tr.score for tr in trend_records]
-        delta, trend = compute_progress([(tr.start_time, tr.score) for tr in trend_records])
+        # 跨量尺不算进步：不同任务/量尺的前后均分之差不是"进步"证据（docs/19 §4.4）。
+        if comparability["single_group"]:
+            delta, trend = compute_progress([(tr.start_time, tr.score) for tr in trend_records])
+        else:
+            delta, trend = None, TREND_NONE
+            log.info(
+                "comparability_mixed: 学生 %d 的趋势跨可比组，未计算总体进步幅度",
+                user_id,
+            )
 
         return StudentTrendResponse(
             user_id=user_id,
@@ -446,4 +496,6 @@ class ScoreboardService:
             progress_delta=delta,
             progress_trend=trend,
             records=trend_records,
+            policy=policy_descriptor(),
+            comparability=comparability,
         )

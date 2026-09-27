@@ -3,10 +3,10 @@
 import pytest
 
 from modules.training.scoring.validation import (
-    _check_feedback_empty,
     _coerce_numeric_fields,
     _convert_to_100_scale,
     _merge_feedback,
+    _missing_feedback_fields,
     _validate_feedback_fields,
     _validate_scoring_essentials,
     _validate_scoring_result,
@@ -197,64 +197,23 @@ def test_validate_feedback_fields_passes_with_valid_data():
     )
 
 
-def test_validate_feedback_fields_raises_empty_strengths():
+def test_validate_feedback_fields_accepts_empty_strengths():
+    """空数组是合法结果 —— 不得触发补全重试把它变成编造的优点。"""
+    _validate_feedback_fields({"strengths": [], "weaknesses": ["w"], "missed_content": ["m"], "suggestions": "s"})
+
+
+def test_validate_feedback_fields_raises_on_absent_field():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields(
-            {
-                "strengths": [],
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "s",
-            }
-        )
+        _validate_feedback_fields({"weaknesses": ["w"], "missed_content": ["m"], "suggestions": "s"})
 
 
-def test_validate_feedback_fields_raises_empty_weaknesses():
-    with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields(
-            {
-                "strengths": ["s"],
-                "weaknesses": [],
-                "missed_content": ["m"],
-                "suggestions": "sug",
-            }
-        )
-
-
-def test_validate_feedback_fields_raises_empty_missed_content():
-    with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields(
-            {
-                "strengths": ["s"],
-                "weaknesses": ["w"],
-                "missed_content": [],
-                "suggestions": "sug",
-            }
-        )
-
-
-def test_validate_feedback_fields_raises_empty_suggestions():
-    with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields(
-            {
-                "strengths": ["s"],
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "",
-            }
-        )
-
-
-def test_validate_feedback_fields_raises_whitespace_only_suggestions():
-    with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields(
-            {
-                "strengths": ["s"],
-                "weaknesses": ["w"],
-                "missed_content": ["m"],
-                "suggestions": "   ",
-            }
-        )
+def test_validate_feedback_fields_accepts_all_empty_forms():
+    """四项全空（空数组/空串/纯空白）都是合法结果：没有不足就不编造（docs/19 §4.2 第 5 条）。"""
+    _validate_feedback_fields({"strengths": ["s"], "weaknesses": [], "missed_content": ["m"], "suggestions": "sug"})
+    _validate_feedback_fields({"strengths": ["s"], "weaknesses": ["w"], "missed_content": [], "suggestions": "sug"})
+    _validate_feedback_fields({"strengths": ["s"], "weaknesses": ["w"], "missed_content": ["m"], "suggestions": ""})
+    _validate_feedback_fields({"strengths": ["s"], "weaknesses": ["w"], "missed_content": ["m"], "suggestions": "   "})
+    _validate_feedback_fields({"strengths": [], "weaknesses": [], "missed_content": [], "suggestions": ""})
 
 
 def test_validate_feedback_fields_raises_missing_field():
@@ -281,121 +240,38 @@ def test_validate_feedback_fields_raises_wrong_type():
 
 
 # ──────────────────────────────────────────────
-# _check_feedback_empty
+# _missing_feedback_fields（空反馈合法：只有缺失/类型错误才算不完整）
 # ──────────────────────────────────────────────
 
 
-def test_check_feedback_empty_returns_empty_list_when_all_valid():
-    result = _check_feedback_empty(
-        {
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        }
+def test_missing_feedback_fields_empty_when_all_present():
+    result = _missing_feedback_fields(
+        {"strengths": ["s"], "weaknesses": ["w"], "missed_content": ["m"], "suggestions": "sug"}
     )
     assert result == []
 
 
-def test_check_feedback_empty_returns_strengths_when_empty_list():
-    result = _check_feedback_empty(
-        {
-            "strengths": [],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        }
+def test_missing_feedback_fields_treats_empty_lists_as_legal():
+    """没有明确不足/漏问是真实结果，不得触发补全重试（docs/19 §4.2 第 5 条）。"""
+    result = _missing_feedback_fields({"strengths": [], "weaknesses": [], "missed_content": [], "suggestions": ""})
+    assert result == []
+
+
+def test_missing_feedback_fields_reports_absent_field():
+    result = _missing_feedback_fields({"weaknesses": ["w"], "missed_content": ["m"], "suggestions": "s"})
+    assert result == ["strengths(缺失)"]
+
+
+def test_missing_feedback_fields_reports_wrong_type():
+    result = _missing_feedback_fields(
+        {"strengths": "not a list", "weaknesses": ["w"], "missed_content": ["m"], "suggestions": "s"}
     )
-    assert result == ["strengths"]
+    assert result == ["strengths(类型错误)"]
 
 
-def test_check_feedback_empty_returns_weaknesses_when_empty_list():
-    result = _check_feedback_empty(
-        {
-            "strengths": ["s"],
-            "weaknesses": [],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        }
-    )
-    assert result == ["weaknesses"]
-
-
-def test_check_feedback_empty_returns_missed_content_when_empty_list():
-    result = _check_feedback_empty(
-        {
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": [],
-            "suggestions": "s",
-        }
-    )
-    assert result == ["missed_content"]
-
-
-def test_check_feedback_empty_returns_suggestions_when_empty_string():
-    result = _check_feedback_empty(
-        {
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "",
-        }
-    )
-    assert result == ["suggestions"]
-
-
-def test_check_feedback_empty_returns_suggestions_when_whitespace_only():
-    result = _check_feedback_empty(
-        {
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "   ",
-        }
-    )
-    assert result == ["suggestions"]
-
-
-def test_check_feedback_empty_returns_multiple_missing():
-    result = _check_feedback_empty(
-        {
-            "strengths": [],
-            "weaknesses": [],
-            "missed_content": ["m"],
-            "suggestions": "",
-        }
-    )
-    assert set(result) == {"strengths", "weaknesses", "suggestions"}
-
-
-def test_check_feedback_empty_returns_fields_when_none():
-    result = _check_feedback_empty(
-        {
-            "strengths": None,
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        }
-    )
-    assert "strengths" in result
-
-
-def test_check_feedback_empty_returns_all_fields_when_all_missing():
-    result = _check_feedback_empty({})
-    assert set(result) == {"strengths", "weaknesses", "missed_content", "suggestions"}
-
-
-def test_check_feedback_empty_handles_wrong_type_for_strengths():
-    result = _check_feedback_empty(
-        {
-            "strengths": "not a list",
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        }
-    )
-    assert "strengths" in result
+def test_missing_feedback_fields_reports_all_absent():
+    result = _missing_feedback_fields({})
+    assert set(result) == {"strengths(缺失)", "weaknesses(缺失)", "missed_content(缺失)", "suggestions(缺失)"}
 
 
 # ──────────────────────────────────────────────
@@ -462,12 +338,13 @@ def test_merge_feedback_returns_copy_not_mutate_input():
 
 
 def test_merge_feedback_handles_empty_second_values():
+    """补全轮返回空数组/空串时原样采用 —— 空值是合法结果，不再被当成"仍缺失"。"""
     first = {"strengths": [], "weaknesses": ["w1"], "missed_content": ["m1"], "suggestions": ""}
     second = {"strengths": [], "weaknesses": ["w2"], "missed_content": ["m2"], "suggestions": "  "}
     missing = ["strengths", "suggestions"]
     result = _merge_feedback(first, second, missing)
     assert result["strengths"] == []
-    assert result["suggestions"] == ""
+    assert result["suggestions"].strip() == ""
 
 
 # ──────────────────────────────────────────────

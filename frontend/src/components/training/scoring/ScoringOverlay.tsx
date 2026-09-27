@@ -1,7 +1,7 @@
+import { Box, Button, Group, Loader, Progress, SimpleGrid, Text } from "@mantine/core";
 import { IconBrain, IconLoader2, IconRotate } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Group, Loader, SimpleGrid, Text } from "@mantine/core";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 
 const phaseLabels: Record<string, string> = {
@@ -14,10 +14,13 @@ const phaseLabels: Record<string, string> = {
 	processing: "评分处理中...",
 };
 
-interface Progress {
+/** 本地进度视图（与 Mantine 的 `Progress` 组件同名会遮蔽，故显式区分） */
+interface ScoringProgressView {
 	phase: ScorePhase;
 	percentage: number;
 	message: string;
+	/** 后端未给出可靠进度 = 不定态（不显示百分比） */
+	indeterminate?: boolean;
 	thought?: string;
 	score_thought?: string;
 	feedback_thought?: string;
@@ -30,7 +33,7 @@ export function ScoringOverlay({
 	onRetry,
 }: {
 	bus: MessageBus;
-	getProgress: () => Progress;
+	getProgress: () => ScoringProgressView;
 	subscribeProgress: (fn: () => void) => () => void;
 	onRetry?: () => Promise<void>;
 }) {
@@ -38,7 +41,7 @@ export function ScoringOverlay({
 	const [closing, setClosing] = useState(false);
 	const [retrying, setRetrying] = useState(false);
 	const [showThought, setShowThought] = useState(true);
-	const [progress, setProgress] = useState<Progress>({ phase: null, percentage: 0, message: "" });
+	const [progress, setProgress] = useState<ScoringProgressView>({ phase: null, percentage: 0, message: "" });
 
 	const scoreScrollRef = useRef<HTMLDivElement>(null);
 	const feedbackScrollRef = useRef<HTMLDivElement>(null);
@@ -73,6 +76,8 @@ export function ScoringOverlay({
 	const phaseText = progress.phase ? phaseLabels[progress.phase] || progress.phase : "";
 	const isActive = progress.phase !== "completed" && progress.phase !== "failed";
 	const isFailed = progress.phase === "failed";
+	// 后端没有给出可靠进度时不做百分比陈述（前端不编造数字）
+	const isIndeterminate = isActive && progress.indeterminate === true;
 
 	const handleRetry = async () => {
 		if (!onRetry || retrying) return;
@@ -129,21 +134,27 @@ export function ScoringOverlay({
 					</Box>
 					<Box style={{ minWidth: 0 }}>
 						<Text size="sm" fw={600} truncate>{isActive ? "正在评估训练表现" : isFailed ? "评估失败" : "评估完成"}</Text>
-						<Text size="xs" c="dimmed">{phaseText} · {progress.percentage}%</Text>
+						<Text size="xs" c="dimmed">{phaseText}{isIndeterminate ? " · 进行中" : ` · ${progress.percentage}%`}</Text>
 					</Box>
 				</Group>
 
 				{/* Progress bar */}
 				<Box h={6} w="100%" mb="md" style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}>
-					<Box
-						h="100%"
-						style={{
-							width: `${Math.max(4, progress.percentage)}%`,
-							borderRadius: 999,
-							transition: "all 500ms ease-out",
-							background: isFailed ? "var(--mantine-color-red-6)" : "var(--mantine-primary-color-filled)",
-						}}
-					/>
+					{isIndeterminate ? (
+						<Progress.Root size={6} aria-label="评分进行中，进度未知">
+							<Progress.Section value={100} animated striped color="brand" />
+						</Progress.Root>
+					) : (
+						<Box
+							h="100%"
+							style={{
+								width: `${Math.max(4, progress.percentage)}%`,
+								borderRadius: 999,
+								transition: "all 500ms ease-out",
+								background: isFailed ? "var(--mantine-color-red-6)" : "var(--mantine-primary-color-filled)",
+							}}
+						/>
+					)}
 				</Box>
 
 				{/* AI thought — expanded by default for entertainment while waiting */}

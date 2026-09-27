@@ -21,17 +21,17 @@ from modules.training.patient_ai.emotion.renderer import (
 
 
 class TestDeriveBehavior:
-    def test_high_trust_high_disclosure(self):
-        """高信任 → 高信息披露。"""
+    def test_high_trust_high_willingness(self):
+        """高信任 → 高配合/展开意愿。"""
         v = EmotionVector(trust=0.9, anxiety=0.3, irritation=0.1, cooperation=0.8)
         policy = derive_behavior(v)
-        assert policy.disclosure > 0.7
+        assert policy.willingness > 0.7
 
-    def test_low_trust_low_disclosure(self):
-        """低信任 → 低信息披露。"""
+    def test_low_trust_low_willingness(self):
+        """低信任 → 低配合/展开意愿（但不等于隐瞒事实）。"""
         v = EmotionVector(trust=0.2, anxiety=0.3, irritation=0.1, cooperation=0.3)
         policy = derive_behavior(v)
-        assert policy.disclosure < 0.5
+        assert policy.willingness < 0.5
 
     def test_high_irritation_low_verbosity(self):
         """高烦躁 → 低回答长度。"""
@@ -54,7 +54,7 @@ class TestDeriveBehavior:
     def test_frozen_dataclass(self):
         """PatientBehaviorPolicy 是不可变的。"""
         policy = PatientBehaviorPolicy(
-            disclosure=0.5,
+            willingness=0.5,
             verbosity=0.5,
             initiative=0.3,
             cooperation=0.5,
@@ -63,7 +63,7 @@ class TestDeriveBehavior:
             response_style="正常",
         )
         with pytest.raises(FrozenInstanceError):
-            policy.disclosure = 0.8  # type: ignore[misc]
+            policy.willingness = 0.8  # type: ignore[misc]
 
     def test_open_trusting_tone(self):
         """高信任低烦躁 → 自然开放的语气。"""

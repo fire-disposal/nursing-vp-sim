@@ -17,7 +17,9 @@ from .models import EmotionVector, clamp01
 class PatientBehaviorPolicy:
     """患者行为策略 — 情绪状态的抽象行为表现。
 
-    disclosure:   信息披露程度 [0,1] — 越低越不愿透露敏感信息
+    willingness:  配合意愿/展开程度 [0,1] — 越低越冷淡、话少、不主动展开。
+                  这不是事实门锁：唯一决定"哪些病情事实可以说"的是患者是否知道
+                  以及学生是否在含义上问到（W3 不以情绪值充当答案门锁）。
     verbosity:    回答长度 [0,1] — 越低回答越简短
     initiative:   主动性 [0,1] — 越高越主动补充信息
     cooperation:  配合程度 [0,1] — 越低越抵触检查/问诊
@@ -28,7 +30,7 @@ class PatientBehaviorPolicy:
     refusal_style:  拒绝风格描述（可能为 None）
     """
 
-    disclosure: float
+    willingness: float
     verbosity: float
     initiative: float
     cooperation: float
@@ -59,7 +61,7 @@ def derive_behavior(state: EmotionVector) -> PatientBehaviorPolicy:
 
     所有数值基于 [0,1] 范围的浮点状态。
     """
-    disclosure = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
+    willingness = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
 
     verbosity = clamp01(0.45 + state.trust * 0.25 + state.anxiety * 0.15 - state.irritation * 0.45)
 
@@ -74,7 +76,7 @@ def derive_behavior(state: EmotionVector) -> PatientBehaviorPolicy:
     refusal_style = _resolve_refusal_style(state)
 
     return PatientBehaviorPolicy(
-        disclosure=disclosure,
+        willingness=willingness,
         verbosity=verbosity,
         initiative=initiative,
         cooperation=cooperation,
@@ -104,7 +106,7 @@ def _resolve_tone(state: EmotionVector) -> str:
         return "紧张且戒备，回答容易犹豫"
 
     if state.trust <= 0.30 and state.cooperation <= 0.35:
-        return "疏离、简短，不主动透露信息"
+        return "疏离、简短，问一句答一句，不主动多说"
 
     if state.trust >= 0.75 and state.irritation <= 0.25:
         return "自然、开放，愿意主动补充相关细节"
@@ -117,18 +119,19 @@ def _resolve_response_style(state: EmotionVector) -> str:
     if state.trust <= 0.25 and state.irritation >= 0.70:
         return "拒绝继续回答病情相关提问；只回应道歉、投诉或与刚才冲突直接相关的话题；回答简短生硬"
 
-    disclosure = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
+    willingness = clamp01(0.15 + state.trust * 0.75 - state.irritation * 0.25)
     verbosity = clamp01(0.45 + state.trust * 0.25 + state.anxiety * 0.15 - state.irritation * 0.45)
 
     parts: list[str] = []
 
-    # 信息披露程度
-    if disclosure >= 0.7:
-        parts.append("愿意详细回答问题，包括敏感信息")
-    elif disclosure >= 0.4:
-        parts.append("愿意回答一般问题；敏感信息需要先说明询问原因")
+    # 配合意愿/展开程度（语气与详略），不是事实门锁：
+    # 情绪低只是话少、态度冷、不主动展开；学生含义问到的事实仍如实回答。
+    if willingness >= 0.7:
+        parts.append("愿意详细回答，也愿意主动谈到敏感信息")
+    elif willingness >= 0.4:
+        parts.append("愿意回答被问到的问题；谈到敏感信息时会先问一句为什么需要了解，问到了仍如实回答")
     else:
-        parts.append("仅回答最直接的问题，回避深入细节")
+        parts.append("回答简短、只答被问到的内容，不主动展开，语气冷淡；被问到的事实仍如实回答")
 
     # 回答长度
     if verbosity >= 0.7:

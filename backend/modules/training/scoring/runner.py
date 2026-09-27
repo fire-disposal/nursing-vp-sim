@@ -145,6 +145,9 @@ SCORE_SNAPSHOT_FIELDS = (
     "dim_total",
     "reviewed_total",
     "reviewed_at",
+    # 本批次新增列：漏在快照里 = force 重评失败后恢复出的旧分丢掉原始精度与溯源
+    "raw_detail_scores",
+    "score_meta",
 )
 SCORE_REVIEW_SNAPSHOT_FIELDS = ("reviewed_by", "detail_scores", "total_score", "comment")
 

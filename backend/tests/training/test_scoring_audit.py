@@ -125,8 +125,18 @@ def _record(db, user: User, status: str = "completed") -> TrainingRecord:
         case_id=case.id,
         status=status,
         case_snapshot={"patient_info": {"name": "王某"}},
-        # 非空 rubric 快照 → 复核换算不再按 workflow 重建
-        rubric_snapshot={"raw_max": 38, "raw_scale": 2, "dimensions": []},
+        # 非空 rubric 快照 → 复核换算不再按 workflow 重建。
+        # 条目 id 必须真实存在：复核写入按原始条目收敛，未知条目会被丢弃（不计分）。
+        rubric_snapshot={
+            "id": "audit_rubric",
+            "version": "1.0",
+            "raw_max": 38,
+            "raw_scale": 2,
+            "dimensions": [
+                {"id": "communication", "name": "沟通技能", "max": 4, "items": [{"id": "c0", "name": "沟通条目"}]},
+                {"id": "history_taking", "name": "病史采集", "max": 4, "items": [{"id": "h0", "name": "病史条目"}]},
+            ],
+        },
     )
     db.add(record)
     db.flush()
@@ -150,18 +160,21 @@ def _student_message(db, record: TrainingRecord) -> None:
     db.flush()
 
 
-def _detail(item_score: int = 5) -> dict:
-    """两个维度的展示刻度明细：item 5 → raw 2 → Σ4 → 展示 11（≠ 任何输入值）。"""
+def _detail(item_score: int = 2) -> dict:
+    """两个维度的**原始条目**明细（0-raw_scale）：item 2 → Σ4 → 展示 11（≠ 任何输入值）。
+
+    复核编辑的就是原始条目（docs/19 §4.2 第 6 条），所以这里给的是 raw 刻度。
+    """
     return {
         "沟通技能": {
             "score": item_score,
-            "max": 100,
+            "max": 2,
             "items": [
                 {
                     "id": "c0",
                     "name": "沟通条目",
                     "score": item_score,
-                    "max": 5,
+                    "max": 2,
                     "evidence": _DETAIL_TEXT,
                     "reason": _DETAIL_TEXT,
                 }
@@ -169,13 +182,13 @@ def _detail(item_score: int = 5) -> dict:
         },
         "病史采集": {
             "score": item_score,
-            "max": 100,
+            "max": 2,
             "items": [
                 {
                     "id": "h0",
                     "name": "病史条目",
                     "score": item_score,
-                    "max": 5,
+                    "max": 2,
                     "evidence": _DETAIL_TEXT,
                     "reason": _DETAIL_TEXT,
                 }
@@ -223,7 +236,7 @@ def test_first_review_writes_one_row_matching_stored_total(db):
     )
 
     db.refresh(score)
-    assert score.reviewed_total == 11  # 5 → raw 2 → Σ4 → 展示 11（不是照抄输入）
+    assert score.reviewed_total == 11  # raw 2+2 → Σ4 → 展示 11（不是照抄输入）
     rows = _rows(db, ACTION_SCORE_REVIEW_SUBMITTED)
     assert len(rows) == 1
     row = rows[0]
@@ -238,6 +251,9 @@ def test_first_review_writes_one_row_matching_stored_total(db):
         "previous_reviewed_total": None,
         "reviewed_total": 11,
         "review_status": "created",
+        # 复核基准必须留痕：历史记录按展示层反推，否则事后无法解释复核依据
+        "review_basis": "legacy_display_derived",
+        "applicable_raw_max": 38.0,
         "detail_score_count": 2,
         "comment_length": len(_COMMENT),
     }
@@ -298,6 +314,8 @@ def test_review_audit_never_stores_comment_or_detail_text(db):
         "previous_reviewed_total",
         "reviewed_total",
         "review_status",
+        "review_basis",
+        "applicable_raw_max",
         "detail_score_count",
         "comment_length",
     }
@@ -307,7 +325,10 @@ def test_review_audit_never_stores_comment_or_detail_text(db):
     # 正文留在业务表里（审计只是副本的替代品，不搬内容）
     review = db.query(ScoreReview).filter(ScoreReview.score_id == row.payload["score_id"]).one()
     assert review.comment == _COMMENT
-    assert _DETAIL_TEXT in str(review.detail_scores)
+    # 复核行保存的是教师改动的**原始条目**（分值 + 条目 id），不搬运 AI 的 evidence/reason
+    # 文本：那部分留在 Score.raw_detail_scores（AI 判据不被复核覆盖，docs/19 §4.2 第 7 条）。
+    assert review.detail_scores["沟通技能"]["items"][0] == {"id": "c0", "name": "沟通条目", "score": 2.0, "max": 2}
+    assert _DETAIL_TEXT not in str(review.detail_scores)
 
 
 # ── 重试 / force 重算 ─────────────────────────────────────────────────────

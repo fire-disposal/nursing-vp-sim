@@ -7711,6 +7711,53 @@
         ]
       }
     },
+    "/api/training/start-practice": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Start Practice Training",
+        "description": "复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。\n\n自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；\n反过来，作业次数限制也不会因为\"重练\"被绕过 —— 想拿作业成绩仍然只能走作业入口。\n目标病例、钉住的 revision 与\"内容是否已更新\"都由服务端解析并留痕。",
+        "operationId": "start_practice_training_api_training_start_practice_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPracticeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/training/records/{record_id}/pause": {
       "post": {
         "tags": [
@@ -14191,6 +14238,75 @@
               }
             ],
             "title": "Reviewed Total"
+          },
+          "raw_detail_scores": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Detail Scores"
+          },
+          "score_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Meta"
+          },
+          "effective_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Total"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "feedback_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Note"
           }
         },
         "type": "object",
@@ -14328,6 +14444,18 @@
             ],
             "title": "Original Detail Scores"
           },
+          "original_raw_detail_scores": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Raw Detail Scores"
+          },
           "review_detail_scores": {
             "anyOf": [
               {
@@ -14361,6 +14489,41 @@
               }
             ],
             "title": "Review Comment"
+          },
+          "applicable_raw_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Raw Max"
+          },
+          "raw_scale": {
+            "type": "integer",
+            "title": "Raw Scale",
+            "default": 2
+          },
+          "review_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Basis"
+          },
+          "not_applicable_items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not Applicable Items",
+            "default": []
           }
         },
         "type": "object",
@@ -14500,6 +14663,11 @@
             "type": "integer",
             "title": "Limit",
             "default": 0
+          },
+          "policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Policy"
           }
         },
         "type": "object",
@@ -14560,6 +14728,16 @@
             },
             "type": "object",
             "title": "Thresholds"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Policy"
+          },
+          "comparability": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Comparability"
           }
         },
         "type": "object",
@@ -15035,6 +15213,27 @@
         ],
         "title": "SimulationSnapshot"
       },
+      "StartPracticeRequest": {
+        "properties": {
+          "source_record_id": {
+            "type": "integer",
+            "title": "Source Record Id"
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^(remediation|transfer)$",
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_record_id",
+          "kind"
+        ],
+        "title": "StartPracticeRequest",
+        "description": "复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。\n\n目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。"
+      },
       "StudentAssignmentItem": {
         "properties": {
           "id": {
@@ -15435,6 +15634,11 @@
               }
             ],
             "title": "End Time"
+          },
+          "comparability_label": {
+            "type": "string",
+            "title": "Comparability Label",
+            "default": ""
           }
         },
         "type": "object",
@@ -15549,6 +15753,16 @@
             },
             "type": "array",
             "title": "Records"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Policy"
+          },
+          "comparability": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Comparability"
           }
         },
         "type": "object",
@@ -16182,6 +16396,22 @@
             ],
             "title": "Score Total"
           },
+          "score_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Source"
+          },
+          "score_degraded": {
+            "type": "boolean",
+            "title": "Score Degraded",
+            "default": false
+          },
           "is_test": {
             "type": "boolean",
             "title": "Is Test",
@@ -16464,6 +16694,14 @@
             "type": "array",
             "title": "Required Inquiries"
           },
+          "guided_hints": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Guided Hints"
+          },
           "is_test": {
             "type": "boolean",
             "title": "Is Test",
@@ -16480,6 +16718,29 @@
               }
             ],
             "title": "Manifest"
+          },
+          "practice": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Practice"
+          },
+          "practice_options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Practice Options"
+          },
+          "review_focus": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Review Focus"
+          },
+          "review_focus_note": {
+            "type": "string",
+            "title": "Review Focus Note",
+            "default": ""
           }
         },
         "type": "object",
@@ -16553,6 +16814,11 @@
             "type": "integer",
             "title": "Pending Questionnaires",
             "default": 0
+          },
+          "practice": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Practice"
           }
         },
         "type": "object",

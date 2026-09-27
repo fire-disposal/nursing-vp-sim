@@ -28,6 +28,7 @@ export function makeRecord(overrides: Partial<TrainingRecordDetail> = {}): Train
 		pending_questionnaires: 0,
 		initiative_count: 0,
 		is_test: false,
+		review_focus_note: "",
 		...overrides,
 	};
 }

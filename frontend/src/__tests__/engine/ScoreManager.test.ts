@@ -94,19 +94,37 @@ describe("ScoreManager 相位防回退守卫", () => {
 		m.dispose();
 	});
 
-	it("轮询：无后端进度时假进度不降级 WS 已推进的相位", async () => {
+	it("轮询：无后端进度时不编造百分比（不定态），也不降级 WS 已推进的相位", async () => {
 		mockGet.mockResolvedValue({ data: { scoring_status: "processing" } });
 
 		const m = new ScoreManager(1);
 		await m.end();
 		await vi.advanceTimersByTimeAsync(0);
 
+		// 后端没给进度 → 不定态：只有"处理中"，没有任何编造的百分比
+		expect(m.progress.phase).toBe("processing");
+		expect(m.progress.percentage).toBe(0);
+		expect(m.progress.indeterminate).toBe(true);
+
 		m.onProgress({ record_id: 1, stage: "feedback", percent: 70, message: "f" });
 		await vi.advanceTimersByTimeAsync(1500);
 
-		// 假进度不得把 feedback 降级为 processing
+		// 真实进度到达后：不定态结束，且不被"无进度"的轮询降级/回退
 		expect(m.progress.phase).toBe("feedback");
-		expect(m.progress.percentage).toBeGreaterThanOrEqual(70);
+		expect(m.progress.percentage).toBe(70);
+		expect(m.progress.indeterminate).toBe(false);
+		m.dispose();
+	});
+
+	it("轮询：到达终态后进度不再是百分比陈述", async () => {
+		mockGet.mockResolvedValue({ data: { scoring_status: "completed", score: { total_score: 88 } } });
+
+		const m = new ScoreManager(1);
+		await m.end();
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(m.progress.phase).toBe("completed");
+		expect(m.progress.indeterminate).toBe(false);
 		m.dispose();
 	});
 

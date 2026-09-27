@@ -12,6 +12,8 @@ const REASON_LABELS: Record<string, string> = {
 
 export interface ActivityStatus {
 	label: string;
+	/** 侧栏等窄容器用的短标签（同一语义，只用更少的字）。 */
+	short: string;
 	color: string;
 }
 
@@ -27,13 +29,15 @@ export function activityStatus(
 ): ActivityStatus | null {
 	if (activity.availability.state !== "available") {
 		const reason = activity.availability.reason_code;
-		return { label: reason ? REASON_LABELS[reason] ?? "不可用" : "不可用", color: "gray" };
+		return { label: reason ? REASON_LABELS[reason] ?? "不可用" : "不可用", short: "不可用", color: "gray" };
 	}
 	if (!artifact) return null;
-	if (artifact.state === ARTIFACT_DRAFT) return { label: "草稿未提交", color: "orange" };
-	if (artifact.state === ARTIFACT_SUBMITTED) return { label: "已提交", color: "green" };
+	if (artifact.state === ARTIFACT_DRAFT) return { label: "草稿未提交", short: "草稿", color: "orange" };
+	if (artifact.state === ARTIFACT_SUBMITTED) return { label: "已提交", short: "已提交", color: "green" };
 	// 空产物：仅当 workflow 要求它时提示「未填写」，否则不打扰
-	if (artifact.state === ARTIFACT_EMPTY && artifact.required) return { label: "未填写", color: "orange" };
+	if (artifact.state === ARTIFACT_EMPTY && artifact.required) {
+		return { label: "未填写", short: "未填写", color: "orange" };
+	}
 	return null;
 }
 

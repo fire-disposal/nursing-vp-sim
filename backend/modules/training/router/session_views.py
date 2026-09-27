@@ -23,7 +23,9 @@ from models import (
     TrainingSessionState,
     User,
 )
+from modules.cases.revisions import require_current_revision
 from modules.questionnaires.response_service import count_pending_required
+from modules.training.blueprint import guided_hints
 from modules.training.manifest import (
     ARTIFACT_DRAFT,
     ARTIFACT_SUBMITTED,
@@ -31,7 +33,12 @@ from modules.training.manifest import (
     build_session_manifest,
 )
 from modules.training.pipeline.turn import TURN_KIND
+from modules.training.practice import practice_options as build_practice_options
 from modules.training.record_sorting import record_sort_expressions
+from modules.training.scoring.engine import DEFAULT_RAW_MAX, _resolve_rubric
+from modules.training.scoring.grade_policy import grade_view, score_source
+from modules.training.scoring.review_focus import build_review_focus, review_focus_note
+from modules.training.scoring.validation import raw_view_from_display
 from modules.training.session.finalize import terminal_reason
 from modules.training.timing import DEFAULT_TIME_LIMIT_MINUTES
 from modules.training.timing import remaining_seconds as compute_remaining_seconds
@@ -232,6 +239,11 @@ def get_records(
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.effective_total if r.score else None,
+            # 成绩来源随列表下发：降级分不得在列表里冒充正常成绩（docs/19 §4.2 第 7 条）
+            score_source=(
+                score_source(reviewed_total=r.score.reviewed_total, fallback=r.score.fallback) if r.score else None
+            ),
+            score_degraded=bool(r.score and r.score.fallback),
             scoring_status=r.scoring_status,
             scoring_error=r.scoring_error,
             is_test=r.is_test,
@@ -320,6 +332,16 @@ def get_record_detail(
     score_obj = None
     if score:
         score_obj = ScoreItem.model_validate(score)
+        score_meta = score.score_meta or {}
+        # 成绩来源与解释（docs/19 §4.2 第 7/8 条）：AI 初评、教师复核、系统降级分开可见；
+        # 数值分层与能力等第由服务端政策给出（未校准时能力类字段为空）。
+        score_obj.effective_total = score.effective_total
+        score_obj.source = score_source(reviewed_total=score.reviewed_total, fallback=score.fallback)
+        score_obj.grade = grade_view(
+            score.effective_total, reviewed_total=score.reviewed_total, fallback=score.fallback
+        )
+        score_obj.feedback_note = score_meta.get("feedback_note")
+        score_obj.incomplete = score_meta.get("incomplete")
         latest_review = (
             db.query(ScoreReview)
             .filter(ScoreReview.score_id == score.id)
@@ -399,6 +421,30 @@ def get_record_detail(
             if mutation is None:
                 eligible_last_message_id = student.id
 
+    # ── W5 复盘闭环：关键选择投影 + 再练习入口（只对已结束的训练有意义）──
+    raw_detail: dict = {}
+    rubric_for_review: dict | None = None
+    if score is not None:
+        rubric_for_review = _resolve_rubric(db, record)
+        applicable = (score.score_meta or {}).get("applicable_raw_max")
+        if score.raw_detail_scores:
+            raw_detail = score.raw_detail_scores
+        elif score.detail_scores:
+            # 历史记录没有原始层：按展示层反推（分母用当时的 rubric 原始满分），
+            # 否则所有本批次之前的记录都会静默失去关键选择投影。
+            raw_detail = raw_view_from_display(
+                score.detail_scores,
+                raw_max=int(applicable or rubric_for_review.get("raw_max", DEFAULT_RAW_MAX)),
+                raw_scale=int(rubric_for_review.get("raw_scale", 2)),
+            )
+    # 系统降级结果不投影"关键选择"：未判定条目不是学生的关键遗漏（docs/19 §4.2 第 4 条）。
+    focus = (
+        build_review_focus(raw_detail, rubric_for_review, case_data) if score is not None and not score.fallback else []
+    )
+    options: dict = {}
+    if record.status == TrainingStatus.COMPLETED:
+        options = build_practice_options(db, source=record, require_current_revision=require_current_revision)
+
     hidden_placeholder = _hidden_case(record)
     nursing_sheet, nursing_submitted_at = _load_nursing_record(db, record.id)
     # 本次训练的 workflow 以**记录冻结值**为准（manifest/features/可用性同源，docs/15 §二）
@@ -460,5 +506,11 @@ def get_record_detail(
         },
         # 只有引导模式披露问诊线索；独立考核与盲盒均保持隐藏。
         required_inquiries=(case_data.get("required_inquiries", []) if mode == TrainingMode.GUIDED.value else []),
+        # 引导提示优先给"领域 + 评估意义"（蓝图），而不是清单原句（docs/19 §3.3）。
+        guided_hints=(guided_hints(case_data) if mode == TrainingMode.GUIDED.value else []),
         is_test=record.is_test,
+        practice=dict((record.practice_snapshot or {}).get("practice") or {}),
+        practice_options=options,
+        review_focus=focus,
+        review_focus_note=review_focus_note(focus),
     )

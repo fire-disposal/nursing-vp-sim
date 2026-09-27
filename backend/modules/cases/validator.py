@@ -22,8 +22,15 @@ from pathlib import Path
 from typing import Any
 
 from core.time_limits import MAX_TIME_LIMIT_MINUTES, MIN_TIME_LIMIT_MINUTES
-from modules.training.activities import ACTIVITY_BINDINGS, ACTIVITY_CONFIG_KEY, ACTIVITY_IDS
-from modules.training.profile import CLINICAL_REASONING
+from modules.training.activities import (
+    ACTIVITY_BINDINGS,
+    ACTIVITY_CONFIG_KEY,
+    ACTIVITY_IDS,
+    resolve_activity_flags,
+)
+from modules.training.profile import CLINICAL_REASONING, HISTORY_TAKING
+from modules.training.scoring.rubric import build_final_rubric
+from modules.training.scoring.rubric_loader import get_base_rubric
 from modules.training.workflows import (
     CASE_WORKFLOW_FIELD,
     declared_workflow_id,
@@ -38,6 +45,9 @@ from schemas.case_schema import (
 
 #: 临床判断训练的 workflow id（内容规则与之绑定：见 :func:`_check_clinical_reasoning`）。
 CLINICAL_REASONING_ID = CLINICAL_REASONING.id
+
+#: 问诊训练的 workflow id（教学蓝图声明面只属于它：见 :func:`_check_blueprint`）。
+HISTORY_TAKING_ID = HISTORY_TAKING.id
 
 # ── 字段消费端清单（taxonomy manifest）───────────────────────────────────
 # 值 = 消费模块。新增病例字段时必须同步登记；不在清单内的字段 = 死字段。
@@ -76,6 +86,9 @@ CONSUMED_FIELDS: dict[str, str] = {
     "hidden_info": "prompt (format_case_for_prompt)",
     "scene": "训练开始/复盘：case_data.scene → runtime_state.scene（router/session.py）+ prompt_builder 注入",
     "variant_of": "校验器去重登记",
+    # 教学蓝图（docs/19 §3.2）：目标/线索/覆盖项/家族关系/审阅留痕，
+    # 消费端 = 发布门禁（本模块 _check_blueprint）+ 后续评分适用项与变式迁移。
+    "blueprint": "history_taking 教学蓝图（发布门禁 _check_blueprint + 后续评分适用项/变式迁移）",
 }
 
 # Legacy/已移除消费端的字段——出现即告警（过细分残留）
@@ -945,6 +958,213 @@ def _check_clinical_content_declaration(c: dict, issues: list[CaseIssue]) -> Non
     )
 
 
+# ── 教学蓝图门禁（docs/19 §3.2）───────────────────────────────────────────
+# 蓝图是 ``history_taking`` 病例的声明面（临床判断病例有自己的六个声明面）。规则都是
+# **结构可判**的：目标不能空、线索 id 唯一、覆盖清单必须解析到真实引用、不适用项必须是
+# 真 rubric 条目、家族关系自洽、教师审阅必须留痕。发布前拦下 —— 蓝图决定「评什么、不评
+# 什么」，写错等于悄悄改评分分母。
+
+BLUEPRINT_FIELD = "blueprint"
+
+#: 蓝图里必须解析成「线索 id 或 required_inquiries 原文」的清单（docs/19 §3.2 第 4 条）。
+_BLUEPRINT_REF_LISTS: tuple[str, ...] = ("must_cover", "situational", "key_omissions")
+
+#: 迁移变式 ``transfer_of`` 指向的病例角色（docs/19 §3.2 第 6 条）。
+PRACTICE_ROLE = "practice"
+
+#: 迁移变式的角色 id（与 ``PRACTICE_ROLE`` 相对）。
+TRANSFER_ROLE = "transfer"
+
+
+def _blueprint_list(bp: dict, key: str) -> list:
+    """蓝图里的数组键；形状非法（保存路径的 schema 已拦）时按空数组处理。"""
+    raw = bp.get(key)
+    return raw if isinstance(raw, list) else []
+
+
+def _check_blueprint_objectives(bp: dict, issues: list[CaseIssue]) -> None:
+    """蓝图必须说明本次能评什么（docs/19 §3.2 第 1 条）。"""
+    if any(isinstance(v, str) and v.strip() for v in _blueprint_list(bp, "learning_objectives")):
+        return
+    issues.append(
+        _e(
+            "blueprint.learning_objectives 为空 —— 蓝图必须声明本次训练的学习目标（能评什么）",
+            "blueprint.learning_objectives",
+            "至少写 1 条目标；前置能力写进 blueprint.prerequisites",
+        )
+    )
+
+
+def _check_blueprint_clues(bp: dict, issues: list[CaseIssue]) -> set[str]:
+    """线索 id 必须唯一且非空（覆盖清单靠它引用），返回可用的 id 集合。"""
+    ids: set[str] = set()
+    for i, clue in enumerate(_blueprint_list(bp, "clues")):
+        if not isinstance(clue, dict):
+            continue
+        cid = clue.get("id")
+        path = f"blueprint.clues[{i}].id"
+        if not isinstance(cid, str) or not cid.strip():
+            issues.append(_e(f"{path} 为空 —— must_cover 等清单要靠线索 id 引用它", path, "给线索一个稳定的 id"))
+            continue
+        if cid in ids:
+            issues.append(_e(f"线索 id '{cid}' 重复 —— 引用会指向两条不同的线索", path, "合并重复线索或改用不同 id"))
+            continue
+        ids.add(cid)
+    return ids
+
+
+def _check_blueprint_refs(bp: dict, clue_ids: set[str], required_inquiries: list[str], issues: list[CaseIssue]) -> None:
+    """覆盖/情境/遗漏清单的每一项都必须解析成线索 id 或 required_inquiries 原文。"""
+    for key in _BLUEPRINT_REF_LISTS:
+        for i, entry in enumerate(_blueprint_list(bp, key)):
+            if not isinstance(entry, str) or not entry.strip():
+                continue  # 形状问题由保存路径的 schema 报出，这里只判引用完整性
+            if entry in clue_ids or entry in required_inquiries:
+                continue
+            path = f"blueprint.{key}[{i}]"
+            issues.append(
+                _e(
+                    f"{path} 的 '{entry}' 既不是已声明的线索 id，也不在 required_inquiries 里 —— "
+                    "引用悬空，评分时这条不会生效",
+                    path,
+                    "改为 blueprint.clues[].id，或与 required_inquiries 条目文字完全一致",
+                )
+            )
+
+
+def _rubric_item_ids(case_data: dict | None = None) -> set[str]:
+    """该病例**解析后**的 rubric 条目 id（``dimensions[].items[].id``）。
+
+    基准 rubric + 病例启用 Activity 追加的维度（例如启用 ``nursing_record`` 时的 ``nr_01..nr_05``）
+    才是这次训练真正会用的条目集合；只按基准判定会把「护理记录·评价环节反思」这类本次确实
+    不适用的条目判成非法引用（而它恰恰是没有干预机会时最该声明不适用的一条）。
+    """
+    features: dict[str, bool] = {}
+    if isinstance(case_data, dict):
+        features = resolve_activity_flags(case_data, allowed=HISTORY_TAKING.activities)
+    ids: set[str] = set()
+    for dim in build_final_rubric(get_base_rubric(), features).get("dimensions", []):
+        if not isinstance(dim, dict):
+            continue
+        for item in dim.get("items", []):
+            item_id = item.get("id") if isinstance(item, dict) else None
+            if isinstance(item_id, str) and item_id:
+                ids.add(item_id)
+    return ids
+
+
+def _check_blueprint_not_applicable(bp: dict, case_data: dict, issues: list[CaseIssue]) -> None:
+    """不适用项必须是真 rubric 条目，且不得同时被声明为关键遗漏（docs/19 §3.2 第 4/7 条）。"""
+    valid = _rubric_item_ids(case_data)
+    omissions = {e for e in _blueprint_list(bp, "key_omissions") if isinstance(e, str)}
+    for i, entry in enumerate(_blueprint_list(bp, "not_applicable_items")):
+        if not isinstance(entry, str) or not entry.strip():
+            continue
+        path = f"blueprint.not_applicable_items[{i}]"
+        if entry not in valid:
+            issues.append(
+                _e(
+                    f"{path} 的 '{entry}' 不是本次 rubric（基准 + 病例启用能力）的条目 id —— "
+                    "声明不适用的条目必须真实存在（否则缩小的是错的分母）",
+                    path,
+                    f"改用 rubric dimensions[].items[].id，例如 {'、'.join(sorted(valid)[:3])}",
+                )
+            )
+        if entry in omissions:
+            issues.append(
+                _e(
+                    f"{path} 的 '{entry}' 同时出现在 blueprint.key_omissions —— 「不适用」与「关键遗漏」互相矛盾",
+                    path,
+                    "从 key_omissions 或 not_applicable_items 中删掉一处",
+                )
+            )
+
+
+def _check_blueprint_variant(bp: dict, issues: list[CaseIssue]) -> None:
+    """家族关系自洽：practice 要声明家族，transfer 还要指向练习病例（docs/19 §3.2 第 6 条）。"""
+    role = bp.get("variant_role")
+    family_id = bp.get("family_id")
+    has_family = isinstance(family_id, str) and bool(family_id.strip())
+    if role == TRANSFER_ROLE:
+        if not has_family:
+            issues.append(
+                _e(
+                    "blueprint.family_id 为空 —— 迁移变式必须声明家族才能与练习病例共享目标",
+                    "blueprint.family_id",
+                    "填写同家族练习病例的 family_id",
+                )
+            )
+        transfer_of = bp.get("transfer_of")
+        if not isinstance(transfer_of, str) or not transfer_of.strip():
+            issues.append(
+                _e(
+                    "blueprint.transfer_of 为空 —— 迁移变式必须指向它迁移自哪条练习病例",
+                    "blueprint.transfer_of",
+                    "填写同家族 practice 病例的 case name",
+                )
+            )
+        return
+    if role == PRACTICE_ROLE and not has_family:
+        issues.append(
+            _e(
+                "blueprint.family_id 为空 —— 练习病例必须声明家族，变式才有可迁移的对象",
+                "blueprint.family_id",
+                "填写家族 id（同家族共享训练目标）",
+            )
+        )
+
+
+def _check_blueprint_review(bp: dict, issues: list[CaseIssue]) -> None:
+    """``teacher_reviewed`` 必须留审阅人 —— 临床裁定不能无名（docs/19 §3.2 第 7 条）。"""
+    review = bp.get("review")
+    if not isinstance(review, dict) or review.get("editorial_state") != "teacher_reviewed":
+        return
+    reviewer = review.get("reviewer")
+    if isinstance(reviewer, str) and reviewer.strip():
+        return
+    issues.append(
+        _e(
+            "blueprint.review.editorial_state=teacher_reviewed 但 reviewer 为空 —— 教师审阅必须留痕",
+            "blueprint.review.reviewer",
+            "填写审阅教师姓名，或把 editorial_state 改回 draft",
+        )
+    )
+
+
+def _check_blueprint(c: dict, issues: list[CaseIssue]) -> None:
+    """教学蓝图的发布门禁（docs/19 §3.2）。
+
+    蓝图只属于 ``history_taking`` 病例：临床判断病例有自己的声明面，蓝图放进去不会被任何
+    消费端读取 —— 与其静默失效，不如发布前点名（与 ``_check_clinical_content_declaration``
+    同策：声明了却不可达 = 必须修）。
+    """
+    raw = c.get(BLUEPRINT_FIELD)
+    if raw is None:
+        return
+    if not isinstance(raw, dict):
+        issues.append(_e("blueprint 必须是对象（docs/19 §3.2）", BLUEPRINT_FIELD, "键见 schemas/case_schema.py"))
+        return
+    declared = declared_workflow_id(c)
+    if declared is not None and declared != HISTORY_TAKING_ID:
+        issues.append(
+            _e(
+                f"病例含 blueprint，但 workflow 声明为 {declared} —— 教学蓝图只属于 {HISTORY_TAKING_ID} 病例，"
+                "这条声明不会被消费",
+                CASE_WORKFLOW_FIELD,
+                f'加 {{"workflow": "{HISTORY_TAKING_ID}"}}，或删除 blueprint',
+            )
+        )
+        return
+    _check_blueprint_objectives(raw, issues)
+    clue_ids = _check_blueprint_clues(raw, issues)
+    raw_required = c.get("required_inquiries")
+    required = [v for v in raw_required if isinstance(v, str)] if isinstance(raw_required, list) else []
+    _check_blueprint_refs(raw, clue_ids, required, issues)
+    _check_blueprint_not_applicable(raw, c, issues)
+    _check_blueprint_variant(raw, issues)
+    _check_blueprint_review(raw, issues)
+
+
 def _check_time_limit(c: dict, issues: list[CaseIssue]) -> None:
     tl = c.get("time_limit")
     if not isinstance(tl, (int, float)):
@@ -999,6 +1219,7 @@ def validate_case(case_data: dict) -> CaseReport:
     report = CaseReport(name=str(case_data.get("name", "?")))
     issues = report.issues
     _check_workflow(case_data, issues)
+    _check_blueprint(case_data, issues)
     if declared_workflow_id(case_data) == CLINICAL_REASONING_ID:
         _check_clinical_reasoning(case_data, issues)
     else:
@@ -1042,6 +1263,43 @@ def _check_duplicate_patients(reports: dict[str, CaseReport], cases: dict[str, d
                 reports[fname].issues.append(_i(f"患者 '{name}' 已声明 variant_of={cases[fname]['variant_of']}"))
 
 
+def _check_blueprint_families(reports: dict[str, CaseReport], cases: dict[str, dict]) -> None:
+    """迁移变式的 ``transfer_of`` 必须指向同家族的 practice 病例（docs/19 §3.2 第 6 条）。
+
+    单病例规则只能判「字段写没写」；「指向的那条病例是不是练习病例」只有跨病例才可见。
+    与 ``_check_duplicate_patients`` 同策：不自洽只降为 warning —— 内容还在，关系需要人确认。
+    """
+    by_name: dict[str, dict] = {}
+    for c in cases.values():
+        name = c.get("name")
+        if isinstance(name, str) and name:
+            by_name.setdefault(name, c)
+    for fname, c in cases.items():
+        bp = c.get(BLUEPRINT_FIELD)
+        if not isinstance(bp, dict) or bp.get("variant_role") != TRANSFER_ROLE:
+            continue
+        family_id = bp.get("family_id")
+        transfer_of = bp.get("transfer_of")
+        if not isinstance(family_id, str) or not family_id.strip():
+            continue  # 空值已由单病例规则报出，这里不重复
+        if not isinstance(transfer_of, str) or not transfer_of.strip():
+            continue
+        target = by_name.get(transfer_of)
+        target_bp = target.get(BLUEPRINT_FIELD) if isinstance(target, dict) else None
+        if not isinstance(target_bp, dict) or target_bp.get("family_id") != family_id:
+            continue
+        role = target_bp.get("variant_role")
+        if role != PRACTICE_ROLE:
+            reports[fname].issues.append(
+                _w(
+                    f"迁移变式指向的 '{transfer_of}'（同家族 {family_id}）variant_role={role or '（未声明）'}，"
+                    f"应为 {PRACTICE_ROLE} —— 变式只迁移自练习病例",
+                    "blueprint.transfer_of",
+                    f"在该家族内声明一条 variant_role={PRACTICE_ROLE} 的病例，或修正 transfer_of",
+                )
+            )
+
+
 def _check_nursing_record_consistency(reports: dict[str, CaseReport], cases: dict[str, dict]) -> None:
     """``activities.nursing_record.config`` 类型全库统一（bool 或 dict 二选一）。"""
     kinds: dict[str, list[str]] = {}
@@ -1069,6 +1327,7 @@ def validate_cases(cases: dict[str, dict]) -> dict[str, CaseReport]:
     """校验一批病例（文件名 → 病例数据），含跨病例规则。"""
     reports = {fname: validate_case(c) for fname, c in cases.items()}
     _check_duplicate_patients(reports, cases)
+    _check_blueprint_families(reports, cases)
     _check_nursing_record_consistency(reports, cases)
     return reports
 

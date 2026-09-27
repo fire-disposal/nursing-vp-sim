@@ -24,9 +24,15 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 	const [factorOpts, setFactorOpts] = useState<string[]>([]);
 	const [charOpts, setCharOpts] = useState<string[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [saving, setSaving] = useState(false);
+	/** 保存回执只由服务端响应驱动（docs/19 E6）：不再用 setTimeout 假装成功 */
+	const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+	const [saveError, setSaveError] = useState<string | null>(null);
 	const [editId, setEditId] = useState<string | null>(null);
 	const idCounter = useRef(0);
+	/** 已发出保存请求的载荷指纹 + 当前诊断，用于判断回来的回执还算不算数 */
+	const sentPayloadRef = useRef<string | null>(null);
+	const diagnosesRef = useRef<Diagnosis[]>([]);
+	diagnosesRef.current = diagnoses;
 
 	// ── Load ──
 	const loadedRef = useRef(false);
@@ -43,6 +49,7 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 			tool?: string;
 			action?: string;
 			ok?: boolean;
+			error?: string;
 			data?: {
 				diagnoses?: PersistedDiagnosis[];
 				stems?: string[];
@@ -50,17 +57,32 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 				characteristic_options?: string[];
 			};
 		}) => {
-			if (payload.tool !== command || payload.action !== "load") return;
-			if (payload.ok && payload.data) {
-				// 回读补 id：列表 key、编辑定位与删除都以 id 为准。
-				const rows = Array.isArray(payload.data.diagnoses) ? payload.data.diagnoses : [];
-				setDiagnoses(rows.map((d, i) => ({ ...d, id: d.id || `srv-${i + 1}` })));
-				setStems(payload.data.stems ?? []);
-				setFactorOpts(payload.data.factor_options ?? []);
-				setCharOpts(payload.data.characteristic_options ?? []);
-				idCounter.current = rows.length;
+			if (payload.tool !== command) return;
+			if (payload.action === "load") {
+				if (payload.ok && payload.data) {
+					// 回读补 id：列表 key、编辑定位与删除都以 id 为准。
+					const rows = Array.isArray(payload.data.diagnoses) ? payload.data.diagnoses : [];
+					setDiagnoses(rows.map((d, i) => ({ ...d, id: d.id || `srv-${i + 1}` })));
+					setStems(payload.data.stems ?? []);
+					setFactorOpts(payload.data.factor_options ?? []);
+					setCharOpts(payload.data.characteristic_options ?? []);
+					idCounter.current = rows.length;
+				}
+				setLoading(false);
+				return;
 			}
-			setLoading(false);
+			if (payload.action === "save") {
+				// 回执来自服务端：成功才叫「已保存」，失败显示服务端原因。
+				if (!payload.ok) {
+					setSaveState("error");
+					setSaveError(payload.error || "保存失败，请重试");
+					return;
+				}
+				// 保存期间又改过内容 → 这份回执已过期，不冒充当前草稿的保存状态
+				const current = JSON.stringify(diagnosesRef.current.map(({ id: _id, ...rest }) => rest));
+				setSaveState(current === sentPayloadRef.current ? "saved" : "idle");
+				setSaveError(null);
+			}
 		};
 		bus.on("tool:result", handler);
 		return () => { bus.off("tool:result", handler); };
@@ -68,14 +90,21 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 
 	// ── Save ──
 	const doSave = useCallback(() => {
-		setSaving(true);
+		const payload = diagnoses.map(({ id: _id, ...rest }) => rest);
+		sentPayloadRef.current = JSON.stringify(payload);
+		setSaveState("saving");
+		setSaveError(null);
 		bus.emit("tool:invoke", {
 			tool: command, action: "save",
-			params: { diagnoses: diagnoses.map(({ id, ...rest }) => rest) },
+			params: { diagnoses: payload },
 			recordId: rid,
 		});
-		setTimeout(() => setSaving(false), 800);
 	}, [bus, command, rid, diagnoses]);
+
+	// 内容一变，先前的「已保存」回执立刻失效（在途保存由响应结果决定）
+	useEffect(() => {
+		setSaveState((prev) => (prev === "saving" ? prev : "idle"));
+	}, [diagnoses]);
 
 	// ── Edit form state ──
 	const emptyForm = { problem: "", related_factors: [] as string[], defining_characteristics: [] as string[] };
@@ -285,9 +314,28 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 
 			{diagnoses.length > 0 && !editId && (
 				<Box style={{ borderTop: "1px solid var(--mantine-color-default-border)", padding: "8px 12px", flexShrink: 0 }}>
-					<Button variant="light" color="gray" size="xs" fullWidth onClick={doSave} disabled={saving} leftSection={<IconDeviceFloppy size={12} />}>
-						{saving ? "已保存" : "保存到服务器"}
+					<Button
+						variant="light"
+						color={saveState === "error" ? "red" : "gray"}
+						size="xs"
+						fullWidth
+						onClick={doSave}
+						disabled={saveState === "saving"}
+						leftSection={<IconDeviceFloppy size={12} />}
+					>
+						{saveState === "saving"
+							? "保存中…"
+							: saveState === "saved"
+								? "已保存"
+								: saveState === "error"
+									? "保存失败，重试"
+									: "保存到服务器"}
 					</Button>
+					{saveState === "error" && saveError && (
+						<Text size="xs" c="red" ta="center" mt={6} lh={1.4}>
+							{saveError}
+						</Text>
+					)}
 				</Box>
 			)}
 		</Box>

@@ -54,3 +54,36 @@ export const PROGRESS_BG: Record<ProgressBand, string> = {
 	danger: "var(--mantine-color-red-6)",
 };
 
+/** 一条引导提示：领域 + 其评估意义（不给唯一问句）。 */
+export interface GuidedHint {
+	clueId: string;
+	domain: string;
+	significance: string;
+	source: string;
+}
+
+/**
+ * 解析 `record.guided_hints`（仅引导模式由服务端下发，其他模式恒为 `[]`）。
+ *
+ * docs/19 §3.3：引导给的是「还需弄清的领域及其意义」，既不是唯一问句，也不是必须
+ * 依次勾完的清单。返回空数组 = 服务端没有可披露的领域提示，调用方回落到既有的
+ * 关键词清单展示，而不是假装有提示。
+ */
+export function parseGuidedHints(raw: unknown): GuidedHint[] {
+	if (!Array.isArray(raw)) return [];
+	const hints: GuidedHint[] = [];
+	for (const entry of raw) {
+		if (!entry || typeof entry !== "object") continue;
+		const row = entry as Record<string, unknown>;
+		const domain = typeof row.domain === "string" ? row.domain.trim() : "";
+		if (!domain) continue;
+		hints.push({
+			clueId: typeof row.clue_id === "string" ? row.clue_id : "",
+			domain,
+			significance: typeof row.significance === "string" ? row.significance.trim() : "",
+			source: typeof row.source === "string" ? row.source : "",
+		});
+	}
+	return hints;
+}
+

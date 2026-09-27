@@ -6,7 +6,7 @@ import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { getRecordDetail, pauseTraining, resumeTraining } from "../api/training";
+import { getRecordDetail, pauseTraining, pauseTrainingOnHide, resumeTraining } from "../api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 import { TrainingDataProvider } from "@/engine/TrainingDataContext";
 import { parseSessionManifest } from "@/engine/manifest";
@@ -55,14 +55,20 @@ export default function TrainingEntry() {
 		};
 	}, [mode, recordId]);
 
-	// 浏览器关闭/刷新：服务端按模式决定暂停，且会结束问卷专用暂停。
+	// 页面关闭/刷新/进入 bfcache：服务端按模式决定暂停，且会结束问卷专用暂停。
+	// 必须是**带 Authorization 的 keepalive 请求** —— 旧实现的 navigator.sendBeacon 无法
+	// 附加请求头，服务端 401，从未真正暂停；而且此处无法向正在卸载的页面回报结果，
+	// 因此不承诺任何状态（页面已离开，UI 也不该显示「已暂停」——重进时以服务端 detail 为准）。
 	useEffect(() => {
 		if (!recordId || !mode) return;
-		const handler = () => {
-			navigator.sendBeacon(`/api/training/records/${recordId}/pause`);
+		const handler = (event: PageTransitionEvent) => {
+			if (event.persisted) return; // 进 bfcache：页面未真正离开，训练仍在继续
+			void pauseTrainingOnHide(recordId).catch(() => {
+				/* 页面正在卸载：无法提示，也不谎称已暂停（服务端 detail 才是真值） */
+			});
 		};
-		window.addEventListener("beforeunload", handler);
-		return () => window.removeEventListener("beforeunload", handler);
+		window.addEventListener("pagehide", handler);
+		return () => window.removeEventListener("pagehide", handler);
 	}, [mode, recordId]);
 
 	const caseId = record?.case_id ?? null;

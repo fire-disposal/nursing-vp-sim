@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCovered, extractKeywords, getInquiryLabel, progressColor } from "@/components/training/tools/inquiryProgress";
+import { computeCovered, extractKeywords, getInquiryLabel, parseGuidedHints, progressColor } from "@/components/training/tools/inquiryProgress";
 
 describe("extractKeywords（v0 bigram）", () => {
 	it("生成去重 2 字 token", () => {
@@ -40,5 +40,26 @@ describe("progressColor（任务清单分档）", () => {
 		expect(progressColor(79)).toBe("warning");
 		expect(progressColor(40)).toBe("warning");
 		expect(progressColor(39)).toBe("danger");
+	});
+});
+
+describe("parseGuidedHints（引导提示只认「领域 + 意义」）", () => {
+	it("保留领域与意义，忽略缺领域的条目", () => {
+		const hints = parseGuidedHints([
+			{ clue_id: "c1", domain: "诱因", significance: "决定是否需立即上报", source: "patient" },
+			{ clue_id: "c2", significance: "没有领域名" },
+			"not-an-object",
+			null,
+		]);
+		expect(hints).toEqual([
+			{ clueId: "c1", domain: "诱因", significance: "决定是否需立即上报", source: "patient" },
+		]);
+	});
+
+	it("非数组/缺字段一律当作「没有提示」，由调用方回落而不是假装有", () => {
+		expect(parseGuidedHints(undefined)).toEqual([]);
+		expect(parseGuidedHints(null)).toEqual([]);
+		expect(parseGuidedHints("诱因")).toEqual([]);
+		expect(parseGuidedHints([{ domain: "   " }])).toEqual([]);
 	});
 });

@@ -136,7 +136,7 @@ class TestBuildHistoryMessagesInjection:
     def _build(self, nursing_record_text: str = ""):
         db = _mock_db(first=None)  # no TrainingAction audit rows
         record = SimpleNamespace(runtime_state={}, id=99999)
-        msgs, _exam, nr_text = _build_history_messages(
+        msgs, _exam, nr_text, actions = _build_history_messages(
             db,
             record,
             "评分标准TEXT",
@@ -144,17 +144,23 @@ class TestBuildHistoryMessagesInjection:
             "schemaTEXT",
             "对话TEXT",
             nursing_record_text=nursing_record_text,
+            task_boundary_text="任务边界TEXT",
         )
-        return msgs, nr_text
+        return msgs, nr_text, actions
 
-    def test_appends_record_to_criteria(self):
-        msgs, nr_text = self._build("SUBJECTIVE: 患者诉胸闷")
-        system = msgs[0]["content"]
-        assert "## 学生提交的护理评估记录" in system
-        assert "SUBJECTIVE: 患者诉胸闷" in system
+    def test_record_reaches_scoring_input(self):
+        """已提交产物随评分输入送达模型（模板变量，不再拼接到 criteria 里）。"""
+        msgs, nr_text, _actions = self._build("SUBJECTIVE: 患者诉胸闷")
+        user = msgs[1]["content"]
+        assert "SUBJECTIVE: 患者诉胸闷" in user
         assert nr_text == "SUBJECTIVE: 患者诉胸闷"
 
-    def test_empty_text_no_append(self):
-        msgs, _ = self._build("")
+    def test_task_boundary_reaches_scoring_input(self):
+        msgs, _nr, _actions = self._build("")
         system = msgs[0]["content"]
-        assert "学生提交的护理评估记录" not in system
+        assert "任务边界TEXT" in system
+
+    def test_no_record_uses_explicit_placeholder(self):
+        msgs, _nr, _actions = self._build("")
+        user = msgs[1]["content"]
+        assert "学生未提交护理评估记录" in user

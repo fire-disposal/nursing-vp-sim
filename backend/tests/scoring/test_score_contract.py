@@ -18,7 +18,7 @@ from models import Score, TrainingRecord
 from modules.training.scoring import engine
 from modules.training.scoring.engine import _fallback_scoring, _postprocess_scoring_result
 from modules.training.scoring.mapping import apply_score_mapping
-from modules.training.scoring.validation import review_total_from_detail
+from modules.training.scoring.validation import review_total_from_raw
 
 RUBRIC: dict[str, Any] = {
     "raw_max": 38,
@@ -77,19 +77,18 @@ def _display_detail(raw: dict, raw_max: int) -> dict:
 def test_review_unchanged_submission_keeps_total():
     raw = _raw_detail([[2] * 14, [2] * 5])  # 全满分 raw=38
     expected = apply_score_mapping(38, 38)
-    display = _display_detail(raw, 38)
-    assert review_total_from_detail(display, 38) == expected
-    assert 0 <= review_total_from_detail(display, 38) <= 100
+    assert review_total_from_raw(raw, 38) == expected
+    assert 0 <= review_total_from_raw(raw, 38) <= 100
 
 
 def test_review_never_exceeds_max_with_arbitrary_input():
-    # 教师把展示刻度全部拉满（item 5/5）→ 复核总分仍 ≤100
-    display = _display_detail(_raw_detail([[2] * 14, [2] * 5]), 38)
-    for dim in display.values():
+    # 教师把原始条目全部拉满/越界 → 复核总分仍 ≤100
+    raw = _raw_detail([[2] * 14, [2] * 5])
+    for dim in raw.values():
         dim["score"] = 999
         for it in dim["items"]:
             it["score"] = 5
-    assert 0 <= review_total_from_detail(display, 38) <= 100
+    assert 0 <= review_total_from_raw(raw, 38) <= 100
 
 
 # ── INV-2 总分 == Σ条目分 ──────────────────────────────────────────────────
@@ -116,12 +115,13 @@ def test_llm_empty_fallback_marked():
 # ── INV-4 维度丢失 → fallback 标记 ─────────────────────────────────────────
 
 
-def test_missing_dimension_fallback_marked():
+def test_missing_dimension_is_recorded_as_incomplete_not_degraded():
+    """整套维度漏答 → 记入不完整清单（成绩照常计），而不是把整条记录打成降级。"""
     raw = _raw_detail([[2] * 14, [2] * 5])
     raw.pop("病史采集")  # LLM 漏掉一个维度
     result = _postprocess_scoring_result({"total_score": 40, "detail_scores": raw}, {}, RUBRIC)
-    assert result["fallback"]["kind"] == "dims_injected"
-    assert "病史采集" in result["fallback"]["dims"]
+    assert "fallback" not in result
+    assert "病史采集" in result["incomplete"]["dims"]
 
 
 # ── S8 超时预算一致（重试总预算 ≤ 全局 - 余量）─────────────────────────────

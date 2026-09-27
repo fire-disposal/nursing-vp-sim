@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from schemas.common import _REQ_CFG, _RESP_CFG
@@ -8,6 +10,20 @@ class TrainingStartRequest(BaseModel):
     case_id: int
     features: dict[str, bool] | None = None
     time_limit_minutes: int | None = None
+    #: 实验批次标签（可选）：{batch, arm?, note?}。缺省时用环境变量 EXPERIMENT_BATCH；
+    #: 两者都没有则不标记。仅用于把一批数据认出来做对照，不参与评分。
+    experiment: dict[str, Any] | None = None
+
+
+class StartPracticeRequest(BaseModel):
+    """复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。
+
+    目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。
+    """
+
+    model_config = _REQ_CFG
+    source_record_id: int
+    kind: str = Field(pattern="^(remediation|transfer)$")
 
 
 class TrainingStartResponse(BaseModel):
@@ -16,6 +32,8 @@ class TrainingStartResponse(BaseModel):
     greeting: str
     case_name: str = ""
     pending_questionnaires: int = 0
+    #: 再练习记录的目的与来源（普通开始训练时为空）
+    practice: dict = Field(default_factory=dict)
 
 
 class ChatMessageRequest(BaseModel):

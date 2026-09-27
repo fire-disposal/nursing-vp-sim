@@ -146,6 +146,16 @@ class Score(Base):
     reviewed_total: Mapped[float | None] = mapped_column(Float, nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ── 本批次新增（docs/19 §4.2 第 6 条、§4.4）──
+    # raw_detail_scores: **原始刻度**的逐项评分（条目分/上限/状态/证据引用）。
+    #   detail_scores 保持展示投影（既有消费方零改动），两者不再互相反推。
+    #   NULL = 本批次之前的历史分（无原始精度，不可无损重算）。
+    # score_meta: 评分溯源快照（适用原始满分、不适用条目、rubric 内容身份、
+    #   评分/反馈提示词内容身份、等第政策身份、辅助条件、空反馈说明）。
+    #   NULL = 身份不明（历史分），不得据此推断当时使用的规则。
+    raw_detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    score_meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     record: Mapped[TrainingRecord] = relationship(back_populates="score")
     reviews: Mapped[list[ScoreReview]] = relationship(
         back_populates="score", order_by="ScoreReview.created_at", cascade="all, delete-orphan"

@@ -1,5 +1,6 @@
 import { Box, Group, Text } from "@mantine/core";
 import Bottomsheet from "@/components/ui/bottomsheet";
+import { useWorkspaceHost } from "@/hooks/useLayoutMode";
 import { ACTIVITY_ICONS, DEFAULT_ACTIVITY_ICON } from "@/config/activity-display";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { ActivityPanelHost } from "./ActivityPanelHost";
@@ -12,7 +13,7 @@ import {
 } from "./useWorkspacePanes";
 
 /**
- * 移动工作区（< lg）：对话区上方的能力条 + 底部面板（Bottomsheet）。
+ * 竖屏工作区：对话区上方的能力条 + 底部面板（Bottomsheet）。横屏走右侧栏（ActivityRail）。
  *
  * 与桌面侧栏共用 `workspaceStore` 的展开状态，因此旋转屏幕/调整窗口不会丢面板。
  * 按钮同时给出名称与服务端状态（未填写/草稿未提交/已提交），
@@ -23,18 +24,20 @@ export default function ActivityBar() {
 	const openPanelId = useWorkspaceStore((state) => state.openPanelId);
 	const togglePanel = useWorkspaceStore((state) => state.togglePanel);
 	const closePanel = useWorkspaceStore((state) => state.closePanel);
+	const host = useWorkspaceHost();
 	useInitialActivityPanel();
 
-	if (panes.length === 0) return null;
+	// 只有竖屏（手机版）用底部抽屉；横屏改为右侧栏，避免把本就不高的视口再切一半
+	if (host !== "sheet" || panes.length === 0) return null;
 	const active = panes.find((pane) => pane.id === openPanelId) ?? null;
 
 	return (
 		<>
 			<Box
 				component="nav"
-				aria-label="训练能力面板"
-				display={{ base: "flex", lg: "none" }}
+				aria-label="训练能力条"
 				style={{
+					display: "flex",
 					alignItems: "center",
 					gap: 6,
 					padding: "6px 8px",

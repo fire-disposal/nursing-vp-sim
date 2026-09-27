@@ -235,6 +235,99 @@ class ClinicalRubric(BaseModel):
     anchors: list[ClinicalRubricAnchor] = []
 
 
+# ── 教学蓝图（docs/19 §3.2）─────────────────────────────────────────────────
+# ``history_taking`` 病例的教学蓝图：本次训练能评什么、关键线索怎么拿到、哪些条目
+# 本次不适用、有没有观察干预结果的机会，以及练习病例/迁移变式的家族关系。
+#
+# 分层同 clinical_* 面：这里只声明**结构**；跨字段语义（引用完整性、rubric 条目 id
+# 是否存在、family 关系自洽）属于发布门禁（``modules/cases/validator``）。
+#
+# ``extra="forbid"``：这是全新键（存量病例零使用），拼错键名 = 作者想表达的东西
+# 静默失效 —— 保存时 422 报出路径比发布时猜更直接。
+_BLUEPRINT_CFG = ConfigDict(extra="forbid")
+
+
+class BlueprintClueSource(StrEnum):
+    """关键线索的获取途径 —— 学生通过哪条路径能拿到它。"""
+
+    INITIAL = "initial"  # 开场即可得（患者主动陈述/可见体征）
+    INQUIRY = "inquiry"  # 经合理提问可得（含等价问法）
+    EXAM = "exam"  # 床旁检查可得
+    RECORD = "record"  # 由学生提交的护理评估/诊断产物体现
+
+
+class BlueprintVariantRole(StrEnum):
+    """本病例在家族内的角色。"""
+
+    PRACTICE = "practice"  # 练习病例
+    TRANSFER = "transfer"  # 迁移变式（改变线索表达/位置或相关背景）
+
+
+class BlueprintEditorialState(StrEnum):
+    """教学蓝图的临床审阅状态。
+
+    ``draft`` = 开发者/维护者起草，尚未经护理教师审阅；``teacher_reviewed`` = 教师已审阅。
+    只有教师能宣布后者（docs/19 §3.2「临床事实、关键项、等第判例由护理教师审阅」）。
+    """
+
+    DRAFT = "draft"
+    TEACHER_REVIEWED = "teacher_reviewed"
+
+
+class BlueprintReview(BaseModel):
+    """蓝图的审阅留痕（谁在何时确认了临床事实与关键项）。"""
+
+    model_config = _BLUEPRINT_CFG
+
+    editorial_state: BlueprintEditorialState = BlueprintEditorialState.DRAFT
+    reviewer: str = ""
+    reviewed_at: str = ""
+    note: str = ""
+
+
+class BlueprintClue(BaseModel):
+    """一条关键线索及其评估意义。"""
+
+    model_config = _BLUEPRINT_CFG
+
+    id: str = Field(min_length=1, pattern=_ID_PATTERN)
+    label: str = Field(min_length=1, max_length=300)
+    source: BlueprintClueSource = BlueprintClueSource.INQUIRY
+    #: 为什么这条线索对评估有意义（引导模式披露的「意义」，不是问句本身）。
+    significance: str = Field(default="", max_length=300)
+
+
+class CaseBlueprint(BaseModel):
+    """训练能力边界与病例家族关系（docs/19 §3.2）。"""
+
+    model_config = _BLUEPRINT_CFG
+
+    #: 本次训练能评什么、不能评什么（前置能力写在 prerequisites）。
+    learning_objectives: list[str] = []
+    prerequisites: str = ""
+    clues: list[BlueprintClue] = []
+    #: 必须覆盖项（引用 required_inquiries 条目文本或 clue id）
+    must_cover: list[str] = []
+    #: 情境相关项：出现则评、不出现不算遗漏
+    situational: list[str] = []
+    #: 关键遗漏项：缺失必须独立呈现，不得被其他维度补偿掩盖
+    key_omissions: list[str] = []
+    #: 可接受的证据整合路径与典型错误
+    acceptable_evidence: list[str] = []
+    typical_errors: list[str] = []
+    #: 本次任务**不适用**的 rubric 条目 id（由病例预先声明；不得由评分模型随意缩小分母）
+    not_applicable_items: list[str] = []
+    #: 本次任务是否存在「实施干预并观察效果」的机会；False 时评价计划与评价方法，
+    #: 不奖励编造结局，也不因无法观察而扣分。
+    intervention_observable: bool = False
+    #: 家族关系：同一 family_id 内的练习病例与迁移变式共享训练目标。
+    family_id: str = ""
+    variant_role: BlueprintVariantRole | None = None
+    #: 迁移变式指向的练习病例名（同家族内的 ``Case.name``）。
+    transfer_of: str = ""
+    review: BlueprintReview = BlueprintReview()
+
+
 class CaseDataSchema(JsonbModel):
     # extra="allow"：写路径以 model_dump() 的结果落库（service.create/update），
     # 校验器绝不能顺带改写数据 —— 未声明的配置（voice_override、各 Activity 自定义的
@@ -264,6 +357,10 @@ class CaseDataSchema(JsonbModel):
     deep_background: dict[str, str] = {}
 
     required_inquiries: list[str] = []
+
+    #: 教学蓝图（docs/19 §3.2）：能力边界、关键线索、适用性声明与家族/变式关系。
+    #: 未声明时不影响任何既有字段；运行时消费见 ``modules/training/blueprint.py``。
+    blueprint: CaseBlueprint | None = None
 
     #: Activity 声明（docs/15 §四）：``activities.<id>.config``；结构规则见 modules/cases/validator
     activities: dict[str, Any] = {}

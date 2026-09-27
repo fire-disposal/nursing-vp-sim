@@ -3,19 +3,22 @@ import contextlib
 import json
 import logging
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from core.exceptions import LLMParseError
-from core.statuses import ScoringStatus
+from core.statuses import ScoringStatus, normalize_training_mode
 from core.template import render_template
 from infra.llm import safe_parse_json
 from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
-from models import Message, NursingRecord, Score, TrainingRecord
+from models import Message, NursingRecord, Score, TrainingAction, TrainingRecord
+from modules.training.blueprint import not_applicable_item_ids, scoring_task_boundary_text
 from modules.training.pipeline.prompt_context import PromptContext
+from modules.training.prompt_identity import compute_prompt_id
 from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -24,27 +27,34 @@ from modules.training.prompts.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
-from modules.training.scoring.rubric_loader import get_rubric_version_id
+from modules.training.scoring.rubric_loader import get_rubric_version_id, rubric_content_id
 from modules.training.tools.nursing_record import FIELD_KEYS as NURSING_RECORD_FIELDS
 from modules.training.workflows import record_activity_available, workflow_for_record
 
+from .evidence import resolve_evidence_refs
+from .grade_policy import GRADE_POLICY_ID, GRADE_POLICY_VERSION
 from .mapping import LEGACY_VERSION, MAPPING_VERSION
 from .prompt_builder import build_scoring_criteria, build_scoring_json_schema
 from .validation import (
-    _check_feedback_empty,
+    _apply_item_status,
+    _backfill_missing_items,
     _clamp_scores,
     _coerce_numeric_fields,
     _convert_to_100_scale,
     _filter_hallucinated_dimensions,
+    _filter_hallucinated_items,
     _inject_missing_dimensions,
     _inject_rubric_max,
     _merge_feedback,
+    _missing_feedback_fields,
     _normalize_feedback_fields,
+    _recalc_dim_max,
     _recalc_total_from_dimensions,
     _validate_feedback_fields,
     _validate_items_content,
     _validate_scoring_essentials,
     _validate_scoring_result,
+    applicable_raw_max,
 )
 
 # ── 常量 ──
@@ -212,6 +222,7 @@ async def _stage_with_retry(
     retry_prompt_template: str,
     fallback_fn=None,
     budget_seconds: float,
+    not_applicable: frozenset[str] = frozenset(),
 ) -> dict:
     """Single scoring stage with retry.  Per-stage timeout = min(150s, 剩余预算)。
 
@@ -247,13 +258,14 @@ async def _stage_with_retry(
 
     partial_json = json.dumps(result, ensure_ascii=False, indent=2) if result else ""
     item_errors = (
-        _validate_items_content(result.get("detail_scores", {}))
+        _validate_items_content(result.get("detail_scores", {}), not_applicable)
         if result
         else ["LLM 流式响应解析失败，未获得任何 JSON 数据"]
     )
     validation_msg = "; ".join(item_errors) if item_errors else "字段缺失或不完整"
 
-    missing_list = _check_feedback_empty(result) if result else ["所有字段"]
+    # 只有**缺失或类型非法**的反馈字段才触发补全；空数组是合法结果（不再凑反馈）。
+    missing_list = _missing_feedback_fields(result) if result else ["所有字段"]
     if not missing_list:
         missing_list = ["strengths", "weaknesses", "missed_content", "suggestions"]
     missing = ", ".join(missing_list)
@@ -350,13 +362,25 @@ def _format_conversation(messages: list[Message]) -> str:
     return "\n\n".join(conversation_lines)
 
 
-def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str, str]:
+def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str, str, str]:
     all_required = case_data.get("required_inquiries", [])
     scoring_criteria_text = build_scoring_criteria(rubric)
     scoring_criteria_text_brief = build_scoring_criteria(rubric, level="brief")
     scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
-    return scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text
+    # 任务边界（docs/19 §4.2「目标适配」）：病例没声明蓝图时给出明确口径，而不是留空
+    # 让模型自行猜测有哪些条目适用。
+    task_boundary_text = scoring_task_boundary_text(case_data) or (
+        "本次任务未声明教学蓝图：按评分标准逐项判定，不额外假设适用性；"
+        "学生没有实施干预并观察效果的机会时，评价其护理计划与效果评价方法。"
+    )
+    return (
+        scoring_criteria_text,
+        scoring_criteria_text_brief,
+        scoring_json_schema_text,
+        required_inquiries_text,
+        task_boundary_text,
+    )
 
 
 def _format_nursing_diagnoses(record: TrainingRecord) -> str:
@@ -426,10 +450,15 @@ def _build_history_messages(
     scoring_json_schema_text: str,
     conversation_text: str,
     nursing_record_text: str = "",
-) -> tuple[list[dict], str, str]:
-    # Prefer TrainingAction audit timeline; fall back to legacy runtime_state
-    from models import TrainingAction
+    task_boundary_text: str = "",
+) -> tuple[list[dict], str, str, list[TrainingAction]]:
+    """装配评分阶段消息。
 
+    已记录动作（查体）与已提交产物（护理评估）此前只注册进 PromptContext 却无人引用 ——
+    模板里没有 ``{#exam_results#}``，模型从未看到查体证据。现在两者都是模板变量，
+    并在返回值里带出查体动作行，供证据引用定位（``scoring/evidence.py``）复用同一次查询。
+    """
+    # Prefer TrainingAction audit timeline; fall back to legacy runtime_state
     actions = (
         db.query(TrainingAction)
         .filter(TrainingAction.record_id == record.id, TrainingAction.kind == "physical_exam")
@@ -448,11 +477,6 @@ def _build_history_messages(
         json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
     )
 
-    if nursing_record_text:
-        scoring_criteria_text = (
-            f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录（已冻结版本）\n{nursing_record_text}"
-        )
-
     pc = PromptContext()
     pc.register(
         "scoring",
@@ -462,7 +486,8 @@ def _build_history_messages(
             "scoring_json_schema": scoring_json_schema_text,
             "conversation_text": conversation_text,
             "exam_results": exam_results_text,
-            "nursing_record": nursing_record_text,
+            "nursing_record": nursing_record_text or "学生未提交护理评估记录",
+            "task_boundary": task_boundary_text,
         },
     )
     prompt_kw = pc.as_dict()
@@ -472,7 +497,7 @@ def _build_history_messages(
         {"role": "system", "content": score_system},
         {"role": "user", "content": score_user},
     ]
-    return score_messages, exam_results_text, nursing_record_text
+    return score_messages, exam_results_text, nursing_record_text, list(actions)
 
 
 def _build_feedback_messages(
@@ -481,6 +506,7 @@ def _build_feedback_messages(
     conversation_text: str,
     exam_results_text: str,
     nursing_record_text: str,
+    task_boundary_text: str = "",
 ) -> list[dict]:
     fb_ctx = PromptContext()
     fb_ctx.register(
@@ -490,7 +516,8 @@ def _build_feedback_messages(
             "required_inquiries": required_inquiries_text,
             "conversation_text": conversation_text,
             "exam_results": exam_results_text,
-            "nursing_record": nursing_record_text,
+            "nursing_record": nursing_record_text or "学生未提交护理评估记录",
+            "task_boundary": task_boundary_text,
         },
     )
     fb_kw = fb_ctx.as_dict()
@@ -502,6 +529,50 @@ def _build_feedback_messages(
     ]
 
 
+def _attach_evidence_refs(
+    scoring_result: dict,
+    *,
+    messages: list[Message],
+    action_rows: list[TrainingAction],
+    nursing_record_text: str,
+) -> None:
+    """把每个条目的证据引用定位到真实记录（就地修改，确定性匹配）。"""
+    detail = scoring_result.get("detail_scores")
+    if not isinstance(detail, dict) or not detail:
+        return
+    msg_rows = [(m.id, m.role, m.content or "") for m in messages]
+    action_texts = []
+    for action in action_rows:
+        payload = action.result if isinstance(action.result, dict) else {}
+        text = json.dumps(payload.get("data", payload), ensure_ascii=False)
+        action_texts.append((action.id, action.kind, text))
+    artifacts = [("nursing_record", nursing_record_text)] if nursing_record_text else []
+
+    unverified = 0
+    for dim_data in detail.values():
+        if not isinstance(dim_data, dict):
+            continue
+        for item in dim_data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            evidence = str(item.get("evidence") or "").strip()
+            refs, verified = resolve_evidence_refs(
+                evidence,
+                messages=msg_rows,
+                actions=action_texts,
+                artifacts=artifacts,
+            )
+            item["evidence_refs"] = refs
+            item["evidence_verified"] = verified
+            if evidence and not verified:
+                unverified += 1
+    if unverified:
+        log.info(
+            "scoring_evidence_unverified",
+            extra={"record_id": scoring_result.get("_record_id"), "items": unverified},
+        )
+
+
 _FEEDBACK_DEFAULTS = {
     "strengths": [],
     "weaknesses": [],
@@ -510,7 +581,14 @@ _FEEDBACK_DEFAULTS = {
 }
 
 
-def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rubric: dict) -> dict:
+def _postprocess_scoring_result(
+    scoring_result: dict,
+    feedback_result: dict,
+    rubric: dict,
+    *,
+    not_applicable: frozenset[str] = frozenset(),
+    feedback_note: str = "",
+) -> dict:
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
         val = feedback_result.get(field)
@@ -518,11 +596,17 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
             result[field] = val
         else:
             result.setdefault(field, _FEEDBACK_DEFAULTS[field])
+    # 空反馈必须有语义（docs/19 §4.2 第 5 条）：解释为什么没有不足/漏问，随评分落库。
+    if feedback_note:
+        result["feedback_note"] = str(feedback_note)[:500]
 
     # S3: 全空兜底（LLM 双次失败）——跳过注入/换算，保留 0 分 + llm_empty 标记
     if result.get("fallback", {}).get("kind") == "llm_empty":
         result["raw_total"] = 0
         result["dim_total"] = {}
+        result["raw_detail_scores"] = {}
+        result["applicable_raw_max"] = 0
+        result["not_applicable_items"] = []
         return result
 
     _inject_rubric_max(result, rubric)
@@ -530,22 +614,56 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
 
     rubric_dim_names = {d["name"] for d in rubric.get("dimensions", [])}
     result["detail_scores"] = _filter_hallucinated_dimensions(result.get("detail_scores", {}), rubric_dim_names)
-    _clamp_scores(result.get("detail_scores", {}), raw_scale=rubric.get("raw_scale", 3))
-    injected_dims = _inject_missing_dimensions(result.get("detail_scores", {}), rubric)
-    if injected_dims:
-        # S4: 维度静默丢失 → 显式 fallback 标记（不再是静默 0 分）
-        result["fallback"] = {"kind": "dims_injected", "dims": injected_dims}
-        log.warning("scoring dims injected: %s", injected_dims, extra={"record_id": result.get("_record_id")})
-
-    # S2: 总分 = Σ条目分（raw），dim_total 为 LLM 维度自评快照（展示用）
     raw_scale = rubric.get("raw_scale", 3)
+    # 条目集合以**冻结 rubric** 为准：先剔除非 rubric 条目（会凭空抬分母），再补齐漏答条目。
+    _filter_hallucinated_items(result.get("detail_scores", {}), rubric)
+    _clamp_scores(result.get("detail_scores", {}), raw_scale=raw_scale)
+    injected_dims = _inject_missing_dimensions(result.get("detail_scores", {}), rubric, not_applicable)
+    backfilled_items = _backfill_missing_items(result.get("detail_scores", {}), rubric, not_applicable)
+
+    # 适用性（唯一判定处）：病例声明不适用的条目 score=None 且不计入分母；未声明不适用
+    # 却没有分数的条目是模型/系统问题，必须显式标记，不能当学生得 0 分。
+    declared_na, unscored_items = _apply_item_status(result.get("detail_scores", {}), not_applicable)
+    unscored_items = sorted({*unscored_items, *backfilled_items})
+    _recalc_dim_max(result.get("detail_scores", {}), raw_scale)
+
+    # 部分条目没被判定 = 结果**不完整**，不是"评分不可用"：
+    # 早年写法把这种情况打成 fallback（=整条记录退出统计），模型偶尔漏一条就让学生失去成绩 ——
+    # 既不合比例，也不可行。这里改为随记录携带一份"哪些没判"的清单，成绩照常计，
+    # 界面如实说明，学生不被误当成 0 分、也不被摘出统计。真正不可用（解析失败/全维度缺失）
+    # 仍走 fallback 通道。
+    if unscored_items or injected_dims:
+        result["incomplete"] = {
+            "unscored_items": unscored_items,
+            "dims": injected_dims,
+            "count": len(unscored_items),
+        }
+        log.info(
+            "scoring_incomplete: unscored=%d dims=%s",
+            len(unscored_items),
+            injected_dims,
+            extra={"record_id": result.get("_record_id")},
+        )
+
+    # S2: 总分 = Σ条目分（原始刻度），dim_total 为原始维度快照（展示用）
     raw_total = _recalc_total_from_dimensions(result.get("detail_scores", {}), raw_scale)
+    applicable = applicable_raw_max(result.get("detail_scores", {}), raw_scale)
     result["raw_total"] = raw_total
+    result["applicable_raw_max"] = applicable
+    result["not_applicable_items"] = sorted(declared_na)
+    # 原始精度快照：展示换算只作用于 detail_scores（投影层），原始条目单独保留。
+    result["raw_detail_scores"] = deepcopy(result.get("detail_scores", {}))
     result["dim_total"] = {
         name: {"score": d.get("score"), "max": d.get("max")}
         for name, d in result.get("detail_scores", {}).items()
         if isinstance(d, dict)
     }
+
+    if applicable <= 0:
+        # 全部条目都被声明不适用：没有可评内容，标为降级而不是"学生得 0 分"。
+        result["_scoring_fallback"] = True
+        result.setdefault("fallback", {"kind": "no_applicable_items"})
+        log.warning("scoring_no_applicable_items", extra={"record_id": result.get("_record_id")})
 
     if result.get("_scoring_fallback"):
         # S3：兜底输出不做"总分 = Σ条目分"校正——保留 LLM 自评分作为证据。
@@ -594,10 +712,13 @@ def _postprocess_scoring_result(scoring_result: dict, feedback_result: dict, rub
             extra={"missing_feedback": missing_feedback, "fallback": result.get("fallback")},
         )
     else:
-        _validate_scoring_result(result, rubric)
+        _validate_scoring_result(result, rubric, not_applicable)
 
-    raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
-    _convert_to_100_scale(result, raw_max)
+    # 展示投影：分母 = 适用原始满分（不适用条目已排除）；无适用条目时不换算（保持 0）。
+    if applicable > 0:
+        _convert_to_100_scale(result, applicable)
+    else:
+        result["total_score"] = 0
     return result
 
 
@@ -617,6 +738,29 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
     from modules.training.pipeline.snapshot_compat import read_prompt_snapshot
 
     snapshot = read_prompt_snapshot(record.prompt_snapshot if record else None)
+    practice = (record.practice_snapshot or {}) if record else {}
+    # 评分溯源（docs/19 §4.4）：新记录关联评分提示词内容身份、rubric 内容身份、适用分母、
+    # 等第政策身份与辅助条件。身份都是**派生值**，这里物化进评分行的元数据快照，供事后研究
+    # 区分「同一 rubric_version 下的不同量尺」；历史行没有该列 → 明确为身份不明。
+    score_meta = {
+        "applicable_raw_max": result.get("applicable_raw_max"),
+        "not_applicable_items": result.get("not_applicable_items") or [],
+        "rubric_content_id": rubric_content_id(rubric),
+        "scoring_prompt_id": compute_prompt_id("history_taking.scoring", SCORING_SYSTEM, SCORING_USER),
+        "feedback_prompt_id": compute_prompt_id(
+            "history_taking.scoring_feedback", SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER
+        ),
+        "grade_policy": {"id": GRADE_POLICY_ID, "version": GRADE_POLICY_VERSION},
+        "assistance": {"mode": normalize_training_mode((practice.get("behavior") or {}).get("mode"))},
+    }
+    # 实验批次随成绩走：多批次实验要能按批分组比较（未标记时不写该键）
+    if practice.get("experiment"):
+        score_meta["experiment"] = practice["experiment"]
+    if result.get("feedback_note"):
+        score_meta["feedback_note"] = result["feedback_note"]
+    if result.get("incomplete"):
+        # 不完整清单（哪些条目没被判）：成绩照常进统计，界面据此如实说明
+        score_meta["incomplete"] = result["incomplete"]
     score = Score(
         record_id=record_id,
         total_score=result["total_score"],
@@ -633,6 +777,9 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         mapping_version=MAPPING_VERSION if result.get("raw_total") is not None else LEGACY_VERSION,
         fallback=result.get("fallback"),
         dim_total=result.get("dim_total"),
+        # 本批次契约：原始逐项精度与溯源元数据（历史行为 NULL = 不可比，不回填）
+        raw_detail_scores=result.get("raw_detail_scores"),
+        score_meta=score_meta,
     )
     db.add(score)
     db.commit()
@@ -661,11 +808,19 @@ async def evaluate_training(
     rubric = _resolve_rubric(db, record)
     conversation_text = _format_conversation(messages)
 
-    scoring_criteria_text, scoring_criteria_text_brief, scoring_json_schema_text, required_inquiries_text = (
-        _prepare_scoring_texts(rubric, case_data)
-    )
+    # 适用性与任务边界取自**记录冻结的病例内容**（快照优先），与评分输入同源。
+    frozen_case_data = record.case_snapshot or case_data
+    not_applicable = not_applicable_item_ids(frozen_case_data)
+
+    (
+        scoring_criteria_text,
+        scoring_criteria_text_brief,
+        scoring_json_schema_text,
+        required_inquiries_text,
+        task_boundary_text,
+    ) = _prepare_scoring_texts(rubric, frozen_case_data)
     nursing_record_text = _load_nursing_record_text(db, record)
-    score_messages, exam_results_text, nursing_record_text = _build_history_messages(
+    score_messages, exam_results_text, nursing_record_text, exam_action_rows = _build_history_messages(
         db,
         record,
         scoring_criteria_text,
@@ -673,10 +828,16 @@ async def evaluate_training(
         scoring_json_schema_text,
         conversation_text,
         nursing_record_text,
+        task_boundary_text,
     )
 
     feedback_messages = _build_feedback_messages(
-        scoring_criteria_text_brief, required_inquiries_text, conversation_text, exam_results_text, nursing_record_text
+        scoring_criteria_text_brief,
+        required_inquiries_text,
+        conversation_text,
+        exam_results_text,
+        nursing_record_text,
+        task_boundary_text,
     )
 
     uid = record.user_id
@@ -727,6 +888,7 @@ async def evaluate_training(
         retry_prompt_template=SCORING_RETRY_USER,
         fallback_fn=_fallback_scoring,
         budget_seconds=stage_budget,
+        not_applicable=not_applicable,
     )
     feedback_coro = _stage_with_retry(
         feedback_messages,
@@ -787,7 +949,21 @@ async def evaluate_training(
     _tracker_update(scoring_stage, SAVING_PCT, "正在保存评分结果...")
     await _sse_progress(scoring_stage, SAVING_PCT, "正在保存评分结果...")
 
-    result = _postprocess_scoring_result(scoring_result, feedback_result, rubric)
+    # 证据引用定位（确定性，无第二次 LLM 调用）：把模型引用到的原话映射到真实记录 id。
+    _attach_evidence_refs(
+        scoring_result,
+        messages=messages,
+        action_rows=exam_action_rows,
+        nursing_record_text=nursing_record_text,
+    )
+    feedback_note = str(feedback_result.get("explained_empty") or "") if isinstance(feedback_result, dict) else ""
+    result = _postprocess_scoring_result(
+        scoring_result,
+        feedback_result,
+        rubric,
+        not_applicable=not_applicable,
+        feedback_note=feedback_note,
+    )
     if result.get("_scoring_fallback"):
         log.warning(
             "scoring_fallback_saved: record_id=%d score=%s feedback_has_content=%s",

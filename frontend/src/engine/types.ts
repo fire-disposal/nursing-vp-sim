@@ -27,6 +27,11 @@ export interface ScoringProgress {
 	phase: ScorePhase;
 	percentage: number;
 	message: string;
+	/**
+	 * 后端尚未给出可靠进度（true）—— 消费方此时**不得**显示百分比，
+	 * 只显示不定态"进行中"（前端不编造进度）。
+	 */
+	indeterminate?: boolean;
 	thought?: string;
 	score_thought?: string;
 	feedback_thought?: string;

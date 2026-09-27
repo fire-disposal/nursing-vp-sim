@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail, submitScoreReview } from "@/api";
 import { queryKeys } from "@/api/query-keys";
+import { getRecordReview, recordReviewQueryKey } from "@/api/training-review";
 import { ReviewEditor } from "@/components/record-review";
+import type { RawReviewSubmitPayload } from "@/components/record-review/review-payload";
 import { useToast } from "@/components/Toast";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import type { SessionDetailFields } from "@/engine/training-record-types";
@@ -25,7 +27,7 @@ import ScoringPendingBanner from "../record-detail/ScoringPendingBanner";
 
 export default function TeacherRecordDetail() {
 	const { id } = useParams<{ id: string }>();
-	const { retrying, retryProgress, retry } = useScoringRetry(id);
+	const { retrying, refresh, retry } = useScoringRetry(id);
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
 	const [submittingReview, setSubmittingReview] = useState(false);
 	// 证据 ↔ 对话气泡联动（工作台，与结果页同款）
@@ -49,6 +51,20 @@ export default function TeacherRecordDetail() {
 		queryKey: queryKeys.training.detail(id!),
 		queryFn: () => getRecordDetail(id!).then((r) => r.data),
 		enabled: !!id,
+	});
+
+	// 复核编辑器只在打开时拉取：它要的是**原始条目层**（GET /review 的
+	// original_raw_detail_scores + raw_scale）而不是详情里的展示投影。
+	const {
+		data: reviewData,
+		isLoading: reviewLoading,
+		isError: reviewLoadError,
+		refetch: refetchReview,
+	} = useQuery({
+		queryKey: recordReviewQueryKey(id!),
+		queryFn: () => getRecordReview(id!).then((r) => r.data),
+		enabled: showReviewEditor && !!id,
+		staleTime: 0,
 	});
 
 	// 复核信息随详情响应一次携带（后端已并入 score.review_status/reviewed_by_name 等），
@@ -91,13 +107,13 @@ export default function TeacherRecordDetail() {
 	};
 
 	const handleSubmitReview = async (
-		modifiedScores: Record<string, DetailScoreCategory>,
+		detailScores: RawReviewSubmitPayload,
 		comment: string,
 	) => {
 		setSubmittingReview(true);
 		try {
 			await submitScoreReview(id!, {
-				detail_scores: modifiedScores,
+				detail_scores: detailScores,
 				comment,
 			});
 			toast.success("复核已提交");
@@ -105,6 +121,7 @@ export default function TeacherRecordDetail() {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.training.detail(id!),
 			});
+			queryClient.invalidateQueries({ queryKey: recordReviewQueryKey(id!) });
 		} catch (err: unknown) {
 			toast.apiError(err, "提交复核失败");
 		} finally {
@@ -112,21 +129,11 @@ export default function TeacherRecordDetail() {
 		}
 	};
 
-	const mergedDetailScores = useMemo(() => {
+	// 面板展示的是 AI 展示投影层（item.max ≈ 0–5）；教师复核的原始条目**不合并**进来——
+	// 两层量尺不同，混在一起会把原始分当展示分渲染（docs/19 §4.2 第 6 条）。
+	const displayCategories = useMemo(() => {
 		const recScore = toScoreData(record?.score);
-		if (!recScore) return undefined;
-		const scReview = recScore.review;
-		if (!scReview?.detail_scores || !recScore.detail_scores) return recScore.detail_scores;
-		const merged: Record<string, unknown> = { ...recScore.detail_scores };
-		for (const [key, val] of Object.entries(scReview.detail_scores)) {
-			const existing = merged[key];
-			if (existing && typeof existing === "object") {
-				merged[key] = { ...(existing as Record<string, unknown>), ...(val as Record<string, unknown>), _reviewed: true };
-			} else {
-				merged[key] = { ...(val as Record<string, unknown>), _reviewed: true };
-			}
-		}
-		return merged as Record<string, DetailScoreCategory>;
+		return Object.entries(recScore?.detail_scores ?? {}) as [string, DetailScoreCategory][];
 	}, [record?.score]);
 
 	if (!record) {
@@ -161,14 +168,12 @@ export default function TeacherRecordDetail() {
 	};
 	const hasScore = !!recordScore;
 
-	const handleEvidenceClick = (evidence: string) => {
-		const probe = evidence.slice(0, 12);
-		if (!probe) return;
-		const match = messages.find((m) => m.content.includes(probe));
-		setHighlightMsgId(match?.id ?? null);
+	// 证据 → 对话回放联动：结果区按服务端解析出的 evidence_refs 直接给消息 id
+	const handleMessageClick = (messageId: number | string) => {
+		const target = messages.find((m) => String(m.id) === String(messageId));
+		setHighlightMsgId(target ? target.id : null);
 	};
-	const detailScores = mergedDetailScores ?? {};
-	const categories = Object.entries(detailScores);
+	const categories = displayCategories;
 	const hasDetailItems = categories.some(
 		([, v]) =>
 			v &&
@@ -195,7 +200,7 @@ export default function TeacherRecordDetail() {
 				<ScoringPendingBanner
 					record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
 					retrying={retrying}
-					retryProgress={retryProgress}
+					onRefresh={refresh}
 					onRetry={handleRetryScoring}
 				/>
 
@@ -232,21 +237,23 @@ export default function TeacherRecordDetail() {
 					{/* Right: score panel */}
 					{hasScore && recordScore && (
 						<Box id="score-section" w={{ base: "100%", lg: 420 }} style={{ flexShrink: 0, scrollMarginTop: 16 }}>
-							<ScoreResultSection
-								recordScore={recordScore}
-								isReviewed={isReviewed}
-								review={review ?? null}
-								scoreReview={scoreReview}
-								isTeacher={hasScoreReview}
-								expanded={expanded}
-								onToggleExpand={handleToggleExpand}
-								onReviewClick={() => setShowReviewEditor(true)}
-								onExport={handleExport}
-								onEvidenceClick={handleEvidenceClick}
-								scoreMax={scoreMax}
-								categories={categories}
-								hasDetailItems={hasDetailItems}
-							/>
+							<Stack gap="md">
+									<ScoreResultSection
+									recordScore={recordScore}
+									isReviewed={isReviewed}
+									review={review ?? null}
+									scoreReview={scoreReview}
+									isTeacher={hasScoreReview}
+									expanded={expanded}
+									onToggleExpand={handleToggleExpand}
+									onReviewClick={() => setShowReviewEditor(true)}
+									onExport={handleExport}
+									onMessageClick={handleMessageClick}
+									scoreMax={scoreMax}
+									categories={categories}
+									hasDetailItems={hasDetailItems}
+								/>
+							</Stack>
 						</Box>
 					)}
 				</Flex>
@@ -255,8 +262,13 @@ export default function TeacherRecordDetail() {
 
 			{showReviewEditor && recordScore && (
 				<ReviewEditor
-					score={recordScore}
-					review={review ?? null}
+					// 复核基准是异步到达的：用 score_id 换 key，数据到位后编辑器按新基准重新初始化
+					key={reviewData?.score_id ?? "pending"}
+					review={reviewData ?? null}
+					loading={reviewLoading}
+					loadError={reviewLoadError}
+					onReload={() => { void refetchReview(); }}
+					scoreMax={scoreMax}
 					onSubmit={handleSubmitReview}
 					onClose={() => setShowReviewEditor(false)}
 					submitting={submittingReview}
@@ -264,4 +276,5 @@ export default function TeacherRecordDetail() {
 			)}
 		</>
 	);
+
 }

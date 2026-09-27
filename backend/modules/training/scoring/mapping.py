@@ -27,7 +27,7 @@ MAPPING_VERSION = 1
 LEGACY_VERSION = 0
 
 
-def apply_score_mapping(raw_score: float, raw_max: int) -> int:
+def apply_score_mapping(raw_score: float, raw_max: float) -> int:
     """将原始分映射为展示分（0 到 DISPLAY_MAX 的整数）。"""
     if raw_max <= 0 or raw_score <= 0:
         return 0
@@ -35,7 +35,7 @@ def apply_score_mapping(raw_score: float, raw_max: int) -> int:
     return max(0, min(display, DISPLAY_MAX))
 
 
-def display_factor(raw_max: int) -> float:
+def display_factor(raw_max: float) -> float:
     """展示刻度因子：raw 刻度 × factor = 展示刻度。
 
     落库换算与复核换算的唯一来源——因子若各写一份，复核"不改分提交"

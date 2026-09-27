@@ -5,39 +5,56 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
+import { type PracticeKind, startPractice } from "@/api/training";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import type { SessionDetailFields } from "@/engine/training-record-types";
+import { getExistingTrainingRecordId } from "@/utils/error";
 import { downloadRecordDetail } from "@/utils/export-record";
 import { getScoreDenominator, toScoreData } from "@/utils/score";
 import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
+import PracticeSection from "./record-detail/PracticeSection";
 import RecordStatsBar from "./record-detail/RecordStatsBar";
+import ReviewFocusSection from "./record-detail/ReviewFocusSection";
 import ScoreResultSection from "./record-detail/ScoreResultSection";
+import { toPracticeMarker, toPracticeOptions, toReviewFocus } from "./record-detail/record-view";
 import { EmotionTrajectory } from "./record-detail/EmotionTrajectory";
 import NursingRecordSection from "./record-detail/NursingRecordSection";
 import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
+
+/** 评分未出终态时的自动轮询间隔（GET 记录详情，无自造进度） */
+const PENDING_POLL_INTERVAL_MS = 3000;
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const toast = useToast();
-	const { retrying, retryProgress, retry } = useScoringRetry(id);
+	const { confirm } = useConfirm();
+	const { retrying, refreshing, refresh, retry } = useScoringRetry(id);
+	const [startingPractice, setStartingPractice] = useState<PracticeKind | null>(null);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
 		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
 		return { strengths: isDesktop, weaknesses: isDesktop, missed_content: isDesktop, suggestions: isDesktop };
 	});
-	// 证据 → 对话气泡联动（工作台核心）
+	// 证据 → 对话气泡联动（工作台核心）：只按服务端解析出的 message id 定位
 	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
 
 	const { data: record, isError: recordError } = useQuery({
 		queryKey: queryKeys.training.detail(id),
 		queryFn: () => getRecordDetail(id!).then((r) => r.data),
 		enabled: !!id,
+		// 评分 pending/processing 期间自动轮询到终态：等待只有一个数据源（真实 GET），
+		// 页面不显示任何自造百分比；到达终态（completed/failed/其它）即停止轮询。
+		refetchInterval: (query) => {
+			const status = query.state.data?.scoring_status;
+			return status === "pending" || status === "processing" ? PENDING_POLL_INTERVAL_MS : false;
+		},
 	});
 
 	useEffect(() => {
@@ -81,8 +98,25 @@ export default function RecordDetail() {
 	const detailScores = recordScore?.detail_scores ?? {};
 	const categories = Object.entries(detailScores);
 	const hasDetailItems = categories.some(
-		([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0,
+		([, v]) => !!v && Array.isArray(v.items) && v.items.length > 0,
 	);
+	// 逐项判定用原始层（0..raw_scale）；展示层只负责维度分母与进度条
+	const rawCategories = Object.entries(recordScore?.raw_detail_scores ?? {});
+	// 教师复核必须真的到达学生页：状态/复核人/时间/备注/分数全部来自 score 本身
+	const isReviewed = recordScore?.review_status === "reviewed";
+	const review = recordScore
+		? {
+				review_status: recordScore.review_status ?? null,
+				reviewed_by_name: recordScore.reviewed_by_name ?? null,
+				reviewed_at: recordScore.reviewed_at ?? null,
+				review_comment: recordScore.review_comment ?? null,
+			}
+		: null;
+	const practiceMarker = toPracticeMarker(record.practice);
+	const practiceOptions = toPracticeOptions(record.practice_options);
+	const reviewFocus = toReviewFocus(record.review_focus);
+	const reviewFocusNote =
+		typeof record.review_focus_note === "string" ? record.review_focus_note : "";
 
 	const messages = (record.messages as MessageData[] | undefined) ?? [];
 	// 生成类型尚未重生成（本次新增 nursing_record_submitted_at、terminal_reason）：
@@ -111,13 +145,40 @@ export default function RecordDetail() {
 		}
 	};
 
-	const handleEvidenceClick = (evidence: string) => {
-		const probe = evidence.slice(0, 12);
-		if (!probe) return;
-		const match = messages.find(
-			(m) => m.content.includes(probe) || evidence.slice(0, 6).length > 0 && m.content.includes(evidence.slice(0, 6)),
-		);
-		setHighlightMsgId(match?.id ?? null);
+	/** 证据定位：服务端已给出 message id，直接按 id 高亮（不再用原文子串去猜） */
+	const handleMessageClick = (messageId: number | string) => {
+		const target = messages.find((m) => String(m.id) === String(messageId));
+		setHighlightMsgId(target ? target.id : null);
+	};
+
+	/** 「重新评分」= POST retry-scoring（会覆盖本次结果），必须先确认 */
+	const handleRetryScoring = async () => {
+		const ok = await confirm({
+			title: "重新评分",
+			message: "重新评分会重新运行 AI 评分并覆盖当前结果，确定继续？",
+			confirmLabel: "重新评分",
+		});
+		if (!ok) return;
+		await retry();
+	};
+
+	const handleStartPractice = async (kind: PracticeKind) => {
+		if (!id) return;
+		setStartingPractice(kind);
+		try {
+			const { data } = await startPractice(id, kind);
+			navigate(`/training/${data.record_id}`);
+		} catch (err: unknown) {
+			// 已有进行中训练时服务端回 409 + record_id：直接带去继续，不制造第二个入口
+			const conflictId = getExistingTrainingRecordId(err);
+			if (conflictId != null) {
+				navigate(`/training/${conflictId}`);
+				return;
+			}
+			toast.apiError(err, "发起再练习失败");
+		} finally {
+			setStartingPractice(null);
+		}
 	};
 
 	return (
@@ -139,11 +200,12 @@ export default function RecordDetail() {
 			<ScoringPendingBanner
 				record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
 				retrying={retrying}
-				retryProgress={retryProgress}
-				onRetry={() => void retry()}
+				refreshing={refreshing}
+				onRefresh={() => void refresh()}
+				onRetry={() => void handleRetryScoring()}
 			/>
 
-			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/护理记录 */}
+			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/关键选择/再练习 */}
 			<Grid mt="md" align="stretch">
 				<Grid.Col span={{ base: 12, lg: 7 }}>
 					<Box h="100%" style={{ maxHeight: "calc(100vh - 220px)" }}>
@@ -152,22 +214,34 @@ export default function RecordDetail() {
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, lg: 5 }}>
 					<Stack gap="md">
+						<ReviewFocusSection
+							focus={reviewFocus}
+							note={reviewFocusNote}
+							onMessageClick={handleMessageClick}
+						/>
 						{recordScore && (
 							<ScoreResultSection
 								recordScore={recordScore}
-								isReviewed={false}
-								review={null}
-								scoreReview={null}
+								isReviewed={isReviewed}
+								review={review}
+								scoreReview={recordScore.review ?? null}
 								isTeacher={false}
 								expanded={expanded}
 								onToggleExpand={handleToggleExpand}
 								onExport={handleExport}
-								onEvidenceClick={handleEvidenceClick}
+								onMessageClick={handleMessageClick}
 								scoreMax={scoreMax}
 								categories={categories}
 								hasDetailItems={hasDetailItems}
+								rawCategories={rawCategories}
 							/>
 						)}
+						<PracticeSection
+							practice={practiceMarker}
+							options={practiceOptions}
+							starting={startingPractice}
+							onStart={(kind) => void handleStartPractice(kind)}
+						/>
 						{id && <EmotionTrajectory recordId={id} />}
 						{sheet && (
 							<NursingRecordSection sheet={sheet} submittedAt={nursingSubmittedAt} />

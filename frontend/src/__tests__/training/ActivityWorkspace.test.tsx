@@ -1,23 +1,23 @@
-import { cleanup, fireEvent, render, screen } from "@/__tests__/render";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeActivity, makeManifest } from "@/__tests__/fixtures/manifest";
 import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
+import { cleanup, fireEvent, render, screen } from "@/__tests__/render";
 import { ActivityRail } from "@/components/training/workspace/ActivityRail";
 import { CompletionStrip } from "@/components/training/workspace/CompletionStatus";
-import { type SessionManifest } from "@/engine/manifest";
+import type { SessionManifest } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { makeActivity, makeManifest } from "@/__tests__/fixtures/manifest";
 
 const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn(), listEvents: vi.fn(() => []) };
 
 /** manifest 是服务端事实：测试把它放进原始 record（RQ 返回值）再渲染。 */
-function setSession(manifest: SessionManifest) {
+function setSession(manifest: SessionManifest, record?: Parameters<typeof makeRecord>[0]) {
 	useTrainingStore.setState({
 		bus: bus as never,
 		recordId: "1",
 		trainingEnded: false,
 	});
-	return makeRecord({ mode: "guided", required_inquiries: [], manifest: { ...manifest } });
+	return makeRecord({ mode: "guided", required_inquiries: [], manifest: { ...manifest }, ...record });
 }
 
 beforeEach(() => {
@@ -76,6 +76,49 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 		const { container } = render(withTrainingData(<ActivityRail />, setSession(manifest)));
 
 		expect(container.querySelector("nav")).toBeNull();
+	});
+
+	it("产物状态在侧栏可见，不只在 tooltip 里（草稿/未填写）", () => {
+		const manifest = makeManifest({
+			activities: [
+				makeActivity("nursing_record", {
+					label: "护理记录",
+					artifact_kind: "nursing_record",
+					ui: { renderer: "nursing_record", placement: "side_panel", order: 10 },
+				}),
+				makeActivity("nursing_diagnosis", {
+					label: "护理诊断",
+					artifact_kind: "nursing_diagnosis",
+					ui: { renderer: "nursing_diagnosis", placement: "side_panel", order: 20 },
+				}),
+			],
+			artifacts: {
+				nursing_record: { required: true, state: "draft", submitted_at: null, updated_at: null },
+				nursing_diagnosis: { required: true, state: "empty", submitted_at: null, updated_at: null },
+			},
+		});
+
+		render(withTrainingData(<ActivityRail />, setSession(manifest)));
+
+		expect(screen.getByText("草稿")).toBeInTheDocument();
+		expect(screen.getByText("未填写")).toBeInTheDocument();
+	});
+
+	it("引导提示存在时内置面板叫「引导提示」，否则沿用「问诊清单」", () => {
+		const manifest = makeManifest({ activities: [] });
+		const extras = { guided_hints: [{ clue_id: "c1", domain: "诱因", significance: "决定处置优先级" }] };
+
+		const withHints = render(withTrainingData(<ActivityRail />, setSession(manifest, extras)));
+		expect(screen.getByLabelText("引导提示")).toBeInTheDocument();
+		withHints.unmount();
+
+		render(
+			withTrainingData(
+				<ActivityRail />,
+				setSession(manifest, { required_inquiries: ["胸闷持续时间与诱因"] }),
+			),
+		);
+		expect(screen.getByLabelText("问诊清单")).toBeInTheDocument();
 	});
 });
 

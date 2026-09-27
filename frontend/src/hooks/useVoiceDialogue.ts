@@ -68,7 +68,15 @@ export function useVoiceDialogue({
 	const [notice, setNotice] = useState<string | null>(null);
 
 	// 供应商能力可能在运行时不变（浏览器特性稳定），一次性探测。
-	const supported = useMemo(() => asrProvider.supported(), [asrProvider]);
+	// 探测本身也可能抛（浏览器/实现异常）——降级为「不支持」，不让它掀翻整个输入区。
+	const supported = useMemo(() => {
+		try {
+			return asrProvider.supported();
+		} catch (err) {
+			console.warn("[useVoiceDialogue] ASR 能力探测失败，按不支持处理", err);
+			return false;
+		}
+	}, [asrProvider]);
 
 	const sessionRef = useRef<AsrSession | null>(null);
 	const listeningRef = useRef(false);
@@ -110,7 +118,14 @@ export function useVoiceDialogue({
 			}
 			setTranscriptBoth("");
 			setPhase("sending");
-			onSendRef.current(trimmed);
+			try {
+				onSendRef.current(trimmed);
+			} catch (err) {
+				// onSend 的异常不能从 ASR 供应商的回调里逃逸成未处理错误：回到 idle 并如实提示
+				console.error("[useVoiceDialogue] 语音转写发送失败", err);
+				setPhase("idle");
+				setNotice("语音消息发送失败，请改用文字输入重试");
+			}
 		},
 		[clearSilenceTimer, setTranscriptBoth],
 	);

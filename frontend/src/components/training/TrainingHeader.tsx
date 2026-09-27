@@ -6,19 +6,24 @@ import { ActionIcon, Box, Button, Group, Modal, Stack, Text } from "@mantine/cor
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
+import { pauseTraining } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
 import { ACTION_COMPLETE_SESSION } from "@/engine/manifest";
 import { usePatientData, useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
-/** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。WS 承载查体/护理记录/评分推送。 */
+/** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。
+ *
+ * WS **只**承载服务端推送（评分进度 / 状态通知）。对话走 SSE、工具与提交流程走 HTTP，
+ * 因此 WS 断开不等于「工具不可用」——旧文案把两者混为一谈，属状态归因错误（docs/19 E5）。
+ */
 function WSStatusDot() {
 	const [connected, setConnected] = useState(false);
 	useEffect(() => subscribeWSConnection(setConnected), []);
 	const label = connected
-		? "实时连接正常"
-		: "实时连接中断，工具暂不可用，正在自动重连…";
+		? "实时通知连接正常"
+		: "实时通知连接中断（评分进度与状态通知暂停）；对话与工具不受影响，正在自动重连…";
 	return (
 		<Box
 			component="span"
@@ -54,12 +59,17 @@ export function TrainingHeader({
 	const trainingEnded = useTrainingStore(s => s.trainingEnded);
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
+	const recordId = useTrainingStore(s => s.recordId);
+	const bus = useTrainingStore(s => s.bus);
 	const isShort = useShortViewport();
 	const navigate = useNavigate();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
 	const [leaving, setLeaving] = useState(false);
+	/** 服务端语音不可用 → 浏览器内置语音兜底时的实际供应商名（null = 未降级） */
+	const [ttsDegradedProvider, setTtsDegradedProvider] = useState<string | null>(null);
+	const ttsDegradedRef = useRef<string | null>(null);
 	const toast = useToast();
 	const initialRemaining = remainingSeconds;
 	const manifest = useSessionManifest();
@@ -69,6 +79,12 @@ export function TrainingHeader({
 	// 交卷按钮的唯一文案来源：manifest 声明优先、回退"结束训练"。可见文案与 aria-label 共用，
 	// 避免两处措辞漂移（2026-09-26 前该按钮在桌面端只显示图标、无 aria-label，见 UI-TRN-1）。
 	const completeEndLabel = completeAction?.label ?? "结束训练";
+	// 降级时按钮文案说明**当前实际用的是什么**，而不是只描述开/关（否则学生以为听到了服务端语音）
+	const ttsToggleLabel = ttsDegradedProvider
+		? `服务端语音暂不可用，已降级为「${ttsDegradedProvider}」朗读（点击${ttsAutoPlay ? "关闭" : "开启"}朗读）`
+		: ttsAutoPlay
+			? "关闭朗读"
+			: "开启朗读";
 
 	const {
 		remaining,
@@ -101,11 +117,44 @@ export function TrainingHeader({
 		setEndConfirmOpen(true);
 	}, []);
 
+	// 语音降级信号（docs/19 E6）：服务端 TTS 熔断/失败时 TTSManager 回落到浏览器内置语音，
+	// 并发出 `tts:degraded` —— 此前该事件没有任何消费者，学生只会听到音色悄悄变了。
+	// `tts:provider-status` 在每轮回复结束时上报实际使用的供应商：变回非降级供应商即视为恢复。
+	useEffect(() => {
+		if (!bus) return;
+		const offDegraded = bus.on("tts:degraded", (payload?: { provider?: string }) => {
+			const provider = payload?.provider ?? "浏览器内置语音";
+			if (ttsDegradedRef.current === provider) return;
+			ttsDegradedRef.current = provider;
+			setTtsDegradedProvider(provider);
+			toast.warning(`服务端语音暂不可用，已降级为「${provider}」朗读`);
+		});
+		const offStatus = bus.on("tts:provider-status", (payload?: { provider?: string }) => {
+			if (!payload?.provider || payload.provider === ttsDegradedRef.current) return;
+			ttsDegradedRef.current = null;
+			setTtsDegradedProvider(null);
+		});
+		return () => {
+			offDegraded();
+			offStatus();
+		};
+	}, [bus, toast]);
+
 	const executeLeave = useCallback(async () => {
 		if (leaving) return;
 		setLeaving(true);
 		try {
 			await onLeave();
+			// 按钮承诺的是「暂停计时」：必须等服务器确认后再离开。旧实现只发一个不保证送达的
+			// 请求就跳转，UI 于是宣称了一个从未发生（sendBeacon 无 Authorization → 401）的暂停。
+			if (!isAssessment && recordId) {
+				try {
+					await pauseTraining(recordId);
+				} catch {
+					toast.error("未能确认服务器已暂停计时，已留在当前页面，请检查网络后重试");
+					return;
+				}
+			}
 			setLeaveDialogOpen(false);
 			navigate(-1);
 		} catch {
@@ -113,7 +162,7 @@ export function TrainingHeader({
 		} finally {
 			setLeaving(false);
 		}
-	}, [leaving, navigate, onLeave]);
+	}, [leaving, navigate, onLeave, isAssessment, recordId, toast]);
 
 	const headerStyle = {
 		zIndex: 10,
@@ -202,14 +251,20 @@ export function TrainingHeader({
 					</Group>
 
 					<ActionIcon
-						variant={ttsAutoPlay ? "light" : "default"}
+						variant={ttsDegradedProvider || ttsAutoPlay ? "light" : "default"}
+						color={ttsDegradedProvider ? "yellow" : undefined}
 						size={isShort ? "md" : "lg"}
 						onClick={onTtsToggle}
-						title={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
-						aria-label={ttsAutoPlay ? "关闭朗读" : "开启朗读"}
+						title={ttsToggleLabel}
+						aria-label={ttsToggleLabel}
 					>
 						{ttsAutoPlay ? <IconVolume2 size={isShort ? 14 : 16} /> : <IconEarOff size={isShort ? 14 : 16} />}
 					</ActionIcon>
+					{ttsDegradedProvider && (
+						<Text span size="10px" c="yellow.7" fw={700} title={ttsToggleLabel}>
+							语音降级
+						</Text>
+					)}
 					<Button
 						// 两态都用 danger 色：这个按钮无论完成条件是否满足，都进入"结束训练"流程
 						// （未满足时先展示还缺什么），属于终结性动作。曾试过阻塞态改 warning 橙，
@@ -264,7 +319,7 @@ export function TrainingHeader({
 				<Text size="sm" c="dimmed" mb="xl">
 					{isAssessment
 						? "独立考核采用连续计时，离开页面后倒计时仍会继续。"
-						: "训练进度已自动保存，暂离期间倒计时会暂停。"}
+						: "离开前会先请服务器暂停计时；若服务器未确认暂停，将留在当前页面并提示。"}
 				</Text>
 				<Stack gap={8}>
 					<Button onClick={executeLeave} loading={leaving}>

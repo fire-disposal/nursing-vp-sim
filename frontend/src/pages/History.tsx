@@ -42,6 +42,35 @@ function recordStatus(r: TrainingRecordBrief): RecordStatus {
 
 const DIM = { color: "var(--mantine-color-dimmed)" } as const;
 
+/**
+ * 列表里的「成绩来源」：以服务端返回的 `score_reviewed` 为准（有效分 = COALESCE(复核分, AI 分)）。
+ *
+ * 降级/异常标记**不在列表载荷里**（TrainingRecordBrief 没有 source/fallback 字段），
+ * 所以这里只声明 AI ／ 教师两种来源，并在页脚说明降级标记要看记录详情——不用猜测补一个假标签。
+ */
+function scoreSourceBadge(r: TrainingRecordBrief) {
+	if (r.score_total == null) {
+		return (
+			<Text component="span" size="xs" c="dimmed" opacity={0.4}>
+				—
+			</Text>
+		);
+	}
+	// 降级分不得在列表里冒充正常成绩：来源由服务端下发（score_source/score_degraded）
+	if (r.score_degraded || r.score_source === "fallback") {
+		return (
+			<Badge variant="light" color="red" size="sm">
+				系统降级
+			</Badge>
+		);
+	}
+	return (
+		<Badge variant="light" color={r.score_reviewed ? "green" : "brand"} size="sm">
+			{r.score_reviewed ? "教师复核" : "AI 初评"}
+		</Badge>
+	);
+}
+
 export default function History() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
@@ -206,229 +235,253 @@ export default function History() {
 					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
 				</Paper>
 			) : (
-				<Paper withBorder style={{ overflow: "hidden" }}>
-					{/* Mobile: card list */}
-					<Box hiddenFrom="md" p="xs">
-						<Stack gap="xs">
-							{records.map((r) => {
-								const durMins = recordDurMins(r);
-								const status = recordStatus(r);
-								return (
-									<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
-										<UnstyledButton
-											onClick={() => navigate(`/record/${r.id}`)}
-											style={{ width: "100%", textAlign: "left" }}
-										>
-											<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
-												<Box style={{ minWidth: 0, flex: 1 }}>
-													<Group gap="xs" wrap="nowrap">
-														<Text size="sm" fw={600} truncate>
-															{r.case_name}
-														</Text>
-														{r.assignment_title && (
-															<Badge size="xs">
-																作业
-															</Badge>
-														)}
-													</Group>
-													<Text size="xs" c="dimmed" mt={2}>
-														{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric",
-															hour: "2-digit", minute: "2-digit",
-														})}
+				<>
+					<Paper withBorder style={{ overflow: "hidden" }}>
+						{/* Mobile: card list */}
+						<Box hiddenFrom="md" p="xs">
+							<Stack gap="xs">
+								{records.map((r) => {
+									const durMins = recordDurMins(r);
+									const status = recordStatus(r);
+									return (
+										<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
+											<UnstyledButton
+												onClick={() => navigate(`/record/${r.id}`)}
+												style={{ width: "100%", textAlign: "left" }}
+											>
+												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+													<Box style={{ minWidth: 0, flex: 1 }}>
+														<Group gap="xs" wrap="nowrap">
+															<Text size="sm" fw={600} truncate>
+																{r.case_name}
+															</Text>
+															{r.assignment_title && (
+																<Badge size="xs">
+																	作业
+																</Badge>
+															)}
+														</Group>
+														<Text size="xs" c="dimmed" mt={2}>
+															{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric",
+																hour: "2-digit", minute: "2-digit",
+															})}
 
-														{durMins != null ? ` · ${durMins} 分钟` : ""}
-													</Text>
-												</Box>
-												<Box style={{ flexShrink: 0 }}>
-													{status === "completed" ? (
-														<Text size="xs" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
-															{r.score_total != null ? `${r.score_total} 分` : "评分中"}
+															{durMins != null ? ` · ${durMins} 分钟` : ""}
 														</Text>
-													) : status === "abandoned" ? (
-														<Text size="xs" c="dimmed">
-															已放弃
-														</Text>
-													) : (
-														<Badge variant="light" color="brand">进行中</Badge>
-													)}
-												</Box>
-											</Group>
-										</UnstyledButton>
-										<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-											{status === "in_progress" && (
-												<>
+													</Box>
+													<Box style={{ flexShrink: 0 }}>
+														{status === "completed" ? (
+															<Stack gap={2} align="flex-end">
+																<Text
+																	size="xs"
+																	fw={600}
+																	title="数值参考，不代表能力等第"
+																	style={{ fontVariantNumeric: "tabular-nums" }}
+																>
+																	{r.score_total != null ? `${r.score_total} 分` : "评分中"}
+																</Text>
+																{scoreSourceBadge(r)}
+															</Stack>
+														) : status === "abandoned" ? (
+															<Text size="xs" c="dimmed">
+																已放弃
+															</Text>
+														) : (
+															<Badge variant="light" color="brand">进行中</Badge>
+														)}
+													</Box>
+												</Group>
+											</UnstyledButton>
+											<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+												{status === "in_progress" && (
+													<>
+														<Button
+															variant="outline"
+															size="xs"
+															style={{ flex: 1 }}
+															onClick={(e) => {
+																e.stopPropagation();
+																navigate(`/training/${r.id}`);
+															}}
+														>
+															<IconPlayerPlay size={12} /> 继续
+														</Button>
+														<Button
+															variant="subtle" color="gray"
+															size="xs"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleAbandonRecord(r);
+															}}
+														>
+															<IconCircleX size={12} /> 放弃
+														</Button>
+													</>
+												)}
+												{status === "abandoned" && (
 													<Button
-														variant="outline"
+														variant="subtle" color="gray"
 														size="xs"
 														style={{ flex: 1 }}
 														onClick={(e) => {
 															e.stopPropagation();
-															navigate(`/training/${r.id}`);
+															navigate(`/record/${r.id}`);
 														}}
 													>
-														<IconPlayerPlay size={12} /> 继续
+														查看
 													</Button>
-													<Button
-														variant="subtle" color="gray"
-														size="xs"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleAbandonRecord(r);
-														}}
-													>
-														<IconCircleX size={12} /> 放弃
-													</Button>
-												</>
-											)}
-											{status === "abandoned" && (
+												)}
 												<Button
-													variant="subtle" color="gray"
+													variant="subtle"
+													color="red"
 													size="xs"
-													style={{ flex: 1 }}
+													style={{ marginLeft: "auto" }}
 													onClick={(e) => {
 														e.stopPropagation();
-														navigate(`/record/${r.id}`);
+														handleDeleteRecord(r);
 													}}
 												>
-													查看
+													<IconTrash size={12} /> 删除
 												</Button>
-											)}
-											<Button
-												variant="subtle"
-												color="red"
-												size="xs"
-												style={{ marginLeft: "auto" }}
-												onClick={(e) => {
-													e.stopPropagation();
-													handleDeleteRecord(r);
-												}}
-											>
-												<IconTrash size={12} /> 删除
-											</Button>
-										</Group>
-									</Paper>
-								);
-							})}
-						</Stack>
-					</Box>
-
-					<Box visibleFrom="md" style={{ overflowX: "auto" }}>
-						<Table>
-							<Table.Thead>
-								<Table.Tr>
-									{/* 「类型」列恒为「问诊」，2026-09-26 按实用性删除（审计 UI-STU-2） */}
-									<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>病例</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>来源</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 168, whiteSpace: "nowrap" }}>开始时间</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 84, whiteSpace: "nowrap" }}>时长</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>状态</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 76 }}>得分</Table.Th>
-									<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 120, whiteSpace: "nowrap" }}>操作</Table.Th>
-								</Table.Tr>
-							</Table.Thead>
-							<Table.Tbody>
-								{records.map((r) => {
-									const durMins = recordDurMins(r);
-									return (
-										<Table.Tr key={r.id} className="data-table-row">
-											<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
-
-											<Table.Td style={{ fontSize: 12, ...DIM }}>
-												{r.assignment_title ? (
-													<Badge size="xs">作业</Badge>
-												) : (
-													<Text component="span" size="xs" c="dimmed" opacity={0.4}>
-														自由训练
-													</Text>
-												)}
-											</Table.Td>
-											<Table.Td style={{ fontSize: 12, ...DIM }}>
-												{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
-											</Table.Td>
-											<Table.Td style={{ fontSize: 12, ...DIM }}>
-												{durMins != null ? `${durMins} 分钟` : "进行中"}
-											</Table.Td>
-											<Table.Td>
-												<Badge
-													variant="light" color={r.status === "completed" ? "green" :
-														r.status === "abandoned" ? "gray" :
-														"brand"}
-												>
-													{r.status === "completed" ? "已完成" :
-													 r.status === "abandoned" ? "已放弃" :
-													 "进行中"}
-												</Badge>
-											</Table.Td>
-											<Table.Td>
-												{r.score_total != null ? (
-													<Text component="span" fw={600} c="brand" className="tabular-nums">
-														{r.score_total}分
-													</Text>
-												) : r.scoring_status === "pending" ||
-													r.scoring_status === "processing" ? (
-													<Badge variant="light" color="yellow">评分中...</Badge>
-												) : r.scoring_status === "failed" ? (
-													<Text
-														component="span"
-														size="xs"
-														c="red"
-														title={r.scoring_error ?? undefined}
-													>
-														评分失败
-													</Text>
-												) : (
-													<Text component="span" c="dimmed" opacity={0.4}>
-														-
-													</Text>
-												)}
-											</Table.Td>
-											<Table.Td>
-												<Group gap="xs" wrap="nowrap">
-													{r.status === "in_progress" && (
-														<>
-															<Button
-																variant="transparent"
-																size="xs"
-																onClick={() => navigate(`/training/${r.id}`)}
-															>
-																继续训练
-															</Button>
-															<Button
-																variant="transparent"
-																size="xs"
-																onClick={() => handleAbandonRecord(r)}
-															>
-																放弃
-															</Button>
-														</>
-													)}
-													{(r.status === "completed" || r.status === "abandoned") && (
-														<Button
-															variant="transparent"
-															size="xs"
-															onClick={() => navigate(`/record/${r.id}`)}
-														>
-															{r.status === "abandoned" ? "查看" : "查看详情"}
-														</Button>
-													)}
-													<Button
-														variant="subtle"
-														color="red"
-														size="xs" w={32} h={32} p={0}
-														onClick={() => handleDeleteRecord(r)}
-														aria-label="删除记录"
-													>
-														<IconTrash size={14} />
-													</Button>
-												</Group>
-											</Table.Td>
-										</Table.Tr>
+											</Group>
+										</Paper>
 									);
 								})}
-							</Table.Tbody>
-						</Table>
-					</Box>
-				</Paper>
+							</Stack>
+						</Box>
+
+						<Box visibleFrom="md" style={{ overflowX: "auto" }}>
+							<Table>
+								<Table.Thead>
+									<Table.Tr>
+										{/* 「类型」列恒为「问诊」，2026-09-26 按实用性删除（审计 UI-STU-2） */}
+										<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>病例</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>来源</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 168, whiteSpace: "nowrap" }}>开始时间</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 84, whiteSpace: "nowrap" }}>时长</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>状态</Table.Th>
+										<Table.Th
+											style={{ fontWeight: 600, fontSize: 12, width: 76 }}
+											title="数值参考，不代表能力等第"
+										>
+											得分
+										</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 96, whiteSpace: "nowrap" }}>
+											成绩来源
+										</Table.Th>
+										<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 120, whiteSpace: "nowrap" }}>操作</Table.Th>
+									</Table.Tr>
+								</Table.Thead>
+								<Table.Tbody>
+									{records.map((r) => {
+										const durMins = recordDurMins(r);
+										return (
+											<Table.Tr key={r.id} className="data-table-row">
+												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
+
+												<Table.Td style={{ fontSize: 12, ...DIM }}>
+													{r.assignment_title ? (
+														<Badge size="xs">作业</Badge>
+													) : (
+														<Text component="span" size="xs" c="dimmed" opacity={0.4}>
+															自由训练
+														</Text>
+													)}
+												</Table.Td>
+												<Table.Td style={{ fontSize: 12, ...DIM }}>
+													{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
+												</Table.Td>
+												<Table.Td style={{ fontSize: 12, ...DIM }}>
+													{durMins != null ? `${durMins} 分钟` : "进行中"}
+												</Table.Td>
+												<Table.Td>
+													<Badge
+														variant="light" color={r.status === "completed" ? "green" :
+															r.status === "abandoned" ? "gray" :
+															"brand"}
+													>
+														{r.status === "completed" ? "已完成" :
+														 r.status === "abandoned" ? "已放弃" :
+														 "进行中"}
+													</Badge>
+												</Table.Td>
+												<Table.Td>
+													{r.score_total != null ? (
+														<Text component="span" fw={600} c="brand" className="tabular-nums">
+															{r.score_total}分
+														</Text>
+													) : r.scoring_status === "pending" ||
+														r.scoring_status === "processing" ? (
+														<Badge variant="light" color="yellow">评分中...</Badge>
+													) : r.scoring_status === "failed" ? (
+														<Text
+															component="span"
+															size="xs"
+															c="red"
+															title={r.scoring_error ?? undefined}
+														>
+															评分失败
+														</Text>
+													) : (
+														<Text component="span" c="dimmed" opacity={0.4}>
+															-
+														</Text>
+													)}
+												</Table.Td>
+												<Table.Td>
+													{scoreSourceBadge(r)}
+												</Table.Td>
+												<Table.Td>
+													<Group gap="xs" wrap="nowrap">
+														{r.status === "in_progress" && (
+															<>
+																<Button
+																	variant="transparent"
+																	size="xs"
+																	onClick={() => navigate(`/training/${r.id}`)}
+																>
+																	继续训练
+																</Button>
+																<Button
+																	variant="transparent"
+																	size="xs"
+																	onClick={() => handleAbandonRecord(r)}
+																>
+																	放弃
+																</Button>
+															</>
+														)}
+														{(r.status === "completed" || r.status === "abandoned") && (
+															<Button
+																variant="transparent"
+																size="xs"
+																onClick={() => navigate(`/record/${r.id}`)}
+															>
+																{r.status === "abandoned" ? "查看" : "查看详情"}
+															</Button>
+														)}
+														<Button
+															variant="subtle"
+															color="red"
+															size="xs" w={32} h={32} p={0}
+															onClick={() => handleDeleteRecord(r)}
+															aria-label="删除记录"
+														>
+															<IconTrash size={14} />
+														</Button>
+													</Group>
+												</Table.Td>
+											</Table.Tr>
+										);
+									})}
+								</Table.Tbody>
+							</Table>
+						</Box>
+					</Paper>
+					<Text size="xs" c="dimmed">
+						成绩来源按记录列表的复核状态显示（教师复核优先，其次 AI 初评）；系统降级标记与原始条目层只在记录详情中可见。分数为数值参考，不代表能力等第。
+					</Text>
+				</>
 			)}
 
 			<Paper withBorder px="md" py="sm">

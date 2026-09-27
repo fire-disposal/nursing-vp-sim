@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
+import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
 import { availableActivities } from "@/engine/manifest";
 import { useInitialMessages, useExamResults, usePatientData, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
@@ -11,7 +12,45 @@ import ActivityBar from "./workspace/ActivityBar";
 import { CompletionStrip } from "./workspace/CompletionStatus";
 import { useWorkspacePanes } from "./workspace/useWorkspacePanes";
 import { useShortViewport } from "@/hooks/useShortViewport";
+import { useTrainingConnection } from "@/hooks/useNetworkStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
+
+/**
+ * 连接状态横幅 —— 只说**实际受损**的能力（docs/19 E5）。
+ *
+ * - 网络断开：对话(SSE)、工具(HTTP)、提交都会失败；
+ * - 仅 WS 断开：只有服务端推送（评分进度 / 状态通知）暂停，对话与工具照常。
+ *
+ * 旧实现把 WS 断开说成「工具暂不可用」，属归因错误：工具根本不走 WS。
+ */
+export function ConnectionNotice() {
+	const { degraded } = useTrainingConnection();
+	if (degraded === "none") return null;
+
+	const offline = degraded === "all";
+	const text = offline
+		? "网络已断开：消息发送、工具保存与提交都会失败，请恢复网络后继续"
+		: "实时推送连接中断：评分进度与状态通知暂停；对话与工具仍可用，正在自动重连…";
+
+	return (
+		<Group
+			role="status"
+			aria-live="polite"
+			gap={8}
+			justify="center"
+			wrap="nowrap"
+			px="md"
+			py={6}
+			bg={offline ? "red.6" : "yellow.6"}
+			style={{ flexShrink: 0 }}
+		>
+			{offline ? <IconCloudOff size={14} color="#fff" /> : <IconPlugConnectedX size={14} color="#000" />}
+			<Text size="xs" fw={600} c={offline ? "white" : "black"}>
+				{text}
+			</Text>
+		</Group>
+	);
+}
 
 interface ChatAreaProps {
 	onSend: (text: string) => void;
@@ -132,6 +171,7 @@ export function ChatArea({
 				)}
 			</AnimatePresence>
 			<CompletionStrip />
+			<ConnectionNotice />
 			{!hasWorkspacePane && (
 				<Text size="xs" c="dimmed" ta="center" py={6}>
 					本病例未配置床旁能力，本次训练以护患对话为主

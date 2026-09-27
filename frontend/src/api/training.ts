@@ -1,6 +1,7 @@
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
+import useAuthStore from "@/stores/authStore";
 
 type Schemas = components["schemas"];
 
@@ -55,6 +56,21 @@ export const deleteRecord = (id: number | string) =>
 export const getRecordDetail = (id: number | string) =>
 	api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}` as ApiPath);
 
+/** 再练习类型：同例纠正 / 迁移变式（服务端解析目标病例，请求只表达意图） */
+export type PracticeKind = "remediation" | "transfer";
+
+/**
+ * 复盘后的再练习（docs/19 §五）。
+ *
+ * 目标病例、钉住的 revision 与「内容是否已更新」全由服务端解析；不可用时返回
+ * 409 + `{code, kind, message}`（前端据此提示，不猜原因、不自行拼 case_id）。
+ */
+export const startPractice = (sourceRecordId: number | string, kind: PracticeKind) =>
+	api.post<Schemas["TrainingStartResponse"]>("/training/start-practice" as ApiPath, {
+		source_record_id: Number(sourceRecordId),
+		kind,
+	} satisfies Schemas["StartPracticeRequest"]);
+
 export const pauseTraining = (
 	id: number | string,
 	options?: { questionnaire?: boolean },
@@ -65,6 +81,38 @@ export const pauseTraining = (
 
 export const resumeTraining = (id: number | string) =>
 	api.post<Schemas["OkResponse"]>(`/training/records/${id}/resume` as ApiPath, {});
+
+/**
+ * 离页暂停（pagehide / unload 路径）—— **必须带 Authorization**。
+ *
+ * `navigator.sendBeacon` 无法附加请求头，服务端 `get_current_user` 必然拒绝：
+ * 旧实现既没有真正暂停，UI 却已宣称「已暂停」。这里改用 `fetch(..., {keepalive:true})`，
+ * token 取自与 axios 客户端同一个来源（authStore），请求在页面卸载后仍会发出。
+ *
+ * 返回服务端 `OkResponse.message`（如「训练已暂停」/「独立考核离开后仍继续计时」），
+ * 调用方据此判断服务端是否真的暂停；失败抛错，由调用方如实说明而不是假设成功。
+ */
+export async function pauseTrainingOnHide(
+	id: number | string,
+	options?: { questionnaire?: boolean },
+): Promise<string> {
+	const token = useAuthStore.getState().token;
+	const headers: Record<string, string> = { "Content-Type": "application/json" };
+	if (token) headers.Authorization = `Bearer ${token}`;
+	const query = options?.questionnaire ? "?questionnaire=true" : "";
+	const response = await fetch(`/api/training/records/${id}/pause${query}`, {
+		method: "POST",
+		headers,
+		body: "{}",
+		keepalive: true,
+		credentials: "same-origin",
+	});
+	if (!response.ok) {
+		throw new Error(`暂停请求被服务端拒绝（HTTP ${response.status}）`);
+	}
+	const payload = (await response.json()) as { message?: string };
+	return payload.message ?? "";
+}
 
 export const submitScoreReview = (
 	recordId: number | string,

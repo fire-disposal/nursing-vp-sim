@@ -28,7 +28,7 @@ import { abandonRecord, getCases, getNotifications, getRecords, markNotification
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
-import { getStudentRanking, getTrends } from "@/api/stats";
+import { getTrends } from "@/api/stats";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
@@ -216,20 +216,19 @@ export default function TrainingSelect() {
 	});
 
 	// ── Training stats (home tab) ──
-	const { data: ranking } = useQuery({
-		// 榜单按分数降序，取满一页（200）才能覆盖到排名靠后的本人；口径与 /stats/ranking 一致
-		queryKey: queryKeys.stats.ranking({ limit: 200 }),
-		queryFn: () => getStudentRanking({ limit: 200 }).then((r) => r.data),
-		staleTime: 60_000,
-	});
-	// 必须是"我"那一行：此前直接取 items[0]，等于把榜首同学的统计当成自己的
-	const myStats = ranking?.items?.find((r) => r.user_id === user?.id);
+	// 个人统计只取本人的数据：/stats/trends 对无 stats_view 权限的调用者只统计本人记录
+	// （服务端按 current_user 过滤）。不再借用 /stats/ranking —— 它对 canonical student
+	// 角色是 403，且排名/百分位属于同伴比较，学生自视图不展示（docs/19 W1）。
 	const { data: trends } = useQuery({
 		queryKey: queryKeys.stats.trends("month"),
 		queryFn: () => getTrends().then((r) => r.data),
 		staleTime: 60_000,
 	});
-	const trendItems = trends?.daily ?? [];
+	// daily 是弱类型 dict：日期/展示分在这里收口一次，避免散落的 String(item.x) 断言
+	const trendItems = (trends?.daily ?? []) as Array<{ date?: string; avg_score?: number | null }>;
+	const mySessions = trends?.total_sessions ?? 0;
+	const myAvgScore = trends?.avg_score ?? null;
+	const myMinutes = trends?.total_minutes ?? 0;
 
 	const inProgressByCase = useMemo(() => {
 		const map = new Map<number, TrainingRecordBrief>();
@@ -602,29 +601,33 @@ export default function TrainingSelect() {
 									onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
 								/>
 							</SimpleGrid>
-							{myStats && (
-								<SimpleGrid cols={{ base: 1, xs: 2, xl: 4 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-									<StatCard withBorder={false} icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
-									<StatCard withBorder={false} icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
-									<StatCard withBorder={false} icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
-									<StatCard withBorder={false} icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
-								</SimpleGrid>
+							{trends && (
+								<>
+									<SimpleGrid cols={{ base: 1, xs: 2, xl: 3 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+										<StatCard withBorder={false} icon={IconTarget} label="我的完成训练" value={mySessions} color="blue" />
+										<StatCard withBorder={false} icon={IconAward} label="我的平均展示分" value={myAvgScore != null ? `${myAvgScore}分` : "--"} color="green" />
+										<StatCard withBorder={false} icon={IconClock} label="我的总时长" value={myMinutes ? `${myMinutes}分钟` : "--"} color="amber" />
+									</SimpleGrid>
+									<Text size="xs" c="dimmed" mt="xs">
+										仅本人数据：展示分为数值参考，不代表能力等第，也不与同伴比较。
+									</Text>
+								</>
 							)}
 							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 								<Group gap="xs" mb="sm">
 									<IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
-									<Text size="sm" fw={500}>进步趋势</Text>
+									<Text size="sm" fw={500}>我的得分趋势（数值参考）</Text>
 								</Group>
 								{trendItems.length > 0 ? (
 									// flex-wrap 而非固定列数：趋势条数随数据变化（2–8 条），固定 4 列会出现末行空列
 									<Group gap="xs" align="stretch">
-										{trendItems.slice(0, 8).map((item, index) => (
-											<Paper key={`${String(item.period_label ?? "period")}-${index}`} bg="var(--mantine-color-default-hover)" p={8} ta="center" style={{ flex: "1 1 84px", minWidth: 84 }}>
+										{trendItems.slice(-8).map((item, index) => (
+											<Paper key={`${item.date ?? "day"}-${index}`} bg="var(--mantine-color-default-hover)" p={8} ta="center" style={{ flex: "1 1 84px", minWidth: 84 }}>
 												<Text size="sm" fw={600} className="tabular-nums">
-													{item.average_score != null ? String(item.average_score) : "--"}
+													{item.avg_score != null ? String(item.avg_score) : "--"}
 												</Text>
 												<Text size="11px" c="dimmed" mt={2} truncate>
-													{item.period_label != null ? String(item.period_label) : `第${index + 1}周`}
+													{item.date ? item.date.slice(5) : "—"}
 												</Text>
 											</Paper>
 										))}

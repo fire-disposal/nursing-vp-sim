@@ -1,5 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
-import { Badge, Paper, SegmentedControl, Select, Stack, Table, Text } from "@mantine/core";
+import { Paper, SegmentedControl, Select, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -106,7 +106,7 @@ export default function VersionsPage() {
 								<Table.Th>身份</Table.Th>
 								<Table.Th>记录</Table.Th>
 								<Table.Th>已评分</Table.Th>
-								<Table.Th>平均分</Table.Th>
+								<Table.Th title="数值参考，不代表能力等第">平均分</Table.Th>
 								<Table.Th>兜底率</Table.Th>
 								<Table.Th>首次出现</Table.Th>
 								<Table.Th>最近出现</Table.Th>
@@ -128,9 +128,16 @@ export default function VersionsPage() {
 												无成绩
 											</Text>
 										) : (
-											<Badge variant="light" color={row.avg_score >= 85 ? "green" : row.avg_score >= 60 ? "yellow" : "red"}>
+											// 归因响应的平均分只作数值参考：接口不提供等第政策，
+											// 因此既不上「好/中/差」颜色，也不给能力/合格类措辞
+											<Text
+												size="sm"
+												fw={600}
+												title="数值参考，不代表能力等第"
+												style={{ fontVariantNumeric: "tabular-nums" }}
+											>
 												{row.avg_score}
-											</Badge>
+											</Text>
 										)}
 									</Table.Td>
 									<Table.Td>
@@ -156,6 +163,7 @@ export default function VersionsPage() {
 				提示词身份按需派生（不落库）；评分标准与分数映射取自分数行既有字段；
 				上下文策略取自记录创建时冻结的 <code>context_policy_version</code>。
 				<code>unknown</code> 表示该维度上记录不可追溯（历史记录早于相应字段），不做回填。
+				平均分只作数值参考（不代表能力等第）：接口未提供等第政策，因此本页不渲染任何分档标签。
 			</Text>
 		</Stack>
 	);

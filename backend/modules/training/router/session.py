@@ -37,6 +37,13 @@ from models import (
 from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
+from modules.training.practice import (
+    PRACTICE_FIELD,
+    PRACTICE_LABELS,
+    PracticeTargetUnavailable,
+    practice_snapshot_entry,
+    resolve_practice_target,
+)
 from modules.training.prompt_identity import compute_context_policy_version
 from modules.training.workflows import (
     WorkflowDefinition,
@@ -48,6 +55,7 @@ from modules.training.workflows import (
 from schemas import (
     DeleteResponse,
     OkResponse,
+    StartPracticeRequest,
     TrainingStartRequest,
     TrainingStartResponse,
 )
@@ -84,6 +92,28 @@ def _build_config(features: dict | None = None, time_limit_minutes: int | None =
         "features": features or {},
         "behavior": {"time_limit_minutes": time_limit_minutes} if time_limit_minutes else {},
     }
+
+
+def _stamp_experiment(config: dict, experiment: dict | None = None) -> dict:
+    """给本次训练盖实验批次标签（可选）。
+
+    标签来源优先级：本次请求显式指定 > 环境变量 ``EXPERIMENT_BATCH``。两者都没有时**不写这个键**
+    —— 不做"默认批次"的臆造分组，历史与日常训练保持原样。评分与导出据此可把一批数据认出来。
+    """
+    from core.config import EXPERIMENT_BATCH
+
+    batch = str((experiment or {}).get("batch") or EXPERIMENT_BATCH or "").strip()
+    if not batch:
+        return config
+    payload: dict = {"batch": batch[:64]}
+    arm = str((experiment or {}).get("arm") or "").strip()
+    if arm:
+        payload["arm"] = arm[:32]
+    note = str((experiment or {}).get("note") or "").strip()
+    if note:
+        payload["note"] = note[:200]
+    config["experiment"] = payload
+    return config
 
 
 def _public_patient_info(case_data: dict) -> dict:
@@ -344,7 +374,7 @@ def start_training(
             },
         )
 
-    config = _build_config(req.features, req.time_limit_minutes)
+    config = _stamp_experiment(_build_config(req.features, req.time_limit_minutes), req.experiment)
     # 学员训练按**已发布版本**的内容进行（docs/15 §六）：病例后续编辑不改变本次训练。
     # workflow 也由这条 revision 决定（请求体不能选择 workflow）并冻结在记录上。
     revision = require_current_revision(db, case)
@@ -501,12 +531,14 @@ def start_training_from_assignment(
     if not case:
         raise NotFoundError(detail="病例不存在")
 
-    config = {
-        "id": 0,
-        "name": case.name,
-        "features": assignment.features or {},
-        "behavior": assignment.behavior or {},
-    }
+    config = _stamp_experiment(
+        {
+            "id": 0,
+            "name": case.name,
+            "features": assignment.features or {},
+            "behavior": assignment.behavior or {},
+        }
+    )
 
     # 归档病例不得用于**新的**训练（既有作业也拦，docs/15 §六：archived 只阻止新使用）；
     # 进行中的记录走上面的 existing 分支，不受影响。
@@ -581,12 +613,14 @@ def start_blind_box_training(
         raise HTTPException(status_code=400, detail="暂无可用的自主练习病例，请稍后再试")
     revision = require_current_revision(db, case)
 
-    config = {
-        "id": 0,
-        "name": "盲盒训练",
-        "features": {},
-        "behavior": {"mode": TrainingMode.BLIND_BOX.value},
-    }
+    config = _stamp_experiment(
+        {
+            "id": 0,
+            "name": "盲盒训练",
+            "features": {},
+            "behavior": {"mode": TrainingMode.BLIND_BOX.value},
+        }
+    )
     record, greeting = _create_record(
         db,
         current_user.id,
@@ -604,6 +638,96 @@ def start_blind_box_training(
         greeting=greeting,
         case_name="盲盒训练",
         pending_questionnaires=pending_questionnaires,
+    )
+
+
+@router.post("/start-practice", response_model=TrainingStartResponse)
+def start_practice_training(
+    req: StartPracticeRequest,
+    current_user: Annotated[User, Depends(require_permission("training_access"))],
+    db: Annotated[Session, Depends(get_db)],
+    request: Request,
+):
+    """复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。
+
+    自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；
+    反过来，作业次数限制也不会因为"重练"被绕过 —— 想拿作业成绩仍然只能走作业入口。
+    目标病例、钉住的 revision 与"内容是否已更新"都由服务端解析并留痕。
+    """
+    source = db.query(TrainingRecord).filter(TrainingRecord.id == req.source_record_id).first()
+    if not source:
+        raise NotFoundError(detail="源训练记录不存在")
+    if source.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise AuthError(detail="只能对本人已完成的训练发起再练习", status_code=403)
+    if source.status != TrainingStatus.COMPLETED:
+        raise HTTPException(
+            status_code=409, detail={"code": "source_not_finished", "message": "只有已完成的训练才能重练"}
+        )
+
+    try:
+        target = resolve_practice_target(
+            db,
+            source=source,
+            kind=req.kind,
+            require_current_revision=require_current_revision,
+        )
+    except PracticeTargetUnavailable as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.reason, "kind": exc.kind, "message": exc.message},
+        ) from exc
+
+    _lock_user_row(db, current_user.id)
+    global_existing = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
+        )
+        .first()
+    )
+    if global_existing:
+        existing_case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "existing_training",
+                "record_id": global_existing.id,
+                "case_name": existing_case.name if existing_case else "未知病例",
+                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
+            },
+        )
+
+    config = _stamp_experiment(_build_config())
+    config["name"] = PRACTICE_LABELS.get(req.kind, req.kind)
+    entry = practice_snapshot_entry(target)
+    config[PRACTICE_FIELD] = entry
+
+    record, greeting = _create_record(
+        db,
+        current_user.id,
+        target.case,
+        target.revision.content or {},
+        config,
+        workflow=workflow_for_case_revision(target.revision),
+        revision_id=target.revision.id,
+        app_state=request.app.state,
+    )
+
+    log.info(
+        f"再练习开始: record_id={record.id} kind={req.kind} source_record_id={source.id} target_case_id={target.case.id}",
+        extra={
+            "user_id": current_user.id,
+            "user_role": current_user.role.name if current_user.role else "",
+            "action": "training_start_practice",
+        },
+    )
+    return TrainingStartResponse(
+        record_id=record.id,
+        greeting=greeting,
+        case_name=target.case.name,
+        pending_questionnaires=count_pending_required(db, current_user.id, target.case.id),
+        practice=entry,
     )
 
 

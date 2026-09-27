@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { type ManifestActivity, type ManifestArtifact, availableActivities } from "@/engine/manifest";
-import { useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
+import { useRecordMeta, useSessionManifest, useTrainingData } from "@/engine/TrainingDataContext";
 import { INQUIRY_PANEL_ID, QUIZ_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
+import { parseGuidedHints } from "@/components/training/tools/inquiryProgress";
 import { WIDE_ACTIVITY_RENDERERS } from "./renderers";
 
 /**
@@ -16,14 +17,16 @@ export interface WorkspacePane {
 	label: string;
 	/** 布局宽度分组（服务端未下发宽度，纯视觉） */
 	wide: boolean;
-	/** 该面板对应的 activity 定义；`null` = 内置面板（问诊清单） */
+	/** 该面板对应的 activity 定义；`null` = 内置面板（问诊清单/引导提示） */
 	activity: ManifestActivity | null;
 }
 
 export function useWorkspacePanes(): WorkspacePane[] {
 	const manifest = useSessionManifest();
+	const record = useTrainingData();
 	const { mode, requiredInquiries } = useRecordMeta();
 	const inquiryCount = requiredInquiries.length;
+	const hintCount = useMemo(() => parseGuidedHints(record?.guided_hints).length, [record]);
 
 	return useMemo(() => {
 		const panes: WorkspacePane[] = availableActivities(manifest).map((activity) => ({
@@ -32,12 +35,18 @@ export function useWorkspacePanes(): WorkspacePane[] {
 			wide: WIDE_ACTIVITY_RENDERERS[activity.ui.renderer] === true,
 			activity,
 		}));
-		// 问诊清单：仅引导模式、且病例给过清单时提供（与「对话为主界面」的信息层级一致）
-		if (mode === "guided" && inquiryCount > 0) {
-			panes.push({ id: INQUIRY_PANEL_ID, label: "问诊清单", wide: false, activity: null });
+		// 引导视图：蓝图给了「领域 + 意义」就按引导提示命名（docs/19 §3.3），
+		// 否则沿用关键词清单。两种形态都只服务引导模式，盲盒/独立考核不出现。
+		if (mode === "guided" && (hintCount > 0 || inquiryCount > 0)) {
+			panes.push({
+				id: INQUIRY_PANEL_ID,
+				label: hintCount > 0 ? "引导提示" : "问诊清单",
+				wide: false,
+				activity: null,
+			});
 		}
 		return panes;
-	}, [manifest, mode, inquiryCount]);
+	}, [manifest, mode, inquiryCount, hintCount]);
 }
 
 /**

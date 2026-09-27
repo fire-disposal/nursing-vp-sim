@@ -1,10 +1,9 @@
 """成绩管理 — 学生平均成绩排名 / 分层 / 进步幅度 的数据契约。
 
-评分总分经评分流水线统一换算为 0-100 分（`_convert_to_100_scale`），
-好/中/差分层沿用系统既有惯例（TeachingDashboard 的 SCORE_COLOR）：
-- good   ≥ 85
-- medium 60 ≤ score < 85
-- poor   < 60
+评分总分经评分流水线统一换算为 0-100 分（`_convert_to_100_scale`）。这里的 good/medium/poor
+是**数值分层**（阈值由 ``modules/training/scoring/grade_policy`` 唯一给出），不是经校准的
+能力等第：每个响应都带 ``policy`` 块，说明政策身份与「能力等第当前是否可用」
+（docs/19 §4.2 第 8/9 条）。
 """
 
 from datetime import datetime
@@ -42,9 +41,15 @@ class ScoreboardSummary(BaseModel):
     avg_duration_seconds: int | None = None
     """学生平均用时的均值（秒，向上取整）。"""
     tier_counts: dict[str, int] = Field(default_factory=dict)
-    """分层人数：{"good": n, "medium": n, "poor": n}。"""
+    """数值分层人数：{"good": n, "medium": n, "poor": n}（不是能力等第人数）。"""
     thresholds: dict[str, float] = Field(default_factory=dict)
-    """分层阈值：{"good_min": 85.0, "poor_max": 60.0}。"""
+    """数值分层阈值：{"good_min": 85.0, "poor_max": 60.0}（来源：等第政策）。"""
+    policy: dict = Field(default_factory=dict)
+    """等第政策身份与可用性：{id, version, calibrated, capability_available, capability_label, ...}。"""
+    comparability: dict = Field(default_factory=dict)
+    """可比性块：{mixed, single_group, identity_unknown_count, groups:[{label,count,key}]}。
+
+    不同原始满分/辅助条件/规则身份的记录不构成可比组，聚合只能作为数值描述。"""
 
 
 class ScoreboardRankingItem(BaseModel):
@@ -83,6 +88,8 @@ class ScoreboardRankingResponse(BaseModel):
     total: int = 0
     offset: int = 0
     limit: int = 0
+    policy: dict = Field(default_factory=dict)
+    """等第政策身份与可用性（与 summary.policy 同一份）。"""
 
 
 class StudentTrendRecord(BaseModel):
@@ -99,6 +106,8 @@ class StudentTrendRecord(BaseModel):
     duration_seconds: int = 0
     start_time: datetime
     end_time: datetime | None = None
+    comparability_label: str = ""
+    """该次训练所属可比组标签；不同标签的点不能连成一条"进步"曲线。"""
 
 
 class StudentTrendResponse(BaseModel):
@@ -119,3 +128,7 @@ class StudentTrendResponse(BaseModel):
     progress_delta: float | None = None
     progress_trend: str = TREND_NONE
     records: list[StudentTrendRecord] = Field(default_factory=list)
+    policy: dict = Field(default_factory=dict)
+    """等第政策身份与可用性（数值趋势 ≠ 能力进步结论，见 docs/19 §4.4）。"""
+    comparability: dict = Field(default_factory=dict)
+    """可比性块；``single_group=False`` 时 ``progress_delta/progress_trend`` 不计算跨组进步。"""
