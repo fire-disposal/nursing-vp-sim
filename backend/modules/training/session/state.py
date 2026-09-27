@@ -131,6 +131,14 @@ def patch_runtime_state(
       ``tools/service.py`` 的 ``with_for_update()``）互斥 —— 两条写路径不会再交错覆盖；
     * **重读**：``populate_existing`` 强制以数据库当前值为基准。调用方常常持有几十秒前
       加载的实例（对话回合在 LLM 调用前构造），直接整列回写会静默吞掉这期间的工具写入；
+    * **先 flush 再重读**：``SessionLocal`` 是 ``autoflush=False``，重读会把调用方在同一
+      事务里**尚未 flush 的列改动**按库中旧值覆盖。因此这里显式 ``db.flush()``：本事务已
+      做的列改动先落地，再基于库中当前值合并本键 —— 写入顺序不再决定成败（2026-09-26
+      「``/end`` 返回 completed 但库里仍是 in_progress」的 P0 根因就是缺这一步）；
+    * **顺序陷阱（务必遵守）**：``SessionLocal`` 是 ``autoflush=False``，因此这次重读会把
+      调用方在**同一事务里尚未 flush 的列改动**按库中旧值覆盖掉（例如先设 ``record.status``
+      再调本函数 → 终态永不落库）。调用方应当**先写 runtime_state、后写业务列**，或先
+      ``db.flush()``；不要依赖 autoflush（测试夹具曾默认开启它，掩盖了该缺陷）。
     * **只改自己拥有的键**：``patch`` 覆盖自己的键，``remove`` 删除自己的键（如评分快照
       用完即清），其余键原样保留；
     * **不提交**：事务边界由调用方持有（与 ``tools/service.py`` 相同）。
@@ -148,6 +156,8 @@ def patch_runtime_state(
     Raises:
         NotFoundError: 记录不存在。
     """
+    # autoflush=False：先把本事务已做的列改动落到库里，否则下面的重读会把它们覆盖回旧值。
+    db.flush()
     record = db.execute(
         select(TrainingRecord)
         .where(TrainingRecord.id == record_id)

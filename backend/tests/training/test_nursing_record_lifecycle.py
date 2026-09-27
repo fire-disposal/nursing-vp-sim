@@ -256,6 +256,13 @@ class _FinalizeSession:
     def refresh(self, _obj) -> None:
         self.refreshes += 1
 
+    def flush(self) -> None:
+        """``patch_runtime_state`` 会先 flush 再重读（autoflush=False 的会话契约）。
+
+        替身不落库，flush 即 no-op —— 但它必须存在：缺它会让用例报 AttributeError，
+        而不是暴露真实的写入顺序问题。
+        """
+
 
 def _training_record(*, case_snapshot: dict | None = None) -> TrainingRecord:
     return TrainingRecord(
