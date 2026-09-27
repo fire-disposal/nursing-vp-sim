@@ -54,7 +54,9 @@ export default function TeacherRecordsPage() {
 	const review_status = searchParams.get("review_status") || "";
 	const date_from = searchParams.get("date_from") || "";
 	const date_to = searchParams.get("date_to") || "";
-	const exclude_is_test = searchParams.get("exclude_is_test") !== "false";
+	// 「只看学生练习」是**视图偏好**（默认开），不进 URL：它不改变数据范围的含义，
+	// 只是教师临时查看自己试跑记录时的开关，写进地址栏会跟着书签/分享外流，也容易被误读成服务端默认。
+	const [only_student_practice, setOnlyStudentPractice] = useState(true);
 	const class_id = searchParams.get("class_id") || "";
 	const offset = parseInt(searchParams.get("offset") || "0", 10);
 
@@ -90,14 +92,15 @@ export default function TeacherRecordsPage() {
 		if (date_from) p.date_from = date_from;
 		if (date_to) p.date_to = date_to;
 		if (class_id) p.class_id = Number(class_id);
-		if (exclude_is_test) p.exclude_is_test = true;
+		// 必须**显式**传布尔：服务端默认只给"学生练习"，只在勾选时发 true 等于取消了勾选也没有效果
+		p.only_student_practice = only_student_practice;
 		// 排序交由服务端执行：按分数/时长排序需全局正确，不能只排当前页
 		if (sortField) {
 			p.sort_by = sortField;
 			p.order = sortDir;
 		}
 		return p;
-	}, [offset, debouncedStudent, case_id, status, review_status, date_from, date_to, class_id, exclude_is_test, sortField, sortDir]);
+	}, [offset, debouncedStudent, case_id, status, review_status, date_from, date_to, class_id, only_student_practice, sortField, sortDir]);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.training.records(params),
@@ -216,14 +219,8 @@ export default function TeacherRecordsPage() {
 				<FilterToolbar
 					compact
 					hasActiveFilters={Boolean(
-						debouncedStudent ||
-							case_id ||
-							status ||
-							review_status ||
-							class_id ||
-							date_from ||
-							date_to ||
-							!exclude_is_test,
+						// 只统计写进 URL 的筛选条件；「只看学生练习」是视图偏好，不算筛选
+						debouncedStudent || case_id || status || review_status || class_id || date_from || date_to,
 					)}
 					onClear={handleClearFilters}
 					search={
@@ -291,11 +288,9 @@ export default function TeacherRecordsPage() {
 							/>
 							<Checkbox
 								size="sm"
-								label="排除试跑"
-								checked={exclude_is_test}
-								onChange={(e) =>
-									setParam("exclude_is_test", e.currentTarget.checked ? "true" : "false")
-								}
+								label="只看学生练习"
+								checked={only_student_practice}
+								onChange={(e) => setOnlyStudentPractice(e.currentTarget.checked)}
 							/>
 						</>
 					}

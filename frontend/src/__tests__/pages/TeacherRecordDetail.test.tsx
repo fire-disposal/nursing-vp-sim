@@ -60,7 +60,7 @@ const RECORD = {
 	from_assignment: false,
 	pending_questionnaires: 0,
 	initiative_count: 0,
-	is_test: false,
+	is_student_practice: true,
 	score: {
 		total_score: 80,
 		review_status: "reviewed",

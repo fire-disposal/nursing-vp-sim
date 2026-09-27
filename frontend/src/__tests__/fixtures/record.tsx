@@ -27,7 +27,7 @@ export function makeRecord(overrides: Partial<TrainingRecordDetail> = {}): Train
 		from_assignment: false,
 		pending_questionnaires: 0,
 		initiative_count: 0,
-		is_test: false,
+		is_student_practice: true,
 		review_focus_note: "",
 		...overrides,
 	};

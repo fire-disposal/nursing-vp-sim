@@ -24,7 +24,8 @@ class TrainingRecordBrief(BaseModel):
     #: 成绩来源（ai/review/fallback）与降级标记：列表也要能区分"系统降级"与正常成绩
     score_source: str | None = None
     score_degraded: bool = False
-    is_test: bool = False
+    #: 这条记录是不是学生练习（false=教师/管理员试跑，不进教学统计与作业进度）
+    is_student_practice: bool = True
     assignment_id: str | None = None
     assignment_title: str | None = None
 
@@ -131,7 +132,7 @@ class TrainingRecordDetail(BaseModel):
     #: 引导模式的领域提示（教学蓝图 clue 的领域 + 评估意义）——只给"还需弄清什么、为什么"，
     #: 不给唯一问句；蓝图缺失时为空，前端据此回落既有展示（docs/19 §3.3）
     guided_hints: list[dict[str, Any]] = Field(default_factory=list)
-    is_test: bool = False
+    is_student_practice: bool = True
     #: 服务端解析的 manifest（projection=session）：activities/artifacts/completion/actions
     #: 一律以它为准，前端不得重新推导（docs/15 §四）
     manifest: dict[str, Any] | None = None

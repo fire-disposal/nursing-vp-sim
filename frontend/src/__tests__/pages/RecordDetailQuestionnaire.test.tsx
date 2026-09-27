@@ -59,7 +59,7 @@ const RECORD = {
 	from_assignment: false,
 	pending_questionnaires: 1,
 	initiative_count: 0,
-	is_test: false,
+	is_student_practice: true,
 	review_focus_note: "本次没有需要单独解释的关键条目。",
 	score: {
 		total_score: 80,

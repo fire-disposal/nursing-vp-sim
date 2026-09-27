@@ -499,6 +499,29 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 训练记录的分类改为「是不是学生练习」（2026-09-27）
+
+- 旧列 `is_test` 的名字与语义脱节：取值由**发起者权限**推出（教师/管理员开始即 true），而全部过滤处一律写
+  `is_test == False`，于是"什么算真实练习"只能靠读各处过滤条件反推，前端筛选器还把同一件事叫"排除试跑记录"。
+- `training_records.is_student_practice` 直接回答这个教学事实：**true = 学生练习**（学生角色的作业/自由练习/
+  同例重练/迁移变式），false = 教师/管理员的试跑、演示与判例。判定唯一在
+  `modules/training/participation.py::is_student_practice`（发起者不具备 `case_manage` / `score_review`
+  → 学生练习），写入只在 `router/session.py::_create_record` 一处；**不接受请求参数覆盖**——角色在本系统
+  互斥，放开"这次不算练习"的声明等于给"绕过作业最大尝试次数与在训唯一性"开口子（两者都按学生练习过滤）。
+- 迁移**成对执行**：`d3e4f5a6b7c8`（改名 + 默认值 false→true）＋ `e4f5a6b7c8d9`（历史行**取反**重标）。
+  旧模型下"用学生账号做的演示"没有任何字段可追溯，重标后会呈现为学生练习；迁移注释与
+  [docs/15 §6.2](15-workflow-activity-contract.md) 都写明这一点，不假装能区分。
+- 接口：列表参数 `exclude_is_test` → `only_student_practice`（默认 true），响应字段同步改名；
+  统计、班级汇总、作业进度与排行榜一律只算学生练习。前端把「只看学生练习」当**视图偏好**（组件状态，
+  不写进 URL），请求仍显式传布尔。
+- 验证时实测出并修掉两个既有缺陷：① 教师记录页的筛选开关**取消勾选没有任何效果**（只在勾选时发参数，
+  而服务端默认与勾选一致）；② 该页整页崩溃 `MantineProvider was not found`——不是代码问题，是 Vite 依赖
+  预打包缓存失效导致 `@mantine/dates` 内联了第二份 `@mantine/core`（清 `node_modules/.vite` + `pnpm dev --force`
+  后恢复，已记入开发上手文档的常见问题表）。
+- 验证：本地验证库迁移往返（学生记录 false→true、教师试跑 true→false，回退两步再升回取值一致）；
+  学生与教师各开始一次训练，分别得 `true`/`false`；列表默认 7 条（无教师记录）、关掉后 8 条且首行为教师试跑；
+  后端全量 **1678 项**、前端 **629 项**通过，`ruff`、`ty`、`tsc` 干净。
+
 ### U0 候选清单（2026-09-27）
 
 - `scripts/u0-candidate-manifest.py`：把"冻结的那一版到底是什么"从**既有字段**导出——提交/脏树、

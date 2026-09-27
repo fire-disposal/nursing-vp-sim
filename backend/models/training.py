@@ -59,7 +59,7 @@ class TrainingRecord(Base):
     #: 写入（``modules/training/workflows.workflow_for_case_revision``），之后不再变；运行期
     #: 一律 ``workflows.workflow_for_record(record)`` 读取，不再 import 任何 workflow 常量。
     #: server_default 只服务判别列落地前的存量行回填（迁移 f5a6b7c8d9e0 之后新增；当时唯一
-    #: 现行 workflow 是 history_taking），与 ``is_test`` 同策。
+    #: 现行 workflow 是 history_taking），与 ``is_student_practice`` 同策。
     workflow_id: Mapped[str] = mapped_column(
         String(50), nullable=False, default="history_taking", server_default=text("'history_taking'")
     )
@@ -82,7 +82,11 @@ class TrainingRecord(Base):
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
-    is_test: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    #: 这条训练**是不是一次学生练习**（docs/15 §五）：true 计入教学统计、作业次数、排行榜与学生练习历史；
+    #: false = 教师/管理员在自己账号里的试跑、演示与判例。判定规则见
+    #: ``modules/training/participation.is_student_practice``（按发起者是否具备教学/复核权限）。
+    #: server_default 取 true（"是练习"），因为只有显式识别的教师侧发起才该被排除在外。
+    is_student_practice: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

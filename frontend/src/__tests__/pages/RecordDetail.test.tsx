@@ -52,7 +52,7 @@ const BASE_RECORD = {
 	from_assignment: false,
 	pending_questionnaires: 0,
 	initiative_count: 0,
-	is_test: false,
+	is_student_practice: true,
 	review_focus_note: "本次没有需要单独解释的关键条目；逐项表现与证据在下方可查。",
 	score: {
 		total_score: 80,

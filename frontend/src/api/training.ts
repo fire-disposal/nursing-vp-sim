@@ -40,7 +40,8 @@ export interface GetRecordsParams {
 	student_name?: string;
 	case_id?: number;
 	class_id?: number;
-	exclude_is_test?: boolean;
+	/** 只返回学生练习（默认 true）；false = 含教师试跑/演示记录 */
+	only_student_practice?: boolean;
 	user_id?: number;
 }
 

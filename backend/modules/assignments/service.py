@@ -137,7 +137,7 @@ class AssignmentService:
             .filter(
                 TrainingRecord.assignment_id == Assignment.id,
                 TrainingRecord.status == "completed",
-                TrainingRecord.is_test == False,
+                TrainingRecord.is_student_practice == True,
             )
             .correlate(Assignment)
             .scalar_subquery()
@@ -188,7 +188,7 @@ class AssignmentService:
             .options(joinedload(TrainingRecord.score))
             .filter(
                 TrainingRecord.assignment_id == assignment_id,
-                TrainingRecord.is_test == False,
+                TrainingRecord.is_student_practice == True,
             )
             .all()
         )

@@ -121,7 +121,7 @@ class ScoreboardService:
         conditions = [
             TrainingRecord.status == TrainingStatus.COMPLETED,
             TrainingRecord.scoring_status == ScoringStatus.COMPLETED,
-            TrainingRecord.is_test == False,
+            TrainingRecord.is_student_practice == True,
         ]
         if scope.case_id is not None:
             conditions.append(TrainingRecord.case_id == scope.case_id)

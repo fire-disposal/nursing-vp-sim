@@ -253,7 +253,7 @@ def _record(**overrides):
         "runtime_state": {},
         "time_limit": 30,
         "start_time": datetime.now(UTC),
-        "is_test": False,
+        "is_student_practice": True,
         "scoring_status": None,
     }
     values.update(overrides)

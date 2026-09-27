@@ -87,6 +87,26 @@
   （实测：18 个月患儿血压 97/59 被标成"低于参考范围（110-130/70-85）"，声明后为"在参考范围内"）。
   `validate_case` 的 `_check_vitals_age_group` 点名拼错的枚举（运行期只会静默回落，学生侧看到的是错误结论）。
 
+### 6.2 训练记录的分类：是不是学生练习
+
+`training_records.is_student_practice` 回答一个**教学事实**：这次训练是不是一次学生练习（计入教学统计、
+作业进度与次数、排行榜，并出现在学生自己的练习历史里）。
+
+| 取值 | 含义 |
+|---|---|
+| `true` | 学生练习：学生角色发起的作业 / 自由练习 / 同例重练 / 迁移变式 |
+| `false` | 非学生练习：教师 / 管理员 / 超管在自己账号里的试跑、演示与判例 |
+
+- 判定唯一在 `modules/training/participation.py::is_student_practice`：**发起者不具备 `case_manage`
+  与 `score_review` 权限 → 学生练习**；写入只在 `router/session.py::_create_record` 一处。
+- **不接受请求参数覆盖**：角色在本系统互斥（`users.role_id` 单角色），开放"这次不算练习"的声明等于
+  给"绕过作业最大尝试次数与在训唯一性"开口子 —— 两者都按学生练习过滤（`router/session.py`）。
+- 列表默认只给学生练习：`GET /api/training/records?only_student_practice=true`（默认），要连教师试跑
+  一起看才显式传 `false`。统计、班级汇总、作业进度与排行榜一律只算学生练习。
+- 历史行：旧列 `is_test` 表达的是同一事实的**否定面**（按同一组权限置位），迁移 `d3e4f5a6b7c8`（改名）
+  + `e4f5a6b7c8d9`（取反重标）成对执行；旧模型下"用学生账号做的演示"无法追溯，重标后会呈现为学生练习，
+  这一点在迁移注释里写明，不假装能区分。
+
 ## 七、班级、成员、作业与受众
 
 `ClassMembership` 表达成员关系；作业复用 `Assignment` 与受众快照 `AssignmentRecipient`，训练读取作业钉住的病例 revision。不得为新练习方式复制班级、作业或受众体系。

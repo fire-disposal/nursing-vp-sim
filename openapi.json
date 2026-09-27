@@ -8200,16 +8200,16 @@
             "description": "按用户ID筛选（仅 score_review 权限生效）"
           },
           {
-            "name": "exclude_is_test",
+            "name": "only_student_practice",
             "in": "query",
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "排除试跑记录",
+              "description": "只返回学生练习(true)；false=含教师试跑/演示记录",
               "default": true,
-              "title": "Exclude Is Test"
+              "title": "Only Student Practice"
             },
-            "description": "排除试跑记录"
+            "description": "只返回学生练习(true)；false=含教师试跑/演示记录"
           },
           {
             "name": "sort_by",
@@ -14307,6 +14307,18 @@
               }
             ],
             "title": "Feedback Note"
+          },
+          "incomplete": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incomplete"
           }
         },
         "type": "object",
@@ -16412,10 +16424,10 @@
             "title": "Score Degraded",
             "default": false
           },
-          "is_test": {
+          "is_student_practice": {
             "type": "boolean",
-            "title": "Is Test",
-            "default": false
+            "title": "Is Student Practice",
+            "default": true
           },
           "assignment_id": {
             "anyOf": [
@@ -16702,10 +16714,10 @@
             "type": "array",
             "title": "Guided Hints"
           },
-          "is_test": {
+          "is_student_practice": {
             "type": "boolean",
-            "title": "Is Test",
-            "default": false
+            "title": "Is Student Practice",
+            "default": true
           },
           "manifest": {
             "anyOf": [
@@ -16786,6 +16798,18 @@
               }
             ],
             "title": "Time Limit Minutes"
+          },
+          "experiment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment"
           }
         },
         "additionalProperties": false,

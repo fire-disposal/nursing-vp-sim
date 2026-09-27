@@ -447,7 +447,7 @@ class UserService:
         if student_role:
             total_students = self.db.query(User).filter(User.role_id == student_role.id).count()
 
-        base = self.db.query(TrainingRecord).join(User).filter(TrainingRecord.is_test == False)
+        base = self.db.query(TrainingRecord).join(User).filter(TrainingRecord.is_student_practice == True)
         total_records = base.count()
         completed_records = base.filter(TrainingRecord.status == "completed").count()
         avg_score = (
@@ -455,7 +455,7 @@ class UserService:
             .join(TrainingRecord, Score.record_id == TrainingRecord.id)
             .join(User, TrainingRecord.user_id == User.id)
             # INV-3：纯成绩聚合（无父行可保留），兜底分直接过滤
-            .filter(TrainingRecord.is_test == False, *grade_conditions())
+            .filter(TrainingRecord.is_student_practice == True, *grade_conditions())
             .scalar()
         )
         avg_duration = (
@@ -467,7 +467,7 @@ class UserService:
                 TrainingRecord.status == "completed",
                 TrainingRecord.end_time.isnot(None),
                 TrainingRecord.start_time.isnot(None),
-                TrainingRecord.is_test == False,
+                TrainingRecord.is_student_practice == True,
             )
             .scalar()
         )
@@ -475,7 +475,7 @@ class UserService:
         today_records = (
             self.db.query(sa_func.count(TrainingRecord.id))
             .join(User, TrainingRecord.user_id == User.id)
-            .filter(TrainingRecord.start_time >= today_start, TrainingRecord.is_test == False)
+            .filter(TrainingRecord.start_time >= today_start, TrainingRecord.is_student_practice == True)
             .scalar()
             or 0
         )

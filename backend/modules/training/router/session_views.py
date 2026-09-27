@@ -125,7 +125,7 @@ def get_records(
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
     user_id: Annotated[int | None, Query(description="按用户ID筛选（仅 score_review 权限生效）")] = None,
-    exclude_is_test: Annotated[bool, Query(description="排除试跑记录")] = True,
+    only_student_practice: Annotated[bool, Query(description="只返回学生练习(true)；false=含教师试跑/演示记录")] = True,
     sort_by: Annotated[str, Query(description="排序字段：start_time/score_total/duration")] = "start_time",
     order: Annotated[str, Query(description="排序方向：asc/desc")] = "desc",
 ):
@@ -172,8 +172,8 @@ def get_records(
             )
         )
 
-    if exclude_is_test:
-        base = base.filter(TrainingRecord.is_test == False)
+    if only_student_practice:
+        base = base.filter(TrainingRecord.is_student_practice == True)
 
     if status:
         base = base.filter(TrainingRecord.status == status)
@@ -246,7 +246,7 @@ def get_records(
             score_degraded=bool(r.score and r.score.fallback),
             scoring_status=r.scoring_status,
             scoring_error=r.scoring_error,
-            is_test=r.is_test,
+            is_student_practice=r.is_student_practice,
             assignment_id=r.assignment_id,
             assignment_title=r.assignment.title if r.assignment else None,
         )
@@ -508,7 +508,7 @@ def get_record_detail(
         required_inquiries=(case_data.get("required_inquiries", []) if mode == TrainingMode.GUIDED.value else []),
         # 引导提示优先给"领域 + 评估意义"（蓝图），而不是清单原句（docs/19 §3.3）。
         guided_hints=(guided_hints(case_data) if mode == TrainingMode.GUIDED.value else []),
-        is_test=record.is_test,
+        is_student_practice=record.is_student_practice,
         practice=dict((record.practice_snapshot or {}).get("practice") or {}),
         practice_options=options,
         review_focus=focus,

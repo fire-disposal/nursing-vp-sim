@@ -4481,6 +4481,10 @@ export interface components {
             } | null;
             /** Feedback Note */
             feedback_note?: string | null;
+            /** Incomplete */
+            incomplete?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ScoreReviewItem */
         ScoreReviewItem: {
@@ -5335,10 +5339,10 @@ export interface components {
              */
             score_degraded: boolean;
             /**
-             * Is Test
-             * @default false
+             * Is Student Practice
+             * @default true
              */
-            is_test: boolean;
+            is_student_practice: boolean;
             /** Assignment Id */
             assignment_id?: string | null;
             /** Assignment Title */
@@ -5463,10 +5467,10 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /**
-             * Is Test
-             * @default false
+             * Is Student Practice
+             * @default true
              */
-            is_test: boolean;
+            is_student_practice: boolean;
             /** Manifest */
             manifest?: {
                 [key: string]: unknown;
@@ -5499,6 +5503,10 @@ export interface components {
             } | null;
             /** Time Limit Minutes */
             time_limit_minutes?: number | null;
+            /** Experiment */
+            experiment?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** TrainingStartResponse */
         TrainingStartResponse: {
@@ -10154,8 +10162,8 @@ export interface operations {
                 class_id?: number | null;
                 /** @description 按用户ID筛选（仅 score_review 权限生效） */
                 user_id?: number | null;
-                /** @description 排除试跑记录 */
-                exclude_is_test?: boolean;
+                /** @description 只返回学生练习(true)；false=含教师试跑/演示记录 */
+                only_student_practice?: boolean;
                 /** @description 排序字段：start_time/score_total/duration */
                 sort_by?: string;
                 /** @description 排序方向：asc/desc */

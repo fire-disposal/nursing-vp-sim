@@ -52,7 +52,7 @@ class StatsService:
             .filter(
                 TrainingRecord.status == "completed",
                 TrainingRecord.start_time >= since,
-                TrainingRecord.is_test == False,
+                TrainingRecord.is_student_practice == True,
             )
         )
 
@@ -112,7 +112,7 @@ class StatsService:
                 TrainingRecord,
                 (TrainingRecord.user_id == User.id)
                 & (TrainingRecord.status == "completed")
-                & (TrainingRecord.is_test == False),
+                & (TrainingRecord.is_student_practice == True),
             )
             .filter(User.role_id == student_role_id)
         )
@@ -172,7 +172,7 @@ class StatsService:
                 TrainingRecord,
                 (TrainingRecord.user_id == User.id)
                 & (TrainingRecord.status == "completed")
-                & (TrainingRecord.is_test == False),
+                & (TrainingRecord.is_student_practice == True),
             )
             # INV-3：兜底分不进平均分/总分/排名，但场次与时长照旧统计
             .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
@@ -249,7 +249,7 @@ class StatsService:
                 TrainingRecord,
                 (TrainingRecord.user_id == ClassMembership.user_id)
                 & (TrainingRecord.status == "completed")
-                & (TrainingRecord.is_test == False),
+                & (TrainingRecord.is_student_practice == True),
             )
             # INV-3：兜底分不参与班级平均分，无有效成绩的班级仍保留（avg_score = None）
             .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))

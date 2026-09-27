@@ -120,7 +120,7 @@ def _record(nursing: NursingRecord | None):
         runtime_state={},
         time_limit=30,
         start_time=datetime.now(UTC),
-        is_test=False,
+        is_student_practice=True,
     )
     record.messages = []
     record.score = None

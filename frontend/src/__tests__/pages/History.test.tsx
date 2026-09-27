@@ -31,7 +31,7 @@ function record(over: Record<string, unknown>) {
 		start_time: "2026-09-01T10:00:00",
 		end_time: "2026-09-01T10:20:00",
 		score_total: 88,
-		is_test: false,
+		is_student_practice: true,
 		assignment_id: null,
 		assignment_title: null,
 		...over,

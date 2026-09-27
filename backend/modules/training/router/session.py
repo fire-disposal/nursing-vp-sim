@@ -37,6 +37,7 @@ from models import (
 from modules.assignments.progress import count_attempts, effective_status
 from modules.cases.revisions import require_current_revision, require_pinned_revision, require_publishable
 from modules.questionnaires.response_service import count_pending_required
+from modules.training.participation import is_student_practice
 from modules.training.practice import (
     PRACTICE_FIELD,
     PRACTICE_LABELS,
@@ -247,9 +248,9 @@ def _create_record(
 
     user = db.query(User).filter(User.id == user_id).first()
     if user:
-        user_perms = load_role_permissions(db, user.role_id)
-        if "case_manage" in user_perms or "score_review" in user_perms:
-            record.is_test = True
+        # 「这条是不是学生练习」：教师/管理员开始的不算（规则见 modules/training/participation.py）。
+        # 未取到用户时保留列默认值 true —— 记录必属于某个用户（FK），取不到即异常路径。
+        record.is_student_practice = is_student_practice(permissions=load_role_permissions(db, user.role_id))
 
     db.add(record)
     db.flush()
@@ -462,7 +463,7 @@ def start_training_from_assignment(
         .filter(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
-            TrainingRecord.is_test == False,
+            TrainingRecord.is_student_practice == True,
         )
         .all()
     )
@@ -470,7 +471,7 @@ def start_training_from_assignment(
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
         raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
     _lock_user_row(db, current_user.id)
-    # Global: only ONE in_progress regardless of assignment or is_test
+    # Global: only ONE in_progress regardless of assignment or is_student_practice
     global_existing = (
         db.query(TrainingRecord)
         .filter(
@@ -501,7 +502,7 @@ def start_training_from_assignment(
             TrainingRecord.user_id == current_user.id,
             TrainingRecord.assignment_id == assignment.id,
             TrainingRecord.status == TrainingStatus.IN_PROGRESS,
-            TrainingRecord.is_test == False,
+            TrainingRecord.is_student_practice == True,
         )
         .first()
     )
