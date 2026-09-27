@@ -257,10 +257,63 @@ def _check_vitals_age_group(c: dict, issues: list[CaseIssue]) -> None:
     )
 
 
+#: 情绪立绘的情绪键闭集 —— 与前端 ``stores/trainingStore.EmotionState`` 是同一个六态闭集
+#: （运行期按当前情绪查表，只有这六个键会被查）。
+_PORTRAIT_EMOTION_KEYS: tuple[str, ...] = (
+    "withdrawn",
+    "defensive",
+    "anxious",
+    "neutral",
+    "relaxed",
+    "open",
+)
+
+
+def _check_portrait_states(c: dict, issues: list[CaseIssue]) -> None:
+    """``patient_info.portrait_states`` 的形状与情绪键闭集（患者表现层的情绪立绘）。
+
+    可选声明：不写 = 只有单张立绘（既有病例全部如此）。键拼错或在闭集外**不会**让运行期
+    报错 —— 当前情绪查表查不到，就静默回落单张立绘，作者以为"焦虑时该换的那张图"其实
+    从没出现过。与 ``vitals_age_group`` 同策：让错误在发布前有出口，并给出可选键。
+    """
+    info = c.get("patient_info")
+    if not isinstance(info, dict) or "portrait_states" not in info:
+        return
+    raw = info.get("portrait_states")
+    if raw is None:
+        return
+    if not isinstance(raw, dict):
+        issues.append(
+            _e(
+                f"portrait_states 必须是对象：{raw!r}",
+                "patient_info.portrait_states",
+                '形如 {"anxious": "https://…/anxious.png", "neutral": "https://…/neutral.png"}',
+            )
+        )
+        return
+    for key in sorted(raw):
+        value = raw[key]
+        if not isinstance(value, str) or not value.strip():
+            issues.append(
+                _e(
+                    f"portrait_states.{key} 的值必须是非空字符串 URL：{value!r}",
+                    f"patient_info.portrait_states.{key}",
+                    "写该情绪立绘的图片地址；该情绪没有专属图时整条省略，不要留空值",
+                )
+            )
+        if key not in _PORTRAIT_EMOTION_KEYS:
+            issues.append(
+                _e(
+                    f"portrait_states 里有未知情绪键：{key}",
+                    "patient_info.portrait_states",
+                    "可选情绪键：" + " / ".join(_PORTRAIT_EMOTION_KEYS),
+                )
+            )
+
+
 def _check_time_anchors(c: dict, issues: list[CaseIssue]) -> None:
     """主诉时长与示例时段描述的一致性（启发式）。"""
     chief = str(c.get("chief_complaint", ""))
-    present = str(c.get("present_illness", ""))
     m = re.search(r"(\d+)\s*(小时|天|周|月|年)", chief)
     if not m:
         return
@@ -1375,6 +1428,7 @@ def validate_case(case_data: dict) -> CaseReport:
         _check_example_count(case_data, issues)
         _check_year_freshness(case_data, issues)
     _check_vitals_age_group(case_data, issues)
+    _check_portrait_states(case_data, issues)
     _check_completion_declaration(case_data, issues)
     _check_dead_fields(case_data, issues)
     _check_time_limit(case_data, issues)

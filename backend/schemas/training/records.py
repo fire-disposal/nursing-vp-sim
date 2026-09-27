@@ -90,6 +90,9 @@ class PatientPublicInfo(BaseModel):
     name: str = ""
     age: int = 0
     gender: str = ""
+    #: 情绪立绘映射（情绪键 → 立绘 URL）：表现层按当前情绪换图的唯一数据来源。
+    #: 未声明的病例为 None，前端与"只有单张立绘"的既有行为完全一致。
+    portrait_states: dict[str, str] | None = None
 
 
 class TrainingRecordDetail(BaseModel):

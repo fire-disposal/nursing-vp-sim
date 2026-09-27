@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
@@ -46,6 +46,7 @@ from modules.training.practice import (
     resolve_practice_target,
 )
 from modules.training.prompt_identity import compute_context_policy_version
+from modules.training.session.state import SceneState
 from modules.training.workflows import (
     WorkflowDefinition,
     WorkflowNotStartableError,
@@ -117,14 +118,31 @@ def _stamp_experiment(config: dict, experiment: dict | None = None) -> dict:
     return config
 
 
+def _portrait_states(raw: object) -> dict[str, str] | None:
+    """情绪立绘映射的窄化：只保留非空字符串值。
+
+    键是否在情绪闭集内由**发布门禁**把关（``modules/cases/validator``）——运行期不猜、
+    不改写作者声明，只保证下发的是"字符串 → 字符串"。
+    """
+    if not isinstance(raw, dict):
+        return None
+    states = {str(key): value.strip() for key, value in raw.items() if isinstance(value, str) and value.strip()}
+    return states or None
+
+
 def _public_patient_info(case_data: dict) -> dict:
-    """Return only patient facts known before the interview starts."""
+    """Return only patient facts known before the interview starts.
+
+    ``portrait_states`` 一并下发：它是患者**形象**资产（不是病史事实），表现层据此按当前
+    情绪换立绘；未声明的病例为 ``None``，前端与"只有单张立绘"的既有行为一致。
+    """
     raw = case_data.get("patient_info") if isinstance(case_data, dict) else None
     info = raw if isinstance(raw, dict) else {}
     return {
         "name": str(info.get("name") or "患者"),
         "age": int(info.get("age") or 0),
         "gender": normalize_gender(info.get("gender", "")),
+        "portrait_states": _portrait_states(info.get("portrait_states")),
     }
 
 
@@ -152,6 +170,44 @@ def _public_scene(record: TrainingRecord) -> dict | None:
     if isinstance(vitals, dict):
         scene["vitals"] = {key: value for key, value in vitals.items() if key in allowed_vitals}
     return scene
+
+
+#: 播种初始 scene 时，给**病例未声明**的键补的默认值（保留历史播种语义）。
+#: ``SceneState`` 自己的字段默认值面向"从零构造一场戏"（``environment.type=clinic`` /
+#: ``patient.position=supine``），与问诊病例的既有播种取值不同；这里显式保留旧值，避免
+#: 存量病例的环境与体位随重构漂移。
+_SCENE_SEED_DEFAULTS: dict[str, dict[str, Any]] = {
+    "environment": {"type": "ward", "time_of_day": "day", "equipment": [], "noise_level": "quiet"},
+    "patient": {"position": "semi-recumbent", "consciousness": "alert"},
+}
+
+
+def _seed_scene(case_data: dict) -> dict:
+    """病例声明的初始 scene —— **整块**过 ``SceneState`` 校验，而不是逐键手挑。
+
+    逐键手挑的代价：病例里**新声明**的场景字段（如 ``scene.patient.breathing``）会被静默
+    丢弃，作者配了却不生效。整块过模型后，字段随模型新增自动跟着走（``PatientState`` 这类
+    模型是 scene 形状的唯一 owner），枚举/类型也由模型兜住。
+
+    只**补默认 + 校验**，不裁剪：未测量体征的裁剪是读侧 ``_public_scene`` 的事 —— 播种侧
+    必须原样保留病例声明（否则床旁检查会拿着"没有这个键"的假事实开局）。
+    形状非法时抛出（不是静默丢弃）：发布门禁（``validator._check_scene``）已把合法形状
+    卡在发布前，运行期再遇到坏形状说明内容绕过了门禁，必须响。
+    """
+    raw = case_data.get("scene")
+    scene: dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
+    for section, defaults in _SCENE_SEED_DEFAULTS.items():
+        declared = scene.get(section)
+        scene[section] = {**defaults, **(declared if isinstance(declared, dict) else {})}
+    info = case_data.get("patient_info")
+    patient_info: dict[str, Any] = info if isinstance(info, dict) else {}
+    patient: dict[str, Any] = scene["patient"]
+    # patient_info 是同名场景字段的既有回落来源（病例未在 scene.patient 里声明时）
+    if "visible_symptoms" not in patient:
+        patient["visible_symptoms"] = patient_info.get("visible_symptoms") or []
+    if "expression" not in patient:
+        patient["expression"] = patient_info.get("expression") or "neutral"
+    return SceneState.model_validate(scene).model_dump(exclude_none=True)
 
 
 def _load_nursing_record(db: Session, record_id: int) -> tuple[dict | None, datetime | None]:
@@ -292,40 +348,8 @@ def _create_record(
 
     # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）。
     # 分诊/急诊只作为 history_taking 的 scene 设定存在，不再切换训练类型。
-    patient_info = case_data.get("patient_info", {})
-    raw_scene = case_data.get("scene")
-    scene_seed = raw_scene if isinstance(raw_scene, dict) else {}
-    raw_environment = scene_seed.get("environment")
-    raw_patient = scene_seed.get("patient")
-    raw_vitals = scene_seed.get("vitals")
-    environment_seed = raw_environment if isinstance(raw_environment, dict) else {}
-    patient_seed = raw_patient if isinstance(raw_patient, dict) else {}
-    vitals_seed = raw_vitals if isinstance(raw_vitals, dict) else {}
-    record.runtime_state = {
-        "scene": {
-            "environment": {
-                "type": environment_seed.get("type", "ward"),
-                "time_of_day": environment_seed.get("time_of_day", "day"),
-                "equipment": environment_seed.get("equipment", []),
-                "noise_level": environment_seed.get("noise_level", "quiet"),
-            },
-            "patient": {
-                "position": patient_seed.get("position", "semi-recumbent"),
-                "consciousness": patient_seed.get("consciousness", "alert"),
-                "visible_symptoms": patient_seed.get("visible_symptoms", patient_info.get("visible_symptoms", [])),
-                "expression": patient_seed.get("expression", patient_info.get("expression", "neutral")),
-            },
-            "vitals": {
-                "hr": vitals_seed.get("hr"),
-                "bp_sys": vitals_seed.get("bp_sys"),
-                "bp_dia": vitals_seed.get("bp_dia"),
-                "spo2": vitals_seed.get("spo2"),
-                "rr": vitals_seed.get("rr"),
-                "temp": vitals_seed.get("temp"),
-                "pain": vitals_seed.get("pain"),
-            },
-        }
-    }
+    # 整块过 `SceneState`（`_seed_scene`）：病例新声明的场景字段随模型自动播种，不再被逐键手挑丢掉。
+    record.runtime_state = {"scene": _seed_scene(case_data)}
 
     snapshot = record.practice_snapshot or {}
     snapshot["features"] = resolved_features

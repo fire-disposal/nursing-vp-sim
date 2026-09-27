@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Emotion4DLabel, EmotionState } from "@/stores/trainingStore";
+import type { PortraitStates } from "@/utils/avatar";
 import type { AppearanceProfile } from "../face/appearance";
 import type { EmotionValues, FaceConfig } from "../face/expressionMap";
 import type { PremiumExtras } from "../face/premiumExtras";
@@ -40,6 +41,8 @@ export interface PatientIdentity {
 	name: string | null;
 	gender: string | null;
 	age: number | null;
+	/** 病例声明的情绪立绘（可选）：命中当前情绪则换图，未命中/未声明回落单张立绘。 */
+	portraitStates?: PortraitStates | null;
 }
 
 /** 渲染上下文 — 表现无关的展示参数，render 阶段消费。 */

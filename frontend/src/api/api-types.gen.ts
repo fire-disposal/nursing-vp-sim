@@ -1986,6 +1986,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/records/{record_id}/experience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Record Experience
+         * @description 体验记录导出（JSON 下载）：一次训练的**自包含档案**，供研究者/教师复盘。
+         *
+         *     装配逻辑住在 ``modules.training.experience_export``（纯函数、无 IO）——本端点只做
+         *     鉴权与取数。可见性同详情/情绪轨迹：记录本人，或具备 ``score_review`` 权限。
+         */
+        get: operations["export_record_experience_api_training_records__record_id__experience_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/training/{record_id}/initiative/trigger": {
         parameters: {
             query?: never;
@@ -3905,6 +3928,10 @@ export interface components {
              * @default
              */
             gender: string;
+            /** Portrait States */
+            portrait_states?: {
+                [key: string]: string;
+            } | null;
         };
         /** PendingLabSummary */
         PendingLabSummary: {
@@ -10196,6 +10223,37 @@ export interface operations {
         };
     };
     get_emotion_events_api_training_records__record_id__emotion_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_record_experience_api_training_records__record_id__experience_get: {
         parameters: {
             query?: never;
             header?: never;

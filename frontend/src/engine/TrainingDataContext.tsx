@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo } from "react";
 import type { components } from "@/api/api-types.gen";
+import type { PortraitStates } from "@/utils/avatar";
 import { type SessionManifest, parseSessionManifest } from "./manifest";
 import type { MessageCorrectionState } from "./training-record-types";
 import type { ChatMessage, PatientData } from "./types";
@@ -49,6 +50,21 @@ function optionalNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/**
+ * 情绪立绘映射的窄化：只认非空字符串值。
+ * 情绪键的闭集由后端发布门禁把关（``validator._check_portrait_states``）；这里只做类型收敛，
+ * 表现层按当前情绪查表，查不到的键自然是"没有这张图"。
+ */
+function parsePortraitStates(value: unknown): PortraitStates | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const states = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== "",
+    ),
+  ) as PortraitStates;
+  return Object.keys(states).length > 0 ? states : null;
+}
+
 // ── Derived: PatientData ──
 
 export function usePatientData(): PatientData | null {
@@ -64,6 +80,7 @@ export function usePatientData(): PatientData | null {
       gender,
       caseTitle: (d.case_title as string) ?? (d.case as { title?: string } | undefined)?.title ?? "",
       chiefComplaint: (d.chief_complaint as string) ?? (d.case as { chief_complaint?: string } | undefined)?.chief_complaint ?? "",
+      portraitStates: parsePortraitStates((d.patient_info as TrainingRecord["patient_info"])?.portrait_states),
     };
   }, [record]);
 }

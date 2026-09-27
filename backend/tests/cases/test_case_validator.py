@@ -164,6 +164,51 @@ def test_scene_non_object_is_error():
     assert any(i.field == "scene" and "必须是对象" in i.message for i in r.errors)
 
 
+# ── 情绪立绘（患者表现层的情绪立绘映射） ─────────────────────────────────
+
+
+def test_portrait_states_absent_is_ok():
+    """立绘可选：不声明 = 只有单张立绘（既有病例全部如此）。"""
+    assert validate_case(_load("case1")).ok()
+
+
+def test_portrait_states_declared_is_ok():
+    c = _load("case1")
+    c["patient_info"]["portrait_states"] = {
+        "anxious": "https://cdn.example.com/wang-anxious.png",
+        "neutral": "/media/cases/wang-neutral.png",
+    }
+    assert validate_case(c).ok()
+
+
+def test_portrait_states_unknown_emotion_is_error():
+    """情绪键拼错必须发布前报错——运行期只会静默回落单张立绘，那张图永远不会出现。"""
+    c = _load("case1")
+    c["patient_info"]["portrait_states"] = {"worried": "https://cdn.example.com/worried.png"}
+    r = validate_case(c)
+    assert any(i.field == "patient_info.portrait_states" and "未知情绪键" in i.message for i in r.errors)
+    # 提示要给出可选键，作者才知道该改成什么
+    assert any("relaxed" in i.fix_hint for i in r.errors)
+
+
+def test_portrait_states_non_string_value_is_error():
+    c = _load("case1")
+    c["patient_info"]["portrait_states"] = {"anxious": ["a.png"], "neutral": "   "}
+    r = validate_case(c)
+    assert {i.field for i in r.errors} >= {
+        "patient_info.portrait_states.anxious",
+        "patient_info.portrait_states.neutral",
+    }
+    assert all("必须是非空字符串" in i.message for i in r.errors if i.field.startswith("patient_info.portrait_states."))
+
+
+def test_portrait_states_non_object_is_error():
+    c = _load("case1")
+    c["patient_info"]["portrait_states"] = ["anxious"]
+    r = validate_case(c)
+    assert any(i.field == "patient_info.portrait_states" and "必须是对象" in i.message for i in r.errors)
+
+
 # ── 数量约束 ─────────────────────────────────────────────────────────────
 
 

@@ -94,6 +94,33 @@ describe("派生读取（唯一来源 = RQ 原始 record）", () => {
 		expect(derived.manifest?.completion.eligible).toBe(true);
 	});
 
+	it("patient_info.portrait_states 收敛成 情绪 → URL 映射（非字符串/空值丢弃）", () => {
+		const derived = renderDerived(
+			makeRecord({
+				patient_info: {
+					name: "李秀兰",
+					age: 54,
+					gender: "女",
+					portrait_states: { anxious: "https://cdn.example.com/lxl-anxious.png", neutral: "  " },
+				},
+			}),
+		);
+		expect(derived.patient?.portraitStates).toEqual({ anxious: "https://cdn.example.com/lxl-anxious.png" });
+	});
+
+	it("未声明 / 形状不符的 portrait_states 收敛为 null（表现层回落单张立绘）", () => {
+		const portraitStatesOf = (portrait_states: unknown) =>
+			renderDerived(
+				makeRecord({
+					patient_info: { name: "李秀兰", age: 54, gender: "女", portrait_states } as TrainingRecordDetail["patient_info"],
+				}),
+			).patient?.portraitStates;
+
+		expect(renderDerived(makeRecord()).patient?.portraitStates).toBeNull();
+		expect(portraitStatesOf(["anxious"])).toBeNull();
+		expect(portraitStatesOf({})).toBeNull();
+	});
+
 	it("record metadata 给出模式/盲盒/倒计时锚点/问诊清单", () => {
 		const derived = renderDerived(
 			makeRecord({

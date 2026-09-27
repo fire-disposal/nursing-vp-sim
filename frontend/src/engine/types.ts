@@ -1,5 +1,7 @@
 
 
+import type { PortraitStates } from "@/utils/avatar";
+
 export interface ChatMessage {
 	id?: string | number;
 	role: "student" | "patient" | "system";
@@ -19,6 +21,8 @@ export interface PatientData {
 	personality?: string;
 	requiredInquiries?: string[];
 	examAnchors?: Record<string, unknown>;
+	/** 病例声明的情绪立绘（可选）：表现层按当前情绪选图，未声明即单张立绘。 */
+	portraitStates?: PortraitStates | null;
 }
 
 export type ScorePhase = "loading" | "scoring" | "feedback" | "saving" | "completed" | "failed" | "processing" | null;

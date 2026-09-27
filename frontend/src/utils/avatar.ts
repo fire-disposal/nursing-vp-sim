@@ -1,3 +1,4 @@
+import type { EmotionState } from "@/stores/trainingStore";
 import nurseFemale from "../assets/avatars/simple/nurse_female.png";
 import nurseMale from "../assets/avatars/simple/nurse_male.png";
 import childFemale from "../assets/avatars/simple/patient_child_female.png";
@@ -44,6 +45,12 @@ export interface PatientInfo {
 	gender?: string | null;
 	age?: number | null;
 }
+
+/**
+ * 情绪立绘映射（病例 ``patient_info.portrait_states``）：情绪键 → 立绘 URL。
+ * 同一患者可以有任意多张（0~6）按情绪切换的立绘；键的闭集由后端发布门禁把关。
+ */
+export type PortraitStates = Partial<Record<EmotionState, string>>;
 
 function isFemale(gender: string | null | undefined): boolean {
 	return gender === "女" || gender === "female";

@@ -59,6 +59,11 @@ class PatientInfo(BaseModel):
     #: **照护者代诉型病例**必须显式声明：儿科病例的对话者是家长，体征属于患儿，
     #: 不声明就会拿家长年龄套成人参考范围，向学生输出错误的"低于/高于参考范围"。
     vitals_age_group: Literal["pediatric", "adult", "elderly"] | None = None
+    #: 情绪立绘映射：情绪键（六态闭集）→ 立绘 URL，同一患者可有多张按情绪切换的立绘。
+    #: 可选声明；不声明 = 只有单张立绘。这里只声明结构（字符串 → 字符串）：键是否在闭集内
+    #: 属于发布门禁（``modules/cases/validator._check_portrait_states``），因为只有那里能
+    #: 给作者可见的 JSON 路径与"可选键"提示，并且对库内既有内容同样生效。
+    portrait_states: dict[str, str] | None = None
 
 
 class PersonalityConfig(BaseModel):

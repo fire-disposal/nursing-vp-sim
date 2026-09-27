@@ -24,7 +24,16 @@ CASE_DATA = {
     # 本用例专门覆盖"门禁"路径：显式要求先提交护理记录（默认不设门禁）
     "completion": {"required_artifacts": ["nursing_record"]},
     "name": "冒烟病例",
-    "patient_info": {"name": "王建国", "age": 68, "gender": "男"},
+    "patient_info": {
+        "name": "王建国",
+        "age": 68,
+        "gender": "男",
+        # 患者表现层按情绪换立绘的数据来源：必须原样出现在详情响应里
+        "portrait_states": {
+            "anxious": "https://cdn.example.com/wang-anxious.png",
+            "neutral": "/media/cases/wang-neutral.png",
+        },
+    },
     "chief_complaint": "喘不上气",
     "activities": {
         "physical_exam": {"config": {"vital_signs": {"temperature": "37.2-37.8"}}},
@@ -211,6 +220,15 @@ def test_detail_features_are_activity_flags():
     assert features["nursing_record"] is True
     assert features["quiz"] is False
     assert features["emotion"] is True
+
+
+def test_detail_carries_patient_portrait_states():
+    """情绪立绘随详情下发：患者表现层按当前情绪换图的唯一数据来源。"""
+    patient_info = next(iter(_fetch())).json()["patient_info"]
+    assert patient_info["portrait_states"] == {
+        "anxious": "https://cdn.example.com/wang-anxious.png",
+        "neutral": "/media/cases/wang-neutral.png",
+    }
 
 
 def test_tool_command_endpoint_still_dispatches_to_activity_binding():
