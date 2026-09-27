@@ -1,7 +1,8 @@
 """病例校验器规则测试 — 每条规则 1 正例 + 1 反例。
 
-反例夹具直接使用修复后的内置病例（case3/case6/case9），
-规则活着 = 数据不再回归。
+反例夹具优先使用仍在内置语料里的病例（case1/case3/case4/case9）；
+规则需要特定年龄/形态时在合法病例上覆盖字段构造夹具（见 ``_pediatric_base``），
+这样规则的覆盖度不再取决于某一份内置内容是否存在。
 """
 
 import json
@@ -67,13 +68,25 @@ def test_spouse_dead_contradiction_detected():
 # ── 年龄-生理 ────────────────────────────────────────────────────────────
 
 
+def _pediatric_base() -> dict:
+    """前囟规则的夹具：在形态合法的病例上覆盖年龄，不依赖某份内置儿科内容。
+
+    原先借用内置儿科病例（``case6.json``，3 岁幼儿）当夹具；该病例零练习记录，
+    已随病例库收敛删除（data 迁移 ``c2d3e4f5a6b7``）。规则本身只依赖
+    「``patient_info.age`` ≥ 2 且文本出现前囟/后囟」，用年龄覆盖即可保持覆盖度，
+    且不再因某份内置内容的有无而失效。
+    """
+    c = json.loads(json.dumps(_load("case1")))
+    c["patient_info"]["age"] = 3
+    return c
+
+
 def test_fontanelle_removed():
-    c = _load("case6")  # 3 岁，前囟已删除
-    assert validate_case(c).ok()
+    assert validate_case(_pediatric_base()).ok()
 
 
 def test_fontanelle_detected():
-    c = json.loads(json.dumps(_load("case6")))
+    c = _pediatric_base()
     c["activities"]["physical_exam"]["config"]["skin"] = {"全身": "皮肤潮红，弹性可，前囟平坦"}
     r = validate_case(c)
     assert any("前囟" in i.message for i in r.errors)

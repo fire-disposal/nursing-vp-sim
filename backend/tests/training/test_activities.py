@@ -249,18 +249,21 @@ class TestCaseCorpus:
             assert '"tools"' not in path.read_text(encoding="utf-8"), path.name
 
     def test_activity_enablement_counts(self):
-        """11 例声明 physical_exam/nursing_record；quiz 只有 1 例；nursing_diagnosis 0 例。"""
+        """语料不变量：**每个**内置病例都声明 physical_exam/nursing_record；quiz 仅 1 例；nursing_diagnosis 无人用。
+
+        不写死病例总数——那只是语料规模的快照，每次增删病例都会假失败；这里断言的是
+        「所有内置病例都启用两个核心活动」这一意图。
+        """
+        cases = _cases()
         counts = dict.fromkeys(ACTIVITY_IDS, 0)
-        for case in _cases().values():
+        for case in cases.values():
             for activity_id, enabled in resolve_activity_flags(case).items():
                 if enabled:
                     counts[activity_id] += 1
-        assert counts == {
-            "physical_exam": 11,
-            "nursing_record": 11,
-            "quiz": 1,
-            "nursing_diagnosis": 0,
-        }
+        assert counts["physical_exam"] == len(cases)
+        assert counts["nursing_record"] == len(cases)
+        assert counts["quiz"] == 1
+        assert counts["nursing_diagnosis"] == 0
 
     @pytest.mark.parametrize("name", sorted(p.stem for p in CASES_DIR.glob("*.json")))
     def test_every_case_resolves(self, name):
