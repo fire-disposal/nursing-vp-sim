@@ -1,6 +1,8 @@
+import { VisuallyHidden } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
 	type ScenarioActionInput,
@@ -46,7 +48,17 @@ export default function ScenarioConsole() {
 	const [sessionId, setSessionId] = useState<number | null>(null);
 	const [view, setView] = useState<ScenarioView | null>(null);
 	const [report, setReport] = useState<ScenarioReport | null>(null);
-	const [featureOff, setFeatureOff] = useState(false);
+	/** 打开/恢复会话期间的"正在开启"提示（后端在请求里先跑开场回合，可能好几秒）。 */
+	const [opening, setOpening] = useState(false);
+	/** 最近一次提交的自由文本：只有它才在回合落地时被清空（学生可能已经在打下一句）。 */
+	const submittedTextRef = useRef<string | null>(null);
+	/** 回合落地后把焦点送回自由通道（键盘用户不必每回合从头 Tab）。 */
+	const [focusToken, setFocusToken] = useState(0);
+	/** 给读屏的回合播报（回合号 + 最新一句旁白）。 */
+	const [announcement, setAnnouncement] = useState("");
+	/** 会话进路由查询串：刷新/后退/收藏/新标签都能回到同一局（`?session=123`）。 */
+	const [searchParams, setSearchParams] = useSearchParams();
+	const deepLinkDoneRef = useRef(false);
 	/** 会话已被结算（409）：动作被拒，但仍可读经历。 */
 	const [ended, setEnded] = useState(false);
 	/** 流式草稿：已写完但还没落地的块（权威 view 一到就丢）。 */
@@ -72,12 +84,14 @@ export default function ScenarioConsole() {
 		retry: false,
 	});
 
-	// 404 是"实验特性未开启"这一种事实；其余错误照旧走 getApiErrorMessage/toast 约定
+	/**
+	 * 把异常翻译成给人看的文案。
+	 *
+	 * **只有 `packsQuery` 的首次加载 404 才等于"特性未开启"**（下面 gate 的判据）；
+	 * 动作/开启/恢复/结算的 404 是"这个包或这个会话没了"这种普通错误，
+	 * 不能把整页换成无出口的 gate——那样学生连"重试"都没有。
+	 */
 	const absorbError = (err: unknown, fallback: string): string | null => {
-		if (isScenarioUnavailable(err)) {
-			setFeatureOff(true);
-			return null;
-		}
 		if (isAxiosError(err) && err.response?.status === 409) {
 			setEnded(true);
 			return "这次情境已经结束了，不能再做新的动作。可以看经历。";
@@ -85,8 +99,19 @@ export default function ScenarioConsole() {
 		return getApiErrorMessage(err, fallback);
 	};
 
+	/** 地址栏里的会话：是"这一局在哪"，不是权限——归属仍由后端 404 兜底。 */
+	const rememberSession = (id: number | null) => {
+		// 这是我们自己写进去的：深链恢复只服务于"刷新/直达"，
+		// 否则刚开好一局就会被自己写下的参数又恢复一次（重复请求 + busy 卡住）
+		deepLinkDoneRef.current = true;
+		setSearchParams(id === null ? {} : { session: String(id) }, {
+			replace: true,
+		});
+	};
+
 	const start = async (pack: ScenarioPackSummary) => {
 		setBusy(true);
+		setOpening(true);
 		setActionError(null);
 		try {
 			const data = await createScenarioSession({
@@ -94,6 +119,7 @@ export default function ScenarioConsole() {
 				revision_id: pack.revision_id,
 			});
 			setSessionId(data.session_id);
+			rememberSession(data.session_id);
 			setView(data.view);
 			setReport(null);
 			setEnded(false);
@@ -108,16 +134,19 @@ export default function ScenarioConsole() {
 			if (message) toast.error(message);
 		} finally {
 			setBusy(false);
+			setOpening(false);
 		}
 	};
 
 	/** 回到某次经历：`active` 继续做，`completed` 直接看结算（后端两件事同一个读口）。 */
 	const resume = async (row: { id: number }) => {
 		setBusy(true);
+		setOpening(true);
 		setActionError(null);
 		try {
 			const data = await getScenarioSession(row.id);
 			setSessionId(data.session_id);
+			rememberSession(data.session_id);
 			setView(data.view);
 			setReport(data.report);
 			setEnded(data.status !== "active");
@@ -130,21 +159,40 @@ export default function ScenarioConsole() {
 			if (message) toast.error(message);
 		} finally {
 			setBusy(false);
+			setOpening(false);
 		}
+	};
+
+	/**
+	 * 回合落地：视图换成权威结果，并处理两件"人"的事——
+	 * 只在**刚提交的那份文本**没被改过时清空输入（H3），以及把焦点送回自由通道并播报回合（M4）。
+	 */
+	const applyTurnResult = (nextView: ScenarioView) => {
+		setView(nextView);
+		setDraft(null);
+		setFreeOpen(false);
+		const submitted = submittedTextRef.current;
+		// 学生可能已经在等的时候接着打字了：只有原样未改的那份才丢
+		setFreeText((current) => (current === submitted ? "" : current));
+		setFocusToken((token) => token + 1);
+		const lastScene = [...nextView.messages]
+			.reverse()
+			.find((message) => message.role === "scene");
+		setAnnouncement(
+			`第 ${nextView.session.turn} 回合：${(lastScene?.text ?? "").slice(0, 60)}`,
+		);
 	};
 
 	/** 非流式那条路：行为与今天完全一致（流式不可用时的兜底，也是重试的最后手段）。 */
 	const submitPlain = async (sessionId: number, action: ScenarioActionInput) => {
 		const data = await postScenarioAction(sessionId, action);
-		setView(data.view);
-		setDraft(null);
-		setFreeText("");
-		setFreeOpen(false);
+		applyTurnResult(data.view);
 	};
 
 	const submit = async (action: ScenarioActionInput) => {
 		if (sessionId === null || busy) return;
 		lastActionRef.current = action;
+		submittedTextRef.current = action.text ?? null;
 		setBusy(true);
 		setActionError(null);
 		setStreamFailed(null);
@@ -166,10 +214,7 @@ export default function ScenarioConsole() {
 					if (event.kind === "view") {
 						// 权威结果：它覆盖一切（草稿丢掉）
 						settled = true;
-						setView(event.view);
-						setDraft(null);
-						setFreeText("");
-						setFreeOpen(false);
+						applyTurnResult(event.view);
 						return;
 					}
 					// error：保留已渲染的内容，给重试入口
@@ -205,6 +250,15 @@ export default function ScenarioConsole() {
 		}
 	};
 
+	// 直达/刷新带 `?session=` 时恢复那一局：走既有 resume 路径（后端 404 兜底归属）
+	useEffect(() => {
+		if (deepLinkDoneRef.current) return;
+		const raw = searchParams.get("session");
+		if (!raw || !/^\d+$/.test(raw)) return;
+		deepLinkDoneRef.current = true;
+		void resume({ id: Number(raw) });
+	}, [searchParams]);
+
 	// 卸载/离开页时中断在途的流（不留悬空连接，也不在卸载后 setState）
 	useEffect(
 		() => () => {
@@ -231,6 +285,7 @@ export default function ScenarioConsole() {
 	};
 
 	const leaveSession = () => {
+		rememberSession(null);
 		setSessionId(null);
 		setView(null);
 		setReport(null);
@@ -248,7 +303,8 @@ export default function ScenarioConsole() {
 		setFreeText(talkPrefill(actor.role, actor.presence));
 	};
 
-	if (featureOff || (packsQuery.error && isScenarioUnavailable(packsQuery.error))) {
+	// 唯一等于"特性未开启"的事实：pack 列表本身 404（命名空间整体不可用）
+	if (packsQuery.error && isScenarioUnavailable(packsQuery.error)) {
 		return (
 			<div className="sc-root">
 				<div className="sc-gate">
@@ -333,6 +389,11 @@ export default function ScenarioConsole() {
 				<div className="sc-gate sc-gate-wide">
 					<div className="sc-open">
 						<div className="sc-gate-title">情境训练</div>
+						{opening && (
+							<div className="sc-open-status" role="status">
+								正在开启情境…
+							</div>
+						)}
 						<div className="sc-open-lead">
 							挑一个情境，进去以后世界会自己往前走：你说的话、做的事都会被看见。
 							这里没有标准答案按键，也没有分数——只有你经历过的判断。
@@ -341,22 +402,29 @@ export default function ScenarioConsole() {
 							<div className="sc-gate-body">还没有可用的情境包。</div>
 						) : (
 							<div className="sc-packs">
-								{packs.map((pack) => (
-									<button
-										key={pack.key}
-										type="button"
-										className="sc-pack"
-										disabled={busy}
-										onClick={() => start(pack)}
-									>
-										<span className="sc-pack-title">{pack.title}</span>
-										<span className="sc-pack-meta">
-											<span className="sc-tag">{pack.state}</span>
-											<span>修订 {pack.revision_no ?? "—"}</span>
-										</span>
-										<span className="sc-pack-one-line">{pack.one_line}</span>
-									</button>
-								))}
+								{packs.map((pack) => {
+									// 没有可用修订的包点了必然失败：不给点，并说清楚为什么
+									const usable = pack.revision_id !== null;
+									return (
+										<button
+											key={pack.key}
+											type="button"
+											className="sc-pack"
+											disabled={busy || !usable}
+											aria-disabled={!usable}
+											onClick={() => usable && start(pack)}
+										>
+											<span className="sc-pack-title">{pack.title}</span>
+											<span className="sc-pack-meta">
+												<span className="sc-tag">{pack.state}</span>
+												<span>修订 {pack.revision_no ?? "—"}</span>
+											</span>
+											<span className="sc-pack-one-line">
+												{usable ? pack.one_line : "该病例没有可用修订"}
+											</span>
+										</button>
+									);
+								})}
 							</div>
 						)}
 
@@ -367,6 +435,20 @@ export default function ScenarioConsole() {
 							</div>
 							{historyQuery.isLoading ? (
 								<div className="sc-empty">正在读取…</div>
+							) : historyQuery.isError ? (
+								<div className="sc-history-error">
+									<div className="sc-empty">
+										情境经历读取失败：
+										{getApiErrorMessage(historyQuery.error, "请稍后重试")}
+									</div>
+									<button
+										type="button"
+										className="sc-ghost-btn"
+										onClick={() => historyQuery.refetch()}
+									>
+										重试
+									</button>
+								</div>
 							) : history.length === 0 ? (
 								<div className="sc-empty">
 									还没有情境经历。挑上面的一个情境开始吧。
@@ -411,7 +493,7 @@ export default function ScenarioConsole() {
 					{ended && (
 						<div className="sc-lost-banner" data-kind="ended">
 							<span>这次情境已经结束</span>
-							<span className="sc-lost-sub">
+							<span className="sc-lost-sub" role="alert">
 								{actionError ??
 									"结算之后不能再做动作；可以看经历，也可以回到我的情境。"}
 							</span>
@@ -444,6 +526,10 @@ export default function ScenarioConsole() {
 							</button>
 						</span>
 					</div>
+
+					<VisuallyHidden role="status" aria-live="polite">
+						{announcement}
+					</VisuallyHidden>
 
 					<div className="sc-column">
 						<ScenarioStage
@@ -494,6 +580,7 @@ export default function ScenarioConsole() {
 							<ActionBar
 								view={shownView}
 								busy={busy}
+								focusToken={focusToken}
 								freeText={freeText}
 								freeOpen={freeOpen}
 								onFreeTextChange={setFreeText}

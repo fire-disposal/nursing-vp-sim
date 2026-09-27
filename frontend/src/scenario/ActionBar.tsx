@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
 	ScenarioActionInput,
 	ScenarioAffordance,
@@ -18,7 +18,19 @@ interface ActionBarProps {
 	onFreeOpenChange: (open: boolean) => void;
 	onSubmit: (action: ScenarioActionInput) => void;
 	errorMessage?: string | null;
+	/** 每次变化 = "把焦点送回自由通道"（回合落地后由页面递增）。 */
+	focusToken?: number;
 }
+
+/**
+ * 输入上限：与后端 `ActionRequest.text/custom_text` 的 2000 字符一致
+ * （沿用仓库既有约定，见 `components/training/ChatBubble.tsx`）。
+ * 不设上限的话，粘贴一段病程记录就会换来一个 422。
+ */
+const MAX_INPUT = 2000;
+
+/** DM 建议最多显示几条：prompt 要求 ≤4，模型超产时别把按钮区撑爆。 */
+const MAX_OPTIONS = 6;
 
 /**
  * 动作区：按钮是主角，输入框是配角。
@@ -36,13 +48,23 @@ export default function ActionBar({
 	onFreeOpenChange,
 	onSubmit,
 	errorMessage,
+	focusToken = 0,
 }: ActionBarProps) {
 	const { confirm } = useConfirm();
+	const freeInputRef = useRef<HTMLInputElement>(null);
+	const freeAreaRef = useRef<HTMLTextAreaElement>(null);
+
+	// 回合落地后焦点回到自由通道（键盘用户不必每回合从头 Tab）
 	const [openId, setOpenId] = useState<string | null>(null);
 	const openAffordance =
 		view.affordances.find((item) => item.id === openId) ?? null;
 	// 自由通道由 pack 的 `view.free_input` 决定（后端默认 true）；显式关掉时才收起。
 	const freeEnabled = view.free_input !== false;
+
+	useEffect(() => {
+		if (focusToken === 0 || !freeEnabled) return;
+		(freeAreaRef.current ?? freeInputRef.current)?.focus();
+	}, [focusToken, freeEnabled]);
 
 	/** `confirm: true` 的动作都要二次确认——直接执行的和表单提交的都一样。 */
 	const submitConfirmed = async (
@@ -100,7 +122,7 @@ export default function ActionBar({
 	};
 
 	const submitFree = () => {
-		const text = freeText.trim();
+		const text = freeText.trim().slice(0, MAX_INPUT);
 		if (!text || busy) return;
 		onSubmit({ type: "ask", text });
 	};
@@ -111,7 +133,7 @@ export default function ActionBar({
 				<>
 					<span className="sc-actions-title">此刻值得做的</span>
 					<div className="sc-buttons">
-						{view.options.map((option, index) => (
+						{view.options.slice(0, MAX_OPTIONS).map((option, index) => (
 							<button
 								key={`${option.label}-${index}`}
 								type="button"
@@ -169,7 +191,11 @@ export default function ActionBar({
 				/>
 			)}
 
-			{errorMessage && <div className="sc-error">{errorMessage}</div>}
+			{errorMessage && (
+				<div className="sc-error" role="alert">
+					{errorMessage}
+				</div>
+			)}
 
 			{freeEnabled && (
 				<div className="sc-free">
@@ -177,9 +203,11 @@ export default function ActionBar({
 					{freeOpen ? (
 						<div className="sc-free-row">
 							<textarea
+								ref={freeAreaRef}
 								className="sc-textarea"
 								rows={2}
 								autoFocus
+								maxLength={MAX_INPUT}
 								aria-label="自己写一句"
 								placeholder="想说什么、想做什么，直接写下来。"
 								value={freeText}
@@ -203,8 +231,10 @@ export default function ActionBar({
 						</div>
 					) : (
 						<input
+							ref={freeInputRef}
 							className="sc-input"
 							aria-label="自己写一句"
+							maxLength={MAX_INPUT}
 							placeholder="或者，自己写一句…"
 							value={freeText}
 							onFocus={() => onFreeOpenChange(true)}

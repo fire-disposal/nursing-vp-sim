@@ -14,6 +14,9 @@ export const OTHER_ENTRY_LABEL = "其他（自己输入）";
  */
 const OTHER = "\u0000scenario-other";
 
+/** 与后端 `ActionRequest` 的 2000 字符上限一致（同理见 `ActionBar`）。 */
+const MAX_INPUT = 2000;
+
 interface AffordanceFormProps {
 	affordance: ScenarioAffordance;
 	busy: boolean;
@@ -63,9 +66,10 @@ export default function AffordanceForm({
 		.map((field) => [field, (fieldValues[field] ?? "").trim()] as const)
 		.filter(([, value]) => value.length > 0)
 		.map(([field, value]) => `${field}：${value}`)
-		.join("\n");
+		.join("\n")
+		.slice(0, MAX_INPUT);
 
-	const customText = otherText.trim();
+	const customText = otherText.trim().slice(0, MAX_INPUT);
 	const canSubmit = needsSingle
 		? choice !== "" && (choice !== OTHER || customText.length > 0)
 		: needsMulti
@@ -146,6 +150,7 @@ export default function AffordanceForm({
 						<span className="sc-field-label">{field}</span>
 						<input
 							className="sc-input"
+							maxLength={MAX_INPUT}
 							value={fieldValues[field] ?? ""}
 							onChange={(event) => {
 								const value = event.currentTarget.value;
@@ -189,6 +194,7 @@ export default function AffordanceForm({
 						<textarea
 							className="sc-textarea"
 							rows={2}
+							maxLength={MAX_INPUT}
 							value={otherText}
 							onChange={(event) => setOtherText(event.currentTarget.value)}
 						/>

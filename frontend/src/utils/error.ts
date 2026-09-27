@@ -23,6 +23,11 @@ function humanByStatus(status: number | null): string | null {
 	return null;
 }
 
+/** 有中日韩文字就算"人话"（后端给小中文文案；英文 pydantic 句子一律不算）。 */
+function looksHuman(text: string): boolean {
+	return /[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]/.test(text);
+}
+
 /** 字符串形态的明细：可能是服务端写好的文案，也可能是被序列化过的 JSON。 */
 function normalizeText(raw: string): string | null {
 	const text = raw.trim();
@@ -35,7 +40,10 @@ function normalizeText(raw: string): string | null {
 			return null;
 		}
 	}
-	return GENERIC_BY_TEXT[text.toLowerCase()] ?? text;
+	if (GENERIC_BY_TEXT[text.toLowerCase()]) return GENERIC_BY_TEXT[text.toLowerCase()];
+	// 英文技术句子（pydantic 的 "String should have at most 2000 characters" 之类）
+	// 不是人话：宁可回退到按状态给的通用文案，也不把它甩到学生脸上
+	return looksHuman(text) ? text : null;
 }
 
 interface ApiErrorDetail {
@@ -65,7 +73,10 @@ function detailFrom(detail: unknown, depth = 0): ApiErrorDetail {
 				return field && msg ? `${field}: ${msg}` : msg;
 			})
 			.filter((item): item is string => typeof item === "string" && item.length > 0);
-		return { ...empty, message: parts.join("；") || null };
+		// FastAPI 的校验数组默认是英文句子：只有全是人话时才当文案用，
+		// 否则交给状态码兜底（学生面不该读 "String should have at most ..."）。
+		const human = parts.filter(looksHuman);
+		return { ...empty, message: human.length === parts.length ? human.join("；") : null };
 	}
 	if (detail && typeof detail === "object") {
 		const structured = detail as {

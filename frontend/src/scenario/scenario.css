@@ -1354,6 +1354,24 @@
 	max-width: 70ch;
 }
 
+/* 开启/恢复会话期间的一句反馈（后端在请求里先跑开场回合，可能几秒） */
+.sc-open-status {
+	align-self: flex-start;
+	padding: 6px 12px;
+	border-radius: 999px;
+	border: 1px dashed var(--sc-line-strong);
+	font-size: var(--sc-fs-sm);
+	color: var(--sc-dim);
+}
+
+.sc-history-error {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sc-gap-2);
+	padding: 10px 14px;
+}
+
 .sc-packs {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
