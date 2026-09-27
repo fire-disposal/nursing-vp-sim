@@ -26,11 +26,11 @@
 | 3 | **A1** | 审计底座：`audit_logs` 表 + `core/audit.py`（同事务/独立 session 两种写入口）+ `request_id` 中间件 | M | OBS-1 | — · **已完成（本地，待发版）** |
 | 4 | **A2** | 高风险面接入：角色/权限 CRUD、用户角色变更/停用/启用/删除/密码重置/批量导入分班、密钥 CRUD | S | A1 | — · **已完成（本地）：角色/权限、用户（改角色/启停/删/改密/批量）、注册、密钥** |
 | 5 | **A3** | 可见性：`audit_view`/`audit_export` 权限键 + 列表/导出端点（**严格沿用 §6.4 约定**）+ 前端审计页 | M | A1、A2 | — · **已完成（本地，待发版）** |
-| 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — |
-| 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | — · **反馈回复 + 病例生命周期已完成（本地）；评分复核/问卷/班级待接** |
+| 6 | **A4** | 导出与越权留痕：10 个导出端点 + `require_permission` 的 403 记 `access.denied` | S | A1 | — · **已完成（本地，已随 v2026.09.26-10 上线）** |
+| 7 | **A5** | 业务动作接入：病例发布/归档、评分复核/重算、反馈回复、问卷模板、班级成员、系统通知 | M | A1 | — · **全部接入完成（本地，2026-09-27）**：反馈回复 + 病例生命周期（09-26）+ 评分复核/重试（含 before 快照）+ 问卷模板（含病例绑定 diff + 题目指纹）+ 班级与成员 + 系统通知 |
 | 8 | **RB-3/4** | RBAC 一致性：权限缓存跨 worker 陈旧（60s→2s）、前端权限陈旧（/auth/me 带 permissions）、`/api/metrics`（裁定不改）、权限粒度（audit_*） | M | A3 | — · **已完成（发版 v2026.09.26-9 已含）** |
-| 9 | **A6** | 保留与合规：分区/归档、DB 级 append-only、登录失败与账号锁定、备份包含审计表 | L | A1–A5 | 保留期已定 | **DB 级 append-only + 登录留痕 + 归档规程已完成（本地）；账号级锁定与备份清单待做** |
-| 10 | **U1** | UI/查询一致性收尾：剩余页面迁移到 `useListFilters` + `FilterToolbar` | M | 无 | **my-feedback 已完成；versions 等页面待做** |
+| 9 | **A6** | 保留与可追溯：归档、DB 级 append-only、登录失败与账号锁定、备份包含审计表 | L | A1–A5 | 保留期已定 | **已完成（本地）**：append-only 触发器 + 登录留痕 + 归档规程（09-26）+ **账号级锁定（09-27）** + 备份包含审计表（代码层核验：`db-backup.sh` 仅排除 `llm_call_logs` 的**行数据**，其余表含 `audit_logs` 随 dump 走）。**不做/已失效**：分区 detach（见 §2.9） |
+| 10 | **U1** | UI/查询一致性收尾：剩余页面迁移到 `useListFilters` + `FilterToolbar` | M | 无 | **已完成（2026-09-27）**：my-feedback + versions 均接入；剩余只有 `/admin/cost` 导出页与两个详情页的搜索行（详见 ui-improvement-plan §6.3） |
 | 11 | **U2** | 表单与表格规范固化：弹窗四档宽度（已做）、表头主题化（已做）、字段标签/动作行离群点待逐页确认 | S | 无 | — |
 
 顺序理由：**1→2 可立刻发**（都是半天级且无依赖）；3 是 4–9 的前置；5 在 4 之后（没有事件可查的页面没意义）；10/11 与主链无冲突，可穿插。
@@ -51,7 +51,10 @@
 4. **回归纪律**（本轮实践，建议固化为评审要求）：
    - 修 bug 必须留下**修前失败、修后通过**的判据；数据库相关测试已从仓库移除，因此判据优先选择**免库可判**的形式（编译 SQL 断言形状、纯函数输入输出）；
    - 不留"看起来有守卫但抓不到真实形状"的假守卫（本轮 AST 守卫试做后删除，理由已记录在 §6.4.1）。
-5. **发布闸门**：维护者已明确本轮**只做本地提交、不推送不打标签**。因此下方"待发版"的代码**不会自动生效**；RB-1 这类线上风险要生效必须显式获得一次发版许可。
+5. **发布闸门（2026-09-27 更正）**：该约束**当轮已失效** —— 2026-09-26 当晚实际发了 12 个版本
+   （`v2026.09.26-1…-13`，序号 -8 未产生；线上 21:24 起已含 RB-1…RB-9 与审计主体，23:00 前后含时区与 PG 夹具全量）。
+   当前闸门状态：**tag 即发版**（`production` 环境未配 Required reviewers，见 `AGENTS.md`），发版前无需再取许可，
+   但"发版前跑完四闸门 + 迁移往返"的要求不变（`pre-push` 的 alembic roundtrip 是硬闸）。
 
 ---
 
@@ -101,9 +104,9 @@
    并为"拒绝/失败面板"加**部分索引**（`postgresql_where=outcome <> 'success'`）。
 
 **进度**：`test_class_memberships.py` 已随 A2 迁移（它走成员替换 → 会写审计，SQLite 夹具下报 no such table）。
-**待办（U3）**：仓库仍有 **12 个测试文件**用 `sqlite://` 夹具（`tests/admin/test_class_memberships.py`、
-`tests/cases/*`、`tests/scoring/*` 等）。它们能跑但不符合"面向 PG"的口径（也是 `JSONB` 列
-在 SQLite 上必须打补丁的根源）。建议逐个迁到 `pg_session` + 真库建表，作为独立清理切片推进。
+**U3 已闭环（2026-09-26 22:08，`9a55236c`）**：仓库中 12 个仍用 `sqlite://` 夹具的测试文件全部迁到 `pg_session` + 真库
+（151 条用例），此后**全量 1539 条、0 个 sqlite 夹具残留**；手写 SQLite DDL 与 JSONB→JSON 降级复制一并删除，
+并发判据改真行锁（`SELECT … FOR UPDATE` + `lock_timeout`）。迁移过程挖出的产品缺陷见 §2.12。
 
 ### 2.4 A2 — 高风险面接入（S）
 
@@ -176,10 +179,22 @@
 - 权限缓存跨 worker 最长 60s 陈旧（`--workers 2`）、前端权限最长 24h 陈旧（`/auth/me` 不返回 permissions）、前后端门禁错配 3 处、系统角色上仍渲染"编辑权限"按钮、`/api/metrics` 无鉴权。
 - **验收**：改权限后在另一 worker 上的判定**立即**生效（或给出可观测的失效时延上限并写入文档）；前端权限变更后刷新即生效；`/api/metrics` 未鉴权 → 401/403。
 
-### 2.9 A6 — 保留与合规（L，需决策）
+### 2.9 A6 — 保留与可追溯（L）
 
-- 分区或归档任务、DB 级 append-only（触发器/受限角色）、登录失败带 IP + 账号级锁定、备份**包含**审计表（注意现有 `db-backup.sh` 排除 `llm_call_logs` 的先例）。
-- **验收**：`UPDATE/DELETE audit_logs` 被 DB 拒绝；归档任务 dry-run 输出"将归档 N 行/释放 X"，且**只 detach 不 drop 未导出分区**；连续 5 次密码错误可观测到锁定；恢复演练后审计历史非空。
+- **原定改动面**：分区或归档任务、DB 级 append-only（触发器/受限角色）、登录失败带 IP + 账号级锁定、备份**包含**审计表（注意现有 `db-backup.sh` 排除 `llm_call_logs` 的先例）。
+- **原定验收**：`UPDATE/DELETE audit_logs` 被 DB 拒绝；归档任务 dry-run 输出"将归档 N 行/释放 X"，且**只 detach 不 drop 未导出分区**；连续 5 次密码错误可观测到锁定；恢复演练后审计历史非空。
+
+**落地（2026-09-26 + 2026-09-27）与失效项更正**：
+
+| 项 | 实况 | 依据 |
+|---|---|---|
+| DB 级只追加 | **已完成**：`BEFORE UPDATE OR DELETE` 触发器（迁移 `data/f3d4e5f6a7b8`），改/删直接报错 | `tests/core/test_audit_append_only_trigger.py` |
+| 登录留痕 | **已完成**：`auth.login_failed`（含未知用户/密码错误/禁用/锁定期四种 reason）+ `auth.login_succeeded` | `tests/auth/test_login.py` |
+| 账号级锁定 | **已完成（2026-09-27）**：5 次失败 → 锁 15 分钟 + `auth.login_blocked`；成功登录清零；对外文案不变（防枚举） | `tests/auth/test_login.py`、迁移 `a9b8c7d6e5f4` |
+| 备份包含审计表 | **已完成（代码层核验）**：`db-backup.sh` 只 `--exclude-table-data=public.llm_call_logs`，**没有**排除 `audit_logs` → 表结构与行数据都随 dump 走 | `deploy/db-backup.sh:117-127` |
+| 归档 | **形态已定并落地为规程**：`docs/ops/audit-log-retention.md` 的「导出 → 校验行数 → 受控禁用触发器删月 → 立即恢复并复核」，保留 12 个月 | 同上 |
+| ~~归档任务 dry-run「只 detach 不 drop 未导出分区」~~ | **已失效**：该验收以"按月分区"为前提，而 A1 建表**未分区**（普通表 + 部分索引），保留文档也写明"当前规模无需分区" → 分区与 detach 语义整体延后，不作为本轮验收 | `backend/models/audit.py`、`docs/ops/audit-log-retention.md` 末节 |
+| ~~恢复演练后审计历史非空~~ | **未做**：需要一次真实的恢复演练（属运维窗口动作，非代码切片）。留作运维待办，不阻塞切片 | — |
 
 ### 2.10 U1/U2 — 界面与查询一致性收尾（M + S）
 
@@ -237,16 +252,36 @@
   2. 或写路径统一写 naïve-UTC（`datetime.now(UTC).replace(tzinfo=None)`）并补判据；
   3. 两种都要补一条"读回不偏移"的判据（真库 + 非 UTC 会话时区）。
 
+### 2.13 本轮补完（2026-09-27，A5/A6 收尾）
+
+- **A5 全部接入**：`score.review_submitted`（复核前后总分 + 评审态，不落评论正文）、`score.retry_requested`
+  （force 重算带"即将被删除的旧分/旧复核"before 快照）、`class.created|updated|deleted`、
+  `class.members_added|removed`（名单只记样本 ≤20 + 计数）、`notification.created|updated|deleted`、
+  `questionnaire_template.created|updated|deleted`（含病例绑定集合 diff 与**题目指纹** sha256[:12]——
+  只改题目正文也留痕、正文不入库）。判据（真库 `pg_session`）：`tests/training/test_scoring_audit.py`（6 条）、
+  `tests/admin/test_class_audit.py`、`tests/admin/test_notification_questionnaire_audit.py`（8 条）。
+- **A6 账号级锁定**：`users.failed_login_count` / `locked_until`（迁移 `a9b8c7d6e5f4`，`ddl/` 无 `op.execute`），
+  阈值与锁时长在 `core/config.py`（5 次 / 900s）；锁定期内正确密码同样拒绝；成功登录清零；
+  提示**明确写出"账号已锁定，请 N 分钟后再试"**（不隐藏状态）。
+  **默认关闭**（`LOGIN_LOCKOUT_ENABLED=false`，维护者 2026-09-27 决定）：该特性带负向副作用
+  （用错密码即可把别人的号锁住）；模型列、迁移、审计动作、判据全部保留，开启只需设环境变量。
+  关闭时连"读锁定期"都不做 → 存量 `locked_until` 不会拦住任何人（关掉即恢复访问）。
+- **测试基础设施**：`conftest.py` 新增会话级 `_schema_matches_models`（drop + create，库名不含 `test` 即停），
+  删掉两处测试模块自补列的绕过（`ADD COLUMN IF NOT EXISTS` / 手工 `drop` feedbacks）——`create_all`
+  不会给既有表补列，这类补丁是"模型加列就出现假失败"的根因。
+- **闸门**：后端 1564 通过、`ruff` / `ty` 干净；前端见 ui-improvement-plan（本轮同步）。
+- **仍开放**：UI 侧的 `U2` 离群点逐页核对；恢复演练（§2.9）。
+
 ## 3. 验证与发布
 
 | 场景 | 手段 |
 |---|---|
-| 后端逻辑 | `cd backend && uv run python -m pytest tests -q`（当前 1488 通过）+ `ruff` / `ty` 干净 |
+| 后端逻辑 | `cd backend && uv run python -m pytest tests -q`（**1564 通过**，2026-09-27）+ `ruff` / `ty` 干净 |
 | 查询形状类 bug | **免库编译判据**（例：`tests/training/test_record_sorting.py` 编译成 PG SQL 断言相关子查询；退回旧写法必须失败） |
-| 前端逻辑 | `pnpm test`（当前 502 通过）+ `npx tsc --noEmit` + `pnpm lint` |
+| 前端逻辑 | `cd frontend && pnpm test`（**513 通过 / 78 文件**，2026-09-27）+ `npx tsc --noEmit` + `pnpm lint` |
 | 界面行为 | 本地桩后端（单进程托管 `frontend/dist` + 最小 API/权限键）+ 真实浏览器断言（请求参数、DOM 计算样式、下拉过滤）；不依赖线上凭据 |
 | 线上健康 | `/api/diagnose`（token 鉴权）看版本/告警/错误分组；本轮即用它定位了排序 500 |
-| 发版 | `pnpm run tag`（构建 + 推 master + tag → `deploy.yml`）；**本轮已冻结，等维护者许可** |
+| 发版 | `pnpm run tag`（构建 + 推 master + tag → `deploy.yml`）；**tag 即发版**（`production` 无 Required reviewers）。2026-09-26 已连发 12 个版本；本轮改动仍为本地提交，未打标签 |
 
 ---
 
@@ -254,11 +289,13 @@
 
 | # | 议题 | 决策 | 影响 |
 |---|---|---|---|
-| 1 | 发版窗口 | **暂不发版，继续攒**（本地提交即可；发版需显式许可） | 线上仍是 `2026.09.26-7`；排序 500 的修复与后续切片一起等一个发版窗口 |
-| 2 | 审计保留期与形态 | **保留 12 个月 + 按月归档**（整月分区 detach 后导出归档；只 detach 不 drop 未导出分区） | A1 建表即按月分区；A6 归档任务按此实现 |
+| 1 | 发版窗口 | ~~暂不发版，继续攒~~ **当轮作废**：2026-09-26 当晚连发 `v2026.09.26-1…-13`（12 个 tag，序号 -8 未产生） | 线上已是 `v2026.09.26-13`；排序 500 的修复随 `-1` 上线 |
+| 2 | 审计保留期与形态 | **保留 12 个月 + 按月归档**；归档形态落地为「**导出 → 校验行数 → 受控禁用触发器删月 → 立即恢复**」的手工/定时规程（`docs/ops/audit-log-retention.md`） | ~~A1 建表即按月分区~~ **已作废**：A1 未分区，`audit_logs` 是普通表 + 部分索引；分区留作量级上升后的演进（保留文档已写明"当前规模无需分区"）。原"detach 分区"验收随之失效 |
 | 3 | 审计可见性 | **仅 super_admin**：新增 `audit_view` / `audit_export` 两个权限键 | A3 的键位与前端门禁确定；不引入审计员角色 |
 | 4 | 反馈回复人 | **新增 `feedbacks.replied_by` 列**（迁移 + 历史回填 NULL） | A5 增加一笔列迁移；审计行作为第二证据 |
-| 5 | 权限粒度范围 | **一并纳入本轮**：`audit_view`/`audit_export` + 提示词/版本管理写权限 + `/api/metrics` 鉴权 | RB-7 与 A3 同批，权限词表一次性改到位 |
+| 5 | 权限粒度范围 | **一并纳入本轮**：`audit_view`/`audit_export` + 提示词/版本管理写权限 | ~~`/api/metrics` 鉴权~~ **已作废**（RB-8 裁定：保持不加应用层鉴权，理由见 §2.7.1 与 2026-07-10 既有决策） |
+| 6 | 账号级登录锁定 | **默认关闭**（`LOGIN_LOCKOUT_ENABLED=false`），代码/列/迁移/判据全部保留；开启即生效、无需改代码。关闭时不读 `locked_until`，存量锁立即失效 | 线上不因"用错密码锁别人的号"而阻断正常登录；需要时一个环境变量打开 |
+| 7 | **取舍原则（2026-09-27，维护者）** | **体验/完成度优先**：功能要能用、能自助恢复、状态对用户诚实（如锁定提示写明剩余时间）。本项目的标准始终是**实验性/体验优先**，未因此次审计改动而改变：审计日志的引入目的是**规范化 + 便于科研跟踪**（谁在什么时候改了什么、便于回溯关联），**不是**安全合规建设 | 后续切片评审口径：不得以"安全/合规"为由把功能做成默认关闭、静默降级或增加用户摩擦；确需关闭的（如本条 6）要写明是**取舍**而非缺陷。审计 payload 保持"结构化事件 + 摘要（长度/指纹/计数），正文留在业务表按 `target_id` 关联"—— 这是为了科研时可关联与表体积可控，不是为了脱敏 |
 
 > 未决的次要项（可后补、不阻塞）：审计表是否独占分区/表空间；归档目标是本地磁盘还是对象存储；权限缓存失效走 DB 版本号还是引入轻量通知。
 

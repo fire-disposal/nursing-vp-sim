@@ -4,9 +4,13 @@
 
 ## 已知剩余改进项
 
-- [ ] 评分引擎 triage 路径完整验证（走通一次 triage → 结束 → 评分全链路）
-- [ ] 分诊管理表单字段（vitals 输入、arrival_mode 选择）
 - [ ] 生理模拟引擎（前瞻，非短期）
+
+> **已移除的失效项（2026-09-27 核验）**：原列的两条分诊（triage）待办 ——
+> 「评分引擎 triage 路径完整验证」「分诊管理表单字段（vitals 输入、arrival_mode 选择）」——
+> 对应的 triage 训练类型已退场（前端无 TriageScene，后端仅剩 `scoring/runner.py` 注释与
+> `data/e6b2c3d4e5f6_backfill_case_revisions.py` 的占位还原逻辑），故不再作为待办。
+> 当前训练域目标见 `docs/16-v2-maintainable-monolith-objectives.md` 与 `docs/15-workflow-activity-contract.md`。
 
 ## 批次 A — Profile 基础设施 + Case 解耦（已完成）
 

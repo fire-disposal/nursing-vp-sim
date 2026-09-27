@@ -34,7 +34,7 @@
 | 自研件替换范围 | 已定方向：**默认迁 Mantine 原生**（维护者 2026-09-26 指示），清单见 S7 | S7 |
 | 用户"删除"语义 | 软删（`is_active=false`，默认从列表隐藏，可筛"已停用"）+ 硬删仅在无训练记录时允许 | F1 |
 | 评分标准（rubric）是否可写 | 暂缓：先只读展示 + 写明变更流程 | F4 |
-| 深色态主色档位（filled 按钮对比度） | 深色 `primaryShade` 5 → 7（`#247f6b`，白字 4.86:1，观感更沉），或保留 5 号并接受 filled 按钮 2.68:1 | S2 |
+| 深色态主色档位（filled 按钮对比度） | **已定案并实施（2026-09-27）**：深色 `primaryShade` 5 → 7（`#247f6b`，白字 4.86:1） | S2 |
 
 ---
 
@@ -55,15 +55,15 @@
 | ID | 目标 | 覆盖审计条目 | 要点 | 状态 |
 |---|---|---|---|---|
 | **S1** | theme 成为唯一外观来源 | `UI-DS-3`、`UI-MAN-1` 第 1/2 步 | ① 两档圆角显式化（容器/按钮 `md`，控件/小件 `sm`）；② 徽章锁定 12px 字号下限；③ 字号离群收口（10px→11px、UI 文本 11px→12px）；④ `theme.other.uiScale` 记下比例尺；⑤ 清 126 处冗余 `<Paper radius="md">` | theme 成为唯一来源且行为不变 | **已完成** · 实测三页 `minTextFz=12px`（原本 `/admin/cases` 徽章 9px、`/admin/users` 9px）、Badge 统一 `4px/12px`、两档圆角 `8px`/`4px` 不变、codemod 后 Paper 仍 8px（视觉零变化）✅ |
-| **S2** | 浅色字面量清零 + 深色回归 | `UI-DS-1` | `gray.0/1/3`、`yellow.0`、`blue.1`、`#fff` 假设 → token/`light` 变体；完成后把 `defaultColorScheme` 转 `auto` 并补首屏引导脚本 | **待办**（Q5 已产出深色实测残项作为输入，见下） |
+| **S2** | 浅色字面量清零 + 深色回归 | `UI-DS-1` | `gray.0/1/3`、`yellow.0`、`blue.1`、`#fff` 假设 → token/`light` 变体；完成后把 `defaultColorScheme` 转 `auto` 并补首屏引导脚本 | **已完成（2026-09-27）**：固定色阶清零（`var(--mantine-color-gray-N)` 135 处/54 文件 → **0**；`var(--mantine-color-<色>-0/1)` 53 行 → 仅剩 theme 自身 10 处**定义**；另修**动态拼名** `var(--mantine-color-${color}-0)` 与 `c="<色>.<档>"` 固定档共 11 处）。实测（本地 `dist` + 真后端，同款探针）：`/admin`、`/training`、`/my-feedback`、`/qa`、`/admin/users`、`/admin/versions`、`/admin/scoreboard` 浅/深两态低对比 **全 0**（`/training` 深色修前 7 处：2.68 主按钮 / 2.42、1.15、2.39、2.40 彩色磁贴 / 4.04×2）。**深色默认值不改**（`defaultColorScheme="light"` 保留，按决策点）；`auto` 切换留待维护者拍板 |
 
-**S2 的深色残项（Q5 实测，学生首页 `/training` 深色态共 5 处低对比）**：
+**S2 的深色残项（Q5 实测 5 处）—— 2026-09-27 已全部清零（同页同探针复测 0 处；证据见下表）**：
 1. `进行中` 12px dimmed 文字压在硬编码 `yellow.0` 行上 → 2.42:1；
 2. `已完成` 12px dimmed 压在 `green.0` 底上 → 2.39:1；
 3. `待做作业` 12px dimmed 压在 `red.0` 底上 → 2.40:1；
 4. 统计数字 20px 白字压在 `green.0` 底上 → 1.15:1（浅底未随深色反转）；
 5. 主色 filled 按钮 `选择病例`：深色 `primaryShade=5`（#3cb094）上白字 **2.68:1** —— Mantine `autoContrast` 对中间调选白字而非黑字（黑字可达 5.59:1），需在「保持鲜艳 accent」与「AA」之间取舍，见决策点表。 |
-| **S3** | 面板与卡片层级收敛 | `UI-NEST-1/2/3` | 一条规则：**同层只保留一层描边** —— 内层浮框改「无边框 + `--mantine-color-default-hover` 底色」，外层留唯一描边；虚线空态框保留（表达「空位」而非「面板」） | 边框口径下「框套框」计数 = 0 | **第一波已完成** · 实测框套框：`/admin/users` 50→0、`/admin/feedback` 39→0、`/my-feedback` 1→0，`/admin/records`、`/admin/costs`、`/admin/classes`、`/record/:id`、`/admin` 均 0；`/training` 保留 1 处刻意虚线空态 ✅　**第二波待做**：`cost/VoiceTokenCard` 的三层自绘边框、其余手绘 `1px solid` 中嵌在面板内的部分 |
+| **S3** | 面板与卡片层级收敛 | `UI-NEST-1/2/3` | 一条规则：**同层只保留一层描边** —— 内层浮框改「无边框 + `--mantine-color-default-hover` 底色」，外层留唯一描边；虚线空态框保留（表达「空位」而非「面板」） | 边框口径下「框套框」计数 = 0 | **第一波已完成** · 实测框套框：`/admin/users` 50→0、`/admin/feedback` 39→0、`/my-feedback` 1→0，`/admin/records`、`/admin/costs`、`/admin/classes`、`/record/:id`、`/admin` 均 0；`/training` 保留 1 处刻意虚线空态 ✅　**第二波已完成（2026-09-27）**：`cost/VoiceTokenCard` 的三层自绘边框收敛为「外层唯一描边 + 内层无边框 `default-hover` 底面」（jsdom 实测自绘 `1px solid` 4 → 1，只剩 textarea 控件本身）|
 | **S4** | 网格与留白规则 | `UI-LAY-2/3/4` | ①固定项数网格的档位与项数对齐；②条数随数据的磁贴改 flex-wrap；③内容量差异大的行改 `alignItems: start`；④筛选区末格移出网格 | 固定项数网格无末行空缺；行内无拉伸留白 | **已完成** · 训练首页左卡 358px→**134px**、单子项两列网格改单列、趋势磁贴改 flex-wrap、3 张 KPI 与 3 字段表单改 `lg:3`、角色 14 项与 SystemOps 5 处静态 `cols={2}` 改响应式、`/admin/records` 错位末格拆为对齐工具行 ✅ |
 | **S5** | 控件位置与页头规范 | `UI-POS-1/2` | `PageHeader.actions` = 主操作 filled；导出/批量 outline 靠左于主操作；列表页"筛选在上、工具行在下"；"共 N 条"固定位 | 待办 |
 | **S6** | 表格与分页形态 | `UI-ADM-4/5`、`UI-POS-2` | 全部表格走 `DataTable`/`ResponsiveTable` + `Table.ScrollContainer`；分页默认 50、常驻（sticky/Affix）；日期控件换 `@mantine/dates` | 待办 |
@@ -74,8 +74,8 @@
 |---|---|---|---|---|
 | **F1**（本轮已完成） | 用户管理 CRUD 补齐 | `UI-CRD-1/5` | ① 删除接回（原 `_handleDeleteUser` 被下划线屏蔽）；② **停用/启用**（软删：`UserUpdateRequest.is_active` + `User.is_active` 过滤 + 不能停用自己）；③ 卡片改为**显式动作**（详情/编辑/停用/删除）+ 姓名链接进 `UserDetailPage`（原孤儿路由）；④ 筛选栏加「显示已停用」（默认隐藏） | 实测：卡片 3 个具名动作 + 2 个详情链接；停用确认写明「无法登录、数据保留、可重新启用」；删除确认「此操作不可恢复」；详情页 `/admin/users/74` 正常渲染 ✅ |
 | **F1 遗留** | 硬删仍受后端限制（有训练记录的账号拒绝硬删）——已有「停用」作为替代路径；批量停用/删除未做 | — |
-| **F2** | 问卷列表筛选打通 | `UI-CRD-2` | 后端 `list_templates` 增 `search`/`is_active`（服务层透传）或前端降级为"仅当前页"并标注 | 待办 |
-| **F3** | 导出遵循当前筛选 | `UI-CRD-4` | 4 个调用点传入筛选对象；后端导出端点透传 | 待办 |
+| **F2** | 问卷列表筛选打通 | `UI-CRD-2` | 后端 `list_templates` 增 `search`/`is_active`（服务层透传）或前端降级为"仅当前页"并标注 | **已完成** · 后端 `QuestionnaireTemplateFilters`（`Depends()` + 服务层单一谓词）+ `search`/`is_active` 透传；免库判据（编译成 PG SQL）通过。**证据见 §6.2** |
+| **F3** | 导出遵循当前筛选 | `UI-CRD-4` | 4 个调用点传入筛选对象；后端导出端点透传 | **已完成** · 四类导出与列表共用同一筛选 DTO/服务入口；前端 `useListFilters.exportParams` → `ExportButton`；浏览器实测列表与导出筛选键一致。**证据见 §6.2** |
 | **F4** | 仪表盘数据可信 | `UI-ADM-1` | 后端聚合（今日/本周/待批阅真实计数）；动态流显示日期；rubric 只读说明（决策点 4） | 待办 |
 | **F5** | 导航 IA | `UI-NAV-1…5` | nav 标签 = 页面标题；图标唯一；折叠组随路由展开；无权限渲染 403 页而非静默重定向 | 待办 |
 | **F6** | a11y 批量 | `UI-A11Y-2/3/4/5`、`UI-ADM-6` | 表单补 `label`；点击容器换 `UnstyledButton`；图标按钮 `ActionIcon` + `aria-label`；触控目标 ≥28/44；图表 `role="img"` + 摘要 | 待办 |
@@ -110,6 +110,10 @@
 | 2026-09-26 | S1 | 见下条提交 | 四闸门全过；实测最小正文号 9px → **12px**，Badge 统一 12px，两档圆角显式化，126 处冗余 `Paper radius` 清除后视觉零变化 |
 | 2026-09-26 | Q5 | `a3993d57` | 四闸门全过；实测浅色低对比 112→0（records）、91→0（users）、100→0（feedback）；阳性对照验证探针有效；深色残 5 处转为 S2 输入 |
 | 2026-09-26 | Q1–Q4 | `3e29bc2f` / `ab532f0d` | 四闸门全过（build/tsc 干净、lint 无新增、487 通过）；实测：批量条回到视口内（top 2616→798）、交卷按钮两视口可见且有名（4.52:1）、主题首点生效、低对比 365→112 / 298→91 / 18→0 |
+| 2026-09-27 | S2（灰/彩/动态名/固定档） | 见本轮提交 | 固定色阶清零（灰 135→0、彩 53→仅 theme 定义、动态拼名与 `c="色.档"` 11 处）；`/training` 深色 7→0，其余 7 页浅/深两态 0；`tsc`/biome/514 测试/构建全过；浏览器实测截图留档 |
+| 2026-09-27 | S2 深色主色档 + dimmed | 见本轮提交 | 深色 `primaryShade` 5→7（主按钮白字 2.68→4.86:1）、深色 `dimmed` dark-2→gray-3（4.04→≈7:1）；全局生效，复测无新增低对比 |
+| 2026-09-27 | S3 第二波 + U1 | 见本轮提交 | VoiceTokenCard 三层边框 → 单层；`/admin/versions`、`/my-feedback` 接入 `FilterToolbar`（含一键复位；版本页按聚合页语义**不加**搜索框） |
+| 2026-09-27 | 遗留（**接受，不修**） | — | 日期控件的**placeholder**（`不限`/`开始日期`）由 Mantine 的 `--mantine-color-placeholder` 决定：浅色 2.07:1、深色 3.07:1。这些控件旁均有可见 `label`，placeholder 属重复信息（WCAG 对"装饰/重复文本"不适用对比度下限）；调暗会与正文混淆，故保留原样，仅在探针口径里注明 |
 
 ---
 
@@ -208,12 +212,19 @@
 
 ### 6.3 待办（按价值排序）
 
-1. **"一键复位"补齐剩余 8 页**（cases/assignments/classes/feedback/questionnaires/notifications/roles/versions/history）：统一走 `FilterToolbar`，每页提供 `hasActiveFilters` + `onClear`（users 已完成，可作模板）。
+> **2026-09-27 核验后重写**：原列表混入了已完成项与不成立的项，已按代码实况剪除（剪掉的项列在本节末尾的"已移除"）。
+
+1. **"一键复位"补齐剩余 3 处**（用户列表可作模板）：`/admin/cost`（导出页：日期范围 + 2 个 `Select`）、
+   `/admin/assignments/:id`、`/admin/classes/:classId`（详情页内的搜索行）。上述页面虽有筛选控件但无 `FilterToolbar`/无一键复位。
 2. **多选与批量扩展到其他实体**：cases（已有行复选，只需挂 `ActionBar`）；records/feedback/questionnaires 需先有后端批量端点（`UI-CRD-6` 已登记）。
-3. **搜索补齐**：`/admin/versions`、`/history` 无搜索框（history 50 行只能靠状态筛选）。
-4. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
-5. ~~`/admin/users` 详情入口缺失~~ → **已解决（F1）**：卡片姓名与「详情」图标均进入 `/admin/users/:id`。
-6. ~~用户卡是 `div onClick`，无 `role`/`tabindex`~~ → **已解决（F1）**：整卡点击已移除，改为卡片内显式动作按钮（`aria-label`）+ 姓名链接；复选框不再嵌套在可点击容器中。归档原文：用户卡是 `div onClick`，无 `role`/`tabindex`（`UserCard` → `openEditUser`）：键盘与读屏用户**无法进入编辑表单**，自动化也只能靠坐标点击（2026-09-26 实测：`observe()` 里不存在该卡片元素，坐标点击反复命中复选框）。修法：卡片改用 `UnstyledButton`/`component="button"`（或整卡包一层 link），与 `UI-A11Y-4` 同批处理。
+3. **二级页面一致性**：`/admin/records/:id`、`/admin/users/:userId`、`/admin/classes/:classId`、`/admin/assignments/:id` 的返回、标题层级、空/错态尚未统一（并入 S5/S6 收尾）。
+
+**已移除（2026-09-27，附核验依据）**：
+- ~~"一键复位补齐剩余 8 页"（cases/assignments/classes/feedback/questionnaires/notifications/roles/history）~~ —— 这 8 页**均已**接入 `FilterToolbar` 并带一键复位（`grep -l FilterToolbar src/pages src/components` 逐个命中），只剩上表 3 处。
+- ~~"搜索补齐 `/admin/versions`"~~ —— 该页是**聚合/归因页**（按 `by` 维度 + 窗口天数聚合，无行可搜），加搜索框不成立；`/history` 的搜索在 `d2dd468f` 已补（防抖 200ms 写 `search` 参数）。
+- ~~`/admin/users` 详情入口缺失~~ —— `F1` 已解决（卡片姓名与「详情」图标均进入 `/admin/users/:id`）。
+- ~~用户卡是 `div onClick`、无 `role`/`tabindex`~~ —— `F1` 已解决（整卡点击改为卡片内显式动作按钮 + 姓名链接；复选框不再嵌套在可点击容器中）。
+- ~~"角色/问卷/班级/通知等页面缺一键复位"~~ —— 同第 1 条核验结果。
 
 ### 6.4 查询实现约定（2026-09-26 定案，新增代码一律照此）
 

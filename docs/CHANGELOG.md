@@ -271,3 +271,35 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   `ScoringNotExecuted` → job 记 failed + `last_error`。此前「一条 succeeded 的评分作业」与「库里没有任何分」
   可以同时成立，队列读面（`jobs` 块）因此报假健康；记录已被其他执行者评完（`scoring_status=completed`）
   仍视为目的达成，不算失败。
+
+### 审计覆盖补齐（A5 收尾）与账号级登录锁定（A6）
+
+- **审计写入面补齐**：`score.review_submitted`（评分复核，payload 含复核前后总分与评审态，**不落评论正文**）、
+  `score.retry_requested`（手动重试/force 重算，含"即将被删除的旧分与旧复核"before 快照）、
+  `class.created|updated|deleted`、`class.members_added|removed`（成员名单只记样本与计数，≥20 条不整份落库）、
+  `notification.created|updated|deleted`、`questionnaire_template.created|updated|deleted`（含病例绑定集合的
+  前后差异与**题目指纹** sha256[:12] —— 只改题目正文也会留痕，但正文不入审计）、`auth.login_blocked`。
+  全部与业务写**同一事务**（回滚则一起回滚）；拒绝/失败类仍走独立 session 的 `record_detached`。
+  至此 A5 清单（病例生命周期、反馈回复、评分复核、问卷模板、班级与成员、系统通知）全部接入。
+- **账号级登录失败锁定（代码就位，默认关闭）**：`users.failed_login_count` + `locked_until`（迁移 `a9b8c7d6e5f4`），
+  阈值 5 次 / 15 分钟（`LOGIN_MAX_FAILED_ATTEMPTS` / `LOGIN_LOCK_SECONDS` 可覆盖）。锁定期内即使密码正确也拒绝
+  并**明确提示"账号已锁定，请 N 分钟后再试"**；成功登录清零；未知用户不计数、不落状态。
+  维护者决定**默认不启用**（`LOGIN_LOCKOUT_ENABLED=false`）：该特性带负向副作用（拿错密码就能锁住别人的号），
+  与项目"实验性 / 体验优先"的标准不符。模型列、迁移、审计动作与判据全部保留，开启只需设一个环境变量；
+  关闭时连"读锁定期"都不做，存量锁立即失效。
+- **测试基础设施**：测试库 schema 改为**会话级 drop + create**（`conftest.py::_schema_matches_models`，库名不含
+  `test` 时直接停止）——`create_all` 不会给既有表补列，"模型加了列而库里没有"此前会让用例报
+  `UndefinedColumn`，并诱使测试模块各自写 `ADD COLUMN IF NOT EXISTS` 绕过（本轮已删除这类补丁）。
+  后端全量 1539 → **1564 通过**。
+
+### UI 深色态 token 收口（S2/S3）与筛选栏迁移（U1）
+
+- **固定色阶清零**：全仓 `var(--mantine-color-gray-N)`（135 处 / 54 文件）与
+  `var(--mantine-color-<色>-0/1)`（53 处）替换为 scheme 感知 token（`default-hover` / `default-border` /
+  `dimmed` / `{色}-light` / `{色}-light-color` / `{色}-outline`）—— 这些固定档不随 color scheme 翻转，
+  深色态下浅底/浅描边会失效。表头灰底（theme 唯一来源）同步改为 `default-hover`。
+- **顺带修**：`VoiceTokenCard` 的圆点色值写成 `var(--mantine-color-red.5)` —— 点号不是合法的自定义属性名，
+  浏览器**整条丢弃**该声明，四个状态的圆点此前根本没有颜色（实测 computed=transparent；连字符形式正常解析）。
+- **`VoiceTokenCard` 三层自绘边框**收敛为"同层只保留一层描边"（S3 第二波）。
+- **U1**：`/admin/versions` 与 `/my-feedback` 的手写筛选行接入 `FilterToolbar`（含一键复位与 `hasActiveFilters`）；
+  版本页的归因维度仍是 `SegmentedControl`（属视图切换，不入筛选栏），该页是聚合页、**不加搜索框**。

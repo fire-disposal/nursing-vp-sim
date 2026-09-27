@@ -2,6 +2,10 @@
 
 > 决策与依据：`docs/review/refactor-plan-2026-09-26.md` §4（保留 12 个月 + 按月归档）；
 > 表结构见 `backend/models/audit.py`。
+>
+> **这份表的目的**：把"谁在什么时候改了什么"规范化下来，便于**科研跟踪与回溯关联**
+> （按 `target_id` 关联到业务表里的完整正文）。它不是合规/安全审计体系 —— 保留期与归档
+> 是为了控制体积与查询成本，不是为了满足监管。
 
 ## 不变式
 
@@ -39,5 +43,8 @@ $PSQL -tAc "SELECT tgenabled FROM pg_trigger WHERE tgname='trg_audit_logs_append
 - 归档文件与数据库备份同等级保管（审计价值在于长期可查）。
 - 若日后量级上来，可把 `audit_logs` 改为**按月分区**（PG 原生），归档即 detach 分区；
   当前规模无需分区，先用上述"导出→删月"流程。
-- 登录失败留痕（`auth.login_failed`）会随失败次数增长，归档时一并处理；账号级锁定策略见
-  `docs/review/refactor-plan-2026-09-26.md` A6 待办。
+- 登录失败留痕（`auth.login_failed`）会随失败次数增长，归档时一并处理。**账号级锁定已落地（2026-09-27）**：
+  连续 `LOGIN_MAX_FAILED_ATTEMPTS`（默认 5）次密码错误即锁 `LOGIN_LOCK_SECONDS`（默认 900）秒，并记一行
+  `auth.login_blocked`；对外的错误文案与"用户名或密码错误"一致（避免把锁定提示当作用户名枚举通道）。
+  锁定期内的继续尝试会逐条留下 `auth.login_failed(reason="locked")`，高流量攻击下这一列会明显增长 ——
+  归档时优先看这部分。

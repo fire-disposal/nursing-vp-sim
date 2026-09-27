@@ -27,6 +27,9 @@
 |------|------|
 | [技术债合并清单（2026-09-14）](review/tech-debt-audit-2026-09-14.md) | 9 份只读审计报告合并；`path:line` 锚点、严重度与闭环成本口径的来源 |
 | [UI 审计清单（2026-09-26）](review/ui-audit-2026-09-26.md) | 线上全路由实测（双角色、双视口、浅/深色）+ 静态代码审计；含探针数值、已核实无问题清单与修复批次 |
+| [UI 改善计划（2026-09-26 起）](review/ui-improvement-plan-2026-09-26.md) | 审计清单的执行侧：切片 Q/S/F 状态、查询范式（§6.4）、别名陷阱（§6.4.1）、病例 AI 重建 |
+| [审计日志与 RBAC 分析（2026-09-26）](review/audit-log-and-rbac-analysis-2026-09-26.md) | 只读调查：审计落点现状、RB-1…RB-9 风险条目、A1–A6 切片草案（含 `path:line` 证据） |
+| [功能优化与重构方案（2026-09-26）](review/refactor-plan-2026-09-26.md) | 上述两份分析的路线化：11 个切片的顺序/依赖/验收判据、决策记录与"明确不做" |
 | [缺陷清单](review/defect-list.md) · [发布检查表](review/release-checklist.md) | 历史登记与发布前核对 |
 
 ## 运维速查手册
@@ -37,6 +40,10 @@
 | [服务器故障恢复](ops/server-recovery.md) | 容器 unhealthy、磁盘满、内存不足的应急操作 |
 | [LLM 调用排查](ops/llm-troubleshooting.md) | LLM 无响应、评分失败、成本异常诊断 |
 | [数据库备份恢复](ops/backup-restore.md) | 手动备份/恢复/跨环境数据同步命令 |
+| [诊断端点与指标](ops/diagnostics.md) | `/api/diagnose` 各块（健康/LLM/评分/语音/作业队列/告警）的字段契约与消费方 |
+| [审计日志保留与归档](ops/audit-log-retention.md) | 12 个月保留 + 按月「导出→校验→受控删月」规程；只追加不变式与触发器例外 |
+| [时区对齐](ops/timezone-alignment.md) | timestamptz 迁移后的线上只读定位 SQL、修正步骤、锁/重写注意 |
+| [单实例迁移](ops/single-instance-migration.md) | 双栈收敛为单实例的过程、`test.` 域退役与运维依赖 |
 | [事故报告 2026-07-26](ops/incident-2026-07-26-timeout.md) | 评分超时事故复盘 |
 | [事故报告 2026-09-26](ops/incident-2026-09-26-deploy-silent-truncation.md) | 部署脚本被 stdin 吞掉 → 静默「成功」（迁移跑了、服务未切换） |
 | [反馈核查清单](ops/feedback-checklist-20260727.md) | 2026-07-27 用户反馈回复与测试方法 |
