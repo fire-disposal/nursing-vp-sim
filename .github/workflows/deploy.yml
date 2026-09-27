@@ -529,6 +529,10 @@ jobs:
           if not isinstance(jobs, dict) or 'by_kind' not in jobs:
               sys.exit('::error::diagnose 缺少 jobs 块——运维面未随本次发布上线')
           print('jobs =', jobs)
+          scenario = d.get('scenario')
+          if not isinstance(scenario, dict) or 'rate_limited_24h' not in scenario:
+              sys.exit('::error::diagnose 缺少 scenario 块——情境训练运维面未随本次发布上线')
+          print('scenario =', scenario)
           "
 
       - name: Publish dev report (non-blocking)

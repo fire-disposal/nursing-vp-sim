@@ -25,6 +25,16 @@ class _FakeUser:
     role_id = 1
     token_version = 1
     role = type("_Role", (), {"name": "student"})()
+    # 与 models.User.has_permission 同形：学生侧判 `scenario_training`（2026-09-27 转正式特性）。
+    permissions: set[str] = {"training_access", "scenario_training"}
+
+    def has_permission(self, key: str) -> bool:
+        return key in self.permissions
+
+
+async def _no_rate_limit(*_args: Any, **_kwargs: Any) -> None:
+    """限流在 API 链路里已单独覆盖（test_scenario_rate_limit）；这里不碰真限流表，
+    避免跨用例共用同一个 user_id 把窗口打满。"""
 
 
 class _FakeLLM:
@@ -64,6 +74,8 @@ def client(pg_session, monkeypatch):
         yield pg_session
 
     monkeypatch.setattr(scenario_router, "SCENARIO_TRAINING_ENABLED", True)
+    monkeypatch.setattr(scenario_router, "check_scenario_open_limit", _no_rate_limit)
+    monkeypatch.setattr(scenario_router, "check_scenario_action_limit", _no_rate_limit)
     pack_loader.reset_cache()
     overrides_before = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = _override_db
@@ -90,6 +102,25 @@ def installed_pack(pg_session):
 def test_disabled_feature_is_invisible(client, pg_session, monkeypatch) -> None:
     monkeypatch.setattr(scenario_router, "SCENARIO_TRAINING_ENABLED", False)
     assert client.get("/api/scenario/packs").status_code == 404
+
+
+def test_student_side_requires_scenario_training_permission(client, pg_session) -> None:
+    """学生侧不再"登录即可"（2026-09-27 转正式特性）：缺 `scenario_training` → 403。
+
+    开关是另一层：`require_enabled` 关掉时整段 404（见上一条），两者互不替代。
+    """
+    from main import app
+
+    class _NoScenario(_FakeUser):
+        permissions: set[str] = {"training_access", "qa_access"}
+
+    app.dependency_overrides[get_current_user] = lambda: _NoScenario()
+    assert client.get("/api/scenario/packs").status_code == 403
+    assert client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY}).status_code == 403
+
+    # 有该键（夹具默认用户）→ 正常放行
+    app.dependency_overrides[get_current_user] = lambda: _FakeUser()
+    assert client.get("/api/scenario/packs").status_code == 200
 
 
 def test_full_turn_pipeline(client, pg_session, installed_pack) -> None:

@@ -528,7 +528,11 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 
 综合诊断快照 `/api/diagnose`，单端点聚合，使用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）。
 
-返回字段（`schema_version: 3`）: `schema_version`, `version`, `generated_at`, `summary`, `alerts`, `runtime`, `sessions`, `errors`, `frontend_errors`, `llm`, `scoring`, `voice`, `voice_budget`, `business`, `metrics`。
+返回字段（`schema_version: 3`）: `schema_version`, `version`, `generated_at`, `summary`, `alerts`, `runtime`, `sessions`, `scenario`, `errors`, `frontend_errors`, `llm`, `scoring`, `jobs`, `voice`, `voice_budget`, `business`, `metrics`。
+
+`scenario`（情境训练，正式特性）给出 `opened_24h` / `turns_24h` / `llm_failures_24h` / `fallbacks_24h` /
+`generated_images_24h` / `rate_limited_24h` 与即时的 `active` / `completed`（口径见 `state_window`）；
+字段契约以 [ops/diagnostics.md](ops/diagnostics.md) 为准。
 
 `/api/diagnose` 自动告警阈值（`backend/infra/ops_queries.py:compute_alerts`）：
 

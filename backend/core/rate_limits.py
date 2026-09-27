@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import text
 
+from core.config import SCENARIO_ACTION_LIMIT_PER_5MIN, SCENARIO_OPEN_LIMIT_PER_DAY
 from core.database import SessionLocal
 
 log = logging.getLogger(__name__)
@@ -141,6 +142,59 @@ async def check_tts_limit(user_id: int, request: Request):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="TTS 合成请求过于频繁，请稍后再试",
+        )
+
+
+def _scenario_limited(request: Request, *, key: str, scope: str, message: str, limit: int, window_seconds: int) -> None:
+    """记一条审计（限流命中的唯一取数来源）后抛 429。
+
+    审计走 `record_detached`（独立 session）：超限本身不是业务失败，不能因为业务侧回滚而丢证据。
+    学生看到的只有 `message` 这人话；管理端从 `audit_logs` 按 `scenario.rate_limited` 取数。
+    """
+    from core.audit import ACTION_SCENARIO_RATE_LIMITED, record_detached
+
+    log.warning("scenario rate limit: key=%s scope=%s limit=%s/%ss", key, scope, limit, window_seconds)
+    record_detached(
+        request,
+        action=ACTION_SCENARIO_RATE_LIMITED,
+        target_type="scenario",
+        target_id=scope,
+        target_label="情境训练",
+        outcome="denied",
+        payload={"scope": scope, "limit": limit, "window_seconds": window_seconds},
+    )
+    raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
+
+
+async def check_scenario_action_limit(user_id: int, request: Request):
+    """情境训练**动作**限流：一次回合 = 一次 LLM 调用（花钱且慢），按 5 分钟窗口压尖峰。"""
+    limiter: PgRateLimiter = request.app.state.rate_limiter
+    limit = SCENARIO_ACTION_LIMIT_PER_5MIN
+    key = f"scenario_action:{user_id}"
+    if not await limiter.is_allowed(key, max_requests=limit, window_seconds=300):
+        _scenario_limited(
+            request,
+            key=key,
+            scope="action",
+            message="操作过于频繁，请稍等一会儿再继续当前情境",
+            limit=limit,
+            window_seconds=300,
+        )
+
+
+async def check_scenario_open_limit(user_id: int, request: Request):
+    """情境训练**开局**限流：每次开局都会让 DM 立场景（一次 LLM 调用），按天设上限。"""
+    limiter: PgRateLimiter = request.app.state.rate_limiter
+    limit = SCENARIO_OPEN_LIMIT_PER_DAY
+    key = f"scenario_open:{user_id}"
+    if not await limiter.is_allowed(key, max_requests=limit, window_seconds=86400):
+        _scenario_limited(
+            request,
+            key=key,
+            scope="open",
+            message=f"今天开启的情境次数已达上限（{limit} 次），请明天再试",
+            limit=limit,
+            window_seconds=86400,
         )
 
 

@@ -1,7 +1,7 @@
 import { Alert, Button, Checkbox, Group, Progress, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import { IconActivity, IconAlertTriangle, IconCircleCheck, IconClock, IconCpu, IconRefresh, IconServer } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +143,43 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 						{data.metrics?.version ?? "-"}
 					</Text>
 				</SimpleGrid>
+			</CardContent>
+		</Card>
+	);
+}
+
+function ScenarioCard({ data }: { data: DiagnoseResponse }) {
+	const s = data.scenario;
+	const rows: Array<[string, string | number]> = [
+		["开局 (24h)", s?.opened_24h ?? 0],
+		["进行中", s?.active ?? 0],
+		["已结束", s?.completed ?? 0],
+		["回合 (24h)", s?.turns_24h ?? 0],
+		["DM 失败 (24h)", s?.llm_failures_24h ?? 0],
+		["保底 (24h)", s?.fallbacks_24h ?? 0],
+		["生成图 (24h)", s?.generated_images_24h ?? 0],
+		["限流命中 (24h)", s?.rate_limited_24h ?? 0],
+	];
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>情境训练 (scenario)</CardTitle>
+			</CardHeader>
+			<CardContent>
+				{s == null ? (
+					<Text size="sm" c="dimmed">当前后端未提供情境训练分区</Text>
+				) : (
+					<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+						{rows.map(([label, value]) => (
+							<Fragment key={label}>
+								<Text size="sm" c="dimmed">{label}</Text>
+								<Text size="sm" ta="right" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
+									{value}
+								</Text>
+							</Fragment>
+						))}
+					</SimpleGrid>
+				)}
 			</CardContent>
 		</Card>
 	);
@@ -460,7 +497,7 @@ export default function SystemOpsPage() {
 		<Stack gap="xl" mt="md">
 			<PageHeader
 				title="系统运维"
-				subtitle="LLM 状态 · 评分队列 · 作业队列 · 语音预算 · 业务量 · 错误日志 · 会话统计"
+				subtitle="LLM 状态 · 评分队列 · 作业队列 · 语音预算 · 业务量 · 情境训练 · 错误日志 · 会话统计"
 				actions={
 					<Group gap={8} align="center">
 						<Checkbox
@@ -483,6 +520,7 @@ export default function SystemOpsPage() {
 				<VoiceBudgetCard data={data} />
 				<JobsCard data={data} />
 				<BusinessCard data={data} />
+				<ScenarioCard data={data} />
 				<HttpFrontendCard data={data} />
 			</SimpleGrid>
 

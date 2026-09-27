@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioView } from "@/api/scenario";
 import { render, screen, waitFor, within } from "@/__tests__/render";
+import type { ScenarioView } from "@/api/scenario";
 import { OTHER_ENTRY_LABEL } from "@/scenario/AffordanceForm";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 
@@ -357,7 +357,7 @@ describe("情境训练控制台", () => {
 		expect(screen.getByText("处置动作数")).toBeInTheDocument();
 	});
 
-	it("命名空间 404（实验特性关闭）显示「未开启」而不是报错", async () => {
+	it("命名空间 404（功能关闭）显示「未开启」而不是报错", async () => {
 		mocks.listScenarioPacks.mockRejectedValue({
 			isAxiosError: true,
 			message: "Request failed with status code 404",
@@ -367,7 +367,7 @@ describe("情境训练控制台", () => {
 		renderPage();
 
 		expect(
-			await screen.findByText("情境训练实验特性未开启"),
+			await screen.findByText("情境训练当前未开启"),
 		).toBeInTheDocument();
 		expect(screen.queryByText("情境列表读取失败")).not.toBeInTheDocument();
 	});

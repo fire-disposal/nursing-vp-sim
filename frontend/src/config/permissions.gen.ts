@@ -17,7 +17,8 @@ export const PERMISSION_KEYS = [
   "export_data",
   "questionnaire_manage",
   "audit_view",
-  "audit_export"
+  "audit_export",
+  "scenario_training"
 ] as const;
 
 export type Permission = (typeof PERMISSION_KEYS)[number];
@@ -91,5 +92,9 @@ export const PERMISSION_DEFS: PermissionDef[] = [
   {
     "key": "audit_export",
     "label": "审计日志导出"
+  },
+  {
+    "key": "scenario_training",
+    "label": "情境训练"
   }
 ];

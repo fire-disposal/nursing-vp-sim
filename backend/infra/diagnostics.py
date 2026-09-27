@@ -210,6 +210,14 @@ async def diagnose(
                 "window": WINDOW_NOW,
                 **dashboard.get("sessions", {}),
             },
+            # 情境训练（正式特性，docs/ops/scenario-training.md）：24h 计数 + 即时会话数。
+            # `completed` 是**即时**状态计数（不是 24h 窗口），故与其余字段分列 `window` 说明。
+            "scenario": {
+                "scope": SCOPE_DB,
+                "window": WINDOW_H24,
+                "state_window": WINDOW_NOW,
+                **dashboard["scenario"],
+            },
             "errors": {
                 "scope": SCOPE_WORKERS,
                 "window": error_window_label,

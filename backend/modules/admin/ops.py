@@ -129,6 +129,13 @@ async def admin_ops_dashboard(
             **data["scoring"],
         },
         "sessions": {"scope": SCOPE_DB, "window": WINDOW_NOW, **data["sessions"]},
+        # 情境训练（正式特性，docs/ops/scenario-training.md）：与公开端点同形同义。
+        "scenario": {
+            "scope": SCOPE_DB,
+            "window": WINDOW_H24,
+            "state_window": WINDOW_NOW,
+            **data["scenario"],
+        },
         "jobs": {"scope": SCOPE_DB, "window": WINDOW_NOW, **data["jobs"]},
         "voice": {"scope": SCOPE_DB, "window": WINDOW_H24, **data["voice"]},
         "voice_budget": {"scope": SCOPE_DB, "window": WINDOW_MONTH_CN, **data["voice_budget"]},

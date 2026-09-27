@@ -35,6 +35,7 @@ PERMISSIONS: list[PermissionDef] = [
     PermissionDef("questionnaire_manage", "问卷管理"),
     PermissionDef("audit_view", "审计日志查看"),
     PermissionDef("audit_export", "审计日志导出"),
+    PermissionDef("scenario_training", "情境训练"),
 ]
 
 PERMISSION_KEYS: tuple[str, ...] = tuple(p.key for p in PERMISSIONS)

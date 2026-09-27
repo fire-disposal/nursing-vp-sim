@@ -1,7 +1,8 @@
 """`/api/scenario/**` —— 情境训练实验接口（学生侧 + 管理侧）。
 
 - **默认关闭**（`SCENARIO_TRAINING_ENABLED`）：关闭时整个命名空间 404，对老系统与学生界面零可见。
-- 学生侧只需登录（实验期不新增权限键）；**管理侧复用既有权限**：内容用 `case_manage`、数据用 `stats_view`。
+- 学生侧判 `scenario_training`（2026-09-27 转公开测试时补的专用键，学生/教师/管理员都持有）；
+  **管理侧复用既有权限**：内容用 `case_manage`、数据用 `stats_view`。
 - 会话只能被本人读取与操作；管理侧可读全部会话（含每回合的**问题清单**，供维护者排查）。
 - 资源字节存库（`st_assets`）：管理侧上传即**追加一个新修订**——内容与字节一起版本化。
 """
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -20,8 +21,10 @@ from sqlalchemy import func, select
 from core.config import SCENARIO_TRAINING_ENABLED
 from core.deps import CurrentUser, DbSession
 from core.exceptions import ConflictError
+from core.rate_limits import check_scenario_action_limit, check_scenario_open_limit
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
+from models import User
 from models.scenario_training import StPack, StPackRevision, StSession
 
 from . import assets as assets_mod
@@ -46,6 +49,8 @@ from .validation import validate_pack
 
 _ContentManager = Depends(require_permission("case_manage"))
 _DataViewer = Depends(require_permission("stats_view"))
+# 学生侧专用门禁：`scenario_training`（权限键见 core/permissions.py，角色授予见 core/roles.py）。
+_StudentUser = Annotated[User, Depends(require_permission("scenario_training"))]
 
 log = logging.getLogger(__name__)
 
@@ -135,7 +140,7 @@ def _view(db: DbSession, session: StSession, pack: ScenarioPack, problems: list[
 
 
 @router.get("/packs")
-def list_packs(db: DbSession, current_user: CurrentUser) -> list[dict[str, Any]]:
+def list_packs(db: DbSession, current_user: _StudentUser) -> list[dict[str, Any]]:
     """可用情境包（含最新修订号）。"""
     return pack_loader.list_packs(db)
 
@@ -145,9 +150,10 @@ async def create_session(
     payload: OpenSessionRequest,
     request: Request,
     db: DbSession,
-    current_user: CurrentUser,
+    current_user: _StudentUser,
 ) -> dict[str, Any]:
     """开启一次情境：DM **先立场景**（开场回合），再等学生动手。未指定 revision 时取最新修订。"""
+    await check_scenario_open_limit(current_user.id, request)
     if payload.revision_id is not None:
         revision_id = payload.revision_id
         pack = _load_pack(db, revision_id)
@@ -181,7 +187,7 @@ async def create_session(
 @router.get("/sessions")
 def my_sessions(
     db: DbSession,
-    current_user: CurrentUser,
+    current_user: _StudentUser,
     limit: int = Query(default=30, ge=1, le=200),
 ) -> list[dict[str, Any]]:
     """我的情境历史（学生侧）。"""
@@ -197,7 +203,7 @@ def my_sessions(
 
 
 @router.get("/sessions/{session_id}")
-def get_session(session_id: int, db: DbSession, current_user: CurrentUser) -> dict[str, Any]:
+def get_session(session_id: int, db: DbSession, current_user: _StudentUser) -> dict[str, Any]:
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
     return {
@@ -214,9 +220,10 @@ async def submit(
     payload: ActionRequest,
     request: Request,
     db: DbSession,
-    current_user: CurrentUser,
+    current_user: _StudentUser,
 ) -> dict[str, Any]:
     """学生做一件事 → 世界回应 → 返回新视图。"""
+    await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
     action = StudentAction(
@@ -248,12 +255,13 @@ async def submit_stream(
     payload: ActionRequest,
     request: Request,
     db: DbSession,
-    current_user: CurrentUser,
+    current_user: _StudentUser,
 ) -> StreamingResponse:
     """**流式**提交同一回合：先按块推 DM 输出（叙述块写完就渲染），最后给权威视图。
 
     展示可以增量，**状态改动仍等完整回合校验后落地**（不会出现"半应用的世界"）。
     """
+    await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
     action = StudentAction(
@@ -331,7 +339,7 @@ async def submit_stream(
 
 
 @router.post("/sessions/{session_id}/close")
-def close(session_id: int, db: DbSession, current_user: CurrentUser) -> dict[str, Any]:
+def close(session_id: int, db: DbSession, current_user: _StudentUser) -> dict[str, Any]:
     """结束并结算判读（规则可复算；不启用能力等第）。"""
     session = _load_session(db, session_id, current_user.id)
     pack = _load_pack(db, session.pack_revision_id)
@@ -343,7 +351,7 @@ def close(session_id: int, db: DbSession, current_user: CurrentUser) -> dict[str
 
 
 @router.get("/assets/{revision_id}/{asset_id}")
-def get_asset(revision_id: int, asset_id: str, db: DbSession, current_user: CurrentUser) -> Response:
+def get_asset(revision_id: int, asset_id: str, db: DbSession, current_user: _StudentUser) -> Response:
     """提供场景资源（pack 声明的图片 / 绘画者 AI 的生成图）。需要登录态。"""
     pack = _load_pack(db, revision_id)
     try:

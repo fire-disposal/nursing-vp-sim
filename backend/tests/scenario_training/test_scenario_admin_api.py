@@ -33,6 +33,10 @@ class _FakeUser:
         return key in self._permissions
 
 
+async def _no_rate_limit(*_args: object, **_kwargs: object) -> None:
+    """限流在 test_scenario_rate_limit 单独覆盖；这里不碰真限流表。"""
+
+
 class _FakeLLM:
     def __init__(self) -> None:
         self.turn = {
@@ -53,8 +57,11 @@ def app_client(pg_session, monkeypatch):
         yield pg_session
 
     monkeypatch.setattr(scenario_router, "SCENARIO_TRAINING_ENABLED", True)
+    monkeypatch.setattr(scenario_router, "check_scenario_open_limit", _no_rate_limit)
+    monkeypatch.setattr(scenario_router, "check_scenario_action_limit", _no_rate_limit)
     pack_loader.reset_cache()
-    holder = {"user": _FakeUser({"case_manage", "stats_view"})}
+    # 管理侧夹具默认用户同时持有学生侧键：本文件也走学生端点（开一局再看回放）。
+    holder = {"user": _FakeUser({"case_manage", "stats_view", "scenario_training"})}
     overrides_before = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_current_user] = lambda: holder["user"]
@@ -85,8 +92,11 @@ def test_student_is_forbidden_on_admin_surface(app_client) -> None:
     holder["user"] = _FakeUser(set())
     assert client.get("/api/scenario/admin/packs").status_code == 403
     assert client.get("/api/scenario/admin/stats").status_code == 403
-    # 学生侧不受影响
+    # 学生侧也各有其门（2026-09-27 起判 `scenario_training`）：空权限用户两处都进不去
+    assert client.get("/api/scenario/packs").status_code == 403
+    holder["user"] = _FakeUser({"scenario_training"})
     assert client.get("/api/scenario/packs").status_code == 200
+    assert client.get("/api/scenario/admin/packs").status_code == 403
 
 
 def test_asset_upload_save_preview_and_delete(app_client, installed) -> None:
@@ -264,7 +274,7 @@ def test_current_schema_content_is_still_strict() -> None:
 
 def test_history_detail_and_stats(app_client, installed) -> None:
     client, holder, _db = app_client
-    holder["user"] = _FakeUser(set())  # 学生侧
+    holder["user"] = _FakeUser({"scenario_training"})  # 学生侧（判 scenario_training）
     opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
     assert opened.status_code == 200, opened.text
     session_id = opened.json()["session_id"]

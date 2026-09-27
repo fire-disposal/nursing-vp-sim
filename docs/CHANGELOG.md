@@ -501,10 +501,11 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 
 **验证（发布 `v2026.09.27-1`）**：后端 1687 项、前端 627 项、`case-audit` 14 病例 0 error、`ruff`/`ty`/`tsc`/`biome` 干净；生产实测 alembic=`e4f5a6b7c8d9`、病例 14、`is_student_practice` 已就位（554 条记录中 481 条学生练习）、`/api/diagnose` healthy、前端指纹已更新。
 
-### 情境训练（实验特性）：场景单元 + AI DM + 双侧界面（2026-09-27）
+### 情境训练（正式特性 · 生产中接收测试）：场景单元 + AI DM + 双侧界面（2026-09-27）
 
-与正式训练**资源隔离**的独立实验轨（`modules/scenario_training/**`、`st_*` 表、`/api/scenario/**`、前端 `/scenario` 与 `/scenario-admin`），
-**默认关闭**（`SCENARIO_TRAINING_ENABLED`），不替代老系统。设计规格与试金石见 [docs/20](20-situational-training-design.md)。
+与正式训练**资源隔离**的独立特性（`modules/scenario_training/**`、`st_*` 表、`/api/scenario/**`、前端 `/scenario` 与 `/scenario-admin`），
+由 `SCENARIO_TRAINING_ENABLED` 这个**运行时开关（kill switch）**控制（生产在 `deploy/.env` 置 `true` 开启，关闭时整段 404），不替代老系统。
+设计规格见 [docs/20](20-situational-training-design.md)，上线/观察/回滚/接收测试清单见 [docs/ops/scenario-training.md](ops/scenario-training.md)。
 
 - **场景单元**：声明式 `ScenarioPack`（处境/在场者/可做动作/反应链/判读/呈现/设备）；加载期校验（坏包在加载时失败）；
   热载 + **按会话钉版本**（改包只影响新会话）。五个试金情境各自完整：④ 吸痰无效、③ 高血压矛盾、⑤ 两床同铃、① 预检藏危重、② 夜班电话。
@@ -519,11 +520,21 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - **DM 生成物入库并可按病例管理**（2026-09-27 追加）：生成图不再落盘，写 `st_generated_assets`（按会话记 `prompt`/归一字节，引用 `gen:<行 id>`）；
   同一会话同一要求不重复调用提供方、同 `(session_id, sha256)` 只存一行；**管理入口长在病例二级界面内**（选中病例 → 该病例的生成物：服务端分页 + 总数 + 按会话过滤、缩略图/大图预览、二次确认删除、删空回退上一页），不是全站集中列表。
 - **界面**：学生侧 `/scenario`（场景 hero + 设备面 + 白板 + 情境按钮 + 自输入 + 我的情境历史 + 经历页）；
-  管理侧 `/scenario-admin`（包/修订、图片上传与预览、生成物、会话回放与问题清单、统计）；两者都**不在导航**、权限复用 `case_manage`/`stats_view`。
+  管理侧 `/scenario-admin`（包/修订、图片上传与预览、生成物、会话回放与问题清单、统计）。
+- **补权限键 + 学生可见入口**（2026-09-27 转正式特性）：新增权限键 `scenario_training`（`core/permissions.py` / `core/roles.py`，
+  四个系统角色均持有；存量库由 data 迁移 `c8d9e0f1a2b3` 补权，因为 `seed` 只在空库写权限）。
+  - 学生侧 `/api/scenario/**` 由"仅登录"改为 `require_permission("scenario_training")`；管理侧口径不变（`case_manage` / `stats_view`）。
+  - 学生侧栏与移动端底部 Tab 出现「情境」（路由 `nav` + `section: user`，底部 Tab 按权限键过滤）；管理侧栏「情境管理」进导航
+    （条目门 `case_manage`，路由级不判权限以免误挡只有 `stats_view` 的人），教师/管理员不必再手输 URL。
+  - 前端「未开启」文案改为「情境训练当前未开启…请联系管理员」，不再自称实验特性。
+- **学生侧限流**（成本/滥用面）：动作 30 次/5 分钟、开局 20 次/24 小时（`SCENARIO_ACTION_LIMIT_PER_5MIN` / `SCENARIO_OPEN_LIMIT_PER_DAY` 可调），
+  复用 `PgRateLimiter`（PG 滑窗、多 worker 安全）；超限给**人话 429**并落一条 `scenario.rate_limited` 审计（管理端按它数"限流命中次数"）。
+- **运维可见性**：`/api/diagnose`（与 admin 看板）新增 `scenario` 分区——近 24h 开局数、回合数、DM 失败数、保底回合数、生成图片数、
+  限流命中次数，以及即时的进行中/已结束会话数；字段契约登记在 [docs/ops/diagnostics.md](ops/diagnostics.md)。
 - **管理体验收口**：会话列表补服务端分页（此前 >200 条不可见）；资源面板补错误态与重试；包状态变更加二次确认；
   上传坏包回**具体校验明细**（此前只丢一句泛化报错）；**包状态不再被重新安装覆盖**（管理员标的 `reviewed` 不会被下一次传图/重传静默回退）。
 - **学生面错误口径**：面向学生的错误只给人话（未开启/无权限/请求非法/服务异常/网络中断），后端明细只在管理端展示（此前 422 的原始 JSON 会直接出现在学生界面）。
-- **学生面发布前审计收口**（2026-09-27）：**404 语义分流**——只有首次读取情境列表的 404 才算「实验特性未开启」，
+- **学生面发布前审计收口**（2026-09-27）：**404 语义分流**——只有首次读取情境列表的 404 才算「功能未开启」，
   打开会话/提交动作的 404 走普通错误提示并保留正常界面（此前任何 404 都会把整页变成无出口的未开启提示）；
   没有可用修订的病例在列表里不可点并标注原因（此前点了必然报错）；输入框加 2000 字上限与提交前守卫；
   **流式等待期间输入的文字不再被静默清空**（只有与本次提交相同的那份文本才清空）；

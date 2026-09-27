@@ -1,8 +1,8 @@
 # 20 — 情境训练：场景单元与 DM 交互设计
 
 > **名称**：本文描述的下一代训练系统称为**情境训练**（代码命名 `scenario_training`，路由 `/scenario`，数据表前缀 `st_`）。
-> **承载形态**：**不新建服务**——作为**实验性特性在本仓实现**（同应用、同进程、同数据库实例、同部署单元）；完成后**公开开放测试**。
-> **不替代**：现有 `history_taking` 训练闭环与其 `usability-u0` 候选**原样保留、继续维护**；情境训练是与它**并列**的实验轨，不是它的升级或取代。
+> **承载形态**：**不新建服务**——作为**正式特性（生产中接收测试）在本仓实现**（同应用、同进程、同数据库实例、同部署单元）；`SCENARIO_TRAINING_ENABLED` 是它的运行时开关（kill switch）。
+> **不替代**：现有 `history_taking` 训练闭环与其 `usability-u0` 候选**原样保留、继续维护**；情境训练是与它**并列的独立特性**（资源隔离，不写老表），不是它的升级或取代。
 > **最高约束**：**除 LLM 基础设施外，全部资源隔离**（§二）。老系统的代码、数据、提示词、判读、路由、呈现、分发在本轨中**不得被写入或改动**。
 > **异构自由**：本轨内部设计**可以不沿用**老系统的实现范式（状态契约、上下文收敛、命名习惯），只要对"动作驱动 + DM + 声明式判读"这个核心问题确实更好；但**不为异构而异构**——语言、框架、鉴权、LLM/TTS 客户端等基础设施与仓库保持一致（§二 2.2）。
 > 状态：**已实施并验证**（2026-09-27）。五个试金情境、双侧界面、DM 生成物入库与病例内分页管理、增量渲染全部落地；
@@ -467,8 +467,8 @@ failure: irreversible              # 连续 2–3 回合未探视 B → 意识�
 
 | 侧 | 入口 | 鉴权 | 接口 |
 |---|---|---|---|
-| 学生 | `/scenario`（不在导航） | 仅登录 | `GET /packs`、`POST /sessions`、**`GET /sessions`（我的历史）**、`GET/POST /sessions/{id}[/actions|/close|/actions/stream]`、`GET /assets/{revision_id}/{asset_id}` |
-| 管理 | `/scenario-admin`（不在导航） | 内容 `case_manage`、数据 `stats_view` | `GET/POST /admin/packs`、`PATCH /admin/packs/{key}`、`POST/DELETE /admin/packs/{key}/assets[/…]`、`GET /admin/packs/{key}/assets/{id}`、**`GET /admin/packs/{key}/generated`（病例内分页）**、`GET /admin/generated/{id}/content`、`DELETE /admin/generated/{id}`、`GET /admin/sessions[/{id}]`、`GET /admin/stats` |
+| 学生 | `/scenario`（学生侧栏/底部 Tab「情境」，2026-09-27 起进导航） | `scenario_training`（学生/教师/管理员均持有；存量库由 data 迁移 `c8d9e0f1a2b3` 补权） | `GET /packs`、`POST /sessions`、**`GET /sessions`（我的历史）**、`GET/POST /sessions/{id}[/actions|/close|/actions/stream]`、`GET /assets/{revision_id}/{asset_id}` |
+| 管理 | `/scenario-admin`（管理侧栏「情境管理」，条目门 `case_manage`；路由级**不判**权限，页面内按块判） | 内容 `case_manage`、数据 `stats_view` | `GET/POST /admin/packs`、`PATCH /admin/packs/{key}`、`POST/DELETE /admin/packs/{key}/assets[/…]`、`GET /admin/packs/{key}/assets/{id}`、**`GET /admin/packs/{key}/generated`（病例内分页）**、`GET /admin/generated/{id}/content`、`DELETE /admin/generated/{id}`、`GET /admin/sessions[/{id}]`、`GET /admin/stats` |
 
 - **资源字节存库**（`st_assets`，`LargeBinary`，与反馈图片同构）：管理侧**上传即追加一个新修订**——内容声明与字节一起版本化；
 - 仓库里的 `assets/<pack_key>/*` 只是**播种来源**（安装时入库），运行时不读文件系统；
@@ -477,7 +477,8 @@ failure: irreversible              # 连续 2–3 回合未探视 B → 意识�
   不会留孤儿文件）；同一会话同一要求**不重复调用提供方**，同 `(session_id, sha256)` 只存一行。
   **管理入口长在病例二级界面内**（选中病例 → 该病例的生成物，服务端分页 + 总数 + 按会话过滤），
   不是全站集中列表；删除后旧引用即 404（回放给兜底文案，不显示破图）。
-- 权限**复用既有键**，不新增：实验期学生侧只要登录。
+- 权限：学生侧**专用键** `scenario_training`（2026-09-27 转正式特性时补，见 docs/ops/scenario-training.md）；管理侧复用既有键 `case_manage` / `stats_view`。
+- **学生侧限流**：动作 30 次/5 分钟、开局 20 次/24 小时（`core/rate_limits.check_scenario_*`，超限 429 + 人话并落 `scenario.rate_limited` 审计）。
 - **上传即归一**（`assets.normalize_image`，上传是唯一入口）：统一 **WebP**；**隐私字段整包裁剪**
   （GPS/设备/拍摄时间等一律不落库，`Orientation` 先应用到像素再删，避免竖拍图歪 90°）；长边 ≤1600；
   动图退化首帧。**播种图与绘画者 AI 的生成图走同一条归一**——服务出去的永远是同一格式。
@@ -531,8 +532,8 @@ DM 单次输出里有多个内容块（叙述 / 台词 / 图片 / 选项 / 笔�
 - **草案分发**：`state = experimental` 可直接发给小范围/实验批次（本轨自己的分发机制）。
 - **门禁降级为检查器**：本轨的包校验只**报风险、不阻断**——原型期需要允许犯错。
 - **数据分组**：不同包版本按批次分开统计；坏的版本不污染好的。
-- **入口形态**：开发期入口默认关闭（实验标记/开关），关闭时对老系统与学生界面**零可见**；**完成后公开开放测试**是本轨的目标终态。
-- **与老系统的关系**：因资源完全隔离，本轨的实验**天然不进入** `usability-u0` 批次，无需额外批次约束。
+- **入口形态**：`SCENARIO_TRAINING_ENABLED` 是**运行时开关（kill switch）**，生产由 `deploy/.env` 置 `true` 开启；关闭时整个命名空间 404，对老系统零可见。当前阶段是在**生产中接收测试**（学生侧栏可见入口），不再有"实验期"。
+- **与老系统的关系**：因资源完全隔离，本特性**天然不进入** `usability-u0` 批次，无需额外批次约束。
 
 ## 十一、能力边界与自由度判据
 
@@ -570,6 +571,6 @@ DM 单次输出里有多个内容块（叙述 / 台词 / 图片 / 选项 / 笔�
 | 2 | **DM 不泄底**——按钮/选项文案中不含未揭示事实的同义表达 | ✅ 已实测（越界条目被丢弃并记 `leaked_fact_term`；已揭示事实豁免） |
 | 3 | **运行中会话不受热载影响** | ✅ 已实测（会话钉住自己的 `pack_revision_id`） |
 | 4 | **隔离成立**——import 方向断言、只读写 `st_*`、老系统零改动 | ✅ 已实测（`tests/scenario_training/test_isolation.py` + 领域中立守卫） |
-| 5 | **实验性特性成立**——入口可开可关，关时零可见 | ✅ 已实测（`SCENARIO_TRAINING_ENABLED=false` → 全命名空间 404，有测试） |
+| 5 | **正式特性成立**——入口可开可关，关时零可见 | ✅ 已实测（`SCENARIO_TRAINING_ENABLED=false` → 全命名空间 404，有测试） |
 
 本文是设计规格，不是完成声明；教师判例、临床审阅与能力等第校准仍未完成。

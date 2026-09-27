@@ -61,14 +61,17 @@ FRONTEND_ERROR_ARCHIVE_BACKUPS=2
 
 ## 返回结构
 
-响应为 `schema_version: 3`。顶层键共 16 个（`summary` 的 `alerts` 与顶层 `alerts` 同源同值）：
+响应为 `schema_version: 3`。顶层键共 17 个（`summary` 的 `alerts` 与顶层 `alerts` 同源同值）：
 
 ```text
 schema_version  version  generated_at  summary  alerts
-runtime  sessions  errors  frontend_errors  llm  scoring  jobs  voice  voice_budget  business  metrics
+runtime  sessions  scenario  errors  frontend_errors  llm  scoring  jobs  voice  voice_budget  business  metrics
 ```
 
 顶层不再有集中的窗口块：每个块自带 `scope` / `window` 字段，口径跟着数据走。
+`scenario` 是唯一的例外补充：它同时含 24h 计数与**即时**会话状态计数，故另带 `state_window: now`
+标明 `active` / `completed` 的口径（不是"窗口内发生次数"）。`st_*` 表缺失或查询失败时该块整体降级为全 0
+（情境训练是附加轨道，不得拖垮老系统的可见性）。
 `summary.status` 有 alerts 即 `degraded`，否则 `healthy`（发布冒烟依赖此语义）。
 
 admin 出口 `/admin/ops/dashboard` 与 `/admin/ops/diagnose` 与公开端点**同规则**：各块同样自带
@@ -104,6 +107,7 @@ admin 出口另有公开端点没有的 `feedback` 块（`scope: db` / `window: 
 | `llm.router` | `process` | `now` | 降级 / 熔断 / 兜底 / 落库失败等进程侧状态 |
 | `jobs` | `db` | `now` | 持久化 Job 状态：`by_kind.{kind}.{pending,running,succeeded,failed}` / `oldest_pending_seconds` / `expired_leases`。`SCORING_EXECUTION=job` 时**评分队列只看这里**（进程内 `metrics.queue.task_queue` 恒为 0） |
 | `scoring` | `db` | `rolling_24h_by_record_end_time` | 另标 `in_progress_scope: process` / `in_progress_window: now`（in_progress 来自进程内 scoring_tracker） |
+| `scenario` | `db` | `rolling_24h` | 情境训练（`st_*`）：`opened_24h` / `turns_24h` / `llm_failures_24h`（供应商错误、解析、截断）/ `fallbacks_24h`（无 LLM 保底回合，设计内兜底）/ `generated_images_24h` / `rate_limited_24h`（审计 `scenario.rate_limited`）。`active` / `completed` 是**即时**会话状态计数，见下面 `state_window` |
 | `voice` | `db` | `rolling_24h` | TTS / ASR 统计 |
 | `voice_budget` | `db` | `month_cn` | 语音月度预算 |
 | `business` | `db` | `day_cn` | 北京自然日业务量 |

@@ -5,13 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
-	type ScenarioActionInput,
-	type ScenarioActor,
-	type ScenarioPackSummary,
-	type ScenarioReport,
-	type ScenarioView,
-	ScenarioHttpError,
-	ScenarioStreamUnavailable,
 	closeScenarioSession,
 	createScenarioSession,
 	getScenarioSession,
@@ -19,30 +12,37 @@ import {
 	listMyScenarioSessions,
 	listScenarioPacks,
 	postScenarioAction,
+	type ScenarioActionInput,
+	type ScenarioActor,
+	ScenarioHttpError,
+	type ScenarioPackSummary,
+	type ScenarioReport,
+	ScenarioStreamUnavailable,
+	type ScenarioView,
 	streamScenarioAction,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
 import { formatShortDateTime } from "@/utils/date";
 import { getApiErrorMessage } from "@/utils/error";
 import ActionBar from "./ActionBar";
+import { talkPrefill } from "./actors";
+import { studentFallbackNotice } from "./problems";
 import ScenarioReportView from "./ScenarioReportView";
 import ScenarioSidePanel from "./ScenarioSidePanel";
 import ScenarioStage from "./ScenarioStage";
-import { talkPrefill } from "./actors";
-import { studentFallbackNotice } from "./problems";
-import { type ScenarioStreamDraft, draftView, mergeBlocks } from "./stream";
+import { draftView, mergeBlocks, type ScenarioStreamDraft } from "./stream";
 import "./scenario.css";
 import { sessionRowMeta } from "./sessions";
 
 /**
- * 情境训练（实验特性）· 学生侧 —— 隐藏路由 `/scenario`，不出现在导航。
+ * 情境训练（正式特性，docs/20）· 学生侧 —— 路由 `/scenario`，学生侧栏/底部 Tab 的「情境」。
  *
  * 数据只有一份来源：后端的 `view` / `report` 投影。页面不自己算分数、不自己编文案，
  * 也不预置"其他/自输入"之外的建议（DM 的 `options` 才是建议）。
  * 原始诊断串（`dm_parse:*` 等）**不进这里**，学生只看到"这一回合是不是保底生成的"。
  *
- * 开关关闭时整个 `/api/scenario/**` 返回 **404**，因此 404 一律按"实验特性未开启"呈现：
- * 不区分"会话不属于我"，也不暴露实验面。
+ * 开关关闭时整个 `/api/scenario/**` 返回 **404**，因此首次读 pack 列表的 404 一律按
+ * "功能未开启"呈现：不区分"会话不属于我"，也不暴露内部结构。
  */
 export default function ScenarioConsole() {
 	const [sessionId, setSessionId] = useState<number | null>(null);
@@ -303,16 +303,16 @@ export default function ScenarioConsole() {
 		setFreeText(talkPrefill(actor.role, actor.presence));
 	};
 
-	// 唯一等于"特性未开启"的事实：pack 列表本身 404（命名空间整体不可用）
+	// 唯一等于"功能未开启"的事实：pack 列表本身 404（命名空间整体不可用）
 	if (packsQuery.error && isScenarioUnavailable(packsQuery.error)) {
 		return (
 			<div className="sc-root">
 				<div className="sc-gate">
-					<div className="sc-gate-title">情境训练实验特性未开启</div>
+					<div className="sc-gate-title">情境训练当前未开启</div>
 					<div className="sc-gate-body">
-						这是一个未公开的实验特性：服务端关闭时整个
+						情境训练由部署方统一开启：服务端关闭时整个
 						<code className="sc-gate-mono"> /api/scenario/** </code>
-						命名空间不可用（404）。开启与否由部署方决定，页面不提供开关。
+						命名空间不可用（404），页面不提供开关。请联系管理员。
 					</div>
 				</div>
 			</div>

@@ -803,8 +803,8 @@ export function scenarioImageSrc(url: string): string {
 }
 
 /**
- * 实验特性关闭时整个 `/api/scenario/**` 命名空间返回 **404**（不是 403），
- * 因此 404 只有两个含义：特性未开启，或会话不属于本人。
+ * 功能（kill switch）关闭时整个 `/api/scenario/**` 命名空间返回 **404**（不是 403），
+ * 因此 404 只有两个含义：功能未开启，或会话不属于本人。
  */
 export function isScenarioUnavailable(e: unknown): boolean {
 	return isAxiosError(e) && e.response?.status === 404;

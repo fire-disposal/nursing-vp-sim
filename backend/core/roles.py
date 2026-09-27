@@ -18,12 +18,14 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "questionnaire_manage",
         "audit_view",
         "audit_export",
+        "scenario_training",
     ],
     "admin": [
         "user_manage",
         "grade_class_manage",
         "case_manage",
         "training_access",
+        "scenario_training",
         "score_review",
         "stats_view",
         "qa_access",
@@ -37,6 +39,7 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "grade_class_manage",
         "case_manage",
         "training_access",
+        "scenario_training",
         "qa_access",
         "score_review",
         "stats_view",
@@ -47,6 +50,7 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
     ],
     "student": [
         "training_access",
+        "scenario_training",
         "qa_access",
     ],
 }

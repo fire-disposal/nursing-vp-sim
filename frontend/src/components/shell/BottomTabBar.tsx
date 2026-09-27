@@ -1,7 +1,9 @@
 import { Group, Text, Transition, UnstyledButton } from "@mantine/core";
-import { IconClipboardList, IconRobot, IconStethoscope, IconUser } from "@tabler/icons-react";
+import { IconClipboardList, IconRobot, IconSitemap, IconStethoscope, IconUser } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShortViewport } from "@/hooks/useShortViewport";
+import useAuthStore from "@/stores/authStore";
+import type { Permission } from "@/utils/permissions";
 import type { NavIcon } from "./navigation";
 
 /**
@@ -17,21 +19,26 @@ const BOTTOM_TABS: Array<{
 	icon: NavIcon;
 	label: string;
 	activeOn: string[];
+	/** 有权限键才出现的 Tab（口径与 Layout 对 `NAV_ITEMS` 的过滤一致）；不写 = 恒显示 */
+	permission?: Permission;
 }> = [
 	{ to: "/training", icon: IconStethoscope, label: "训练", activeOn: ["/training"] },
+	{ to: "/scenario", icon: IconSitemap, label: "情境", activeOn: [], permission: "scenario_training" },
 	{ to: "/history", icon: IconClipboardList, label: "记录", activeOn: ["/record"] },
 	{ to: "/qa", icon: IconRobot, label: "问答", activeOn: ["/qa"] },
 	{ to: "/profile", icon: IconUser, label: "我的", activeOn: ["/notifications", "/my-feedback"] },
 ];
 
 /**
- * BottomTabBar — 移动端底部 4 Tab 导航栏。
+ * BottomTabBar — 移动端底部 Tab 导航栏（基础四项，加有权限的实验入口如「情境」）。
  * 由 AppShell.Footer 固定定位，此处只负责内容渲染。
  * 活动态使用品牌青绿 + Mantine Transition 平滑指示条（尊重减弱动态偏好）。
  */
 export function BottomTabBar() {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const permissions = useAuthStore((s) => s.permissions);
+	const tabs = BOTTOM_TABS.filter((tab) => !tab.permission || permissions.includes(tab.permission));
 	// 横屏/短视口也显示底部 Tab（垂直空间宝贵，侧栏已折叠，Tab 承担导航）
 	const isShort = useShortViewport();
 
@@ -48,7 +55,7 @@ export function BottomTabBar() {
 				paddingBottom: "env(safe-area-inset-bottom, 0px)",
 			}}
 		>
-			{BOTTOM_TABS.map((tab) => {
+			{tabs.map((tab) => {
 				const Icon = tab.icon;
 				const isActive = isTabActive(location.pathname, tab.to, tab.activeOn);
 				return (

@@ -10,6 +10,7 @@ import {
 	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
 	IconSchool,
 	IconShield,
+	IconSitemap,
 	IconSpeakerphone,
 	IconStethoscope,
 	IconTrophy,
@@ -64,9 +65,10 @@ const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
 const AdminQuestionnaires = lazy(
 	() => import("@/pages/admin/AdminQuestionnaires"),
 );
-// 情境训练（实验特性）：深色场景控制台，隐藏路由 /scenario，不进导航
+// 情境训练：深色场景控制台，学生侧入口 /scenario（2026-09-27 转正式特性后进导航）
 const ScenarioConsole = lazy(() => import("@/scenario/ScenarioConsole"));
-// 情境训练 · 管理侧：同样只靠 URL 直达（权限在页面内按块判：内容 case_manage / 数据 stats_view）
+// 情境训练 · 管理侧：入口 /scenario-admin（导航条目要 case_manage；权限在页面内按块判：
+// 内容 case_manage / 数据 stats_view）
 const ScenarioAdminPage = lazy(() => import("@/scenario/admin/ScenarioAdminPage"));
 
 export type Activity = "practice" | "review" | "manage";
@@ -106,6 +108,10 @@ export interface NavMeta {
 	section: NavSection;
 	group?: NavGroupKey;
 	end?: boolean;
+	/** 条目级权限门：用于"路由级不能判权限、但导航要有门"的页面（如 `/scenario-admin`
+	 *  需要 `case_manage` 与 `stats_view` 两个键，路由级只判一个会误挡另一半人）。
+	 *  与路由级 `permission` 二选一；两者都给时**条目级优先**。 */
+	permission?: Permission;
 }
 
 
@@ -138,6 +144,15 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "training_access",
 		activity: "practice",
 	},
+	// 情境训练（docs/20）：与正式训练资源隔离的实验轨，转公开测试后给学生可见入口——
+	// 持有 `scenario_training` 的学生在侧栏/底部 Tab 看到「情境」；后端开关关闭时后端 404、入口照旧存在。
+	{
+		path: "/scenario",
+		element: <ScenarioConsole />,
+		permission: "scenario_training",
+		activity: "manage",
+		nav: { label: "情境", icon: IconSitemap, section: "user" },
+	},
 	{
 		path: "/history",
 		element: <History />,
@@ -166,14 +181,6 @@ export const APP_ROUTES: AppRoute[] = [
 			section: "user",
 		},
 	},
-	// 情境训练（实验特性，docs/20）：**只靠 URL 直达**——不写 `nav` 字段，
-	// 也就不出现在 `NAV_ITEMS`/侧栏/底部 Tab 里；权限由后端开关兜底（关闭即 404）。
-	{ path: "/scenario", element: <ScenarioConsole />, activity: "manage" },
-	// 情境训练管理侧：**不写 `nav`**（不进侧栏/底部 Tab）。也**不写路由级 `permission`**：
-	// 一个路由只能声明一个权限，而本页需要两个不同的键（内容 case_manage / 数据 stats_view），
-	// 页面内部按块判权限并渲染 403——路由级只判一个会让另一半权限的人被误挡。
-	{ path: "/scenario-admin", element: <ScenarioAdminPage />, activity: "manage" },
-
 	// ── Admin area ──
 	{
 		path: "/admin/users",
@@ -208,6 +215,21 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "case_manage",
 		activity: "manage",
 		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "content" },
+	},
+	// 情境训练管理侧：**路由级不判权限**（本页需要两个键：内容 case_manage / 数据 stats_view，
+	// 路由级只判一个会让另一半权限的人被误挡；页面内按块判并渲染 403）。
+	// 导航条目用**条目级** `nav.permission`（内容管理者可见），不动路由级口径。
+	{
+		path: "/scenario-admin",
+		element: <ScenarioAdminPage />,
+		activity: "manage",
+		nav: {
+			label: "情境管理",
+			icon: IconSitemap,
+			section: "admin",
+			group: "content",
+			permission: "case_manage",
+		},
 	},
 	{
 		path: "/admin/assignments",
@@ -334,4 +356,4 @@ export interface NavItem extends NavMeta {
 
 export const NAV_ITEMS: NavItem[] = APP_ROUTES.filter(
 	(r): r is AppRoute & { nav: NavMeta } => !!r.nav,
-).map((r) => ({ to: r.path, permission: r.permission, ...r.nav }));
+).map((r) => ({ to: r.path, ...r.nav, permission: r.nav.permission ?? r.permission }));

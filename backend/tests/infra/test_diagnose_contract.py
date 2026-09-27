@@ -138,6 +138,16 @@ def _payload(monkeypatch, *, frontend_last_5min: int) -> dict:
         },
         "scoring": {"pending": 0, "completed_24h": 0, "failed_24h": 0, "discarded_24h": 0, "success_rate": 100.0},
         "sessions": {"active": 3},
+        "scenario": {
+            "opened_24h": 4,
+            "active": 2,
+            "completed": 7,
+            "turns_24h": 31,
+            "llm_failures_24h": 1,
+            "fallbacks_24h": 2,
+            "generated_images_24h": 3,
+            "rate_limited_24h": 5,
+        },
         "voice": {"tts": {}},
         "voice_budget": {"monthly_budget": 0, "monthly_cost": 0, "usage_pct": 0},
         "business": {"today_users": 0, "today_trainings": 0, "today_completed": 0},
@@ -188,6 +198,7 @@ def test_diagnose_payload_declares_scope_and_window(monkeypatch):
         "llm",
         "scoring",
         "jobs",
+        "scenario",
         "voice",
         "voice_budget",
         "business",
@@ -221,11 +232,49 @@ def test_diagnose_top_level_keys_are_exactly_documented(monkeypatch):
         "llm",
         "scoring",
         "jobs",
+        "scenario",
         "voice",
         "voice_budget",
         "business",
         "metrics",
     }
+
+
+def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
+    """情境训练分区：24h 计数字段与即时会话状态分开标窗口（`completed` 不是 24h 窗口）。"""
+    payload = _payload(monkeypatch, frontend_last_5min=0)
+
+    scenario = payload["scenario"]
+    assert scenario["scope"] == diagnostics.SCOPE_DB
+    assert scenario["window"] == diagnostics.WINDOW_H24
+    assert scenario["state_window"] == diagnostics.WINDOW_NOW
+    # 字段名就是契约（docs/ops/diagnostics.md 与 admin 看板按名字对齐），全部为整数计数
+    assert set(scenario) == {
+        "scope",
+        "window",
+        "state_window",
+        "opened_24h",
+        "active",
+        "completed",
+        "turns_24h",
+        "llm_failures_24h",
+        "fallbacks_24h",
+        "generated_images_24h",
+        "rate_limited_24h",
+    }
+    assert all(
+        isinstance(scenario[field], int)
+        for field in (
+            "opened_24h",
+            "active",
+            "completed",
+            "turns_24h",
+            "llm_failures_24h",
+            "fallbacks_24h",
+            "generated_images_24h",
+            "rate_limited_24h",
+        )
+    )
 
 
 def test_jobs_block_reports_queue_state_and_expired_leases(monkeypatch):

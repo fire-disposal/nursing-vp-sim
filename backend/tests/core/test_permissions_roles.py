@@ -40,7 +40,8 @@ class TestSystemPermissions:
         assert student <= teacher <= admin
 
     def test_student_has_minimal_permissions(self):
-        assert SYSTEM_PERMISSIONS["student"] == ["training_access", "qa_access"]
+        # 情境训练（2026-09-27 转正式特性）给学生侧补了专用键 `scenario_training`
+        assert SYSTEM_PERMISSIONS["student"] == ["training_access", "scenario_training", "qa_access"]
 
     def test_system_roles_pairs(self):
         labels = dict(SYSTEM_ROLES)

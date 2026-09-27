@@ -27,6 +27,7 @@ description: nursing-vp-sim 观测/运维接口总览：反馈、前端遥测、
 | `llm` | db / `rolling_24h` | 24h 调用量、成功率、`recent_errors` |
 | `llm.router` | process / `now` | **LLM 降级/熔断/兜底/落库失败的唯一规范位置**：`degraded_providers` `global_degraded` `degraded_by_reason` `env_fallback` `persist_failures` `log_queue` |
 | `scoring` | db / `rolling_24h_by_record_end_time` | `in_progress` 另有 `in_progress_scope: process`（进程内 tracker） |
+| `scenario` | db / `rolling_24h`（另带 `state_window: now`） | 情境训练（`st_*`）：`opened_24h` `turns_24h` `llm_failures_24h` `fallbacks_24h`（保底，设计内）`generated_images_24h` `rate_limited_24h`；`active`/`completed` 是即时会话数。`st_*` 缺失时整块降级为 0 |
 | `jobs` | db / `now` | 持久化 Job（`SCORING_EXECUTION=job` 时评分的执行队列）：`by_kind.{kind}.{pending,running,succeeded,failed}`、`oldest_pending_seconds`、`expired_leases` |
 | `sessions` | db / `now` | `active` = 进行中训练数；判断「无会话」用这里，别用恒 0 的历史字段 |
 | `runtime` | process / `now` | `database{connected,pool_size,checked_out}`；`cache_ttl_seconds=120` + `cached_age_seconds` = 这段最多 2 分钟陈旧 |
@@ -42,8 +43,8 @@ description: nursing-vp-sim 观测/运维接口总览：反馈、前端遥测、
    手工查队列：`docker exec nursing-vp-sim-backend-1 python -m infra.jobs`。
 4. 错误计数跨 worker 靠 JSONL 档案（`/app/data/diagnostics/*.jsonl`，挂 `ai_vp_diagnostics` 卷，跨容器重建存活）；
    窗口边界归属精度受落盘节奏限制（同组最多每 30s 补记一次增量）。
-5. 部署后冒烟不只查存活：`deploy.yml` 会断言 `/api/diagnose` 里 `jobs.by_kind` 存在 —— 新增/改动
-   运维块时若忘了让消费方同步，冒烟会直接失败。
+5. 部署后冒烟不只查存活：`deploy.yml` 会断言 `/api/diagnose` 里 `jobs.by_kind` 与 `scenario.rate_limited_24h` 存在
+   —— 新增/改动运维块时若忘了让消费方同步，冒烟会直接失败。
 4. 可调参数：`error_window_minutes`(1–1440)、`error_groups`(1–50)。
 5. 鉴权：`DIAGNOSE_TOKEN` 未配置 ⇒ **404**（端点整体隐藏）；token 不符 ⇒ **403**。
 

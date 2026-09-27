@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioView } from "@/api/scenario";
 import { cleanup, render, screen, waitFor, within } from "@/__tests__/render";
+import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 
 const mocks = vi.hoisted(() => ({
@@ -142,12 +142,12 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe("H1：只有 pack 列表 404 才算「特性未开启」", () => {
-	it("pack 列表 404 → 仍然是特性未开启的 gate", async () => {
+describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
+	it("pack 列表 404 → 仍然是功能未开启的 gate", async () => {
 		mocks.listScenarioPacks.mockRejectedValue(notFound("Not Found"));
 		renderConsole();
 		expect(
-			await screen.findByText("情境训练实验特性未开启"),
+			await screen.findByText("情境训练当前未开启"),
 		).toBeInTheDocument();
 	});
 
@@ -161,7 +161,7 @@ describe("H1：只有 pack 列表 404 才算「特性未开启」", () => {
 			expect(mocks.createScenarioSession).toHaveBeenCalled();
 		});
 		// 页面没被换成无出口的 gate，仍停在可选情境的界面
-		expect(screen.queryByText("情境训练实验特性未开启")).toBeNull();
+		expect(screen.queryByText("情境训练当前未开启")).toBeNull();
 		expect(screen.getByText("情境训练")).toBeInTheDocument();
 		expect(await screen.findByText(PACK.title)).toBeInTheDocument();
 	});
@@ -190,7 +190,7 @@ describe("H1：只有 pack 列表 404 才算「特性未开启」", () => {
 		await waitFor(() => {
 			expect(mocks.getScenarioSession).toHaveBeenCalledWith(99);
 		});
-		expect(screen.queryByText("情境训练实验特性未开启")).toBeNull();
+		expect(screen.queryByText("情境训练当前未开启")).toBeNull();
 		expect(screen.getByText("情境训练")).toBeInTheDocument();
 	});
 

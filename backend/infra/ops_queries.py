@@ -18,15 +18,21 @@ All functions accept a SQLAlchemy ``Session`` and return plain dicts / lists —
 callers are responsible for auth, response shaping, and alert derivation.
 """
 
+import logging
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
+from core.audit import ACTION_SCENARIO_RATE_LIMITED
 from core.exceptions import ValidationError
 from core.statuses import LLMCallStatus
 from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
+from models.audit import AuditLog
+from models.scenario_training import StEvent, StGeneratedAsset, StSession
+
+log = logging.getLogger(__name__)
 
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 _TZ_NAME = "Asia/Shanghai"
@@ -247,6 +253,66 @@ def query_sessions(db: Session) -> int:
     return db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "in_progress").scalar() or 0
 
 
+def query_scenario(db: Session, day_ago: datetime) -> dict:
+    """情境训练（`st_*`）的 24h 观察面 + 即时会话数。
+
+    只读、只聚合，不触碰老系统的任何表；`st_*` 表在功能未上线/未加迁移的环境可能不存在
+    → 调用方（`build_dashboard`）负责降级，这里只管查询。
+
+    - `llm_failures_24h` / `fallbacks_24h`：DM 回合的问题清单里那两类后缀
+      （`dm/runner.py`：`dm_provider_error:*` / `dm_parse:*` / `dm_truncated:*` ⇒ 失败；
+      `dm_fallback` ⇒ 走了无 LLM 的保底回合）。**保底是设计内的兜底**，不是崩溃。
+    - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
+      `core/rate_limits._scenario_limited`）——多 worker 安全的唯一取数来源。
+    """
+    opened_24h = db.query(func.count(StSession.id)).filter(StSession.created_at >= day_ago).scalar() or 0
+    active = db.query(func.count(StSession.id)).filter(StSession.status == "active").scalar() or 0
+    completed = db.query(func.count(StSession.id)).filter(StSession.status == "completed").scalar() or 0
+
+    turns_24h = (
+        db.query(func.count(StEvent.id)).filter(StEvent.kind == "dm_turn", StEvent.created_at >= day_ago).scalar() or 0
+    )
+    dm = db.execute(
+        text(
+            """
+            SELECT
+                count(*) FILTER (WHERE jsonb_exists(payload -> 'problems', 'dm_fallback')) AS fallbacks,
+                count(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1 FROM jsonb_array_elements_text(payload -> 'problems') AS p(tag)
+                         WHERE p.tag LIKE 'dm_provider_error:%'
+                            OR p.tag LIKE 'dm_parse:%'
+                            OR p.tag LIKE 'dm_truncated:%'
+                    )
+                ) AS llm_failures
+              FROM st_events
+             WHERE kind = 'dm_turn' AND created_at >= :since
+            """
+        ),
+        {"since": day_ago},
+    ).one()
+
+    generated_images_24h = (
+        db.query(func.count(StGeneratedAsset.id)).filter(StGeneratedAsset.created_at >= day_ago).scalar() or 0
+    )
+    rate_limited_24h = (
+        db.query(func.count(AuditLog.id))
+        .filter(AuditLog.action == ACTION_SCENARIO_RATE_LIMITED, AuditLog.created_at >= day_ago)
+        .scalar()
+        or 0
+    )
+    return {
+        "opened_24h": int(opened_24h),
+        "active": int(active),
+        "completed": int(completed),
+        "turns_24h": int(turns_24h),
+        "llm_failures_24h": int(dm.llm_failures or 0),
+        "fallbacks_24h": int(dm.fallbacks or 0),
+        "generated_images_24h": int(generated_images_24h),
+        "rate_limited_24h": int(rate_limited_24h),
+    }
+
+
 def query_voice(db: Session, day_ago: datetime) -> dict:
     windows = voice_window(db, day_ago, direction="tts")
     tts = windows.get("tts", {})
@@ -350,10 +416,32 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
         },
         "scoring": scoring,
         "sessions": {"active": active},
+        "scenario": query_scenario_safe(db, day_ago),
         "voice": voice,
         "voice_budget": voice_budget,
         "business": business,
     }
+
+
+def query_scenario_safe(db: Session, day_ago: datetime) -> dict:
+    """`query_scenario` 的降级外壳：`st_*` 表缺失（未跑迁移的环境）与其他查询失败
+    都只告警并返回确定的零值形状 —— 情境训练是**附加轨道**，它的查询失败不得让
+    整个诊断/看板端点倒下（老系统的可见性优先）。
+    """
+    try:
+        return query_scenario(db, day_ago)
+    except Exception:
+        log.warning("scenario diagnostics unavailable", exc_info=True)
+        return {
+            "opened_24h": 0,
+            "active": 0,
+            "completed": 0,
+            "turns_24h": 0,
+            "llm_failures_24h": 0,
+            "fallbacks_24h": 0,
+            "generated_images_24h": 0,
+            "rate_limited_24h": 0,
+        }
 
 
 def compute_alerts(dashboard: dict) -> list[str]:

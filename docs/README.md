@@ -56,6 +56,7 @@
 | [LLM 调用排查](ops/llm-troubleshooting.md) | LLM 无响应、评分失败、成本异常诊断 |
 | [数据库备份恢复](ops/backup-restore.md) | 手动备份/恢复/跨环境数据同步命令 |
 | [诊断端点与指标](ops/diagnostics.md) | `/api/diagnose` 各块（健康/LLM/评分/语音/作业队列/告警）的字段契约与消费方 |
+| [情境训练上线与接收测试](ops/scenario-training.md) | 正式特性的入口/权限、kill switch、观察面、回滚与接收测试清单 |
 | [审计日志保留与归档](ops/audit-log-retention.md) | 12 个月保留 + 按月「导出→校验→受控删月」规程；只追加不变式与触发器例外 |
 | [时区对齐](ops/timezone-alignment.md) | timestamptz 迁移后的线上只读定位 SQL、修正步骤、锁/重写注意 |
 | [单实例迁移](ops/single-instance-migration.md) | 双栈收敛为单实例的过程、`test.` 域退役与运维依赖 |

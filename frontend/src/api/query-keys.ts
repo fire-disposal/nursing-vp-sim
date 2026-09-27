@@ -145,7 +145,7 @@ export const queryKeys = {
 		timeline: (recordId: number | null | undefined) => ["recordLogs", recordId] as const,
 		detail: (logId: number | null | undefined) => ["logDetail", logId] as const,
 	},
-	// 情境训练（实验特性，隐藏路由 /scenario 与 /scenario-admin）。
+	// 情境训练（正式特性：/scenario 学生侧、/scenario-admin 管理侧）。
 	scenario: {
 		all: ["scenario"] as const,
 		packs: () => [...queryKeys.scenario.all, "packs"] as const,

@@ -63,6 +63,10 @@ class _FakeProvider:
         return self.last
 
 
+async def _no_rate_limit(*_args: Any, **_kwargs: Any) -> None:
+    """限流在 test_scenario_rate_limit 单独覆盖；这里不碰真限流表。"""
+
+
 class _FakeLLM:
     """每回合都要一张生成图的 DM。"""
 
@@ -96,8 +100,14 @@ def app_client(pg_session, monkeypatch):
         yield pg_session
 
     monkeypatch.setattr(scenario_router, "SCENARIO_TRAINING_ENABLED", True)
+    monkeypatch.setattr(scenario_router, "check_scenario_open_limit", _no_rate_limit)
+    monkeypatch.setattr(scenario_router, "check_scenario_action_limit", _no_rate_limit)
     pack_loader.reset_cache()
-    holder = {"user": _FakeUser({"case_manage", "stats_view"}), "provider": _FakeProvider()}
+    # 夹具默认用户同时持有学生侧键：本文件要通过学生端点开局（再查管理侧生成物）。
+    holder = {
+        "user": _FakeUser({"case_manage", "stats_view", "scenario_training"}),
+        "provider": _FakeProvider(),
+    }
     overrides_before = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = _override_db
     app.dependency_overrides[get_current_user] = lambda: holder["user"]

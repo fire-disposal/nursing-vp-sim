@@ -42,10 +42,19 @@ LOGIN_LOCKOUT_ENABLED = os.getenv("LOGIN_LOCKOUT_ENABLED", "false").lower() == "
 LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
 LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
 
-# 情境训练（experimental，docs/20）：本仓实验性特性，与正式训练**资源隔离**、默认关闭。
-# 关闭时 /api/scenario/** 一律 404，对老系统与学生界面零可见；开启后仅需登录即可访问
-# （实验期不新增权限键；转为公开测试时再补权限）。
+# 情境训练（正式特性，docs/20）：与正式训练**资源隔离**、不替代老系统；本变量是它的**运行时开关
+# （kill switch）**——生产由 `deploy/.env`（服务器 `/opt/nursing-vp-sim/.env`）置 `true` 开启，
+# 见 docs/ops/scenario-training.md。
+# 关闭时 `/api/scenario/**` 一律 404（不是 403：不暴露功能存在），对学生界面零可见。
+# 开启后学生侧判权限键 `scenario_training`（core/permissions.py，角色授予见 core/roles.py +
+# 存量库补权迁移 c8d9e0f1a2b3）；管理侧复用 `case_manage` / `stats_view`。
 SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lower() == "true"
+
+# 学生侧限流（正式特性的成本/滥用面）。走 `core/rate_limits.PgRateLimiter`（PG 滑窗、多 worker 安全），
+# 超限给 429 + 人话；命中同时落一条审计（`scenario.rate_limited`），运维面按它统计。
+# 默认值按"正常学生打不到"取值：一次会话通常几十个回合，单日开局上限 20 次足够重做多轮。
+SCENARIO_OPEN_LIMIT_PER_DAY = int(os.getenv("SCENARIO_OPEN_LIMIT_PER_DAY", "20"))
+SCENARIO_ACTION_LIMIT_PER_5MIN = int(os.getenv("SCENARIO_ACTION_LIMIT_PER_5MIN", "30"))
 
 # 场景图片字节一律入库（`st_assets` / `st_generated_assets`），不再有磁盘缓存目录：
 # 曾用 `SCENARIO_IMAGE_CACHE_DIR` 落盘，容器重建即丢、管理端也看不见——已删除。

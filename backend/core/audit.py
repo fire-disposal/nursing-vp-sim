@@ -67,6 +67,9 @@ ACTION_QUESTIONNAIRE_TEMPLATE_CREATED = "questionnaire_template.created"
 ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED = "questionnaire_template.updated"
 ACTION_QUESTIONNAIRE_TEMPLATE_DELETED = "questionnaire_template.deleted"
 ACTION_AUTH_LOGIN_BLOCKED = "auth.login_blocked"
+# 情境训练限流命中（学生侧动作/开局超限）——运维面按它统计"限流命中次数"，
+# 也是滥用证据；见 core/rate_limits.check_scenario_*。
+ACTION_SCENARIO_RATE_LIMITED = "scenario.rate_limited"
 
 TARGET_TYPE_USER = "user"
 TARGET_TYPE_ROLE = "role"
