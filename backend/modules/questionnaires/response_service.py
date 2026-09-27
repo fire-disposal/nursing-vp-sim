@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
-from core.statuses import QuestionnaireTrigger, normalize_questionnaire_trigger
+from core.statuses import QuestionnaireTrigger, normalize_questionnaire_trigger, normalize_training_mode
 from core.unit_of_work import unit_of_work
+from infra.exporter import ColumnDef
 from models import (
     CaseQuestionnaire,
+    CaseRevision,
     QuestionnaireAnswer,
     QuestionnaireQuestion,
     QuestionnaireResponse,
@@ -20,11 +22,84 @@ from models import (
     TrainingRecord,
 )
 from modules.questionnaires.service import template_to_detail
+from modules.training.manifest import experiment_label
+from modules.training.scoring.grade_policy import SOURCE_LABELS, score_source
 from schemas.questionnaire import (
     QuestionnaireCheckResponse,
     QuestionnaireStatsResponse,
     QuestionStatsItem,
 )
+
+
+def build_response_export_columns(
+    responses: Sequence[QuestionnaireResponse],
+    questions: Sequence[QuestionnaireQuestion],
+    revisions: Mapping[int, int] | None = None,
+) -> list[ColumnDef]:
+    """问卷答卷导出的列（纯函数，便于无库测试）。
+
+    除题目答案外，必须能**定位**这条答卷属于哪一次训练——这是 U0「一条导出记录可以定位批次、
+    训练记录、病例 revision、问卷回答与评分来源」的落点：只有答题内容而没有训练记录/批次/评分来源，
+    导出就只是一堆分不清来源的数字，事后无法把答卷与训练、评分口径对上。
+    取不到的字段一律留空（历史答卷可能没有关联记录，不用默认值补成"当时就是如此"）。
+    """
+    revision_map = dict(revisions or {})
+    columns = [
+        ColumnDef(header="学生姓名", value=lambda r: r.user.display_name if r.user else ""),
+        ColumnDef(header="学号", value=lambda r: r.user.student_id if r.user else ""),
+        ColumnDef(header="提交时间", value=lambda r: r.completed_at.isoformat() if r.completed_at else ""),
+        ColumnDef(header="训练记录ID", value=lambda r: str(r.record_id) if r.record_id else ""),
+        ColumnDef(
+            header="病例",
+            value=lambda r: r.record.case.name if r.record and r.record.case else (r.case.name if r.case else ""),
+        ),
+        ColumnDef(
+            header="病例修订号",
+            value=lambda r: (
+                str(revision_map.get(r.record.case_revision_id, "")) if r.record and r.record.case_revision_id else ""
+            ),
+        ),
+        ColumnDef(header="实验批次", value=lambda r: experiment_label(r.record.practice_snapshot) if r.record else ""),
+        ColumnDef(
+            header="训练模式",
+            value=lambda r: (
+                normalize_training_mode((r.record.practice_snapshot or {}).get("behavior", {}).get("mode"))
+                if r.record
+                else ""
+            ),
+        ),
+        ColumnDef(
+            header="评分标准版本",
+            value=lambda r: (r.record.score.rubric_version or "") if r.record and r.record.score else "",
+        ),
+        ColumnDef(
+            header="映射版本",
+            value=lambda r: str(r.record.score.mapping_version) if r.record and r.record.score else "",
+        ),
+        ColumnDef(
+            header="成绩来源",
+            value=lambda r: (
+                SOURCE_LABELS.get(
+                    score_source(reviewed_total=r.record.score.reviewed_total, fallback=r.record.score.fallback),
+                    "",
+                )
+                if r.record and r.record.score
+                else ""
+            ),
+        ),
+    ]
+    answer_map: dict[int, dict[int, str]] = {}
+    for response in responses:
+        answer_map[response.id] = {a.question_id: a.answer_value or "" for a in response.answers}
+    for question in questions:
+        question_id = question.id
+        columns.append(
+            ColumnDef(
+                header=question.content or "",
+                value=lambda r, question_id=question_id: answer_map[r.id].get(question_id, ""),
+            )
+        )
+    return columns
 
 
 def validate_submitted_answers(
@@ -457,8 +532,8 @@ class QuestionnaireResponseService:
 
     def export_data(
         self, template_id: int
-    ) -> tuple[QuestionnaireTemplate, list[QuestionnaireResponse], list[QuestionnaireQuestion]]:
-        """Return (template, responses, questions) for export formatting."""
+    ) -> tuple[QuestionnaireTemplate, list[QuestionnaireResponse], list[QuestionnaireQuestion], dict[int, int]]:
+        """Return (template, responses, questions, case_revision_no_by_id) for export formatting."""
         t = self._get_template(template_id)
         if not t:
             raise NotFoundError("问卷模板不存在")
@@ -468,6 +543,9 @@ class QuestionnaireResponseService:
             .options(
                 joinedload(QuestionnaireResponse.user),
                 joinedload(QuestionnaireResponse.answers),
+                # 答卷 → 训练记录 → 病例/成绩：导出的联动列要能定位这次训练（U0 通过条件）
+                joinedload(QuestionnaireResponse.record).joinedload(TrainingRecord.case),
+                joinedload(QuestionnaireResponse.record).joinedload(TrainingRecord.score),
             )
             .filter(
                 QuestionnaireResponse.template_id == template_id,
@@ -477,6 +555,16 @@ class QuestionnaireResponseService:
             .all()
         )
 
+        revision_ids = {r.record.case_revision_id for r in responses if r.record and r.record.case_revision_id}
+        revisions: dict[int, int] = {}
+        if revision_ids:
+            revisions = {
+                rev_id: rev_no
+                for rev_id, rev_no in self.db.query(CaseRevision.id, CaseRevision.revision_no)
+                .filter(CaseRevision.id.in_(revision_ids))
+                .all()
+            }
+
         questions = (
             self.db.query(QuestionnaireQuestion)
             .filter(QuestionnaireQuestion.template_id == template_id)
@@ -484,4 +572,4 @@ class QuestionnaireResponseService:
             .all()
         )
 
-        return t, responses, questions
+        return t, responses, questions, revisions

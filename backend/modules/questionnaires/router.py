@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from core.statuses import QuestionnaireTrigger
-from infra.exporter import ColumnDef, ExportAudit, export_response
+from infra.exporter import ExportAudit, export_response
 from models import User
-from modules.questionnaires.response_service import QuestionnaireResponseService
+from modules.questionnaires.response_service import QuestionnaireResponseService, build_response_export_columns
 from modules.questionnaires.service import QuestionnaireTemplateFilters, QuestionnaireTemplateService
 from schemas import (
     CaseAssignmentRequest,
@@ -209,24 +209,9 @@ def export_responses(
     request: Request,
 ):
     svc = QuestionnaireResponseService(db)
-    t, responses, questions = svc.export_data(template_id)
+    t, responses, questions, revisions = svc.export_data(template_id)
 
-    ans_map_cache: dict[int, dict[int, str]] = {}
-    for r in responses:
-        amap: dict[int, str] = {}
-        for a in r.answers:
-            amap[a.question_id] = a.answer_value or ""
-        ans_map_cache[r.id] = amap
-
-    columns = [
-        ColumnDef(header="学生姓名", value=lambda r: r.user.display_name if r.user else ""),
-        ColumnDef(header="学号", value=lambda r: r.user.student_id if r.user else ""),
-        ColumnDef(header="提交时间", value=lambda r: r.completed_at.isoformat() if r.completed_at else ""),
-    ]
-    for q in questions:
-        qid = q.id
-        qcontent = q.content or ""
-        columns.append(ColumnDef(header=qcontent, value=lambda r, qid=qid: ans_map_cache[r.id].get(qid, "")))
+    columns = build_response_export_columns(responses, questions, revisions)
 
     safe_title = quote(t.title or f"问卷{template_id}")
     return export_response(

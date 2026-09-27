@@ -11,6 +11,7 @@ from core.deps import CurrentUser, DbSession
 from core.exceptions import AuthError, NotFoundError
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Message, TrainingRecord, User
+from modules.training.manifest import experiment_label
 from modules.training.scoring.grade_policy import SOURCE_LABELS, score_source
 
 log = logging.getLogger(__name__)
@@ -81,17 +82,7 @@ def export_records(
         ColumnDef("学号", value=lambda r: r.user.student_id if r.user else ""),
         ColumnDef("病例名称", value=lambda r: r.case.name if r.case else ""),
         # 实验批次（多批次实验的分组键；未标记为空）
-        ColumnDef(
-            "实验批次",
-            value=lambda r: (
-                str((((r.practice_snapshot or {}).get("experiment") or {}).get("batch")) or "")
-                + (
-                    f"/{((r.practice_snapshot or {}).get('experiment') or {}).get('arm')}"
-                    if ((r.practice_snapshot or {}).get("experiment") or {}).get("arm")
-                    else ""
-                )
-            ),
-        ),
+        ColumnDef("实验批次", value=lambda r: experiment_label(r.practice_snapshot)),
         ColumnDef("状态", key="status"),
         ColumnDef("开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
         ColumnDef("结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),

@@ -47,6 +47,21 @@ class ArtifactState:
         return self.state == ARTIFACT_SUBMITTED
 
 
+def experiment_label(snapshot: Mapping[str, Any] | None) -> str:
+    """记录上的实验批次标签（``practice_snapshot.experiment``）——「批次/分组」的唯一渲染口径。
+
+    写入侧是 ``router/session.py::_stamp_experiment``（请求显式指定 > 环境变量 ``EXPERIMENT_BATCH``；
+    两者都没有就不写这个键，不做臆造的默认分组）。导出（训练记录 / 问卷答卷）与候选清单都从这里读，
+    避免同一事实在多个导出里各写一遍、慢慢说不到一起。
+    """
+    experiment = (snapshot or {}).get("experiment") or {}
+    batch = str(experiment.get("batch") or "")
+    if not batch:
+        return ""
+    arm = str(experiment.get("arm") or "")
+    return f"{batch}/{arm}" if arm else batch
+
+
 def build_session_manifest(
     *,
     session_id: int,
