@@ -48,6 +48,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Downgrade schema：先删掉降级后会违反旧词表的行（步骤/归属可丢，动作与叙述不受影响）。"""
-    op.execute("DELETE FROM st_events WHERE kind IN ('action_attributed', 'dm_step')")
+    """Downgrade schema：只回退约束。
+
+    若库里已经存在 `action_attributed` / `dm_step` 行，旧词表会**显式拒绝**这次降级（PG 报约束冲突）——
+    这是刻意的：删数据不是迁移该替操作者做的决定。需要降级时先自行确认并清理，例如：
+
+        DELETE FROM st_events WHERE kind IN ('action_attributed', 'dm_step');
+
+    删掉的只是"归属"与"DM 步骤"这两类**派生**事件；学生动作、叙述、效果等原始证据不受影响。
+    """
     _swap(_OLD)
