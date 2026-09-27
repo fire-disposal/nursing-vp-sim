@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from infra.llm import safe_parse_json
 from infra.llm.parsing import TruncatedJSONError
 
-from ..runtime.world import World, facts_observed
+from ..runtime.world import World, facts_observed, visible_affordances
 from ..schema import AffordanceType, Effect, ScenarioPack
 
 # DM 不得提供的自由输入占位（平台保证存在，见 docs/20 §九）
@@ -112,6 +112,27 @@ class DMNote(BaseModel):
     supersedes: str = ""  # 订正某条已有条目（旧条目保留并标记被取代）
 
 
+class DMInterpretation(BaseModel):
+    """DM 对**学生这句话**的解读：它等价于哪一个**已声明**的 affordance。
+
+    只在学生**自由表达**（没点按钮）时才有意义——学生点了按钮，一切以他选的为准。
+    映射不出就留空：宁缺毋假，绝不硬凑一个归属。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    affordance_id: str | None = None
+
+
+class DMToolCall(BaseModel):
+    """DM 在产出信封**之前**的一次环境读取（多步循环，见 docs/21 §四）。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tool: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
 class DMTurn(BaseModel):
     """DM 单回合输出。字段缺失一律按空处理，不抛。"""
 
@@ -119,6 +140,7 @@ class DMTurn(BaseModel):
 
     narration: str = ""
     lines: list[DMLine] = Field(default_factory=list)
+    interpretation: DMInterpretation | None = None  # 把学生的自由表达映射到已解锁的 affordance
     delegate: list[DMDelegate] = Field(default_factory=list)
     facts_declared: list[DMFact] = Field(default_factory=list)
     notes: list[DMNote] = Field(default_factory=list)  # 写在线索板上的判断/订正（简短）
@@ -152,6 +174,29 @@ def parse_turn(raw: str) -> DMTurn:
         raise TurnTruncatedError(str(exc)) from exc
     except (ValueError, TypeError) as exc:
         raise TurnParseError(str(exc)) from exc
+
+
+#: 信封字段名（= `DMTurn` 的全部字段）：带其中任何一个都按**信封**处理，不认成工具调用
+ENVELOPE_KEYS = frozenset(DMTurn.model_fields)
+
+
+def parse_step(raw: str) -> DMToolCall | None:
+    """把一段输出认成**工具调用** `{"tool": ..., "args": {...}}`；不是工具调用则返回 None。
+
+    判据保守：只要出现任何一个信封字段就按信封处理——宁可不执行这一步，
+    也不把一段半成品叙述（或一条空回合）当成工具调用吞掉。
+    """
+    try:
+        data = safe_parse_json(raw)
+    except (ValueError, TypeError, TruncatedJSONError):
+        return None
+    if not isinstance(data, dict) or ENVELOPE_KEYS & data.keys():
+        return None
+    tool = data.get("tool")
+    if not isinstance(tool, str) or not tool.strip():
+        return None
+    args = data.get("args")
+    return DMToolCall(tool=tool.strip(), args=args if isinstance(args, dict) else {})
 
 
 def _bump(dropped: dict[str, int], key: str) -> None:
@@ -335,6 +380,33 @@ def _clean_notes(pack: ScenarioPack, turn: DMTurn, problems: list[str], dropped:
     return kept
 
 
+def _clean_interpretation(
+    pack: ScenarioPack, turn: DMTurn, world: World, problems: list[str], dropped: dict[str, int]
+) -> DMInterpretation | None:
+    """学生自由表达的归属：只认**已声明**且**此刻已解锁**的动作；越权即丢弃并记账。
+
+    - 未声明 → `unknown_affordance`；已声明但那扇门还没开（`visible_when` 不成立）→ `locked_affordance`；
+      两者都不写进记录——认错比漏认更坏，宁缺毋假。
+    - 留空（缺省 / 空串）→ 原样留空，不编造归属。
+    - `world` 为缺省（无世界）时，有门控的动作一律按未解锁处理（保守）。
+    """
+    raw = turn.interpretation
+    if raw is None:
+        return None
+    affordance_id = (raw.affordance_id or "").strip()
+    if not affordance_id:
+        return None
+    if pack.affordance(affordance_id) is None:
+        problems.append(f"unknown_affordance:{affordance_id}")
+        _bump(dropped, "interpretation")
+        return None
+    if affordance_id not in {affordance.id for affordance in visible_affordances(pack, world)}:
+        problems.append(f"locked_affordance:{affordance_id}")
+        _bump(dropped, "interpretation")
+        return None
+    return raw.model_copy(update={"affordance_id": affordance_id})
+
+
 def validate_turn(pack: ScenarioPack, turn: DMTurn, world: World | None = None) -> TurnCheck:
     """按 pack 校验并清洗 DM 输出。非法项**丢弃并记账**，不让坏回合炸到学生面前。
 
@@ -353,6 +425,7 @@ def validate_turn(pack: ScenarioPack, turn: DMTurn, world: World | None = None) 
             "images": _clean_images(pack, turn, problems, dropped),
             "image_request": _clean_image_request(pack, turn, problems, dropped),
             "notes": _clean_notes(pack, turn, problems, dropped),
+            "interpretation": _clean_interpretation(pack, turn, current, problems, dropped),
             # facts_declared 是叙述证据，不是判读依据（判读读世界事实）→ 原样保留
             "facts_declared": list(turn.facts_declared),
         }

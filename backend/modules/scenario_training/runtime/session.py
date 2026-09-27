@@ -10,7 +10,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select
@@ -27,7 +29,7 @@ from ..assets import (
     generated_asset_id,
     store_generated_asset,
 )
-from ..dm.contract import DMImageRequest, DMTurn, validate_turn
+from ..dm.contract import DMImageRequest, DMInterpretation, DMTurn, validate_turn
 from ..dm.entity import run_entity
 from ..dm.runner import run_dm
 from ..judge.rules import dims_snapshot, evaluate, score_report, summarize
@@ -192,10 +194,18 @@ def _fire_reactions(
     pack: ScenarioPack,
     before: World,
     world: World,
+    *,
+    skip: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
-    """边沿触发的 pack 反应；返回给 DM 的"本回合必然发生"。"""
+    """边沿触发的 pack 反应；返回给 DM 的"本回合必然发生"。
+
+    `skip` 用于**同回合的第二次求值**（归属回填之后）：本回合已经发过的反应跳过，
+    只补"因为刚认领了动作才成立"的那几条——幂等，不会重复触发。
+    """
     beats: list[dict[str, Any]] = []
     for reaction in due_reactions(pack, before, world):
+        if reaction.id in skip:
+            continue
         applied = apply_effects(pack, world, reaction.effects, source=f"reaction:{reaction.id}")
         revealed = reveal_cues(pack, world, reaction.reveals)
         _record_deltas(db, session_id, applied, revealed)
@@ -214,11 +224,36 @@ def _clean_selection(affordance: Any, selected: list[str]) -> tuple[list[str], l
     return kept, problems
 
 
+def _attribute_free_action(
+    db: Session,
+    session_id: int,
+    record: ActionRecord,
+    interpretation: DMInterpretation | None,
+) -> bool:
+    """把 DM 对学生**自由表达**的解读回填到动作记录上（判读/白板/维度因此不必各自认词）。
+
+    - 只在学生**没点按钮**时回填：学生自己选的 affordance 以他选的为准，DM 不得覆盖；
+    - 记录已随 `student_action` 入流，回填**另发一条 `action_attributed` 事件**（append-only），
+      回放时把它补到对应回合的记录上——历史事件不改写；
+    - 返回是否真的回填了（调用方据此再求值一次 pack 反应的边沿）。
+    """
+    if interpretation is None or interpretation.affordance_id is None or record.affordance_id is not None:
+        return False
+    record.affordance_id = interpretation.affordance_id
+    append_event(
+        db,
+        session_id,
+        "action_attributed",
+        {"turn": record.turn, "affordance_id": record.affordance_id, "source": "dm"},
+    )
+    return True
+
+
 def _remember_dm_turn(world: World, check: Any) -> list[dict[str, Any]]:
     if check.turn.narration:
-        world.narrations.append(check.turn.narration)
+        world.narrations.append({"turn": world.turn, "text": check.turn.narration})
     for line in check.turn.lines:
-        world.lines.append({"actor": line.actor, "text": line.text, "origin": line.origin})
+        world.lines.append({"actor": line.actor, "text": line.text, "origin": line.origin, "turn": world.turn})
     if check.turn.options:
         world.options = [option.model_dump(mode="json") for option in check.turn.options]
     for fact in check.turn.facts_declared:
@@ -237,6 +272,16 @@ def _remember_dm_turn(world: World, check: Any) -> list[dict[str, Any]]:
     return stamped
 
 
+async def _emit_dm_step(db: Session, session_id: int, payload: dict[str, Any]) -> None:
+    """多步循环的每一步都落一条 `dm_step`（教师回放可见、学生不可见；步数进 `/api/diagnose`）。"""
+    append_event(db, session_id, "dm_step", payload)
+
+
+def dm_step_reporter(db: Session, session_id: int) -> Callable[[dict[str, Any]], Awaitable[None]]:
+    """`dm_step` 上报器：落地路径与**流式路径**共用（流式在 router 里先拿到回合，也要落步）。"""
+    return partial(_emit_dm_step, db, session_id)
+
+
 async def opening_turn(
     db: Session,
     *,
@@ -248,7 +293,16 @@ async def opening_turn(
 ) -> list[str]:
     """**开场回合**：DM 先立场景、让在场者按状态开口，再等学生动手（不走学生动作）。"""
     world = replay(db, session, pack)
-    dm_turn, dm_problems = await run_dm(llm, pack, world, None, [], user_id=user_id, opening=True)
+    dm_turn, dm_problems = await run_dm(
+        llm,
+        pack,
+        world,
+        None,
+        [],
+        user_id=user_id,
+        opening=True,
+        on_step=dm_step_reporter(db, session.id),
+    )
     check = validate_turn(pack, dm_turn, world)
     problems = [*dm_problems, *check.problems]
 
@@ -331,9 +385,21 @@ async def submit_action(
     if dm_turn is not None:
         turn_result, dm_problems = dm_turn, list(dm_problems or [])
     else:
-        turn_result, dm_problems = await run_dm(llm, pack, world, record, beats, user_id=user_id)
+        turn_result, dm_problems = await run_dm(
+            llm, pack, world, record, beats, user_id=user_id, on_step=dm_step_reporter(db, session.id)
+        )
     check = validate_turn(pack, turn_result, world)
     problems = [*action_problems, *dm_problems, *check.problems]
+
+    # 3a) 归属回填：学生这句话是**自由表达**时，DM 已把它解读成某个已解锁的动作 → 写进记录
+    #     （越权/未声明已在 `validate_turn` 里丢弃；学生自己点的按钮不被覆盖）
+    if _attribute_free_action(db, session.id, record, check.turn.interpretation):
+        # 3b) 归属让某条 pack 反应**此刻**才成立（第一次求值在它之前，记录里还没有 id）→
+        #     以同一个 `before` 再求值一次：只有"新成立"的会发，本回合已发过的按 id 跳过（幂等）。
+        #     这样"自由表达"与"点按钮"对世界是同一件事，且补发的反应与它的同伴同一因果位置。
+        beats.extend(
+            _fire_reactions(db, session.id, pack, before, world, skip=frozenset(beat["reaction"] for beat in beats))
+        )
 
     dm_applied = apply_effects(pack, world, check.turn.effects, source="dm")
     dm_revealed = reveal_cues(pack, world, check.turn.reveals)

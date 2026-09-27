@@ -146,6 +146,8 @@ def _payload(monkeypatch, *, frontend_last_5min: int) -> dict:
             "llm_failures_24h": 1,
             "fallbacks_24h": 2,
             "generated_images_24h": 3,
+            "dm_steps_24h": 9,
+            "dm_avg_steps_24h": 0.29,
             "rate_limited_24h": 5,
         },
         "voice": {"tts": {}},
@@ -260,6 +262,8 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
         "llm_failures_24h",
         "fallbacks_24h",
         "generated_images_24h",
+        "dm_steps_24h",
+        "dm_avg_steps_24h",
         "rate_limited_24h",
     }
     assert all(
@@ -272,9 +276,11 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
             "llm_failures_24h",
             "fallbacks_24h",
             "generated_images_24h",
+            "dm_steps_24h",
             "rate_limited_24h",
         )
     )
+    assert isinstance(scenario["dm_avg_steps_24h"], float)
 
 
 def test_jobs_block_reports_queue_state_and_expired_leases(monkeypatch):

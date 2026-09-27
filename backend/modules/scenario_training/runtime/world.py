@@ -14,7 +14,7 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..schema import Clause, ClauseKind, Effect, EffectOp, Reaction, ScenarioPack, Trigger
+from ..schema import Affordance, Clause, ClauseKind, Effect, EffectOp, Reaction, ScenarioPack, Trigger
 
 
 @dataclass
@@ -44,10 +44,11 @@ class World:
     revealed: list[str] = field(default_factory=list)
     ad_hoc_cues: list[str] = field(default_factory=list)
     lines: list[dict[str, Any]] = field(default_factory=list)
-    narrations: list[str] = field(default_factory=list)
+    narrations: list[dict[str, Any]] = field(default_factory=list)  # 每回合的叙述（带回合号：观察窗口要时序）
     options: list[dict[str, Any]] = field(default_factory=list)
     declared_facts: list[dict[str, Any]] = field(default_factory=list)
     notes: list[dict[str, Any]] = field(default_factory=list)  # DM 写在白板上的判断/订正
+    dm_notes: list[str] = field(default_factory=list)  # DM 的草稿纸（`dm_step` 里的 note.write；学生看不到）
     state_history: dict[str, list[Any]] = field(default_factory=dict)  # 键 → 历次取值（趋势用）
     images: list[dict[str, Any]] = field(default_factory=list)  # 已展示的图片（资源包 / 生成）
     fired: list[str] = field(default_factory=list)
@@ -66,17 +67,36 @@ class World:
     def custom_texts(self) -> list[str]:
         return [a.custom_text for a in self.actions if a.custom_text]
 
+    def timeline_pieces(self, pack: ScenarioPack) -> list[tuple[int, str]]:
+        """(回合, 文案) 的**时序**列表：学生做了什么 → 场景叙述 → 谁说了什么。
+
+        同回合内保持"动作 → 叙述 → 台词"的因果序（Python 的排序是稳定的）。
+        """
+        pieces: list[tuple[int, str]] = [(action.turn, f"[学生] {action.label(pack)}") for action in self.actions]
+        pieces += [
+            (int(item.get("turn", 0)), f"[场景] {item.get('text', '')}") for item in self.narrations if item.get("text")
+        ]
+        pieces += [
+            (int(line.get("turn", 0)), f"[{line.get('actor', '?')}] {line.get('text', '')}") for line in self.lines
+        ]
+        return sorted(pieces, key=lambda piece: piece[0])
+
     def transcript(self, pack: ScenarioPack, limit: int = 14) -> str:
-        """给学生消息与叙述的精简转录（供 DM 上下文）。"""
-        chunks: list[str] = []
-        for action in self.actions[-limit:]:
-            chunks.append(f"[学生{turn_word(action.turn)}] {action.label(pack)}")
-        for narration in self.narrations[-limit:]:
-            chunks.append(f"[场景] {narration}")
-        for line in self.lines[-limit:]:
-            actor = line.get("actor", "?")
-            chunks.append(f"[{actor}] {line.get('text', '')}")
-        return "\n".join(chunks[-limit:])
+        """给学生消息与叙述的**按回合时序**精简转录（供 DM 上下文与 `history.lastN`）。
+
+        每回合：学生做了什么 → 场景/在场者说了什么。顺序错了会误导判断——
+        旧实现按"动作/叙述/台词"分组后再截取，最近一屏常常只剩台词。
+        """
+        pieces = self.timeline_pieces(pack)
+        rows: list[str] = []
+        shown_turn: int | None = None
+        for turn, text in pieces[-limit:]:
+            if turn != shown_turn:
+                rows.append(f"{'开场' if turn == 0 else turn_word(turn)}：{text}")
+                shown_turn = turn
+            else:
+                rows.append(text)
+        return "\n".join(rows)
 
 
 def turn_word(turn: int) -> str:
@@ -184,6 +204,18 @@ def trigger_holds(pack: ScenarioPack, world: World, trigger: Trigger | None) -> 
     return all(clause_holds(pack, world, clause) for clause in trigger.all)
 
 
+def visible_affordances(pack: ScenarioPack, world: World) -> list[Affordance]:
+    """此刻**已解锁**的动作：无门控 = 一直在；有门控 = 条件成立才可用。
+
+    视图投影（学生能点什么）与 DM 解读的越权守卫（学生这句话能算作什么）共用这**同一条**判定。
+    """
+    return [
+        affordance
+        for affordance in pack.affordances
+        if affordance.visible_when is None or trigger_holds(pack, world, affordance.visible_when)
+    ]
+
+
 def due_reactions(pack: ScenarioPack, before: World, after: World) -> list[Reaction]:
     """边沿触发：条件在本回合**新成立**才发生；`once=true` 的只发一次。"""
     fired: list[Reaction] = []
@@ -229,6 +261,20 @@ def _fold_action(world: World, payload: dict[str, Any]) -> None:
     world.actions.append(ActionRecord(**(payload.get("action") or {})))
 
 
+def _fold_attribution(world: World, payload: dict[str, Any]) -> None:
+    """把 DM 对学生**自由表达**的解读补回对应回合的动作记录（学生自己选的 id 不被覆盖）。"""
+    affordance_id = payload.get("affordance_id")
+    if not affordance_id:
+        return
+    turn = payload.get("turn")
+    for action in reversed(world.actions):
+        if turn is not None and action.turn != turn:
+            continue
+        if action.affordance_id is None:
+            action.affordance_id = str(affordance_id)
+        return
+
+
 def _fold_effects(world: World, payload: dict[str, Any]) -> None:
     for item in payload.get("items", []):
         world.state[item["key"]] = item["new"]
@@ -248,9 +294,10 @@ def _fold_cues(world: World, payload: dict[str, Any]) -> None:
 
 
 def _fold_dm_turn(world: World, payload: dict[str, Any]) -> None:
+    turn = int(payload.get("turn", world.turn))
     if payload.get("narration"):
-        world.narrations.append(payload["narration"])
-    world.lines.extend(payload.get("lines", []))
+        world.narrations.append({"turn": turn, "text": payload["narration"]})
+    world.lines.extend({**line, "turn": turn} for line in payload.get("lines", []))
     if payload.get("options") is not None:
         world.options = payload.get("options", [])
     world.declared_facts.extend(payload.get("facts_declared", []))
@@ -260,8 +307,17 @@ def _fold_dm_turn(world: World, payload: dict[str, Any]) -> None:
             world.fired.append(reaction_id)
 
 
+def _fold_dm_step(world: World, payload: dict[str, Any]) -> None:
+    """多步循环的一步：只有 `note.write` 会改变世界的可用信息（DM 的草稿纸）。"""
+    if payload.get("tool") != "note.write":
+        return
+    text = str((payload.get("args") or {}).get("text") or "").strip()
+    if text:
+        world.dm_notes.append(text)
+
+
 def _fold_entity_line(world: World, payload: dict[str, Any]) -> None:
-    world.lines.append(payload.get("line", {}))
+    world.lines.append({**payload.get("line", {}), "turn": world.turn})
 
 
 def _fold_closed(world: World, _payload: dict[str, Any]) -> None:
@@ -270,9 +326,11 @@ def _fold_closed(world: World, _payload: dict[str, Any]) -> None:
 
 _FOLDERS = {
     "student_action": _fold_action,
+    "action_attributed": _fold_attribution,
     "effects_applied": _fold_effects,
     "cues_revealed": _fold_cues,
     "dm_turn": _fold_dm_turn,
+    "dm_step": _fold_dm_step,
     "entity_line": _fold_entity_line,
     "session_closed": _fold_closed,
 }

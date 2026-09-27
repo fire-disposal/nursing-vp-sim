@@ -33,6 +33,17 @@ def _dm_turn(db, session_id: int, seq: int, problems: list[str], created_at: dat
     db.add(row)
 
 
+def _dm_step(db, session_id: int, seq: int, created_at: datetime) -> None:
+    row = StEvent(
+        session_id=session_id,
+        seq=seq,
+        kind="dm_step",
+        payload={"turn": 1, "step": 1, "tool": "world.state", "args": {}, "ok": True, "ms": 3},
+    )
+    row.created_at = created_at
+    db.add(row)
+
+
 def _image(db, session_id: int, created_at: datetime, sha_seed: int) -> None:
     row = StGeneratedAsset(
         session_id=session_id,
@@ -67,6 +78,10 @@ def test_counts_24h_events_and_distinguishes_failure_from_fallback(pg_session) -
     _dm_turn(db, fresh.id, 3, ["dm_provider_error:TimeoutError", "dm_fallback"], NOW - timedelta(minutes=30))
     _dm_turn(db, stale.id, 1, ["dm_fallback"], OLD)  # 窗口外
 
+    _dm_step(db, fresh.id, 11, NOW - timedelta(minutes=45))
+    _dm_step(db, fresh.id, 12, NOW - timedelta(minutes=44))
+    _dm_step(db, stale.id, 13, OLD)  # 窗口外
+
     _image(db, fresh.id, NOW - timedelta(minutes=30), 1)
     _image(db, fresh.id, OLD, 2)  # 窗口外
 
@@ -85,6 +100,8 @@ def test_counts_24h_events_and_distinguishes_failure_from_fallback(pg_session) -
     assert result["llm_failures_24h"] == 2  # dm_parse + dm_provider_error
     assert result["fallbacks_24h"] == 1  # 只有窗口内那一条
     assert result["generated_images_24h"] == 1
+    assert result["dm_steps_24h"] == 2  # 窗口内的两步；窗口外那条不计
+    assert result["dm_avg_steps_24h"] == 0.67  # 2 步 / 3 个 dm_turn
     assert result["rate_limited_24h"] == 2
 
 
@@ -100,5 +117,7 @@ def test_empty_tables_give_zeroed_shape(pg_session) -> None:
         "llm_failures_24h": 0,
         "fallbacks_24h": 0,
         "generated_images_24h": 0,
+        "dm_steps_24h": 0,
+        "dm_avg_steps_24h": 0.0,
         "rate_limited_24h": 0,
     }

@@ -37,6 +37,8 @@ PACK_STATES = ("experimental", "reviewed")
 EVENT_KINDS = (
     "session_opened",
     "student_action",
+    "action_attributed",
+    "dm_step",
     "dm_turn",
     "effects_applied",
     "cues_revealed",
@@ -172,7 +174,7 @@ class StEvent(Base):
         Index("ix_st_events_session_kind", "session_id", "kind"),
         CheckConstraint(
             "kind IN ("
-            "'session_opened', 'student_action', 'dm_turn', 'effects_applied', "
+            "'session_opened', 'student_action', 'action_attributed', 'dm_step', 'dm_turn', 'effects_applied', "
             "'cues_revealed', 'entity_line', 'judge_result', 'session_closed'"
             ")",
             name="ck_st_events_kind",

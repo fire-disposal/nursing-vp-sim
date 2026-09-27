@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..schema import Affordance, ScenarioPack
+from ..schema import ScenarioPack
 from .board import build_board
 from .devices import build_devices
-from .world import World, is_lost
+from .world import World, is_lost, visible_affordances
 
 
 def _hud(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
@@ -31,19 +31,9 @@ def _hud(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
         elif item.source == "actor":
             entry["items"] = [actor.role for actor in pack.actors if actor.presence.value == "on_site"]
         elif item.source == "affordance":
-            entry["count"] = len(_visible_affordances(pack, world))
+            entry["count"] = len(visible_affordances(pack, world))
         slots.append(entry)
     return slots
-
-
-def _visible_affordances(pack: ScenarioPack, world: World) -> list[Affordance]:
-    from .world import trigger_holds
-
-    return [
-        affordance
-        for affordance in pack.affordances
-        if affordance.visible_when is None or trigger_holds(pack, world, affordance.visible_when)
-    ]
 
 
 def _nudges(pack: ScenarioPack, world: World) -> list[str]:
@@ -99,8 +89,8 @@ def build_view(
 ) -> dict[str, Any]:
     """学生可见的完整视图（前端按词汇表通用渲染）。"""
     messages: list[dict[str, Any]] = []
-    for index, text in enumerate(world.narrations):
-        messages.append({"role": "scene", "text": text, "turn": index + 1})
+    for index, narration in enumerate(world.narrations):
+        messages.append({"role": "scene", "text": narration.get("text", ""), "turn": index + 1})
     for line in world.lines:
         actor_id = line.get("actor")
         declared = pack.actor(str(actor_id)) if actor_id else None
@@ -130,7 +120,7 @@ def build_view(
         )
 
     affordances: list[dict[str, Any]] = []
-    for affordance in _visible_affordances(pack, world):
+    for affordance in visible_affordances(pack, world):
         affordances.append(
             {
                 "id": affordance.id,

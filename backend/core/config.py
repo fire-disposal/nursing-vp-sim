@@ -56,6 +56,11 @@ SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lowe
 SCENARIO_OPEN_LIMIT_PER_DAY = int(os.getenv("SCENARIO_OPEN_LIMIT_PER_DAY", "20"))
 SCENARIO_ACTION_LIMIT_PER_5MIN = int(os.getenv("SCENARIO_ACTION_LIMIT_PER_5MIN", "30"))
 
+# DM 的**受限多步循环**步数上限（docs/21 §四）：DM 可以先调只读工具看环境，再产出信封。
+# 每一步 = 一次 LLM 调用（工具协议写在提示词里，见 dm/tools.py），因此这个数**直接是成本旋钮**：
+# 3 步 ≈ 最坏情况每回合多 3 次调用；置 0 即回到"一次交付"的单步模式（延迟/成本敏感的部署可用）。
+SCENARIO_DM_MAX_STEPS = max(0, int(os.getenv("SCENARIO_DM_MAX_STEPS", "3")))
+
 # 场景图片字节一律入库（`st_assets` / `st_generated_assets`），不再有磁盘缓存目录：
 # 曾用 `SCENARIO_IMAGE_CACHE_DIR` 落盘，容器重建即丢、管理端也看不见——已删除。
 

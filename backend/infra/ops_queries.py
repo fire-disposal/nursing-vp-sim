@@ -264,6 +264,9 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
       `dm_fallback` ⇒ 走了无 LLM 的保底回合）。**保底是设计内的兜底**，不是崩溃。
     - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
       `core/rate_limits._scenario_limited`）——多 worker 安全的唯一取数来源。
+    - `dm_steps_24h` / `dm_avg_steps_24h`：DM **多步循环**的步数与**每回合平均步数**
+      （`dm_step` 事件 / `dm_turn` 事件）。平均步数是这段的**成本口径**：步数上限见
+      `core/config.SCENARIO_DM_MAX_STEPS`（0 = 单步模式，平均步数应回到 0）。
     """
     opened_24h = db.query(func.count(StSession.id)).filter(StSession.created_at >= day_ago).scalar() or 0
     active = db.query(func.count(StSession.id)).filter(StSession.status == "active").scalar() or 0
@@ -295,6 +298,9 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
     generated_images_24h = (
         db.query(func.count(StGeneratedAsset.id)).filter(StGeneratedAsset.created_at >= day_ago).scalar() or 0
     )
+    dm_steps_24h = (
+        db.query(func.count(StEvent.id)).filter(StEvent.kind == "dm_step", StEvent.created_at >= day_ago).scalar() or 0
+    )
     rate_limited_24h = (
         db.query(func.count(AuditLog.id))
         .filter(AuditLog.action == ACTION_SCENARIO_RATE_LIMITED, AuditLog.created_at >= day_ago)
@@ -309,6 +315,8 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
         "llm_failures_24h": int(dm.llm_failures or 0),
         "fallbacks_24h": int(dm.fallbacks or 0),
         "generated_images_24h": int(generated_images_24h),
+        "dm_steps_24h": int(dm_steps_24h),
+        "dm_avg_steps_24h": round(dm_steps_24h / max(turns_24h, 1), 2),
         "rate_limited_24h": int(rate_limited_24h),
     }
 

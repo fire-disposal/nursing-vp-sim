@@ -239,3 +239,324 @@ def test_session_is_owner_scoped(client, pg_session, installed_pack) -> None:
 
     app.dependency_overrides[get_current_user] = lambda: _OtherUser()
     assert client.get(f"/api/scenario/sessions/{session_id}").status_code == 404
+
+
+# ── 动作归属回填：学生**自由表达** → DM 认到已声明的 affordance ──────────────
+#
+# 交互模型改成自由表达为主之后，动作记录不再天然带 `affordance_id`：DM 的
+# `interpretation.affordance_id` 由引擎回填（越权映射在校验层被丢弃）。
+# 这一组用例守的是**消费方可见**的后果：白板「已处置」、时间线、维度、判读、事件流。
+
+
+def _clean_turn(**extra: Any) -> dict[str, Any]:
+    """一个**不违规**的 DM 回合（本组只关心归属，不想被泄底/自输入的 problem 干扰）。"""
+    return {"narration": "监护仪的数字没动。", "lines": [{"actor": "patient", "text": "……"}], **extra}
+
+
+class _ScriptedLLM:
+    """按顺序回放预置回合（开场一次、每次动作一次）；用尽后回空对象（= 无内容回合）。"""
+
+    def __init__(self, turns: list[dict[str, Any]]) -> None:
+        self.turns = list(turns)
+
+    async def call(self, messages: list[dict[str, str]], **_: Any) -> str:
+        return json.dumps(self.turns.pop(0) if self.turns else {}, ensure_ascii=False)
+
+
+def _board_done(view: dict[str, Any]) -> list[str]:
+    """白板「已处置」版块的条目文案。"""
+    section = next(item for item in view["board"]["sections"] if item["source"] == "action")
+    return [entry["text"] for entry in section["entries"]]
+
+
+def _student_timeline(view: dict[str, Any]) -> list[str]:
+    return [item["label"] for item in view["timeline"] if item["kind"] == "student"]
+
+
+def _attributions(pg_session: Any, session_id: int) -> list[dict[str, Any]]:
+    """事件流里的回填记录（按 seq 排；回填是状态写入，必须留痕）。"""
+    from sqlalchemy import select
+
+    from models.scenario_training import StEvent
+
+    rows = pg_session.execute(select(StEvent).where(StEvent.session_id == session_id).order_by(StEvent.seq)).scalars()
+    return [row.payload for row in rows if row.kind == "action_attributed"]
+
+
+def _open(client, turns: list[dict[str, Any]]) -> int:
+    from main import app
+
+    app.state.llm_client = _ScriptedLLM(turns)
+    opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
+    assert opened.status_code == 200, opened.text
+    return opened.json()["session_id"]
+
+
+def _act(client, session_id: int, **payload: Any) -> dict[str, Any]:
+    acted = client.post(f"/api/scenario/sessions/{session_id}/actions", json=payload)
+    assert acted.status_code == 200, acted.text
+    return acted.json()
+
+
+def test_free_expression_is_attributed_to_declared_action(client, pg_session, installed_pack) -> None:
+    """DM 认下的动作要像"真的做过"一样出现在白板/时间线/维度/判读里。"""
+    session_id = _open(
+        client,
+        [
+            _clean_turn(),  # 开场
+            _clean_turn(interpretation={"affordance_id": "suction"}),
+            _clean_turn(interpretation={"affordance_id": "bag_valve"}),
+        ],
+    )
+
+    first = _act(client, session_id, type="act", text="给他吸痰，只吸出一点血丝")
+    assert first["problems"] == []
+    view = first["view"]
+    assert _board_done(view) == ["吸痰"]  # 白板「已处置」不再漏记
+    assert _student_timeline(view) == ["吸痰"]  # 时间线按声明动作显示
+
+    second = _act(client, session_id, type="act", text="上球囊面罩加压给氧")
+    view = second["view"]
+    assert _board_done(view) == ["吸痰", "球囊面罩加压给氧"]
+    escalation = next(item for item in view["dims"] if item["id"] == "d_escalation")
+    assert escalation["value"] == 2, escalation  # 「升级延迟」维度的目标动作集合不再"从未出现"
+    assert "首用于第2回合" in escalation["detail"]
+
+    # 回填留痕：一条事件一条归属，标明来源（回放/统计靠它）
+    assert _attributions(pg_session, session_id) == [
+        {"turn": 1, "affordance_id": "suction", "source": "dm"},
+        {"turn": 2, "affordance_id": "bag_valve", "source": "dm"},
+    ]
+
+    report = client.post(f"/api/scenario/sessions/{session_id}/close").json()["report"]
+    repeat = next(row for row in report["criteria"] if row["id"] == "dp_no_repeat")
+    assert repeat["anchor"] == "strong", repeat  # 判读的目标动作集合命中了自由表达的「吸痰」
+    assert "「吸痰」累计使用 1 次" in repeat["detail"]
+    escalate = next(row for row in report["criteria"] if row["id"] == "dp_escalate")
+    assert escalate["anchor"] == "adequate"
+    assert "命中 1/2" in escalate["detail"]
+
+
+def test_interpretation_to_locked_or_undeclared_action_is_ignored(client, pg_session, installed_pack) -> None:
+    """越权映射被忽略：留一条 problem，记录里不带 id（宁缺毋假）。"""
+    session_id = _open(
+        client,
+        [
+            _clean_turn(),  # 开场
+            # 医生到场 → 此后「呼叫值班医生」这扇门已关（visible_when: doctor_present == false）
+            _clean_turn(effects=[{"target": "scene", "key": "doctor_present", "op": "set", "value": True}]),
+            _clean_turn(interpretation={"affordance_id": "call_doctor"}),
+            _clean_turn(interpretation={"affordance_id": "cure_everything"}),
+        ],
+    )
+    _act(client, session_id, affordance_id="auscultate")
+
+    locked = _act(client, session_id, type="summon", text="喊医生过来")
+    assert "locked_affordance:call_doctor" in locked["problems"]
+    assert _board_done(locked["view"]) == ["听诊双肺"], "未解锁的动作不得被认领"
+
+    unknown = _act(client, session_id, type="act", text="胡乱处理一下")
+    assert "unknown_affordance:cure_everything" in unknown["problems"]
+    assert _board_done(unknown["view"]) == ["听诊双肺"]
+
+    assert _attributions(pg_session, session_id) == []  # 越权映射不落痕
+
+
+def test_unmapped_free_expression_stays_unattributed(client, pg_session, installed_pack) -> None:
+    """DM 没给出映射 → 留空：不算任何声明动作（不进白板、不改时间线标签、不落痕）。"""
+    session_id = _open(client, [_clean_turn(), _clean_turn()])
+
+    body = _act(client, session_id, type="ask", text="他以前有什么病史？")
+    assert body["problems"] == []
+    assert _board_done(body["view"]) == []
+    assert _student_timeline(body["view"]) == ["他以前有什么病史？"]  # 自由文本原样呈现
+    assert _attributions(pg_session, session_id) == []
+
+
+def test_student_choice_is_not_overridden_by_interpretation(client, pg_session, installed_pack) -> None:
+    """学生自己点了按钮 → 以他点的为准，DM 的 interpretation 不得覆盖。"""
+    session_id = _open(client, [_clean_turn(), _clean_turn(interpretation={"affordance_id": "suction"})])
+
+    body = _act(client, session_id, affordance_id="measure_spo2")
+    assert body["problems"] == []
+    assert _board_done(body["view"]) == ["测血氧"]
+    assert _attributions(pg_session, session_id) == []
+
+    report = client.post(f"/api/scenario/sessions/{session_id}/close").json()["report"]
+    repeat = next(row for row in report["criteria"] if row["id"] == "dp_no_repeat")
+    assert repeat["anchor"] == "adequate"
+    assert "从未使用" in repeat["detail"]
+
+
+def test_streamed_turn_attributes_free_expression(client, pg_session, installed_pack) -> None:
+    """流式路径与落地路径走**同一套**归属逻辑（学生控制台提交的就是这条）。"""
+    from main import app
+
+    class _StreamingLLM(_ScriptedLLM):
+        async def stream(self, messages: list[dict[str, str]], **_: Any):  # type: ignore[override]
+            text = json.dumps(self.turns.pop(0) if self.turns else {}, ensure_ascii=False)
+            for index in range(0, len(text), 24):
+                yield text[index : index + 24]
+
+    app.state.llm_client = _StreamingLLM([_clean_turn(), _clean_turn(interpretation={"affordance_id": "suction"})])
+    opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
+    session_id = opened.json()["session_id"]
+
+    events: list[dict[str, Any]] = []
+    with client.stream(
+        "POST", f"/api/scenario/sessions/{session_id}/actions/stream", json={"type": "act", "text": "给他吸痰"}
+    ) as response:
+        assert response.status_code == 200
+        for line in response.iter_lines():
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+
+    assert events[-1]["kind"] == "view"
+    assert _board_done(events[-1]["view"]) == ["吸痰"]
+    assert _attributions(pg_session, session_id) == [{"turn": 1, "affordance_id": "suction", "source": "dm"}]
+
+
+# ── DM 的受限多步循环：先读环境，再产出信封（docs/21 §四） ──────────────────
+
+
+def _steps(pg_session: Any, session_id: int) -> list[dict[str, Any]]:
+    """事件流里的多步循环记录（按 seq 排）。"""
+    from sqlalchemy import select
+
+    from models.scenario_training import StEvent
+
+    rows = pg_session.execute(select(StEvent).where(StEvent.session_id == session_id).order_by(StEvent.seq)).scalars()
+    return [row.payload for row in rows if row.kind == "dm_step"]
+
+
+def test_multi_step_loop_records_each_step_as_an_event(client, pg_session, installed_pack) -> None:
+    """DM 先读环境（`world.state`）再产出信封：读到的结果进对话，每一步都落 `dm_step`。"""
+    _pack, _revision = installed_pack
+    session_id = _open(
+        client,
+        [
+            _clean_turn(),  # 开场：直接给信封
+            {"tool": "world.state", "args": {}},  # 本回合第 1 步：读环境
+            _clean_turn(interpretation={"affordance_id": "suction"}),  # 读完再产出信封
+        ],
+    )
+    body = _act(client, session_id, type="act", text="给他吸痰")
+    assert body["problems"] == []
+    assert _board_done(body["view"]) == ["吸痰"]
+
+    steps = _steps(pg_session, session_id)
+    assert len(steps) == 1
+    assert {key: value for key, value in steps[0].items() if key != "ms"} == {
+        "turn": 1,
+        "step": 1,
+        "tool": "world.state",
+        "args": {},
+        "ok": True,
+        "result": "turn=1 state=6 项",
+    }
+    # 学生侧只看到叙事，看不到 DM 的读取动作（`dm_step` 是给教师回放与统计用的）
+    assert "world.state" not in json.dumps(body["view"], ensure_ascii=False)
+
+
+# ── 归属之后补求值一次反应边沿：自由表达与按钮对世界是同一件事 ──────────────
+
+_R_SUCTION_INTENT = "吸出少量血性黏痰后症状毫无缓解"
+
+
+def _effects(pg_session: Any, session_id: int) -> list[dict[str, Any]]:
+    """事件流里的状态改动（可回放、可解释：每条带来源）。"""
+    from sqlalchemy import select
+
+    from models.scenario_training import StEvent
+
+    rows = pg_session.execute(select(StEvent).where(StEvent.session_id == session_id).order_by(StEvent.seq)).scalars()
+    return [item for row in rows if row.kind == "effects_applied" for item in row.payload["items"]]
+
+
+def _world_beats(view: dict[str, Any], intent: str) -> int:
+    return sum(1 for item in view["timeline"] if item["kind"] == "world" and intent in item["label"])
+
+
+def test_free_expression_fires_reactions_like_the_button_path(client, pg_session, installed_pack) -> None:
+    """归属回填后**再求值一次边沿**：自由表达的「吸痰」像点按钮一样触发 pack 反应，且只触发一次。
+
+    同时守住两个方向：本回合被归属的动作（`action_count_gte(suction)`）要补发；
+    本回合已发过的反应（回合数型）不许因为第二次求值而重复发售。
+    """
+    pack, _revision = installed_pack
+    comfort = pack.state_keys["patient.comfort"]
+
+    session_id = _open(
+        client,
+        [
+            _clean_turn(),  # 开场
+            _clean_turn(),  # 第 1 回合：自由表达（DM 没给归属）
+            _clean_turn(),  # 第 2 回合
+            _clean_turn(interpretation={"affordance_id": "suction"}),  # 第 3 回合：认到「吸痰」
+        ],
+    )
+    _act(client, session_id, type="ask", text="先看一眼")
+    _act(client, session_id, type="ask", text="再等一下")
+    third = _act(client, session_id, type="act", text="给他吸痰")  # 第 3 回合起 r_deteriorate 也会成立
+
+    view = third["view"]
+    assert _board_done(view) == ["吸痰"]  # 归属确实发生了（否则这段补求值不会跑）
+    assert _world_beats(view, _R_SUCTION_INTENT) == 1  # 被认领的动作让反应**本回合**成立
+    rows = _effects(pg_session, session_id)
+    assert [row["new"] for row in rows if row["key"] == "patient.comfort"] == [comfort - 1]
+    # 回合数型反应（r_deteriorate，两条效果）本就该在这一回合发一次——
+    # 第二次求值不得让它重复发售：两条效果各只出现一次，就是"只发了一次"的凭据
+    assert [row["new"] for row in rows if row["key"] == "scene.spo2"] == [pack.state_keys["scene.spo2"] - 2]
+    assert [row["new"] for row in rows if row["key"] == "patient.consciousness"] == [
+        pack.state_keys["patient.consciousness"] - 1
+    ]
+    sources = [row["source"] for row in rows if row["source"].startswith("reaction:")]
+    assert sources.count("reaction:r_deteriorate") == 2  # 该反应的两条效果……
+    assert sources.count("reaction:r_suction_first") == 1  # ……被认领的动作补发的那一条
+
+    # 下一回合：边沿已过，不再重复触发
+    fourth = _act(client, session_id, type="ask", text="还有别的办法吗")
+    assert _world_beats(fourth["view"], _R_SUCTION_INTENT) == 1
+    assert _effects(pg_session, session_id) == rows
+
+    # 对照按钮路径：同一反应、同一后果
+    button_id = _open(client, [_clean_turn(), _clean_turn(), _clean_turn()])
+    button = _act(client, button_id, affordance_id="suction")
+    assert _world_beats(button["view"], _R_SUCTION_INTENT) == 1
+    button_rows = [row for row in _effects(pg_session, button_id) if row["key"] == "patient.comfort"]
+    assert [(row["source"], row["new"]) for row in button_rows] == [("reaction:r_suction_first", comfort - 1)]
+
+
+def test_streamed_multi_step_turn_commits_steps_and_state_together(client, pg_session, installed_pack) -> None:
+    """流式 + 多步：`dm_step` 在状态落库**之前**就写进了同一个事务，随回合一起提交（要么都有、要么都没有）。"""
+    from main import app
+
+    class _StreamingLLM(_ScriptedLLM):
+        async def stream(self, messages: list[dict[str, str]], **_: Any):  # type: ignore[override]
+            text = json.dumps(self.turns.pop(0) if self.turns else {}, ensure_ascii=False)
+            for index in range(0, len(text), 16):
+                yield text[index : index + 16]
+
+    app.state.llm_client = _StreamingLLM(
+        [
+            _clean_turn(),  # 开场
+            {"tool": "world.state", "args": {}},  # 第 1 步：读环境
+            _clean_turn(interpretation={"affordance_id": "suction"}),  # 信封
+        ]
+    )
+    opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
+    session_id = opened.json()["session_id"]
+
+    events: list[dict[str, Any]] = []
+    with client.stream(
+        "POST", f"/api/scenario/sessions/{session_id}/actions/stream", json={"type": "act", "text": "给他吸痰"}
+    ) as response:
+        assert response.status_code == 200
+        for line in response.iter_lines():
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+
+    assert events[-1]["kind"] == "view"
+    assert _board_done(events[-1]["view"]) == ["吸痰"]
+    assert [row["tool"] for row in _steps(pg_session, session_id)] == ["world.state"]
+    assert _attributions(pg_session, session_id) == [{"turn": 1, "affordance_id": "suction", "source": "dm"}]

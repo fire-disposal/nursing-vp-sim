@@ -36,6 +36,7 @@ from .runtime.session import (
     SessionClosed,
     StudentAction,
     close_session,
+    dm_step_reporter,
     load_events,
     open_session,
     opening_turn,
@@ -301,7 +302,15 @@ async def submit_stream(
                 selected=list(action.selected),
                 custom_text=action.custom_text,
             )
-            async for item in iter_dm_stream(llm, pack, world, record, beats, user_id=current_user.id):
+            async for item in iter_dm_stream(
+                llm,
+                pack,
+                world,
+                record,
+                beats,
+                user_id=current_user.id,
+                on_step=dm_step_reporter(db, session.id),
+            ):
                 if item["kind"] == "blocks":
                     yield send({"kind": "blocks", "blocks": item["blocks"]})
                 else:
@@ -653,7 +662,8 @@ def admin_session_detail(session_id: int, db: DbSession) -> dict[str, Any]:
         "events": [
             {"kind": event["kind"], "payload": event["payload"]}
             for event in events
-            if event["kind"] in {"student_action", "dm_turn", "entity_line", "session_closed"}
+            if event["kind"]
+            in {"student_action", "action_attributed", "dm_step", "dm_turn", "entity_line", "session_closed"}
         ],
     }
 

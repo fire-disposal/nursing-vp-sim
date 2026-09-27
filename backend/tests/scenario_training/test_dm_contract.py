@@ -230,3 +230,65 @@ def test_images_in_view_use_fake_world(pack: ScenarioPack) -> None:
     assert view["pack"]["revision_id"] == 3
     assert view["images"][0]["url"] == "/api/scenario/assets/3/a_room"
     assert [asset["id"] for asset in view["assets"]] == ["a_room"]
+
+
+def test_interpretation_keeps_declared_and_unlocked_action(pack: ScenarioPack) -> None:
+    """学生自由表达时，DM 把这句话映射到某个**已声明且已解锁**的动作 → 原样保留（供引擎回填）。"""
+    check = validate_turn(
+        pack,
+        DMTurn.model_validate({"interpretation": {"affordance_id": "suction"}}),
+        initial_world(pack),
+    )
+    assert check.turn.interpretation is not None
+    assert check.turn.interpretation.affordance_id == "suction"
+    assert check.problems == []
+
+
+def test_interpretation_to_locked_action_is_dropped(pack: ScenarioPack) -> None:
+    """门还没开的动作不能被认领（越权 → 丢弃 + 记账）；认错比漏认更坏。"""
+    world = initial_world(pack)
+    world.state["scene.doctor_present"] = True  # 医生已在场 →「呼叫值班医生」这扇门已关
+    check = validate_turn(pack, DMTurn.model_validate({"interpretation": {"affordance_id": "call_doctor"}}), world)
+    assert check.turn.interpretation is None
+    assert check.problems == ["locked_affordance:call_doctor"]
+    assert check.dropped.get("interpretation") == 1
+
+
+def test_interpretation_to_undeclared_action_is_dropped(pack: ScenarioPack) -> None:
+    check = validate_turn(pack, DMTurn.model_validate({"interpretation": {"affordance_id": "cure_everything"}}))
+    assert check.turn.interpretation is None
+    assert check.problems == ["unknown_affordance:cure_everything"]
+    assert check.dropped.get("interpretation") == 1
+
+
+def test_interpretation_absent_or_blank_stays_empty(pack: ScenarioPack) -> None:
+    """映射不出就留空：缺省、null、空对象、空白串都**不编造**归属。"""
+    for payload in ({}, {"interpretation": None}, {"interpretation": {}}, {"interpretation": {"affordance_id": "  "}}):
+        check = validate_turn(pack, DMTurn.model_validate(payload))
+        assert check.turn.interpretation is None
+        assert check.problems == []
+
+
+def test_action_attribution_replays_onto_the_right_record(pack: ScenarioPack) -> None:
+    """回填走事件流：回放时把 id 补到**对应回合**的记录上；学生自己选的按钮不被覆盖。"""
+    from modules.scenario_training.runtime.world import world_from_events
+
+    events = [
+        {
+            "kind": "student_action",
+            "payload": {"turn": 1, "action": {"turn": 1, "affordance_id": None, "type": "act", "text": "给他吸痰"}},
+        },
+        {"kind": "action_attributed", "payload": {"turn": 1, "affordance_id": "suction", "source": "dm"}},
+        {
+            "kind": "student_action",
+            "payload": {
+                "turn": 2,
+                "action": {"turn": 2, "affordance_id": "measure_spo2", "type": "measure", "text": None},
+            },
+        },
+        {"kind": "action_attributed", "payload": {"turn": 2, "affordance_id": "suction", "source": "dm"}},
+    ]
+    world = world_from_events(pack, events)
+    assert [action.affordance_id for action in world.actions] == ["suction", "measure_spo2"]
+    assert [action.label(pack) for action in world.actions] == ["吸痰", "测血氧"]
+    assert len(world.used("suction")) == 1
