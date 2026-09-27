@@ -427,7 +427,7 @@ describe("M3：会话进地址栏（?session=）", () => {
 		});
 		// 写地址栏**不能**触发一次多余的"深链恢复"（否则刚开好的一局会被自己再恢复一遍）
 		expect(mocks.getScenarioSession).not.toHaveBeenCalled();
-		await user.click(screen.getByRole("button", { name: "我的情境" }));
+		await user.click(screen.getByRole("button", { name: "返回" }));
 		await waitFor(() => {
 			expect(screen.getByTestId("query").textContent).toBe("");
 		});

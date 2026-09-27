@@ -600,13 +600,6 @@ export default function ScenarioConsole() {
 								/>
 								<button
 									type="button"
-									className="sc-ghost-btn"
-									onClick={leaveSession}
-								>
-									我的情境
-								</button>
-								<button
-									type="button"
 									className="sc-btn"
 									disabled={busy}
 									onClick={close}

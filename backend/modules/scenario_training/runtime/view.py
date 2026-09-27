@@ -88,24 +88,48 @@ def build_view(
     dims: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """学生可见的完整视图（前端按词汇表通用渲染）。"""
-    messages: list[dict[str, Any]] = []
+    # 对话流必须**按时序**：先按回合，再按"回合内 旁白 → 台词"（与 DM 的信封顺序一致）。
+    # 旧实现把所有旁白铺完再铺所有台词（按类型归类），学生会看到"先一堆旁白、再一堆台词"——
+    # 与真实对话的因果顺序不符（2026-09-28 修正）。
+    ordered: list[tuple[int | None, int, dict[str, Any]]] = []
     for index, narration in enumerate(world.narrations):
-        messages.append({"role": "scene", "text": narration.get("text", ""), "turn": index + 1})
+        turn = narration.get("turn")
+        resolved = int(turn) if turn is not None else index + 1
+        ordered.append(
+            (
+                turn if turn is not None else None,
+                0,
+                {"role": "scene", "text": narration.get("text", ""), "turn": resolved},
+            )
+        )
     for line in world.lines:
         actor_id = line.get("actor")
         declared = pack.actor(str(actor_id)) if actor_id else None
         as_role = str(line.get("as_role", "") or "")
-        messages.append(
-            {
-                "role": "actor",
-                "actor": actor_id,
-                "actor_role": declared.role if declared is not None else as_role,
-                "ephemeral": bool(line.get("ephemeral")),
-                "avatar_seed": as_role or str(actor_id or ""),
-                "text": line.get("text", ""),
-                "origin": line.get("origin", "dm"),
-            }
+        turn = line.get("turn")
+        ordered.append(
+            (
+                turn if turn is not None else None,
+                1,
+                {
+                    "role": "actor",
+                    "actor": actor_id,
+                    "actor_role": declared.role if declared is not None else as_role,
+                    "ephemeral": bool(line.get("ephemeral")),
+                    "avatar_seed": as_role or str(actor_id or ""),
+                    "text": line.get("text", ""),
+                    "origin": line.get("origin", "dm"),
+                    "turn": int(turn) if turn is not None else 0,
+                },
+            )
         )
+    # 全部条目都带回合号 → 按时序（回合，回合内 旁白→台词）；
+    # 只要有一条缺回合号（2026-09-28 之前的旧会话），就**不做臆测**，退回原有顺序（旁白在前、台词在后）。
+    if all(turn is not None for turn, _, _ in ordered):
+        ordered.sort(key=lambda item: (item[0], item[1]))
+    else:
+        ordered.sort(key=lambda item: item[1])
+    messages: list[dict[str, Any]] = [item[2] for item in ordered]
 
     options: list[dict[str, Any]] = []
     for option in world.options:

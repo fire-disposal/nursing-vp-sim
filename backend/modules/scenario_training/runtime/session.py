@@ -322,7 +322,7 @@ async def opening_turn(
             "turn": 0,
             "opening": True,
             "narration": check.turn.narration,
-            "lines": [line.model_dump(mode="json") for line in check.turn.lines],
+            "lines": [{**line.model_dump(mode="json"), "turn": 0} for line in check.turn.lines],
             "options": [option.model_dump(mode="json") for option in check.turn.options],
             "facts_declared": [fact.model_dump(mode="json") for fact in check.turn.facts_declared],
             "board_notes": stamped_notes,
@@ -420,7 +420,7 @@ async def submit_action(
         {
             "turn": turn,
             "narration": check.turn.narration,
-            "lines": [line.model_dump(mode="json") for line in check.turn.lines],
+            "lines": [{**line.model_dump(mode="json"), "turn": turn} for line in check.turn.lines],
             "options": [option.model_dump(mode="json") for option in check.turn.options],
             "facts_declared": [fact.model_dump(mode="json") for fact in check.turn.facts_declared],
             "board_notes": stamped_notes,

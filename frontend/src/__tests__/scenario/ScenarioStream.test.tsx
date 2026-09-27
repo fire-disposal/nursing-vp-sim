@@ -283,8 +283,26 @@ describe("块级增量渲染", () => {
 		});
 		expect(await screen.findByRole("button", { name: "重试" })).toBeInTheDocument();
 
-		// 回到列表 → 重开一局：提示必须消失（否则新局一进来就像刚失败过）
-		await user.click(screen.getByRole("button", { name: "我的情境" }));
+		// 回到列表 → 重开一局：提示必须消失（否则新局一进来就像刚失败过）。
+		// 会话页里已没有"回到列表"的按钮（2026-09-28 移除「我的情境」），所以走学生真实路径：
+		// 「结束并看经历」→ 报告页的「回到我的情境」→ 列表 → 重开一局。
+		mocks.closeScenarioSession.mockResolvedValue({
+			session_id: 51,
+			report: {
+				pack: { key: PACK.key, title: PACK.title },
+				turn: 1,
+				lost: false,
+				summary: {},
+				score: { rate: null, weighted_sum: 0, total_weight: 0, criteria: [] },
+				criteria: [],
+				dims: [],
+				timeline: [],
+				problems: [],
+			},
+			view: makeView({ session: { id: 51, status: "completed", turn: 1, lost: false } }),
+		});
+		await user.click(screen.getByRole("button", { name: "结束并看经历" }));
+		await user.click(await screen.findByRole("button", { name: "回到我的情境" }));
 		mocks.createScenarioSession.mockResolvedValue({
 			session_id: 77,
 			pack: { key: PACK.key, title: PACK.title, revision_id: 6 },

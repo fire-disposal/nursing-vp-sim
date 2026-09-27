@@ -248,6 +248,30 @@ def test_session_is_owner_scoped(client, pg_session, installed_pack) -> None:
 # 这一组用例守的是**消费方可见**的后果：白板「已处置」、时间线、维度、判读、事件流。
 
 
+def test_messages_are_in_turn_order_not_grouped_by_kind(client, pg_session, installed_pack) -> None:
+    """对话流**按时序**：每回合的旁白之后紧接该回合的台词，而不是"先全部旁白、再全部台词"。
+
+    2026-09-28 的缺陷：`build_view` 先遍历 `world.narrations` 再遍历 `world.lines`，
+    于是学生看到的是按类型归类的两段（旁白一堆、台词一堆），与真实对话的因果顺序不符。
+    """
+    turns = [
+        {"narration": "旁白一", "lines": [{"actor": "patient", "text": "台词一"}]},
+        {"narration": "旁白二", "lines": [{"actor": "patient", "text": "台词二"}]},
+        {"narration": "旁白三", "lines": [{"actor": "patient", "text": "台词三"}]},
+    ]
+    session_id = _open(client, turns)
+    _act(client, session_id, type="ask", text="我看看他")
+    view = _act(client, session_id, type="ask", text="我再看看他")["view"]
+
+    texts = [(message["role"], message["text"], message.get("turn")) for message in view["messages"]]
+    # 文案顺序：逐个回合交替，而不是先旁白后台词
+    assert [item[1] for item in texts] == ["旁白一", "台词一", "旁白二", "台词二", "旁白三", "台词三"], texts
+    # 旁白与紧随其后的台词属于同一回合，且回合号单调不减
+    pairs = [(texts[index][2], texts[index + 1][2]) for index in range(0, len(texts), 2)]
+    assert all(narration_turn == line_turn for narration_turn, line_turn in pairs), pairs
+    assert [pair[0] for pair in pairs] == sorted(pair[0] for pair in pairs), pairs
+
+
 def _clean_turn(**extra: Any) -> dict[str, Any]:
     """一个**不违规**的 DM 回合（本组只关心归属，不想被泄底/自输入的 problem 干扰）。"""
     return {"narration": "监护仪的数字没动。", "lines": [{"actor": "patient", "text": "……"}], **extra}
