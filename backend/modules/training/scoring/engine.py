@@ -157,6 +157,11 @@ async def _stream_attempt(
     thought_buffer: list[str] = []
     last_push = 0.0
     stream_done = asyncio.Event()
+    finish_reason = ""
+
+    async def _on_finish(reason: str) -> None:
+        nonlocal finish_reason
+        finish_reason = reason
 
     async def _do_push():
         nonlocal last_push
@@ -189,7 +194,9 @@ async def _stream_attempt(
     full_text = ""
 
     try:
-        async for chunk in llm_client.stream(messages, on_reasoning=_on_reasoning, **stream_kwargs):
+        async for chunk in llm_client.stream(
+            messages, on_reasoning=_on_reasoning, on_finish=_on_finish, **stream_kwargs
+        ):
             content_parts.append(chunk)
 
         full_text = "".join(content_parts)
@@ -200,10 +207,11 @@ async def _stream_attempt(
         # 截断与"不是 JSON"必须分开：截断要**压缩输出后重试**，不能被当成"模型返回空"
         # （2026-09-27 真实故障：只缺最外层一个 } 被误判为空 → 落 0 分）
         log.warning(
-            "Stream attempt truncated: record_id=%d purpose=%s len=%d tail=%r",
+            "Stream attempt truncated: record_id=%d purpose=%s len=%d finish_reason=%r tail=%r",
             stage.record_id,
             purpose,
             len(full_text),
+            finish_reason or "(未上报)",
             full_text[-200:],
         )
         log.debug("truncation detail: %s", str(e)[:200])

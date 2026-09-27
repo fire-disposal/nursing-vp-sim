@@ -6,7 +6,15 @@
   "职业"）是短而特异的理想守卫词。
 
 守卫规则：
-    泄漏 = reply 含 deep_background 键 且 学生本轮输入未提及该键（asked 豁免）
+    泄漏 = reply 含 deep_background 键 且 学生**已问过**的内容未提及该键（asked 豁免）
+
+``asked_text`` 必须是「学生迄今为止问过的全部内容」而不只是本轮：学生第 3 轮问过吸烟史、
+患者第 5 轮又提到烟，那不叫"主动说出医生视角信息"。把豁免限制在本轮会产生**错误的泄漏判定**
+→ 一次"你说漏了"的纠正重试，甚至压掉学生已经问到的信息（与 U0-A 通过条件
+「学生合理追问能得到对应细节」直接冲突）。
+
+已知边界（T7/PIP-13）：判定是**子串匹配**，不做语义等价——键「咯血」抓不到回复里的"血丝"。
+修它需要作者可声明的别名或语义判定，属独立决策，不在本函数能力范围内。
 
 与身份守卫（guards.py）同模式接入 llm_caller：命中 → 追加修正 system 消息重试。
 """
@@ -21,8 +29,11 @@ log = logging.getLogger(__name__)
 HIDDEN_TOPIC_MIN_KEY_LEN = 2
 
 
-def find_hidden_topic_leaks(reply: str, case_data: dict, student_input: str) -> list[str]:
-    """返回泄漏的 deep_background 主题键列表（空 = 无泄漏）。"""
+def find_hidden_topic_leaks(reply: str, case_data: dict, asked_text: str = "") -> list[str]:
+    """返回泄漏的 deep_background 主题键列表（空 = 无泄漏）。
+
+    ``asked_text`` = 学生已经问过的内容（历史学生消息 + 本轮输入）；由调用方拼接。
+    """
     if not reply or not reply.strip():
         return []
     deep_bg = case_data.get("deep_background") or {}
@@ -30,7 +41,7 @@ def find_hidden_topic_leaks(reply: str, case_data: dict, student_input: str) -> 
         return []
 
     reply_lower = reply.lower()
-    asked_lower = (student_input or "").lower()
+    asked_lower = (asked_text or "").lower()
     leaks: list[str] = []
     for key in deep_bg:
         k = str(key).strip()

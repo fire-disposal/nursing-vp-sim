@@ -54,6 +54,9 @@ class _CallState:
     usage: dict | None = None
     cache_hit_tokens: int = 0
     cache_miss_tokens: int = 0
+    #: 供应商给出的结束原因（``stop`` / ``length`` / …）。**截断的唯一可靠信号**：
+    #: 没有它就只能靠 JSON 形状猜"模型说完了"还是"被输出上限切断"。
+    finish_reason: str = ""
 
 
 @dataclass
@@ -339,6 +342,7 @@ class LLMClient:
         response_format: dict | None = None,
         ctx: CallContext | None = None,
         on_reasoning: Callable[[str], Awaitable[None]] | None = None,
+        on_finish: Callable[[str], Awaitable[None]] | None = None,
         enable_thinking: bool = False,
     ) -> AsyncIterator[str]:
         """Send a streaming chat completion and yield content chunks.
@@ -347,6 +351,9 @@ class LLMClient:
         to it instead of being yielded.  If *enable_thinking* is True,
         reasoning_effort=high and thinking={type:enabled} are added to the
         request body (DeepSeek thinking mode).
+
+        If *on_finish* is provided, it receives the provider's ``finish_reason``
+        once the stream ends —— 调用方据此区分"模型说完了"与"被输出上限切断"。
         """
         ctx = ctx or CallContext(purpose=purpose)
         request_text = " ".join(m.get("content", "") for m in messages)
@@ -418,6 +425,17 @@ class LLMClient:
                         case_id=ctx.case_id,
                     )
                 )
+                if state.finish_reason == "length":
+                    # 输出被上限切断：这是"截断"的**确证**，而不是从 JSON 形状推测
+                    log.warning(
+                        "LLM 输出被长度上限截断: purpose=%s model=%s completion_tokens=%s max_tokens=%s",
+                        purpose,
+                        state.model,
+                        usage.get("completion_tokens"),
+                        max_tokens,
+                    )
+                if on_finish is not None and state.finish_reason:
+                    await on_finish(state.finish_reason)
                 return
             except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
                 # 失败已由 _do_stream 上报给 router（与 call()/_do_call() 一致，避免 circuit breaker 双计数）
@@ -672,6 +690,9 @@ class LLMClient:
                                 try:
                                     obj = json.loads(raw)
                                     last_obj = obj
+                                    finish = obj["choices"][0].get("finish_reason")
+                                    if finish:
+                                        state.finish_reason = str(finish)
                                     delta = obj["choices"][0].get("delta", {})
                                     reasoning = delta.get("reasoning_content", "")
                                     if reasoning and on_reasoning:

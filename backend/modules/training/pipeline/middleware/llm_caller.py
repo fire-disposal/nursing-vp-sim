@@ -35,6 +35,17 @@ log = logging.getLogger(__name__)
 LLM_UNAVAILABLE_MESSAGE = "LLM 服务暂时不可用，请稍后重试"
 
 
+def _asked_so_far(ctx: PipelineContext) -> str:
+    """学生**已经问过**的全部内容：历史里的学生消息 + 本轮输入。
+
+    豁免必须覆盖历史：学生第 3 轮问过吸烟史、患者第 5 轮又提到烟，不算主动泄露；
+    只看本轮会给出一次错误的"你说漏了"重试。
+    """
+    history = [str(getattr(m, "content", "")) for m in ctx.messages if getattr(m, "role", "") == "student"]
+    current = ctx.student_display or ctx.student_input
+    return "\n".join([*history, str(current or "")])
+
+
 def _collect_leak_corrections(ctx: PipelineContext, reply: str) -> list[ContextFragment]:
     """检测身份/隐藏主题泄漏，返回类型化守卫片段（空 = 无泄漏）。
 
@@ -53,7 +64,7 @@ def _collect_leak_corrections(ctx: PipelineContext, reply: str) -> list[ContextF
     leaks = find_hidden_topic_leaks(
         reply,
         ctx.case_data,
-        ctx.student_display or ctx.student_input,
+        _asked_so_far(ctx),
     )
     if leaks:
         corrections.append(

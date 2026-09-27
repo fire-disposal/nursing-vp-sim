@@ -99,7 +99,9 @@ async def trigger_initiative(
         from modules.training.context.leak_guard import find_hidden_topic_leaks
         from modules.training.patient_ai.guards import has_identity_leak
 
-        if has_identity_leak(msg) or find_hidden_topic_leaks(msg, case_data, student_msg):
+        # 豁免窗口 = 学生已问过的内容（这里用最近两轮上下文，与生成时的输入一致）
+        asked_so_far = f"{student_msg}\n{context_tail}"
+        if has_identity_leak(msg) or find_hidden_topic_leaks(msg, case_data, asked_so_far):
             log.warning("Initiative message leaked, discarding: record_id=%d", record_id)
             return {"triggered": False, "message": None}
 

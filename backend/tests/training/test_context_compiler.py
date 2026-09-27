@@ -255,6 +255,12 @@ class TestLeakGuard:
         leaks = find_hidden_topic_leaks("我吸烟大概30年了", case, "您有吸烟史吗")
         assert leaks == []
 
+    def test_asked_exemption_across_history(self):
+        """``asked_text`` 是"已问过的全部"：跨轮问过的主题同样豁免（调用方拼接）。"""
+        case = {"deep_background": {"吸烟史": "吸烟30年"}}
+        asked = "第三轮：您有吸烟史吗？\n第五轮：退休前做什么工作？"
+        assert find_hidden_topic_leaks("我吸烟史三十年了", case, asked) == []
+
     def test_no_deep_background_no_leak(self):
         assert find_hidden_topic_leaks("我很难受", {}, "你好") == []
 

@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -127,6 +128,63 @@ class TestLLMClientCallJSON:
                 [{"role": "user", "content": "test"}],
                 purpose="scoring",
             )
+
+
+class TestStreamFinishReason:
+    """``finish_reason`` 是"输出被截断"的唯一可靠信号（2026-09-27）。
+
+    没有它，评分链路的截断只能靠 JSON 形状猜，无法区分"模型说完了"与"被输出上限切断"——
+    而这两者对应完全不同的处置（前者改提示词结构，后者调输出预算）。
+    """
+
+    @pytest.mark.asyncio
+    async def test_length_finish_reason_warns_and_reports(self, client, caplog):
+        seen: list[str] = []
+
+        async def fake_do_stream(messages, state, *args, **kwargs):
+            state.usage = {"prompt_tokens": 100, "completion_tokens": 16384, "total_tokens": 16484}
+            state.finish_reason = "length"
+            yield '{"total_score": 1'
+
+        async def on_finish(reason: str) -> None:
+            seen.append(reason)
+
+        client._do_stream = fake_do_stream
+
+        with caplog.at_level(logging.WARNING):
+            chunks = [
+                chunk
+                async for chunk in client.stream(
+                    [{"role": "user", "content": "x"}], purpose="scoring", on_finish=on_finish
+                )
+            ]
+
+        assert chunks == ['{"total_score": 1']
+        assert seen == ["length"]
+        assert "被长度上限截断" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_stop_finish_reason_reports_without_warning(self, client, caplog):
+        seen: list[str] = []
+
+        async def fake_do_stream(messages, state, *args, **kwargs):
+            state.usage = {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+            state.finish_reason = "stop"
+            yield "ok"
+
+        async def on_finish(reason: str) -> None:
+            seen.append(reason)
+
+        client._do_stream = fake_do_stream
+
+        with caplog.at_level(logging.WARNING):
+            _ = [
+                chunk
+                async for chunk in client.stream([{"role": "user", "content": "x"}], purpose="qa", on_finish=on_finish)
+            ]
+
+        assert seen == ["stop"]
+        assert "被长度上限截断" not in caplog.text
 
 
 class TestCallContext:
