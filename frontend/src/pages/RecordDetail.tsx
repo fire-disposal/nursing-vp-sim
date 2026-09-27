@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Alert, Box, Container, Grid, Stack, Text } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { Alert, Box, Button, Container, Grid, Stack, Text } from "@mantine/core";
+import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
@@ -30,6 +30,37 @@ import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
 
 /** 评分未出终态时的自动轮询间隔（GET 记录详情，无自造进度） */
 const PENDING_POLL_INTERVAL_MS = 3000;
+
+/**
+ * 问卷非正常状态的常驻提示：可见 + 可重试。
+ * 两种文案语义不同（题目拿不到 / 状态查不到），但动作都是重新 check。
+ */
+function QuestionnaireIssueAlert({
+	color,
+	title,
+	icon,
+	retrying,
+	onRetry,
+	children,
+}: {
+	color: "red" | "yellow";
+	title: string;
+	icon: ReactNode;
+	retrying: boolean;
+	onRetry: () => void;
+	children: ReactNode;
+}) {
+	return (
+		<Alert mt="md" variant="light" color={color} icon={icon} title={title}>
+			<Stack gap="sm" align="flex-start">
+				<Text size="sm">{children}</Text>
+				<Button size="xs" variant="light" color={color} loading={retrying} onClick={onRetry}>
+					重试
+				</Button>
+			</Stack>
+		</Alert>
+	);
+}
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -66,8 +97,8 @@ export default function RecordDetail() {
 
 	const {
 		checkResponse: postCheckResponse,
+		status: postQStatus,
 		isLoading: postQLoading,
-		shouldShow: postQShouldShow,
 		check: postQCheck,
 		submit: postQSubmit,
 		dismiss: postQDismiss,
@@ -205,6 +236,35 @@ export default function RecordDetail() {
 				onRetry={() => void handleRetryScoring()}
 			/>
 
+			{/*
+			 * 训练后问卷（研究主结局）的失败必须可见：模板拿不到时旧行为是静默消失，
+			 * 研究上会被误判成「学生跳过了问卷」。无待答（status = none）时这里什么都不渲染。
+			 */}
+			{postQStatus === "template_unavailable" && (
+				<QuestionnaireIssueAlert
+					color="red"
+					title="问卷加载失败"
+					icon={<IconAlertTriangle size={18} />}
+					retrying={postQLoading}
+					onRetry={() => void postQCheck()}
+				>
+					本次训练有需要你填写的问卷，但问卷题目没有加载成功，你的作答尚未被记录。
+					请重试；若持续失败请联系教师，不要当作已完成。
+				</QuestionnaireIssueAlert>
+			)}
+
+			{postQStatus === "check_failed" && (
+				<QuestionnaireIssueAlert
+					color="yellow"
+					title="问卷状态获取失败"
+					icon={<IconInfoCircle size={18} />}
+					retrying={postQLoading}
+					onRetry={() => void postQCheck()}
+				>
+					暂时无法确认本次训练是否需要填写问卷，这不影响你查看下面的成绩。
+				</QuestionnaireIssueAlert>
+			)}
+
 			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/关键选择/再练习 */}
 			<Grid mt="md" align="stretch">
 				<Grid.Col span={{ base: 12, lg: 7 }}>
@@ -255,9 +315,10 @@ export default function RecordDetail() {
 				</Grid.Col>
 			</Grid>
 			</Container>
-			{postQShouldShow && postCheckResponse && (
+			{/* 只有「有待答 + 题目已就绪」才开弹窗；模板不可用走上面的常驻提示（不阻塞看成绩） */}
+			{postQStatus === "ready" && postCheckResponse && (
 				<QuestionnaireModal
-					open={postQShouldShow}
+					open
 					key={postCheckResponse.template_id}
 					onComplete={() => { void postQCheck(); }}
 					onSkip={postQDismiss}

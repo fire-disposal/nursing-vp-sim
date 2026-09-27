@@ -171,7 +171,8 @@ describe("教师工作台的成绩来源", () => {
 		renderPage();
 
 		expect(await screen.findByText("教师复核")).toBeInTheDocument();
-		expect(screen.getByText("AI 初评")).toBeInTheDocument();
+		// 逐项行也带来源徽章，因此 "AI 初评" 不只出现一次
+		expect((await screen.findAllByText("AI 初评")).length).toBeGreaterThan(0);
 		expect(screen.getByText(/有效成绩来源：教师复核/)).toBeInTheDocument();
 		// 有效成绩与教师复核值同源（复核分优先）→ 两处都显示 72
 		expect(screen.getAllByText("72").length).toBeGreaterThan(0);

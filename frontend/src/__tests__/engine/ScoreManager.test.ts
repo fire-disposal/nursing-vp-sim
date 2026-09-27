@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ScoreManager, endFailureMessage } from "@/engine/ScoreManager";
+import { RetryCooldownError, ScoreManager, endFailureMessage } from "@/engine/ScoreManager";
 
 vi.mock("@/api/client", () => ({
 	api: {
@@ -189,5 +189,17 @@ describe("ScoreManager 相位防回退守卫", () => {
 		);
 		expect(endFailureMessage(new Error("network"))).toBe("结束训练失败，请重试");
 		expect(endFailureMessage(null)).toBe("结束训练失败，请重试");
+	});
+
+	it("retry()：退避窗口内抛出可转述的剩余秒数，且不再发请求", async () => {
+		mockRetry.mockRejectedValueOnce(new Error("network"));
+		const m = new ScoreManager(1);
+
+		await expect(m.retry()).rejects.toBeTruthy(); // 首次失败 → 进入退避窗口
+
+		await expect(m.retry()).rejects.toBeInstanceOf(RetryCooldownError);
+		await expect(m.retry()).rejects.toThrow(/请等待 \d+ 秒后重试/);
+		expect(mockRetry).toHaveBeenCalledTimes(1); // 冷却期内不得再打服务端
+		m.dispose();
 	});
 });

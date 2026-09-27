@@ -3,7 +3,7 @@ import { makeActivity, makeManifest } from "@/__tests__/fixtures/manifest";
 import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
 import { cleanup, fireEvent, render, screen } from "@/__tests__/render";
 import { ActivityRail } from "@/components/training/workspace/ActivityRail";
-import { CompletionStrip } from "@/components/training/workspace/CompletionStatus";
+import { CompletionChecklist, CompletionStrip } from "@/components/training/workspace/CompletionStatus";
 import type { SessionManifest } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -166,5 +166,72 @@ describe("CompletionStrip（只用服务端 completion）", () => {
 		render(withTrainingData(<CompletionStrip />, setSession(manifest)));
 
 		expect(screen.getByText("完成条件已满足，可结束训练")).toBeInTheDocument();
+	});
+});
+
+describe("CompletionChecklist（结束确认弹窗内的交卷清单）", () => {
+	/** 一份「护理记录未提交」的 blocker manifest；`activities` 决定能否定位落点。 */
+	function blockedManifest(
+		blockers: SessionManifest["completion"]["blockers"],
+		withNursingActivity = true,
+	) {
+		return makeManifest({
+			activities: withNursingActivity
+				? [
+						makeActivity("nursing_record", {
+							label: "护理记录",
+							artifact_kind: "nursing_record",
+							ui: { renderer: "nursing_record", placement: "side_panel", order: 10 },
+						}),
+					]
+				: [],
+			artifacts: { nursing_record: { required: true, state: "empty", submitted_at: null, updated_at: null } },
+			completion: {
+				eligible: false,
+				conditions: [{ id: "nursing_record_submitted", label: "提交护理记录", satisfied: false }],
+				blockers,
+			},
+			actions: [{ id: "complete_session", label: "结束训练", enabled: false }],
+		});
+	}
+
+	const notSubmitted = {
+		code: "ARTIFACT_NOT_SUBMITTED",
+		message: "请先提交护理记录，再结束训练",
+		target: { type: "artifact", id: "nursing_record" },
+	};
+
+	it("「去处理」不仅打开面板，还通知宿主收起弹窗（否则面板被弹窗压住＝没跳成）", () => {
+		const onNavigated = vi.fn();
+		render(
+			withTrainingData(
+				<CompletionChecklist onNavigated={onNavigated} />,
+				setSession(blockedManifest([notSubmitted])),
+			),
+		);
+
+		fireEvent.click(screen.getByText("去处理"));
+
+		expect(useWorkspaceStore.getState().openPanelId).toBe("nursing_record");
+		expect(onNavigated).toHaveBeenCalledTimes(1);
+	});
+
+	it("blocker 带 target 但本端定位不到落点时给手动提示，不给假按钮", () => {
+		render(withTrainingData(<CompletionChecklist />, setSession(blockedManifest([notSubmitted], false))));
+
+		expect(screen.getByText("请先提交护理记录，再结束训练")).toBeInTheDocument();
+		expect(screen.queryByText("去处理")).toBeNull();
+		expect(screen.getByText("未能定位到对应面板，请手动打开处理")).toBeInTheDocument();
+	});
+
+	it("target 为空时不给任何动作（服务端文案自足，例如训练已结束）", () => {
+		const manifest = blockedManifest([
+			{ code: "SESSION_NOT_ACTIVE", message: "训练已结束，无法再次提交完成", target: null },
+		]);
+		render(withTrainingData(<CompletionChecklist />, setSession(manifest)));
+
+		expect(screen.getByText("训练已结束，无法再次提交完成")).toBeInTheDocument();
+		expect(screen.queryByText("去处理")).toBeNull();
+		expect(screen.queryByText(/手动打开/)).toBeNull();
 	});
 });

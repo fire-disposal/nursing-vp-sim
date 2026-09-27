@@ -82,7 +82,8 @@ function ActivityBarButton({ pane, active, onClick }: { pane: WorkspacePane; act
 				alignItems: "center",
 				gap: 6,
 				flexShrink: 0,
-				minHeight: 40,
+				/* 触摸目标 ≥44px（拇指最容易误触的就是这排能力入口） */
+				minHeight: 44,
 				padding: "6px 10px",
 				borderRadius: 8,
 				cursor: "pointer",

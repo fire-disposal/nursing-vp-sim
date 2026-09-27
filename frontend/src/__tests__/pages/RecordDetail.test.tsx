@@ -322,7 +322,8 @@ describe("学生结果页：教师复核与成绩口径", () => {
 	it("教师复核真的到达学生页：AI 初评与教师复核分开标注，含复核人与备注", async () => {
 		renderPage();
 
-		expect(await screen.findByText("AI 初评")).toBeInTheDocument();
+		// 逐项行也带来源徽章，因此 "AI 初评" 不只出现一次
+		expect((await screen.findAllByText("AI 初评")).length).toBeGreaterThan(0);
 		expect(screen.getByText("教师复核")).toBeInTheDocument();
 		// AI 初评分（72）与教师复核分（84）各自独立呈现，有效成绩 = 复核分
 		expect(screen.getByText("72")).toBeInTheDocument();
@@ -463,5 +464,95 @@ describe("学生结果页：关键选择与再练习", () => {
 		await screen.findByText("关键选择回看");
 		expect(screen.queryByText("再练习")).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /练习/ })).not.toBeInTheDocument();
+	});
+});
+
+/** 已复核 + 服务端给出教师条目层（`score.review.detail_scores`，`sanitize_review_raw` 写回的原始条目） */
+const TEACHER_JUDGED_RECORD = {
+	...REVIEWED_RECORD,
+	score: {
+		...REVIEWED_RECORD.score,
+		review: {
+			...REVIEWED_RECORD.score.review,
+			detail_scores: {
+				沟通技能: {
+					score: 3,
+					items: [
+						// 与 AI 原始层刻意不同（AI: c1=2/2、c2=0/2）：显示的是哪一个才说明来源
+						{ id: "c1", name: "自我介绍", score: 1, max: 2 },
+						{ id: "c2", name: "核对患者身份", score: 2, max: 2 },
+						{ id: "c3", name: "发热病史", score: null, max: 2 },
+					],
+				},
+			},
+		},
+	},
+};
+
+describe("学生结果页：逐项判定的来源", () => {
+	it("已复核且有教师条目层：逐项展示教师判定并标注「教师复核」", async () => {
+		apiMock.getRecordDetail.mockResolvedValue({ data: TEACHER_JUDGED_RECORD });
+		const { container } = renderPage();
+
+		expect(await screen.findByText(/逐项判定以服务端教师复核层为准/)).toBeInTheDocument();
+
+		const rows = Array.from(container.querySelectorAll("[data-judgement-source]"));
+		expect(rows).toHaveLength(3);
+		expect(rows.every((row) => row.getAttribute("data-judgement-source") === "review")).toBe(true);
+		expect(container.querySelector('[data-judgement-source="ai"]')).toBeNull();
+		// 展示的分数是教师条目层的分值（AI 层 c1 = 2/2），不是 AI 初评的
+		expect(within(rows[0] as HTMLElement).getByText("教师复核")).toBeInTheDocument();
+		expect(within(rows[0] as HTMLElement).getByText("1/2")).toBeInTheDocument();
+		expect(within(rows[1] as HTMLElement).getByText("2/2")).toBeInTheDocument();
+		// 教师层 score=null 只可能是「本次不适用」，不是「系统未判定」
+		expect(within(rows[2] as HTMLElement).getByText("本次不适用")).toBeInTheDocument();
+		expect(screen.queryByText("系统未判定")).not.toBeInTheDocument();
+	});
+
+	it("已复核但服务端没给教师条目层：逐项仍标 AI 初评，并说明总分已复核", async () => {
+		apiMock.getRecordDetail.mockResolvedValue({ data: REVIEWED_RECORD });
+		const { container } = renderPage();
+
+		expect(
+			await screen.findByText("总分已由教师复核，逐项判定为 AI 初评，供复盘参考。"),
+		).toBeInTheDocument();
+
+		const rows = Array.from(container.querySelectorAll('[data-judgement-source="ai"]'));
+		expect(rows).toHaveLength(4);
+		expect(container.querySelector('[data-judgement-source="review"]')).toBeNull();
+		expect(within(rows[0] as HTMLElement).getByText("AI 初评")).toBeInTheDocument();
+		expect(rows.every((row) => !row.textContent?.includes("教师复核"))).toBe(true);
+	});
+
+	it("教师条目层是空对象时也不冒充教师判定（同样退回 AI 初评）", async () => {
+		apiMock.getRecordDetail.mockResolvedValue({
+			data: {
+				...REVIEWED_RECORD,
+				score: {
+					...REVIEWED_RECORD.score,
+					review: { ...REVIEWED_RECORD.score.review, detail_scores: {} },
+				},
+			},
+		});
+		const { container } = renderPage();
+
+		expect(
+			await screen.findByText("总分已由教师复核，逐项判定为 AI 初评，供复盘参考。"),
+		).toBeInTheDocument();
+		expect(container.querySelector('[data-judgement-source="review"]')).toBeNull();
+		expect(container.querySelectorAll('[data-judgement-source="ai"]')).toHaveLength(4);
+	});
+
+	it("未复核：标注 AI 初评，且没有任何复核相关文案", async () => {
+		apiMock.getRecordDetail.mockResolvedValue({ data: FAILED_RECORD });
+		const { container } = renderPage();
+
+		expect(await screen.findByText("逐项判定为 AI 初评。")).toBeInTheDocument();
+		expect(screen.queryByText(/总分已由教师复核/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/复核/)).not.toBeInTheDocument();
+
+		const rows = Array.from(container.querySelectorAll("[data-judgement-source]"));
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.every((row) => row.getAttribute("data-judgement-source") === "ai")).toBe(true);
 	});
 });

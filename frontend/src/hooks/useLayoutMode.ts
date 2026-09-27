@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useMediaQuery } from "./useMediaQuery";
+import { useShortViewport } from "./useShortViewport";
 
 export type LayoutMode = "desktop" | "phone";
 
@@ -51,4 +52,22 @@ export function useWorkspaceHost(): WorkspaceHost {
 	const portrait = useMediaQuery("(orientation: portrait)");
 	if (wide) return "rail";
 	return portrait ? "sheet" : "rail";
+}
+
+/** 患者区形态：`compact` = 收为紧凑头（小头像 + 姓名/主诉一行），大图按需展开。 */
+export type PatientStageMode = "full" | "compact";
+
+/**
+ * 患者区形态 —— 按**可用空间**判定，不只是宽度。
+ *
+ * - 手机宽度（< 768px）：竖屏下「患者大图 + 能力条 + 完成阻断条 + 输入框」四层堆叠，
+ *   会把开场卡挤到几乎不可读；
+ * - 矮视口（高 ≤ 500px）：横屏手机的左栏大图吃掉本来就不高的视口，开场卡正文被截。
+ *
+ * 两种情况都收为紧凑头，保证开场卡完整可读；大图由学生按需展开（不是删除）。
+ */
+export function usePatientStageMode(): PatientStageMode {
+	const phoneWidth = useMediaQuery(`(max-width: ${MOBILE_BP - 1}px)`);
+	const shortViewport = useShortViewport();
+	return phoneWidth || shortViewport ? "compact" : "full";
 }

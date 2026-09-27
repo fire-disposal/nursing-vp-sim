@@ -20,6 +20,12 @@ const PHASE_ORDER: Record<string, number> = {
  */
 export type EndTrainingOptions = EndTrainingBody;
 
+/**
+ * 退避窗口内的重试拒绝：调用方应**如实转述剩余秒数**（`请等待 N 秒后重试`），
+ * 而不是笼统说「重试失败」——学生需要知道是等一会儿，还是网络/服务端出错。
+ */
+export class RetryCooldownError extends Error {}
+
 /** `/end` 失败原因：优先服务端 detail（string 或 `{message}`），退化为「请重试」文案。 */
 export function endFailureMessage(error: unknown): string {
 	const fallback = "结束训练失败，请重试";
@@ -329,7 +335,7 @@ export class ScoreManager {
 		const now = Date.now();
 		const elapsed = now - this._lastRetryTime;
 		if (elapsed < this._retryBackoffMs) {
-			throw new Error(`请等待 ${Math.ceil((this._retryBackoffMs - elapsed) / 1000)} 秒后重试`);
+			throw new RetryCooldownError(`请等待 ${Math.ceil((this._retryBackoffMs - elapsed) / 1000)} 秒后重试`);
 		}
 
 		this.stopPolling();

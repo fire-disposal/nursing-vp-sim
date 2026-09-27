@@ -4,21 +4,32 @@ import { useState } from "react";
 import type { RawScoreItemData } from "@/types/score";
 import { itemStatusLabel, messageRefIds } from "@/utils/score";
 import EvidenceBlock from "./EvidenceBlock";
+import type { ItemJudgementSource } from "./record-view";
 
 interface Props {
 	item: RawScoreItemData;
+	/** 这一行是谁判的（服务端给定的来源层）：教师复核层条目 or AI 初评层条目 */
+	source: ItemJudgementSource;
 	/** 证据 → 对话回放联动（点击后按服务端给出的 message id 高亮） */
 	onMessageClick?: (messageId: number | string) => void;
 }
 
+const SOURCE_LABELS: Record<ItemJudgementSource, string> = {
+	ai: "AI 初评",
+	review: "教师复核",
+};
+
 /**
- * 逐项判定行 —— 消费**原始层**（`raw_detail_scores`）条目：分数是原始量尺（0..raw_scale）
- * 而不是换算后的展示分，状态与证据也以原始层为准。
+ * 逐项判定行 —— 消费**原始层**条目：分数是原始量尺（0..raw_scale）而不是换算后的
+ * 展示分，状态与证据也以原始层为准。
  *
- * 三种状态各有明确文案，不留空档：已判定显示原始分/满分；`not_applicable` → 「本次不适用」；
+ * 每行都带**来源徽章**（AI 初评 / 教师复核）：教师条目层没有 evidence/reason，学生必须
+ * 能一眼看出这一行是谁判的，不能让教师判定与 AI 判定混成一件事。
+ *
+ * 状态文案不留空档：已判定显示原始分/满分；`not_applicable` → 「本次不适用」；
  * `unscored_by_model`（或无分数）→ 「系统未判定」。
  */
-export default function ItemJudgementRow({ item, onMessageClick }: Props) {
+export default function ItemJudgementRow({ item, source, onMessageClick }: Props) {
 	const statusLabel = itemStatusLabel(item);
 	const messageIds = messageRefIds(item.evidence_refs);
 	const hasDetail = !!(item.evidence || item.reason);
@@ -46,7 +57,7 @@ export default function ItemJudgementRow({ item, onMessageClick }: Props) {
 					: "var(--mantine-color-dimmed)";
 
 	return (
-		<Box mb={4}>
+		<Box mb={4} data-judgement-source={source}>
 			<Group
 				justify="space-between"
 				px="sm"
@@ -68,6 +79,9 @@ export default function ItemJudgementRow({ item, onMessageClick }: Props) {
 					<Text size="sm" truncate>
 						{item.name}
 					</Text>
+					<Badge variant="light" color={source === "review" ? "green" : "brand"} size="xs">
+						{SOURCE_LABELS[source]}
+					</Badge>
 					{statusLabel && (
 						<Badge variant="light" color={item.status === "not_applicable" ? "gray" : "yellow"} size="xs">
 							{statusLabel}

@@ -17,14 +17,50 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
  * 文案原样来自服务端，前端**不**计算能否结束（`eligible` 也不在本文件推导）。
  */
 
-/** blocker → 「去处理」动作：打开产出该产物的面板；无落点时不给按钮。 */
-function useBlockerHandler() {
+/**
+ * blocker → 动作。三态，都不自造状态：
+ *  - 能定位到产出该产物的 Activity → 「去处理」按钮（打开面板）；
+ *  - 服务端给了 `target` 但本端找不到对应 Activity → 不给按钮，明说需要手动打开；
+ *  - `target` 为空（例如「训练已结束」）→ 不加动作，服务端文案本身已自洽。
+ *
+ * `onNavigated` 供宿主在跳转后收起自己：结束确认弹窗若不关闭，面板会被弹窗压住，
+ * 「去处理」就等于没跳成（U0-B：一跳必须真的跳到位）。
+ */
+function BlockerAction({
+	blocker,
+	tone,
+	onNavigated,
+}: {
+	blocker: ManifestBlocker;
+	tone: "strip" | "dialog";
+	onNavigated?: () => void;
+}) {
 	const manifest = useSessionManifest();
 	const openPanel = useWorkspaceStore((state) => state.openPanel);
-	return (blocker: ManifestBlocker) => {
-		const activity = blockerActivity(manifest, blocker);
-		if (activity) openPanel(activity.id);
-	};
+	const activity = blockerActivity(manifest, blocker);
+
+	if (activity) {
+		return (
+			<Button
+				variant={tone === "strip" ? "subtle" : "light"}
+				size="compact-xs"
+				onClick={() => {
+					openPanel(activity.id);
+					onNavigated?.();
+				}}
+			>
+				去处理
+			</Button>
+		);
+	}
+	if (blocker.target) {
+		return (
+			<Text size="xs" c="dimmed">
+				未能定位到对应面板，请手动打开处理
+			</Text>
+		);
+	}
+	return null;
 }
 
 /**
@@ -34,7 +70,6 @@ function useBlockerHandler() {
 export function CompletionStrip() {
 	const manifest = useSessionManifest();
 	const trainingEnded = useTrainingStore((state) => state.trainingEnded);
-	const handleBlocker = useBlockerHandler();
 
 	const blockers = completionBlockers(manifest);
 	const conditions = completionConditions(manifest);
@@ -65,11 +100,7 @@ export function CompletionStrip() {
 							<Text size="xs" c="dimmed">
 								{blocker.message}
 							</Text>
-							{blocker.target && (
-								<Button variant="subtle" size="compact-xs" onClick={() => handleBlocker(blocker)}>
-									去处理
-								</Button>
-							)}
+							<BlockerAction blocker={blocker} tone="strip" />
 						</Group>
 					))
 				)}
@@ -78,10 +109,12 @@ export function CompletionStrip() {
 	);
 }
 
-/** 结束确认弹窗里的完成清单：条件逐条 + 阻塞原因（含跳转）。 */
-export function CompletionChecklist() {
+/** 结束确认弹窗里的完成清单：条件逐条 + 阻塞原因（含跳转）。
+ *
+ * `onNavigated` 由弹窗宿主传入（关闭自己），否则「去处理」打开的面板会被弹窗遮住。
+ */
+export function CompletionChecklist({ onNavigated }: { onNavigated?: () => void }) {
 	const manifest = useSessionManifest();
-	const handleBlocker = useBlockerHandler();
 
 	const conditions = completionConditions(manifest);
 	const blockers = completionBlockers(manifest);
@@ -120,11 +153,7 @@ export function CompletionChecklist() {
 					<Box style={{ flex: 1, minWidth: 0 }}>
 						<Text size="sm">{blocker.message}</Text>
 					</Box>
-					{blocker.target && (
-						<Button variant="light" size="compact-xs" onClick={() => handleBlocker(blocker)}>
-							去处理
-						</Button>
-					)}
+					<BlockerAction blocker={blocker} tone="dialog" onNavigated={onNavigated} />
 				</Group>
 			))}
 		</Stack>

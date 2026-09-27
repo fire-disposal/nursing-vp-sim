@@ -27,6 +27,7 @@ import { CollapsibleSection } from "@/components/record-review";
 import type {
 	DetailScoreCategory,
 	RawDetailScoreCategory,
+	RawScoreItemData,
 	ScoreData,
 	ScoreReviewData,
 } from "@/types/score";
@@ -34,6 +35,7 @@ import { getEffectiveTotal, resolveScoreSource, SCORE_SOURCE_LABELS } from "@/ut
 import FallbackNotice from "./FallbackNotice";
 import GradeNotice from "./GradeNotice";
 import ItemJudgementRow from "./ItemJudgementRow";
+import { type ItemJudgementSource, toTeacherItemJudgements } from "./record-view";
 
 interface ReviewData {
 	review_status?: string | null;
@@ -56,7 +58,7 @@ interface Props {
 	/** 证据 → 对话回放联动：按服务端解析出的 message id 直接高亮 */
 	onMessageClick?: (messageId: number | string) => void;
 	scoreMax: number;
-	/** 展示层维度（教师页会合并复核层，带 `_reviewed` 标记） */
+	/** 展示层维度：维度分与进度条（逐项判定的来源另见 `scoreReview.detail_scores`） */
 	categories: [string, DetailScoreCategory][];
 	hasDetailItems: boolean;
 	/** 原始层维度：有则逐项判定用原始量尺渲染（学生结果页） */
@@ -96,6 +98,14 @@ export default function ScoreResultSection({
 	const reviewedAt = review?.reviewed_at ?? recordScore.reviewed_at ?? null;
 	const reviewComment = review?.review_comment ?? recordScore.review_comment ?? null;
 	const hasReviewScore = isReviewed || reviewTotal != null;
+	// 逐项判定的真相源：服务端教师条目层非空 → 教师判定；否则 AI 初评层（raw_detail_scores）
+	const teacherJudgements = toTeacherItemJudgements(scoreReview?.detail_scores);
+	// 学生复盘的口径断层就在这里：总分可能是教师复核分，逐项可能仍来自 AI —— 必须写明
+	const judgementSourceNote = teacherJudgements
+		? "逐项判定以服务端教师复核层为准（原始量尺），标注「教师复核」；复核层未覆盖的维度仍是 AI 初评，标注「AI 初评」。"
+		: hasReviewScore
+			? "总分已由教师复核，逐项判定为 AI 初评，供复盘参考。"
+			: "逐项判定为 AI 初评。";
 
 	const emptyNotice = (label: string) => (
 		<Stack gap={4}>
@@ -214,28 +224,29 @@ export default function ScoreResultSection({
 
 				{hasDetailItems && (
 					<Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-						<Text size="xs" c="dimmed">
-							逐维度得分为数值参考（展示分 {scoreMax} 分制），逐项判定按原始量尺给出，均不代表能力等第。
-						</Text>
+						<Stack gap={2}>
+							<Text size="xs" c="dimmed">
+								逐维度得分为数值参考（展示分 {scoreMax} 分制），逐项判定按原始量尺给出，均不代表能力等第。
+							</Text>
+							<Text size="xs" c="dimmed">
+								{judgementSourceNote}
+							</Text>
+						</Stack>
 						{categories.map(([catName, catData]) => {
 							if (!Array.isArray(catData.items) || catData.items.length === 0) return null;
 							const rawCat = rawCategories?.find(([name]) => name === catName)?.[1];
 							const rawItems = rawCat?.items?.length ? rawCat.items : null;
+							// 来源以服务端字段为准：该维度在教师复核层里 → 教师判定，否则 AI 初评
+							const teacherItems = teacherJudgements?.[catName] ?? null;
+							const items: RawScoreItemData[] = teacherItems ?? rawItems ?? catData.items;
+							const judgementSource: ItemJudgementSource = teacherItems ? "review" : "ai";
 							const pct = catData.max > 0 ? Math.round((catData.score / catData.max) * 100) : 0;
-							const isReviewedDim = catData._reviewed === true;
 							return (
 								<Stack key={catName} gap="xs">
 									<Group justify="space-between">
-										<Group gap="xs">
-											<Text size="sm" fw={600}>
-												{catName}
-											</Text>
-											{isReviewedDim && (
-												<Badge variant="light" color="green" size="xs">
-													已复核
-												</Badge>
-											)}
-										</Group>
+										<Text size="sm" fw={600}>
+											{catName}
+										</Text>
 										<Text
 											size="sm"
 											c="dimmed"
@@ -246,10 +257,11 @@ export default function ScoreResultSection({
 									</Group>
 									<Progress value={pct} color={progressColor(pct)} size="sm" radius="md" />
 									<Stack gap={2} mt={4}>
-										{(rawItems ?? catData.items).map((item, i) => (
+										{items.map((item, i) => (
 											<ItemJudgementRow
 												key={item.id != null ? String(item.id) : i}
 												item={item}
+												source={judgementSource}
 												onMessageClick={onMessageClick}
 											/>
 										))}

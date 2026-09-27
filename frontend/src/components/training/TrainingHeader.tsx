@@ -96,22 +96,24 @@ export function TrainingHeader({
 		onTimeUp: () => {
 			// D5 硬截止：到点自动交卷（executeEnd 内部有 endingRef 防重入与失败提示）
 			toast.info("训练时间已到，正在自动提交…");
-			void executeEnd();
+			void executeEnd({ auto: true });
 		},
 	});
 
-	const executeEnd = useCallback(async () => {
+	const executeEnd = useCallback(async (options?: { auto?: boolean }) => {
 		if (endingRef.current) return;
 		endingRef.current = true;
 		setEndConfirmOpen(false);
 		try {
 			await onEnd();
 		} catch {
-			/* toast 由 TrainingEngine 给出（含具体失败原因） */
+			// toast 由 TrainingEngine 给出（含具体失败原因）。到点自动交卷被拦下时，原因不能
+			// 只留在会消失的 toast 里——把完成清单重新摆出来（此时学生已无法退回可训练态）。
+			if (options?.auto) setEndConfirmOpen(true);
 		} finally {
 			endingRef.current = false;
 		}
-	}, [onEnd, toast]);
+	}, [onEnd]);
 
 	const handleEndClick = useCallback(() => {
 		setEndConfirmOpen(true);
@@ -294,7 +296,7 @@ export function TrainingHeader({
 					已发送 {studentMsgCount} 条消息。结束后系统将自动生成评分。
 				</Text>
 				<Box mb="md">
-					<CompletionChecklist />
+					<CompletionChecklist onNavigated={() => setEndConfirmOpen(false)} />
 				</Box>
 				{!canComplete && (
 					<Text size="xs" c="orange" mb="sm">
@@ -309,7 +311,7 @@ export function TrainingHeader({
 					>
 						取消
 					</Button>
-					<Button variant="filled" size="sm" onClick={executeEnd} disabled={!canComplete}>
+					<Button variant="filled" size="sm" onClick={() => void executeEnd()} disabled={!canComplete}>
 						确认结束
 					</Button>
 				</Group>

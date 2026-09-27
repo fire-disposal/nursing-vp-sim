@@ -54,8 +54,6 @@ export interface DetailScoreCategory {
 	score: number;
 	max: number;
 	items?: ScoreItemData[];
-	/** 教师页合并复核层时打的标记（展示层专属） */
-	_reviewed?: boolean;
 }
 
 /** 原始层维度：`score` 为 null = 该维度没有可评条目 */

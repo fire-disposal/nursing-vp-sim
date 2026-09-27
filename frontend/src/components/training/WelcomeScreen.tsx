@@ -1,26 +1,32 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Avatar, Badge, Box, Group, Stack, Text } from "@mantine/core";
 import { Card } from "@/components/ui/card";
-import { useRecordMeta } from "@/engine/TrainingDataContext";
+import { ACTIVITY_LABELS } from "@/config/activity-display";
+import { availableActivities, completionBlockers, requiredArtifacts } from "@/engine/manifest";
+import { useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 import type { PatientData } from "@/engine/types";
 import { getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
-import { getQuickPrompts } from "./quick-prompts";
+import { activityStatus } from "./workspace/ActivityStatusBadge";
+import { getGuidedQuickPrompts } from "./quick-prompts";
 
 interface WelcomeScreenProps {
 	patient: PatientData;
 	onQuickPrompt?: (text: string) => void;
-	/** 本次训练可用的 Activity 标签（来自 manifest，服务端下发） */
-	activityLabels?: string[];
 }
 
 /**
- * WelcomeScreen — 问诊开场：患者卡片 + 训练流程 + 建议开场。
- * 以"接诊第一眼"呈现患者信息，帮助学生快速进入角色。
+ * WelcomeScreen — 问诊开场：患者卡片 + 步骤语义 + 交卷与复盘路径。
+ *
+ * 「要交什么 / 交没交 / 还缺什么」一律读 manifest（`requiredArtifacts` /
+ * `completionBlockers` / `activities[].availability` / `artifacts[].state`），
+ * 前端不推导完成条件；manifest 未到位时只说与状态无关的角色与路径。
+ * 「结束后会看到什么」是流程的固定描述（docs/19 §3.2），不是本次训练的状态。
  */
-export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: WelcomeScreenProps) {
+export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	const portraitUrl = useTrainingStore((s) => s.portraitUrl);
 	const { mode } = useRecordMeta();
+	const manifest = useSessionManifest();
 	const showGuidance = mode === "guided";
 	const fallbackAvatar = getPatientAvatar({ name: patient.name, gender: patient.gender });
 	const avatarSrc = safeAvatarUrl(portraitUrl, fallbackAvatar);
@@ -29,13 +35,35 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 	const ageLabel = patient.age ? `${patient.age}岁` : "";
 	const subInfo = [genderLabel, ageLabel].filter(Boolean).join(" · ");
 
-	const flowSteps = useMemo(
-		() => ["问诊采集", ...activityLabels, "结束评分"],
-		[activityLabels],
+	// 流程 = 服务端下发的可用活动（顺序即 ui.order）；不可用的另起一行说明原因
+	const flow = useMemo(() => {
+		const runnable = availableActivities(manifest);
+		const runnableIds = new Set(runnable.map((activity) => activity.id));
+		return {
+			runnable,
+			unavailable: manifest?.activities.filter((activity) => !runnableIds.has(activity.id)) ?? [],
+		};
+	}, [manifest]);
+
+	// 必交产物：kind 是服务端口径，展示名优先用同样来自 manifest 的 activity.label
+	const required = useMemo(
+		() =>
+			requiredArtifacts(manifest).map((kind) => {
+				const activity = manifest?.activities.find((item) => item.artifact_kind === kind);
+				return {
+					kind,
+					label: activity?.label ?? ACTIVITY_LABELS[kind] ?? kind,
+					status: activity ? activityStatus(activity, manifest?.artifacts[kind]) : null,
+				};
+			}),
+		[manifest],
 	);
 
+	// 未满足的完成条件：文案原样来自服务端 blocker.message（与完成条同一口径）
+	const blockers = completionBlockers(manifest);
+
 	const quickPrompts = useMemo(
-		() => getQuickPrompts(patient),
+		() => getGuidedQuickPrompts(patient),
 		[patient],
 	);
 
@@ -79,44 +107,109 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 						</Box>
 					</Group>
 
-					{/* 训练流程 */}
-					<Group gap={8} wrap="wrap">
-						{flowSteps.map((label, i) => (
-							<Group
-								key={label}
-								gap={6}
-								wrap="nowrap"
-								style={{
-									borderRadius: 999,
-									border: "1px solid var(--mantine-color-default-border)",
-									background: "var(--mantine-color-default-hover)",
-									padding: "3px 10px 3px 6px",
-								}}
-							>
-								<Box
-									w={18}
-									h={18}
-									style={{
-										borderRadius: 999,
-										background: "var(--mantine-primary-color-filled)",
-										color: "var(--mantine-primary-color-contrast)",
-										display: "inline-flex",
-										alignItems: "center",
-										justifyContent: "center",
-										fontSize: 11,
-										fontWeight: 700,
-										fontVariantNumeric: "tabular-nums",
-									}}
-								>
-									{i + 1}
-								</Box>
-								<Text size="xs" c="dimmed" fw={500}>
-									{label}
-								</Text>
-							</Group>
-						))}
-					</Group>
+					{/* 你的角色 */}
+					<Text size="sm" c="dimmed" style={{ lineHeight: 1.6 }}>
+						你是本病例的<Text component="span" fw={600} c="var(--mantine-color-text)">责任护士</Text>：先与患者对话采集病史，再按本病例要求完成工作区里的内容。
+					</Text>
 
+					{/* 训练流程：有 manifest 时按服务端活动列步骤，并标出必交与当前状态 */}
+					<Stack gap={6}>
+						<Group gap={8} wrap="wrap">
+							<FlowChip index={1} label="问诊采集" />
+							{flow.runnable.map((activity, i) => {
+								const artifact = activity.artifact_kind ? manifest?.artifacts[activity.artifact_kind] : undefined;
+								const status = activityStatus(activity, artifact);
+								const mustSubmit =
+									activity.artifact_kind !== null && required.some((item) => item.kind === activity.artifact_kind);
+								return (
+									<FlowChip
+										key={activity.id}
+										index={i + 2}
+										label={activity.label}
+										badges={
+											<>
+												{mustSubmit && (
+													<Badge variant="light" color="brand" size="xs">
+														必交
+													</Badge>
+												)}
+												{status && (
+													<Badge variant="light" color={status.color} size="xs">
+														{status.label}
+													</Badge>
+												)}
+											</>
+										}
+									/>
+								);
+							})}
+							<FlowChip index={flow.runnable.length + 2} label="结束评分" />
+						</Group>
+						{flow.unavailable.length > 0 && (
+							<Text size="xs" c="dimmed" style={{ lineHeight: 1.6 }}>
+								本次不可用：
+								{flow.unavailable
+									.map((activity) => {
+										const status = activityStatus(activity);
+										return `${activity.label}（${status?.label ?? "不可用"}）`;
+									})
+									.join("、")}
+							</Text>
+						)}
+					</Stack>
+
+					{/* 交卷前还缺什么：只在服务端给出 blocker 时出现，不凭空声称状态 */}
+					{blockers.length > 0 && (
+						<Stack gap={4}>
+							<Text size="xs" fw={600} c="dimmed">
+								还缺什么
+							</Text>
+							{blockers.map((blocker, i) => (
+								<Text key={`${blocker.code}-${i}`} size="xs" c="orange" style={{ lineHeight: 1.6 }}>
+									{blocker.message}
+								</Text>
+							))}
+						</Stack>
+					)}
+
+					{/* 交卷方式与结束后看到什么（流程的固定描述，非本次状态） */}
+					<Stack
+						gap={6}
+						style={{ borderTop: "1px solid var(--mantine-color-default-border)", paddingTop: 12 }}
+					>
+						{manifest !== null && (
+							<Text size="xs" c="dimmed" style={{ lineHeight: 1.6 }}>
+								{required.length > 0 ? (
+									<>
+										<Text component="span" fw={600} c="var(--mantine-color-text)">本病例要求提交的产物：</Text>
+										{required
+											.map((item) => `${item.label}（${item.status?.label ?? "状态未下发"}）`)
+											.join("、")}
+										，请在对应面板填写后点面板里的
+										<Text component="span" fw={500} c="var(--mantine-color-text)">「提交」</Text>
+										（草稿不算提交）。
+									</>
+								) : (
+									"本病例没有额外要求提交的产物。"
+								)}
+							</Text>
+						)}
+						<Text size="xs" c="dimmed" style={{ lineHeight: 1.6 }}>
+							<Text component="span" fw={600} c="var(--mantine-color-text)">如何交卷：</Text>
+							完成后点右上角
+							<Text component="span" fw={500} c="var(--mantine-color-text)">「结束训练」</Text>
+							；条件没满足时会被拦下，并逐条告诉你还缺什么。
+						</Text>
+						<Text size="xs" c="dimmed" style={{ lineHeight: 1.6 }}>
+							<Text component="span" fw={600} c="var(--mantine-color-text)">结束后：</Text>
+							等待评分结果 → 在结果页先看
+							<Text component="span" fw={500} c="var(--mantine-color-text)">「关键选择回看」</Text>
+							，再看逐项判定与证据 → 最后填写反馈问卷。
+						</Text>
+					</Stack>
+
+					{/* 建议开场放在最后：手机首屏要留给「要做什么 / 还缺什么 / 如何交卷 / 之后看什么」，
+					    开场问句是可选帮助，不该把契约挤出首屏（390x844 实测）。 */}
 					{showGuidance && onQuickPrompt && (
 						<Box>
 							<Text size="xs" fw={600} c="dimmed" mb={8}>
@@ -149,17 +242,54 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 							</Group>
 						</Box>
 					)}
-
-					<Text
-						size="xs"
-						c="dimmed"
-						style={{ borderTop: "1px solid var(--mantine-color-default-border)", paddingTop: 12, lineHeight: 1.6 }}
-					>
-						在下方输入框中向患者提问，开始采集病史。完成问诊后点击右上角
-						<Text component="span" fw={500} c="var(--mantine-color-text)">"结束训练"</Text>提交评分。
-					</Text>
 				</Stack>
 			</Card>
 		</Box>
+	);
+}
+
+/** 流程步骤 chip：序号 + 名称 + 可选状态徽章（视觉沿用原有胶囊样式）。 */
+function FlowChip({
+	index,
+	label,
+	badges,
+}: {
+	index: number;
+	label: string;
+	badges?: ReactNode;
+}) {
+	return (
+		<Group
+			gap={6}
+			wrap="nowrap"
+			style={{
+				borderRadius: 999,
+				border: "1px solid var(--mantine-color-default-border)",
+				background: "var(--mantine-color-default-hover)",
+				padding: "3px 10px 3px 6px",
+			}}
+		>
+			<Box
+				w={18}
+				h={18}
+				style={{
+					borderRadius: 999,
+					background: "var(--mantine-primary-color-filled)",
+					color: "var(--mantine-primary-color-contrast)",
+					display: "inline-flex",
+					alignItems: "center",
+					justifyContent: "center",
+					fontSize: 11,
+					fontWeight: 700,
+					fontVariantNumeric: "tabular-nums",
+				}}
+			>
+				{index}
+			</Box>
+			<Text size="xs" c="dimmed" fw={500}>
+				{label}
+			</Text>
+			{badges}
+		</Group>
 	);
 }

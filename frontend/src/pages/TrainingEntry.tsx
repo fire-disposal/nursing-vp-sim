@@ -168,6 +168,8 @@ export default function TrainingEntry() {
 					open={qShouldShow}
 					onComplete={() => { void qCheck(); }}
 					onSkip={qDismiss}
+					// 必答问卷的题目拿不到时不得让场景一直空着：给出重试入口（重新 check）
+					onRetry={() => { void qCheck(); }}
 					checkResponse={checkResponse}
 					loading={qLoading}
 					onSubmit={qSubmit}

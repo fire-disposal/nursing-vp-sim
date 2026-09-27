@@ -2,8 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
-import { availableActivities } from "@/engine/manifest";
-import { useInitialMessages, useExamResults, usePatientData, useSessionManifest } from "@/engine/TrainingDataContext";
+import { useInitialMessages, useExamResults, usePatientData } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
@@ -11,7 +10,6 @@ import { ConversationComposer } from "./ConversationComposer";
 import ActivityBar from "./workspace/ActivityBar";
 import { CompletionStrip } from "./workspace/CompletionStatus";
 import { useWorkspacePanes } from "./workspace/useWorkspacePanes";
-import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingConnection } from "@/hooks/useNetworkStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -66,7 +64,6 @@ export function ChatArea({
   const sending = useTrainingStore(s => s.sending);
   const trainingEnded = useTrainingStore(s => s.trainingEnded);
   const bus = useTrainingStore(s => s.bus)!;
-  const manifest = useSessionManifest();
   // 首帧空态判定也看服务端记录（历史学生发言 / 已采集查体），不复制进 store
   const initialMessages = useInitialMessages();
   const examResults = useExamResults();
@@ -81,8 +78,6 @@ export function ChatArea({
     [initialMessages],
   );
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
-  const isShort = useShortViewport();
-
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -108,7 +103,8 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		<Stack gap={0} flex={1} mih={0} style={{ paddingTop: isShort ? 36 : 44 }}>
+		// 顶部退避由 TrainingEngine 统一负责，本层不得重复让位——重复会让对话列比患者列低一个顶栏高度
+		<Stack gap={0} flex={1} mih={0}>
 			<AnimatePresence mode="wait">
 				{!hasConversationActivity ? (
 					<motion.div
@@ -123,7 +119,6 @@ export function ChatArea({
 							<WelcomeScreen
 								patient={patient}
 								onQuickPrompt={onSend}
-								activityLabels={availableActivities(manifest).map((activity) => activity.label)}
 							/>
 							{greeting && (
 								<Box px="xs" mt="xs" mx="auto" w="100%" maw={768}>

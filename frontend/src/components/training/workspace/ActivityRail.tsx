@@ -124,7 +124,9 @@ function ActivityRailButton({
 					<ActionIcon
 						variant={active ? "light" : "default"}
 						color={active ? undefined : "gray"}
-						size={36}
+						size={44}
+						/* 触摸目标 ≥44px：min-* 用 px 兜底，不随主题字号缩放 */
+						style={{ minWidth: 44, minHeight: 44 }}
 						radius="md"
 						onClick={onClick}
 						aria-label={hint}

@@ -1,12 +1,12 @@
 /**
  * 结果页（W5）记录级视图：再练习入口、关键选择、练习留痕。
  *
- * 后端这三个字段在 OpenAPI 生成类型里是 `dict[str, Any]` / `list[dict]`，此文件是它们
+ * 后端这几个字段在 OpenAPI 生成类型里是 `dict[str, Any]` / `list[dict]`，此文件是它们
  * 唯一的边界转换点（与 `@/utils/score` 对 `score` 的处理同理）——组件不再各自断言形状。
  * 服务端是入口可用性的唯一裁决者：`available=false` 的入口**不渲染**，前端不猜原因。
  */
 
-import type { EvidenceRef } from "@/types/score";
+import type { EvidenceRef, RawScoreItemData } from "@/types/score";
 
 /** 记录自身的练习留痕（`record.practice`）：本记录是某次复盘后的再练习 */
 export interface PracticeMarker {
@@ -142,4 +142,48 @@ function toReviewFocusItem(raw: unknown): ReviewFocusItem | null {
 export function toReviewFocus(raw: unknown): ReviewFocusItem[] {
 	if (!Array.isArray(raw)) return [];
 	return raw.map(toReviewFocusItem).filter((item): item is ReviewFocusItem => item !== null);
+}
+
+/** 逐项判定的来源（服务端给定，前端不推导）：这一行是 AI 判的还是教师判的 */
+export type ItemJudgementSource = "ai" | "review";
+
+/**
+ * `score.review.detail_scores`（教师复核的**原始条目层**）→ 逐项行视图。
+ *
+ * 服务端契约（backend `sanitize_review_raw`）：复核层是原始刻度条目
+ * `{维度: {score, items: [{id, name, score|null, max}]}}`，条目上没有 evidence/reason，
+ * `score === null` 只出现在病例声明「本次不适用」的条目上（非数值分被服务端收敛为 0，
+ * `max` 恒等于当时的 `raw_scale`）。
+ *
+ * 空对象 / 形状不符 → null：调用方此时**必须**退回 AI 初评层，绝不能把 AI 判定说成教师判定。
+ */
+export function toTeacherItemJudgements(raw: unknown): Record<string, RawScoreItemData[]> | null {
+	const record = asRecord(raw);
+	if (!record) return null;
+	const dims: Record<string, RawScoreItemData[]> = {};
+	for (const [dimName, dimRaw] of Object.entries(record)) {
+		const dim = asRecord(dimRaw);
+		if (!dim || !Array.isArray(dim.items)) continue;
+		const items: RawScoreItemData[] = [];
+		for (const [index, itemRaw] of dim.items.entries()) {
+			const item = asRecord(itemRaw);
+			if (!item) continue;
+			const id = item.id == null ? `${dimName}:${index}` : String(item.id);
+			const rawScore = item.score;
+			const score =
+				typeof rawScore === "number" && Number.isFinite(rawScore) ? rawScore : null;
+			items.push({
+				id,
+				name: typeof item.name === "string" && item.name ? item.name : id,
+				score,
+				max: typeof item.max === "number" && item.max > 0 ? item.max : undefined,
+				// 复核层不存 status：服务端只写数值或 null（病例声明「本次不适用」）；
+				// 其余形状按「未判定」呈现，不冒充 0 分，也不冒充「本次不适用」
+				status:
+					score != null ? "scored" : rawScore === null ? "not_applicable" : "unscored_by_model",
+			});
+		}
+		if (items.length > 0) dims[dimName] = items;
+	}
+	return Object.keys(dims).length > 0 ? dims : null;
 }

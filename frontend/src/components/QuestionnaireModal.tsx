@@ -1,4 +1,5 @@
-import { Box, Button, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Alert, Box, Button, Center, Group, Loader, Modal, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 
 import { Textarea } from "@mantine/core";
@@ -40,6 +41,11 @@ interface QuestionnaireModalProps {
 	onSubmit: (
 		answers: { question_id: number; answer_value: string | null }[],
 	) => Promise<void>;
+	/**
+	 * 题目不可用时的重试入口（重新发起 check / 拉取模板）。
+	 * 不传则只显示失败说明，不提供重试按钮。
+	 */
+	onRetry?: () => void;
 }
 
 const LIKERT_LABELS = ["非常不同意", "不同意", "一般", "同意", "非常同意"];
@@ -52,6 +58,7 @@ export function QuestionnaireModal({
 	checkResponse,
 	loading,
 	onSubmit,
+	onRetry,
 }: QuestionnaireModalProps) {
 	const [answers, setAnswers] = useState<Record<number, string | null>>({});
 	const [submitting, setSubmitting] = useState(false);
@@ -89,7 +96,48 @@ export function QuestionnaireModal({
 			setSubmitting(false);
 		}
 	};
-	if (!template) return null;
+	// 服务端说有待答问卷、题目却拿不到：**不能**静默返回 null，
+	// 否则研究里会被误判成「学生跳过了问卷」。这里给出可见说明与重试入口。
+	if (!template) {
+		return (
+			<Modal
+				opened={open}
+				onClose={() => {}}
+				title="问卷加载失败"
+				size={560}
+				centered
+				withinPortal
+			>
+				<Stack gap="md">
+					<Alert
+						variant="light"
+						color="red"
+						icon={<IconAlertTriangle size={18} />}
+						title="未能加载问卷题目"
+					>
+						<Text size="sm">
+							本次训练有需要你填写的问卷，但题目没有加载成功，你的作答尚未被记录。
+							{checkResponse.is_required
+								? "该问卷为必填，请重试后再继续训练。"
+								: "你可以重试，或选择跳过。"}
+						</Text>
+					</Alert>
+					<Group justify="flex-end" gap={8}>
+						{!checkResponse.is_required && (
+							<Button variant="subtle" color="gray" onClick={onSkip}>
+								跳过
+							</Button>
+						)}
+						{onRetry && (
+							<Button onClick={onRetry} loading={loading}>
+								重试
+							</Button>
+						)}
+					</Group>
+				</Stack>
+			</Modal>
+		);
+	}
 
 	return (
 		<Modal opened={open} onClose={() => {}} title={template.title} size={700} centered withinPortal>

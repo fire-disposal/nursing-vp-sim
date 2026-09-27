@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useToolBridge";
 import {
 	ACTIVITY_STATE_AVAILABLE,
+	ARTIFACT_EMPTY,
 	blockerActivity,
 	completionBlockers,
 	requiredArtifacts,
@@ -35,7 +36,7 @@ import {
 	useMessageCorrection,
 	useNursingRecordSeed,
 } from "./TrainingDataContext";
-import { ScoreManager, endFailureMessage } from "./ScoreManager";
+import { RetryCooldownError, ScoreManager, endFailureMessage } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
 import { EMOTION_LABELS, type Emotion4DLabel, type EmotionState } from "@/stores/trainingStore";
@@ -251,8 +252,17 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		if (endingRef.current) return;
 		endingRef.current = true;
 		try {
-			// 先落盘草稿：即使随后被完成前置拦下，学生写的内容也不会丢
-			await flushNursingRecord();
+			// 先落盘草稿：即使随后被完成前置拦下，学生写的内容也不会丢。
+			// 落盘失败是「**保存**失败」，不是「结束失败」——归因必须分开，并指向能修的地方
+			// （旧实现在这里直接掉进外层 catch，学生看到「结束训练失败，请重试」，
+			//  却不知道要改的是护理记录，确认弹窗此时也已被关掉）。
+			try {
+				await flushNursingRecord();
+			} catch {
+				toastError("护理记录未能保存到服务器，交卷已中止。请打开「护理记录」检查内容后重试。");
+				useWorkspaceStore.getState().openPanel(NURSING_RECORD_ARTIFACT_KIND);
+				return;
+			}
 			// 完成前置一律读服务端 manifest：前端呈现原因，不自己判断能否结束
 			// （docs/15 §十五 陷阱 2：`eligible` / `blockers` 只有服务端一份）。
 			const blockers = completionBlockers(manifest);
@@ -297,9 +307,10 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const retryScoring = useCallback(async () => {
 		try {
 			await scoreRef.current.retry();
-		} catch {
-			toastError("重新触发评分失败，请稍后再试");
-			throw new Error("retry scoring failed");
+		} catch (err) {
+			// 退避窗口内的拒绝要如实转述剩余秒数；其余失败原因已由评分悬浮层展示
+			toastError(err instanceof RetryCooldownError ? err.message : "重新触发评分失败，请稍后再试");
+			throw err instanceof Error ? err : new Error("retry scoring failed");
 		}
 	}, [toastError]);
 
@@ -358,17 +369,23 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	}, [emotionSeed]);
 
 	// ── 产物状态变化 → manifest（完成条件/blockers）重新解析 ──
+	const nursingArtifactState = manifest?.artifacts[NURSING_RECORD_ARTIFACT_KIND]?.state;
 	useEffect(() => {
 		const unsubscribe = busRef.current.on(
 			"tool:result",
 			(payload: { tool: string; action: string; ok: boolean }) => {
 				if (!payload.ok || payload.tool !== NURSING_RECORD_ARTIFACT_KIND) return;
-				if (payload.action !== "submit" && payload.action !== "reopen") return;
+				const terminal = payload.action === "submit" || payload.action === "reopen";
+				// 首次落盘会把服务端产物状态从 empty 推到 draft：这才是学生看得见的状态变化
+				// （侧栏/能力条的“未填写/草稿未提交”）。只在这一次补刷新，避免每次 3s 自动保存
+				// 都触发一次详情 refetch。判据是**服务端已下发的状态**，不是前端自算完成条件。
+				const firstDraft = payload.action === "save" && nursingArtifactState === ARTIFACT_EMPTY;
+				if (!terminal && !firstDraft) return;
 				void queryClient.invalidateQueries({ queryKey: queryKeys.training.detail(recordId) });
 			},
 		);
 		return unsubscribe;
-	}, [queryClient, recordId]);
+	}, [queryClient, recordId, nursingArtifactState]);
 
 	// ── Check completed status ──
 	useEffect(() => {
