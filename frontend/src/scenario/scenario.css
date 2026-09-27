@@ -562,6 +562,23 @@
 	grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * 学生自己：单列右对齐，靠 1px 边 + 底色跟旁白/台词分层。
+ * 不做气泡云（圆角只用控件刻度）、不加头像、不写"你"。
+ */
+.sc-line[data-role="student"] {
+	grid-template-columns: minmax(0, 1fr);
+	justify-items: end;
+}
+
+.sc-line[data-role="student"] .sc-line-main {
+	max-width: 62ch;
+	padding: var(--sc-1) var(--sc-2);
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius);
+	background: var(--sc-hover);
+}
+
 @keyframes sc-line-in {
 	from {
 		opacity: 0;
@@ -1726,6 +1743,13 @@ button.sc-panel-head:hover {
 /* 已结算的经历在左侧带一条冷色边（不用红：结算不是错误） */
 .sc-history-item[data-status="completed"] {
 	box-shadow: inset 3px 0 0 var(--sc-line);
+}
+
+/* 展开/收起经历列表的入口：与行同宽贴在底部，默认只写「还有 N 次」。 */
+.sc-history-more {
+	padding: var(--sc-1) var(--sc-3);
+	border-top: 1px solid var(--sc-line);
+	text-align: left;
 }
 
 .sc-history-error {

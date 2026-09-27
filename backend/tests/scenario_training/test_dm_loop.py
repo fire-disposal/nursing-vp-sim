@@ -257,6 +257,15 @@ def test_prompt_declares_the_tools_and_every_envelope_field(pack: ScenarioPack) 
     assert "工具" not in single[1]["content"].split("# 本回合")[0].split("## 可用图片")[-1]
 
 
+def test_prompt_carries_form_actions_when_they_are_the_next_step(pack: ScenarioPack) -> None:
+    """表单型动作只能由 DM 的 `options` 带出（前端不再陈列动作清单）；
+    提示词必须点出"自然下一步时放进 options"，否则该能力实际不可达（2026-09-28 审计）。"""
+    system = build_dm_messages(pack, initial_world(pack), None, [], max_steps=0)[0]["content"]
+
+    line = next(line for line in system.splitlines() if "表单型" in line)
+    assert "options" in line, "表单型动作的出口必须写清是 options"
+
+
 def test_parse_step_only_reads_tool_calls(pack: ScenarioPack) -> None:
     """只有"纯工具调用"才算一步：带信封字段的输出一律按信封处理（不吞半成品叙述）。"""
     assert parse_step('{"tool": "world.state", "args": {}}').tool == "world.state"  # type: ignore[union-attr]

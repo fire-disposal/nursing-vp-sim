@@ -464,6 +464,74 @@ describe("学生侧渲染：我的情境经历", () => {
 		renderConsole();
 		expect(await screen.findByText("还没有情境经历。")).toBeInTheDocument();
 	});
+
+	it("经历再多也默认只铺 8 条：末尾「还有 N 次」展开，可再收起", async () => {
+		const user = userEvent.setup();
+		mocks.listMyScenarioSessions.mockResolvedValue(
+			Array.from({ length: 12 }, (_, index) => ({
+				id: index + 1,
+				pack_key: PACK.key,
+				pack_title: `第 ${index + 1} 次`,
+				status: "completed",
+				turn: index + 1,
+				lost: false,
+				summary: null,
+				created_at: "2026-09-27T01:00:00Z",
+				updated_at: "2026-09-27T02:00:00Z",
+			})),
+		);
+		renderConsole();
+
+		const history = await screen.findByLabelText("我的情境经历");
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(8);
+		// 第 9 条起默认不渲染（不靠 CSS 藏，是真没进 DOM）
+		expect(within(history).queryByText("第 9 次")).toBeNull();
+
+		await user.click(within(history).getByRole("button", { name: "还有 4 次" }));
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(12);
+		expect(within(history).getByText("第 12 次")).toBeInTheDocument();
+
+		await user.click(within(history).getByRole("button", { name: "收起" }));
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(8);
+	});
+});
+
+describe("学生侧渲染：入口页", () => {
+	it("「情境训练」只出现一次（顶栏给标题），内容区靠 aria-label 立语义", async () => {
+		renderConsole();
+		await screen.findByText(PACK.title);
+
+		expect(screen.getAllByText("情境训练")).toHaveLength(1);
+		expect(screen.getByRole("region", { name: "情境训练" })).toBeInTheDocument();
+	});
+});
+
+describe("学生侧渲染：学生自己的话", () => {
+	it("自由表达进对话流：学生气泡排在他引发的那段旁白之前", async () => {
+		const user = userEvent.setup();
+		await enterSession(user, makeView());
+		mocks.postScenarioAction.mockResolvedValue({
+			view: makeView({
+				session: { id: 12, status: "active", turn: 4, lost: false },
+				messages: [
+					{ role: "student", text: "我先看看瞳孔。", turn: 4 },
+					{ role: "scene", text: "瞳孔等大等圆，对光反射在。", turn: 4 },
+				],
+			}),
+		});
+
+		await user.type(screen.getByLabelText("你要做什么"), "我先看看瞳孔。");
+		await user.click(screen.getByRole("button", { name: "发送" }));
+
+		const bubble = (await screen.findByText("我先看看瞳孔。")).closest(".sc-line");
+		expect(bubble).toHaveAttribute("data-role", "student");
+		const scene = screen.getByText("瞳孔等大等圆，对光反射在。").closest(".sc-line");
+		expect(scene).not.toBeNull();
+		// 他先做，世界才回应
+		expect(
+			(bubble as Element).compareDocumentPosition(scene as Element) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
 });
 
 describe("学生侧渲染：会话已结束（409）", () => {

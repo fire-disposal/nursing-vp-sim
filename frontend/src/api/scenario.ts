@@ -28,7 +28,8 @@ export interface ScenarioPackSummary {
 }
 
 export interface ScenarioMessage {
-	role: "scene" | "actor";
+	/** `student` = 学生自己做过的事（自由表达的原话 / 按钮与选项的标签）。 */
+	role: "scene" | "actor" | "student";
 	text: string;
 	/** `role === "actor"` 时的说话人 id（**临时角色可能为空**）。 */
 	actor?: string | null;

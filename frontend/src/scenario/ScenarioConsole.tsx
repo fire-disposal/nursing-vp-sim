@@ -52,6 +52,10 @@ import { sessionRowMeta } from "./sessions";
  * 开关关闭时整个 `/api/scenario/**` 返回 **404**，因此首次读 pack 列表的 404 一律按
  * "功能未开启"呈现：不区分"会话不属于我"，也不暴露内部结构。
  */
+
+/** 「我的情境经历」默认只铺开最近几条：30+ 行会把入口页拉成长页，想看全部的人自己展开。 */
+const HISTORY_PREVIEW = 8;
+
 /**
  * 控制台自带的**最简顶栏**：情境页跑在沉浸壳（`PracticeShell`）里，系统顶栏与侧栏都不在，
  * 所以"我在哪、怎么出去、怎么结束"必须由这条栏给出。
@@ -108,6 +112,8 @@ export default function ScenarioConsole() {
 	const [freeText, setFreeText] = useState("");
 	/** 展开中的 affordance 表单（选项条与输入条共用同一份流程状态）。 */
 	const [openAffordanceId, setOpenAffordanceId] = useState<string | null>(null);
+	/** 「我的情境经历」是否已展开全部（默认只显示 `HISTORY_PREVIEW` 条）。 */
+	const [historyExpanded, setHistoryExpanded] = useState(false);
 	const { confirm } = useConfirm();
 	const navigate = useNavigate();
 	/**
@@ -489,8 +495,7 @@ export default function ScenarioConsole() {
 				<>
 					<ConsoleTopbar onBack={goBack} title="情境训练" />
 					<div className="sc-gate sc-gate-wide">
-					<div className="sc-open">
-						<div className="sc-gate-title">情境训练</div>
+					<section className="sc-open" aria-label="情境训练">
 						{opening && (
 							<div className="sc-open-status" role="status">
 								正在开启情境…
@@ -546,24 +551,37 @@ export default function ScenarioConsole() {
 							) : history.length === 0 ? (
 								<div className="sc-empty">还没有情境经历。</div>
 							) : (
-								<div className="sc-history-list">
-									{history.map((row) => (
+								<>
+									<div className="sc-history-list">
+										{(historyExpanded ? history : history.slice(0, HISTORY_PREVIEW)).map(
+											(row) => (
+												<button
+													key={row.id}
+													type="button"
+													className="sc-history-item"
+													data-status={row.status}
+													disabled={busy}
+													onClick={() => resume(row)}
+												>
+													<span className="sc-history-title">{row.pack_title}</span>
+													<span className="sc-history-meta">{sessionRowMeta(row)}</span>
+												</button>
+											),
+										)}
+									</div>
+									{history.length > HISTORY_PREVIEW && (
 										<button
-											key={row.id}
 											type="button"
-											className="sc-history-item"
-											data-status={row.status}
-											disabled={busy}
-											onClick={() => resume(row)}
+											className="sc-ghost-btn sc-history-more"
+											onClick={() => setHistoryExpanded((open) => !open)}
 										>
-											<span className="sc-history-title">{row.pack_title}</span>
-											<span className="sc-history-meta">{sessionRowMeta(row)}</span>
+											{historyExpanded ? "收起" : `还有 ${history.length - HISTORY_PREVIEW} 次`}
 										</button>
-									))}
-								</div>
+									)}
+								</>
 							)}
 						</section>
-					</div>
+					</section>
 					</div>
 				</>
 			) : (

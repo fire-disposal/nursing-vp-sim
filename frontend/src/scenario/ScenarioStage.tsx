@@ -71,13 +71,15 @@ function AssetThumb({
 }
 
 /**
- * 台词 / 旁白。
+ * 台词 / 旁白 / 学生自己的话。
  *
  * 旁白（`role === "scene"`）走字幕条：**没有头像、单列铺满**（样式见
  * `scenario.css` 的 `.sc-line[data-role="scene"]`；少了那条规则，唯一的子元素会落进
  * 头像那一列，中文每行只剩一个字）。
  * 角色台词走"头像 + 身份小字 + 正文"三层：身份名是次级小字，颜色只落在头像上
  * （说话人分色因此不会牺牲正文对比度）。
+ * 学生自己（`role === "student"`）**右对齐**、只靠 1px 边与底色跟旁白/台词分层——
+ * 不加头像、不写"你"：他就是这一侧的人，不需要再自我介绍。
  */
 export function ScenarioLine({
 	message,
@@ -86,6 +88,15 @@ export function ScenarioLine({
 	message: ScenarioMessage;
 	view: ScenarioView;
 }) {
+	if (message.role === "student") {
+		return (
+			<div className="sc-line" data-role="student">
+				<div className="sc-line-main">
+					<div className="sc-line-text">{message.text}</div>
+				</div>
+			</div>
+		);
+	}
 	if (message.role === "scene") {
 		return (
 			<div className="sc-line" data-role="scene">

@@ -249,10 +249,11 @@ def test_session_is_owner_scoped(client, pg_session, installed_pack) -> None:
 
 
 def test_messages_are_in_turn_order_not_grouped_by_kind(client, pg_session, installed_pack) -> None:
-    """对话流**按时序**：每回合的旁白之后紧接该回合的台词，而不是"先全部旁白、再全部台词"。
+    """对话流**按时序**：每回合 学生 → 旁白 → 台词，而不是"先全部旁白、再全部台词"。
 
     2026-09-28 的缺陷：`build_view` 先遍历 `world.narrations` 再遍历 `world.lines`，
     于是学生看到的是按类型归类的两段（旁白一堆、台词一堆），与真实对话的因果顺序不符。
+    学生自己的动作也是在这一次修正里进对话流的（他先做，世界才回应）。
     """
     turns = [
         {"narration": "旁白一", "lines": [{"actor": "patient", "text": "台词一"}]},
@@ -263,13 +264,40 @@ def test_messages_are_in_turn_order_not_grouped_by_kind(client, pg_session, inst
     _act(client, session_id, type="ask", text="我看看他")
     view = _act(client, session_id, type="ask", text="我再看看他")["view"]
 
-    texts = [(message["role"], message["text"], message.get("turn")) for message in view["messages"]]
-    # 文案顺序：逐个回合交替，而不是先旁白后台词
-    assert [item[1] for item in texts] == ["旁白一", "台词一", "旁白二", "台词二", "旁白三", "台词三"], texts
-    # 旁白与紧随其后的台词属于同一回合，且回合号单调不减
-    pairs = [(texts[index][2], texts[index + 1][2]) for index in range(0, len(texts), 2)]
-    assert all(narration_turn == line_turn for narration_turn, line_turn in pairs), pairs
-    assert [pair[0] for pair in pairs] == sorted(pair[0] for pair in pairs), pairs
+    texts = [(message["role"], message["text"]) for message in view["messages"]]
+    # 剧本顺序：开场（学生还没做任何事）→ 第 1 回合学生动作 + 世界回应 → 第 2 回合同理
+    assert texts == [
+        ("scene", "旁白一"),
+        ("actor", "台词一"),
+        ("student", "我看看他"),
+        ("scene", "旁白二"),
+        ("actor", "台词二"),
+        ("student", "我再看看他"),
+        ("scene", "旁白三"),
+        ("actor", "台词三"),
+    ], texts
+    # 回合号单调不减（跨回合顺序不倒退）
+    turns_in_view = [message.get("turn") for message in view["messages"]]
+    assert turns_in_view == sorted(turns_in_view), turns_in_view
+
+
+def test_student_actions_are_messages_of_their_own(client, pg_session, installed_pack) -> None:
+    """学生做过的事也在对话流里（`role: student`）：自由表达用原话，点按钮用 affordance 标签。
+
+    2026-09-28 用户报告：「自己的操作和发言缺乏气泡」——只有世界在动，看起来像自说自话。
+    """
+    session_id = _open(client, [_clean_turn(), _clean_turn(), _clean_turn()])
+    _act(client, session_id, type="ask", text="你哪里不舒服？")
+    view = _act(client, session_id, affordance_id="measure_spo2")["view"]
+
+    rows = [(message["role"], message["text"], message.get("turn")) for message in view["messages"]]
+    students = [row for row in rows if row[0] == "student"]
+    assert [row[1] for row in students] == ["你哪里不舒服？", "测血氧"], rows
+    # 他先做，世界才回应：本回合的学生那条排在本回合的旁白之前
+    last_student = max(index for index, row in enumerate(rows) if row[0] == "student")
+    same_turn_scene = [index for index, row in enumerate(rows) if row[0] == "scene" and row[2] == rows[last_student][2]]
+    assert same_turn_scene, rows
+    assert last_student < min(same_turn_scene), rows
 
 
 def _clean_turn(**extra: Any) -> dict[str, Any]:

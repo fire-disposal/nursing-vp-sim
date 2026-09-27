@@ -165,6 +165,27 @@ def test_ephemeral_speaker_needs_a_visible_role(pack: ScenarioPack) -> None:
     assert check.problems == ["unknown_actor:ghost"]
 
 
+def test_view_without_turn_numbers_keeps_the_kind_order_and_still_carries_student_actions(
+    pack: ScenarioPack,
+) -> None:
+    """旧会话（旁白/台词没有回合号）**不做臆测**：退回按类型归类；学生动作照样带出来。"""
+    from modules.scenario_training.runtime.view import build_view
+    from modules.scenario_training.runtime.world import ActionRecord
+
+    world = initial_world(pack)
+    world.actions.append(ActionRecord(turn=1, affordance_id="measure_spo2", type="measure"))
+    world.narrations.append({"text": "旁白（旧会话，没有回合号）"})
+    world.lines.append({"actor": "patient", "text": "台词（旧会话，没有回合号）"})
+
+    view = build_view(pack, world, session_id=1, status="active", revision_id=1)
+
+    assert [(message["role"], message["text"]) for message in view["messages"]] == [
+        ("student", "测血氧"),
+        ("scene", "旁白（旧会话，没有回合号）"),
+        ("actor", "台词（旧会话，没有回合号）"),
+    ]
+
+
 def test_ephemeral_speaker_reaches_view_with_avatar_seed(pack: ScenarioPack) -> None:
     from modules.scenario_training.runtime.view import build_view
 

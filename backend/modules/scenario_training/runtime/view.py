@@ -77,28 +77,28 @@ def _images(pack: ScenarioPack, world: World, revision_id: int | None) -> list[d
     return out
 
 
-def build_view(
-    pack: ScenarioPack,
-    world: World,
-    *,
-    session_id: int,
-    status: str,
-    revision_id: int | None = None,
-    problems: list[str] | None = None,
-    dims: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """学生可见的完整视图（前端按词汇表通用渲染）。"""
-    # 对话流必须**按时序**：先按回合，再按"回合内 旁白 → 台词"（与 DM 的信封顺序一致）。
-    # 旧实现把所有旁白铺完再铺所有台词（按类型归类），学生会看到"先一堆旁白、再一堆台词"——
-    # 与真实对话的因果顺序不符（2026-09-28 修正）。
+def _messages(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
+    """对话流：按时序，回合内 学生 → 旁白 → 台词（学生先做，世界才回应）。
+
+    两处错位都在这里修正（2026-09-28）：旧实现把所有旁白铺完再铺所有台词（按类型归类），
+    学生会看到"先一堆旁白、再一堆台词"；学生自己的动作/发言则完全不在流里——
+    他做完动作屏幕上只有世界在动，看起来像自说自话。
+    """
     ordered: list[tuple[int | None, int, dict[str, Any]]] = []
+    # 学生自己做过的事：自由表达用他写的原话，点按钮/选项才退回 affordance 的可读标签
+    # （`label(pack)` 与时间线同一取法）。
+    for action in world.actions:
+        text = action.text or action.label(pack)
+        if not text:
+            continue
+        ordered.append((action.turn, 0, {"role": "student", "text": text, "turn": action.turn}))
     for index, narration in enumerate(world.narrations):
         turn = narration.get("turn")
         resolved = int(turn) if turn is not None else index + 1
         ordered.append(
             (
                 turn if turn is not None else None,
-                0,
+                1,
                 {"role": "scene", "text": narration.get("text", ""), "turn": resolved},
             )
         )
@@ -110,7 +110,7 @@ def build_view(
         ordered.append(
             (
                 turn if turn is not None else None,
-                1,
+                2,
                 {
                     "role": "actor",
                     "actor": actor_id,
@@ -123,13 +123,27 @@ def build_view(
                 },
             )
         )
-    # 全部条目都带回合号 → 按时序（回合，回合内 旁白→台词）；
-    # 只要有一条缺回合号（2026-09-28 之前的旧会话），就**不做臆测**，退回原有顺序（旁白在前、台词在后）。
+    # 全部条目都带回合号 → 按时序（回合，回合内 学生→旁白→台词）；
+    # 只要有一条缺回合号（2026-09-28 之前的旧会话），就**不做臆测**，退回按类型归类的原有顺序。
     if all(turn is not None for turn, _, _ in ordered):
         ordered.sort(key=lambda item: (item[0], item[1]))
     else:
         ordered.sort(key=lambda item: item[1])
-    messages: list[dict[str, Any]] = [item[2] for item in ordered]
+    return [item[2] for item in ordered]
+
+
+def build_view(
+    pack: ScenarioPack,
+    world: World,
+    *,
+    session_id: int,
+    status: str,
+    revision_id: int | None = None,
+    problems: list[str] | None = None,
+    dims: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """学生可见的完整视图（前端按词汇表通用渲染）。"""
+    messages = _messages(pack, world)
 
     options: list[dict[str, Any]] = []
     for option in world.options:

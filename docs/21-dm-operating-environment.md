@@ -62,6 +62,41 @@
 - 形态由**运行时**决定并可切换（按模型能力/预算），两种形态对**学生侧完全一致**；步数/调用数/耗时进 `/api/diagnose` 的 scenario 分区。
 - **最终可见产出是"信封"，不是思考方式**：提示词按"角色 + 环境 + 工具 + 不变量"写；结构化输出（叙述/台词/效果/选项/图片）只是交付形状。
 
+### 4.0 锚点的包声明契约（实施时的确切接口）
+
+pack 的 `presentation` 之外新增一个可选段（不声明 = 该病例不启用编排）：
+
+```jsonc
+"anchors": [
+  {
+    "id": "recognize-hypoxia",              // 唯一标识；判读与事件都引用它
+    "stage": "airway",                      // 阶段名（锚点按阶段分组，同时只推进一个阶段）
+    "goal": "意识到低氧来自阻塞而不是痰多",   // 教学意图，只给教师/回放看
+    "cue": "监护仪报警 + 患者说话变短",        // 世界必须呈现的信号（只能用叙事内手段表达）
+    "requires": ["spo2-measured"],           // 前置：这些事实/动作已发生
+    "unlocks": ["deep-suction", "call-doctor"], // 达成后开放的动作（引擎据此改变可做集）
+    "blocked_by": ["airway-not-assessed"],   // 缺哪一步就卡住（世界要诚实抵抗）
+    "deadline_turns": 3                      // 超过 N 回合未达成 → 引擎催办（有预算）
+  }
+]
+```
+
+**状态与重算（每回合从事件流算，不新增真源）**
+- 状态：`pending` / `active` / `satisfied` / `blocked(reason)` / `abandoned`；`satisfied` 与 `abandoned` **只增不改**。
+- 规范化：同时最多一个 `active`（多个则按声明序保留第一个，其余退回 `pending`）；无可满足项时允许**全体 blocked**；`blocked` 不参与自动提升。
+- `requires` / `blocked_by` / `unlocks` 只能引用**平台已登记的**事实键与 affordance id（与 `effects` 同一套注册表，加载期校验）。
+
+**注入（每回合，结构化、非散文）**
+- 唯一个 `active` 锚点的 `goal` + `cue`；`requires` 的已满足/未满足清单（未满足的**不得**被替学生完成）；
+- **禁止泄露清单**：仍 `pending` 的锚点的 `cue` 本回合不得出现；
+- 已 `blocked` 的原因（世界以叙事内方式表达"此路不通"）。
+
+**催办与提案**
+- `active` 连续 `deadline_turns` 未达成 → 注入升级强度的催办（有预算、不重复同一句），并附"学生尚未做的前置"。
+- DM 可在信封里**提出** `anchor_satisfied` / `anchor_blocked{reason}`；引擎**只采纳与重算一致者**，不一致 → 拒绝 + 落 `anchor_proposal_rejected` 事件 + 下回合纠偏提醒（`todo` 的"整条丢弃 + 隐藏提醒"口径）。
+
+**投影**：学生只看到世界（`cue` 必须被演出来）；教师/管理回放看到锚点面板（阶段/状态/阻塞原因/被拒提案）；判读把锚点作为**过程条目**（并区分"自主达成"与"被催办后达成"），不另算一套分。
+
 ### 4.1 动作归属：DM 自己把学生意图映射到已声明动作
 自由表达成为主动作路径后，学生用文字行动**不带 `affordance_id`**（引擎只认 `payload.affordance_id`），直接后果：判读的 `ACTION_USED` 系列子句漏记目标动作、白板「已处置」不收、`dims` 处置数偏低。
 - **正解（本批做）**：在 DM 的结构化输出里加 **`interpretation.affordance_id`**——它读得懂学生那句话（"给病人吸痰"），把意图映射到 pack 已声明的 affordance；平台在写 `ActionRecord` 时回填该字段，判读/白板/维度全部无需改动。
