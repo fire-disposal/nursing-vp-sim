@@ -14,7 +14,7 @@
 > **实施状态（2026-09-27）**：五题（④ 吸痰无效、③ 高血压矛盾、⑤ 两床同铃、① 预检藏危重、② 夜班电话）、双侧界面、
 > DM 生成物入库与病例内分页管理、SSE 增量渲染均已实施并通过回归与浏览器复核（证据见 §十一）。
 > **成效判据（裁定 2026-09-27）**：§八 的五个场景是**核心试金石**——这五个独特场景都有较好体验，即视为本版迭代**初具成效**；§十三 的技术验收句是**必要非充分**条件。
-> 关系：[19](19-training-experience-next-generation-plan.md) 是老系统的当前实施计划（本轨不触）；[15](15-workflow-activity-contract.md)/[16](16-v2-maintainable-monolith-objectives.md)/[17](17-training-identity-and-state-contract.md)/[18](18-clinical-reasoning-disposition.md) 约束老系统；本轨遵循 17 的命名规则；16 的"不新增第二套评分体系"约束的是**同一系统内部**——情境训练是同一应用内的**独立模块**，其判读自成一轨、与老系统**不混算、不互比**。
+> 关系：[19](19-training-experience-next-generation-plan.md) 是老系统的当前实施计划（本轨不触）；[21](21-dm-operating-environment.md) 定义本轨的**DM 运行环境**（把 DM 当成有工具的 agent，锚点是它的任务列表）；[15](15-workflow-activity-contract.md)/[16](16-v2-maintainable-monolith-objectives.md)/[17](17-training-identity-and-state-contract.md)/[18](18-clinical-reasoning-disposition.md) 约束老系统；本轨遵循 17 的命名规则；16 的"不新增第二套评分体系"约束的是**同一系统内部**——情境训练是同一应用内的**独立模块**，其判读自成一轨、与老系统**不混算、不互比**。
 > 冻结重申：墙钟时间轴不碰；`clinical_reasoning` 与 `/api/simulations` 不接入；生产数据（老系统）不动。
 
 ## 一、为什么另开一轨，且不替代老系统
@@ -445,18 +445,18 @@ failure: irreversible              # 连续 2–3 回合未探视 B → 意识�
 | 2 | `role="actor"`（声明角色） | 气泡 + `actor_role` 标签 + 派生头像 |
 | 3 | `ephemeral=true`（临时角色） | 虚线头像 +「临时」徽章；**不进在场者条** |
 | 4 | `origin="entity"`（独立实体） | 明确小标 |
-| 5 | `images[]` | 主位图 + `caption`；`origin="generated"` 标「AI 生成」 |
+| 5 | `images[]` | 主位图收成一条**紧凑图带**（有图才给）+ 作者写的 `caption`；生成来源（`origin`）不进学生面 |
 | 6 | `visible_cues` / `noticed` | **分开展示**（已揭示 vs 你注意到的） |
-| 7 | `hud[]` 四类 source | `state` 数值大字 / `cue` 列表 / `actor` / `affordance` 计数 |
-| 8 | `options` vs `affordances` | **分区**（DM 建议 vs 本情境全部动作）；回合 0 无建议时只显示动作区 |
+| 7 | `hud[]` 四类 source | **只渲染 `state`**（仪器读数）；`cue`/`actor`/`affordance` 与白板/在场者/动作入口重复，不再重复渲染（一个 `state` 都没有就整块不出现） |
+| 8 | `options` vs `affordances` | `options` = **气泡流末尾的提示 chip（≤3）**，随对话推进；`affordances` **不上界面**（没有能力清单）——学生靠自由表达行动 |
 | 9 | `nudges[]` | 轻提示，只给方向 |
 | 10 | `session.lost` | 冷色 + 顶部横幅，**不遮罩**、不阻断 |
-| 11 | `timeline[]` | 按 `kind`（student/world，world 带 `by`）分色 |
-| 12 | `dims[]` | `value===null` → 「—」并显示 `detail` |
-| 13 | **`problems[]`** | **学生侧不展示原始诊断串**（`dm_parse:*` 等）；DM 走保底时只给人话；原始串归管理侧 |
-| 14 | `actors[].presence` | 四态各有说法：`on_site`搭话 / `remote`通话 / `callable`可呼叫 / `inaccessible`不在视野（**无按钮**） |
-| 15 | 动作属性 | `confirm=true` 二次确认；`free_input=false` 不给自输入；`select` 单选/多选；`document` 按 `fields` 生成表单 |
-| 16 | 空态/加载/错误 | 无历史、无资源、无面板、404（未开启）、409（已结束）各有明确文案 |
+| 11 | `timeline[]` | 按回合分组：动作行（正文色）+ 世界行（弱化色）；**不署名**（不写「X 的回应」）、不用色条/圆点 |
+| 12 | `dims[]` | **顶栏**：一条细进度 + 数字（比例/次数两类，其余不展示）；全部读数与 `detail` 在点击展开的弹层里；`value===null` → 「—」 |
+| 13 | **`problems[]`** | **学生侧不展示原始诊断串**（`dm_parse:*` 等）；DM 走保底时给**一句**中性说明（`本回合的世界回应出自既定情境。`）；原始串归管理侧 |
+| 14 | `actors[].presence` | 三态给动作词（`on_site`搭话 / `remote`通话 / `callable`可呼叫）；`inaccessible` **不给提示词、不给按钮**（只灰着）——「不在视野」是平台在解释自己的投影规则 |
+| 15 | 动作属性 | 自由输入是**主控件**；`confirm=true` 二次确认；`free_input=false` 不给输入行；`select` 单选/多选与 `document` 表单**只能由 DM 的提示 chip 带出**（需要参数的动作仍走表单） |
+| 16 | 空态/加载/错误 | 空即不渲染（无面板、无图、无资源**都不留空壳**）；404（未开启）、409（已结束）只给最短事实 + 出口 |
 | 17 | 长内容 | 不撑破布局；新消息自动滚到底，用户上翻时**不抢**滚动 |
 | 18 | HUD 可见性 | 只显示 pack 声明过的 slot；不暴露内部字段名（如 `scene.spo2`） |
 | 19 | `board`（线索板） | 只读、单行、分条；`count>1` 给 ×N；`evidence` 次行小字；`superseded` 划线+「已订正」；`more>0` 给「还有 N 条」；空版块不渲染 |
@@ -574,3 +574,44 @@ DM 单次输出里有多个内容块（叙述 / 台词 / 图片 / 选项 / 笔�
 | 5 | **正式特性成立**——入口可开可关，关时零可见 | ✅ 已实测（`SCENARIO_TRAINING_ENABLED=false` → 全命名空间 404，有测试） |
 
 本文是设计规格，不是完成声明；教师判例、临床审阅与能力等第校准仍未完成。
+
+## 十四、学生面 UI 与文案规范（2026-09-28 定稿）
+
+这一节是**学生面**（`/scenario`，含管理侧回放复用的组件）的规范；改学生界面先读它。
+
+### 14.1 只出现叙事内（diegetic）信息
+世界里成立的话、别人的话、可做的动作——只有这些。**系统/作者/平台的解释、教学口吻、
+免责声明、占位说明一律不出现**：不写「（看不到）」「（未测到）」「（占位）」「你可以点击…」。
+系统状态用**视觉**表达而不是旁白解释：不在视野 = 没有按钮、灰着；没有图 = 没有图区；
+被折叠 = 一个中性的数量控件。需要引导时用**最短的动作词**（作者侧：`nudges[].direction`
+写「先要齐能改变判断的证据」，不写「值得停下来重新评估原因」）。
+
+### 14.2 按需展示，不一次性列出一切可行性
+DM 是主持人，界面只给他**此刻递上来的东西**：`options` ≤3 条，渲染为紧跟最新一条消息的
+chip，随对话推进更新；`affordances` 是"理论上可做的事"，**完全不上界面**，学生靠自由表达
+行动。默认屏幕上除了这条提示与输入框，不应有任何其它可点击动作。
+
+### 14.3 同一事实只出现一处
+线索/注意到的只在白板；在场者只在在场者条；量化只在顶栏细进度（细节在弹层）；
+地点与时间只在图带那一行；资源只在那行小字。历史与复盘信息（时间线、逐条判读）
+只在侧栏时间线页签与结算页出现，不常驻主界面。
+
+### 14.4 视觉：与系统主题同一套刻度（不另立语言）
+- 颜色**全部**取 Mantine CSS 变量（`--mantine-color-*` / `--mantine-primary-color-*` / `--mantine-color-{语义}-{text,light,light-color}`），
+  亮/暗两套主题随 `data-mantine-color-scheme` 即时生效；`scenario.css` 内**不得出现硬编码 `#` 色值**。
+- 半径：控件层 `--mantine-radius-sm`(4px)、容器/卡片层 `--mantine-radius-md`(8px)（= `theme.radius.{control,container}`）；唯一圆形是头像。
+- 字号：`xs`12（元信息/状态词）、`sm`13（次级正文）、`md`15（台词/读数正文）、`lg`17（结算页标题/总分）。
+- 间距：容器内边距用 `--mantine-spacing-sm|md`(12/16)；2/4/6/8 这类小于 10px 的步进主题刻度里没有，
+  仅在行内微调时按字面量使用（Mantine 组件自身同样如此）。
+- 不用渐变、发光、玻璃质感（`backdrop-filter`）、字距与全大写；阴影只给弹层（`--mantine-shadow-xs`）。
+  唯一例外：压在场景大图上的那条细遮罩必须恒为黑色（图像覆盖层，见 `scenario.css` 文件头注释）。
+- 数值一律等宽 + `tabular-nums`，且不超过正文字号；语义色（正常/注意/危急）只用于状态本身，不整块染色。
+
+### 14.5 无障碍
+`focus-visible` 环（品牌色）覆盖全部可点元素；触屏（`pointer: coarse`）控件高度抬到 44px；
+`prefers-reduced-motion` 下所有动画关闭；自建页签是标准 `tablist/tab/tabpanel` + 左右方向键。
+
+### 14.6 沉浸壳与出口
+`/scenario` 跑在 `PracticeShell`（无系统顶栏/侧栏），因此控制台自带一条最简顶栏：
+返回（→ `/training`）+ 病例名 + 回合/进度 + 会话动作；会话视图 `height: 100dvh`，
+**页面级不滚动**，滚动只发生在对话流与侧栏内部。

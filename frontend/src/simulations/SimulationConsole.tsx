@@ -1,20 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { isAxiosError } from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { components } from "@/api/api-types.gen";
 import {
 	createSimulationSession,
 	getSimulationSession,
 	postSimulationAction,
 } from "@/api/simulations";
+import type { SimulationSnapshot } from "@/api/simulations-types.frozen";
+import type { CommandSurface, Completion } from "./commands";
 import { computeCompletionGroups } from "./completions";
-import type { CommandSurface } from "./commands";
-import type { Completion } from "./commands";
 import { parseCommand } from "./parser";
-import { TIMELINE_LEGEND, buildTimeline, horizonLabels } from "./timeline";
+import { buildTimeline, horizonLabels, TIMELINE_LEGEND } from "./timeline";
 import "./console.css";
-
-type SimulationSnapshot = components["schemas"]["SimulationSnapshot"];
 
 const SESSION_KEY = "simulation.sessionId";
 

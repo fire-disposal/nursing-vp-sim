@@ -150,7 +150,8 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/scenario",
 		element: <ScenarioConsole />,
 		permission: "scenario_training",
-		activity: "manage",
+		// 沉浸壳（与常规训练详情页同款）：进情境后不显示系统顶栏/侧栏，控制台自带最简导航与返回。
+		activity: "practice",
 		nav: { label: "情境", icon: IconSitemap, section: "user" },
 	},
 	{

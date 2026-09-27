@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import type { ScenarioBoard, ScenarioBoardEntry } from "@/api/scenario";
 import { render, screen, within } from "@/__tests__/render";
+import type { ScenarioBoard, ScenarioBoardEntry } from "@/api/scenario";
 import BoardPanel from "@/scenario/BoardPanel";
 
 function entry(over: Partial<ScenarioBoardEntry> = {}): ScenarioBoardEntry {
@@ -154,11 +154,7 @@ describe("线索板：只读事实区", () => {
 
 		const empty = render(<BoardPanel board={board({ entry_count: 0, sections: [] })} />);
 		expect(empty.container.querySelector("[data-empty='true']")).not.toBeNull();
-		expect(
-			screen.getByText(
-				"这块板还是空的——还没有确定下来的信息。你做的事会一条条写上去。",
-			),
-		).toBeInTheDocument();
+		expect(screen.getByText("还没有线索。")).toBeInTheDocument();
 	});
 
 	it("superseded 走划线 +「已订正」且旧条目不消失；more>0 给一条如实提示", () => {
@@ -202,7 +198,7 @@ describe("线索板：只读事实区", () => {
 		expect(document.querySelector('[data-entry-id="n2"]')).not.toBeNull();
 		expect(
 			document.querySelector(".sc-board-more-hint")?.textContent,
-		).toContain("还有 4 条未在此展开");
+		).toContain("还有 4 条");
 	});
 
 	it("次数：文案已含 ×N 时不再补徽章（同一件事不说两遍），事实证据走次行小字", () => {

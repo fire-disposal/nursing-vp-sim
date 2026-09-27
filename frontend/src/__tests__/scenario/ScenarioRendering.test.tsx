@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioBoard, ScenarioView } from "@/api/scenario";
 import { render, screen, waitFor, within } from "@/__tests__/render";
+import type { ScenarioBoard, ScenarioView } from "@/api/scenario";
 import { STUDENT_FALLBACK_NOTICE } from "@/scenario/problems";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 
@@ -149,7 +149,8 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 	});
 	renderConsole();
 	await user.click(await screen.findByText(PACK.title));
-	await screen.findByRole("button", { name: /问尿量/ });
+	// 动作区常驻：它就是"已经进场"的稳定标志（affordance 不再上界面）
+	await screen.findByLabelText("动作区");
 }
 
 beforeEach(() => {
@@ -206,7 +207,8 @@ describe("学生侧渲染：在场者四种形态", () => {
 		expect(screen.getByText("搭话")).toBeInTheDocument();
 		expect(screen.getByText("通话")).toBeInTheDocument();
 		expect(screen.getByText("可呼叫")).toBeInTheDocument();
-		expect(screen.getByText("不在视野")).toBeInTheDocument();
+		// 不可接触的人不给提示词："不在视野"是平台在解释自己的投影规则
+		expect(screen.queryByText("不在视野")).toBeNull();
 
 		expect(
 			screen.getByRole("button", { name: /值班护士老周/ }),
@@ -218,34 +220,60 @@ describe("学生侧渲染：在场者四种形态", () => {
 		expect(screen.getByText("6 床患者")).toBeInTheDocument();
 	});
 
-	it("点电话那头的人预填「对电话那头的…说：」，不是「搭话」", async () => {
+	it("点在场者只把焦点送进输入框，不替学生写字（没有「说：」句式）", async () => {
 		const user = userEvent.setup();
 		await enterSession(user, makeView());
 
 		await user.click(screen.getByRole("button", { name: /二线医生/ }));
-		expect(screen.getByLabelText("自己写一句")).toHaveValue(
-			"对电话那头的二线医生说：",
+		// 不预填任何收信人句式：学生看到自己没写过的文本会一眼看出是平台拼的
+		const area = screen.getByLabelText("你要做什么");
+		expect(area).toHaveValue("");
+		expect(area).toHaveFocus();
+		expect(document.querySelector(".sc-actions")?.textContent).not.toContain("说：");
+	});
+
+	it("学生面的关键容器不写系统/作者注解：没有「说：」，也没有全角括号", async () => {
+		const user = userEvent.setup();
+		await enterSession(
+			user,
+			makeView({
+				options: [
+					{ label: "看看呼吸", type: "observe", affordance_id: null, params: {} },
+				],
+			}),
 		);
+
+		const selectors = [".sc-topbar", ".sc-actors", ".sc-actions", ".sc-options"];
+		// 容器都得真的在（否则这条断言会因为"什么都没渲染"而白过）
+		for (const selector of selectors) {
+			expect(document.querySelector(selector)).not.toBeNull();
+		}
+		for (const selector of selectors) {
+			const text = document.querySelector(selector)?.textContent ?? "";
+			expect(text).not.toContain("（");
+			expect(text).not.toContain("说：");
+		}
 	});
 });
 
 describe("学生侧渲染：HUD / 图片 / 线索 / 数值", () => {
-	it("HUD 四类 source 各自成形，且不暴露 pack 的内部字段名", async () => {
+	it("HUD 只留仪器读数（state），其余 source 不重复第二遍，也不暴露 pack 的内部字段名", async () => {
 		const user = userEvent.setup();
 		await enterSession(user, makeView());
 
 		const hud = document.querySelector(".sc-hud") as HTMLElement;
 		const slots = hud.querySelectorAll(".sc-hud-slot");
-		expect(slots).toHaveLength(4);
+		// cue/actor/affordance 是同一事实的第二处：线索在白板上、在场者在在场者条上
+		expect(slots).toHaveLength(1);
 		expect(hud.querySelector('[data-source="state"]')?.textContent).toContain("20");
-		expect(hud.querySelector('[data-source="cue"]')?.textContent).toContain("呼叫灯在闪");
-		expect(hud.querySelector('[data-source="actor"]')?.textContent).toContain("值班护士老周");
-		expect(hud.querySelector('[data-source="affordance"]')?.textContent).toContain("3");
+		expect(hud.querySelector('[data-source="cue"]')).toBeNull();
+		expect(hud.querySelector('[data-source="actor"]')).toBeNull();
+		expect(hud.querySelector('[data-source="affordance"]')).toBeNull();
 		// `ref` 是判读用的内部键，学生看不到
 		expect(screen.queryByText(/scene\.urine/)).toBeNull();
 	});
 
-	it("主位图带 caption，AI 生成的图有「AI 生成」标", async () => {
+	it("主位图带 caption：caption 渲染在画面下方，不标图的来源", async () => {
 		const user = userEvent.setup();
 		await enterSession(
 			user,
@@ -263,11 +291,13 @@ describe("学生侧渲染：HUD / 图片 / 线索 / 数值", () => {
 			}),
 		);
 
-		expect(screen.getByText("走廊尽头的灯没关。")).toBeInTheDocument();
-		expect(screen.getByText("AI 生成")).toBeInTheDocument();
+		const caption = document.querySelector(".sc-caption");
+		expect(caption?.textContent).toBe("走廊尽头的灯没关。");
+		// 图从哪来是平台的事：学生面不写「AI 生成」这类口吻
+		expect(screen.queryByText(/AI 生成/)).toBeNull();
 	});
 
-	it("pack 自带的图没有「AI 生成」标（不是生成的就别说生成）", async () => {
+	it("包自带的图不上来源标；没有 caption 就不留一条空 caption", async () => {
 		const user = userEvent.setup();
 		await enterSession(
 			user,
@@ -278,26 +308,35 @@ describe("学生侧渲染：HUD / 图片 / 线索 / 数值", () => {
 						url: "/api/scenario/assets/4/a_room",
 						title: "病房环境",
 						alt: "夜班病房",
-						caption: "墙上挂着呼叫铃。",
+						caption: "",
 						origin: "pack",
 					},
 				],
 			}),
 		);
 
-		expect(screen.getByText("墙上挂着呼叫铃。")).toBeInTheDocument();
-		expect(screen.queryByText("AI 生成")).toBeNull();
+		expect(document.querySelector(".sc-caption")).toBeNull();
+		expect(screen.queryByText(/AI 生成/)).toBeNull();
+		// 画面仍然说清"这是哪、几点"（地点/时间照旧给）
+		expect(screen.getByText("病区护士站")).toBeInTheDocument();
+		expect(screen.getByText("凌晨 02:15")).toBeInTheDocument();
 	});
 
 	it("线索只有一份来源：白板上分版块呈现，侧栏不再另列线索分组", async () => {
 		const user = userEvent.setup();
 		await enterSession(user, makeView({ board: makeBoard() }));
 
-		const board = screen.getByLabelText("线索板");
+		const board = document.querySelector(".sc-board") as HTMLElement;
 		expect(within(board).getByText("呼叫灯在闪")).toBeInTheDocument();
 		expect(within(board).getByText("尿量 20ml/h")).toBeInTheDocument();
-		// 旧的两组线索清单已并入白板：侧栏里每条线索**只出现一次**（同一件事不说两遍）。
-		// HUD 的现场读数仍在动作区一侧，那是另一回事（pack 声明的 slot），不算重复。
+		// 版块标题就是作者给的名字，不带计数
+		expect(screen.getByLabelText("现场看到的")).toBeInTheDocument();
+		expect(screen.getByLabelText("你注意到的")).toBeInTheDocument();
+		// 两块都有 → 一个卡片 + 两个页签（标签就是「线索」/「时间线」，没有计数）
+		expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+			"线索",
+			"时间线",
+		]);
 		const side = document.querySelector(".sc-side") as HTMLElement;
 		expect(within(side).getAllByText("呼叫灯在闪")).toHaveLength(1);
 		expect(within(side).getAllByText("尿量 20ml/h")).toHaveLength(1);
@@ -305,7 +344,7 @@ describe("学生侧渲染：HUD / 图片 / 线索 / 数值", () => {
 		expect(screen.queryByText(/我自己注意到的/)).toBeNull();
 	});
 
-	it("dims 里数值缺失显示「—」并给出原因", async () => {
+	it("dims 里数值缺失显示「—」；判读口径（detail）不进学生面（展开顶栏细进度即见）", async () => {
 		const user = userEvent.setup();
 		await enterSession(
 			user,
@@ -319,22 +358,45 @@ describe("学生侧渲染：HUD / 图片 / 线索 / 数值", () => {
 						unit: "回合",
 						detail: "还没有可回推的动作",
 					},
+					{
+						id: "d_ratio",
+						label: "覆盖比例",
+						agg: "ratio",
+						value: 0.5,
+						unit: "比例",
+						detail: "",
+					},
 				],
 			}),
 		);
 
-		const panel = screen.getByLabelText("经历量化");
+		const wrap = screen.getByLabelText("经历量化");
+		await user.click(within(wrap).getByRole("button"));
+		const panel = document.querySelector(".sc-progress-panel") as HTMLElement;
+		expect(panel).not.toBeNull();
 		expect(within(panel).getByText("—")).toBeInTheDocument();
-		expect(within(panel).getByText("还没有可回推的动作")).toBeInTheDocument();
+		// detail 是后端判读口径（可能带内部字段名）→ 学生面逐字不渲染（管理侧回放才显示）
+		expect(
+			within(panel).queryByText("还没有可回推的动作"),
+		).not.toBeInTheDocument();
 	});
 
-	it("view.free_input=false 时不给自己输入入口", async () => {
+	it("view.free_input=false 时不给自己输入入口（DM 提示条照旧）", async () => {
 		const user = userEvent.setup();
-		await enterSession(user, makeView({ free_input: false }));
+		await enterSession(
+			user,
+			makeView({
+				free_input: false,
+				options: [{ label: "问一句", type: "ask", affordance_id: null, params: {} }],
+			}),
+		);
 
-		expect(screen.queryByLabelText("自己写一句")).toBeNull();
+		expect(screen.queryByLabelText("你要做什么")).toBeNull();
+		expect(screen.queryByRole("button", { name: "发送" })).toBeNull();
+		expect(document.querySelector(".sc-actions-row")).toBeNull();
 		// 动作区照旧：自由通道没了不等于没得做
-		expect(screen.getByRole("button", { name: /问尿量/ })).toBeInTheDocument();
+		expect(screen.getByLabelText("动作区")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "问一句" })).toBeInTheDocument();
 	});
 });
 
@@ -358,7 +420,12 @@ describe("学生侧渲染：我的情境经历", () => {
 
 		const history = await screen.findByLabelText("我的情境经历");
 		const item = within(history).getByRole("button");
-		expect(within(item).getByText("已结算 · 7 回合 · 不可逆结局 · 强 1 · 合格 2 · 漏 1")).toBeInTheDocument();
+		// 一行说清：状态 · 第几回合 · 结局 · 锚点摘要 · 最后活动
+		expect(
+			within(item).getByText(
+				/^已结束 · 第 7 回合 · 不可逆结局 · 强 1 · 合格 2 · 漏 1 · 最后活动 /,
+			),
+		).toBeInTheDocument();
 
 		mocks.getScenarioSession.mockResolvedValue({
 			session_id: 12,
@@ -387,18 +454,15 @@ describe("学生侧渲染：我的情境经历", () => {
 			expect(mocks.getScenarioSession).toHaveBeenCalledWith(12);
 		});
 		// 已结算的经历直接落到经历页（不是回到"继续做动作"）
-		expect(
-			await screen.findByText(
-				"已达到不可逆结局——下面是这次情境里真实发生过的判读｜共 7 回合",
-			),
-		).toBeInTheDocument();
+		const head = await screen.findByText(/^已达到不可逆结局 ｜ 共 7 回合$/);
+		expect(head).toBeInTheDocument();
+		// 结算页不再解释"下面是什么"
+		expect(screen.queryByText(/下面是这次情境里真实发生过的判读/)).toBeNull();
 	});
 
 	it("没有历史时显示空态文案", async () => {
 		renderConsole();
-		expect(
-			await screen.findByText("还没有情境经历。挑上面的一个情境开始吧。"),
-		).toBeInTheDocument();
+		expect(await screen.findByText("还没有情境经历。")).toBeInTheDocument();
 	});
 });
 
@@ -412,16 +476,19 @@ describe("学生侧渲染：会话已结束（409）", () => {
 			message: "Request failed with status code 409",
 			response: { status: 409, data: { detail: "该情境已结束" } },
 		});
-		await user.click(screen.getByRole("button", { name: /问尿量/ }));
+		await user.type(screen.getByLabelText("你要做什么"), "给他吸氧");
+		await user.keyboard("{Enter}");
 
 		expect(await screen.findByText("这次情境已经结束")).toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: /问尿量/ })).toBeNull();
-		expect(screen.queryByLabelText("自己写一句")).toBeNull();
+		expect(screen.queryByLabelText("你要做什么")).toBeNull();
+		expect(screen.queryByRole("button", { name: "发送" })).toBeNull();
+		// 出口还在：去看经历
+		expect(screen.getByRole("button", { name: "看经历" })).toBeInTheDocument();
 	});
 });
 
 describe("学生侧渲染：长内容与无面板", () => {
-	it("长旁白不撑破布局（字幕条可换行，台词流自身滚动）", async () => {
+	it("长旁白不撑破布局（字幕条单列铺满，台词流自身滚动）", async () => {
 		const user = userEvent.setup();
 		const longText = "长".repeat(600);
 		await enterSession(
@@ -432,23 +499,91 @@ describe("学生侧渲染：长内容与无面板", () => {
 		const subtitle = document.querySelector(".sc-subtitle") as HTMLElement;
 		expect(subtitle.textContent).toBe(longText);
 		expect(document.querySelector(".sc-lines")).not.toBeNull();
+		// 旁白不带头像、不落进头像那一列（少了这条规则，中文每行只剩一个字）
+		const sceneLine = subtitle.closest(".sc-line") as HTMLElement;
+		expect(sceneLine.dataset.role).toBe("scene");
+		expect(sceneLine.querySelector(".sc-avatar")).toBeNull();
 	});
 
-	it("pack 声明的面板一个都不认识时给空态，而不是空白侧栏", async () => {
+	it("pack 声明的面板一个都不认识时不摆空壳，画面照旧", async () => {
 		const user = userEvent.setup();
 		await enterSession(user, makeView({ panels: ["future_panel"] }));
 
-		expect(screen.getByLabelText("经历面板")).toBeInTheDocument();
-		expect(screen.queryByLabelText("经历时间线")).toBeNull();
-		expect(screen.queryByLabelText("现场")).toBeNull();
+		// 没有线索、时间线又未声明 → 侧栏整块不渲染（不写空态说明句）
+		expect(screen.queryByLabelText("经历面板")).toBeNull();
+		expect(screen.queryByLabelText("经历量化")).toBeNull();
+		expect(document.querySelector(".sc-situation")).toBeNull();
+		// 但场景与动作区照旧
+		expect(screen.getByLabelText("场景画面")).toBeInTheDocument();
+		expect(screen.getByLabelText("动作区")).toBeInTheDocument();
 	});
 
-	it("pack 没写 panels（空数组）时三个面板全开——老 pack 不该因此变哑", async () => {
+	it("pack 没写 panels（空数组）时面板全开——老 pack 不该因此变哑", async () => {
 		const user = userEvent.setup();
-		await enterSession(user, makeView({ panels: [] }));
+		await enterSession(
+			user,
+			makeView({
+				panels: [],
+				dims: [
+					{
+						id: "d_ratio",
+						label: "覆盖比例",
+						agg: "ratio",
+						value: 0.5,
+						unit: "比例",
+						detail: "",
+					},
+				],
+			}),
+		);
 
-		expect(screen.getByLabelText("经历时间线")).toBeInTheDocument();
-		expect(screen.getByLabelText("现场")).toBeInTheDocument();
+		// 时间线（没有线索 → 只有一块，不摆页签）
+		const side = document.querySelector(".sc-side") as HTMLElement;
+		expect(side).not.toBeNull();
+		expect(within(side).getByText("看尿袋")).toBeInTheDocument();
+		expect(within(side).queryAllByRole("tab")).toHaveLength(0);
+		// 现场
+		expect(document.querySelector(".sc-situation")?.textContent).toContain("电话");
+		// 经历量化
 		expect(screen.getByLabelText("经历量化")).toBeInTheDocument();
+	});
+});
+
+describe("学生侧渲染：内部键名不进学生面", () => {
+	it("dims 的 detail（含 scene.spo2 这类字段名）不与 HUD 的 ref 一起泄漏到学生页", async () => {
+		const user = userEvent.setup();
+		await enterSession(
+			user,
+			makeView({
+				dims: [
+					{
+						id: "d_coverage",
+						label: "已问到的关键项",
+						agg: "coverage",
+						value: 0.5,
+						unit: "比例",
+						// 后端 detail 是判读口径：里面是内部字段名（scene.spo2 / runtime_state）
+						detail:
+							"scene.spo2 初值 88 → 当前 88（runtime_state=force_rescore）",
+					},
+				],
+			}),
+		);
+
+		const leaked = /scene\.|spo2|force_rescore|runtime_state/;
+		// 收起态：HUD 的 `ref`（scene.urine）也不该被渲染出来
+		expect(leaked.test(document.body.textContent ?? "")).toBe(false);
+
+		// 顶栏细进度 → 弹层：**正控**（读数确实渲染了）之后，detail 仍然不出现
+		await user.click(
+			screen.getByRole("button", { name: /已问到的关键项/ }),
+		);
+		expect(document.querySelector(".sc-progress-panel")).not.toBeNull();
+		expect(
+			within(document.querySelector(".sc-progress-panel") as HTMLElement).getByText(
+				"已问到的关键项",
+			),
+		).toBeInTheDocument();
+		expect(leaked.test(document.body.textContent ?? "")).toBe(false);
 	});
 });

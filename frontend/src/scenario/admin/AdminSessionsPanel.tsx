@@ -12,8 +12,8 @@ import {
 	Table,
 	Text,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
 import { IconAlertTriangle } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
@@ -22,10 +22,10 @@ import {
 	listAdminScenarioSessions,
 } from "@/api/scenario";
 import { formatShortDateTime } from "@/utils/date";
-import { sessionStatusLabel, summaryText } from "../sessions";
+import ScenarioReportView from "../ScenarioReportView";
 import ScenarioSidePanel from "../ScenarioSidePanel";
 import ScenarioStage, { ScenarioLine } from "../ScenarioStage";
-import ScenarioReportView from "../ScenarioReportView";
+import { sessionStatusLabel, summaryText } from "../sessions";
 
 const STATUS_OPTIONS = [
 	{ value: "active", label: "进行中" },

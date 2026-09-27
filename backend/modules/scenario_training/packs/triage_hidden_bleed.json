@@ -65,7 +65,7 @@
   "actors": [
     {
       "id": "patient",
-      "role": "患者（中年男性）",
+      "role": "患者",
       "presence": "on_site",
       "demand": "quiet",
       "knowledge": {
@@ -564,7 +564,7 @@
             }
           ]
         },
-        "direction": "病人自己说哪里疼，不等于问题就在那里；先看看他整体怎么样"
+        "direction": "先测他的生命体征"
       }
     ]
   },

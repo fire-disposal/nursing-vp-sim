@@ -11,6 +11,9 @@ import { useShallow } from "zustand/react/shallow";
 import Forbidden from "@/components/ui/forbidden";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
+// 管理侧回放复用学生侧的场景/舞台组件（`sc-*` 类），样式只有这一份来源。
+// 不引进来时，这些类在 `/scenario-admin` 直接访问（不经由 /scenario）会整片失样式。
+import "../scenario.css";
 import AdminAssetsPanel from "./AdminAssetsPanel";
 import AdminGeneratedPanel from "./AdminGeneratedPanel";
 import AdminPacksPanel from "./AdminPacksPanel";

@@ -1,6 +1,8 @@
 # 18 — 临床推理（`clinical_reasoning` / `/api/simulations`）去向与冻结裁定
 
 > 状态：**裁定文档**（2026-09-27）。本文只做**文档裁定**：不删代码、不迁数据、不改路由/鉴权/配置，不提交、不发布。
+> **运行期暴露（2026-09-28 收口）：已关闭** —— 登录页「体验入口」按钮移除、前端 `/simulation` 路由与后端 `/api/simulations` 注册均注释下线；
+> `backend/modules/simulations/**` 与 `frontend/src/simulations/**` 代码**保留冻结**（执行记录见 §八）。
 > 权威关系：
 > - 正式训练体验的**唯一当前计划**是 [`docs/19`](19-training-experience-next-generation-plan.md)；
 > - 持久架构约束（可维护单体的「不做什么」）见 [`docs/16`](16-v2-maintainable-monolith-objectives.md)；
@@ -79,6 +81,10 @@
   匿名访问会加载页面但接口报 401。这属于入口/鉴权暴露面的不一致，**本次只记录**；
   是否收口（把路由移入保护、或改为显式开发环境入口）见 §六。
 
+> 更新（2026-09-28）：该不一致已随「运行期暴露关闭」消解——登录页入口与前端的 `/simulation` 路由、
+> 后端的 `/api/simulations` 注册一并下线，匿名或已登录访问 `/api/simulations/**` 均得 **404**。
+> 上文保留为当时的记录，不再代表现状（执行记录见 §八）。
+
 ---
 
 ## 三、裁定
@@ -155,13 +161,17 @@
 
 - 不加学生路由/菜单/renderer，不建训练记录，不接入模拟引擎、证据获取、completion、评分、复盘；
 - 不迁移 4 个硬编码病例到 `CaseRevision`，不搬运引擎；
-- 不改 `/simulation` 与 `/api/simulations` 的鉴权、路由或配置，不删任何代码/数据；
+- ~~不改 `/simulation` 与 `/api/simulations` 的鉴权、路由或配置，不删任何代码/数据；~~
+  （**2026-09-28 更新**：运行期暴露改为**关闭**——不是改鉴权，而是把登录页入口、前端 `/simulation` 路由与
+  后端 `/api/simulations` 注册三项一并下线；模块与组件代码、单测**未删**，见 §八。）
 - 不把本文当成解除 [`docs/16`](16-v2-maintainable-monolith-objectives.md) 架构约束的理由。
 
 **未来可做但当前未开始**（**不声称已开发、也不声称已限定**）：
 
-- 若确认实验面需要与生产用户隔离，可评估「把 `/simulation` 移入受保护路由 / 改为显式开发环境入口 /
-  统一 401 处理」——这是一项独立的小工作，需要单独决策与验收，本文不预先限定其做法。
+- ~~若确认实验面需要与生产用户隔离，可评估「把 `/simulation` 移入受保护路由 / 改为显式开发环境入口 /
+  统一 401 处理」——这是一项独立的小工作，需要单独决策与验收，本文不预先限定其做法。~~
+  （**2026-09-28 已完成决策**：不采用「移入保护/开发入口」两条路，直接**关闭运行期暴露**；
+  生产用户与实验面不复共存，401 处理问题随之消失。执行记录见 §八。）
 - 若本文 §五 的门槛被真实满足，重启需要一份**独立的教学设计与评分验证计划**，而不是沿用旧切片表。
 
 ---
@@ -174,3 +184,25 @@
 | [16](16-v2-maintainable-monolith-objectives.md) §三/§七 | 正式训练边界与变更准入，不再维护临床产品化路线 |
 | [`docs/19`](19-training-experience-next-generation-plan.md) | 唯一当前训练实施计划；本文不复述其 C0/U0/E1 边界 |
 | [`docs/17`](17-training-identity-and-state-contract.md) | 命名权威；本文不引入新命名 |
+
+---
+
+## 八、执行记录（2026-09-28）：运行期暴露关闭
+
+**范围**：只关**运行期暴露**（可达性），不动模块语义、不动作者面 workflow 契约、不迁数据、不删代码。
+
+| 面 | 变更前 | 变更后 |
+|---|---|---|
+| 登录页入口 | `frontend/src/pages/Login.tsx`「体验入口」分隔线 +「临床推理模拟实验（免登录体验）」按钮 → `/simulation` | 入口整块移除（保留「忘记密码」提示） |
+| 前端路由 | `frontend/src/App.tsx` 注册 `path="/simulation"`（`ProtectedRoute` 之外）+ `SimulationConsole` 懒导入 | 两处均**注释保留**并写明原因与日期；`frontend/src/simulations/**` 代码与单测原样保留 |
+| 后端注册 | `backend/main.py` `from modules.simulations import simulations_router` + 路由列表 `_simulations` | 两处均**注释保留**并写明原因与日期；`backend/modules/simulations/**` 代码原样保留 |
+| 后端可达性 | `/api/simulations/**` 有路由（受 JWT 保护） | 任何方法与路径均 **404**（`backend/tests/simulations/test_runtime_offline.py` 固定） |
+| 后端 HTTP 层测试 | `tests/simulations/test_api_flow.py`、`test_action_http_contract.py` 走真实 app 的 HTTP 面 | 随暴露面删除（引擎/服务语义仍由同目录其余测试固定）；共享的 in-memory 会话替身搬到 `tests/simulations/_fakes.py` |
+| 生成的接口契约 | `openapi.json` / `frontend/src/api/api-types.gen.ts` 含 `/api/simulations` 路径与只属于它的 schema（`Simulation*`、`*ReadingOut`、`CaseMeta`、`CommandSurfaceOut`、`LabRecordSummary`、`PendingLabSummary` 等） | 按 app 重新生成：路径与这些 schema 一并消失。CI 的 `api:spec` / `api:generate` 同步检查强制这一步必须做，否则生成契约会与运行期事实不一致 |
+| 冻结模块的 DTO | `frontend/src/api/simulations.ts`、`frontend/src/simulations/SimulationConsole.tsx` 从生成的 `components["schemas"]` 取类型 | 改为取自切割时的**形状快照** `frontend/src/api/simulations-types.frozen.ts`（内容即切割前生成物的对应块，只把 `components["schemas"]["X"]` 内联为 `X`）；路径字符串不再用 `satisfies ApiPath` 校验（该路径已不在生成契约里）。类型是纯类型、构建期擦除，运行期行为不变 |
+
+**用户可见行为**：前端 `/simulation` 不再是注册路由 → 落 SPA 的未匹配处理（回登录），不白屏；
+`/api/simulations/**` 从「401（未登录）/200（已登录）」变为**一致的 404**。
+
+**未变**：`clinical_reasoning` 作者面（可编写/发布/归档、`runtime_ready=False`）、4 个硬编码病例、
+`backend/models/simulation.py` 与会话表、模块内部引擎/服务行为与单测。

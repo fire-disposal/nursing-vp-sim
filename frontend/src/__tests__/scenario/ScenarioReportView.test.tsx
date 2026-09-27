@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ScenarioReport, ScenarioView } from "@/api/scenario";
 import { render, screen, within } from "@/__tests__/render";
+import type { ScenarioReport, ScenarioView } from "@/api/scenario";
 import ScenarioReportView from "@/scenario/ScenarioReportView";
 
 /** 场景作者自己写的 rubric：条目数、措辞、权重都不同（这里就按"两条 + 一条无证据"来）。 */
@@ -135,16 +135,18 @@ describe("经历页：得分率与逐条判读", () => {
 		expect(weightRows[0]?.textContent).toContain("dp_priority");
 	});
 
-	it("没有可计权条目时给「—」并说明原因，不假装 0 分", () => {
+	it("没有可计权条目时给「—」不假装 0 分；判读与时间线各给一句空态", () => {
 		const empty = report();
 		empty.score = { rate: null, weighted_sum: 0, total_weight: 0, criteria: [] };
 		empty.criteria = [];
 		render(<ScenarioReportView report={empty} view={view()} actions={null} />);
 
 		expect(screen.getByText("—")).toBeInTheDocument();
-		expect(
-			screen.getByText("本情境没有可计权的条目——判读仍然逐条保留在下面。"),
-		).toBeInTheDocument();
-		expect(screen.getByText("这次情境没有留下可判读的条目。")).toBeInTheDocument();
+		// 不再解释"为什么没有得分"（平台口吻）；也不替学生编一句总结
+		expect(screen.queryByText(/没有可计权的条目/)).toBeNull();
+		expect(screen.getByText("没有判读。")).toBeInTheDocument();
+		expect(screen.queryByText(/这次情境没有留下可判读的条目/)).toBeNull();
+		// 时间线空态用默认那句
+		expect(screen.getByText("还没有动作。")).toBeInTheDocument();
 	});
 });

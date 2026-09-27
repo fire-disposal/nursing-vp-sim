@@ -1,4 +1,5 @@
 import type { ScenarioSessionRow } from "@/api/scenario";
+import { formatShortDateTime } from "@/utils/date";
 
 /**
  * 会话状态与结算摘要的读法：学生侧"我的情境经历"与管理侧会话列表用同一份，
@@ -29,12 +30,27 @@ export function summaryText(summary: Record<string, number> | null): string {
 		.join(" · ");
 }
 
-/** 一行里能说清的一切：状态 + 回合 + 结局 + 摘要。 */
+/**
+ * 学生面的一行说明：**诚实的进度** + 最后活动。
+ *
+ * 不一律写"进行中"——从来没有开过场的会话（0 回合）和做到一半的会话不是一回事，
+ * 写成一个词等于骗学生（会话只有显式结算才会变 `completed`）。
+ * 后端只给状态与回合数，所以这里也只说这两件事，不自己造"搁置"这类阈值。
+ */
 export function sessionRowMeta(row: ScenarioSessionRow): string {
-	const parts = [sessionStatusLabel(row.status)];
-	if (row.turn !== null && row.turn !== undefined) parts.push(`${row.turn} 回合`);
+	const status =
+		row.status === "active"
+			? row.turn
+				? "未结算"
+				: "未开始"
+			: "已结束";
+	const parts = [status];
+	if (row.turn) parts.push(`第 ${row.turn} 回合`);
 	if (row.lost) parts.push("不可逆结局");
 	const summary = summaryText(row.summary);
 	if (summary) parts.push(summary);
+	parts.push(
+		`最后活动 ${formatShortDateTime(row.updated_at ?? row.created_at)}`,
+	);
 	return parts.join(" · ");
 }

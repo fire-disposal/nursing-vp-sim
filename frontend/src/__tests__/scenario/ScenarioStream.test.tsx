@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioView } from "@/api/scenario";
 import { act, fireEvent, render, screen, waitFor } from "@/__tests__/render";
+import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 
 const mocks = vi.hoisted(() => ({
@@ -112,7 +112,13 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 		</QueryClientProvider>,
 	);
 	await user.click(await screen.findByText(PACK.title));
-	await screen.findByRole("button", { name: /吸痰/ });
+	await screen.findByLabelText("动作区");
+}
+
+/** 新模型下提交一个动作：自由输入条是唯一入口（Enter 发送）。 */
+async function submitAction(user: UserEvent, text = "给他吸痰") {
+	await user.type(screen.getByLabelText("你要做什么"), text);
+	await user.keyboard("{Enter}");
 }
 
 beforeEach(() => {
@@ -138,7 +144,7 @@ describe("块级增量渲染", () => {
 		vi.stubGlobal("fetch", fetchMock);
 		await enterSession(user, makeView());
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(String(fetchMock.mock.calls[0][0])).toContain(
 			"/api/scenario/sessions/51/actions/stream",
@@ -209,7 +215,7 @@ describe("块级增量渲染", () => {
 		const sse = sseResponse();
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse.response));
 		await enterSession(user, makeView());
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 
 		await act(async () => {
 			sse.push({ kind: "blocks", blocks: { narration: "第一版旁白。" } });
@@ -233,7 +239,7 @@ describe("块级增量渲染", () => {
 		const sse = sseResponse();
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse.response));
 		await enterSession(user, makeView());
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 
 		await act(async () => {
 			sse.push({ kind: "blocks", blocks: { narration: "已经写出来的半句旁白。" } });
@@ -270,7 +276,7 @@ describe("块级增量渲染", () => {
 		const first = sseResponse();
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(first.response));
 		await enterSession(user, makeView());
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 		await act(async () => {
 			first.push({ kind: "error", message: "本回合生成中断，请重试" });
 			first.close();
@@ -285,7 +291,7 @@ describe("块级增量渲染", () => {
 			view: makeView({ session: { id: 77, status: "active", turn: 0, lost: false } }),
 		});
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 		expect(screen.queryByRole("button", { name: "重试" })).toBeNull();
 		expect(screen.queryByText("本回合生成中断，请重试")).toBeNull();
 	});
@@ -306,12 +312,12 @@ describe("块级增量渲染", () => {
 		});
 		await enterSession(user, makeView());
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 
 		await waitFor(() => {
 			expect(mocks.postScenarioAction).toHaveBeenCalledWith(51, {
-				affordance_id: "suction",
-				type: "act",
+				type: "ask",
+				text: "给他吸痰",
 			});
 		});
 		expect(await screen.findByText("退回非流式之后的旁白。")).toBeInTheDocument();
@@ -331,7 +337,7 @@ describe("块级增量渲染", () => {
 		});
 		await enterSession(user, makeView());
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 		expect(await screen.findByText("非流式兜底。")).toBeInTheDocument();
 		expect(mocks.postScenarioAction).toHaveBeenCalledTimes(1);
 	});
@@ -358,7 +364,7 @@ describe("块级增量渲染", () => {
 		lines.scrollTop = 10;
 		fireEvent.scroll(lines);
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await submitAction(user);
 		await act(async () => {
 			sse.push({ kind: "blocks", blocks: { narration: "流式来的第一段旁白。" } });
 		});

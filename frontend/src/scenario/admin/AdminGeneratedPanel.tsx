@@ -17,11 +17,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
-	type ScenarioGeneratedAsset,
 	adminGeneratedAssetSrc,
 	deleteAdminGeneratedAsset,
 	listAdminGeneratedAssets,
 	listAdminScenarioPacks,
+	type ScenarioGeneratedAsset,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
 import AuthImage from "@/components/ui/auth-image";
@@ -149,7 +149,7 @@ export default function AdminGeneratedPanel({
 		const ok = await confirm({
 			title: `删除生成物 #${item.id}？`,
 			message: `这次会话（#${item.session_id}）里由 DM 生成的图片会被永久删除：${
-				item.prompt.slice(0, 80) || "（无 prompt）"
+				item.prompt.slice(0, 80) || "—"
 			}`,
 			confirmLabel: "确认删除",
 			danger: true,
@@ -240,7 +240,7 @@ export default function AdminGeneratedPanel({
 				<Stack align="flex-start" gap="xs">
 					<Text size="sm" c={isUnavailable ? "dimmed" : "red"}>
 						{isUnavailable
-							? "生成物接口在这个环境里还不存在（404）——面板已就位，等后端上线即可用。"
+							? "生成物接口在当前环境不可用。"
 							: `生成物读取失败：${getApiErrorMessage(listQuery.error, "请稍后重试")}`}
 					</Text>
 					<Button
@@ -300,7 +300,7 @@ export default function AdminGeneratedPanel({
 										</Table.Td>
 										<Table.Td maw={320}>
 											<Text size="sm" lineClamp={2} title={item.prompt}>
-												{item.prompt || "（无 prompt）"}
+												{item.prompt || "—"}
 											</Text>
 										</Table.Td>
 										<Table.Td>
@@ -379,7 +379,7 @@ export default function AdminGeneratedPanel({
 							<Text size="xs" c="dimmed">
 								prompt
 							</Text>
-							<Text size="sm">{preview.prompt || "（无 prompt）"}</Text>
+							<Text size="sm">{preview.prompt || "—"}</Text>
 						</Paper>
 						<Text size="xs" c="dimmed">
 							{preview.mime_type} · {formatBytes(preview.file_size)} ·{" "}

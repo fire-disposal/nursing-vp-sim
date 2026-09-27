@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@/__tests__/render";
 import type {
 	ScenarioAdminPack,
 	ScenarioGeneratedAsset,
 	ScenarioView,
 } from "@/api/scenario";
-import { render, screen, waitFor, within } from "@/__tests__/render";
 import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
 import AdminGeneratedPanel from "@/scenario/admin/AdminGeneratedPanel";
 import AdminPacksPanel from "@/scenario/admin/AdminPacksPanel";
@@ -295,7 +295,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 		);
 
 		expect(
-			await screen.findByText(/生成物接口在这个环境里还不存在/),
+			await screen.findByText(/生成物接口在当前环境不可用/),
 		).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "重试" }));
 		await waitFor(() => {
@@ -463,7 +463,7 @@ describe("场景缩略图：失败不留空框", () => {
 		expect(container.textContent).not.toContain("还没上传的图");
 	});
 
-	it("生成图被清理后给一句兜底，而不是空框或破图", async () => {
+	it("生成图被清理后整块消失，不留空框也不留说明句", async () => {
 		const view = assetView();
 		view.assets = [
 			{
@@ -476,9 +476,11 @@ describe("场景缩略图：失败不留空框", () => {
 		];
 		const { container } = render(<ScenarioStage view={view} />);
 		await waitFor(() => {
-			expect(container.textContent).toContain("该图已被清理");
+			expect(container.querySelectorAll(".sc-asset")).toHaveLength(0);
 		});
-		expect(container.querySelector(".sc-asset-gone")).not.toBeNull();
+		// 界面里没有它，就是世界里没有它：不留占位、不留"已被清理"这种平台口吻
+		expect(container.textContent).not.toContain("该图已被清理");
+		expect(container.textContent).not.toContain("DM 生成图");
 	});
 
 	it("全部取不到字节 → 整条缩略图区不渲染", async () => {

@@ -30,7 +30,7 @@ from core.exceptions import ConflictError
 from models import Role, SimulationSession, User
 from modules.simulations.service import SimulationService
 from modules.simulations.state import IDEM_KEY_LIMIT, state_from_dict
-from tests.simulations.test_api_flow import _FakeSession  # reuse the fake-DB harness
+from tests.simulations._fakes import FakeSession  # shared fake-DB harness
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -39,7 +39,7 @@ _TABLES = [Role.__table__, User.__table__, SimulationSession.__table__]
 
 
 def _service() -> SimulationService:
-    return SimulationService(cast("Session", _FakeSession()))
+    return SimulationService(cast("Session", FakeSession()))
 
 
 def _revision(session) -> int:

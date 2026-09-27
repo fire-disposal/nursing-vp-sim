@@ -3,7 +3,7 @@
   "key": "bp-contradiction",
   "title": "入院检查：量出来像高血压，患者坚决否认",
   "state": "experimental",
-  "one_line": "一次「经典」入院检查：患者说他身体好得很，血压计不这么认为。",
+  "one_line": "一次入院检查：患者说他身体好得很，血压计不这么认为。",
   "player": {
     "role": "入院责任护士",
     "can": [
@@ -15,7 +15,7 @@
     ]
   },
   "setting": {
-    "place": "内科病房（入院当日）",
+    "place": "内科病房",
     "time_hint": "上午 09:20",
     "resources": [
       "血压计",
@@ -55,7 +55,7 @@
   "actors": [
     {
       "id": "patient",
-      "role": "患者（中年男性）",
+      "role": "患者",
       "presence": "on_site",
       "demand": "neutral",
       "knowledge": {
@@ -472,7 +472,7 @@
             }
           ]
         },
-        "direction": "他越问越设防：换个不依赖他承认的路径试试"
+        "direction": "看既往记录和床头抽屉"
       }
     ]
   },

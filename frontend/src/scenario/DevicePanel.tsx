@@ -140,13 +140,9 @@ export default function DevicePanel({ devices }: { devices: ScenarioDevice[] }) 
 				>
 					<div className="sc-device-title">
 						<span>{device.title}</span>
-						{/* 电话是"回报"，不是实时波形：不给折线，只列条目 */}
+						{/* 电话不是实时波形：不给折线，只列条目 */}
 						<span className="sc-device-kind">
-							{device.kind === "monitor"
-								? "实时"
-								: device.kind === "phone"
-									? "通话 / 回报"
-									: "设备"}
+							{device.kind === "monitor" ? "实时" : device.kind === "phone" ? "通话" : ""}
 						</span>
 					</div>
 					<div className="sc-device-channels">

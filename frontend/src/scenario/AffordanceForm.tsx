@@ -6,7 +6,21 @@ import type { ScenarioActionInput, ScenarioAffordance } from "@/api/scenario";
  * （后端 `_FREE_INPUT_LABELS` 会把 DM 给的"其他/自输入"整条丢掉并记账），
  * 所以"能不能自己写"不能依赖后端数据，只能在这里保证。
  */
-export const OTHER_ENTRY_LABEL = "其他（自己输入）";
+export const OTHER_ENTRY_LABEL = "其他";
+
+/**
+ * 动作分类的中文名：`type` 是内部键，学生面只出现中文（未知类型一律归"其他"）。
+ * 表单抬头用这一份；要给学生看到分类的地方都该走它，别再各写一份。
+ */
+const AFFORDANCE_TYPE_LABELS: Record<string, string> = {
+	act: "处置",
+	observe: "观察",
+	measure: "测量",
+	document: "记录",
+	summon: "呼叫",
+	ask: "询问",
+	other: "其他",
+};
 
 /**
  * 「其他」在选择型动作里的哨兵值：它**不进 `selected`**——列出的选项才是 `selected`，
@@ -30,7 +44,7 @@ interface AffordanceFormProps {
  * 入口：
  * 1. pack/DM 列出的选项（单选 / 多选）；
  * 2. `document` 的字段（`params.fields`）；
- * 3. **「其他（自己输入）」**——默认附加（平台保证，见 §九），
+ * 3. **「其他」**——默认附加（平台保证，见 §九），
  *    只在作者显式写了 `free_input: false` 时收起，文本作为 `custom_text` 提交。
  *
  * 调用方按 `affordance.id` 挂 `key`，换动作即重置草稿（不靠 effect 清状态）。
@@ -45,7 +59,7 @@ export default function AffordanceForm({
 	const needsMulti = affordance.select === "multi";
 	const isDocument = affordance.type === "document";
 	// 自输入是平台保证的通道，但作者可以用 `free_input: false` 显式关掉（封闭文书类动作）；
-	// 关掉时表单里就不出现「其他（自己输入）」——按钮与入口必须一致，不能只是不提交。
+	// 关掉时表单里就不出现「其他」——按钮与入口必须一致，不能只是不提交。
 	const allowCustom = affordance.free_input !== false;
 
 	const [choice, setChoice] = useState("");
@@ -98,7 +112,9 @@ export default function AffordanceForm({
 		<div className="sc-form">
 			<div className="sc-form-head">
 				<span className="sc-form-title">{affordance.label}</span>
-				<span className="sc-btn-tag">{affordance.type}</span>
+				<span className="sc-btn-tag">
+					{AFFORDANCE_TYPE_LABELS[affordance.type] ?? AFFORDANCE_TYPE_LABELS.other}
+				</span>
 			</div>
 
 			{needsSingle && (
@@ -190,7 +206,7 @@ export default function AffordanceForm({
 			{allowCustom &&
 				((needsSingle && choice === OTHER) || (!needsSingle && otherOn)) && (
 					<label className="sc-field">
-						<span className="sc-field-label">自己写（提交为自输入内容）</span>
+						<span className="sc-field-label">自己写</span>
 						<textarea
 							className="sc-textarea"
 							rows={2}

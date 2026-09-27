@@ -17,11 +17,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
-	type ScenarioAdminAsset,
-	type ScenarioAssetUploadInput,
 	adminScenarioAssetSrc,
 	deleteAdminScenarioAsset,
 	listAdminScenarioPacks,
+	type ScenarioAdminAsset,
+	type ScenarioAssetUploadInput,
 	uploadAdminScenarioAsset,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
@@ -203,14 +203,14 @@ export default function AdminAssetsPanel({
 								w={200}
 							/>
 							<TextInput
-								label="alt（看不到图也要能懂）"
+								label="alt 文本"
 								placeholder="夜班病房，监护仪在响"
 								value={alt}
 								onChange={(event) => setAlt(event.currentTarget.value)}
 								w={260}
 							/>
 							<TextInput
-								label="什么时候值得展示（给 DM 的提示）"
+								label="展示时机"
 								placeholder="开场时让学生对所处环境有画面感"
 								value={suggestWhen}
 								onChange={(event) => setSuggestWhen(event.currentTarget.value)}

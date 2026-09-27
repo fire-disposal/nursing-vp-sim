@@ -1,8 +1,9 @@
 import { VisuallyHidden } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
 	closeScenarioSession,
@@ -15,6 +16,7 @@ import {
 	type ScenarioActionInput,
 	type ScenarioActor,
 	ScenarioHttpError,
+	type ScenarioOption,
 	type ScenarioPackSummary,
 	type ScenarioReport,
 	ScenarioStreamUnavailable,
@@ -22,10 +24,11 @@ import {
 	streamScenarioAction,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
-import { formatShortDateTime } from "@/utils/date";
+import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
-import ActionBar from "./ActionBar";
-import { talkPrefill } from "./actors";
+import ActionBar, { ScenarioOptionStrip } from "./ActionBar";
+import { ScenarioProgress } from "./DimCard";
+import { resolvePanels } from "./panels";
 import { studentFallbackNotice } from "./problems";
 import ScenarioReportView from "./ScenarioReportView";
 import ScenarioSidePanel from "./ScenarioSidePanel";
@@ -39,11 +42,44 @@ import { sessionRowMeta } from "./sessions";
  *
  * 数据只有一份来源：后端的 `view` / `report` 投影。页面不自己算分数、不自己编文案，
  * 也不预置"其他/自输入"之外的建议（DM 的 `options` 才是建议）。
- * 原始诊断串（`dm_parse:*` 等）**不进这里**，学生只看到"这一回合是不是保底生成的"。
+ * 原始诊断串（`dm_parse:*` 等）**一律不进学生界面**，也不给"这一回合是保底生成的"这类
+ * 系统口吻说明：界面只说世界里发生的事（文案规范见 docs/20 §学生面文案）。
+ *
+ * 动作区只有两个出入口：气泡流末尾的 DM 选项条 + 底部输入条（"更多动作"展开才见全部
+ * affordance）。**流程状态在本页**（`openAffordanceId`）：选项条与输入条是同一个流程的
+ * 两个入口，状态放这里才不会两边各持一份。
  *
  * 开关关闭时整个 `/api/scenario/**` 返回 **404**，因此首次读 pack 列表的 404 一律按
  * "功能未开启"呈现：不区分"会话不属于我"，也不暴露内部结构。
  */
+/**
+ * 控制台自带的**最简顶栏**：情境页跑在沉浸壳（`PracticeShell`）里，系统顶栏与侧栏都不在，
+ * 所以"我在哪、怎么出去、怎么结束"必须由这条栏给出。
+ *
+ * 左侧恒为返回（学生没有系统导航可点）；中间是病例名；右侧由各视图传入（回合/结束动作）。
+ * 它是纯结构：动作与文案都由调用方给。
+ */
+function ConsoleTopbar({
+	onBack,
+	title,
+	meta,
+}: {
+	onBack: () => void;
+	title: string;
+	meta?: ReactNode;
+}) {
+	return (
+		<div className="sc-topbar">
+			<button type="button" className="sc-back" onClick={onBack}>
+				<IconArrowLeft size={14} aria-hidden="true" />
+				返回
+			</button>
+			<span className="sc-topbar-title">{title}</span>
+			{meta !== undefined && <span className="sc-topbar-meta">{meta}</span>}
+		</div>
+	);
+}
+
 export default function ScenarioConsole() {
 	const [sessionId, setSessionId] = useState<number | null>(null);
 	const [view, setView] = useState<ScenarioView | null>(null);
@@ -70,7 +106,16 @@ export default function ScenarioConsole() {
 	const [busy, setBusy] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [freeText, setFreeText] = useState("");
-	const [freeOpen, setFreeOpen] = useState(false);
+	/** 展开中的 affordance 表单（选项条与输入条共用同一份流程状态）。 */
+	const [openAffordanceId, setOpenAffordanceId] = useState<string | null>(null);
+	const { confirm } = useConfirm();
+	const navigate = useNavigate();
+	/**
+	 * 返回 = 回到训练首页（`/training`），**不用** `navigate(-1)`：
+	 * 情境页可以被深链（`?session=`）直接打开，也可能从收藏进来，`-1` 会退出应用或落到登录页；
+	 * `/training` 是三种角色都有的落脚点，且是学生进情境前的一页。
+	 */
+	const goBack = () => navigate("/training");
 
 	const packsQuery = useQuery({
 		queryKey: queryKeys.scenario.packs(),
@@ -127,7 +172,6 @@ export default function ScenarioConsole() {
 			setDraft(null);
 			setStreamFailed(null);
 			setFreeText("");
-			setFreeOpen(false);
 			historyQuery.refetch();
 		} catch (err) {
 			const message = absorbError(err, "开启情境失败");
@@ -153,7 +197,6 @@ export default function ScenarioConsole() {
 			setDraft(null);
 			setStreamFailed(null);
 			setFreeText("");
-			setFreeOpen(false);
 		} catch (err) {
 			const message = absorbError(err, "读取这次情境失败");
 			if (message) toast.error(message);
@@ -165,12 +208,11 @@ export default function ScenarioConsole() {
 
 	/**
 	 * 回合落地：视图换成权威结果，并处理两件"人"的事——
-	 * 只在**刚提交的那份文本**没被改过时清空输入（H3），以及把焦点送回自由通道并播报回合（M4）。
+	 * 只在**刚提交的那份文本**没被改过时清空输入（H3），以及把焦点送回输入框并播报回合（M4）。
 	 */
 	const applyTurnResult = (nextView: ScenarioView) => {
 		setView(nextView);
 		setDraft(null);
-		setFreeOpen(false);
 		const submitted = submittedTextRef.current;
 		// 学生可能已经在等的时候接着打字了：只有原样未改的那份才丢
 		setFreeText((current) => (current === submitted ? "" : current));
@@ -297,23 +339,21 @@ export default function ScenarioConsole() {
 	};
 
 	/** 点在场者 = 搭话；不在场但叫得来人走同一条自由通道（预填，不替学生说话）。 */
-	const talkTo = (actor: ScenarioActor) => {
+	const talkTo = (_actor: ScenarioActor) => {
 		if (!view || view.free_input === false) return;
-		setFreeOpen(true);
-		setFreeText(talkPrefill(actor.role, actor.presence));
+		// 点在场者 = **把焦点送进输入框**，不替学生组织句子：
+		// 合成「对X说：」这类句式（还带括号注解）会让学生看到一段自己没写的文本，
+		// 而且一眼就是平台拼的。要说什么，学生自己写。
+		setFocusToken((token) => token + 1);
 	};
 
 	// 唯一等于"功能未开启"的事实：pack 列表本身 404（命名空间整体不可用）
 	if (packsQuery.error && isScenarioUnavailable(packsQuery.error)) {
 		return (
-			<div className="sc-root">
+			<div className="sc-root" data-view="gate">
 				<div className="sc-gate">
 					<div className="sc-gate-title">情境训练当前未开启</div>
-					<div className="sc-gate-body">
-						情境训练由部署方统一开启：服务端关闭时整个
-						<code className="sc-gate-mono"> /api/scenario/** </code>
-						命名空间不可用（404），页面不提供开关。请联系管理员。
-					</div>
+					<div className="sc-gate-body">请找管理员开启。</div>
 				</div>
 			</div>
 		);
@@ -354,16 +394,19 @@ export default function ScenarioConsole() {
 
 	if (report && view) {
 		return (
-			<div className="sc-root" data-lost={report.lost}>
-				<div className="sc-topbar">
-					<span className="sc-topbar-title">{report.pack.title}</span>
-					<span className="sc-topbar-meta">
-						<span>已结算</span>
-						<button type="button" className="sc-btn" onClick={leaveSession}>
-							回到我的情境
-						</button>
-					</span>
-				</div>
+			<div className="sc-root" data-view="report" data-lost={report.lost}>
+				<ConsoleTopbar
+					onBack={goBack}
+					title={report.pack.title}
+					meta={
+						<>
+							<span>已结算</span>
+							<button type="button" className="sc-btn" onClick={leaveSession}>
+								回到我的情境
+							</button>
+						</>
+					}
+				/>
 				<ScenarioReportView
 					report={report}
 					view={view}
@@ -379,14 +422,73 @@ export default function ScenarioConsole() {
 
 	// 渲染用视图：权威视图叠加"已经写完的块"（草稿），权威 view 一到草稿即被丢弃
 	const shownView = view === null ? null : draftView(view, draft);
-	const fallbackNotice = shownView
-		? studentFallbackNotice(shownView.problems)
-		: null;
+	const fallbackNotice =
+		shownView === null ? null : studentFallbackNotice(shownView.problems);
+
+	// ── 动作流程（页面持有）：气泡流里的选项条与底部输入条是同一个流程的两个入口 ──
+	const openAffordance =
+		shownView === null
+			? null
+			: (shownView.affordances.find((item) => item.id === openAffordanceId) ??
+				null);
+
+	/** `confirm: true` 的动作都要二次确认——选项条、affordance 入口、表单三处同一条口径。 */
+	const submitConfirmed = async (
+		action: ScenarioActionInput,
+		label: string,
+		needsConfirm: boolean,
+	) => {
+		if (needsConfirm) {
+			const ok = await confirm({
+				title: label,
+				message: "这个动作不可逆。",
+				confirmLabel: "继续",
+				danger: true,
+			});
+			if (!ok) return;
+		}
+		submit(action);
+	};
+
+	/** DM 的选项：落在表单型动作上就展开表单（不替学生把选项定死），其余直接提交。 */
+	const runOption = (option: ScenarioOption) => {
+		if (shownView === null) return;
+		const linked = option.affordance_id
+			? shownView.affordances.find((item) => item.id === option.affordance_id)
+			: undefined;
+		if (linked && (linked.select !== "none" || linked.type === "document")) {
+			setOpenAffordanceId(linked.id);
+			return;
+		}
+		void submitConfirmed(
+			{
+				affordance_id: option.affordance_id ?? null,
+				type: option.type ?? "ask",
+				text: option.label ?? null,
+			},
+			option.label ?? linked?.label ?? "确认",
+			linked?.confirm === true,
+		);
+	};
+
+	/** 唯一的提交入口：选项条、表单、自由通道都走这里；提交即收起表单。 */
+	const submitAction = (action: ScenarioActionInput) => {
+		setOpenAffordanceId(null);
+		submit(action);
+	};
+
+	const panels = shownView === null ? null : resolvePanels(shownView.panels);
 
 	return (
-		<div className="sc-root" data-lost={view?.session.lost ?? false}>
+		<div
+			className="sc-root"
+			data-view={shownView === null ? "open" : "session"}
+			data-lost={view?.session.lost ?? false}
+		>
 			{shownView === null ? (
-				<div className="sc-gate sc-gate-wide">
+				<>
+					<ConsoleTopbar onBack={goBack} title="情境训练" />
+					<div className="sc-gate sc-gate-wide">
 					<div className="sc-open">
 						<div className="sc-gate-title">情境训练</div>
 						{opening && (
@@ -394,16 +496,12 @@ export default function ScenarioConsole() {
 								正在开启情境…
 							</div>
 						)}
-						<div className="sc-open-lead">
-							挑一个情境，进去以后世界会自己往前走：你说的话、做的事都会被看见。
-							这里没有标准答案按键，也没有分数——只有你经历过的判断。
-						</div>
 						{packs.length === 0 ? (
 							<div className="sc-gate-body">还没有可用的情境包。</div>
 						) : (
 							<div className="sc-packs">
 								{packs.map((pack) => {
-									// 没有可用修订的包点了必然失败：不给点，并说清楚为什么
+									// 没有可用修订的包点了必然失败：不给点（也不给一行占位说明）
 									const usable = pack.revision_id !== null;
 									return (
 										<button
@@ -415,13 +513,9 @@ export default function ScenarioConsole() {
 											onClick={() => usable && start(pack)}
 										>
 											<span className="sc-pack-title">{pack.title}</span>
-											<span className="sc-pack-meta">
-												<span className="sc-tag">{pack.state}</span>
-												<span>修订 {pack.revision_no ?? "—"}</span>
-											</span>
-											<span className="sc-pack-one-line">
-												{usable ? pack.one_line : "该病例没有可用修订"}
-											</span>
+											{usable && (
+												<span className="sc-pack-one-line">{pack.one_line}</span>
+											)}
 										</button>
 									);
 								})}
@@ -431,7 +525,7 @@ export default function ScenarioConsole() {
 						<section className="sc-history" aria-label="我的情境经历">
 							<div className="sc-panel-head">
 								<span>我的情境经历</span>
-								<span>{history.length} 次</span>
+								<span className="sc-panel-toggle-mark">{history.length} 次</span>
 							</div>
 							{historyQuery.isLoading ? (
 								<div className="sc-empty">正在读取…</div>
@@ -450,9 +544,7 @@ export default function ScenarioConsole() {
 									</button>
 								</div>
 							) : history.length === 0 ? (
-								<div className="sc-empty">
-									还没有情境经历。挑上面的一个情境开始吧。
-								</div>
+								<div className="sc-empty">还没有情境经历。</div>
 							) : (
 								<div className="sc-history-list">
 									{history.map((row) => (
@@ -464,38 +556,28 @@ export default function ScenarioConsole() {
 											disabled={busy}
 											onClick={() => resume(row)}
 										>
-											<span className="sc-history-title">
-												{row.pack_title}
-											</span>
-											<span className="sc-history-meta">
-												{sessionRowMeta(row)}
-											</span>
-											<span className="sc-history-time">
-												{formatShortDateTime(row.updated_at ?? row.created_at)}
-											</span>
+											<span className="sc-history-title">{row.pack_title}</span>
+											<span className="sc-history-meta">{sessionRowMeta(row)}</span>
 										</button>
 									))}
 								</div>
 							)}
 						</section>
 					</div>
-				</div>
+					</div>
+				</>
 			) : (
 				<>
 					{shownView.session.lost && (
 						<div className="sc-lost-banner">
 							<span>已达到不可逆结局</span>
-							<span className="sc-report-sub">
-								情境还在继续，但这个结局已经无法回头——可以继续做完，也可以直接结算。
-							</span>
 						</div>
 					)}
 					{ended && (
 						<div className="sc-lost-banner" data-kind="ended">
 							<span>这次情境已经结束</span>
 							<span className="sc-lost-sub" role="alert">
-								{actionError ??
-									"结算之后不能再做动作；可以看经历，也可以回到我的情境。"}
+								{actionError}
 							</span>
 							<button type="button" className="sc-btn" onClick={close}>
 								看经历
@@ -503,95 +585,110 @@ export default function ScenarioConsole() {
 						</div>
 					)}
 
-					<div className="sc-topbar">
-						<span className="sc-topbar-title">{shownView.pack.title}</span>
-						<span className="sc-topbar-meta">
-							<span>你扮演：{shownView.pack.player_role}</span>
-							<span>第 {shownView.session.turn} 回合</span>
-							<span>{shownView.session.status}</span>
-							<button
-								type="button"
-								className="sc-ghost-btn"
-								onClick={leaveSession}
-							>
-								我的情境
-							</button>
-							<button
-								type="button"
-								className="sc-btn"
-								disabled={busy}
-								onClick={close}
-							>
-								结束并看经历
-							</button>
-						</span>
-					</div>
+					<ConsoleTopbar
+						onBack={goBack}
+						title={shownView.pack.title}
+						meta={
+							<>
+								<span>第 {shownView.session.turn} 回合</span>
+								<ScenarioProgress
+									dims={
+										panels !== null && (panels.emotion || panels.coverage)
+											? shownView.dims
+											: []
+									}
+								/>
+								<button
+									type="button"
+									className="sc-ghost-btn"
+									onClick={leaveSession}
+								>
+									我的情境
+								</button>
+								<button
+									type="button"
+									className="sc-btn"
+									disabled={busy}
+									onClick={close}
+								>
+									结束并看经历
+								</button>
+							</>
+						}
+					/>
 
 					<VisuallyHidden role="status" aria-live="polite">
 						{announcement}
 					</VisuallyHidden>
 
-					<div className="sc-column">
-						<ScenarioStage
-							view={shownView}
-							onTalkTo={talkTo}
-							streaming={streaming}
-						/>
+					<div className="sc-main">
+						<div className="sc-column">
+							<ScenarioStage
+								view={shownView}
+								onTalkTo={talkTo}
+								streaming={streaming}
+								showSituation={panels?.coverage === true}
+								optionSlot={
+									shownView.options.length > 0 ? (
+										<ScenarioOptionStrip
+											options={shownView.options}
+											busy={busy}
+											onChoose={runOption}
+										/>
+									) : null
+								}
+							/>
 
-						{streamFailed && (
-							<div className="sc-stream-error" role="alert">
-								<span>{streamFailed}</span>
-								<button
-									type="button"
-									className="sc-btn"
-									disabled={busy}
-									onClick={() => {
-										const last = lastActionRef.current;
-										if (last) void submit(last);
-									}}
-								>
-									重试
-								</button>
-							</div>
-						)}
-
-						{fallbackNotice && <div className="sc-note">{fallbackNotice}</div>}
-
-						{shownView.nudges.length > 0 && (
-							<div className="sc-nudges">
-								{shownView.nudges.map((nudge) => (
-									<div className="sc-nudge" key={nudge}>
-										<span>{nudge}</span>
-									</div>
-								))}
-							</div>
-						)}
-
-						{ended ? (
-							<div className="sc-actions">
-								<span className="sc-actions-title">这次情境已结束</span>
-								<div className="sc-buttons">
-									<button type="button" className="sc-btn" onClick={close}>
-										看经历
+							{streamFailed && (
+								<div className="sc-stream-error" role="alert">
+									<span>{streamFailed}</span>
+									<button
+										type="button"
+										className="sc-btn"
+										disabled={busy}
+										onClick={() => {
+											const last = lastActionRef.current;
+											if (last) void submit(last);
+										}}
+									>
+										重试
 									</button>
 								</div>
-							</div>
-						) : (
-							<ActionBar
-								view={shownView}
-								busy={busy}
-								focusToken={focusToken}
-								freeText={freeText}
-								freeOpen={freeOpen}
-								onFreeTextChange={setFreeText}
-								onFreeOpenChange={setFreeOpen}
-								onSubmit={submit}
-								errorMessage={actionError}
-							/>
-						)}
-					</div>
+							)}
 
-					<ScenarioSidePanel view={shownView} />
+							{fallbackNotice !== null && (
+								<div className="sc-note" role="status">
+									{fallbackNotice}
+								</div>
+							)}
+
+							{shownView.nudges.length > 0 && (
+								<div className="sc-nudges">
+									{shownView.nudges.map((nudge) => (
+										<div className="sc-nudge" key={nudge}>
+											<span>{nudge}</span>
+										</div>
+									))}
+								</div>
+							)}
+
+							{!ended && (
+								<ActionBar
+									view={shownView}
+									busy={busy}
+									focusToken={focusToken}
+									freeText={freeText}
+									onFreeTextChange={setFreeText}
+									onSubmit={submitAction}
+									errorMessage={actionError}
+									openAffordance={openAffordance}
+									onCloseForm={() => setOpenAffordanceId(null)}
+								/>
+							)}
+						</div>
+
+						<ScenarioSidePanel view={shownView} />
+					</div>
 				</>
 			)}
 		</div>

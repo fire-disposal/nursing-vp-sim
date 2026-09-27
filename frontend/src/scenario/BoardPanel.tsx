@@ -27,7 +27,7 @@ const KIND_TITLE: Record<string, string> = {
 	noticed: "你注意到的",
 	fact: "已确认",
 	action: "已处置",
-	note: "板上的判断",
+	note: "判断",
 };
 
 function BoardEntry({ entry }: { entry: ScenarioBoardEntry }) {
@@ -43,7 +43,6 @@ function BoardEntry({ entry }: { entry: ScenarioBoardEntry }) {
 			data-superseded={entry.superseded === true}
 			title={KIND_TITLE[entry.kind] ?? entry.kind}
 		>
-			<span className="sc-board-dot" aria-hidden="true" />
 			<div className="sc-board-main">
 				<div className="sc-board-text">
 					<span className="sc-board-line">{entry.text}</span>
@@ -75,7 +74,6 @@ function BoardSection({ section }: { section: ScenarioBoardSection }) {
 		>
 			<div className="sc-board-section-head">
 				<span className="sc-board-section-title">{section.title}</span>
-				<span className="sc-board-section-count">{section.entries.length}</span>
 			</div>
 			{shown.map((entry) => (
 				<BoardEntry key={entry.id} entry={entry} />
@@ -90,11 +88,9 @@ function BoardSection({ section }: { section: ScenarioBoardSection }) {
 					{open ? "收起" : `展开其余 ${hidden} 条`}
 				</button>
 			)}
-			{/* 后端只给"被截掉的条数"，没给那些条目本身 → 这里只能如实提示，不假装能展开 */}
+			{/* 后端只给"被截掉的条数"，没给那些条目本身 → 这里只能如实给个数量 */}
 			{section.more > 0 && (
-				<div className="sc-board-more-hint">
-					还有 {section.more} 条未在此展开
-				</div>
+				<div className="sc-board-more-hint">还有 {section.more} 条</div>
 			)}
 		</section>
 	);
@@ -106,18 +102,13 @@ export default function BoardPanel({ board }: { board: ScenarioBoard }) {
 	if (sections.length === 0) {
 		return (
 			<div className="sc-board" data-empty="true">
-				<div className="sc-empty">
-					这块板还是空的——还没有确定下来的信息。你做的事会一条条写上去。
-				</div>
+				<div className="sc-empty">还没有线索。</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="sc-board">
-			<div className="sc-board-meta">
-				它只会因为你做了什么而增长，不需要你填写。
-			</div>
 			{sections.map((section) => (
 				<BoardSection key={section.id} section={section} />
 			))}

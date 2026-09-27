@@ -50,10 +50,8 @@ export default function ScenarioReportView({
 			<div className="sc-report-head">
 				<div className="sc-report-title">{report.pack.title}</div>
 				<div className="sc-report-sub">
-					{report.lost
-						? "已达到不可逆结局——下面是这次情境里真实发生过的判读"
-						: "情境已结束——下面是这次情境里真实发生过的判读"}
-					{"｜共 "}
+					{report.lost ? "已达到不可逆结局" : "情境已结束"}
+					{" ｜ 共 "}
 					{report.turn} 回合
 				</div>
 			</div>
@@ -66,11 +64,6 @@ export default function ScenarioReportView({
 				</div>
 				<div className="sc-score-body">
 					<div className="sc-score-label">得分率</div>
-					<div className="sc-report-sub">
-						{report.score.rate === null
-							? "本情境没有可计权的条目——判读仍然逐条保留在下面。"
-							: "每条判读先落到锚点（强 / 合格 / 漏），再把它们合成这一个数。"}
-					</div>
 					{showWeights && (
 						<div className="sc-report-sub" data-weights="summary">
 							加权得分 {report.score.weighted_sum} / 权重合计{" "}
@@ -93,7 +86,7 @@ export default function ScenarioReportView({
 
 			<div className="sc-criteria">
 				{criteria.length === 0 ? (
-					<div className="sc-empty">这次情境没有留下可判读的条目。</div>
+					<div className="sc-empty">没有判读。</div>
 				) : (
 					criteria.map((criterion) => (
 						<div
@@ -142,7 +135,13 @@ export default function ScenarioReportView({
 			{showDims && report.dims.length > 0 && (
 				<div className="sc-dims">
 					{report.dims.map((dim) => (
-						<DimCard dim={dim} key={dim.id} />
+						<div key={dim.id}>
+							<DimCard dim={dim} />
+							{/* 判读口径（含内部字段名）只在管理侧取证时显示：学生面不出现诊断串 */}
+							{showWeights && dim.detail !== "" && (
+								<div className="sc-dim-detail">{dim.detail}</div>
+							)}
+						</div>
 					))}
 				</div>
 			)}
@@ -154,11 +153,7 @@ export default function ScenarioReportView({
 						<span>共 {report.timeline.length} 条</span>
 					</div>
 					<div className="sc-panel-body">
-						<TimelineList
-							timeline={report.timeline}
-							actors={view.actors}
-							emptyLabel="这次情境没有留下动作记录。"
-						/>
+						<TimelineList timeline={report.timeline} />
 					</div>
 				</section>
 			)}
@@ -170,7 +165,7 @@ export default function ScenarioReportView({
 
 /** 锚点 → CSS 变量后缀（三档锚点的颜色在样式表里定义，页面不各写一遍色值）。 */
 function anchorStyle(anchor: string): string {
-	if (anchor === "strong") return "strong";
+	if (anchor === "strong") return "ok";
 	if (anchor === "adequate") return "warn";
 	return "bad";
 }

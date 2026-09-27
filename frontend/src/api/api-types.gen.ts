@@ -2003,57 +2003,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/simulations/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Session */
-        post: operations["create_session_api_simulations_sessions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/simulations/sessions/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Session */
-        get: operations["get_session_api_simulations_sessions__session_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/simulations/sessions/{session_id}/actions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Action */
-        post: operations["post_action_api_simulations_sessions__session_id__actions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/stats/trends": {
         parameters: {
             query?: never;
@@ -2573,28 +2522,6 @@ export interface components {
             selected?: string[];
             /** Custom Text */
             custom_text?: string | null;
-        };
-        /** ActionResultResponse */
-        ActionResultResponse: {
-            /** Session Id */
-            session_id: number;
-            /** Revision */
-            revision: number;
-            /** Accepted */
-            accepted: boolean;
-            /** Case Ended */
-            case_ended: boolean;
-            /**
-             * Messages
-             * @default []
-             */
-            messages: components["schemas"]["SimulationMessage"][];
-            snapshot: components["schemas"]["SimulationSnapshot"];
-            /**
-             * Replayed
-             * @default false
-             */
-            replayed: boolean;
         };
         /** AdminStats */
         AdminStats: {
@@ -3332,20 +3259,6 @@ export interface components {
              */
             training_count: number;
         };
-        /** CaseMeta */
-        CaseMeta: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Version */
-            version: string;
-            /**
-             * Start Clock
-             * @default 08:30
-             */
-            start_clock: string;
-        };
         /** CasePublishResponse */
         CasePublishResponse: {
             case: components["schemas"]["CaseManageItem"];
@@ -3646,51 +3559,6 @@ export interface components {
             /** Cohort Label */
             cohort_label?: string | null;
         };
-        /**
-         * CommandSurfaceOut
-         * @description The case-declared command surface — what the player may do here.
-         *
-         *     The frontend builds its command palette from this, so a new specialty
-         *     case's commands are rendered automatically without frontend edits.
-         */
-        CommandSurfaceOut: {
-            /**
-             * Assessments
-             * @default {}
-             */
-            assessments: {
-                [key: string]: string;
-            };
-            /**
-             * Drugs
-             * @default {}
-             */
-            drugs: {
-                [key: string]: string;
-            };
-            /**
-             * Labs
-             * @default {}
-             */
-            labs: {
-                [key: string]: string;
-            };
-            /**
-             * Talk Roles
-             * @default []
-             */
-            talk_roles: string[];
-            /**
-             * Wait Labs
-             * @default true
-             */
-            wait_labs: boolean;
-            /**
-             * Monitor
-             * @default true
-             */
-            monitor: boolean;
-        };
         /** CostBreakdown */
         CostBreakdown: {
             /** Calls */
@@ -3746,15 +3614,6 @@ export interface components {
              * @default 删除成功
              */
             message: string;
-        };
-        /** DrainReadingOut */
-        DrainReadingOut: {
-            /** Minute */
-            minute: number;
-            /** Output Ml */
-            output_ml: number;
-            /** Abnormal */
-            abnormal: boolean;
         };
         /**
          * EndTrainingRequest
@@ -4111,25 +3970,6 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** LabRecordSummary */
-        LabRecordSummary: {
-            /** Order Id */
-            order_id: string;
-            /** Kind */
-            kind: string;
-            /** Label */
-            label: string;
-            /** Sampled At */
-            sampled_at: number;
-            /** Ready At */
-            ready_at: number;
-            /** Result */
-            result: {
-                [key: string]: unknown;
-            };
-            /** Abnormal */
-            abnormal: boolean;
-        };
         /** LoginRequest */
         LoginRequest: {
             /** Username */
@@ -4324,15 +4164,6 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** PainReadingOut */
-        PainReadingOut: {
-            /** Minute */
-            minute: number;
-            /** Score */
-            score: number;
-            /** Abnormal */
-            abnormal: boolean;
-        };
         /** PatientPublicInfo */
         PatientPublicInfo: {
             /**
@@ -4354,21 +4185,6 @@ export interface components {
             portrait_states?: {
                 [key: string]: string;
             } | null;
-        };
-        /** PendingLabSummary */
-        PendingLabSummary: {
-            /** Id */
-            id: string;
-            /** Kind */
-            kind: string;
-            /** Label */
-            label: string;
-            /** Sampled At */
-            sampled_at: number;
-            /** Due At */
-            due_at: number;
-            /** Due Clock */
-            due_clock: string;
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -5160,145 +4976,6 @@ export interface components {
             /** Text */
             text: string;
         };
-        /** SessionCreateRequest */
-        SessionCreateRequest: {
-            /** Case Id */
-            case_id?: string | null;
-        };
-        /** SessionCreateResponse */
-        SessionCreateResponse: {
-            /** Session Id */
-            session_id: number;
-            snapshot: components["schemas"]["SimulationSnapshot"];
-        };
-        /** SimulationActionIn */
-        SimulationActionIn: {
-            /** Type */
-            type: string;
-            /** Target */
-            target?: string | null;
-            /** Text */
-            text?: string | null;
-        };
-        /** SimulationActionRequest */
-        SimulationActionRequest: {
-            action: components["schemas"]["SimulationActionIn"];
-            /** Expected Revision */
-            expected_revision?: number | null;
-            /** Idem Key */
-            idem_key?: string | null;
-        };
-        /** SimulationMessage */
-        SimulationMessage: {
-            /** Kind */
-            kind: string;
-            /** At Minute */
-            at_minute: number;
-            /** Text */
-            text: string;
-        };
-        /** SimulationSnapshot */
-        SimulationSnapshot: {
-            /** Session Id */
-            session_id: number;
-            /** Revision */
-            revision: number;
-            /** Case Status */
-            case_status: string;
-            case_meta: components["schemas"]["CaseMeta"];
-            /**
-             * Cases
-             * @default []
-             */
-            cases: components["schemas"]["CaseMeta"][];
-            surface: components["schemas"]["CommandSurfaceOut"];
-            /** Current Time */
-            current_time: number;
-            /** Clock */
-            clock: string;
-            /** Monitoring */
-            monitoring: boolean;
-            /** Reported */
-            reported: boolean;
-            /** Diagnosis */
-            diagnosis?: string | null;
-            /**
-             * Messages
-             * @default []
-             */
-            messages: components["schemas"]["SimulationMessage"][];
-            /**
-             * Vitals
-             * @default []
-             */
-            vitals: components["schemas"]["VitalsReadingOut"][];
-            /**
-             * Drain
-             * @default []
-             */
-            drain: components["schemas"]["DrainReadingOut"][];
-            /**
-             * Pain
-             * @default []
-             */
-            pain: components["schemas"]["PainReadingOut"][];
-            /**
-             * Urine
-             * @default []
-             */
-            urine: components["schemas"]["UrineReadingOut"][];
-            /**
-             * Readings
-             * @default {}
-             */
-            readings: {
-                [key: string]: {
-                    [key: string]: unknown;
-                }[];
-            };
-            /**
-             * Pending
-             * @default []
-             */
-            pending: components["schemas"]["PendingLabSummary"][];
-            /**
-             * Lab Records
-             * @default []
-             */
-            lab_records: components["schemas"]["LabRecordSummary"][];
-            /**
-             * Unrevealed Lab Count
-             * @default 0
-             */
-            unrevealed_lab_count: number;
-            /**
-             * Cbc Count
-             * @default 0
-             */
-            cbc_count: number;
-            /**
-             * Diag Spent
-             * @default 0
-             */
-            diag_spent: number;
-            /**
-             * Diag Budget
-             * @default 0
-             */
-            diag_budget: number;
-            /**
-             * Treat Spent
-             * @default 0
-             */
-            treat_spent: number;
-            /**
-             * Treat Budget
-             * @default 0
-             */
-            treat_budget: number;
-            /** Case Ended At */
-            case_ended_at?: number | null;
-        };
         /**
          * StartPracticeRequest
          * @description 复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。
@@ -5991,15 +5668,6 @@ export interface components {
             /** Avg Score */
             avg_score?: number | null;
         };
-        /** UrineReadingOut */
-        UrineReadingOut: {
-            /** Minute */
-            minute: number;
-            /** Output Ml */
-            output_ml: number;
-            /** Abnormal */
-            abnormal: boolean;
-        };
         /** UserBrief */
         UserBrief: {
             /** Id */
@@ -6111,25 +5779,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /** VitalsReadingOut */
-        VitalsReadingOut: {
-            /** Minute */
-            minute: number;
-            /** Hr */
-            hr: number;
-            /** Sbp */
-            sbp: number;
-            /** Dbp */
-            dbp: number;
-            /** Rr */
-            rr: number;
-            /** Spo2 */
-            spo2: number;
-            /** Temp */
-            temp: number;
-            /** Abnormal */
-            abnormal: boolean;
         };
         /** VoiceConfigResponse */
         VoiceConfigResponse: {
@@ -10691,105 +10340,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentTrendResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_session_api_simulations_sessions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["SessionCreateRequest"] | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionCreateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_session_api_simulations_sessions__session_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulationSnapshot"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_action_api_simulations_sessions__session_id__actions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulationActionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActionResultResponse"];
                 };
             };
             /** @description Validation Error */

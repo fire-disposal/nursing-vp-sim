@@ -191,6 +191,41 @@
 
 ## 2026.09 — 机房旧浏览器崩溃修复 & 取证口径
 
+### 情境训练学生控制台重做（2026-09-28，UI/文案/缺陷）
+
+**主题对接（`frontend/src/scenario/scenario.css` 全量重写）** 删掉自带的固定深色调色板，
+颜色全部改取 Mantine 语义变量（`--mantine-color-*` / `--mantine-primary-color-*`），
+亮/暗两套主题随 `data-mantine-color-scheme` 即时生效；`#` 硬编码色值归零，
+渐变/发光/`backdrop-filter`/字距全大写清零（唯一例外：压在场景大图上的细遮罩，见文件头注释）。
+半径与字号回到系统刻度：控件 `sm`(4px)、容器 `md`(8px)、字号 12/13/15/17。
+
+**结构重排** 对话流（旁白 + 台词 + 提示 chip）成为主体，场景收成一条紧凑图带（有图才给）；
+侧栏收敛为**一块卡片 + 自建页签（线索 / 时间线）**，宽度 312→260；「现场」降级为图带下一行小字；
+「经历量化」搬到顶栏一条细进度 + 数字（细节在弹层）；病例列表与"我的情境经历"改成紧凑行
+（单卡 180→58px、经历行 36px）。`/scenario` 改走 `PracticeShell`：控制台自带最简顶栏
+（返回/病例/回合/会话动作），会话视图 `height: 100dvh`，1440×900 与 1280×800 下页面级滚动为 0。
+
+**交互模型：自由表达为主，DM 提示为辅** pack 的 `affordances` **不再上界面**（没有能力清单、
+没有分类/搜索/计数）；输入框是主控件（多行、Enter 发送 / Shift+Enter 换行）；DM 的 `options`
+降级为**气泡流末尾的提示 chip（≤3 条）**，随对话推进更新；需要参数的动作（选择型/记录表单）
+仍走既有表单与二次确认，但只能由 DM 提示带出。
+
+**P0 缺陷修复：旁白每行一个字** 根因是旁白行（`.sc-line[data-role="scene"]`）只有一个子元素，
+落进了台词网格的**头像列**（`grid-template-columns: 24px minmax(0,1fr)`），文字列宽 0，
+中文每行只放一个字符、整段被拉成长条。修复：给旁白行 `grid-template-columns: minmax(0,1fr)`
+单列铺满（实测该元素宽度 27px → 534px）。
+
+**文案（diegetic only）** 学生面清除系统/作者口吻与占位说明：`（看不到）`「不在视野」「临时」
+「独立实体」「AI 生成」「该图已被清理」「你扮演：」会话状态裸值、`修订 N`、`experimental`、
+作者自述段落、空态解释句等；病例包 `packs/*.json` 里泄漏的作者备忘（`病房环境（占位图，待内容作者替换）`
+等）与 `nudges` 教学口吻一并改写（包内容改动经重新装包生效）。规范落档：docs/20 §十四。
+
+**已知未决（留给下一批）** ①自由文本动作在引擎里**不带 `affordance_id`**（`router.py:230` 只取
+请求字段），于是判读的 `ACTION_USED` 系列子句与白板「已处置」看不到它们；建议让 DM 的结构化
+输出回填意图映射。②表单型动作现在只能靠 DM 提示带出，若某局提示不含表单型 affordance，
+该能力实际不可达（内容/DM 侧修）。③`dims[].detail`（判读口径，含 `scene.spo2` 这类内部字段名）**学生面已完全不渲染**（`DimCard` 不接 detail；`ScenarioReportView` 把它关在 `showWeights` 之后，只给管理侧取证），并有守卫测试扫学生页可见文本不含 `scene.`/`spo2`/`force_rescore`/`runtime_state`；后端若要把其中信息给学生，应另给一个人话字段（前端不做字符串改写）。
+
+
 **旧浏览器渲染崩溃修复（Chromium 92）** 机房镜像停在 Edge/Chrome 92，react-markdown 10 与
 recharts 调用 ES2022 `Object.hasOwn`（需 Chromium 93+）时抛 `TypeError`，被 ErrorBoundary 整页
 接管——机房会话 55% 请求来自该类浏览器，表现为「前端渲染坏了」。修复：`utils/polyfills.ts`
@@ -549,3 +584,31 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 五题真实 LLM 闭环复查：开场即有戏、白板随做事增长、设备按需出现、得分率可手算（0.65 / 0.575 / 0.275 / 0.15 / 0.425）、
 **诊断串不进学生可见面**；浏览器独立复核：流式期间台词条数在回合结束前增长（2→3→5）、设备面按需出现、
 生成物面板真数据分页（共 25 件 · 第 2/2 页 · 第 21–25 件）、删除二次确认后刷新且页数正确回退。
+
+### 临床推理模拟：关闭运行期暴露（2026-09-28）
+
+按 [18-临床推理模块去向](18-clinical-reasoning-disposition.md) 的冻结裁定收口**运行期暴露**（代码保留、不删数据）：
+登录页「体验入口」区块移除（保留「忘记密码」提示）、前端 `/simulation` 路由与 `SimulationConsole` 懒导入注释下线
+（直接访问落 SPA 未匹配处理 → 回登录）、后端 `main.py` 不再注册 `/api/simulations`。后端 HTTP 面从
+「未登录 401 / 已登录 200」变为**任何方法与路径一律 404**，由新增的 `tests/simulations/test_runtime_offline.py` 固定；
+原先走真实 app 的 `test_api_flow.py` / `test_action_http_contract.py` 随暴露面删除，共享的 in-memory 会话替身
+搬到 `tests/simulations/_fakes.py`。**未变**：`backend/modules/simulations/**` 与 `frontend/src/simulations/**` 代码与单测、
+`clinical_reasoning` 作者面契约（编写/发布/归档、仍 `runtime_ready=False`）、4 个硬编码病例与模拟会话表。
+随之同步的生成契约：`openapi.json` 与 `frontend/src/api/api-types.gen.ts` 重生成（`/api/simulations` 路径与只属于它的
+`Simulation*`/`*ReadingOut`/`CaseMeta`/`CommandSurfaceOut` 等 schema 一并消失）；冻结模块的 DTO 改用切割快照
+`frontend/src/api/simulations-types.frozen.ts`（纯类型、构建期擦除），路径字符串不再受 `satisfies ApiPath` 约束。
+
+### 权限会话：恢复会话时 revalidate 权限，不再用旧快照判门禁（2026-09-28）
+
+**生产缺陷**：`localStorage["nursing-auth"].state.permissions` 是上次会话的权限快照，而前端恢复会话时从不刷新 ——
+`/auth/me` 返回的现取权限是对的，但部署后新授予的权限键（学生被授予 `scenario_training`）不生效，
+`RequirePermission` 用旧快照把有权学生挡在「没有访问权限」的 403 页（同一浏览器里 `/auth/me` 200 且含该键）。
+
+- `authStore` 新增 `sessionReady` + `revalidateSession()`：带持久化 token 恢复会话时立刻拉 `/auth/me`，用现取结果覆盖
+  `permissions`（**返回数组即以服务端为准**，空数组=真的没权限；字段缺失才保留旧值）并按 `login()` 口径更新 `user`。
+  401 → 按既有约定清会话；网络/5xx → 保留会话不误踢（与 `refreshUser()` 同口径）。
+- `ProtectedRoute` 在 `sessionReady=false` 期间显示加载态，`RequirePermission` 不再有机会拿旧快照先渲染 403；
+  revalidation 结束（成功或失败）即放行，门禁不会长期空转（等待上限 = `/auth/me` 的 axios 超时）。
+- 顺带修掉一处**从未生效**的冷启动钩子：`onRehydrateStorage` 回调由 persist 在 store 创建时**同步**触发，
+  那里直接调 `startRefreshTimer()`（内部读模块常量 `useAuthStore`）会踩 TDZ 抛 `ReferenceError` 并被 persist 吞掉，
+  于是刷新页面时 24h token 刷新定时器其实没起过；现改由 `revalidateSession()` 在结果落地后启动。

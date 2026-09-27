@@ -11,7 +11,7 @@ from modules.simulations import engine as e
 from modules.simulations.engine import new_session
 from modules.simulations.service import SimulationService
 from modules.simulations.state import state_from_dict, state_to_dict
-from tests.simulations.test_api_flow import _FakeSession  # reuse the fake-DB harness
+from tests.simulations._fakes import FakeSession  # shared fake-DB harness
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 def _service() -> SimulationService:
     # The fake mimics the small Session surface SimulationService uses;
     # cast keeps the test type-clean (ty flags raw fakes).
-    return SimulationService(cast("Session", _FakeSession()))
+    return SimulationService(cast("Session", FakeSession()))
 
 
 def _case_status(session) -> str:

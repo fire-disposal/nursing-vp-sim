@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioAdminAsset, ScenarioAdminPack } from "@/api/scenario";
 import { render, screen, waitFor, within } from "@/__tests__/render";
-import useAuthStore from "@/stores/authStore";
+import type { ScenarioAdminAsset, ScenarioAdminPack } from "@/api/scenario";
 import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
 import ScenarioAdminPage from "@/scenario/admin/ScenarioAdminPage";
+import useAuthStore from "@/stores/authStore";
 
 const mocks = vi.hoisted(() => ({
 	listAdminScenarioPacks: vi.fn(),
@@ -304,7 +304,8 @@ describe("管理侧：诊断串只在这里出现", () => {
 		expect(screen.getByText("dm_parse:Expecting value")).toBeInTheDocument();
 		expect(screen.getByText("leaked_fact_term:spo2")).toBeInTheDocument();
 		expect(screen.getByText("事件流（2）")).toBeInTheDocument();
-		// 回放视图是只读的：在场者不给按钮，也没有自由通道
-		expect(screen.queryByLabelText("自己写一句")).toBeNull();
+		// 回放视图是只读的：在场者不给按钮，也没有自由输入条
+		expect(screen.queryByLabelText("你要做什么")).toBeNull();
+		expect(screen.queryByText("发送")).toBeNull();
 	});
 });

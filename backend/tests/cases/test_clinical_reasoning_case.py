@@ -576,7 +576,7 @@ def _start_response(db: _StubSession, case_id: int):
     """用依赖覆盖跑一次真实的 ``POST /api/training/start``。
 
     用 ``patch.dict`` 而不是 ``dependency_overrides.clear()``：其他测试模块在 import 期就装了
-    全局覆盖（如 ``tests/simulations/test_api_flow.py``），清空会把它们一起抹掉。
+    全局覆盖（如 ``tests/scenario_training/test_scenario_api_flow.py``），清空会把它们一起抹掉。
     """
 
     def _override_db():

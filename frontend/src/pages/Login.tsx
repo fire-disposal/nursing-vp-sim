@@ -1,12 +1,11 @@
-import { Box, Button, Divider, Group, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
+import { Box, Button, Group, Paper, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconBook2, IconChartBar, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { Navigate, Link, useNavigate } from "react-router-dom";
-import { PasswordInput, TextInput } from "@mantine/core";
+import { Navigate, useNavigate } from "react-router-dom";
+import FormMessageBanner from "@/components/ui/form-message-banner";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
-import FormMessageBanner from "@/components/ui/form-message-banner";
 import LoginIllustration from "./LoginIllustration";
 
 function isTokenExpired(token: string): boolean {
@@ -191,19 +190,7 @@ export default function Login() {
 						</Stack>
 					</form>
 
-					<Divider my="md" label="体验入口" labelPosition="center" />
-
 					<Stack gap="sm">
-						<Button
-							component={Link}
-							to="/simulation"
-							variant="light"
-							color="brand"
-							fullWidth
-							leftSection={<IconStethoscope size={16} />}
-						>
-							临床推理模拟实验（免登录体验）
-						</Button>
 						<Text size="xs" c="dimmed" ta="center">
 							忘记密码？请联系教师或管理员重置
 						</Text>

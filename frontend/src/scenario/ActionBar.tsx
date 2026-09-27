@@ -1,25 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 import type {
 	ScenarioActionInput,
 	ScenarioAffordance,
 	ScenarioOption,
 	ScenarioView,
 } from "@/api/scenario";
-import { useConfirm } from "@/components/ui/confirm";
 import AffordanceForm from "./AffordanceForm";
 
-interface ActionBarProps {
+export interface ActionBarProps {
 	view: ScenarioView;
 	busy: boolean;
-	/** 自由通道的文本与展开态由页面持有：点在场者要能预填并展开它。 */
+	/** 自由表达的文本由页面持有：点在场者要能预填。 */
 	freeText: string;
-	freeOpen: boolean;
 	onFreeTextChange: (text: string) => void;
-	onFreeOpenChange: (open: boolean) => void;
 	onSubmit: (action: ScenarioActionInput) => void;
 	errorMessage?: string | null;
-	/** 每次变化 = "把焦点送回自由通道"（回合落地后由页面递增）。 */
+	/** 每次变化 = "把焦点送回输入框"（回合落地后由页面递增）。 */
 	focusToken?: number;
+	/** DM 提示指向的表单型动作；由页面持有（选项条与页面共用同一份流程状态）。 */
+	openAffordance?: ScenarioAffordance | null;
+	/** 表单的「收起」；提交后的清空也由页面做。 */
+	onCloseForm: () => void;
 }
 
 /**
@@ -29,97 +30,71 @@ interface ActionBarProps {
  */
 const MAX_INPUT = 2000;
 
-/** DM 建议最多显示几条：prompt 要求 ≤4，模型超产时别把按钮区撑爆。 */
-const MAX_OPTIONS = 6;
+/** DM 提示最多显示几条：人不是预编程机器人，三条提示足够点一下思路，多了就成了菜单。 */
+const MAX_OPTIONS = 3;
 
 /**
- * 动作区：按钮是主角，输入框是配角。
+ * 气泡流里的 DM 提示条：跟着最新一条消息，随消息一起滚走。
  *
- * - `options`：DM 建议的下一步（按钮 = affordance 的可见形态，随情境变化）；
- * - `affordances`：本情境此刻可做的事（含选择型 / 记录表单，展开后带自输入入口）；
- * - 自由通道：始终存在的"自己写一句"，默认收成一行，展开即自由发问。
+ * 纯展示：点哪条由页面决定（提示可能落在表单型动作上，页面知道该展开表单还是直接提交）。
+ * 没有提示就返回 `null`——不给空容器留出占位的白。
+ */
+export function ScenarioOptionStrip({
+	options,
+	busy,
+	onChoose,
+}: {
+	options: ScenarioOption[];
+	busy: boolean;
+	onChoose: (option: ScenarioOption) => void;
+}) {
+	if (options.length === 0) return null;
+
+	return (
+		<div className="sc-options">
+			{options.slice(0, MAX_OPTIONS).map((option, index) => (
+				<button
+					key={`${option.label}-${index}`}
+					type="button"
+					className="sc-option"
+					disabled={busy}
+					onClick={() => onChoose(option)}
+				>
+					{option.label}
+				</button>
+			))}
+		</div>
+	);
+}
+
+/**
+ * 底部动作区：**自由表达是主控件**，DM 的提示是配角。
+ *
+ * - 输入框常驻（多行、可增长），Enter 发送、Shift+Enter 换行；
+ * - `openAffordance`：DM 提示落在选择型 / 记录表单上时就地展开，状态由页面持有；
+ * - pack 的 `affordances` 列表**不出现在界面上**：那是"理论上可做的事"，
+ *   一次性摊开会把学生教成点菜单的人。要做什么，自己写。
  */
 export default function ActionBar({
 	view,
 	busy,
 	freeText,
-	freeOpen,
 	onFreeTextChange,
-	onFreeOpenChange,
 	onSubmit,
 	errorMessage,
 	focusToken = 0,
+	openAffordance = null,
+	onCloseForm,
 }: ActionBarProps) {
-	const { confirm } = useConfirm();
-	const freeInputRef = useRef<HTMLInputElement>(null);
 	const freeAreaRef = useRef<HTMLTextAreaElement>(null);
 
-	// 回合落地后焦点回到自由通道（键盘用户不必每回合从头 Tab）
-	const [openId, setOpenId] = useState<string | null>(null);
-	const openAffordance =
-		view.affordances.find((item) => item.id === openId) ?? null;
-	// 自由通道由 pack 的 `view.free_input` 决定（后端默认 true）；显式关掉时才收起。
+	// 自由表达由 pack 的 `view.free_input` 决定（后端默认 true）；显式关掉的是封闭文书型情境。
 	const freeEnabled = view.free_input !== false;
 
 	useEffect(() => {
 		if (focusToken === 0 || !freeEnabled) return;
-		(freeAreaRef.current ?? freeInputRef.current)?.focus();
+		freeAreaRef.current?.focus();
 	}, [focusToken, freeEnabled]);
-
-	/** `confirm: true` 的动作都要二次确认——直接执行的和表单提交的都一样。 */
-	const submitConfirmed = async (
-		action: ScenarioActionInput,
-		label: string,
-		needsConfirm: boolean,
-	) => {
-		if (needsConfirm) {
-			const ok = await confirm({
-				title: label,
-				message: "这个动作可能不可逆，确定要做吗？",
-				confirmLabel: "就做这件事",
-				danger: true,
-			});
-			if (!ok) return;
-		}
-		onSubmit(action);
-	};
-
-	const runAffordance = async (affordance: ScenarioAffordance) => {
-		// 选择型（single/multi）与记录表单（document）要展开表单，其余一键即做
-		if (affordance.select !== "none" || affordance.type === "document") {
-			setOpenId(affordance.id);
-			return;
-		}
-		await submitConfirmed(
-			{ affordance_id: affordance.id, type: affordance.type },
-			affordance.label,
-			affordance.confirm,
-		);
-	};
-
-	const runOption = (option: ScenarioOption) => {
-		const linked = option.affordance_id
-			? view.affordances.find((item) => item.id === option.affordance_id)
-			: undefined;
-		// DM 的选项若落在选择型/表单动作上，展开表单而不是替学生把选项定死
-		if (
-			linked &&
-			(linked.select !== "none" || linked.type === "document")
-		) {
-			setOpenId(linked.id);
-			return;
-		}
-		// 建议按钮与动作按钮是同一个动作的两种入口：危险动作从哪进都要问一次
-		submitConfirmed(
-			{
-				affordance_id: option.affordance_id ?? null,
-				type: option.type ?? "ask",
-				text: option.label ?? null,
-			},
-			option.label ?? linked?.label ?? "这个动作",
-			linked?.confirm === true,
-		);
-	};
 
 	const submitFree = () => {
 		const text = freeText.trim().slice(0, MAX_INPUT);
@@ -127,67 +102,22 @@ export default function ActionBar({
 		onSubmit({ type: "ask", text });
 	};
 
+	// Enter 发送、Shift+Enter 换行（组合键不拦，交给浏览器插入换行）。
+	const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+		if (event.key !== "Enter" || event.shiftKey) return;
+		event.preventDefault();
+		submitFree();
+	};
+
 	return (
 		<section className="sc-actions" aria-label="动作区">
-			{view.options.length > 0 && (
-				<>
-					<span className="sc-actions-title">此刻值得做的</span>
-					<div className="sc-buttons">
-						{view.options.slice(0, MAX_OPTIONS).map((option, index) => (
-							<button
-								key={`${option.label}-${index}`}
-								type="button"
-								className="sc-btn"
-								data-kind="option"
-								disabled={busy}
-								onClick={() => runOption(option)}
-							>
-								{option.label}
-							</button>
-						))}
-					</div>
-				</>
-			)}
-
-			{view.affordances.length > 0 && (
-				<>
-					<span className="sc-actions-title">这里能做的事</span>
-					<div className="sc-buttons">
-						{view.affordances.map((affordance) => (
-							<button
-								key={affordance.id}
-								type="button"
-								className="sc-btn"
-								data-kind="affordance"
-								data-open={openId === affordance.id}
-								disabled={busy}
-								onClick={() => runAffordance(affordance)}
-							>
-								{affordance.label}
-								<span className="sc-btn-tag">
-									{affordance.type}
-									{affordance.select !== "none" ? "·选择" : ""}
-								</span>
-							</button>
-						))}
-					</div>
-				</>
-			)}
-
 			{openAffordance && (
 				<AffordanceForm
 					key={openAffordance.id}
 					affordance={openAffordance}
 					busy={busy}
-					onSubmit={(action) => {
-						setOpenId(null);
-						submitConfirmed(
-							action,
-							openAffordance.label,
-							openAffordance.confirm,
-						);
-					}}
-					onCancel={() => setOpenId(null)}
+					onSubmit={onSubmit}
+					onCancel={onCloseForm}
 				/>
 			)}
 
@@ -198,49 +128,28 @@ export default function ActionBar({
 			)}
 
 			{freeEnabled && (
-				<div className="sc-free">
-					<span className="sc-actions-title">自由通道</span>
-					{freeOpen ? (
-						<div className="sc-free-row">
-							<textarea
-								ref={freeAreaRef}
-								className="sc-textarea"
-								rows={2}
-								autoFocus
-								maxLength={MAX_INPUT}
-								aria-label="自己写一句"
-								placeholder="想说什么、想做什么，直接写下来。"
-								value={freeText}
-								onChange={(event) => onFreeTextChange(event.currentTarget.value)}
-							/>
-							<button
-								type="button"
-								className="sc-btn"
-								disabled={busy || freeText.trim().length === 0}
-								onClick={submitFree}
-							>
-								发送
-							</button>
-							<button
-								type="button"
-								className="sc-ghost-btn"
-								onClick={() => onFreeOpenChange(false)}
-							>
-								收起
-							</button>
-						</div>
-					) : (
-						<input
-							ref={freeInputRef}
-							className="sc-input"
-							aria-label="自己写一句"
-							maxLength={MAX_INPUT}
-							placeholder="或者，自己写一句…"
-							value={freeText}
-							onFocus={() => onFreeOpenChange(true)}
-							onChange={(event) => onFreeTextChange(event.currentTarget.value)}
-						/>
-					)}
+				<div className="sc-actions-row">
+					<textarea
+						ref={freeAreaRef}
+						className="sc-textarea"
+						rows={2}
+						maxLength={MAX_INPUT}
+						aria-label="你要做什么"
+						placeholder="你要做什么？"
+						value={freeText}
+						disabled={busy}
+						onChange={(event) => onFreeTextChange(event.currentTarget.value)}
+						onKeyDown={onKeyDown}
+					/>
+					<button
+						type="button"
+						className="sc-btn"
+						data-kind="send"
+						disabled={busy || freeText.trim().length === 0}
+						onClick={submitFree}
+					>
+						发送
+					</button>
 				</div>
 			)}
 		</section>

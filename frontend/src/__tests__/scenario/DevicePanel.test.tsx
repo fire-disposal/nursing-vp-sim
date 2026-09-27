@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScenarioDevice, ScenarioView } from "@/api/scenario";
 import { act, fireEvent, render, screen, within } from "@/__tests__/render";
+import type { ScenarioDevice, ScenarioView } from "@/api/scenario";
 import BoardPanel from "@/scenario/BoardPanel";
 import DevicePanel from "@/scenario/DevicePanel";
 import ScenarioStage from "@/scenario/ScenarioStage";
 import {
-	SOUND_PREF_KEY,
 	beepPaceMs,
 	readSoundEnabled,
+	SOUND_PREF_KEY,
 	worstStatus,
 } from "@/scenario/sound";
 
@@ -284,7 +284,8 @@ describe("设备在场景区（处境的一部分，不属于动作列）", () =
 		expect(scene.querySelector(".sc-devices")).toBeNull();
 		// 没有设备时不留空位：双栏布局整个不生效，场景区里也没有设备壳
 		expect(scene.dataset.devices).toBe("false");
-		expect(scene.children).toHaveLength(2); // 画面 + 画面之下那一栏（缩略图/HUD）
+		// 场景区只有画面本身（缩略图/HUD 已收进画面层内，不再是并列的第二块）
+		expect(scene.children).toHaveLength(1);
 	});
 
 	it("unknown / 无数值显示「—」而不是 0；危急只给静态注意钩子", () => {

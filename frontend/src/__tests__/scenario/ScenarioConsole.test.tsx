@@ -90,14 +90,17 @@ function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 				origin: "dm",
 			},
 		],
+		// DM 此刻给的提示：只有它能把表单带出来（pack 的 affordances 不上界面）
 		options: [
 			{
-				label: "查看患者的呼吸状况",
+				label: "看看呼吸",
 				type: "observe",
 				affordance_id: "auscultate",
 				params: {},
 				free_input: true,
 			},
+			{ label: "换个姿势", type: "act", affordance_id: "position", params: {} },
+			{ label: "安抚他", type: "act", affordance_id: "comfort", params: {} },
 		],
 		affordances: [
 			{
@@ -168,7 +171,8 @@ function renderPage() {
 async function enterSession(user: UserEvent) {
 	renderPage();
 	await user.click(await screen.findByText("术后低氧"));
-	await screen.findByRole("button", { name: /听诊双肺/ });
+	// 动作区常驻：它就是"已经进场"的稳定标志（不再有 affordance 按钮可等）
+	await screen.findByLabelText("动作区");
 }
 
 beforeEach(() => {
@@ -190,32 +194,33 @@ afterEach(() => {
 });
 
 describe("情境训练控制台", () => {
-	it("按钮区渲染 DM 建议的 options 与本情境的 affordances", async () => {
+	it("动作区只有 DM 提示条 + 常驻输入条，pack 的 affordances 完全不上界面", async () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
-		expect(
-			screen.getByRole("button", { name: /查看患者的呼吸状况/ }),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /听诊双肺/ })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /摆体位/ })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /写护理记录/ })).toBeInTheDocument();
-		// 自由通道与按钮区共存（不是二选一）
-		expect(screen.getByLabelText("自己写一句")).toBeInTheDocument();
-		// 独立角色实体代言的话要有标记
-		expect(screen.getByText("独立实体")).toBeInTheDocument();
+		// 气泡流末尾的 DM 提示（点一下才知道该做什么）
+		expect(screen.getByRole("button", { name: /看看呼吸/ })).toBeInTheDocument();
+		// 常驻输入条与提示共存（不是二选一）
+		expect(screen.getByLabelText("你要做什么")).toBeInTheDocument();
+		// 理论上可做的事不上界面：没有「更多动作」，也没有 affordance 列表/分类/计数
+		expect(screen.queryByRole("button", { name: /听诊双肺/ })).toBeNull();
+		expect(screen.queryByRole("button", { name: /摆体位/ })).toBeNull();
+		expect(screen.queryByRole("button", { name: /安抚措施/ })).toBeNull();
+		expect(screen.queryByRole("button", { name: /写护理记录/ })).toBeNull();
+		expect(screen.queryByText(/更多动作/)).toBeNull();
+		expect(document.querySelectorAll(".sc-option")).toHaveLength(3);
 	});
 
-	it("单选动作附加「其他（自己输入）」：自输入文本走 custom_text，不进 selected", async () => {
+	it("单选动作由 DM 提示带出表单：「其他」写的字进 custom_text，不进 selected", async () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
-		await user.click(screen.getByRole("button", { name: /摆体位/ }));
+		await user.click(screen.getByRole("button", { name: /换个姿势/ }));
 		await user.click(
 			await screen.findByRole("radio", { name: OTHER_ENTRY_LABEL }),
 		);
 		await user.type(
-			screen.getByLabelText("自己写（提交为自输入内容）"),
+			screen.getByLabelText("自己写"),
 			"给患者垫高床头",
 		);
 		await user.click(screen.getByRole("button", { name: "就做这件事" }));
@@ -236,13 +241,13 @@ describe("情境训练控制台", () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
-		await user.click(screen.getByRole("button", { name: /安抚措施/ }));
+		await user.click(screen.getByRole("button", { name: /安抚他/ }));
 		await user.click(await screen.findByRole("checkbox", { name: "盖被" }));
 		await user.click(
 			await screen.findByRole("checkbox", { name: OTHER_ENTRY_LABEL }),
 		);
 		await user.type(
-			screen.getByLabelText("自己写（提交为自输入内容）"),
+			screen.getByLabelText("自己写"),
 			"把床头铃放到他手边",
 		);
 		await user.click(screen.getByRole("button", { name: "就做这件事" }));
@@ -258,17 +263,27 @@ describe("情境训练控制台", () => {
 		});
 	});
 
-	it("document 表单同样附「其他（自己输入）」：字段进 text，自输入进 custom_text", async () => {
+	it("document 表单同样由提示带出：「其他」的字段进 text，自输入进 custom_text", async () => {
 		const user = userEvent.setup();
+		// 记录型动作也只有 DM 提示能带出来：这一回合的提示挂在它上面
+		mocks.createScenarioSession.mockResolvedValue({
+			session_id: 12,
+			pack: { key: PACK.key, title: PACK.title, revision_id: 7 },
+			view: makeView({
+				options: [
+					{ label: "记一笔", type: "document", affordance_id: "record", params: {} },
+				],
+			}),
+		});
 		await enterSession(user);
 
-		await user.click(screen.getByRole("button", { name: /写护理记录/ }));
+		await user.click(screen.getByRole("button", { name: "记一笔" }));
 		await user.type(await screen.findByLabelText("时间"), "08:50");
 		await user.click(
 			await screen.findByRole("checkbox", { name: OTHER_ENTRY_LABEL }),
 		);
 		await user.type(
-			screen.getByLabelText("自己写（提交为自输入内容）"),
+			screen.getByLabelText("自己写"),
 			"患者家属在门外",
 		);
 		await user.click(screen.getByRole("button", { name: "就做这件事" }));
@@ -288,11 +303,7 @@ describe("情境训练控制台", () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
-		await user.click(screen.getByLabelText("自己写一句"));
-		await user.type(
-			await screen.findByLabelText("自己写一句"),
-			"现在最难受的是什么？",
-		);
+		await user.type(screen.getByLabelText("你要做什么"), "现在最难受的是什么？");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
 		await waitFor(() => {
@@ -303,13 +314,15 @@ describe("情境训练控制台", () => {
 		});
 	});
 
-	it("临时角色用 actor_role 渲染并带「临时」标记，且不进在场者条", async () => {
+	it("临时角色用 actor_role 渲染、带 ephemeral 标记且不进在场者条", async () => {
 		const user = userEvent.setup();
 		await enterSession(user);
 
 		// 身份标签用后端给的显示名（临时角色没有 actor id，不能显示 id）
 		expect(screen.getByText("走廊里的护工")).toBeInTheDocument();
-		expect(screen.getByText("临时")).toBeInTheDocument();
+		// 平台口吻的"临时/某个声音"都不写：学生看到的就是世界里的话
+		expect(screen.queryByText("临时")).toBeNull();
+		expect(screen.queryByText("某个声音")).toBeNull();
 		expect(screen.getByText("需要我去叫人吗？")).toBeInTheDocument();
 		// 头像由前端从 avatar_seed 派生：首字 + 哈希取色（同一 seed → 同一颜色）
 		const ephLine = screen
@@ -335,7 +348,7 @@ describe("情境训练控制台", () => {
 		expect(within(strip).getByText("患者")).toBeInTheDocument();
 	});
 
-	it("view.panels 决定侧栏展示哪些面板（未声明的收窄，dims 随情绪/覆盖面板走）", async () => {
+	it("view.panels 决定面板开关（未声明的收窄，dims 随情绪/覆盖面板走）", async () => {
 		const user = userEvent.setup();
 		const dims = [
 			{ id: "d_actions", label: "处置动作数", agg: "count", value: 2, unit: "次", detail: "共 2 个动作" },
@@ -345,16 +358,17 @@ describe("情境训练控制台", () => {
 			pack: { key: PACK.key, title: PACK.title, revision_id: 7 },
 			view: makeView({ panels: ["coverage"], dims }),
 		});
-		renderPage();
-		await user.click(await screen.findByText("术后低氧"));
-		await screen.findByRole("button", { name: /听诊双肺/ });
+		await enterSession(user);
 
-		// coverage → 现场在；timeline 未声明 → 经历时间线不在
-		expect(screen.getByLabelText("现场")).toBeInTheDocument();
-		expect(screen.queryByLabelText("经历时间线")).not.toBeInTheDocument();
-		// dims 是情绪/覆盖共用的量化投影：coverage 在 → 经历量化仍展示
-		expect(screen.getByLabelText("经历量化")).toBeInTheDocument();
-		expect(screen.getByText("处置动作数")).toBeInTheDocument();
+		// coverage → 现场降级为场景里的一行（就在画面里，不在侧栏）
+		const situation = document.querySelector(".sc-situation");
+		expect(situation).not.toBeNull();
+		expect(situation?.textContent).toContain("负压吸引器");
+		// timeline 未声明 + 没有线索 → 侧栏不渲染空壳
+		expect(screen.queryByLabelText("经历面板")).toBeNull();
+		// dims 是情绪/覆盖共用的量化投影：coverage 在 → 顶栏细进度仍展示
+		const progress = screen.getByLabelText("经历量化");
+		expect(within(progress).getByText(/处置动作数/)).toBeInTheDocument();
 	});
 
 	it("命名空间 404（功能关闭）显示「未开启」而不是报错", async () => {

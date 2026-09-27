@@ -16,15 +16,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
-	type ScenarioAdminPack,
-	type ScenarioPackState,
 	listAdminScenarioPacks,
 	patchAdminScenarioPack,
+	type ScenarioAdminPack,
+	type ScenarioPackState,
 	uploadAdminScenarioPack,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
-import { getApiErrorDetail } from "@/utils/error";
 import { useConfirm } from "@/components/ui/confirm";
+import { getApiErrorDetail } from "@/utils/error";
 
 const STATE_OPTIONS: { value: ScenarioPackState; label: string }[] = [
 	{ value: "experimental", label: "实验版" },

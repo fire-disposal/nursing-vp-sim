@@ -162,7 +162,7 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		});
 		// 页面没被换成无出口的 gate，仍停在可选情境的界面
 		expect(screen.queryByText("情境训练当前未开启")).toBeNull();
-		expect(screen.getByText("情境训练")).toBeInTheDocument();
+		expect(document.querySelector('.sc-root[data-view="open"]')).not.toBeNull();
 		expect(await screen.findByText(PACK.title)).toBeInTheDocument();
 	});
 
@@ -191,10 +191,11 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 			expect(mocks.getScenarioSession).toHaveBeenCalledWith(99);
 		});
 		expect(screen.queryByText("情境训练当前未开启")).toBeNull();
-		expect(screen.getByText("情境训练")).toBeInTheDocument();
+		expect(document.querySelector('.sc-root[data-view="open"]')).not.toBeNull();
 	});
 
-	it("没有可用修订的包：不可点 + 说明为什么", async () => {
+	it("没有可用修订的包：不可点（也不写一行占位说明）", async () => {
+		const user = userEvent.setup();
 		mocks.listScenarioPacks.mockResolvedValue([
 			{ ...PACK, revision_id: null, revision_no: null },
 		]);
@@ -203,22 +204,51 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		const button = await screen.findByRole("button", { name: /吸痰无效/ });
 		expect(button).toBeDisabled();
 		expect(button).toHaveAttribute("aria-disabled", "true");
-		expect(within(button).getByText("该病例没有可用修订")).toBeInTheDocument();
+		// 不能用还要解释一遍是平台口吻：没有可点的修订就不给一行占位说明
+		expect(screen.queryByText(/该病例没有可用修订/)).toBeNull();
+		expect(within(button).queryByText(PACK.one_line)).toBeNull();
+
+		await user.click(button);
+		expect(mocks.createScenarioSession).not.toHaveBeenCalled();
 	});
 });
 
 describe("H2：校验失败不把后端原文吐给学生", () => {
-	it("自由通道与表单输入都带上 2000 字上限（粘一段病程不会换来 422）", async () => {
+	it("自由输入与表单字段都带上 2000 字上限（粘一段病程不会换来 422）", async () => {
 		const user = userEvent.setup();
+		mocks.createScenarioSession.mockResolvedValue({
+			session_id: 31,
+			pack: { key: PACK.key, title: PACK.title, revision_id: 6 },
+			view: makeView({
+				options: [
+					{ label: "记一条", type: "document", affordance_id: "note", params: {} },
+				],
+				affordances: [
+					{
+						id: "note",
+						type: "document",
+						label: "写护理记录",
+						select: "none",
+						options: [],
+						fields: ["观察"],
+						free_input: true,
+						confirm: false,
+					},
+				],
+			}),
+		});
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		const input = screen.getByLabelText("自己写一句");
-		expect(input).toHaveAttribute("maxlength", "2000");
+		expect(screen.getByLabelText("你要做什么")).toHaveAttribute(
+			"maxlength",
+			"2000",
+		);
 
-		await user.click(input);
-		expect(await screen.findByLabelText("自己写一句")).toHaveAttribute(
+		// 提示带出的表单字段同样有上限
+		await user.click(screen.getByRole("button", { name: "记一条" }));
+		expect(await screen.findByLabelText("观察")).toHaveAttribute(
 			"maxlength",
 			"2000",
 		);
@@ -244,9 +274,10 @@ describe("H2：校验失败不把后端原文吐给学生", () => {
 		});
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
+		await user.keyboard("{Enter}");
 
 		const alerts = await screen.findAllByRole("alert");
 		const shown = alerts.map((alert) => alert.textContent ?? "").join(" | ");
@@ -257,46 +288,48 @@ describe("H2：校验失败不把后端原文吐给学生", () => {
 	});
 });
 
-describe("H3：流式期间打的字不被静默清空", () => {
-	it("提交的那份被清空，但等待期间新打的字留下", async () => {
+describe("H3：回合进行中的输入（停下 / 落地后清空）", () => {
+	it("回合跑着的时候输入与发送都停下（不许再叠一条）", async () => {
 		const user = userEvent.setup();
 		const turn = deferred<unknown>();
 		mocks.postScenarioAction.mockReturnValue(turn.promise);
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		await user.click(screen.getByLabelText("自己写一句"));
-		const area = await screen.findByLabelText("自己写一句");
+		const area = await screen.findByLabelText("你要做什么");
 		await user.type(area, "第一句：现在最难受的是什么？");
 		await user.click(screen.getByRole("button", { name: "发送" }));
+		await waitFor(() => {
+			expect(mocks.postScenarioAction).toHaveBeenCalledTimes(1);
+		});
 
-		// 等待期间学生把输入框改成另一句（回合还没落地）
-		await user.clear(area);
-		await user.type(area, "（等待期间重写的下一句）");
+		// 回合还没落地：输入与发送都停着，再点也不会多出一条
+		expect(area).toBeDisabled();
+		const send = screen.getByRole("button", { name: "发送" });
+		expect(send).toBeDisabled();
+		await user.click(send);
+		expect(mocks.postScenarioAction).toHaveBeenCalledTimes(1);
 
 		turn.resolve({ session_id: 31, problems: [], view: makeView() });
+		// 落地后输入框恢复可用（学生可以接着做下一步）
 		await waitFor(() => {
-			expect(screen.getByText("监护仪在响。")).toBeInTheDocument();
+			expect(screen.getByLabelText("你要做什么")).not.toBeDisabled();
 		});
-		// 新打的那句还在；被提交的那句已经清掉
-		const after = screen.getByLabelText("自己写一句") as HTMLInputElement;
-		expect(after.value).toBe("（等待期间重写的下一句）");
 	});
 
 	it("没有新输入时照旧清空（原行为不变）", async () => {
 		const user = userEvent.setup();
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		await user.click(screen.getByLabelText("自己写一句"));
-		await user.type(await screen.findByLabelText("自己写一句"), "就问一句");
+		await user.type(await screen.findByLabelText("你要做什么"), "就问一句");
 		await user.click(screen.getByRole("button", { name: "发送" }));
 
 		await waitFor(() => {
 			expect(
-				(screen.getByLabelText("自己写一句") as HTMLInputElement).value,
+				(screen.getByLabelText("你要做什么") as HTMLTextAreaElement).value,
 			).toBe("");
 		});
 	});
@@ -347,12 +380,15 @@ describe("M4：回合结束后焦点回到自由通道", () => {
 		const user = userEvent.setup();
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
+		await user.keyboard("{Enter}");
 
 		await waitFor(() => {
-			expect(document.activeElement).toBe(screen.getByLabelText("自己写一句"));
+			expect(document.activeElement).toBe(
+				screen.getByLabelText("你要做什么"),
+			);
 		});
 		// 回合结果有 aria-live 播报（读屏能听到"第 N 回合…"）
 		const live = document.querySelector('[aria-live="polite"]');
@@ -384,12 +420,13 @@ describe("M3：会话进地址栏（?session=）", () => {
 		const user = userEvent.setup();
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		expect(screen.getByTestId("query").textContent).toBe("31");
+		await waitFor(() => {
+			expect(screen.getByTestId("query").textContent).toBe("31");
+		});
 		// 写地址栏**不能**触发一次多余的"深链恢复"（否则刚开好的一局会被自己再恢复一遍）
 		expect(mocks.getScenarioSession).not.toHaveBeenCalled();
-
 		await user.click(screen.getByRole("button", { name: "我的情境" }));
 		await waitFor(() => {
 			expect(screen.getByTestId("query").textContent).toBe("");
@@ -398,7 +435,7 @@ describe("M3：会话进地址栏（?session=）", () => {
 });
 
 describe("L1/L7：建议上限与失败播报", () => {
-	it("DM 建议最多渲染 6 条（模型超产不撑爆按钮区）", async () => {
+	it("DM 建议最多渲染 3 条（模型超产不撑爆提示条）", async () => {
 		const user = userEvent.setup();
 		mocks.createScenarioSession.mockResolvedValue({
 			session_id: 31,
@@ -415,9 +452,10 @@ describe("L1/L7：建议上限与失败播报", () => {
 		});
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		expect(screen.getAllByRole("button", { name: /^建议 \d/ })).toHaveLength(6);
+		expect(screen.getAllByRole("button", { name: /^建议 \d/ })).toHaveLength(3);
+		expect(screen.queryByRole("button", { name: "建议 4" })).toBeNull();
 	});
 
 	it("动作失败的错误容器能被读屏播报（role=alert）", async () => {
@@ -429,9 +467,10 @@ describe("L1/L7：建议上限与失败播报", () => {
 		});
 		renderConsole();
 		await user.click(await screen.findByText(PACK.title));
-		await screen.findByRole("button", { name: /吸痰/ });
+		await screen.findByLabelText("动作区");
 
-		await user.click(screen.getByRole("button", { name: /吸痰/ }));
+		await user.type(screen.getByLabelText("你要做什么"), "给他吸痰");
+		await user.keyboard("{Enter}");
 		const alerts = await screen.findAllByRole("alert");
 		expect(alerts.some((a) => a.textContent?.includes("服务端出错"))).toBe(true);
 	});

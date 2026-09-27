@@ -3,7 +3,7 @@
   "key": "night-call-decision",
   "title": "夜班电话：用几项数据决定下一步",
   "state": "experimental",
-  "one_line": "凌晨 02:10，值班室电话把你叫醒——病区护士在电话那头等你下决定，你看不到病人。",
+  "one_line": "凌晨 02:10，值班室电话把你叫醒——病区护士在电话那头等你下决定。",
   "player": {
     "role": "值班医生",
     "can": [
@@ -14,7 +14,7 @@
     ]
   },
   "setting": {
-    "place": "值班室（电话另一头是内科病区）",
+    "place": "值班室",
     "time_hint": "凌晨 02:10",
     "resources": [
       "值班手机",
@@ -57,7 +57,7 @@
   "actors": [
     {
       "id": "nurse",
-      "role": "病区护士（电话另一头）",
+      "role": "病区护士",
       "presence": "remote",
       "demand": "neutral",
       "knowledge": {
@@ -72,13 +72,13 @@
     },
     {
       "id": "patient",
-      "role": "患者（病区内，你看不到）",
+      "role": "患者",
       "presence": "inaccessible",
       "demand": "quiet",
       "knowledge": {
         "自述": "肚子疼，怕是要紧"
       },
-      "style": "（不在通话中）",
+      "style": "在病床上；他的声音只能从听筒背景里偶尔传来",
       "goals": []
     },
     {
@@ -159,7 +159,7 @@
     {
       "id": "order_tests",
       "type": "act",
-      "label": "下医嘱：查什么（可多选）",
+      "label": "下医嘱：查什么",
       "select": "multi",
       "params": {
         "options": [
@@ -572,7 +572,7 @@
             }
           ]
         },
-        "direction": "电话里看不到病人：先决定要拿到哪几项能改变判断的证据"
+        "direction": "先要齐能改变判断的证据"
       }
     ]
   },
