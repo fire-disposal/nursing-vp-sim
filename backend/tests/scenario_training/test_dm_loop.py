@@ -21,7 +21,7 @@ from modules.scenario_training.dm.prompt import build_dm_messages
 from modules.scenario_training.dm.runner import run_dm
 from modules.scenario_training.dm.tools import TOOL_NAMES, run_tool
 from modules.scenario_training.runtime.world import World, initial_world, world_from_events
-from modules.scenario_training.schema import ScenarioPack
+from modules.scenario_training.schema import AffordanceType, EffectOp, ScenarioPack
 
 ENVELOPE: dict[str, Any] = {"narration": "监护仪还在响。", "lines": [{"actor": "patient", "text": "……"}]}
 
@@ -264,6 +264,87 @@ def test_prompt_carries_form_actions_when_they_are_the_next_step(pack: ScenarioP
 
     line = next(line for line in system.splitlines() if "表单型" in line)
     assert "options" in line, "表单型动作的出口必须写清是 options"
+
+
+def test_prompt_spells_out_the_enum_whitelists(pack: ScenarioPack) -> None:
+    """契约漂移守卫（实测坑 2026-09-28，线上事件流）：DM 自造 `options[].type`（写了枚举之外的值）
+    会让解析层整回合判错——流式与非流式各失败一次，白花一次调用才重试成功。
+
+    所以这两个枚举必须在提示词里**逐字**列出，且与契约同源（枚举一改，提示词跟着改）。
+    """
+    system = build_dm_messages(pack, initial_world(pack), None, [], max_steps=0)[0]["content"]
+
+    assert "、".join(kind.value for kind in AffordanceType) in system, "options[].type 的允许取值没逐字列出"
+    assert "、".join(operation.value for operation in EffectOp) in system, "effects[].op 的允许取值没逐字列出"
+    assert "`options[].type`" in system
+    assert "`effects[].op`" in system
+
+
+def test_prompt_carries_the_declared_board_sections(pack: ScenarioPack) -> None:
+    """实测坑（跨会话反复）：DM 把 `notes[].section` 写成未声明的版块（「既往」「查体」…），
+    引擎按白名单整条丢弃 → **笔记内容直接丢了**。
+
+    提示词必须给出该 pack 声明的版块 id + 标题，并点明「只能取这里的值、拿不准就留空」。
+    """
+    user = build_dm_messages(pack, initial_world(pack), None, [], max_steps=0)[1]["content"]
+
+    assert "## 线索板版块" in user
+    assert "`notes[].section` 只能取这里的 id" in user
+    for section in pack.presentation.board:
+        assert section.id in user, f"版块 id {section.id} 没写进提示词"
+        assert section.title in user, f"版块标题 {section.title} 没写进提示词"
+    # 默认版块（= 引擎投影笔记的地方）也要点名，DM 才有"取不到就留空"的退路
+    defaults = [section.id for section in pack.presentation.board if section.source == "note"]
+    assert defaults
+    assert "默认版块" in user
+    for section_id in defaults:
+        assert section_id in user
+
+
+def test_prompt_states_the_engine_rule_for_packs_without_board_sections(pack: ScenarioPack) -> None:
+    """没声明版块的 pack：提示词必须明说"没有额外版块、notes 不写 section"，且与引擎行为一致。"""
+    bare = pack.model_copy(update={"presentation": pack.presentation.model_copy(update={"board": []})})
+    user = build_dm_messages(bare, initial_world(bare), None, [], max_steps=0)[1]["content"]
+
+    assert "没有额外版块" in user
+    assert "不写 section" in user
+    assert "不要输出 `notes`" in user
+
+    check = validate_turn(bare, DMTurn.model_validate({"notes": [{"text": "试着记一笔", "section": "既往"}]}))
+    assert check.turn.notes == []
+    assert "board_not_declared" in check.problems
+
+
+def test_prompt_names_every_whitelist_it_enforces(pack: ScenarioPack) -> None:
+    """其余白名单（`reveals` / `images` / `lines[].actor` / `notes[].section`）都要在提示里可查，
+    并且指到 user 段里真实存在的那一节——否则 DM 只能靠猜（实测的丢弃就是这么来的）。"""
+    world = initial_world(pack)
+    system = build_dm_messages(pack, world, None, [], max_steps=0)[0]["content"]
+    user = build_dm_messages(pack, world, None, [], max_steps=0)[1]["content"]
+
+    for pointer in (
+        "「尚未揭示的线索」",
+        "「可用图片」",
+        "「在场者」",
+        "「线索板版块」",
+        "「可改状态」",
+        "「可做动作」",
+    ):
+        assert pointer in system
+    for heading in ("## 尚未揭示的线索", "## 可用图片", "## 在场者", "## 线索板版块", "## 可改状态", "## 可做动作"):
+        assert heading in user
+
+
+def test_unrevealed_cue_texts_never_reach_the_prompt(pack: ScenarioPack) -> None:
+    """给 id 白名单 ≠ 提前抖出内容：未揭示线索只给 id，**文本一个字都不进提示词**（安全不变量 #2）。"""
+    world = initial_world(pack)
+    user = build_dm_messages(pack, world, None, [], max_steps=0)[1]["content"]
+    unrevealed = [cue for cue in pack.setting.cues if cue.id not in set(world.revealed)]
+
+    assert unrevealed
+    for cue in unrevealed:
+        assert cue.id in user, "id 白名单必须给全（那是 `reveals` 的校验集）"
+        assert cue.text not in user, "未揭示线索的文本不得出现在提示词里"
 
 
 def test_parse_step_only_reads_tool_calls(pack: ScenarioPack) -> None:

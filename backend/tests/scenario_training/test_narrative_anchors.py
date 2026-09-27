@@ -475,9 +475,16 @@ _GOLDEN_NO_ANCHOR_PROMPT = """# 环境
 - patient.consciousness = 3
 - patient.airway_patent = False
 
-## 已揭示线索（reveals 只能取这些 id；学生已经看到的）
+## 已揭示线索（学生已经看到的）
 - c_restless：患者坐起前倾，说话断续，额头发汗。
 - c_secretions：床旁吸引器就位，痰液黏稠、量多。
+
+## 尚未揭示的线索（`reveals` 只能取这里的 id；只列 id，内容不许提前抖出）
+- c_low_spo2
+- c_left_absent
+- c_tube_blood
+- c_plan
+（只有你本回合的叙述**确实呈现**了其中某条时，才把它的 id 写进 `reveals`；凭空写会让没发生的事直接上板。）
 
 ## 可做动作（本回合**已解锁**；options 与 interpretation 只能取这里的 id）
 - suction（act）吸痰
@@ -499,6 +506,14 @@ _GOLDEN_NO_ANCHOR_PROMPT = """# 环境
 - history.lastN(n)　最近 n 条回合记录（n ≤ 20）
 - note.write(text)　写一张只给你自己看的便条（≤200 字；学生看不到，教师回放可见）
 （读工具的结果会立刻回给你；`note.write` 是只有你能看见的便条，学生看不到）
+
+## 线索板版块（`notes[].section` 只能取这里的 id；学生看到的就是这些版块）
+board_scene｜现场看到的
+board_noticed｜注意到的
+board_confirmed｜已确认的
+board_done｜已处置
+board_notes｜线索板
+你的 `notes` 钉在这些版块里（默认版块：board_notes）：不写 `section` 就落在默认版块；写列表之外的 id（自造版块名、或别的 pack 的版块名）会被整条丢掉。
 
 # 本回合：开场（第 0 回合）
 用 1–2 处感官细节把处境立起来（这里是什么地方、此刻什么在动、什么人是什么状态），

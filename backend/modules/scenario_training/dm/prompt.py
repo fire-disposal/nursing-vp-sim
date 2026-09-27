@@ -14,10 +14,22 @@ import json
 from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.devices import build_devices
 from ..runtime.world import ActionRecord, World, visible_affordances
-from ..schema import ScenarioPack
+from ..schema import AffordanceType, EffectOp, ScenarioPack
 from .tools import TOOL_SPECS, notes_block
 
-_SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发生什么、谁开口、谁沉默，都由你决定。
+# 枚举白名单：字面量**取自契约**（`schema.AffordanceType` / `EffectOp`），提示词与代码同源。
+# 实测（2026-09-28 线上事件流）：DM 自造 `options[].type` 会让解析层整回合失败（流式 + 非流式各一次，白花一次调用），
+# 所以这几个集合必须在提示词里逐字列出，而不是只靠"照抄上面的 id"这类间接说法。
+_OPTION_TYPES = "、".join(kind.value for kind in AffordanceType)
+_EFFECT_OPS = "、".join(operation.value for operation in EffectOp)
+
+
+def _fill(template: str) -> str:
+    """把枚举白名单填进提示词模板（占位符避免 f-string 与大括号 JSON 例子打架）。"""
+    return template.replace("«OPTION_TYPES»", _OPTION_TYPES).replace("«EFFECT_OPS»", _EFFECT_OPS)
+
+
+_SYSTEM = _fill("""你是这场情境的**主持人与世界的执行者**：这里发生什么、谁开口、谁沉默，都由你决定。
 
 # 你做什么
 - 让处境按它自身的逻辑继续，让每个在场者按**自己的知识与性格**说话、行动或沉默；
@@ -43,18 +55,24 @@ _SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发
    lines           [{actor, text, as_role?}]     在场者的话（actor = 角色 id）
    interpretation  {affordance_id}               学生这句**自由表达**等价于「可做动作」里的哪一个（映射不出写 null）
    facts_declared  [{fact_id?, fact, evidence}]  学生这回合**采集到**的信息
-   effects         [{target, key, op, value}]    只允许「可改状态」里的键（op: set/incr/decr）
-   reveals         [string]                      只允许「已揭示线索」里列出的 id
+   effects         [{target, key, op, value}]    只允许「可改状态」里的键（op 逐字取 «EFFECT_OPS»）
+   reveals         [string]                      只允许「尚未揭示的线索」里逐字列出的 id
    ad_hoc_cues     [string]                      你新引入的可见细节（走这里，不要塞进 reveals）
-   options         [{label, type, affordance_id?}] 给学生"此刻值得考虑"的动作建议
-   notes           [{text, section?, supersedes?}] 钉在线索板上的**简短**结论（≤20 字）
+   options         [{label, type, affordance_id?}] 给学生"此刻值得考虑"的动作建议（type 逐字取 «OPTION_TYPES»）
+   notes           [{text, section?, supersedes?}] 钉在线索板上的**简短**结论（≤20 字；section 逐字取「线索板版块」里的 id）
    images          [{asset_id, caption}]         引用「可用图片」里的 id（配一句 caption）
    image_request   {prompt, caption?}            仅在提示允许时使用（见「可用图片」）。
    anchor_satisfied string                       你认为某个锚点已达成 → 填它的 id（引擎只采纳与重算一致的）
    anchor_blocked   {id, reason}                 你认为某个锚点被卡住 → 填它的 id 与缺的那一步
 
 # 形状要求（为了能被解析与判读）
-- `options` 只能取「可做动作」里的 affordance_id，或一条自由发问（type=ask）；**不得**与未揭示的线索同义；
+- 白名单字段**逐字照抄**，不要改写、不要自造——集合之外的值会被判错或整条丢弃：
+  `options[].type` 只能取 «OPTION_TYPES» 之一（「可做动作」里每个 id 后面括号里就是它的 type，照抄即可）；
+  `effects[].op` 只能取 «EFFECT_OPS» 之一；`effects` 的键取「可改状态」里逐字出现的键；
+  `reveals` 取「尚未揭示的线索」里逐字出现的 id；`images[].asset_id` 取「可用图片」里逐字出现的 id；
+  `lines[].actor` 取「在场者」里逐字出现的 id（临时角色例外，见下）；`notes[].section` 取「线索板版块」里逐字出现的 id。
+- `options` 只能取「可做动作」里的 affordance_id，或一条自由发问（`type: "ask"`，不带 affordance_id）：
+  非 `ask` 的选项**必须**带一个已声明的 `affordance_id`（否则整条丢弃）。**不得**与未揭示的线索同义；
   也**不要**提供"其他/自己输入"这类选项（平台已经有）。1–4 条通常够用，多则嘈杂。
 - 需要学生**做选择或做记录**的动作（表单型）此刻确实是自然的下一步时，把它放进 `options`——它只能从这里被带出；
   不值得考虑就别列。
@@ -65,6 +83,7 @@ _SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发
   也不要提前演出还没轮到的锚点信号（那一节里的禁令是硬的）。
 - `notes` 在"真的确立了一件事"时写：一条只讲一个新事实，**不要复述旁白、不要写剧情**；
   发现先前记错了，用 `supersedes` 指向那条条目订立正（旧条目保留但被划掉）。
+  `section` 只写「线索板版块」一节里列出的 id，拿不准就**留空**（留空落在默认版块；写列表之外的版块整条丢）。
 - 需要让学生**看见画面**时，用 `images` 引用「可用图片」里的 asset_id；不要自己编 URL 或描述图片文件本身。
 - **要有人开口就让他本人开口**：不要用旁白替人说台词。此刻该说话的人不在名册里
   （路过的护工、走廊广播、隔壁床、电话另一头），就临时给他一个身份说话：
@@ -81,7 +100,7 @@ _SYSTEM = """你是这场情境的**主持人与世界的执行者**：这里发
 - 用**行动与台词**推进，少解释；不要替学生做决定、不要点评或总结学生的表现，
   不要出现"任务""关卡""提示""选项"这类元话语。
 - 人不会平均地配合：可以犹豫、反问、抱怨、只顾自己那件事；情绪上来时话会变短，但仍要交代清楚。
-- 只说这个角色**应当知道**的东西：不该知道的一律不知道、不猜、不替别人回答。"""
+- 只说这个角色**应当知道**的东西：不该知道的一律不知道、不猜、不替别人回答。""")
 
 
 def _lines(values: list[str], empty: str = "（无）") -> str:
@@ -116,6 +135,53 @@ def _device_block(pack: ScenarioPack, world: World) -> str:
             for channel in device["channels"]
         ]
     )
+
+
+def _cue_block(pack: ScenarioPack, world: World) -> list[str]:
+    """线索两节：已揭示的（带文本）与尚未揭示的（**只给 id**——`reveals` 的白名单）。
+
+    未揭示的线索**一个字都不写**：DM 拿不到它们的文本就不会提前抖出来（安全不变量 #2）。
+    但 id 必须给全——`contract._clean_reveals` 的白名单就是「本 pack 声明的全部线索」，
+    只指「已揭示线索」会让 `reveals` 永远写不出新东西（2026-09-28 审计）。
+    """
+    revealed = set(world.revealed)
+    unrevealed = [cue.id for cue in pack.setting.cues if cue.id not in revealed]
+    return [
+        "",
+        "## 已揭示线索（学生已经看到的）",
+        _lines([f"{cue_id}：{text}" for cue_id, text in pack.cue_items(world.revealed)]),
+        "",
+        "## 尚未揭示的线索（`reveals` 只能取这里的 id；只列 id，内容不许提前抖出）",
+        _lines(unrevealed),
+        "（只有你本回合的叙述**确实呈现**了其中某条时，才把它的 id 写进 `reveals`；凭空写会让没发生的事直接上板。）",
+    ]
+
+
+def _board_block(pack: ScenarioPack) -> list[str]:
+    """线索板版块：`notes[].section` 的白名单 = 这里列出的 id（= `contract._clean_notes` 的校验集）。
+
+    实测（跨会话反复）：DM 会自造版块名（「既往」「主诉」「社会史」「病史」「vitals」「查体」…），
+    整条笔记被引擎丢弃、内容直接丢——所以 id、标题与"拿不准就留空"的退路都要写清楚。
+    """
+    sections = pack.presentation.board
+    if not sections:
+        return [
+            "",
+            "## 线索板版块",
+            "本 pack 没有声明线索板版块（没有额外版块）：`notes` 不写 section 也无处可放，引擎一律不收"
+            "——本回合干脆不要输出 `notes`。",
+        ]
+    defaults = [section.id for section in sections if section.source == "note"]
+    lines = ["", "## 线索板版块（`notes[].section` 只能取这里的 id；学生看到的就是这些版块）"]
+    lines.extend(f"{section.id}｜{section.title}" for section in sections)
+    if defaults:
+        lines.append(
+            f"你的 `notes` 钉在这些版块里（默认版块：{'、'.join(defaults)}）：不写 `section` 就落在默认版块；"
+            "写列表之外的 id（自造版块名、或别的 pack 的版块名）会被整条丢掉。"
+        )
+    else:
+        lines.append("本 pack 没有笔记版块：`notes` 一律不收——不要输出 `notes`。")
+    return lines
 
 
 def _tool_block(max_steps: int) -> list[str]:
@@ -236,9 +302,7 @@ def build_dm_messages(
             "",
             "## 可改状态（effects 只能改这些键）",
             _lines([f"{key} = {value}" for key, value in world.state.items()]),
-            "",
-            "## 已揭示线索（reveals 只能取这些 id；学生已经看到的）",
-            _lines([f"{cue_id}：{text}" for cue_id, text in pack.cue_items(world.revealed)]),
+            *_cue_block(pack, world),
             "",
             "## 可做动作（本回合**已解锁**；options 与 interpretation 只能取这里的 id）",
             _lines(available),
@@ -252,6 +316,7 @@ def build_dm_messages(
                 else "（本情境不允许现场生成图片：image_request 会被丢弃）"
             ),
             *_tool_block(max_steps),
+            *_board_block(pack),
             *_notes_lines(world),
             "",
             *turn_block,
