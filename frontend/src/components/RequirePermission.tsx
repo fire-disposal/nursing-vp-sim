@@ -1,25 +1,27 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
+import Forbidden from "@/components/ui/forbidden";
 import useAuthStore from "@/stores/authStore";
 import type { Permission } from "@/utils/permissions";
 
 interface RequirePermissionProps {
 	permission: Permission;
 	children: ReactNode;
-	fallback?: string;
 }
 
+/**
+ * 路由级权限门禁：缺权限时渲染 **403 页**（而不是静默 redirect）。
+ * 见 `components/ui/forbidden.tsx` 的说明。
+ */
 export default function RequirePermission({
 	permission,
 	children,
-	fallback = "/home",
 }: RequirePermissionProps) {
 	const hasPerm = useAuthStore(
 		useShallow((s) => s.permissions.includes(permission)),
 	);
 
-	if (!hasPerm) return <Navigate to={fallback} replace />;
+	if (!hasPerm) return <Forbidden permission={permission} />;
 
 	return <>{children}</>;
 }
