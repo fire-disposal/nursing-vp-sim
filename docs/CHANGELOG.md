@@ -499,6 +499,23 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 四个 V2 典范病例（2026-09-27）
+
+- 目标不是加数量，而是把「从完整问诊走向有依据的护理评估」需要的教学结构落到病例：
+  除既有形状外必须齐备 `scene`（环境/体位/可见体征/体征值）+ `blueprint`（学习目标、前置能力、
+  关键线索与其获取途径/评估意义、必须覆盖、情境相关、关键遗漏、可接受证据、典型错误、干预可观察性、
+  教师审阅留痕）+ ≥3 对示例对话 + 六维人格 + 启用活动，且**发布门禁全绿**。
+- 新增四例（患者名与既有 10 例均不重复）：`t2dm_adherence`（慢病依从性/家属共同决策）、
+  `postop_complication_communication`（不良事件告知与理解校准）、`asthma_exacerbation`（病重程度识别/
+  吸入技术/依从性）、`pediatric_fever_dehydration`（照护者代诉：向家长系统采集病史 + 分龄评估）。
+- **儿科一例的设计决策**：本系统是单一人格扮演，「患者」是患儿母亲，患儿病情由她转述——否则模型要扮演
+  18 个月幼儿，交互不成立。由此暴露并修复了查体参考范围问题（见上一节 `vitals_age_group`）。
+- `blueprint.review.editorial_state` 全部保持 `draft`：**只有护理教师能宣布 `teacher_reviewed`**。
+  临床事实（剂量、时间线、分级口径）与「哪些条目不适用」的裁定列在 [docs/19](19-training-experience-next-generation-plan.md)
+  的剩余阻塞里，不在此声明已审阅。
+- 验证：`case-audit` **14 个病例 / 0 error**（唯一 warning 是既有的 `nursing_record.config` 全库类型不统一）；
+  `tests/cases` + `tests/training` **723 项**通过。
+
 ### 照护者代诉型病例的体征参考人群（2026-09-27）
 
 - 症状：儿科病例的对话者是家长（`patient_info.age` = 家长年龄），体征却属于患儿；查体解读按年龄推定
