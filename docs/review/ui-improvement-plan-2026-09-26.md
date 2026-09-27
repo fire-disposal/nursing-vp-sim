@@ -43,8 +43,9 @@
 **系统的其他部分已趋于完整；接下来的重点是在「核心训练体验」上深耕与创新。**
 因此本计划阶段 S/F 的**外围一致性**条目（S5 页头与控件位置、S6 表格与分页形态、F5 剩余导航 IA、F6 a11y 批量、F7 移动端，以及 §6.3 的三条收尾）**降级为"有空再做"**，
 不再作为主线推进；已完成的部分（Q1–Q5、S1–S4、F1–F3、F5 的 403 页、U1、S2/S3 收口）保持有效。
-训练域体验的现状分析与改进/创新方向另起一份：
-[`training-experience-analysis-2026-09-27.md`](training-experience-analysis-2026-09-27.md)。
+- **当前训练决策入口**：训练体验下一代深化计划 [`docs/19-training-experience-next-generation-plan.md`](../19-training-experience-next-generation-plan.md)；临床推理（第二 workflow）的去向 [`docs/18-clinical-reasoning-disposition.md`](../18-clinical-reasoning-disposition.md)。
+- **本计划的地位**：**条件维护记录**，不再是产品路线。未完成条目（S5/S6/F4–F7、§6.3、§6.5、§7.4）只在被 19 的工作包或明确的维护需求触及时才做，不主动推进大规模外围扩张。
+- 训练域体验的现状分析与证据另见 [`training-experience-analysis-2026-09-27.md`](training-experience-analysis-2026-09-27.md)（只做发现与映射，方案与优先级在 19）。
 
 ---
 
@@ -223,6 +224,7 @@
 
 ### 6.3 待办（按价值排序）
 
+> **2026-09-27 起为条件维护项**：本节待办已随 §0.1 降级为"有空再做"，不主动推进；只在与 19 的工作包或明确维护需求相关时处理。
 > **2026-09-27 核验后重写**：原列表混入了已完成项与不成立的项，已按代码实况剪除（剪掉的项列在本节末尾的"已移除"）。
 
 1. **"一键复位"补齐剩余 3 处**（用户列表可作模板）：`/admin/cost`（导出页：日期范围 + 2 个 `Select`）、
@@ -293,8 +295,8 @@ class UserService:
 
 > **后续路线**：审计日志 + RBAC 的现状分析与切片（A1–A6）、以及它们与本文件约定（§6.4 查询范式、表头/弹窗档次、回归纪律）的整合方案，见
 > [`audit-log-and-rbac-analysis-2026-09-26.md`](audit-log-and-rbac-analysis-2026-09-26.md) 与
-> [`refactor-plan-2026-09-26.md`](refactor-plan-2026-09-26.md)。其中最紧急的是 **RB-1（P0）**：
-> `user_manage` 可停用/删除 `super_admin` 且无"最后一个超管"守卫 —— 建议优先发版。
+> [`refactor-plan-2026-09-26.md`](refactor-plan-2026-09-26.md)。**历史状态**：其中 **RB-1（P0）**（`user_manage` 可停用/删除 `super_admin` 且无"最后一个超管"守卫）
+> 已完成并随 `v2026.09.26-9` 发版（见 `refactor-plan §2.1`）；本节及该计划的切片均已完成，不再维护发布优先级。
 
 ## 7. 病例管理专项与 AI 生成重建（2026-09-26）
 

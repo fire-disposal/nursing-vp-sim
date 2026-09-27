@@ -51,7 +51,7 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 ## 项目结构
 
 后端结构以 [11-后端组织结构收敛](11-backend-organization-plan.md) 为现行定义（可导航单体：`core/` 内核 + `modules/` 业务域 + `infra/` 外部依赖，无 repository 分层）。
-前端结构与 2.0 约束见 [16-2.0 可维护单体目标](16-v2-maintainable-monolith-objectives.md)；目录细节不在本总览中重复维护，避免双源腐化。
+前端结构与持久架构边界见 [16-可维护单体约束](16-v2-maintainable-monolith-objectives.md)；训练下一批次见 [19-正式训练深化计划](19-training-experience-next-generation-plan.md)，临床推理去向见 [18](18-clinical-reasoning-disposition.md)。目录细节不在本总览中重复维护，避免双源腐化。
 
 **前端路由与导航的唯一来源是代码**：`frontend/src/components/shell/navigation.tsx` 的 `APP_ROUTES`（路径 → 页面 → 权限 → 活动类型）与 `NAV_GROUPS`（分组/图标/标签）。文档里不再维护路由表（旧 `04-frontend.md` 的路由表已因缺项腐化并在 2026-09-26 删除）；当前 UI 现状、问题清单与整改批次见 [UI 审计清单](review/ui-audit-2026-09-26.md)。
 

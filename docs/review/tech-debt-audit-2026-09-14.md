@@ -30,7 +30,7 @@
 | `agent://LlmClientAudit` | LLM/上下文审计 | 调用层成本/预算/缓存/工具循环 |
 | `agent://PatientAbusePath` | 补充来源 | 「辱骂过度容忍」链路缺口（R3 的唯一出处） |
 | `agent://NextStepsInventory` | 补充来源 | 旧文档声明 vs 代码实况（用于「旧文档是否已登记」对照） |
-| `docs/review/defect-list.md`（S/T/C/P/I/U 系列）、已删除的旧重构计划与 `TODO.md` | 旧文档 | 仅作「已登记」标记的历史判据，不是当前实施入口；当前目标以 `docs/16-v2-maintainable-monolith-objectives.md` 为准 |
+| `docs/review/defect-list.md`（S/T/C/P/I/U 系列）、已删除的旧重构计划与 `TODO.md` | 旧文档 | 仅作「已登记」标记的历史判据，不是当前实施入口；架构约束见 [16](../16-v2-maintainable-monolith-objectives.md)，当前训练计划见 [19](../19-training-experience-next-generation-plan.md) |
 
 **合并规则**
 1. 同一问题被多份报告提到 → 合并为一条并标「跨域」。
