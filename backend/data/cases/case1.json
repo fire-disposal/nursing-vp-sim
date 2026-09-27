@@ -20,7 +20,8 @@
       "position": "semi-recumbent",
       "consciousness": "alert",
       "visible_symptoms": ["呼吸费力", "咳嗽咳痰", "口唇轻度发绀"],
-      "expression": "紧张"
+      "expression": "紧张",
+      "breathing": "labored"
     },
     "vitals": {
       "hr": 94,

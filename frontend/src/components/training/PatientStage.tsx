@@ -1,7 +1,7 @@
 import { Badge, Box, Group, Modal, Paper, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconPhoto } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
-import { useExamResults, usePatientData, useRecordFeatures } from "@/engine/TrainingDataContext";
+import { useEffect, useMemo, useState } from "react";
+import { useExamResults, usePatientData, useRecordFeatures, useTrainingData } from "@/engine/TrainingDataContext";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
@@ -11,6 +11,21 @@ import { buildPatientPresentation } from "./presentation/build";
 
 /** 桌面上下文列宽度：够读，不抢对话区 */
 const CONTEXT_COLUMN_WIDTH = 248;
+
+/** 可见呼吸状态 → 动画周期（秒）：只表达快慢，不给次数 */
+const BREATH_SECONDS: Record<string, number> = { normal: 3, rapid: 1.9, labored: 1.5 };
+/** 可见呼吸状态 → 学生看得懂的说法（与动画同时出现） */
+const BREATH_LABELS: Record<string, string> = { normal: "平稳", rapid: "偏快", labored: "费力" };
+
+/** 情绪 → 在场色（说话光环与呼吸条用它）：只做视觉关联，情绪文案仍由 EmotionIndicator 承担 */
+const ACCENT_BY_EMOTION: Record<string, string> = {
+	withdrawn: "indigo.4",
+	defensive: "red.5",
+	anxious: "orange.5",
+	neutral: "brand.5",
+	relaxed: "teal.5",
+	open: "green.5",
+};
 
 /** 体征状态 → Mantine 色（与服务端 `interpretation.status` 同一语义：高/低 = 需注意） */
 const VITAL_STATUS_COLOR: Record<string, string> = {
@@ -36,6 +51,7 @@ export default function PatientStage() {
 	const patient = usePatientData();
 	const examResults = useExamResults();
 	const features = useRecordFeatures();
+	const record = useTrainingData();
 	const recordId = Number(useTrainingStore((s) => s.recordId));
 	const bus = useTrainingStore((s) => s.bus);
 	const emotion = useTrainingStore((s) => s.emotion);
@@ -45,6 +61,28 @@ export default function PatientStage() {
 	const irritation = useTrainingStore((s) => s.irritation);
 	const cooperation = useTrainingStore((s) => s.cooperation);
 	const [portraitOpen, setPortraitOpen] = useState(false);
+	// 说话态：TTSManager 已在总线上发 tts:start/end（EmotionIndicator 也在用）→ 零新增管线
+	const [speaking, setSpeaking] = useState(false);
+	useEffect(() => {
+		if (!bus) return;
+		const offStart = bus.on("tts:start", () => setSpeaking(true));
+		const offEnd = bus.on("tts:end", () => setSpeaking(false));
+		return () => {
+			offStart();
+			offEnd();
+		};
+	}, [bus]);
+
+	/**
+	 * 呼吸节奏：**只给节奏，不给次数**。
+	 * 次数（`vitals.rr`）是要靠床旁检查"查出来"的体征，印在屏幕上等于预支答案；
+	 * "他呼吸有点费力"却是任何人一眼看得见的在场信息 —— 所以读病例声明的**定性**线索，转成动画周期。
+	 */
+	const breathing = useMemo(() => {
+		const scene = record?.scene as { patient?: { breathing?: string } } | null | undefined;
+		return scene?.patient?.breathing ?? null;
+	}, [record]);
+	const breathSeconds = breathing ? (BREATH_SECONDS[breathing] ?? BREATH_SECONDS.normal) : null;
 
 	const values = useMemo(
 		() => ({ trust, anxiety, irritation, cooperation }),
@@ -55,6 +93,7 @@ export default function PatientStage() {
 		[patient, emotion, emotion4D, values],
 	);
 
+	const accent = ACCENT_BY_EMOTION[emotion] ?? "brand.5";
 	const name = patient?.name ?? "患者";
 	const chiefComplaint = patient?.chiefComplaint ?? "";
 	const identity = patient
@@ -102,7 +141,17 @@ export default function PatientStage() {
 					}}
 				>
 					<Group gap="sm" wrap="nowrap">
-						<PatientPresenter presentation={presentation} size={36} rounded="full" />
+						<Box pos="relative" style={{ flexShrink: 0 }}>
+							<PatientPresenter presentation={presentation} size={36} rounded="full" />
+							{speaking && (
+								<Box
+									className="patient-speaking-ring"
+									pos="absolute"
+									inset={-2}
+									style={{ borderRadius: "50%", boxShadow: `0 0 0 2px var(--mantine-color-${accent})` }}
+								/>
+							)}
+						</Box>
 						<Box miw={0} flex={1}>
 							{/* 第一行：姓名 · 年龄性别 + 采集进度（进度是"对这位患者问到多少"，与身份同一行不抢位） */}
 							<Group gap={6} wrap="nowrap" justify="space-between">
@@ -155,26 +204,51 @@ export default function PatientStage() {
 			>
 				<Paper withBorder radius="lg" p={6} pos="relative" bg="gray.0">
 					{/* 固定 4:5 容器 + 裁切：抠图是竖构图，拉成任意比例会显得像贴纸（评审 B4） */}
-					<UnstyledButton
-						data-patient-stage-head
-						onClick={() => setPortraitOpen(true)}
-						aria-label={`查看患者${name}的大图`}
-						w="100%"
-						style={{ display: "block", aspectRatio: "4 / 5", overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
-					>
-						<PatientPresenter presentation={presentation} fill />
-					</UnstyledButton>
-					<Badge
-						size="xs"
-						variant="filled"
-						color="dark"
-						pos="absolute"
-						bottom={12}
-						right={12}
-						leftSection={<IconPhoto size={11} />}
-					>
-						看大图
-					</Badge>
+					<Box pos="relative">
+						<UnstyledButton
+							data-patient-stage-head
+							onClick={() => setPortraitOpen(true)}
+							aria-label={`查看患者${name}的大图`}
+							w="100%"
+							style={{ display: "block", aspectRatio: "4 / 5", overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
+						>
+							<PatientPresenter presentation={presentation} fill />
+						</UnstyledButton>
+						{/* 说话态：光环 + 声波条（tts:start/end 驱动），不遮挡点击 */}
+						{speaking && (
+							<Box
+								className="patient-speaking-ring"
+								pos="absolute"
+								inset={0}
+								style={{ borderRadius: "var(--mantine-radius-sm)", boxShadow: `0 0 0 2px var(--mantine-color-${accent})` }}
+							/>
+						)}
+						{speaking && (
+							<Group gap={3} pos="absolute" bottom={10} left={10} align="flex-end" h={14}>
+								{[0, 1, 2, 3].map((i) => (
+									<Box
+										key={i}
+										className="patient-wave-bar"
+										w={3}
+										h="100%"
+										bg={accent}
+										style={{ borderRadius: 2, animationDelay: `${i * 0.11}s` }}
+									/>
+								))}
+							</Group>
+						)}
+						<Badge
+							size="xs"
+							variant="filled"
+							color="dark"
+							pos="absolute"
+							bottom={12}
+							right={12}
+							leftSection={<IconPhoto size={11} />}
+						>
+							看大图
+						</Badge>
+					</Box>
 				</Paper>
 
 				<Stack gap={0}>
@@ -202,6 +276,26 @@ export default function PatientStage() {
 				<Box>
 					<InquiryProgressChip />
 				</Box>
+
+				{/* 呼吸节奏：只表达"快/慢"（在场可见信息），不印次数 —— 次数要靠床旁检查得到 */}
+				{breathSeconds !== null && (
+					<Group gap={6} wrap="nowrap" align="center">
+						<Text size="11px" fw={600} c="dimmed">
+							呼吸
+						</Text>
+						<Box
+							className="patient-breath-bar"
+							w={4}
+							h={14}
+							bg={accent}
+							style={{ borderRadius: 2, animationDuration: `${breathSeconds}s` }}
+						/>
+						<Text size="xs" c="dimmed">
+							{BREATH_LABELS[breathing ?? "normal"]}
+							{speaking ? " · 正在说话" : ""}
+						</Text>
+					</Group>
+				)}
 
 				{/* 已测体征：只有学生真的测过才出现（没测 = 不知道，不预支答案） */}
 				{vitals.length > 0 && (

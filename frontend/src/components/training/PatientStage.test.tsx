@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@/__tests__/render";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeRecord, withTrainingData } from "@/__tests__/fixtures/record";
 import PatientStage from "./PatientStage";
@@ -75,5 +76,47 @@ describe("PatientStage（患者上下文）", () => {
 	it("没有患者数据（匿名）也能渲染，不崩", () => {
 		const { container } = renderStage(null);
 		expect(container.querySelector("[data-patient-stage]")).not.toBeNull();
+	});
+});
+
+describe("在场感：说话态与呼吸节奏", () => {
+	it("tts:start 亮起说话光环，tts:end 收起（不新增管线，走已有总线）", async () => {
+		const handlers: Record<string, Array<() => void>> = {};
+		const bus = {
+			on: (event: string, fn: () => void) => {
+				handlers[event] = handlers[event] ?? [];
+				handlers[event].push(fn);
+				return () => {};
+			},
+			off: vi.fn(),
+			emit: vi.fn(),
+			listEvents: vi.fn(() => []),
+		};
+		useTrainingStore.setState({ bus: bus as never, recordId: "1" });
+		const { container } = renderStage(makeRecord({ patient_name: "王建国" }));
+
+		expect(container.querySelector(".patient-speaking-ring")).toBeNull();
+		await act(async () => {
+			for (const fn of handlers["tts:start"] ?? []) fn();
+		});
+		await waitFor(() => expect(container.querySelector(".patient-speaking-ring")).not.toBeNull());
+		await act(async () => {
+			for (const fn of handlers["tts:end"] ?? []) fn();
+		});
+		await waitFor(() => expect(container.querySelector(".patient-speaking-ring")).toBeNull());
+	});
+
+	it("呼吸只给节奏与定性说法，不给次数（次数要靠床旁检查得到）", () => {
+		const { container } = renderStage(makeRecord({ patient_name: "王建国", scene: { patient: { breathing: "labored" } } }));
+		const bar = container.querySelector(".patient-breath-bar") as HTMLElement | null;
+		expect(bar).not.toBeNull();
+		expect(bar?.style.animationDuration).toBe("1.5s"); // 费力
+		expect(container.textContent).toContain("费力");
+		expect(container.textContent).not.toMatch(/\d+\s*次\/分/); // 不泄露次数
+	});
+
+	it("没有呼吸线索时整行不出现（不编造）", () => {
+		const { container } = renderStage(makeRecord({ patient_name: "王建国" }));
+		expect(container.querySelector(".patient-breath-bar")).toBeNull();
 	});
 });

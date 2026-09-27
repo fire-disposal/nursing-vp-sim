@@ -113,7 +113,8 @@
         "皱眉、右手按着下腹",
         "额部微汗"
       ],
-      "expression": "痛苦"
+      "expression": "痛苦",
+      "breathing": "rapid"
     },
     "vitals": {
       "hr": 112,

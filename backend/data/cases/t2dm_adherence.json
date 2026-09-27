@@ -108,7 +108,8 @@
         "口唇略干",
         "双足皮肤干燥"
       ],
-      "expression": "略显疲乏，说到用药时移开目光"
+      "expression": "略显疲乏，说到用药时移开目光",
+      "breathing": "normal"
     },
     "vitals": {
       "hr": 88,

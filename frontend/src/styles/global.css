@@ -164,3 +164,29 @@ h1, h2, h3 {
 		scroll-behavior: auto !important;
 	}
 }
+
+/* 患者在场感：说话光环与呼吸条（由 tts:start/end 与 scene.vitals.rr 驱动） */
+@keyframes patient-speaking {
+	0%, 100% { opacity: 0.35; transform: scale(1); }
+	50% { opacity: 0.9; transform: scale(1.02); }
+}
+.patient-speaking-ring {
+	animation: patient-speaking 1.1s ease-in-out infinite;
+	pointer-events: none;
+}
+@keyframes patient-wave {
+	0%, 100% { transform: scaleY(0.35); }
+	50% { transform: scaleY(1); }
+}
+.patient-wave-bar {
+	transform-origin: bottom;
+	animation: patient-wave 0.9s ease-in-out infinite;
+}
+@keyframes patient-breath {
+	0%, 100% { transform: scaleY(0.3); opacity: 0.55; }
+	50% { transform: scaleY(1); opacity: 1; }
+}
+.patient-breath-bar {
+	transform-origin: bottom;
+	animation: patient-breath 3s ease-in-out infinite;
+}

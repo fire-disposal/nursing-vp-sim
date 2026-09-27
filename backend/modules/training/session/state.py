@@ -49,6 +49,8 @@ class PatientState(BaseModel):
     consciousness: Literal["alert", "lethargic", "confused", "unresponsive"] = "alert"
     visible_symptoms: list[str] = []
     expression: str = "neutral"
+    #: 可见的呼吸状态（定性）：在场感用，**不给次数**——次数属于要靠床旁检查得到的体征。
+    breathing: Literal["normal", "rapid", "labored"] | None = None
 
 
 class VitalsState(BaseModel):

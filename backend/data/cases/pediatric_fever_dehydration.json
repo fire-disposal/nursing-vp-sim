@@ -100,7 +100,8 @@
       "position": "sitting",
       "consciousness": "alert",
       "visible_symptoms": ["患儿在母亲怀中烦躁哭闹", "流口水增多", "口唇干燥", "母亲神情焦急、语速快"],
-      "expression": "焦虑不安"
+      "expression": "焦虑不安",
+      "breathing": "rapid"
     },
     "vitals": {
       "hr": 136,

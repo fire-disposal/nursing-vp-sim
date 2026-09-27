@@ -115,7 +115,8 @@
         "说话断续",
         "口唇轻度发绀"
       ],
-      "expression": "痛苦"
+      "expression": "痛苦",
+      "breathing": "labored"
     },
     "vitals": {
       "hr": 118,
