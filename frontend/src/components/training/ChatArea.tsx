@@ -96,7 +96,7 @@ export function ChatArea({
 											style={{
 												borderRadius: 16,
 												borderBottomLeftRadius: 4,
-												background: "var(--mantine-color-gray-1)",
+												background: "var(--mantine-color-default-hover)",
 												lineHeight: 1.6,
 											}}
 										>

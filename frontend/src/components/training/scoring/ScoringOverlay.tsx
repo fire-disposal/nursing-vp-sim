@@ -81,8 +81,8 @@ export function ScoringOverlay({
 		finally { setTimeout(() => setRetrying(false), 3000); }
 	};
 
-	const accentBg = isFailed ? "var(--mantine-color-red-1)" : "var(--mantine-primary-color-light)";
-	const accentFg = isFailed ? "var(--mantine-color-red-6)" : "var(--mantine-primary-color-light-color)";
+	const accentBg = isFailed ? "var(--mantine-color-red-light)" : "var(--mantine-primary-color-light)";
+	const accentFg = isFailed ? "var(--mantine-color-red-light-color)" : "var(--mantine-primary-color-light-color)";
 
 	return (
 		<Box
@@ -134,7 +134,7 @@ export function ScoringOverlay({
 				</Group>
 
 				{/* Progress bar */}
-				<Box h={6} w="100%" mb="md" style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+				<Box h={6} w="100%" mb="md" style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}>
 					<Box
 						h="100%"
 						style={{
@@ -159,8 +159,8 @@ export function ScoringOverlay({
 						</Box>
 						{showThought && (
 							<SimpleGrid cols={2} spacing={8} mt={4}>
-								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ scoring_dims</Text>
+								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-default-hover)" }}>
+									<Text size="xs" ff="monospace" c="brand" mb={4}>$ scoring_dims</Text>
 									<Box
 										ref={scoreScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 11, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
@@ -168,8 +168,8 @@ export function ScoringOverlay({
 										{progress.score_thought ? <Text component="span" size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--mantine-color-text)", opacity: 0.7 }}>{progress.score_thought}</Text> : <Group gap={6} wrap="nowrap"><Loader size={10} type="dots" color="gray" /><Text component="span" size="xs" c="dimmed">等待评分维度分析...</Text></Group>}
 									</Box>
 								</Box>
-								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-gray-0)" }}>
-									<Text size="xs" ff="monospace" c="brand.7" mb={4}>$ feedback_gen</Text>
+								<Box px={8} py={6} style={{ borderRadius: 6, border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-default-hover)" }}>
+									<Text size="xs" ff="monospace" c="brand" mb={4}>$ feedback_gen</Text>
 									<Box
 										ref={feedbackScrollRef}
 										style={{ maxHeight: 128, overflowY: "auto", fontSize: 11, lineHeight: 1.6, fontFamily: "monospace", color: "var(--mantine-color-dimmed)" }}
@@ -188,9 +188,9 @@ export function ScoringOverlay({
 						mb="md"
 						px="sm"
 						py={8}
-						style={{ borderRadius: 6, border: "1px solid var(--mantine-color-red-3)", background: "var(--mantine-color-red-0)" }}
+						style={{ borderRadius: 6, border: "1px solid var(--mantine-color-red-outline)", background: "var(--mantine-color-red-light)" }}
 					>
-						<Text size="xs" c="red.6" style={{ whiteSpace: "pre-wrap" }}>{progress.message}</Text>
+						<Text size="xs" c="var(--mantine-color-red-light-color)" style={{ whiteSpace: "pre-wrap" }}>{progress.message}</Text>
 						{onRetry && (
 							<Button
 								variant="subtle"

@@ -91,7 +91,7 @@ export default function SecretList({
 													height: 8,
 													borderRadius: "50%",
 													flexShrink: 0,
-													background: STATUS_DOT[s.status] || "var(--mantine-color-gray-5)",
+													background: STATUS_DOT[s.status] || "var(--mantine-color-dimmed)",
 												}}
 											/>
 											<Text fw={600}>{s.label}</Text>

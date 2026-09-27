@@ -50,8 +50,8 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 								borderRadius: "var(--mantine-radius-lg)",
 								padding: 10,
 								background:
-									"radial-gradient(120% 100% at 50% 0%, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 75%)",
-								border: "1px solid var(--mantine-color-brand-1)",
+									"radial-gradient(120% 100% at 50% 0%, var(--mantine-color-brand-light) 0%, var(--mantine-color-body) 75%)",
+								border: "1px solid var(--mantine-color-brand-outline)",
 								flexShrink: 0,
 							}}
 						>
@@ -89,7 +89,7 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 								style={{
 									borderRadius: 999,
 									border: "1px solid var(--mantine-color-default-border)",
-									background: "var(--mantine-color-gray-0)",
+									background: "var(--mantine-color-default-hover)",
 									padding: "3px 10px 3px 6px",
 								}}
 							>
@@ -131,17 +131,17 @@ export function WelcomeScreen({ patient, onQuickPrompt, activityLabels = [] }: W
 										onClick={() => onQuickPrompt(prompt)}
 										style={{
 											borderRadius: 999,
-											border: "1px solid var(--mantine-color-brand-3)",
-											background: "var(--mantine-color-brand-0)",
+											border: "1px solid var(--mantine-color-brand-outline)",
+											background: "var(--mantine-color-brand-light)",
 											padding: "7px 14px",
 											textAlign: "left",
 											fontSize: 12,
-											color: "var(--mantine-color-brand-8)",
+											color: "var(--mantine-color-brand-light-color)",
 											cursor: "pointer",
 											transition: "background 120ms ease, border-color 120ms ease",
 										}}
-										onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-brand-1)"; }}
-										onMouseLeave={(e) => { e.currentTarget.style.background = "var(--mantine-color-brand-0)"; }}
+										onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-brand-light-hover)"; }}
+										onMouseLeave={(e) => { e.currentTarget.style.background = "var(--mantine-color-brand-light)"; }}
 									>
 										{prompt}
 									</Box>

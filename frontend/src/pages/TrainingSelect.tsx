@@ -359,7 +359,7 @@ export default function TrainingSelect() {
 								gap="sm"
 								px="md"
 								py="sm"
-								style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-brand-0)" }}
+								style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-brand-light)" }}
 							>
 								<Group gap="xs">
 									<ThemeIcon size={32} radius="md" variant="light" color="brand">
@@ -411,7 +411,7 @@ export default function TrainingSelect() {
 					)}
 
 					{/* 训练主卡：问候 + 主行动 */}
-					<Paper withBorder p={{ base: "lg", sm: "xl" }} style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32, background: "linear-gradient(135deg, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 55%)", }} >
+					<Paper withBorder p={{ base: "lg", sm: "xl" }} style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32, background: "linear-gradient(135deg, var(--mantine-color-brand-light) 0%, var(--mantine-color-body) 55%)", }} >
 						{/* 装饰性听诊器水印 */}
 						<Box
 							style={{
@@ -421,7 +421,7 @@ export default function TrainingSelect() {
 								width: 180,
 								height: 180,
 								borderRadius: "50%",
-								background: "var(--mantine-color-brand-1)",
+								background: "var(--mantine-color-brand-light-hover)",
 								opacity: 0.55,
 								pointerEvents: "none",
 							}}
@@ -511,18 +511,18 @@ export default function TrainingSelect() {
 
 						<Paper withBorder p="md">
 							<Group gap="xs" mb="sm">
-								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+								<IconTrendingUp size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
 								<Text size="sm" fw={500}>最近训练</Text>
 							</Group>
 							{primaryInProgress && (
-								<Paper mb="sm" px="sm" py="xs" bg="yellow.0" style={{ border: "1px solid var(--mantine-color-yellow-3)" }}>
+								<Paper mb="sm" px="sm" py="xs" bg="var(--mantine-color-yellow-light)" style={{ border: "1px solid var(--mantine-color-yellow-outline)" }}>
 									<Group justify="space-between" gap="sm" wrap="nowrap">
 										<Box style={{ minWidth: 0 }}>
 											<Group gap={6} wrap="nowrap">
-												<IconPlayerPlay size={12} style={{ color: "var(--mantine-color-yellow-8)" }} />
-												<Text size="xs" fw={600} c="yellow.8">进行中的训练</Text>
+												<IconPlayerPlay size={12} style={{ color: "var(--mantine-color-yellow-light-color)" }} />
+												<Text size="xs" fw={600} c="var(--mantine-color-yellow-light-color)">进行中的训练</Text>
 											</Group>
-											<Text size="xs" c="dimmed" mt={2} truncate>{primaryInProgress.case_name}</Text>
+											<Text size="xs" c="var(--mantine-color-yellow-light-color)" mt={2} truncate>{primaryInProgress.case_name}</Text>
 										</Box>
 										<Group gap={6} wrap="nowrap">
 											<Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
@@ -576,26 +576,26 @@ export default function TrainingSelect() {
 						{/* 训练概览 — 状态磁贴 + 统计 */}
 						<Paper withBorder p="md">
 							<Group gap="xs" mb="sm">
-								<IconTarget size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+								<IconTarget size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
 								<Text size="sm" fw={500}>训练概览</Text>
 							</Group>
 							<SimpleGrid cols={3} spacing="xs">
 								<TrainingTile
-									icon={<IconPlayerPlay size={18} style={{ color: "var(--mantine-color-yellow-7)" }} />}
+									icon={<IconPlayerPlay size={18} style={{ color: "var(--mantine-color-yellow-light-color)" }} />}
 									value={inProgressCount}
 									label="进行中"
 									color="yellow"
 									onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
 								/>
 								<TrainingTile
-									icon={<IconClipboardCheck size={18} style={{ color: "var(--mantine-color-green-7)" }} />}
+									icon={<IconClipboardCheck size={18} style={{ color: "var(--mantine-color-green-light-color)" }} />}
 									value={completedCount}
 									label="已完成"
 									color="green"
 									onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
 								/>
 								<TrainingTile
-									icon={<IconBook2 size={18} style={{ color: "var(--mantine-color-red-7)" }} />}
+									icon={<IconBook2 size={18} style={{ color: "var(--mantine-color-red-light-color)" }} />}
 									value={pendingAssignments.length}
 									label="待做作业"
 									color="red"
@@ -603,16 +603,16 @@ export default function TrainingSelect() {
 								/>
 							</SimpleGrid>
 							{myStats && (
-								<SimpleGrid cols={{ base: 1, xs: 2, xl: 4 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+								<SimpleGrid cols={{ base: 1, xs: 2, xl: 4 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 									<StatCard withBorder={false} icon={IconTarget} label="完成训练" value={myStats.total_sessions ?? 0} color="blue" />
 									<StatCard withBorder={false} icon={IconAward} label="平均得分" value={myStats.avg_score != null ? `${myStats.avg_score}分` : "--"} color="green" />
 									<StatCard withBorder={false} icon={IconTrendingUp} label="排名" value={myStats.rank ? `第${myStats.rank}名` : "--"} color="blue" />
 									<StatCard withBorder={false} icon={IconClock} label="总时长" value={myStats.total_minutes ? `${myStats.total_minutes}分钟` : "--"} color="amber" />
 								</SimpleGrid>
 							)}
-							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 								<Group gap="xs" mb="sm">
-									<IconChartBar size={16} style={{ color: "var(--mantine-color-gray-6)" }} />
+									<IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
 									<Text size="sm" fw={500}>进步趋势</Text>
 								</Group>
 								{trendItems.length > 0 ? (
@@ -830,7 +830,8 @@ function TrainingTile({
 		<UnstyledButton
 			type="button"
 			onClick={onClick}
-			style={{ width: "100%", borderRadius: "var(--mantine-radius-md)", background: `var(--mantine-color-${color}-0)`, border: "1px solid var(--mantine-color-gray-2)", transition: "box-shadow 120ms ease" }}
+			// 底色/描边按 scheme 感知 token 动态拼名（`-0`/`gray-2` 是固定浅色档，深色态不翻转）
+			style={{ width: "100%", borderRadius: "var(--mantine-radius-md)", background: `var(--mantine-color-${color}-light)`, border: `1px solid var(--mantine-color-${color}-outline)`, transition: "box-shadow 120ms ease" }}
 		>
 			<Stack gap={6} p="sm" align="flex-start" style={{ width: "100%" }}>
 				{icon}

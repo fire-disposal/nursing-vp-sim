@@ -135,7 +135,7 @@ export function TrainingHeader({
 
 	const timerTone =
 		remaining == null
-			? { background: "var(--mantine-color-gray-0)", color: "var(--mantine-color-dimmed)", border: "1px solid var(--mantine-color-default-border)" }
+			? { background: "var(--mantine-color-default-hover)", color: "var(--mantine-color-dimmed)", border: "1px solid var(--mantine-color-default-border)" }
 			: remaining <= 120
 				? { background: "var(--mantine-color-red-6)", color: "var(--mantine-color-white)", border: "1px solid transparent" }
 				: remaining <= 300

@@ -164,13 +164,16 @@ export default function VoiceTokenCard() {
 	const online = status?.tts_online;
 	const err = errorHint(status?.last_error ?? null);
 
+	// 值必须是连字符形式：调用点插值出 `var(--mantine-color-…)`，
+	// 而 `red.5`/`gray.3` 这类点号名不是合法的自定义属性名，浏览器会整条丢弃 → 圆点根本没颜色。
+	// 未知态用随配色方案切换的 dimmed（浅 gray-6 / 深 dark-2），字面量浅灰在深色下会刺眼。
 	const dotColor = checking
-		? "yellow.4"
+		? "yellow-4"
 		: online
-			? "green.5"
+			? "green-5"
 			: status
-				? "red.5"
-				: "gray.3";
+				? "red-5"
+				: "dimmed";
 
 	return (
 		<Card>
@@ -181,12 +184,13 @@ export default function VoiceTokenCard() {
 			<CardContent>
 				<Stack gap="md">
 					{/* ══ Status ══ */}
+					{/* 层级收敛（S3）：外层 Card 是唯一描边，内层分区改用底色而非再描边 */}
 					<Group
 						gap={16}
 						wrap="wrap"
 						align="center"
+						bg="var(--mantine-color-default-hover)"
 						style={{
-							border: "1px solid var(--mantine-color-default-border)",
 							borderRadius: 8,
 							padding: "6px 12px",
 						}}
@@ -216,7 +220,7 @@ export default function VoiceTokenCard() {
 					</Group>
 
 					{/* ══ Config ══ */}
-					<Stack gap={0} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, overflow: "hidden" }}>
+					<Stack gap={0} bg="var(--mantine-color-default-hover)" style={{ borderRadius: 8, overflow: "hidden" }}>
 						{/* API Key — dummy inputs to prevent browser password autofill */}
 						<input type="text" name="dummy-username" autoComplete="username" style={{ display: "none" }} tabIndex={-1} />
 						<input type="password" name="dummy-password" autoComplete="current-password" style={{ display: "none" }} tabIndex={-1} />
@@ -274,8 +278,8 @@ export default function VoiceTokenCard() {
 					</Stack>
 
 					{/* ══ Speaker library ══ */}
-					<Stack gap={0} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, overflow: "hidden" }}>
-						<Group justify="space-between" align="center" wrap="wrap" px="sm" py={8} bg="var(--mantine-color-gray-1)" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+					<Stack gap={0} bg="var(--mantine-color-default-hover)" style={{ borderRadius: 8, overflow: "hidden" }}>
+						<Group justify="space-between" align="center" wrap="wrap" px="sm" py={8} style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
 							<Text size="xs" fw={500}>音色映射（按患者人口自动选择发音人）</Text>
 							<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--mantine-color-dimmed)" }}>音色库 →</a>
 						</Group>
@@ -284,7 +288,7 @@ export default function VoiceTokenCard() {
 								const slotSpeaker = speakerLib[key] || "zh_female_vv_uranus_bigtts";
 								const isPlaying = playingSlot === key;
 								return (
-									<Group key={key} gap={8} align="center" wrap="nowrap" px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-gray-2)" }}>
+									<Group key={key} gap={8} align="center" wrap="nowrap" px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 										<Text size="xs" c="dimmed" w={48} ta="right" style={{ flexShrink: 0 }}>{label}</Text>
 										<TextInput
 											value={speakerLib[key] ?? ""}
@@ -318,7 +322,7 @@ export default function VoiceTokenCard() {
 					</Stack>
 
 					{!cfg && (
-						<Text size="xs" c="dimmed" p={10} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, background: "var(--mantine-color-gray-0)" }}>
+						<Text size="xs" c="dimmed" p={10} style={{ borderRadius: 8, background: "var(--mantine-color-default-hover)" }}>
 							首次使用 →{" "}
 							<a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" style={{ color: "var(--mantine-color-blue-6)" }}>
 								火山引擎控制台

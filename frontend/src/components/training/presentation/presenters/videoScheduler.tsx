@@ -39,7 +39,7 @@ function VideoFace({
 	}
 	const shape: CSSProperties = {
 		flexShrink: 0,
-		background: "var(--mantine-color-gray-2)",
+		background: "var(--mantine-color-default-hover)",
 		objectFit: "cover",
 		borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
 		boxShadow: "0 0 0 1px var(--mantine-color-default-border)",

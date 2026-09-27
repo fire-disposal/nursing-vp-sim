@@ -26,7 +26,7 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 		percentage >= 80
 			? "var(--mantine-color-green-6)"
 			: percentage >= 60
-				? "var(--mantine-color-gray-6)"
+				? "var(--mantine-color-dimmed)"
 				: "var(--mantine-color-red-6)";
 
 	return (
@@ -44,7 +44,7 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 					cy="60"
 					r={radius}
 					fill="none"
-					stroke="var(--mantine-color-gray-3)"
+					stroke="var(--mantine-color-default-border)"
 					strokeWidth="8"
 				/>
 				<circle
@@ -80,7 +80,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: Detail
 		percentage >= 80
 			? "var(--mantine-color-green-6)"
 			: percentage >= 60
-				? "var(--mantine-color-gray-6)"
+				? "var(--mantine-color-dimmed)"
 				: "var(--mantine-color-red-6)";
 
 	useEffect(() => {
@@ -96,7 +96,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: Detail
 					<Text component="span" fw={600} c="var(--mantine-color-text)">{dimension.score}</Text>/{dimMax}
 				</Text>
 			</Group>
-			<Box h={8} w="100%" style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+			<Box h={8} w="100%" style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}>
 				<Box
 					h="100%"
 					style={{ width: barWidth, borderRadius: 999, transition: "all 700ms ease-out", background: barColor }}
@@ -168,7 +168,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 						<Box>
 							<Group gap={6} mb={6} wrap="nowrap">
 								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-green-6)" }} />
-								<Text size="sm" fw={500} c="green.6">优势</Text>
+								<Text size="sm" fw={500} c="green">优势</Text>
 							</Group>
 							<Stack gap={4}>
 								{score.strengths.map((s, i) => (
@@ -186,7 +186,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 						<Box>
 							<Group gap={6} mb={6} wrap="nowrap">
 								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-yellow-6)" }} />
-								<Text size="sm" fw={500} c="yellow.7">改进建议</Text>
+								<Text size="sm" fw={500} c="yellow">改进建议</Text>
 							</Group>
 							<Stack gap={4}>
 								{score.weaknesses.map((w, i) => (
@@ -204,7 +204,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 						<Box>
 							<Group gap={6} mb={6} wrap="nowrap">
 								<Box w={6} h={6} style={{ borderRadius: 999, background: "var(--mantine-color-red-6)" }} />
-								<Text size="sm" fw={500} c="red.6">遗漏要点</Text>
+								<Text size="sm" fw={500} c="red">遗漏要点</Text>
 							</Group>
 							<Stack gap={4}>
 								{score.missed_content.map((m, i) => (
@@ -219,7 +219,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 
 					{/* Suggestions */}
 					{score.suggestions && (
-						<Box p="sm" style={{ borderRadius: 8, background: "var(--mantine-color-gray-1)" }}>
+						<Box p="sm" style={{ borderRadius: 8, background: "var(--mantine-color-default-hover)" }}>
 							<Text size="sm" fw={500} mb={4}>学习建议</Text>
 							<Text size="sm" c="dimmed" lh={1.6}>{score.suggestions}</Text>
 						</Box>

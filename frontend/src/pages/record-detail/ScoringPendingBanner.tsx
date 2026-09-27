@@ -36,13 +36,13 @@ export default function ScoringPendingBanner({
 			: "评分尚未生成";
 
 	return (
-		<Paper withBorder bg="yellow.0" p={{ base: "md", sm: "lg" }} style={{ borderColor: "var(--mantine-color-yellow-4)" }} >
+		<Paper withBorder bg="var(--mantine-color-yellow-light)" p={{ base: "md", sm: "lg" }} style={{ borderColor: "var(--mantine-color-yellow-outline)" }} >
 			<Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
 				<Box style={{ flex: 1, minWidth: 240 }}>
-					<Title order={3} size="sm" c="yellow.9">
+					<Title order={3} size="sm" c="var(--mantine-color-yellow-light-color)">
 						{title}
 					</Title>
-					<Text size="sm" c="yellow.7" mt={4}>
+					<Text size="sm" c="var(--mantine-color-yellow-light-color)" mt={4}>
 						{description}
 					</Text>
 					{retrying && retryProgress != null && (
@@ -50,7 +50,7 @@ export default function ScoringPendingBanner({
 							<Box style={{ flex: 1 }}>
 								<Progress value={(retryProgress / 30) * 100} color="yellow" size="sm" />
 							</Box>
-							<Text size="xs" c="yellow.7" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
+							<Text size="xs" c="var(--mantine-color-yellow-light-color)" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
 								{retryProgress}/30
 							</Text>
 						</Group>

@@ -149,7 +149,7 @@ export default function ScoreResultSection({
 				)}
 
 				{hasDetailItems && (
-					<Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+					<Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 						{categories.map(([catName, catData]) => {
 							if (!Array.isArray(catData.items) || catData.items.length === 0)
 								return null;
@@ -192,7 +192,7 @@ export default function ScoreResultSection({
 
 						{isReviewed && scoreReview && (
 							<CollapsibleSection
-								icon={<IconEye size={16} style={{ color: "var(--mantine-color-gray-6)" }} />}
+								icon={<IconEye size={16} style={{ color: "var(--mantine-color-dimmed)" }} />}
 								title="AI 原始评分"
 								expanded={expanded.ai_original ?? showAiOriginal}
 								onToggle={() => {

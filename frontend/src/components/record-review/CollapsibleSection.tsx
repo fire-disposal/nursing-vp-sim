@@ -18,14 +18,14 @@ export default function CollapsibleSection({
 	children,
 }: CollapsibleSectionProps) {
 	return (
-		<Box pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+		<Box pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 			<UnstyledButton
 				onClick={onToggle}
 				w="100%"
 				py="xs"
 				px="xs"
 				style={{ borderRadius: "var(--mantine-radius-sm)", transition: "background 120ms ease", marginLeft: -8, width: "calc(100% + 16px)" }}
-				onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+				onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-default-hover)"; }}
 				onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
 			>
 				<Group justify="space-between" wrap="nowrap">

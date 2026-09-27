@@ -34,7 +34,7 @@ export default function EmptyState({
 					<Icon size={26} strokeWidth={1.5} />
 				</ThemeIcon>
 			)}
-			<Text size="sm" fw={600} c="gray.8">
+			<Text size="sm" fw={600} c="gray">
 				{title}
 			</Text>
 			{description && (

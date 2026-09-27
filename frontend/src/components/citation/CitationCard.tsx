@@ -42,7 +42,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 					py={8}
 					onClick={() => setOpen(!open)}
 					style={{ transition: "background 120ms ease" }}
-					onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+					onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-default-hover)"; }}
 					onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
 				>
 					<Group gap={8} wrap="nowrap">
@@ -61,7 +61,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 					</Group>
 				</UnstyledButton>
 				{open && (
-					<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+					<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 						{citations.map((c, i) => (
 							<UnstyledButton
 								key={i}
@@ -71,7 +71,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 								px={6}
 								onClick={() => openModal(c)}
 								style={{ borderRadius: "var(--mantine-radius-sm)", transition: "background 120ms ease" }}
-								onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-gray-0)"; }}
+								onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mantine-color-default-hover)"; }}
 								onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
 							>
 								<Text size="xs">
@@ -88,7 +88,7 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 
 			{modal && (
 				<Modal opened onClose={() => setModal(null)} size={768} centered withinPortal>
-					<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }} wrap="nowrap">
+					<Group gap={8} py="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }} wrap="nowrap">
 						<IconBook2 size={14} color="var(--mantine-color-blue-6)" />
 						<Box style={{ flex: 1, minWidth: 0 }}>
 							<Text size="sm" fw={500}>

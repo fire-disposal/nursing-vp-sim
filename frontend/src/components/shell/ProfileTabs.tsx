@@ -38,7 +38,7 @@ export default function ProfileTabs() {
 			p={4}
 			mb="sm"
 			style={{
-				background: "var(--mantine-color-gray-1)",
+				background: "var(--mantine-color-default-hover)",
 				borderRadius: "var(--mantine-radius-md)",
 				width: "fit-content",
 				overflowX: "auto",

@@ -336,7 +336,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 			value === "" ||
 			(Array.isArray(value) && value.length === 0) ||
 			(typeof value === "object" && Object.keys(value as object).length === 0);
-		return empty ? "var(--mantine-color-gray-4)" : "var(--mantine-color-green-6)";
+		return empty ? "var(--mantine-color-dimmed)" : "var(--mantine-color-green-6)";
 	};
 
 	const handleCancelAi = () => {
@@ -520,7 +520,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 				{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 				{showAiPanel && (
-					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-brand-0)" style={{ borderColor: "var(--mantine-color-brand-2)" }} >
+					<Paper withBorder p="md" mb="md" bg="var(--mantine-color-brand-light)" style={{ borderColor: "var(--mantine-color-brand-outline)" }} >
 						{/* 两步向导：用 Stepper 表达"当前步/已完成"，而不是两个绿/灰徽章 */}
 						<Stepper
 							size="xs"
@@ -751,7 +751,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							justify="flex-end"
 							gap={8}
 							pt="sm"
-							style={{ position: "sticky", bottom: 0, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-gray-3)" }}
+							style={{ position: "sticky", bottom: 0, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-default-border)" }}
 						>
 							<Button type="button" variant="outline" size="sm" onClick={handleClose}>取消</Button>
 							<Button

@@ -8,6 +8,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import AuthImage from "@/components/ui/auth-image";
 import EmptyState from "@/components/ui/empty-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import Pagination from "@/components/ui/pagination";
@@ -87,8 +88,8 @@ export default function MyFeedbackPage() {
 				/>
 
 				<Paper withBorder p="md">
-					<SimpleGrid cols={3} spacing="xs" mb="md">
-						<Paper bg="gray.1" px="sm" py="xs" ta="center">
+					<SimpleGrid cols={3} spacing="xs">
+						<Paper bg="var(--mantine-color-default-hover)" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
 								{total}
 							</Text>
@@ -96,15 +97,15 @@ export default function MyFeedbackPage() {
 								累计反馈
 							</Text>
 						</Paper>
-						<Paper bg="blue.1" px="sm" py="xs" ta="center">
-							<Text size="lg" fw={600} c="blue">
+						<Paper bg="var(--mantine-color-blue-light)" px="sm" py="xs" ta="center">
+							<Text size="lg" fw={600} c="var(--mantine-color-blue-light-color)">
 								{repliedCount}
 							</Text>
 							<Text size="xs" c="dimmed">
 								本页已回复
 							</Text>
 						</Paper>
-						<Paper bg="gray.1" px="sm" py="xs" ta="center">
+						<Paper bg="var(--mantine-color-default-hover)" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
 								{pendingCount}
 							</Text>
@@ -113,22 +114,29 @@ export default function MyFeedbackPage() {
 							</Text>
 						</Paper>
 					</SimpleGrid>
+				</Paper>
 
-					<Group justify="space-between" align="center" wrap="wrap" gap="sm">
-						{/* 标签用下拉（原先 7 个按钮排一行，窄屏要横向滚动） */}
-						<Select
-							size="sm"
-							clearable
-							w={130}
-							placeholder="全部标签"
-							value={list.values.tag || null}
-							onChange={(v) => list.setFilter("tag", v ?? "")}
-							data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
-								value: opt.value,
-								label: opt.label,
-							}))}
-						/>
-						<Group gap="xs">
+				{/* 统一工具栏：计数 / 筛选 + 一键复位（与 /admin/feedback 同范式）；本页无可搜索的行，故无搜索框 */}
+				<FilterToolbar
+					summary={`共 ${total} 条反馈`}
+					hasActiveFilters={list.hasActiveFilters}
+					onClear={list.reset}
+					filters={
+						<>
+							{/* 标签用下拉（原先 7 个按钮排一行，窄屏要横向滚动） */}
+							<Select
+								size="sm"
+								clearable
+								w={130}
+								placeholder="全部标签"
+								aria-label="标签"
+								value={list.values.tag || null}
+								onChange={(v) => list.setFilter("tag", v ?? "")}
+								data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
+									value: opt.value,
+									label: opt.label,
+								}))}
+							/>
 							<Text size="xs" c="dimmed">
 								回复状态
 							</Text>
@@ -143,9 +151,9 @@ export default function MyFeedbackPage() {
 								value={repliedToUi(list.values.replied)}
 								onChange={(v) => list.setFilter("replied", uiToReplied(v ?? ""))}
 							/>
-						</Group>
-					</Group>
-				</Paper>
+						</>
+					}
+				/>
 
 				{isLoading ? (
 					<Stack gap="sm">

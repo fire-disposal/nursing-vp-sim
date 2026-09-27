@@ -19,7 +19,7 @@ import { APP_VERSION } from "@/version";
  */
 function RouteContentLoader() {
 	return (
-		<Box p="md" style={{ minHeight: "50vh", borderRadius: "var(--mantine-radius-lg)", border: "1px solid var(--mantine-color-gray-3)", background: "var(--mantine-color-body)" }}>
+		<Box p="md" style={{ minHeight: "50vh", borderRadius: "var(--mantine-radius-lg)", border: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-body)" }}>
 			<Stack gap="md">
 				<Skeleton height={24} width={160} />
 				<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
@@ -153,16 +153,16 @@ export default function Layout() {
 					wrap="nowrap"
 					style={{
 						flexShrink: 0,
-						borderBottom: "1px solid var(--mantine-color-yellow-2)",
-						background: "var(--mantine-color-yellow-0)",
+						borderBottom: "1px solid var(--mantine-color-yellow-outline)",
+						background: "var(--mantine-color-yellow-light)",
 					}}
 				>
-					<Text size="xs" c="yellow.9" style={{ flex: 1 }}>
+					<Text size="xs" c="var(--mantine-color-yellow-light-color)" style={{ flex: 1 }}>
 						管理后台建议使用桌面端访问以获得完整体验
 					</Text>
 					<ActionIcon
 						variant="transparent"
-						color="yellow.9"
+						color="var(--mantine-color-yellow-light-color)"
 						size="xs"
 						onClick={() => setMobileHintDismissed(true)}
 						aria-label="关闭提示"

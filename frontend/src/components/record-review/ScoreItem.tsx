@@ -22,11 +22,11 @@ export default function ScoreItem({ item, onEvidenceClick }: ScoreItemProps) {
 				: "danger";
 	const bg =
 		tier === "success"
-			? "var(--mantine-color-green-1)"
+			? "var(--mantine-color-green-light)"
 			: tier === "neutral"
-				? "var(--mantine-color-gray-1)"
-				: "var(--mantine-color-red-1)";
-	const fg = tier === "success" ? "green.8" : tier === "neutral" ? "gray.7" : "red.7";
+				? "var(--mantine-color-default-hover)"
+				: "var(--mantine-color-red-light)";
+	const fg = tier === "success" ? "var(--mantine-color-green-light-color)" : tier === "neutral" ? "var(--mantine-color-dimmed)" : "var(--mantine-color-red-light-color)";
 
 	return (
 		<Box mb={4}>
@@ -69,8 +69,8 @@ export default function ScoreItem({ item, onEvidenceClick }: ScoreItemProps) {
 				<Box
 					p="sm"
 					style={{
-						background: "var(--mantine-color-gray-1)",
-						border: "1px solid var(--mantine-color-gray-3)",
+						background: "var(--mantine-color-default-hover)",
+						border: "1px solid var(--mantine-color-default-border)",
 						borderRadius: "var(--mantine-radius-md)",
 					}}
 				>

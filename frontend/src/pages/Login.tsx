@@ -97,7 +97,7 @@ export default function Login() {
 				justifyContent: "center",
 				overflow: "hidden",
 				background:
-					"radial-gradient(1200px 600px at 85% -10%, var(--mantine-color-brand-1) 0%, transparent 55%), radial-gradient(900px 500px at -10% 110%, var(--mantine-color-brand-0) 0%, transparent 50%), var(--mantine-color-gray-0)",
+					"radial-gradient(1200px 600px at 85% -10%, var(--mantine-color-brand-light) 0%, transparent 55%), radial-gradient(900px 500px at -10% 110%, var(--mantine-color-brand-light) 0%, transparent 50%), var(--mantine-color-body)",
 			}}
 		>
 			<Group

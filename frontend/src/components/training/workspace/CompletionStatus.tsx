@@ -46,7 +46,7 @@ export function CompletionStrip() {
 			py={6}
 			style={{
 				borderTop: "1px solid var(--mantine-color-default-border)",
-				background: "var(--mantine-color-gray-0)",
+				background: "var(--mantine-color-default-hover)",
 				flexShrink: 0,
 			}}
 		>
@@ -100,7 +100,7 @@ export function CompletionChecklist() {
 								color={
 									condition.satisfied
 										? "var(--mantine-color-green-6)"
-										: "var(--mantine-color-gray-4)"
+										: "var(--mantine-color-dimmed)"
 								}
 							/>
 							<Text size="sm" c={condition.satisfied ? undefined : "dimmed"}>

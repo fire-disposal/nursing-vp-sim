@@ -196,7 +196,7 @@ export default function NotificationBell() {
 								<Box
 									key={n.id}
 									style={{
-										borderTop: i > 0 ? "1px solid var(--mantine-color-gray-3)" : undefined,
+										borderTop: i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
 										opacity: n.is_read ? 0.5 : 1,
 									}}
 								>
@@ -259,7 +259,7 @@ export default function NotificationBell() {
 							px="md"
 							py="xs"
 							wrap="nowrap"
-							style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}
+							style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
 						>
 							<Button
 								variant="subtle"

@@ -58,7 +58,7 @@ function Block({
 			<Text size="xs" fw={600} c="dimmed" mb={6} tt="uppercase">
 				{label}
 			</Text>
-			<Paper withBorder p="sm" bg="var(--mantine-color-gray-1)">
+			<Paper withBorder p="sm" bg="var(--mantine-color-default-hover)">
 				<ScrollArea.Autosize mah={384}>
 					<Text
 						size="xs"

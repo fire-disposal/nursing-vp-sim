@@ -47,7 +47,7 @@ export function ActivityTimeline({
 						{event.time}
 					</Text>
 					<Box
-						bg="gray.4"
+						bg="var(--mantine-color-default-border)"
 						style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }}
 					/>
 					<Box style={{ flex: 1, minWidth: 0 }}>

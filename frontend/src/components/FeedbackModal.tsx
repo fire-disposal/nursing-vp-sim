@@ -167,21 +167,21 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 										padding: "8px 4px",
 										borderRadius: "var(--mantine-radius-md)",
 										border: active
-											? `1px solid var(--mantine-color-${meta.color}-6)`
+											? `1px solid var(--mantine-color-${meta.color}-outline)`
 											: "1px solid transparent",
 										background: active
-											? `var(--mantine-color-${meta.color}-1)`
+											? `var(--mantine-color-${meta.color}-light)`
 											: "transparent",
 										cursor: "pointer",
 									}}
 								>
-									<Text size="lg" fw={700} c={active ? `${meta.color}.7` : "dimmed"}>
+									<Text size="lg" fw={700} c={active ? `var(--mantine-color-${meta.color}-light-color)` : "dimmed"}>
 										{val}
 									</Text>
 									<Text
 										size="xs"
 										fw={active ? 600 : 400}
-										c={active ? `${meta.color}.7` : "dimmed"}
+										c={active ? `var(--mantine-color-${meta.color}-light-color)` : "dimmed"}
 										style={{ whiteSpace: "nowrap" }}
 									>
 										{meta.label}
@@ -245,7 +245,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 									width: 64,
 									height: 64,
 									borderRadius: "var(--mantine-radius-md)",
-									border: "1px solid var(--mantine-color-gray-3)",
+									border: "1px solid var(--mantine-color-default-border)",
 									overflow: "hidden",
 									flexShrink: 0,
 								}}
@@ -273,8 +273,8 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 									width: 64,
 									height: 64,
 									borderRadius: "var(--mantine-radius-md)",
-									border: "1px solid var(--mantine-color-gray-3)",
-									background: "var(--mantine-color-gray-1)",
+									border: "1px solid var(--mantine-color-default-border)",
+									background: "var(--mantine-color-default-hover)",
 								}}
 							>
 								<Loader size="sm" />
@@ -287,7 +287,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 									width: 64,
 									height: 64,
 									borderRadius: "var(--mantine-radius-md)",
-									border: "1px dashed var(--mantine-color-gray-4)",
+									border: "1px dashed var(--mantine-color-default-border)",
 									display: "flex",
 									flexDirection: "column",
 									alignItems: "center",

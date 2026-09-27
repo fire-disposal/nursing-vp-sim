@@ -29,8 +29,9 @@ export const theme = createTheme({
 	primaryColor: "brand",
 	// 亮色用 7 号（而非 6 号）：6 号 #2c9a82 作白底文字或白字按钮底色只有 ≈3.5:1，
 	// 低于 WCAG AA 正文 4.5:1（审计 UI-A11Y-1 实测）；7 号 #247f6b ≈4.9:1，两种用法都合规。
-	// 暗色保持 5 号（在深底上更亮），autoContrast 继续负责 filled 变体的黑白文字。
-	primaryShade: { light: 7, dark: 5 },
+	// 深色同样取 7 号（原 5 号）：5 档（#3cb094）上白字仅 2.68:1，7 档白字 4.86:1
+	// （2026-09-27 实测「选择病例」主行动按钮；autoContrast 在中间调会选白字，靠它救不回来）。
+	primaryShade: { light: 7, dark: 7 },
 	// 亮/暗主色自动适配文字对比（filled 变体自动黑白文字）
 	autoContrast: true,
 
@@ -107,7 +108,9 @@ export const theme = createTheme({
 			},
 			styles: {
 				th: {
-					background: "var(--mantine-color-gray-1)",
+					// 灰底表头唯一来源：用 scheme 感知 token（浅=gray-0 / 深=dark-5），
+					// 别再写死 gray-1（深色态下浅灰底不翻转，S2 2026-09-27）。
+					background: "var(--mantine-color-default-hover)",
 					color: "var(--mantine-color-dimmed)",
 					textTransform: "uppercase",
 					fontSize: "var(--mantine-font-size-xs)",
@@ -179,6 +182,9 @@ export const cssVariablesResolver = () => ({
 		"--mantine-color-orange-text": "#c3410e",
 	},
 	dark: {
-		"--mantine-color-dimmed": "var(--mantine-color-dark-2)",
+		// 深色 dimmed 默认取 dark-2（本仓 dark 色板下实测 #94a3b8）：压在升起的表面
+		// （`--mantine-color-default-hover` ≈ slate-700）上只有 **4.04:1**，11–12px 次级文字不达 AA。
+		// 深色统一抬到 gray-3：白底无关（深色专用），在 slate-700 ≈ 7.2:1、在页面底 ≈ 11:1。
+		"--mantine-color-dimmed": "var(--mantine-color-gray-3)",
 	},
 });

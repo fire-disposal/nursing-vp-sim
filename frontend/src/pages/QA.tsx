@@ -262,8 +262,8 @@ export default function QA() {
 				style={{
 					width: 304,
 					flexShrink: 0,
-					borderRight: "1px solid var(--mantine-color-gray-3)",
-					background: "var(--mantine-color-gray-1)",
+					borderRight: "1px solid var(--mantine-color-default-border)",
+					background: "var(--mantine-color-default-hover)",
 					display: "flex",
 					flexDirection: "column",
 				}}
@@ -305,7 +305,7 @@ export default function QA() {
 					gap="sm"
 					wrap="nowrap"
 					px="md"
-					style={{ minHeight: 64, borderBottom: "1px solid var(--mantine-color-gray-3)", flexShrink: 0 }}
+					style={{ minHeight: 64, borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}
 				>
 					<Button
 						variant="subtle" color="gray"
@@ -422,7 +422,7 @@ function QASidebar({
 								textAlign: "left",
 								padding: "12px",
 								borderRadius: "var(--mantine-radius-xl)",
-								background: activeSessionId === session.id ? "var(--mantine-color-blue-1)" : undefined,
+								background: activeSessionId === session.id ? "var(--mantine-color-blue-light)" : undefined,
 							}}
 						>
 							<Group gap="sm" align="flex-start" wrap="nowrap">
@@ -493,7 +493,7 @@ function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 							textAlign: "left",
 							padding: "12px 16px",
 							borderRadius: "var(--mantine-radius-md)",
-							border: "1px solid var(--mantine-color-gray-3)",
+							border: "1px solid var(--mantine-color-default-border)",
 						}}
 					>
 						<Group gap="sm" align="center" wrap="nowrap">
@@ -508,7 +508,7 @@ function QAWelcome({ onAsk }: { onAsk: (text: string) => void }) {
 									{suggestion.description}
 								</Text>
 							</Box>
-							<IconChevronRight size={16} color="var(--mantine-color-gray-5)" />
+							<IconChevronRight size={16} color="var(--mantine-color-dimmed)" />
 						</Group>
 					</UnstyledButton>
 				))}
@@ -537,7 +537,7 @@ function MessageBubble({
 				}}
 				bg={isUser ? "blue" : "var(--mantine-color-body)"}
 				c={isUser ? "white" : undefined}
-				bd={isUser ? undefined : "1px solid var(--mantine-color-gray-3)"}
+				bd={isUser ? undefined : "1px solid var(--mantine-color-default-border)"}
 			>
 				<MarkdownContent isUser={isUser}>{message.content}</MarkdownContent>
 				{!isUser && hasCitations(message.citations) && (
@@ -560,7 +560,7 @@ function AssistantDraft({ content }: { content: string }) {
 					maxWidth: "92%",
 					padding: "12px 16px",
 					borderRadius: "var(--mantine-radius-lg)",
-					border: "1px solid var(--mantine-color-gray-3)",
+					border: "1px solid var(--mantine-color-default-border)",
 				}}
 			>
 				{content ? (
@@ -620,7 +620,7 @@ function Composer({
 		<Box
 			component="footer"
 			style={{
-				borderTop: "1px solid var(--mantine-color-gray-3)",
+				borderTop: "1px solid var(--mantine-color-default-border)",
 				padding: "0.75rem 1rem",
 				paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
 				flexShrink: 0,
@@ -634,7 +634,7 @@ function Composer({
 					maxWidth: 896,
 					margin: "0 auto",
 					borderRadius: "var(--mantine-radius-lg)",
-					border: "1px solid var(--mantine-color-gray-3)",
+					border: "1px solid var(--mantine-color-default-border)",
 					padding: 8,
 				}}
 			>

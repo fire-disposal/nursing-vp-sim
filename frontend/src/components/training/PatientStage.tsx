@@ -110,8 +110,8 @@ export default function PatientStage() {
 								justifyContent: "center",
 								borderRadius: "var(--mantine-radius-lg)",
 								background:
-									"radial-gradient(120% 100% at 50% 0%, var(--mantine-color-brand-0) 0%, var(--mantine-color-body) 72%)",
-								border: "1px solid var(--mantine-color-brand-1)",
+									"radial-gradient(120% 100% at 50% 0%, var(--mantine-color-brand-light) 0%, var(--mantine-color-body) 72%)",
+								border: "1px solid var(--mantine-color-brand-outline)",
 								padding: "18px 10px 10px",
 							}}
 						>
@@ -163,7 +163,7 @@ export default function PatientStage() {
 						justifyContent: "center",
 						border: "none",
 						borderRadius: "8px 0 0 8px",
-						background: "var(--mantine-color-gray-1)",
+						background: "var(--mantine-color-default-hover)",
 						color: "var(--mantine-color-dimmed)",
 						cursor: "pointer",
 					}}

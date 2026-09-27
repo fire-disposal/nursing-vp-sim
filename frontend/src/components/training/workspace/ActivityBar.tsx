@@ -83,8 +83,8 @@ function ActivityBarButton({ pane, active, onClick }: { pane: WorkspacePane; act
 				padding: "6px 10px",
 				borderRadius: 8,
 				cursor: "pointer",
-				border: `1px solid var(--mantine-color-${active ? "brand-4" : "default-border"})`,
-				background: active ? "var(--mantine-color-brand-0)" : "var(--mantine-color-body)",
+				border: `1px solid var(--mantine-color-${active ? "brand-outline" : "default-border"})`,
+				background: active ? "var(--mantine-color-brand-light)" : "var(--mantine-color-body)",
 			}}
 		>
 			<Icon size={16} />

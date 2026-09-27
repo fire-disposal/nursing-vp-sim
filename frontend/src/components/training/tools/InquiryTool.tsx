@@ -57,7 +57,7 @@ export default function InquiryTool() {
 					aria-valuenow={pct}
 					aria-valuemin={0}
 					aria-valuemax={100}
-					style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}
+					style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}
 				>
 					<Box
 						h="100%"
@@ -79,7 +79,7 @@ export default function InquiryTool() {
 							{done ? (
 								<IconCircleCheck size={14} style={{ color: "var(--mantine-color-green-6)", marginTop: 2, flexShrink: 0 }} />
 							) : (
-								<IconCircle size={14} style={{ color: "var(--mantine-color-gray-4)", marginTop: 2, flexShrink: 0 }} />
+								<IconCircle size={14} style={{ color: "var(--mantine-color-dimmed)", marginTop: 2, flexShrink: 0 }} />
 							)}
 							<Text
 								size="sm"

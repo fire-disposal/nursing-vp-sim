@@ -67,8 +67,8 @@ export const ChatBubble = memo(function ChatBubble({
 					py={8}
 					style={{
 						borderRadius: 999,
-						background: "var(--mantine-color-brand-0)",
-						color: "var(--mantine-color-brand-9)",
+						background: "var(--mantine-color-brand-light)",
+						color: "var(--mantine-color-brand-light-color)",
 					}}
 				>
 					<IconInfoCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -135,12 +135,12 @@ export const ChatBubble = memo(function ChatBubble({
 						<Text
 							size="xs"
 							mt={4}
-							c="yellow.9"
+							c="var(--mantine-color-yellow-light-color)"
 							style={{
 								display: "inline-flex",
 								alignItems: "center",
 								gap: 4,
-								background: "var(--mantine-color-yellow-1)",
+								background: "var(--mantine-color-yellow-light)",
 								borderRadius: 4,
 								padding: "2px 6px",
 							}}

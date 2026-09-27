@@ -168,7 +168,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 									style={{
 										flexShrink: 0,
 										borderRadius: "var(--mantine-radius-md)",
-										border: "1px solid var(--mantine-color-gray-3)",
+										border: "1px solid var(--mantine-color-default-border)",
 										overflow: "hidden",
 									}}
 								>
@@ -366,7 +366,7 @@ function FeedbackChart() {
 			</Group>
 			<ResponsiveContainer width="100%" height={160}>
 				<BarChart data={data}>
-					<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+					<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" />
 					<XAxis
 						dataKey="name"
 						tick={{ fontSize: 11 }}

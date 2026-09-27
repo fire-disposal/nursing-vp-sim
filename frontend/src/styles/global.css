@@ -70,7 +70,7 @@ h1, h2, h3 {
 /* 数据表格行 hover 高亮（DataTable / ResponsiveTable 共用） */
 .data-table-row:hover,
 .data-table-row[aria-selected="true"] {
-	background: var(--mantine-color-brand-0);
+	background: var(--mantine-color-brand-light);
 }
 
 /* 列表行与病例卡 hover 抬升 */

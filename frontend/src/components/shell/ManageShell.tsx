@@ -125,8 +125,8 @@ export default function ManageShell({
 								transition: "color 120ms ease, background 120ms ease",
 							}}
 							onMouseEnter={(e) => {
-								e.currentTarget.style.color = "var(--mantine-color-brand-7)";
-								e.currentTarget.style.background = "var(--mantine-color-brand-0)";
+								e.currentTarget.style.color = "var(--mantine-color-brand-light-color)";
+								e.currentTarget.style.background = "var(--mantine-color-brand-light)";
 							}}
 							onMouseLeave={(e) => {
 								e.currentTarget.style.color = "var(--mantine-color-dimmed)";

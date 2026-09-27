@@ -53,8 +53,8 @@ export function InquiryProgressChip() {
 				transition: "border-color 120ms ease, background 120ms ease",
 			}}
 			onMouseEnter={(e) => {
-				e.currentTarget.style.borderColor = "var(--mantine-color-brand-4)";
-				e.currentTarget.style.background = "var(--mantine-color-brand-0)";
+				e.currentTarget.style.borderColor = "var(--mantine-color-brand-outline)";
+				e.currentTarget.style.background = "var(--mantine-color-brand-light)";
 			}}
 			onMouseLeave={(e) => {
 				e.currentTarget.style.borderColor = "var(--mantine-color-default-border)";

@@ -185,7 +185,7 @@ export default function QuestionnaireEditor({
 							) : (
 								<Stack gap="sm">
 									{form.questions.map((q, i) => (
-										<Paper key={i} withBorder p="sm" bg="var(--mantine-color-gray-0)" >
+										<Paper key={i} withBorder p="sm" bg="var(--mantine-color-default-hover)" >
 											<Group justify="space-between" mb="xs">
 												<Text size="xs" fw={600} c="dimmed">
 													第 {i + 1} 题

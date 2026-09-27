@@ -40,7 +40,7 @@ function recordStatus(r: TrainingRecordBrief): RecordStatus {
 	return "in_progress"; // fallback
 }
 
-const DIM = { color: "var(--mantine-color-gray-6)" } as const;
+const DIM = { color: "var(--mantine-color-dimmed)" } as const;
 
 export default function History() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -254,7 +254,7 @@ export default function History() {
 												</Box>
 											</Group>
 										</UnstyledButton>
-										<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+										<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 											{status === "in_progress" && (
 												<>
 													<Button

@@ -24,7 +24,7 @@ export default function ErrorDisplay({
 			<ThemeIcon size={56} variant="light" color="red" radius="md">
 				<Icon size={26} strokeWidth={1.5} />
 			</ThemeIcon>
-			<Text size="sm" fw={600} c="gray.8">
+			<Text size="sm" fw={600} c="gray">
 				{message}
 			</Text>
 			{onRetry && (

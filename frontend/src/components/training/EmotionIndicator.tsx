@@ -42,7 +42,7 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	withdrawn: "var(--mantine-color-red-6)",
 	defensive: "var(--mantine-color-orange-6)",
 	anxious: "var(--mantine-color-violet-6)",
-	neutral: "var(--mantine-color-gray-6)",
+	neutral: "var(--mantine-color-dimmed)",
 	relaxed: "var(--mantine-color-blue-6)",
 	open: "var(--mantine-color-green-6)",
 };
@@ -79,7 +79,7 @@ const EMOTION_4D_DOT: Record<string, string> = {
 	withdrawn: "var(--mantine-color-red-6)",
 	defensive: "var(--mantine-color-orange-6)",
 	relaxed: "var(--mantine-color-blue-6)",
-	neutral: "var(--mantine-color-gray-6)",
+	neutral: "var(--mantine-color-dimmed)",
 };
 
 export function EmotionIndicator({ bus, features, recordId, compact, trailing }: EmotionIndicatorProps) {
@@ -250,7 +250,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 					</Text>
 					<Text size="11px" c="dimmed" truncate>{displayLabel}</Text>
 					{/* Trust micro-bar */}
-					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", flexShrink: 0 }}>
+					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", flexShrink: 0 }}>
 						<Box
 							h="100%"
 							style={{
@@ -268,7 +268,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 					</Box>
 					<Group gap={8} style={{ marginLeft: "auto" }}>
 						{showInitiative && initPercent > 0 && (
-							<Box w={48} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", flexShrink: 0 }}>
+							<Box w={48} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", flexShrink: 0 }}>
 								<Box
 									h="100%"
 									style={{
@@ -331,7 +331,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 						const color = ["var(--mantine-color-green-6)", "var(--mantine-color-violet-5)", "var(--mantine-color-orange-5)", "var(--mantine-color-blue-5)"][i];
 						const titles = ["信任", "焦虑", "烦躁", "配合"];
 						return (
-							<Box key={titles[i]} style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden" }}>
+							<Box key={titles[i]} style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}>
 								<Box
 									h="100%"
 									title={`${titles[i]}: ${v}`}
@@ -345,7 +345,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 				{showInitiative && initPercent > 0 && (
 					<Group gap={6} wrap="nowrap" style={{ flexShrink: 0, maxWidth: 120 }}>
 						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
-						<Box style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-gray-2)", overflow: "hidden", minWidth: 40 }}>
+						<Box style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", minWidth: 40 }}>
 							<Box
 								h="100%"
 								style={{

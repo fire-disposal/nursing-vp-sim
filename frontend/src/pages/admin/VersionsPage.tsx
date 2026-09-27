@@ -1,5 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
-import { Badge, Group, Paper, SegmentedControl, Select, Stack, Table, Text } from "@mantine/core";
+import { Badge, Paper, SegmentedControl, Select, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -8,6 +8,7 @@ import {
 } from "@/api/admin/versions";
 import { queryKeys } from "@/api/query-keys";
 import EmptyState from "@/components/ui/empty-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 
@@ -33,6 +34,9 @@ const WINDOWS = [
 	{ value: "365", label: "近一年" },
 ];
 
+/** 默认窗口：FilterToolbar 的"清除"复位目标，也是"是否有活跃筛选"的比较基准。 */
+const DEFAULT_WINDOW = "90";
+
 function formatDate(iso: string | null): string {
 	if (!iso) return "—";
 	return new Date(iso).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
@@ -40,7 +44,7 @@ function formatDate(iso: string | null): string {
 
 export default function VersionsPage() {
 	const [by, setBy] = useState<AttributionDimension>("prompt");
-	const [windowDays, setWindowDays] = useState("90");
+	const [windowDays, setWindowDays] = useState(DEFAULT_WINDOW);
 
 	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.versions.attribution(by, Number(windowDays)),
@@ -57,33 +61,38 @@ export default function VersionsPage() {
 				subtitle="按内容身份聚合训练效果：改了提示词之后，分数是升了还是降了"
 			/>
 
+			{/* 归因维度是视图切换（换聚合口径），不是筛选 —— 留在工具栏之外。 */}
 			<Paper withBorder p="md">
-				<Group justify="space-between" wrap="wrap">
-					<SegmentedControl
-						value={by}
-						onChange={(value) => setBy(value as AttributionDimension)}
-						data={(Object.keys(DIMENSION_LABELS) as AttributionDimension[]).map((key) => ({
-							value: key,
-							label: DIMENSION_LABELS[key],
-						}))}
-					/>
-					<Group gap="sm">
-						{data ? (
-							<Text size="sm" c="dimmed">
-								{data.totals.identities} 个身份 · {data.totals.records} 条记录
-								{data.truncated ? "（已截断）" : ""}
-							</Text>
-						) : null}
-						<Select
-							value={windowDays}
-							onChange={(value) => setWindowDays(value ?? "90")}
-							data={WINDOWS}
-							w={120}
-							allowDeselect={false}
-						/>
-					</Group>
-				</Group>
+				<SegmentedControl
+					value={by}
+					onChange={(value) => setBy(value as AttributionDimension)}
+					data={(Object.keys(DIMENSION_LABELS) as AttributionDimension[]).map((key) => ({
+						value: key,
+						label: DIMENSION_LABELS[key],
+					}))}
+				/>
 			</Paper>
+
+			{/* 统一工具栏：计数 / 窗口筛选 + 一键复位。本页是聚合页、没有可搜索的行，故无搜索框。 */}
+			<FilterToolbar
+				summary={
+					data
+						? `${data.totals.identities} 个身份 · ${data.totals.records} 条记录${data.truncated ? "（已截断）" : ""}`
+						: undefined
+				}
+				hasActiveFilters={windowDays !== DEFAULT_WINDOW}
+				onClear={() => setWindowDays(DEFAULT_WINDOW)}
+				filters={
+					<Select
+						value={windowDays}
+						onChange={(value) => setWindowDays(value ?? DEFAULT_WINDOW)}
+						data={WINDOWS}
+						w={120}
+						allowDeselect={false}
+						aria-label="时间窗口"
+					/>
+				}
+			/>
 
 			{isLoading ? (
 				<LoadingSkeleton variant="card" />

@@ -26,25 +26,25 @@ function optionStyle(
 ): CSSProperties {
 	if (!selected) {
 		return {
-			background: "var(--mantine-color-gray-0)",
+			background: "var(--mantine-color-default-hover)",
 			borderColor: "var(--mantine-color-default-border)",
 			cursor: "pointer",
 		};
 	}
 	if (isCorrectAnswer) {
 		return {
-			background: "var(--mantine-color-green-0)",
-			borderColor: "var(--mantine-color-green-4)",
+			background: "var(--mantine-color-green-light)",
+			borderColor: "var(--mantine-color-green-outline)",
 		};
 	}
 	if (selected === optKey && !isCorrectAnswer) {
 		return {
-			background: "var(--mantine-color-red-0)",
-			borderColor: "var(--mantine-color-red-4)",
+			background: "var(--mantine-color-red-light)",
+			borderColor: "var(--mantine-color-red-outline)",
 		};
 	}
 	return {
-		background: "var(--mantine-color-gray-0)",
+		background: "var(--mantine-color-default-hover)",
 		borderColor: "var(--mantine-color-default-border)",
 		opacity: 0.5,
 	};
@@ -259,13 +259,13 @@ export default function QuizTool(props: ActivityPanelProps) {
 								background:
 									hasResult
 										? isCorrect
-											? "var(--mantine-color-green-0)"
-											: "var(--mantine-color-red-0)"
+											? "var(--mantine-color-green-light)"
+											: "var(--mantine-color-red-light)"
 										: "var(--mantine-color-body)",
 								borderColor: hasResult
 									? isCorrect
-										? "var(--mantine-color-green-4)"
-										: "var(--mantine-color-red-4)"
+										? "var(--mantine-color-green-outline)"
+										: "var(--mantine-color-red-outline)"
 									: undefined,
 							}}
 						>
@@ -328,7 +328,7 @@ export default function QuizTool(props: ActivityPanelProps) {
 												style={{
 													flexShrink: 0,
 													borderRadius: 999,
-													border: "1px solid var(--mantine-color-gray-4)",
+													border: "1px solid var(--mantine-color-default-border)",
 													display: "flex",
 													alignItems: "center",
 													justifyContent: "center",
@@ -372,7 +372,7 @@ export default function QuizTool(props: ActivityPanelProps) {
 												{opt.text}
 											</Text>
 											{isAnswer && isSelected && !isCorrect && (
-												<Text component="span" size="xs" fw={500} c="green.6">正确答案</Text>
+												<Text component="span" size="xs" fw={500} c="green">正确答案</Text>
 											)}
 										</Box>
 									);
@@ -411,7 +411,7 @@ export default function QuizTool(props: ActivityPanelProps) {
 											mt={6}
 											px={12}
 											py={8}
-											style={{ background: "var(--mantine-color-gray-1)", borderRadius: 8 }}
+											style={{ background: "var(--mantine-color-default-hover)", borderRadius: 8 }}
 										>
 											{explanations[q.id]}
 										</Text>
@@ -421,8 +421,8 @@ export default function QuizTool(props: ActivityPanelProps) {
 
 							{submitError[q.id] && (
 								<Group gap={6} mt={8} wrap="nowrap">
-									<IconAlertCircle size={11} style={{ color: "var(--mantine-color-red-6)" }} />
-									<Text size="xs" c="red.6">{submitError[q.id]}</Text>
+									<IconAlertCircle size={11} style={{ color: "var(--mantine-color-red-light-color)" }} />
+									<Text size="xs" c="var(--mantine-color-red-light-color)">{submitError[q.id]}</Text>
 								</Group>
 							)}
 						</Box>
@@ -431,8 +431,8 @@ export default function QuizTool(props: ActivityPanelProps) {
 			</Box>
 
 			{answeredCount === questions.length && questions.length > 0 && (
-				<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-green-0)", flexShrink: 0 }}>
-					<Text size="xs" c="green.7" ta="center">
+				<Box px="sm" py={8} style={{ borderTop: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-green-light)", flexShrink: 0 }}>
+					<Text size="xs" c="var(--mantine-color-green-light-color)" ta="center">
 						<IconCircleCheck size={12} style={{ display: "inline", marginRight: 4 }} />
 						全部完成 — 共 {answeredCount} 题
 					</Text>

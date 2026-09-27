@@ -167,19 +167,19 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 									<Text size="sm" fw={500} truncate>{d.problem}</Text>
 									<Group gap={4} mt={6} wrap="wrap">
 										{d.related_factors.map(f => (
-											<Box key={f} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-blue-0)", color: "var(--mantine-color-blue-9)" }}>
+											<Box key={f} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-blue-light)", color: "var(--mantine-color-blue-light-color)" }}>
 												{f}
 											</Box>
 										))}
 										{d.defining_characteristics.map(c => (
-											<Box key={c} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-yellow-0)", color: "var(--mantine-color-yellow-9)" }}>
+											<Box key={c} px={6} py={2} style={{ fontSize: 11, borderRadius: 4, background: "var(--mantine-color-yellow-light)", color: "var(--mantine-color-yellow-light-color)" }}>
 												{c}
 											</Box>
 										))}
 									</Group>
 								</Box>
 							</Box>
-							<ActionIcon variant="subtle" color="gray" size="sm" onClick={() => deleteDiag(d.id)} aria-label="删除护理诊断" style={{ color: "var(--mantine-color-gray-5)" }}>
+							<ActionIcon variant="subtle" color="gray" size="sm" onClick={() => deleteDiag(d.id)} aria-label="删除护理诊断" style={{ color: "var(--mantine-color-dimmed)" }}>
 								<IconTrash size={12} />
 							</ActionIcon>
 						</Group>
@@ -234,9 +234,9 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 										borderRadius: 999,
 										border: "1px solid var(--mantine-color-default-border)",
 										cursor: "pointer",
-										background: form.related_factors.includes(f) ? "var(--mantine-color-blue-0)" : "transparent",
-										color: form.related_factors.includes(f) ? "var(--mantine-color-blue-9)" : "var(--mantine-color-dimmed)",
-										borderColor: form.related_factors.includes(f) ? "var(--mantine-color-blue-3)" : undefined,
+										background: form.related_factors.includes(f) ? "var(--mantine-color-blue-light)" : "transparent",
+										color: form.related_factors.includes(f) ? "var(--mantine-color-blue-light-color)" : "var(--mantine-color-dimmed)",
+										borderColor: form.related_factors.includes(f) ? "var(--mantine-color-blue-outline)" : undefined,
 									}}
 								>
 									{f}
@@ -261,9 +261,9 @@ export default function NursingDiagnosisTool({ activity, bus, recordId }: Activi
 										borderRadius: 999,
 										border: "1px solid var(--mantine-color-default-border)",
 										cursor: "pointer",
-										background: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-0)" : "transparent",
-										color: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-9)" : "var(--mantine-color-dimmed)",
-										borderColor: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-4)" : undefined,
+										background: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-light)" : "transparent",
+										color: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-light-color)" : "var(--mantine-color-dimmed)",
+										borderColor: form.defining_characteristics.includes(c) ? "var(--mantine-color-yellow-outline)" : undefined,
 									}}
 								>
 									{c}

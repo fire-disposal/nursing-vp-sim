@@ -417,12 +417,12 @@ function StatsContent({
 							</Table.Thead>
 							<Table.Tbody>
 								{ranking.map((s) => (
-									<Table.Tr key={s.user_id} style={s.rank <= 3 ? { background: "var(--mantine-color-yellow-0)" } : undefined}>
+									<Table.Tr key={s.user_id} style={s.rank <= 3 ? { background: "var(--mantine-color-yellow-light)" } : undefined}>
 										<Table.Td>
 											{s.rank === 1 ? (
 												<IconMedal size={20} color="var(--mantine-color-yellow-6)" />
 											) : s.rank === 2 ? (
-												<IconMedal size={20} color="var(--mantine-color-gray-5)" />
+												<IconMedal size={20} color="var(--mantine-color-dimmed)" />
 											) : s.rank === 3 ? (
 												<IconMedal size={20} color="var(--mantine-color-orange-7)" />
 											) : (
@@ -430,15 +430,15 @@ function StatsContent({
 											)}
 										</Table.Td>
 										<Table.Td style={{ fontWeight: 500 }}>{s.display_name}</Table.Td>
-										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_id || "-"}</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-yellow-light-color)" }}>{s.student_id || "-"}</Table.Td>
 										<Table.Td>{s.total_sessions}</Table.Td>
-										<Table.Td style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-blue-6)" : "var(--mantine-color-dimmed)" }}>
+										<Table.Td style={{ fontWeight: 700, color: s.avg_score != null ? "var(--mantine-color-blue-light-color)" : "var(--mantine-color-yellow-light-color)" }}>
 											{s.avg_score != null ? `${s.avg_score}分` : "-"}
 										</Table.Td>
-										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>
+										<Table.Td style={{ color: "var(--mantine-color-yellow-light-color)" }}>
 											{s.total_score > 0 ? `${s.total_score}分` : "-"}
 										</Table.Td>
-										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.total_minutes}分钟</Table.Td>
+										<Table.Td style={{ color: "var(--mantine-color-yellow-light-color)" }}>{s.total_minutes}分钟</Table.Td>
 									</Table.Tr>
 								))}
 							</Table.Tbody>

@@ -6,7 +6,7 @@ export function avatarShapeStyle(ctx: PresentationContext): CSSProperties {
 	return {
 		flexShrink: 0,
 		objectFit: "cover",
-		background: "var(--mantine-color-gray-2)",
+		background: "var(--mantine-color-default-hover)",
 		borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
 		boxShadow: "0 0 0 1px var(--mantine-color-default-border)",
 	};

@@ -265,7 +265,7 @@ export default function AssignmentDetailPage() {
 										{s.score_total != null ? (
 											<Text component="span" fw={700} inherit>{s.score_total}</Text>
 										) : s.scoring_status === "pending" || s.scoring_status === "processing" ? (
-											<Text component="span" size="xs" c="yellow.7" inherit>评分中</Text>
+											<Text component="span" size="xs" c="yellow" inherit>评分中</Text>
 										) : s.scoring_status === "failed" ? (
 											<Text component="span" size="xs" c="red" inherit>评分失败</Text>
 										) : s.scoring_status === "completed" ? (

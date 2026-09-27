@@ -22,7 +22,7 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 			: item.score >= Math.ceil(itemMax * 0.6)
 				? "neutral"
 				: "danger";
-	const aiColor = aiTier === "success" ? "green.8" : aiTier === "neutral" ? "gray.7" : "red.7";
+	const aiColor = aiTier === "success" ? "green.8" : aiTier === "neutral" ? "var(--mantine-color-dimmed)" : "red.7";
 
 	return (
 		<Box mb={8}>
@@ -34,8 +34,8 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 				wrap="wrap"
 				gap="xs"
 				style={{
-					background: "var(--mantine-color-gray-1)",
-					border: "1px solid var(--mantine-color-gray-3)",
+					background: "var(--mantine-color-default-hover)",
+					border: "1px solid var(--mantine-color-default-border)",
 					borderRadius: "var(--mantine-radius-md)",
 				}}
 			>
@@ -88,8 +88,8 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 					px="sm"
 					py={10}
 					style={{
-						background: "var(--mantine-color-gray-1)",
-						border: "1px solid var(--mantine-color-gray-3)",
+						background: "var(--mantine-color-default-hover)",
+						border: "1px solid var(--mantine-color-default-border)",
 						borderRadius: "var(--mantine-radius-md)",
 					}}
 				>

@@ -166,7 +166,7 @@ export default function CaseSelector({ cases, value, onChange, loading, emptyHin
 				px="sm"
 				py={6}
 				style={{
-					border: "1px solid var(--mantine-color-gray-4)",
+					border: "1px solid var(--mantine-color-default-border)",
 					borderRadius: "var(--mantine-radius-sm)",
 					background: "var(--mantine-color-body)",
 				}}
@@ -230,9 +230,9 @@ export default function CaseSelector({ cases, value, onChange, loading, emptyHin
 										py="xs"
 										bg={
 											idx === activeIndex
-												? "var(--mantine-color-gray-1)"
+												? "var(--mantine-color-default-hover)"
 												: c.id === value
-													? "var(--mantine-color-blue-0)"
+													? "var(--mantine-color-blue-light)"
 													: undefined
 										}
 									>

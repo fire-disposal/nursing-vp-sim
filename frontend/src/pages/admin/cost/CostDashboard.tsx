@@ -288,7 +288,7 @@ function UserCostBreakdown() {
 								</Group>
 								<Group gap={6} wrap="wrap">
 									{Object.entries(u.purposes).map(([p, d]) => (
-										<Text key={p} size="xs" c="dimmed" bg="var(--mantine-color-gray-1)" px={6} py={2} style={{ borderRadius: 4 }}>
+										<Text key={p} size="xs" c="dimmed" bg="var(--mantine-color-default-hover)" px={6} py={2} style={{ borderRadius: 4 }}>
 											{purposeLabels[p] || p}: {d.calls}次 ¥{d.cost.toFixed(2)}
 										</Text>
 									))}

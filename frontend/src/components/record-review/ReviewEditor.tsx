@@ -106,7 +106,7 @@ export default function ReviewEditor({
 						py="lg"
 						ta="center"
 						style={{
-							border: "1px dashed var(--mantine-color-gray-4)",
+							border: "1px dashed var(--mantine-color-default-border)",
 							borderRadius: "var(--mantine-radius-md)",
 						}}
 					>

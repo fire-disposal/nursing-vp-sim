@@ -90,7 +90,7 @@ export function EmotionTrajectory({ recordId }: Props) {
 				<Box h={180}>
 					<ResponsiveContainer width="100%" height="100%">
 						<LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -22 }}>
-							<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-2)" />
+							<CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" />
 							<XAxis dataKey="index" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
 							<YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
 							<Tooltip

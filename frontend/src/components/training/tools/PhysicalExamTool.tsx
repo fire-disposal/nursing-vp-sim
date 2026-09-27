@@ -253,9 +253,9 @@ export default function PhysicalExamTool({ activity, bus, recordId }: ActivityPa
 										key={opId}
 										p="sm"
 										style={{
-											border: `1px solid ${abnormal ? "var(--mantine-color-red-3)" : "var(--mantine-color-default-border)"}`,
+											border: `1px solid ${abnormal ? "var(--mantine-color-red-outline)" : "var(--mantine-color-default-border)"}`,
 											borderRadius: "var(--mantine-radius-md)",
-											background: abnormal ? "var(--mantine-color-red-0)" : "var(--mantine-color-body)",
+											background: abnormal ? "var(--mantine-color-red-light)" : "var(--mantine-color-body)",
 										}}
 									>
 										<Group justify="space-between" align="center" wrap="nowrap">
@@ -292,7 +292,7 @@ export default function PhysicalExamTool({ activity, bus, recordId }: ActivityPa
 											</Button>
 										</Group>
 										{error && (
-											<Group gap={5} mt={8} c="red.7" wrap="nowrap">
+											<Group gap={5} mt={8} c="var(--mantine-color-red-light-color)" wrap="nowrap">
 												<IconAlertCircle size={14} />
 												<Text size="xs">{error}</Text>
 											</Group>
@@ -304,10 +304,10 @@ export default function PhysicalExamTool({ activity, bus, recordId }: ActivityPa
 					</Box>
 
 					{abnormalResults.length > 0 && (
-						<Box p="sm" style={{ borderRadius: "var(--mantine-radius-md)", background: "var(--mantine-color-red-0)" }}>
+						<Box p="sm" style={{ borderRadius: "var(--mantine-radius-md)", background: "var(--mantine-color-red-light)" }}>
 							<Group gap={6} mb={6} wrap="nowrap">
-								<IconAlertCircle size={16} color="var(--mantine-color-red-7)" />
-								<Text size="sm" fw={600} c="red.8">异常发现</Text>
+								<IconAlertCircle size={16} color="var(--mantine-color-red-light-color)" />
+								<Text size="sm" fw={600} c="var(--mantine-color-red-light-color)">异常发现</Text>
 							</Group>
 							<Stack gap={6}>
 								{abnormalResults.map(([opId, result]) => {

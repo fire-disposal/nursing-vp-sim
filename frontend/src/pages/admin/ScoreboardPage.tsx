@@ -138,7 +138,7 @@ function TierDistribution({ summary }: { summary: ScoreboardSummary | undefined 
 						width: "100%",
 						overflow: "hidden",
 						borderRadius: 999,
-						background: "var(--mantine-color-gray-2)",
+						background: "var(--mantine-color-default-hover)",
 					}}
 				>
 					<Box style={{ height: "100%", width: `${good}%`, background: "var(--mantine-color-green-6)" }} />

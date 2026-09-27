@@ -41,7 +41,7 @@ export function ActivityPanelHost({
 				py={8}
 				style={{
 					borderBottom: "1px solid var(--mantine-color-default-border)",
-					background: "var(--mantine-color-gray-0)",
+					background: "var(--mantine-color-default-hover)",
 					flexShrink: 0,
 				}}
 			>

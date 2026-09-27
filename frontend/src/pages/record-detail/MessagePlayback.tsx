@@ -27,7 +27,7 @@ export default function MessagePlayback({ messages, highlightId }: Props) {
 		if (el) {
 			el.scrollIntoView({ behavior: "smooth", block: "center" });
 			el.style.transition = "background-color 1.2s ease";
-			el.style.backgroundColor = "var(--mantine-color-yellow-1)";
+			el.style.backgroundColor = "var(--mantine-color-yellow-light)";
 			const timer = window.setTimeout(() => {
 				el.style.backgroundColor = "transparent";
 			}, 2400);
@@ -63,8 +63,8 @@ export default function MessagePlayback({ messages, highlightId }: Props) {
 										padding: "6px 10px",
 										borderRadius: 10,
 										background: isStudent
-											? "var(--mantine-color-brand-0)"
-											: "var(--mantine-color-gray-0)",
+											? "var(--mantine-color-brand-light)"
+											: "var(--mantine-color-default-hover)",
 										border: "1px solid var(--mantine-color-default-border)",
 									}}
 								>

@@ -112,7 +112,7 @@ export default function CallLogTimeline({
 							top: 8,
 							bottom: 8,
 							width: 1,
-							background: "var(--mantine-color-gray-3)",
+							background: "var(--mantine-color-default-border)",
 						}}
 					/>
 					{logs.map((log) => (

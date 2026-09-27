@@ -111,7 +111,7 @@ export function QuestionnaireModal({
 									key={q.id}
 									p="md"
 									style={{
-										border: "1px solid var(--mantine-color-gray-3)",
+										border: "1px solid var(--mantine-color-default-border)",
 										borderRadius: "var(--mantine-radius-md)",
 									}}
 								>
@@ -145,7 +145,7 @@ export function QuestionnaireModal({
 															borderRadius: "var(--mantine-radius-md)",
 															border: active
 																? "1px solid var(--mantine-color-blue-6)"
-																: "1px solid var(--mantine-color-gray-3)",
+																: "1px solid var(--mantine-color-default-border)",
 															background: active
 																? "var(--mantine-color-blue-light)"
 																: "transparent",
@@ -179,7 +179,7 @@ export function QuestionnaireModal({
 															borderRadius: "var(--mantine-radius-md)",
 															border: active
 																? "1px solid var(--mantine-color-blue-6)"
-																: "1px solid var(--mantine-color-gray-3)",
+																: "1px solid var(--mantine-color-default-border)",
 															background: active
 																? "var(--mantine-color-blue-light)"
 																: "transparent",
@@ -191,7 +191,7 @@ export function QuestionnaireModal({
 																width: 16,
 																height: 16,
 																borderRadius: "50%",
-																border: "1px solid var(--mantine-color-gray-4)",
+																border: "1px solid var(--mantine-color-default-border)",
 																display: "flex",
 																alignItems: "center",
 																justifyContent: "center",
@@ -237,7 +237,7 @@ export function QuestionnaireModal({
 							px="sm"
 							py="xs"
 							style={{
-								background: "var(--mantine-color-red-0)",
+								background: "var(--mantine-color-red-light)",
 								borderRadius: "var(--mantine-radius-md)",
 							}}
 						>

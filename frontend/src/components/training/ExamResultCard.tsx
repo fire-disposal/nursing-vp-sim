@@ -61,7 +61,7 @@ export function ExamResultCard({ result, className }: ExamResultCardProps) {
           h={36}
           style={{
             borderRadius: 8,
-            background: "var(--mantine-color-gray-1)",
+            background: "var(--mantine-color-default-hover)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
