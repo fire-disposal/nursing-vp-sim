@@ -62,9 +62,6 @@
       "answer": "还行吧...（长叹一口气）店里事情多，跟老婆最近也老吵架。睡不太好，男人谁没点烦心事。我身体好得很，没大事。"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

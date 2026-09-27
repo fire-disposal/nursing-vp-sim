@@ -63,9 +63,6 @@
       "answer": "有，好几年了。平时吃药断断续续的，忙起来就忘了……是不是跟这个有关系？"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

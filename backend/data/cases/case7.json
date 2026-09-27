@@ -62,9 +62,6 @@
       "answer": "没有过，每次体检都正常。怀孕后做糖筛还没到时间呢，要不是这次不舒服来查，我都不知道血糖高了。"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

@@ -114,7 +114,12 @@ class TestRegistry:
         }
         assert artifacts == {"nursing_record": "nursing_record"}
         assert ACTIVITY_BINDINGS["nursing_record"].requires_submission_for_completion is True
-        assert HISTORY_TAKING.completion.required_artifacts == ("nursing_record",)
+        # 活动层声明"护理记录**可以**参与交卷门禁"；是否真的作为门禁由病例显式声明，
+        # workflow 默认不设门禁（护理记录是可选工作产物，不是每次都必须交的关卡）
+        assert HISTORY_TAKING.completion.required_artifacts == ()
+        assert HISTORY_TAKING.required_artifacts_for({"completion": {"required_artifacts": ["nursing_record"]}}) == (
+            "nursing_record",
+        )
 
     def test_unproductized_activities_do_not_claim_evidence(self):
         """quiz / nursing_diagnosis 只写 runtime_state → 不得声称进评分证据（docs/15 §三）。"""

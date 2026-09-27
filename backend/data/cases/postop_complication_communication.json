@@ -72,9 +72,6 @@
       "answer": "我媳妇就知道我发烧，我跟她说医生讲恢复得还行。她要是知道还得出事，非急出病来。这事你们先别跟她说，等我儿子周末回来再商量。……你别站那儿问了，这事我做不了主。"
     }
   ],
-  "completion": {
-    "required_artifacts": ["nursing_record"]
-  },
   "activities": {
     "physical_exam": {
       "config": {

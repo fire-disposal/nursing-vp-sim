@@ -66,9 +66,6 @@
       "answer": "这个……我真没怎么测。试纸贵，扎手指也麻烦，上回测还是一个多月前，空腹七点二。"
     }
   ],
-  "completion": {
-    "required_artifacts": ["nursing_record"]
-  },
   "activities": {
     "physical_exam": {
       "config": {

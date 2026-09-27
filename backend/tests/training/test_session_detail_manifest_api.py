@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 CASE_DATA = {
+    # 本用例专门覆盖"门禁"路径：显式要求先提交护理记录（默认不设门禁）
+    "completion": {"required_artifacts": ["nursing_record"]},
     "name": "冒烟病例",
     "patient_info": {"name": "王建国", "age": 68, "gender": "男"},
     "chief_complaint": "喘不上气",

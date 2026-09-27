@@ -61,9 +61,6 @@
       "answer": "对，早上最厉害，僵得弯不了，得活动个把小时才松快点。最近上楼梯都费劲了，下蹲也不行，走久了就疼。"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

@@ -60,9 +60,6 @@
       "answer": "有点恶心，但没吐出来。什么东西都吃不下，一吃就恶心。"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

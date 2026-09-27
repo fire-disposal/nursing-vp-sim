@@ -169,7 +169,9 @@ HISTORY_TAKING = WorkflowDefinition(
     activities=("physical_exam", "nursing_record", "quiz", "nursing_diagnosis"),
     entry_modes=("自由练习", "作业", "考核"),
     artifact_kinds=("nursing_record",),
-    completion=CompletionPolicy(required_artifacts=("nursing_record",)),
+    # 默认**不设**交卷门禁：护理记录是学生的可选工作产物（写下就会被评分），不是每次都必须交的关卡。
+    # 需要"先提交才能结束"的教学任务由病例显式声明（docs/15 §五）。
+    completion=CompletionPolicy(required_artifacts=()),
     scoring_profile="history_taking.base",
     ui={"workspace": "patient_interaction", "primary_surface": "conversation"},
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],

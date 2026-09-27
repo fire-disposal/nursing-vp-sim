@@ -326,9 +326,9 @@ class TestHistoryTakingRegression:
             "ui": dict(HISTORY_TAKING.ui),
         }
         assert {item["id"] for item in manifest["activities"]} == set(HISTORY_TAKING.activities)
-        assert manifest["completion"]["conditions"] == [
-            {"id": "nursing_record_submitted", "label": "提交护理记录", "satisfied": False}
-        ]
+        # 默认无交卷门禁（病例可显式声明要提交哪些产物，见 docs/15 §五）
+        assert manifest["completion"]["conditions"] == []
+        assert manifest["completion"]["eligible"] is True
 
     def test_case_gate_accepts_omitted_and_explicit_history_taking(self):
         """问诊病例：不声明 workflow 仍然合法；显式声明 history_taking 也合法。"""

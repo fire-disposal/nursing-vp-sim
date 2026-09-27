@@ -57,9 +57,6 @@
       "answer": "护理？就每天洗洗脚啊……还需要特别护理吗？（一脸疑惑）"
     }
   ],
-  "completion": {
-    "required_artifacts": []
-  },
   "activities": {
     "physical_exam": {
       "config": {

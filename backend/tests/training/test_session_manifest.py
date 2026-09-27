@@ -22,10 +22,12 @@ from modules.training.manifest import (
 from modules.training.profile import HISTORY_TAKING
 
 _CASE = {
+    # 覆盖"门禁"路径：显式要求先提交护理记录（默认不设门禁）
+    "completion": {"required_artifacts": ["nursing_record"]},
     "activities": {
         "physical_exam": {"config": {"vital_signs": {"temperature": "39.0"}}},
         "nursing_record": {"config": True},
-    }
+    },
 }
 
 
@@ -131,13 +133,14 @@ class TestCompletionDeclarationPerCase:
     """
 
     _WAIVED = {**_CASE, "completion": {"required_artifacts": []}}
+    _NO_GATE = {k: val for k, val in _CASE.items() if k != "completion"}
 
-    def test_default_still_requires_nursing_record(self):
-        """不声明 = 沿用 workflow 默认（历史与既有病例行为不变）。"""
-        manifest = _manifest(artifact_state=ARTIFACT_EMPTY)
-        assert manifest["artifacts"]["nursing_record"]["required"] is True
-        assert [b["code"] for b in manifest["completion"]["blockers"]] == [CODE_ARTIFACT_NOT_SUBMITTED]
-        assert manifest["completion"]["eligible"] is False
+    def test_default_has_no_gate(self):
+        """默认**不设**交卷门禁：护理记录是可选工作产物，未提交也能结束（不暗扣分）。"""
+        manifest = _manifest(case_data=self._NO_GATE, artifact_state=ARTIFACT_EMPTY)
+        assert manifest["artifacts"]["nursing_record"]["required"] is False
+        assert manifest["completion"]["blockers"] == []
+        assert manifest["completion"]["eligible"] is True
 
     def test_case_can_waive_the_submission_gate(self):
         """声明不要求提交：产物仍在（可写可评），但不再拦交卷。"""

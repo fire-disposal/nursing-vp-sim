@@ -83,9 +83,6 @@
       "answer": "嗯……抽了几十年了。其实最近咳得厉害，自己也减了，但戒不掉啊……"
     }
   ],
-  "completion": {
-    "required_artifacts": ["nursing_record"]
-  },
   "activities": {
     "physical_exam": {
       "config": {
