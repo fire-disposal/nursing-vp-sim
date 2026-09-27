@@ -27,6 +27,16 @@ class TestAgeGroup:
         assert _get_age_group({"patient_info": {"age": 65}}) == "elderly"
         assert _get_age_group({"patient_info": {"age": 80}}) == "elderly"
 
+    def test_declared_reference_group_wins_over_speaker_age(self):
+        """照护者代诉型病例：体征属于患儿，参考人群按病例声明，不按对话者年龄。"""
+        case = {"patient_info": {"age": 30, "vitals_age_group": "pediatric"}}
+        assert _get_age_group(case) == "pediatric"
+
+    def test_unknown_declared_group_falls_back_to_age(self):
+        """拼错的枚举不在闭集里 → 回落到按年龄推定（发布门禁另有规则点名它）。"""
+        case = {"patient_info": {"age": 30, "vitals_age_group": "neonatal"}}
+        assert _get_age_group(case) == "adult"
+
     def test_missing_age_defaults_to_adult(self):
         assert _get_age_group({}) == "adult"
         assert _get_age_group({"patient_info": {}}) == "adult"

@@ -499,6 +499,17 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 照护者代诉型病例的体征参考人群（2026-09-27）
+
+- 症状：儿科病例的对话者是家长（`patient_info.age` = 家长年龄），体征却属于患儿；查体解读按年龄推定
+  参考人群，于是把 18 个月患儿的血压 97/59 判成「**低于**参考范围（110-130/70-85）」——学生看到的是
+  一条错误的临床结论。
+- 新增可选声明 `patient_info.vitals_age_group`（`pediatric` / `adult` / `elderly`）：声明优先于按年龄推定，
+  查体解读与生理联动偏移都读它；`validate_case` 新增 `_check_vitals_age_group` 点名拼错的枚举
+  （运行期只会静默回落，错误只在学生眼前表现为错误结论，与 `scene` 门禁同理）。
+- 验证：儿科病例声明后血压/呼吸回到「在参考范围内」（对照：不声明仍报「低于」）；新增 5 条测试；
+  后端全量 **1667 项**通过，`ruff`、`tsc` 干净。字段契约记入 [docs/15 §6.1](15-workflow-activity-contract.md)。
+
 ### 场景（scene）发布门禁（2026-09-27）
 
 - `validate_case` 新增 `_check_scene`：`scene` 仍可选，但一旦声明就必须通过 `SceneState` 的形状校验

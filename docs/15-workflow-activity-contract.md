@@ -80,6 +80,13 @@
   （枚举/类型与运行期同一个 `SceneState` 模型）与体征的**生理可能**区间——写错在发布期报错，
   不再"通过发布、运行期静默丢场景"。
 
+- **`patient_info.vitals_age_group` 声明体征参考人群**（`pediatric` / `adult` / `elderly`，可省略）：
+  省略时按 `patient_info.age` 推定，查体解读（`physical_exam_rules._interpret_measurement`）与生理联动偏移
+  都读它。**照护者代诉型病例必须显式声明**——儿科病例的对话者是家长，`patient_info.age` 是家长年龄，
+  体征却属于患儿；不声明就会把患儿体征拿去和成人参考范围比，学生看到错误的"低于/高于参考范围"
+  （实测：18 个月患儿血压 97/59 被标成"低于参考范围（110-130/70-85）"，声明后为"在参考范围内"）。
+  `validate_case` 的 `_check_vitals_age_group` 点名拼错的枚举（运行期只会静默回落，学生侧看到的是错误结论）。
+
 ## 七、班级、成员、作业与受众
 
 `ClassMembership` 表达成员关系；作业复用 `Assignment` 与受众快照 `AssignmentRecipient`，训练读取作业钉住的病例 revision。不得为新练习方式复制班级、作业或受众体系。

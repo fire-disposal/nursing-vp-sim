@@ -80,6 +80,11 @@ _INSPECTION_DEFAULTS: dict[str, str] = {
 
 def _get_age_group(case_data: dict) -> str:
     info = case_data.get("patient_info") or {}
+    #: 照护者代诉型病例（儿科）会把 ``patient_info.age`` 填成家长年龄，体征却是患儿的，
+    #: 此时必须由病例显式声明参考人群（docs/15 §四），否则体征解读会套错成人范围。
+    declared = str(info.get("vitals_age_group") or "").strip()
+    if declared in _AGE_DEFAULTS:
+        return declared
     age = info.get("age", 0)
     if not isinstance(age, (int, float)):
         age = 0

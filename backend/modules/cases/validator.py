@@ -187,6 +187,34 @@ def _i(msg: str, fld: str = "") -> CaseIssue:
 # ── 单病例规则 ────────────────────────────────────────────────────────────
 
 
+#: 体征参考人群闭集（与 ``physical_exam_rules._AGE_DEFAULTS`` 的键一致，docs/15 §四）
+_VITALS_AGE_GROUPS: tuple[str, ...] = ("pediatric", "adult", "elderly")
+
+
+def _check_vitals_age_group(c: dict, issues: list[CaseIssue]) -> None:
+    """``patient_info.vitals_age_group`` 的取值（docs/15 §四 体征参考人群）。
+
+    拼错的枚举**不会**让运行期报错，只会静默回落"按年龄推定"——对儿科代诉病例
+    等于把患儿的体征拿去和成人参考范围比，学生看到错误的"低于/高于参考范围"。
+    与 ``scene`` 门禁同理：让错误在发布前有出口，而不是只在学生眼前表现成错误结论。
+    """
+    info = c.get("patient_info")
+    if not isinstance(info, dict) or "vitals_age_group" not in info:
+        return
+    value = info.get("vitals_age_group")
+    if value is None or (isinstance(value, str) and value.strip() in _VITALS_AGE_GROUPS):
+        return
+    issues.append(
+        _e(
+            f"vitals_age_group 取值不合法：{value!r}",
+            "patient_info.vitals_age_group",
+            "必须是 "
+            + " / ".join(_VITALS_AGE_GROUPS)
+            + " 之一或省略（省略=按 patient_info.age 推定；照护者代诉型病例必须显式声明）",
+        )
+    )
+
+
 def _check_time_anchors(c: dict, issues: list[CaseIssue]) -> None:
     """主诉时长与示例时段描述的一致性（启发式）。"""
     chief = str(c.get("chief_complaint", ""))
@@ -1304,6 +1332,7 @@ def validate_case(case_data: dict) -> CaseReport:
         _check_fontanelle(case_data, issues)
         _check_example_count(case_data, issues)
         _check_year_freshness(case_data, issues)
+    _check_vitals_age_group(case_data, issues)
     _check_dead_fields(case_data, issues)
     _check_time_limit(case_data, issues)
     _check_difficulty_content(case_data, issues)

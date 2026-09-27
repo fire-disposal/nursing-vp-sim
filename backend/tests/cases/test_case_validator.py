@@ -140,6 +140,25 @@ def test_scene_implausible_vital_is_error():
     assert any("生理范围" in i.message and "scene.vitals.spo2" in i.field for i in r.errors)
 
 
+def test_vitals_age_group_absent_is_ok():
+    """参考人群可选：不声明就按 patient_info.age 推定（既有病例全部如此）。"""
+    assert validate_case(_load("case1")).ok()
+
+
+def test_vitals_age_group_declared_is_ok():
+    c = _load("case1")
+    c["patient_info"]["vitals_age_group"] = "pediatric"  # 场景：照护者代诉型
+    assert validate_case(c).ok()
+
+
+def test_vitals_age_group_invalid_is_error():
+    """拼错的枚举必须发布前报错——运行期只会静默回落，学生看到的是错误结论。"""
+    c = _load("case1")
+    c["patient_info"]["vitals_age_group"] = "neonatal"
+    r = validate_case(c)
+    assert any(i.field == "patient_info.vitals_age_group" and "不合法" in i.message for i in r.errors)
+
+
 def test_scene_non_object_is_error():
     r = validate_case(_with_scene(["不是对象"]))
     assert any(i.field == "scene" and "必须是对象" in i.message for i in r.errors)

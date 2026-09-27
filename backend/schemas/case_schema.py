@@ -55,6 +55,10 @@ class PatientInfo(BaseModel):
     gender: Literal["男", "女"]
     visible_symptoms: list[str] = []
     expression: str = "neutral"
+    #: 体征参考人群，缺省按 ``age`` 推定（≤12 儿科 / ≥65 老年 / 其余成人）。
+    #: **照护者代诉型病例**必须显式声明：儿科病例的对话者是家长，体征属于患儿，
+    #: 不声明就会拿家长年龄套成人参考范围，向学生输出错误的"低于/高于参考范围"。
+    vitals_age_group: Literal["pediatric", "adult", "elderly"] | None = None
 
 
 class PersonalityConfig(BaseModel):
