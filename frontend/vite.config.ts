@@ -11,6 +11,37 @@ export default defineConfig({
 		alias: {
 			"@": path.resolve(__dirname, "src"),
 		},
+		// 依赖去重：pnpm 的嵌套 node_modules 下同一个包可能被解析到两份物理路径，
+		// 于是出现「Provider 与消费者各拿一份 context」这类隐性故障
+		// （实测症状：整页崩 `MantineProvider was not found`，而代码毫无问题）。
+		dedupe: [
+			"react",
+			"react-dom",
+			"@mantine/core",
+			"@mantine/dates",
+			"@mantine/form",
+			"@mantine/hooks",
+			"@mantine/modals",
+			"@mantine/notifications",
+			"@mantine/spotlight",
+		],
+	},
+	optimizeDeps: {
+		// 显式声明入口：让这些包**各自**成为优化产物，彼此只能 externalize 引用，
+		// 不会被内联进对方的 chunk。依赖发现顺序因此不再影响结果 —— 依赖缓存半新半旧
+		// （上次优化被中断、或中途改了 import）也不会再产出两份实例。
+		include: [
+			"react",
+			"react-dom",
+			"react-dom/client",
+			"@mantine/core",
+			"@mantine/dates",
+			"@mantine/form",
+			"@mantine/hooks",
+			"@mantine/modals",
+			"@mantine/notifications",
+			"@mantine/spotlight",
+		],
 	},
 	server: {
 		port: 3000,

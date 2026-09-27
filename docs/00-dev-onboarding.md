@@ -60,8 +60,8 @@ pnpm run dev            # :8000 (backend) + :3000 (frontend)
 | 数据库连不上 | DBeaver 确认 `vptest` 库已建、密码正确 |
 | `uv` 未找到 | 安装 uv → 重启终端 |
 | 想清空数据库 | DBeaver 执行 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` → 重启后端 |
-| **某页整页报 `MantineProvider was not found`**（其它页正常） | Vite 依赖预打包缓存失效，`@mantine/dates` 里内联了一份 `@mantine/core`，于是 Provider 与消费者拿到**两份 context**。修：`rm -rf frontend/node_modules/.vite` 后 `pnpm dev --force`（不是代码问题，别去改组件） |
-| dev server 退出码 1 / HMR 后行为诡异 | 同上；先清 `.vite` 再判断是代码问题 |
+| **某页整页报 `MantineProvider was not found`**（其它页正常） | Vite 依赖预打包缓存失效，`@mantine/dates` 里内联了一份 `@mantine/core`，于是 Provider 与消费者拿到**两份 context**。修：`pnpm run dev:clean`（= 清 `node_modules/.vite` 后起 dev）——不是代码问题，别去改组件。该提示现在也直接印在页面兜底页上（`ErrorBoundary` 的 `CACHE_HINTS`） |
+| dev server 退出码 1 / HMR 后行为诡异 / 模块图过期类报错 | 同上，先 `pnpm run dev:clean` 再判断是不是代码问题 |
 
 
 ## 提交与发版

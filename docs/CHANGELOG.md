@@ -499,6 +499,23 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 开发机缓存类故障的缓解（2026-09-27）
+
+- 症状：教师记录页整页崩 `MantineProvider was not found`，代码本身没问题 —— Vite 依赖预打包缓存半新半旧时，
+  `@mantine/dates` 会内联第二份 `@mantine/core`，Provider 与组件因此拿到两个 context。dev server 退出码 1、
+  HMR 后行为诡异、"模块图过期"类报错与它同源。
+- 按「根因 → 提示 → 处置」分三层治，不引入新机制：
+  1. **根因**：`vite.config.ts` 增加 `resolve.dedupe`（react / @mantine/*）与 `optimizeDeps.include`，让这些包
+     各自成为优化入口、彼此只能 externalize 引用 —— 依赖发现顺序不再影响打包结果，缓存半新半旧也不会再造出两份实例；
+  2. **提示**：兜底页在 DEV 下识别这两类报错并直接印出处置命令（`ErrorBoundary` 的 `CACHE_HINTS`），
+     不再让人从"听不懂的组件报错"倒推；3 条测试钉住"该给的给、不该给的不给"；
+  3. **处置**：`pnpm run dev:clean`（清 `node_modules/.vite` 后起 dev），写进开发上手文档常见问题表。
+- **用户可见的那一层本来就是对的**（线上实测）：`index.html` → `no-cache, must-revalidate`，hash 资源 →
+  `public, immutable, max-age=1y`，所以"部署后白屏/拿到旧版"这类缓存故障不存在。数据缓存层（TanStack Query）
+  继续沿用现有约定：写后失效 + 待处理状态诚实呈现，不新增机制。
+- 验证：`dev:clean` 启动后教师记录页正常（表格 / 日期筛选 /「只看学生练习」齐全，console 0 错误）；
+  `pnpm build` 通过（去重配置不破坏生产构建）；前端测试全绿。
+
 ### 训练记录的分类改为「是不是学生练习」（2026-09-27）
 
 - 旧列 `is_test` 的名字与语义脱节：取值由**发起者权限**推出（教师/管理员开始即 true），而全部过滤处一律写
