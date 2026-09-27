@@ -11,6 +11,7 @@ prompts / rubric / note_sources。
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -28,8 +29,6 @@ from modules.training.prompts.patient import PATIENT_DYNAMIC, PATIENT_SYSTEM
 from modules.training.scoring.rubric_loader import get_base_rubric
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from modules.training.patient_ai.note_source import NoteSource
 
 
@@ -51,6 +50,12 @@ class CompletionPolicy:
 
     def covers(self, artifact_kind: str | None) -> bool:
         return artifact_kind is not None and artifact_kind in self.required_artifacts
+
+
+#: 病例按**教学任务**声明本次交卷门禁的键：``case_data["completion"]["required_artifacts"]``。
+#: 只有需要学生"写完并提交"的病例才把产物列进来 —— 护理评估是评分产物，但不是每个病例的
+#: 教学任务都要求先提交它才能交卷（见 docs/15 §五）。缺省 = 用 workflow 的声明。
+COMPLETION_DECLARATION_KEY = "completion"
 
 
 @dataclass(frozen=True)
@@ -102,6 +107,19 @@ class WorkflowDefinition:
             overrides=overrides,
             session_active=session_active,
         )
+
+    def required_artifacts_for(self, case_data: Mapping[str, Any] | None) -> tuple[str, ...]:
+        """本次训练的**交卷门禁产物**：病例显式声明优先，否则用 workflow 默认。
+
+        病例只能在本 workflow 声明的产物种类里选（未登记的 kind 被忽略并在发布门禁报错），
+        因此"要求提交"与"病例真的启用了该产物"两件事不会各说各话。
+        """
+        declared = (case_data or {}).get(COMPLETION_DECLARATION_KEY)
+        if isinstance(declared, Mapping):
+            kinds = declared.get("required_artifacts")
+            if isinstance(kinds, (list, tuple)):
+                return tuple(kind for kind in (str(k) for k in kinds) if kind in self.artifact_kinds)
+        return self.completion.required_artifacts
 
     def resolve_features(
         self,

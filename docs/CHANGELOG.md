@@ -499,6 +499,20 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 交卷门禁可按病例声明（2026-09-27）
+
+- 现状问题：`history_taking` 的 `CompletionPolicy(required_artifacts=("nursing_record",))` 是 **workflow 级常量**，
+  而内置病例都启用了护理记录 → **每次训练都必须先提交护理评估才能结束**。护理评估是评分产物，但按教学任务，
+  并非每个病例都该把它当成交卷硬门禁。
+- 新增病例级声明 `case_data["completion"]["required_artifacts"]`（白名单限本 workflow 已登记的产物种类）。
+  解析唯一入口 `WorkflowDefinition.required_artifacts_for(case_data)`；`manifest.py`
+  （`artifacts[].required` / `completion.conditions` / `blockers`）与结束训练的门禁（`router/scoring.py`）
+  读**同一份**结果，前端继续只消费 manifest、不推导管禁。
+- **默认不变**：不声明就沿用 workflow 默认，避免静默改动既有病例与 U0 口径的教学语义。
+- 发布门禁新增 `_check_completion_declaration`：未登记的产物名、非法形状、未知键都在发布期报 error
+  （运行期解析器按白名单静默忽略，不点出来就会出现"作者以为有门禁、学生那边没有"）。
+- 验证：后端全量 **1687 项**通过（新增 4 条 manifest 解析 + 5 条病例校验），`ruff`、`ty` 干净。
+
 ### 训练界面结构重做（2026-09-27）
 
 - **门禁只留一处**：删掉对话列里的完成度条（同一件事曾在顶栏按钮、对话列条幅、开场卡三处重复）。

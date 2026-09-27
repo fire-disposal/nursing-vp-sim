@@ -267,3 +267,41 @@ def test_missing_activities_declaration_is_error():
     del c["activities"]
     r = validate_case(c)
     assert any("缺少 activities 声明" in i.message for i in r.errors)
+
+
+# ── 交卷门禁的病例声明（docs/15 §五）─────────────────────────────────────
+
+
+def test_completion_declaration_accepted():
+    c = _load("case1")
+    c["completion"] = {"required_artifacts": ["nursing_record"]}
+    assert validate_case(c).ok()
+
+
+def test_completion_declaration_can_waive_the_gate():
+    """本次教学不要求先提交护理记录：声明空列表是**合法**的，不是错误。"""
+    c = _load("case1")
+    c["completion"] = {"required_artifacts": []}
+    assert validate_case(c).ok()
+
+
+def test_completion_declaration_unknown_artifact_is_error():
+    """拼错的产物名必须在发布期报错：运行期解析器会静默忽略，学生那边就没有门禁。"""
+    c = _load("case1")
+    c["completion"] = {"required_artifacts": ["nursing_recrod"]}
+    r = validate_case(c)
+    assert any("未登记的产物" in i.message and i.field == "completion.required_artifacts" for i in r.errors)
+
+
+def test_completion_declaration_wrong_shape_is_error():
+    c = _load("case1")
+    c["completion"] = {"required_artifacts": "nursing_record"}
+    r = validate_case(c)
+    assert any("必须是字符串列表" in i.message for i in r.errors)
+
+
+def test_completion_declaration_unknown_key_is_error():
+    c = _load("case1")
+    c["completion"] = {"require_nursing_record": True}
+    r = validate_case(c)
+    assert any("未知键" in i.message for i in r.errors)

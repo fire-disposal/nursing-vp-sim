@@ -50,6 +50,13 @@
 3. 护理评估区分草稿与已提交状态。正常交卷路径提交评估与完成训练保持事务一致，门禁由服务端完成政策决定。
 4. 评分异步执行，成功/失败/待处理状态必须可查。刷新状态不等于重新评分，进度未知不能造百分比；现行轮询、重试和终态展示已按历史 W1 收敛。
 5. 超时等系统终局与正常交卷必须区分。终态持久化与草稿证据边界已有回归；新增终局分支仍必须按同一契约验证。
+7. **交卷门禁按病例声明**：哪些产物必须「已提交」才能结束，由病例的
+   `completion.required_artifacts` 声明（解析唯一入口 `WorkflowDefinition.required_artifacts_for`，
+   白名单限本 workflow 已登记的产物种类）；**不声明就用 workflow 默认**。护理评估是评分产物，但不是每个
+   病例的教学任务都要求先提交它才能交卷。`manifest.py` 的 `artifacts[].required`、
+   `completion.conditions/blockers` 与结束训练的门禁（`router/scoring.py`）读**同一份**解析结果，
+   前端只消费 manifest、不推导管禁。发布门禁（`validator._check_completion_declaration`）对未登记产物名、
+   非法形状与未知键报 error —— 否则运行期会按白名单静默忽略，出现「作者以为有门禁、学生那边没有」。
 6. 终态写入顺序：`runtime_state` 的写入会重读整行（`autoflush=False`），因此 `finalize_training` 必须先写 `runtime_state`、再写 `status`/`end_time`；`patch_runtime_state` 自身也已改为先 flush（见 [17](17-training-identity-and-state-contract.md) §2.4）。终态持久化有回归用例（`tests/training/test_finalize_terminal_persisted.py`）。
 
 ## 六、病例修订与训练快照

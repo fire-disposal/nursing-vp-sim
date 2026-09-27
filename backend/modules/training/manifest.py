@@ -89,11 +89,13 @@ def build_session_manifest(
         for item in resolve_activities(case_data, allowed=workflow.activities, overrides=overrides)
         if item.availability.available and item.definition.artifact_kind
     }
+    # 交卷门禁产物按**病例**解析（病例可声明本次不要求提交；缺省用 workflow 默认）
+    required_artifacts = workflow.required_artifacts_for(case_data)
     resolved_artifacts = {
         kind: ArtifactState(
             kind=kind,
             state=artifact.state,
-            required=workflow.completion.covers(kind),
+            required=kind in required_artifacts,
             submitted_at=artifact.submitted_at,
             updated_at=artifact.updated_at,
         )
@@ -101,7 +103,7 @@ def build_session_manifest(
         if kind in configured_artifacts
     }
     for kind in configured_artifacts:
-        resolved_artifacts.setdefault(kind, ArtifactState(kind=kind, required=workflow.completion.covers(kind)))
+        resolved_artifacts.setdefault(kind, ArtifactState(kind=kind, required=kind in required_artifacts))
 
     conditions: list[dict[str, Any]] = []
     blockers: list[dict[str, Any]] = []
@@ -113,7 +115,7 @@ def build_session_manifest(
                 "target": None,
             }
         )
-    for kind in (k for k in workflow.completion.required_artifacts if k in configured_artifacts):
+    for kind in (k for k in required_artifacts if k in configured_artifacts):
         artifact = resolved_artifacts.get(kind) or ArtifactState(kind=kind, required=True)
         definition = artifact_definition(kind)
         label = definition.label if definition else kind

@@ -121,3 +121,42 @@ class TestCompletion:
         manifest = _manifest(case_data=case)
         assert manifest["completion"]["eligible"] is True
         assert manifest["completion"]["conditions"] == []
+
+
+class TestCompletionDeclarationPerCase:
+    """交卷门禁按**病例**解析（docs/15 §五）：
+
+    护理评估是评分产物，但不是每个病例的教学任务都要求学生先提交它才能交卷。
+    病例用 ``completion.required_artifacts`` 声明；不声明就用 workflow 默认。
+    """
+
+    _WAIVED = {**_CASE, "completion": {"required_artifacts": []}}
+
+    def test_default_still_requires_nursing_record(self):
+        """不声明 = 沿用 workflow 默认（历史与既有病例行为不变）。"""
+        manifest = _manifest(artifact_state=ARTIFACT_EMPTY)
+        assert manifest["artifacts"]["nursing_record"]["required"] is True
+        assert [b["code"] for b in manifest["completion"]["blockers"]] == [CODE_ARTIFACT_NOT_SUBMITTED]
+        assert manifest["completion"]["eligible"] is False
+
+    def test_case_can_waive_the_submission_gate(self):
+        """声明不要求提交：产物仍在（可写可评），但不再拦交卷。"""
+        manifest = _manifest(case_data=self._WAIVED, artifact_state=ARTIFACT_EMPTY)
+        assert manifest["artifacts"]["nursing_record"]["required"] is False
+        assert manifest["completion"]["blockers"] == []
+        assert manifest["completion"]["conditions"] == []
+        assert manifest["completion"]["eligible"] is True
+        complete = next(a for a in manifest["actions"] if a["id"] == ACTION_COMPLETE_SESSION)
+        assert complete["enabled"] is True
+
+    def test_waiver_does_not_hide_the_artifact(self):
+        """豁免的是门禁，不是产物本身：草稿/已提交状态照旧投影给前端。"""
+        manifest = _manifest(case_data=self._WAIVED, artifact_state=ARTIFACT_SUBMITTED)
+        assert manifest["artifacts"]["nursing_record"]["state"] == ARTIFACT_SUBMITTED
+
+    def test_unknown_kind_is_dropped_by_the_resolver(self):
+        """白名单过滤：病例写错产物名不会凭空造出第二个门禁（发布门禁另外点名学生认错）。"""
+        case = {**_CASE, "completion": {"required_artifacts": ["not_a_real_artifact"]}}
+        manifest = _manifest(case_data=case, artifact_state=ARTIFACT_EMPTY)
+        assert manifest["artifacts"]["nursing_record"]["required"] is False
+        assert manifest["completion"]["blockers"] == []

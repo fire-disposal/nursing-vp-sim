@@ -161,7 +161,9 @@ async def end_training(
                 record_id,
                 ended_at=now,
                 origin=END_ORIGIN_USER,
-                require_nursing_submission=bool(workflow_for_record(record).completion.required_artifacts),
+                # 完成前置条件由**记录冻结的 workflow + 病例声明**共同决定，不在端点里写死
+                require_nursing_submission="nursing_record"
+                in workflow_for_record(record).required_artifacts_for(record.case_snapshot),
             )
         except NursingAssessmentError as exc:
             db.rollback()

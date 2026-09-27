@@ -30,7 +30,7 @@ from modules.training.activities import (
     ACTIVITY_IDS,
     resolve_activity_flags,
 )
-from modules.training.profile import CLINICAL_REASONING, HISTORY_TAKING
+from modules.training.profile import CLINICAL_REASONING, COMPLETION_DECLARATION_KEY, HISTORY_TAKING
 from modules.training.scoring.rubric import build_final_rubric
 from modules.training.scoring.rubric_loader import get_base_rubric
 from modules.training.workflows import (
@@ -185,6 +185,48 @@ def _i(msg: str, fld: str = "") -> CaseIssue:
 
 
 # ── 单病例规则 ────────────────────────────────────────────────────────────
+
+
+def _check_completion_declaration(c: dict, issues: list[CaseIssue]) -> None:
+    """病例声明的交卷门禁（``completion.required_artifacts``，docs/15 §五）。
+
+    只允许**本 workflow 已登记**的产物种类。写错一个词，运行期解析器会按白名单静默忽略，
+    于是"病例作者以为要求提交"与"学生那边其实没有门禁"各说各话——错误必须在发布期可见。
+    """
+    declared = c.get(COMPLETION_DECLARATION_KEY)
+    if declared is None:
+        return
+    if not isinstance(declared, dict):
+        issues.append(
+            _e("completion 必须是对象", COMPLETION_DECLARATION_KEY, '形如 {"required_artifacts": ["nursing_record"]}')
+        )
+        return
+    workflow = CLINICAL_REASONING if declared_workflow_id(c) == CLINICAL_REASONING.id else HISTORY_TAKING
+    allowed = sorted(workflow.artifact_kinds)
+    kinds = declared.get("required_artifacts")
+    if kinds is not None:
+        if not isinstance(kinds, list) or not all(isinstance(kind, str) for kind in kinds):
+            issues.append(
+                _e("completion.required_artifacts 必须是字符串列表", f"{COMPLETION_DECLARATION_KEY}.required_artifacts")
+            )
+        else:
+            for kind in kinds:
+                if kind not in workflow.artifact_kinds:
+                    issues.append(
+                        _e(
+                            f"completion.required_artifacts 里有本 workflow 未登记的产物：{kind}",
+                            f"{COMPLETION_DECLARATION_KEY}.required_artifacts",
+                            f"可选：{'、'.join(allowed) if allowed else '（本 workflow 没有产物）'}",
+                        )
+                    )
+    for key in sorted(set(declared) - {"required_artifacts"}):
+        issues.append(
+            _e(
+                f"completion 里有未知键：{key}",
+                COMPLETION_DECLARATION_KEY,
+                "目前只支持 required_artifacts",
+            )
+        )
 
 
 #: 体征参考人群闭集（与 ``physical_exam_rules._AGE_DEFAULTS`` 的键一致，docs/15 §四）
@@ -1333,6 +1375,7 @@ def validate_case(case_data: dict) -> CaseReport:
         _check_example_count(case_data, issues)
         _check_year_freshness(case_data, issues)
     _check_vitals_age_group(case_data, issues)
+    _check_completion_declaration(case_data, issues)
     _check_dead_fields(case_data, issues)
     _check_time_limit(case_data, issues)
     _check_difficulty_content(case_data, issues)
