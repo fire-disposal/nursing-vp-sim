@@ -219,6 +219,86 @@ class TestHandleOperation:
         assert val < 38
 
 
+class TestCurrentVitals:
+    """床旁读数以**患者当前状态**（``runtime_state.scene.vitals``）为准。
+
+    病例 ``physical_exam.config`` 只是初始值：场景一旦被改（病程推进 / 任何状态变化），
+    读到的值必须跟着场景走，否则屏幕上显示的值与量到的值会当场分叉。
+    """
+
+    def test_current_value_wins_over_case_config(self):
+        case = {**_cfg({"vital_signs": {"spo2": "91-94"}})}  # 初始值中点 92.5
+        result = handle_operation("spo2", case, current_vitals={"spo2": 88})
+        assert result["value"] == "88"
+
+    def test_interpretation_and_value_are_the_same_number(self):
+        case = {**_cfg({"vital_signs": {"spo2": "91-94"}})}
+        result = handle_operation("spo2", case, current_vitals={"spo2": 88})
+        interp = result["interpretation"]
+        assert interp["status"] == "low"
+        assert "88" in interp["text"]
+        assert "92.5" not in interp["text"]
+
+    def test_bp_from_current_vitals(self):
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"blood_pressure": "110/70-120/80"}})}
+        result = handle_operation("bp", case, current_vitals={"bp_sys": 88, "bp_dia": 54})
+        assert result["value"] == "88/54"
+        assert result["interpretation"]["status"] == "low"
+        assert "88/54" in result["interpretation"]["text"]
+
+    def test_half_bp_falls_back_to_case_config(self):
+        """半条血压（只有一项）不是可用的读数——回落病例配置，而不是硬凑。"""
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {"blood_pressure": "110/70-120/80"}})}
+        assert handle_operation("bp", case, current_vitals={"bp_sys": 88})["value"] == "115/75"
+
+    def test_integral_float_does_not_drag_trailing_zero(self):
+        """场景里的 temp 是 float：整数值必须与配置解析出的显示形态同形（38，而非 38.0）。"""
+        case = {**_cfg({"vital_signs": {"temperature": "36.5-37.0"}})}
+        assert handle_operation("temp", case, current_vitals={"temp": 38.0})["value"] == "38"
+        assert handle_operation("temp", case, current_vitals={"temp": 38.5})["value"] == "38.5"
+
+    def test_garbage_current_value_falls_back(self):
+        case = {**_cfg({"vital_signs": {"spo2": "91-94"}})}
+        for raw in ("—", "未测", None, ""):
+            assert handle_operation("spo2", case, current_vitals={"spo2": raw})["value"] == "92.5"
+
+    def test_partial_current_vitals_fall_back_per_indicator(self):
+        case = {
+            "patient_info": {"age": 40},
+            **_cfg({"vital_signs": {"heart_rate": "88-100", "spo2": "96-98"}}),
+        }
+        vitals = {"spo2": 88}
+        assert handle_operation("spo2", case, current_vitals=vitals)["value"] == "88"
+        assert handle_operation("hr", case, current_vitals=vitals)["value"] == "94.0"  # 配置中点
+
+    def test_pain_from_current_vitals(self):
+        case = {**_cfg({"vital_signs": {"pain_score": "2-4"}})}
+        result = handle_operation("pain", case, current_vitals={"pain": 9})
+        assert result["value"] == "9"
+
+    def test_empty_current_vitals_is_the_legacy_path(self):
+        """场景还没有任何体征（未测量 / 病例未声明 scene.vitals）→ 与老行为逐字节一致。"""
+        checks = [
+            ({"patient_info": {"age": 40}, **_cfg({"vital_signs": {"temperature": "39.0"}})}, "hr"),
+            ({"patient_info": {"age": 40}, **_cfg({"vital_signs": {"spo2": "90"}})}, "rr"),
+            ({"patient_info": {"age": 40}, **_cfg({"vital_signs": {}})}, "temp"),
+            ({"patient_info": {"age": 40}, **_cfg({"vital_signs": {"pain_score": "4-6"}})}, "pain"),
+        ]
+        for case, op in checks:
+            assert handle_operation(op, case, current_vitals={}) == handle_operation(op, case)
+
+    def test_unconfigured_and_unmeasured_keeps_age_default(self):
+        """病例没配、场景也没有 → 仍是今天的年龄默认值（无代偿时成人 HR 中点 80）。"""
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {}})}
+        assert handle_operation("hr", case, current_vitals={})["value"] == "80"
+
+    def test_linked_default_follows_current_state(self):
+        """代偿偏移按**当前**体征算：场景里已是低氧，未配置的 RR 就按低氧代偿。"""
+        case = {"patient_info": {"age": 40}, **_cfg({"vital_signs": {}})}
+        assert handle_operation("rr", case, current_vitals={})["value"] == "16"
+        assert handle_operation("rr", case, current_vitals={"spo2": 90})["value"] == "21"
+
+
 class TestPhysiologyLinkage:
     """联动网络：未配置体征按已配置体征的偏离做代偿偏移（确定性）。"""
 

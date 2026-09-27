@@ -5,26 +5,17 @@ import logging
 from core.exceptions import ValidationError
 from modules.training.features import is_feature_enabled
 from modules.training.tools.exam_emotion import apply_exam_emotion
-from modules.training.tools.physical_exam_rules import handle_operation
+from modules.training.tools.physical_exam_rules import VITAL_KEYS_BY_OP, handle_operation
 
 from .base import ToolContext, ToolHandler, ToolResult, copy_runtime_state
 
 log = logging.getLogger(__name__)
 
-_VITALS_MAP: dict[str, tuple[str, ...]] = {
-    "hr": ("hr",),
-    "bp": ("bp_sys", "bp_dia"),
-    "rr": ("rr",),
-    "spo2": ("spo2",),
-    "temp": ("temp",),
-    "pain": ("pain",),
-}
-
 
 def _vitals_patch(op_type: str, value: str) -> dict:
-    if op_type not in _VITALS_MAP:
+    if op_type not in VITAL_KEYS_BY_OP:
         return {}
-    fields = _VITALS_MAP[op_type]
+    fields = VITAL_KEYS_BY_OP[op_type]
     patch: dict[str, float | int] = {}
     if op_type == "bp":
         try:
@@ -53,9 +44,14 @@ class PhysicalExamHandler(ToolHandler):
             raise ValidationError(detail="缺少 op_type")
 
         record = ctx.record
-        result = handle_operation(op_type, ctx.case_data)
-
         rs = copy_runtime_state(ctx)
+        # 床旁读数的准是**患者当前状态**（runtime_state.scene.vitals，与 _public_scene 下发的
+        # 是同一份）：病例 physical_exam 配置只是初始值。否则场景一被改（病程推进 / 任何状态变化），
+        # 屏幕上的值与量到的值就会当场分叉。
+        scene = rs.get("scene")
+        current_vitals = scene.get("vitals") if isinstance(scene, dict) else None
+        result = handle_operation(op_type, ctx.case_data, current_vitals=current_vitals)
+
         exam_results = rs.get("exam_results", [])
         if not isinstance(exam_results, list):
             exam_results = []

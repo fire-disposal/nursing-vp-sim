@@ -405,6 +405,40 @@ class TestPhysicalExam:
         types = [e["type"] for e in ctx.record.runtime_state["exam_results"]]
         assert types == ["hr", "temp"]
 
+    @pytest.mark.asyncio
+    async def test_measure_reads_scene_vitals_first(self):
+        """床旁读数读**患者当前状态**：病例配置只是初始值，屏幕上显示的是场景。"""
+        handler = PhysicalExamHandler()
+        case_data = _case(activities={"physical_exam": {"config": {"vital_signs": {"spo2": "91-94"}}}})
+        record = SimpleNamespace(
+            id=1,
+            user_id=10,
+            runtime_state={"exam_results": [], "scene": {"vitals": {"spo2": 88}}},
+            status="in_progress",
+            case_snapshot=case_data,
+            practice_snapshot={},
+        )
+        ctx = _ctx(record=record, case_data=case_data)
+        result = await handler.handle("measure", {"op_type": "spo2"}, ctx)
+
+        assert result.data["result"]["value"] == "88"  # 病例配置中点是 92.5
+        assert result.data["result"]["interpretation"]["status"] == "low"
+        assert "88" in result.data["result"]["interpretation"]["text"]
+        entry = ctx.record.runtime_state["exam_results"][-1]
+        assert entry["value"] == "88"
+        assert entry["status"] == "low"
+        # 写回的仍是同一个值（场景与结果不分叉）
+        assert ctx.record.runtime_state["scene"]["vitals"]["spo2"] == 88
+        assert result.scene == {"vitals": {"spo2": 88.0}}
+
+    @pytest.mark.asyncio
+    async def test_measure_without_scene_uses_case_config(self):
+        handler = PhysicalExamHandler()
+        case_data = _case(activities={"physical_exam": {"config": {"vital_signs": {"spo2": "91-94"}}}})
+        ctx = _ctx(case_data=case_data)
+        result = await handler.handle("measure", {"op_type": "spo2"}, ctx)
+        assert result.data["result"]["value"] == "92.5"
+
 
 # ── exam emotion derivation (pure) ────────────────────────────────────────
 

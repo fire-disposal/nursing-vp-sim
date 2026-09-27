@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from core.exceptions import ValidationError
@@ -42,6 +43,18 @@ _LEGACY_OP_DEFS: dict[str, dict] = {
 }
 
 _VITAL_OPS = frozenset({"temp", "hr", "bp", "rr", "spo2"})
+
+#: op_type → ``scene.vitals`` / ``VitalsState`` 的字段（血压是成对的两项）。
+#: 读（本模块按当前状态取读数）与写（``physical_exam`` 把测量结果写回场景）共用同一份映射，
+#: 两边各写一份就会再次分叉成"量到的值 ≠ 屏幕上的值"。
+VITAL_KEYS_BY_OP: dict[str, tuple[str, ...]] = {
+    "hr": ("hr",),
+    "bp": ("bp_sys", "bp_dia"),
+    "rr": ("rr",),
+    "spo2": ("spo2",),
+    "temp": ("temp",),
+    "pain": ("pain",),
+}
 
 # ── 年龄自适应默认值（range 格式，前端显示时解析为中值）────────────
 
@@ -202,8 +215,44 @@ def _apply_offsets(op_type: str, base: str, offsets: dict[str, float]) -> str:
     return base
 
 
-def _resolve_physiology(case_data: dict) -> dict[str, str]:
-    """解析全部体征：已配置的尊重原值，未配置的取年龄默认值并叠加代偿偏移。"""
+def _format_num(v: float) -> str:
+    """体征值的显示形态：整数值不拖 ``.0``（与配置/默认值解析出的字符串同形）。"""
+    return str(int(v)) if v.is_integer() else str(v)
+
+
+def current_vital_value(op_type: str, current_vitals: Mapping[str, Any] | None) -> str | None:
+    """患者**当前状态**里该指标的读数（``runtime_state.scene.vitals``）。
+
+    只认能当读数用的数值：未测量（键不存在 / ``None``）、脏值（非数值串）、
+    半条血压（只有收缩压或只有舒张压）一律返回 ``None`` —— 交由病例配置回落，
+    而不是把不完整的事实硬凑成一个读数。
+    """
+    if not isinstance(current_vitals, Mapping):
+        return None
+    keys = VITAL_KEYS_BY_OP.get(op_type)
+    if not keys:
+        return None
+    if op_type == "bp":
+        sys_v = _parse_num(current_vitals.get("bp_sys"))
+        dia_v = _parse_num(current_vitals.get("bp_dia"))
+        if sys_v is None or dia_v is None:
+            return None
+        return f"{_format_num(sys_v)}/{_format_num(dia_v)}"
+    v = _parse_num(current_vitals.get(keys[0]))
+    return None if v is None else _format_num(v)
+
+
+def _resolve_physiology(case_data: dict, current_vitals: Mapping[str, Any] | None = None) -> dict[str, str]:
+    """解析全部体征：当前状态 > 病例声明值 > 年龄默认值（未配置项叠加代偿偏移）。
+
+    优先级就是"一个事实一个 owner"的时序版本：``current_vitals``
+    （``runtime_state.scene.vitals``）是患者**当前**状态的 owner，病例
+    ``activities.physical_exam.config`` 只是**初始值**。床旁读到的必须与屏幕上的一致，
+    所以场景里已经写过的指标以场景为准；没写过的才回落到病例配置。
+
+    回落集合同时是代偿偏移的输入——偏移依据的是**当前**体征，而不是被病程推进
+    取代过的初始值（否则"患者已经低氧了，派生呼吸频率却按初始值算"）。
+    """
     anchors = _activity_anchors(case_data)
     op_defs = _collect_op_defs(anchors)
     group = _get_age_group(case_data)
@@ -216,6 +265,12 @@ def _resolve_physiology(case_data: dict) -> dict[str, str]:
         val = _try_from_config(tuple(op_def.get("source", ())), anchors, case_data)
         if val is not None:
             configured[op_type] = val
+
+    # 场景里写过的（当前状态）覆盖病例声明（初始值）
+    for op_type in _VITAL_ORDER:
+        current = current_vital_value(op_type, current_vitals)
+        if current is not None:
+            configured[op_type] = current
 
     offsets = _compute_link_offsets(configured, group)
 
@@ -275,11 +330,21 @@ def _interpret_measurement(op_type: str, value: str, label: str, case_data: dict
 # ── 公共入口 ────────────────────────────────────────────────────────────
 
 
-def handle_operation(op_type: str, case_data: dict) -> dict:
+def handle_operation(
+    op_type: str,
+    case_data: dict,
+    *,
+    current_vitals: Mapping[str, Any] | None = None,
+) -> dict:
     """执行一项查体/测量操作。
 
-    所有标准操作始终可用：优先从病例声明的 ``activities.physical_exam.config``
-    读取配置值，缺失时根据患者年龄返回临床合理默认值。
+    所有标准操作始终可用：体征优先读患者**当前状态**（``current_vitals`` —— 即
+    ``runtime_state.scene.vitals``，读写两侧与前端下发认的都是这一份），病例声明的
+    ``activities.physical_exam.config`` 退居**初始值**，两者都没有时按患者年龄返回临床合理默认值。
+    不传 ``current_vitals`` 时与只读病例配置的老行为一致。
+
+    解读（``interpretation``）拿的就是上面算出的同一个 ``value``，不存在"显示一个值、
+    按另一个值判定"的第二条路径。
     """
     anchors = _activity_anchors(case_data)
     op_defs = _collect_op_defs(anchors)
@@ -290,7 +355,7 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
         raise ValidationError(detail=f"不支持的操作: {op_type}")
 
     if op_type in _VITAL_OPS or op_type == "pain":
-        value = _resolve_physiology(case_data).get(op_type, "—")
+        value = _resolve_physiology(case_data, current_vitals).get(op_type, "—")
     else:
         value = _resolve_value(op_type, op_def, anchors, case_data)
 
