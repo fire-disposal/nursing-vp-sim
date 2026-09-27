@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { Box, Group, Stack, Text } from "@mantine/core";
-import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
-import { useInitialMessages, useExamResults, usePatientData } from "@/engine/TrainingDataContext";
+import { Alert, Box, Group, Stack, Text } from "@mantine/core";
+import { IconAlertTriangle, IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
+import { completionBlockers } from "@/engine/manifest";
+import { useInitialMessages, useExamResults, usePatientData, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
@@ -68,6 +69,8 @@ export function ChatArea({
   const examResults = useExamResults();
   // 空态：本病例没有可用的床旁能力（也没有问诊清单）时，明确告知本次训练以对话为主
   const hasWorkspacePane = useWorkspacePanes().length > 0;
+  // 交卷门禁由 manifest 下发；这里只渲染原因，不在前端推导
+  const blockers = completionBlockers(useSessionManifest());
   const hasConversationActivity =
     messages.some(m => m.role === "student") ||
     initialMessages.some(m => m.role === "student") ||
@@ -103,7 +106,7 @@ export function ChatArea({
 
 	return (
 		// 顶部退避由 TrainingEngine 统一负责，本层不得重复让位——重复会让对话列比患者列低一个顶栏高度
-		<Stack gap={0} flex={1} mih={0}>
+		<Stack gap={0} flex={1} mih={0} miw={0}>
 			<AnimatePresence mode="wait">
 				{!hasConversationActivity ? (
 					<motion.div
@@ -114,13 +117,13 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
-						<Box style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
+						<Box miw={0} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
 							<WelcomeScreen
 								patient={patient}
 								onQuickPrompt={onSend}
 							/>
 							{greeting && (
-								<Box px="xs" mt="xs" mx="auto" w="100%" maw={768}>
+								<Box px="xs" mt="xs" mx="auto" w="100%" maw={800} miw={0}>
 									<Group justify="flex-start">
 										<Box
 											maw="80%"
@@ -150,7 +153,7 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
-						<Box style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
+						<Box miw={0} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
 							<ChatDisplay
 								messages={messages}
 								patient={patient}
@@ -169,6 +172,28 @@ export function ChatArea({
 				<Text size="xs" c="dimmed" ta="center" py={6}>
 					本病例未配置床旁能力，本次训练以护患对话为主
 				</Text>
+			)}
+			{/* 交卷门禁的**唯一可见处**：原因在这里，计数在顶栏按钮，逐条动作与"要交什么"在完成清单。
+			    窄屏也一样（任何一级都不降级成纯文字）。 */}
+			{blockers.length > 0 && (
+				<Alert
+					variant="light"
+					color="orange"
+					radius="md"
+					icon={<IconAlertTriangle size={18} />}
+					title="还不能交卷"
+					aria-live="polite"
+					mx="md"
+					mb="xs"
+				>
+					<Stack gap={2}>
+						{blockers.map((blocker) => (
+							<Text key={blocker.code} size="sm">
+								{blocker.message}
+							</Text>
+						))}
+					</Stack>
+				</Alert>
 			)}
 			<ConversationComposer onSend={onSend} disabled={sending || trainingEnded} loading={sending} trainingEnded={trainingEnded} />
 

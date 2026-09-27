@@ -1,8 +1,7 @@
 import { type ReactNode, useMemo } from "react";
 import { Badge, Box, Group, Stack, Text } from "@mantine/core";
-import { IconAlertTriangle } from "@tabler/icons-react";
 import { Card } from "@/components/ui/card";
-import { availableActivities, completionBlockers, requiredArtifacts } from "@/engine/manifest";
+import { availableActivities, requiredArtifacts } from "@/engine/manifest";
 import { useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import type { PatientData } from "@/engine/types";
 import { activityStatus } from "./workspace/ActivityStatusBadge";
@@ -39,7 +38,6 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	}, [manifest]);
 
 	const requiredKinds = useMemo(() => requiredArtifacts(manifest), [manifest]);
-	const blockers = completionBlockers(manifest);
 	const quickPrompts = useMemo(() => getGuidedQuickPrompts(patient), [patient]);
 
 	return (
@@ -91,21 +89,6 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 								.map((activity) => `${activity.label}（${activityStatus(activity)?.label ?? "不可用"}）`)
 								.join("、")}
 						</Text>
-					)}
-
-					{/* 还缺什么：只在服务端给出 blocker 时出现，不凭空声称状态 */}
-					{blockers.length > 0 && (
-						<Group gap={6} wrap="nowrap" align="flex-start">
-							<IconAlertTriangle size={14} color="var(--mantine-color-orange-6)" style={{ marginTop: 2, flexShrink: 0 }} />
-							<Text size="xs" c="orange" lh={1.6}>
-								{blockers.map((blocker, i) => (
-									<Text key={`${blocker.code}-${i}`} component="span" size="xs" c="orange">
-										{i > 0 ? "；" : ""}
-										{blocker.message}
-									</Text>
-								))}
-							</Text>
-						</Group>
 					)}
 
 					{showGuidance && onQuickPrompt && quickPrompts.length > 0 && (

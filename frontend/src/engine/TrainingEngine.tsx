@@ -9,7 +9,7 @@ import { LoadingSkeleton } from "@/components/ui";
 import { ChatArea } from "@/components/training/ChatArea";
 import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
-import { TrainingHeader } from "@/components/training/TrainingHeader";
+import { TRAINING_HEADER_HEIGHT, TrainingHeader } from "@/components/training/TrainingHeader";
 import { getPatientAvatar } from "@/utils/avatar";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useIsMobile } from "@/hooks/useLayoutMode";
@@ -424,7 +424,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 					flex={1}
 					mih={0}
 					pos="relative"
-					pt={isShort ? 36 : { base: 44, xs: 48 }}
+					pt={isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide}
 					direction={{ base: "column", sm: "row" }}
 					style={{ overflow: "hidden" }}
 				>

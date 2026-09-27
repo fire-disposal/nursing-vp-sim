@@ -81,7 +81,7 @@ export function InquiryProgressChip() {
 				{...hover}
 			>
 				<IconBulb size={12} />
-				<Text component="span" size="11px" c="yellow.7" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
+				<Text component="span" size="sm" c="yellow.7" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
 					提示 {hints.length}
 				</Text>
 			</Box>
@@ -106,7 +106,7 @@ export function InquiryProgressChip() {
 			<IconListCheck size={12} />
 			<Text
 				component="span"
-				size="11px"
+				size="sm"
 				c={PROGRESS_TEXT[band]}
 				fw={600}
 				style={{ fontVariantNumeric: "tabular-nums" }}

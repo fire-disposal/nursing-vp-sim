@@ -76,7 +76,7 @@ export default function InquiryTool() {
 					))}
 				</Stack>
 				<Text
-					size="11px"
+					size="sm"
 					c="dimmed"
 					mt="md"
 					pt={8}
@@ -153,7 +153,7 @@ export default function InquiryTool() {
 			</Box>
 
 			<Text
-				size="11px"
+				size="sm"
 				c="dimmed"
 				mt="md"
 				pt={8}

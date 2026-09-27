@@ -3,16 +3,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ActionIcon, Badge, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
+import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { pauseTraining } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
-import { InquiryProgressChip } from "@/components/training/InquiryProgressChip";
 import { ACTION_COMPLETE_SESSION, completionBlockers } from "@/engine/manifest";
 import { usePatientData, useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
+
+/** 顶栏高度（px）：桌面 56，手机/矮视口 44。内容区退避与右侧面板起点都读这里，避免三处各写一个数。 */
+export const TRAINING_HEADER_HEIGHT = { wide: 56, short: 44 } as const;
 
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。
  *
@@ -63,6 +66,8 @@ export function TrainingHeader({
 	const recordId = useTrainingStore(s => s.recordId);
 	const bus = useTrainingStore(s => s.bus);
 	const isShort = useShortViewport();
+	const isMobile = useIsMobile();
+	const headerHeight = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
 	const navigate = useNavigate();
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -174,7 +179,7 @@ export function TrainingHeader({
 		background: "var(--mantine-color-body)",
 		paddingTop: "env(safe-area-inset-top, 0px)",
 		boxShadow: "var(--mantine-shadow-xs)",
-		height: isShort ? 36 : 44,
+		height: headerHeight,
 	};
 
 	if (!patient) {
@@ -199,7 +204,7 @@ export function TrainingHeader({
 	return (
 		<>
 			<Box component="header" pos="absolute" top={0} left={0} right={0} px="xs" style={headerStyle}>
-				<Group gap={8} h="100%" wrap="nowrap">
+				<Group gap={8} h="100%" wrap="nowrap" justify="space-between">
 					<ActionIcon
 						variant="default"
 						size={isShort ? "md" : "lg"}
@@ -211,7 +216,7 @@ export function TrainingHeader({
 					</ActionIcon>
 
 					{isHiddenCase ? (
-						<Group gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+						<Group gap={8} wrap="nowrap" display={{ base: "none", sm: "flex" }} style={{ flex: 1, minWidth: 0 }}>
 							<Box>
 								<Text size="sm" fw={600} truncate lh={1.2}>
 									{mode === "blind_box" ? "盲盒训练" : "隐藏病例练习"}
@@ -222,10 +227,10 @@ export function TrainingHeader({
 							</Box>
 						</Group>
 					) : (
-						<Group gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+						<Group gap={8} wrap="nowrap" display={{ base: "none", sm: "flex" }} style={{ flex: 1, minWidth: 0 }}>
 							<Box style={{ minWidth: 0 }}>
+								{/* 患者姓名/年龄由患者列（桌面）与患者条（手机）承担，这里只说"这是哪一次训练" */}
 								<Text size="sm" fw={600} truncate lh={1.2}>
-									{patient.name}
 								</Text>
 								<Text size="xs" c="dimmed" truncate lh={1.2}>
 									{patient.caseTitle || patient.chiefComplaint}
@@ -234,8 +239,6 @@ export function TrainingHeader({
 						</Group>
 					)}
 
-					{/* 采集进度：与计时、交卷同一条状态线（不再散落在患者卡里） */}
-					<InquiryProgressChip />
 					<Group
 						gap={6}
 						px={8}
@@ -268,7 +271,7 @@ export function TrainingHeader({
 						{ttsAutoPlay ? <IconVolume2 size={isShort ? 14 : 16} /> : <IconEarOff size={isShort ? 14 : 16} />}
 					</ActionIcon>
 					{ttsDegradedProvider && (
-						<Text span size="10px" c="yellow.7" fw={700} title={ttsToggleLabel}>
+						<Text span size="xs" c="yellow.7" fw={700} title={ttsToggleLabel}>
 							语音降级
 						</Text>
 					)}

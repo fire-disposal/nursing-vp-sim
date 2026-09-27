@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe("开场任务卡：角色、步骤、缺什么", () => {
-	it("角色一行 + 步骤芯片（含必交与产物状态）+ 服务端 blocker", () => {
+	it("角色一行 + 步骤芯片（含必交与产物状态）；门禁不在任务卡复述", () => {
 		const manifest = makeManifest({
 			activities: [NURSING_RECORD, PHYSICAL_EXAM, QUIZ_UNAVAILABLE],
 			artifacts: {
@@ -85,7 +85,8 @@ describe("开场任务卡：角色、步骤、缺什么", () => {
 		expect(screen.getByText("必交")).toBeInTheDocument();
 		expect(screen.getByText("未填写")).toBeInTheDocument();
 		expect(screen.getByText("本次不可用：随堂测验（本病例未配置）")).toBeInTheDocument();
-		expect(screen.getByText("请先提交护理记录，再结束训练")).toBeInTheDocument();
+		// 门禁的唯一可见处在输入区上方（ChatArea 的 Alert），任务卡不重复
+		expect(screen.queryByText("请先提交护理记录，再结束训练")).toBeNull();
 	});
 
 	it("开场不复述流程：产物明细与复盘路径只在完成清单里", () => {

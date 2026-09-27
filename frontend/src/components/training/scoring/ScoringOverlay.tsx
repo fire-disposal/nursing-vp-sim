@@ -221,7 +221,7 @@ export function ScoringOverlay({
 				{/* Footer */}
 				{isActive && (
 					<Group justify="space-between" gap={12} mt="md" wrap="nowrap">
-						<Text size="11px" c="dimmed" lh={1.4}>
+						<Text size="sm" c="dimmed" lh={1.4}>
 							评分完成后自动跳转结果页，<br />也可提前返回训练选择
 						</Text>
 						<Button

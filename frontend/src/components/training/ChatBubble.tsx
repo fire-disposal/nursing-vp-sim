@@ -177,7 +177,7 @@ export const ChatBubble = memo(function ChatBubble({
 						maxRows={6}
 					/>
 					<Group justify="space-between" gap={8} mt={8} wrap="nowrap">
-						<Text size="11px" c="dimmed">
+						<Text size="xs" c="dimmed">
 							将重新生成患者回复，剩余 {correctionsRemaining} 次
 						</Text>
 						<Group gap={6}>

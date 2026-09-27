@@ -107,6 +107,8 @@ describe("患者条：竖屏手机（390x844）", () => {
 		expect(stage).toHaveAttribute("data-patient-mode", "compact");
 		expect(stage).toHaveTextContent("王建国");
 		expect(stage).toHaveTextContent("主诉：喘不上气");
+		// 采集进度与身份同处一屏也不许把姓名挤掉（曾因 chip 同行而截断到 0 宽）
+		expect(stage.textContent).toContain("王建国");
 		// 情绪是持续观察项：患者条上常驻
 		expect(stage).toHaveTextContent("正常交流");
 		// 大图（fill / 160px 大脸）默认不挂载：纵向空间全留给对话
@@ -129,13 +131,13 @@ describe("患者条：竖屏手机（390x844）", () => {
 });
 
 describe("患者上下文列：≥ 768px（含横屏手机 844x390）", () => {
-	it("横屏手机：216px 常驻列 + 常驻大图，且不引入覆盖层", () => {
+	it("横屏手机：248px 常驻列 + 常驻大图，且不引入覆盖层", () => {
 		setViewport(844, 390);
 		const { container } = renderWithWelcomeCard();
 		const stage = patientStage(container);
 
 		expect(stage).toHaveAttribute("data-patient-mode", "full");
-		expect(stage).toHaveStyle({ width: "216px" });
+		expect(stage).toHaveStyle({ width: "248px" });
 		expect(bigFace(container)).toBeDefined();
 		expect(fixedChildren(stage)).toEqual([]);
 	});
@@ -146,7 +148,7 @@ describe("患者上下文列：≥ 768px（含横屏手机 844x390）", () => {
 		const stage = patientStage(container);
 
 		expect(stage).toHaveAttribute("data-patient-mode", "full");
-		expect(stage).toHaveStyle({ width: "216px" });
+		expect(stage).toHaveStyle({ width: "248px" });
 		expect(bigFace(container)).toBeDefined();
 	});
 });
@@ -164,7 +166,7 @@ describe("触摸目标 ≥44px", () => {
 		setViewport(1440, 900);
 		render(withTrainingData(<ActivityRail />, session()));
 		const button = screen.getByLabelText("护理记录（草稿未提交）");
-		expect(button).toHaveStyle({ height: "60px" });
+		expect(button).toHaveStyle({ height: "44px" });
 	});
 });
 

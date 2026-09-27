@@ -26,6 +26,11 @@ export const theme = createTheme({
 	// Mantine 内置过渡尊重系统减弱动态偏好
 	respectReducedMotion: true,
 	defaultRadius: "sm",
+	// 字号阶梯（评审采纳：正文 15px/1.55，辅助最小 13px，标题 1.3–1.35）。
+	// Mantine 默认 md=16 / sm=14 / xs=12，中文界面下正文略偏大而辅助文字偏小；
+	// 收成正一档后，页面上不再出现 11px 正文（那类尺寸既难读也说不清层级）。
+	fontSizes: { xs: "12px", sm: "13px", md: "15px", lg: "17px", xl: "22px" },
+	lineHeights: { xs: "1.45", sm: "1.55", md: "1.55", lg: "1.35", xl: "1.3" },
 	primaryColor: "brand",
 	// 亮色用 7 号（而非 6 号）：6 号 #2c9a82 作白底文字或白字按钮底色只有 ≈3.5:1，
 	// 低于 WCAG AA 正文 4.5:1（审计 UI-A11Y-1 实测）；7 号 #247f6b ≈4.9:1，两种用法都合规。

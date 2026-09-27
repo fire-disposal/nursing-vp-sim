@@ -5,11 +5,12 @@ import { useExamResults, usePatientData, useRecordFeatures } from "@/engine/Trai
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
+import { InquiryProgressChip } from "./InquiryProgressChip";
 import PatientPresenter from "./presentation/PatientPresenter";
 import { buildPatientPresentation } from "./presentation/build";
 
 /** 桌面上下文列宽度：够读，不抢对话区 */
-const CONTEXT_COLUMN_WIDTH = 216;
+const CONTEXT_COLUMN_WIDTH = 248;
 
 /** 体征状态 → Mantine 色（与服务端 `interpretation.status` 同一语义：高/低 = 需注意） */
 const VITAL_STATUS_COLOR: Record<string, string> = {
@@ -103,23 +104,30 @@ export default function PatientStage() {
 					<Group gap="sm" wrap="nowrap">
 						<PatientPresenter presentation={presentation} size={36} rounded="full" />
 						<Box miw={0} flex={1}>
-							<Group gap={6} wrap="nowrap">
-								<Text size="sm" fw={700} truncate>
-									{name}
-								</Text>
-								{identity && (
-									<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-										{identity}
+							{/* 第一行：姓名 · 年龄性别 + 采集进度（进度是"对这位患者问到多少"，与身份同一行不抢位） */}
+							<Group gap={6} wrap="nowrap" justify="space-between">
+								<Group gap={6} wrap="nowrap" miw={0}>
+									<Text size="sm" fw={700} truncate>
+										{name}
+									</Text>
+									{identity && (
+										<Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+											{identity}
+										</Text>
+									)}
+								</Group>
+								<InquiryProgressChip />
+							</Group>
+							{/* 第二行：主诉 + 情绪（情绪是持续观察项，常驻） */}
+							<Group gap={8} wrap="nowrap" mt={2}>
+								{chiefComplaint && (
+									<Text size="xs" c="dimmed" truncate flex={1}>
+										主诉：{chiefComplaint}
 									</Text>
 								)}
+								{bus && <EmotionIndicator bus={bus} features={features} recordId={recordId} compact />}
 							</Group>
-							{chiefComplaint && (
-								<Text size="xs" c="dimmed" truncate mt={2}>
-									主诉：{chiefComplaint}
-								</Text>
-							)}
 						</Box>
-						{bus && <EmotionIndicator bus={bus} features={features} recordId={recordId} compact />}
 					</Group>
 				</UnstyledButton>
 				{portrait}
@@ -145,12 +153,14 @@ export default function PatientStage() {
 					overflowY: "auto",
 				}}
 			>
-				<Paper withBorder radius="lg" p={6} pos="relative">
+				<Paper withBorder radius="lg" p={6} pos="relative" bg="gray.0">
+					{/* 固定 4:5 容器 + 裁切：抠图是竖构图，拉成任意比例会显得像贴纸（评审 B4） */}
 					<UnstyledButton
 						data-patient-stage-head
 						onClick={() => setPortraitOpen(true)}
 						aria-label={`查看患者${name}的大图`}
 						w="100%"
+						style={{ display: "block", aspectRatio: "4 / 5", overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
 					>
 						<PatientPresenter presentation={presentation} fill />
 					</UnstyledButton>
@@ -180,7 +190,7 @@ export default function PatientStage() {
 
 				{chiefComplaint && (
 					<Stack gap={2}>
-						<Text size="11px" fw={600} c="dimmed">
+						<Text size="sm" fw={600} c="dimmed">
 							主诉
 						</Text>
 						<Text size="xs" lh={1.55} lineClamp={4}>
@@ -189,10 +199,14 @@ export default function PatientStage() {
 					</Stack>
 				)}
 
+				<Box>
+					<InquiryProgressChip />
+				</Box>
+
 				{/* 已测体征：只有学生真的测过才出现（没测 = 不知道，不预支答案） */}
 				{vitals.length > 0 && (
 					<Stack gap={2}>
-						<Text size="11px" fw={600} c="dimmed">
+						<Text size="sm" fw={600} c="dimmed">
 							已测体征
 						</Text>
 						{vitals.map((entry) => (

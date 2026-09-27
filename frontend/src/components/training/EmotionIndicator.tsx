@@ -248,7 +248,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 					>
 						{displayIcon}
 					</Text>
-					<Text size="11px" c="dimmed" truncate>{displayLabel}</Text>
+					<Text size="sm" c="dimmed" truncate>{displayLabel}</Text>
 					{/* Trust micro-bar */}
 					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", flexShrink: 0 }}>
 						<Box
