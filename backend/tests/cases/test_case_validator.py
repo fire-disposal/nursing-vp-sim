@@ -92,6 +92,59 @@ def test_fontanelle_detected():
     assert any("前囟" in i.message for i in r.errors)
 
 
+# ── 场景（scene）形状与取值 ──────────────────────────────────────────────
+
+
+def _with_scene(scene: dict) -> dict:
+    c = json.loads(json.dumps(_load("case1")))
+    c["scene"] = scene
+    return c
+
+
+_VALID_SCENE = {
+    "environment": {"type": "er", "time_of_day": "night", "equipment": ["氧气管"], "noise_level": "moderate"},
+    "patient": {"position": "semi-recumbent", "consciousness": "alert", "visible_symptoms": ["喘息"]},
+    "vitals": {"hr": 96, "rr": 24, "spo2": 92, "temp": 37.8, "bp_sys": 142, "bp_dia": 88, "pain": 3},
+    "phase": "initial_assessment",
+}
+
+
+def test_scene_absent_is_ok():
+    """场景可选：不声明 scene 的病例照常通过（当前多数内置病例如此）。"""
+    assert validate_case(_load("case1")).ok()
+
+
+def test_valid_scene_passes():
+    assert validate_case(_with_scene(_VALID_SCENE)).ok()
+
+
+def test_scene_wrong_enum_is_error():
+    scene = json.loads(json.dumps(_VALID_SCENE))
+    scene["environment"]["type"] = "icu2"
+    r = validate_case(_with_scene(scene))
+    assert any("scene 形状不合法" in i.message and "scene.environment.type" in i.field for i in r.errors)
+
+
+def test_scene_string_vital_is_error():
+    scene = json.loads(json.dumps(_VALID_SCENE))
+    scene["vitals"]["hr"] = "很快"
+    r = validate_case(_with_scene(scene))
+    assert any("scene.vitals.hr" in i.field for i in r.errors)
+
+
+def test_scene_implausible_vital_is_error():
+    """笔误型数值（spo2=920）必须发布前报错——否则它会原样进患者上下文。"""
+    scene = json.loads(json.dumps(_VALID_SCENE))
+    scene["vitals"]["spo2"] = 920
+    r = validate_case(_with_scene(scene))
+    assert any("生理范围" in i.message and "scene.vitals.spo2" in i.field for i in r.errors)
+
+
+def test_scene_non_object_is_error():
+    r = validate_case(_with_scene(["不是对象"]))
+    assert any(i.field == "scene" and "必须是对象" in i.message for i in r.errors)
+
+
 # ── 数量约束 ─────────────────────────────────────────────────────────────
 
 

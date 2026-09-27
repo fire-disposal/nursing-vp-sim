@@ -21,6 +21,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from core.time_limits import MAX_TIME_LIMIT_MINUTES, MIN_TIME_LIMIT_MINUTES
 from modules.training.activities import (
     ACTIVITY_BINDINGS,
@@ -1199,6 +1201,76 @@ def _check_difficulty_content(c: dict, issues: list[CaseIssue]) -> None:
         )
 
 
+#: 场景体征的**生理可能**宽区间（不是临床阈值/参考范围）：只为拦住笔误
+#:（`spo2=920`、`temp=378` 这类），不做任何医学判断。
+_VITAL_SANITY_BOUNDS: dict[str, tuple[float, float]] = {
+    "hr": (20, 300),
+    "bp_sys": (40, 300),
+    "bp_dia": (20, 200),
+    "rr": (4, 80),
+    "spo2": (0, 100),
+    "temp": (30.0, 45.0),
+    "pain": (0, 10),
+}
+
+
+def _check_scene(c: dict, issues: list[CaseIssue]) -> None:
+    """病例 ``scene`` 的形状与取值范围（docs/15 §六 场景注入）。
+
+    没有这条规则时，场景写错（枚举值拼错、``vitals.hr`` 写成字符串）能**通过发布**：
+    运行期 ``prompt_builder._resolve_scene_text`` 会静默退化（整段场景不注入），
+    学生界面又看不到场景（前端无消费者），错误没有任何可见出口 —— 与"让错误可见"相反。
+
+    形状以 ``SceneState`` 为唯一权威（与运行期同一个模型，避免两套口径）；数值只做
+    生理可能的宽区间校验。
+    """
+    raw = c.get("scene")
+    if raw is None or (isinstance(raw, (dict, list)) and not raw):
+        return  # 场景可选：当前多数内置病例没有
+
+    if not isinstance(raw, dict):
+        issues.append(
+            _e(
+                "scene 必须是对象",
+                "scene",
+                '形如 {"environment": {...}, "patient": {...}, "vitals": {...}}',
+            )
+        )
+        return
+
+    from modules.training.session.state import SceneState
+
+    try:
+        SceneState.model_validate(raw)
+    except ValidationError as exc:
+        for err in exc.errors()[:6]:
+            path = ".".join(str(part) for part in ("scene", *err.get("loc", ())))
+            issues.append(
+                _e(
+                    f"scene 形状不合法：{err.get('msg')}",
+                    path,
+                    "枚举与类型见 modules/training/session/state.py::SceneState",
+                )
+            )
+        return
+
+    vitals = raw.get("vitals")
+    if isinstance(vitals, dict):
+        for key, (low, high) in _VITAL_SANITY_BOUNDS.items():
+            value = vitals.get(key)
+            if value is None:
+                continue
+            number = float(value)  # 类型非法已由上面的模型校验拦下
+            if not low <= number <= high:
+                issues.append(
+                    _e(
+                        f"scene.vitals.{key} = {value} 超出可能的生理范围（{low}~{high}）",
+                        f"scene.vitals.{key}",
+                        "检查是否笔误",
+                    )
+                )
+
+
 def _physical_exam_config(c: dict) -> dict:
     """病例声明的查体配置（未声明 / 形状不符 → 空配置）。"""
     raw = c.get("activities")
@@ -1225,6 +1297,7 @@ def validate_case(case_data: dict) -> CaseReport:
     else:
         _check_clinical_content_declaration(case_data, issues)
         _check_activities(case_data, issues)
+        _check_scene(case_data, issues)
         _check_time_anchors(case_data, issues)
         _check_symptom_negation(case_data, issues)
         _check_person_relation(case_data, issues)

@@ -75,6 +75,10 @@
   退役内置病例必须两侧同时处理，或改为 `archived`（seed 对归档行既不更新也不复活，可逆）。
 - **外键兜底**（库层面均为 NO ACTION）：`training_records` / `assignments` / `llm_call_logs` 引用的病例删不掉；
   `case_revisions` / `case_questionnaires` 随病例级联删除。删除类迁移必须按**名字**+引用为 0 双重守卫。
+- **`scene` 有发布门禁**：`CaseDataSchema.scene` 承载环境/体位/可见体征/体征值，运行期经
+  `runtime_state.scene` 注入患者上下文（学生界面无消费者）。`validate_case` 的 `_check_scene` 校验其形状
+  （枚举/类型与运行期同一个 `SceneState` 模型）与体征的**生理可能**区间——写错在发布期报错，
+  不再"通过发布、运行期静默丢场景"。
 
 ## 七、班级、成员、作业与受众
 
