@@ -1,8 +1,8 @@
 # 05 — LLM 与评分：当前入口和量尺边界
 
 > 更新：2026-09-27。本文描述机制，**不证明评分已校准或具备教学效度**。
-> 评分改进已按 [19 — 正式训练深化计划](19-training-experience-next-generation-plan.md) W4 落地（锚点送达、原始精度、证据引用、
-> 空反馈、等第政策、可比性分组）；**教师校准未完成**，能力等第在 [评分校准工作区](calibration/README.md) 的阈值签字通过前恒不启用。
+> 评分机制改进已在历史 W4 落地（锚点送达、原始精度、证据引用、空反馈、等第政策、可比性分组）；
+> 当前 [19](19-training-experience-next-generation-plan.md) 不扩建校准机制。**教师校准未完成**，能力等第在 [评分校准工作区](calibration/README.md) 的阈值签字通过前恒不启用。
 > 旧 DB 动态 prompt、管理端在线调分及过时参数表不再作为实现说明。
 
 ## 一、代码导航
@@ -21,12 +21,12 @@
 | 关键选择投影 | `backend/modules/training/scoring/review_focus.py` |
 | 等第政策（阈值与标签单源） | `backend/modules/training/scoring/grade_policy.py` |
 | 可比性分组 | `backend/modules/training/scoring/comparability.py` |
-| 判例入选规则（W0） | `backend/modules/training/scoring/judging_set.py` + [校准工作区](calibration/README.md) |
+| 判例入选规则（历史校准资产） | `backend/modules/training/scoring/judging_set.py` + [校准工作区](calibration/README.md) |
 | 异步作业与重评快照 | `backend/modules/training/scoring/runner.py` |
 | 有效成绩与统计范围 | `backend/modules/training/scoring/grade_scope.py` |
 | 记录与复核 | `backend/models/training.py`、`backend/modules/training/router/score_review.py` |
 
-提示词是代码内容，经 `core/template.py` 渲染；本文不再保留“从 prompt_templates 表加载、管理员热修改模板”的旧架构说明。调用成本、错误与运行排查见 [运维指南](09-operations.md) 和 [LLM 排查](ops/llm-troubleshooting.md)。
+提示词当前是代码内容，经 `core/template.py` 渲染；本文不再保留“从可变 prompt_templates 表加载、管理员原地热改模板”的旧架构说明。19-E1 若因真实实验需求启动，只允许发布不可变上下文 revision 并由任务钉住。调用成本、错误与运行排查见 [运维指南](09-operations.md) 和 [LLM 排查](ops/llm-troubleshooting.md)。
 
 ## 二、评分机制
 
@@ -55,11 +55,11 @@
 **仍然存在的缺口（不是代码可补）**：
 
 - 教师判例、留出集与预先登记的验收阈值尚未完成（**单人判定即可**，不要求教师间一致性）→ 能力等第不启用（见 [校准工作区](calibration/README.md) 第七节）。
-- 维护者报告历史学生未拿过优秀、判例较严格。只读部署取证发现同一个 `nursing_history_v1@1.0` 对应多种历史量尺，不能只凭版本字符串混算趋势；完整证据和限制见 [19 第二节](19-training-experience-next-generation-plan.md#二现状证据与尚未成立的结论)。
+- 维护者报告历史学生未拿过优秀、判例较严格。只读部署取证发现同一个 `nursing_history_v1@1.0` 对应多种历史量尺，不能只凭版本字符串混算趋势；这项历史证据不改变当前 U0 的可用性研究边界。
 
 ## 四、后续改变的边界
 
-[19](19-training-experience-next-generation-plan.md) W4 的九项要求已落地为上面的机制；**等第启用**仍需教师校准（W0 输入）。
+历史 W4 的九项要求已落地为上面的机制；**等第启用**仍需教师校准输入。当前 19-C0/U0 不修改评分量尺，也不把校准列为可用性候选前置。
 
 不以提高优秀率为目标（`grade_policy.CALIBRATION_STATE` 不由分数分布决定），不静默覆盖历史成绩（历史分保持原值、缺原始层即标身份不明），不从缺失的原始数据伪造可比性（可比性分组把不可比记录分开），不把历史研究重评混成线上"重试评分"。
 

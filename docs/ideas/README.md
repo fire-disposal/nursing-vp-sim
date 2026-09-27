@@ -21,9 +21,9 @@
 | 文档 | 状态 | 要点 |
 |------|------|------|
 | [电话式纯语音采集可行性](voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP 3-5 周；B 形态 PSTN 明确不做 |
-| [患者上下文机制重构](context-mechanism-redesign.md) | 已转正（实施中） | 四域消息组装 + token 预算历史 + few-shot 示例段 + 隐藏主题泄漏守卫 |
+| [患者上下文机制重构](context-mechanism-redesign.md) | 四域已落地，C0 待收敛 | 保留固定消息布局、历史预算与泄漏守卫；删除单命名空间注册器、伪跨轮缓存和无消费者接口 |
 | [Seedance 视频情绪循环系统](seedance-emotion-loop-design.md) | 待评审（暂不实施） | 5 原型×2 变体通用 mood loop + 双缓冲边界调度；防素材膨胀 D1-D4 |
-| [提示词与上下文版本管理](prompt-context-versioning.md) | 待评审 | 产物粒度身份（提示词/评分提示词/上下文策略/rubric）+ 记录冻结 + 逐轮 ledger 落审计表；管理面只读目录与跨版本归因，不做在线编辑 |
+| [提示词与上下文版本管理](prompt-context-versioning.md) | V1 只读归因已实施，E1 待真实需求 | 产物身份 + 记录冻结 + 只读归因；U0 后只考虑不可变 revision、任务钉住与固定 A/B 分流，不热改进行中训练 |
 | [管线五阶段收敛 + Job/API 进程分离](pipeline-and-job-separation.md) | 待评审（**高优先级**） | 五阶段显式化（删中间件协议/驱动器/空阶段与双份驱动）+ 持久化 `jobs` 表（SKIP LOCKED 认领、租约心跳、退避）+ api/worker 同镜像不同角色；含内存实测与切换回滚路径 |
 | [语音对答（对标豆包 / GPT 打电话模式）技术评估](voice-dialogue-realtime-options.md) | 论证文档（非决策） | 类豆包语音对答可行且成本低；保评分/情绪/病例命脉时方案 C（音频前装 + DeepSeek 文本脑）是唯一正确路线；真实 PSTN 不做 |
 | [临床推理文字模拟 MVP-B 实施 brief](clinical_reasoning_simulation_mvp_b_implementation_brief.md) | **已冻结（历史设计稿，非实施指令）** | 时间资源/时间锚点/检查资源、可见性最小模型、CBC 生命周期等机制已在**实验模块** `backend/modules/simulations/**` 落地；**不进入正式训练闭环**，本轮不做独立学生端/第二条 workflow，去向见 [docs/18](../18-clinical-reasoning-disposition.md) |

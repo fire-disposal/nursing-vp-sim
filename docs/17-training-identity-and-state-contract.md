@@ -1,7 +1,7 @@
 # 17 — 训练域身份与状态概念契约
 
 > 目的：把「这是哪一份东西」「这能改吗」「这个数字是什么」三件事从**靠上下文猜**变成**看名字就知道**。
-> 本文是训练域命名权威；新增字段前先在这里归类。当前实现边界见 [15](15-workflow-activity-contract.md)，架构约束见 [16](16-v2-maintainable-monolith-objectives.md)，训练与评分校准实施计划见 [19](19-training-experience-next-generation-plan.md)。旧 C1–C5 实施清单已删除，不再维护平行路线。
+> 本文是训练域命名权威；新增字段前先在这里归类。当前实现边界见 [15](15-workflow-activity-contract.md)，架构约束见 [16](16-v2-maintainable-monolith-objectives.md)，当前上下文收敛与 U0 计划见 [19](19-training-experience-next-generation-plan.md)。旧 C1–C5 实施清单已删除，不再维护平行路线。
 
 ## 一、为什么要这份文档
 
@@ -90,7 +90,7 @@
 | `scores.fallback` | 兜底/降级标记（非 NULL 时必须 UI 呈现且不进排行榜） |
 | `scores.mapping_version` | 见 §2.1 |
 
-**校准边界**：部署历史中相同 `rubric_version` 对应多种原始满分和单项刻度，不能把该字符串当作可比性证明。原始条目、展示换算、能力等第政策必须分开；未来等第政策身份不得复用 `mapping_version` 或 `prompt_schema_version`。新增字段与历史解释按 [19 第四节](19-training-experience-next-generation-plan.md#四评分重构方向先定义证据意义再定义等第)，本次没有新增模型或修改旧成绩。
+**校准边界**：部署历史中相同 `rubric_version` 对应多种原始满分和单项刻度，不能把该字符串当作可比性证明。原始条目、展示换算、能力等第政策必须分开；未来等第政策身份不得复用 `mapping_version` 或 `prompt_schema_version`。现行机制与历史解释见 [05](05-llm-design.md)，能力等第启用条件见 [校准工作区](calibration/README.md)；本次没有修改旧成绩。
 
 ## 三、已发现的冲突与处置
 
@@ -121,4 +121,4 @@
 
 需要持久化时说明真实消费方、冻结时机、缺失历史如何解释及所有 API/统计/导出消费方的切换。没有原始证据的历史记录保持明确缺失，不用新规则补成“当时就是如此”。
 
-下一批次只按 [19](19-training-experience-next-generation-plan.md) 推进；本文件不再安排字段迁移或独立发布切片。
+下一批次只按 [19](19-training-experience-next-generation-plan.md) 推进；C0 删除无消费者身份/状态，不借重构造同义字段；E1 若启动，必须先在本文登记上下文 revision 与分流身份的冻结语义。

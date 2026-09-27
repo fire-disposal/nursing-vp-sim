@@ -1,15 +1,15 @@
 ---
 # 13 — 患者上下文机制重构（四域组装）
 
-> 状态：已转正（实施中于 `refactor/context-mechanism` 分支，合并后移入正式编号文档）。
-> 日期：2026-08-02。基于当前主干（`backend/modules/training/`）盘点。
+> 状态：四域运行时已并入主干；2026-09-27 复核确认存在二次收敛需求，当前入口见 [19](../19-training-experience-next-generation-plan.md#c0患者上下文运行时收敛)。
+> 原日期：2026-08-02。本文保留当时的问题、目标与落地记录，不再作为当前实施清单。
 > 范围：患者扮演管线的 LLM context 组装机制；不涉及评分/QA 管线的独立提示词。
 
 ---
 
-## 一、现状问题（基于代码事实）
+## 一、原始问题（四域实施前）
 
-当前组装链路：`prompt_builder`（PROMPT 阶段）→ 渲染 system/dynamic 模板 → `build_patient_chat_messages`。
+当时的组装链路：`prompt_builder`（PROMPT 阶段）→ 渲染 system/dynamic 模板 → `build_patient_chat_messages`。
 
 | # | 问题 | 代码证据 |
 |---|------|----------|
@@ -96,7 +96,7 @@ MIN_HISTORY_ROUNDS    = 4      # 保护集：最近 4 轮（8 条消息）无条
 
 ## 九、落地切片
 
-**本分支（refactor/context-mechanism）**：
+**已落地主体（原 `refactor/context-mechanism` 分支）**：
 
 - [x] `backend/modules/training/context/`：`assembler.py` / `budget.py` / `examples.py` / `patient_state.py` / `leak_guard.py`
 - [x] `prompt_builder` 接入四域组装；`chat_messages.py` 删除
@@ -104,15 +104,21 @@ MIN_HISTORY_ROUNDS    = 4      # 保护集：最近 4 轮（8 条消息）无条
 - [x] `llm_caller` 双路径（batch/stream）接入隐藏主题守卫
 - [x] 单测：布局/预算/示例/守卫/账本
 
-**后续（同分支或独立提交）**：
+**原后续设想（不再作为当前待办）**：
 
 - [ ] `CaseContext` 规范化：扮演/查体/评分/QA 共享一个 typed case 上下文视图
 - [ ] 快照测试（golden 组装文件）+ 行为评测套件
 - [ ] `Message.kind` 标记工具/评分事件轮 → 保护集细化
 - [ ] 反馈 Bot 评分分布 A/B（few-shot 效果验证）
 
+**2026-09-27 复核**：上述四域目标已经落地，但运行时同时遗留了单命名空间 `PromptContext`、每回合重建却被描述为
+跨轮缓存的状态、只写不读的 assembler 状态、无消费者的 `context_profile`，以及只在测试中接线的自适应预算参数。
+下一步不是继续增加槽位或插件，而是按 19-C0 收敛为一个纯上下文编译入口；行为稳定后，才评估不可变 revision
+的在线发布。即使进入该阶段，也不允许进行中训练随全局配置漂移。
+
+
 ## 十、明确不做
 
 - 模板语言不加条件逻辑（DSL 不处理"怎么变"）。
-- 不搞插件系统；不引入 DB 存储提示词（代码即版本）。
+- 本轮不搞插件系统、不引入 DB 存储提示词；未来若进入 19-E1，也只能发布不可变 revision，不能恢复全局可变模板。
 - 情绪/评分不走每轮 LLM 分析（既有规则/事件驱动已定，不回归）。

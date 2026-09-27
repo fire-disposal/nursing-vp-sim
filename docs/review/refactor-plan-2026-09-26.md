@@ -26,7 +26,7 @@
 
 - [审计与 RBAC 调查](audit-log-and-rbac-analysis-2026-09-26.md)：当时调查记录，不是当前排期。
 - [UI 审计](ui-audit-2026-09-26.md)与[维护记录](ui-improvement-plan-2026-09-26.md)：发现、历史验证与局部约定。
-- [训练体验调查](training-experience-analysis-2026-09-27.md)：核心训练断点，已映射到 19 工作包。
+- [训练体验调查](training-experience-analysis-2026-09-27.md)：W0–W6 实施前的历史断点；当前接续以 19 的 C0/U0/E1 边界为准。
 - [发布检查表](release-checklist.md)：单实例、真实路径与当前验证要求，不使用已退役 staging。
 
 不再保留“审计目前为零”“全部切片已发版”“无需再取发布许可”等误导性结论。不同日期的本地完成与线上部署必须由对应证据分别说明。

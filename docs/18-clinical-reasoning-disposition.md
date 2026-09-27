@@ -92,7 +92,7 @@
    - 正式评分使用对话、已记录动作与已提交产物等证据，不把模拟器运行态当成护理评估产物（[15](15-workflow-activity-contract.md) §五）。
 3. **允许复用经过验证的思路，不搬引擎**。可以从实验面提炼已被验证的**概念**
    （例如「病例是数据 + 发布前门禁」「确定性判定优先于 LLM 判定」「并发用 `expected_revision` + 幂等键」），
-   在 `history_taking` 与 [`docs/19`](19-training-experience-next-generation-plan.md) 的工作包里以**既有契约**实现；
+   只在 `history_taking` 与 [`docs/19`](19-training-experience-next-generation-plan.md) 的真实路径需要时按**既有契约**实现；
    但**不搬运** `simulations` 的引擎、状态机、prompt 或病例数据。
 4. **保留现有实验代码与必要维护，不扩张功能**。本次文档收敛不删除接口或路由；未来删除需明确数据与调用方处置，不由“不再提及”隐含执行。
 
@@ -132,7 +132,7 @@
 2. **病例维护者**：有人对临床准确性长期负责（编写、评审、随指南更新），而不是一次性把病例写进去。
 3. **评分验证**：该闭包的评分/判据在投入前经过教师校准与效度检查——
    **不得预设现有评分机制有效**，也不得把「提高优秀率」当作目标；
-   评分机制的有效性属于独立研究范围（见 [`docs/19`](19-training-experience-next-generation-plan.md) 的评分/反馈工作包）。
+   评分机制的有效性属于独立研究范围，现行边界见 [05](05-llm-design.md) 与 [评分校准工作区](calibration/README.md)。
 4. **教师校准闭环**：复核队列、判例与评分依据能让教师解释「为什么这么给分」。
 5. **异构成本预算**（六项都要有人/时间预算，且不能靠复制现有外围来抵账）：
 
@@ -172,5 +172,5 @@
 |---|---|
 | [`docs/15`](15-workflow-activity-contract.md) §十六 | 保留 Workflow 判别契约与作者面的**实现事实**；其 Slice 2/3/4 计划已作废，裁定以本文为准 |
 | [16](16-v2-maintainable-monolith-objectives.md) §三/§七 | 正式训练边界与变更准入，不再维护临床产品化路线 |
-| [`docs/19`](19-training-experience-next-generation-plan.md) | 唯一当前训练实施计划；本文不复述其工作包 |
+| [`docs/19`](19-training-experience-next-generation-plan.md) | 唯一当前训练实施计划；本文不复述其 C0/U0/E1 边界 |
 | [`docs/17`](17-training-identity-and-state-contract.md) | 命名权威；本文不引入新命名 |
