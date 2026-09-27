@@ -13,10 +13,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from core.audit import (
+    ACTION_CLASS_MEMBERS_ADDED,
+    ACTION_CLASS_MEMBERS_REMOVED,
+    TARGET_TYPE_CLASS,
+    record,
+)
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
@@ -33,6 +39,9 @@ from schemas import (
 )
 
 # ─────────────────────────────  可复用成员范围查询  ─────────────────────────────
+
+# 审计 payload 里保留的 user_id 采样上限：名单纯计数，避免大批量导入把审计行撑爆
+_AUDIT_USER_ID_SAMPLE = 20
 
 
 def _assert_role(role: str | None) -> None:
@@ -255,10 +264,36 @@ class ClassMembershipService:
         rows, total = paginate(member_query(self.db, class_id, role=role, search=search), offset, limit)
         return [to_member_view(m) for m in rows], total
 
-    def add_members(self, class_id: int, user_ids: list[int], member_role: str) -> ClassMemberMutationResult:
-        self.get_class(class_id)
+    def add_members(
+        self,
+        class_id: int,
+        user_ids: list[int],
+        member_role: str,
+        *,
+        request: Request | None = None,
+    ) -> ClassMemberMutationResult:
+        cls = self.get_class(class_id)
+        # 与 upsert/remove 同一口径：先按去重后的名单计数，added+updated+skipped 恒等于 requested_count
+        wanted = list(dict.fromkeys(user_ids))
         with unit_of_work(self.db, conflict_detail="成员变更冲突，请重试"):
             added, updated, missing = upsert_members(self.db, class_id, user_ids, member_role=member_role)
+            record(
+                self.db,
+                action=ACTION_CLASS_MEMBERS_ADDED,
+                target_type=TARGET_TYPE_CLASS,
+                target_id=class_id,
+                target_label=cls.name,
+                request=request,
+                payload={
+                    "member_role": member_role,
+                    "requested_count": len(wanted),
+                    "added": added,
+                    "updated": updated,
+                    "skipped": len(missing),
+                    # 名单纯计数即可；只留前 N 个 id 供追溯，避免大批量导入把审计行撑爆
+                    "user_ids_sample": wanted[:_AUDIT_USER_ID_SAMPLE],
+                },
+            )
         return ClassMemberMutationResult(
             added=added,
             updated=updated,
@@ -266,11 +301,34 @@ class ClassMembershipService:
             errors=[f"用户 {uid} 不存在" for uid in missing],
         )
 
-    def remove_members(self, class_id: int, user_ids: list[int]) -> ClassMemberMutationResult:
-        self.get_class(class_id)
+    def remove_members(
+        self,
+        class_id: int,
+        user_ids: list[int],
+        *,
+        request: Request | None = None,
+    ) -> ClassMemberMutationResult:
+        cls = self.get_class(class_id)
         wanted = list(dict.fromkeys(user_ids))
         with unit_of_work(self.db, conflict_detail="成员变更冲突，请重试"):
             removed = remove_members(self.db, class_id, wanted)
+            if removed:
+                # removed=0 不落行：单删路由在此之后抛 NotFoundError，而审计已随本次 commit 落库，
+                # 故"没删掉任何行"的空操作必须在写审计前就排除（与 ClassService.update 同一原则）。
+                record(
+                    self.db,
+                    action=ACTION_CLASS_MEMBERS_REMOVED,
+                    target_type=TARGET_TYPE_CLASS,
+                    target_id=class_id,
+                    target_label=cls.name,
+                    request=request,
+                    payload={
+                        "requested_count": len(wanted),
+                        "removed": removed,
+                        "skipped": len(wanted) - removed,
+                        "user_ids_sample": wanted[:_AUDIT_USER_ID_SAMPLE],
+                    },
+                )
         return ClassMemberMutationResult(removed=removed, skipped=len(wanted) - removed)
 
 
@@ -296,18 +354,30 @@ def list_class_members(
 
 
 @router.post("/{class_id}/members", response_model=ClassMemberMutationResult)
-def add_class_members(class_id: int, body: ClassMemberAddRequest, current_user: _Manager, db: DbSession):
-    return ClassMembershipService(db).add_members(class_id, body.user_ids, body.member_role)
+def add_class_members(
+    class_id: int,
+    body: ClassMemberAddRequest,
+    current_user: _Manager,
+    db: DbSession,
+    request: Request,
+):
+    return ClassMembershipService(db).add_members(class_id, body.user_ids, body.member_role, request=request)
 
 
 @router.post("/{class_id}/members/bulk-remove", response_model=ClassMemberMutationResult)
-def remove_class_members(class_id: int, body: ClassMemberRemoveRequest, current_user: _Manager, db: DbSession):
-    return ClassMembershipService(db).remove_members(class_id, body.user_ids)
+def remove_class_members(
+    class_id: int,
+    body: ClassMemberRemoveRequest,
+    current_user: _Manager,
+    db: DbSession,
+    request: Request,
+):
+    return ClassMembershipService(db).remove_members(class_id, body.user_ids, request=request)
 
 
 @router.delete("/{class_id}/members/{user_id}", response_model=DeleteResponse)
-def remove_class_member(class_id: int, user_id: int, current_user: _Manager, db: DbSession):
-    result = ClassMembershipService(db).remove_members(class_id, [user_id])
+def remove_class_member(class_id: int, user_id: int, current_user: _Manager, db: DbSession, request: Request):
+    result = ClassMembershipService(db).remove_members(class_id, [user_id], request=request)
     if result.removed == 0:
         raise NotFoundError("该用户不在这个班级里")
     return {"message": "成员已移出班级"}

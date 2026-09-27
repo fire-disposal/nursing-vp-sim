@@ -1,13 +1,22 @@
 # ruff: noqa: UP035, UP006
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, List
+from typing import Annotated, Any, List
 
-from fastapi import Query
+from fastapi import Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.audit import (
+    ACTION_QUESTIONNAIRE_TEMPLATE_CREATED,
+    ACTION_QUESTIONNAIRE_TEMPLATE_DELETED,
+    ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED,
+    TARGET_TYPE_QUESTIONNAIRE_TEMPLATE,
+    record,
+)
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
 from core.statuses import QuestionnaireTrigger
@@ -52,6 +61,29 @@ def template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplate
         ],
         case_ids=[cq.case_id for cq in getattr(t, "case_links", [])],
     )
+
+
+def _questions_digest(questions: list[dict] | None) -> str | None:
+    """题目集合的稳定指纹（sha256 前 12 位）。
+
+    正文改了但条数不变时也必须能留一行审计，可 payload 又不允许落正文 —— 于是落指纹：
+    键排序 + 类型归一化，并丢掉 `id` 这类纯身份字段，使「同一份内容」在任何一次 PUT 后
+    得到同一个值（幂等反例才有判据）。
+    """
+    if questions is None:
+        return None
+    normalized = [
+        {
+            "content": str(q["content"]),
+            "question_type": str(q["question_type"]),
+            "required": bool(q.get("required", True)),
+            "sort_order": int(q.get("sort_order", 0)),
+            "options": [str(o) for o in q["options"]] if q.get("options") is not None else None,
+        }
+        for q in questions
+    ]
+    blob = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
 
 @dataclass
@@ -215,6 +247,8 @@ class QuestionnaireTemplateService:
         description: str | None,
         is_active: bool,
         questions: List[dict],
+        *,
+        request: Request | None = None,
     ) -> TemplateDetailView:
         with unit_of_work(self.db, conflict_detail="创建问卷模板失败"):
             t = QuestionnaireTemplate(
@@ -236,8 +270,52 @@ class QuestionnaireTemplateService:
                         options=q_data.get("options"),
                     )
                 )
+            # 题目正文不入 payload（量大），只记条数与指纹摘要
+            record(
+                self.db,
+                action=ACTION_QUESTIONNAIRE_TEMPLATE_CREATED,
+                target_type=TARGET_TYPE_QUESTIONNAIRE_TEMPLATE,
+                target_id=t.id,
+                target_label=title,
+                request=request,
+                payload={
+                    "type": type_,
+                    "description": description,
+                    "is_active": is_active,
+                    "questions_count": len(questions),
+                    "questions_digest": self._stored_questions_digest(t.id),
+                },
+            )
         self.db.refresh(t)
         return _template_detail_view(t)
+
+    def _question_count(self, template_id: int) -> int:
+        return (
+            self.db.query(func.count(QuestionnaireQuestion.id))
+            .filter(QuestionnaireQuestion.template_id == template_id)
+            .scalar()
+        ) or 0
+
+    def _stored_questions_digest(self, template_id: int) -> str | None:
+        """按库内实况取题目指纹：before/after 两侧都从库里读，形态必然一致。"""
+        rows = (
+            self.db.query(QuestionnaireQuestion)
+            .filter(QuestionnaireQuestion.template_id == template_id)
+            .order_by(QuestionnaireQuestion.sort_order, QuestionnaireQuestion.id)
+            .all()
+        )
+        return _questions_digest(
+            [
+                {
+                    "content": q.content,
+                    "question_type": q.question_type,
+                    "required": q.required,
+                    "sort_order": q.sort_order,
+                    "options": q.options,
+                }
+                for q in rows
+            ]
+        )
 
     def update(
         self,
@@ -247,20 +325,31 @@ class QuestionnaireTemplateService:
         description: str | None,
         is_active: bool | None,
         questions: List[dict] | None,
+        *,
+        request: Request | None = None,
     ) -> TemplateDetailView:
         t = self.db.get(QuestionnaireTemplate, template_id)
         if t is None:
             raise NotFoundError("问卷模板不存在")
 
+        changes: dict[str, dict[str, Any]] = {}
+        before_q_count = self._question_count(template_id) if questions is not None else 0
+        before_q_digest = self._stored_questions_digest(template_id) if questions is not None else None
         with unit_of_work(self.db, conflict_detail="更新问卷模板失败"):
-            if title is not None:
-                t.title = title
-            if type_ is not None:
-                t.type = type_
-            if description is not None:
-                t.description = description
-            if is_active is not None:
-                t.is_active = is_active
+            # before 在写之前读，after 取本次请求的目标值（不依赖 ORM 脏状态）
+            for field, new_value in (
+                ("title", title),
+                ("type", type_),
+                ("description", description),
+                ("is_active", is_active),
+            ):
+                if new_value is None:
+                    continue
+                old_value = getattr(t, field)
+                if old_value == new_value:
+                    continue
+                changes[field] = {"before": old_value, "after": new_value}
+                setattr(t, field, new_value)
 
             if questions is not None:
                 existing = {q.id: q for q in (t.questions or [])}
@@ -298,17 +387,59 @@ class QuestionnaireTemplateService:
                         self.db.delete(q)
 
             t.updated_at = datetime.now(UTC)
+            self.db.flush()
+            if questions is not None:
+                # 题目正文不入 payload，只留条数与指纹摘要
+                after_q_count = self._question_count(template_id)
+                if after_q_count != before_q_count:
+                    changes["questions_count"] = {"before": before_q_count, "after": after_q_count}
+                after_q_digest = self._stored_questions_digest(template_id)
+                if after_q_digest != before_q_digest:
+                    changes["questions_digest"] = {"before": before_q_digest, "after": after_q_digest}
+            if changes:
+                record(
+                    self.db,
+                    action=ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED,
+                    target_type=TARGET_TYPE_QUESTIONNAIRE_TEMPLATE,
+                    target_id=t.id,
+                    target_label=t.title,
+                    request=request,
+                    payload=changes,
+                )
 
         self.db.refresh(t)
         cq_rows = self.case_links_for(template_id)
         case_ids = [cq.case_id for cq in cq_rows]
         return _template_detail_view(t, case_ids=case_ids)
 
-    def delete(self, template_id: int) -> None:
+    def delete(self, template_id: int, *, request: Request | None = None) -> None:
         t = self.db.get(QuestionnaireTemplate, template_id)
         if t is None:
             raise NotFoundError("问卷模板不存在")
+        title = t.title
+        # 绑定行随模板 CASCADE 消失，故删除前先取实况
+        bound_case_count = (
+            self.db.query(func.count(CaseQuestionnaire.id))
+            .filter(CaseQuestionnaire.template_id == template_id)
+            .scalar()
+        ) or 0
+        q_count = self._question_count(template_id)
+        q_digest = self._stored_questions_digest(template_id)
         with unit_of_work(self.db, conflict_detail="删除问卷模板失败"):
+            record(
+                self.db,
+                action=ACTION_QUESTIONNAIRE_TEMPLATE_DELETED,
+                target_type=TARGET_TYPE_QUESTIONNAIRE_TEMPLATE,
+                target_id=template_id,
+                target_label=title,
+                request=request,
+                payload={
+                    "case_bound": bound_case_count > 0,
+                    "bound_case_count": bound_case_count,
+                    "questions_count": q_count,
+                    "questions_digest": q_digest,
+                },
+            )
             self.db.delete(t)
             self.db.flush()
 
@@ -318,13 +449,17 @@ class QuestionnaireTemplateService:
         case_ids: List[int],
         is_required: bool,
         trigger_event: QuestionnaireTrigger,
+        *,
+        request: Request | None = None,
     ) -> None:
         t = self.db.get(QuestionnaireTemplate, template_id)
         if t is None:
             raise NotFoundError("问卷模板不存在")
+        before = sorted(cq.case_id for cq in self.case_links_for(template_id))
+        target = sorted(case_ids)
         with unit_of_work(self.db, conflict_detail="病例分配失败"):
             self.delete_case_links(template_id)
-            for cid in case_ids:
+            for cid in target:
                 if not self.case_exists(cid):
                     raise ValidationError(f"病例 {cid} 不存在")
                 self.db.add(
@@ -334,6 +469,18 @@ class QuestionnaireTemplateService:
                         is_required=is_required,
                         trigger_event=trigger_event,
                     )
+                )
+            self.db.flush()
+            # 病例绑定决定"学生什么时候被要求答题" → 集合变化必须留痕（A5）
+            if before != target:
+                record(
+                    self.db,
+                    action=ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED,
+                    target_type=TARGET_TYPE_QUESTIONNAIRE_TEMPLATE,
+                    target_id=template_id,
+                    target_label=t.title,
+                    request=request,
+                    payload={"case_ids": {"before": before, "after": target}},
                 )
 
     def list_all(

@@ -56,6 +56,7 @@ def create_template(
     req: QuestionnaireTemplateCreate,
     current_user: _Manager,
     db: DbSession,
+    request: Request,
 ):
     return QuestionnaireTemplateDetailResponse.model_validate(
         QuestionnaireTemplateService(db).create(
@@ -64,6 +65,7 @@ def create_template(
             description=req.description,
             is_active=req.is_active,
             questions=[q.model_dump() for q in req.questions],
+            request=request,
         )
     )
 
@@ -83,6 +85,7 @@ def update_template(
     req: QuestionnaireTemplateUpdate,
     current_user: _Manager,
     db: DbSession,
+    request: Request,
 ):
     return QuestionnaireTemplateDetailResponse.model_validate(
         QuestionnaireTemplateService(db).update(
@@ -92,6 +95,7 @@ def update_template(
             description=req.description,
             is_active=req.is_active,
             questions=[q.model_dump() for q in req.questions] if req.questions is not None else None,
+            request=request,
         )
     )
 
@@ -101,8 +105,9 @@ def delete_template(
     template_id: int,
     current_user: _Manager,
     db: DbSession,
+    request: Request,
 ):
-    QuestionnaireTemplateService(db).delete(template_id)
+    QuestionnaireTemplateService(db).delete(template_id, request=request)
     return {"ok": True}
 
 
@@ -112,12 +117,14 @@ def assign_cases(
     req: CaseAssignmentRequest,
     current_user: _Manager,
     db: DbSession,
+    request: Request,
 ):
     QuestionnaireTemplateService(db).assign_cases(
         template_id=template_id,
         case_ids=req.case_ids,
         is_required=req.is_required,
         trigger_event=req.trigger_event,
+        request=request,
     )
     return {"ok": True}
 

@@ -29,10 +29,7 @@ _TABLES = [
 
 @pytest.fixture(scope="module", autouse=True)
 def _schema():
-    # 测试库里的 feedbacks 可能建自旧模型（缺 replied_by）——create_all 不会改既有表，
-    # 故先重建它，保证与被测模型一致（测试库为一次性库，重建无副作用）。
-    FeedbackImage.__table__.drop(pg_engine, checkfirst=True)  # 先删引用方，避免 FK 阻塞
-    Feedback.__table__.drop(pg_engine, checkfirst=True)
+    # 测试库 schema 由会话级夹具重建（`conftest.py::_schema_matches_models`），这里只补齐本模块用到的表。
     Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 

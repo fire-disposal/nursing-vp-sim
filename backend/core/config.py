@@ -27,6 +27,16 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
 REFRESH_MAX_AGE_HOURS = int(os.getenv("REFRESH_MAX_AGE_HOURS", "336"))  # 14 days absolute max
 
+# 账号级登录失败锁定：连续密码错误达阈值即锁定一段时间。
+# 只对真实存在的用户计数，未知用户不落状态。
+#
+# **默认关闭**（维护者 2026-09-27 决定）：该特性带负向副作用（用错密码即可把别人的号锁住），
+# 当前阶段不启用；模型列/迁移/审计动作/判据**全部保留**，需要时置 `LOGIN_LOCKOUT_ENABLED=true` 即生效，
+# 无需改代码。开启后提示明确（"账号已锁定，请 N 分钟后再试"），不隐藏状态。
+LOGIN_LOCKOUT_ENABLED = os.getenv("LOGIN_LOCKOUT_ENABLED", "false").lower() == "true"
+LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
+LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
+
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
 

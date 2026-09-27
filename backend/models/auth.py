@@ -50,6 +50,9 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 账号级登录失败锁定（方案 A6）：连续密码错误计数 + 锁定截止时刻（NULL = 未锁定）
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="user")
     memberships: Mapped[list[ClassMembership]] = relationship(back_populates="user", cascade="all, delete-orphan")

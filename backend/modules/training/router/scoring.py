@@ -7,6 +7,11 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.audit import (
+    ACTION_SCORE_RETRY_REQUESTED,
+    TARGET_TYPE_TRAINING_RECORD,
+    record,
+)
 from core.config import SCORING_RETRY_GRACE_SECONDS
 from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
@@ -231,16 +236,16 @@ async def retry_scoring(
     force: Annotated[bool, Query()] = False,
 ):
     async with db_session() as db:
-        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        if not record:
+        training_record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not training_record:
             raise HTTPException(status_code=404, detail="训练记录不存在")
-        if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        if not current_user.has_permission("score_review") and training_record.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="无权操作此记录")
-        if record.status != TrainingStatus.COMPLETED:
+        if training_record.status != TrainingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="训练尚未结束")
 
         if student_message_count(db, record_id) == 0:
-            mark_discarded(db, record)
+            mark_discarded(db, training_record)
             db.commit()
             return {
                 "message": NO_STUDENT_MESSAGES_MESSAGE,
@@ -251,38 +256,44 @@ async def retry_scoring(
             }
 
         now = datetime.now(UTC)
-        if record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
-            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
+        if training_record.scoring_status in (ScoringStatus.PENDING, ScoringStatus.PROCESSING):
+            if (
+                training_record.end_time
+                and (now - ensure_utc(training_record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS
+            ):
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
         has_score_review = current_user.has_permission("score_review")
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
-        if old_score:
-            review_exists = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first() is not None
-            if review_exists:
-                if not has_score_review:
-                    raise HTTPException(status_code=403, detail="该评分已由教师复核，无法重新评分")
-                if not force:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="该评分已有教师复核，确定重新评分？请添加 force=true 参数确认",
-                    )
+        old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first() if old_score else None
+        if old_review:
+            if not has_score_review:
+                raise HTTPException(status_code=403, detail="该评分已由教师复核，无法重新评分")
+            if not force:
+                raise HTTPException(
+                    status_code=409,
+                    detail="该评分已有教师复核，确定重新评分？请添加 force=true 参数确认",
+                )
 
         if not acquire_scoring(record_id, db, allow_retry=True):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
+
+        # 审计的 before 快照：force 路径下一段就会删掉旧分/旧复核
+        had_review = old_review is not None
+        previous_total_score = old_score.total_score if old_score else None
+        previous_reviewed_total = old_score.reviewed_total if old_score else None
 
         if old_score:
             # S6 两阶段 force 重评：先快照旧分/旧复核，新评分失败时由
             # scoring.runner.handle_scoring_failure 恢复（不再"先删后算"丢分）。
             # 经 patch_runtime_state 原子写入本键（session/state.py 的写入契约）。
-            old_review = db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).first()
             snapshot = snapshot_score_for_rescore(old_score, old_review)
             patch_runtime_state(db, record_id, {"force_rescore_snapshot": snapshot})
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
 
-        case = db.query(Case).filter(Case.id == record.case_id).first()
-        case_data = record.case_snapshot or (case.case_data if case else {})
+        case = db.query(Case).filter(Case.id == training_record.case_id).first()
+        case_data = training_record.case_snapshot or (case.case_data if case else {})
 
         try:
             await enqueue_scoring(request.app.state, record_id, case_data)
@@ -292,6 +303,22 @@ async def retry_scoring(
             db.commit()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
+        # 只记"已成功触发"——400/403/409 拒绝路径与入队失败（503）都不留痕
+        # （局部变量叫 training_record：审计写入函数就是模块级的 record）
+        record(
+            db,
+            action=ACTION_SCORE_RETRY_REQUESTED,
+            target_type=TARGET_TYPE_TRAINING_RECORD,
+            target_id=record_id,
+            request=request,
+            payload={
+                "force": force,
+                "had_score": old_score is not None,
+                "had_review": had_review,
+                "previous_total_score": previous_total_score,
+                "previous_reviewed_total": previous_reviewed_total,
+            },
+        )
         db.commit()
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": ScoringStatus.PENDING}
 

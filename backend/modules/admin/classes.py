@@ -8,10 +8,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.audit import (
+    ACTION_CLASS_CREATED,
+    ACTION_CLASS_DELETED,
+    ACTION_CLASS_UPDATED,
+    TARGET_TYPE_CLASS,
+    record,
+)
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
@@ -76,16 +83,32 @@ class ClassService:
             members=members,
         )
 
-    def create(self, name: str, cohort_label: str = "") -> ClassView:
+    def create(self, name: str, cohort_label: str = "", *, request: Request | None = None) -> ClassView:
         if self._name_exists(cohort_label, name):
             raise ValidationError("该 cohort 下班级名称重复")
         with unit_of_work(self.db, conflict_detail="该 cohort 下班级名称重复"):
             cls = Class(name=name, cohort_label=cohort_label)
             self.db.add(cls)
             self.db.flush()
+            record(
+                self.db,
+                action=ACTION_CLASS_CREATED,
+                target_type=TARGET_TYPE_CLASS,
+                target_id=cls.id,
+                target_label=name,
+                request=request,
+                payload={"name": name, "cohort_label": cohort_label},
+            )
         return ClassView(id=cls.id, name=cls.name, cohort_label=cls.cohort_label, created_at=cls.created_at)
 
-    def update(self, class_id: int, *, name: str | None = None, cohort_label: str | None = None) -> ClassView:
+    def update(
+        self,
+        class_id: int,
+        *,
+        name: str | None = None,
+        cohort_label: str | None = None,
+        request: Request | None = None,
+    ) -> ClassView:
         cls = self._get(class_id)
         new_name = name if name is not None else cls.name
         new_cohort = cohort_label if cohort_label is not None else cls.cohort_label
@@ -93,10 +116,24 @@ class ClassService:
         if changed and self._name_exists(new_cohort, new_name, exclude_id=cls.id):
             raise ValidationError("该 cohort 下班级名称重复")
         if changed:
+            before_name, before_cohort = cls.name, cls.cohort_label
             with unit_of_work(self.db, conflict_detail="该 cohort 下班级名称重复"):
                 cls.name = new_name
                 cls.cohort_label = new_cohort
                 self.db.flush()
+                # 只在确有变化时落行：空操作不留痕（before 在赋值前已取出，不依赖 ORM 脏状态）
+                record(
+                    self.db,
+                    action=ACTION_CLASS_UPDATED,
+                    target_type=TARGET_TYPE_CLASS,
+                    target_id=cls.id,
+                    target_label=new_name,
+                    request=request,
+                    payload={
+                        "name": {"before": before_name, "after": new_name},
+                        "cohort_label": {"before": before_cohort, "after": new_cohort},
+                    },
+                )
         return ClassView(
             id=cls.id,
             name=cls.name,
@@ -107,14 +144,24 @@ class ClassService:
             assignment_count=self._assignment_count(class_id),
         )
 
-    def delete(self, class_id: int) -> str:
+    def delete(self, class_id: int, *, request: Request | None = None) -> str:
         cls = self._get(class_id)
         if self._assignment_count(class_id) > 0:
             raise ValidationError("该班级下仍有作业，无法删除。请先删除或改派相关作业。")
         name = cls.name
+        cohort_label = cls.cohort_label
         with unit_of_work(self.db, conflict_detail="无法删除"):
             # FK 是 ON DELETE SET NULL；这里显式清掉成员行，避免留下 class_id 悬空的成员记录
-            delete_class_members(self.db, class_id)
+            removed_members = delete_class_members(self.db, class_id)
+            record(
+                self.db,
+                action=ACTION_CLASS_DELETED,
+                target_type=TARGET_TYPE_CLASS,
+                target_id=class_id,
+                target_label=name,
+                request=request,
+                payload={"name": name, "cohort_label": cohort_label, "removed_members": removed_members},
+            )
             self.db.delete(cls)
             self.db.flush()
         return name
@@ -176,18 +223,18 @@ def get_class(class_id: int, current_user: _Manager, db: DbSession):
 
 
 @router.post("", response_model=ClassResponse)
-def create_class(body: ClassCreate, current_user: _Manager, db: DbSession):
-    return ClassResponse.model_validate(ClassService(db).create(body.name, body.cohort_label))
+def create_class(body: ClassCreate, current_user: _Manager, db: DbSession, request: Request):
+    return ClassResponse.model_validate(ClassService(db).create(body.name, body.cohort_label, request=request))
 
 
 @router.put("/{class_id}", response_model=ClassResponse)
-def update_class(class_id: int, body: ClassUpdate, current_user: _Manager, db: DbSession):
+def update_class(class_id: int, body: ClassUpdate, current_user: _Manager, db: DbSession, request: Request):
     return ClassResponse.model_validate(
-        ClassService(db).update(class_id, name=body.name, cohort_label=body.cohort_label)
+        ClassService(db).update(class_id, name=body.name, cohort_label=body.cohort_label, request=request)
     )
 
 
 @router.delete("/{class_id}", response_model=DeleteResponse)
-def delete_class(class_id: int, current_user: _Manager, db: DbSession):
-    name = ClassService(db).delete(class_id)
+def delete_class(class_id: int, current_user: _Manager, db: DbSession, request: Request):
+    name = ClassService(db).delete(class_id, request=request)
     return {"message": f"已删除班级 {name}"}

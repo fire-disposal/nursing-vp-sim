@@ -1,18 +1,23 @@
 import asyncio
 import logging
+import math
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.audit import (
+    ACTION_AUTH_LOGIN_BLOCKED,
     ACTION_AUTH_LOGIN_FAILED,
     ACTION_AUTH_LOGIN_SUCCEEDED,
     ACTION_USER_CREATED,
+    AUDIT_OUTCOME_DENIED,
     TARGET_TYPE_USER,
     record,
     record_detached,
 )
+from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.unit_of_work import unit_of_work
@@ -80,10 +85,78 @@ class AuthService:
             created_at=user.created_at,
         )
 
+    def _register_failed_attempt(self, user: User, request: Request | None, now: datetime) -> None:
+        """密码错误时递增失败计数；达到阈值则置锁定期并留一行审计。
+
+        计数/锁定期与业务写共用一次提交（unit_of_work），锁定审计走独立 session
+        （record_detached）——它记录的是"发生了锁定"，即使随后请求回滚也要留下。
+
+        仅在 `LOGIN_LOCKOUT_ENABLED=true` 时被调用（默认关闭，见 `core/config.py` 的说明）。
+        """
+        user.failed_login_count += 1
+        locked = user.failed_login_count >= LOGIN_MAX_FAILED_ATTEMPTS
+        locked_until: datetime | None = None
+        if locked:
+            locked_until = now + timedelta(seconds=LOGIN_LOCK_SECONDS)
+            user.locked_until = locked_until
+        failed_count = user.failed_login_count
+        with unit_of_work(self.db):
+            self.db.add(user)
+        if locked_until is None:
+            return
+        log.warning(
+            "登录失败达阈值，账号已锁定: username=%s failed_count=%d locked_until=%s",
+            user.username,
+            failed_count,
+            locked_until.isoformat(),
+            extra={"action": "login_blocked"},
+        )
+        record_detached(
+            request,
+            action=ACTION_AUTH_LOGIN_BLOCKED,
+            target_type=TARGET_TYPE_USER,
+            target_id=user.id,
+            target_label=user.username,
+            outcome=AUDIT_OUTCOME_DENIED,
+            payload={
+                "failed_count": failed_count,
+                "locked_until": locked_until.isoformat(),
+                "reason": "max_failed_attempts",
+            },
+        )
+
     async def login(self, username: str, password: str, *, request: Request | None = None) -> User:
         user = self.db.query(User).filter(User.username == username).first()
+        now = datetime.now(UTC)
+        # 锁定期内一律拒绝，即便密码正确也不放行。
+        # 文案**明确说明已锁定**并给出剩余时间：维护者口径是"完成度优先于安全性"（2026-09-27）——
+        # 让被锁的真人得到可行动的信息，比防"用户名枚举"更重要（本平台是内部教学系统，
+        # 用户名的可见性不是秘密）。整个策略由 LOGIN_LOCKOUT_ENABLED 控制（默认关闭）：
+        # 关闭时连"读锁定期"这一步都不做，存量 locked_until 不会拦住任何人 —— 需要立刻恢复访问时关掉开关即可。
+        if LOGIN_LOCKOUT_ENABLED and user is not None and user.locked_until is not None and user.locked_until > now:
+            remaining_minutes = max(1, math.ceil((user.locked_until - now).total_seconds() / 60))
+            log.warning(
+                "登录被拒（账号锁定中）: username=%s locked_until=%s",
+                username,
+                user.locked_until.isoformat(),
+                extra={"action": "login_blocked"},
+            )
+            record_detached(
+                request,
+                action=ACTION_AUTH_LOGIN_FAILED,
+                target_type=TARGET_TYPE_USER,
+                target_id=user.id,
+                target_label=user.username,
+                outcome=AUDIT_OUTCOME_DENIED,
+                payload={"reason": "locked", "remaining_minutes": remaining_minutes},
+            )
+            raise AuthError(detail=f"账号已锁定，请 {remaining_minutes} 分钟后再试", status_code=403)
         if user is None or not await asyncio.to_thread(verify_password, password, user.password_hash):
             log.warning("登录失败: username=%s", username, extra={"action": "login_failed"})
+            # 仅对真实存在的用户计数：未知用户不落任何状态（否则攻击者能凭空制造账号状态）。
+            # 计数/锁定受开关控制（默认关闭 → 不写任何状态）。
+            if user is not None and LOGIN_LOCKOUT_ENABLED:
+                self._register_failed_attempt(user, request, now)
             # 登录失败是账户安全的第一信号 → 独立 session 留痕。
             # 未知用户与密码错误记同一种 reason，避免审计表本身成为用户名枚举通道。
             record_detached(
@@ -106,6 +179,12 @@ class AuthService:
                 payload={"reason": "inactive"},
             )
             raise AuthError(detail="账号已被禁用，请联系管理员", status_code=403)
+        # 成功登录 → 清零此前累计的失败计数与锁定期（只在确有残留时提交）。
+        if user.failed_login_count or user.locked_until is not None:
+            user.failed_login_count = 0
+            user.locked_until = None
+            with unit_of_work(self.db):
+                self.db.add(user)
         log.info(
             "登录成功: username=%s",
             username,

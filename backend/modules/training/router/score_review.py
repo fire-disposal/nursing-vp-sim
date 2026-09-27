@@ -2,9 +2,14 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from core.audit import (
+    ACTION_SCORE_REVIEW_SUBMITTED,
+    TARGET_TYPE_TRAINING_RECORD,
+    record,
+)
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from models import Score, ScoreReview, TrainingRecord, User
@@ -57,6 +62,7 @@ def get_score_review(
 def submit_score_review(
     record_id: int,
     req: ScoreReviewRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_permission("score_review"))],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -67,11 +73,12 @@ def submit_score_review(
     if req.detail_scores is not None:
         # Phase 1 (S1/S5)：展示刻度 → raw → Σ条目 → 展示分，恒 ∈ [0,100]；
         # 复核结果写回 Score.reviewed_total，成绩口径 = COALESCE(reviewed_total, total_score)
-        record = db.query(TrainingRecord).filter(TrainingRecord.id == score.record_id).first()
+        # 局部名不能叫 record：审计写入函数就是 record（模块级 import）
+        training_record = db.query(TrainingRecord).filter(TrainingRecord.id == score.record_id).first()
         raw_max = DEFAULT_RAW_MAX
         rubric: dict = {"raw_scale": 2, "raw_max": DEFAULT_RAW_MAX}
-        if record is not None:
-            rubric = _resolve_rubric(db, record)
+        if training_record is not None:
+            rubric = _resolve_rubric(db, training_record)
             raw_max = rubric.get("raw_max", DEFAULT_RAW_MAX)
         review_total = review_total_from_detail(req.detail_scores, raw_max, raw_scale=rubric.get("raw_scale", 2))
         if not 0 <= review_total <= 100:
@@ -79,15 +86,17 @@ def submit_score_review(
     else:
         review_total = None
 
+    # 变更前的成绩口径：审计的 before 值必须先于本次写入快照
+    previous_reviewed_total = score.reviewed_total
+
     existing = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
     if existing:
         existing.detail_scores = req.detail_scores
         existing.comment = req.comment
         existing.total_score = review_total
         existing.reviewed_by = current_user.id
-        db.commit()
-        db.refresh(existing)
         review = existing
+        review_status = "updated"
     else:
         review = ScoreReview(
             score_id=score.id,
@@ -97,14 +106,33 @@ def submit_score_review(
             total_score=review_total,
         )
         db.add(review)
-        db.commit()
-        db.refresh(review)
+        review_status = "created"
 
     if review_total is not None:
         score.reviewed_total = review_total
         score.reviewed_at = datetime.now(UTC)
         db.add(score)
-        db.commit()
+
+    # 复核行、score 列、审计行共用**同一次** commit：请求成功即三者齐备，
+    # 中途失败也不会留下"复核已提交但审计/成绩口径未跟上"的半状态。
+    record(
+        db,
+        action=ACTION_SCORE_REVIEW_SUBMITTED,
+        target_type=TARGET_TYPE_TRAINING_RECORD,
+        target_id=score.record_id,
+        request=request,
+        payload={
+            "score_id": score.id,
+            "previous_reviewed_total": previous_reviewed_total,
+            "reviewed_total": review_total,
+            "review_status": review_status,
+            # 复核正文与评分明细可能含个人信息 → 只记体量，原文留在业务表里
+            "detail_score_count": len(req.detail_scores) if req.detail_scores is not None else None,
+            "comment_length": len(req.comment) if req.comment is not None else None,
+        },
+    )
+    db.commit()
+    db.refresh(review)
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
