@@ -11,14 +11,9 @@ Token 计数：**官方 tokenizer 优先**（``infra.llm.tokenizer``，产物入
 
 峰谷计费 (官方，以正式通知为准): 高峰时段价格为平时 2 倍，适用所有计费项；
 高峰时段 = 北京时间每日 09:00~12:00 与 14:00~18:00。
-
-估算 vs 真实用量 (评审 R4): 上面的字符比例只是估算，API 返回 usage 时真实 token 数
-通常更高。`reconcile_tokens` 是对账入口：给出差值/比例供日志与指标消费，调用方据此
-把预算按真实值校正（见 modules.training.context.budget.resolve_token_scale）。
 """
 
 import re
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 
 from .tokenizer import count_tokens
@@ -85,38 +80,6 @@ def _heuristic_tokens(text: str) -> int:
     other_count = len(text) - cjk_count
     tokens = cjk_count * _CJK_TOKENS_PER_CHAR + other_count * _EN_TOKENS_PER_CHAR
     return max(1, round(tokens))
-
-
-@dataclass(frozen=True)
-class TokenReconciliation:
-    """估算用量与 API 实际用量的对账结果（评审 R4）。
-
-    ``delta`` / ``ratio`` 供日志与指标消费：``ratio > 1`` 表示计数低于真实用量，
-    预算应按该比例收紧。官方 tokenizer 可用时该残差只剩 API 侧 chat 模板开销
-    （约 2%，见 ``estimate_tokens``），故 ``ratio`` 通常贴近 1.0；降级到字符比例
-    估算时会明显 > 1。
-    """
-
-    estimated: int
-    actual: int
-    delta: int
-    ratio: float
-
-
-def reconcile_tokens(estimated: int, actual: int | None) -> TokenReconciliation:
-    """对账入口：``actual`` 为 API usage 的真实 token 数，缺省时回退为估算值。
-
-    回退（``actual is None``）时 ``delta == 0`` 且 ``ratio == 1.0``，调用方无需分支。
-    ``estimated == 0`` 时 ``ratio`` 定义为 1.0（无从比较，不做校正）。
-    """
-    est = max(0, int(estimated or 0))
-    act = est if actual is None else max(0, int(actual))
-    return TokenReconciliation(
-        estimated=est,
-        actual=act,
-        delta=act - est,
-        ratio=(act / est) if est else 1.0,
-    )
 
 
 def get_model_price_cny(model: str) -> tuple[float, float]:

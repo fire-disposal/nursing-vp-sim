@@ -27,20 +27,22 @@
 | 旧 DB 提示词表已删除；U0 前没有在线写面 | 迁移 `ddl/2bf76d5c1796_batch_b_drop_prompt_rubric_tables.py` |
 | 记录创建时冻结 `case_snapshot` / `rubric_snapshot` / `prompt_snapshot` | `modules/training/router/session.py::_create_record` |
 | `prompt_snapshot` v2 形状为 `{schema_version:2, segments:{system,dynamic}}`；v1 扁平由 compat 读取 | `modules/training/pipeline/snapshot_compat.py` |
-| 上下文装配当前经过 `ContextAssembler` + `ContextFragment(slot/source/priority/max_tokens)`，每轮产出 `ledger` | `modules/training/context/assembler.py`、`.../fragment.py` |
-| 装配策略仍是模块常量：历史/患者状态预算、首尾保护轮次、token scale 上限 | `modules/training/context/budget.py` |
+| 患者消息装配唯一入口：`context/compiler.py::compile_patient_prompt`（槽位校验 / 选择 / 裁剪 / 落位），片段类型词汇在 `context/fragment.py` | `modules/training/context/compiler.py`、`.../fragment.py` |
+| 装配策略是显式 `ContextPolicy`（历史/患者状态预算、保底轮、钉轮）+ 布局与算法版本 `COMPILER_SCHEMA` | `modules/training/context/budget.py`、`.../compiler.py` |
 | 提示词契约校验已存在（启动时按 TypedDict 校验占位符，非致命告警） | `main.py::_validate_prompt_templates` → `core.template_variables.validate_all_templates` |
 | `scores.prompt_schema_version` 已明确表示快照形状；rubric / mapping 身份语义分开 | `models/training.py`、`modules/training/scoring/engine.py` |
 | 患者 prompt 身份从冻结原文按需派生；`context_policy_version` 在记录创建时冻结，版本归因页已有真实消费者 | `modules/training/prompt_identity.py`、`modules/admin/versions.py` |
-| `LLMCallLog` 仍无提示词或上下文身份；回合 `ledger` 也未持久化 | `models/llm.py`、`pipeline/middleware/prompt_builder.py` |
+| `LLMCallLog` 仍无提示词或上下文身份；回合级 token 账本已在 C0 删除（无持久消费者） | `models/llm.py` |
 
-`ledger` 当前只写 debug 日志；其上一轮估算/实际 token 的自适应入口没有生产接线，属于 19-C0 必须接入真实消费者或删除的接口。
+C0（2026-09-27）已在 `context/` 内删除 token 账本与自适应预算入口；真实用量仍由 `llm_call_logs`
+逐条承载。回合级归因若将来出现**真实消费者**，按 E1 的不可变审计方案重建，而不是恢复未接线接口。
 
 ## 二、剩余问题（按危害排序）
 
-1. **上下文运行时名义与行为不符**：单命名空间注册器、每回合重建的“跨轮缓存”、只写不读的 assembler 状态和无消费者的 `context_profile` 增加修改成本。
-2. **策略身份仍有算法盲区**：`context_policy_version` 覆盖预算常量与结构标记，但只改装配算法可能身份不变。
-3. **回合级上下文不可归因**：`ledger` 有各段 token 与取舍计数，但不进库；版本页只能比较记录级策略身份。
+1. ~~上下文运行时名义与行为不符~~：**已修** —— 单命名空间注册器、伪跨轮缓存、只写不读状态与
+   `context_profile` 已删除（19-C0）。
+2. ~~策略身份存在算法盲区~~：**已修** —— 身份覆盖 `ContextPolicy` 字段 + `COMPILER_SCHEMA` + 结构标记。
+3. ~~回合级上下文不可归因~~：token 账本已删除（无消费者）；逐轮归因属 E1 可选增量。
 4. **调用日志无法按版本聚合**：`llm_call_logs` 存全文，却不能直接按 prompt/context 身份聚合成功率与延迟；全文同时有 PII 与存储成本。
 5. **缺少受控发布面**：代码修改能形成新身份，但尚不能在不部署的情况下发布不可变上下文 revision，也不能让任务固定选择实验 arm。
 
@@ -54,7 +56,7 @@
 | **每个产物（artifact）** | ✓ **采用** | system 段 / dynamic 段 / 评分提示词 / rubric / 上下文策略各自独立身份；改动可归因，聚合有意义 |
 | 每个 workflow | ✗ 太粗 | 无法区分同一 workflow 的 system 与 dynamic 谁变了；跨 workflow 复用被切断 |
 | 渲染后的完整 prompt | ✗ 太细且**语义错误** | 渲染结果随病例数据变化（每个病例都不同），那是上下文，不是提示词身份 |
-| 每个 fragment 来源 | ✗ 暂不 | 身份爆炸；v1 用「策略版本 + ledger」已能定位到段与取舍 |
+| 每个 fragment 来源 | ✗ 暂不 | 身份爆炸；记录级策略身份 + 消息结构已能定位到段与取舍 |
 
 **决策**：产物粒度五元组。
 
@@ -97,13 +99,13 @@ V1 前（无消费者）：
 
 管线收敛与身份捕获是同一批工作，因为**捕获点就是阶段边界**（`pipeline/__init__.py` 已固定五阶段）：
 
-| 阶段 | 现有 owner | 身份/账本捕获点 |
+| 阶段 | 现有 owner | 身份捕获点 |
 |---|---|---|
 | 1 ANALYSIS | `emotion_analysis` | — |
-| 2 PROMPT | `prompt_builder` + `ContextAssembler` | 产出 `ledger`（各段 token/取舍）与策略身份；**这里是 `context_policy_version` + 指纹的唯一产生点** |
-| 3 LLM | `llm_caller` | 把「本次调用用的提示词身份 + 上下文指纹」写进 `llm_call_logs`；**这里是调用归属的唯一产生点** |
+| 2 PROMPT | `prompt_builder` + `context/compiler.py` | 只编译消息；**不产出身份、不产出账本**（策略身份在记录创建时冻结） |
+| 3 LLM | `llm_caller` | 把「本次调用用的提示词身份 + 上下文指纹」写进 `llm_call_logs`；**这里是调用归属的唯一产生点**（未实施） |
 | 4 PERSIST | `persister` | —（记录创建时的冻结在 `_create_record`，属训练开始，不在回合管线内） |
-| 5 SIDE_EFFECTS | `side_effects` | 回合账本落审计表（best-effort）；**这里是回合级明细的唯一落点** |
+| 5 SIDE_EFFECTS | `side_effects` | 回合级明细若将来落地，这里是唯一落点（当前无消费者） |
 
 因此：**先收敛五阶段为显式函数、再在阶段内挂身份捕获**，顺序不能反——否则身份会被塞进中间件包装里，随收敛再次搬迁。
 
@@ -158,7 +160,7 @@ U0 后若进入 19-E1，写面必须是独立的草稿/校验/发布流程，只
 
 回答的问题：
 - 「上周改的那版患者人格提示词，分数是升了还是降了？」
-- 「这套上下文预算下，历史截断是否变多（ledger 里 dropped rounds）？」
+- 「这套上下文策略下，历史是否更早被折叠？」（判据是消息结构：摘要段是否存在）
 - 「哪版评分提示词的兜底率偏高？」
 
 聚合放在后端一次查询（`GROUP BY prompt_id`），不在前端拼。
@@ -167,7 +169,7 @@ U0 后若进入 19-E1，写面必须是独立的草稿/校验/发布流程，只
 
 当前唯一能看到提示词原文的界面是管理端 LLM 调用日志详情抽屉（`components/admin/monitor/CallLogDetail.tsx`，展示 `request_text` 全文）——**只能看到文本，看不到身份**，这正是本设计要补的洞。
 
-单记录归因（该记录的三个身份 + 逐轮 ledger 时间线）落在**记录调试工作台**上；该工作台目前尚未落地（`/admin/training-debug/:recordId` 仍是规划，仓内尚无文档化决策）。在它落地前，单记录身份可先附着在现有记录详情与调用日志详情上；落地后两者共用同一套身份字段，不各自定义第二份。
+单记录归因（该记录的三个身份 + 逐轮装配取舍）落在**记录调试工作台**上；该工作台尚未落地，且逐轮明细的持久消费者在 C0 之后**并不存在**（token 账本已删）。若将来重建，按 E1 的不可变审计方案落地，与版本页共用同一套身份字段，不各自定义第二份。
 
 版本页是**跨记录聚合**，与单记录归因互补：同一事实（身份），两种读法（列表 vs 明细）。
 
@@ -221,7 +223,6 @@ GET /admin/training-records/{id}/context → 单记录逐轮 ledger（供调试�
 | 身份漂移 | 有人改了提示词却绕过计算点 | 派生点唯一（消费处一处）；物化后加「物化 == 派生」一致性测试 |
 | 历史不可知 | 存量记录无身份可派生（快照缺失） | 明确不回填；UI 显示「未知（历史记录）」 |
 | 聚合查询成本 | 全表 `GROUP BY` | 物化列 + 索引；聚合限定时间窗（默认 90 天） |
-| ledger 体积 | 每轮一条审计行 | ledger 是有界计数与短枚举，非全文 |
 | 改名破坏契约 | `prompt_schema_version` 影响 API/前端/强制重评快照 | 一次迁移内完成 + `api:update` + 前端类型再生 |
 
 ## 九、已裁决与仍开放
@@ -236,7 +237,7 @@ GET /admin/training-records/{id}/context → 单记录逐轮 ledger（供调试�
 
 仍开放：
 
-1. **回合级 metrics 是否值得持久化**：19-C0 先确认真实实验/运维消费者；没有消费者就删除 ledger 的未接线接口，有消费者才选择不可变审计存储。
+1. **回合级 metrics 是否值得持久化**：**已裁决（C0）**——无消费者，接口删除；将来重建须先有真实消费者，并走 E1 的不可变审计方案。
 2. **`prompt_id` 是否需要物化**：先量版本归因查询成本；当前按需派生足够时不加列、不加索引。
 
 ## 十、当前验收分流

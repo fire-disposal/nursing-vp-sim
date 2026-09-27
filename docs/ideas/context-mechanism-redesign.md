@@ -111,10 +111,18 @@ MIN_HISTORY_ROUNDS    = 4      # 保护集：最近 4 轮（8 条消息）无条
 - [ ] `Message.kind` 标记工具/评分事件轮 → 保护集细化
 - [ ] 反馈 Bot 评分分布 A/B（few-shot 效果验证）
 
-**2026-09-27 复核**：上述四域目标已经落地，但运行时同时遗留了单命名空间 `PromptContext`、每回合重建却被描述为
-跨轮缓存的状态、只写不读的 assembler 状态、无消费者的 `context_profile`，以及只在测试中接线的自适应预算参数。
-下一步不是继续增加槽位或插件，而是按 19-C0 收敛为一个纯上下文编译入口；行为稳定后，才评估不可变 revision
-的在线发布。即使进入该阶段，也不允许进行中训练随全局配置漂移。
+**2026-09-27 复核与实施**：上述四域目标已经落地，但运行时同时遗留了单命名空间 `PromptContext`、
+每回合重建却被描述为跨轮缓存的状态、只写不读的 assembler 状态、无消费者的 `context_profile`，
+以及只在测试里接线的自适应预算参数与 token 账本。**19-C0 已按此完成收敛**：
+
+- 装配合并为唯一纯入口 `context/compiler.py::compile_patient_prompt`（含患者状态消息与槽位校验）；
+- `PromptContext` / `prompt_context_builder` / `StateAssembler` 状态键 / `context_profile` / token 账本 /
+  自适应预算链路全部删除；病例变量移到 `context/case_vars.py`，病例生成文本块移到 `modules/cases/prompt_format.py`；
+- 预算与钉轮收敛为 `budget.ContextPolicy`，策略身份额外覆盖 `COMPILER_SCHEMA`（改算法必须显式升版本）；
+- 本文件 §四/§五/§七 对 ledger 与 `assemble_patient_messages` 的描述属**当时设计**，不再是现行接口。
+
+行为稳定性由「21 组夹具 messages 与收敛前逐字节一致」证明（docs/19 §四 C0）。行为稳定后才评估不可变
+revision 的在线发布；即使进入该阶段，也不允许进行中训练随全局配置漂移。
 
 
 ## 十、明确不做

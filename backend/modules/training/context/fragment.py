@@ -1,7 +1,7 @@
 """类型化上下文片段（docs/15 §八）。
 
 各域（NoteSource / Activity / 守卫）只**生产**有类型的片段；选择、排序、裁剪、预算
-一律由 :class:`~modules.training.context.assembler.ContextAssembler` 决定。禁止
+一律由 :func:`~modules.training.context.compiler.compile_patient_prompt` 决定。禁止
 router / 中间件 / handler 直接拼接任意 system prompt 字符串。
 
 槽位（``ContextSlot``）就是「谁能写哪一段」：

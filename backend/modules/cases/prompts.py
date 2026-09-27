@@ -160,7 +160,7 @@ def build_field_instruction(field: str, current_case_data: dict | None) -> str:
     ``activities.physical_exam.config``）；输出统一走 ``field_value`` 信封，
     避免要求模型输出带点的字面量键。
     """
-    from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
+    from modules.cases.prompt_format import format_case_for_prompt
 
     hint = _FIELD_TYPE_HINTS.get(field, "输出为该字段的合理 JSON 值")
     inst = f'\n\n当前任务：只生成字段「{field}」。{hint}。输出 JSON 形如 {{"field_value": <值>}}。'

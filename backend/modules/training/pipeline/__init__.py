@@ -3,7 +3,7 @@
 顺序契约住在 ``runner.STAGES``（源码顺序即执行顺序）：
 
   1. ANALYSIS     —— ``emotion_analysis``: 4D 情绪状态 + behavior note
-  2. PROMPT       —— ``prompt_builder``: 取料 + ContextAssembler 装配 system/user prompt
+  2. PROMPT       —— ``prompt_builder``: 取料 + ``context.compile_patient_prompt`` 编译消息
   3. LLM          —— ``llm_caller``: 调用 LLM，写调用日志（best-effort）
   4. PERSIST      —— ``persister``: 事务 B（患者消息 + turn 收尾；学生消息已在
                      ``begin_turn`` 的事务 A 落库，见 turn.py）

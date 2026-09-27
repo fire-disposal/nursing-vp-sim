@@ -59,18 +59,19 @@ U0 评价**系统可用性**，不评价沟通能力提升、临床迁移、AI �
 | 实验批次 | `EXPERIMENT_BATCH` 或开始请求的 `experiment` 可写入 `practice_snapshot`，并随评分和导出保留 | 固定为 `usability-u0` |
 | 问卷 | 已有 `after_scoring` 触发，支持 `likert_5` 与 `short_text` | 配置 SUS 与少量开放题，不建新问卷系统 |
 
-### 2.2 已确认的上下文债务
+### 2.2 上下文债务（C0 已闭环，2026-09-27）
 
-当前链路不是能力不足，而是**控制面缺失与运行时抽象过多同时存在**：
+链路曾同时存在**控制面缺失与运行时抽象过多**。C0 按下表逐条处置（证据见 §四 C0）：
 
-1. `PromptContext` 被描述为多命名空间注册表，患者与评分调用点实际都只注册一个命名空间，再立即展平成普通字典；
-2. `STATE_PATIENT_CONTEXT_KWARGS` 被描述为跨轮缓存，但 `PipelineContext` 每个 HTTP 回合都会重建，缓存只在一次调用内写一次、读一次；
-3. `STATE_ASSEMBLER` 在生产路径只写不读，`WorkflowDefinition.context_profile` 也没有运行时消费者；
-4. 装配 `ledger` 只写 debug 日志；`estimated_prompt_tokens` / `actual_prompt_tokens` 的自适应预算入口没有生产接线；
-5. `context_policy_version` 只覆盖部分常量和标记，单改装配算法可能身份不变。
+| # | 债务 | 处置 |
+|---|---|---|
+| 1 | `PromptContext` 名为多命名空间注册表，患者与评分调用点都只注册一个命名空间再展平 | 删除该模块；两处直接用各自的类型化变量字典 |
+| 2 | `STATE_PATIENT_CONTEXT_KWARGS` 名为跨轮缓存，实为一次调用内写一次、读一次 | 删除；病例变量改为每次编译现算（纯函数） |
+| 3 | `STATE_ASSEMBLER` 只写不读；`WorkflowDefinition.context_profile` 无消费者 | 两者删除 |
+| 4 | token 账本只写 debug 日志；自适应预算入口（估算/实际用量回流）无生产接线 | 账本、`resolve_token_scale`、`MAX_TOKEN_SCALE` 与 `reconcile_tokens` 全部删除；真实用量仍由 `llm_call_logs` 逐条承载 |
+| 5 | `context_policy_version` 只覆盖常量，单改装配算法身份不变 | 身份改为 `ContextPolicy` 字段 + `COMPILER_SCHEMA` + 结构标记 |
 
-这些层增加理解和修改成本，却没有提供在线编辑、发布冻结或实验分流。U0 之前应先做保持行为的 C0 收敛，
-而不是在现有层次上继续叠加数据库模板、缓存失效和在线分流。
+处置原则是**删除无消费者的抽象**，不在旧层次上继续叠加数据库模板、缓存失效或在线分流。
 
 ### 2.3 进入 U0 前必须修正
 
@@ -79,7 +80,7 @@ U0 评价**系统可用性**，不评价沟通能力提升、临床迁移、AI �
    容易复现需求研究中明确担忧的机械、程序化互动。回答详略应由病例、人格、当前病情和对话语境决定，
    不能由一个全局句数上限决定。
 2. **病例场景没有形成稳定的内容基线。**
-   `prompt_context_builder.py` 的静态场景仍是通用“在医院采集病史”；运行时虽支持
+   `context/case_vars.py` 的静态场景（`_DEFAULT_SCENARIO`）仍是通用“在医院采集病史”；运行时虽支持
    `case_data.scene → runtime_state.scene → prompt`，内置病例当前没有 `scene`。
    U0 选定病例必须有明确环境、患者可见状态和任务边界，并发布为新的不可变 revision。
 3. **开场说明偏操作提示。**
@@ -147,27 +148,33 @@ U0 评价**系统可用性**，不评价沟通能力提升、临床迁移、AI �
 
 ## 四、实施顺序
 
-### C0：患者上下文运行时收敛
+### C0：患者上下文运行时收敛（已实施，2026-09-27）
 
-**改动**
+**实际改动**
 
-1. 用一个纯编译入口接管“冻结模板 + 病例快照 + 回合状态 + 历史 → LLM messages”；输入和输出使用显式类型，
-   不再通过单命名空间注册表或临时 `ctx.state` 键传递。
-2. 删除无消费者的 `context_profile`、`STATE_ASSEMBLER` 和伪跨轮缓存；患者与评分提示词直接使用各自的类型化
-   变量字典，不共享空泛注册表。
-3. 保留固定消息布局、历史预算、首尾保护、患者状态槽位和泄漏守卫；先用行为夹具证明输出等价，再修改患者文案。
-4. 将上下文策略身份改为“显式策略配置 + 编译器 schema”的内容身份；不再让算法变化落在身份盲区。
-5. 对没有生产消费者的自适应预算参数和明细账本执行二选一：接到真实持久化/观测消费者，或删除；不得继续保留
-   只在测试里闭环的接口。
+1. 装配合并为唯一纯入口 `context/compiler.py::compile_patient_prompt`（原 `ContextAssembler` 类 +
+   `assemble_patient_messages` 双入口 + `patient_state.py` 三处归一）；入参用 `role` / `scenario`
+   与槽位词汇一致，返回 messages，不再返回内部账本。
+2. 删除 `pipeline/prompt_context.py` 与 `pipeline/prompt_context_builder.py`：病例模板变量移到
+   `context/case_vars.py::build_case_vars`，病例生成侧文本块移到 `modules/cases/prompt_format.py`。
+3. 删除伪跨轮缓存 `STATE_PATIENT_CONTEXT_KWARGS`、只写不读的 `STATE_ASSEMBLER` 与无消费者的
+   `WorkflowDefinition.context_profile`。
+4. 预算收敛为单一 `ContextPolicy`（`context/budget.py`）；删除未接线的自适应预算链路与 token 账本，
+   截断/折叠的可观测面改为**消息结构与告警日志**，真实用量仍由 `llm_call_logs` 承载。
+5. 策略身份 = `ContextPolicy` 字段 + `COMPILER_SCHEMA` + 槽位/示例/摘要标记；改算法必须显式升
+   `COMPILER_SCHEMA`。
+6. PROMPT 阶段不再写任何 `ctx.state`；动态模板渲染失败不再静默退化为"没有病例信息的患者"。
 
-**通过条件**
+**通过条件（已达成）**
 
-- 代表性病例、短历史、长历史、场景状态和守卫重试的实际 message 布局与收敛前一致；
-- 生产路径不再存在上述只写不读字段、一次性“缓存”或单命名空间注册器；
-- 新训练仍冻结精确 prompt 原文和可重算的上下文策略身份，旧记录仍可读；
-- 真实 LLM 对话与泄漏修正路径完成冒烟，不以单元测试代替运行证明。
+- 21 组夹具（短/长/饱和历史、零预算、示例段、场景状态、片段截断与丢弃、越权来源、守卫追加）的
+  messages 与收敛前实现**逐字节一致**（临时工作树对比 HEAD 实现，21/21）；
+- 越权与超预算贡献从"只记账本"变为**记 warning 日志**，越权内容与行为断言不变；
+- 新训练仍冻结精确 prompt 原文与可重算的策略身份；旧记录仍可读；
+- 后端全量 1623 项测试、`ruff` 与 `ty` 全绿；
+- 真实 provider 冒烟通过：真实病例渲染 → 编译 → 患者回复 → 泄漏守卫命中 → 守卫修正追加后再调一次。
 
-C0 是 U0 的前置代码减法，不引入数据库上下文表、在线编辑器、A/B 分配或活动中会话热更新。
+C0 不引入数据库上下文表、在线编辑器、A/B 分配或活动中会话热更新。
 
 ### U0-A：患者自然度与场景
 
@@ -244,10 +251,10 @@ C0 是 U0 的前置代码减法，不引入数据库上下文表、在线编辑�
 
 | 责任 | 现有入口 | 本批边界 |
 |---|---|---|
-| 上下文编译 | `pipeline/middleware/prompt_builder.py`、`context/assembler.py`、`pipeline/prompt_context.py` | C0 收敛为单一纯入口，删除无消费者抽象，保持消息行为 |
-| 策略身份 | `prompt_identity.py::compute_context_policy_version`、训练记录冻结点 | 身份覆盖显式策略与编译器 schema，不伪造历史 |
+| 上下文编译 | `context/compiler.py`、`context/case_vars.py`、`context/budget.py` | C0 已收敛为单一纯入口；只在此处扩展装配能力 |
+| 策略身份 | `prompt_identity.py::compute_context_policy_version`、训练记录冻结点 | 身份覆盖策略字段 + `COMPILER_SCHEMA`，不伪造历史 |
 | 患者全局行为 | `backend/modules/training/prompts/patient.py` | 调整自然表达契约，不改病例事实模型 |
-| 病例与场景上下文 | `pipeline/prompt_context_builder.py`、`session/state.py` | 复用 `scene` 注入；不建第二套场景字段 |
+| 病例与场景上下文 | `context/case_vars.py`、`session/state.py`、`pipeline/middleware/prompt_builder.py` | 复用 `scene` 注入；不建第二套场景字段 |
 | 病例内容 | 现有病例作者面、`CaseRevision`、`modules/cases/validator.py` | 只发布 U0 新 revision，不原地改冻结历史 |
 | 开场与完成 | `WelcomeScreen.tsx`、`CompletionStatus.tsx`、`TrainingHeader.tsx` | 复用 manifest；不在前端重算门禁 |
 | 结果与问卷 | `RecordDetail.tsx`、`QuestionnaireModal.tsx`、`modules/questionnaires/` | 复用现有反馈与 `after_scoring` |

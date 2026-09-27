@@ -68,9 +68,14 @@
 
 ## 八、上下文装配与事实归属
 
-患者 prompt、上下文贡献、情绪/主动追问等由训练域现有装配路径负责。活动提供其拥有的事实，不直接拼第二份 system prompt，不创建通用 Context God Object。当前装配路径的无消费者抽象按 19-C0 做减法，不改变这些所有权边界。
+患者消息由唯一纯入口 `backend/modules/training/context/compiler.py::compile_patient_prompt` 编译：
+槽位校验 / 选择 / 排序 / 裁剪 / 预算 / 落位都在那里，本中间件只取料。策略数值（历史与患者状态预算、
+保底轮、钉轮）的唯一 owner 是 `context/budget.py::ContextPolicy`；改动装配**行为**必须同步升
+`compiler.COMPILER_SCHEMA`，否则策略身份不会变化（`prompt_identity.compute_context_policy_version`）。
 
-病例事实、学生可见信息、患者应知信息和评分依据的消费范围不同。现有病例蓝图已沿这些边界接入；参考答案与评分锚点不能进入学生可见的患者对话。
+活动提供其拥有的事实，不直接拼第二份 system prompt，不创建通用 Context God Object。病例事实、学生可见信息、
+患者应知信息和评分依据的消费范围不同。现有病例蓝图已沿这些边界接入；参考答案与评分锚点不能进入学生可见的
+患者对话。
 
 ## 九、评分、复核与展示
 

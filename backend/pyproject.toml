@@ -164,7 +164,6 @@ ignore = [
 "modules/training/pipeline/middleware/persister.py" = ["BLE001", "C901"]
 "modules/training/pipeline/middleware/prompt_builder.py" = ["BLE001", "C901"]
 "modules/training/pipeline/middleware/side_effects.py" = ["BLE001", "C901"]
-"modules/training/pipeline/prompt_context_builder.py" = ["BLE001", "C901"]
 "modules/training/pipeline/runner.py" = ["BLE001", "C901"]
 "modules/training/patient_ai/emotion/__init__.py" = ["BLE001", "C901"]
 "modules/training/patient_ai/emotion/analyzer.py" = ["BLE001", "C901"]

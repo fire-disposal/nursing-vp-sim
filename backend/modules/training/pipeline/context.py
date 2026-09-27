@@ -40,7 +40,6 @@ def message_views(rows) -> list[MessageView]:
 
 STATE_FEATURES: str = "features"
 STATE_STREAM_MODE: str = "_stream_mode"
-STATE_PATIENT_CONTEXT_KWARGS: str = "_patient_context_kwargs"
 STATE_PATIENT_CHAT_CFG: str = "_patient_chat_cfg"
 STATE_LEAK_CORRECTION_COUNT: str = "_leak_correction_count"
 STATE_STREAM_QUEUE: str = "_stream_queue"
@@ -59,8 +58,6 @@ STATE_PIPELINE_TASK: str = "_pipeline_task"
 STATE_PATIENT_WALKOUT: str = "_patient_walkout"
 # 两阶段持久化的回合句柄（router 事务 A 写、persister 事务 B 收尾，见 pipeline/turn.py）
 STATE_TURN: str = "_turn"
-# 本轮装配器（prompt_builder 建、llm_caller 追加守卫修正时复用，见 context/assembler.py）
-STATE_ASSEMBLER: str = "_assembler"
 
 
 @dataclass

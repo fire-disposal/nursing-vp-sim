@@ -50,22 +50,27 @@ def prompt_id_from_snapshot(snapshot: dict | None, workflow_id: str | None) -> s
 def compute_context_policy_version() -> str:
     """上下文装配策略身份：``ctx@{hash8}``。
 
-    覆盖**预算类常量**与结构性标记（槽位集合、示例段标记）——这些决定"每轮把什么放进
-    prompt、先裁谁"。常量以模块属性读取，因此改预算即改身份（有测试钉住）。
+    覆盖三类事实，改任一项即改身份：
 
-    已知边界：只改装配**算法**而不动这些常量，身份不变。算法级改动应在改动里同步更新
-    被覆盖的标记（或在评审里明确这是身份盲区），不靠人工版本号兜底。
+    1. ``ContextPolicy`` 的每个字段（历史预算、患者状态预算、保底轮、钉轮）；
+    2. ``COMPILER_SCHEMA`` —— 消息布局与选择**算法**的版本号：算法本身无法被哈希，
+       改装配行为必须显式 +1（见 ``context/compiler.py``），否则该改动在观测上隐形；
+    3. 结构性标记：槽位集合、示例段标记与预算、摘要段预算。
+
+    常量以模块属性读取，因此改策略即改身份（有测试钉住）。
     """
+    from dataclasses import fields as dataclass_fields
+
     from modules.training.context import budget as budget_module
-    from modules.training.context.examples import EXAMPLES_MARKER
+    from modules.training.context import compiler as compiler_module
+    from modules.training.context import examples as examples_module
+    from modules.training.context import history_compaction as summary_module
     from modules.training.context.fragment import ContextSlot
 
-    budget_parts = (
-        f"history_budget={budget_module.HISTORY_BUDGET_TOKENS}",
-        f"patient_state_budget={budget_module.PATIENT_STATE_BUDGET_TOKENS}",
-        f"min_history_rounds={budget_module.MIN_HISTORY_ROUNDS}",
-        f"head_pinned_rounds={budget_module.HEAD_PINNED_ROUNDS}",
-        f"max_token_scale={budget_module.MAX_TOKEN_SCALE}",
-    )
-    slots = ",".join(slot.value for slot in ContextSlot)
-    return f"ctx@{_digest(*budget_parts, slots, EXAMPLES_MARKER)[:_POLICY_LEN]}"
+    policy = budget_module.DEFAULT_POLICY
+    parts = [f"{field.name}={getattr(policy, field.name)}" for field in dataclass_fields(policy)]
+    parts.append(f"compiler_schema={compiler_module.COMPILER_SCHEMA}")
+    parts.append("slots=" + ",".join(slot.value for slot in ContextSlot))
+    parts.append(f"examples_budget={examples_module.MAX_EXAMPLES_TOKENS}")
+    parts.append(f"summary_budget={summary_module.SUMMARY_BUDGET_TOKENS}")
+    return f"ctx@{_digest(*parts, examples_module.EXAMPLES_MARKER)[:_POLICY_LEN]}"

@@ -29,9 +29,9 @@ from core.exceptions import (
 from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_llm_config
 from models import Case, User
+from modules.cases.prompt_format import format_case_for_prompt
 from modules.cases.prompts import build_field_instruction, build_system_prompt
 from modules.training.activities import ACTIVITY_CONFIG_KEY, CASE_ACTIVITIES_FIELD
-from modules.training.pipeline.prompt_context_builder import format_case_for_prompt
 from schemas import CaseGenerateRequest, CaseGenerateResponse
 from schemas.case_schema import validate_case_data
 

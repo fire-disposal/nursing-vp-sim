@@ -3,7 +3,7 @@
 import logging
 
 from infra.llm.client import CallContext
-from modules.training.context.assembler import append_guard_fragments
+from modules.training.context.compiler import append_guard_fragments
 from modules.training.context.fragment import (
     SOURCE_GUARD_HIDDEN_TOPIC,
     SOURCE_GUARD_IDENTITY,

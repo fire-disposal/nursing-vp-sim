@@ -1,7 +1,7 @@
 """Tests for NoteSource（类型化片段）与 NoteCollector（只收集，不裁剪）。
 
-装配（选择/排序/裁剪/预算/落位）的测试在 ``test_context_assembler.py``：本切片把
-预算从 collector 移到 ``ContextAssembler``，因此这里只断言"产出了什么片段"。
+装配（选择/排序/裁剪/预算/落位）的测试在 ``test_context_compiler.py``：预算从 collector
+移到编译入口，因此这里只断言"产出了什么片段"。
 """
 
 import pytest

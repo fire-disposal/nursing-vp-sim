@@ -1,18 +1,11 @@
-"""prompt_builder — 四域患者消息组装（PROMPT 阶段）。
+"""prompt_builder — 患者消息编译（PROMPT 阶段）。
 
 职责边界（docs/15 §八）：本中间件只**取料**（Workflow 声明的模板 + 病例数据渲染，
-NoteSource 的类型化片段），组装权在 ``ContextAssembler``：选择 / 排序 / 裁剪 / 预算 /
-落位都在那里。这里不再拼接任何 system prompt 字符串。
+NoteSource 的类型化片段），编译交给唯一入口 ``compile_patient_prompt``：槽位校验 /
+选择 / 排序 / 裁剪 / 预算 / 落位都在那里。这里不拼接任何 system prompt 字符串。
 
-域拆分：
-  STATIC    人设卡 system 消息（渲染自 workflow.prompts.system）
-  SESSION   病例   system 消息（渲染自 workflow.prompts.dynamic，逐字节稳定 → prefix cache）
-  EXAMPLES  example_dialogues 转 user/assistant few-shot 对
-  HISTORY   真实对话（token 预算 + 保护集，见 context.budget）
-  PER-TURN  患者当前状态 system 消息（情绪策略 + 操作注记 + 场景状态）
-
-静态前缀只在首个请求时计算一次（STATE_PATIENT_CONTEXT_KWARGS 缓存）；
-每轮只变化 PER-TURN 消息与 HISTORY。
+本阶段**不保存任何跨轮状态**：``PipelineContext`` 每个回合新建，往 ``ctx.state`` 里
+写"跨轮缓存"只会随回合一起被丢弃（曾有一版如此，见 docs/19 §2.2）。
 """
 
 from __future__ import annotations
@@ -20,17 +13,16 @@ from __future__ import annotations
 import logging
 
 from core.template import render_template
-from modules.training.context.assembler import ContextAssembler
+from modules.training.context.case_vars import build_case_vars
+from modules.training.context.compiler import compile_patient_prompt
 from modules.training.context.examples import build_example_pairs
-from modules.training.pipeline.prompt_context_builder import build_context_kwargs
 from modules.training.session.state import (
     SceneState,
     format_scene_for_prompt,
 )
 from modules.training.workflows import workflow_for_record
 
-from ..context import STATE_ASSEMBLER, STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
-from ..prompt_context import PromptContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +35,8 @@ def _resolve_scene_text(ctx: PipelineContext) -> str | None:
     try:
         state = SceneState.model_validate(raw)
     except Exception:
+        # 场景是**运行期数据**（库里的 JSONB），形状无法在类型层保证：坏了就退化为
+        # 不注入场景，而不是让整轮对话 500。
         log.warning("Invalid scene state in runtime_state", exc_info=True)
         return None
     return format_scene_for_prompt(state)
@@ -54,41 +48,24 @@ async def prompt_builder(ctx: PipelineContext) -> None:
 
     # 提示词模板取自**本次记录冻结的 workflow**（记录 = 唯一运行期 owner）
     workflow = workflow_for_record(ctx.record)
-
-    # Case-data kwargs — cached across turns (personality, background, …)
-    cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
-    if cached is None:
-        cached = build_context_kwargs(ctx.case_data)
-        ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
-
-    prompt_ctx = PromptContext()
-    prompt_ctx.register("case", cached)
-
-    system_prompt = render_template(str(workflow.prompts.system), **prompt_ctx.as_dict())
-    try:
-        session_prompt = render_template(str(workflow.prompts.dynamic), **prompt_ctx.as_dict())
-    except Exception as e:
-        log.exception("动态模板渲染失败 workflow=%s: %s", workflow.id, e)
-        session_prompt = ""
+    # 病例模板变量：纯函数，从本次记录的 case_snapshot 现算。没有可缓存的东西——
+    # 模板渲染是确定性的，模板本身是代码常量。
+    case_vars = build_case_vars(ctx.case_data)
 
     fragments = await ctx.note_collector.collect(ctx) if ctx.note_collector else []
 
-    assembler = ContextAssembler(
-        workflow.context_sources(
-            ctx.case_data,
-            overrides=(ctx.record.practice_snapshot or {}).get("features"),
-        )
-    )
-    ctx.state[STATE_ASSEMBLER] = assembler
-
-    result = assembler.assemble(
-        role=system_prompt,
-        scenario=session_prompt,
+    ctx.llm_messages = compile_patient_prompt(
+        # 渲染失败即抛（render_template 缺变量抛 RuntimeError）：模板是代码常量，
+        # 渲染不出来是代码缺陷，不能静默退化成"没有病例信息的患者"。
+        role=render_template(str(workflow.prompts.system), **case_vars),
+        scenario=render_template(str(workflow.prompts.dynamic), **case_vars),
         history=ctx.messages,
         student_input=ctx.student_display or ctx.student_input,
-        examples=build_example_pairs(ctx.case_data),
         fragments=fragments,
+        declared_sources=workflow.context_sources(
+            ctx.case_data,
+            overrides=(ctx.record.practice_snapshot or {}).get("features"),
+        ),
+        examples=build_example_pairs(ctx.case_data),
         scene_text=_resolve_scene_text(ctx) or "",
     )
-    ctx.llm_messages = result.messages
-    log.debug("context ledger: %s", result.ledger)

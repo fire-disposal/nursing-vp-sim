@@ -9,9 +9,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from modules.training.context import budget as budget_module
+from modules.training.context import compiler as compiler_module
 from modules.training.prompt_identity import (
     compute_context_policy_version,
     compute_prompt_id,
@@ -53,10 +56,18 @@ class TestContextPolicyVersion:
         assert compute_context_policy_version() == compute_context_policy_version()
 
     @pytest.mark.parametrize(
-        "constant",
-        ["HISTORY_BUDGET_TOKENS", "PATIENT_STATE_BUDGET_TOKENS", "MIN_HISTORY_ROUNDS", "HEAD_PINNED_ROUNDS"],
+        "field",
+        ["history_budget_tokens", "patient_state_budget_tokens", "min_history_rounds", "head_pinned_rounds"],
     )
-    def test_budget_change_changes_identity(self, monkeypatch, constant):
+    def test_policy_change_changes_identity(self, monkeypatch, field):
         before = compute_context_policy_version()
-        monkeypatch.setattr(budget_module, constant, getattr(budget_module, constant) + 1)
+        policy = budget_module.DEFAULT_POLICY
+        bumped = replace(policy, **{field: getattr(policy, field) + 1})
+        monkeypatch.setattr(budget_module, "DEFAULT_POLICY", bumped)
+        assert compute_context_policy_version() != before
+
+    def test_compiler_schema_change_changes_identity(self, monkeypatch):
+        """只改装配**算法**（策略字段不动）也必须改身份——这是原先的身份盲区。"""
+        before = compute_context_policy_version()
+        monkeypatch.setattr(compiler_module, "COMPILER_SCHEMA", compiler_module.COMPILER_SCHEMA + 1)
         assert compute_context_policy_version() != before

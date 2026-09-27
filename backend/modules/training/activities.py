@@ -113,8 +113,8 @@ class NursingDiagnosisOutput(_ActivityModel):
 class ContextContribution:
     """Activity 可注入 LLM 上下文的结构化片段（docs/15 §八）。
 
-    只声明「我贡献什么类型的数据」，选择/排序/裁剪/预算由 ContextAssembler 决定
-    （本切片尚未接入装配器，声明先于消费落地）。
+    只声明「我贡献什么类型的数据」，选择/排序/裁剪/预算由 ``compile_patient_prompt``
+    决定（本切片尚未接入装配器，声明先于消费落地）。
     """
 
     key: str

@@ -17,7 +17,6 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingAction, TrainingRecord
 from modules.training.blueprint import not_applicable_item_ids, scoring_task_boundary_text
-from modules.training.pipeline.prompt_context import PromptContext
 from modules.training.prompt_identity import compute_prompt_id
 from modules.training.prompts.scoring import (
     FEEDBACK_RETRY_USER,
@@ -454,9 +453,9 @@ def _build_history_messages(
 ) -> tuple[list[dict], str, str, list[TrainingAction]]:
     """装配评分阶段消息。
 
-    已记录动作（查体）与已提交产物（护理评估）此前只注册进 PromptContext 却无人引用 ——
-    模板里没有 ``{#exam_results#}``，模型从未看到查体证据。现在两者都是模板变量，
-    并在返回值里带出查体动作行，供证据引用定位（``scoring/evidence.py``）复用同一次查询。
+    已记录动作（查体）与已提交产物（护理评估）都是评分证据的一部分，直接作为模板变量
+    送达模型，并在返回值里带出查体动作行，供证据引用定位（``scoring/evidence.py``）
+    复用同一次查询。
     """
     # Prefer TrainingAction audit timeline; fall back to legacy runtime_state
     actions = (
@@ -477,20 +476,15 @@ def _build_history_messages(
         json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
     )
 
-    pc = PromptContext()
-    pc.register(
-        "scoring",
-        {
-            "scoring_criteria": scoring_criteria_text,
-            "required_inquiries": required_inquiries_text,
-            "scoring_json_schema": scoring_json_schema_text,
-            "conversation_text": conversation_text,
-            "exam_results": exam_results_text,
-            "nursing_record": nursing_record_text or "学生未提交护理评估记录",
-            "task_boundary": task_boundary_text,
-        },
-    )
-    prompt_kw = pc.as_dict()
+    prompt_kw = {
+        "scoring_criteria": scoring_criteria_text,
+        "required_inquiries": required_inquiries_text,
+        "scoring_json_schema": scoring_json_schema_text,
+        "conversation_text": conversation_text,
+        "exam_results": exam_results_text,
+        "nursing_record": nursing_record_text or "学生未提交护理评估记录",
+        "task_boundary": task_boundary_text,
+    }
     score_system = render_template(SCORING_SYSTEM, **prompt_kw)
     score_user = render_template(SCORING_USER, **prompt_kw)
     score_messages = [
@@ -508,19 +502,14 @@ def _build_feedback_messages(
     nursing_record_text: str,
     task_boundary_text: str = "",
 ) -> list[dict]:
-    fb_ctx = PromptContext()
-    fb_ctx.register(
-        "feedback",
-        {
-            "scoring_criteria": scoring_criteria_text_brief,
-            "required_inquiries": required_inquiries_text,
-            "conversation_text": conversation_text,
-            "exam_results": exam_results_text,
-            "nursing_record": nursing_record_text or "学生未提交护理评估记录",
-            "task_boundary": task_boundary_text,
-        },
-    )
-    fb_kw = fb_ctx.as_dict()
+    fb_kw = {
+        "scoring_criteria": scoring_criteria_text_brief,
+        "required_inquiries": required_inquiries_text,
+        "conversation_text": conversation_text,
+        "exam_results": exam_results_text,
+        "nursing_record": nursing_record_text or "学生未提交护理评估记录",
+        "task_boundary": task_boundary_text,
+    }
     feedback_system = render_template(SCORING_FEEDBACK_SYSTEM, **fb_kw)
     feedback_user = render_template(SCORING_FEEDBACK_USER, **fb_kw)
     return [

@@ -2,7 +2,7 @@
 
 四域重构后不再是 "author_note"，而是 per-turn 状态消息（情绪策略/操作注记）
 的来源。这里只做**收集**：来源异常不影响本轮其余来源；选择/排序/裁剪/预算
-全部交给 ``context.assembler.ContextAssembler``（docs/15 §八：装配权集中一处）。
+全部交给 ``context.compiler.compile_patient_prompt``（docs/15 §八：装配权集中一处）。
 """
 
 from __future__ import annotations

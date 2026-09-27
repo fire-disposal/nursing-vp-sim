@@ -23,12 +23,12 @@ import pytest
 
 import modules.training.pipeline.runner as runner_mod
 from modules.training.pipeline.context import (
-    STATE_ASSEMBLER,
     STATE_DONE_PAYLOAD,
     STATE_EMOTION_CHANGE,
     STATE_EMOTION_DOMINANT,
     STATE_EMOTION_NOTE,
     STATE_FEATURES,
+    STATE_PATIENT_CHAT_CFG,
     STATE_SAVED_MESSAGES,
     STATE_TURN,
     PipelineContext,
@@ -391,23 +391,29 @@ async def test_non_stream_error_path_produces_no_sse_frame(probe_pipeline, monke
 
 @pytest.mark.asyncio
 async def test_state_keys_written_by_earlier_stage_are_readable_downstream(probe_pipeline):
-    """真实 STATE_* 键的前写后读：对象身份不变（同一次调用的 ctx.state 透传）。"""
+    """真实 STATE_* 键的前写后读：对象身份不变（同一次调用的 ctx.state 透传）。
+
+    PROMPT 阶段不再写任何 ctx.state（患者消息编译是纯函数，见 19-C0），因此本用例
+    钉住的是真正存在写入方的键：ANALYSIS 的情绪产物、LLM 的调用配置、PERSIST 的
+    落库消息。
+    """
     note = object()
-    assembler = object()
+    change = object()
+    cfg = object()
     saved: list[object] = [object()]
     seen: dict[str, Any] = {}
 
     def analysis(ctx):
         ctx.state[STATE_EMOTION_NOTE] = note
+        ctx.state[STATE_EMOTION_CHANGE] = change
         ctx.state[STATE_EMOTION_DOMINANT] = "焦虑"
 
     def prompt(ctx):
         seen["prompt_note"] = ctx.state.get(STATE_EMOTION_NOTE)  # 跨阶段读 ANALYSIS 的产物
-        ctx.state[STATE_ASSEMBLER] = assembler
 
     def llm(ctx):
-        seen["llm_assembler"] = ctx.state.get(STATE_ASSEMBLER)  # llm_caller 复用装配器
         seen["llm_dominant"] = ctx.state.get(STATE_EMOTION_DOMINANT)
+        ctx.state[STATE_PATIENT_CHAT_CFG] = cfg
 
     def persist(ctx):
         seen["persist_note"] = ctx.state.get(STATE_EMOTION_NOTE)
@@ -415,7 +421,8 @@ async def test_state_keys_written_by_earlier_stage_are_readable_downstream(probe
 
     def side_effects(ctx):
         seen["side_saved"] = ctx.state.get(STATE_SAVED_MESSAGES)  # runner 快照 done id 用同一键
-        seen["side_assembler"] = ctx.state.get(STATE_ASSEMBLER)
+        seen["side_cfg"] = ctx.state.get(STATE_PATIENT_CHAT_CFG)
+        seen["side_change"] = ctx.state.get(STATE_EMOTION_CHANGE)
 
     probe_pipeline(
         {
@@ -430,16 +437,16 @@ async def test_state_keys_written_by_earlier_stage_are_readable_downstream(probe
 
     assert seen == {
         "prompt_note": note,
-        "llm_assembler": assembler,
         "llm_dominant": "焦虑",
         "persist_note": note,
         "side_saved": saved,
-        "side_assembler": assembler,
+        "side_cfg": cfg,
+        "side_change": change,
     }
     assert seen["prompt_note"] is note  # 不拷贝、不被回滚
     assert seen["persist_note"] is note
-    assert seen["llm_assembler"] is assembler
     assert seen["side_saved"] is saved
+    assert seen["side_change"] is change
 
 
 @pytest.mark.asyncio

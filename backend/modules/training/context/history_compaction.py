@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from infra.llm.token_counter import estimate_tokens
 
-# 摘要段 token 预算：被折叠的中段整体压到该上限内（必须远小于 HISTORY_BUDGET_TOKENS，
-# 否则"摘要"反而不省 token）。
+# 摘要段 token 预算：被折叠的中段整体压到该上限内（必须远小于
+# ``ContextPolicy.history_budget_tokens``，否则"摘要"反而不省 token）。
 SUMMARY_BUDGET_TOKENS = 300
 # 前置一行标记：让模型分清"这段是更早对话的压缩"与"真实历史消息"。
 HISTORY_SUMMARY_HEADER = "【前情摘要】以下为更早对话的压缩内容，不是本轮对话内容，仅供延续语气与事实："

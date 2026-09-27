@@ -65,7 +65,6 @@ class WorkflowDefinition:
     artifact_kinds: tuple[str, ...]
     completion: CompletionPolicy
     scoring_profile: str
-    context_profile: str
     ui: dict[str, str]
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
@@ -132,7 +131,7 @@ class WorkflowDefinition:
 
         = 本 Workflow 的 ``note_sources`` ∪ 本次病例实际启用 Activity 的
         ``context_contribution.key``。来源由 Workflow/病例声明，不由生产者自报：
-        病例没启用的 Activity 不能注入，未声明的来源会被 ContextAssembler 拒绝。
+        病例没启用的 Activity 不能注入，未声明的来源会被 ``compile_patient_prompt`` 拒绝。
         """
         sources = {declared_name(cls) for cls in self.note_sources}
         for activity_id, definition in ACTIVITY_BINDINGS.items():
@@ -154,7 +153,6 @@ HISTORY_TAKING = WorkflowDefinition(
     artifact_kinds=("nursing_record",),
     completion=CompletionPolicy(required_artifacts=("nursing_record",)),
     scoring_profile="history_taking.base",
-    context_profile="history_taking.session",
     ui={"workspace": "patient_interaction", "primary_surface": "conversation"},
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=PromptCollection(system=PATIENT_SYSTEM, dynamic=PATIENT_DYNAMIC),
@@ -184,7 +182,6 @@ CLINICAL_REASONING = WorkflowDefinition(
     artifact_kinds=(),
     completion=CompletionPolicy(required_artifacts=()),
     scoring_profile="clinical_reasoning.base",
-    context_profile="clinical_reasoning.session",
     ui={},
     note_sources=[],
     prompts=PromptCollection(),

@@ -125,10 +125,9 @@ backend/
         __init__.py
         builder.py
         context.py
-        prompt_context.py
-        prompt_context_builder.py
         runner.py
-        stages.py
+        snapshot_compat.py
+        turn.py
         middleware/
           __init__.py
           prompt_builder.py

@@ -390,3 +390,23 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - 历史 W0–W6 保留为已交付事实，不再把教师校准、六个迁移情境或能力等第列为 U0 前置；能力等第继续保持未校准关闭状态。
 - U0 后若出现真实的重复实验需求，只考虑不可变上下文 revision、作业发布时固定 arm、训练开始冻结快照和按 batch/arm 导出；不热改进行中会话，不做请求级覆盖或自动胜者。
 - 本次未修改业务代码、配置、数据库与历史成绩，未执行 tag 或部署。
+
+### C0：患者上下文运行时收敛（2026-09-27）
+
+- **装配合一**：唯一纯入口 `context/compiler.py::compile_patient_prompt`（吸收原 `ContextAssembler` 类、
+  `assemble_patient_messages` 双入口与 `patient_state.py`），返回 messages 而非内部账本；槽位权限
+  （ROLE/SCENARIO 内核保留、PATIENT_STATE 需声明、GUARD 只认内核来源）在同一函数内执行。
+- **删除无消费者抽象**：`pipeline/prompt_context.py`（单命名空间注册器）、
+  `pipeline/prompt_context_builder.py`、伪跨轮缓存 `STATE_PATIENT_CONTEXT_KWARGS`、只写不读的
+  `STATE_ASSEMBLER`、无消费者的 `WorkflowDefinition.context_profile`。
+- **归属归位**：病例模板变量 → `context/case_vars.py::build_case_vars`（并按 trait 表 + 组合加成
+  拆分降低复杂度）；病例生成侧文本块 → `modules/cases/prompt_format.py`；评分/反馈变量直接用字典。
+- **策略与身份**：预算收敛为单一 `ContextPolicy`（`context/budget.py`）；`context_policy_version`
+  改为覆盖策略字段 + `COMPILER_SCHEMA` + 槽位/示例/摘要标记，消除"只改算法身份不变"的盲区。
+- **删除未接线链路**：token 账本、`resolve_token_scale`、`MAX_TOKEN_SCALE`、`reconcile_tokens` /
+  `TokenReconciliation`（无生产消费者）；截断与折叠改为由消息结构 + 告警日志观测，真实用量仍由
+  `llm_call_logs` 承载。越权与超预算贡献从"只记账本"改为 warning 日志。
+- **行为诚实化**：PROMPT 阶段不再写任何 `ctx.state`；动态模板渲染失败不再静默退化成空病例块。
+- **验证**：21 组夹具（短/长/饱和历史、零预算、示例段、场景状态、片段截断/丢弃/越权、守卫追加）的
+  messages 与收敛前实现**逐字节一致**（临时工作树对比 HEAD）；后端 1623 项测试 + `ruff` + `ty` 全绿；
+  真实 provider 冒烟（真实病例编译 → 患者回复 → 泄漏守卫命中 → 守卫修正重试）通过。
