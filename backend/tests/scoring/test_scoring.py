@@ -1,5 +1,7 @@
 """Unit tests for pure functions in modules.training.service."""
 
+import logging
+
 import pytest
 
 from modules.training.scoring.validation import (
@@ -141,6 +143,85 @@ def test_coerce_numeric_fields_mutates_in_place():
     result = _coerce_numeric_fields(obj)
     assert result is None
     assert obj["total_score"] == 42
+
+
+# ── 带范围批注/单位后缀的数值字符串（真实故障：模型输出 "20(0~48)"） ──
+
+
+def test_coerce_numeric_fields_strips_range_annotation_on_total_score():
+    obj = {"total_score": "20(0~48)"}
+    _coerce_numeric_fields(obj)
+    assert obj["total_score"] == 20
+    assert isinstance(obj["total_score"], int)
+
+
+def test_coerce_numeric_fields_strips_range_annotation_on_score():
+    obj = {"score": "13(0~28)"}
+    _coerce_numeric_fields(obj)
+    assert obj["score"] == 13
+    assert isinstance(obj["score"], int)
+
+
+def test_coerce_numeric_fields_strips_range_annotation_keeping_float():
+    obj = {"score": "3.14(0~2.8)"}
+    _coerce_numeric_fields(obj)
+    assert obj["score"] == 3.14
+    assert isinstance(obj["score"], float)
+
+
+def test_coerce_numeric_fields_strips_unit_suffix_on_max():
+    obj = {"max": "35.5分"}
+    _coerce_numeric_fields(obj)
+    assert obj["max"] == 35.5
+    assert isinstance(obj["max"], float)
+
+
+def test_coerce_numeric_fields_strips_range_annotation_across_nested_items():
+    obj = {
+        "detail_scores": {
+            "dim": {
+                "score": "13(0~28)",
+                "items": [
+                    {"score": "2(0~2)", "max": "2"},
+                    {"score": "1.5(0~2)", "max": "2"},
+                ],
+            },
+        },
+    }
+    _coerce_numeric_fields(obj)
+    dim = obj["detail_scores"]["dim"]
+    assert dim["score"] == 13
+    assert dim["items"][0]["score"] == 2
+    assert dim["items"][0]["max"] == 2
+    assert dim["items"][1]["score"] == 1.5
+    assert dim["items"][1]["max"] == 2
+    for key in ("score", "max"):
+        assert isinstance(dim["items"][0][key], int)
+        assert isinstance(dim["items"][1][key], (int, float))
+
+
+def test_coerce_numeric_fields_annotation_ignored_is_logged_at_info(caplog):
+    obj = {"total_score": "20(0~48)"}
+    with caplog.at_level(logging.INFO, logger="modules.training.scoring.validation"):
+        _coerce_numeric_fields(obj)
+    assert obj["total_score"] == 20
+    assert "已忽略批注/后缀" in caplog.text
+
+
+def test_coerce_numeric_fields_keeps_leading_text_string(caplog):
+    obj = {"score": "分20"}
+    with caplog.at_level(logging.WARNING, logger="modules.training.scoring.validation"):
+        _coerce_numeric_fields(obj)
+    assert obj["score"] == "分20"
+    assert "无法转换" in caplog.text
+
+
+def test_coerce_numeric_fields_keeps_na_string(caplog):
+    obj = {"total_score": "N/A", "score": "N/A", "max": "N/A"}
+    with caplog.at_level(logging.WARNING, logger="modules.training.scoring.validation"):
+        _coerce_numeric_fields(obj)
+    assert obj == {"total_score": "N/A", "score": "N/A", "max": "N/A"}
+    assert "无法转换" in caplog.text
 
 
 # ──────────────────────────────────────────────

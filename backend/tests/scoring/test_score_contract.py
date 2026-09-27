@@ -16,7 +16,11 @@ import pytest
 from core.statuses import ScoringStatus
 from models import Score, TrainingRecord
 from modules.training.scoring import engine
-from modules.training.scoring.engine import _fallback_scoring, _postprocess_scoring_result
+from modules.training.scoring.engine import (
+    ScoringUnavailableError,
+    _fallback_scoring,
+    _postprocess_scoring_result,
+)
 from modules.training.scoring.mapping import apply_score_mapping
 from modules.training.scoring.validation import review_total_from_raw
 
@@ -106,10 +110,14 @@ def test_postprocess_raw_total_equals_item_sum():
 # ── INV-3 兜底 0 分带 fallback 标记 ────────────────────────────────────────
 
 
-def test_llm_empty_fallback_marked():
-    result = _fallback_scoring({}, {})
-    assert result["fallback"] == {"kind": "llm_empty"}
-    assert result["total_score"] == 0
+def test_llm_empty_fallback_raises_instead_of_fake_zero():
+    """两次尝试都没有可用结果时**不落 0 分**，而是抛错让执行器标记失败并可重试。
+
+    0 分是对学生的错误陈述（"你什么都没做到"）；降级标记不足以抵消它。
+    历史行里的 ``llm_empty`` 仍可读（score_source/judging_set），但不再新写。
+    """
+    with pytest.raises(ScoringUnavailableError):
+        _fallback_scoring({}, {})
 
 
 # ── INV-4 维度丢失 → fallback 标记 ─────────────────────────────────────────

@@ -10,6 +10,7 @@
 """
 
 import logging
+import re
 
 from .mapping import apply_score_mapping, display_factor
 
@@ -18,6 +19,10 @@ log = logging.getLogger(__name__)
 # ── 校验阈值 ──
 EVIDENCE_COVERAGE_THRESHOLD = 0.5  # 报告用：至少 50% 的条目带证据（不阻断评分）
 COERCE_MAX_DEPTH = 10
+
+# 「数值 + 批注/单位后缀」形态（如 ``"20(0~48)"``、``"35.5分"``）的开头数字提取；
+# 只匹配开头，避免把 ``"分20"`` 这类前置文字误判为分数。
+_NUMERIC_PREFIX_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)")
 
 STATUS_SCORED = "scored"
 STATUS_NOT_APPLICABLE = "not_applicable"
@@ -94,7 +99,22 @@ def _coerce_numeric_fields(obj: dict, depth: int = 0):
             try:
                 obj[key] = float(raw) if "." in raw else int(raw)
             except ValueError:
-                log.warning("coerce_numeric_fields 无法转换: key=%s value=%r", key, raw[:200])
+                # 纯数字解析失败：模型有时把分值写成「数值 + 范围批注/单位」
+                # （如 "20(0~48)"、"35.5分"）——取开头数字，其余视为批注忽略；
+                # 忽略动作走 info 级日志留痕，便于追溯。
+                match = _NUMERIC_PREFIX_RE.match(raw)
+                if match is None:
+                    log.warning("coerce_numeric_fields 无法转换: key=%s value=%r", key, raw[:200])
+                else:
+                    number = match.group(1)
+                    obj[key] = float(number) if "." in number else int(number)
+                    log.info(
+                        "coerce_numeric_fields 已忽略批注/后缀: key=%s value=%r -> %r（忽略 %r）",
+                        key,
+                        raw[:200],
+                        obj[key],
+                        raw[match.end() :][:200],
+                    )
     for value in obj.values():
         if isinstance(value, dict):
             _coerce_numeric_fields(value, depth + 1)

@@ -447,8 +447,26 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - 验证：真实浏览器 1440x900 / 390x844 / 844x390（宿主互斥、无重复抽屉、触摸目标 44px、一跳成立）；
   前端 93 文件 **629 用例通过**（1 skipped）+ `tsc` 干净 + `biome` 仅 2 条存量告警；真实 LLM 全链
   （3 轮对话 + ADPIE 提交 + 交卷 + 结束 + 结果页）走通。
-- **本轮实测发现（待修，阻断 U0 数据质量）**：一次完整训练的评分落 **0 分 + `fallback=llm_empty`**，重试复现。
+- **本轮实测发现并当场修复（阻断 U0 数据质量）**：一次完整训练的评分落 **0 分 + `fallback=llm_empty`**，重试复现。
   三次 scoring 调用的 `completion_tokens` 为 14000 / 7882 / 6633（`max_tokens=16384`，评分 profile 开启
   thinking），落库 `response_text` 的 `{` 比 `}` 多 1（顶层对象未闭合）→ `safe_parse_json` 三层兜底全部失效 →
   `_stream_attempt` 视作空 → `scoring_fallback_zero` 写 0。另有一处独立偏差：模型把分值写成
   `"total_score": "20(0~48)"`、`"score": "13(0~28)"`，`_coerce_numeric_fields` 明确「无法转换」并保留字符串。
+  修复与验证见下一节。
+
+### 评分链路：截断不再被当成"空响应"，且不再写假 0 分（2026-09-27）
+
+- **解析分层**：`infra/llm/parsing.py` 新增 `TruncatedJSONError(ValueError)` 与 `_looks_truncated()`，
+  把**截断**（要压缩输出后重试）与**不是 JSON**（重试无用）分开；`_repair_truncated_json` 重写为
+  转义感知扫描 + 补完必须自身可解析，字符串内部截断时丢掉不完整字段而不是补空串。
+- **重试分工**：`_stream_attempt` 返回 `(结果, 是否截断)`；截断时改用压缩输出专用重试提示
+  （`SCORING_RETRY_TRUNCATED_USER` / `FEEDBACK_RETRY_TRUNCATED_USER`），不再用同一套提示重发同样长的输出。
+- **输出约束**：评分提示词新增篇幅与数值纯度要求（`reason` ≤ 60 字、`evidence` ≤ 40 字；分值必须是纯整数，
+  不得写成 `"20(0~48)"`；不输出 `max`；必须完整闭合）。
+- **数值批注**：`_coerce_numeric_fields` 现在能把 `"20(0~48)"`→20、`"13(0~28)"`→13、`"35.5分"`→35.5
+  转换过来（忽略的批注记 info 日志）；`"N/A"`、`"分20"` 仍保持字符串并 warning。
+- **不写假 0**：两次尝试都没有可用结果时抛 `ScoringUnavailableError`，执行器置 `scoring_status=failed` +
+  `scoring_error`，前端展示失败态并可重试。历史 `llm_empty` 行仍可读，但不再新写 —— 0 分是对学生的错误陈述，
+  降级标记不足以抵消它。
+- 验证：故障原文经修复后的 `safe_parse_json` **完整还原**（3 维度 / 24 条目）；真实 provider 复评同一记录
+  由 `0 分 + llm_empty` 变为 **50 分（原始 24 分）、条目级证据齐全、`fallback=null`**；后端全量 1646 项通过。

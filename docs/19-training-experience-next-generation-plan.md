@@ -260,8 +260,33 @@ SUS 模板本身属 U0-C。
    `"score": "13(0~28)"`），`_coerce_numeric_fields` 对这类值明确「无法转换」并保持字符串——
    即使修好截断，这些字段仍会以字符串进入校验。
 
-结论：**评分链路对"输出被截断/数值带批注"没有真实兜底**，而 U0 的主要补充材料正是评分与反馈；
-若不修，参与者可能拿到 0 分且被标记降级，既误导学生也污染研究数据。
+**根因**：`_repair_truncated_json` 的括号/引号扫描不做转义感知（中文长串里的 `\"` 让计数错位，多补了 3 个 `}`），
+补出的串自身都解析不过却仍被返回 → 三层兜底一次性全废；而 `_stream_attempt` 把"解析失败"一律当成
+"模型返回空"，于是重试用**同一套提示**再产出一份同样长的输出、同样被截断，最后按"空"落 0 分。
+
+**修复（2026-09-27，同批）**
+
+1. `parsing.py`：新增 `TruncatedJSONError(ValueError)` 与 `_looks_truncated()`，把**截断**与
+   **根本不是 JSON** 分开（前者要压缩输出重试，后者重试无用）；分类保持 `ValueError` 契约，既有调用方不受影响。
+2. `_repair_truncated_json` 重写：结构扫描改为转义感知；**补完必须自身可解析才返回**；字符串内部截断时
+   丢掉不完整的字段，而不是补一个空串（补空串等于伪造"该字段为空"）。
+3. `_stream_attempt` 返回 `(结果, 是否截断)`；`_stage_with_retry` 在截断时改用**压缩输出**专用重试模板
+   （`SCORING_RETRY_TRUNCATED_USER` / `FEEDBACK_RETRY_TRUNCATED_USER`），不再拿同一套提示重复长输出。
+4. `prompts/scoring.py`：输出前自检新增篇幅与数值纯度约束（`reason` ≤ 60 字、`evidence` ≤ 40 字；
+   分值必须是纯整数，不得写成 `"20(0~48)"`；不输出 `max`；必须完整闭合）。
+5. `validation.py::_coerce_numeric_fields`：带批注/后缀的数值字符串按**开头数字**转换（`"20(0~48)"`→20、
+   `"13(0~28)"`→13、`"35.5分"`→35.5），被忽略的批注记 info 日志；`"N/A"`、`"分20"` 仍保持字符串 + warning。
+6. `engine.py::_fallback_scoring`：两次都没有可用结果时抛 `ScoringUnavailableError`（不再写 0 分）——
+   执行器据此置 `scoring_status=failed` + `scoring_error`，前端展示失败态并可重试。历史 `llm_empty` 行仍可读
+   （`score_source`、判例入选），但不再新写。
+
+**验证**
+
+- 用**故障原文**（落库的 `response_text`）直接喂 `safe_parse_json`：修复前抛错，修复后**完整还原**
+  `total_score` + 3 维度 + **24 个条目**；
+- 真实 provider 对同一记录复评：`0 分 + fallback=llm_empty` → **50 分（原始 24 分）、三维度、条目级证据齐全、
+  `fallback=null`**；
+- 回归：后端全量 **1646 项**通过（新增解析 4 / 流式分类 4 / 数值批注 8 / 契约 1），`ruff`、`ty` 干净。
 
 ### U0-C：研究配置
 

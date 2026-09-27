@@ -14,14 +14,17 @@ from core.statuses import ScoringStatus, normalize_training_mode
 from core.template import render_template
 from infra.llm import safe_parse_json
 from infra.llm.client import CallContext, LLMClient
+from infra.llm.parsing import TruncatedJSONError
 from infra.llm.profile import get_enable_thinking, get_llm_config
 from models import Message, NursingRecord, Score, TrainingAction, TrainingRecord
 from modules.training.blueprint import not_applicable_item_ids, scoring_task_boundary_text
 from modules.training.prompt_identity import compute_prompt_id
 from modules.training.prompts.scoring import (
+    FEEDBACK_RETRY_TRUNCATED_USER,
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,
+    SCORING_RETRY_TRUNCATED_USER,
     SCORING_RETRY_USER,
     SCORING_SYSTEM,
     SCORING_USER,
@@ -134,8 +137,11 @@ async def _stream_attempt(
     purpose: str,
     case_id: int,
     log_meta: dict | None,
-) -> dict:
-    """Stream LLM response.  Pushes *thinking* tokens to SSE, never content chunks."""
+) -> tuple[dict, bool]:
+    """Stream LLM response.  Pushes *thinking* tokens to SSE, never content chunks.
+
+    返回 ``(结果, 是否截断)``：截断是**可重试**的失败（压缩输出再试），不是"模型返回空"。
+    """
     ctx = CallContext(
         purpose=purpose, user_id=stage.user_id, record_id=stage.record_id, case_id=case_id, log_meta=log_meta
     )
@@ -189,7 +195,19 @@ async def _stream_attempt(
         full_text = "".join(content_parts)
         result = safe_parse_json(full_text)
         _coerce_numeric_fields(result)
-        return result
+        return result, False
+    except TruncatedJSONError as e:
+        # 截断与"不是 JSON"必须分开：截断要**压缩输出后重试**，不能被当成"模型返回空"
+        # （2026-09-27 真实故障：只缺最外层一个 } 被误判为空 → 落 0 分）
+        log.warning(
+            "Stream attempt truncated: record_id=%d purpose=%s len=%d tail=%r",
+            stage.record_id,
+            purpose,
+            len(full_text),
+            full_text[-200:],
+        )
+        log.debug("truncation detail: %s", str(e)[:200])
+        return {}, True
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
         log.warning(
             "Stream attempt parse failed: record_id=%d purpose=%s len=%d head=%r tail=%r error=%s",
@@ -200,7 +218,7 @@ async def _stream_attempt(
             full_text[-200:],
             str(e)[:200],
         )
-        return {}
+        return {}, False
     finally:
         stream_done.set()
         heartbeat_task.cancel()
@@ -219,6 +237,7 @@ async def _stage_with_retry(
     llm_cfg: dict,
     validate_fn,
     retry_prompt_template: str,
+    retry_prompt_truncated_template: str | None = None,
     fallback_fn=None,
     budget_seconds: float,
     not_applicable: frozenset[str] = frozenset(),
@@ -232,7 +251,7 @@ async def _stage_with_retry(
     _tracker_update(stage, stage.pct_base, f"正在{stage.progress_msg}...")
     deadline = time.monotonic() + budget_seconds
 
-    async def _try_once(msgs: list[dict]) -> dict:
+    async def _try_once(msgs: list[dict]) -> tuple[dict, bool]:
         remaining = max(15.0, deadline - time.monotonic())
         timeout = min(PER_STAGE_TIMEOUT_SEC, remaining)
         return await asyncio.wait_for(
@@ -242,7 +261,7 @@ async def _stage_with_retry(
             timeout=timeout,
         )
 
-    result = await _try_once(messages)
+    result, truncated = await _try_once(messages)
 
     if result:
         try:
@@ -270,7 +289,7 @@ async def _stage_with_retry(
     missing = ", ".join(missing_list)
 
     retry_user = render_template(
-        retry_prompt_template,
+        retry_prompt_truncated_template if (truncated and retry_prompt_truncated_template) else retry_prompt_template,
         partial_json=partial_json or "(上轮响应为空，需要重新生成完整 JSON)",
         validation_errors=validation_msg,
         missing=missing,
@@ -281,7 +300,7 @@ async def _stage_with_retry(
     retry_msgs.append({"role": "user", "content": retry_user})
 
     try:
-        result2 = await _try_once(retry_msgs)
+        result2, _ = await _try_once(retry_msgs)
     except TimeoutError:
         if fallback_fn:
             return fallback_fn(result, {}, missing_list)
@@ -875,6 +894,7 @@ async def evaluate_training(
         llm_cfg=scoring_cfg,
         validate_fn=_validate_scoring_essentials,
         retry_prompt_template=SCORING_RETRY_USER,
+        retry_prompt_truncated_template=SCORING_RETRY_TRUNCATED_USER,
         fallback_fn=_fallback_scoring,
         budget_seconds=stage_budget,
         not_applicable=not_applicable,
@@ -889,6 +909,7 @@ async def evaluate_training(
         llm_cfg=feedback_cfg,
         validate_fn=_validate_feedback_fields,
         retry_prompt_template=FEEDBACK_RETRY_USER,
+        retry_prompt_truncated_template=FEEDBACK_RETRY_TRUNCATED_USER,
         fallback_fn=_merge_feedback,
         budget_seconds=stage_budget,
     )
@@ -963,6 +984,15 @@ async def evaluate_training(
     return _persist_score(result, rubric, record_id, db)
 
 
+class ScoringUnavailableError(RuntimeError):
+    """两次尝试都没有可用评分（无 detail_scores）。
+
+    不落"假 0 分"：0 分是对学生的**错误陈述**（"你什么都没做到"），而降级标记不足以抵消它。
+    正确做法是标记评分失败并允许重试 —— 执行器据此把 ``scoring_status`` 置为 ``failed``
+    并写 ``scoring_error``，前端展示失败态 + 重试入口（2026-09-27 真实故障的修复）。
+    """
+
+
 def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None = None) -> dict:
     """Fallback when scoring LLM fails after retry.
 
@@ -977,11 +1007,5 @@ def _fallback_scoring(first: dict, second: dict, missing_list: list[str] | None 
         first["_scoring_fallback"] = True
         first["fallback"] = {"kind": "llm_partial"}
         return first
-    log.warning("scoring_fallback_zero: both LLM attempts returned empty — saving 0-score")
-    return {
-        "total_score": 0,
-        "detail_scores": {},
-        "raw_total": 0,
-        "_scoring_fallback": True,
-        "fallback": {"kind": "llm_empty"},
-    }
+    log.warning("scoring_unavailable: both LLM attempts returned nothing usable — marking failed (no fake 0)")
+    raise ScoringUnavailableError("两次尝试均未获得可用评分（无 detail_scores）：标记失败以便重试，不落 0 分")
