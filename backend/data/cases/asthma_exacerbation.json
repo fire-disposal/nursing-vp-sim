@@ -71,6 +71,9 @@
       "answer": "就……拿起来吸一口吧，也没人仔细教过，有时候忘了先呼气，吸完也没漱口，总觉得吸了不太管用。"
     }
   ],
+  "completion": {
+    "required_artifacts": ["nursing_record"]
+  },
   "activities": {
     "physical_exam": {
       "config": {

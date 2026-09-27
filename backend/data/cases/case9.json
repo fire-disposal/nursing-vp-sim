@@ -62,6 +62,9 @@
       "answer": "哪有什么扶手，住了20年的老房子了。厕所地上经常有水的，我眼神不好有时候看不清。没事，我小心点就行，别给你们添麻烦。"
     }
   ],
+  "completion": {
+    "required_artifacts": []
+  },
   "activities": {
     "physical_exam": {
       "config": {

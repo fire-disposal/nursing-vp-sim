@@ -499,6 +499,15 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
   [docs/15 §6.1](15-workflow-activity-contract.md)。
 - 验证：本地验证库迁移后 13→12 行、重启跑 seed **不复活**；后端全量 1652 项通过。
 
+### 交卷门禁按病例分别声明（2026-09-27）
+
+- 维护者裁定：护理评估是评分产物，但**不是每个病例的教学任务都要求先提交它才能交卷**。
+  按教学任务分别声明：U0 病例（`case1`）与四个 V2 典范病例**显式要求**提交护理记录；
+  其余九个（`case2/3/4/5/7/8/9/10`、`diabetes_foot_quiz`，以问诊为主）**不设该门禁**。
+- 实测（与运行期同一个 `build_session_manifest`）：`case1`/儿科 → `required=True` + `ARTIFACT_NOT_SUBMITTED`
+  + `eligible=False`；`case2`/测验 → `required=False`、无 blocker、`eligible=True`。
+- 发布门禁通过：`case-audit` 14 个病例 0 error；后端全量 **737 项**（语料+训练）通过。
+
 ### 交卷门禁可按病例声明（2026-09-27）
 
 - 现状问题：`history_taking` 的 `CompletionPolicy(required_artifacts=("nursing_record",))` 是 **workflow 级常量**，

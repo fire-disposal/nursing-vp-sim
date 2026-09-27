@@ -69,6 +69,9 @@
       "answer": "（掀起孩子的袖子）你一说我想起来了，昨天我看见他手心里有几个小红点，脚底好像也有两个，我以为是蚊子咬的……嘴里我看不见，他这几天口水特别多，一吃东西就哭。这个要紧吗？"
     }
   ],
+  "completion": {
+    "required_artifacts": ["nursing_record"]
+  },
   "activities": {
     "physical_exam": {
       "config": {

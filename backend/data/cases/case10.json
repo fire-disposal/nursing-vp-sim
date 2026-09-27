@@ -61,6 +61,9 @@
       "answer": "婆婆帮着带孩子做饭，但她觉得我就是想太多...老公天天加班，回来孩子都睡了。我也不敢跟她们多说，怕被觉得矫情。"
     }
   ],
+  "completion": {
+    "required_artifacts": []
+  },
   "activities": {
     "physical_exam": {
       "config": {
