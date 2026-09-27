@@ -10,12 +10,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 
 from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.devices import build_devices
 from ..runtime.world import ActionRecord, World, student_declaration, visible_affordances
 from ..schema import AffordanceType, EffectOp, ScenarioPack
-from .tools import TOOL_SPECS, notes_block
+from .tools import TOOL_NAMES, TOOL_SPECS, notes_block
 
 # 枚举白名单：字面量**取自契约**（`schema.AffordanceType` / `EffectOp`），提示词与代码同源。
 # 实测（2026-09-28 线上事件流）：DM 自造 `options[].type` 会让解析层整回合失败（流式 + 非流式各一次，白花一次调用），
@@ -372,20 +373,47 @@ def retry_messages(messages: list[dict[str, str]], hint: str, *, compress: bool 
         )
 
 
-def step_messages(messages: list[dict[str, str]], assistant_text: str, tool: str, result: dict[str, object]) -> None:
+#: 步数用尽时给模型的那句说明（与工具结果**同一条**用户消息里回注，见 `step_messages`）。
+STEP_BUDGET_NOTE = "# 步数已用尽\n请**直接**输出最终 JSON 信封（不要再调用工具）。"
+
+
+def step_messages(
+    messages: list[dict[str, str]],
+    assistant_text: str,
+    results: Sequence[tuple[str, dict[str, object]]],
+    *,
+    note: str | None = None,
+) -> None:
     """把一次工具来往拼进对话（就地追加）：assistant 说了要调什么，user 返回结果。
+
+    **一批调用 = 一条 assistant + 一条 user**：多条结果按**调用顺序**拼进同一个用户消息
+    （每条自带 `# 工具 X 的结果` 标题）。不拆成多条 user 消息，是因为连续同角色的消息会被部分供应商拒；
+    `note`（预算用尽 / 被拒的调用）也拼在同一条里，同样是为了不制造连续同角色消息。
 
     "读工具 → 再决定"就靠这两条消息，不需要供应商侧的 function-calling 协议（流式路径也能跑）。
     """
+    blocks = [
+        f"# 工具 {tool} 的结果\n{json.dumps(result, ensure_ascii=False, default=str)}" for tool, result in results
+    ]
+    if note:
+        blocks.append(note)
     messages.append({"role": "assistant", "content": assistant_text})
-    messages.append(
-        {"role": "user", "content": f"# 工具 {tool} 的结果\n{json.dumps(result, ensure_ascii=False, default=str)}"}
+    messages.append({"role": "user", "content": "\n\n".join(blocks)})
+
+
+def tool_reject_note(rejection: str) -> str:
+    """工具调用被拒（未知工具名 / `args` 形状错）时给模型的说明：把**可用工具**再说一遍。
+
+    为什么要说：模型不知道"这一步压根没执行"，不说就会继续照着发（2026-09-28 线上那次
+    一次响应里连发三条调用，被整段判死后整个回合降级成保底）。
+    """
+    names = "、".join(sorted(TOOL_NAMES))
+    return (
+        "# 这次工具调用不合法，已跳过\n"
+        f"（{rejection}）\n"
+        f"`tool` 只能取：{names}（括号前的名字，不要带 `()`）；参数一律放进 `args` 对象"
+        '（无参工具写 `{"tool": "world.state", "args": {}}`）。改好后重发，或直接输出信封。'
     )
-
-
-def budget_messages(messages: list[dict[str, str]]) -> None:
-    """步数用尽：直接要求产出信封（就地追加）。"""
-    messages.append({"role": "user", "content": "# 步数已用尽\n请**直接**输出最终 JSON 信封（不要再调用工具）。"})
 
 
 def build_entity_messages(

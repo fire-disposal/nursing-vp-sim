@@ -19,6 +19,7 @@ DM 有想象力，但改动必须声明式。
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -31,6 +32,7 @@ from infra.llm.parsing import TruncatedJSONError
 from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.world import World, facts_observed, visible_affordances
 from ..schema import AffordanceType, Effect, ScenarioPack
+from .tools import TOOL_NAMES
 
 # DM 不得提供的自由输入占位（平台保证存在，见 docs/20 §九）
 _FREE_INPUT_LABELS = ("其他", "其它", "自输入", "自定义", "自己输入", "other", "type your own")
@@ -196,24 +198,188 @@ def parse_turn(raw: str) -> DMTurn:
 #: 信封字段名（= `DMTurn` 的全部字段）：带其中任何一个都按**信封**处理，不认成工具调用
 ENVELOPE_KEYS = frozenset(DMTurn.model_fields)
 
+#: `<thinking>` 段（与 infra 的 `safe_parse_json` 同一口径：思考里的话不算输出）
+_THINKING_BLOCK = re.compile(r"<thinking>[\s\S]*?</thinking>", flags=re.IGNORECASE)
+#: 零宽字符：JSON 不允许、人眼看不见（"看起来完全正确"的解析失败元凶之一）
+_INVISIBLE = "\u200b\u200c\u200d\u2060\ufeff"
+#: 全角**结构**标点 + 全角/不换行空格：只在字符串**外**规整（字符串里那是正文标点，一字不改）
+_DECORATIONS = str.maketrans(
+    {"，": ",", "：": ":", "｛": "{", "｝": "}", "［": "[", "］": "]", "　": " ", "\u00a0": " "}
+)
+#: 弯引号：只在字符串**外**出现时按 JSON 的 `"` 处理
+_QUOTES = "\u201c\u201d\u201e"
+_SNIPPET_LIMIT = 120
 
-def parse_step(raw: str) -> DMToolCall | None:
-    """把一段输出认成**工具调用** `{"tool": ..., "args": {...}}`；不是工具调用则返回 None。
 
-    判据保守：只要出现任何一个信封字段就按信封处理——宁可不执行这一步，
-    也不把一段半成品叙述（或一条空回合）当成工具调用吞掉。
+def _snippet(text: str) -> str:
+    """问题串里的原文片段：压成单行并截断——排查时要能看到模型**到底发了什么**。"""
+    return " ".join(text.split())[:_SNIPPET_LIMIT]
+
+
+def _next_meaningful(text: str, index: int) -> str:
+    """`index` 之后第一个非空白字符；没有就返回空串。"""
+    cursor = index + 1
+    while cursor < len(text) and text[cursor] in " \t\r\n":
+        cursor += 1
+    return text[cursor] if cursor < len(text) else ""
+
+
+def _normalize_decorations(text: str) -> str:
+    """把"看着像 JSON、机器读不了"的装饰字符规整成 JSON（字符串内容与转义一字不动）。
+
+    只做三件**不改变语义**的事：去零宽字符、字符串外换全角结构标点/全角空格、丢掉字符串外的尾随逗号。
+    字符串内部绝不替换——中文正文里 `，`/`：` 是真标点，改它就是改内容。
+    因此对**本来就合法**的 JSON 它是恒等变换（合法 JSON 的字符串外不会出现这些东西）。
     """
-    try:
-        data = safe_parse_json(raw)
-    except (ValueError, TypeError, TruncatedJSONError):
+    out: list[str] = []
+    quote = ""  # 当前字符串的定界引号；空 = 不在字符串里
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if quote:
+            if char == "\\" and index + 1 < len(text):
+                out.append(text[index : index + 2])
+                index += 2
+                continue
+            if char == quote or (quote != '"' and char in _QUOTES):
+                out.append('"')
+                quote = ""
+            else:
+                out.append(char)
+            index += 1
+            continue
+        if char in _INVISIBLE:
+            index += 1
+            continue
+        if char == '"' or char in _QUOTES:
+            quote = char
+            out.append('"')
+        elif char == "," and _next_meaningful(text, index) in "}]":
+            pass  # 尾随逗号：字符串外，丢掉（JSON 不允许，语义上什么都没少）
+        else:
+            out.append(char.translate(_DECORATIONS))
+        index += 1
+    return "".join(out)
+
+
+def _decode_objects(text: str) -> list[tuple[dict[str, Any], str]]:
+    """按出现顺序取出全部 JSON 对象，连同各自的原文（用 `json.raw_decode` 定界，不猜括号）。
+
+    逐个 `{` 试解：成功就收下并**从对象末尾继续**（对象里的嵌套对象因此不会被重复收），
+    失败就往后挪一个字符再试（于是"前面一段散文里带花括号"不会毒死整段）。
+    """
+    found: list[tuple[dict[str, Any], str]] = []
+    decoder = json.JSONDecoder()
+    index = 0
+    while index < len(text):
+        start = text.find("{", index)
+        if start == -1:
+            break
+        try:
+            value, end = decoder.raw_decode(text, start)
+        except json.JSONDecodeError:
+            index = start + 1
+            continue
+        if isinstance(value, dict):
+            found.append((value, text[start:end]))
+        index = end
+    return found
+
+
+def _json_objects(raw: str) -> list[tuple[dict[str, Any], str]]:
+    """一次响应里的全部 JSON 对象（先按原文扫；文本需要规整时，以规整过的为准）。
+
+    为什么"规整优先"而不是"原文优先"：夹着全角冒号的 `{"tool"： "world.state", "args": {}}`
+    在原文里能从 `"args": {` 抠出一个孤零零的 `{}`（看着像"扫到了东西"），
+    于是原文扫描的**非空结果**会把本来正确的规整结果挡在外面——这类串正是被整段判死的。
+    """
+    body = _THINKING_BLOCK.sub("", raw)
+    normalized = _normalize_decorations(body)
+    if normalized != body:
+        found = _decode_objects(normalized)
+        if found:
+            return found
+    return _decode_objects(body)
+
+
+def _tool_name(value: Any) -> str | None:
+    """工具名规整：去空白，并容忍提示词里带括号的签名写法（`world.state()` = `world.state`）。"""
+    if not isinstance(value, str):
         return None
-    if not isinstance(data, dict) or ENVELOPE_KEYS & data.keys():
-        return None
-    tool = data.get("tool")
-    if not isinstance(tool, str) or not tool.strip():
-        return None
+    name = value.strip()
+    if name.endswith("()"):
+        name = name[:-2].strip()
+    return name or None
+
+
+def _as_call(data: dict[str, Any]) -> DMToolCall | str:
+    """把一条"要工具"的对象变成调用；不合法就返回**原因**（严格校验都在这里）。
+
+    `args` 缺省或 `null` 按**空参**处理（读工具本就无参）；给了别的东西（字符串/数组/数字）是
+    形状错——**不能**默默当成空参执行，那等于替模型猜它想读什么。
+    """
+    name = _tool_name(data.get("tool"))
+    if name is None:
+        return "bad_tool_name"
+    if name not in TOOL_NAMES:
+        return f"unknown_tool:{name}"
     args = data.get("args")
-    return DMToolCall(tool=tool.strip(), args=args if isinstance(args, dict) else {})
+    if args is not None and not isinstance(args, dict):
+        return f"bad_args:{type(args).__name__}"
+    return DMToolCall(tool=name, args=args or {})
+
+
+@dataclass(frozen=True)
+class StepBatch:
+    """一次响应里的工具调用判定：**有序**的可执行调用 + 被拒的那条（原因 + 问题串）。
+
+    三条出路互斥：`calls` 非空 = 按顺序执行；`rejection` 非空 = 看着像调用但不合法（不执行，
+    `problem` 是一条带原文片段的问题串）；都空 = 这段输出不是工具调用（交给信封解析）。
+    """
+
+    calls: tuple[DMToolCall, ...] = ()
+    rejection: str | None = None  # 短原因（纠偏话术用它告诉模型错在哪）
+    problem: str | None = None  # 事件/排查里的问题串：`dm_step_invalid:<原因>:<原文片段>`
+
+    @property
+    def is_step(self) -> bool:
+        """这段输出算不算"要工具"（被拒也算）——是的话就不再按信封解析。"""
+        return bool(self.calls) or self.rejection is not None
+
+
+def parse_steps(raw: str) -> StepBatch:
+    """把一段输出解析成**一批**工具调用 `{"tool": ..., "args": {...}}`（按输出顺序）。
+
+    实测（2026-09-28 线上 06:35:33 的 `llm_call_logs.response_text`，逐字）：
+    ```
+    {"tool": "world.state", "args": {}}
+    {"tool": "actor.knowledge", "args": {"who": "patient"}}
+    {"tool": "history.lastN", "args": {"n": 6}}
+    ```
+    模型在**一次响应**里发了三条调用（一行一个对象）——一口气把想读的都读掉是自然的 agent 行为。
+    旧实现只认"整段就是一个对象"（`safe_parse_json` 从第一个 `{` 切到最后一个 `}`），三条被切成一段
+    `Extra data`，于是整个回合降级成保底。
+
+    宽容解析（围栏、前后散文、对象之间还有别的对象、全角/零宽装饰字符、缺 `args`），
+    严格校验（工具名必须在 `TOOL_NAMES` 里、`args` 必须是对象）：不合法的那条**不进 `calls`**，
+    而是作为 `rejection` 留给排查与纠偏——绝不静默当成"没看懂"。
+    """
+    objects = _json_objects(raw)
+    if any(ENVELOPE_KEYS & obj.keys() for obj, _text in objects):
+        return StepBatch()  # 出现任何信封字段（含半成品信封）一律按信封处理，不执行工具
+    calls: list[DMToolCall] = []
+    rejection: str | None = None
+    problem: str | None = None
+    for data, text in objects:
+        if "tool" not in data:
+            continue  # 没有 `tool` 键的对象不是在要工具（也不算错）
+        outcome = _as_call(data)
+        if isinstance(outcome, DMToolCall):
+            calls.append(outcome)
+        elif rejection is None:
+            # 只留**第一条**被拒的（一批里错法一样，重复记没意义）；原文片段带上，排查才有据
+            rejection, problem = outcome, f"dm_step_invalid:{outcome}:{_snippet(text)}"
+    return StepBatch(calls=tuple(calls), rejection=rejection, problem=problem)
 
 
 def _bump(dropped: dict[str, int], key: str) -> None:

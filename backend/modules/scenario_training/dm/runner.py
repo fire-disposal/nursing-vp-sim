@@ -3,8 +3,10 @@
 形态（docs/21 §四）：
 - **默认：受限多步循环**（`SCENARIO_DM_MAX_STEPS`，默认 3）。DM 可以先调只读工具看环境
   （`world.state` / `actor.knowledge` / `history.lastN`，外加只写自己草稿纸的 `note.write`），
-  每一步都落一条 `dm_step` 事件（教师回放可见、学生不可见）。工具协议是**提示词里的 JSON**
+  每条调用都落一条 `dm_step` 事件（教师回放可见、学生不可见）。工具协议是**提示词里的 JSON**
   （`{"tool": ..., "args": {...}}`），因此流式与非流式两条路径共用同一套循环。
+- **一次响应可以带多条调用**（一行一个 JSON 对象；线上实测 2026-09-28 一次发了三条），
+  按顺序执行、结果按顺序回注，**步数按条数计**（3 条 = 3 步，仍受上限约束，超出的不执行）。
 - **降级：单步**。步数用尽、工具失败、输出不合法 → 退回"一次交付信封"（现有行为）。
 - 重试区分两类失败（老系统的教训）：截断 → 用"压缩输出"提示重试；非法 JSON → 用错误摘要提示重试。
   两次都不成 → 用 pack 已声明的反应意图 + 可用动作拼一个**无 LLM** 的保底回合。
@@ -32,12 +34,13 @@ from .contract import (
     DMOption,
     DMToolCall,
     DMTurn,
+    StepBatch,
     TurnParseError,
     TurnTruncatedError,
-    parse_step,
+    parse_steps,
     parse_turn,
 )
-from .prompt import budget_messages, build_dm_messages, retry_messages, step_messages
+from .prompt import STEP_BUDGET_NOTE, build_dm_messages, retry_messages, step_messages, tool_reject_note
 from .tools import run_tool, summarize
 
 PURPOSE = "st_dm"
@@ -115,16 +118,60 @@ async def _take_step(
     turn: int,
     step: int,
     on_step: ProgressCallback | None,
-    messages: list[dict[str, str]],
-    raw: str,
-) -> None:
-    """执行一步读工具：计时 → 执行 → 落事件 → 把结果拼回对话（读了才能接着决定）。"""
+) -> tuple[str, dict[str, Any]]:
+    """执行一条读工具：计时 → 执行 → 落一条 `dm_step` 事件；返回 `(工具名, 结果)` 供回注。"""
     started = time.perf_counter()
     result = run_tool(pack, world, call.tool, call.args)
     ms = int((time.perf_counter() - started) * 1000)
     if on_step is not None:
         await on_step(_step_payload(call, result, turn=turn, step=step, ms=ms))
-    step_messages(messages, raw, call.tool, result)
+    return call.tool, result
+
+
+@dataclass(frozen=True)
+class _BatchRun:
+    """一批调用的执行结果：计入的步数、这批带来的问题、以及**是否读到了东西**。
+
+    `progressed=False`（只被拒 / 预算已用尽 ⇒ 一条都没执行）时调用方不能空转：要么纠偏重试，
+    要么退单步。
+    """
+
+    steps: int
+    problems: tuple[str, ...] = ()
+    progressed: bool = False
+
+
+async def _take_batch(
+    pack: ScenarioPack,
+    world: World,
+    batch: StepBatch,
+    *,
+    turn: int,
+    steps: int,
+    budget: int,
+    on_step: ProgressCallback | None,
+    messages: list[dict[str, str]],
+    raw: str,
+) -> _BatchRun:
+    """执行一批工具调用（**步数预算按条数计**）：逐条落 `dm_step`，再把结果与说明拼回对话。
+
+    超预算的调用**不执行**（预算就是预算）：问题照记，回注里说明"步数已用尽"；
+    被拒的调用（未知工具名 / `args` 形状错）同样不执行，回注里给出原因与可用工具——
+    两者都不静默吞掉：模型下一条消息必须看得到"这一步没发生、为什么"。
+    """
+    room = max(0, budget - steps)
+    taken, skipped = batch.calls[:room], batch.calls[room:]
+    results: list[tuple[str, dict[str, Any]]] = []
+    for offset, call in enumerate(taken):
+        results.append(await _take_step(pack, world, call, turn=turn, step=steps + offset + 1, on_step=on_step))
+    problems = [f"dm_step_budget_exhausted:{call.tool}" for call in skipped]
+    notes = [STEP_BUDGET_NOTE] if skipped else []
+    if batch.problem is not None:
+        problems.append(batch.problem)
+    if batch.rejection is not None:
+        notes.append(tool_reject_note(batch.rejection))
+    step_messages(messages, raw, results, note="\n\n".join(notes) or None)
+    return _BatchRun(steps=steps + len(taken), problems=tuple(problems), progressed=bool(results))
 
 
 def _ctx(
@@ -181,19 +228,25 @@ async def run_dm(
         except _LLM_FAILURES as exc:
             problems.append(f"dm_provider_error:{type(exc).__name__}")
             break
-        call = parse_step(raw)
-        if call is not None:
-            if steps < budget:
-                steps += 1
-                await _take_step(
-                    pack, world, call, turn=world.turn, step=steps, on_step=on_step, messages=messages, raw=raw
-                )
-                continue
-            # 预算用尽还在要工具：明确要求交付信封，仍不听就退保底（不让学生看到空回合）
-            problems.append(f"dm_step_budget_exhausted:{call.tool}")
-            budget_messages(messages)
-            attempt += 1
-            continue
+        batch = parse_steps(raw)
+        if batch.is_step:
+            taken = await _take_batch(
+                pack,
+                world,
+                batch,
+                turn=world.turn,
+                steps=steps,
+                budget=budget,
+                on_step=on_step,
+                messages=messages,
+                raw=raw,
+            )
+            steps = taken.steps
+            problems.extend(taken.problems)
+            if not taken.progressed:
+                # 一条都没执行（只被拒 / 预算已用尽）⇒ 这是一次"没交付"，吃重试额度
+                attempt += 1
+            continue  # 读了才有得说：同一回合接着决定（步数已按**条数**计入）
         try:
             turn = parse_turn(raw)
         except TurnTruncatedError as exc:
@@ -228,19 +281,17 @@ def _scan_visible_blocks(seen: dict[str, Any], buffer: str) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class _Round:
-    """一轮流式输出的归宿：要么继续读一步，要么交付信封，要么失败（退单步）。"""
+    """一轮流式输出的归宿：要么继续读一批（可能多条），要么交付信封，要么失败（退单步）。"""
 
-    step: DMToolCall | None = None
+    batch: StepBatch | None = None
     turn: DMTurn | None = None
     failure: str | None = None
 
 
-def _classify_round(buffer: str, *, steps: int, budget: int) -> _Round:
-    call = parse_step(buffer)
-    if call is not None:
-        if steps < budget:
-            return _Round(step=call)
-        return _Round(failure=f"dm_step_budget_exhausted:{call.tool}")
+def _classify_round(buffer: str) -> _Round:
+    batch = parse_steps(buffer)
+    if batch.is_step:
+        return _Round(batch=batch)  # 执行与预算由 `_take_batch` 管（两条路径共用同一套）
     try:
         turn = parse_turn(buffer)
     except (TurnParseError, TurnTruncatedError) as exc:
@@ -289,24 +340,29 @@ async def iter_dm_stream(
         except _LLM_FAILURES as exc:
             failure = f"stream_error:{type(exc).__name__}"
         else:
-            outcome = _classify_round(buffer, steps=steps, budget=budget)
-            if outcome.step is not None:
-                steps += 1
-                await _take_step(
+            outcome = _classify_round(buffer)
+            if outcome.batch is not None:
+                taken = await _take_batch(
                     pack,
                     world,
-                    outcome.step,
+                    outcome.batch,
                     turn=world.turn,
-                    step=steps,
+                    steps=steps,
+                    budget=budget,
                     on_step=on_step,
                     messages=messages,
                     raw=buffer,
                 )
-                continue
-            if outcome.turn is not None:
+                steps = taken.steps
+                if taken.progressed:
+                    continue
+                # 一条都没执行（只被拒 / 预算用尽）→ 带上原因退单步路径（它有重试与保底）
+                failure = taken.problems[-1] if taken.problems else "stream_step_blocked"
+            elif outcome.turn is not None:
                 yield {"kind": "turn", "turn": outcome.turn, "problems": []}
                 return
-            failure = outcome.failure
+            else:
+                failure = outcome.failure
 
         # 走到这里一律退**单步**（流断 / 预算用尽仍在要工具 / 输出不合法或为空）：
         # 单步路径自带重试与保底，绝不把半成品交给学生。

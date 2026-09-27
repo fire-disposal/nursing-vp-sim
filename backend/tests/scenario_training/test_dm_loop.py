@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from modules.scenario_training.dm.contract import ENVELOPE_KEYS, DMTurn, parse_step, parse_turn, validate_turn
+from modules.scenario_training.dm.contract import ENVELOPE_KEYS, DMTurn, parse_steps, parse_turn, validate_turn
 from modules.scenario_training.dm.prompt import build_dm_messages
 from modules.scenario_training.dm.runner import run_dm
 from modules.scenario_training.dm.tools import TOOL_NAMES, run_tool
@@ -24,6 +24,16 @@ from modules.scenario_training.runtime.world import World, initial_world, world_
 from modules.scenario_training.schema import AffordanceType, EffectOp, ScenarioPack
 
 ENVELOPE: dict[str, Any] = {"narration": "监护仪还在响。", "lines": [{"actor": "patient", "text": "……"}]}
+
+#: 线上那一回合的**逐字原文**（2026-09-28 06:35:33 生产 `llm_call_logs.response_text`，`status=success`，135 字节）：
+#: 模型在**一次响应**里发了三条工具调用（一行一个 JSON 对象），而解析层只认"整段就是一个对象"——
+#: `safe_parse_json` 从第一个 `{` 切到最后一个 `}`，三条被切成一段 `Extra data`，
+#: 问题串 `dm_parse:无法解析LLM返回的JSON: {...}`，整回合降级成保底。
+PRODUCTION_BATCH = (
+    '{"tool": "world.state", "args": {}}\n'
+    '{"tool": "actor.knowledge", "args": {"who": "patient"}}\n'
+    '{"tool": "history.lastN", "args": {"n": 6}}'
+)
 
 
 @pytest.fixture(scope="module")
@@ -95,6 +105,104 @@ def test_dm_can_read_the_environment_before_the_envelope(pack: ScenarioPack) -> 
     assert "scene.spo2" in readback
 
 
+def test_the_production_batch_reads_three_calls_in_order(pack: ScenarioPack) -> None:
+    """线上逐字原文：三条调用**按顺序**执行、三条结果**按顺序**回注，随后照常交付信封（不再降级）。"""
+    steps, on_step = _collector()
+    llm = _ScriptedLLM([PRODUCTION_BATCH, json.dumps(ENVELOPE, ensure_ascii=False)])
+    world = initial_world(pack)
+
+    turn, problems = asyncio.run(run_dm(llm, pack, world, None, [], user_id=1, max_steps=3, on_step=on_step))
+
+    assert problems == []
+    assert turn.narration == ENVELOPE["narration"]
+    assert [(step["step"], step["tool"], step["ok"]) for step in steps] == [
+        (1, "world.state", True),
+        (2, "actor.knowledge", True),
+        (3, "history.lastN", True),
+    ]
+    assert len(llm.calls) == 2, "一批读完 ⇒ 下一轮直接交付信封"
+    # 一批 = 一条 assistant（回显它自己发的原文）+ 一条 user（结果按顺序拼在一起）
+    assert [message["role"] for message in llm.calls[1]] == ["system", "user", "assistant", "user"]
+    readback = llm.calls[1][-1]["content"]
+    order = [readback.index(f"# 工具 {tool} 的结果") for tool in ("world.state", "actor.knowledge", "history.lastN")]
+    assert order == sorted(order), "结果必须按调用顺序回注"
+    assert "scene.spo2" in readback  # world.state 的内容真的到了下一轮
+    assert '"id": "patient"' in readback  # actor.knowledge 的内容真的到了下一轮
+
+
+def test_a_batch_beyond_the_step_budget_reads_up_to_the_budget(pack: ScenarioPack) -> None:
+    """步数按**条数**计：上限 2 + 三条调用 → 前两条执行，第三条不执行并在回注里说明预算已用尽。"""
+    steps, on_step = _collector()
+    llm = _ScriptedLLM([PRODUCTION_BATCH, json.dumps(ENVELOPE, ensure_ascii=False)])
+
+    turn, problems = asyncio.run(
+        run_dm(llm, pack, initial_world(pack), None, [], user_id=1, max_steps=2, on_step=on_step)
+    )
+
+    assert [step["tool"] for step in steps] == ["world.state", "actor.knowledge"]
+    assert problems == ["dm_step_budget_exhausted:history.lastN"]
+    assert turn.narration == ENVELOPE["narration"]
+    readback = llm.calls[1][-1]["content"]
+    assert readback.count("# 工具 ") == 2
+    assert "# 步数已用尽" in readback
+
+
+def test_a_batch_with_an_unknown_tool_reads_the_rest_and_reports_it(pack: ScenarioPack) -> None:
+    """一批里混一条不合法：合法的照读、不合法的那条**不执行**，并留一条带原文片段的问题串。"""
+    steps, on_step = _collector()
+    raw = (
+        '{"tool": "world.state", "args": {}}\n'
+        '{"tool": "actor.knowledge", "args": {"who": "patient"}}\n'
+        '{"tool": "cure_everything", "args": {}}'
+    )
+    llm = _ScriptedLLM([raw, json.dumps(ENVELOPE, ensure_ascii=False)])
+
+    turn, problems = asyncio.run(
+        run_dm(llm, pack, initial_world(pack), None, [], user_id=1, max_steps=3, on_step=on_step)
+    )
+
+    assert [step["tool"] for step in steps] == ["world.state", "actor.knowledge"]
+    assert problems == ['dm_step_invalid:unknown_tool:cure_everything:{"tool": "cure_everything", "args": {}}'], (
+        "被拒的那条要带原文片段（诊断看得到模型发了什么）"
+    )
+    assert turn.narration == ENVELOPE["narration"]
+    readback = llm.calls[1][-1]["content"]
+    assert "# 这次工具调用不合法，已跳过" in readback
+    assert "cure_everything" in readback
+
+
+def test_an_unknown_tool_alone_is_rejected_and_retried(pack: ScenarioPack) -> None:
+    """只有一条未知工具名：**不执行**（没有 `dm_step`）→ 纠偏重试 → 回合仍然交付信封。"""
+    steps, on_step = _collector()
+    llm = _ScriptedLLM([_tool("cure_everything"), json.dumps(ENVELOPE, ensure_ascii=False)])
+
+    turn, problems = asyncio.run(run_dm(llm, pack, initial_world(pack), None, [], user_id=1, on_step=on_step))
+
+    assert steps == [], "被拒的调用不产生 `dm_step`"
+    assert len(llm.calls) == 2, "一次纠偏重试（不空转、也不重复烧调用）"
+    assert problems == ['dm_step_invalid:unknown_tool:cure_everything:{"tool": "cure_everything", "args": {}}']
+    assert turn.narration == ENVELOPE["narration"]
+    hint = llm.calls[1][-1]["content"]
+    assert "# 这次工具调用不合法，已跳过" in hint
+    assert "world.state" in hint, "纠偏话术要把可用工具再说一遍，否则模型还会照着发"
+
+
+def test_unextractable_output_is_still_rejected(pack: ScenarioPack) -> None:
+    """损坏且**提取不出任何 JSON 对象** → 仍然拒绝：不当工具调用、不当信封（走重试/保底）。"""
+    broken = '{"tool": "world.state", "args": '
+
+    assert parse_steps(broken).is_step is False
+
+    steps, on_step = _collector()
+    llm = _ScriptedLLM([broken, json.dumps(ENVELOPE, ensure_ascii=False)])
+    turn, problems = asyncio.run(run_dm(llm, pack, initial_world(pack), None, [], user_id=1, on_step=on_step))
+
+    assert steps == []
+    assert problems[0].startswith("dm_truncated:"), "截断要走「压缩输出」那条纠偏路径"
+    assert "world.state" in problems[0], "问题串要带原文（诊断看不到原文就只能猜）"
+    assert turn.narration == ENVELOPE["narration"]
+
+
 def test_step_budget_is_bounded_and_falls_back_to_a_legal_envelope(pack: ScenarioPack) -> None:
     """永远在调工具 → 用尽预算后不再空转：退化到无 LLM 的保底回合（学生看不到空回合）。"""
     steps, on_step = _collector()
@@ -115,18 +223,18 @@ def test_step_budget_is_bounded_and_falls_back_to_a_legal_envelope(pack: Scenari
     assert turn.options
 
 
-def test_unknown_tool_does_not_break_the_turn(pack: ScenarioPack) -> None:
-    """未知工具 / 工具内部出错 → 只把错误交回给 DM，信封照样产出。"""
+def test_tool_that_reports_an_error_does_not_break_the_turn(pack: ScenarioPack) -> None:
+    """工具**内部**出错（问的是名录外的人）：错误交回给 DM，信封照样产出。"""
     steps, on_step = _collector()
-    llm = _ScriptedLLM([_tool("cure_everything"), json.dumps(ENVELOPE, ensure_ascii=False)])
+    llm = _ScriptedLLM([_tool("actor.knowledge", who="nobody"), json.dumps(ENVELOPE, ensure_ascii=False)])
 
     turn, problems = asyncio.run(run_dm(llm, pack, initial_world(pack), None, [], user_id=1, on_step=on_step))
 
     assert problems == []
     assert turn.narration == ENVELOPE["narration"]
     assert steps[0]["ok"] is False
-    assert "unknown_tool" in steps[0]["result"]
-    assert "unknown_tool:cure_everything" in "\n".join(message["content"] for message in llm.calls[1])
+    assert "unknown_actor:nobody" in steps[0]["result"]
+    assert "unknown_actor:nobody" in "\n".join(message["content"] for message in llm.calls[1])
 
 
 def test_unreadable_state_is_reported_not_guessed(pack: ScenarioPack) -> None:
@@ -347,17 +455,107 @@ def test_unrevealed_cue_texts_never_reach_the_prompt(pack: ScenarioPack) -> None
         assert cue.text not in user, "未揭示线索的文本不得出现在提示词里"
 
 
-def test_parse_step_only_reads_tool_calls(pack: ScenarioPack) -> None:
-    """只有"纯工具调用"才算一步：带信封字段的输出一律按信封处理（不吞半成品叙述）。"""
-    assert parse_step('{"tool": "world.state", "args": {}}').tool == "world.state"  # type: ignore[union-attr]
-    assert parse_step('{"tool": "world.state", "args": {}}').args == {}  # type: ignore[union-attr]
-    assert parse_step(_tool("note.write", text="x")).tool == "note.write"  # type: ignore[union-attr]
-    assert parse_step(json.dumps(ENVELOPE, ensure_ascii=False)) is None
-    assert parse_step('{"tool": "world.state", "narration": "让我看看"}') is None
-    assert parse_step("不是 JSON") is None
-    assert parse_step('{"tool": 3}') is None
+def test_parse_steps_only_reads_tool_calls() -> None:
+    """只有"要工具"的输出才算一步：带信封字段的输出一律按信封处理（不吞半成品叙述）。"""
+    batch = parse_steps('{"tool": "world.state", "args": {}}')
+
+    assert [call.tool for call in batch.calls] == ["world.state"]
+    assert batch.calls[0].args == {}
+    assert batch.problem is None
+    assert [call.tool for call in parse_steps(_tool("note.write", text="x")).calls] == ["note.write"]
+    # 带信封字段 = 信封（含"半成品叙述"），不是工具调用
+    assert parse_steps(json.dumps(ENVELOPE, ensure_ascii=False)).is_step is False
+    assert parse_steps('{"tool": "world.state", "narration": "让我看看"}').is_step is False
+    assert parse_steps("不是 JSON").is_step is False  # 散文里根本没有对象
+    assert parse_steps("{}").is_step is False
+    # 有 `tool` 键却写成别的类型 = 要工具的意图但不合法：拒绝并说明（不静默当成"没看懂"）
+    assert parse_steps('{"tool": 3}').problem == 'dm_step_invalid:bad_tool_name:{"tool": 3}'
     # 工具调用不会被当成"空信封"落地
     assert parse_turn('{"tool": "world.state"}') == DMTurn()
+
+
+def test_wrong_args_shape_is_rejected_not_silently_emptied() -> None:
+    """`args` 形状错（数组/字符串）→ 拒绝并留问题串；默默按空参执行 = 替模型猜它想读什么。"""
+    assert parse_steps('{"tool": "history.lastN", "args": [3]}').problem == (
+        'dm_step_invalid:bad_args:list:{"tool": "history.lastN", "args": [3]}'
+    )
+    assert parse_steps('{"tool": "history.lastN", "args": "3"}').problem == (
+        'dm_step_invalid:bad_args:str:{"tool": "history.lastN", "args": "3"}'
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"tool": "world.state", "args": {}}',  # 原文（空 args）
+        '```json\n{"tool": "world.state", "args": {}}\n```',  # 代码围栏
+        '我先看一下情况。\n{"tool": "world.state", "args": {}}\n（读完再回答）',  # 前后夹自然语言
+        '我先看看{世界状态}吧\n{"tool": "world.state", "args": {}}',  # 散文里也带花括号
+        '{"tool": "world.state"}',  # 只有工具名，没有 args 键
+        '{"tool": "world.state", "args": null}',  # args 写成 null
+        '{"tool": "world.state()", "args": {}}',  # 照抄提示词里的带括号签名
+        '{"tool"： "world.state", "args": {}}',  # 全角冒号
+        '{"tool": "world.state"，"args": {}}',  # 全角逗号
+        '{"tool":\u3000"world.state", "args": {}}',  # 全角空格
+        '{"tool": "world.state",\u200b "args": {}}',  # 零宽字符
+        "{\u201ctool\u201d: \u201cworld.state\u201d, \u201cargs\u201d: {}}",  # 弯引号
+        '{"tool": "world.state", "args": {},}',  # 尾随逗号
+    ],
+)
+def test_a_call_is_recognized_however_the_model_wraps_it(raw: str) -> None:
+    """模型"会怎么发"的各类写法都必须认出来（线上那回合就是被这些差异之一判死的）。"""
+    batch = parse_steps(raw)
+
+    assert batch.problem is None, f"{raw!r} 应当被认成合法调用"
+    assert [call.tool for call in batch.calls] == ["world.state"]
+    assert batch.calls[0].args == {}
+
+
+def test_a_wrapped_call_still_reads_the_environment(pack: ScenarioPack) -> None:
+    """围栏 / 散文 / 全角字符只是**包装**：整条循环里一样读得到（旧实现这里整回合降级成保底）。"""
+    steps, on_step = _collector()
+    llm = _ScriptedLLM(
+        ['让我先看一眼。\n```json\n{"tool"： "world.state", "args": {}}\n```', json.dumps(ENVELOPE, ensure_ascii=False)]
+    )
+
+    turn, problems = asyncio.run(
+        run_dm(llm, pack, initial_world(pack), None, [], user_id=1, max_steps=3, on_step=on_step)
+    )
+
+    assert problems == []
+    assert [step["tool"] for step in steps] == ["world.state"]
+    assert turn.narration == ENVELOPE["narration"]
+
+
+def test_a_batch_is_read_on_the_stream_path_too(pack: ScenarioPack) -> None:
+    """流式路径共用同一套循环：一次响应三条调用 ⇒ 三条 `dm_step`，然后交付信封。"""
+    from modules.scenario_training.dm.runner import iter_dm_stream
+
+    steps, on_step = _collector()
+    llm = _StreamingLLM([PRODUCTION_BATCH, json.dumps(ENVELOPE, ensure_ascii=False)])
+
+    async def drain() -> list[dict[str, Any]]:
+        return [
+            item
+            async for item in iter_dm_stream(
+                llm, pack, initial_world(pack), None, [], user_id=1, max_steps=3, on_step=on_step
+            )
+        ]
+
+    items = asyncio.run(drain())
+
+    assert items[-1]["kind"] == "turn"
+    assert items[-1]["turn"].narration == ENVELOPE["narration"]
+    assert items[-1]["problems"] == []
+    assert [step["tool"] for step in steps] == ["world.state", "actor.knowledge", "history.lastN"]
+    assert len(llm.calls) == 2
+
+
+def test_normalization_never_rewrites_string_contents() -> None:
+    """规整只碰结构：字符串里的中文标点与转义引号一字不改（否则是在改 DM 的正文）。"""
+    batch = parse_steps('{"tool": "note.write", "args": {"text": "先问，再写：核对「他说\\"别动\\"」"}}')
+
+    assert batch.calls[0].args == {"text": '先问，再写：核对「他说"别动"」'}
 
 
 def test_tool_registry_is_read_only(pack: ScenarioPack) -> None:
