@@ -238,7 +238,8 @@
 
 /* ── 页头（会话状态 / 结算）──
    它**不是第二条 App 顶栏**：没有边框与底色，只是一行"App 不提供的信息 + 动作"。
-   桌面一行放得下；窄屏折成两行（病名 + 抽屉入口 / 回合 + 进度 + 结束）。 */
+   三块从左到右：病例名（可省略）/ 回合 + 进度 / **一个**动作控件（`.sc-topbar-end`）。
+   任何宽度都不折行——窄屏的收缩由病例名与进度承担（见文件末尾移动端一节）。 */
 .sc-topbar {
 	display: flex;
 	align-items: center;
@@ -269,11 +270,82 @@
 	align-items: center;
 }
 
-/* 经历面板（线索 / 时间线）的窄屏召唤入口：桌面右栏常驻，这个按钮只在窄屏出现。
-   写成双类选择器：`.sc-btn`（同在本文档后面）单类压不住它，反之亦然。 */
-.sc-btn.sc-side-toggle {
-	display: none;
+/* 页头右端的**唯一**动作控件。 */
+.sc-topbar-end {
+	display: flex;
+	align-items: center;
 	flex: none;
+}
+
+/* 「⋯」：图标件不带左右内边距，宽度就贴着图标（触屏仍按 44 的可点面，见移动端一节）。
+   写成双类选择器：`.sc-btn`（同在本文档后面）单类压不住它，反之亦然。 */
+.sc-btn.sc-topbar-more {
+	padding: 0;
+	justify-content: center;
+	aspect-ratio: 1;
+	color: var(--sc-dim);
+}
+
+.sc-btn.sc-topbar-more:hover:not(:disabled) {
+	color: var(--sc-text);
+}
+
+/* ── 页头右端的 `⋯` 菜单（自建，形态抄「经历量化」弹层：贴右、`z-index: 30`、同一道线）──
+   一个尾部控件装两个动作：上面是「进展」（看线索 / 时间线），下一格是「结束」（结算，不可逆）。
+   它在 `.sc-root` 里，用同一套 `--sc-*` 刻度；不需要 portal，也就没有"刻度取不到"的坑。 */
+.sc-topbar-menu {
+	position: relative;
+	display: flex;
+}
+
+.sc-menu {
+	position: absolute;
+	top: calc(100% + var(--sc-0));
+	right: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	min-width: 168px;
+	padding: var(--sc-0);
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius-container);
+	background: var(--sc-raised);
+	box-shadow: var(--mantine-shadow-xs);
+}
+
+.sc-menu-item {
+	display: flex;
+	align-items: center;
+	min-height: var(--sc-h);
+	padding: 0 var(--sc-2);
+	border: 0;
+	border-radius: var(--sc-radius);
+	background: transparent;
+	color: var(--sc-text);
+	font: inherit;
+	font-size: var(--sc-fs-sm);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.sc-menu-item:hover:not(:disabled),
+.sc-menu-item:focus-visible {
+	background: var(--sc-hover);
+}
+
+.sc-menu-item:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+/* 不可逆动作：危险色 + 与「进展」之间的一道线（不写解释句，颜色与距离就是那句话） */
+.sc-menu-item.sc-menu-danger {
+	color: var(--sc-bad);
+}
+
+.sc-menu-sep {
+	margin: var(--sc-0) 0;
+	border-top: 1px solid var(--sc-line);
 }
 
 /* 抽屉里的「收起」：同样只在窄屏出现（桌面没有可关的东西） */
@@ -2428,21 +2500,24 @@ button.sc-panel-head:hover {
 		gap: var(--sc-1);
 	}
 
-	/* ── 页头折两行：① 病名 + 抽屉入口 ② 回合 + 进度 + 结束 ── */
+	/* ── 页头**一行**：病名（先省略）+ 回合 / 进度 + 尾部动作控件 ──
+	   390 上放不下时，收缩的代价先落在进度（省名字、再省数字），最后才轮到病名的省略号；
+	   动作控件不参与收缩、不许换行——它是页头存在的理由之一（"结束"不能藏在第二行）。 */
 	.sc-topbar {
 		padding-block: var(--sc-2);
+		flex-wrap: nowrap;
+		gap: 0 var(--sc-2);
 	}
 	.sc-topbar-title {
 		flex: 1 1 auto;
-		margin-right: auto;
+		min-width: 0;
 	}
 	.sc-topbar-meta {
-		flex: 1 1 100%;
+		/* 不生长也不收缩：回合 + 进度只有百来像素，被压了就是把读数夹断半个字；
+		   一行里多出来的宽度全给病名（它有自己的省略号）。 */
+		flex: 0 0 auto;
 		margin-left: 0;
-		/* **不许再折**：390 上必须收在两行里（第三行会把对话流挤矮）。
-		   放不下时先牺牲进度的名字，而不是把「结束并看经历」挤走。 */
 		flex-wrap: nowrap;
-		min-width: 0;
 		gap: 0 var(--sc-2);
 	}
 	.sc-topbar-meta .sc-progress-wrap {
@@ -2450,8 +2525,8 @@ button.sc-panel-head:hover {
 		min-width: 0;
 		overflow: hidden;
 	}
-	/* 回合数 / 结束动作不参与收缩（它们只有几十像素，被压了反而看不清）；
-	   收缩的代价全部由进度承担（先省名字，再省略数字） */
+	/* 回合数不参与收缩（它只有几十像素，被压了反而看不清）。
+	   进度按自己的刻度再细一档：窄屏它只需要说明"到哪了"。 */
 	.sc-topbar-meta > span,
 	.sc-topbar-meta > .sc-btn {
 		flex: none;
@@ -2459,6 +2534,10 @@ button.sc-panel-head:hover {
 	}
 	.sc-progress {
 		min-width: 0;
+		gap: var(--sc-1);
+	}
+	.sc-progress-bar {
+		width: 40px;
 	}
 	/* 进度的名字在窄屏让位（条形与百分比仍说明"到哪了"；全量细节在点开的弹层里，名字在那边还在） */
 	.sc-progress-label {
@@ -2470,16 +2549,21 @@ button.sc-panel-head:hover {
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* 弹层贴左展开：进度在行内靠左，右对齐会让它从左边溢出屏幕外 */
+	/* 行内只留"数字 + 细条"那一对：次数读数让位（它还在弹层里，见 DimCard 的 data-narrow-hide） */
+	.sc-progress-count[data-narrow-hide="true"] {
+		display: none;
+	}
+	/* 弹层宽度按窄屏收一档，**仍贴右展开**：进度在页头是"跟着尾部控件"的（它的右缘
+	   离行尾只有那一个动作控件 + 间隙），右对齐因此永远落在屏幕里；贴左展开反而会从右边冲出去。
+	   宽度上限再留出页头左端的余量（病例名那一侧）。 */
 	.sc-progress-panel {
-		right: auto;
-		left: 0;
 		min-width: 0;
 		width: min(300px, calc(100vw - 84px));
 		max-width: calc(100vw - 84px);
 	}
-	.sc-btn.sc-side-toggle {
-		display: inline-flex;
+	/* 页头右端：触屏是 44 的可点面（`--sc-control-h` 已抬到 44），桌面视觉宽度就是图标那点 */
+	.sc-topbar-end {
+		flex: none;
 	}
 
 	/* ── 场景带收薄 + 场景内各块收紧：390 上把高度让给对话流（对话流是主阅读区） ── */

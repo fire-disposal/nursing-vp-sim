@@ -1,14 +1,21 @@
 import { VisuallyHidden } from "@mantine/core";
 import {
 	IconAlertTriangle,
+	IconDots,
 	IconHistory,
-	IconListDetails,
 	IconPlayerPlay,
 	IconStack2,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ComponentType,
+	type ReactNode,
+	type RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
@@ -53,6 +60,7 @@ import {
 	type ScenarioSessionGroup,
 	sessionRowMeta,
 } from "./sessions";
+import { useNarrowScreen } from "./viewport";
 
 /**
  * 情境训练（正式特性，docs/20）· 学生侧 —— 路由 `/scenario`，学生侧栏/底部 Tab 的「情境」。
@@ -85,26 +93,147 @@ const HISTORY_PREVIEW = 8;
  * 会话里再点它就是回到情境入口（见 `backToListOnNav` 那段 effect）。
  *
  * 留下的只有 App 不提供的东西：病例名（App 只显示导航条目名）、回合 / 进度（各视图传入）
- * 与窄屏下"召唤经历面板"的入口。
+ * 与右端**一个**动作控件（`end`）——窄屏是一枚 `⋯` 菜单（抽屉入口 + 结束），桌面是直给的按钮。
+ * 三块**任何宽度下都在一行里**：窄屏放不下时收缩的是病例名与进度，不是把动作挤到第二行。
  */
 function ConsoleTopbar({
 	title,
-	aside,
 	meta,
+	end,
 }: {
 	title: string;
-	/** 病名之后、右侧动作之前的控件（窄屏的抽屉入口；桌面不显示）。 */
-	aside?: ReactNode;
 	meta?: ReactNode;
+	/** 页头右端的动作控件（会话里是「⋯」菜单或「结束」按钮；结算页是回列表）。 */
+	end?: ReactNode;
 }) {
 	return (
 		<div className="sc-topbar">
 			<span className="sc-topbar-title" title={title}>
 				{title}
 			</span>
-			{aside}
 			{meta !== undefined && <span className="sc-topbar-meta">{meta}</span>}
+			{end !== undefined && <span className="sc-topbar-end">{end}</span>}
 		</div>
+	);
+}
+
+/**
+ * 页头右端的 `⋯` 菜单：**一个**控件装下两个动作，词面各说各的事、不重复。
+ *
+ * - 「进展」= 线索 / 时间线那块面板（窄屏默认收着，从底部升起）；
+ * - 「结束」= 结算本局（**不可逆**），用分隔线拉开距离 + 危险色，不加解释文字。
+ *
+ * 只在"抽屉真的有东西可看、且当前宽度下它有入口"时用；否则页头给直给的「结束」按钮，
+ * 不拿单条目菜单充当按钮。
+ *
+ * 自建（与「经历量化」的弹层同一套做法），不用 Mantine 的 `Menu`：控制台整体自建组件，
+ * 而且 Mantine 弹层走 portal 挂到 body 下 —— `.sc-root` 上的 `--sc-*` 刻度在那里不存在，
+ * 反而要为一个菜单再补一套颜色与高度。
+ */
+function ScenarioTopbarMenu({
+	toggleRef,
+	disabled,
+	onOpenSide,
+	onClose,
+}: {
+	toggleRef: RefObject<HTMLButtonElement | null>;
+	disabled: boolean;
+	onOpenSide: () => void;
+	onClose: () => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const wrapRef = useRef<HTMLSpanElement>(null);
+	const menuRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!open) return;
+		// 打开即落在第一项上：键盘/读屏不必先"猜到"菜单在哪
+		menuRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
+		const onPointerDown = (event: PointerEvent) => {
+			if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				// 收起并把焦点还回页头入口（键盘/读屏不会掉在虚空里）
+				setOpen(false);
+				toggleRef.current?.focus();
+				return;
+			}
+			// 菜单是"临时浮层"：Tab 走人，别留一个悬着的面板
+			if (event.key === "Tab") {
+				setOpen(false);
+				return;
+			}
+			if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+			const items = Array.from(
+				menuRef.current?.querySelectorAll<HTMLButtonElement>(
+					"[role='menuitem']:not(:disabled)",
+				) ?? [],
+			);
+			if (items.length === 0) return;
+			event.preventDefault();
+			const current = items.indexOf(document.activeElement as HTMLButtonElement);
+			const step = event.key === "ArrowDown" ? 1 : -1;
+			const next = (current + step + items.length) % items.length;
+			items[next].focus();
+		};
+		document.addEventListener("pointerdown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open, toggleRef]);
+
+	return (
+		<span className="sc-topbar-menu" ref={wrapRef}>
+			<button
+				ref={toggleRef}
+				type="button"
+				className="sc-btn sc-topbar-more"
+				aria-label="更多操作"
+				aria-haspopup="menu"
+				aria-expanded={open}
+				aria-controls="sc-topbar-menu"
+				onClick={() => setOpen((value) => !value)}
+			>
+				<IconDots size={16} aria-hidden="true" />
+			</button>
+			{open && (
+				<div
+					ref={menuRef}
+					id="sc-topbar-menu"
+					className="sc-menu"
+					role="menu"
+					aria-label="更多操作"
+				>
+					<button
+						type="button"
+						role="menuitem"
+						className="sc-menu-item"
+						onClick={() => {
+							setOpen(false);
+							onOpenSide();
+						}}
+					>
+						进展
+					</button>
+					<div className="sc-menu-sep" aria-hidden="true" />
+					<button
+						type="button"
+						role="menuitem"
+						className="sc-menu-item sc-menu-danger"
+						disabled={disabled}
+						onClick={() => {
+							setOpen(false);
+							onClose();
+						}}
+					>
+						结束
+					</button>
+				</div>
+			)}
+		</span>
 	);
 }
 
@@ -273,6 +402,8 @@ export default function ScenarioConsole() {
 	 */
 	const [sideOpen, setSideOpen] = useState(false);
 	const sideToggleRef = useRef<HTMLButtonElement>(null);
+	/** 窄屏时页头右端换成「⋯」菜单（抽屉只在这个宽度下才是浮层，也才有"召唤"这回事）。 */
+	const narrow = useNarrowScreen();
 	const { confirm } = useConfirm();
 
 	const packsQuery = useQuery({
@@ -914,22 +1045,6 @@ export default function ScenarioConsole() {
 
 					<ConsoleTopbar
 						title={shownView.pack.title}
-						aside={
-							sideNames.length === 0 ? undefined : (
-								<button
-									ref={sideToggleRef}
-									type="button"
-									className="sc-btn sc-side-toggle"
-									aria-expanded={sideOpen}
-									aria-controls="sc-side-panel"
-									aria-label={`经历：${sideNames.join("、")}`}
-									onClick={() => setSideOpen((open) => !open)}
-								>
-									<IconListDetails size={14} aria-hidden="true" />
-									经历
-								</button>
-							)
-						}
 						meta={
 							<>
 								<span>第 {shownView.session.turn} 回合</span>
@@ -940,15 +1055,24 @@ export default function ScenarioConsole() {
 											: []
 									}
 								/>
-								<button
-									type="button"
-									className="sc-btn"
-									disabled={busy}
-									onClick={close}
-								>
-									结束并看经历
-								</button>
 							</>
+						}
+						end={
+							/* 窄屏且抽屉真有东西可看：一个「⋯」装下两个动作。
+							   其余情况（桌面右栏常驻、包没声明任何面板）没有可召唤的抽屉，
+							   就直给「结束」——不为一个条目摆菜单。 */
+							narrow && sideNames.length > 0 ? (
+								<ScenarioTopbarMenu
+									toggleRef={sideToggleRef}
+									disabled={busy}
+									onOpenSide={() => setSideOpen(true)}
+									onClose={close}
+								/>
+							) : (
+								<button type="button" className="sc-btn" disabled={busy} onClick={close}>
+									结束
+								</button>
+							)
 						}
 					/>
 

@@ -97,7 +97,13 @@ export function ScenarioProgress({ dims }: { dims: ScenarioDim[] }) {
 					</>
 				)}
 				{count !== undefined && (
-					<span className="sc-progress-value">
+					<span
+						className="sc-progress-value sc-progress-count"
+						/* 窄屏：已经有比例那条细进度时，次数让位（页头只有一行，夹断半个字不如不给；
+						   两个读数与全部细节都在点开的弹层里，一个都不少）。
+						   没有比例可比时才留着——否则窄屏的进度会变成一个空按钮。 */
+						data-narrow-hide={ratio !== undefined ? "true" : undefined}
+					>
 						{count.label} {dimValue(count.value)}
 						{count.unit}
 					</span>

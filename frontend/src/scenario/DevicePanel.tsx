@@ -1,5 +1,5 @@
 import { IconChevronDown } from "@tabler/icons-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import type { ScenarioDevice, ScenarioDeviceChannel } from "@/api/scenario";
 import {
 	readSoundEnabled,
@@ -7,6 +7,7 @@ import {
 	worstStatus,
 	writeSoundEnabled,
 } from "./sound";
+import { useNarrowScreen } from "./viewport";
 
 /**
  * 设备面——场景里设备的**实时读数**（与白板互补：白板放"已确立的事"）。
@@ -91,29 +92,6 @@ function channelSummary(channel: ScenarioDeviceChannel): string {
 	const unit = channel.unit;
 	const suffix = unit === "" ? "" : unit.length === 1 ? unit : ` ${unit}`;
 	return `${channel.label} ${channelDisplay(channel)}${suffix}`;
-}
-
-/** 窄屏判定：设备与场景带在窄屏收薄，这里的默认值只决定"第一次看到什么样"。 */
-const NARROW_QUERY = "(max-width: 760px)";
-
-function useNarrowScreen(query: string = NARROW_QUERY): boolean {
-	const read = () =>
-		typeof window === "undefined" || typeof window.matchMedia !== "function"
-			? false
-			: window.matchMedia(query).matches;
-	const [narrow, setNarrow] = useState(read);
-	useEffect(() => {
-		const list = window.matchMedia?.(query);
-		const update = () => setNarrow(read());
-		// 两种信号都听：查询串自身的变化，以及旋转/缩放带来的 resize
-		list?.addEventListener?.("change", update);
-		window.addEventListener("resize", update);
-		return () => {
-			list?.removeEventListener?.("change", update);
-			window.removeEventListener("resize", update);
-		};
-	}, [query]);
-	return narrow;
 }
 
 function Channel({ channel }: { channel: ScenarioDeviceChannel }) {

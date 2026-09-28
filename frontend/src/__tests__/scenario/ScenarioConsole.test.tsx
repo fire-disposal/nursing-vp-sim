@@ -3,6 +3,7 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/render";
+import { setViewport } from "@/__tests__/setup";
 import type { ScenarioView } from "@/api/scenario";
 import { CUSTOM_ACTION_LABEL } from "@/scenario/ActionBar";
 import { OTHER_ENTRY_LABEL } from "@/scenario/AffordanceForm";
@@ -410,5 +411,117 @@ describe("情境训练控制台", () => {
 			await screen.findByText("情境训练当前未开启"),
 		).toBeInTheDocument();
 		expect(screen.queryByText("情境列表读取失败")).not.toBeInTheDocument();
+	});
+});
+
+/**
+ * 窄屏页头：**一块信息 + 一个动作控件**。
+ *
+ * 这条盯的是"页头不占第二行"这件事里可被断言的那一半：动作被收进**同一个**尾部控件，
+ * 词面不再有两个"经历"（入口叫「进展」），而抽屉 / 结算 / 进度一个都没少。
+ * 几何（真的一行、不溢出）在 `scenario.css` 的移动端一节，浏览器里量过（见交付说明）。
+ */
+describe("页头：窄屏单一尾部动作控件", () => {
+	// 视口是模块级状态：用完收回去，别漏给别的用例
+	afterEach(() => setViewport(1024, 768));
+
+	const dims = [
+		{
+			id: "d_ratio",
+			label: "信息完整度",
+			agg: "ratio",
+			value: 0.67,
+			unit: "比例",
+			detail: "",
+		},
+		{
+			id: "d_count",
+			label: "医嘱数",
+			agg: "count",
+			value: 1,
+			unit: "次",
+			detail: "",
+		},
+	];
+
+	function withDims() {
+		mocks.createScenarioSession.mockResolvedValue({
+			session_id: 12,
+			pack: { key: PACK.key, title: PACK.title, revision_id: 7 },
+			view: makeView({ dims }),
+		});
+	}
+
+	it("390：页头里动作只占一个控件，抽屉与进度都从它或它旁边进", async () => {
+		setViewport(390, 844);
+		withDims();
+		const user = userEvent.setup();
+		await enterSession(user);
+
+		const topbar = document.querySelector(".sc-topbar") as HTMLElement;
+		const end = topbar.querySelector(".sc-topbar-end") as HTMLElement;
+		// 一个尾部控件：不再有"两个按钮各占一行里的一个"
+		expect(within(end).getAllByRole("button")).toHaveLength(1);
+		const more = within(end).getByRole("button", { name: "更多操作" });
+		// 词面不撞车：「经历」不再出现在页头（入口叫「进展」，结算叫「结束」）
+		expect(topbar.textContent).not.toContain("经历");
+		expect(more.getAttribute("aria-label")).not.toContain("经历");
+
+		// 进度照旧可见、可展开（它留在页头中段，不是被收进菜单）
+		const progress = screen.getByLabelText("经历量化");
+		expect(within(progress).getByText("67%")).toBeInTheDocument();
+		await user.click(within(progress).getByRole("button"));
+		expect(document.querySelector(".sc-progress-panel")).not.toBeNull();
+		await user.keyboard("{Escape}");
+
+		// 抽屉：从菜单里的「进展」开，Esc 收起并把焦点还给入口
+		const side = document.querySelector(".sc-side") as HTMLElement;
+		expect(side.dataset.open).toBe("false");
+		await user.click(more);
+		await user.click(await screen.findByRole("menuitem", { name: "进展" }));
+		expect(side.dataset.open).toBe("true");
+		expect(document.querySelector(".sc-sheet-backdrop")).not.toBeNull();
+
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(side.dataset.open).toBe("false"));
+		expect(document.activeElement).toBe(more);
+		expect(document.querySelector(".sc-sheet-backdrop")).toBeNull();
+	});
+
+	it("390：结算从同一个控件里进得去（菜单里的「结束」是不可逆动作，单独一格）", async () => {
+		setViewport(390, 844);
+		withDims();
+		mocks.closeScenarioSession.mockResolvedValue({
+			session_id: 12,
+			report: {
+				pack: { key: PACK.key, title: PACK.title },
+				turn: 3,
+				lost: false,
+				summary: {},
+				score: { rate: null, weighted_sum: 0, total_weight: 0, criteria: [] },
+				criteria: [],
+				dims: [],
+				timeline: [],
+				problems: [],
+			},
+			view: makeView({
+				session: { id: 12, status: "completed", turn: 3, lost: false },
+			}),
+		});
+		const user = userEvent.setup();
+		await enterSession(user);
+
+		await user.click(screen.getByRole("button", { name: "更多操作" }));
+		const settle = await screen.findByRole("menuitem", { name: "结束" });
+		// 与「进展」有一道分隔线（不可逆动作不该和"看一眼"挨着长一个样）
+		expect(settle.previousElementSibling?.className).toBe("sc-menu-sep");
+		await user.click(settle);
+
+		await waitFor(() =>
+			expect(mocks.closeScenarioSession).toHaveBeenCalledWith(12),
+		);
+		expect(
+			await screen.findByRole("button", { name: "回到我的情境" }),
+		).toBeInTheDocument();
 	});
 });

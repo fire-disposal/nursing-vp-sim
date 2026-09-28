@@ -290,7 +290,7 @@ describe("块级增量渲染", () => {
 
 		// 回到列表 → 重开一局：提示必须消失（否则新局一进来就像刚失败过）。
 		// 会话页里已没有"回到列表"的按钮（2026-09-28 移除「我的情境」），所以走学生真实路径：
-		// 「结束并看经历」→ 报告页的「回到我的情境」→ 列表 → 重开一局。
+		// 「结束」→ 报告页的「回到我的情境」→ 列表 → 重开一局。
 		mocks.closeScenarioSession.mockResolvedValue({
 			session_id: 51,
 			report: {
@@ -306,7 +306,7 @@ describe("块级增量渲染", () => {
 			},
 			view: makeView({ session: { id: 51, status: "completed", turn: 1, lost: false } }),
 		});
-		await user.click(screen.getByRole("button", { name: "结束并看经历" }));
+		await user.click(screen.getByRole("button", { name: "结束" }));
 		await user.click(await screen.findByRole("button", { name: "回到我的情境" }));
 		mocks.createScenarioSession.mockResolvedValue({
 			session_id: 77,
