@@ -1,15 +1,15 @@
 import { VisuallyHidden } from "@mantine/core";
 import {
 	IconAlertTriangle,
-	IconArrowLeft,
 	IconHistory,
+	IconListDetails,
 	IconPlayerPlay,
 	IconStack2,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
 	closeScenarioSession,
@@ -36,7 +36,7 @@ import { ScenarioProgress } from "./DimCard";
 import { resolvePanels } from "./panels";
 import { studentFallbackNotice } from "./problems";
 import ScenarioReportView from "./ScenarioReportView";
-import ScenarioSidePanel from "./ScenarioSidePanel";
+import ScenarioSidePanel, { sidePanelNames } from "./ScenarioSidePanel";
 import ScenarioStage from "./ScenarioStage";
 import {
 	draftView,
@@ -63,34 +63,41 @@ import { sessionRowMeta } from "./sessions";
  *
  * 开关关闭时整个 `/api/scenario/**` 返回 **404**，因此首次读 pack 列表的 404 一律按
  * "功能未开启"呈现：不区分"会话不属于我"，也不暴露内部结构。
+ *
+ * ── 壳与沉浸（2026-09-28 反馈后的口径）─────────────────────────────────
+ * 本页跑在**常规 App 壳里**（`activity: "manage"`）：桌面侧栏、移动端底部 Tab 都在，
+ * 「情境」当前项高亮。**沉浸只体现在场景内部**——舞台 / 对话流 / 输入这一块在窄屏
+ * 走"一屏、内部滚动、输入常驻"的做法（见 `scenario.css` 的移动端一节），
+ * 而不是把全站导航拿掉（那样学生切不回训练/记录，观感也格格不入）。
  */
 
 /** 「我的情境经历」默认只铺开最近几条：30+ 行会把入口页拉成长页，想看全部的人自己展开。 */
 const HISTORY_PREVIEW = 8;
 
 /**
- * 控制台自带的**最简顶栏**：情境页跑在沉浸壳（`PracticeShell`）里，系统顶栏与侧栏都不在，
- * 所以"我在哪、怎么出去、怎么结束"必须由这条栏给出。
+ * 控制台自带的**页头**：系统导航壳（`ManageShell`）已经给了"我在哪、怎么出去"，
+ * 所以这里**不再自带返回**——App 导航的「情境」（桌面侧栏 / 移动端底部 Tab）就是出口，
+ * 会话里再点它就是回到情境入口（见 `backToListOnNav` 那段 effect）。
  *
- * 左侧恒为返回（学生没有系统导航可点）；中间是病例名；右侧由各视图传入（回合/结束动作）。
- * 它是纯结构：动作与文案都由调用方给。
+ * 留下的只有 App 不提供的东西：病例名（App 只显示导航条目名）、回合 / 进度（各视图传入）
+ * 与窄屏下"召唤经历面板"的入口。
  */
 function ConsoleTopbar({
-	onBack,
 	title,
+	aside,
 	meta,
 }: {
-	onBack: () => void;
 	title: string;
+	/** 病名之后、右侧动作之前的控件（窄屏的抽屉入口；桌面不显示）。 */
+	aside?: ReactNode;
 	meta?: ReactNode;
 }) {
 	return (
 		<div className="sc-topbar">
-			<button type="button" className="sc-back" onClick={onBack}>
-				<IconArrowLeft size={14} aria-hidden="true" />
-				返回
-			</button>
-			<span className="sc-topbar-title">{title}</span>
+			<span className="sc-topbar-title" title={title}>
+				{title}
+			</span>
+			{aside}
 			{meta !== undefined && <span className="sc-topbar-meta">{meta}</span>}
 		</div>
 	);
@@ -176,14 +183,13 @@ export default function ScenarioConsole() {
 	const [openAffordanceId, setOpenAffordanceId] = useState<string | null>(null);
 	/** 「我的情境经历」是否已展开全部（默认只显示 `HISTORY_PREVIEW` 条）。 */
 	const [historyExpanded, setHistoryExpanded] = useState(false);
-	const { confirm } = useConfirm();
-	const navigate = useNavigate();
 	/**
-	 * 返回 = 回到训练首页（`/training`），**不用** `navigate(-1)`：
-	 * 情境页可以被深链（`?session=`）直接打开，也可能从收藏进来，`-1` 会退出应用或落到登录页；
-	 * `/training` 是三种角色都有的落脚点，且是学生进情境前的一页。
+	 * 窄屏的**经历面板抽屉**（线索 / 时间线）是否展开。桌面常驻、与它无关；
+	 * 默认收起 = 默认不占纵向空间（2026-09-28：右栏整块排在对话流之后会把页面拉得很长）。
 	 */
-	const goBack = () => navigate("/training");
+	const [sideOpen, setSideOpen] = useState(false);
+	const sideToggleRef = useRef<HTMLButtonElement>(null);
+	const { confirm } = useConfirm();
 
 	const packsQuery = useQuery({
 		queryKey: queryKeys.scenario.packs(),
@@ -423,14 +429,46 @@ export default function ScenarioConsole() {
 		}
 	};
 
-	// 直达/刷新带 `?session=` 时恢复那一局：走既有 resume 路径（后端 404 兜底归属）
+	/**
+	 * 地址栏里的 `?session=` 就是"这一局开着"。两个方向都由它驱动：
+	 *
+	 * 1) 直达/刷新带参数 → 恢复那一局（走既有 resume 路径，后端 404 兜底归属）；
+	 * 2) **参数从有到无 → 回情境入口**。App 导航的「情境」（桌面侧栏 / 移动端底部 Tab）
+	 *    指的就是不带参数的 `/scenario`，所以"会话里再点「情境」"= 退出这一局回列表——
+	 *    控制台不再自带返回，出口只有这一条，必须真的能用（2026-09-28）。
+	 *    会话本身留在后端，从"我的情境经历"随时能继续。
+	 *
+	 * 判据必须是"**从有到无**"（`previousUrlSession`），不能只看"现在没有"：
+	 * `setSearchParams` 走 React Router 的 transition（低优先级），开局那一帧会出现
+	 * "sessionId 已就位、地址栏还没写进去"的中间态——只看当下会把刚开的一局立刻关掉。
+	 */
+	const urlSession = searchParams.get("session");
+	const previousUrlSession = useRef<string | null>(null);
+
 	useEffect(() => {
 		if (deepLinkDoneRef.current) return;
-		const raw = searchParams.get("session");
-		if (!raw || !/^\d+$/.test(raw)) return;
 		deepLinkDoneRef.current = true;
-		void resume({ id: Number(raw) });
-	}, [searchParams]);
+		if (!urlSession || !/^\d+$/.test(urlSession)) return;
+		void resume({ id: Number(urlSession) });
+	}, [urlSession]);
+
+	// 这两个 effect 必须在**任何提前 return 之前**（结算视图也有自己的 return，hook 数要拉平）
+	useEffect(() => {
+		if (previousUrlSession.current !== null && urlSession === null) leaveSession();
+		previousUrlSession.current = urlSession;
+	}, [urlSession]);
+
+	// 抽屉展开时 Esc 收起（与遮罩、页头入口同一件事）
+	useEffect(() => {
+		if (!sideOpen) return;
+		const onKey = (event: globalThis.KeyboardEvent) => {
+			if (event.key !== "Escape") return;
+			setSideOpen(false);
+			sideToggleRef.current?.focus();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [sideOpen]);
 
 	// 卸载/离开页时中断在途的流（不留悬空连接，也不在卸载后 setState）
 	useEffect(
@@ -457,7 +495,11 @@ export default function ScenarioConsole() {
 		}
 	};
 
-	const leaveSession = () => {
+	/**
+	 * 离开当前会话、回到情境入口（列表）。写成**函数声明**（会被提升）：`backToListOnNav`
+	 * 那段 effect 在它上面，但两者都在任何提前 return 之前。
+	 */
+	function leaveSession() {
 		rememberSession(null);
 		setSessionId(null);
 		setView(null);
@@ -468,8 +510,10 @@ export default function ScenarioConsole() {
 		setPendingStudent(null);
 		setStreamFailed(null);
 		setIntent(null);
+		// 抽屉不跨局：回到入口列表时它是关着的（换一局也不带着上一局的展开态）
+		setSideOpen(false);
 		historyQuery.refetch();
-	};
+	}
 
 	// 唯一等于"功能未开启"的事实：pack 列表本身 404（命名空间整体不可用）
 	if (packsQuery.error && isScenarioUnavailable(packsQuery.error)) {
@@ -520,7 +564,6 @@ export default function ScenarioConsole() {
 		return (
 			<div className="sc-root" data-view="report" data-lost={report.lost}>
 				<ConsoleTopbar
-					onBack={goBack}
 					title={report.pack.title}
 					meta={
 						<>
@@ -619,6 +662,13 @@ export default function ScenarioConsole() {
 	};
 
 	const panels = shownView === null ? null : resolvePanels(shownView.panels);
+	/** 经历面板此刻有哪些页签（空数组 = 没东西可看，页头就不给抽屉入口）。 */
+	const sideNames = shownView === null ? [] : sidePanelNames(shownView);
+	/** 收起抽屉并把焦点还给页头的入口按钮（键盘/读屏不会掉在虚空里）。 */
+	const closeSide = () => {
+		setSideOpen(false);
+		sideToggleRef.current?.focus();
+	};
 
 	return (
 		<div
@@ -628,11 +678,12 @@ export default function ScenarioConsole() {
 		>
 			{shownView === null ? (
 				<>
-					<ConsoleTopbar onBack={goBack} title="情境训练" />
+					{/* 入口页**不带自己的页头**：App 导航（侧栏 / 底部 Tab）已经高亮「情境」，
+					    这里再写一遍「情境训练」就是同一句话说两遍；内容区自带 H2 立语义。 */}
 					<div className="sc-gate sc-gate-wide">
 					<section className="sc-open" aria-label="情境训练">
 						{/* 内容标题：与 /training 的 H2 同刻度（22/700），只表达"选一个情境"，
-						    不与沉浸壳顶栏的「情境训练」重复，也不写说明文字（UI 审计 C5）。 */}
+						    不重复 App 导航的条目名，也不写说明文字（UI 审计 C5）。 */}
 						<div className="sc-open-head">
 							<h2 className="sc-open-title">选一个情境开始</h2>
 							{opening && (
@@ -771,8 +822,23 @@ export default function ScenarioConsole() {
 					)}
 
 					<ConsoleTopbar
-						onBack={goBack}
 						title={shownView.pack.title}
+						aside={
+							sideNames.length === 0 ? undefined : (
+								<button
+									ref={sideToggleRef}
+									type="button"
+									className="sc-btn sc-side-toggle"
+									aria-expanded={sideOpen}
+									aria-controls="sc-side-panel"
+									aria-label={`经历：${sideNames.join("、")}`}
+									onClick={() => setSideOpen((open) => !open)}
+								>
+									<IconListDetails size={14} aria-hidden="true" />
+									经历
+								</button>
+							)
+						}
 						meta={
 							<>
 								<span>第 {shownView.session.turn} 回合</span>
@@ -869,8 +935,23 @@ export default function ScenarioConsole() {
 							)}
 						</div>
 
-						<ScenarioSidePanel view={shownView} />
+						<ScenarioSidePanel
+							view={shownView}
+							open={sideOpen}
+							onClose={closeSide}
+						/>
 					</div>
+					{/* 窄屏抽屉的遮罩：点一下收起（桌面不显示，见 scenario.css）。
+					    DOM 只在真的展开时存在，读屏/键盘不会碰到一个隐形的层。 */}
+					{sideOpen && sideNames.length > 0 && (
+						<button
+							type="button"
+							className="sc-sheet-backdrop"
+							aria-label="收起经历面板"
+							tabIndex={-1}
+							onClick={closeSide}
+						/>
+					)}
 				</>
 			)}
 		</div>

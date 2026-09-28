@@ -1,7 +1,7 @@
 import { notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useSearchParams } from "react-router-dom";
+import { Link, MemoryRouter, useSearchParams } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
@@ -104,12 +104,17 @@ function LocationProbe() {
 	return <span data-testid="query">{params.get("session") ?? ""}</span>;
 }
 
+/**
+ * App 导航的「情境」入口（`SidebarNav` / `BottomTabBar` 里那一条就是这样一个 `Link`）：
+ * 指向**不带参数**的 `/scenario`。会话里点它 = 退出这一局回列表（控制台不再自带返回）。
+ */
 function renderConsole(entry = "/scenario") {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={qc}>
 			<MemoryRouter initialEntries={[entry]}>
 				<ScenarioConsole />
+				<Link to="/scenario">情境</Link>
 				<LocationProbe />
 			</MemoryRouter>
 		</QueryClientProvider>,
@@ -425,7 +430,7 @@ describe("M3：会话进地址栏（?session=）", () => {
 		});
 	});
 
-	it("开启会话后地址栏带上 ?session=，回列表时清掉", async () => {
+	it("开启会话后地址栏带上 ?session=；点 App 导航的「情境」回列表时清掉", async () => {
 		const user = userEvent.setup();
 		renderConsole();
 		await startPack(user, PACK.title);
@@ -436,10 +441,16 @@ describe("M3：会话进地址栏（?session=）", () => {
 		});
 		// 写地址栏**不能**触发一次多余的"深链恢复"（否则刚开好的一局会被自己再恢复一遍）
 		expect(mocks.getScenarioSession).not.toHaveBeenCalled();
-		await user.click(screen.getByRole("button", { name: "返回" }));
+
+		// App 导航的「情境」不带 ?session=：会话里再点它 = 退出这一局、回到入口列表
+		// （控制台不再自带返回，出口只有 App 导航这一条）
+		await user.click(screen.getByRole("link", { name: "情境" }));
 		await waitFor(() => {
 			expect(screen.getByTestId("query").textContent).toBe("");
 		});
+		expect(
+			await screen.findByRole("heading", { name: "选一个情境开始" }),
+		).toBeInTheDocument();
 	});
 });
 

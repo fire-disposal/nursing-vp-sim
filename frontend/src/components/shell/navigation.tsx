@@ -150,8 +150,10 @@ export const APP_ROUTES: AppRoute[] = [
 		path: "/scenario",
 		element: <ScenarioConsole />,
 		permission: "scenario_training",
-		// 沉浸壳（与常规训练详情页同款）：进情境后不显示系统顶栏/侧栏，控制台自带最简导航与返回。
-		activity: "practice",
+		// **App 导航壳照常**（桌面侧栏 + 移动端底部 Tab 的「情境」）：沉浸只体现在**场景内部**
+		// （舞台 / 对话 / 输入这一块），不是把全站导航拿掉——2026-09-28 反馈：手机上没了底部 Tab，
+		// 学生既切不回训练/记录，观感也格格不入。控制台因此不再自带返回，出口交给 App 导航。
+		activity: "manage",
 		nav: { label: "情境", icon: IconSitemap, section: "user" },
 	},
 	{

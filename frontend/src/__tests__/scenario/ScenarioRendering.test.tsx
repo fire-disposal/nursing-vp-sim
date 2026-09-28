@@ -501,12 +501,18 @@ describe("学生侧渲染：我的情境经历", () => {
 });
 
 describe("学生侧渲染：入口页", () => {
-	it("「情境训练」只出现一次（顶栏给标题），内容区靠 aria-label 立语义", async () => {
+	it("入口页不重复 App 导航的条目名：页内只有内容标题，语义由 aria-label 立", async () => {
 		renderConsole();
 		await screen.findByText(PACK.title);
 
-		expect(screen.getAllByText("情境训练")).toHaveLength(1);
+		// App 壳（侧栏 / 移动端底部 Tab）已经写着「情境」并高亮当前项：页内再写一遍就是同一句话说两遍
+		expect(screen.queryByText("情境训练")).toBeNull();
+		// 读屏仍知道这是哪一页（内容区的 region 名字）
 		expect(screen.getByRole("region", { name: "情境训练" })).toBeInTheDocument();
+		// 页面自己的标题只说"选一个情境"
+		expect(
+			screen.getByRole("heading", { level: 2, name: "选一个情境开始" }),
+		).toBeInTheDocument();
 	});
 
 	it("病例卡：内容标题 + 学生语义徽章 + 贴底的开始动作；作者态字段不进学生面", async () => {

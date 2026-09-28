@@ -1,8 +1,33 @@
-import { type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { ScenarioView } from "@/api/scenario";
 import BoardPanel from "./BoardPanel";
 import { resolvePanels } from "./panels";
 import TimelineList from "./TimelineList";
+
+/** 线索条数：抽屉入口要显示"有东西可看"，也用来判"面板是否成立"。 */
+function boardEntryCount(view: ScenarioView): number {
+	return (
+		view.board?.sections.reduce(
+			(total, section) => total + section.entries.length,
+			0,
+		) ?? 0
+	);
+}
+
+/**
+ * 侧栏此刻**有哪些页签**（`["线索"]` / `["时间线"]` / 两个都有；都没有 = 空数组）。
+ *
+ * 判据只有这一处：页面据此决定要不要给「召唤」入口、入口怎么写名字——空面板不给按钮，
+ * 也不留一个点开是空的抽屉。
+ */
+export function sidePanelNames(view: ScenarioView): string[] {
+	const names: string[] = [];
+	if (view.board !== undefined && boardEntryCount(view) > 0) names.push("线索");
+	if (resolvePanels(view.panels).timeline && view.timeline.length > 0) {
+		names.push("时间线");
+	}
+	return names;
+}
 
 /**
  * 侧栏：**一块卡片 + 两个页签（线索 / 时间线）**，两者共用同一个滚动空间。
@@ -16,22 +41,53 @@ import TimelineList from "./TimelineList";
  *
  * 页签是自建的（不用 Mantine Tabs）：学生控制台整体自建组件，尺寸/形状只由
  * `scenario.css` 的 `--sc-*` 刻度决定。
+ *
+ * ── 窄屏按需召唤（2026-09-28）─────────────────────────────────────────
+ * 桌面是常驻右栏（sticky）；窄屏（≤760）整块排在主列之后会把页面拉得很长、还跟对话流
+ * 争注意力，所以改成**默认不占纵向空间的底部抽屉**：传了 `onClose` 才算"可召唤"
+ * （`data-sheet`），由页面上的入口按钮开合。**只有内容真的存在时**页面才给入口。
+ * 管理侧回放不传 `onClose`：它在窄屏保持原来的整块排布，行为不变。
  */
-export default function ScenarioSidePanel({ view }: { view: ScenarioView }) {
+export default function ScenarioSidePanel({
+	view,
+	open = true,
+	onClose,
+}: {
+	view: ScenarioView;
+	/** 抽屉是否展开（只对"可召唤"形态有意义；桌面常驻，与它无关）。 */
+	open?: boolean;
+	/** 传了才可召唤（给关闭控件 + 窄屏抽屉形态）；不传 = 常驻排布。 */
+	onClose?: () => void;
+}) {
 	const [tab, setTab] = useState<"board" | "timeline">("board");
 	const boardTabRef = useRef<HTMLButtonElement>(null);
 	const timelineTabRef = useRef<HTMLButtonElement>(null);
+	const closeRef = useRef<HTMLButtonElement>(null);
+
+	// 展开时把焦点交给「收起」：触屏与键盘都能立刻退出去（关闭后焦点由页面还给入口按钮）
+	useEffect(() => {
+		if (open) closeRef.current?.focus();
+	}, [open]);
 
 	const board = view.board;
-	const boardCount =
-		board?.sections.reduce(
-			(total, section) => total + section.entries.length,
-			0,
-		) ?? 0;
+	const boardCount = boardEntryCount(view);
 	const hasBoard = board !== undefined && boardCount > 0;
 	const hasTimeline = resolvePanels(view.panels).timeline && view.timeline.length > 0;
 
 	if (!hasBoard && !hasTimeline) return null;
+
+	/** 抽屉形态的收起控件：只在窄屏出现（桌面常驻，没有可关的东西）。 */
+	const closeButton =
+		onClose === undefined ? null : (
+			<button
+				ref={closeRef}
+				type="button"
+				className="sc-btn sc-sheet-close"
+				onClick={onClose}
+			>
+				收起
+			</button>
+		);
 
 	const boardBody = hasBoard && board !== undefined && <BoardPanel board={board} />;
 	const timelineBody = (
@@ -48,7 +104,14 @@ export default function ScenarioSidePanel({ view }: { view: ScenarioView }) {
 			(next === "board" ? boardTabRef : timelineTabRef).current?.focus();
 		};
 		return (
-			<aside className="sc-side" aria-label="经历面板">
+			<aside
+				id="sc-side-panel"
+				className="sc-side"
+				aria-label="经历面板"
+				data-sheet={onClose !== undefined ? "true" : undefined}
+				data-open={open ? "true" : "false"}
+			>
+				{closeButton}
 				<div className="sc-panel sc-tabs">
 					<div className="sc-tabs-list" role="tablist" onKeyDown={onKeyDown}>
 						<button
@@ -103,7 +166,14 @@ export default function ScenarioSidePanel({ view }: { view: ScenarioView }) {
 
 	// 只有一块：不摆页签（没有可切换的东西就不给切换控件）
 	return (
-		<aside className="sc-side" aria-label="经历面板">
+		<aside
+			id="sc-side-panel"
+			className="sc-side"
+			aria-label="经历面板"
+			data-sheet={onClose !== undefined ? "true" : undefined}
+			data-open={open ? "true" : "false"}
+		>
+			{closeButton}
 			<div className="sc-panel">
 				<div className="sc-panel-head">
 					<span className="sc-panel-title">

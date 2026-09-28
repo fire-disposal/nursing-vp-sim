@@ -8,7 +8,7 @@
  * 那是图像覆盖层，必须与主题无关，否则亮色主题下白底白字。
  *
  * ── 形状语言（2026-09-28 统一）───────────────────────────────────────
- * - 圆角：控件 xs/sm；**面板、卡片、行、表格一律直角（0）**；只有头像是圆的。
+ * - 圆角：控件 sm(4px)；容器/卡片 md(8px)；头像是圆的。
  * - 分隔线：1px `--mantine-color-default-border` 组织信息，不用浮层卡片堆叠。
  * - 阴影：不用（弹层由 Mantine 自带 `shadow="xs"`）；无渐变、无发光、无玻璃质感。
  * - 密度：正文 13–14 / 行高 1.45–1.55；元信息 12；内边距 6/8/12 步进。
@@ -89,11 +89,26 @@
 	/* 大屏内容区上限并居中：不让台词在大屏上摊满整屏 */
 	max-width: 1400px;
 	margin-inline: auto;
-	/* 情境页跑在沉浸壳（PracticeShell）里，没有系统占高：控制台自带内边距并铺满视口 */
-	min-height: 100dvh;
+	/* 本页跑在常规 App 壳里（ManageShell）：顶栏 / 底部 Tab 与内容内边距都由壳占掉，
+	   控制台只填**剩下的那一块**（否则页面会多出一条壳高的滚动）。
+	   变量由 Mantine AppShell 写在根上，不在壳里时回落到 0。
+	   24 = 壳内容框的上下内边距合计（`p={{ base: "sm", sm: "lg" }}` → 12 / 24，见 ManageShell）。 */
+	--sc-chrome: calc(
+		var(--app-shell-header-offset, 0px) + var(--app-shell-footer-offset, 0px) + 24px
+	);
+	min-height: calc(100dvh - var(--sc-chrome));
 	padding: var(--sc-2) var(--sc-3);
 	color: var(--sc-text);
 	font-size: var(--sc-fs-sm);
+}
+
+/* ≥ sm（Mantine 48em，与壳的内容内边距同步）：壳内边距升到 24/边 → 合计 48 */
+@media (min-width: 48em) {
+	.sc-root {
+		--sc-chrome: calc(
+			var(--app-shell-header-offset, 0px) + var(--app-shell-footer-offset, 0px) + 48px
+		);
+	}
 }
 
 /* 触屏：控件与可点行抬到 44px（无障碍触控目标），视觉密度不变 */
@@ -108,17 +123,20 @@
 .sc-column {
 	flex: 1 1 620px;
 	min-width: 0;
+	/* 作为 `.sc-main` 的 flex 项：不写这一条，内容高度会顶穿容器
+	   （`min-height: auto` = 内容最小尺寸），会话视图于是整页滚动而不是列内滚动 */
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
 	gap: var(--sc-3);
 }
 
 /*
- * 会话视图：**正好一屏**（`100dvh`），页面级不滚动，滚动只发生在内部容器
+ * 会话视图：**正好一屏**（壳剩下的那点高度），页面级不滚动，滚动只发生在内部容器
  * （台词流 `.sc-lines` / 左侧列 `.sc-column` / 侧栏 `.sc-panel-body`）。
  */
 .sc-root[data-view="session"] {
-	height: 100dvh;
+	height: calc(100dvh - var(--sc-chrome));
 	min-height: 0;
 }
 
@@ -134,6 +152,17 @@
 .sc-root[data-view="session"] .sc-column {
 	overflow-y: auto;
 	overscroll-behavior: contain;
+}
+
+/*
+ * 会话视图里主列与侧栏**不换行**（窄屏时侧栏是浮层/不在流里，不参与这一行）。
+ *
+ * ⚠️ 这一条不能省：换行容器的行高由**内容**决定（`align-content: stretch` 只加不减），
+ * 于是主列会顶穿"正好一屏"的容器——整页滚起来，输入组被推到底部 Tab 之下。
+ * 单行容器的行高 = 容器高度，主列因此正好落在可用空间里、自己滚。
+ */
+.sc-root[data-view="session"] .sc-main {
+	flex-wrap: nowrap;
 }
 
 /* 对话列是主阅读区：场景块按可用高度自适应，台词流吃掉剩余高度 */
@@ -163,7 +192,9 @@
 	}
 }
 
-/* 窄屏：侧栏不再占主位，整块排在主列之后 */
+/* 窄屏：侧栏让出主位。
+   - 学生控制台（可召唤，`data-sheet`）：整块默认不占空间，由页头入口升成底部抽屉（见文件末尾移动端一节）。
+   - 管理侧回放（常驻）：保持"整块排在主列之后"，不改成抽屉。 */
 @media (max-width: 760px) {
 	.sc-side {
 		flex: 1 1 100%;
@@ -205,39 +236,27 @@
 	margin-right: auto;
 }
 
-/* ── 页头（会话状态 + 结算） ── */
+/* ── 页头（会话状态 / 结算）──
+   它**不是第二条 App 顶栏**：没有边框与底色，只是一行"App 不提供的信息 + 动作"。
+   桌面一行放得下；窄屏折成两行（病名 + 抽屉入口 / 回合 + 进度 + 结束）。 */
 .sc-topbar {
 	display: flex;
 	align-items: center;
-	gap: var(--sc-3);
+	gap: var(--sc-1) var(--sc-3);
 	flex-wrap: wrap;
-	padding: var(--sc-2) var(--sc-3);
-	border: 1px solid var(--sc-line);
-	background: var(--sc-surface);
+	padding-block: var(--sc-1);
+	min-width: 0;
 }
 
 .sc-topbar-title {
+	flex: 0 1 auto;
+	min-width: 0;
 	font-size: var(--sc-fs-body);
 	font-weight: 600;
-}
-
-/* 返回：顶栏最左，低权重（它是出口，不是动作） */
-.sc-back {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--sc-0);
-	min-height: var(--sc-h-sm);
-	padding: 0 var(--sc-1);
-	border: 0;
-	background: transparent;
-	color: var(--sc-dim);
-	font: inherit;
-	font-size: var(--sc-fs-meta);
-	cursor: pointer;
-}
-
-.sc-back:hover {
-	color: var(--sc-text);
+	/* 病名再长也不换行：页头是"我在哪"，不是标题区 */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .sc-topbar-meta {
@@ -248,6 +267,32 @@
 	color: var(--sc-dim);
 	margin-left: auto;
 	align-items: center;
+}
+
+/* 经历面板（线索 / 时间线）的窄屏召唤入口：桌面右栏常驻，这个按钮只在窄屏出现。
+   写成双类选择器：`.sc-btn`（同在本文档后面）单类压不住它，反之亦然。 */
+.sc-btn.sc-side-toggle {
+	display: none;
+	flex: none;
+}
+
+/* 抽屉里的「收起」：同样只在窄屏出现（桌面没有可关的东西） */
+.sc-btn.sc-sheet-close {
+	display: none;
+	flex: none;
+	align-self: flex-end;
+}
+
+/* 抽屉遮罩：只在窄屏、且抽屉真的展开时存在（DOM 侧也一样只在展开时渲染） */
+.sc-sheet-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 39;
+	display: none;
+	padding: 0;
+	border: 0;
+	background: rgb(0 0 0 / 32%);
+	touch-action: none;
 }
 
 /* 顶栏进度（原「经历量化」面板）：一条细进度 + 数字；细节在自建弹层里 */
@@ -2310,7 +2355,171 @@ button.sc-panel-head:hover {
 	flex-wrap: wrap;
 }
 
-/* ── 控件层圆角：统一 2px（面板/行/卡片/表格保持直角） ── */
+/* ══ 移动端（≤760，重点 390）═════════════════════════════════════════════
+   沉浸只体现在**场景内部**：App 壳（顶栏 / 底部 Tab）照常在，这一节只管场景与对话怎么排。
+   四件事：
+   ① 经历面板（线索 / 时间线）**按需召唤**：默认 0 高，页头入口升成底部抽屉——
+      它整块排在对话流之后会把页面拉得很长，还跟对话抢注意力；
+   ② 场景图带收薄，把高度让给对话流；
+   ③ chip / 触控目标 / 字号 / 行宽按 390 定（每行 ~22 字中文）；
+   ④ 输入组 sticky 在滚动区底部：读完长对话或键盘弹出，输入框都还在原处
+      （页头 + 输入组 + 底部 Tab 各自一层，但不互相叠压、不挤掉对话流高度）。 */
+@media (max-width: 760px) {
+	/* ── 会话视图：纵向内边距让给场景（壳已经给了 12/边） ── */
+	.sc-root[data-view="session"] {
+		padding-block: 0;
+		gap: var(--sc-2);
+	}
+
+	/* ── 页头折两行：① 病名 + 抽屉入口 ② 回合 + 进度 + 结束 ── */
+	.sc-topbar {
+		padding-block: var(--sc-2);
+	}
+	.sc-topbar-title {
+		flex: 1 1 auto;
+		margin-right: auto;
+	}
+	.sc-topbar-meta {
+		flex: 1 1 100%;
+		margin-left: 0;
+		/* **不许再折**：390 上必须收在两行里（第三行会把对话流挤矮）。
+		   放不下时先牺牲进度的名字，而不是把「结束并看经历」挤走。 */
+		flex-wrap: nowrap;
+		min-width: 0;
+		gap: 0 var(--sc-2);
+	}
+	.sc-topbar-meta .sc-progress-wrap {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+	}
+	/* 回合数 / 结束动作不参与收缩（它们只有几十像素，被压了反而看不清）；
+	   收缩的代价全部由进度承担（先省名字，再省略数字） */
+	.sc-topbar-meta > span,
+	.sc-topbar-meta > .sc-btn {
+		flex: none;
+		white-space: nowrap;
+	}
+	.sc-progress {
+		min-width: 0;
+	}
+	/* 进度的名字在窄屏让位（条形与百分比仍说明"到哪了"；全量细节在点开的弹层里，名字在那边还在） */
+	.sc-progress-label {
+		display: none;
+	}
+	.sc-progress-value {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	/* 弹层贴左展开：进度在行内靠左，右对齐会让它从左边溢出屏幕外 */
+	.sc-progress-panel {
+		right: auto;
+		left: 0;
+		min-width: 0;
+		width: min(300px, calc(100vw - 84px));
+		max-width: calc(100vw - 84px);
+	}
+	.sc-btn.sc-side-toggle {
+		display: inline-flex;
+	}
+
+	/* ── 场景带收薄 + 场景内各块收紧：390 上把高度让给对话流（对话流是主阅读区） ── */
+	.sc-stage-visual {
+		height: clamp(64px, 8.5vh, 96px);
+	}
+	.sc-stage-body {
+		padding: var(--sc-2);
+		gap: var(--sc-1);
+	}
+	/* 读数条：窄屏把"标签 + 数值"收进一行（它们是读数，不是两行卡片） */
+	.sc-hud-slot {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sc-1);
+		padding: var(--sc-0) var(--sc-2);
+	}
+	/* 在场者条是**只读**的：不需要 44 的触控目标 */
+	.sc-actor {
+		min-height: 24px;
+	}
+	.sc-devices {
+		padding: var(--sc-1) var(--sc-2);
+		gap: var(--sc-1);
+	}
+	.sc-device {
+		gap: 0;
+		padding-top: var(--sc-1);
+	}
+	.sc-device-channel {
+		padding: var(--sc-0) var(--sc-2) var(--sc-0) var(--sc-1);
+	}
+	.sc-actors {
+		padding: var(--sc-1) var(--sc-3);
+	}
+
+	/* ── 对话流：15/1.6 正文、14 旁白；学生气泡离对侧留出空隙 ── */
+	.sc-lines {
+		gap: var(--sc-2);
+	}
+	.sc-line-text {
+		line-height: 1.6;
+	}
+	.sc-subtitle {
+		padding-left: var(--sc-2);
+		font-size: 14px;
+		line-height: 1.65;
+	}
+	.sc-line[data-role="student"] .sc-line-main {
+		max-width: 88%;
+	}
+
+	/* ── 选项条：不再让出头像那一列（390 上那 34px 是实打实的一行宽度） ── */
+	.sc-options {
+		margin-left: 0;
+	}
+
+	/* ── 输入组：sticky 贴滚动区底部（对话流在它后面滚） ── */
+	.sc-root[data-view="session"] .sc-column > .sc-actions {
+		position: sticky;
+		bottom: 0;
+		z-index: 5;
+		background: var(--sc-surface);
+	}
+	.sc-composer .sc-send {
+		min-width: 64px;
+	}
+
+	/* ── 经历面板（可召唤形态）：默认不渲染占位；展开时从底部升起，停在底部 Tab 之上 ── */
+	.sc-side[data-sheet="true"] {
+		display: none;
+	}
+	.sc-side[data-sheet="true"][data-open="true"] {
+		display: flex;
+		position: fixed;
+		inset-inline: 0;
+		/* 停在底部 Tab 之上：导航仍然可见可用，也不与壳抢 Z 层 */
+		bottom: var(--app-shell-footer-offset, 0px);
+		z-index: 40;
+		max-height: 68dvh;
+		padding: var(--sc-2) var(--sc-3) var(--sc-3);
+		border-top: 1px solid var(--sc-line);
+		background: var(--sc-surface);
+	}
+	/* 抽屉里：面板自己滚（内容再多也不长过 68dvh） */
+	.sc-side[data-sheet="true"][data-open="true"] .sc-panel-body {
+		max-height: none;
+	}
+	.sc-btn.sc-sheet-close {
+		display: inline-flex;
+	}
+	.sc-sheet-backdrop {
+		display: block;
+	}
+}
+
+/* ── 控件层圆角：统一 sm(4px)；面板 / 容器 / 卡片用 md(8px) ── */
 .sc-btn,
 .sc-ghost-btn,
 .sc-option,
