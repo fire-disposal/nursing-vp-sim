@@ -1,43 +1,70 @@
-import { Alert, Tabs, Text } from "@mantine/core";
-import {
-	IconAlertTriangle,
-	IconChartBar,
-	IconDatabase,
-	IconPackages,
-	IconSparkles,
-} from "@tabler/icons-react";
+import { Alert, Loader, SegmentedControl, Stack, Tabs, Text } from "@mantine/core";
+import { IconAlertTriangle, IconChartBar, IconPackages } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
+import { queryKeys } from "@/api/query-keys";
+import { listAdminScenarioPacks } from "@/api/scenario";
 import Forbidden from "@/components/ui/forbidden";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
+import { getApiErrorMessage } from "@/utils/error";
 // 管理侧回放复用学生侧的场景/舞台组件（`sc-*` 类），样式只有这一份来源。
 // 不引进来时，这些类在 `/scenario-admin` 直接访问（不经由 /scenario）会整片失样式。
 import "../scenario.css";
-import AdminAssetsPanel from "./AdminAssetsPanel";
-import AdminGeneratedPanel from "./AdminGeneratedPanel";
-import AdminPacksPanel from "./AdminPacksPanel";
+import AdminCaseListPanel from "./AdminCaseListPanel";
+import AdminCaseWorkspace, {
+	type CaseBlock,
+	visibleCaseBlocks,
+} from "./AdminCaseWorkspace";
 import AdminSessionsPanel from "./AdminSessionsPanel";
 import AdminStatsPanel from "./AdminStatsPanel";
+
+/** 顶层两个区。 */
+type Area = "cases" | "data";
+
+/** 「会话 / 统计」区的分块（跨病例视图，按包筛选是可选项，不是前提）。 */
+const DATA_BLOCKS: CaseBlock[] = ["sessions", "stats"];
 
 /**
  * 情境训练 · 管理侧 —— 隐藏路由 `/scenario-admin`，不出现在导航。
  *
- * 四块：**包**（上传/改状态）、**资源**（上传图片字节/预览/撤下）、**会话**（回放 + 诊断 + 事件）、
- * **统计**（按包的会话与锚点分布）。
+ * ── 结构（2026-09-28 重做）────────────────────────────────────────────
+ * 顶层只有两个区，**按作用域分**，不再把"按病例"和"全局"摊平成五个平铺页签：
  *
- * 权限沿用既有键：内容用 `case_manage`，数据用 `stats_view`。两者都缺 → 403 页；
- * 只有一半时**只显示有权限的那一半**（后端也是这么分的，前端不该比后端宽松或更严）。
+ * - **病例**：病例列表 → 每个病例一个**工作区**（概览 / 修订 / 资源 / 生成物 / 会话 / 统计）。
+ *   病例只有一处选择：工作区头部那一个（写进地址栏 `?case=`）。资源里选过谁、
+ *   生成物里翻到第几页、会话里展开过谁，都在同一个病例上——不存在"切页签选择就没了"。
+ * - **会话 / 统计**：跨病例视图（会话列表带**可选**的病例筛选；统计是全局汇总）。
+ *
+ * 权限口径不变：内容用 `case_manage`、数据用 `stats_view`。两者都缺 → 403 页；
+ * 只有一半时只显示属于那一半的区与块（后端也是这么分的，前端不比后端宽松或更严）。
  * 权限门在这里而不是路由表：一个路由只能声明一个权限，而本页需要两个不同的权限。
+ *
+ * 地址栏就是"现在在哪"的**唯一真源**（`?area=` / `?case=` / `?block=`）：刷新、后退、
+ * 把链接发给同事都能回到同一处；非法值一律回落到第一个有权看的块。
  */
 export default function ScenarioAdminPage() {
 	const permissions = useAuthStore(useShallow((s) => s.permissions));
 	const canContent = permissions.includes("case_manage");
 	const canData = permissions.includes("stats_view");
-	const [tab, setTab] = useState<string | null>(null);
-	const [packKey, setPackKey] = useState<string | null>(null);
-	/** 从「生成物」点会话 id 跳回放时带过去的会话（会话页据此自动展开）。 */
+	const [searchParams, setSearchParams] = useSearchParams();
+	/** 从「生成物」点会话号跳进「会话」块时带着的那一次会话（块内据此自动展开）。 */
 	const [focusSession, setFocusSession] = useState<number | null>(null);
+
+	/**
+	 * 病例清单**只有这一份**（页面级）：工作区的每个块都从这里拿病例，
+	 * 所以不可能出现"两个块各自拉一份、各自选一个病例"的历史问题。
+	 */
+	const packsQuery = useQuery({
+		queryKey: queryKeys.scenario.admin.packs(),
+		queryFn: listAdminScenarioPacks,
+		// 两个权限都没有时下面直接 403 返回：不发这一次注定被拒的请求
+		enabled: canContent || canData,
+		retry: false,
+	});
 
 	if (!canContent && !canData) {
 		return (
@@ -55,96 +82,163 @@ export default function ScenarioAdminPage() {
 		);
 	}
 
-	// 默认落在第一个有权限的分页：内容侧第一个是 `packs`，数据侧第一个是 `sessions`。
-	// （两者都无权限的情况在上面已经 403 返回，不会走到这里。）
-	const firstTab = canContent ? "packs" : "sessions";
-	const value = tab ?? firstTab;
+	const packs = packsQuery.data ?? [];
+	const caseKey = searchParams.get("case");
+	const selected =
+		caseKey === null ? null : (packs.find((pack) => pack.key === caseKey) ?? null);
+
+	// 默认落在第一个有权限的区：内容侧是「病例」，数据侧是「会话 / 统计」。
+	const areaParam = searchParams.get("area");
+	const area: Area =
+		areaParam === "data"
+			? canData
+				? "data"
+				: "cases"
+			: areaParam === "cases"
+				? "cases"
+				: canContent
+					? "cases"
+					: "data";
+
+	const blocks = visibleCaseBlocks(permissions);
+	// 当前区能看的块：跨病例区只有会话/统计；工作区是全部有权限的块；病例列表页没有块。
+	const allowedBlocks: CaseBlock[] =
+		area === "data"
+			? DATA_BLOCKS.filter((block) => blocks.includes(block))
+			: selected === null
+				? []
+				: blocks;
+	const blockParam = searchParams.get("block") as CaseBlock | null;
+	const block: CaseBlock =
+		blockParam !== null && allowedBlocks.includes(blockParam)
+			? blockParam
+			: (allowedBlocks[0] ?? "overview");
+
+	/** 只动地址栏：`patch` 里值为 null 表示删掉这个参数。 */
+	const navigateWith = (patch: Record<string, string | null>, replace = false) => {
+		const next = new URLSearchParams(searchParams);
+		for (const [key, value] of Object.entries(patch)) {
+			if (value === null) next.delete(key);
+			else next.set(key, value);
+		}
+		setSearchParams(next, { replace });
+	};
+
+	const openCase = (key: string) =>
+		navigateWith({ area: "cases", case: key, block: null });
+
+	const areas = [
+		{ value: "cases", label: "病例" },
+		...(canData ? [{ value: "data", label: "会话 / 统计" }] : []),
+	];
 
 	return (
-		<>
+		<Stack gap="md">
 			<PageHeader
 				title="情境训练 · 管理"
-				subtitle="情境包与资源在这里上传；会话回放里的诊断信息仅维护者可见"
+				subtitle="病例内容在各自的工作区里管；会话与统计可以跨病例看"
 				icon={IconPackages}
 			/>
 
-			<Alert
-				color="orange"
-				variant="light"
-				icon={<IconAlertTriangle size={16} />}
-				mb="md"
-			>
-				诊断信息（dm_parse、leaked_fact_term 这类原始串）仅维护者可见，
-				学生界面只会看到一句人话。请勿把这些原始串截图转发给学生。
-			</Alert>
+			{canData && (
+				<Alert
+					color="orange"
+					variant="light"
+					icon={<IconAlertTriangle size={16} />}
+				>
+					诊断信息（dm_parse、leaked_fact_term 这类原始串）仅维护者可见，
+					学生界面只会看到一句人话。请勿把这些原始串截图转发给学生。
+				</Alert>
+			)}
 
-			<Tabs value={value} onChange={setTab} keepMounted={false}>
-				<Tabs.List mb="md">
-					{canContent && (
-						<Tabs.Tab value="packs" leftSection={<IconPackages size={15} />}>
-							情境包
-						</Tabs.Tab>
-					)}
-					{canContent && (
-						<Tabs.Tab value="assets" leftSection={<IconDatabase size={15} />}>
-							资源
-						</Tabs.Tab>
-					)}
-					{canContent && (
-						<Tabs.Tab value="generated" leftSection={<IconSparkles size={15} />}>
-							生成物
-						</Tabs.Tab>
-					)}
-					{canData && (
+			{areas.length > 1 && (
+				<SegmentedControl
+					size="sm"
+					value={area}
+					onChange={(value) => navigateWith({ area: value, block: null })}
+					data={areas}
+					aria-label="管理范围"
+				/>
+			)}
+
+			{area === "data" ? (
+				<Tabs
+					value={block}
+					onChange={(value) => value && navigateWith({ block: value }, true)}
+				>
+					<Tabs.List mb="md" className="sc-admin-tabs">
 						<Tabs.Tab value="sessions" leftSection={<IconChartBar size={15} />}>
 							会话
 						</Tabs.Tab>
-					)}
-					{canData && (
 						<Tabs.Tab value="stats" leftSection={<IconChartBar size={15} />}>
 							统计
 						</Tabs.Tab>
-					)}
-				</Tabs.List>
-
-				{canContent && (
-					<Tabs.Panel value="packs">
-						<AdminPacksPanel
-							onManageAssets={(key) => {
-								setPackKey(key);
-								setTab("assets");
-							}}
-						/>
-					</Tabs.Panel>
-				)}
-				{canContent && (
-					<Tabs.Panel value="assets">
-						<AdminAssetsPanel packKey={packKey} onPackKeyChange={setPackKey} />
-					</Tabs.Panel>
-				)}
-				{canContent && (
-					<Tabs.Panel value="generated">
-						<AdminGeneratedPanel
-							packKey={packKey}
-							onPackKeyChange={setPackKey}
-							onOpenSession={(sessionId) => {
-								setFocusSession(sessionId);
-								setTab("sessions");
-							}}
-						/>
-					</Tabs.Panel>
-				)}
-				{canData && (
-					<Tabs.Panel value="sessions">
-						<AdminSessionsPanel focusSessionId={focusSession} />
-					</Tabs.Panel>
-				)}
-				{canData && (
-					<Tabs.Panel value="stats">
+					</Tabs.List>
+					{block === "stats" ? (
 						<AdminStatsPanel />
-					</Tabs.Panel>
-				)}
-			</Tabs>
-		</>
+					) : (
+						<AdminSessionsPanel focusSessionId={focusSession} />
+					)}
+				</Tabs>
+			) : packsQuery.isLoading ? (
+				<Stack align="center" py="xl">
+					<Loader size="sm" />
+				</Stack>
+			) : packsQuery.isError ? (
+				isAxiosError(packsQuery.error) &&
+				packsQuery.error.response?.status === 403 ? (
+					// 病例清单走的是数据口径（`GET /admin/packs` 判 `stats_view`）：
+					// 缺它就只能到这一步——如实给出 403，而不是一片"读取失败"
+					<Forbidden permission="stats_view" />
+				) : (
+					<Stack align="flex-start" gap="xs">
+						<Text size="sm" c="red">
+							病例列表读取失败：
+							{getApiErrorMessage(packsQuery.error, "请稍后重试")}
+						</Text>
+						<button
+							type="button"
+							className="sc-btn"
+							onClick={() => packsQuery.refetch()}
+						>
+							重试
+						</button>
+					</Stack>
+				)
+			) : caseKey !== null && selected === null ? (
+				<Stack align="flex-start" gap="xs">
+					<Text size="sm" c="dimmed">
+						没有 `{caseKey}` 这个病例——它可能已经被删掉，或者链接里的 key 写错了。
+					</Text>
+					<button
+						type="button"
+						className="sc-btn"
+						onClick={() => navigateWith({ case: null, block: null })}
+					>
+						返回病例列表
+					</button>
+				</Stack>
+			) : selected === null ? (
+				<AdminCaseListPanel
+					packs={packs}
+					loading={false}
+					canContent={canContent}
+					onOpen={openCase}
+				/>
+			) : (
+				<AdminCaseWorkspace
+					pack={selected}
+					permissions={permissions}
+					block={block}
+					onBlock={(next) => navigateWith({ block: next }, true)}
+					onBack={() => navigateWith({ case: null, block: null })}
+					onOpenSession={(sessionId) => {
+						setFocusSession(sessionId);
+						navigateWith({ block: "sessions" }, true);
+					}}
+					focusSessionId={focusSession}
+				/>
+			)}
+		</Stack>
 	);
 }

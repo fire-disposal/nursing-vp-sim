@@ -7,7 +7,6 @@ import {
 	Modal,
 	Pagination,
 	Paper,
-	Select,
 	Stack,
 	Table,
 	Text,
@@ -20,7 +19,7 @@ import {
 	adminGeneratedAssetSrc,
 	deleteAdminGeneratedAsset,
 	listAdminGeneratedAssets,
-	listAdminScenarioPacks,
+	type ScenarioAdminPack,
 	type ScenarioGeneratedAsset,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
@@ -78,15 +77,14 @@ function GeneratedThumb({
  * 所以这里按会话/病例筛、可以按图删单条，但**不提供编辑**。
  *
  * 分页走服务端（默认 20/页）：面板只拉当前页，`total` 是该病例下的总数。
+ * 病例由调用方（工作区）给定——这里没有第二个病例选择器。
  */
 export default function AdminGeneratedPanel({
-	packKey,
-	onPackKeyChange,
+	pack,
 	onOpenSession,
 }: {
-	packKey: string | null;
-	onPackKeyChange: (key: string | null) => void;
-	/** 点会话 id 跳到会话回放（由页面切页签并把会话带过去）。 */
+	pack: ScenarioAdminPack;
+	/** 点会话 id 跳到这个病例的「会话」块并把那一次展开（由工作区切块）。 */
 	onOpenSession?: (sessionId: number) => void;
 }) {
 	const [page, setPage] = useState(1);
@@ -96,10 +94,7 @@ export default function AdminGeneratedPanel({
 	const { confirm } = useConfirm();
 	const queryClient = useQueryClient();
 
-	const packsQuery = useQuery({
-		queryKey: queryKeys.scenario.admin.packs(),
-		queryFn: listAdminScenarioPacks,
-	});
+	const packKey = pack.key;
 	const sessionId = /^\d+$/.test(sessionFilter.trim())
 		? Number(sessionFilter.trim())
 		: null;
@@ -113,12 +108,11 @@ export default function AdminGeneratedPanel({
 			session_id: sessionId,
 		}),
 		queryFn: () =>
-			listAdminGeneratedAssets(packKey ?? "", {
+			listAdminGeneratedAssets(packKey, {
 				limit: PAGE_SIZE,
 				offset,
 				session_id: sessionId,
 			}),
-		enabled: packKey !== null,
 		retry: false,
 	});
 
@@ -157,38 +151,6 @@ export default function AdminGeneratedPanel({
 		if (ok) deleteMutation.mutate(item.id);
 	};
 
-	const packs = packsQuery.data ?? [];
-	const selected = packs.find((pack) => pack.key === packKey) ?? null;
-
-	if (packsQuery.isLoading) {
-		return (
-			<Group justify="center" py="xl">
-				<Loader size="sm" />
-			</Group>
-		);
-	}
-
-	if (packsQuery.isError) {
-		return (
-			<Stack align="flex-start" gap="xs">
-				<Text size="sm" c="red">
-					病例列表读取失败：{getApiErrorMessage(packsQuery.error, "请稍后重试")}
-				</Text>
-				<Button size="compact-sm" variant="light" onClick={() => packsQuery.refetch()}>
-					重试
-				</Button>
-			</Stack>
-		);
-	}
-
-	if (packs.length === 0) {
-		return (
-			<Text size="sm" c="dimmed">
-				还没有情境包——先在「情境包」里上传一份，再来看它的生成物。
-			</Text>
-		);
-	}
-
 	const isUnavailable =
 		listQuery.error !== null &&
 		listQuery.error !== undefined &&
@@ -199,18 +161,6 @@ export default function AdminGeneratedPanel({
 	return (
 		<Stack gap="md">
 			<Group align="flex-end" gap="sm" wrap="wrap">
-				<Select
-					label="病例"
-					w={260}
-					placeholder="选一个病例"
-					value={packKey}
-					onChange={onPackKeyChange}
-					data={packs.map((pack) => ({
-						value: pack.key,
-						label: `${pack.title}（${pack.key}）`,
-					}))}
-					aria-label="病例"
-				/>
 				<TextInput
 					label="按会话筛选"
 					w={160}
@@ -221,18 +171,12 @@ export default function AdminGeneratedPanel({
 					}
 					aria-label="按会话筛选"
 				/>
-				{packKey !== null && (
-					<Text size="xs" c="dimmed" pb={6}>
-						共 {total} 件 · 第 {page}/{pages} 页
-					</Text>
-				)}
+				<Text size="xs" c="dimmed" pb={6}>
+					共 {total} 件 · 第 {page}/{pages} 页
+				</Text>
 			</Group>
 
-			{packKey === null ? (
-				<Text size="sm" c="dimmed">
-					先选一个病例，就能看到它运行期生成过哪些图片。
-				</Text>
-			) : listQuery.isLoading ? (
+			{listQuery.isLoading ? (
 				<Group justify="center" py="xl">
 					<Loader size="sm" />
 				</Group>
@@ -253,11 +197,9 @@ export default function AdminGeneratedPanel({
 				</Stack>
 			) : items.length === 0 ? (
 				<Text size="sm" c="dimmed">
-					{selected
-						? sessionId === null
-							? "该病例还没有 DM 生成物。"
-							: `会话 #${sessionId} 没有生成物。`
-						: "该病例还没有 DM 生成物。"}
+					{sessionId === null
+						? "该病例还没有 DM 生成物。"
+						: `会话 #${sessionId} 没有生成物。`}
 				</Text>
 			) : (
 				<>

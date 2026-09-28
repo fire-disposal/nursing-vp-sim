@@ -4,30 +4,28 @@ import {
 	Code,
 	FileInput,
 	Group,
-	Loader,
 	Modal,
 	Paper,
-	Select,
 	Stack,
 	Table,
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
 	adminScenarioAssetSrc,
 	deleteAdminScenarioAsset,
-	listAdminScenarioPacks,
 	type ScenarioAdminAsset,
+	type ScenarioAdminPack,
 	type ScenarioAssetUploadInput,
 	uploadAdminScenarioAsset,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
 import AuthImage from "@/components/ui/auth-image";
 import { useConfirm } from "@/components/ui/confirm";
-import { getApiErrorDetail, getApiErrorMessage } from "@/utils/error";
+import { getApiErrorDetail } from "@/utils/error";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 
@@ -46,14 +44,10 @@ function formatBytes(size: number): string {
  * 上传走 `AuthImage` 同一套鉴权（Bearer → blob），所以预览能证明字节真的存进去了。
  *
  * 上传即**追加一个新修订**（后端把声明与字节一起版本化），所以传完修订号会 +1。
+ *
+ * 病例由调用方（工作区头部）给定——这里**没有选择器**：同一个病例不会有两个"当前"。
  */
-export default function AdminAssetsPanel({
-	packKey,
-	onPackKeyChange,
-}: {
-	packKey: string | null;
-	onPackKeyChange: (key: string | null) => void;
-}) {
+export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) {
 	const [assetId, setAssetId] = useState("");
 	const [title, setTitle] = useState("");
 	const [alt, setAlt] = useState("");
@@ -64,21 +58,12 @@ export default function AdminAssetsPanel({
 	const { confirm } = useConfirm();
 	const queryClient = useQueryClient();
 
-	const packsQuery = useQuery({
-		queryKey: queryKeys.scenario.admin.packs(),
-		queryFn: listAdminScenarioPacks,
-	});
-	const packs = packsQuery.data ?? [];
-	const selected = packs.find((pack) => pack.key === packKey) ?? null;
-
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: queryKeys.scenario.admin.all });
 
 	const uploadMutation = useMutation({
-		mutationFn: (payload: ScenarioAssetUploadInput) => {
-			if (packKey === null) throw new Error("请先选择情境包");
-			return uploadAdminScenarioAsset(packKey, payload);
-		},
+		mutationFn: (payload: ScenarioAssetUploadInput) =>
+			uploadAdminScenarioAsset(pack.key, payload),
 		onSuccess: (data) => {
 			toast.success(`${data.asset.id}：图片已保存`, {
 				description: `已追加修订 #${data.revision_no}（${formatBytes(data.asset.file_size)}）`,
@@ -96,10 +81,7 @@ export default function AdminAssetsPanel({
 	});
 
 	const deleteMutation = useMutation({
-		mutationFn: (id: string) => {
-			if (packKey === null) throw new Error("请先选择情境包");
-			return deleteAdminScenarioAsset(packKey, id);
-		},
+		mutationFn: (id: string) => deleteAdminScenarioAsset(pack.key, id),
 		onSuccess: (_data, id) => {
 			toast.success(`${id}：已撤下`);
 			setPreview((current) => (current?.id === id ? null : current));
@@ -119,209 +101,154 @@ export default function AdminAssetsPanel({
 		if (ok) deleteMutation.mutate(asset.id);
 	};
 
-	if (packsQuery.isLoading) {
-		return (
-			<Group justify="center" py="xl">
-				<Loader size="sm" />
-			</Group>
-		);
-	}
-
-	// 列表读不出来就说清楚（403/500/网络都可能）：不要给一片空白的"什么都没有"
-	if (packsQuery.isError) {
-		return (
-			<Stack align="flex-start" gap="xs">
-				<Text size="sm" c="red">
-					资源读取失败：{getApiErrorMessage(packsQuery.error, "请稍后重试")}
-				</Text>
-				<Button size="compact-sm" variant="light" onClick={() => packsQuery.refetch()}>
-					重试
-				</Button>
-			</Stack>
-		);
-	}
-
-	if (packs.length === 0) {
-		return (
-			<Text size="sm" c="dimmed">
-				还没有情境包——先在「情境包」里上传一份包 JSON，再来传图片。
-			</Text>
-		);
-	}
-
 	return (
 		<Stack gap="md">
-			<Group align="flex-end" gap="sm" wrap="wrap">
-				<Select
-					label="情境包"
-					w={260}
-					data={packs.map((pack) => ({
-						value: pack.key,
-						label: `${pack.title}（${pack.key}）`,
-					}))}
-					value={packKey}
-					onChange={onPackKeyChange}
-					placeholder="选一个包"
-					aria-label="情境包"
-				/>
-				{selected && (
-					<Text size="xs" c="dimmed" pb={6}>
-						当前修订 #{selected.revision_no ?? "—"}；上传图片会追加新修订
-					</Text>
-				)}
-			</Group>
+			<Text size="xs" c="dimmed">
+				当前修订 #{pack.revision_no ?? "—"}；上传图片会追加新修订。
+			</Text>
 
-			{packKey === null || selected === null ? (
+			<Paper withBorder p="md">
+				<Text fw={600} mb={4}>
+					上传图片
+				</Text>
+				<Text size="xs" c="dimmed" mb="sm">
+					支持 PNG / JPEG / WebP / GIF，单张上限 8&nbsp;MB。
+					<Code>asset_id</Code> 要与包 JSON 里声明的 id 一致；
+					不存在也没关系——服务端会把它作为新的资源声明写进新修订。
+				</Text>
+				<Group align="flex-end" gap="sm" wrap="wrap">
+					<TextInput
+						label="asset_id"
+						placeholder="a_room"
+						value={assetId}
+						onChange={(event) => setAssetId(event.currentTarget.value)}
+						w={180}
+						required
+					/>
+					<TextInput
+						label="标题"
+						placeholder="病房环境"
+						value={title}
+						onChange={(event) => setTitle(event.currentTarget.value)}
+						w={200}
+					/>
+					<TextInput
+						label="alt 文本"
+						placeholder="夜班病房，监护仪在响"
+						value={alt}
+						onChange={(event) => setAlt(event.currentTarget.value)}
+						w={260}
+					/>
+					<TextInput
+						label="展示时机"
+						placeholder="开场时让学生对所处环境有画面感"
+						value={suggestWhen}
+						onChange={(event) => setSuggestWhen(event.currentTarget.value)}
+						w={300}
+					/>
+					<FileInput
+						label="图片文件"
+						placeholder="选择图片"
+						accept={IMAGE_ACCEPT}
+						value={file}
+						onChange={setFile}
+						w={220}
+						required
+					/>
+					<Button
+						loading={uploadMutation.isPending}
+						disabled={!file || assetId.trim().length === 0}
+						onClick={() =>
+							file &&
+							uploadMutation.mutate({
+								asset_id: assetId.trim(),
+								file,
+								title: title.trim(),
+								alt: alt.trim(),
+								suggest_when: suggestWhen.trim(),
+							})
+						}
+					>
+						上传并保存
+					</Button>
+				</Group>
+			</Paper>
+
+			{pack.assets.length === 0 ? (
 				<Text size="sm" c="dimmed">
-					先选一个情境包，就能看到它声明了哪些图、缺哪些字节。
+					这个病例没有声明任何资源。
 				</Text>
 			) : (
-				<>
-					<Paper withBorder p="md">
-						<Text fw={600} mb={4}>
-							上传图片
-						</Text>
-						<Text size="xs" c="dimmed" mb="sm">
-							支持 PNG / JPEG / WebP / GIF，单张上限 8&nbsp;MB。
-							<Code>asset_id</Code> 要与包 JSON 里声明的 id 一致；
-							不存在也没关系——服务端会把它作为新的资源声明写进新修订。
-						</Text>
-						<Group align="flex-end" gap="sm" wrap="wrap">
-							<TextInput
-								label="asset_id"
-								placeholder="a_room"
-								value={assetId}
-								onChange={(event) => setAssetId(event.currentTarget.value)}
-								w={180}
-								required
-							/>
-							<TextInput
-								label="标题"
-								placeholder="病房环境"
-								value={title}
-								onChange={(event) => setTitle(event.currentTarget.value)}
-								w={200}
-							/>
-							<TextInput
-								label="alt 文本"
-								placeholder="夜班病房，监护仪在响"
-								value={alt}
-								onChange={(event) => setAlt(event.currentTarget.value)}
-								w={260}
-							/>
-							<TextInput
-								label="展示时机"
-								placeholder="开场时让学生对所处环境有画面感"
-								value={suggestWhen}
-								onChange={(event) => setSuggestWhen(event.currentTarget.value)}
-								w={300}
-							/>
-							<FileInput
-								label="图片文件"
-								placeholder="选择图片"
-								accept={IMAGE_ACCEPT}
-								value={file}
-								onChange={setFile}
-								w={220}
-								required
-							/>
-							<Button
-								loading={uploadMutation.isPending}
-								disabled={!file || assetId.trim().length === 0}
-								onClick={() =>
-									file &&
-									uploadMutation.mutate({
-										asset_id: assetId.trim(),
-										file,
-										title: title.trim(),
-										alt: alt.trim(),
-										suggest_when: suggestWhen.trim(),
-									})
-								}
-							>
-								上传并保存
-							</Button>
-						</Group>
-					</Paper>
-
-					{selected.assets.length === 0 ? (
-						<Text size="sm" c="dimmed">
-							这个包没有声明任何资源。
-						</Text>
-					) : (
-						<Table.ScrollContainer minWidth={880}>
-							<Table highlightOnHover verticalSpacing="sm">
-								<Table.Thead>
-									<Table.Tr>
-										<Table.Th>资源</Table.Th>
-										<Table.Th>alt / 展示提示</Table.Th>
-										<Table.Th>文件</Table.Th>
-										<Table.Th>状态</Table.Th>
-										<Table.Th>操作</Table.Th>
-									</Table.Tr>
-								</Table.Thead>
-								<Table.Tbody>
-									{selected.assets.map((asset) => (
-										<Table.Tr key={asset.id}>
-											<Table.Td>
-												<Text fw={600}>{asset.title || asset.id}</Text>
-												<Code>{asset.id}</Code>
-											</Table.Td>
-											<Table.Td>
-												<Text size="xs">{asset.alt || "—"}</Text>
-												<Text size="xs" c="dimmed">
-													{asset.suggest_when || "—"}
-												</Text>
-											</Table.Td>
-											<Table.Td>
-												<Text size="xs">{asset.filename || "—"}</Text>
-												<Text size="xs" c="dimmed">
-													{asset.mime_type || "—"} ·{" "}
-													{formatBytes(asset.file_size)}
-												</Text>
-											</Table.Td>
-											<Table.Td>
-												{asset.uploaded ? (
-													<Badge color="green" variant="light">
-														已上传
-													</Badge>
-												) : (
-													<Badge color="red" variant="filled">
-														未上传
-													</Badge>
-												)}
-											</Table.Td>
-											<Table.Td>
-												<Group gap="xs">
-													<Button
-														size="compact-sm"
-														variant="light"
-														disabled={!asset.uploaded}
-														onClick={() => {
-															setPreview(asset);
-															setPreviewNonce((n) => n + 1);
-														}}
-													>
-														预览
-													</Button>
-													<Button
-														size="compact-sm"
-														variant="subtle"
-														color="red"
-														loading={deleteMutation.isPending}
-														onClick={() => removeAsset(asset)}
-													>
-														撤下
-													</Button>
-												</Group>
-											</Table.Td>
-										</Table.Tr>
-									))}
-								</Table.Tbody>
-							</Table>
-						</Table.ScrollContainer>
-					)}
-				</>
+				<Table.ScrollContainer minWidth={880}>
+					<Table highlightOnHover verticalSpacing="sm">
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th>资源</Table.Th>
+								<Table.Th>alt / 展示提示</Table.Th>
+								<Table.Th>文件</Table.Th>
+								<Table.Th>状态</Table.Th>
+								<Table.Th>操作</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
+							{pack.assets.map((asset) => (
+								<Table.Tr key={asset.id}>
+									<Table.Td>
+										<Text fw={600}>{asset.title || asset.id}</Text>
+										<Code>{asset.id}</Code>
+									</Table.Td>
+									<Table.Td>
+										<Text size="xs">{asset.alt || "—"}</Text>
+										<Text size="xs" c="dimmed">
+											{asset.suggest_when || "—"}
+										</Text>
+									</Table.Td>
+									<Table.Td>
+										<Text size="xs">{asset.filename || "—"}</Text>
+										<Text size="xs" c="dimmed">
+											{asset.mime_type || "—"} · {formatBytes(asset.file_size)}
+										</Text>
+									</Table.Td>
+									<Table.Td>
+										{asset.uploaded ? (
+											<Badge color="green" variant="light">
+												已上传
+											</Badge>
+										) : (
+											<Badge color="red" variant="filled">
+												未上传
+											</Badge>
+										)}
+									</Table.Td>
+									<Table.Td>
+										<Group gap="xs">
+											<Button
+												size="compact-sm"
+												variant="light"
+												disabled={!asset.uploaded}
+												onClick={() => {
+													setPreview(asset);
+													setPreviewNonce((n) => n + 1);
+												}}
+											>
+												预览
+											</Button>
+											<Button
+												size="compact-sm"
+												variant="subtle"
+												color="red"
+												loading={deleteMutation.isPending}
+												onClick={() => removeAsset(asset)}
+											>
+												撤下
+											</Button>
+										</Group>
+									</Table.Td>
+								</Table.Tr>
+							))}
+						</Table.Tbody>
+					</Table>
+				</Table.ScrollContainer>
 			)}
 
 			<Modal
@@ -336,7 +263,7 @@ export default function AdminAssetsPanel({
 						<AuthImage
 							key={`${preview.id}-${previewNonce}`}
 							alt={preview.alt || preview.title || preview.id}
-							src={adminScenarioAssetSrc(packKey ?? "", preview.id)}
+							src={adminScenarioAssetSrc(pack.key, preview.id)}
 							className="sc-modal-image"
 						/>
 						<Text size="xs" c="dimmed">

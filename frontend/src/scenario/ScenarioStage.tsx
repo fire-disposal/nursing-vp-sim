@@ -247,6 +247,21 @@ export default function ScenarioStage({
 		if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
 	}, [beatSignal]);
 
+	/**
+	 * 对话流这一块的**盒子变高变矮也要重新钉底**：回合之间的重排（缩略图落位、字体换装、
+	 * 选项条折行、窄屏收薄设备卡）都会改它的可用高度，而 `beatSignal` 不一定会变。
+	 * 少了这一条，最后一行（常常是刚给的那几个选项）会有一截留在框外——看得见、点不全。
+	 */
+	useEffect(() => {
+		const el = linesRef.current;
+		if (el === null || typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(() => {
+			if (pinnedRef.current) el.scrollTop = el.scrollHeight;
+		});
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, []);
+
 	const handleLinesScroll = (event: UIEvent<HTMLDivElement>) => {
 		const el = event.currentTarget;
 		pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 48;
@@ -275,14 +290,15 @@ export default function ScenarioStage({
 				</>
 			)}
 			{resourcesLine !== null && (
-				<>
+				/* 组=分隔符 + 资源：窄屏整组不显示（那里只留地点与时间，不留截断的尾巴） */
+				<span className="sc-stage-extras">
 					<span className="sc-stage-sep" aria-hidden="true">
 						·
 					</span>
 					<span className="sc-stage-res" title={resources.join("、")}>
 						{resourcesLine}
 					</span>
-				</>
+				</span>
 			)}
 		</div>
 	);

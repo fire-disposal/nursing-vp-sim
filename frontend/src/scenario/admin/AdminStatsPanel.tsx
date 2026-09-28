@@ -12,11 +12,14 @@ const ANCHOR_LABEL: Record<string, string> = {
 };
 
 /**
- * 统计：按包汇总（会话数 / 已结算 / 不可逆结局 / **决策点锚点分布**）。
+ * 统计：按病例汇总（会话数 / 已结算 / 不可逆结局 / **决策点锚点分布**）。
  *
  * 只报三类锚点各几条，不做加权总分——本轨不启用能力等第（见 `ScenarioReportView` 的同一约定）。
+ *
+ * `packKey` 非空 = 只看**这一个病例**（病例工作区的「统计」块）；空 = 全部病例的汇总
+ * （跨病例区）。取的是同一份全局汇总，只是在这里收窄——不为"看一个病例"再要一个接口。
  */
-export default function AdminStatsPanel() {
+export default function AdminStatsPanel({ packKey = null }: { packKey?: string | null } = {}) {
 	const statsQuery = useQuery({
 		queryKey: queryKeys.scenario.admin.stats(),
 		queryFn: getAdminScenarioStats,
@@ -38,12 +41,16 @@ export default function AdminStatsPanel() {
 		);
 	}
 
-	const packs = statsQuery.data?.packs ?? [];
+	const all = statsQuery.data?.packs ?? [];
+	const packs =
+		packKey === null ? all : all.filter((bucket) => bucket.pack_key === packKey);
 
 	if (packs.length === 0) {
 		return (
 			<Text size="sm" c="dimmed">
-				还没有任何情境会话，所以没有可汇总的数据。
+				{packKey === null
+					? "还没有任何情境会话，所以没有可汇总的数据。"
+					: "这个病例还没有会话，所以没有可汇总的数据。"}
 			</Text>
 		);
 	}
@@ -54,7 +61,7 @@ export default function AdminStatsPanel() {
 				<Table highlightOnHover verticalSpacing="sm">
 					<Table.Thead>
 						<Table.Tr>
-							<Table.Th>情境包</Table.Th>
+							<Table.Th>病例</Table.Th>
 							<Table.Th>会话</Table.Th>
 							<Table.Th>已结算</Table.Th>
 							<Table.Th>不可逆结局</Table.Th>

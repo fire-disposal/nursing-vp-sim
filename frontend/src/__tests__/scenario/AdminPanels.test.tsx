@@ -9,8 +9,8 @@ import type {
 	ScenarioView,
 } from "@/api/scenario";
 import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
+import AdminCaseRevisionsPanel from "@/scenario/admin/AdminCaseRevisionsPanel";
 import AdminGeneratedPanel from "@/scenario/admin/AdminGeneratedPanel";
-import AdminPacksPanel from "@/scenario/admin/AdminPacksPanel";
 import AdminSessionsPanel from "@/scenario/admin/AdminSessionsPanel";
 import ScenarioStage from "@/scenario/ScenarioStage";
 
@@ -75,6 +75,22 @@ function pack(): ScenarioAdminPack {
 		revision_id: 6,
 		revision_no: 6,
 		revisions: [{ id: 6, no: 6, note: "cli install" }],
+		overview: {
+			player_role: "夜班护士",
+			place: "呼吸内科病房",
+			time_hint: "凌晨 02:10",
+			resources: ["床旁吸引器", "氧气装置"],
+			actors: [{ id: "patient", role: "患者", presence: "on_site" }],
+			anchors: [{ id: "a_see_the_plug", stage: "airway", goal: "先测量与听诊" }],
+			cues: 6,
+			affordances: 8,
+			reactions: 5,
+			facts: 3,
+			criteria: 5,
+			criteria_weight: 100,
+			failure: "irreversible",
+			image_generation: "disabled",
+		},
 		assets: [
 			{
 				id: "a_room",
@@ -158,7 +174,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 			total: 45,
 		});
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 
 		await waitFor(() => {
@@ -183,7 +199,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 	it("按会话筛选：session_id 带进请求；清空恢复全量", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 		await screen.findByRole("row", { name: /夜班病房/ });
 
@@ -210,7 +226,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 		const user = userEvent.setup();
 		mocks.deleteAdminGeneratedAsset.mockResolvedValue({ deleted: 1, id: 1 });
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 
 		const row = await screen.findByRole("row", { name: /夜班病房/ });
@@ -239,7 +255,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 		});
 		mocks.deleteAdminGeneratedAsset.mockResolvedValue({ deleted: 1, id: 21 });
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 		await screen.findByText(/第 1\/2 页/);
 
@@ -268,19 +284,21 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 	it("空态按病例语境说话", async () => {
 		mocks.listAdminGeneratedAssets.mockResolvedValue({ items: [], total: 0 });
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 		expect(await screen.findByText("该病例还没有 DM 生成物。")).toBeInTheDocument();
 	});
 
 	it("未选病例：先让人选，不请求", async () => {
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={null} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
-		expect(
-			await screen.findByText("先选一个病例，就能看到它运行期生成过哪些图片。"),
-		).toBeInTheDocument();
-		expect(mocks.listAdminGeneratedAssets).not.toHaveBeenCalled();
+		await screen.findByRole("row", { name: /夜班病房/ });
+		expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledWith(PACK_KEY, {
+			limit: 20,
+			offset: 0,
+			session_id: null,
+		});
 	});
 
 	it("接口不存在（404）给明确说明 + 可重试，不白屏、不吐英文", async () => {
@@ -291,7 +309,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 			message: "Request failed with status code 404",
 		});
 		renderWithProviders(
-			<AdminGeneratedPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
+			<AdminGeneratedPanel pack={pack()} />,
 		);
 
 		expect(
@@ -307,11 +325,7 @@ describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
 		const user = userEvent.setup();
 		const onOpenSession = vi.fn();
 		renderWithProviders(
-			<AdminGeneratedPanel
-				packKey={PACK_KEY}
-				onPackKeyChange={() => {}}
-				onOpenSession={onOpenSession}
-			/>,
+			<AdminGeneratedPanel pack={pack()} onOpenSession={onOpenSession} />,
 		);
 		await user.click(await screen.findByRole("button", { name: "#101" }));
 		expect(onOpenSession).toHaveBeenCalledWith(101);
@@ -400,35 +414,12 @@ describe("会话面板：服务端分页", () => {
 	});
 });
 
-describe("资源面板：错误态", () => {
-	it("列表读不出来就说清楚并可重试（不是一片空白）", async () => {
+describe("修订面板：发布（改状态）要过确认框", () => {
+	it("「发布（标记为已审）」要确认；取消则不落库，确认后才改", async () => {
 		const user = userEvent.setup();
-		mocks.listAdminScenarioPacks.mockRejectedValue({
-			isAxiosError: true,
-			response: { status: 403, data: {} },
-		});
-		renderWithProviders(
-			<AdminAssetsPanel packKey={PACK_KEY} onPackKeyChange={() => {}} />,
-		);
+		renderWithProviders(<AdminCaseRevisionsPanel pack={pack()} />);
 
-		expect(await screen.findByText(/资源读取失败：没有访问权限/)).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "重试" }));
-		await waitFor(() => {
-			expect(mocks.listAdminScenarioPacks).toHaveBeenCalledTimes(2);
-		});
-	});
-});
-
-describe("包面板：状态变更要确认", () => {
-	it("改成「已审」要过确认框；取消则不落库", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminPacksPanel onManageAssets={() => {}} />);
-
-		const select = await screen.findByRole("combobox", {
-			name: "吸痰无效：血氧上不来 的状态",
-		});
-		await user.click(select);
-		await user.click(await screen.findByText("已审"));
+		await user.click(await screen.findByRole("button", { name: "发布（标记为已审）" }));
 
 		expect(mocks.patchAdminScenarioPack).not.toHaveBeenCalled();
 		expect(
@@ -437,13 +428,51 @@ describe("包面板：状态变更要确认", () => {
 		await user.click(screen.getByRole("button", { name: "取消" }));
 		expect(mocks.patchAdminScenarioPack).not.toHaveBeenCalled();
 
-		// 确认之后才真的改
-		await user.click(select);
-		await user.click(await screen.findByText("已审"));
+		await user.click(screen.getByRole("button", { name: "发布（标记为已审）" }));
 		await user.click(await screen.findByRole("button", { name: "改状态" }));
 		await waitFor(() => {
 			expect(mocks.patchAdminScenarioPack).toHaveBeenCalledWith(PACK_KEY, {
 				state: "reviewed",
+			});
+		});
+	});
+
+	it("修订历史逐条列出「变了什么」，当前修订有标记", async () => {
+		const withHistory = pack();
+		withHistory.revisions = [
+			{ id: 8, no: 4, note: "asset:a_room by 20" },
+			{ id: 7, no: 3, note: "drop asset:a_verify" },
+			{ id: 6, no: 2, note: "" },
+		];
+		withHistory.revision_id = 8;
+		withHistory.revision_no = 4;
+		renderWithProviders(<AdminCaseRevisionsPanel pack={withHistory} />);
+
+		const rows = await screen.findAllByRole("row");
+		expect(screen.getByText("asset:a_room by 20")).toBeInTheDocument();
+		expect(screen.getByText("drop asset:a_verify")).toBeInTheDocument();
+		// 空说明不编词：如实一个占位
+		expect(within(rows[3]).getByText("—")).toBeInTheDocument();
+		// 当前修订只有一条，标在 #4 那一行
+		expect(screen.getAllByText("当前")).toHaveLength(1);
+		expect(within(rows[1]).getByText("当前")).toBeInTheDocument();
+	});
+
+	it("已审的病例：入口是「退回实验版」，确认文案跟着变", async () => {
+		const user = userEvent.setup();
+		const reviewed = pack();
+		reviewed.state = "reviewed";
+		renderWithProviders(<AdminCaseRevisionsPanel pack={reviewed} />);
+
+		expect(
+			screen.queryByRole("button", { name: "发布（标记为已审）" }),
+		).toBeNull();
+		await user.click(screen.getByRole("button", { name: "退回实验版" }));
+		expect(await screen.findByText(/标记为实验版？/)).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "改状态" }));
+		await waitFor(() => {
+			expect(mocks.patchAdminScenarioPack).toHaveBeenCalledWith(PACK_KEY, {
+				state: "experimental",
 			});
 		});
 	});

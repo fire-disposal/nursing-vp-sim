@@ -1,5 +1,7 @@
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@/__tests__/render";
+import { setViewport } from "@/__tests__/setup";
 import type { ScenarioDevice, ScenarioView } from "@/api/scenario";
 import BoardPanel from "@/scenario/BoardPanel";
 import DevicePanel from "@/scenario/DevicePanel";
@@ -169,6 +171,88 @@ describe("设备面：读数", () => {
 		const { container } = render(<DevicePanel devices={[]} />);
 		expect(container.querySelector(".sc-devices")).toBeNull();
 		expect(container.querySelector("[data-device]")).toBeNull();
+	});
+});
+
+describe("设备面：窄屏默认收成一行摘要（纵向空间留给对话流）", () => {
+	/** 两条读数的监护仪：一条危急、一条正常——摘要要一次报完，状态色各归各的读数。 */
+	const twoChannel: ScenarioDevice = {
+		...monitor,
+		channels: [
+			monitor.channels[0],
+			{
+				ref: "scene.hr",
+				label: "心率",
+				unit: "次/分",
+				display: "112",
+				value: 112,
+				status: "normal",
+				delta: null,
+				history: [],
+				normal: [60, 100],
+				critical: null,
+			},
+		],
+	};
+
+	// 视口是模块级状态：用完收回去，别漏给别的用例
+	afterEach(() => setViewport(1024, 768));
+
+	it("390 默认收起：摘要一行报完每条读数（单位跟着数字），状态色各归各的读数", () => {
+		setViewport(390, 844);
+		render(<DevicePanel devices={[twoChannel]} />);
+
+		const device = document.querySelector(
+			'[data-device="monitor_b"]',
+		) as HTMLElement;
+		expect(device.dataset.expanded).toBe("false");
+
+		const summary = device.querySelector(".sc-device-summary") as HTMLElement;
+		expect(summary.textContent).toBe("血氧 88%·心率 112 次/分");
+		expect(summary.querySelector('[data-status="critical"]')?.textContent).toBe(
+			"血氧 88%",
+		);
+		expect(summary.querySelector('[data-status="normal"]')?.textContent).toBe(
+			"心率 112 次/分",
+		);
+		// 收起的是版面，不是信息：最差状态进开关的可访问名，读屏不缺这一句
+		expect(
+			screen.getByRole("button", { name: "B 床监护仪：血氧 88% · 心率 112 次/分（危急）" }),
+		).toBeInTheDocument();
+	});
+
+	it("点一下摊开完整通道；桌面进来本来就是摊开的", async () => {
+		const user = userEvent.setup();
+		setViewport(390, 844);
+		render(<DevicePanel devices={[twoChannel]} />);
+
+		const toggle = screen.getByRole("button", { name: /^B 床监护仪/ });
+		await user.click(toggle);
+		expect(
+			(document.querySelector('[data-device="monitor_b"]') as HTMLElement).dataset
+				.expanded,
+		).toBe("true");
+		expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+		// 桌面：默认就是摊开的（收起来只是窄屏的默认值，不是设备面的常态）
+		setViewport(1024, 768);
+		render(<DevicePanel devices={[twoChannel]} />);
+		const desktopDevice = document.querySelectorAll('[data-device="monitor_b"]')[1];
+		expect((desktopDevice as HTMLElement).dataset.expanded).toBe("true");
+	});
+
+	it("学生自己开合过之后，改视口不改他的选择", async () => {
+		const user = userEvent.setup();
+		setViewport(390, 844);
+		render(<DevicePanel devices={[twoChannel]} />);
+
+		await user.click(screen.getByRole("button", { name: /^B 床监护仪/ }));
+		// 旋屏 / 缩放到桌面宽度：他刚摊开的那一栏不该自己收回去
+		setViewport(1024, 768);
+		expect(
+			(document.querySelector('[data-device="monitor_b"]') as HTMLElement).dataset
+				.expanded,
+		).toBe("true");
 	});
 });
 

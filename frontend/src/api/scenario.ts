@@ -367,6 +367,29 @@ export interface ScenarioAdminRevision {
 	note: string;
 }
 
+/**
+ * 管理侧：最新修订的**声明投影**（病例工作区的「概览」读它）。
+ *
+ * 只有作者声明的那几面：角色 / 场景 / 在场者 / 锚点 / 各栏计数。
+ * DM 侧的真相字段（`truth`、`hidden_from_player`、actor 的 knowledge）**不在投影里**。
+ */
+export interface ScenarioAdminOverview {
+	player_role: string;
+	place: string;
+	time_hint: string;
+	resources: string[];
+	actors: { id: string; role: string; presence: string }[];
+	anchors: { id: string; stage: string; goal: string }[];
+	cues: number;
+	affordances: number;
+	reactions: number;
+	facts: number;
+	criteria: number;
+	criteria_weight: number;
+	failure: string;
+	image_generation: string;
+}
+
 /** 管理侧：资源声明 + 库里是否已有字节（`uploaded=false` = 只有声明，取图会 404）。 */
 export interface ScenarioAdminAsset {
 	id: string;
@@ -390,6 +413,8 @@ export interface ScenarioAdminPack {
 	revision_no: number | null;
 	revisions: ScenarioAdminRevision[];
 	assets: ScenarioAdminAsset[];
+	/** 最新修订的声明投影；没有可读修订时为 `null`（老修订可能已不合当前 schema）。 */
+	overview: ScenarioAdminOverview | null;
 	sessions: number;
 }
 

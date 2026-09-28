@@ -35,28 +35,44 @@ const STATUS_OPTIONS = [
 const PAGE_SIZE = 50;
 
 /**
- * 会话：列表（可按包 / 状态筛选）+ 单次回放（学生视图 + 报告 + **诊断问题** + 事件流）。
+ * 会话：列表（可按病例 / 状态筛选）+ 单次回放（学生视图 + 报告 + **诊断问题** + 事件流）。
  *
  * 这里是**唯一**能看到原始诊断串的地方（`dm_parse:*`、`leaked_fact_term:*`…）：
  * 学生侧只会看到一句"本回合由系统保底生成"。回放视图不可交互（不给在场者按钮）。
+ *
+ * 两种用法，同一个组件：
+ * - **病例工作区**（`lockPack`）：病例由工作区头部给定，**没有病例选择器**——同一个病例不
+ *   会有两个"当前"；筛选项只剩"状态"。
+ * - **跨病例区**（默认）：病例筛选是**可选**的一项（空 = 全部），用来回答"这个人/这个病例
+ *   最近怎么样"，不是进入某个病例工作区的前提。
  */
 export default function AdminSessionsPanel({
+	packKey = null,
+	lockPack = false,
 	focusSessionId = null,
 }: {
+	/** 锁定的病例（`lockPack` 时生效）；不锁时是病例筛选的初始值（`null` = 全部）。 */
+	packKey?: string | null;
+	/** true = 病例已由调用方锁定，不显示病例选择器（病例工作区用）。 */
+	lockPack?: boolean;
 	/** 从别处（生成物面板）带过来的会话：进来就直接展开它的回放。 */
 	focusSessionId?: number | null;
 } = {}) {
-	const [packKey, setPackKey] = useState<string | null>(null);
+	const [filterPack, setFilterPack] = useState<string | null>(packKey);
+	/** 锁定时一律用外部给的那个病例；否则用筛选框里的选择。 */
+	const effectivePack = lockPack ? packKey : filterPack;
 	const [status, setStatus] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 
+	// 锁定时不需要病例清单（筛选器不出现）：少一次请求，也少一处"自己再拉一份"的副本
 	const packsQuery = useQuery({
 		queryKey: queryKeys.scenario.admin.packs(),
 		queryFn: listAdminScenarioPacks,
+		enabled: !lockPack,
 	});
 	const offset = (page - 1) * PAGE_SIZE;
-	const query = { pack_key: packKey, status, limit: PAGE_SIZE, offset };
+	const query = { pack_key: effectivePack, status, limit: PAGE_SIZE, offset };
 	const listQuery = useQuery({
 		queryKey: queryKeys.scenario.admin.sessions(query),
 		queryFn: () => listAdminScenarioSessions(query),
@@ -70,7 +86,7 @@ export default function AdminSessionsPanel({
 	// 换筛选 → 回到第一页（否则会停在越界页上）；外部带过来的会话直接展开
 	useEffect(() => {
 		setPage(1);
-	}, [packKey, status]);
+	}, [effectivePack, status]);
 	useEffect(() => {
 		if (focusSessionId !== null) setSelectedId(focusSessionId);
 	}, [focusSessionId]);
@@ -84,22 +100,24 @@ export default function AdminSessionsPanel({
 	return (
 		<Stack gap="md">
 			<Group align="flex-end" gap="sm" wrap="wrap">
-				<Select
-					label="情境包"
-					w={260}
-					placeholder="全部"
-					clearable
-					value={packKey}
-					onChange={(value) => {
-						setPackKey(value);
-						setSelectedId(null);
-					}}
-					data={packs.map((pack) => ({
-						value: pack.key,
-						label: `${pack.title}（${pack.key}）`,
-					}))}
-					aria-label="按情境包筛选"
-				/>
+				{!lockPack && (
+					<Select
+						label="病例"
+						w={260}
+						placeholder="全部"
+						clearable
+						value={filterPack}
+						onChange={(value) => {
+							setFilterPack(value);
+							setSelectedId(null);
+						}}
+						data={packs.map((pack) => ({
+							value: pack.key,
+							label: `${pack.title}（${pack.key}）`,
+						}))}
+						aria-label="按病例筛选"
+					/>
+				)}
 				<Select
 					label="状态"
 					w={140}
@@ -138,7 +156,8 @@ export default function AdminSessionsPanel({
 							<Table.Tr>
 								<Table.Th>#</Table.Th>
 								<Table.Th>学生</Table.Th>
-								<Table.Th>情境包</Table.Th>
+								{/* 病例锁定时这一列每一行都是同一个病例：不占位置、不重复十遍 */}
+								{!lockPack && <Table.Th>病例</Table.Th>}
 								<Table.Th>状态</Table.Th>
 								<Table.Th>回合</Table.Th>
 								<Table.Th>结局</Table.Th>
@@ -152,12 +171,14 @@ export default function AdminSessionsPanel({
 								<Table.Tr key={row.id}>
 									<Table.Td>{row.id}</Table.Td>
 									<Table.Td>{row.user_id}</Table.Td>
-									<Table.Td>
-										<Text size="sm">{row.pack_title}</Text>
-										<Text size="xs" c="dimmed">
-											{row.pack_key} · 修订 {row.pack_revision_id}
-										</Text>
-									</Table.Td>
+									{!lockPack && (
+										<Table.Td>
+											<Text size="sm">{row.pack_title}</Text>
+											<Text size="xs" c="dimmed">
+												{row.pack_key} · 修订 {row.pack_revision_id}
+											</Text>
+										</Table.Td>
+									)}
 									<Table.Td>
 										<Badge
 											variant="light"

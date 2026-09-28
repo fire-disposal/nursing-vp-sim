@@ -463,6 +463,32 @@ def _session_row(row: StSession, pack_title: str, turn: int) -> dict[str, Any]:
     }
 
 
+def _pack_overview(pack: ScenarioPack | None) -> dict[str, Any] | None:
+    """管理侧总览：把这份病例**声明了什么**摊平（角色 / 场景 / 在场者 / 锚点 / 各栏计数）。
+
+    只是读投影：`truth`、`hidden_from_player`、actor 的 `knowledge` 是 DM 侧的防泄漏边界，
+    管理界面不需要"患者藏着什么"，所以一个都不出现在这里——多一处副本就多一处泄漏面。
+    """
+    if pack is None:
+        return None
+    return {
+        "player_role": pack.player.role,
+        "place": pack.setting.place,
+        "time_hint": pack.setting.time_hint,
+        "resources": list(pack.setting.resources),
+        "actors": [{"id": actor.id, "role": actor.role, "presence": actor.presence} for actor in pack.actors],
+        "anchors": [{"id": anchor.id, "stage": anchor.stage, "goal": anchor.goal} for anchor in pack.anchors],
+        "cues": len(pack.setting.cues),
+        "affordances": len(pack.affordances),
+        "reactions": len(pack.reactions),
+        "facts": len(pack.facts),
+        "criteria": len(pack.rubric),
+        "criteria_weight": sum(item.weight for item in pack.rubric),
+        "failure": pack.failure,
+        "image_generation": pack.image_generation,
+    }
+
+
 @router.get("/admin/packs", dependencies=[_DataViewer])
 def admin_packs(db: DbSession) -> list[dict[str, Any]]:
     """管理侧：全部情境包（含修订、资源状态、会话数）。"""
@@ -496,6 +522,9 @@ def admin_packs(db: DbSession) -> list[dict[str, Any]]:
                 "revision_no": latest.revision_no if latest else None,
                 "revisions": [{"id": item.id, "no": item.revision_no, "note": item.note} for item in revisions],
                 "assets": assets_mod.describe(db, pack) if pack else [],
+                # 病例工作区的「概览」读它：最新修订声明了什么（老修订可能已不合当前 schema，
+                # 只取最新那一份——`load_revision` 在历史修订上会如实报错，这里不越界去读）
+                "overview": _pack_overview(pack),
                 "sessions": int(counts.get(pack_row.key, 0)),
             }
         )
