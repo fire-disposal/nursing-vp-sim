@@ -16,7 +16,15 @@ from typing import Any
 
 import pytest
 
-from modules.scenario_training.dm.contract import ENVELOPE_KEYS, DMTurn, parse_steps, parse_turn, validate_turn
+from modules.scenario_training.dm.contract import (
+    ENVELOPE_KEYS,
+    DMAnchorBlock,
+    DMTurn,
+    TurnParseError,
+    parse_steps,
+    parse_turn,
+    validate_turn,
+)
 from modules.scenario_training.dm.prompt import build_dm_messages
 from modules.scenario_training.dm.runner import run_dm
 from modules.scenario_training.dm.tools import TOOL_NAMES, run_tool
@@ -441,6 +449,95 @@ def test_prompt_names_every_whitelist_it_enforces(pack: ScenarioPack) -> None:
         assert pointer in system
     for heading in ("## 尚未揭示的线索", "## 可用图片", "## 在场者", "## 线索板版块", "## 可改状态", "## 可做动作"):
         assert heading in user
+
+
+def _bullet(system: str, start: str) -> str:
+    """取提示词里以 `start` 开头的那一条（含其后续缩进行）——形状守卫只针对单条。"""
+    lines = system.splitlines()
+    begin = next(index for index, line in enumerate(lines) if line.startswith(start))
+    end = next((index for index in range(begin + 1, len(lines)) if lines[index].startswith("- ")), len(lines))
+    return "\n".join(lines[begin:end])
+
+
+def test_prompt_spells_out_the_anchor_proposal_shapes(pack: ScenarioPack) -> None:
+    """实测坑（2026-09-28 生产 `dm_parse` / `stream_parse`：`anchor_blocked — Input should be a valid
+    dictionary or instance of DMAnchorBlock`）：DM 把 `anchor_blocked` 写成 id 字符串 → 解析层整回合失败，
+    白花一次调用。两个提案字段的确切形状与反例必须与 `options[].type` 同处、同风格写在「形状要求」里。
+    """
+    system = build_dm_messages(pack, initial_world(pack), None, [], max_steps=0)[0]["content"]
+
+    # 形状 = 契约模型的实际字段：契约加字段而提示词没跟 → 这里红
+    assert set(DMAnchorBlock.model_fields) == {"id", "reason"}
+    blocked = _bullet(system, "- `anchor_blocked`")
+    for field in DMAnchorBlock.model_fields:
+        assert f'"{field}":' in blocked, f"`anchor_blocked` 的形状没写出字段 `{field}`"
+    assert '"anchor_satisfied": "<锚点 id>"' in system, "`anchor_satisfied` 的字符串形状没逐字给出"
+
+    # 反例要点：id 字符串 / 列表 / true 都写明会被拒，且拒法是"整个回合解析失败"
+    assert '"anchor_blocked": "a_x"' in system
+    assert '"anchor_blocked": [{"id": "a_x"}]' in system
+    assert '"anchor_satisfied": [' in system
+    assert system.count("整个回合解析失败") >= 2, "两个字段都要点明「形状错 = 整回合解析失败」"
+
+    # 与其它白名单同处：都落在「形状要求」一节里
+    assert system.index("# 形状要求") < system.index(blocked) < system.index("# 叙事手艺")
+
+
+def test_prompt_requires_as_role_for_off_roster_speakers(pack: ScenarioPack) -> None:
+    """实测坑（2026-09-28 生产：`unknown_actor: nurse_li`）：DM 用名册外的 id 说话又没给 `as_role`，
+    整条台词被丢弃——**内容直接没了**。规则、临时 key 的边界与一正一反两个例子必须与其它白名单并列。
+    """
+    system = build_dm_messages(pack, initial_world(pack), None, [], max_steps=0)[0]["content"]
+
+    bullet = _bullet(system, "- `lines[].actor` 必须是")
+    assert "逐字出现" in bullet
+    assert "`as_role`" in bullet
+    assert "只在本回合有效" in bullet, "临时 key 的有效期要说明"
+    assert "不承载状态改动" in bullet, "临时 key 的边界要说明（effects 不许写到它头上）"
+    assert "整条丢弃" in bullet
+    assert "unknown_actor:nurse_li" in bullet
+    assert "✅" in bullet, "给正例"
+    assert "❌" in bullet, "给反例"
+    assert '"actor": "porter_tmp", "as_role": "走廊里的护工"' in bullet
+    assert '"actor": "nurse_li"' in bullet
+
+    assert system.index("# 形状要求") < system.index(bullet) < system.index("# 叙事手艺")
+
+
+def test_anchor_and_actor_shape_counterexamples_are_really_rejected(pack: ScenarioPack) -> None:
+    """提示词说的是实话（负例守卫）：形状写错确实过不去。
+
+    - `anchor_blocked` 写成一个 id 字符串 → 解析层就死，`validate_turn` 都到不了（线上整回合失败）；
+    - `lines[].actor` 写名册外的 id 又没 `as_role` → `validate_turn` 丢该条，
+      按提示词给的临时角色写法则原样保留。
+    """
+    with pytest.raises(TurnParseError):
+        parse_turn('{"anchor_blocked": "a_x"}')
+    with pytest.raises(TurnParseError):
+        parse_turn('{"anchor_satisfied": ["a_x"]}')
+
+    check = validate_turn(pack, DMTurn.model_validate({"lines": [{"actor": "nurse_li", "text": "我先看下尿袋。"}]}))
+    assert check.turn.lines == []
+    assert check.problems == ["unknown_actor:nurse_li"]
+    assert check.dropped == {"lines": 1}
+
+    ok = validate_turn(
+        pack,
+        DMTurn.model_validate(
+            {
+                "lines": [{"actor": "porter_tmp", "as_role": "走廊里的护工", "text": "让一让——"}],
+                "anchor_satisfied": "a_x",
+                "anchor_blocked": {"id": "a_x", "reason": "氧气还没接上"},
+            }
+        ),
+    )
+    assert ok.problems == []
+    assert [(line.actor, line.as_role, line.ephemeral) for line in ok.turn.lines] == [
+        ("porter_tmp", "走廊里的护工", True)
+    ]
+    assert ok.turn.anchor_satisfied == "a_x"
+    assert ok.turn.anchor_blocked is not None
+    assert (ok.turn.anchor_blocked.id, ok.turn.anchor_blocked.reason) == ("a_x", "氧气还没接上")
 
 
 def test_unrevealed_cue_texts_never_reach_the_prompt(pack: ScenarioPack) -> None:
