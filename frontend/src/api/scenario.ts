@@ -448,6 +448,54 @@ export interface ScenarioAdminSessionList {
 	items: ScenarioAdminSessionRow[];
 }
 
+/** 锚点状态（后端 `runtime/anchors.py::AnchorStatus` 的封闭五值）。 */
+export type ScenarioAnchorStatus =
+	| "pending"
+	| "active"
+	| "satisfied"
+	| "blocked"
+	| "abandoned";
+
+/** 回放的锚点面板：**一个回合末尾**的一个锚点（`runtime/anchors.py` 的重算结果）。 */
+export interface ScenarioAdminAnchorState {
+	id: string;
+	stage: string;
+	/** 教学意图（只给教师/回放看；学生侧没有这个键）。 */
+	goal: string;
+	status: ScenarioAnchorStatus;
+	/** `blocked` 时缺的那一步（事实/动作 id）；其余状态为空串。 */
+	reason: string;
+	/** 首次成为 `active` 的回合（从未成为 active → `null`）。 */
+	active_since: number | null;
+	/** 超期回合数（0 = 未超期）。 */
+	overdue: number;
+	/** 本回合引擎发出的催办原文（空串 = 未发）。 */
+	nudge: string;
+	missing_requires: string[];
+	satisfied_requires: string[];
+}
+
+/** 一条被拒的锚点提案：DM 提的（`proposal`）与引擎重算的（`actual`）不一致。 */
+export interface ScenarioAdminAnchorRejection {
+	turn: number;
+	anchor_id: string;
+	proposal: string;
+	actual: string;
+}
+
+/** 一个回合的锚点全景（`turn 0` = 开场）。 */
+export interface ScenarioAdminAnchorTurn {
+	turn: number;
+	states: ScenarioAdminAnchorState[];
+	rejected: ScenarioAdminAnchorRejection[];
+}
+
+/** 锚点面板：`null` = 该病例没声明 anchors（管理回放里整块不渲染）。 */
+export interface ScenarioAdminAnchorPanel {
+	count: number;
+	turns: ScenarioAdminAnchorTurn[];
+}
+
 /** 管理侧：单次会话的完整回放（含**每回合诊断问题**，仅维护者可见）。 */
 export interface ScenarioAdminSessionDetail {
 	session: ScenarioAdminSessionRow;
@@ -456,6 +504,8 @@ export interface ScenarioAdminSessionDetail {
 	problems: string[];
 	event_count: number;
 	events: ScenarioAdminEvent[];
+	/** 锚点面板；`null` / 缺键（老后端）= 该病例没有声明锚点。 */
+	anchors?: ScenarioAdminAnchorPanel | null;
 }
 
 /** 管理侧：按包的汇总。 */

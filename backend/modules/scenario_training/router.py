@@ -33,7 +33,7 @@ from . import pack_loader
 from .dm.runner import iter_dm_stream
 from .judge.rules import dims_snapshot
 from .pack_loader import PackInvalid, PackNotFound
-from .runtime.anchors import compute_anchors
+from .runtime.anchors import AnchorState, anchor_turns, compute_anchors
 from .runtime.session import (
     SessionClosed,
     StudentAction,
@@ -745,7 +745,7 @@ def admin_sessions(
 
 @router.get("/admin/sessions/{session_id}", dependencies=[_DataViewer])
 def admin_session_detail(session_id: int, db: DbSession) -> dict[str, Any]:
-    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合问题清单）。"""
+    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合问题清单 + **锚点面板**）。"""
     session = _load_session(db, session_id, None)
     pack = _load_pack(db, session.pack_revision_id)
     events = load_events(db, session.id)
@@ -760,12 +760,51 @@ def admin_session_detail(session_id: int, db: DbSession) -> dict[str, Any]:
         "view": _view(db, session, pack),
         "report": session.report,
         "problems": problems,
+        "anchors": _anchor_replay(pack, events),
         "event_count": len(events),
         "events": [
             {"kind": event["kind"], "payload": event["payload"]}
             for event in events
             if event["kind"]
             in {"student_action", "action_attributed", "dm_step", "dm_turn", "entity_line", "session_closed"}
+        ],
+    }
+
+
+def _anchor_state(state: AnchorState) -> dict[str, Any]:
+    """一个锚点在某回合的状态（教师/管理侧才看得到；`goal` 本来就只给教师与回放）。"""
+    return {
+        "id": state.id,
+        "stage": state.stage,
+        "goal": state.goal,
+        "status": state.status.value,
+        "reason": state.reason,
+        "active_since": state.active_since,
+        "overdue": state.overdue,
+        "nudge": state.nudge,
+        "missing_requires": list(state.missing_requires),
+        "satisfied_requires": list(state.satisfied_requires),
+    }
+
+
+def _anchor_replay(pack: ScenarioPack, events: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """教师/管理回放的**锚点面板**（docs/21 §五）：逐回合状态 + 每回合的催办与被拒提案。
+
+    纯投影：状态一律由 `runtime/anchors.py` 的重算给出（这里不另写判据，也不落新真源）。
+    **未声明 anchors 的病例 → `None`**（回放界面据此整块不渲染）。
+    """
+    turns = anchor_turns(pack, events)
+    if not turns:
+        return None
+    return {
+        "count": len(turns[0].states),
+        "turns": [
+            {
+                "turn": turn.turn,
+                "states": [_anchor_state(state) for state in turn.states],
+                "rejected": [dict(item) for item in turn.rejected],
+            }
+            for turn in turns
         ],
     }
 

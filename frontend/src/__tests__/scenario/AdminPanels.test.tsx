@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/render";
 import type {
+	ScenarioAdminAnchorPanel,
+	ScenarioAdminAnchorState,
 	ScenarioAdminPack,
 	ScenarioGeneratedAsset,
 	ScenarioView,
@@ -411,6 +413,199 @@ describe("会话面板：服务端分页", () => {
 			expect(mocks.getAdminScenarioSession).toHaveBeenCalledWith(7);
 		});
 		expect(await screen.findByText(/会话 #7/)).toBeInTheDocument();
+	});
+});
+
+describe("会话回放：叙事锚点面板", () => {
+	function session(id: number) {
+		return {
+			id,
+			user_id: 1,
+			pack_key: PACK_KEY,
+			pack_title: "吸痰无效：血氧上不来",
+			pack_revision_id: 6,
+			status: "completed",
+			turn: 2,
+			lost: false,
+			summary: null,
+			created_at: "2026-09-27T14:05:00+08:00",
+			updated_at: "2026-09-27T14:05:00+08:00",
+		};
+	}
+
+	function anchorState(
+		id: string,
+		overrides: Partial<ScenarioAdminAnchorState> = {},
+	): ScenarioAdminAnchorState {
+		return {
+			id,
+			stage: id === "a_see_the_plug" ? "airway" : "after",
+			goal: `目标 ${id}`,
+			status: "active",
+			reason: "",
+			active_since: 0,
+			overdue: 0,
+			nudge: "",
+			missing_requires: [],
+			satisfied_requires: [],
+			...overrides,
+		};
+	}
+
+	/** 三个回合的真实轨迹：一个锚点从推进中被催办到达成，另一个从开场就被 bag_valve 卡住。 */
+	function anchorPanel(): ScenarioAdminAnchorPanel {
+		return {
+			count: 2,
+			turns: [
+				{
+					turn: 0,
+					states: [
+						anchorState("a_see_the_plug"),
+						anchorState("a_reassess_after", {
+							status: "blocked",
+							reason: "bag_valve",
+							active_since: null,
+							missing_requires: ["reposition"],
+						}),
+					],
+					rejected: [],
+				},
+				{
+					turn: 1,
+					states: [
+						anchorState("a_see_the_plug", {
+							overdue: 1,
+							nudge: "催办①：这个锚点还没推进——给它一次自然发生的机会。",
+						}),
+						anchorState("a_reassess_after", {
+							status: "blocked",
+							reason: "bag_valve",
+							active_since: null,
+							missing_requires: ["reposition"],
+						}),
+					],
+					rejected: [
+						{
+							turn: 1,
+							anchor_id: "a_reassess_after",
+							proposal: "anchor_satisfied",
+							actual: "blocked",
+						},
+					],
+				},
+				{
+					turn: 2,
+					states: [
+						anchorState("a_see_the_plug", { status: "satisfied" }),
+						anchorState("a_reassess_after", {
+							status: "blocked",
+							reason: "bag_valve",
+							active_since: null,
+							missing_requires: ["reposition"],
+						}),
+					],
+					rejected: [],
+				},
+			],
+		};
+	}
+
+	function mockDetail(anchors: ScenarioAdminAnchorPanel | null) {
+		mocks.listAdminScenarioSessions.mockResolvedValue({
+			total: 1,
+			items: [session(7)],
+		});
+		mocks.getAdminScenarioSession.mockResolvedValue({
+			session: session(7),
+			view: {
+				session: { id: 7, status: "completed", turn: 2, lost: false },
+				pack: {
+					key: PACK_KEY,
+					title: "吸痰无效：血氧上不来",
+					player_role: "夜班护士",
+				},
+				situation: {
+					place: "病房",
+					time_hint: "",
+					resources: [],
+					visible_cues: [],
+					noticed: [],
+				},
+				actors: [],
+				hud: [],
+				messages: [],
+				options: [],
+				affordances: [],
+				free_input: true,
+				timeline: [],
+				dims: [],
+				nudges: [],
+				problems: [],
+			},
+			report: null,
+			problems: [],
+			event_count: 0,
+			events: [],
+			anchors,
+		});
+	}
+
+	it("一行一个锚点（id/阶段/状态/阻塞原因），点开是逐回合轨迹：催办与被拒提案标在发生回合", async () => {
+		const user = userEvent.setup();
+		mockDetail(anchorPanel());
+		renderWithProviders(<AdminSessionsPanel focusSessionId={7} />);
+
+		const panel = await screen.findByRole("region", { name: "叙事锚点" });
+		expect(within(panel).getByText("叙事锚点（2）")).toBeInTheDocument();
+
+		// 一行一个锚点：此刻状态 + 阻塞原因（最新那回合的状态）
+		const reached = within(panel).getByRole("button", {
+			name: "锚点 a_see_the_plug 的逐回合状态",
+		});
+		expect(within(reached).getByText("a_see_the_plug")).toBeInTheDocument();
+		expect(within(reached).getByText("airway")).toBeInTheDocument();
+		expect(within(reached).getByText("已达成")).toBeInTheDocument();
+
+		const stuck = within(panel).getByRole("button", {
+			name: "锚点 a_reassess_after 的逐回合状态",
+		});
+		expect(within(stuck).getByText("受阻")).toBeInTheDocument();
+		expect(within(stuck).getByText("受阻：缺 bag_valve")).toBeInTheDocument();
+		// 折叠着的时候轨迹不在 DOM 里
+		expect(within(reached).queryByText("开场")).toBeNull();
+
+		// 点开：开场 → 第 1 回合（推进中 + 催办）→ 第 2 回合 已达成
+		await user.click(reached);
+		expect(within(panel).getByText("开场")).toBeInTheDocument();
+		expect(within(panel).getByText("第 1 回合")).toBeInTheDocument();
+		expect(within(panel).getByText("第 2 回合")).toBeInTheDocument();
+		// 轨迹上两个回合都还是"推进中"，最后一回合才是"已达成"
+		expect(within(panel).getAllByText("推进中")).toHaveLength(2);
+		expect(within(panel).getByText("催办①")).toBeInTheDocument();
+		expect(
+			within(panel).getByText(/催办①：这个锚点还没推进/),
+		).toBeInTheDocument();
+
+		// 被拒提案归位到它发生的回合（第 1 回合那行）
+		await user.click(stuck);
+		expect(
+			within(panel).getByText(
+				/被拒提案：提议「anchor_satisfied」，重算为「blocked」/,
+			),
+		).toBeInTheDocument();
+		// 受阻原因跟着回合走：这一行写三遍（开场/第 1 回合/第 2 回合）+ 行头一遍
+		expect(within(panel).getAllByText("受阻：缺 bag_valve")).toHaveLength(4);
+	});
+
+	it("该病例没有声明锚点：整块不出现（其他回放内容照旧）", async () => {
+		mockDetail(null);
+		renderWithProviders(<AdminSessionsPanel focusSessionId={7} />);
+
+		await screen.findByText(/会话 #7/);
+		expect(screen.queryByRole("region", { name: "叙事锚点" })).toBeNull();
+		expect(screen.queryByText(/叙事锚点/)).toBeNull();
+		// 回放本身还在（不是整页被这一块带走了）
+		expect(screen.getByText(/回放视图（只读）/)).toBeInTheDocument();
 	});
 });
 

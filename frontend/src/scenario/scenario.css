@@ -2142,6 +2142,23 @@ button.sc-panel-head:hover {
 	text-align: left;
 }
 
+/* 连续同名病例折成的一行：与单条同刻度，只是末位多一句「展开/收起」提示。
+   最新一条的状态被推到右端（与单条行的点位一致），提示跟在它后面。 */
+.sc-history-fold-head .sc-history-meta {
+	margin-left: auto;
+}
+
+.sc-history-fold-hint {
+	flex: none;
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+/* 折叠组里展开出来的几条：左缩进一格（层级靠位置表达，不加新颜色、不加第二条线）。 */
+.sc-history-item[data-nested="true"] {
+	padding-left: var(--sc-4);
+}
+
 /* ── 空态：抄 /training 的 `EmptyState` 写法（虚线图标瓷片 56 + 一级标题 + 可选动作）── */
 .sc-blank {
 	display: flex;

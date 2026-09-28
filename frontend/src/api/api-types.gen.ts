@@ -1625,6 +1625,10 @@ export interface paths {
         /**
          * List Packs
          * @description 可用情境包（含最新修订号）。
+         *
+         *     投影见 `pack_loader.list_packs`：展示字段 + 最新修订号，另带两项**学生语义**字段
+         *     `player_role`（你将扮演谁）/ `place`（在哪儿）供入口页卡片选情境用。形状未声明
+         *     response model（历史如此），前端按 `frontend/src/api/scenario.ts` 的 `ScenarioPackSummary` 镜像消费。
          */
         get: operations["list_packs_api_scenario_packs_get"];
         put?: never;
@@ -1938,7 +1942,7 @@ export interface paths {
         };
         /**
          * Admin Session Detail
-         * @description 管理侧：单次会话的完整回放（视图 + 报告 + 每回合问题清单）。
+         * @description 管理侧：单次会话的完整回放（视图 + 报告 + 每回合问题清单 + **锚点面板**）。
          */
         get: operations["admin_session_detail_api_scenario_admin_sessions__session_id__get"];
         put?: never;

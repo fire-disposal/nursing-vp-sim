@@ -281,7 +281,7 @@
 - **提案裁决**：DM 可在信封里提 `anchor_satisfied` / `anchor_blocked{id, reason}`；引擎**只采纳与重算一致者**——一致则落 `anchor_satisfied` / `anchor_blocked` 事件，不一致则整条丢弃 + 落 `anchor_proposal_rejected` + 下回合注入纠偏（`todo` 口径）。
 - **事件**：`st_events.kind` 封闭词表新增三类，迁移 `e9f1a2b3c4d5`（`drop_constraint` + `create_check_constraint`；downgrade 只回退约束、不删数据，docstring 给出操作者需手动执行的那行 SQL）。
 - **样板锚点**：pack `sputum-ineffective` 声明 3 个（先测量与听诊以把低氧归因到单侧堵塞 → 加压给氧＋呼叫医生升级处置 → 气道建立后体位引流与记录复评；第三个以 `blocked_by: ["bag_valve"]` 表达"气道没打开之前拍背排痰没用"）。**content_sha 已变，需重装包**。
-- **本批不含**：教师侧锚点面板（只保证事件与状态可回放）；`unlocks` 只讲给 DM、尚未据此改变学生可做集；`abandoned` 暂无产生路径；判读口径未动（锚点只作过程证据，不另算一套分）。
+- **本批不含**（教师侧锚点面板与经历折叠由同日另一片补上，见文末对应小节）：`unlocks` 只讲给 DM、尚未据此改变学生可做集；`abandoned` 暂无产生路径；判读口径未动（锚点只作过程证据，不另算一套分）。
 - **验证**：后端 `tests/scenario_training` 181 项全绿（其中 13 项为本批新增守卫：规范化 / 达成只增不改 / 防泄露 / 催办预算 / 提案拒绝与纠偏 / 兼容字符面量 / 声明校验）。
 
 ### 情境训练学生控制台重做（2026-09-28，UI/文案/缺陷）
@@ -705,3 +705,40 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - 顺带修掉一处**从未生效**的冷启动钩子：`onRehydrateStorage` 回调由 persist 在 store 创建时**同步**触发，
   那里直接调 `startRefreshTimer()`（内部读模块常量 `useAuthStore`）会踩 TDZ 抛 `ReferenceError` 并被 persist 吞掉，
   于是刷新页面时 24h token 刷新定时器其实没起过；现改由 `revalidateSession()` 在结果落地后启动。
+
+### 情境训练 · 教师回放的锚点面板 + 经历列表同名折叠（2026-09-28）
+
+**取向**：锚点机制已经在管事情（注入 / 催办 / 提案裁决），但只有引擎自己看得见——教师拿到一次会话，
+除了逐字读事件流没有别的办法回答"它到底推到哪一步、卡在哪、催了几次"。这一片把 docs/21 §五 的投影补齐
+（学生只看到世界，**教师回放看得到锚点面板**），另附一个学生入口的小件。
+
+**后端（additive，最小）** `GET /api/scenario/admin/sessions/{id}` 新增 `anchors` 块，既有键一个不动：
+
+```jsonc
+"anchors": {                       // 病例未声明 anchors → null（界面据此整块不渲染）
+  "count": 3,
+  "turns": [
+    { "turn": 0, "states": [ { "id": "a_see_the_plug", "stage": "airway", "goal": "…",
+                               "status": "active", "reason": "", "active_since": 0, "overdue": 0,
+                               "nudge": "", "missing_requires": ["measure_spo2"], "satisfied_requires": [] } ],
+      "rejected": [] },
+    { "turn": 1, "states": [ … ], "rejected": [ { "turn": 1, "anchor_id": "a_control_airway",
+                                                  "proposal": "anchor_satisfied", "actual": "pending" } ] }
+  ]
+}
+```
+
+- **同一份判据**：新增 `runtime/anchors.py::anchor_turns(pack, events)`——把既有的 `_states` 重算按**回合边界**逐前缀快照
+  （`world.fold_event` 同一份折法；`compute_anchors` 改为走同一个 `_states`，没有第二套判据）。末份快照与 `compute_anchors` 逐字段相同（测试断言）。
+  每回合末尾取快照而非"注入前"：提案裁决读的就是这个前缀，面板显示的与当时据以采纳/拒绝的状态是同一个。
+- **催办与被拒提案按回合归位**：催办仍由 `overdue = 回合 - active_since - deadline` 的既有式子推出（**不是**新落的事件——注入本来就是纯函数），
+  被拒提案取本回合 `anchor_proposal_rejected` 的载荷原样（`proposal` vs `actual`）。
+- **界面（管理侧 Mantine）**：回放里新增「叙事锚点」区（不叫「锚点」：会话列表那列「锚点」是判读的强/合格/漏，同名会让人以为是同一份数）。
+  一行一个锚点（id / 阶段 / 此刻状态 / 受阻原因），点开是逐回合轨迹（`开场 推进中 → 第 1 回合 推进中 + 催办① → 第 2 回合 已达成`），
+  催办与被拒提案标在发生回合；状态一律**文字 + 语义色**成对出现。无锚点的病例整块不出现。
+- **学生入口「我的情境经历」**：**连续同名**病例折成一行（`吸痰无效：血氧上不来 ×6` + 最新一条的状态与时间），
+  点这一行展开/收起组内那几条；单条的含义与状态文案一个字不改，折叠只在相邻同名时发生、不跨行重排
+  （8 行里 6 行同一个病例的噪声从这里消失）。默认"只铺 8 条"仍按**行**截取（顺序：先截取、后折叠）。
+- **验证**：后端 `tests/scenario_training/test_narrative_anchors.py`（逐回合快照与同前缀重算一致、被拒提案归位、催办阶梯归位、未声明为空）
+  与 `test_scenario_admin_api.py`（响应里的锚点块、被拒提案回合、未声明为 `null`、学生侧 `view` 里不含锚点）；
+  前端 `AdminPanels.test.tsx`（面板状态与轨迹、空态不渲染）与 `ScenarioRendering.test.tsx`（三条同名折一行 / 展开回三行 / 相邻不同名不折叠）。

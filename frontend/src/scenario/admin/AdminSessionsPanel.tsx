@@ -26,6 +26,7 @@ import ScenarioReportView from "../ScenarioReportView";
 import ScenarioSidePanel from "../ScenarioSidePanel";
 import ScenarioStage, { ScenarioLine } from "../ScenarioStage";
 import { sessionStatusLabel, summaryText } from "../sessions";
+import AdminAnchorsPanel from "./AdminAnchorsPanel";
 
 const STATUS_OPTIONS = [
 	{ value: "active", label: "进行中" },
@@ -349,6 +350,8 @@ export default function AdminSessionsPanel({
 									<ScenarioSidePanel view={detail.view} />
 								</div>
 							</div>
+
+							<AdminAnchorsPanel anchors={detail.anchors} />
 
 							<div>
 								<Text size="sm" fw={600} mb={4}>

@@ -3,7 +3,11 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/render";
-import type { ScenarioBoard, ScenarioView } from "@/api/scenario";
+import type {
+	ScenarioBoard,
+	ScenarioSessionRow,
+	ScenarioView,
+} from "@/api/scenario";
 import { STUDENT_FALLBACK_NOTICE } from "@/scenario/problems";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
 import { startPack } from "./entry";
@@ -497,6 +501,91 @@ describe("学生侧渲染：我的情境经历", () => {
 
 		await user.click(within(history).getByRole("button", { name: "收起" }));
 		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(8);
+	});
+});
+
+describe("学生侧渲染：我的情境经历 · 连续同名折叠", () => {
+	function row(
+		id: number,
+		title: string,
+		status: string,
+		turn: number,
+	): ScenarioSessionRow {
+		return {
+			id,
+			pack_key: PACK.key,
+			pack_title: title,
+			status,
+			turn,
+			lost: false,
+			summary: null,
+			created_at: "2026-09-27T14:00:00+08:00",
+			updated_at: "2026-09-27T14:05:00+08:00",
+		};
+	}
+
+	const SAMENESS = "吸痰无效：血氧上不来";
+
+	it("三条连续同名 → 折成一行（×3 + 最新状态），点开回到那三条；收起再折回去", async () => {
+		const user = userEvent.setup();
+		mocks.listMyScenarioSessions.mockResolvedValue([
+			row(33, SAMENESS, "active", 4),
+			row(32, SAMENESS, "completed", 7),
+			row(31, SAMENESS, "completed", 2),
+		]);
+		renderConsole();
+
+		const history = await screen.findByLabelText("我的情境经历");
+		// 三行折成一行：行数就是"折叠有没有发生"的可见证据
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(1);
+		const fold = within(history).getByRole("button", {
+			name: /吸痰无效：血氧上不来 ×3/,
+		});
+		// 折叠行写的是**最新一条**的状态与时间（未结算 = 进行中的那一条）
+		expect(within(fold).getByText(/未结算 · 第 4 回合/)).toBeInTheDocument();
+		// 折起来时组内的几条不在 DOM 里（不是靠 CSS 藏）
+		expect(within(history).queryByText(/第 7 回合/)).toBeNull();
+
+		await user.click(fold);
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(4);
+		expect(within(history).getByText(/已结束 · 第 7 回合/)).toBeInTheDocument();
+
+		// 收起又回到一行（展开是临时的，不改默认铺法）
+		await user.click(fold);
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(1);
+
+		// 展开出来的就是原来那几条：点它照旧回到那次经历
+		await user.click(fold);
+		mocks.getScenarioSession.mockResolvedValue({
+			session_id: 32,
+			status: "active",
+			report: null,
+			view: makeView({
+				session: { id: 32, status: "active", turn: 7, lost: false },
+			}),
+		});
+		await user.click(within(history).getByText(/已结束 · 第 7 回合/));
+		await waitFor(() => {
+			expect(mocks.getScenarioSession).toHaveBeenCalledWith(32);
+		});
+	});
+
+	it("同名但不相邻（中间夹着别的病例）不折叠：各自成行，也不跨行重排", async () => {
+		mocks.listMyScenarioSessions.mockResolvedValue([
+			row(43, SAMENESS, "completed", 3),
+			row(42, PACK.title, "completed", 5),
+			row(41, SAMENESS, "completed", 1),
+		]);
+		renderConsole();
+
+		const history = await screen.findByLabelText("我的情境经历");
+		expect(history.querySelectorAll(".sc-history-item")).toHaveLength(3);
+		expect(within(history).queryByText(/×2/)).toBeNull();
+		// 顺序仍是后端给的（最近的在前），没有被分组打乱
+		const titles = [...history.querySelectorAll(".sc-history-title")].map(
+			(node) => node.textContent,
+		);
+		expect(titles).toEqual([SAMENESS, PACK.title, SAMENESS]);
 	});
 });
 

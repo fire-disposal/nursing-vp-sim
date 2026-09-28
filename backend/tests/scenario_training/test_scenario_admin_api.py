@@ -17,6 +17,7 @@ from models.scenario_training import StAsset, StPack, StPackRevision
 from modules.scenario_training import assets as assets_mod
 from modules.scenario_training import pack_loader
 from modules.scenario_training import router as scenario_router
+from modules.scenario_training.runtime.session import append_event, open_session
 
 PACK_KEY = "sputum-ineffective"
 
@@ -304,3 +305,72 @@ def test_history_detail_and_stats(app_client, installed) -> None:
     bucket = next(item for item in stats["packs"] if item["pack_key"] == PACK_KEY)
     assert bucket["sessions"] >= 1
     assert sum(bucket["anchors"].values()) >= 1
+
+
+# ── 回放里的锚点面板（docs/21 §五：教师/管理看得到锚点，学生只看得到世界）─────────
+
+
+def _student_action(turn: int, affordance_id: str) -> dict:
+    return {
+        "turn": turn,
+        "action": {"turn": turn, "affordance_id": affordance_id, "type": "act"},
+    }
+
+
+def test_admin_session_detail_carries_the_anchor_panel(app_client, installed) -> None:
+    """逐回合状态 + 阻塞原因 + 被拒提案按回合归位；**大厂已有的键一个都不动**。"""
+    client, holder, db = app_client
+    pack, revision = installed
+    session = open_session(db, user_id=1, revision_id=revision.id, pack=pack)
+
+    append_event(db, session.id, "student_action", _student_action(1, "suction"))
+    append_event(
+        db,
+        session.id,
+        "anchor_proposal_rejected",
+        {"turn": 1, "anchor_id": "a_control_airway", "proposal": "anchor_satisfied", "actual": "pending"},
+    )
+    append_event(db, session.id, "dm_turn", {"turn": 1, "narration": "监护仪还在响。"})
+
+    holder["user"] = _FakeUser({"stats_view"})
+    detail = client.get(f"/api/scenario/admin/sessions/{session.id}").json()
+    anchors = detail["anchors"]
+    assert anchors is not None
+    assert anchors["count"] == 3
+    assert [turn["turn"] for turn in anchors["turns"]] == [0, 1]
+
+    opening = anchors["turns"][0]["states"]
+    assert [state["id"] for state in opening] == ["a_see_the_plug", "a_control_airway", "a_reassess_after"]
+    # 开场：第一个锚点在推进；第三个被 bag_valve 挡住（原因 = 缺的那一步）
+    assert opening[0]["status"] == "active"
+    assert opening[0]["stage"] == "airway"
+    assert opening[2]["status"] == "blocked"
+    assert opening[2]["reason"] == "bag_valve"
+    # 催办随回合走：开场与第 1 回合都还没超期（deadline_turns=2）
+    assert all(state["nudge"] == "" for state in opening)
+    assert anchors["turns"][1]["states"][0]["status"] == "active"
+
+    # 被拒提案归位到它发生的回合（别处没有）
+    assert anchors["turns"][0]["rejected"] == []
+    assert anchors["turns"][1]["rejected"] == [
+        {"turn": 1, "anchor_id": "a_control_airway", "proposal": "anchor_satisfied", "actual": "pending"},
+    ]
+
+    # 学生侧的视图里没有锚点：这一块只在管理侧
+    assert "anchors" not in detail["view"]
+    assert "a_control_airway" not in json.dumps(detail["view"], ensure_ascii=False)
+
+
+def test_admin_session_detail_anchor_panel_is_null_without_declarations(app_client, pg_session) -> None:
+    """不声明 anchors 的病例 → 该块为 `null`（回放界面据此整块不渲染），其他键照旧。"""
+    client, holder, _db = app_client
+    bare = pack_loader.load_pack_file("night-call-decision")
+    _pack_row, revision, _created = pack_loader.install(pg_session, bare)
+    session = open_session(pg_session, user_id=7, revision_id=revision.id, pack=bare)
+    append_event(pg_session, session.id, "student_action", _student_action(1, "ask_vitals"))
+
+    holder["user"] = _FakeUser({"stats_view"})
+    detail = client.get(f"/api/scenario/admin/sessions/{session.id}").json()
+    assert detail["anchors"] is None
+    assert detail["session"]["id"] == session.id
+    assert detail["events"][0]["kind"] == "student_action"

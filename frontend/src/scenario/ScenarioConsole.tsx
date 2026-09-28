@@ -24,6 +24,7 @@ import {
 	type ScenarioOption,
 	type ScenarioPackSummary,
 	type ScenarioReport,
+	type ScenarioSessionRow,
 	ScenarioStreamUnavailable,
 	type ScenarioView,
 	streamScenarioAction,
@@ -47,7 +48,11 @@ import {
 	studentDeclaration,
 } from "./stream";
 import "./scenario.css";
-import { sessionRowMeta } from "./sessions";
+import {
+	groupConsecutiveSessions,
+	type ScenarioSessionGroup,
+	sessionRowMeta,
+} from "./sessions";
 
 /**
  * 情境训练（正式特性，docs/20）· 学生侧 —— 路由 `/scenario`，学生侧栏/底部 Tab 的「情境」。
@@ -129,6 +134,85 @@ function ConsoleEmpty({
 			<div className="sc-blank-title">{title}</div>
 			{description !== undefined && <div className="sc-blank-desc">{description}</div>}
 			{action !== undefined && <div className="sc-blank-action">{action}</div>}
+		</div>
+	);
+}
+
+/**
+ * 「我的情境经历」的单条：点它回到那次经历。
+ *
+ * 折叠组里展开出来的几条也是它（`nested` 只改左缩进——层级靠位置表达，不另造样式）。
+ */
+function HistoryRow({
+	row,
+	busy,
+	onResume,
+	nested = false,
+}: {
+	row: ScenarioSessionRow;
+	busy: boolean;
+	onResume: (row: ScenarioSessionRow) => void;
+	nested?: boolean;
+}) {
+	return (
+		<button
+			type="button"
+			className="sc-history-item"
+			data-status={row.status}
+			data-nested={nested ? "true" : undefined}
+			disabled={busy}
+			onClick={() => onResume(row)}
+		>
+			<span className="sc-history-title">{row.pack_title}</span>
+			<span className="sc-history-meta">{sessionRowMeta(row)}</span>
+		</button>
+	);
+}
+
+/**
+ * 「我的情境经历」里**连续同名**病例折成的一行：病例名 ×N + 最新一条的状态与时间。
+ *
+ * 同一个病例反复练是常态（8 行里 6 行是同一个），逐行铺开只是噪声。点这一行展开/收起
+ * 组内的几条——「展开/收起」就在行内同刻度的一角（沿用既有文本式展开交互，不引入新控件形态）。
+ * 折叠**只**发生在相邻同名时（见 `groupConsecutiveSessions`），不跨行重排、不改单条文案。
+ */
+function HistoryFold({
+	group,
+	busy,
+	onResume,
+}: {
+	group: ScenarioSessionGroup;
+	busy: boolean;
+	onResume: (row: ScenarioSessionRow) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<div className="sc-history-fold">
+			<button
+				type="button"
+				className="sc-history-item sc-history-fold-head"
+				aria-expanded={open}
+				disabled={busy}
+				onClick={() => setOpen((value) => !value)}
+			>
+				<span className="sc-history-title">
+					{group.title} ×{group.rows.length}
+				</span>
+				<span className="sc-history-meta">{sessionRowMeta(group.latest)}</span>
+				<span className="sc-history-fold-hint" aria-hidden="true">
+					{open ? "收起" : "展开"}
+				</span>
+			</button>
+			{open &&
+				group.rows.map((row) => (
+					<HistoryRow
+						key={row.id}
+						row={row}
+						busy={busy}
+						onResume={onResume}
+						nested
+					/>
+				))}
 		</div>
 	);
 }
@@ -559,6 +643,11 @@ export default function ScenarioConsole() {
 
 	const packs = packsQuery.data ?? [];
 	const history = historyQuery.data ?? [];
+	// 「我的情境经历」：先按"默认只铺 8 条"截取（截的是**行**），再把连续同名病例折成一行。
+	// 顺序不能倒：先折叠再截取会让"8 条"变成"8 组"，展开之后条数对不上。
+	const historyGroups = groupConsecutiveSessions(
+		historyExpanded ? history : history.slice(0, HISTORY_PREVIEW),
+	);
 
 	if (report && view) {
 		return (
@@ -771,19 +860,21 @@ export default function ScenarioConsole() {
 							) : (
 								<>
 									<div className="sc-history-list">
-										{(historyExpanded ? history : history.slice(0, HISTORY_PREVIEW)).map(
-											(row) => (
-												<button
-													key={row.id}
-													type="button"
-													className="sc-history-item"
-													data-status={row.status}
-													disabled={busy}
-													onClick={() => resume(row)}
-												>
-													<span className="sc-history-title">{row.pack_title}</span>
-													<span className="sc-history-meta">{sessionRowMeta(row)}</span>
-												</button>
+										{historyGroups.map((group) =>
+											group.rows.length === 1 ? (
+												<HistoryRow
+													key={group.id}
+													row={group.latest}
+													busy={busy}
+													onResume={resume}
+												/>
+											) : (
+												<HistoryFold
+													key={group.id}
+													group={group}
+													busy={busy}
+													onResume={resume}
+												/>
 											),
 										)}
 									</div>

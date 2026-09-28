@@ -3,10 +3,11 @@
 锚点**不是真源**：每个锚点的状态都是 **(pack 声明 × 事件流)** 的函数——与判读、经历页、
 教师回放共用同一份事实（只用 `runtime/world.py` 的既有读取：事实已采集、动作已使用、回合数）。
 
-三件事：
-1. `compute_anchors(pack, events)`：每回合重算状态（唯一 `active` 的规范化、超期与催办）；
-2. `NUDGE_BUDGET` / `NUDGE_LINES`：超期催办的**升级阶梯**（有预算、不重复同一句）；
-3. `AnchorReport`：注入与回放要用的**结构化**数据（文本拼装留在 `dm/prompt.py`）。
+四件事：
+1. `compute_anchors(pack, events)`：**本回合**的状态重算（唯一 `active` 的规范化、超期与催办）；
+2. `anchor_turns(pack, events)`：**逐回合**的状态全景（教师/管理回放面板读它）——同一份重算的逐前缀结果；
+3. `NUDGE_BUDGET` / `NUDGE_LINES`：超期催办的**升级阶梯**（有预算、不重复同一句）；
+4. `AnchorReport` / `AnchorTurn`：注入与回放要用的**结构化**数据（文本拼装留在 `dm/prompt.py`）。
 
 状态语义（§4.0）：
 - `satisfied`：`requires` 全部已达成**且** `blocked_by` 无缺失——两项判据都只增，故只增不改；
@@ -113,49 +114,18 @@ def _normalize(
     return rows
 
 
-def _replay(pack: ScenarioPack, events: Iterable[dict[str, Any]]) -> tuple[World, dict[str, int]]:
-    """逐回合**前缀重放**：给出终局世界与「某锚点首次成为 active 的回合」。
+def _note_active(pack: ScenarioPack, world: World, since: dict[str, int]) -> None:
+    """记下「此刻已是 `active` 的锚点首次成为 active 的回合」（`since` 只增不改）。"""
+    for anchor, status, *_rest in _normalize(pack, _observed_ids(pack, world)):
+        if status is AnchorStatus.ACTIVE:
+            since.setdefault(anchor.id, world.turn)
 
-    不落盘、不新增真源：只用事件流 + 声明（`fold_event` 与回放共用同一份折法）。
+
+def _states(pack: ScenarioPack, world: World, since: dict[str, int]) -> list[AnchorState]:
+    """给定**世界**与 `since` 表 → 每个锚点此刻的状态（状态重算的**唯一**出口）。
+
+    `compute_anchors` 与 `anchor_turns` 都走这里：两者只差"取哪个前缀"，判据一份。
     """
-    world = initial_world(pack)
-    since: dict[str, int] = {}
-
-    def note() -> None:
-        for anchor, status, *_rest in _normalize(pack, _observed_ids(pack, world)):
-            if status is AnchorStatus.ACTIVE:
-                since.setdefault(anchor.id, world.turn)
-
-    note()  # 开场（第 0 回合）
-    for event in events:
-        fold_event(world, event)
-        note()
-    return world, since
-
-
-def _reminders(events: Iterable[dict[str, Any]], turn: int) -> tuple[str, ...]:
-    """**上一回合**被拒的提案 → 本回合的纠偏提醒（`todo` 的「整条丢弃 + 隐藏提醒」口径）。"""
-    out: list[str] = []
-    for event in events:
-        if str(event.get("kind")) != "anchor_proposal_rejected":
-            continue
-        payload = event.get("payload") or {}
-        if payload.get("turn") != turn - 1:
-            continue
-        actual = str(payload.get("actual", ""))
-        label = "这个锚点未声明" if actual == "undeclared" else f"引擎的重算结果是 {actual}"
-        out.append(
-            f"纠偏：上一回合你提议「{payload.get('proposal', '?')}」的锚点 {payload.get('anchor_id', '?')} "
-            f"与重算不一致（{label}），该提议已作废；不要替学生完成尚未满足的前置。"
-        )
-    return tuple(out)
-
-
-def compute_anchors(pack: ScenarioPack, events: list[dict[str, Any]]) -> AnchorReport:
-    """每回合的锚点全景（确定性：只读事件流与声明）。**不声明 anchors 的 pack → 空报告**。"""
-    if not pack.anchors:
-        return AnchorReport()
-    world, since = _replay(pack, events)
     observed = _observed_ids(pack, world)
     states: list[AnchorState] = []
     for anchor, status, reason, satisfied, missing in _normalize(pack, observed):
@@ -182,4 +152,95 @@ def compute_anchors(pack: ScenarioPack, events: list[dict[str, Any]]) -> AnchorR
                 nudge=nudge,
             )
         )
-    return AnchorReport(states=tuple(states), reminders=_reminders(events, world.turn))
+    return states
+
+
+def _replay(pack: ScenarioPack, events: Iterable[dict[str, Any]]) -> tuple[World, dict[str, int]]:
+    """逐回合**前缀重放**：给出终局世界与「某锚点首次成为 active 的回合」。
+
+    不落盘、不新增真源：只用事件流 + 声明（`fold_event` 与回放共用同一份折法）。
+    """
+    world = initial_world(pack)
+    since: dict[str, int] = {}
+    _note_active(pack, world, since)  # 开场（第 0 回合）
+    for event in events:
+        fold_event(world, event)
+        _note_active(pack, world, since)
+    return world, since
+
+
+def _reminders(events: Iterable[dict[str, Any]], turn: int) -> tuple[str, ...]:
+    """**上一回合**被拒的提案 → 本回合的纠偏提醒（`todo` 的「整条丢弃 + 隐藏提醒」口径）。"""
+    out: list[str] = []
+    for event in events:
+        if str(event.get("kind")) != "anchor_proposal_rejected":
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("turn") != turn - 1:
+            continue
+        actual = str(payload.get("actual", ""))
+        label = "这个锚点未声明" if actual == "undeclared" else f"引擎的重算结果是 {actual}"
+        out.append(
+            f"纠偏：上一回合你提议「{payload.get('proposal', '?')}」的锚点 {payload.get('anchor_id', '?')} "
+            f"与重算不一致（{label}），该提议已作废；不要替学生完成尚未满足的前置。"
+        )
+    return tuple(out)
+
+
+def compute_anchors(pack: ScenarioPack, events: list[dict[str, Any]]) -> AnchorReport:
+    """**本回合**的锚点全景（确定性：只读事件流与声明）。**不声明 anchors 的 pack → 空报告**。"""
+    if not pack.anchors:
+        return AnchorReport()
+    world, since = _replay(pack, events)
+    return AnchorReport(states=tuple(_states(pack, world, since)), reminders=_reminders(events, world.turn))
+
+
+@dataclass(frozen=True)
+class AnchorTurn:
+    """**一个回合结束时**的锚点全景（教师/管理回放面板逐回合读它）。"""
+
+    turn: int
+    states: tuple[AnchorState, ...] = ()
+    """本回合末尾每个锚点的状态（含该回合引擎给出的催办 `AnchorState.nudge`）。"""
+    rejected: tuple[dict[str, Any], ...] = ()
+    """本回合被拒的提案（`anchor_proposal_rejected` 的载荷，原样）。"""
+
+
+def anchor_turns(pack: ScenarioPack, events: list[dict[str, Any]]) -> tuple[AnchorTurn, ...]:
+    """**逐回合**的锚点全景：`turn 0`（开场）到当前回合，每回合末尾一份快照。
+
+    与 `compute_anchors` 同一份重算、同一份 `fold_event` 折法，只差"取哪个前缀"：
+    这里在每个回合边界（第一条属于下一回合的事件之前）留一份 `_states`。
+    提案裁决（`_record_anchor_proposals`）读的正是"本回合末尾"的那个前缀，所以面板上的
+    状态与它当时据以采纳/拒绝的状态是同一个——不是另一套判据。
+
+    催办是**推导**出来的（`AnchorState.nudge` 由 `overdue = 回合 - active_since - deadline` 给出），
+    引擎注入时用的也是这条式子、同一个回合号；所以本回合末尾的 `nudge` 非空 = 本回合发过催办。
+
+    **不声明 anchors 的 pack → 空元组**（回放界面据此不渲染面板）。
+    """
+    if not pack.anchors:
+        return ()
+    world = initial_world(pack)
+    since: dict[str, int] = {}
+    turns: list[AnchorTurn] = []
+    rejected: list[dict[str, Any]] = []
+    current = world.turn
+
+    def snapshot() -> None:
+        turns.append(AnchorTurn(turn=current, states=tuple(_states(pack, world, since)), rejected=tuple(rejected)))
+
+    _note_active(pack, world, since)  # 开场（第 0 回合）
+    for event in events:
+        payload = event.get("payload") or {}
+        turn = payload.get("turn")
+        if turn is not None and int(turn) > current:
+            snapshot()  # 上一回合到此为止（此刻世界还没折入新回合的第一条事件）
+            current = int(turn)
+            rejected.clear()
+        if str(event.get("kind")) == "anchor_proposal_rejected":
+            rejected.append(dict(payload))
+        fold_event(world, event)
+        _note_active(pack, world, since)
+    snapshot()
+    return tuple(turns)

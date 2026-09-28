@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from modules.scenario_training.dm.prompt import build_dm_messages
-from modules.scenario_training.runtime.anchors import NUDGE_BUDGET, AnchorStatus, compute_anchors
+from modules.scenario_training.runtime.anchors import NUDGE_BUDGET, AnchorStatus, anchor_turns, compute_anchors
 from modules.scenario_training.runtime.session import StudentAction, load_events, open_session, submit_action
 from modules.scenario_training.runtime.world import ActionRecord, initial_world, world_from_events
 from modules.scenario_training.schema import ScenarioPack
@@ -542,3 +542,84 @@ def test_prompt_is_byte_identical_for_a_pack_without_anchors(pack: ScenarioPack)
         pytest.fail(f"不声明 anchors 的 pack 提示词变了（首个差异：{diff[:3]}；行数 {len(user.splitlines())}）")
     # 同一个包声明了 anchors 时，差异**只**是新增的「# 锚点」一节
     assert "# 锚点" in _user_prompt(pack, [], opening=True, max_steps=3)
+
+
+# --------------------------------------------------------------------------- #
+# 9) 回放：逐回合状态轨迹（教师/管理面板读的那份）
+# --------------------------------------------------------------------------- #
+
+
+def _rejected(turn: int, anchor_id: str, proposal: str, actual: str) -> dict[str, Any]:
+    return {
+        "kind": "anchor_proposal_rejected",
+        "payload": {"turn": turn, "anchor_id": anchor_id, "proposal": proposal, "actual": actual},
+    }
+
+
+def _turn(*events: dict[str, Any]) -> list[dict[str, Any]]:
+    return list(events)
+
+
+def test_anchor_turns_snapshots_every_turn_and_agrees_with_the_report(pack: ScenarioPack) -> None:
+    """逐回合面板 = 同一份重算的逐前缀结果：每个回合末尾一份，且末份与 `compute_anchors` 一致。"""
+    per_turn = [
+        _turn(),  # 开场（第 0 回合）：DM 立场景，学生还没动
+        _turn(_action(1, "suction")),
+        _turn(_action(2, "measure_spo2"), _rejected(2, "a_control_airway", "anchor_satisfied", "pending")),
+        _turn(_action(3, "auscultate"), _action(3, "bag_valve")),
+    ]
+    events: list[dict[str, Any]] = [event for group in per_turn for event in group]
+    turns = anchor_turns(pack, events)
+    assert [turn.turn for turn in turns] == [0, 1, 2, 3]
+
+    for index, snapshot in enumerate(turns):
+        prefix = [event for group in per_turn[: index + 1] for event in group]
+        report = compute_anchors(pack, prefix)
+        assert [(state.id, state.status, state.reason, state.nudge) for state in snapshot.states] == [
+            (state.id, state.status, state.reason, state.nudge) for state in report.states
+        ], f"第 {snapshot.turn} 回合的快照与同一前缀的重算不一致"
+
+    # 轨迹本身：反复吸痰那几回合仍是待推进的 active，测了血氧**与**听诊才把它推到 satisfied
+    seen = [{state.id: state.status for state in snapshot.states}["a_see_the_plug"] for snapshot in turns]
+    assert seen == [
+        AnchorStatus.ACTIVE,
+        AnchorStatus.ACTIVE,
+        AnchorStatus.ACTIVE,
+        AnchorStatus.SATISFIED,
+    ]
+    # 末份就是此刻的全景（面板的"当前状态"与引擎此刻的判断同源）
+    assert turns[-1].states == compute_anchors(pack, events).states
+
+
+def test_anchor_turns_puts_rejected_proposals_on_the_turn_they_happened(pack: ScenarioPack) -> None:
+    events = [
+        _action(1, "suction"),
+        _rejected(1, "a_control_airway", "anchor_satisfied", "pending"),
+        _action(2, "measure_spo2"),
+        _rejected(2, "a_reassess_after", "anchor_blocked", "blocked"),
+    ]
+    turns = anchor_turns(pack, events)
+    assert [turn.rejected for turn in turns] == [
+        (),
+        ({"turn": 1, "anchor_id": "a_control_airway", "proposal": "anchor_satisfied", "actual": "pending"},),
+        ({"turn": 2, "anchor_id": "a_reassess_after", "proposal": "anchor_blocked", "actual": "blocked"},),
+    ]
+
+
+def test_anchor_turns_carries_the_nudge_ladder_on_the_turns_it_fired(pack: ScenarioPack) -> None:
+    """催办按回合归位：超期起算的那几回合各一句、预算用尽后静默（与注入同一条式子）。"""
+    pack_urgent = _with_anchors(pack, [_anchor("a_urgent", requires=["bag_valve"], deadline_turns=1)])
+    events = [_action(turn, "suction") for turn in range(1, 6)]
+    nudges = [
+        [state.nudge for state in snapshot.states if state.nudge] for snapshot in anchor_turns(pack_urgent, events)
+    ]
+    assert nudges[0] == [], "开场不催办"
+    assert nudges[1] == [], "第 1 回合（deadline=1）还没超期"
+    assert [len(lines) for lines in nudges[2:5]] == [1, 1, 1]
+    assert nudges[5] == [], "预算用尽后静默"
+    assert len({lines[0] for lines in nudges if lines}) == NUDGE_BUDGET
+
+
+def test_anchor_turns_is_empty_for_a_pack_without_declarations(pack: ScenarioPack) -> None:
+    bare = pack.model_copy(update={"anchors": []})
+    assert anchor_turns(bare, [_action(1, "suction")]) == ()

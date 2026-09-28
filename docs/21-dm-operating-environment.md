@@ -64,10 +64,11 @@
 
 ### 4.0 锚点的包声明契约（实施时的确切接口）
 
-> **实施状态（2026-09-28）：引擎侧已落地**（本批不含界面）。声明与校验：`schema.NarrativeAnchor` + `validation._check_anchors`（id 唯一；`requires`/`blocked_by`/`unlocks` 只引用已登记的事实/动作；`cue` 非空；`deadline_turns >= 0`）。
-> 状态重算的**唯一实现**是 `runtime/anchors.py::compute_anchors(pack, events)`（纯函数；逐回合前缀重放推导"首次成为 active 的回合"，催办与纠偏都由它给出）；
+> **实施状态（2026-09-28）：引擎侧与教师回放面板均已落地**（学生侧永远看不到锚点）。声明与校验：`schema.NarrativeAnchor` + `validation._check_anchors`（id 唯一；`requires`/`blocked_by`/`unlocks` 只引用已登记的事实/动作；`cue` 非空；`deadline_turns >= 0`）。
+> 状态重算的**唯一实现**是 `runtime/anchors.py::compute_anchors(pack, events)`（纯函数；逐回合前缀重放推导"首次成为 active 的回合"，催办与纠偏都由它给出）；**逐回合**的那份是同一模块的 `anchor_turns(pack, events)`（同一重算的逐前缀快照，教师回放面板读它）。
 > 注入是 `dm/prompt.py` 的「# 锚点」一节（`build_dm_messages(anchors=…)`；缺省或空报告时**一个字都不写**）；提案裁决是 `dm/contract.py::validate_anchor_proposals`，事件由 `runtime/session.py::_record_anchor_proposals` 落库。
-> 样板：pack `sputum-ineffective` 声明 3 个锚点。**尚未做**：① `unlocks` 目前只讲给 DM 听（未据此改变学生的可做集）；② 教师侧锚点面板（本批只保证事件与状态可回放）；③ `abandoned` 暂无产生路径。
+> 样板：pack `sputum-ineffective` 声明 3 个锚点。**尚未做**：① `unlocks` 目前只讲给 DM 听（未据此改变学生的可做集）；② `abandoned` 暂无产生路径。
+> 教师侧的锚点面板已落地（2026-09-28 第二片）：`GET /api/scenario/admin/sessions/{id}` 的 `anchors` 块给逐回合状态，见 §五。
 
 pack 的 `presentation` 之外新增一个可选段（不声明 = 该病例不启用编排）：
 
@@ -122,6 +123,11 @@ pack 的 `presentation` 之外新增一个可选段（不声明 = 该病例不�
 | 学生 | 只有**世界的呈现**：叙述、台词、设备读数、可做动作与 DM 的提示。**不看**工具调用、锚点、note、被拒绝的操作 |
 | 教师/管理员（回放） | 每次工具调用的输入输出、锚点面板、DM 的 note、被拒绝的调用与纠偏提醒——"与 `todo` 面板对操作者可见、对用户不可见"同一分工 |
 | 判读/报告 | 用**过程证据**判读：哪些锚点自主达成、哪些被催办、患者是否被安抚、是否走了不可逆的错路 |
+
+**实现（2026-09-28）**：教师/管理侧的锚点面板从 `GET /api/scenario/admin/sessions/{id}` 新增的 `anchors` 块读——
+`turn → {states[], rejected[]}`（每回合末尾的状态 / 该回合被拒的提案），由 `anchor_turns(pack, events)` 重算得出，
+催办按同一个 `overdue` 式子归位；**病例未声明 anchors → 该块为 `null`**，回放界面据此整块不渲染。
+学生侧视图里没有这个键（守卫测试断言 `view` 串里不含任何锚点 id 与 `cue`）。
 
 ## 六、实施边界
 
