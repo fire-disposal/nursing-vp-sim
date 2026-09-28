@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
@@ -25,7 +26,7 @@ from core.rate_limits import check_scenario_action_limit, check_scenario_open_li
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
 from models import User
-from models.scenario_training import StPack, StPackRevision, StSession
+from models.scenario_training import StEvent, StPack, StPackRevision, StSession
 
 from . import assets as assets_mod
 from . import pack_loader
@@ -173,7 +174,12 @@ def _view(db: DbSession, session: StSession, pack: ScenarioPack, problems: list[
 
 @router.get("/packs")
 def list_packs(db: DbSession, current_user: _StudentUser) -> list[dict[str, Any]]:
-    """可用情境包（含最新修订号）。"""
+    """可用情境包（含最新修订号）。
+
+    投影见 `pack_loader.list_packs`：展示字段 + 最新修订号，另带两项**学生语义**字段
+    `player_role`（你将扮演谁）/ `place`（在哪儿）供入口页卡片选情境用。形状未声明
+    response model（历史如此），前端按 `frontend/src/api/scenario.ts` 的 `ScenarioPackSummary` 镜像消费。
+    """
     return pack_loader.list_packs(db)
 
 
@@ -231,7 +237,8 @@ def my_sessions(
         .all()
     )
     titles = {key: title for key, title in db.execute(select(StPack.key, StPack.title)).all()}
-    return [_session_row(row, titles.get(row.pack_key, row.pack_key)) for row in rows]
+    turns = _session_turns(db, rows)
+    return [_session_row(row, titles.get(row.pack_key, row.pack_key), turns[row.id]) for row in rows]
 
 
 @router.get("/sessions/{session_id}")
@@ -411,7 +418,34 @@ def get_asset(revision_id: int, asset_id: str, db: DbSession, current_user: _Stu
 # ── 管理侧（内容：case_manage） ─────────────────────────────────────────────
 
 
-def _session_row(row: StSession, pack_title: str) -> dict[str, Any]:
+def _session_turns(db: DbSession, rows: Sequence[StSession]) -> dict[int, int]:
+    """每个会话**实际跑到第几回合**（一次分组查询，不做 N+1）。
+
+    `st_sessions.report` 只在**结算**时写入，直接读 `report["turn"]` 会把"已经做过三个动作"的
+    进行中会话写成 0 —— 学生面就会显示成"未开始"，而学生明明已经动手了（生产实测如此）。
+    这里以事件流为准：`dm_turn` / `student_action` 里的 `turn` 与回放视图的 `world.turn` 同源；
+    已结算会话两者一致（本地 20/20 相同），所以这**不是**在改结算口径，只是把进行中的会话也说出来。
+    """
+    if not rows:
+        return {}
+    ids = [row.id for row in rows]
+    found: dict[int, int] = {}
+    for session_id, turn in db.execute(
+        select(
+            StEvent.session_id,
+            func.max(StEvent.payload["turn"].as_integer()),
+        )
+        .where(
+            StEvent.session_id.in_(ids),
+            StEvent.kind.in_(("student_action", "dm_turn")),
+        )
+        .group_by(StEvent.session_id)
+    ).all():
+        found[int(session_id)] = int(turn or 0)
+    return {row.id: found.get(row.id, 0) for row in rows}
+
+
+def _session_row(row: StSession, pack_title: str, turn: int) -> dict[str, Any]:
     report = row.report or {}
     return {
         "id": row.id,
@@ -420,7 +454,8 @@ def _session_row(row: StSession, pack_title: str) -> dict[str, Any]:
         "pack_title": pack_title,
         "pack_revision_id": row.pack_revision_id,
         "status": row.status,
-        "turn": report.get("turn"),
+        # 回合数以事件流为准（进行中会话的 report 还没写）；结算后两者一致
+        "turn": turn or report.get("turn"),
         "lost": report.get("lost"),
         "summary": report.get("summary"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -672,9 +707,10 @@ def admin_sessions(
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar() or 0
     rows = db.execute(query.order_by(StSession.id.desc()).limit(limit).offset(offset)).scalars().all()
     titles = {key: title for key, title in db.execute(select(StPack.key, StPack.title)).all()}
+    turns = _session_turns(db, rows)
     return {
         "total": int(total),
-        "items": [_session_row(row, titles.get(row.pack_key, row.pack_key)) for row in rows],
+        "items": [_session_row(row, titles.get(row.pack_key, row.pack_key), turns[row.id]) for row in rows],
     }
 
 
@@ -691,7 +727,7 @@ def admin_session_detail(session_id: int, db: DbSession) -> dict[str, Any]:
         for problem in (event["payload"] or {}).get("problems", [])
     ]
     return {
-        "session": _session_row(session, pack.title),
+        "session": _session_row(session, pack.title, _session_turns(db, [session])[session.id]),
         "view": _view(db, session, pack),
         "report": session.report,
         "problems": problems,

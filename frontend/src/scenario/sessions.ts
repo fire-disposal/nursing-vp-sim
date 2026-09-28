@@ -33,9 +33,10 @@ export function summaryText(summary: Record<string, number> | null): string {
 /**
  * 学生面的一行说明：**诚实的进度** + 最后活动。
  *
- * 不一律写"进行中"——从来没有开过场的会话（0 回合）和做到一半的会话不是一回事，
- * 写成一个词等于骗学生（会话只有显式结算才会变 `completed`）。
- * 后端只给状态与回合数，所以这里也只说这两件事，不自己造"搁置"这类阈值。
+ * 不一律写"进行中"——回合数为 0 与做到一半不是一回事，写成一个词等于骗学生
+ * （会话只有显式结算才会变 `completed`）。回合数是**学生真的动过几次**（后端按事件流算，
+ * 开场那回合是 DM 立的，不算他动过），所以 0 回合才写「未开始」。
+ * 后端只给状态与回合数，这里也只说这两件事，不自己造"搁置"这类阈值。
  */
 export function sessionRowMeta(row: ScenarioSessionRow): string {
 	const status =

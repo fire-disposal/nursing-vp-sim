@@ -7,6 +7,7 @@ import type { ScenarioView } from "@/api/scenario";
 import { CUSTOM_ACTION_LABEL } from "@/scenario/ActionBar";
 import { OTHER_ENTRY_LABEL } from "@/scenario/AffordanceForm";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 
 const mocks = vi.hoisted(() => ({
 	listScenarioPacks: vi.fn(),
@@ -35,6 +36,8 @@ const PACK = {
 	one_line: "术后第二天，患者呼吸费力。",
 	revision_id: 7,
 	revision_no: 3,
+	player_role: "夜班护士",
+	place: "呼吸内科病房",
 };
 
 function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
@@ -171,7 +174,7 @@ function renderPage() {
 /** 开场 → 起一次会话 → 停在主界面（`beforeEach` 已备好 packs/create 的返回）。 */
 async function enterSession(user: UserEvent) {
 	renderPage();
-	await user.click(await screen.findByText("术后低氧"));
+	await startPack(user, PACK.title);
 	// 动作区常驻：它就是"已经进场"的稳定标志（不再有 affordance 按钮可等）
 	await screen.findByLabelText("动作区");
 }

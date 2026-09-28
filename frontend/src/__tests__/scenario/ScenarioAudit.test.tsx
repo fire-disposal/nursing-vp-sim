@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
@@ -51,6 +52,8 @@ const PACK = {
 	one_line: "夜班，患者痰多却吸不出来。",
 	revision_id: 6,
 	revision_no: 6,
+	player_role: "夜班护士",
+	place: "呼吸内科病房",
 };
 
 const notFound = (detail = "情境包不存在") => ({
@@ -156,7 +159,7 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		const user = userEvent.setup();
 		mocks.createScenarioSession.mockRejectedValue(notFound("情境包不存在"));
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 
 		await waitFor(() => {
 			expect(mocks.createScenarioSession).toHaveBeenCalled();
@@ -205,9 +208,10 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		const button = await screen.findByRole("button", { name: /吸痰无效/ });
 		expect(button).toBeDisabled();
 		expect(button).toHaveAttribute("aria-disabled", "true");
-		// 不能用还要解释一遍是平台口吻：没有可点的修订就不给一行占位说明
+		expect(button).toHaveAccessibleName(`开始「${PACK.title}」`);
+		// 不能用还要解释一遍是平台口吻：没有可点的修订就不给一行占位说明（也没一行前提）
 		expect(screen.queryByText(/该病例没有可用修订/)).toBeNull();
-		expect(within(button).queryByText(PACK.one_line)).toBeNull();
+		expect(screen.queryByText(PACK.one_line)).toBeNull();
 
 		await user.click(button);
 		expect(mocks.createScenarioSession).not.toHaveBeenCalled();
@@ -239,7 +243,7 @@ describe("H2：校验失败不把后端原文吐给学生", () => {
 			}),
 		});
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		expect(screen.getByLabelText("你要做什么")).toHaveAttribute(
@@ -274,7 +278,7 @@ describe("H2：校验失败不把后端原文吐给学生", () => {
 			message: "Request failed with status code 422",
 		});
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		await chooseCustomAction(user);
@@ -296,7 +300,7 @@ describe("H3：回合进行中的输入（停下 / 落地后清空）", () => {
 		const turn = deferred<unknown>();
 		mocks.postScenarioAction.mockReturnValue(turn.promise);
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		const area = await screen.findByLabelText("你要做什么");
@@ -324,7 +328,7 @@ describe("H3：回合进行中的输入（停下 / 落地后清空）", () => {
 	it("没有新输入时照旧清空（原行为不变）", async () => {
 		const user = userEvent.setup();
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		await chooseCustomAction(user);
@@ -365,7 +369,7 @@ describe("M2：开启会话期间有反馈", () => {
 		const start = deferred<unknown>();
 		mocks.createScenarioSession.mockReturnValue(start.promise);
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 
 		expect(await screen.findByRole("status")).toHaveTextContent("正在开启情境…");
 		start.resolve({
@@ -383,7 +387,7 @@ describe("M4：回合结束后焦点回到自由通道", () => {
 	it("动作落地后 activeElement 是自由通道输入，且回合被播报", async () => {
 		const user = userEvent.setup();
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		await chooseCustomAction(user);
@@ -424,7 +428,7 @@ describe("M3：会话进地址栏（?session=）", () => {
 	it("开启会话后地址栏带上 ?session=，回列表时清掉", async () => {
 		const user = userEvent.setup();
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		await waitFor(() => {
@@ -456,7 +460,7 @@ describe("L1/L7：建议上限与失败播报", () => {
 			}),
 		});
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		expect(screen.getAllByRole("button", { name: /^建议 \d/ })).toHaveLength(3);
@@ -471,7 +475,7 @@ describe("L1/L7：建议上限与失败播报", () => {
 			message: "Request failed with status code 500",
 		});
 		renderConsole();
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 
 		await chooseCustomAction(user);

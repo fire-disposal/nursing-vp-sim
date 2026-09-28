@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 import { chooseCustomAction } from "./intent";
 
 /**
@@ -44,6 +45,8 @@ const PACK = {
 	one_line: "夜班，患者痰多却吸不出来。",
 	revision_id: 6,
 	revision_no: 6,
+	player_role: "夜班护士",
+	place: "呼吸内科病房",
 };
 
 function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
@@ -115,7 +118,7 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 			</MemoryRouter>
 		</QueryClientProvider>,
 	);
-	await user.click(await screen.findByText(PACK.title));
+	await startPack(user, PACK.title);
 	await screen.findByLabelText("动作区");
 }
 

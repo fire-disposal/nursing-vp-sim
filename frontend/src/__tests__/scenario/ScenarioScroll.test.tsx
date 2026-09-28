@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
@@ -38,6 +39,8 @@ const PACK = {
 	one_line: "夜班，患者痰多却吸不出来。",
 	revision_id: 6,
 	revision_no: 6,
+	player_role: "夜班护士",
+	place: "呼吸内科病房",
 };
 
 /** jsdom 没有排版：把台词流的高度量出来，让"是否贴底"这件事可被真实断言。 */
@@ -123,7 +126,7 @@ async function enterSession(user: UserEvent) {
 			</MemoryRouter>
 		</QueryClientProvider>,
 	);
-	await user.click(await screen.findByText(PACK.title));
+	await startPack(user, PACK.title);
 	await screen.findByLabelText("动作区");
 }
 

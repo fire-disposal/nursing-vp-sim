@@ -61,18 +61,21 @@
 	--sc-3: var(--mantine-spacing-sm);
 	--sc-4: var(--mantine-spacing-md);
 
-	/* ── 字号：全部取自主题刻度（xs 12 / sm 13 / md 15 / lg 17）──
+	/* ── 字号：全部取自主题刻度（xs 12 / sm 13 / md 15 / lg 17 / xl 22）──
 	   同页面与 Mantine 组件并置时不出现"两个世界"。 */
 	--sc-fs-meta: var(--mantine-font-size-xs); /* 12 元信息/状态词 */
 	--sc-fs-sm: var(--mantine-font-size-sm); /* 13 次级正文 */
 	--sc-fs-body: var(--mantine-font-size-md); /* 15 台词/读数正文 */
+	--sc-fs-lg: var(--mantine-font-size-lg); /* 17 卡片标题 */
+	--sc-fs-heading: var(--mantine-font-size-xl); /* 22 内容标题（= 主题 heading h2） */
 	--sc-lh-tight: 1.45;
 	--sc-lh-body: 1.55;
 
-	/* 控件高度两档：主控件 28、行内小件 24。
+	/* 控件高度三档：主控件 28、行内小件 24、卡片级动作 36（与 /training 卡片按钮同高）。
 	   触屏（pointer: coarse）统一抬到 44，保证触控目标（桌面视觉密度不变）。 */
 	--sc-h-sm: 24px;
 	--sc-h: 28px;
+	--sc-h-lg: 36px;
 	--sc-control-h: var(--sc-h);
 
 	/* 头像列宽（台词网格第一列）与列间距：旁白缩进对齐到台词文字 */
@@ -98,6 +101,7 @@
 	.sc-root {
 		--sc-h: 44px;
 		--sc-h-sm: 44px;
+		--sc-h-lg: 44px;
 	}
 }
 
@@ -1178,7 +1182,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sc-1);
-	min-height: var(--sc-h-sm);
+	/* 与同一层级的 DM 选项 chip（`.sc-option`）同高：两者都是"点一下就说/做"的快捷入口 */
+	min-height: var(--sc-control-h);
 	padding: 0 var(--sc-2);
 	border: 1px solid transparent;
 	border-radius: var(--sc-radius);
@@ -1332,6 +1337,12 @@
 .sc-btn:disabled {
 	opacity: 0.45;
 	cursor: not-allowed;
+}
+
+/* 卡片级动作高度（36；触屏 44）：/training 的卡片按钮与空态动作就是这个高度 */
+.sc-btn-lg {
+	min-height: var(--sc-h-lg);
+	padding: 0 var(--sc-4);
 }
 
 /* 主行动就是发送键：底色强调（`.sc-send` 的形态见 .sc-composer 一节） */
@@ -1513,11 +1524,6 @@ button.sc-panel-head:hover {
 .sc-panel-title {
 	font-weight: 600;
 	color: var(--sc-text);
-}
-
-.sc-panel-toggle-mark {
-	color: var(--sc-dim);
-	font-variant-numeric: tabular-nums;
 }
 
 .sc-panel-body {
@@ -1774,11 +1780,34 @@ button.sc-panel-head:hover {
 	outline-offset: 2px;
 }
 
-/* ── 开场：情境选择 ── */
+/* ── 开场：情境选择 ──
+   入口页与 /training（病例选择）同一族：**内容标题 → 卡片网格 → 次级分组（我的情境经历）**。
+   刻度抄自 /training：内容标题 22/700、卡片 8px 圆角 + 16 内边距 + 1px 线、卡内标题明显大于正文、
+   元信息用淡底小徽章（12/700、16 高）、动作贴底（36 高、13/600）。 */
 .sc-open {
 	display: flex;
 	flex-direction: column;
+	/* 分节节奏 24 —— 与 /training 的 Stack gap="lg" 一致 */
+	gap: var(--mantine-spacing-lg);
+	width: 100%;
+	/* 内容列与 /training 同宽（1140），大屏上不把卡片摊满整屏 */
+	max-width: 1140px;
+	margin-inline: auto;
+}
+
+.sc-open-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
 	gap: var(--sc-3);
+}
+
+.sc-open-title {
+	margin: 0;
+	font-size: var(--sc-fs-heading);
+	font-weight: 700;
+	line-height: 1.35;
+	color: var(--sc-text);
 }
 
 .sc-gate {
@@ -1823,57 +1852,121 @@ button.sc-panel-head:hover {
 	color: var(--sc-dim);
 }
 
+/* 病例卡网格：桌面 2 列、窄屏 1 列 */
 .sc-packs {
-	display: flex;
-	flex-direction: column;
-	border: 1px solid var(--sc-line);
-	background: var(--sc-surface);
-	border-radius: var(--sc-radius-container);
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	/* 卡片间距 16 —— /training 的 SimpleGrid spacing="md" */
+	gap: var(--sc-4);
+}
+
+@media (max-width: 760px) {
+	.sc-packs {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 .sc-pack {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	text-align: left;
-	padding: var(--sc-2) var(--sc-3);
-	border: 0;
-	border-top: 1px solid var(--sc-line);
-	background: transparent;
-	color: var(--sc-text);
-	font: inherit;
-	cursor: pointer;
+	/* 卡内步进 12 —— /training 病例卡同值 */
+	gap: var(--sc-3);
+	padding: var(--sc-4);
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius-container);
+	background: var(--sc-surface);
+	/* hover 抬升：与 /training `.case-card` 同一句 */
+	transition: box-shadow 150ms ease, transform 150ms ease;
 }
 
-.sc-pack:first-child {
-	border-top: 0;
+.sc-pack:hover {
+	box-shadow: var(--mantine-shadow-sm);
+	transform: translateY(-1px);
 }
 
-.sc-pack:hover:not(:disabled) {
-	background: var(--sc-hover);
+.sc-pack-head {
+	display: flex;
+	flex-direction: column;
+	/* 标题与前提贴紧（2），与 /training 病例卡同构 */
+	gap: 2px;
+	min-width: 0;
 }
 
-.sc-pack:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
+/* 卡片标题 17/600：明显大于卡内正文（12）与页面正文（13），与主题字号刻度同源 */
 .sc-pack-title {
-	font-size: var(--sc-fs-body);
+	margin: 0;
+	font-size: var(--sc-fs-lg);
 	font-weight: 600;
+	line-height: 1.35;
+	color: var(--sc-text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
 	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
 }
+
+/* 没有可用修订的包：整卡不可点，标题一并弱化（不给一行占位说明） */
+.sc-pack[data-usable="false"] .sc-pack-title {
+	color: var(--sc-dim);
+}
+
+/* 学生语义徽章成排放在标题下（与 /training 卡片的 CapBadges 行同位、同 4px 间距） */
+.sc-pack-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sc-0);
+	min-width: 0;
+}
+
+/* 学生语义徽章：与 /training 病例卡的 `Badge variant="light" size="xs"` 同刻度（12/700、16 高、4 圆角、淡底） */
+.sc-badge {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	height: 16px;
+	padding: 0 var(--sc-1);
+	border-radius: var(--sc-radius);
+	background: var(--sc-accent-soft);
+	color: var(--sc-accent-text);
+	font-size: var(--sc-fs-meta);
+	font-weight: 700;
+	white-space: nowrap;
+}
+
 .sc-pack-one-line {
+	margin: 0;
 	font-size: var(--sc-fs-meta);
 	line-height: var(--sc-lh-body);
 	color: var(--sc-dim);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
 	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
 }
-/* ── 我的情境经历（学生侧历史） ── */
+
+/* 卡片动作：**右对齐、只占内容宽度**。
+   卡片比 /training 的病例卡宽得多（562 vs 369），同一个 width:100% 会被拉成一条横幅、
+   整页视觉重量被它支配；这里保留与 /training 相同的实心动作形态（36 高 / 13-600 / filled 品牌色），
+   但只占自己那一块，让卡片以内容为主。 */
+.sc-pack-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: auto;
+}
+
+.sc-pack-start {
+	border-color: transparent;
+	background: var(--sc-accent);
+	color: var(--mantine-primary-color-contrast);
+}
+
+.sc-pack-start:hover:not(:disabled) {
+	border-color: transparent;
+	background: var(--mantine-color-brand-8);
+}
+
+/* ── 我的情境经历（学生侧历史）：次级分组 ──
+   分组标题抄 /training 的分组写法（16 图标 + 13/500 文字），下挂一个带边框的紧凑列表。 */
 .sc-history {
 	display: flex;
 	flex-direction: column;
@@ -1881,6 +1974,31 @@ button.sc-panel-head:hover {
 	background: var(--sc-surface);
 	overflow: hidden;
 	border-radius: var(--sc-radius-container);
+}
+
+.sc-section-head {
+	display: flex;
+	align-items: center;
+	gap: var(--sc-2);
+	padding: var(--sc-3) var(--sc-3) 0;
+}
+
+.sc-section-icon {
+	flex: none;
+	color: var(--sc-dim);
+}
+
+.sc-section-title {
+	font-size: var(--sc-fs-sm);
+	font-weight: 500;
+	color: var(--sc-text);
+}
+
+.sc-section-mark {
+	margin-left: auto;
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+	font-variant-numeric: tabular-nums;
 }
 
 .sc-history-list {
@@ -1944,12 +2062,43 @@ button.sc-panel-head:hover {
 	text-align: left;
 }
 
-.sc-history-error {
+/* ── 空态：抄 /training 的 `EmptyState` 写法（虚线图标瓷片 56 + 一级标题 + 可选动作）── */
+.sc-blank {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--sc-3);
-	padding: var(--sc-2) var(--sc-3);
+	justify-content: center;
+	gap: var(--sc-2);
+	padding: 48px var(--sc-4);
+	text-align: center;
+}
+
+/* 嵌在已有边框的容器里（如「我的情境经历」）时收紧留白 */
+.sc-blank[data-compact="true"] {
+	padding: var(--sc-4) var(--sc-3);
+}
+
+.sc-blank-icon {
+	display: grid;
+	place-items: center;
+	width: 56px;
+	height: 56px;
+	border: 1px dashed var(--sc-line);
+	border-radius: var(--sc-radius-container);
+	color: var(--sc-dim);
+}
+
+.sc-blank-title {
+	font-size: var(--sc-fs-sm);
+	font-weight: 600;
+	color: var(--sc-dim);
+}
+
+.sc-blank-desc {
+	max-width: 320px;
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+	line-height: var(--sc-lh-body);
 }
 
 /* ── 经历页（结算） ── */

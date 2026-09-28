@@ -6,6 +6,7 @@ import { render, screen, waitFor, within } from "@/__tests__/render";
 import type { ScenarioBoard, ScenarioView } from "@/api/scenario";
 import { STUDENT_FALLBACK_NOTICE } from "@/scenario/problems";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
@@ -39,6 +40,8 @@ const PACK = {
 	one_line: "夜班值班，三条线同时响。",
 	revision_id: 4,
 	revision_no: 2,
+	player_role: "值班医生",
+	place: "值班室",
 };
 
 /** 白板：现场看到的 + 你注意到的两块（与 view.situation 同源，所以只该出现一次）。 */
@@ -149,7 +152,7 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 		view,
 	});
 	renderConsole();
-	await user.click(await screen.findByText(PACK.title));
+	await startPack(user, PACK.title);
 	// 动作区常驻：它就是"已经进场"的稳定标志（affordance 不再上界面）
 	await screen.findByLabelText("动作区");
 }
@@ -504,6 +507,31 @@ describe("学生侧渲染：入口页", () => {
 
 		expect(screen.getAllByText("情境训练")).toHaveLength(1);
 		expect(screen.getByRole("region", { name: "情境训练" })).toBeInTheDocument();
+	});
+
+	it("病例卡：内容标题 + 学生语义徽章 + 贴底的开始动作；作者态字段不进学生面", async () => {
+		const user = userEvent.setup();
+		renderConsole();
+		await screen.findByText(PACK.title);
+
+		expect(
+			screen.getByRole("heading", { level: 2, name: "选一个情境开始" }),
+		).toBeInTheDocument();
+		const card = screen.getByText(PACK.title).closest(".sc-pack");
+		expect(card).not.toBeNull();
+		const inCard = within(card as HTMLElement);
+		expect(inCard.getByText(PACK.one_line)).toBeInTheDocument();
+		// 徽章是"我是谁 / 我在哪"，来自病例自己的声明
+		expect(inCard.getByText(PACK.player_role)).toBeInTheDocument();
+		expect(inCard.getByText(PACK.place)).toBeInTheDocument();
+		// 作者态字段（UI 审计 C4）：夹具的 state 就是 experimental，它不该出现在学生面
+		expect(screen.queryByText(/experimental|修订/)).toBeNull();
+
+		// 明确的开始动作：卡片本身不是按钮，动作在卡片里贴底
+		await user.click(inCard.getByRole("button", { name: `开始「${PACK.title}」` }));
+		await waitFor(() => {
+			expect(mocks.createScenarioSession).toHaveBeenCalled();
+		});
 	});
 });
 

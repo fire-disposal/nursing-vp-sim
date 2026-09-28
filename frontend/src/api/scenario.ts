@@ -25,6 +25,10 @@ export interface ScenarioPackSummary {
 	one_line: string;
 	revision_id: number | null;
 	revision_no: number | null;
+	/** 你将扮演谁（`pack.player.role`，如「夜班护士」）——入口页卡片的**学生语义**徽章。 */
+	player_role: string;
+	/** 在哪儿（`pack.setting.place`，如「呼吸内科病房」）。 */
+	place: string;
 }
 
 export interface ScenarioMessage {

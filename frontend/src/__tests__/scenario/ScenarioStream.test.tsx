@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import type { ScenarioView } from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import { startPack } from "./entry";
 import { chooseCustomAction } from "./intent";
 
 const mocks = vi.hoisted(() => ({
@@ -37,6 +38,8 @@ const PACK = {
 	one_line: "夜班，患者痰多却吸不出来。",
 	revision_id: 6,
 	revision_no: 6,
+	player_role: "夜班护士",
+	place: "呼吸内科病房",
 };
 
 function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
@@ -112,7 +115,7 @@ async function enterSession(user: UserEvent, view: ScenarioView) {
 			</MemoryRouter>
 		</QueryClientProvider>,
 	);
-	await user.click(await screen.findByText(PACK.title));
+	await startPack(user, PACK.title);
 	await screen.findByLabelText("动作区");
 }
 
@@ -310,7 +313,7 @@ describe("块级增量渲染", () => {
 			pack: { key: PACK.key, title: PACK.title, revision_id: 6 },
 			view: makeView({ session: { id: 77, status: "active", turn: 0, lost: false } }),
 		});
-		await user.click(await screen.findByText(PACK.title));
+		await startPack(user, PACK.title);
 		await screen.findByLabelText("动作区");
 		expect(screen.queryByRole("button", { name: "重试" })).toBeNull();
 		expect(screen.queryByText("本回合生成中断，请重试")).toBeNull();

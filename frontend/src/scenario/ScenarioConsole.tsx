@@ -1,8 +1,14 @@
 import { VisuallyHidden } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import {
+	IconAlertTriangle,
+	IconArrowLeft,
+	IconHistory,
+	IconPlayerPlay,
+	IconStack2,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
@@ -86,6 +92,36 @@ function ConsoleTopbar({
 			</button>
 			<span className="sc-topbar-title">{title}</span>
 			{meta !== undefined && <span className="sc-topbar-meta">{meta}</span>}
+		</div>
+	);
+}
+
+/**
+ * 空态：与 `/training` 的 `EmptyState` 同一写法（虚线图标瓷片 + 一级标题 + 可选动作），
+ * 只是这里用控制台自己的形状刻度画（不自带调色板、不引入 Mantine 组件）。
+ */
+function ConsoleEmpty({
+	icon: Icon,
+	title,
+	description,
+	action,
+	compact = false,
+}: {
+	icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+	title: string;
+	description?: string;
+	action?: ReactNode;
+	/** 嵌在已有边框的容器里（如「我的情境经历」）时收紧纵向留白。 */
+	compact?: boolean;
+}) {
+	return (
+		<div className="sc-blank" data-compact={compact}>
+			<span className="sc-blank-icon">
+				<Icon size={26} strokeWidth={1.5} />
+			</span>
+			<div className="sc-blank-title">{title}</div>
+			{description !== undefined && <div className="sc-blank-desc">{description}</div>}
+			{action !== undefined && <div className="sc-blank-action">{action}</div>}
 		</div>
 	);
 }
@@ -595,60 +631,92 @@ export default function ScenarioConsole() {
 					<ConsoleTopbar onBack={goBack} title="情境训练" />
 					<div className="sc-gate sc-gate-wide">
 					<section className="sc-open" aria-label="情境训练">
-						{opening && (
-							<div className="sc-open-status" role="status">
-								正在开启情境…
-							</div>
-						)}
+						{/* 内容标题：与 /training 的 H2 同刻度（22/700），只表达"选一个情境"，
+						    不与沉浸壳顶栏的「情境训练」重复，也不写说明文字（UI 审计 C5）。 */}
+						<div className="sc-open-head">
+							<h2 className="sc-open-title">选一个情境开始</h2>
+							{opening && (
+								<div className="sc-open-status" role="status">
+									正在开启情境…
+								</div>
+							)}
+						</div>
 						{packs.length === 0 ? (
-							<div className="sc-gate-body">还没有可用的情境包。</div>
+							<ConsoleEmpty icon={IconStack2} title="还没有可用的情境包。" />
 						) : (
 							<div className="sc-packs">
 								{packs.map((pack) => {
 									// 没有可用修订的包点了必然失败：不给点（也不给一行占位说明）
 									const usable = pack.revision_id !== null;
+									// 卡片徽章只承接病例自己的两个学生语义字段（我是谁 / 我在哪）；
+									// 缺哪项就不显示哪枚——不显示 state/revision_no 这类作者态字段（UI 审计 C4）。
+									const badges = [pack.player_role, pack.place].filter(Boolean);
 									return (
-										<button
-											key={pack.key}
-											type="button"
-											className="sc-pack"
-											disabled={busy || !usable}
-											aria-disabled={!usable}
-											onClick={() => usable && start(pack)}
-										>
-											<span className="sc-pack-title">{pack.title}</span>
-											{usable && (
-												<span className="sc-pack-one-line">{pack.one_line}</span>
+										<article key={pack.key} className="sc-pack" data-usable={usable}>
+											<div className="sc-pack-head">
+												<h3 className="sc-pack-title">{pack.title}</h3>
+												{usable && (
+													<p className="sc-pack-one-line">{pack.one_line}</p>
+												)}
+											</div>
+											{badges.length > 0 && (
+												<div className="sc-pack-badges">
+													{badges.map((label) => (
+														<span key={label} className="sc-badge">
+															{label}
+														</span>
+													))}
+												</div>
 											)}
-										</button>
+											<div className="sc-pack-actions">
+												<button
+													type="button"
+													className="sc-btn sc-btn-lg sc-pack-start"
+													disabled={busy || !usable}
+													aria-disabled={!usable}
+													aria-label={`开始「${pack.title}」`}
+													onClick={() => usable && start(pack)}
+												>
+													<IconPlayerPlay size={14} aria-hidden="true" />
+													开始
+												</button>
+											</div>
+										</article>
 									);
 								})}
 							</div>
 						)}
 
 						<section className="sc-history" aria-label="我的情境经历">
-							<div className="sc-panel-head">
-								<span>我的情境经历</span>
-								<span className="sc-panel-toggle-mark">{history.length} 次</span>
+							<div className="sc-section-head">
+								<IconHistory size={16} className="sc-section-icon" aria-hidden="true" />
+								<span className="sc-section-title">我的情境经历</span>
+								{history.length > 0 && (
+									<span className="sc-section-mark">{history.length} 次</span>
+								)}
 							</div>
 							{historyQuery.isLoading ? (
-								<div className="sc-empty">正在读取…</div>
-							) : historyQuery.isError ? (
-								<div className="sc-history-error">
-									<div className="sc-empty">
-										情境经历读取失败：
-										{getApiErrorMessage(historyQuery.error, "请稍后重试")}
-									</div>
-									<button
-										type="button"
-										className="sc-ghost-btn"
-										onClick={() => historyQuery.refetch()}
-									>
-										重试
-									</button>
+								<div className="sc-blank" data-compact="true">
+									<div className="sc-blank-title">正在读取…</div>
 								</div>
+							) : historyQuery.isError ? (
+								<ConsoleEmpty
+									icon={IconAlertTriangle}
+									title="情境经历读取失败"
+									description={getApiErrorMessage(historyQuery.error, "请稍后重试")}
+									compact
+									action={
+										<button
+											type="button"
+											className="sc-btn sc-btn-lg"
+											onClick={() => historyQuery.refetch()}
+										>
+											重试
+										</button>
+									}
+								/>
 							) : history.length === 0 ? (
-								<div className="sc-empty">还没有情境经历。</div>
+								<ConsoleEmpty icon={IconHistory} title="还没有情境经历。" compact />
 							) : (
 								<>
 									<div className="sc-history-list">

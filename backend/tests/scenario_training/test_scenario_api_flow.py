@@ -123,6 +123,18 @@ def test_student_side_requires_scenario_training_permission(client, pg_session) 
     assert client.get("/api/scenario/packs").status_code == 200
 
 
+def test_packs_listing_carries_student_meta(client, pg_session, installed_pack) -> None:
+    """入口页选情境要读的是"我是谁、在哪"：列表下发 `player_role` / `place`，取自 pack 声明本身。
+
+    学生面不放作者态字段（`state` / `revision_no`），因此这两项不能是空串，
+    且必须与 pack 里写的逐字一致——界面不替病例编词。
+    """
+    pack, _ = installed_pack
+    row = next(item for item in client.get("/api/scenario/packs").json() if item["key"] == PACK_KEY)
+    assert row["player_role"] == pack.player.role == "夜班护士"
+    assert row["place"] == pack.setting.place == "呼吸内科病房"
+
+
 def test_full_turn_pipeline(client, pg_session, installed_pack) -> None:
     pack, revision = installed_pack
     opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
@@ -183,6 +195,35 @@ def test_full_turn_pipeline(client, pg_session, installed_pack) -> None:
     assert report["score"]["total_weight"] > 0
     assert report["criteria"]
     assert all("weight" in row and "score" in row for row in report["criteria"])
+
+
+def test_my_sessions_reports_real_turn_for_active_session(client, pg_session, installed_pack) -> None:
+    """进行中的会话也要说**真实回合数**：列表的 `turn` 不能因为"还没结算"就一直是空的。
+
+    `st_sessions.report` 只在结算时写，所以旧实现下"已经做了一个动作"的会话在入口页显示成
+    「未开始」（生产实测如此）。修好后：没动过 → 回合数空（界面写「未开始」）；
+    动过 → 回合数 ≥ 1（界面写「未结算 · 第 N 回合」）。
+    """
+    opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
+    assert opened.status_code == 200, opened.text
+    session_id = opened.json()["session_id"]
+
+    def row() -> dict[str, Any]:
+        rows = client.get("/api/scenario/sessions").json()
+        return next(item for item in rows if item["id"] == session_id)
+
+    # 开场回合是 DM 做的，学生还没动手 → 仍然是"未开始"
+    assert row()["turn"] is None
+    assert row()["status"] == "active"
+
+    acted = client.post(
+        f"/api/scenario/sessions/{session_id}/actions",
+        json={"affordance_id": "measure_spo2"},
+    )
+    assert acted.status_code == 200, acted.text
+
+    assert row()["turn"] == 1
+    assert row()["status"] == "active"
 
 
 def test_stream_endpoint_emits_blocks_before_view(client, pg_session, installed_pack) -> None:

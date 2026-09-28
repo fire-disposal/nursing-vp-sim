@@ -127,6 +127,24 @@ def latest_revision(db: Session, pack_key: str) -> tuple[StPack, StPackRevision]
     return pack, revision
 
 
+def _student_meta(content: dict[str, Any]) -> dict[str, str]:
+    """列表投影里的**学生语义**字段：你将扮演谁（`player.role`）、在哪儿（`setting.place`）。
+
+    学生选情境时要读的是"我是谁、在哪"，不是编辑态字段——`state`（experimental 等）与
+    `revision_no` 属作者态，学生面不展示（UI 审计 C4）。
+
+    这里**只取两个展示字段、不整包校验**：列表是入口页的读取路径，不该因为某个历史修订
+    校验不过而整个 500；内容合法性在安装与加载期已由 `validate_pack` 把关。缺字段给空串，
+    由界面决定不显示。
+    """
+    player = content.get("player")
+    setting = content.get("setting")
+    return {
+        "player_role": str(player.get("role") or "") if isinstance(player, dict) else "",
+        "place": str(setting.get("place") or "") if isinstance(setting, dict) else "",
+    }
+
+
 def list_packs(db: Session) -> list[dict[str, Any]]:
     """供前端/开发选择：每个 pack 的最新修订摘要。"""
     packs = db.execute(select(StPack).order_by(StPack.key)).scalars().all()
@@ -146,6 +164,7 @@ def list_packs(db: Session) -> list[dict[str, Any]]:
                 "one_line": pack.one_line,
                 "revision_id": revision.id if revision else None,
                 "revision_no": revision.revision_no if revision else None,
+                **_student_meta(revision.content if revision is not None else {}),
             }
         )
     return out
