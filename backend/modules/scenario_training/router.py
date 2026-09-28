@@ -47,7 +47,7 @@ from .runtime.session import (
 )
 from .runtime.view import build_view
 from .runtime.world import ActionRecord, apply_effects, due_reactions, reveal_cues
-from .schema import Asset, PackState, Presence, ScenarioPack
+from .schema import PACK_SCHEMA_VERSION, Asset, PackState, Presence, ScenarioPack
 from .validation import validate_pack
 
 _ContentManager = Depends(require_permission("case_manage"))
@@ -566,6 +566,143 @@ async def admin_upload_pack(
     with unit_of_work(db, conflict_detail="上传情境包失败"):
         _, revision, created = _install_pack(db, pack, note=note or f"upload by {current_user.id}")
         # 播种与修订在**同一事务**里：播种失败不会留下"包已入库、资源没入库"的半截状态。
+        assets_pending = assets_mod.seed_from_pack(db, pack)
+    return {
+        "key": pack.key,
+        "revision_id": revision.id,
+        "revision_no": revision.revision_no,
+        "created": created,
+        "assets_pending": assets_pending,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 场景编辑器（管理侧「编辑」块）
+#
+# 三条路，一条真源：
+# - **读**：`GET .../source` 给编辑器的**原始 content**（不是概览投影——编辑器要改的就是它）；
+# - **校验**：`POST .../validate` 走 `pack_loader.validate_content`（与安装/加载同一套校验，
+#   不新增第二套），把问题翻成"字段路径 + 原因"；
+# - **写**：`POST .../revisions` 一律**追加新修订**（`_install_pack`），内容未变则幂等复用。
+# 编辑器**永不原地修改**：没有 PATCH 修订内容的接口。
+# --------------------------------------------------------------------------- #
+
+
+class PackContentRequest(BaseModel):
+    """编辑器提交的完整 pack 内容（原始 dict，形状由引擎校验）。"""
+
+    content: dict[str, Any]
+    note: str = Field(default="", max_length=200)
+
+
+class PackValidation(BaseModel):
+    ok: bool
+    problems: list[dict[str, str]]
+    """`{"path": "affordances[suction].type", "message": …}`；`ok=false` 时非空。"""
+    content_sha: str | None
+    latest_sha: str | None
+    will_append: bool
+    """内容与最新修订不同 → 保存会追加新修订；相同 → 幂等复用（不产生假修订）。"""
+    next_revision_no: int | None
+    pack_schema_version: int
+
+
+def _revision_rows(db: DbSession, pack_id: int) -> list[StPackRevision]:
+    return list(
+        db.execute(
+            select(StPackRevision).where(StPackRevision.pack_id == pack_id).order_by(StPackRevision.revision_no.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _validation_of(db: DbSession, pack_key: str, content: dict[str, Any]) -> PackValidation:
+    """用**同一套**加载期校验算校验结果与"会不会追加修订"（保存前的确认摘要据此显示）。"""
+    problems = pack_loader.validate_content(content)
+    sha: str | None = None
+    if not problems:
+        sha = ScenarioPack.model_validate(content).content_sha()
+    revisions = _revision_rows(db, _require_pack(db, pack_key).id)
+    latest = revisions[0] if revisions else None
+    will_append = sha is None or latest is None or latest.content_sha != sha
+    return PackValidation(
+        ok=not problems,
+        problems=problems,
+        content_sha=sha,
+        latest_sha=latest.content_sha if latest else None,
+        will_append=will_append,
+        next_revision_no=(latest.revision_no + 1)
+        if (will_append and latest is not None)
+        else (1 if will_append else None),
+        pack_schema_version=int(content.get("pack_schema_version", PACK_SCHEMA_VERSION)),
+    )
+
+
+@router.get("/admin/packs/{pack_key}/source", dependencies=[_ContentManager])
+def admin_pack_source(
+    pack_key: str,
+    db: DbSession,
+    revision_id: int | None = Query(default=None),
+) -> dict[str, Any]:
+    """编辑器：读某个病例**某一修订的原始内容**（默认最新修订）。
+
+    返回的 `problems` 是拿当前校验器跑这份内容的结果——历史修订可能已不合今天的 schema，
+    编辑器据此如实提示"载入即为修复起点"，而不是假装它一定干净。
+    """
+    row = _require_pack(db, pack_key)
+    revisions = _revision_rows(db, row.id)
+    if not revisions:
+        raise HTTPException(status_code=404, detail="这个病例还没有任何修订")
+    target = next((item for item in revisions if item.id == revision_id), None)
+    if revision_id is not None and target is None:
+        raise HTTPException(status_code=404, detail="指定的修订不属于这个病例")
+    if target is None:
+        target = revisions[0]
+    return {
+        "key": row.key,
+        "title": row.title,
+        "state": row.state,
+        "revision_id": target.id,
+        "revision_no": target.revision_no,
+        "note": target.note,
+        "content": target.content,
+        "problems": pack_loader.validate_content(target.content),
+        "revisions": [{"id": item.id, "no": item.revision_no, "note": item.note} for item in revisions],
+    }
+
+
+@router.post("/admin/packs/{pack_key}/validate", dependencies=[_ContentManager])
+def admin_validate_pack(pack_key: str, payload: PackContentRequest, db: DbSession) -> PackValidation:
+    """编辑器：保存前校验（不落库）。失败时每条问题都带字段路径，供界面定位。"""
+    return _validation_of(db, pack_key, payload.content)
+
+
+@router.post("/admin/packs/{pack_key}/revisions", dependencies=[_ContentManager])
+def admin_save_pack_revision(
+    pack_key: str,
+    payload: PackContentRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> dict[str, Any]:
+    """编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。"""
+    problems = pack_loader.validate_content(payload.content)
+    if problems:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "包未通过校验", "problems": problems},
+        )
+    pack = ScenarioPack.model_validate(payload.content)
+    if pack.key != pack_key:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "包内容与病例不一致",
+                "problems": [{"path": "key", "message": f"内容里的 key 是 {pack.key}"}],
+            },
+        )
+    with unit_of_work(db, conflict_detail="保存情境包失败"):
+        _, revision, created = _install_pack(db, pack, note=payload.note or f"editor by {current_user.id}")
         assets_pending = assets_mod.seed_from_pack(db, pack)
     return {
         "key": pack.key,

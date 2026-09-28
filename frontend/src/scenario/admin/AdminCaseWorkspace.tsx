@@ -5,11 +5,13 @@ import {
 	IconDatabase,
 	IconHistory,
 	IconInfoCircle,
+	IconPencil,
 	IconSparkles,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 import type { ScenarioAdminPack } from "@/api/scenario";
 import AdminAssetsPanel from "./AdminAssetsPanel";
+import AdminCaseEditorPanel from "./AdminCaseEditorPanel";
 import AdminCaseOverviewPanel from "./AdminCaseOverviewPanel";
 import AdminCaseRevisionsPanel from "./AdminCaseRevisionsPanel";
 import AdminGeneratedPanel from "./AdminGeneratedPanel";
@@ -19,6 +21,7 @@ import AdminStatsPanel from "./AdminStatsPanel";
 /** 病例工作区的分块。 */
 export type CaseBlock =
 	| "overview"
+	| "editor"
 	| "revisions"
 	| "assets"
 	| "generated"
@@ -38,6 +41,7 @@ export const CASE_BLOCKS: {
 	icon: ComponentType<{ size?: number }>;
 }[] = [
 	{ id: "overview", label: "概览", permission: "case_manage", icon: IconInfoCircle },
+	{ id: "editor", label: "编辑", permission: "case_manage", icon: IconPencil },
 	{ id: "revisions", label: "修订", permission: "case_manage", icon: IconHistory },
 	{ id: "assets", label: "资源", permission: "case_manage", icon: IconDatabase },
 	{ id: "generated", label: "生成物", permission: "case_manage", icon: IconSparkles },
@@ -126,6 +130,7 @@ export default function AdminCaseWorkspace({
 				{/* 每一块都独立挂载（`keepMounted={false}` 的等价语义）：换块不会把上一块的
 				    分页/展开态带过来，也不会同时发几块的请求 */}
 				{current === "overview" && <AdminCaseOverviewPanel pack={pack} />}
+				{current === "editor" && <AdminCaseEditorPanel pack={pack} />}
 				{current === "revisions" && <AdminCaseRevisionsPanel pack={pack} />}
 				{current === "assets" && <AdminAssetsPanel pack={pack} />}
 				{current === "generated" && (

@@ -473,7 +473,7 @@ failure: irreversible              # 连续 2–3 回合未探视 B → 意识�
 | 侧 | 入口 | 鉴权 | 接口 |
 |---|---|---|---|
 | 学生 | `/scenario`（学生侧栏/底部 Tab「情境」，2026-09-27 起进导航） | `scenario_training`（学生/教师/管理员均持有；存量库由 data 迁移 `c8d9e0f1a2b3` 补权） | `GET /packs`、`POST /sessions`、**`GET /sessions`（我的历史）**、`GET/POST /sessions/{id}[/actions|/close|/actions/stream]`、`GET /assets/{revision_id}/{asset_id}` |
-| 管理 | `/scenario-admin`（管理侧栏「情境管理」，条目门 `case_manage`；路由级**不判**权限，页面内按块判） | 内容 `case_manage`、数据 `stats_view` | `GET/POST /admin/packs`、`PATCH /admin/packs/{key}`、`POST/DELETE /admin/packs/{key}/assets[/…]`、`GET /admin/packs/{key}/assets/{id}`、**`GET /admin/packs/{key}/generated`（病例内分页）**、`GET /admin/generated/{id}/content`、`DELETE /admin/generated/{id}`、`GET /admin/sessions[/{id}]`、`GET /admin/stats` |
+| 管理 | `/scenario-admin`（管理侧栏「情境管理」，条目门 `case_manage`；路由级**不判**权限，页面内按块判） | 内容 `case_manage`、数据 `stats_view` | `GET/POST /admin/packs`、`PATCH /admin/packs/{key}`、**`GET /admin/packs/{key}/source`（编辑器读原始内容）、`POST /admin/packs/{key}/validate`（保存前校验，问题带字段路径）、`POST /admin/packs/{key}/revisions`（保存即追加新修订）**、`POST/DELETE /admin/packs/{key}/assets[/…]`、`GET /admin/packs/{key}/assets/{id}`、**`GET /admin/packs/{key}/generated`（病例内分页）**、`GET /admin/generated/{id}/content`、`DELETE /admin/generated/{id}`、`GET /admin/sessions[/{id}]`、`GET /admin/stats` |
 
 - **资源字节存库**（`st_assets`，`LargeBinary`，与反馈图片同构）：管理侧**上传即追加一个新修订**——内容声明与字节一起版本化；
 - 仓库里的 `assets/<pack_key>/*` 只是**播种来源**（安装时入库），运行时不读文件系统；

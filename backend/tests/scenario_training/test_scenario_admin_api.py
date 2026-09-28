@@ -374,3 +374,148 @@ def test_admin_session_detail_anchor_panel_is_null_without_declarations(app_clie
     assert detail["anchors"] is None
     assert detail["session"]["id"] == session.id
     assert detail["events"][0]["kind"] == "student_action"
+
+
+# --------------------------------------------------------------------------- #
+# 场景编辑器：读原始内容 / 保存前校验（带字段路径） / 保存必追加新修订
+# --------------------------------------------------------------------------- #
+
+
+def test_editor_source_returns_raw_content_and_revisions(app_client, installed) -> None:
+    client, _holder, db = app_client
+    pack, revision = installed
+    body = client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source")
+    assert body.status_code == 200, body.text
+    source = body.json()
+    # 给的是**原始 content**（编辑器要改的就是它），不是概览投影
+    assert source["content"] == revision.content
+    assert source["revision_id"] == revision.id
+    assert source["revision_no"] == revision.revision_no
+    assert source["problems"] == []
+    assert [item["id"] for item in source["revisions"]] == [revision.id]
+
+    # 指定旧修订也能读（历史内容照原样给，不假装它还合今天的 schema）
+    doc = pack.model_dump(mode="json")
+    doc["one_line"] = "第二版文案"
+    older = client.post(
+        f"/api/scenario/admin/packs/{PACK_KEY}/revisions",
+        json={"content": doc, "note": "second"},
+    ).json()
+    assert older["revision_no"] == revision.revision_no + 1
+    assert (
+        client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source?revision_id={revision.id}").json()["content"]
+        == revision.content
+    )
+    assert client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source").json()["revision_id"] == older["revision_id"]
+
+
+def test_editor_validate_names_the_field_path(app_client, installed) -> None:
+    """校验失败必须**指名道姓**：形状错给 pydantic 的 loc，引用错给集合[id]。"""
+    client, _holder, _db = app_client
+    pack, _revision = installed
+
+    # 形状类：pydantic 直接给 loc（不会再往下跑引用校验——形状不过就没有"内容"可查）
+    shape = pack.model_dump(mode="json")
+    shape["actors"][0]["presence"] = "nowhere"
+    result = client.post(f"/api/scenario/admin/packs/{PACK_KEY}/validate", json={"content": shape}).json()
+    assert result["ok"] is False
+    assert result["content_sha"] is None
+    assert "actors.0.presence" in {item["path"] for item in result["problems"]}
+
+    # 引用/词表类：形状合法，`validate_pack` 的中文串被标签化成集合[id]
+    reference = pack.model_dump(mode="json")
+    reference["assets"][0]["alt"] = ""  # `asset <id>: 缺 alt`
+    result = client.post(f"/api/scenario/admin/packs/{PACK_KEY}/validate", json={"content": reference}).json()
+    assert result["ok"] is False
+    problems = {item["path"]: item["message"] for item in result["problems"]}
+    assert f"assets[{reference['assets'][0]['id']}]" in problems
+    assert all(message.strip() for message in problems.values())
+
+
+def test_editor_validate_reports_whether_saving_would_append(app_client, installed) -> None:
+    client, _holder, _db = app_client
+    pack, revision = installed
+    same = client.post(
+        f"/api/scenario/admin/packs/{PACK_KEY}/validate", json={"content": pack.model_dump(mode="json")}
+    ).json()
+    assert same["ok"] is True
+    assert same["content_sha"] == revision.content_sha
+    assert same["will_append"] is False
+    assert same["next_revision_no"] is None
+
+    changed = pack.model_dump(mode="json")
+    changed["one_line"] = "改过的文案"
+    edited = client.post(f"/api/scenario/admin/packs/{PACK_KEY}/validate", json={"content": changed}).json()
+    assert edited["will_append"] is True
+    assert edited["next_revision_no"] == revision.revision_no + 1
+    assert edited["content_sha"] != revision.content_sha
+
+
+def test_editor_save_appends_new_revision_and_is_idempotent(app_client, installed) -> None:
+    client, _holder, db = app_client
+    pack, revision = installed
+    db.commit()
+    before_content = revision.content
+
+    doc = pack.model_dump(mode="json")
+    doc["one_line"] = "夜班，吸不出来，血氧往下掉。"
+    saved = client.post(
+        f"/api/scenario/admin/packs/{PACK_KEY}/revisions",
+        json={"content": doc, "note": "文案修订"},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["created"] is True
+    assert saved.json()["revision_no"] == revision.revision_no + 1
+
+    latest = pack_loader.latest_revision(db, PACK_KEY)
+    assert latest is not None
+    row, new_revision = latest
+    assert new_revision.id != revision.id
+    assert new_revision.note == "文案修订"
+    assert new_revision.content["one_line"] == doc["one_line"]
+    assert row.title == doc["title"]  # 展示字段随包内容更新
+    # **旧修订原地不动**（永不原地修改）
+    assert db.get(StPackRevision, revision.id).content == before_content
+
+    # 内容未变再次保存 → 幂等复用，不产生假修订
+    again = client.post(
+        f"/api/scenario/admin/packs/{PACK_KEY}/revisions",
+        json={"content": doc, "note": "no-op"},
+    )
+    assert again.json()["created"] is False
+    assert again.json()["revision_id"] == new_revision.id
+    assert db.execute(select(func.count()).select_from(StPackRevision)).scalar() == 2
+
+
+def test_editor_save_rejects_invalid_content_and_key_mismatch(app_client, installed) -> None:
+    client, _holder, db = app_client
+    pack, _revision = installed
+    db.commit()
+
+    broken = pack.model_dump(mode="json")
+    broken["assets"][0]["alt"] = ""
+    rejected = client.post(f"/api/scenario/admin/packs/{PACK_KEY}/revisions", json={"content": broken})
+    assert rejected.status_code == 422
+    detail = rejected.json()["detail"]
+    assert detail["message"] == "包未通过校验"
+    assert any(item["message"] for item in detail["problems"])
+
+    other = pack.model_dump(mode="json")
+    other["key"] = "some-other-pack"
+    mismatched = client.post(f"/api/scenario/admin/packs/{PACK_KEY}/revisions", json={"content": other})
+    assert mismatched.status_code == 422
+    assert any(item["path"] == "key" for item in mismatched.json()["detail"]["problems"])
+
+    # 两条失败路径都不留半截数据
+    assert db.execute(select(func.count()).select_from(StPackRevision)).scalar() == 1
+
+
+def test_editor_endpoints_require_case_manage(app_client, installed) -> None:
+    client, holder, _db = app_client
+    pack, _revision = installed
+    holder["user"] = _FakeUser({"stats_view"})
+    assert client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source").status_code == 403
+    assert client.post(f"/api/scenario/admin/packs/{PACK_KEY}/validate", json={"content": {}}).status_code == 403
+    assert client.post(f"/api/scenario/admin/packs/{PACK_KEY}/revisions", json={"content": {}}).status_code == 403
+    holder["user"] = _FakeUser({"case_manage"})
+    assert client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source").status_code == 200

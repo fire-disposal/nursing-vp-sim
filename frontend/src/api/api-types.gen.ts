@@ -1786,6 +1786,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scenario/admin/packs/{pack_key}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Pack Source
+         * @description 编辑器：读某个病例**某一修订的原始内容**（默认最新修订）。
+         *
+         *     返回的 `problems` 是拿当前校验器跑这份内容的结果——历史修订可能已不合今天的 schema，
+         *     编辑器据此如实提示"载入即为修复起点"，而不是假装它一定干净。
+         */
+        get: operations["admin_pack_source_api_scenario_admin_packs__pack_key__source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/{pack_key}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Validate Pack
+         * @description 编辑器：保存前校验（不落库）。失败时每条问题都带字段路径，供界面定位。
+         */
+        post: operations["admin_validate_pack_api_scenario_admin_packs__pack_key__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/{pack_key}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Save Pack Revision
+         * @description 编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。
+         */
+        post: operations["admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scenario/admin/packs/{pack_key}": {
         parameters: {
             query?: never;
@@ -4020,6 +4083,21 @@ export interface components {
             /** Revision Id */
             revision_id?: number | null;
         };
+        /**
+         * PackContentRequest
+         * @description 编辑器提交的完整 pack 内容（原始 dict，形状由引擎校验）。
+         */
+        PackContentRequest: {
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** PackPatchRequest */
         PackPatchRequest: {
             state?: components["schemas"]["PackState"] | null;
@@ -4033,6 +4111,25 @@ export interface components {
          * @enum {string}
          */
         PackState: "experimental" | "reviewed";
+        /** PackValidation */
+        PackValidation: {
+            /** Ok */
+            ok: boolean;
+            /** Problems */
+            problems: {
+                [key: string]: string;
+            }[];
+            /** Content Sha */
+            content_sha: string | null;
+            /** Latest Sha */
+            latest_sha: string | null;
+            /** Will Append */
+            will_append: boolean;
+            /** Next Revision No */
+            next_revision_no: number | null;
+            /** Pack Schema Version */
+            pack_schema_version: number;
+        };
         /** PaginatedResponse[AssignmentListItem] */
         PaginatedResponse_AssignmentListItem_: {
             /** Items */
@@ -9916,6 +10013,113 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["Body_admin_upload_pack_api_scenario_admin_packs_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_pack_source_api_scenario_admin_packs__pack_key__source_get: {
+        parameters: {
+            query?: {
+                revision_id?: number | null;
+            };
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_validate_pack_api_scenario_admin_packs__pack_key__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackContentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackValidation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackContentRequest"];
             };
         };
         responses: {

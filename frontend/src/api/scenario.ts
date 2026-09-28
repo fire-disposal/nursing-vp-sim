@@ -831,6 +831,90 @@ export function adminScenarioAssetSrc(packKey: string, assetId: string): string 
 	return `/scenario/admin/packs/${encodeURIComponent(packKey)}/assets/${encodeURIComponent(assetId)}`;
 }
 
+// --------------------------------------------------------------------------- //
+// 场景编辑器（管理侧「编辑」块）
+//
+// pack 内容是一棵普通 JSON 树：形状由后端的加载期校验负责，前端**不复刻**校验器
+// （`POST .../validate` 与安装走同一套）。这里只声明 UI 消费的键。
+// --------------------------------------------------------------------------- //
+
+/** pack 内容里的一个 JSON 值（编辑器按普通树读写）。 */
+export type ScenarioPackValue =
+	| string
+	| number
+	| boolean
+	| null
+	| ScenarioPackValue[]
+	| { [key: string]: ScenarioPackValue };
+
+/** 一份 pack 内容（顶层是一张表）。 */
+export type ScenarioPackDoc = { [key: string]: ScenarioPackValue };
+
+/** 编辑器：一条校验问题。`path` 是稳定字段路径（如 `affordances[suction].type`、`actors.0.presence`）。 */
+export interface ScenarioPackProblem {
+	path: string;
+	message: string;
+}
+
+/** 编辑器：保存前校验的结果（不落库）。 */
+export interface ScenarioPackValidation {
+	ok: boolean;
+	problems: ScenarioPackProblem[];
+	/** 通过校验时的内容哈希；不通过为 `null`。 */
+	content_sha: string | null;
+	/** 最新修订的内容哈希（用来判断"这次保存会不会真的产生新修订"）。 */
+	latest_sha: string | null;
+	will_append: boolean;
+	next_revision_no: number | null;
+	/** 载入/校验时 pack 自带的 `pack_schema_version`。 */
+	pack_schema_version: number;
+}
+
+/** 编辑器：`GET /scenario/admin/packs/{key}/source` —— 原始内容 + 修订清单。 */
+export interface ScenarioAdminPackSource {
+	key: string;
+	title: string;
+	state: string;
+	revision_id: number;
+	revision_no: number;
+	note: string;
+	content: ScenarioPackDoc;
+	/** 这份内容拿**当前**校验器跑的结果（历史修订可能已不合今天的 schema）。 */
+	problems: ScenarioPackProblem[];
+	revisions: ScenarioAdminRevision[];
+}
+
+/** 编辑器：读某个病例某一修订的原始内容（`revisionId` 省略 = 最新修订）。 */
+export const getAdminScenarioPackSource = (packKey: string, revisionId?: number) =>
+	api
+		.get<ScenarioAdminPackSource>(
+			`/scenario/admin/packs/${packKey}/source` as ApiPath,
+			revisionId === undefined ? undefined : { params: { revision_id: revisionId } },
+		)
+		.then((r) => r.data);
+
+/** 编辑器：保存前校验（失败时每条问题都带字段路径）。 */
+export const validateAdminScenarioPack = (packKey: string, content: ScenarioPackDoc) =>
+	api
+		.post<ScenarioPackValidation>(
+			`/scenario/admin/packs/${packKey}/validate` as ApiPath,
+			{ content },
+		)
+		.then((r) => r.data);
+
+/** 编辑器保存：**追加新修订**（内容未变则幂等复用，返回 `created=false`）。 */
+export const saveAdminScenarioPackRevision = (
+	packKey: string,
+	content: ScenarioPackDoc,
+	note: string,
+) =>
+	api
+		.post<ScenarioAdminPackUpload>(
+			`/scenario/admin/packs/${packKey}/revisions` as ApiPath,
+			{ content, note },
+		)
+		.then((r) => r.data);
+
 export const listAdminScenarioSessions = (
 	query: ScenarioAdminSessionQuery = {},
 ) =>

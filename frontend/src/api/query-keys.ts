@@ -164,6 +164,9 @@ export const queryKeys = {
 			/** 生成物：分页/筛选都进 key（换页即换请求，不共用缓存）。 */
 			generated: (params: Record<string, unknown>) =>
 				[...queryKeys.scenario.admin.all, "generated", params] as const,
+			/** 场景编辑器：一份原始内容（换病例或换修订即换 key）。 */
+			source: (packKey: string, revisionId: number | null) =>
+				[...queryKeys.scenario.admin.all, "source", packKey, revisionId] as const,
 		},
 	},
 } as const;

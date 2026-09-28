@@ -12,9 +12,10 @@ from __future__ import annotations
 import inspect
 import json
 import pathlib
+import re
 from typing import TYPE_CHECKING, Any, Union, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 
 from models.scenario_training import StPack, StPackRevision
@@ -110,6 +111,89 @@ def _validated(content: dict[str, Any]) -> ScenarioPack:
     if problems:
         raise PackInvalid(problems)
     return pack
+
+
+# --------------------------------------------------------------------------- #
+# 校验问题的**字段定位**（编辑器用）
+#
+# 校验本身只有一套（`ScenarioPack` + `validate_pack`，与安装/加载逐字相同）；这里只是把
+# 它的两种输出翻译成"稳定路径 + 原因"：pydantic 已经带 `loc`，`validate_pack` 的中文串
+# 以 `affordance <id>:` 这样的定位前缀开头——**不新增判据**，只做标签化。
+# --------------------------------------------------------------------------- #
+
+_PREFIXED_PARENTS = {
+    "affordance": "affordances",
+    "reaction": "reactions",
+    "cue": "setting.cues",
+    "fact": "facts",
+    "criterion": "rubric",
+    "anchor": "anchors",
+    "asset": "assets",
+    "device": "presentation.devices",
+    "board": "presentation.board",
+}
+_PREFIXED_RE = re.compile(r"^(affordance|reaction|cue|fact|criterion|anchor|asset|device|board) ([^:]+?):")
+_HUD_RE = re.compile(r"^hud slot (\d+):")
+_DUPLICATE_RE = re.compile(
+    r"^(actor|affordance|cue|reaction|fact|criterion|dim|asset|anchor|device|board section) id 重复"
+)
+_DUPLICATE_PARENTS = {
+    "actor": "actors",
+    "affordance": "affordances",
+    "cue": "setting.cues",
+    "reaction": "reactions",
+    "fact": "facts",
+    "criterion": "rubric",
+    "dim": "dims",
+    "asset": "assets",
+    "anchor": "anchors",
+    "device": "presentation.devices",
+    "board section": "presentation.board",
+}
+
+
+def problem_path(message: str) -> str:
+    """把一条校验问题映射到**稳定路径**（`affordances[suction].type`）；认不出就返回空串。"""
+    match = _PREFIXED_RE.match(message)
+    if match is not None:
+        parent = _PREFIXED_PARENTS[match.group(1)]
+        target = match.group(2)
+        if "/" in target:  # device 的通道：`device <设备 id>/<状态键>`
+            device, channel = target.split("/", 1)
+            return f"{parent}[{device}].channels[{channel}]"
+        return f"{parent}[{target}]"
+    match = _HUD_RE.match(message)
+    if match is not None:
+        return f"presentation.hud[{match.group(1)}]"
+    match = _DUPLICATE_RE.match(message)
+    if match is not None:
+        return _DUPLICATE_PARENTS[match.group(1)]
+    for prefix, path in (("pack.title", "title"), ("pack.one_line", "one_line")):
+        if message.startswith(prefix):
+            return path
+    if message.startswith("状态键") and "：" in message:
+        return f"state_keys.{message.rsplit('：', 1)[1]}"
+    if message.startswith("failure"):
+        return "failure_when"
+    return ""
+
+
+def validate_content(content: dict[str, Any]) -> list[dict[str, str]]:
+    """走**加载期同一套校验**，返回 `[{"path", "message"}]`（空列表 = 可安装）。
+
+    形状错误由 pydantic 报（带 `loc`），引用/词表/可达性错误由 `validate_pack` 报（带定位前缀）。
+    """
+    try:
+        pack = ScenarioPack.model_validate(content)
+    except ValidationError as exc:
+        return [
+            {
+                "path": ".".join(str(part) for part in item["loc"]) or "(root)",
+                "message": str(item["msg"]),
+            }
+            for item in exc.errors()
+        ]
+    return [{"path": problem_path(message), "message": message} for message in validate_pack(pack)]
 
 
 def latest_revision(db: Session, pack_key: str) -> tuple[StPack, StPackRevision] | None:

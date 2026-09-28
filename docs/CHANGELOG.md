@@ -763,3 +763,38 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 - **验证**：后端 `tests/scenario_training/test_narrative_anchors.py`（逐回合快照与同前缀重算一致、被拒提案归位、催办阶梯归位、未声明为空）
   与 `test_scenario_admin_api.py`（响应里的锚点块、被拒提案回合、未声明为 `null`、学生侧 `view` 里不含锚点）；
   前端 `AdminPanels.test.tsx`（面板状态与轨迹、空态不渲染）与 `ScenarioRendering.test.tsx`（三条同名折一行 / 展开回三行 / 相邻不同名不折叠）。
+
+### 情境训练 · 作者面：病例工作区里的「编辑」（场景编辑器）（2026-09-28）
+
+**取向**：内容已经在生产里跑（pack/修订 + 病例工作区），但改一句话要么手写整份 JSON 上传、要么走 CLI——
+"发布与管理"这条腿缺的是**给人用的写入口**。这一片补上它，且**不新增第二套校验**：保存前跑的就是
+安装/加载期那套（`ScenarioPack` + `validate_pack`）。
+
+**后端（additive，三个端点）**
+
+- `GET /api/scenario/admin/packs/{key}/source?revision_id=`：给编辑器的**原始 content**（不是概览投影），
+  附该修订的加载期校验结果与全部修订清单（默认最新修订；历史修订可能已不合今天的 schema，如实报出）。
+- `POST .../validate`：保存前校验，**不落库**。问题翻成"稳定字段路径 + 原因"：
+  pydantic 的形状错给 `loc`（`actors.0.presence`），引用/词表错把 `validate_pack` 的中文串标签化
+  （`affordances[suction]`、`setting.cues[c_new]`、`rubric[c1]`、`presentation.hud[0]`…）；
+  同时算出 `content_sha`/`latest_sha`/`will_append`/`next_revision_no`，供界面说清"这次保存会不会真的产生新修订"。
+- `POST .../revisions`：保存 = **追加新修订**（走既有 `pack_loader.install`，内容未变则幂等复用）。
+  没有"改已有修订"的接口——**永不原地修改**；`content.key` 与路径不一致直接 422。
+
+**界面（管理侧 Mantine，病例工作区新增「编辑」块，权限沿用 `case_manage`）**
+
+- **两页签双向同步**：表单（默认）改一处 → 「JSON 原始」文本跟着重排；原始文本改一处 → 防抖后解析回填表单。
+  解析失败**只保留文本 + 显示可读错误（带行列）**，表单保持上一次能解析的版本，绝不被清空。
+- **表单只暴露必须由人决定的字段**，按 pack 结构分节（基本信息 / 场景 / 在场者 / 可做动作 / 线索与事实 /
+  判读 / 锚点 / 呈现）；八节里的列表一律可**增删排序**（线索、在场者、动作、选项、事实、判据、维度、锚点、设备）；
+  其余字段按原值带走、折叠在一处（作者看不到就等于不存在），要改它们用原始页签。
+- **保存是"先说清楚再动手"**：先校验 → 失败把问题**归位到节**（顶部摘要可点击跳转 + 节标题红字 + 问题原文）；
+  通过则弹确认框写明"将追加修订 #N，改动字段：…"（叶子级 diff，例如 `one_line`、`facts[2]`），确认后才提交。
+  内容与最新修订一致时直接告知"不需要保存"，不产生假修订。
+
+**验证**：后端 `tests/scenario_training/test_scenario_admin_api.py`（原始内容与修订清单、形状错/引用错各自的字段路径、
+`will_append` 判定、保存追加新修订且旧修订一字不动、内容未变幂等、key 不一致 422、`case_manage` 门禁）；
+前端 `PackEditorDoc.test.ts`（JSON 互转无损、顶层非对象报错、可读错误、改动摘要、列表操作、问题归位）
+与 `ScenarioEditor.test.tsx`（默认表单、双向同步、解析失败不清空表单、切历史修订、校验失败定位、确认框文案、幂等提示）。
+另在真实 dev 环境点了整条路径：改「一句话」→ 校验通过 → 确认"将追加修订 #15，改动字段：one_line"→
+修订历史出现 #15（说明"编辑器联调：一句话标点"），#14 原样不动（验证后已把该测试修订与 `st_packs` 展示字段复原）。

@@ -7267,6 +7267,190 @@
         ]
       }
     },
+    "/api/scenario/admin/packs/{pack_key}/source": {
+      "get": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Pack Source",
+        "description": "编辑器：读某个病例**某一修订的原始内容**（默认最新修订）。\n\n返回的 `problems` 是拿当前校验器跑这份内容的结果——历史修订可能已不合今天的 schema，\n编辑器据此如实提示\"载入即为修复起点\"，而不是假装它一定干净。",
+        "operationId": "admin_pack_source_api_scenario_admin_packs__pack_key__source_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          },
+          {
+            "name": "revision_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Pack Source Api Scenario Admin Packs  Pack Key  Source Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/packs/{pack_key}/validate": {
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Validate Pack",
+        "description": "编辑器：保存前校验（不落库）。失败时每条问题都带字段路径，供界面定位。",
+        "operationId": "admin_validate_pack_api_scenario_admin_packs__pack_key__validate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackValidation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/packs/{pack_key}/revisions": {
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Save Pack Revision",
+        "description": "编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。",
+        "operationId": "admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Save Pack Revision Api Scenario Admin Packs  Pack Key  Revisions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scenario/admin/packs/{pack_key}": {
       "patch": {
         "tags": [
@@ -13296,6 +13480,27 @@
         "type": "object",
         "title": "OpenSessionRequest"
       },
+      "PackContentRequest": {
+        "properties": {
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "PackContentRequest",
+        "description": "编辑器提交的完整 pack 内容（原始 dict，形状由引擎校验）。"
+      },
       "PackPatchRequest": {
         "properties": {
           "state": {
@@ -13343,6 +13548,76 @@
           "reviewed"
         ],
         "title": "PackState"
+      },
+      "PackValidation": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "problems": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "content_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha"
+          },
+          "latest_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Sha"
+          },
+          "will_append": {
+            "type": "boolean",
+            "title": "Will Append"
+          },
+          "next_revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Revision No"
+          },
+          "pack_schema_version": {
+            "type": "integer",
+            "title": "Pack Schema Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "problems",
+          "content_sha",
+          "latest_sha",
+          "will_append",
+          "next_revision_no",
+          "pack_schema_version"
+        ],
+        "title": "PackValidation"
       },
       "PaginatedResponse_AssignmentListItem_": {
         "properties": {
