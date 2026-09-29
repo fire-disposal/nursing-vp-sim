@@ -1,5 +1,5 @@
 {
-  "pack_schema_version": 1,
+  "pack_schema_version": 3,
   "key": "night-call-decision",
   "title": "夜班电话：用几项数据决定下一步",
   "state": "experimental",
@@ -68,6 +68,16 @@
       "style": "报数干脆、随时准备执行；你反复问同一件事她会直接说「我刚报过了」",
       "goals": [
         "尽快拿到明确医嘱"
+      ],
+      "dm_writable": [
+        {
+          "key": "nurse.patience",
+          "kind": "int",
+          "lo": 0,
+          "hi": 5,
+          "max_delta": 1,
+          "meaning": "电话那头护士还愿意为你重复核对的耐心"
+        }
       ]
     },
     {
@@ -121,6 +131,12 @@
       ],
       "perceptible_by": [
         "nurse"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
       ]
     },
     {
@@ -132,6 +148,12 @@
       ],
       "perceptible_by": [
         "nurse"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
       ]
     },
     {
@@ -143,6 +165,12 @@
       ],
       "perceptible_by": [
         "nurse"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
       ]
     },
     {
@@ -154,6 +182,12 @@
       ],
       "perceptible_by": [
         "nurse"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
       ]
     },
     {
@@ -200,7 +234,14 @@
       ],
       "perceptible_by": [
         "nurse"
-      ]
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
+      "time_cost": 3
     },
     {
       "id": "hold_observation",
@@ -216,7 +257,14 @@
       ],
       "perceptible_by": [
         "nurse"
-      ]
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
+      "time_cost": 3
     },
     {
       "id": "order_support",
@@ -232,7 +280,14 @@
       ],
       "perceptible_by": [
         "nurse"
-      ]
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
+      "time_cost": 2
     },
     {
       "id": "order_escalate",
@@ -255,7 +310,14 @@
           "op": "set",
           "value": true
         }
-      ]
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
+      "time_cost": 2
     },
     {
       "id": "document",
@@ -554,11 +616,6 @@
         "id": "board_done",
         "title": "已下医嘱",
         "source": "action"
-      },
-      {
-        "id": "board_notes",
-        "title": "线索板",
-        "source": "note"
       }
     ],
     "nudges": [
@@ -676,5 +733,6 @@
       "title": "是否同时给出支持性处置与观察要点",
       "weight": 15
     }
-  ]
+  ],
+  "teaching_focus": []
 }

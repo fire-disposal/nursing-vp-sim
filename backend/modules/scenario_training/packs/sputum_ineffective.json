@@ -1,5 +1,5 @@
 {
-  "pack_schema_version": 1,
+  "pack_schema_version": 3,
   "key": "sputum-ineffective",
   "title": "吸痰无效：血氧上不来",
   "state": "experimental",
@@ -67,6 +67,16 @@
       "style": "说话断续费力，越急越说不清；情绪一激动就更喘",
       "goals": [
         "想喘上气"
+      ],
+      "dm_writable": [
+        {
+          "key": "patient.comfort",
+          "kind": "int",
+          "lo": 0,
+          "hi": 5,
+          "max_delta": 1,
+          "meaning": "患者的舒适与配合程度（喘得厉害时会更差）"
+        }
       ]
     },
     {
@@ -106,7 +116,14 @@
       "perceptible_by": [
         "patient"
       ],
-      "effects": []
+      "effects": [],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ],
+      "time_cost": 2
     },
     {
       "id": "increase_o2",
@@ -115,7 +132,14 @@
       "perceptible_by": [
         "patient"
       ],
-      "effects": []
+      "effects": [],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ],
+      "time_cost": 1
     },
     {
       "id": "auscultate",
@@ -123,6 +147,12 @@
       "label": "听诊双肺",
       "reveals": [
         "c_left_absent"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ]
     },
     {
@@ -132,13 +162,27 @@
       "reveals": [
         "c_low_spo2"
       ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "spo2",
+          "op": "set",
+          "value": 88
+        }
+      ],
       "params": {
         "unit": "%",
         "normal": [
           95,
           100
         ]
-      }
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ]
     },
     {
       "id": "bag_valve",
@@ -160,7 +204,26 @@
           "op": "set",
           "value": true
         }
-      ]
+      ],
+      "visible_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "measure_spo2"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "auscultate"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ],
+      "time_cost": 2
     },
     {
       "id": "reposition",
@@ -173,7 +236,26 @@
           "op": "incr",
           "value": 2
         }
-      ]
+      ],
+      "visible_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "measure_spo2"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "auscultate"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ],
+      "time_cost": 2
     },
     {
       "id": "call_doctor",
@@ -199,7 +281,8 @@
           "op": "set",
           "value": true
         }
-      ]
+      ],
+      "time_cost": 2
     },
     {
       "id": "document",
@@ -211,6 +294,18 @@
           "观察",
           "处置",
           "反应"
+        ]
+      },
+      "visible_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "bag_valve"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "call_doctor"
+          }
         ]
       }
     }
@@ -488,11 +583,6 @@
         "id": "board_done",
         "title": "已处置",
         "source": "action"
-      },
-      {
-        "id": "board_notes",
-        "title": "线索板",
-        "source": "note"
       }
     ],
     "nudges": [
@@ -510,54 +600,6 @@
       }
     ]
   },
-  "anchors": [
-    {
-      "id": "a_see_the_plug",
-      "stage": "airway",
-      "goal": "把低氧归因到左侧气道堵塞：先测量与听诊，而不是继续吸痰",
-      "cue": "监护仪的血氧还在往下走；患者坐起前倾、话越说越短；听诊时左侧呼吸音几乎听不到",
-      "requires": [
-        "measure_spo2",
-        "auscultate"
-      ],
-      "unlocks": [
-        "bag_valve",
-        "reposition"
-      ],
-      "blocked_by": [],
-      "deadline_turns": 2
-    },
-    {
-      "id": "a_control_airway",
-      "stage": "airway",
-      "goal": "气道打不开时升级处置：加压给氧＋呼叫医生准备插管，而不是反复吸痰",
-      "cue": "吸痰管回抽只有少量血性黏痰、越吸患者越躁；医生到场后给出加压给氧与插管的指示",
-      "requires": [
-        "bag_valve",
-        "call_doctor"
-      ],
-      "unlocks": [
-        "document"
-      ],
-      "blocked_by": [],
-      "deadline_turns": 2
-    },
-    {
-      "id": "a_reassess_after",
-      "stage": "after",
-      "goal": "气道建立后复评与收尾：体位引流排痰＋记录处置与病情变化",
-      "cue": "加压给氧后左侧呼吸音部分恢复、血氧回升；吸痰管回抽不再带血",
-      "requires": [
-        "reposition",
-        "document"
-      ],
-      "unlocks": [],
-      "blocked_by": [
-        "bag_valve"
-      ],
-      "deadline_turns": 3
-    }
-  ],
   "failure": "irreversible",
   "assets": [
     {
@@ -680,6 +722,72 @@
       },
       "title": "是否记录处置与病情变化",
       "weight": 5
+    }
+  ],
+  "teaching_focus": [
+    {
+      "id": "a_see_the_plug",
+      "intent": "把低氧归因到左侧气道堵塞：先测量与听诊，而不是继续吸痰",
+      "relevant_when": null,
+      "addressed_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "measure_spo2"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "auscultate"
+          }
+        ]
+      },
+      "evidence_refs": [
+        "measure_spo2",
+        "auscultate"
+      ]
+    },
+    {
+      "id": "a_control_airway",
+      "intent": "气道打不开时升级处置：加压给氧＋呼叫医生准备插管，而不是反复吸痰",
+      "relevant_when": null,
+      "addressed_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "bag_valve"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "call_doctor"
+          }
+        ]
+      },
+      "evidence_refs": [
+        "bag_valve",
+        "call_doctor"
+      ]
+    },
+    {
+      "id": "a_reassess_after",
+      "intent": "气道建立后复评与收尾：体位引流排痰＋记录处置与病情变化",
+      "relevant_when": null,
+      "addressed_when": {
+        "all": [
+          {
+            "kind": "action_used",
+            "affordance_id": "reposition"
+          },
+          {
+            "kind": "action_used",
+            "affordance_id": "document"
+          }
+        ]
+      },
+      "evidence_refs": [
+        "reposition",
+        "document",
+        "bag_valve"
+      ]
     }
   ]
 }

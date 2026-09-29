@@ -213,7 +213,7 @@ def _option_choice(pack: ScenarioPack, world: World, point: Criterion) -> Decisi
         return DecisionResult(point.id, Anchor.MISSED, f"未做任何相关处置（{labels}）", ["无相关动作记录"])
 
     chosen = candidates[0]
-    custom_text = (chosen.custom_text or "").strip()
+    custom_text = (chosen.text or chosen.custom_text or "").strip()
     hit = next((term for term in custom_terms if term and term in custom_text), None)
     evidence = [f"{turn_word(chosen.turn)} {chosen.label(pack)}"]
     if hit is not None:

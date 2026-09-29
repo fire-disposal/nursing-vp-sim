@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from modules.scenario_training.dm.prompt import build_dm_messages
+from modules.scenario_training.dm.prompt import build_delivery_messages, build_intent_messages
 from modules.scenario_training.judge.rules import evaluate, score_report
 from modules.scenario_training.pack_loader import load_pack_file
 from modules.scenario_training.runtime.world import ActionRecord, initial_world
@@ -114,10 +114,28 @@ def test_unreached_restraint_is_not_full_credit(sputum: ScenarioPack) -> None:
 
 
 def test_weights_are_invisible_to_the_llm(sputum: ScenarioPack) -> None:
-    """加权部分 LLM **看不见也不处理**：权重数值与判据 id 都不进 DM 提示词。"""
+    """加权部分 LLM **看不见也不处理**：判据 id / 标题 / 权重都不进任一阶段的提示词。"""
+    from modules.scenario_training.turns import ActionEcho, AttemptOutcome, ResolvedTurn
+
     world = initial_world(sputum)
-    messages = build_dm_messages(sputum, world, None, [], opening=True)
-    text = "\n".join(message["content"] for message in messages)
+    opening = build_delivery_messages(
+        sputum,
+        world,
+        request_text="",
+        request_mode="speech",
+        target=None,
+        resolved=ResolvedTurn(
+            request_id="",
+            base_seq=0,
+            turn=0,
+            outcome=AttemptOutcome.SPEECH,
+            action=ActionEcho(kind="speech", label="（开场）", outcome=AttemptOutcome.SPEECH),
+        ),
+        notice="",
+        mode="opening",
+    )
+    intent = build_intent_messages(sputum, world, mode="speech", text="我先吸痰。")
+    text = "\n".join(message["content"] for message in [*opening, *intent])
     for criterion in sputum.rubric:
         assert criterion.id not in text
         assert criterion.title not in text

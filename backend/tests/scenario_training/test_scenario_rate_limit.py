@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import pytest
@@ -49,7 +48,9 @@ class _StubLimiter:
 
 class _FakeLLM:
     async def call(self, messages: list[dict[str, str]], **_: Any) -> str:
-        return json.dumps({"narration": "你把探头重新扣好。", "lines": []}, ensure_ascii=False)
+        from tests.scenario_training._stub_llm import stage_aware
+
+        return stage_aware(messages)
 
 
 @pytest.fixture
@@ -110,7 +111,10 @@ def test_action_limit_hits_are_human_and_audited(app_client, installed, audit_ca
     session_id = opened.json()["session_id"]
 
     limiter.allow = False
-    blocked = client.post(f"/api/scenario/sessions/{session_id}/actions", json={"affordance_id": "measure_spo2"})
+    blocked = client.post(
+        f"/api/scenario/sessions/{session_id}/turns",
+        json={"request_id": "rl-1", "expected_seq": 1, "kind": "action", "affordance_id": "measure_spo2"},
+    )
 
     assert blocked.status_code == 429
     detail = blocked.json()["detail"]
@@ -119,7 +123,8 @@ def test_action_limit_hits_are_human_and_audited(app_client, installed, audit_ca
 
     # 流式端点走同一个动作限流
     stream_blocked = client.post(
-        f"/api/scenario/sessions/{session_id}/actions/stream", json={"affordance_id": "measure_spo2"}
+        f"/api/scenario/sessions/{session_id}/turns/stream",
+        json={"request_id": "rl-1", "expected_seq": 1, "kind": "action", "affordance_id": "measure_spo2"},
     )
     assert stream_blocked.status_code == 429
 
@@ -157,8 +162,8 @@ def test_within_limit_keeps_normal_flow(app_client, installed, audit_calls) -> N
     opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
     assert opened.status_code == 200, opened.text
     acted = client.post(
-        f"/api/scenario/sessions/{opened.json()['session_id']}/actions",
-        json={"affordance_id": "measure_spo2"},
+        f"/api/scenario/sessions/{opened.json()['session_id']}/turns",
+        json={"request_id": "rl-1", "expected_seq": 1, "kind": "action", "affordance_id": "measure_spo2"},
     )
     assert acted.status_code == 200, acted.text
     assert audit_calls == []

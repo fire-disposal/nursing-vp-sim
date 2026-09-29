@@ -17,7 +17,7 @@ from models.scenario_training import StAsset, StPack, StPackRevision
 from modules.scenario_training import assets as assets_mod
 from modules.scenario_training import pack_loader
 from modules.scenario_training import router as scenario_router
-from modules.scenario_training.runtime.session import append_event, open_session
+from modules.scenario_training.runtime.session import append_event
 
 PACK_KEY = "sputum-ineffective"
 
@@ -39,15 +39,33 @@ async def _no_rate_limit(*_args: object, **_kwargs: object) -> None:
 
 
 class _FakeLLM:
+    """两阶段各自的合法输出：解析阶段给 `IntentResolution`，演出阶段给 `SceneDelivery`。
+
+    演出**没有写权限**——所以这里也造不出世界改动（这正是新机制的边界）。
+    """
+
     def __init__(self) -> None:
-        self.turn = {
-            "narration": "你把探头重新扣好。",
-            "lines": [{"actor": "patient", "text": "……"}],
-            "effects": [{"target": "scene", "key": "spo2", "op": "set", "value": 90}],
+        self.intent = {
+            "kind": "action",
+            "affordance_id": "measure_spo2",
+            "utterance": "",
+            "clarification": "",
+            "selection": [],
+            "social_updates": [],
+        }
+        self.delivery = {
+            "messages": [
+                {"speaker": None, "text": "你把手套戴好，床边的机器还在响。"},
+                {"speaker": "patient", "text": "……"},
+            ],
+            "hints": [],
+            "assets": [],
+            "highlights": [],
         }
 
     async def call(self, messages: list[dict[str, str]], **_: object) -> str:
-        return json.dumps(self.turn, ensure_ascii=False)
+        system = messages[0]["content"] if messages else ""
+        return json.dumps(self.intent if "意图解析器" in system else self.delivery, ensure_ascii=False)
 
 
 @pytest.fixture
@@ -84,8 +102,93 @@ def installed(pg_session):
     return pack, revision
 
 
+def _insert_session(db, pack, revision_id: int, *, user_id: int = 1, meta: dict | None = None):
+    """直接建一行会话 + 开场事件（绕开真实 LLM 的开场演出，专测读路径）。"""
+    from models.scenario_training import StSession
+
+    row = StSession(
+        user_id=user_id,
+        pack_revision_id=revision_id,
+        pack_key=pack.key,
+        status="active",
+        meta={"pack_schema_version": pack.pack_schema_version, **(meta or {})},
+    )
+    db.add(row)
+    db.flush()
+    append_event(db, row.id, "session_opened", {"pack_key": pack.key, "revision_id": revision_id})
+    return row
+
+
+def _turn_payload(turn: int, affordance_id: str, *, outcome: str = "performed") -> dict:
+    return {
+        "schema": 1,
+        "request_id": f"r{turn}",
+        "turn": turn,
+        "input": {"kind": "action", "affordance_id": affordance_id, "selection": [], "text": ""},
+        "intent": {"kind": "action", "affordance_id": affordance_id, "utterance": "", "clarification": ""},
+        "outcome": outcome,
+        "block_reason": "",
+        "actions": [{"turn": turn, "affordance_id": affordance_id, "type": "act"}],
+        "effects": [],
+        "reveals": [],
+        "reactions": [],
+        "social": [],
+        "messages": [{"speaker": None, "text": "监护仪还在响。", "kind": "narration", "origin": "dm"}],
+        "notice_text": "",
+        "images": [],
+        "noticed": [],
+        "focus": [],
+        "facts": [],
+        "models": {"parse": 0, "delivery": 1},
+        "problems": [],
+    }
+
+
 def _png() -> bytes:
     return (assets_mod.ASSETS_ROOT / PACK_KEY / "room-panel.png").read_bytes()
+
+
+def _legacy_v1_revision_content() -> dict:
+    """一份**真实旧形状**内容（v1 字段 + v2 锚点状态机），用于"历史修订可读/可转换"两条路径。"""
+    legacy = pack_loader.load_pack_file(PACK_KEY).model_dump(mode="json")
+    legacy["pack_schema_version"] = 1
+    legacy["player"]["attention_per_turn"] = 1  # v1 字段（已删除）
+    legacy["affordances"][0]["ineffective"] = True  # v1 字段（已删除）
+    legacy["setting"]["cues"][0]["revealed_by"] = ["measure_vitals"]  # v1 字段（已删除）
+    legacy.pop("teaching_focus", None)
+    legacy["anchors"] = [  # v2 的任务状态机（v3 已删除）
+        {
+            "id": "a_legacy",
+            "stage": "airway",
+            "goal": "旧任务",
+            "cue": "旧信号",
+            "requires": ["suction"],
+            "unlocks": [],
+            "blocked_by": [],
+            "deadline_turns": 2,
+        }
+    ]
+    legacy["presentation"]["board"].append({"id": "board_notes", "title": "线索板", "source": "note"})
+    return legacy
+
+
+def _add_pack_with_revision(db, key: str, content: dict, *, schema_version: int = 1):
+    """直接落一行 pack + 一行修订（绕开安装校验，专测"历史形状"读路径）。"""
+    pack_row = StPack(key=key, title=key, state="experimental", one_line="")
+    db.add(pack_row)
+    db.flush()
+    revision = StPackRevision(
+        pack_id=pack_row.id,
+        revision_no=1,
+        pack_schema_version=schema_version,
+        content=content,
+        content_sha=f"{key}-sha",
+        note="legacy",
+    )
+    db.add(revision)
+    db.flush()
+    pack_loader.reset_cache()
+    return pack_row, revision
 
 
 def test_student_is_forbidden_on_admin_surface(app_client) -> None:
@@ -231,37 +334,16 @@ def test_pack_upload_rejects_invalid_content(app_client, installed) -> None:
 
 def test_legacy_schema_revision_still_readable(pg_session) -> None:
     """历史修订带已删除字段时仍必须可读（升版 + 裁剪加载），否则旧会话直接 500。"""
-    from models.scenario_training import StPack, StPackRevision
     from modules.scenario_training.runtime.view import build_view
     from modules.scenario_training.runtime.world import initial_world
 
-    pack = pack_loader.load_pack_file(PACK_KEY)
-    legacy = pack.model_dump(mode="json")
-    legacy["pack_schema_version"] = 1
-    legacy["player"]["attention_per_turn"] = 1  # v1 字段（已删除）
-    legacy["affordances"][0]["ineffective"] = True  # v1 字段（已删除）
-    legacy["setting"]["cues"][0]["revealed_by"] = ["measure_vitals"]  # v1 字段（已删除）
-
-    pack_row = StPack(key=f"{PACK_KEY}-legacy", title="legacy", state="experimental", one_line="")
-    pg_session.add(pack_row)
-    pg_session.flush()
-    revision = StPackRevision(
-        pack_id=pack_row.id,
-        revision_no=1,
-        pack_schema_version=1,
-        content=legacy,
-        content_sha="legacy-sha",
-        note="legacy",
-    )
-    pg_session.add(revision)
-    pg_session.flush()
-    pack_loader.reset_cache()
+    _pack_row, revision = _add_pack_with_revision(pg_session, f"{PACK_KEY}-legacy", _legacy_v1_revision_content())
 
     loaded = pack_loader.load_revision(pg_session, revision.id)
     assert loaded.key == PACK_KEY
     view = build_view(loaded, initial_world(loaded), session_id=1, status="active", revision_id=revision.id)
-    assert view["pack"]["key"] == PACK_KEY
-    assert view["situation"]["visible_cues"]
+    assert view.pack.key == PACK_KEY
+    assert view.situation.visible_cues
 
 
 def test_current_schema_content_is_still_strict() -> None:
@@ -279,14 +361,19 @@ def test_history_detail_and_stats(app_client, installed) -> None:
     opened = client.post("/api/scenario/sessions", json={"pack_key": PACK_KEY})
     assert opened.status_code == 200, opened.text
     session_id = opened.json()["session_id"]
-    assert (
-        client.post(f"/api/scenario/sessions/{session_id}/actions", json={"affordance_id": "measure_spo2"}).status_code
-        == 200
+    seq = opened.json()["view"]["session"]["seq"]
+    turned = client.post(
+        f"/api/scenario/sessions/{session_id}/turns",
+        json={"request_id": "t1", "expected_seq": seq, "kind": "action", "affordance_id": "suction"},
     )
-    assert client.post(f"/api/scenario/sessions/{session_id}/close").status_code == 200
+    assert turned.status_code == 200, turned.text
+    assert turned.json()["outcome"] == "performed"
+    seq = turned.json()["seq"]
+    closed = client.post(f"/api/scenario/sessions/{session_id}/close", json={"request_id": "c1", "expected_seq": seq})
+    assert closed.status_code == 200, closed.text
 
     mine = client.get("/api/scenario/sessions").json()
-    assert len(mine) == 1
+    assert len(mine) == 1, mine
     assert mine[0]["id"] == session_id
     assert mine[0]["status"] == "completed"
     assert mine[0]["summary"] is not None
@@ -294,86 +381,79 @@ def test_history_detail_and_stats(app_client, installed) -> None:
 
     holder["user"] = _FakeUser({"stats_view"})
     listing = client.get(f"/api/scenario/admin/sessions?pack_key={PACK_KEY}").json()
-    assert listing["total"] >= 1
+    assert listing["total"] >= 1, listing
     detail = client.get(f"/api/scenario/admin/sessions/{session_id}").json()
     assert detail["session"]["id"] == session_id
-    assert detail["event_count"] >= 3
-    assert any(event["kind"] == "dm_turn" for event in detail["events"])
+    assert detail["event_count"] >= 3, detail["events"]
+    assert any(event["kind"] == "turn_committed" for event in detail["events"])
     assert isinstance(detail["problems"], list)
+    # 逐回合来源回放：解析 / 结算 / 交付都在（教师看得到，学生看不到）
+    assert detail["turns"]
+    assert detail["turns"][0]["seq"] >= 1
+    assert detail["turns"][0]["outcome"] == "performed"
+    assert detail["turns"][0]["resolved"]["turn"] == 2  # suction 的 time_cost=2
+    assert detail["turns"][0]["resolved"]["time_cost"] == 2
+    assert "problems" not in json.dumps(detail["view"], ensure_ascii=False)
+    assert '"focus"' not in json.dumps(detail["view"], ensure_ascii=False)
+
+    # 关注点面板取代锚点：逐回合快照 + 幻灯计数（管理侧才有的聚合）
+    assert len(detail["focus"]) >= 1
+    assert all("id" in state for state in detail["focus"][-1]["states"])
 
     stats = client.get("/api/scenario/admin/stats").json()
     bucket = next(item for item in stats["packs"] if item["pack_key"] == PACK_KEY)
-    assert bucket["sessions"] >= 1
-    assert sum(bucket["anchors"].values()) >= 1
+    assert bucket["sessions"] >= 1, stats
+    assert bucket["focus_address_ratio"] is not None  # 关注点聚合来自 session_closed 载荷
 
 
-# ── 回放里的锚点面板（docs/21 §五：教师/管理看得到锚点，学生只看得到世界）─────────
+# ── 回放：解析/结算/交付来源 + 教学关注点（取代旧的锚点面板）────────────────────
 
 
-def _student_action(turn: int, affordance_id: str) -> dict:
-    return {
-        "turn": turn,
-        "action": {"turn": turn, "affordance_id": affordance_id, "type": "act"},
-    }
-
-
-def test_admin_session_detail_carries_the_anchor_panel(app_client, installed) -> None:
-    """逐回合状态 + 阻塞原因 + 被拒提案按回合归位；**大厂已有的键一个都不动**。"""
+def test_admin_session_detail_replays_settlement_and_focus(app_client, installed) -> None:
+    """逐回合回放来自事件载荷（不是模型思考过程）；学生视图里没有关注点与内部字段。"""
     client, holder, db = app_client
     pack, revision = installed
-    session = open_session(db, user_id=1, revision_id=revision.id, pack=pack)
-
-    append_event(db, session.id, "student_action", _student_action(1, "suction"))
-    append_event(
-        db,
-        session.id,
-        "anchor_proposal_rejected",
-        {"turn": 1, "anchor_id": "a_control_airway", "proposal": "anchor_satisfied", "actual": "pending"},
-    )
-    append_event(db, session.id, "dm_turn", {"turn": 1, "narration": "监护仪还在响。"})
+    session = _insert_session(db, pack, revision.id)
+    append_event(db, session.id, "turn_committed", _turn_payload(1, "auscultate"))
 
     holder["user"] = _FakeUser({"stats_view"})
     detail = client.get(f"/api/scenario/admin/sessions/{session.id}").json()
-    anchors = detail["anchors"]
-    assert anchors is not None
-    assert anchors["count"] == 3
-    assert [turn["turn"] for turn in anchors["turns"]] == [0, 1]
-
-    opening = anchors["turns"][0]["states"]
-    assert [state["id"] for state in opening] == ["a_see_the_plug", "a_control_airway", "a_reassess_after"]
-    # 开场：第一个锚点在推进；第三个被 bag_valve 挡住（原因 = 缺的那一步）
-    assert opening[0]["status"] == "active"
-    assert opening[0]["stage"] == "airway"
-    assert opening[2]["status"] == "blocked"
-    assert opening[2]["reason"] == "bag_valve"
-    # 催办随回合走：开场与第 1 回合都还没超期（deadline_turns=2）
-    assert all(state["nudge"] == "" for state in opening)
-    assert anchors["turns"][1]["states"][0]["status"] == "active"
-
-    # 被拒提案归位到它发生的回合（别处没有）
-    assert anchors["turns"][0]["rejected"] == []
-    assert anchors["turns"][1]["rejected"] == [
-        {"turn": 1, "anchor_id": "a_control_airway", "proposal": "anchor_satisfied", "actual": "pending"},
-    ]
-
-    # 学生侧的视图里没有锚点：这一块只在管理侧
-    assert "anchors" not in detail["view"]
-    assert "a_control_airway" not in json.dumps(detail["view"], ensure_ascii=False)
+    assert [turn["turn"] for turn in detail["turns"]] == [1]
+    replayed = detail["turns"][0]
+    assert replayed["input"]["affordance_id"] == "auscultate"
+    assert replayed["outcome"] == "performed"
+    assert replayed["models"]["delivery"] == 1
+    assert detail["focus"]
+    assert detail["focus"][-1]["turn"] == 1
+    # 关注点只给教师/作者看：学生视图里一个字都没有
+    serialized = json.dumps(detail["view"], ensure_ascii=False)
+    assert "teaching_focus" not in serialized
+    assert pack.teaching_focus[0].id not in serialized
 
 
-def test_admin_session_detail_anchor_panel_is_null_without_declarations(app_client, pg_session) -> None:
-    """不声明 anchors 的病例 → 该块为 `null`（回放界面据此整块不渲染），其他键照旧。"""
-    client, holder, _db = app_client
-    bare = pack_loader.load_pack_file("night-call-decision")
-    _pack_row, revision, _created = pack_loader.install(pg_session, bare)
-    session = open_session(pg_session, user_id=7, revision_id=revision.id, pack=bare)
-    append_event(pg_session, session.id, "student_action", _student_action(1, "ask_vitals"))
-
+def test_admin_stats_counts_focus_from_events(app_client, installed) -> None:
+    """关注点聚合来自 `session_closed` 载荷；没有结算过就没有计数（不编数）。"""
+    client, holder, db = app_client
+    pack, revision = installed
+    session = _insert_session(db, pack, revision.id)
+    append_event(db, session.id, "turn_committed", _turn_payload(1, "suction"))
     holder["user"] = _FakeUser({"stats_view"})
-    detail = client.get(f"/api/scenario/admin/sessions/{session.id}").json()
-    assert detail["anchors"] is None
-    assert detail["session"]["id"] == session.id
-    assert detail["events"][0]["kind"] == "student_action"
+    before = client.get("/api/scenario/admin/stats").json()
+    bucket = next(item for item in before["packs"] if item["pack_key"] == PACK_KEY)
+    assert bucket["focus_address_ratio"] is None  # 还没结算过
+
+    from core.unit_of_work import unit_of_work
+
+    with unit_of_work(db):
+        append_event(
+            db,
+            session.id,
+            "session_closed",
+            {"request_id": "c1", "focus_relevant": 3, "focus_addressed": 1, "summary": {}, "turn": 1},
+        )
+    after = client.get("/api/scenario/admin/stats").json()
+    bucket = next(item for item in after["packs"] if item["pack_key"] == PACK_KEY)
+    assert bucket["focus_address_ratio"] == pytest.approx(1 / 3, abs=1e-4)
 
 
 # --------------------------------------------------------------------------- #
@@ -519,3 +599,54 @@ def test_editor_endpoints_require_case_manage(app_client, installed) -> None:
     assert client.post(f"/api/scenario/admin/packs/{PACK_KEY}/revisions", json={"content": {}}).status_code == 403
     holder["user"] = _FakeUser({"case_manage"})
     assert client.get(f"/api/scenario/admin/packs/{PACK_KEY}/source").status_code == 200
+
+
+def test_convert_legacy_revision_reads_content_by_revision_id(app_client, pg_session) -> None:
+    """`/convert` 的输入是**库里的 `revision_id`**，内容由服务端按 `pack_key + revision_id` 载入。
+
+    回归（2026-09-29）：前端 helper 只发 `{"revision_id": N}`（`api/scenario.ts`）。若 handler 把这个
+    请求体当 `content`，转换出的是一份与任何修订都不对应的退化草稿——只剩 `pack_schema_version`、
+    空 `teaching_focus`，`problems` 全是顶层 `Field required`。本测试用真实 v1 修订钉住：
+    内容来自那一版、`from_schema_version` 是它的真实值、旧字段的处置**逐条可见**（不静默裁剪）。
+    """
+    client, _holder, db = app_client
+    legacy_key = f"{PACK_KEY}-legacy"
+    other_key = f"{PACK_KEY}-other"
+    _pack_row, revision = _add_pack_with_revision(db, legacy_key, _legacy_v1_revision_content())
+    _add_pack_with_revision(db, other_key, _legacy_v1_revision_content())
+
+    converted = client.post(f"/api/scenario/admin/packs/{legacy_key}/convert", json={"revision_id": revision.id})
+    assert converted.status_code == 200, converted.text
+    body = converted.json()
+
+    assert body["content"]["key"] == PACK_KEY
+    assert body["from_schema_version"] == 1
+    assert body["to_schema_version"] == pack_loader.PACK_SCHEMA_VERSION
+    # 不是"整份字段缺失"的退化草稿：真实内容都在
+    assert body["content"]["actors"]
+    assert body["content"]["affordances"]
+    assert [item["id"] for item in body["content"]["teaching_focus"]] == ["a_legacy"]
+    assert not any("Field required" in item["message"] for item in body["problems"]), body["problems"]
+    # 旧字段的处置可解释：未知键被**报出来**而不是静默丢掉；cue 原文进 notes
+    assert {item["path"] for item in body["problems"]} == {
+        "player.attention_per_turn",
+        "setting.cues.0.revealed_by",
+        "affordances.0.ineffective",
+    }
+    assert any("旧信号" in note for note in body["notes"])
+
+    # 不做双入口：缺 revision_id → 422（原始 JSON 不是合法输入）
+    assert client.post(f"/api/scenario/admin/packs/{legacy_key}/convert", json={}).status_code == 422
+    # 修订不属于这个 pack → 可读 404（指明是哪个修订、哪个病例）
+    foreign = client.post(f"/api/scenario/admin/packs/{other_key}/convert", json={"revision_id": revision.id})
+    assert foreign.status_code == 404
+    assert str(revision.id) in foreign.json()["detail"]
+    assert other_key in foreign.json()["detail"]
+    assert (
+        client.post(f"/api/scenario/admin/packs/{other_key}/convert", json={"revision_id": 999999}).status_code == 404
+    )
+    # 未知病例 → 404
+    assert (
+        client.post("/api/scenario/admin/packs/no-such-pack/convert", json={"revision_id": revision.id}).status_code
+        == 404
+    )

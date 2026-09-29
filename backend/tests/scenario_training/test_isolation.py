@@ -105,6 +105,22 @@ def test_packs_are_valid_data():
                 assert key in point.anchors, f"{path.name}: {point.id} 缺锚点 {key}"
 
 
+def test_every_pack_can_advance_time():
+    """每个包至少有一个**开场就可用**的耗时动作（`time_cost > 0`）。
+
+    没有这条途径时，时间单位永远停在 0：`turn_gte` / `turns_without_action` 类触发永不成真，
+    按时间步结算的 dims（latency / slope）也没有可解释的值——2026-09-29 的 `bp-contradiction`
+    六个动作全 0 就是这种状态（补了「让他安静休息 5 分钟后再测」=5 才成立）。
+    门控动作不算数：`visible_when` 未成立时它自己就不可用，不能当唯一的时间来源。
+    """
+    packs = sorted(PACKS_DIR.glob("*.json"))
+    assert packs, "至少应有一个 pack"
+    for path in packs:
+        pack = ScenarioPack.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        advancing = [a.id for a in pack.affordances if a.time_cost > 0 and a.visible_when is None]
+        assert advancing, f"{path.name}: 没有任何开场可用的耗时动作，时间永远不会前进"
+
+
 @pytest.mark.parametrize("term", DOMAIN_TERMS)
 def test_domain_term_is_normalized(term: str) -> None:
     """守卫自检：词表条目本身规范（防止空串/带空格导致假绿）。"""

@@ -1,5 +1,5 @@
 {
-  "pack_schema_version": 1,
+  "pack_schema_version": 3,
   "key": "triage-hidden-bleed",
   "title": "预检分诊：说「腰闪了」的那个人",
   "state": "experimental",
@@ -76,6 +76,16 @@
       "style": "忍着、不爱麻烦人，倾向把话说小；被问到具体经过时才会补出关键信息",
       "goals": [
         "快点回家"
+      ],
+      "dm_writable": [
+        {
+          "key": "patient.comfort",
+          "kind": "int",
+          "lo": 0,
+          "hi": 5,
+          "max_delta": 1,
+          "meaning": "患者的舒适与配合程度（疼得厉害时会更差）"
+        }
       ]
     },
     {
@@ -127,7 +137,13 @@
       ],
       "params": {
         "unit": "次·分⁻¹ / mmHg"
-      }
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ]
     },
     {
       "id": "ask_trauma",
@@ -138,6 +154,12 @@
       ],
       "perceptible_by": [
         "patient"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ]
     },
     {
@@ -149,6 +171,12 @@
       ],
       "perceptible_by": [
         "patient"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ]
     },
     {
@@ -176,7 +204,8 @@
       "perceptible_by": [
         "patient",
         "colleague"
-      ]
+      ],
+      "time_cost": 1
     },
     {
       "id": "triage_yellow",
@@ -192,7 +221,8 @@
       ],
       "perceptible_by": [
         "patient"
-      ]
+      ],
+      "time_cost": 1
     },
     {
       "id": "triage_ortho",
@@ -208,7 +238,8 @@
       ],
       "perceptible_by": [
         "patient"
-      ]
+      ],
+      "time_cost": 1
     },
     {
       "id": "triage_home",
@@ -224,7 +255,8 @@
       ],
       "perceptible_by": [
         "patient"
-      ]
+      ],
+      "time_cost": 1
     },
     {
       "id": "document",
@@ -546,11 +578,6 @@
         "id": "board_done",
         "title": "已处置",
         "source": "action"
-      },
-      {
-        "id": "board_notes",
-        "title": "线索板",
-        "source": "note"
       }
     ],
     "nudges": [
@@ -661,5 +688,6 @@
       "title": "是否记录分诊等级与依据",
       "weight": 20
     }
-  ]
+  ],
+  "teaching_focus": []
 }

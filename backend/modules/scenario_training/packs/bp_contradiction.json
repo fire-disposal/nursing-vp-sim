@@ -1,5 +1,5 @@
 {
-  "pack_schema_version": 1,
+  "pack_schema_version": 3,
   "key": "bp-contradiction",
   "title": "入院检查：量出来像高血压，患者坚决否认",
   "state": "experimental",
@@ -43,6 +43,10 @@
         "text": "换另一侧复测 166/96 mmHg，仍然偏高。"
       },
       {
+        "id": "c_bp_rest",
+        "text": "让他安静坐了 5 分钟再测：164/94 mmHg，仍然偏高——不是一时紧张。"
+      },
+      {
         "id": "c_pills",
         "text": "床头抽屉里有半板白色小药片；他说「就那种小小白药片，降压的？我不清楚」。"
       },
@@ -67,6 +71,21 @@
       "goals": [
         "证明自己身体没问题",
         "尽快把检查做完"
+      ],
+      "dm_writable": [
+        {
+          "key": "patient.trust",
+          "kind": "int",
+          "lo": 0,
+          "hi": 5,
+          "max_delta": 1,
+          "meaning": "患者对你这个人的信任程度：愿意听你说、也愿意配合核对"
+        },
+        {
+          "key": "patient.guarded",
+          "kind": "bool",
+          "meaning": "他是否处于防备状态（不愿多说、把话题挡回去）"
+        }
       ]
     }
   ],
@@ -93,7 +112,13 @@
           90,
           140
         ]
-      }
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ]
     },
     {
       "id": "measure_bp_again",
@@ -112,7 +137,39 @@
       ],
       "params": {
         "unit": "mmHg"
-      }
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ]
+    },
+    {
+      "id": "wait_rest_recheck",
+      "type": "measure",
+      "label": "让他安静休息 5 分钟后再测一次",
+      "time_cost": 5,
+      "reveals": [
+        "c_bp_rest"
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "decr",
+          "value": 2
+        }
+      ],
+      "params": {
+        "unit": "mmHg"
+      },
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ]
     },
     {
       "id": "ask_history",
@@ -128,6 +185,12 @@
       ],
       "perceptible_by": [
         "patient"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ]
     },
     {
@@ -147,6 +210,12 @@
       ],
       "perceptible_by": [
         "patient"
+      ],
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ]
     },
     {
@@ -286,6 +355,29 @@
       "once": true
     },
     {
+      "id": "r_settles_with_time",
+      "when": {
+        "all": [
+          {
+            "kind": "turn_gte",
+            "count": 5
+          }
+        ]
+      },
+      "by": "patient",
+      "does": "say",
+      "intent": "等了这几分钟你没再追着问，他反倒先开口：「……我姐也是高血压，我是不是也该查一下。」",
+      "effects": [
+        {
+          "target": "patient",
+          "key": "trust",
+          "op": "incr",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "r_patient_reacts_to_reading",
       "when": {
         "all": [
@@ -352,12 +444,14 @@
       "cue_ids": [
         "c_pills",
         "c_record",
-        "c_bp_retake"
+        "c_bp_retake",
+        "c_bp_rest"
       ],
       "affordance_ids": [
         "ask_meds",
         "ask_record",
-        "measure_bp_again"
+        "measure_bp_again",
+        "wait_rest_recheck"
       ]
     }
   ],
@@ -385,7 +479,8 @@
         "affordances": [
           "ask_meds",
           "ask_record",
-          "measure_bp_again"
+          "measure_bp_again",
+          "wait_rest_recheck"
         ]
       }
     },
@@ -404,7 +499,15 @@
       {
         "slot": "血压（收缩压）",
         "source": "state",
-        "ref": "scene.bp_sys"
+        "ref": "scene.bp_sys",
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_bp_high"
+            }
+          ]
+        }
       },
       {
         "slot": "现场线索",
@@ -454,11 +557,6 @@
         "id": "board_done",
         "title": "已处置",
         "source": "action"
-      },
-      {
-        "id": "board_notes",
-        "title": "线索板",
-        "source": "note"
       }
     ],
     "nudges": [
@@ -517,7 +615,8 @@
         "affordances": [
           "ask_meds",
           "ask_record",
-          "measure_bp_again"
+          "measure_bp_again",
+          "wait_rest_recheck"
         ],
         "min": 1
       },
@@ -561,5 +660,6 @@
       "title": "是否把不一致与下一步写进入院记录",
       "weight": 15
     }
-  ]
+  ],
+  "teaching_focus": []
 }

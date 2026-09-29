@@ -10,7 +10,7 @@ from typing import Any
 
 from .dm.contract import banned_terms
 from .runtime.world import namespaced_key
-from .schema import AffordanceType, Clause, EffectOp, JudgeRuleKind, ScenarioPack, Trigger
+from .schema import Affordance, AffordanceType, Clause, EffectOp, JudgeRuleKind, ScenarioPack, Trigger
 
 _RULE_AFFORDANCE_KEYS: dict[JudgeRuleKind, tuple[str, ...]] = {
     JudgeRuleKind.FIRST_ACTION: ("affordances",),
@@ -56,7 +56,161 @@ def validate_pack(pack: ScenarioPack) -> list[str]:
     problems += _check_facts(pack, index)
     problems += _check_judgment(pack, index)
     problems += _check_failure(pack, index)
-    problems += _check_anchors(pack, index)
+    problems += _check_targets(pack, index)
+    problems += _check_teaching_focus(pack, index)
+    problems += _check_dm_writable(pack, index)
+    problems += _check_triggers(pack)
+    return problems
+
+
+def _check_failure(pack: ScenarioPack, index: _Index) -> list[str]:
+    if pack.failure == "irreversible" and pack.failure_when is None:
+        return ["failure=irreversible 但未声明 failure_when"]
+    return _check_trigger(pack, index, pack.failure_when, "failure_when")
+
+
+def _presentation_trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None, str]]:
+    """演示面（HUD / 线索板 / 设备各通道 / 催促）里全部可省略的触发条件及定位前缀。"""
+    sites: list[tuple[Trigger | None, str]] = []
+    for slot in pack.presentation.hud:
+        sites.append((slot.visible_when, f"hud slot {slot.slot}"))
+    for section in pack.presentation.board:
+        sites.append((section.visible_when, f"board {section.id}"))
+    for device in pack.presentation.devices:
+        sites.append((device.visible_when, f"device {device.id}"))
+        for channel in device.channels:
+            sites.append((channel.visible_when, f"device {device.id}/{channel.ref}"))
+    for nudge in pack.presentation.nudges:
+        sites.append((nudge.when, f"nudge {nudge.direction}"))
+    return sites
+
+
+def _trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None, str]]:
+    """本包所有"可省略、但一旦显式写就必须非空"的触发条件，**按问题报告顺序**排列。"""
+    sites: list[tuple[Trigger | None, str]] = []
+    for affordance in pack.affordances:
+        sites.append((affordance.visible_when, f"affordance {affordance.id}"))
+    for reaction in pack.reactions:
+        sites.append((reaction.when, f"reaction {reaction.id}"))
+    sites += _presentation_trigger_sites(pack)
+    for item in pack.teaching_focus:
+        sites.append((item.relevant_when, f"teaching_focus {item.id}.relevant_when"))
+        sites.append((item.addressed_when, f"teaching_focus {item.id}.addressed_when"))
+    sites.append((pack.failure_when, "failure_when"))
+    return sites
+
+
+def _check_triggers(pack: ScenarioPack) -> list[str]:
+    """**空触发条件禁止保存**（docs/23 §4.3.5）：不能同时被文档解释成恒真、代码解释成恒假。
+
+    省略整个 `visible_when`（= 一直在）是允许的；显式写一个 `all: []` 不行。
+    """
+    problems: list[str] = []
+    for trigger, where in _trigger_sites(pack):
+        if trigger is not None and not trigger.all:
+            problems.append(f"{where}: 触发条件为空（省略整个条件表示『一直成立』，不要写空 all）")
+    return problems
+
+
+def _check_targets(pack: ScenarioPack, index: _Index) -> list[str]:
+    """目标引用的类型与命名空间：`TargetRef` 必须命中本包；actor/device/scene **不得同名**。
+
+    `Affordance.targets` 用的是带 kind 的引用，但仍禁止三个命名空间出现重复 id——
+    两层一起兜住"裸 id 跨类型碰撞"（docs/23 §4.2）。
+    """
+    problems: list[str] = []
+    devices = {device.id for device in pack.presentation.devices}
+    seen: dict[str, str] = {}
+    for label, ids in (("actor", index.actors), ("device", devices), ("scene", {"scene"})):
+        for item in ids:
+            other = seen.get(item)
+            if other is not None and other != label:
+                problems.append(f"id 命名空间冲突：{item} 同时是 {other} 与 {label}")
+            seen[item] = label
+    for affordance in pack.affordances:
+        for target in affordance.targets:
+            if target.kind.value == "actor" and target.id not in index.actors:
+                problems.append(f"affordance {affordance.id}: targets 引用未知 actor {target.id}")
+            elif target.kind.value == "device" and target.id not in devices:
+                problems.append(f"affordance {affordance.id}: targets 引用未知 device {target.id}")
+            elif target.kind.value == "scene" and target.id != "scene":
+                problems.append(f"affordance {affordance.id}: scene 目标只能是 'scene'（收到 {target.id}）")
+    return problems
+
+
+def _check_teaching_focus(pack: ScenarioPack, index: _Index) -> list[str]:
+    """教学关注点：id 唯一；`evidence_refs` 只能引用本包已登记的事实/动作/线索。"""
+    problems = _duplicates("teaching_focus", [item.id for item in pack.teaching_focus])
+    known = index.facts | index.affordances | index.cues
+    for item in pack.teaching_focus:
+        where = f"teaching_focus {item.id}"
+        if not item.intent.strip():
+            problems.append(f"{where}: 缺 intent（作者希望学生遇到的判断问题）")
+        for ref in item.evidence_refs:
+            if ref not in known:
+                problems.append(f"{where}: evidence_refs 引用未登记的事实/动作/线索 {ref}")
+    return problems
+
+
+def _logic_keys(pack: ScenarioPack) -> set[str]:
+    """**驱动世界逻辑**的状态键：触发条件（含失败条件）与 state 维度引用的键。
+
+    这些键参与确定性判定，DM 不得改写（否则等于让模型改判据）。
+    """
+    keys: set[str] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            mapping: dict[Any, Any] = node
+            if mapping.get("kind") == "state_cmp" and mapping.get("key"):
+                keys.add(str(mapping["key"]))
+            for value in mapping.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(pack.model_dump(mode="json", exclude_none=True))
+    for dim in pack.dims:
+        if dim.source == "state" and isinstance(dim.params.get("key"), str):
+            keys.add(str(dim.params["key"]))
+    return keys
+
+
+def _check_dm_writable(pack: ScenarioPack, index: _Index) -> list[str]:
+    """人物状态可写集（docs/23 §5.1）：平台能机器查的边界全部在这里。
+
+    1. 键必须已登记且属于该角色；
+    2. **不得是设备通道读数**（设备状态永远不在写集）；
+    3. **不得驱动世界逻辑**（任何 `state_cmp` 条件 / `failure_when` / state 维度）——
+       此类阈值与风险结局都属于这一类；
+    4. `meaning` 必须写清语义（作者必须为"为什么它能被 DM 改"给出理由）；
+    5. 类型与取值域自洽。
+
+    「数值、测量结果、风险结局、动作完成状态」在**这四条之外**再靠作者审阅把关：
+    平台不内置领域词表（本模块领域中立），但凡是参与判定的键都会被第 3 条挡住。
+    """
+    problems: list[str] = []
+    readings = {channel.ref for device in pack.presentation.devices for channel in device.channels}
+    logic = _logic_keys(pack)
+    for actor in pack.actors:
+        for item in actor.dm_writable:
+            key = item.key if "." in item.key else f"{actor.id}.{item.key}"
+            where = f"actor {actor.id}.dm_writable"
+            if key not in index.state_keys:
+                problems.append(f"{where}: 未登记状态键 {key}")
+            if not key.startswith(f"{actor.id}."):
+                problems.append(f"{where}: 键必须以本人开头（{key}）")
+            if key in readings:
+                problems.append(f"{where}: {key} 是设备读数，永远不可写")
+            if key in logic:
+                problems.append(f"{where}: {key} 驱动世界判定（触发条件/维度），不可写")
+            if not item.meaning.strip():
+                problems.append(f"{where}: {key} 缺 meaning（说清这条人物状态意味着什么）")
+            if item.kind == "bool" and (item.lo is not None or item.hi is not None or item.max_delta is not None):
+                problems.append(f"{where}: {key} 是布尔状态，不要写 lo/hi/max_delta")
+            if item.lo is not None and item.hi is not None and item.lo > item.hi:
+                problems.append(f"{where}: {key} 的 lo/hi 顺序不对")
     return problems
 
 
@@ -111,23 +265,47 @@ def _check_effects(pack: ScenarioPack, index: _Index, effects: list[Any], where:
     return problems
 
 
+def _check_affordance_refs(index: _Index, affordance: Affordance, where: str) -> list[str]:
+    """揭示的线索与感知者都必须在本包内。"""
+    problems: list[str] = []
+    for cue_id in affordance.reveals:
+        if cue_id not in index.cues:
+            problems.append(f"{where}: 揭示了未知线索 {cue_id}")
+    for actor_id in affordance.perceptible_by:
+        if actor_id not in index.actors:
+            problems.append(f"{where}: 感知者未知 {actor_id}")
+    return problems
+
+
+def _check_affordance_cost(affordance: Affordance, where: str) -> list[str]:
+    """`time_cost` 必须是 0..60 的整数（`bool` 不算法外开恩）。"""
+    if isinstance(affordance.time_cost, bool) or not isinstance(affordance.time_cost, int):
+        return [f"{where}: time_cost 必须是整数（收到 {affordance.time_cost!r}）"]
+    if affordance.time_cost < 0 or affordance.time_cost > 60:
+        return [f"{where}: time_cost 必须在 0..60（收到 {affordance.time_cost}）"]
+    return []
+
+
+def _check_affordance(pack: ScenarioPack, index: _Index, affordance: Affordance) -> list[str]:
+    where = f"affordance {affordance.id}"
+    params = affordance.params or {}
+    problems: list[str] = []
+    if affordance.type not in pack.player.can:
+        problems.append(f"{where}: 类型 {affordance.type} 不在 player.can 中")
+    problems += _check_affordance_refs(index, affordance, where)
+    problems += _check_effects(pack, index, affordance.effects, where)
+    problems += _check_affordance_cost(affordance, where)
+    if affordance.select in ("single", "multi") and not params.get("options"):
+        problems.append(f"{where}: select={affordance.select} 但缺少 params.options")
+    if affordance.type is AffordanceType.DOCUMENT and not affordance.params.get("fields"):
+        problems.append(f"{where}: document 缺少 params.fields")
+    return problems
+
+
 def _check_affordances(pack: ScenarioPack, index: _Index) -> list[str]:
     problems: list[str] = []
     for affordance in pack.affordances:
-        where = f"affordance {affordance.id}"
-        if affordance.type not in pack.player.can:
-            problems.append(f"{where}: 类型 {affordance.type} 不在 player.can 中")
-        for cue_id in affordance.reveals:
-            if cue_id not in index.cues:
-                problems.append(f"{where}: 揭示了未知线索 {cue_id}")
-        for actor_id in affordance.perceptible_by:
-            if actor_id not in index.actors:
-                problems.append(f"{where}: 感知者未知 {actor_id}")
-        problems += _check_effects(pack, index, affordance.effects, where)
-        if affordance.select in ("single", "multi") and not affordance.params.get("options"):
-            problems.append(f"{where}: select={affordance.select} 但缺少 params.options")
-        if affordance.type is AffordanceType.DOCUMENT and not affordance.params.get("fields"):
-            problems.append(f"{where}: document 缺少 params.fields")
+        problems += _check_affordance(pack, index, affordance)
     return problems
 
 
@@ -276,35 +454,6 @@ def _check_rule_params(point: Any, index: _Index) -> list[str]:
     if "accept_custom" in point.params and not isinstance(point.params["accept_custom"], list):
         problems.append(f"criterion {point.id}: accept_custom 必须是列表")
     return problems
-
-
-def _check_anchors(pack: ScenarioPack, index: _Index) -> list[str]:
-    """叙事锚点：id 唯一；`requires`/`blocked_by`/`unlocks` 只能引用本包已登记的事实与动作。
-
-    判据语言只有一套（与 `effects`/affordance 同一注册表）——锚点不引入第二套。
-    """
-    problems = _duplicates("anchor", [anchor.id for anchor in pack.anchors])
-    known = index.facts | index.affordances
-    for anchor in pack.anchors:
-        where = f"anchor {anchor.id}"
-        if not anchor.cue.strip():
-            problems.append(f"{where}: 缺 cue（世界必须以叙事内手段呈现它）")
-        if anchor.deadline_turns < 0:
-            problems.append(f"{where}: deadline_turns 不得为负（{anchor.deadline_turns}）")
-        for field_name in ("requires", "blocked_by"):
-            for ref in getattr(anchor, field_name):
-                if ref not in known:
-                    problems.append(f"{where}: {field_name} 引用未登记的事实/动作 {ref}")
-        for ref in anchor.unlocks:
-            if ref not in index.affordances:
-                problems.append(f"{where}: unlocks 引用未登记的动作 {ref}")
-    return problems
-
-
-def _check_failure(pack: ScenarioPack, index: _Index) -> list[str]:
-    if pack.failure == "irreversible" and pack.failure_when is None:
-        return ["failure=irreversible 但未声明 failure_when"]
-    return _check_trigger(pack, index, pack.failure_when, "failure_when")
 
 
 def _check_trigger(pack: ScenarioPack, index: _Index, trigger: Trigger | None, where: str) -> list[str]:

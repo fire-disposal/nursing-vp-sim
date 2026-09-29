@@ -1,463 +1,341 @@
-"""DM 提示装配：把 pack 的声明、世界状态与本回合发生的事交给 DM。
+"""两个模型阶段的提示装配（**领域中立**：内容全部来自 pack 数据）。
 
-**领域中立**：提示文本只说"情境、在场者、处境、可做的动作"，具体内容全部来自 pack 数据。
+- `build_intent_messages`：解析学生的一次表达 → `IntentResolution`（可以看动作约束与隐藏依据）；
+- `build_delivery_messages`：把**已经结算完**的处境演出来 → `SceneDelivery`（看不到隐藏真相、
+  也看不到未揭示线索的文本；没有写权限）。
 
-形态按"agent"写（docs/21 §四）：**角色 → 环境 → 工具 → 不变量 → 交付信封**。
-创作上的事（谁说话、节奏、细节、情绪）交给 DM 自己判断，平台只在三条安全不变量与
-"可被解析"的形状上设限——这版刻意删掉了把创作当硬规则的那些条目。
+两个阶段共用同一套角色与世界契约，只是**输入权限不同**（docs/23 §4.1/§4.4）。
+JSON 形状一律由 `dm.contract.schema_of` 从 pydantic 模型生成，不在提示词里另写一份规范。
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 
-from ..runtime.anchors import AnchorReport, AnchorStatus
 from ..runtime.devices import build_devices
-from ..runtime.world import ActionRecord, World, student_declaration, visible_affordances
-from ..schema import AffordanceType, EffectOp, ScenarioPack
-from .tools import TOOL_NAMES, TOOL_SPECS, notes_block
+from ..runtime.world import World, contactable_actor, visible_affordances
+from ..schema import ScenarioPack
+from ..turns import IntentResolution, ResolvedTurn, SceneDelivery
+from .contract import banned_terms, schema_of
 
-# 枚举白名单：字面量**取自契约**（`schema.AffordanceType` / `EffectOp`），提示词与代码同源。
-# 实测（2026-09-28 线上事件流）：DM 自造 `options[].type` 会让解析层整回合失败（流式 + 非流式各一次，白花一次调用），
-# 所以这几个集合必须在提示词里逐字列出，而不是只靠"照抄上面的 id"这类间接说法。
-_OPTION_TYPES = "、".join(kind.value for kind in AffordanceType)
-_EFFECT_OPS = "、".join(operation.value for operation in EffectOp)
+_INTENT_SYSTEM = """你是这场情境的**意图解析器**。你只做一件事：把学生这一次表达，说成一件**可被世界结算**的事。
 
+你不写台词、不写旁白、不改世界、不点评学生；你的输出只被平台用来决定「他到底想做什么」。
 
-def _fill(template: str) -> str:
-    """把枚举白名单填进提示词模板（占位符避免 f-string 与大括号 JSON 例子打架）。"""
-    return template.replace("«OPTION_TYPES»", _OPTION_TYPES).replace("«EFFECT_OPS»", _EFFECT_OPS)
+# 硬规则
+0. **时间不归你管**：说话、观察、测量都不消耗时间；花多少时间由平台按包声明的 `time_cost` 结算。
+   你只负责把学生这次表达归属成一个可结算的意图（或澄清），不要替他"花时间"、也不要在输出里改时间。
+1. **通道优先**：学生已经声明的通道决定了性质——「说话」通道里的话是**交流**，「行动」通道里的话是**尝试做一件事**。
+   说话永远不等于「已经完成了一次物理处置」；只有叫人来、问话这一类**言语动作**可以被归属。
+2. **没有发生的事不能算发生**：「准备做」「是不是应该做」「如果做会怎样」「待会儿要不要」都不是已执行。
+   这类表达要么是说话（发问/自述），要么是需要澄清——不能填 `affordance_id` 当成一次执行。
+3. **学生已经选定就照抄**：动作 id、目标、选项都由学生给出时，逐字采用，不要改写、不要加料、不要换更"合适"的。
+4. **目标必须来自「可达对象」一节，逐字**：`{"kind","id"}` 两个字段都要对。动作绑定了多个目标而学生没说清对象时，
+   用 `kind="clarification"` 问清楚——**不要**靠最近聊天对象暗中补全。
+5. **对不上任何已声明动作**，就把 `affordance_id` 留空（平台会记为"未建模的尝试"并诚实说明）。
+   不要"找一个最接近的动作"让它成功。
+6. **一次只结算一件**：学生一口气列出多个互相依赖的操作时，不要全部算完成——用 clarification 让他选定**先尝试哪一个**。
+   普通复合台词（一句话里同时有寒暄和问题）不需要拆。
+7. `selection` 只能取该动作 `options` 里的 id；拿不准就留空。
+8. `social_updates` 只能取「人物状态」一节逐字列出的**全限定键**（形如 `patient.comfort`，原样照抄，
+   不要简写成 `comfort`），且必须由**本次交流内容**支撑；「同意配合」不等于「已经完成操作」。
+   没有依据就不写；写错键名会被平台拒绝并记账（等于白写）。
+9. `clarification` 只问**一句**具体的话（问对象、问参数），不含答案提示、不暗示最优路线、不出现下面列出的禁用词。
+10. `utterance` 是**学生原话**（照抄，不是转述）。
 
+# 输出
+只输出一个 JSON 对象，形状严格如下（多余字段会被平台丢弃）：
+«SCHEMA»"""
 
-_SYSTEM = _fill("""你是这场情境的**主持人与世界的执行者**：这里发生什么、谁开口、谁沉默，都由你决定。
+_DELIVERY_SYSTEM = """你是这场情境的主持人。处境**已经结算完了**——你的工作只是把它自然呈现出来。
 
-# 你做什么
-- 让处境按它自身的逻辑继续，让每个在场者按**自己的知识与性格**说话、行动或沉默；
-- 把学生做的每一件事当作真的发生过——世界要对它做出反应，而不是只等学生提问。
+你**没有**改世界的权限：不能写状态、不能新造读数或检查结果、不能让某件事"显得"成功、不能替学生做判断。
 
-# 你的自由度（都由你判断，平台不干预）
-说谁的话、说什么、说不说；给不给提示、给多少；推进快慢；场景细节；情绪的起伏；
-学生一条消息里塞了多个问题时怎么回应（可以只答一部分、可以反问、可以先愣一下）。
-日常口语，但要**说清楚**——不要靠含糊或答非所问制造难度；不要每轮都同样的长度与句式；
-不要重复已经说过的话（没新内容可说时，沉默、动作或眼神也算回应）。
+# 硬规则
+1. **只说已经发生的**：素材只有「本回合已经发生的可见事件」与「各角色允许知道的信息」。
+   未揭示的线索、别人的隐私、还没做的检查、隐藏结论——一律不得出现，也不得暗示。
+2. **谁开口就让谁自己说**：旁白用 `speaker: null`；台词 `speaker` 用「在场者」一节逐字给出的角色 id。
+   此刻要说话的人不在名册里（路过的同事、走廊广播、电话那头），用临时身份：`speaker` 给一个临时 key + `as_role` 给显示名。
+   临时身份只在本回合有效，不承载任何状态。
+3. **临场细节可以写，但不能升级**：语气、表情、环境、犹豫、沉默都可以；不能因此变成病情结论、设备读数、
+   动作成功或判读依据。
+4. **被阻止 / 未建模要诚实**：已经给你的说明要自然带进场景，不要替学生绕过或换个说法让它看起来做成了；
+   也不要复述平台口吻（"平台无法模拟"之类留给引擎直出的那条）。
+5. **不替学生**：不替他识别风险、不替他完成操作、不给出标准答案式的结论；不点评、不总结他的表现；
+   不出现「任务」「关卡」「提示」「选项」这类元话语。
+6. **多对象可以同时有诉求**：不要替学生排优先级，不要因为他在处理一件事就让另一件事消失。
+7. `sources` 只能引用「可见事件」一节里逐字给出的 ref；`assets` 只能引用「可用资源」一节逐字给出的 id；
+   `highlights` 只能引用可见事件里的 ref。拿不准就留空。
+8. 时间用**相对说法**推进（"过了一会儿""这会儿"），不要编造具体分钟数。
+9. 篇幅克制：一般 1–4 条消息，具体、能读；不要每轮都同样的句式；不要复述已经说过的话。
+10. **时间由包声明决定，不归你管**：说话、观察、测量**不消耗时间**（信息获取理所当然）。
+    本回合消耗的时间单位会明确告诉你（0 = 没有花时间）——**0 时不得描写时间流逝**（不许写"过了一会儿"
+    "几分钟后""半小时后"这类字样）；大于 0 时才可以自然地让时间往前走一点，**幅度与它相称**。
+11. **输出不得为空**：`messages` 与 `hints` 至少有一个非空；写了不在「可见事件」里的 ref、
+    或让未获准的短语出现，**整条输出会被作废**并要求你重来（平台不会替你删掉再照说）。
 
-# 三条不变量（只有这三条是硬的）
-1. **状态只走 `effects`**：只能改「可改状态」里列出的键，写别的键会被丢掉。
-2. **不提前抖出**：学生看不到的真相不得被说出或暗示；未揭示的线索、还没发生的检查结果不得出现；
-   任何在场者也不得说出自己不该知道的事。
-3. **事实要有来源**：学生做过的动作、pack 已声明的事实、已揭示的线索、本回合必然发生的事。
-   不得编造读数、既往史或检查结果——拿不准就留空，不要凑。
+# 输出
+只输出一个 JSON 对象，形状严格如下：
+«SCHEMA»"""
 
-# 怎么输出
-每回合只输出**一个** JSON 对象：要么是一次工具调用（`{"tool": ..., "args": {...}}`，见「工具」一节），
-要么是最终信封。信封字段（缺项留空，不要输出解释，不要加字段）：
-   narration       string                        学生此刻看到/听到/感觉到的
-   lines           [{actor, text, as_role?}]     在场者的话（actor = 角色 id）
-   interpretation  {affordance_id}               学生这句**自由表达**等价于「可做动作」里的哪一个（映射不出写 null）
-   facts_declared  [{fact_id?, fact, evidence}]  学生这回合**采集到**的信息
-   effects         [{target, key, op, value}]    只允许「可改状态」里的键（op 逐字取 «EFFECT_OPS»）
-   reveals         [string]                      只允许「尚未揭示的线索」里逐字列出的 id
-   ad_hoc_cues     [string]                      你新引入的可见细节（走这里，不要塞进 reveals）
-   options         [{label, type, affordance_id?}] 给学生"此刻值得考虑"的动作建议（type 逐字取 «OPTION_TYPES»）
-   notes           [{text, section?, supersedes?}] 钉在线索板上的**简短**结论（≤20 字；section 逐字取「线索板版块」里的 id）
-   images          [{asset_id, caption}]         引用「可用图片」里的 id（配一句 caption）
-   image_request   {prompt, caption?}            仅在提示允许时使用（见「可用图片」）。
-   anchor_satisfied string                       你认为某个锚点已达成 → 填它的 id（引擎只采纳与重算一致的）
-   anchor_blocked   {id, reason} 对象             你认为某个锚点被卡住 → 填它的 id 与缺的那一步
+_OPENING_SYSTEM = """你是这场情境的主持人。现在是**开场**：还没有发生任何学生动作。
 
-# 形状要求（为了能被解析与判读）
-- 白名单字段**逐字照抄**，不要改写、不要自造——集合之外的值会被判错或整条丢弃：
-  `options[].type` 只能取 «OPTION_TYPES» 之一（「可做动作」里每个 id 后面括号里就是它的 type，照抄即可）；
-  `effects[].op` 只能取 «EFFECT_OPS» 之一；`effects` 的键取「可改状态」里逐字出现的键；
-  `reveals` 取「尚未揭示的线索」里逐字出现的 id；`images[].asset_id` 取「可用图片」里逐字出现的 id；
-  `lines[].actor` 取「在场者」里逐字出现的 id（临时角色例外，见下一条）；`notes[].section` 取「线索板版块」里逐字出现的 id。
-- `lines[].actor` 必须是「在场者」一节里**逐字出现**的 id。要有人开口就让他本人开口——不要用旁白替人说台词。
-  此刻该说话的人不在名册里（路过的护工、走廊广播、隔壁床、电话另一头、临时的同事），就**临时**给他一个身份：
-  `as_role` 写显示名，`actor` 用一个临时 key。这个临时 key **只在本回合有效**、不进名册、**不承载状态改动**
-  （`effects` 不许写到它头上），也**不要**把名册里的角色临时改成别人。
-  ✅ `{"actor": "porter_tmp", "as_role": "走廊里的护工", "text": "让一让——"}`
-  ❌ `{"actor": "nurse_li", "text": "我先看下尿袋。"}`——`nurse_li` 不在「在场者」里、又没给 `as_role`，
-  这条台词会被引擎**整条丢弃**（记 `unknown_actor:nurse_li`）：**这句话就没了**，学生什么也看不到。
-- `anchor_satisfied` 是**一个字符串**：只填那个锚点的 id，别的一律不要。
-  ✅ `"anchor_satisfied": "<锚点 id>"`
-  ❌ `"anchor_satisfied": ["<锚点 id>"]`（列表）、`"anchor_satisfied": {"id": "<锚点 id>"}`（对象）、
-  `"anchor_satisfied": true`——都不是字符串，会让**整个回合解析失败**：这一回合的输出全部作废、学生什么都看不到，
-  还得白花一次调用重试。
-- `anchor_blocked` 是**一个对象**，只有 `id` 与 `reason` 两个键：`{"id": "<锚点 id>", "reason": "<缺的那一步，短句>"}`。
-  ✅ `"anchor_blocked": {"id": "<锚点 id>", "reason": "<缺的那一步，短句>"}`
-  ❌ `"anchor_blocked": "a_x"`（只写 id 字符串）、`"anchor_blocked": [{"id": "a_x"}]`（列表）、
-  `"anchor_blocked": true`——都不是对象，同样会让**整个回合解析失败**。
-  （`reason` 不写按空处理、`id` 为空按无效提案丢弃——但形状必须先对，形状不对连回合都读不出来。）
-- `options` 只能取「可做动作」里的 affordance_id，或一条自由发问（`type: "ask"`，不带 affordance_id）：
-  非 `ask` 的选项**必须**带一个已声明的 `affordance_id`（否则整条丢弃）。**不得**与未揭示的线索同义；
-  也**不要**提供"其他/自己输入"这类选项（平台已经有）。1–4 条通常够用，多则嘈杂。
-- 需要学生**做选择或做记录**的动作（表单型）此刻确实是自然的下一步时，把它放进 `options`——它只能从这里被带出；
-  不值得考虑就别列。
-- `interpretation` 只在学生**自由表达**（没点按钮）时用：把他这句话映射到「可做动作」里最贴切的那个 id；
-  映射不出就**留空**——不要硬凑、不要编造归属（学生自己点了某个动作时，以他点的为准）。
-- `anchor_satisfied` / `anchor_blocked` 是**提议**：只在「锚点」一节所列的推进任务确实达成/被卡住时填
-  （形状照上面写：`anchor_satisfied` 一个 id 字符串、`anchor_blocked` 一个 `{id, reason}` 对象）。
-  引擎会自己重算一遍，不一致就作废（下回合会告诉你）。不要为了让某个锚点"看起来完成"而替学生做事、
-  也不要提前演出还没轮到的锚点信号（那一节里的禁令是硬的）。
-- `notes` 在"真的确立了一件事"时写：一条只讲一个新事实，**不要复述旁白、不要写剧情**；
-  发现先前记错了，用 `supersedes` 指向那条条目订立正（旧条目保留但被划掉）。
-  `section` 只写「线索板版块」一节里列出的 id，拿不准就**留空**（留空落在默认版块；写列表之外的版块整条丢）。
-- 需要让学生**看见画面**时，用 `images` 引用「可用图片」里的 asset_id；不要自己编 URL 或描述图片文件本身。
-- 时间用**相对说法**推进（"过了一会儿""这会儿"），不要编造具体分钟数。
+把处境立起来——学生此刻在哪、眼前是什么、谁在场、气氛如何——然后**停下来等学生动手**。
 
-# 叙事手艺（体验好坏在这里，但不是硬规则）
-- 一般是**每回合推进一点**：新信息 / 处境变化 / 关系与情绪的变化，至少其一；真什么都没有时，
-  沉默与停顿也是真实的。
-- 场景感靠 1–2 处**具体**的感官细节，不堆形容词；不要复述在场者已经知道的事实。
-- **呼应前情**：把此前具体发生过的事（谁做过什么、说过什么、谁在场）带回来，让世界连贯。
-- 处境连续几回合没有变化时，让它动起来（有人进来、报警、状况变差、新的信息浮现、某个在场者主动开口）。
-- 用**行动与台词**推进，少解释；不要替学生做决定、不要点评或总结学生的表现，
-  不要出现"任务""关卡""提示""选项"这类元话语。
-- 人不会平均地配合：可以犹豫、反问、抱怨、只顾自己那件事；情绪上来时话会变短，但仍要交代清楚。
-- 只说这个角色**应当知道**的东西：不该知道的一律不知道、不猜、不替别人回答。""")
+# 硬规则
+1. 只依据「此刻的处境」与「在场者允许知道的信息」；未揭示的线索、隐藏结论一律不得出现或暗示。
+2. 谁开口就让谁自己说（`speaker` 用「在场者」里逐字给出的 id；要临时角色就给 `as_role` 显示名）。
+3. 给全学生**判断所需的现场信息**，但不给任务清单、不排优先级、不提示下一步、不点评。
+4. 不出现「任务」「关卡」「提示」「选项」这类元话语；不要编造读数或检查结果；不要描写时间流逝。
+5. `sources` 只能引用「可见事件」一节里的 ref；`assets` 只能引用「可用资源」一节里的 id；拿不准就留空。
+6. **输出不得为空**（`messages` 至少一条）。
+
+# 输出
+只输出一个 JSON 对象，形状严格如下：
+«SCHEMA»"""
+
+_HINT_SYSTEM = """学生**主动请求了一次提示**。这是一次教学交互：给方向，不给答案；不涉及世界推进。
+
+# 硬规则
+1. **只给方向，不给条目**：指引他"去看什么 / 想到哪一层"，**不要**替他说出具体处置、不要列出正确步骤。
+2. **不许揭开还没获得的东西**：未揭示的线索、隐藏结论、别人的隐私、还没做的检查结果都不能出现，
+   也不能用"你也许该想想……"这种暗示把它带出来。做不到在不泄底的前提下给方向，就直说"这一处我只能提示到方向"。
+3. 一两句短话；可以用一个在场者的一句话，也可以用旁白。
+4. 不点评学生此前表现，不出现「任务」「关卡」「答案」这类元话语；也不要描写时间流逝（提示不消耗时间）。
+5. `sources` / `assets` / `highlights` 的引用规则与平常一样；拿不准就留空。
+6. **输出不得为空**；出现未获准的短语会让整条作废并让你重来一次。
+
+# 输出
+只输出一个 JSON 对象，形状严格如下：
+«SCHEMA»"""
 
 
-def _lines(values: list[str], empty: str = "（无）") -> str:
+def _lines(values: Sequence[str], empty: str = "（无）") -> str:
     return "\n".join(f"- {value}" for value in values) if values else empty
 
 
-def _actor_block(pack: ScenarioPack, world: World) -> list[str]:
-    blocks: list[str] = []
+def _target_block(pack: ScenarioPack, world: World) -> list[str]:
+    out = ["", "## 可达对象（`target` 只能逐字取这里的 kind+id）"]
     for actor in pack.actors:
-        own_state = {
-            key.split(".", 1)[1]: value for key, value in world.state.items() if key.startswith(f"{actor.id}.")
-        }
-        blocks.append(
-            "\n".join(
-                [
-                    f"[{actor.id}] {actor.role}（在场方式：{actor.presence.value}；索取注意力的方式：{actor.demand.value}）",
-                    f"  他知道：{actor.knowledge or '（未声明）'}",
-                    f"  风格：{actor.style or '（未声明）'}；目的：{'、'.join(actor.goals) if actor.goals else '（未声明）'}",
-                    f"  他当前状态：{own_state or '（未声明）'}",
-                ]
-            )
+        reach = "可达" if contactable_actor(pack, actor.id) else "**不可达（看得见，碰不着）**"
+        out.append(
+            f"- actor/{actor.id}｜{actor.role}｜在场方式 {actor.presence.value}｜{reach}"
+            f"｜索取注意力的方式 {actor.demand.value}"
         )
-    return blocks
+    for device in pack.presentation.devices:
+        out.append(f"- device/{device.id}｜{device.title}（{device.kind}）")
+    out.append("- scene/scene｜整个处境（全场级动作、对所有人说话）")
+    return out
 
 
-def _device_block(pack: ScenarioPack, world: World) -> str:
-    """设备面（学生看到的读数区）：让 DM 说得出口"监护仪在叫"而不用猜哪个键是哪个灯。"""
-    return _lines(
-        [
-            f"{device['title']}：{channel['label']} {channel['display']}{channel['unit']}（{channel['status']}）"
-            for device in build_devices(pack, world)
-            for channel in device["channels"]
-        ]
-    )
+def _affordance_block(pack: ScenarioPack, world: World) -> list[str]:
+    rows: list[str] = []
+    for affordance in visible_affordances(pack, world):
+        targets = "、".join(f"{item.kind.value}/{item.id}" for item in affordance.targets) or "（不限）"
+        params = affordance.params or {}
+        options = params.get("options") or []
+        detail = ""
+        if options:
+            detail = "｜选项：" + "、".join(f"{option.get('id')}" for option in options)
+        elif params.get("fields"):
+            detail = "｜记录字段：" + "、".join(str(field) for field in params["fields"])
+        rows.append(f"- {affordance.id}（{affordance.type.value}｜{affordance.label}）｜可作用对象：{targets}{detail}")
+    return ["", "## 此刻可用的动作（`affordance_id` 只能取这里的 id）", _lines(rows)]
+
+
+def _visible_state(pack: ScenarioPack, world: World) -> str:
+    rows = [
+        f"{channel.label} {channel.display}{channel.unit}（{channel.status}）"
+        for device in build_devices(pack, world)
+        for channel in device.channels
+    ]
+    for section in pack.presentation.board:
+        for ref in section.refs:
+            if ref in world.state:
+                rows.append(f"{section.label_for(ref)} {world.state[ref]}")
+    return _lines(sorted(set(rows)))
 
 
 def _cue_block(pack: ScenarioPack, world: World) -> list[str]:
-    """线索两节：已揭示的（带文本）与尚未揭示的（**只给 id**——`reveals` 的白名单）。
-
-    未揭示的线索**一个字都不写**：DM 拿不到它们的文本就不会提前抖出来（安全不变量 #2）。
-    但 id 必须给全——`contract._clean_reveals` 的白名单就是「本 pack 声明的全部线索」，
-    只指「已揭示线索」会让 `reveals` 永远写不出新东西（2026-09-28 审计）。
-    """
-    revealed = set(world.revealed)
-    unrevealed = [cue.id for cue in pack.setting.cues if cue.id not in revealed]
+    """演出/解析都只拿到**已揭示**线索的文本；未揭示的线条一个字都不给（防泄底）。"""
     return [
         "",
         "## 已揭示线索（学生已经看到的）",
         _lines([f"{cue_id}：{text}" for cue_id, text in pack.cue_items(world.revealed)]),
         "",
-        "## 尚未揭示的线索（`reveals` 只能取这里的 id；只列 id，内容不许提前抖出）",
-        _lines(unrevealed),
-        "（只有你本回合的叙述**确实呈现**了其中某条时，才把它的 id 写进 `reveals`；凭空写会让没发生的事直接上板。）",
+        "## 学生已经注意到的现场细节",
+        _lines(list(world.ad_hoc_cues)),
     ]
 
 
-def _board_block(pack: ScenarioPack) -> list[str]:
-    """线索板版块：`notes[].section` 的白名单 = 这里列出的 id（= `contract._clean_notes` 的校验集）。
-
-    实测（跨会话反复）：DM 会自造版块名（「既往」「主诉」「社会史」「病史」「vitals」「查体」…），
-    整条笔记被引擎丢弃、内容直接丢——所以 id、标题与"拿不准就留空"的退路都要写清楚。
-    """
-    sections = pack.presentation.board
-    if not sections:
-        return [
-            "",
-            "## 线索板版块",
-            "本 pack 没有声明线索板版块（没有额外版块）：`notes` 不写 section 也无处可放，引擎一律不收"
-            "——本回合干脆不要输出 `notes`。",
-        ]
-    defaults = [section.id for section in sections if section.source == "note"]
-    lines = ["", "## 线索板版块（`notes[].section` 只能取这里的 id；学生看到的就是这些版块）"]
-    lines.extend(f"{section.id}｜{section.title}" for section in sections)
-    if defaults:
-        lines.append(
-            f"你的 `notes` 钉在这些版块里（默认版块：{'、'.join(defaults)}）：不写 `section` 就落在默认版块；"
-            "写列表之外的 id（自造版块名、或别的 pack 的版块名）会被整条丢掉。"
-        )
-    else:
-        lines.append("本 pack 没有笔记版块：`notes` 一律不收——不要输出 `notes`。")
-    return lines
-
-
-def _tool_block(max_steps: int) -> list[str]:
-    if max_steps <= 0:
-        return []
+def _social_block(pack: ScenarioPack) -> list[str]:
+    rows: list[str] = []
+    for actor in pack.actors:
+        for item in actor.dm_writable:
+            key = item.key if "." in item.key else f"{actor.id}.{item.key}"
+            bound = f"，取值 {item.lo}–{item.hi}" if item.lo is not None or item.hi is not None else ""
+            delta = f"，单次最多变 {item.max_delta}" if item.max_delta is not None else ""
+            rows.append(f"- {key}（{item.kind}{bound}{delta}）：{item.meaning}")
+    if not rows:
+        return ["", "## 人物状态（可写）", "本包没有 DM 可写的人物状态：`social_updates` 一律留空。"]
     return [
         "",
-        f"# 工具（只读；本回合最多 {max_steps} 步，用尽后直接产出信封）",
-        _lines([f"{name}　{description}" for name, description in TOOL_SPECS]),
-        "（读工具的结果会立刻回给你；`note.write` 是只有你能看见的便条，学生看不到）",
+        "## 人物状态（可写；`social_updates[].key` **只能逐字照抄全限定键**，不要简写）",
+        _lines(rows),
     ]
 
 
-def _notes_lines(world: World) -> list[str]:
-    notes = notes_block(world)
-    return ["", "# 你之前的便条（只有你能看见）", _lines(notes)] if notes else []
+def _focus_block(pack: ScenarioPack, world: World, *, for_hint: bool = False) -> list[str]:
+    """教学关注点只给**意图**与相关性；不告诉 DM「该让学生完成什么」，也没有推进权。"""
+    rows: list[str] = []
+    for item in pack.teaching_focus:
+        from ..runtime.world import trigger_holds
 
-
-def _joined(values: tuple[str, ...]) -> str:
-    return "、".join(values) if values else "（无）"
-
-
-def _anchor_block(report: AnchorReport | None) -> list[str]:
-    """锚点一节 = DM 的任务列表（结构化短句）。
-
-    **不声明 anchors 的 pack → 空列表**（提示词逐字节不变，一切照旧）；
-    `pending` 锚点的 `cue` 在这里只以**禁令**出现、且只列 id——线索文本一个字都不提前抖出。
-    """
-    if report is None or not report.states:
+        relevant = item.relevant_when is None or trigger_holds(pack, world, item.relevant_when)
+        if not relevant:
+            continue
+        addressed = item.addressed_when is not None and trigger_holds(pack, world, item.addressed_when)
+        rows.append(f"- {item.id}｜{item.intent}｜{'已有处理证据' if addressed else '还没有处理证据'}")
+    if not rows:
         return []
-    lines = ["", "# 锚点（本回合要推进的任务；只给你看，学生看不到这一节）"]
-    active = report.active
-    if active is None:
-        lines.append("- 当前没有可推进的锚点（其余都已达成或被卡住）。")
+    head = "## 相关教学关注点（只给你看；**不要直接讲出来**，也不要为了它推进世界）"
+    tail = "（学生主动求助时才可作为给方向时的参考。）" if for_hint else "（只影响你把哪一处呈现得更清楚。）"
+    return ["", head, _lines(rows), tail]
+
+
+def _transcript(world: World, pack: ScenarioPack, limit: int = 12) -> list[str]:
+    return ["", "## 近期经历（按回合时序）", world.transcript(pack, limit=limit) or "（还没有）"]
+
+
+def build_intent_messages(
+    pack: ScenarioPack,
+    world: World,
+    *,
+    mode: str,
+    text: str,
+    target: dict | None = None,
+    affordance_id: str | None = None,
+    selection: list[str] | None = None,
+) -> list[dict[str, str]]:
+    """解析阶段的提示：`mode` = 学生声明的通道（speech / action）。"""
+    system = _INTENT_SYSTEM.replace("«SCHEMA»", schema_of(IntentResolution))
+    declared = []
+    if affordance_id:
+        declared.append(f"他已选定的动作 id：{affordance_id}")
+    if target:
+        declared.append(f"他已选定的对象：{target.get('kind')}/{target.get('id')}")
+    if selection:
+        declared.append(f"他已选定的选项：{'、'.join(selection)}")
+    facts = [
+        "",
+        "# 场景",
+        f"- 学生扮演：{pack.player.role}",
+        f"- 地点：{pack.setting.place}" + (f"（{pack.setting.time_hint}）" if pack.setting.time_hint else ""),
+        "",
+        "# 学生这一次表达",
+        f"- 他声明的通道：{'说话' if mode == 'speech' else '行动（尝试做一件事）'}",
+        f"- 他的原话：「{text}」" if text else "- 他的原话：（没有文字，只是一次选择）",
+        *(["- 平台已记录的选择：" + "；".join(declared)] if declared else []),
+        "",
+        "# 此刻的处境（学生可见）",
+        _visible_state(pack, world),
+        *_cue_block(pack, world),
+        *_transcript(world, pack),
+        *_affordance_block(pack, world),
+        *_target_block(pack, world),
+        *_social_block(pack),
+        "",
+        "# 隐藏依据（**只用于正确归属，绝不可出现在输出里**）",
+        _lines(list(pack.truth)),
+        "",
+        "# 禁用词（出现在 clarification 里会被判为不合格）",
+        _lines(banned_terms(pack, world)),
+    ]
+    return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(facts)}]
+
+
+def build_delivery_messages(
+    pack: ScenarioPack,
+    world: World,
+    *,
+    request_text: str,
+    request_mode: str,
+    target: dict | None,
+    resolved: ResolvedTurn,
+    notice: str = "",
+    mode: str = "turn",
+) -> list[dict[str, str]]:
+    """演出阶段的提示：**没有** truth、没有未揭示线索、没有可写状态。"""
+    if mode == "hint":
+        system = _HINT_SYSTEM.replace("«SCHEMA»", schema_of(SceneDelivery))
+    elif mode == "opening":
+        system = _OPENING_SYSTEM.replace("«SCHEMA»", schema_of(SceneDelivery))
     else:
-        lines.append(f"- 当前推进：{active.id}（阶段 {active.stage}）")
-        lines.append(f"  目标（教学意图，不写给学生）：{active.goal}")
-        lines.append(f"  世界必须呈现的信号：{active.cue}")
-        lines.append(f"  前置已满足：{_joined(active.satisfied_requires)}")
-        lines.append(f"  前置未满足（**不得**替学生完成）：{_joined(active.missing_requires)}")
-        if active.unlocks:
-            lines.append(f"  达成后开放：{_joined(active.unlocks)}")
-        if active.nudge:
-            lines.append(f"  {active.nudge}")
-    blocked = report.of(AnchorStatus.BLOCKED)
-    if blocked:
-        lines.append("- 已被卡住（用叙事内手段表现「此路不通」，不要替学生绕过去）：")
-        lines.extend(f"  {state.id}：缺 {state.reason}" for state in blocked)
-    pending = report.of(AnchorStatus.PENDING)
-    if pending:
-        ids = "、".join(state.id for state in pending)
-        lines.append(f"- 禁令：仍待推进的锚点（{ids}）的信号本回合**不得**以任何形式出现——不得提前抖出、不得暗示。")
-    lines.extend(f"- {reminder}" for reminder in report.reminders)
-    return lines
+        system = _DELIVERY_SYSTEM.replace("«SCHEMA»", schema_of(SceneDelivery))
 
-
-def _student_turn(action: ActionRecord, pack: ScenarioPack) -> tuple[str, str]:
-    """本回合"学生做了什么"那一句 + **回应方式**指引（他声明的是对话还是行动）。
-
-    学生在自由通道里**先声明再说话**（`student_declaration`）：对在场者说 → 让人物回话；
-    自定义行动 → 按世界后果回应。未声明（旧客户端 / 按钮 / 选项）时与旧版提示**逐字一致**。
-    """
-    declaration = student_declaration(action)
-    said = action.text or action.custom_text or ""
-    quoted = f"「{said}」" if said else ""
-    if declaration == "say":
-        target = pack.actor(action.target_actor_id) if action.target_actor_id else None
-        who = f"「{target.role}」" if target is not None else "在场的某个人"
-        return (
-            f"学生对{who}说：{quoted or '（没说出内容）'}",
-            "他这句话是**对着那个人说的**：由他本人当场回话（以对话回应），不要把它当成一次操作，也不要替他写成旁白。",
-        )
-    if declaration == "act":
-        return (
-            f"学生要做一个行动：{quoted or '（没写具体内容）'}",
-            "他这句是**要动手做一件事**：按世界后果回应（做了什么、世界因此怎么变、在场者如何反应），"
-            "不要把它当成一句问话。",
-        )
-    # 未声明（旧客户端 / 按钮 / 选项）：与原实现逐字一致
-    text = action.label(pack)
-    if action.text:
-        text = f"{text}——学生说：「{action.text}」"
-    if action.custom_text:
-        text = f"{text}——学生自己写的：「{action.custom_text}」"
-    return text, ""
-
-
-def build_dm_messages(
-    pack: ScenarioPack,
-    world: World,
-    action: ActionRecord | None,
-    beats: list[dict[str, object]],
-    *,
-    opening: bool = False,
-    max_steps: int = 0,
-    anchors: AnchorReport | None = None,
-) -> list[dict[str, str]]:
-    """组装 DM 的 system + user。`opening` 用于开场回合；`max_steps > 0` 时写入「工具」一节。
-
-    纠偏（重试）不在这里：多步循环是**累积同一段对话**的，纠偏由 `retry_messages` 就地追加。
-    `anchors` = 本回合的锚点状态（由事件流重算）；缺省/空报告时**不写**「锚点」一节。
-    """
-    available = [
-        f"{affordance.id}（{affordance.type.value}）{affordance.label}"
-        for affordance in visible_affordances(pack, world)
+    actor_rows = [
+        f"- {actor.id}｜{actor.role}（在场方式 {actor.presence.value}，索取注意力的方式 {actor.demand.value}）"
+        f"｜风格：{actor.style or '（未声明）'}"
+        f"｜此刻想要：{'、'.join(actor.goals) if actor.goals else '（未声明）'}"
+        f"｜在场者本人知道的：{actor.knowledge or '（未声明）'}"
+        for actor in pack.actors
     ]
-    beats_text = _lines([f"{beat['by']} 应当{beat['does']}：{beat['intent']}" for beat in beats], "（无）")
-
-    action_text, reply_hint = ("（开场，学生还没做任何事）", "") if action is None else _student_turn(action, pack)
-
-    turn_block = (
-        [
-            "# 本回合：开场（第 0 回合）",
-            "用 1–2 处感官细节把处境立起来（这里是什么地方、此刻什么在动、什么人是什么状态），",
-            "让此刻在场的人按自己的状态开口或保持沉默。学生还没做任何事，等他动手。",
-        ]
-        if opening or action is None
-        else [
-            f"# 本回合（第 {world.turn} 回合）",
-            f"学生做了：{action_text}",
-            *([reply_hint] if reply_hint else []),
-            "如果他这次是**自由表达**（没点动作按钮），把「他实际做的这件事」对应到「可做动作」里最贴切的那个 id，",
-            '写进信封：`"interpretation": {"affordance_id": "那个 id"}`；确实对应不上就写 `{"affordance_id": null}`。',
-            "（他点的是动作按钮时，这一条不用管。）",
-            "本回合必然发生（已确定的结果，用你自己的语言体现出来）：",
-            beats_text,
-        ]
-    )
-
-    user = "\n".join(
-        [
-            "# 环境",
-            f"情境：{pack.title}｜学生扮演：{pack.player.role}",
-            f"地点：{pack.setting.place}｜时间线索：{pack.setting.time_hint}",
-            f"处境说明：{pack.one_line}",
-            "",
-            "## 在场者（各自的知识边界）",
-            *_actor_block(pack, world),
-            "",
-            "## 学生看不到的（真相与尚未揭示的线索，任何在场者都不得直接说出）",
-            _lines(pack.truth),
-            _lines(pack.hidden_from_player),
-            "",
-            "## 读数（学生看到的设备面）",
-            _device_block(pack, world),
-            "",
-            "## 可改状态（effects 只能改这些键）",
-            _lines([f"{key} = {value}" for key, value in world.state.items()]),
-            *_cue_block(pack, world),
-            "",
-            "## 可做动作（本回合**已解锁**；options 与 interpretation 只能取这里的 id）",
-            _lines(available),
-            *_anchor_block(anchors),
-            "",
-            "## 可用图片（需要让学生看见画面时，用 images 引用这里的 asset_id）",
-            _lines([f"{asset.id}｜{asset.title}｜适合：{asset.suggest_when}" for asset in pack.assets]),
-            (
-                "（本情境允许用 image_request 请求现场生成图片）"
-                if pack.image_generation == "allowed"
-                else "（本情境不允许现场生成图片：image_request 会被丢弃）"
-            ),
-            *_tool_block(max_steps),
-            *_board_block(pack),
-            *_notes_lines(world),
-            "",
-            *turn_block,
-            "",
-            "# 对话记录",
-            world.transcript(pack),
-        ]
-    )
-
-    return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
-
-
-def retry_messages(messages: list[dict[str, str]], hint: str, *, compress: bool = False) -> None:
-    """纠偏（就地追加）：截断 → 要求压缩；其他 → 报错误摘要请它修正。
-
-    多步循环是**累积同一段对话**的（工具结果留在上下文里），所以纠偏也走追加，不重建提示词。
-    """
-    messages.append({"role": "user", "content": f"# 上次输出有问题，请修正\n{hint}"})
-    if compress:
-        messages.append(
-            {
-                "role": "user",
-                "content": "# 注意\n上次输出被截断。请**压缩**：narration ≤ 60 字，每条台词 ≤ 40 字，options ≤ 3 条，必须完整闭合 JSON。",
-            }
-        )
-
-
-#: 步数用尽时给模型的那句说明（与工具结果**同一条**用户消息里回注，见 `step_messages`）。
-STEP_BUDGET_NOTE = "# 步数已用尽\n请**直接**输出最终 JSON 信封（不要再调用工具）。"
-
-
-def step_messages(
-    messages: list[dict[str, str]],
-    assistant_text: str,
-    results: Sequence[tuple[str, dict[str, object]]],
-    *,
-    note: str | None = None,
-) -> None:
-    """把一次工具来往拼进对话（就地追加）：assistant 说了要调什么，user 返回结果。
-
-    **一批调用 = 一条 assistant + 一条 user**：多条结果按**调用顺序**拼进同一个用户消息
-    （每条自带 `# 工具 X 的结果` 标题）。不拆成多条 user 消息，是因为连续同角色的消息会被部分供应商拒；
-    `note`（预算用尽 / 被拒的调用）也拼在同一条里，同样是为了不制造连续同角色消息。
-
-    "读工具 → 再决定"就靠这两条消息，不需要供应商侧的 function-calling 协议（流式路径也能跑）。
-    """
-    blocks = [
-        f"# 工具 {tool} 的结果\n{json.dumps(result, ensure_ascii=False, default=str)}" for tool, result in results
+    visible_rows = [f"- [{event.ref or event.kind}]（{event.kind}）{event.text}" for event in resolved.visible_events]
+    assets = [f"- {asset.id}｜{asset.title or asset.alt}" for asset in pack.assets]
+    body = [
+        "",
+        "# 场景",
+        f"- 学生扮演：{pack.player.role}",
+        f"- 地点：{pack.setting.place}" + (f"（{pack.setting.time_hint}）" if pack.setting.time_hint else ""),
+        "",
+        "# 在场者（只有这里的 id 可以直接当 `speaker`）",
+        _lines(actor_rows),
+        "",
+        *(
+            [
+                "# 学生这一次做了什么",
+                f"- 通道：{'说话' if request_mode == 'speech' else '行动'}",
+                f"- 原话：「{request_text}」" if request_text else "- 原话：（他只是点了一个动作）",
+                *([f"- 他指定的对象：{target.get('kind')}/{target.get('id')}"] if target else []),
+                f"- 动作：{resolved.action.label or '（未建模的尝试）'}",
+                f"- 世界的答复：{resolved.outcome.value}"
+                + (f"（{resolved.block_reason}）" if resolved.block_reason else ""),
+                f"- 本回合消耗的时间单位：{resolved.time_cost}"
+                + ("" if resolved.time_cost else "（**0 = 没有花时间：禁止描写时间流逝**）"),
+                f"- 发生时的时间单位累计值：{resolved.turn}",
+                *(
+                    [f"- 引擎已经直出的说明（你要自然地把它带进场景，不要复述平台口吻）：「{notice}」"]
+                    if notice
+                    else []
+                ),
+            ]
+            if mode != "opening"
+            else ["# 开场（还没有学生动作）", "- 立起处境，让在场者按自己的处境开口，然后把话筒交给学生。"]
+        ),
+        "",
+        "# 本回合已经发生的可见事件（你只能写这些）",
+        _lines(visible_rows),
+        "",
+        "# 此刻的处境（学生可见）",
+        _visible_state(pack, world),
+        *_cue_block(pack, world),
+        *_transcript(world, pack),
+        *_focus_block(pack, world, for_hint=(mode == "hint")),
+        "",
+        "# 可用资源（`assets` 只能取这里的 id）",
+        _lines(assets),
+        "",
+        "# 禁用词（不得出现在任何消息里）",
+        _lines(banned_terms(pack, world)),
     ]
-    if note:
-        blocks.append(note)
-    messages.append({"role": "assistant", "content": assistant_text})
-    messages.append({"role": "user", "content": "\n\n".join(blocks)})
+    return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(body)}]
 
 
-def tool_reject_note(rejection: str) -> str:
-    """工具调用被拒（未知工具名 / `args` 形状错）时给模型的说明：把**可用工具**再说一遍。
-
-    为什么要说：模型不知道"这一步压根没执行"，不说就会继续照着发（2026-09-28 线上那次
-    一次响应里连发三条调用，被整段判死后整个回合降级成保底）。
-    """
-    names = "、".join(sorted(TOOL_NAMES))
-    return (
-        "# 这次工具调用不合法，已跳过\n"
-        f"（{rejection}）\n"
-        f"`tool` 只能取：{names}（括号前的名字，不要带 `()`）；参数一律放进 `args` 对象"
-        '（无参工具写 `{"tool": "world.state", "args": {}}`）。改好后重发，或直接输出信封。'
+def retry_messages(messages: list[dict[str, str]], problem: str) -> None:
+    """纠偏：把该阶段的错误就地追加给模型（错误反馈**限定在该阶段**）。"""
+    messages.append(
+        {
+            "role": "user",
+            "content": f"上一次输出不可用：{problem}\n请只按给定 JSON 形状重新输出一次，不要解释、不要加字段。",
+        }
     )
-
-
-def build_entity_messages(
-    pack: ScenarioPack,
-    world: World,
-    actor_id: str,
-    intent: str,
-) -> list[dict[str, str]]:
-    """独立角色实体的提示：它只代言一个人，只输出这一句话。**冻结**（无 pack 使用它，见 docs/21 §三）。"""
-    actor = pack.actor(actor_id)
-    assert actor is not None  # 由契约校验保证
-    own_state = {key.split(".", 1)[1]: value for key, value in world.state.items() if key.startswith(f"{actor.id}.")}
-    system = "\n".join(
-        [
-            f"你就是「{actor.role}」。你不是助手，也不解释自己。",
-            f"你的风格：{actor.style or '（未声明）'}",
-            f"你的目的：{'、'.join(actor.goals) if actor.goals else '（未声明）'}",
-            f"你知道的：{actor.knowledge or '（未声明）'}",
-            f"你现在的状态：{own_state or '（未声明）'}",
-            "你不知道、也不该知道的：任何你没被告知的事（不得猜测、不得替别人说话）。",
-            "只输出你要说的那一句话本身，不要引号、不要旁白、不要 JSON。",
-        ]
-    )
-    user = "\n".join(
-        [
-            f"处境：{pack.setting.place}｜{pack.one_line}",
-            f"此刻你需要回应的意图：{intent}",
-            "",
-            "刚才发生了什么：",
-            world.transcript(pack, limit=8),
-        ]
-    )
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]

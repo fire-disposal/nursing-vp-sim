@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import copy
 import inspect
 import json
 import pathlib
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 from .assets import seed_from_pack
-from .schema import PACK_SCHEMA_VERSION, ScenarioPack
+from .schema import PACK_SCHEMA_VERSION, BoardSection, ScenarioPack
 from .validation import validate_pack
 
 PACKS_DIR = pathlib.Path(__file__).resolve().parent / "packs"
@@ -65,9 +66,15 @@ def _prune_to_model(data: Any, model: type[BaseModel]) -> Any:
 
     只有 `pack_schema_version < 当前版本` 的存量内容才走这条路；当前版本的包仍然严格校验，
     作者的拼写错误不会被静默吞掉。
+
+    除"裁未知键"外还有一条**显式**的旧值映射（不猜、不猜语义）：线索板 `source="note"`
+    是 v2 的 DM 白板写入版块，v3 已删除该来源（DM 不再写白板）——旧修订里的这类版块整块丢弃，
+    而不是留一个永远空着、或让整份历史修订加载失败。
     """
     if not isinstance(data, dict):
         return data
+    if model is BoardSection and str(data.get("source")) == "note":
+        return None
     fields = model.model_fields
     pruned: dict[str, Any] = {}
     for key, value in data.items():
@@ -78,7 +85,12 @@ def _prune_to_model(data: Any, model: type[BaseModel]) -> Any:
         if inner is None:
             pruned[key] = value
         elif isinstance(value, list):
-            pruned[key] = [_prune_to_model(item, inner) for item in value]
+            kept = []
+            for item in value:
+                pruned_item = _prune_to_model(item, inner)
+                if pruned_item is not None:
+                    kept.append(pruned_item)
+            pruned[key] = kept
         elif value is None:
             pruned[key] = None
         else:
@@ -194,6 +206,123 @@ def validate_content(content: dict[str, Any]) -> list[dict[str, str]]:
             for item in exc.errors()
         ]
     return [{"path": problem_path(message), "message": message} for message in validate_pack(pack)]
+
+
+def _ref_clause(ref: str, content: dict[str, Any]) -> dict[str, Any] | None:
+    """旧锚点 `requires` 里的引用 → 新机制的条件子句（动作 / 事实两种命名空间）。"""
+    if any(item.get("id") == ref for item in content.get("affordances") or []):
+        return {"kind": "action_used", "affordance_id": ref}
+    if any(item.get("id") == ref for item in content.get("facts") or []):
+        return {"kind": "fact_declared", "fact_id": ref}
+    return None
+
+
+def _apply_unlocks(out: dict[str, Any], unlocked: list[str], clauses: list[dict[str, Any]]) -> None:
+    """`unlocks` → 对应 affordance 的 `visible_when`（保持"达成前不可用"的等价门控）。"""
+    for affordance in out.get("affordances") or []:
+        if affordance.get("id") in unlocked and not affordance.get("visible_when"):
+            affordance["visible_when"] = {"all": list(clauses)}
+
+
+def _convert_anchor(anchor: Any, out: dict[str, Any], notes: list[str]) -> dict[str, Any]:
+    """一个旧锚点 → 一条 teaching_focus；每一步删除/改写都产出一条可解释的 `notes`。"""
+    aid = str(anchor.get("id") or "focus")
+    requires = [str(item) for item in anchor.get("requires") or []]
+    unlocked = [str(item) for item in anchor.get("unlocks") or []]
+    blocked = [str(item) for item in anchor.get("blocked_by") or []]
+    clauses = [clause for clause in (_ref_clause(ref, out) for ref in requires) if clause is not None]
+    missing = [ref for ref in requires if _ref_clause(ref, out) is None]
+    if missing:
+        notes.append(f"锚点 {aid}：requires 里的 {missing} 既不是动作也不是事实，已跳过该条件（请手工确认）")
+    if unlocked:
+        _apply_unlocks(out, unlocked, clauses)
+        notes.append(
+            f"锚点 {aid}：unlocks={unlocked} 已转成对应动作的 visible_when（达成前不可用，只是不再由锚点状态机管）"
+        )
+    if blocked:
+        notes.append(
+            f"锚点 {aid}：blocked_by={blocked} 已记入 evidence_refs——新机制没有 blocked 状态机，"
+            "请把『世界诚实抵抗』表达成 reaction"
+        )
+    if str(anchor.get("cue") or "").strip():
+        notes.append(f"锚点 {aid}：cue 未自动迁移（新机制没有『世界必须呈现的信号』字段），原文：{anchor['cue']}")
+    if anchor.get("deadline_turns") is not None:
+        notes.append(f"锚点 {aid}：deadline_turns={anchor['deadline_turns']} 已删除（不含催办计时）")
+    if str(anchor.get("stage") or "").strip():
+        notes.append(f"锚点 {aid}：stage='{anchor['stage']}' 已删除（教学关注点不排序、不分阶段）")
+    return {
+        "id": aid,
+        "intent": str(anchor.get("goal") or anchor.get("cue") or aid),
+        "relevant_when": None,
+        "addressed_when": {"all": clauses} if clauses else None,
+        "evidence_refs": [*requires, *blocked],
+    }
+
+
+def _drop_note_sections(out: dict[str, Any], notes: list[str]) -> None:
+    """线索板里 `source='note'` 的版块删除：新机制里 DM 不写白板（docs/23 §5.2）。"""
+    presentation = out.get("presentation") or {}
+    board = list(presentation.get("board") or [])
+    kept = [section for section in board if section.get("source") != "note"]
+    if len(kept) != len(board):
+        notes.append("线索板中 source='note' 的版块已删除：新机制里 DM 不写白板（docs/23 §5.2）")
+        presentation["board"] = kept
+        out["presentation"] = presentation
+
+
+def _drop_actor_entities(out: dict[str, Any], notes: list[str]) -> None:
+    """角色上的 `entity` 字段已随独立角色实体路径移除。"""
+    for actor in out.get("actors") or []:
+        if actor.pop("entity", None) is not None:
+            notes.append(f"角色 {actor.get('id')}：entity 字段已删除（独立角色实体路径已移除）")
+
+
+def _note_missing_targets(out: dict[str, Any], notes: list[str]) -> None:
+    """多对象在场时动作必须声明 targets，否则平台拦不住『静默换人』。"""
+    multi = len([actor for actor in out.get("actors") or [] if actor.get("presence") != "inaccessible"]) > 1
+    if not multi:
+        return
+    missing = [
+        str(affordance.get("id"))
+        for affordance in out.get("affordances") or []
+        if not affordance.get("targets") and affordance.get("type") in {"act", "measure", "observe"}
+    ]
+    if missing:
+        notes.append(
+            f"本包有多个在场对象，这些动作却没声明 targets：{missing}——请补 TargetRef，"
+            "否则平台无法拦住『静默换人』（有意不绑定对象的动作可以留空）"
+        )
+
+
+def convert_legacy(content: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """旧形状（v1/v2）→ 当前形状的**显式转换**：每一步都可解释，绝不静默丢东西。
+
+    docs/23 §9.4：「旧锚点不是机械改名：依赖变成实际行为条件，此类压力变成 reaction，
+    教学意图变成 teaching_focus；不能静默丢掉旧 `unlocks` 或阈值。」因此：
+    - `requires` → `addressed_when`（动作/事实条件）；
+    - `unlocks` → 对应 affordance 的 `visible_when`（保持"达成前不可用"的等价门控）；
+    - `goal` → `intent`；`stage`/`deadline_turns`/`cue`/`blocked_by` 各自产出一条 `notes`
+      （删除或改写都必须让操作者看见，尤其是 `cue` 的原文与 `blocked_by` 的引用）。
+    """
+    version = int(content.get("pack_schema_version", 1))
+    if version >= PACK_SCHEMA_VERSION:
+        raise PackInvalid([f"这已经是当前形状（v{version}），不需要转换"])
+    notes: list[str] = []
+    out = copy.deepcopy(content)
+    out["pack_schema_version"] = PACK_SCHEMA_VERSION
+
+    anchors = list(out.pop("anchors", None) or [])
+    focus = [_convert_anchor(anchor, out, notes) for anchor in anchors]
+    if anchors:
+        notes.append(f"共 {len(anchors)} 个锚点 → teaching_focus（教学意图保留，推进权与解锁权取消）")
+    out["teaching_focus"] = focus
+
+    _drop_note_sections(out, notes)
+    _drop_actor_entities(out, notes)
+    if out.get("image_generation") == "allowed":
+        notes.append("image_generation='allowed' 保留在声明里，但新演出阶段不再请求生成图片（docs/23 §4.4）")
+    _note_missing_targets(out, notes)
+    return out, notes
 
 
 def latest_revision(db: Session, pack_key: str) -> tuple[StPack, StPackRevision] | None:

@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     Index,
@@ -33,9 +34,19 @@ from models._base import TimestampMixin
 SESSION_STATUSES = ("active", "completed", "abandoned")
 PACK_STATES = ("experimental", "reviewed")
 
-# 事件种类（封闭集合，本轨唯一的状态写入渠道）
+# 事件种类（docs/23 §8.2）：
+# - `EVENT_KINDS`：**新机制唯一会写入**的种类；一个业务回合只追加一条 `turn_committed`；
+# - `LEGACY_EVENT_KINDS`：旧机制写过的种类。**只读回放要能折入它们**，且历史行绝不能因为
+#   约束收紧而变得不可读/不可复制（约束是"能写入什么"，不是"历史长什么样"）。
 EVENT_KINDS = (
     "session_opened",
+    "turn_committed",
+    "clarification_exchange",
+    "hint_requested",
+    "session_closed",
+)
+
+LEGACY_EVENT_KINDS = (
     "student_action",
     "action_attributed",
     "dm_step",
@@ -47,8 +58,11 @@ EVENT_KINDS = (
     "cues_revealed",
     "entity_line",
     "judge_result",
-    "session_closed",
 )
+
+ALL_EVENT_KINDS = EVENT_KINDS + LEGACY_EVENT_KINDS
+
+REQUEST_KINDS = ("turn", "close")
 
 
 class StPack(Base, TimestampMixin):
@@ -176,11 +190,7 @@ class StEvent(Base):
         UniqueConstraint("session_id", "seq", name="uq_st_events_session_seq"),
         Index("ix_st_events_session_kind", "session_id", "kind"),
         CheckConstraint(
-            "kind IN ("
-            "'session_opened', 'student_action', 'action_attributed', 'dm_step', 'dm_turn', "
-            "'anchor_satisfied', 'anchor_blocked', 'anchor_proposal_rejected', "
-            "'effects_applied', 'cues_revealed', 'entity_line', 'judge_result', 'session_closed'"
-            ")",
+            "kind IN (" + ", ".join(f"'{kind}'" for kind in ALL_EVENT_KINDS) + ")",
             name="ck_st_events_kind",
         ),
     )
@@ -191,3 +201,57 @@ class StEvent(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("NOW()"), nullable=False)
+
+
+class StSessionRequest(Base):
+    """**请求身份**：一次会改变会话记录的请求（回合 / 澄清 / 求提示 / 结束）的唯一登记。
+
+    存在于数据库提交边界（不是只靠前端 busy）：
+    - `session_id + request_id` 唯一 → 「相同 ID 与相同输入重发返回已提交结果；相同 ID 不同输入拒绝」；
+    - `input_sha` 是**输入身份**（不含 `request_id` 与 `expected_seq`）；
+    - `result` 存**已提交的原结果**（含权威视图）→ 断流后按同一 request_id 取回，不必重跑 LLM。
+    """
+
+    __tablename__ = "st_session_requests"
+    __table_args__ = (
+        UniqueConstraint("session_id", "request_id", name="uq_st_session_requests_session_request"),
+        Index("ix_st_session_requests_session", "session_id"),
+        CheckConstraint("kind IN ('turn', 'close')", name="ck_st_session_requests_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    input_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+
+class StSessionArchive(Base):
+    """旧机制会话的**不可变归档投影**（docs/23 §9）。
+
+    按原 `session_id` 唯一；原始 `st_sessions` / `st_events` / `st_pack_revisions` **原样保留**，
+    这里只存"当时那份实现算出来的视图 / 报告 / 回放投影 + 形状版本"，因此旧引擎不必在线读历史，
+    历史也不会被新实现重新解释。旧局本来没有报告就留空（**绝不补生成一份新成绩**）。
+    """
+
+    __tablename__ = "st_session_archives"
+    __table_args__ = (
+        UniqueConstraint("session_id", name="uq_st_session_archives_session"),
+        Index("ix_st_session_archives_pack", "pack_key"),
+        CheckConstraint("shape_version >= 1", name="ck_st_session_archives_shape"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    pack_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    pack_revision_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    shape_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'completed'"))
+    turn: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    ended_reason: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("''"))
+    has_report: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    note: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    archived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("NOW()"), nullable=False)

@@ -23,9 +23,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-PACK_SCHEMA_VERSION = 2
+PACK_SCHEMA_VERSION = 3
 """包声明形状版本。**删除/重命名字段必须升版**：历史修订要永远可读（见 pack_loader 的裁剪加载）。
 v2：移除 `Cue.revealed_by` / `Player.attention_per_turn` / `Affordance.ineffective`（改由 reveals 与效果表达）。
+v3（docs/23）：删除 `anchors` 任务状态机（改成 `teaching_focus` + 既有 reactions）；
+    `Affordance.targets` 声明动作可作用的目标；`Actor.dm_writable` 声明可被 DM 提议的人物状态；
+    板来源去掉 `note`（DM 不再写白板）。
 """
 
 # --------------------------------------------------------------------------- #
@@ -75,15 +78,19 @@ _OP_ALIASES: dict[str, EffectOp] = {
 
 
 class ClauseKind(StrEnum):
-    """触发子句的封闭集合（全部 AND 组合，可选窗口）。"""
+    """触发子句的封闭集合（全部 AND 组合，可选窗口）。
+
+    `TURN_GTE` / `TURNS_WITHOUT_ACTION` 里的"回合"= **情境时间单位累计值**（`World.turn`），
+    不是学生请求次数、也不是消息条数：说话与观察不让它增加。
+    """
 
     ACTION_USED = "action_used"  # 学生用过某 affordance
     ACTION_COUNT_GTE = "action_count_gte"  # 某 affordance 累计使用 ≥ n
-    TURNS_WITHOUT_ACTION = "turns_without_action"  # 连续 n 回合未用某 affordance
+    TURNS_WITHOUT_ACTION = "turns_without_action"  # 连续 n 个时间单位未用某 affordance
     CUE_REVEALED = "cue_revealed"  # 某线索已被揭示
     STATE_CMP = "state_cmp"  # 状态键比较（<, <=, ==, >=, >）
     FACT_DECLARED = "fact_declared"  # 某事实已被学生采集到
-    TURN_GTE = "turn_gte"  # 回合数 ≥ n（学生每做一件事 = 一回合）
+    TURN_GTE = "turn_gte"  # 累计时间单位 ≥ n（说话/观察不增加）
 
 
 class JudgeRuleKind(StrEnum):
@@ -142,6 +149,26 @@ class PackState(StrEnum):
 # --------------------------------------------------------------------------- #
 # 动作与效果
 # --------------------------------------------------------------------------- #
+
+
+class TargetKind(StrEnum):
+    """目标引用的类型（决定平台去哪张声明表校验可达性）。"""
+
+    ACTOR = "actor"
+    DEVICE = "device"
+    SCENE = "scene"
+
+
+class TargetRef(BaseModel):
+    """类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/23 §4.2）。
+
+    加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: TargetKind
+    id: str
 
 
 class Effect(BaseModel):
@@ -209,9 +236,19 @@ class Affordance(BaseModel):
     label: str
     params: dict[str, Any] = Field(default_factory=dict)
     visible_when: Trigger | None = None
+    # 该动作可作用的目标（`TargetRef`）。非空 = **绑定目标**：
+    # 请求的 `target` 必须命中其一，唯一目标时可省略（平台自动绑定），多目标且未给 → 澄清。
+    # 空 = 目标不参与结算，只作归属与展示（自由发问、全场级动作）。
+    targets: list[TargetRef] = Field(default_factory=list)
     effects: list[Effect] = Field(default_factory=list)
     perceptible_by: list[str] = Field(default_factory=list)
     reveals: list[str] = Field(default_factory=list)
+    # **消耗多少情境时间单位**（`turn` = 时间单位累计值，不是请求次数）：
+    # 0 = 瞬时（说话/观察/测量——信息获取理所当然，不消耗时间）；正数 = 这次尝试占用的时间。
+    # 「刻意等待」也用它表达：作者声明一个 `time_cost > 0` 的动作（例如「等化验回报」「静观十分钟」），
+    # 其 reveals/effects/反应按时间单位结算——不引入定时器、不碰墙钟、不新增动作类型。
+    # 默认 0（旧 v3 修订不带这个键也照样读得出来）。
+    time_cost: int = Field(default=0, ge=0, le=60)
     # 二次确认（危险动作）
     confirm: bool = False
     # 选择形态：none=直接执行；single/multi=需选择 params.options 中的一项或多项
@@ -241,6 +278,24 @@ class Reaction(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+class DmWritableKey(BaseModel):
+    """包允许 DM **提议**改动的人物状态键（docs/23 §5.1）。
+
+    默认没有 DM 可写状态。只用于「跨回合确实需要影响的人物关系」——信任、舒适、配合一类；
+    **数值、测量结果、风险结局、设备状态与动作完成状态永远不在这个写集**。
+    平台在结算前验证：键属于该 actor、类型吻合、在 `lo`/`hi` 内、单次变化不超过 `max_delta`。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str  # 本 actor 的短键（自动补 `<actor>.` 前缀）或完整 `<actor>.<key>`
+    kind: Literal["int", "bool"] = "int"
+    lo: float | None = None
+    hi: float | None = None
+    max_delta: float | None = None  # 单次提议的绝对值上限（int 才有意义）
+    meaning: str = ""  # 语义说明：这条状态在人物关系里意味着什么
+
+
 class Actor(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -251,10 +306,8 @@ class Actor(BaseModel):
     style: str = ""
     goals: list[str] = Field(default_factory=list)
     demand: Demand = Demand.NEUTRAL
-    # 预留：该角色由**独立 LLM 对话实体**代言（而不是由 DM 一肩挑）。
-    # inline = DM 直接产出其台词；dedicated = DM 只决定"何时让它说、意图是什么"，
-    # 台词由该实体自己的调用产出（purpose = st_patient）。默认 inline，不改现有行为。
-    entity: Literal["inline", "dedicated"] = "inline"
+    # DM 可提议改动的人物状态键（默认空 = 完全不可写）；见 `DmWritableKey`
+    dm_writable: list[DmWritableKey] = Field(default_factory=list)
 
 
 class Cue(BaseModel):
@@ -302,27 +355,25 @@ class Player(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# 任务：叙事锚点（DM 的「任务列表」，docs/21 §4.0）
+# 教学关注点（取代叙事锚点任务机，docs/23 §6）
 # --------------------------------------------------------------------------- #
 
 
-class NarrativeAnchor(BaseModel):
-    """叙事锚点：场景推进路上的一个关键节点（**不是分数**）。
+class TeachingFocus(BaseModel):
+    """作者希望学生遇到的**判断问题**，以及"是否值得关注 / 是否已被处理"的观察条件。
 
-    它是 DM 的**任务列表**（docs/21 §4.0）：状态由平台每回合从事件流重算（`runtime/anchors.py`），
-    不新增真源；`requires` / `blocked_by` / `unlocks` 只能引用**已登记**的事实与动作 id。
+    没有推进权、不解锁世界、不排序：多个关注点可以同时相关、同时未被处理。
+    `addressed_when` 只表示**本包的观察条件成立**（已有事实/已执行动作提供了处理证据），
+    不等于学生能力达标。
     """
 
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    stage: str  # 阶段名：锚点按阶段分组，同时只推进一个阶段
-    goal: str  # 教学意图（只给 DM 与教师回放看，学生看不到）
-    cue: str  # 世界必须呈现的信号（只能用叙事内手段表达）
-    requires: list[str] = Field(default_factory=list)  # 前置：这些事实/动作已发生
-    unlocks: list[str] = Field(default_factory=list)  # 达成后开放的动作
-    blocked_by: list[str] = Field(default_factory=list)  # 缺哪一步就卡住（世界要诚实抵抗）
-    deadline_turns: int  # 超过 N 回合未达成 → 引擎催办（有预算）
+    intent: str  # 作者写给自己与 DM 的教学意图（学生看不到）
+    relevant_when: Trigger | None = None  # 省略 = 当前处境下始终相关
+    addressed_when: Trigger | None = None
+    evidence_refs: list[str] = Field(default_factory=list)  # 回看定位用；不是学生提示清单
 
 
 # --------------------------------------------------------------------------- #
@@ -388,6 +439,11 @@ class HudSlot(BaseModel):
     `visible_when` 为空 = 一直可见（例如病房里本就摆着的监护仪读数）；
     写了触发器则由条件决定——学生的动作、已揭示的线索、状态阈值等（复用同一套封闭触发词汇）。
     "信息按需具现"：做过那件事、信息才出现，而不是焊死在界面上。
+
+    **作者规矩**：属于"应被发现的证据"的数值槽位（`source="state"`）必须自己写 `visible_when`
+    （通常用承载这次读数的线索，例如 `{cue_revealed: c_bp_high}`）——平台不替作者判断哪些
+    开局可见，也不会把 `state_keys` 的初始值当成"已经量到"。`visible_when` 为空就表示
+    作者确实要求它一开始就在界面上。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -409,15 +465,15 @@ class BoardSection(BaseModel):
     """线索板的一个版块（只读投影；学生不能直接编辑）。
 
     来源是**封闭词汇**：`cue`（已揭示的现场线索）、`state`（读数，随需求出现）、
-    `noticed`（你注意到的即兴细节）、`fact`（已确认的事实 + 证据）、`action`（已处置）、
-    `note`（DM 写在板上的判断/订正）。
+    `noticed`（本回合引擎登记、已可见的现场细节）、`fact`（已确认的事实 + 证据）、
+    `action`（已处置）。DM 不再写白板（docs/23 §5.2）：没有 `note` 来源。
     """
 
     model_config = ConfigDict(extra="forbid")
 
     id: str
     title: str
-    source: Literal["cue", "state", "noticed", "fact", "action", "note"]
+    source: Literal["cue", "state", "noticed", "fact", "action"]
     refs: list[str] = Field(default_factory=list)  # source=state 时指定要显示的键
     labels: dict[str, str] = Field(default_factory=dict)  # 键 → 人话标签（不暴露内部名）
     visible_when: Trigger | None = None
@@ -488,7 +544,7 @@ class ScenarioPack(BaseModel):
     setting: Setting
     actors: list[Actor]
     state_keys: dict[str, Any] = Field(default_factory=dict)  # <target>.<key> -> 初值
-    # 仅 DM 可见的真相（学生不可见；按钮与展示绝不可泄）
+    # 仅 DM 的**解析阶段**可见的真相（学生不可见；演出阶段拿不到它，见 docs/23 §4.4）
     truth: list[str] = Field(default_factory=list)
 
     affordances: list[Affordance]
@@ -500,8 +556,8 @@ class ScenarioPack(BaseModel):
 
     presentation: Presentation = Field(default_factory=Presentation)
 
-    # 叙事锚点：DM 的任务列表（每回合由事件流重算；不声明 = 该病例不启用编排，一切照旧）
-    anchors: list[NarrativeAnchor] = Field(default_factory=list)
+    # 教学关注点：作者希望学生遇到的判断问题（只给 DM 与教师回放看；不推进世界、不解锁动作）
+    teaching_focus: list[TeachingFocus] = Field(default_factory=list)
 
     # 场景资源包内可展示的预定义资源（图片）；DM 只能引用这里声明过的 id
     assets: list[Asset] = Field(default_factory=list)
@@ -521,8 +577,14 @@ class ScenarioPack(BaseModel):
     def actor(self, actor_id: str) -> Actor | None:
         return next((a for a in self.actors if a.id == actor_id), None)
 
+    def device(self, device_id: str) -> Device | None:
+        return next((d for d in self.presentation.devices if d.id == device_id), None)
+
     def cue(self, cue_id: str) -> Cue | None:
         return next((c for c in self.setting.cues if c.id == cue_id), None)
+
+    def focus(self, focus_id: str) -> TeachingFocus | None:
+        return next((f for f in self.teaching_focus if f.id == focus_id), None)
 
     def cue_items(self, cue_ids: Iterable[str]) -> list[tuple[str, str]]:
         """(线索 id, 文本) 列表，跳过未知线索。"""

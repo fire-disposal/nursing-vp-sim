@@ -29,14 +29,14 @@ def two_beds() -> ScenarioPack:
 
 def _slots(pack: ScenarioPack, world=None) -> list[dict]:
     view = build_view(pack, world or initial_world(pack), session_id=1, status="active", revision_id=1)
-    return view["hud"]
+    return view.hud
 
 
 def test_hud_keeps_only_non_reading_slots(sputum: ScenarioPack) -> None:
     """读数改由**设备面**展示后，HUD 只留现场线索与可做动作（同一读数不出现两次）。"""
-    slots = {slot["slot"]: slot for slot in _slots(sputum)}
+    slots = {slot.slot: slot for slot in _slots(sputum)}
     assert set(slots) == {"现场线索", "可做动作"}
-    assert all(slot["source"] != "state" for slot in slots.values())
+    assert all(slot.source != "state" for slot in slots.values())
 
 
 def test_gated_hud_slot_appears_only_after_seeking(two_beds: ScenarioPack) -> None:
@@ -61,8 +61,8 @@ def test_gated_hud_slot_appears_only_after_seeking(two_beds: ScenarioPack) -> No
 
     world = initial_world(gated)
     reveal_cues(gated, world, ["c_b_low_sat"])
-    slots = {slot["slot"]: slot for slot in _slots(gated, world)}
-    assert slots["血氧"]["value"] == 88
+    slots = {slot.slot: slot for slot in _slots(gated, world)}
+    assert slots["血氧"].value == 88
 
 
 def test_gate_can_be_the_students_own_action(two_beds: ScenarioPack) -> None:
@@ -87,7 +87,7 @@ def test_gate_can_be_the_students_own_action(two_beds: ScenarioPack) -> None:
 
     world = initial_world(gated)
     world.actions.append(ActionRecord(turn=1, affordance_id="measure_b", type="measure"))
-    assert [slot["slot"] for slot in _slots(gated, world)] == ["B 床血氧"]
+    assert [slot.slot for slot in _slots(gated, world)] == ["B 床血氧"]
 
 
 def test_validation_rejects_unknown_reference_in_hud_gate(two_beds: ScenarioPack) -> None:
@@ -106,3 +106,19 @@ def test_validation_rejects_unknown_reference_in_hud_gate(two_beds: ScenarioPack
     )
     problems = validate_pack(broken)
     assert any("nope" in problem for problem in problems)
+
+
+def test_bp_hud_reading_slot_appears_only_after_measuring() -> None:
+    """bp-contradiction：血压槽位由 `c_bp_high` 门控——**量之前** HUD 里没有这个读数。
+
+    回归（2026-09-29 视觉验收）：初始值 168 是引擎内部真值，不是"已经量到"；作者用包里已有的
+    线索自己门控，平台不替作者猜哪些开局可见（见 `HudSlot` docstring 的作者规矩）。
+    """
+    pack = load_pack_file("bp-contradiction")
+    assert "血压（收缩压）" not in [slot.slot for slot in _slots(pack)]
+
+    world = initial_world(pack)
+    reveal_cues(pack, world, ["c_bp_high"])
+    slots = {slot.slot: slot for slot in _slots(pack, world)}
+    assert slots["血压（收缩压）"].value == 168
+    assert slots["血压（收缩压）"].ref == "scene.bp_sys"
