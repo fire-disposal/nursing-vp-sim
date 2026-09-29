@@ -22,7 +22,7 @@ import logging
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func, text
+from sqlalchemy import case, func, or_, text
 from sqlalchemy.orm import Session
 
 from core.audit import ACTION_SCENARIO_RATE_LIMITED
@@ -30,9 +30,15 @@ from core.exceptions import ValidationError
 from core.statuses import LLMCallStatus
 from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
 from models.audit import AuditLog
-from models.scenario_training import StEvent, StGeneratedAsset, StSession
+from models.scenario_training import StEvent, StGeneratedAsset, StSession, StSessionArchive
 
 log = logging.getLogger(__name__)
+
+# 情境训练两阶段的 LLM purpose（唯一回合管线：意图解析 → 演出）。
+# 权威定义在 ``modules/scenario_training/dm/stages.py`` 的 ``PURPOSE_INTENT`` / ``PURPOSE_DELIVERY``
+# 与 ``infra/llm/profile.py`` 的 ``PROFILES``；这里不反向 import feature 模块，故复写这两个冻结字面量
+# （改名时必须两处一起改）。旧的独立患者实体 purpose（``st_patient``）不属于两阶段管线，不计入。
+SCENARIO_LLM_PURPOSES: tuple[str, ...] = ("st_intent", "st_dm")
 
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 _TZ_NAME = "Asia/Shanghai"
@@ -254,52 +260,89 @@ def query_sessions(db: Session) -> int:
 
 
 def query_scenario(db: Session, day_ago: datetime) -> dict:
-    """情境训练（`st_*`）的 24h 观察面 + 即时会话数。
+    """情境训练（`st_*`）的 24h 观察面 + 即时会话数（docs/23 §8.2 唯一回合管线口径）。
 
     只读、只聚合，不触碰老系统的任何表；`st_*` 表在功能未上线/未加迁移的环境可能不存在
     → 调用方（`build_dashboard`）负责降级，这里只管查询。
 
-    - `llm_failures_24h` / `fallbacks_24h`：DM 回合的问题清单里那两类后缀
-      （`dm/runner.py`：`dm_provider_error:*` / `dm_parse:*` / `dm_truncated:*` ⇒ 失败；
-      `dm_fallback` ⇒ 走了无 LLM 的保底回合）。**保底是设计内的兜底**，不是崩溃。
+    事件口径（新机制只写 `session_opened` / `turn_committed` / `clarification_exchange` /
+    `hint_requested` / `session_closed` 五种 kind）：
+
+    - `requests_24h` / `time_cost_24h` / `model_calls_24h`：分子都只取 `turn_committed`
+      （= 已提交的业务回合）。`time_cost_24h` = 窗口内这些回合推进的**情境时间单位总和**
+      （载荷 `time_cost` 是本请求消耗的时间单位，0 = 没花时间；机制切换前的事件没有该键 → 记 0）。
+      它不是请求数、不是分钟。`model_calls_24h` = 这些回合记录的 `models.parse + models.delivery`。
+    - `avg_time_cost_per_request_24h` / `avg_model_calls_per_request_24h`：分子分母
+      **同群体同窗口**（都只数 `turn_committed`）；请求数为 0 时给 `null`，不给 0。
+      `avg_time_cost_per_request_24h` 读作「平均每个已提交请求推进的时间单位」。
+    - `clarifications_24h` / `hints_24h`：`clarification_exchange` / `hint_requested` 的次数
+      ——它们**不推进情境时间**，故与 `requests_24h` 分列。
+    - `llm_failures_24h`：情境两阶段（`st_intent` / `st_dm`）在 `llm_call_logs` 里窗口内
+      `status != success` 的调用数——失败没有世界事件，只有日志来源，故不取 `st_events`。
+    - `active` / `completed` / `read_only_sessions`：即时状态计数（见块上的 `state_window`），
+      不受 24h 窗口影响。`read_only_sessions` = 被封存的旧局（`meta.read_only`）或已有归档
+      （`st_session_archives`）的会话数。
     - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
       `core/rate_limits._scenario_limited`）——多 worker 安全的唯一取数来源。
-    - `dm_steps_24h` / `dm_avg_steps_24h`：DM **多步循环**的步数与**每回合平均步数**
-      （`dm_step` 事件 / `dm_turn` 事件）。平均步数是这段的**成本口径**：步数上限见
-      `core/config.SCENARIO_DM_MAX_STEPS`（0 = 单步模式，平均步数应回到 0）。
     """
     opened_24h = db.query(func.count(StSession.id)).filter(StSession.created_at >= day_ago).scalar() or 0
     active = db.query(func.count(StSession.id)).filter(StSession.status == "active").scalar() or 0
     completed = db.query(func.count(StSession.id)).filter(StSession.status == "completed").scalar() or 0
 
-    turns_24h = (
-        db.query(func.count(StEvent.id)).filter(StEvent.kind == "dm_turn", StEvent.created_at >= day_ago).scalar() or 0
-    )
-    dm = db.execute(
+    turns = db.execute(
         text(
             """
             SELECT
-                count(*) FILTER (WHERE jsonb_exists(payload -> 'problems', 'dm_fallback')) AS fallbacks,
-                count(*) FILTER (
-                    WHERE EXISTS (
-                        SELECT 1 FROM jsonb_array_elements_text(payload -> 'problems') AS p(tag)
-                         WHERE p.tag LIKE 'dm_provider_error:%'
-                            OR p.tag LIKE 'dm_parse:%'
-                            OR p.tag LIKE 'dm_truncated:%'
-                    )
-                ) AS llm_failures
+                count(*) AS requests,
+                coalesce(sum(coalesce((payload ->> 'time_cost')::int, 0)), 0) AS time_cost,
+                coalesce(sum(
+                    coalesce((payload -> 'models' ->> 'parse')::int, 0)
+                  + coalesce((payload -> 'models' ->> 'delivery')::int, 0)
+                ), 0) AS model_calls
               FROM st_events
-             WHERE kind = 'dm_turn' AND created_at >= :since
+             WHERE kind = 'turn_committed' AND created_at >= :since
             """
         ),
         {"since": day_ago},
     ).one()
 
+    llm_failures_24h = (
+        db.query(func.count(LLMCallLog.id))
+        .filter(
+            LLMCallLog.purpose.in_(SCENARIO_LLM_PURPOSES),
+            LLMCallLog.status != LLMCallStatus.SUCCESS,
+            LLMCallLog.created_at >= day_ago,
+        )
+        .scalar()
+        or 0
+    )
+
+    clarifications_24h = (
+        db.query(func.count(StEvent.id))
+        .filter(StEvent.kind == "clarification_exchange", StEvent.created_at >= day_ago)
+        .scalar()
+        or 0
+    )
+    hints_24h = (
+        db.query(func.count(StEvent.id))
+        .filter(StEvent.kind == "hint_requested", StEvent.created_at >= day_ago)
+        .scalar()
+        or 0
+    )
+    read_only_sessions = (
+        db.query(func.count(StSession.id))
+        .filter(
+            or_(
+                StSession.meta["read_only"].astext == "true",
+                StSession.id.in_(db.query(StSessionArchive.session_id)),
+            )
+        )
+        .scalar()
+        or 0
+    )
+
     generated_images_24h = (
         db.query(func.count(StGeneratedAsset.id)).filter(StGeneratedAsset.created_at >= day_ago).scalar() or 0
-    )
-    dm_steps_24h = (
-        db.query(func.count(StEvent.id)).filter(StEvent.kind == "dm_step", StEvent.created_at >= day_ago).scalar() or 0
     )
     rate_limited_24h = (
         db.query(func.count(AuditLog.id))
@@ -307,16 +350,24 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
         .scalar()
         or 0
     )
+
+    requests_24h = int(turns.requests or 0)
+    time_cost_24h = int(turns.time_cost or 0)
+    model_calls_24h = int(turns.model_calls or 0)
     return {
         "opened_24h": int(opened_24h),
         "active": int(active),
         "completed": int(completed),
-        "turns_24h": int(turns_24h),
-        "llm_failures_24h": int(dm.llm_failures or 0),
-        "fallbacks_24h": int(dm.fallbacks or 0),
+        "requests_24h": requests_24h,
+        "time_cost_24h": time_cost_24h,
+        "avg_time_cost_per_request_24h": round(time_cost_24h / requests_24h, 2) if requests_24h else None,
+        "model_calls_24h": model_calls_24h,
+        "avg_model_calls_per_request_24h": round(model_calls_24h / requests_24h, 2) if requests_24h else None,
+        "clarifications_24h": int(clarifications_24h),
+        "hints_24h": int(hints_24h),
+        "llm_failures_24h": int(llm_failures_24h),
+        "read_only_sessions": int(read_only_sessions),
         "generated_images_24h": int(generated_images_24h),
-        "dm_steps_24h": int(dm_steps_24h),
-        "dm_avg_steps_24h": round(dm_steps_24h / max(turns_24h, 1), 2),
         "rate_limited_24h": int(rate_limited_24h),
     }
 
@@ -444,9 +495,15 @@ def query_scenario_safe(db: Session, day_ago: datetime) -> dict:
             "opened_24h": 0,
             "active": 0,
             "completed": 0,
-            "turns_24h": 0,
+            "requests_24h": 0,
+            "time_cost_24h": 0,
+            "avg_time_cost_per_request_24h": None,
+            "model_calls_24h": 0,
+            "avg_model_calls_per_request_24h": None,
+            "clarifications_24h": 0,
+            "hints_24h": 0,
             "llm_failures_24h": 0,
-            "fallbacks_24h": 0,
+            "read_only_sessions": 0,
             "generated_images_24h": 0,
             "rate_limited_24h": 0,
         }

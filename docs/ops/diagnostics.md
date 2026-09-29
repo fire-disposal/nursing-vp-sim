@@ -107,7 +107,7 @@ admin 出口另有公开端点没有的 `feedback` 块（`scope: db` / `window: 
 | `llm.router` | `process` | `now` | 降级 / 熔断 / 兜底 / 落库失败等进程侧状态 |
 | `jobs` | `db` | `now` | 持久化 Job 状态：`by_kind.{kind}.{pending,running,succeeded,failed}` / `oldest_pending_seconds` / `expired_leases`。`SCORING_EXECUTION=job` 时**评分队列只看这里**（进程内 `metrics.queue.task_queue` 恒为 0） |
 | `scoring` | `db` | `rolling_24h_by_record_end_time` | 另标 `in_progress_scope: process` / `in_progress_window: now`（in_progress 来自进程内 scoring_tracker） |
-| `scenario` | `db` | `rolling_24h` | 情境训练（`st_*`）：`opened_24h` / `turns_24h` / `llm_failures_24h`（供应商错误、解析、截断）/ `fallbacks_24h`（无 LLM 保底回合，设计内兜底）/ `generated_images_24h` / `rate_limited_24h`（审计 `scenario.rate_limited`）/ `dm_steps_24h`（DM 只读工具步数）/ `dm_avg_steps_24h`（步数÷回合数）。`active` / `completed` 是**即时**会话状态计数，见下面 `state_window` |
+| `scenario` | `db` | `rolling_24h` | 情境训练（`st_*`，唯一回合管线）：`requests_24h`（已提交回合 = `turn_committed` 数）/ `time_cost_24h`（窗口内这些回合推进的**情境时间单位总和**，取载荷 `time_cost`；不是请求数、不是分钟）/ `avg_time_cost_per_request_24h`（平均每个已提交请求推进的时间单位 = 总时间单位 ÷ 请求数，0 请求时 `null`）/ `model_calls_24h`（这些回合的 `models.parse+delivery`）/ `avg_model_calls_per_request_24h`（同口径，0 请求时 `null`）/ `clarifications_24h` / `hints_24h`（两者都不推进情境时间）/ `llm_failures_24h`（情境两阶段 `st_intent`/`st_dm` 在 `llm_call_logs` 里 `status != success` 的调用数）/ `opened_24h` / `generated_images_24h` / `rate_limited_24h`（审计 `scenario.rate_limited`）。`active` / `completed` / `read_only_sessions` 是**即时**会话状态计数，见下面 `state_window`。旧口径 `dm_steps_24h` / `dm_avg_steps_24h` / `fallbacks_24h` 已删除 |
 | `voice` | `db` | `rolling_24h` | TTS / ASR 统计 |
 | `voice_budget` | `db` | `month_cn` | 语音月度预算 |
 | `business` | `db` | `day_cn` | 北京自然日业务量 |

@@ -530,8 +530,18 @@ jobs:
               sys.exit('::error::diagnose 缺少 jobs 块——运维面未随本次发布上线')
           print('jobs =', jobs)
           scenario = d.get('scenario')
-          if not isinstance(scenario, dict) or 'rate_limited_24h' not in scenario:
-              sys.exit('::error::diagnose 缺少 scenario 块——情境训练运维面未随本次发布上线')
+          required = {
+              'opened_24h', 'active', 'completed', 'requests_24h', 'time_cost_24h',
+              'avg_time_cost_per_request_24h', 'model_calls_24h', 'avg_model_calls_per_request_24h',
+              'clarifications_24h', 'hints_24h', 'llm_failures_24h', 'read_only_sessions',
+              'generated_images_24h', 'rate_limited_24h',
+          }
+          removed = {'dm_steps_24h', 'dm_avg_steps_24h', 'fallbacks_24h'}
+          if not isinstance(scenario, dict) or not required <= set(scenario):
+              sys.exit('::error::diagnose scenario 字段不符合新口径——情境训练运维面未随本次发布上线')
+          stale = removed & set(scenario)
+          if stale:
+              sys.exit('::error::diagnose scenario 仍暴露已删除的旧口径字段: ' + ','.join(sorted(stale)))
           print('scenario =', scenario)
           "
 

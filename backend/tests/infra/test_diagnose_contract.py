@@ -142,12 +142,16 @@ def _payload(monkeypatch, *, frontend_last_5min: int) -> dict:
             "opened_24h": 4,
             "active": 2,
             "completed": 7,
-            "turns_24h": 31,
+            "requests_24h": 31,
+            "time_cost_24h": 12,
+            "avg_time_cost_per_request_24h": 0.39,
+            "model_calls_24h": 54,
+            "avg_model_calls_per_request_24h": 1.74,
+            "clarifications_24h": 3,
+            "hints_24h": 2,
             "llm_failures_24h": 1,
-            "fallbacks_24h": 2,
+            "read_only_sessions": 5,
             "generated_images_24h": 3,
-            "dm_steps_24h": 9,
-            "dm_avg_steps_24h": 0.29,
             "rate_limited_24h": 5,
         },
         "voice": {"tts": {}},
@@ -243,14 +247,19 @@ def test_diagnose_top_level_keys_are_exactly_documented(monkeypatch):
 
 
 def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
-    """情境训练分区：24h 计数字段与即时会话状态分开标窗口（`completed` 不是 24h 窗口）。"""
+    """情境训练分区：24h 计数字段与即时会话状态分开标窗口（`completed` 不是 24h 窗口）。
+
+    字段名就是契约（docs/ops/diagnostics.md 与 admin 看板按名字对齐）。旧口径的多步循环 /
+    保底字段（`dm_steps_24h` / `dm_avg_steps_24h` / `fallbacks_24h`）必须**不存在**；
+    同名必须同义，不允许留一个名字没变、含义变了的字段。`llm_failures_24h` 是冻结保留字段
+    （取数自 `llm_call_logs` 的情境两阶段 purpose，不再是 `dm_turn` 的问题清单）。
+    """
     payload = _payload(monkeypatch, frontend_last_5min=0)
 
     scenario = payload["scenario"]
     assert scenario["scope"] == diagnostics.SCOPE_DB
     assert scenario["window"] == diagnostics.WINDOW_H24
     assert scenario["state_window"] == diagnostics.WINDOW_NOW
-    # 字段名就是契约（docs/ops/diagnostics.md 与 admin 看板按名字对齐），全部为整数计数
     assert set(scenario) == {
         "scope",
         "window",
@@ -258,12 +267,16 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
         "opened_24h",
         "active",
         "completed",
-        "turns_24h",
+        "requests_24h",
+        "time_cost_24h",
+        "avg_time_cost_per_request_24h",
+        "model_calls_24h",
+        "avg_model_calls_per_request_24h",
+        "clarifications_24h",
+        "hints_24h",
         "llm_failures_24h",
-        "fallbacks_24h",
+        "read_only_sessions",
         "generated_images_24h",
-        "dm_steps_24h",
-        "dm_avg_steps_24h",
         "rate_limited_24h",
     }
     assert all(
@@ -272,15 +285,48 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
             "opened_24h",
             "active",
             "completed",
-            "turns_24h",
+            "requests_24h",
+            "time_cost_24h",
+            "model_calls_24h",
+            "clarifications_24h",
+            "hints_24h",
             "llm_failures_24h",
-            "fallbacks_24h",
+            "read_only_sessions",
             "generated_images_24h",
-            "dm_steps_24h",
             "rate_limited_24h",
         )
     )
-    assert isinstance(scenario["dm_avg_steps_24h"], float)
+    assert isinstance(scenario["avg_time_cost_per_request_24h"], float)
+    assert isinstance(scenario["avg_model_calls_per_request_24h"], float)
+    # deploy 冒烟按名字断言这一项（`rate_limited_24h` 是唯一取数自审计的字段）
+    assert scenario["rate_limited_24h"] == 5
+
+
+def test_scenario_zero_shape_uses_null_ratios(monkeypatch):
+    """`st_*` 缺失/查询失败时整块降级为确定的零值形状（既有容错），但**比值是 `null` 而非 0**：
+    `0.0` 会被读成"每回合零成本"，而真相是"没有样本"。旧口径字段不得残留在降级形状里。
+    """
+    from infra import ops_queries
+
+    def _boom(db, day_ago):
+        raise RuntimeError("st_* 表缺失")
+
+    monkeypatch.setattr(ops_queries, "query_scenario", _boom)
+    shape = ops_queries.query_scenario_safe(object(), datetime.now(UTC))
+
+    assert shape["requests_24h"] == 0
+    assert shape["time_cost_24h"] == 0
+    assert shape["avg_time_cost_per_request_24h"] is None
+    assert shape["model_calls_24h"] == 0
+    assert shape["avg_model_calls_per_request_24h"] is None
+    assert shape["llm_failures_24h"] == 0
+    assert shape["read_only_sessions"] == 0
+    assert shape["rate_limited_24h"] == 0
+    assert set(shape) == set(_payload(monkeypatch, frontend_last_5min=0)["scenario"]) - {
+        "scope",
+        "window",
+        "state_window",
+    }
 
 
 def test_jobs_block_reports_queue_state_and_expired_leases(monkeypatch):

@@ -84,12 +84,12 @@ export interface DiagnoseResponse {
 		oldest_created_at: string | null;
 		oldest_age_days: number | null;
 	};
-	/** 情境训练（正式特性）：24h 计数 + 即时会话状态。 */
+	/** 情境训练（唯一回合管线）：24h 计数 + 即时会话状态。 */
 	scenario?: {
 		scope: "db";
 		/** 计数字段的窗口（滚动 24h）。 */
 		window: string;
-		/** 会话状态计数（`active` / `completed`）的窗口：即时 `now`。 */
+		/** 会话状态计数（`active` / `completed` / `read_only_sessions`）的窗口：即时 `now`。 */
 		state_window: string;
 		/** 近 24h 开局的会话数。 */
 		opened_24h: number;
@@ -97,13 +97,25 @@ export interface DiagnoseResponse {
 		active: number;
 		/** 已结束会话数（即时）。 */
 		completed: number;
-		/** 近 24h 的 DM 回合数。 */
-		turns_24h: number;
-		/** 近 24h DM 调用失败（供应商错误/解析/截断）的回合数。 */
+		/** 近 24h 已提交的回合类请求数（`turn_committed` 事件数）。 */
+		requests_24h: number;
+		/** 近 24h 已提交回合推进的情境时间单位总和（取载荷 `time_cost`；不是请求数、不是分钟）。 */
+		time_cost_24h: number;
+		/** 平均每个已提交请求推进的时间单位（分子分母同群体同窗口）；0 请求时为 null（没有样本，不是零成本）。 */
+		avg_time_cost_per_request_24h: number | null;
+		/** 近 24h 这些回合记录的模型调用数（parse + delivery）。 */
+		model_calls_24h: number;
+		/** 模型调用数 ÷ 请求数（同口径）；0 请求时为 null。 */
+		avg_model_calls_per_request_24h: number | null;
+		/** 近 24h 澄清交流次数（不推进情境时间）。 */
+		clarifications_24h: number;
+		/** 近 24h 求提示次数（只读教学交互，不推进情境时间）。 */
+		hints_24h: number;
+		/** 近 24h 情境两阶段（`st_intent` / `st_dm`）在 `llm_call_logs` 里的失败调用数。 */
 		llm_failures_24h: number;
-		/** 近 24h 走了无 LLM 保底回合的次数（设计内兜底，不是崩溃）。 */
-		fallbacks_24h: number;
-		/** 近 24h 入库的 DM 生成图片数。 */
+		/** 只读 / 已归档的封存会话数（即时）。 */
+		read_only_sessions: number;
+		/** 近 24h 入库的生成图片数。 */
 		generated_images_24h: number;
 		/** 近 24h 学生侧限流命中次数（审计 `scenario.rate_limited`）。 */
 		rate_limited_24h: number;

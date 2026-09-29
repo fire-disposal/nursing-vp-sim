@@ -6789,7 +6789,7 @@
           "情境训练"
         ],
         "summary": "List Packs",
-        "description": "可用情境包（含最新修订号）。\n\n投影见 `pack_loader.list_packs`：展示字段 + 最新修订号，另带两项**学生语义**字段\n`player_role`（你将扮演谁）/ `place`（在哪儿）供入口页卡片选情境用。形状未声明\nresponse model（历史如此），前端按 `frontend/src/api/scenario.ts` 的 `ScenarioPackSummary` 镜像消费。",
+        "description": "可用情境包（含最新修订号）。",
         "operationId": "list_packs_api_scenario_packs_get",
         "responses": {
           "200": {
@@ -6798,8 +6798,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ScenarioPackSummary"
                   },
                   "type": "array",
                   "title": "Response List Packs Api Scenario Packs Get"
@@ -6820,9 +6819,9 @@
         "tags": [
           "情境训练"
         ],
-        "summary": "Create Session",
-        "description": "开启一次情境：DM **先立场景**（开场回合），再等学生动手。未指定 revision 时取最新修订。",
-        "operationId": "create_session_api_scenario_sessions_post",
+        "summary": "Create Session Route",
+        "description": "开启一次情境：DM **先立场景**（开场回合），再等学生动手。\n\n`trial=true`（固定修订试跑）额外要求 `case_manage`，并显式标记该会话。",
+        "operationId": "create_session_route_api_scenario_sessions_post",
         "security": [
           {
             "HTTPBearer": []
@@ -6833,7 +6832,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenSessionRequest"
+                "$ref": "#/components/schemas/ScenarioOpenSessionRequest"
               }
             }
           }
@@ -6844,9 +6843,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Session Api Scenario Sessions Post"
+                  "$ref": "#/components/schemas/ScenarioSessionResponse"
                 }
               }
             }
@@ -6897,8 +6894,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ScenarioSessionRow"
                   },
                   "title": "Response My Sessions Api Scenario Sessions Get"
                 }
@@ -6924,6 +6920,7 @@
           "情境训练"
         ],
         "summary": "Get Session",
+        "description": "会话当前状态。**已归档（机制切换前）的旧局走归档投影，只读。**",
         "operationId": "get_session_api_scenario_sessions__session_id__get",
         "security": [
           {
@@ -6947,9 +6944,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Session Api Scenario Sessions  Session Id  Get"
+                  "$ref": "#/components/schemas/ScenarioSessionState"
                 }
               }
             }
@@ -6967,14 +6962,14 @@
         }
       }
     },
-    "/api/scenario/sessions/{session_id}/actions": {
+    "/api/scenario/sessions/{session_id}/turns": {
       "post": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Submit",
-        "description": "学生做一件事 → 世界回应 → 返回新视图。",
-        "operationId": "submit_api_scenario_sessions__session_id__actions_post",
+        "summary": "Submit Turn Route",
+        "description": "学生做一件事 → 世界回应 → 返回权威视图（**解析 → 结算 → 演出 → 原子提交**）。",
+        "operationId": "submit_turn_route_api_scenario_sessions__session_id__turns_post",
         "security": [
           {
             "HTTPBearer": []
@@ -6996,7 +6991,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ActionRequest"
+                "$ref": "#/components/schemas/ScenarioTurnRequest"
               }
             }
           }
@@ -7007,9 +7002,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Submit Api Scenario Sessions  Session Id  Actions Post"
+                  "$ref": "#/components/schemas/ScenarioTurnResult"
                 }
               }
             }
@@ -7027,14 +7020,14 @@
         }
       }
     },
-    "/api/scenario/sessions/{session_id}/actions/stream": {
+    "/api/scenario/sessions/{session_id}/turns/stream": {
       "post": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Submit Stream",
-        "description": "**流式**提交同一回合：先按块推 DM 输出（叙述块写完就渲染），最后给权威视图。\n\n展示可以增量，**状态改动仍等完整回合校验后落地**（不会出现\"半应用的世界\"）。",
-        "operationId": "submit_stream_api_scenario_sessions__session_id__actions_stream_post",
+        "summary": "Submit Turn Stream",
+        "description": "同一回合的 SSE 传输：`phase` / `delivery`（**待提交**）/ `committed` / `error`。\n\n与 JSON 路径共用 `submit_turn`；这里只把阶段与待提交草稿推出去。",
+        "operationId": "submit_turn_stream_api_scenario_sessions__session_id__turns_stream_post",
         "security": [
           {
             "HTTPBearer": []
@@ -7056,7 +7049,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ActionRequest"
+                "$ref": "#/components/schemas/ScenarioTurnRequest"
               }
             }
           }
@@ -7066,7 +7059,81 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScenarioSsePhase"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScenarioSseDelivery"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScenarioSseCommitted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScenarioSseError"
+                    }
+                  ],
+                  "title": "Response Submit Turn Stream Api Scenario Sessions  Session Id  Turns Stream Post"
+                }
+              },
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/sessions/{session_id}/requests/{request_id}": {
+      "get": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Lookup Request",
+        "description": "按 `request_id` 取回原结果（断流恢复；`unknown` = 没有已提交记录、结果未明）。",
+        "operationId": "lookup_request_api_scenario_sessions__session_id__requests__request_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRequestLookup"
+                }
               }
             }
           },
@@ -7088,9 +7155,9 @@
         "tags": [
           "情境训练"
         ],
-        "summary": "Close",
+        "summary": "Close Session Route",
         "description": "结束并结算判读（规则可复算；不启用能力等第）。",
-        "operationId": "close_api_scenario_sessions__session_id__close_post",
+        "operationId": "close_session_route_api_scenario_sessions__session_id__close_post",
         "security": [
           {
             "HTTPBearer": []
@@ -7107,15 +7174,23 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCloseRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Close Api Scenario Sessions  Session Id  Close Post"
+                  "$ref": "#/components/schemas/ScenarioCloseResponse"
                 }
               }
             }
@@ -7139,7 +7214,7 @@
           "情境训练"
         ],
         "summary": "Get Asset",
-        "description": "提供场景资源（pack 声明的图片 / 绘画者 AI 的生成图）。需要登录态。",
+        "description": "提供场景资源（pack 声明的图片）。需要登录态。",
         "operationId": "get_asset_api_scenario_assets__revision_id___asset_id__get",
         "security": [
           {
@@ -7194,7 +7269,7 @@
           "情境训练"
         ],
         "summary": "Admin Packs",
-        "description": "管理侧：全部情境包（含修订、资源状态、会话数）。",
+        "description": "管理侧：全部情境包（含修订、资源状态、关注点概览、会话数）。",
         "operationId": "admin_packs_api_scenario_admin_packs_get",
         "responses": {
           "200": {
@@ -7203,8 +7278,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ScenarioAdminPack"
                   },
                   "type": "array",
                   "title": "Response Admin Packs Api Scenario Admin Packs Get"
@@ -7242,9 +7316,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Admin Upload Pack Api Scenario Admin Packs Post"
+                  "$ref": "#/components/schemas/ScenarioAdminPackUpload"
                 }
               }
             }
@@ -7273,7 +7345,7 @@
           "情境训练"
         ],
         "summary": "Admin Pack Source",
-        "description": "编辑器：读某个病例**某一修订的原始内容**（默认最新修订）。\n\n返回的 `problems` 是拿当前校验器跑这份内容的结果——历史修订可能已不合今天的 schema，\n编辑器据此如实提示\"载入即为修复起点\"，而不是假装它一定干净。",
+        "description": "编辑器：读某一修订的**原始内容**（默认最新）。旧形状带 `legacy` 标识，编辑需显式转换。",
         "operationId": "admin_pack_source_api_scenario_admin_packs__pack_key__source_get",
         "security": [
           {
@@ -7313,9 +7385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Pack Source Api Scenario Admin Packs  Pack Key  Source Get"
+                  "$ref": "#/components/schemas/ScenarioAdminPackSource"
                 }
               }
             }
@@ -7339,7 +7409,7 @@
           "情境训练"
         ],
         "summary": "Admin Validate Pack",
-        "description": "编辑器：保存前校验（不落库）。失败时每条问题都带字段路径，供界面定位。",
+        "description": "编辑器：保存前校验（不落库）。失败时每条问题都带字段路径。",
         "operationId": "admin_validate_pack_api_scenario_admin_packs__pack_key__validate_post",
         "security": [
           {
@@ -7362,7 +7432,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PackContentRequest"
+                "$ref": "#/components/schemas/ScenarioPackContentRequest"
               }
             }
           }
@@ -7373,7 +7443,65 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PackValidation"
+                  "$ref": "#/components/schemas/ScenarioPackValidation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/packs/{pack_key}/convert": {
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Convert Pack",
+        "description": "旧修订 → 当前形状草稿的**显式转换**（不静默裁剪未知字段、不宣称语义兼容）。\n\n输入按 `pack_key + revision_id` 从库里那一版修订读内容——转换只对**真实存在的修订**做，\n客户端手里的 JSON 不作为入口（否则会转换出一份与任何修订都不对应的退化草稿）。",
+        "operationId": "admin_convert_pack_api_scenario_admin_packs__pack_key__convert_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioPackConvertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioAdminPackConvert"
                 }
               }
             }
@@ -7420,7 +7548,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PackContentRequest"
+                "$ref": "#/components/schemas/ScenarioPackContentRequest"
               }
             }
           }
@@ -7431,9 +7559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Save Pack Revision Api Scenario Admin Packs  Pack Key  Revisions Post"
+                  "$ref": "#/components/schemas/ScenarioAdminPackUpload"
                 }
               }
             }
@@ -7457,7 +7583,7 @@
           "情境训练"
         ],
         "summary": "Admin Patch Pack",
-        "description": "管理侧：改包状态/标题（`state` 区分 experimental / reviewed）。",
+        "description": "管理侧：改包状态/标题。",
         "operationId": "admin_patch_pack_api_scenario_admin_packs__pack_key__patch",
         "security": [
           {
@@ -7480,7 +7606,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PackPatchRequest"
+                "$ref": "#/components/schemas/ScenarioPackPatchRequest"
               }
             }
           }
@@ -7663,9 +7789,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Upload Asset Api Scenario Admin Packs  Pack Key  Assets Post"
+                  "$ref": "#/components/schemas/ScenarioAdminAssetUpload"
                 }
               }
             }
@@ -7689,7 +7813,7 @@
           "情境训练"
         ],
         "summary": "Admin Generated Assets",
-        "description": "管理侧：某个情境包下 DM 现场生成物的清单（按 pack 过滤后分页）。\n\n生成物是**跟着病例走的**：入口在病例二级界面里，因此列表以 `pack_key` 为作用域，\n`session_id` 可再收窄到一次会话。列表**不含字节**（要能翻页），预览走内容路由。",
+        "description": "管理侧：某个情境包下 DM 现场生成物的清单（按 pack 过滤后分页，不含字节）。",
         "operationId": "admin_generated_assets_api_scenario_admin_packs__pack_key__generated_get",
         "security": [
           {
@@ -7752,9 +7876,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Generated Assets Api Scenario Admin Packs  Pack Key  Generated Get"
+                  "$ref": "#/components/schemas/ScenarioGeneratedList"
                 }
               }
             }
@@ -7824,7 +7946,7 @@
           "情境训练"
         ],
         "summary": "Admin Delete Generated",
-        "description": "管理侧：删除一条生成物（字节随之回收；会话里引用它的那张图变成 404）。",
+        "description": "管理侧：删除一条生成物（字节随之回收）。",
         "operationId": "admin_delete_generated_api_scenario_admin_generated__asset_id__delete",
         "security": [
           {
@@ -7944,9 +8066,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Sessions Api Scenario Admin Sessions Get"
+                  "$ref": "#/components/schemas/ScenarioAdminSessionList"
                 }
               }
             }
@@ -7970,7 +8090,7 @@
           "情境训练"
         ],
         "summary": "Admin Session Detail",
-        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合问题清单 + **锚点面板**）。",
+        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。",
         "operationId": "admin_session_detail_api_scenario_admin_sessions__session_id__get",
         "security": [
           {
@@ -7994,9 +8114,133 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Session Detail Api Scenario Admin Sessions  Session Id  Get"
+                  "$ref": "#/components/schemas/ScenarioAdminSessionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/archives": {
+      "get": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Archives",
+        "description": "管理侧：旧机制会话的归档清单（历史只读）。",
+        "operationId": "admin_archives_api_scenario_admin_archives_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Key"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioArchiveList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/archives/{session_id}": {
+      "get": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Archive Detail",
+        "description": "管理侧：单份归档的完整内容（视图 / 报告 / 回放 / 原始事件），**不重算、不补生成报告**。",
+        "operationId": "admin_archive_detail_api_scenario_admin_archives__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioArchiveDetail"
                 }
               }
             }
@@ -8020,7 +8264,7 @@
           "情境训练"
         ],
         "summary": "Admin Stats",
-        "description": "管理侧：按包汇总（会话数、结算数、不可逆结局数、锚点分布）。",
+        "description": "管理侧：按包汇总（会话数、结算数、不可逆结局数、关注点处理比例）。试跑默认排除。",
         "operationId": "admin_stats_api_scenario_admin_stats_get",
         "responses": {
           "200": {
@@ -8028,9 +8272,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Admin Stats Api Scenario Admin Stats Get"
+                  "$ref": "#/components/schemas/ScenarioAdminStats"
                 }
               }
             }
@@ -10089,8 +10331,18 @@
   },
   "components": {
     "schemas": {
-      "ActionRequest": {
+      "ActionEcho": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "action",
+              "hint"
+            ],
+            "title": "Kind",
+            "default": "action"
+          },
           "affordance_id": {
             "anyOf": [
               {
@@ -10102,57 +10354,46 @@
             ],
             "title": "Affordance Id"
           },
-          "type": {
+          "label": {
             "type": "string",
-            "title": "Type",
-            "default": "ask"
+            "title": "Label",
+            "default": ""
           },
-          "text": {
+          "target": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/TargetRef"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Text"
+            ]
           },
-          "selected": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "selection": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Selected"
+            "title": "Selection"
           },
-          "custom_text": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Custom Text"
+          "outcome": {
+            "$ref": "#/components/schemas/AttemptOutcome",
+            "default": "speech"
           },
-          "target_actor_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Actor Id"
+          "block_reason": {
+            "type": "string",
+            "title": "Block Reason",
+            "default": ""
           }
         },
         "type": "object",
-        "title": "ActionRequest",
-        "description": "学生的一次发言/动作。\n\n`type` 由学生**先声明**：`say` = 对某个在场者说话（带 `target_actor_id`）/ `act` = 自定义行动 /\n`ask` = 旧客户端与 DM 选项的既有形态（不声明，行为与今天一致）。"
+        "title": "ActionEcho",
+        "description": "这一回合学生实际做了什么（结算用回声；`outcome` 是世界的答复）。"
       },
       "AdminStats": {
         "properties": {
@@ -10204,6 +10445,15 @@
           "average_score"
         ],
         "title": "AdminStats"
+      },
+      "Anchor": {
+        "type": "string",
+        "enum": [
+          "strong",
+          "adequate",
+          "missed"
+        ],
+        "title": "Anchor"
       },
       "ApiSecretCreate": {
         "properties": {
@@ -10509,6 +10759,44 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ApiSecretUpdate"
+      },
+      "AppliedEffect": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "op": {
+            "type": "string",
+            "title": "Op",
+            "default": ""
+          },
+          "value": {
+            "title": "Value"
+          },
+          "old": {
+            "title": "Old"
+          },
+          "new": {
+            "title": "New"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn",
+            "default": 0
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "AppliedEffect",
+        "description": "一次状态改动的旧值／新值（可回放、可解释、带来源）。"
       },
       "AssignmentAudience": {
         "properties": {
@@ -11098,6 +11386,19 @@
         "additionalProperties": false,
         "type": "object",
         "title": "AssignmentUpdateRequest"
+      },
+      "AttemptOutcome": {
+        "type": "string",
+        "enum": [
+          "speech",
+          "performed",
+          "blocked",
+          "unmodeled",
+          "clarification",
+          "hint"
+        ],
+        "title": "AttemptOutcome",
+        "description": "一次尝试在世界里的归宿。"
       },
       "BatchCreateResult": {
         "properties": {
@@ -12583,6 +12884,49 @@
         "type": "object",
         "title": "DeleteResponse"
       },
+      "DeliveryMessage": {
+        "properties": {
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
+          "as_role": {
+            "type": "string",
+            "title": "As Role",
+            "default": ""
+          },
+          "ephemeral": {
+            "type": "boolean",
+            "title": "Ephemeral",
+            "default": false
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "DeliveryMessage",
+        "description": "演出输出的一条消息：环境叙述（`speaker=None`）或角色台词（`speaker=<actor id>`）。"
+      },
       "EndTrainingRequest": {
         "properties": {
           "submit_nursing_record": {
@@ -12943,6 +13287,42 @@
           "created_at"
         ],
         "title": "FeedbackSubmitResponse"
+      },
+      "FocusState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "intent": {
+            "type": "string",
+            "title": "Intent",
+            "default": ""
+          },
+          "relevant": {
+            "type": "boolean",
+            "title": "Relevant",
+            "default": false
+          },
+          "addressed": {
+            "type": "boolean",
+            "title": "Addressed",
+            "default": false
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "FocusState",
+        "description": "教学关注点**此刻**的投影：相关 / 已处理（只是本包观察条件成立，不等于能力达标）。"
       },
       "HTTPValidationError": {
         "properties": {
@@ -13430,6 +13810,23 @@
         ],
         "title": "MessageItem"
       },
+      "ModelsUsed": {
+        "properties": {
+          "parse": {
+            "type": "integer",
+            "title": "Parse",
+            "default": 0
+          },
+          "delivery": {
+            "type": "integer",
+            "title": "Delivery",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "ModelsUsed",
+        "description": "本回合实际花掉的模型调用数（两阶段成本口径，进事件与判定）。"
+      },
       "OkResponse": {
         "properties": {
           "ok": {
@@ -13452,95 +13849,6 @@
         "type": "object",
         "title": "OkResponse"
       },
-      "OpenSessionRequest": {
-        "properties": {
-          "pack_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pack Key"
-          },
-          "revision_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision Id"
-          }
-        },
-        "type": "object",
-        "title": "OpenSessionRequest"
-      },
-      "PackContentRequest": {
-        "properties": {
-          "content": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Content"
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Note",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "content"
-        ],
-        "title": "PackContentRequest",
-        "description": "编辑器提交的完整 pack 内容（原始 dict，形状由引擎校验）。"
-      },
-      "PackPatchRequest": {
-        "properties": {
-          "state": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PackState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "one_line": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 400
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "One Line"
-          }
-        },
-        "type": "object",
-        "title": "PackPatchRequest"
-      },
       "PackState": {
         "type": "string",
         "enum": [
@@ -13548,76 +13856,6 @@
           "reviewed"
         ],
         "title": "PackState"
-      },
-      "PackValidation": {
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "title": "Ok"
-          },
-          "problems": {
-            "items": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Problems"
-          },
-          "content_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content Sha"
-          },
-          "latest_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latest Sha"
-          },
-          "will_append": {
-            "type": "boolean",
-            "title": "Will Append"
-          },
-          "next_revision_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Revision No"
-          },
-          "pack_schema_version": {
-            "type": "integer",
-            "title": "Pack Schema Version"
-          }
-        },
-        "type": "object",
-        "required": [
-          "ok",
-          "problems",
-          "content_sha",
-          "latest_sha",
-          "will_append",
-          "next_revision_no",
-          "pack_schema_version"
-        ],
-        "title": "PackValidation"
       },
       "PaginatedResponse_AssignmentListItem_": {
         "properties": {
@@ -15128,6 +15366,104 @@
         ],
         "title": "RegisterResponse"
       },
+      "ResolvedTurn": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "base_seq": {
+            "type": "integer",
+            "title": "Base Seq"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "time_cost": {
+            "type": "integer",
+            "title": "Time Cost",
+            "default": 0
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/AttemptOutcome"
+          },
+          "block_reason": {
+            "type": "string",
+            "title": "Block Reason",
+            "default": ""
+          },
+          "action": {
+            "$ref": "#/components/schemas/ActionEcho"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedEffect"
+            },
+            "type": "array",
+            "title": "Effects"
+          },
+          "reveals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reveals"
+          },
+          "reactions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reactions"
+          },
+          "social": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedEffect"
+            },
+            "type": "array",
+            "title": "Social"
+          },
+          "visible_events": {
+            "items": {
+              "$ref": "#/components/schemas/VisibleEvent"
+            },
+            "type": "array",
+            "title": "Visible Events"
+          },
+          "facts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "focus": {
+            "items": {
+              "$ref": "#/components/schemas/FocusState"
+            },
+            "type": "array",
+            "title": "Focus"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "base_seq",
+          "turn",
+          "outcome",
+          "action"
+        ],
+        "title": "ResolvedTurn",
+        "description": "结算阶段的产物：世界这一回合**确定性地**发生了什么（内部模型，不直接给学生）。"
+      },
       "RoleCreateRequest": {
         "properties": {
           "name": {
@@ -15231,6 +15567,3218 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RoleUpdateRequest"
+      },
+      "ScenarioActor": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "presence": {
+            "type": "string",
+            "title": "Presence"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present"
+          },
+          "contactable": {
+            "type": "boolean",
+            "title": "Contactable",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "presence",
+          "present"
+        ],
+        "title": "ScenarioActor"
+      },
+      "ScenarioAdminActor": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "presence": {
+            "type": "string",
+            "title": "Presence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "presence"
+        ],
+        "title": "ScenarioAdminActor"
+      },
+      "ScenarioAdminAsset": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "image"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "alt": {
+            "type": "string",
+            "title": "Alt",
+            "default": ""
+          },
+          "suggest_when": {
+            "type": "string",
+            "title": "Suggest When",
+            "default": ""
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": ""
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type",
+            "default": ""
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "File Size",
+            "default": 0
+          },
+          "uploaded": {
+            "type": "boolean",
+            "title": "Uploaded",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ScenarioAdminAsset"
+      },
+      "ScenarioAdminAssetUpload": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "revision_no": {
+            "type": "integer",
+            "title": "Revision No"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/ScenarioAdminAsset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "revision_no",
+          "asset"
+        ],
+        "title": "ScenarioAdminAssetUpload",
+        "description": "上传一张场景图片的结果（上传即追加一个新修订）。"
+      },
+      "ScenarioAdminEvent": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ScenarioAdminEvent"
+      },
+      "ScenarioAdminFocusState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "intent": {
+            "type": "string",
+            "title": "Intent",
+            "default": ""
+          },
+          "relevant": {
+            "type": "boolean",
+            "title": "Relevant",
+            "default": false
+          },
+          "addressed": {
+            "type": "boolean",
+            "title": "Addressed",
+            "default": false
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ScenarioAdminFocusState"
+      },
+      "ScenarioAdminFocusSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "intent": {
+            "type": "string",
+            "title": "Intent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "intent"
+        ],
+        "title": "ScenarioAdminFocusSummary"
+      },
+      "ScenarioAdminFocusTurn": {
+        "properties": {
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminFocusState"
+            },
+            "type": "array",
+            "title": "States"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn"
+        ],
+        "title": "ScenarioAdminFocusTurn"
+      },
+      "ScenarioAdminOverview": {
+        "properties": {
+          "player_role": {
+            "type": "string",
+            "title": "Player Role"
+          },
+          "place": {
+            "type": "string",
+            "title": "Place"
+          },
+          "time_hint": {
+            "type": "string",
+            "title": "Time Hint",
+            "default": ""
+          },
+          "resources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "actors": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminActor"
+            },
+            "type": "array",
+            "title": "Actors"
+          },
+          "teaching_focus": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminFocusSummary"
+            },
+            "type": "array",
+            "title": "Teaching Focus"
+          },
+          "cues": {
+            "type": "integer",
+            "title": "Cues",
+            "default": 0
+          },
+          "affordances": {
+            "type": "integer",
+            "title": "Affordances",
+            "default": 0
+          },
+          "reactions": {
+            "type": "integer",
+            "title": "Reactions",
+            "default": 0
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts",
+            "default": 0
+          },
+          "criteria": {
+            "type": "integer",
+            "title": "Criteria",
+            "default": 0
+          },
+          "criteria_weight": {
+            "type": "integer",
+            "title": "Criteria Weight",
+            "default": 0
+          },
+          "failure": {
+            "type": "string",
+            "title": "Failure",
+            "default": "recoverable"
+          },
+          "image_generation": {
+            "type": "string",
+            "title": "Image Generation",
+            "default": "disabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "player_role",
+          "place"
+        ],
+        "title": "ScenarioAdminOverview"
+      },
+      "ScenarioAdminPack": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "one_line": {
+            "type": "string",
+            "title": "One Line",
+            "default": ""
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision No"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminRevision"
+            },
+            "type": "array",
+            "title": "Revisions"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminAsset"
+            },
+            "type": "array",
+            "title": "Assets"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioAdminOverview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "state"
+        ],
+        "title": "ScenarioAdminPack"
+      },
+      "ScenarioAdminPackConvert": {
+        "properties": {
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioPackProblem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "from_schema_version": {
+            "type": "integer",
+            "title": "From Schema Version",
+            "default": 0
+          },
+          "to_schema_version": {
+            "type": "integer",
+            "title": "To Schema Version",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "ScenarioAdminPackConvert",
+        "description": "旧修订 → 当前形状草稿的**显式**转换结果（不静默裁剪、不宣称语义兼容）。"
+      },
+      "ScenarioAdminPackSource": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "revision_id": {
+            "type": "integer",
+            "title": "Revision Id"
+          },
+          "revision_no": {
+            "type": "integer",
+            "title": "Revision No"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioPackProblem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminRevision"
+            },
+            "type": "array",
+            "title": "Revisions"
+          },
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version",
+            "default": 0
+          },
+          "current_schema_version": {
+            "type": "integer",
+            "title": "Current Schema Version",
+            "default": 0
+          },
+          "compatible": {
+            "type": "boolean",
+            "title": "Compatible",
+            "default": true
+          },
+          "legacy": {
+            "type": "boolean",
+            "title": "Legacy",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "state",
+          "revision_id",
+          "revision_no"
+        ],
+        "title": "ScenarioAdminPackSource"
+      },
+      "ScenarioAdminPackUpload": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "revision_id": {
+            "type": "integer",
+            "title": "Revision Id"
+          },
+          "revision_no": {
+            "type": "integer",
+            "title": "Revision No"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          },
+          "assets_pending": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assets Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "revision_id",
+          "revision_no",
+          "created"
+        ],
+        "title": "ScenarioAdminPackUpload"
+      },
+      "ScenarioAdminRevision": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "no": {
+            "type": "integer",
+            "title": "No"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "no"
+        ],
+        "title": "ScenarioAdminRevision"
+      },
+      "ScenarioAdminSessionDetail": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/ScenarioAdminSessionRow"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived",
+            "default": false
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "focus": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminFocusTurn"
+            },
+            "type": "array",
+            "title": "Focus"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminTurnReplay"
+            },
+            "type": "array",
+            "title": "Turns"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "default": 0
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "view"
+        ],
+        "title": "ScenarioAdminSessionDetail"
+      },
+      "ScenarioAdminSessionList": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminSessionRow"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "ScenarioAdminSessionList"
+      },
+      "ScenarioAdminSessionRow": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "pack_key": {
+            "type": "string",
+            "title": "Pack Key"
+          },
+          "pack_title": {
+            "type": "string",
+            "title": "Pack Title"
+          },
+          "pack_revision_id": {
+            "type": "integer",
+            "title": "Pack Revision Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "lost": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "default": false
+          },
+          "trial": {
+            "type": "boolean",
+            "title": "Trial",
+            "default": false
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "pack_key",
+          "pack_title",
+          "pack_revision_id",
+          "status"
+        ],
+        "title": "ScenarioAdminSessionRow"
+      },
+      "ScenarioAdminStats": {
+        "properties": {
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminStatsBucket"
+            },
+            "type": "array",
+            "title": "Packs"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioAdminStats"
+      },
+      "ScenarioAdminStatsBucket": {
+        "properties": {
+          "pack_key": {
+            "type": "string",
+            "title": "Pack Key"
+          },
+          "pack_title": {
+            "type": "string",
+            "title": "Pack Title"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions",
+            "default": 0
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "lost": {
+            "type": "integer",
+            "title": "Lost",
+            "default": 0
+          },
+          "focus_address_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus Address Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pack_key",
+          "pack_title"
+        ],
+        "title": "ScenarioAdminStatsBucket"
+      },
+      "ScenarioAdminTurnReplay": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "default": ""
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": ""
+          },
+          "input": {
+            "$ref": "#/components/schemas/TurnInput"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "resolved": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedTurn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SceneDelivery"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome",
+            "default": ""
+          },
+          "block_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Reason"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "models": {
+            "$ref": "#/components/schemas/ModelsUsed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "turn",
+          "input"
+        ],
+        "title": "ScenarioAdminTurnReplay",
+        "description": "一个已提交回合的「解析 → 结算 → 交付」来源回放（**不是**模型的思考过程）。"
+      },
+      "ScenarioAffordance": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "select": {
+            "type": "string",
+            "title": "Select",
+            "default": "none"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAffordanceOption"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "free_input": {
+            "type": "boolean",
+            "title": "Free Input",
+            "default": true
+          },
+          "confirm": {
+            "type": "boolean",
+            "title": "Confirm",
+            "default": false
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/TargetRef"
+            },
+            "type": "array",
+            "title": "Targets"
+          },
+          "time_cost": {
+            "type": "integer",
+            "title": "Time Cost",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "label"
+        ],
+        "title": "ScenarioAffordance"
+      },
+      "ScenarioAffordanceOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ScenarioAffordanceOption",
+        "description": "选择型动作的一个可选项：**id 进 `selection`，label 只用于显示**。"
+      },
+      "ScenarioArchiveDetail": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ScenarioArchiveSummary"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "legacy_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Report"
+          },
+          "focus": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminFocusTurn"
+            },
+            "type": "array",
+            "title": "Focus"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminTurnReplay"
+            },
+            "type": "array",
+            "title": "Turns"
+          },
+          "raw": {
+            "$ref": "#/components/schemas/ScenarioArchiveRaw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "view"
+        ],
+        "title": "ScenarioArchiveDetail"
+      },
+      "ScenarioArchiveList": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioArchiveSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "ScenarioArchiveList"
+      },
+      "ScenarioArchiveRaw": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAdminEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "pack_revision": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pack Revision"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioArchiveRaw"
+      },
+      "ScenarioArchiveRef": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "shape_version": {
+            "type": "integer",
+            "title": "Shape Version",
+            "default": 1
+          },
+          "ended_reason": {
+            "type": "string",
+            "title": "Ended Reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ScenarioArchiveRef"
+      },
+      "ScenarioArchiveSummary": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "pack_key": {
+            "type": "string",
+            "title": "Pack Key"
+          },
+          "pack_revision_id": {
+            "type": "integer",
+            "title": "Pack Revision Id"
+          },
+          "shape_version": {
+            "type": "integer",
+            "title": "Shape Version",
+            "default": 1
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "completed"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn",
+            "default": 0
+          },
+          "ended_reason": {
+            "type": "string",
+            "title": "Ended Reason",
+            "default": ""
+          },
+          "has_report": {
+            "type": "boolean",
+            "title": "Has Report",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "pack_key",
+          "pack_revision_id"
+        ],
+        "title": "ScenarioArchiveSummary"
+      },
+      "ScenarioAssessment": {
+        "properties": {
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Summary"
+          },
+          "score": {
+            "$ref": "#/components/schemas/ScenarioScore"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioCriterion"
+            },
+            "type": "array",
+            "title": "Criteria"
+          },
+          "dims": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioDim"
+            },
+            "type": "array",
+            "title": "Dims"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score"
+        ],
+        "title": "ScenarioAssessment",
+        "description": "判读与分数：**次级区域**，明确是场景规则反馈，不冒充能力判定。"
+      },
+      "ScenarioAsset": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "alt": {
+            "type": "string",
+            "title": "Alt",
+            "default": ""
+          },
+          "suggest_when": {
+            "type": "string",
+            "title": "Suggest When",
+            "default": ""
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ScenarioAsset"
+      },
+      "ScenarioBoard": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioBoardSection"
+            },
+            "type": "array",
+            "title": "Sections"
+          },
+          "entry_count": {
+            "type": "integer",
+            "title": "Entry Count",
+            "default": 0
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ScenarioBoard"
+      },
+      "ScenarioBoardEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cue",
+              "state",
+              "noticed",
+              "fact",
+              "action"
+            ],
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "pack",
+              "world"
+            ],
+            "title": "Source"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "source"
+        ],
+        "title": "ScenarioBoardEntry"
+      },
+      "ScenarioBoardSection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "cue",
+              "state",
+              "noticed",
+              "fact",
+              "action"
+            ],
+            "title": "Source"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioBoardEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "more": {
+            "type": "integer",
+            "title": "More",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "ScenarioBoardSection"
+      },
+      "ScenarioCloseRequest": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Request Id"
+          },
+          "expected_seq": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Seq"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_seq"
+        ],
+        "title": "ScenarioCloseRequest"
+      },
+      "ScenarioCloseResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ScenarioReport"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "report",
+          "view"
+        ],
+        "title": "ScenarioCloseResponse"
+      },
+      "ScenarioCriterion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/Anchor"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "anchor",
+          "score",
+          "weight"
+        ],
+        "title": "ScenarioCriterion"
+      },
+      "ScenarioDevice": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sound": {
+            "type": "string",
+            "enum": [
+              "off",
+              "beep"
+            ],
+            "title": "Sound",
+            "default": "off"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioDeviceChannel"
+            },
+            "type": "array",
+            "title": "Channels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title"
+        ],
+        "title": "ScenarioDevice"
+      },
+      "ScenarioDeviceChannel": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": ""
+          },
+          "display": {
+            "type": "string",
+            "title": "Display"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "low",
+              "high",
+              "critical",
+              "unknown"
+            ],
+            "title": "Status",
+            "default": "unknown"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "history": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "normal": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normal"
+          },
+          "critical": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Critical"
+          },
+          "measured": {
+            "type": "boolean",
+            "title": "Measured",
+            "default": false
+          },
+          "updated_turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Turn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "label",
+          "display"
+        ],
+        "title": "ScenarioDeviceChannel"
+      },
+      "ScenarioDim": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "agg": {
+            "type": "string",
+            "title": "Agg"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": ""
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "agg"
+        ],
+        "title": "ScenarioDim"
+      },
+      "ScenarioErrorInfo": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable",
+            "default": false
+          },
+          "current_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Seq"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ScenarioErrorInfo",
+        "description": "学生侧错误：**只有** code 与 message（不出现 problems、字段路径、堆栈）。"
+      },
+      "ScenarioGeneratedAsset": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "pack_key": {
+            "type": "string",
+            "title": "Pack Key"
+          },
+          "pack_revision_id": {
+            "type": "integer",
+            "title": "Pack Revision Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "image"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt",
+            "default": ""
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type",
+            "default": ""
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "File Size",
+            "default": 0
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256",
+            "default": ""
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "pack_key",
+          "pack_revision_id"
+        ],
+        "title": "ScenarioGeneratedAsset"
+      },
+      "ScenarioGeneratedList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioGeneratedAsset"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "ScenarioGeneratedList"
+      },
+      "ScenarioHudSlot": {
+        "properties": {
+          "slot": {
+            "type": "string",
+            "title": "Slot"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slot",
+          "source"
+        ],
+        "title": "ScenarioHudSlot"
+      },
+      "ScenarioImage": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "alt": {
+            "type": "string",
+            "title": "Alt",
+            "default": ""
+          },
+          "caption": {
+            "type": "string",
+            "title": "Caption",
+            "default": ""
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin",
+            "default": "pack"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id"
+        ],
+        "title": "ScenarioImage"
+      },
+      "ScenarioKeyTurn": {
+        "properties": {
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "student": {
+            "type": "string",
+            "title": "Student"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn",
+          "student"
+        ],
+        "title": "ScenarioKeyTurn",
+        "description": "复盘页的关键回合：你做了什么、当时有什么证据、发生了哪些已记录的变化。"
+      },
+      "ScenarioMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "scene",
+              "actor",
+              "system"
+            ],
+            "title": "Role"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "action",
+              "narration",
+              "clarification",
+              "hint",
+              "blocked",
+              "unmodeled"
+            ],
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declaration": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "say",
+                  "act"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declaration"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "actor_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Role"
+          },
+          "ephemeral": {
+            "type": "boolean",
+            "title": "Ephemeral",
+            "default": false
+          },
+          "avatar_seed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Seed"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "world",
+              "dm",
+              "pack",
+              "student",
+              "system",
+              "hint"
+            ],
+            "title": "Origin",
+            "default": "dm"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "text",
+          "turn"
+        ],
+        "title": "ScenarioMessage",
+        "description": "对话流里的一条。`id` 是**稳定显示身份**（接续与去重按它，不按文案）。"
+      },
+      "ScenarioOpenSessionRequest": {
+        "properties": {
+          "pack_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Key"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "trial": {
+            "type": "boolean",
+            "title": "Trial",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ScenarioOpenSessionRequest"
+      },
+      "ScenarioOutcome": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "lost",
+              "ended_by_student",
+              "cutover"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "lost": {
+            "type": "boolean",
+            "title": "Lost",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "turn"
+        ],
+        "title": "ScenarioOutcome"
+      },
+      "ScenarioPackContentRequest": {
+        "properties": {
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ScenarioPackContentRequest",
+        "description": "编辑器提交的完整 pack 内容（原始 dict；形状由**加载期同一套校验**负责）。"
+      },
+      "ScenarioPackConvertRequest": {
+        "properties": {
+          "revision_id": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision_id"
+        ],
+        "title": "ScenarioPackConvertRequest",
+        "description": "把**某个历史修订**转成当前形状草稿：只认 `revision_id`（服务端读那一版内容转换）。\n\n没有\"直接 POST content\"这条入口——转换的输入必须是**库里真实存在的那一版**，\n否则编辑器会拿到一份与任何修订都不对应的退化草稿（前端 helper 一直只发 `revision_id`）。"
+      },
+      "ScenarioPackPatchRequest": {
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "one_line": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Line"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioPackPatchRequest"
+      },
+      "ScenarioPackProblem": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ScenarioPackProblem"
+      },
+      "ScenarioPackSummary": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "one_line": {
+            "type": "string",
+            "title": "One Line"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision No"
+          },
+          "player_role": {
+            "type": "string",
+            "title": "Player Role",
+            "default": ""
+          },
+          "place": {
+            "type": "string",
+            "title": "Place",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "state",
+          "one_line"
+        ],
+        "title": "ScenarioPackSummary"
+      },
+      "ScenarioPackValidation": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioPackProblem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "content_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha"
+          },
+          "latest_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Sha"
+          },
+          "will_append": {
+            "type": "boolean",
+            "title": "Will Append",
+            "default": false
+          },
+          "next_revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Revision No"
+          },
+          "pack_schema_version": {
+            "type": "integer",
+            "title": "Pack Schema Version",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ScenarioPackValidation"
+      },
+      "ScenarioReport": {
+        "properties": {
+          "pack": {
+            "$ref": "#/components/schemas/ScenarioViewPack"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ScenarioOutcome"
+          },
+          "key_turns": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioKeyTurn"
+            },
+            "type": "array",
+            "title": "Key Turns"
+          },
+          "reflection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reflection"
+          },
+          "assessment": {
+            "$ref": "#/components/schemas/ScenarioAssessment"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioTimelineEntry"
+            },
+            "type": "array",
+            "title": "Timeline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pack",
+          "outcome",
+          "assessment"
+        ],
+        "title": "ScenarioReport"
+      },
+      "ScenarioRequestLookup": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "turn",
+              "close"
+            ],
+            "title": "Kind",
+            "default": "turn"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "committed",
+              "in_flight",
+              "failed",
+              "unknown"
+            ],
+            "title": "State"
+          },
+          "resend_safe": {
+            "type": "boolean",
+            "title": "Resend Safe",
+            "default": true
+          },
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttemptOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioTurnResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "close_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioCloseResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "state"
+        ],
+        "title": "ScenarioRequestLookup",
+        "description": "按 `request_id` 取回原结果（断流恢复的唯一入口）。\n\n`kind` 说明这个 request_id 是哪类请求：`turn` → 看 `result`，`close` → 看 `close_result`。"
+      },
+      "ScenarioScore": {
+        "properties": {
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "weighted_sum": {
+            "type": "number",
+            "title": "Weighted Sum",
+            "default": 0.0
+          },
+          "total_weight": {
+            "type": "number",
+            "title": "Total Weight",
+            "default": 0.0
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioCriterion"
+            },
+            "type": "array",
+            "title": "Criteria"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioScore"
+      },
+      "ScenarioSessionResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "pack": {
+            "$ref": "#/components/schemas/ScenarioViewPack"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "pack",
+          "view"
+        ],
+        "title": "ScenarioSessionResponse"
+      },
+      "ScenarioSessionRow": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "pack_key": {
+            "type": "string",
+            "title": "Pack Key"
+          },
+          "pack_title": {
+            "type": "string",
+            "title": "Pack Title"
+          },
+          "pack_revision_id": {
+            "type": "integer",
+            "title": "Pack Revision Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "lost": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "default": false
+          },
+          "trial": {
+            "type": "boolean",
+            "title": "Trial",
+            "default": false
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "pack_key",
+          "pack_title",
+          "pack_revision_id",
+          "status"
+        ],
+        "title": "ScenarioSessionRow"
+      },
+      "ScenarioSessionState": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "legacy_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Report"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "default": false
+          },
+          "archive": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioArchiveRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "view"
+        ],
+        "title": "ScenarioSessionState"
+      },
+      "ScenarioSituation": {
+        "properties": {
+          "place": {
+            "type": "string",
+            "title": "Place",
+            "default": ""
+          },
+          "time_hint": {
+            "type": "string",
+            "title": "Time Hint",
+            "default": ""
+          },
+          "resources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "visible_cues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Visible Cues"
+          },
+          "noticed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Noticed"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioSituation"
+      },
+      "ScenarioSseCommitted": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ScenarioTurnResult"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "seq",
+          "result"
+        ],
+        "title": "ScenarioSseCommitted"
+      },
+      "ScenarioSseDelivery": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "pending": {
+            "type": "boolean",
+            "title": "Pending",
+            "default": true
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/SceneDelivery"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "delivery"
+        ],
+        "title": "ScenarioSseDelivery"
+      },
+      "ScenarioSseError": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase",
+            "default": ""
+          },
+          "error": {
+            "$ref": "#/components/schemas/ScenarioErrorInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "error"
+        ],
+        "title": "ScenarioSseError"
+      },
+      "ScenarioSsePhase": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "receiving",
+              "parsing",
+              "resolving",
+              "delivering",
+              "validating",
+              "committing"
+            ],
+            "title": "Phase"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "phase"
+        ],
+        "title": "ScenarioSsePhase"
+      },
+      "ScenarioTimelineEntry": {
+        "properties": {
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "student",
+              "world"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn",
+          "kind",
+          "label"
+        ],
+        "title": "ScenarioTimelineEntry"
+      },
+      "ScenarioTurnRequest": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Request Id"
+          },
+          "expected_seq": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Seq"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "action",
+              "hint"
+            ],
+            "title": "Kind"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "affordance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affordance Id"
+          },
+          "selection": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Selection"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_seq",
+          "kind"
+        ],
+        "title": "ScenarioTurnRequest",
+        "description": "学生的一次请求。`expected_seq` / `request_id` 的仲裁见 docs/23 §4.5。\n\n`text` 是学生**打的字**：自由表达、要尝试的行动、document 动作的记录内容（**纯文本，不是 JSON**）。\n`selection` 只放声明过的选项 id（「其他」之类自写内容进 `text`）。"
+      },
+      "ScenarioTurnResult": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "committed": {
+            "type": "boolean",
+            "title": "Committed",
+            "default": true
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "time_cost": {
+            "type": "integer",
+            "title": "Time Cost",
+            "default": 0
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/AttemptOutcome"
+          },
+          "block_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Reason"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ScenarioView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "seq",
+          "turn",
+          "outcome",
+          "view"
+        ],
+        "title": "ScenarioTurnResult"
+      },
+      "ScenarioView": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/ScenarioViewSession"
+          },
+          "pack": {
+            "$ref": "#/components/schemas/ScenarioViewPack"
+          },
+          "situation": {
+            "$ref": "#/components/schemas/ScenarioSituation"
+          },
+          "actors": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioActor"
+            },
+            "type": "array",
+            "title": "Actors"
+          },
+          "hud": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioHudSlot"
+            },
+            "type": "array",
+            "title": "Hud"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "affordances": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAffordance"
+            },
+            "type": "array",
+            "title": "Affordances"
+          },
+          "free_input": {
+            "type": "boolean",
+            "title": "Free Input",
+            "default": true
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioTimelineEntry"
+            },
+            "type": "array",
+            "title": "Timeline"
+          },
+          "dims": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioDim"
+            },
+            "type": "array",
+            "title": "Dims"
+          },
+          "nudges": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nudges"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioAsset"
+            },
+            "type": "array",
+            "title": "Assets"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioImage"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "board": {
+            "$ref": "#/components/schemas/ScenarioBoard"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioDevice"
+            },
+            "type": "array",
+            "title": "Devices"
+          },
+          "panels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Panels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "pack",
+          "situation"
+        ],
+        "title": "ScenarioView",
+        "description": "学生可见的完整投影。**不含** problems / 教学关注点 / 隐藏事实 / 拒绝判定。"
+      },
+      "ScenarioViewPack": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "player_role": {
+            "type": "string",
+            "title": "Player Role",
+            "default": ""
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "ScenarioViewPack"
+      },
+      "ScenarioViewSession": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "lost": {
+            "type": "boolean",
+            "title": "Lost",
+            "default": false
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "default": false
+          },
+          "trial": {
+            "type": "boolean",
+            "title": "Trial",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "turn"
+        ],
+        "title": "ScenarioViewSession"
+      },
+      "SceneDelivery": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hints"
+          },
+          "assets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assets"
+          },
+          "highlights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Highlights"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SceneDelivery",
+        "description": "演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/23 §4.4）。"
       },
       "ScoreItem": {
         "properties": {
@@ -16885,6 +20433,35 @@
         ],
         "title": "TTSSynthesizeRequest"
       },
+      "TargetKind": {
+        "type": "string",
+        "enum": [
+          "actor",
+          "device",
+          "scene"
+        ],
+        "title": "TargetKind",
+        "description": "目标引用的类型（决定平台去哪张声明表校验可达性）。"
+      },
+      "TargetRef": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "TargetRef",
+        "description": "类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/23 §4.2）。\n\n加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。"
+      },
       "TeacherSummaryItem": {
         "properties": {
           "user_id": {
@@ -17777,6 +21354,58 @@
         ],
         "title": "TrendStats"
       },
+      "TurnInput": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "action",
+              "hint"
+            ],
+            "title": "Kind"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "affordance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affordance Id"
+          },
+          "selection": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Selection"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "TurnInput",
+        "description": "学生这次请求的输入回声（请求原文，供结算、演出与教师回放读同一份）。"
+      },
       "UserBrief": {
         "properties": {
           "id": {
@@ -18147,6 +21776,46 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VisibleEvent": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "action",
+              "effect",
+              "reveal",
+              "reaction",
+              "social",
+              "notice",
+              "image",
+              "blocked",
+              "unmodeled"
+            ],
+            "title": "Kind"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "turn": {
+            "type": "integer",
+            "title": "Turn",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "VisibleEvent",
+        "description": "本回合**已经发生且学生可见**的一件事（演出的唯一素材来源）。"
       },
       "VoiceConfigResponse": {
         "properties": {
