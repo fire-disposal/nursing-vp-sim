@@ -532,8 +532,8 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 
 `scenario`（情境训练，唯一回合管线）给出 `requests_24h` / `time_cost_24h` / `avg_time_cost_per_request_24h` /
 `model_calls_24h` / `avg_model_calls_per_request_24h` / `clarifications_24h` / `hints_24h` /
-`llm_failures_24h` / `opened_24h` / `generated_images_24h` / `rate_limited_24h`，与即时的
-`active` / `completed` / `read_only_sessions`（口径见 `state_window`）。`time_cost_24h` 是窗口内已提交回合
+`llm_failures_24h` / `opened_24h` / `rate_limited_24h`，与即时的
+`active` / `completed`（口径见 `state_window`）。`time_cost_24h` 是窗口内已提交回合
 推进的**情境时间单位**总和（取载荷 `time_cost`，不是请求数、不是分钟），两个
 `avg_*_per_request_24h` 在 0 请求时给 `null`（`avg_time_cost_per_request_24h` = 平均每个已提交请求推进的
 时间单位）；`llm_failures_24h` 取 `llm_call_logs` 里情境两阶段（`st_intent` / `st_dm`）失败调用数。

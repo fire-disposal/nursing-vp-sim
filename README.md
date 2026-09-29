@@ -13,7 +13,7 @@
 - **教师复核** — 逐项改分工作台，对话回放 ↔ 证据点击联动；复核结果写回成绩单
 - **训练计时与结束** — 病例时限、训练状态、提交与评分由服务端契约约束；终态持久化、暂离与恢复使用真实服务端状态
 - **情感系统** — 4D 情绪模型（信任/焦虑/烦躁/配合）驱动患者行为，实时指示条 + 结果页轨迹图（事件标注）
-- **语音交互** — 火山引擎 TTS 情感合成，**句子级流式分块**（低延迟首音）与会话级 `abort`（打断）；失败与降级状态显式呈现。双工对谈（持续拾音 + 端点检测 + 打断）是大版本目标中的下一项：见 [下一阶段方向](docs/ideas/next-phase-directions-2026-09-27.md)
+- **语音交互** — 火山引擎 TTS 情感合成，**句子级流式分块**（低延迟首音）与会话级 `abort`（打断）；失败与降级状态显式呈现。双工对谈（持续拾音 + 端点检测 + 打断）是大版本目标中的下一项
 - **工具指令面** — 查体/护理记录走 HTTP 指令 + revision 乐观并发 + 单一审计时间线
 - **病例体系** — 内置病例 + AI 生成，统一校验器（时间线/症状/医学事实断言）守护内容质量
 - **多 Provider 路由** — 优先级加权、熔断、限流、健康检查；env 兜底同源记账
@@ -28,7 +28,7 @@
 | **记录该次体验** | 一次会话产出一份可导出的**体验记录**：时间线 + 对话 + 体征 + 情感轨迹 + 判读与证据 | 数据都在（`messages` / `exam_results` / 情绪事件 / 动作日志 / 评分证据），**差一个导出面** |
 | **发布与管理** | 场景 = 声明式上下文 + 变体 + 分组，版本化下发 | 骨架完整：`CaseRevision` + 指纹 + 批次 + 问卷/SUS |
 
-推进顺序与每个方向的最小切片见 **[下一阶段方向](docs/ideas/next-phase-directions-2026-09-27.md)**；本版本的验收场景是 U0 可用性研究（[计划](docs/19-training-experience-next-generation-plan.md)）；训练实现契约见 [docs/15](docs/15-workflow-activity-contract.md)。
+推进顺序与每个方向的最小切片见 **[下一阶段方向](docs/ideas/next-phase-directions-2026-09-27.md)**；本版本的验收场景是 U0 可用性研究；训练实现契约见 [docs/15](docs/15-workflow-activity-contract.md)。
 
 
 ---
@@ -41,7 +41,7 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY 等配置
 pnpm run dev            # 后端 :8000 + 前端 :3000
 ```
 
-> 详细搭建见 **[开发入门指南](docs/00-dev-onboarding.md)** · 运维见 [docs/09-operations.md](docs/09-operations.md)
+> 详细搭建见 **[开发入门指南](docs/onboarding.md)** · 运维见 [docs/operations.md](docs/operations.md)
 
 ---
 
@@ -54,7 +54,7 @@ pnpm run dev            # 后端 :8000 + 前端 :3000
 - 状态分层：正式产物（Message/Score）失败即业务失败；工具审计（TrainingAction）失败即工具失败；运行态（情绪/追问）可降级；指标 best-effort
 - 提交规范 `<emoji> <type>: <description>`（Husky 校验，详见 [AGENTS.md](AGENTS.md)）
 
-> 架构文档见 [docs/11-backend-organization-plan.md](docs/11-backend-organization-plan.md) · 评分设计见 [docs/05-llm-design.md](docs/05-llm-design.md)
+> 架构文档见 [docs/11-backend-organization-plan.md](docs/11-backend-organization-plan.md) · 评分设计见 [docs/llm.md](docs/llm.md)
 
 ---
 
